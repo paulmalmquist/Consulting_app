@@ -1,0 +1,20 @@
+{
+  "foreign_keys": [
+    {
+      "column": "tenant_id",
+      "ref_column": "tenant_id",
+      "ref_table": "tenant"
+    },
+    {
+      "column": "environment_id",
+      "ref_column": "environment_id",
+      "ref_table": "environment"
+    }
+  ],
+  "grain": "one row per dataset snapshot",
+  "immutability": "append_only",
+  "primary_key": [
+    "dataset_version_id"
+  ],
+  "table_name": "dataset_version"
+}

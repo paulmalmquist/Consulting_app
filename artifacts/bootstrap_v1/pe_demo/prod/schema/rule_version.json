@@ -1,0 +1,20 @@
+{
+  "foreign_keys": [
+    {
+      "column": "tenant_id",
+      "ref_column": "tenant_id",
+      "ref_table": "tenant"
+    },
+    {
+      "column": "environment_id",
+      "ref_column": "environment_id",
+      "ref_table": "environment"
+    }
+  ],
+  "grain": "one row per rule bundle version",
+  "immutability": "append_only",
+  "primary_key": [
+    "rule_version_id"
+  ],
+  "table_name": "rule_version"
+}

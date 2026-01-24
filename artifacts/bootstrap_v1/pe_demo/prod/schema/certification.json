@@ -1,0 +1,40 @@
+{
+  "foreign_keys": [
+    {
+      "column": "tenant_id",
+      "ref_column": "tenant_id",
+      "ref_table": "tenant"
+    },
+    {
+      "column": "environment_id",
+      "ref_column": "environment_id",
+      "ref_table": "environment"
+    },
+    {
+      "column": "run_id",
+      "ref_column": "run_id",
+      "ref_table": "run"
+    },
+    {
+      "column": "dataset_version_id",
+      "ref_column": "dataset_version_id",
+      "ref_table": "dataset_version"
+    },
+    {
+      "column": "rule_version_id",
+      "ref_column": "rule_version_id",
+      "ref_table": "rule_version"
+    }
+  ],
+  "grain": "one certification decision per run",
+  "immutability": "append_only",
+  "primary_key": [
+    "certification_id"
+  ],
+  "required_lineage": [
+    "run_id",
+    "dataset_version_id",
+    "rule_version_id"
+  ],
+  "table_name": "certification"
+}

@@ -1,0 +1,25 @@
+{
+  "foreign_keys": [
+    {
+      "column": "tenant_id",
+      "ref_column": "tenant_id",
+      "ref_table": "tenant"
+    },
+    {
+      "column": "fund_id",
+      "ref_column": "fund_id",
+      "ref_table": "fund"
+    },
+    {
+      "column": "investor_id",
+      "ref_column": "investor_id",
+      "ref_table": "investor"
+    }
+  ],
+  "grain": "one row per investor commitment",
+  "immutability": "append_only",
+  "primary_key": [
+    "commitment_id"
+  ],
+  "table_name": "commitment"
+}
