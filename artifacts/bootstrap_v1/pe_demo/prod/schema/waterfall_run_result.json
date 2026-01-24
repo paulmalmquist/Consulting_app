@@ -1,0 +1,40 @@
+{
+  "foreign_keys": [
+    {
+      "column": "tenant_id",
+      "ref_column": "tenant_id",
+      "ref_table": "tenant"
+    },
+    {
+      "column": "run_id",
+      "ref_column": "run_id",
+      "ref_table": "run"
+    },
+    {
+      "column": "waterfall_definition_id",
+      "ref_column": "waterfall_definition_id",
+      "ref_table": "waterfall_definition"
+    },
+    {
+      "column": "dataset_version_id",
+      "ref_column": "dataset_version_id",
+      "ref_table": "dataset_version"
+    },
+    {
+      "column": "rule_version_id",
+      "ref_column": "rule_version_id",
+      "ref_table": "rule_version"
+    }
+  ],
+  "grain": "one result per run x definition x scope",
+  "immutability": "append_only",
+  "primary_key": [
+    "waterfall_run_result_id"
+  ],
+  "required_lineage": [
+    "run_id",
+    "dataset_version_id",
+    "rule_version_id"
+  ],
+  "table_name": "waterfall_run_result"
+}

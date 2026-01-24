@@ -1,0 +1,45 @@
+{
+  "capability_key": "cashflow",
+  "contract": {
+    "capability_id": "cashflow.ledger",
+    "capability_version": "1.0.0",
+    "inputs": [
+      "cash_ledger_entry",
+      "commitment"
+    ],
+    "outputs": [
+      "cash_ledger_entry"
+    ]
+  },
+  "execution_binding": {
+    "bound_run": {
+      "as_of_date": "2026-03-31",
+      "code_version": "dry-run",
+      "dataset_version_id": "1d39ff15-e4d8-5140-9579-3039c9a532de",
+      "environment_name": "prod",
+      "industry_code": "pe_real_estate",
+      "rule_version_id": "d8284197-aa3b-5f27-9673-fc9debc658fb",
+      "run_id": "b5095e2b-0b73-506f-a9a7-abe63095c001",
+      "tenant_code": "pe_demo"
+    },
+    "required_lineage": [
+      "tenant_id",
+      "environment_id",
+      "run_id",
+      "dataset_version_id",
+      "rule_version_id",
+      "code_version"
+    ]
+  },
+  "inputs": [
+    "cash_ledger_entry",
+    "commitment"
+  ],
+  "outputs": [
+    "cash_ledger_entry"
+  ],
+  "replay_guarantee": {
+    "deterministic_ids": true,
+    "lineage_required": true
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "grain": "one row per tenant",
+  "immutability": "mutable_admin_fields",
+  "primary_key": [
+    "tenant_id"
+  ],
+  "table_name": "tenant"
+}
