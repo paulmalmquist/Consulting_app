@@ -29,6 +29,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Local secrets / scratch
+godaddy.txt
+
 # Python virtualenvs and local env files (all subdirectories)
 **/.venv/
 **/.venv*/
