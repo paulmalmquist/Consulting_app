@@ -31,6 +31,9 @@ yarn-error.log*
 
 # Local secrets / scratch
 godaddy.txt
+godaddy2.txt
+verceltoken.txt
+*token*.txt
 
 # Python virtualenvs and local env files (all subdirectories)
 **/.venv/
