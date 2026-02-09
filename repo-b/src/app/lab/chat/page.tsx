@@ -29,7 +29,8 @@ export default function ChatPage() {
     event.preventDefault();
     if (!input.trim() || !selectedEnv) return;
 
-    const nextMessages = [...messages, { role: "user", content: input }];
+    const userMessage: ChatMessage = { role: "user", content: input };
+    const nextMessages: ChatMessage[] = [...messages, userMessage];
     setMessages(nextMessages);
     setInput("");
     setLoading(true);
@@ -48,15 +49,13 @@ export default function ChatPage() {
         })
       });
 
-      setMessages([
-        ...nextMessages,
-        {
-          role: "assistant",
-          content: response.answer,
-          citations: response.citations,
-          suggested_actions: response.suggested_actions
-        }
-      ]);
+      const assistantMessage: ChatMessage = {
+        role: "assistant",
+        content: response.answer,
+        citations: response.citations,
+        suggested_actions: response.suggested_actions
+      };
+      setMessages([...nextMessages, assistantMessage]);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Chat failed";
       setError(message);

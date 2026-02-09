@@ -28,3 +28,14 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Python virtualenvs and local env files (all subdirectories)
+**/.venv/
+**/.venv*/
+**/.env
+**/.env.*
+!**/.env.example
+
+# Python cache artifacts
+**/__pycache__/
+*.pyc

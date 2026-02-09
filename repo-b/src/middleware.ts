@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const protectedPaths = ["/lab"];
+const protectedPrefixes = ["/lab", "/app", "/onboarding", "/documents"];
+
+function isProtectedPath(pathname: string): boolean {
+  return protectedPrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const isProtected = protectedPaths.some((path) => pathname.startsWith(path));
-
-  if (!isProtected) {
+  if (!isProtectedPath(pathname)) {
     return NextResponse.next();
   }
 
@@ -22,5 +26,14 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/lab/:path*"]
+  matcher: [
+    "/lab",
+    "/lab/:path*",
+    "/app",
+    "/app/:path*",
+    "/onboarding",
+    "/onboarding/:path*",
+    "/documents",
+    "/documents/:path*",
+  ],
 };

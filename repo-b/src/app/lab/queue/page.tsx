@@ -65,7 +65,11 @@ export default function QueuePage() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-semibold">{item.requested_action.type}</p>
+                <p className="font-semibold">
+                  {typeof item.requested_action.type === "string"
+                    ? item.requested_action.type
+                    : "Requested action"}
+                </p>
                 <p className="text-xs text-slate-500">
                   {item.risk_level} risk · {item.status}
                 </p>
