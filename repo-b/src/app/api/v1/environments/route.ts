@@ -15,18 +15,30 @@ let _pool: Pool | null = null;
 
 function getPool(): Pool {
   if (_pool) return _pool;
-  const url = process.env.DATABASE_URL;
-  if (!url) {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) {
     throw new Error("DATABASE_URL is not set");
   }
 
+  // Don't rely on connection string `sslmode=` parsing. In some environments
+  // (notably Vercel), Node can reject Supabase's chain unless we explicitly
+  // disable verification. Build the config ourselves and force SSL.
+  const u = new URL(raw);
+  const hostname = u.hostname.replace(/^\[(.*)\]$/, "$1");
+  const port = u.port ? Number(u.port) : 5432;
+  const user = decodeURIComponent(u.username || "");
+  const password = decodeURIComponent(u.password || "");
+  const database = u.pathname?.replace(/^\//, "") || "postgres";
+
   const isLocal =
-    url.includes("localhost") ||
-    url.includes("127.0.0.1") ||
-    url.includes("::1");
+    hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 
   _pool = new Pool({
-    connectionString: url,
+    host: hostname,
+    port,
+    user,
+    password,
+    database,
     ...(isLocal ? {} : { ssl: { rejectUnauthorized: false } }),
   });
   return _pool;
@@ -93,4 +105,3 @@ export async function POST(request: NextRequest) {
     return Response.json({ message }, { status: 500 });
   }
 }
-
