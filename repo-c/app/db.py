@@ -94,7 +94,7 @@ def create_env_schema(conn: psycopg.Connection, schema_name: str) -> None:
                 intent text,
                 risk text,
                 source text,
-                metadata jsonb NOT NULL DEFAULT '{}'::jsonb
+                metadata jsonb NOT NULL DEFAULT '{{}}'::jsonb
             );
             """
         )
@@ -105,7 +105,7 @@ def create_env_schema(conn: psycopg.Connection, schema_name: str) -> None:
                 created_at timestamptz NOT NULL DEFAULT now(),
                 note text NOT NULL,
                 related_entity text,
-                metadata jsonb NOT NULL DEFAULT '{}'::jsonb
+                metadata jsonb NOT NULL DEFAULT '{{}}'::jsonb
             );
             """
         )
@@ -129,7 +129,7 @@ def create_env_schema(conn: psycopg.Connection, schema_name: str) -> None:
                 chunk_index int NOT NULL,
                 content text NOT NULL,
                 embedding vector(1536),
-                metadata jsonb NOT NULL DEFAULT '{}'::jsonb
+                metadata jsonb NOT NULL DEFAULT '{{}}'::jsonb
             );
             """
         )

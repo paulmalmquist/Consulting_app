@@ -1,0 +1,99 @@
+"""Shared fixtures for Business OS backend tests.
+
+These tests mock the database layer so they run without Postgres.
+For integration tests that need a real DB, see tests/integration/.
+"""
+
+import os
+from contextlib import contextmanager
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+# Ensure DATABASE_URL is set before importing app modules
+# (config.py exits if missing)
+os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/test")
+os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
+os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-key")
+os.environ.setdefault("AI_MODE", "off")
+
+from fastapi.testclient import TestClient
+
+from app.main import app
+
+
+@pytest.fixture
+def client():
+    """FastAPI test client."""
+    return TestClient(app)
+
+
+class FakeCursor:
+    """In-memory cursor that records queries and returns canned results."""
+
+    def __init__(self):
+        self.queries: list[tuple[str, tuple]] = []
+        self._results: list[list[dict]] = []
+        self._result_idx = 0
+        self.rowcount = 1
+
+    def push_result(self, rows: list[dict]):
+        """Queue a result set for the next execute() call."""
+        self._results.append(rows)
+
+    def execute(self, sql: str, params=None):
+        self.queries.append((sql, params))
+        return self
+
+    def fetchone(self):
+        if self._result_idx < len(self._results):
+            rows = self._results[self._result_idx]
+            self._result_idx += 1
+            if rows:
+                return rows[0]
+            self.rowcount = 0
+            return None
+        return None
+
+    def fetchall(self):
+        if self._result_idx < len(self._results):
+            rows = self._results[self._result_idx]
+            self._result_idx += 1
+            return rows
+        return []
+
+
+# All modules that import get_cursor — must be patched at each import site
+_GET_CURSOR_TARGETS = [
+    "app.db.get_cursor",
+    "app.routes.business.get_cursor",
+    "app.routes.documents.get_cursor",
+    "app.routes.executions.get_cursor",
+]
+
+
+@pytest.fixture
+def fake_cursor():
+    """Provide a FakeCursor and patch get_cursor everywhere it's imported."""
+    cur = FakeCursor()
+
+    @contextmanager
+    def _mock_get_cursor():
+        yield cur
+
+    patches = [patch(target, _mock_get_cursor) for target in _GET_CURSOR_TARGETS]
+    for p in patches:
+        p.start()
+    yield cur
+    for p in patches:
+        p.stop()
+
+
+@pytest.fixture
+def fake_storage():
+    """Mock the SupabaseStorageRepository used by document routes."""
+    mock = MagicMock()
+    mock.generate_signed_upload_url.return_value = "https://storage.test/upload?token=abc"
+    mock.generate_signed_download_url.return_value = "https://storage.test/download?token=xyz"
+    with patch("app.routes.documents.storage", mock):
+        yield mock

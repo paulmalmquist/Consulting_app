@@ -45,3 +45,15 @@ verceltoken.txt
 # Python cache artifacts
 **/__pycache__/
 *.pyc
+
+# Next.js build/export output
+**/out/
+**/.next/
+
+# Test artifacts
+**/test-results/
+**/playwright-report/
+**/coverage/
+
+# OS files
+.DS_Store
