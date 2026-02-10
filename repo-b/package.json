@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:dry": "node db/schema/apply.js --dry-run",
+    "db:apply": "node db/schema/apply.js",
+    "db:verify": "node db/schema/verify.js",
+    "db:test": "node db/tests/schema.test.js"
   },
   "dependencies": {
     "next": "14.2.4",

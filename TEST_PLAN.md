@@ -1518,3 +1518,319 @@ Classification: QA Runbook / Release Gate / Audit Artifact
 | Visual Regression | Playwright screenshots | Capture desktop + mobile for each major view |
 | Load Testing | Locust | Verify concurrent business provisioning + uploads |
 | Security | OWASP ZAP | Scan API endpoints for injection, auth bypass |
+
+---
+
+## Appendix C: Demo Lab Environment Creation (Schema-Per-Environment) Test Catalog (repo-b + repo-c)
+
+This section validates the Demo Lab "environment creation/selection/reset" system end-to-end across:
+- Frontend: `repo-b/` (Next.js)
+- API: `repo-c/` (FastAPI, `/v1/*`)
+- Supabase Postgres (schema-per-environment)
+- Supabase Storage (uploads)
+
+### A0) System Inventory (As-Tested)
+
+#### A0.1 Components Under Test
+- Frontend (Next.js) in `repo-b/`
+  - Environment UI pages:
+    - `repo-b/src/app/lab/page.tsx`
+    - `repo-b/src/app/lab/environments/page.tsx`
+    - `repo-b/src/app/lab/upload/page.tsx`
+  - Environment state:
+    - `repo-b/src/components/EnvProvider.tsx`
+  - API helper:
+    - `repo-b/src/lib/api.ts` using `NEXT_PUBLIC_API_BASE_URL` (defaults to `http://localhost:8000`)
+- Demo Lab API (FastAPI) in `repo-c/`
+  - `repo-c/app/main.py` defines `/v1/environments*`, `/v1/chat`, etc.
+  - `repo-c/app/db.py` creates `platform.*` + env schemas, seeds, audit logs
+  - `repo-c/app/storage.py` uses Supabase Storage for uploads
+  - `repo-c/app/llm.py` uses OpenAI only if configured; otherwise stub behavior
+
+#### A0.2 Datastores
+- Supabase Postgres (primary)
+  - `platform.environments`, `platform.audit_log`, `platform.hitl_queue`
+  - Per-env schema naming:
+    - `env_<first12chars-of-uuid-without-dashes>`
+  - Per-env tables:
+    - `tickets`, `crm_notes`, `documents`, `doc_chunks`
+  - Requires `vector` extension (pgvector)
+- Supabase Storage
+  - Bucket: `SUPABASE_STORAGE_BUCKET` (default `demo-uploads`)
+  - Object key convention: `<env_id>/<filename>`
+
+---
+
+### A1) Environment & Preconditions
+
+#### A1.1 Demo Lab API env vars (repo-c)
+
+**TC-A1.1.1: `SUPABASE_DB_URL` missing blocks DB-backed endpoints**
+- What: DB config is required for env endpoints.
+- Preconditions: `SUPABASE_DB_URL` unset for `repo-c`.
+- Actions:
+  1. Start `repo-c` API.
+  2. `GET /health`
+  3. `GET /v1/environments`
+- Expected:
+  - `/health` => 200 `{status:"ok"}` (or equivalent)
+  - `/v1/environments` => non-2xx (server error) and does not return a normal env list.
+- Failure conditions:
+  - `/v1/environments` returns 200 with a valid response shape despite missing DB config.
+
+**TC-A1.1.2: `ALLOWED_ORIGINS` enables CORS**
+- What: Browser can call API from allowed origins.
+- Preconditions: `ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001`
+- Actions:
+  1. Start API.
+  2. Send `OPTIONS` with `Origin: http://localhost:3001` to `/v1/environments`.
+- Expected:
+  - Preflight returns 2xx
+  - CORS headers present; origin allowed.
+- Failure conditions:
+  - Preflight rejected.
+  - Missing/incorrect CORS headers.
+
+**TC-A1.1.3: `vector` extension auto-created**
+- What: pgvector dependency is satisfied.
+- Preconditions: Fresh DB without `vector` extension.
+- Actions:
+  1. Call `GET /v1/environments` (or the first DB-backed endpoint).
+  2. Query the DB to verify `vector` extension exists.
+- Expected:
+  - `vector` exists after first request (or install step).
+- Failure conditions:
+  - Later upload/index operations fail due to missing `vector`.
+
+**TC-A1.1.4: Platform tables auto-created**
+- What: Platform meta tables exist.
+- Actions:
+  1. Call `GET /v1/environments`.
+  2. Verify `platform.environments`, `platform.audit_log`, `platform.hitl_queue` exist.
+- Expected:
+  - All tables exist.
+- Failure conditions:
+  - Any table missing.
+
+#### A1.2 Storage Preconditions
+
+**TC-A1.2.1: Missing Supabase Storage credentials breaks upload**
+- What: Upload requires valid Storage configuration.
+- Preconditions: DB OK; unset `SUPABASE_URL` or `SUPABASE_SERVICE_ROLE_KEY`.
+- Actions:
+  1. Create env.
+  2. Attempt upload of a small `.txt`.
+- Expected:
+  - Upload fails non-2xx with clear server error (no crash loop).
+- Failure conditions:
+  - Upload succeeds without Storage creds.
+  - Upload fails with unhelpful error and no diagnostic surface.
+
+---
+
+### A2) Environment List & Create (API Contract)
+
+**TC-A2.1.1: `GET /v1/environments` response shape**
+- What: Env listing contract.
+- Actions: `GET /v1/environments`
+- Expected:
+  - `{environments:[{env_id, client_name, industry, schema_name, is_active}...]}` (or documented equivalent)
+- Failure conditions:
+  - Missing required fields/types.
+
+**TC-A2.1.2: Newest-first ordering**
+- What: Ordering is stable and predictable.
+- Actions:
+  1. Create env A then env B.
+  2. List envs.
+- Expected:
+  - B appears before A (created_at desc).
+- Failure conditions:
+  - Ordering is not newest-first.
+
+**TC-A2.2.1: `POST /v1/environments` returns env_id + schema_name**
+- What: Creation returns enough for UI to select and route.
+- Actions: POST valid JSON.
+- Expected:
+  - 200 with `env_id` (UUID string) and `schema_name`.
+- Failure conditions:
+  - Missing env_id/schema_name.
+
+**TC-A2.2.2: Required fields validated**
+- What: Bad create payloads fail fast and clearly.
+- Actions: POST missing `client_name` or `industry`.
+- Expected:
+  - 422 validation error.
+- Failure conditions:
+  - 200.
+
+**TC-A2.2.3: Concurrency uniqueness**
+- What: Many creates do not collide.
+- Actions: 20 parallel creates.
+- Expected:
+  - Unique env_id and schema_name for all; no partial state.
+- Failure conditions:
+  - Duplicates or partially created schemas without platform row.
+
+---
+
+### A3) Provisioning DB Assertions
+
+**TC-A3.1.1: `platform.environments` row inserted**
+- What: Platform env record exists and matches input.
+- Actions: Create env; query platform row.
+- Expected:
+  - Exactly 1 row
+  - `is_active=true` (or documented default)
+  - Values match request
+- Failure conditions:
+  - Missing row or mismatched values.
+
+**TC-A3.1.2: Audit log written on create**
+- What: Auditability.
+- Actions: Query `platform.audit_log` by env_id/action.
+- Expected:
+  - `create_environment` record exists (or documented action name).
+- Failure conditions:
+  - Missing audit entry.
+
+**TC-A3.2.1: Env schema + tables exist**
+- What: Schema provisioning correctness.
+- Actions: Verify tables in `<schema>` exist.
+- Expected:
+  - `tickets`, `crm_notes`, `documents`, `doc_chunks` exist.
+- Failure conditions:
+  - Any missing.
+
+**TC-A3.2.2: Seed data exists**
+- What: Demo usability post-provision.
+- Actions: Count rows in `<schema>.tickets` and `<schema>.crm_notes`.
+- Expected:
+  - At least 1 row each.
+- Failure conditions:
+  - 0 rows in either table.
+
+---
+
+### A4) Reset Behavior
+
+**TC-A4.1.1: Reset returns `{status:"reset"}`**
+- What: Reset endpoint contract.
+- Actions: POST reset.
+- Expected:
+  - 200 with `{status:"reset"}` (or equivalent).
+- Failure conditions:
+  - Non-200.
+
+**TC-A4.1.2: Reset removes user data and reseeds**
+- What: Reset is deterministic and complete.
+- Preconditions: Env exists.
+- Actions:
+  1. Upload doc or insert extra rows.
+  2. Reset.
+  3. Confirm extra data is gone; seed data exists again.
+- Expected:
+  - Old rows removed; seed restored.
+- Failure conditions:
+  - Stale data persists.
+
+**TC-A4.1.3: Reset audit log**
+- What: Auditability of destructive-ish operation.
+- Expected:
+  - `reset_environment` exists in `platform.audit_log`.
+- Failure conditions:
+  - Missing audit row.
+
+**TC-A4.1.4: Reset missing env returns 404**
+- What: Error handling.
+- Actions: Reset unknown env_id.
+- Expected:
+  - 404 `Environment not found` (or equivalent).
+- Failure conditions:
+  - 200.
+
+---
+
+### A5) Frontend Environment UX (repo-b)
+
+**TC-A5.1.1: EnvProvider loads envs and sets selection**
+- What: Env list shows up and selection works.
+- Actions:
+  1. Load `/lab/environments`.
+  2. Observe env dropdown/list.
+- Expected:
+  - Dropdown/list shows envs; loading state resolves.
+- Failure conditions:
+  - Empty/stuck loading while API is healthy.
+
+**TC-A5.1.2: localStorage persistence**
+- What: Refresh preserves selection.
+- Actions:
+  1. Select env B.
+  2. Refresh.
+- Expected:
+  - Still env B.
+- Failure conditions:
+  - Selection resets to default.
+
+**TC-A5.2.1: Create UI selects newly created env**
+- What: UX correctness post-create.
+- Actions:
+  1. Create a new env from UI.
+  2. Observe selection.
+- Expected:
+  - Success message; new env becomes selected; persists across refresh.
+- Failure conditions:
+  - New env not selected or not persisted.
+
+---
+
+### A6) Upload & Index (Verification)
+
+**TC-A6.1.1: Upload `.txt` creates documents + chunks**
+- What: Upload pipeline and indexing.
+- Actions:
+  1. Upload `.txt`.
+  2. Query `<schema>.documents` and `<schema>.doc_chunks`.
+- Expected:
+  - Upload response includes `doc_id` and chunk count (or equivalent)
+  - DB rows exist and counts match response (within expected processing rules).
+- Failure conditions:
+  - Missing rows or mismatched counts.
+
+**TC-A6.1.2: Unsupported types rejected**
+- What: Filetype enforcement.
+- Actions: Upload `.exe` or unsupported binary.
+- Expected:
+  - 400 `Unsupported file type` (or equivalent).
+- Failure conditions:
+  - Accepted.
+
+**TC-A6.1.3: Empty text rejected**
+- What: Extracted content sanity.
+- Actions: Upload file that extracts to empty text.
+- Expected:
+  - 400 `No text extracted` (or equivalent).
+- Failure conditions:
+  - Accepted and indexed.
+
+**TC-A6.1.4: Upload audit log**
+- What: Auditability.
+- Expected:
+  - `upload_document` audit row exists (or equivalent action name).
+- Failure conditions:
+  - Missing audit row.
+
+---
+
+### A7) Security & Isolation
+
+**TC-A7.1.1: Cross-env isolation**
+- What: Env A data does not appear in env B.
+- Actions:
+  1. Upload in env A.
+  2. Switch to env B; list docs (or query DB).
+- Expected:
+  - Env B shows none of env A’s documents/chunks.
+- Failure conditions:
+  - Leakage across schemas or API filters.

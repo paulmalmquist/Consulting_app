@@ -17,6 +17,8 @@ const navItems = [
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { selectedEnv } = useEnv();
+  const aiMode = process.env.NEXT_PUBLIC_AI_MODE || "off";
+  const items = aiMode === "local" ? [...navItems, { href: "/lab/ai", label: "AI" }] : navItems;
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -31,7 +33,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <p className="text-lg font-semibold">Workflow Ops</p>
         </div>
         <nav className="flex flex-col gap-2">
-          {navItems.map((item) => (
+          {items.map((item) => (
             <Link
               key={item.href}
               href={item.href}
