@@ -1,9 +1,15 @@
-name: Deploy Next.js static site to Pages
+# DISABLED: Deployment moved to Vercel.
+# This workflow was for GitHub Pages static export, which is incompatible
+# with the app's API routes and middleware.
+#
+# To re-enable, uncomment the triggers below.
+
+name: Deploy Next.js static site to Pages (DISABLED)
 
 on:
-  push:
-    branches: ["main"]
   workflow_dispatch:
+  # push:
+  #   branches: ["main"]
 
 permissions:
   contents: read
