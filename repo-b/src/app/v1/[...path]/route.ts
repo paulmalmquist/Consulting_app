@@ -2,6 +2,10 @@ import { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 
+function nowMs() {
+  return Date.now();
+}
+
 function inferUpstreamOrigin(request: NextRequest): string {
   const configured =
     process.env.DEMO_API_ORIGIN ||
@@ -23,11 +27,16 @@ function inferUpstreamOrigin(request: NextRequest): string {
 }
 
 async function proxy(request: NextRequest, ctx: { params: { path: string[] } }) {
+  const start = nowMs();
   const upstreamOrigin = inferUpstreamOrigin(request);
 
   const incomingUrl = new URL(request.url);
   const upstreamUrl = new URL(`/v1/${(ctx.params.path || []).join("/")}`, upstreamOrigin);
   upstreamUrl.search = incomingUrl.search;
+
+  const requestId =
+    request.headers.get("x-bm-request-id") ||
+    `req_${Math.random().toString(16).slice(2)}_${Date.now()}`;
 
   // Forward most headers, but don't leak or forward hop-by-hop or app cookies.
   const headers = new Headers(request.headers);
@@ -35,17 +44,35 @@ async function proxy(request: NextRequest, ctx: { params: { path: string[] } }) 
   headers.delete("connection");
   headers.delete("content-length");
   headers.delete("cookie");
+  headers.set("x-bm-request-id", requestId);
 
-  const upstreamRes = await fetch(upstreamUrl.toString(), {
-    method: request.method,
-    headers,
-    body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
-    redirect: "manual",
-    // Required by Node fetch when streaming request bodies.
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    duplex: "half",
-  });
+  let upstreamRes: Response;
+  try {
+    upstreamRes = await fetch(upstreamUrl.toString(), {
+      method: request.method,
+      headers,
+      body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
+      redirect: "manual",
+      // Required by Node fetch when streaming request bodies.
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      duplex: "half",
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("[v1-proxy] upstream fetch failed", {
+      requestId,
+      method: request.method,
+      path: incomingUrl.pathname,
+      upstream: upstreamUrl.toString(),
+      ms: nowMs() - start,
+      error: err instanceof Error ? { name: err.name, message: err.message } : String(err),
+    });
+    return new Response(
+      JSON.stringify({ message: "Upstream unreachable", request_id: requestId }),
+      { status: 502, headers: { "Content-Type": "application/json", "x-bm-request-id": requestId } }
+    );
+  }
 
   const resHeaders = new Headers(upstreamRes.headers);
   // Same-origin callers don't need upstream CORS headers (and they can be misleading).
@@ -54,6 +81,38 @@ async function proxy(request: NextRequest, ctx: { params: { path: string[] } }) 
   resHeaders.delete("access-control-allow-headers");
   resHeaders.delete("access-control-allow-methods");
   resHeaders.delete("access-control-expose-headers");
+  resHeaders.set("x-bm-request-id", requestId);
+
+  const elapsed = nowMs() - start;
+  if (!upstreamRes.ok) {
+    let snippet = "";
+    try {
+      // Log a small snippet for debugging; avoid large responses.
+      snippet = (await upstreamRes.clone().text()).slice(0, 2000);
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line no-console
+    console.warn("[v1-proxy] upstream non-2xx", {
+      requestId,
+      method: request.method,
+      path: incomingUrl.pathname,
+      upstream: upstreamUrl.toString(),
+      status: upstreamRes.status,
+      ms: elapsed,
+      body_snippet: snippet,
+    });
+  } else {
+    // eslint-disable-next-line no-console
+    console.log("[v1-proxy] ok", {
+      requestId,
+      method: request.method,
+      path: incomingUrl.pathname,
+      upstream: upstreamUrl.toString(),
+      status: upstreamRes.status,
+      ms: elapsed,
+    });
+  }
 
   return new Response(upstreamRes.body, { status: upstreamRes.status, headers: resHeaders });
 }
@@ -64,4 +123,3 @@ export const PUT = proxy;
 export const PATCH = proxy;
 export const DELETE = proxy;
 export const OPTIONS = proxy;
-
