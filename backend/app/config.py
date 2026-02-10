@@ -12,6 +12,49 @@ ALLOWED_ORIGINS: list[str] = [
     o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 ]
 
-if not DATABASE_URL:
+# ── MCP / Work system feature flags ─────────────────────────────────
+MCP_API_TOKEN: str = os.getenv("MCP_API_TOKEN", "")
+ENABLE_MCP_WRITES: bool = os.getenv("ENABLE_MCP_WRITES", "false").lower() == "true"
+MCP_ACTOR_NAME: str = os.getenv("MCP_ACTOR_NAME", "codex_service_user")
+MCP_RATE_LIMIT_RPM: int = int(os.getenv("MCP_RATE_LIMIT_RPM", "60"))
+MCP_MAX_INPUT_BYTES: int = int(os.getenv("MCP_MAX_INPUT_BYTES", "200000"))
+MCP_MAX_OUTPUT_BYTES: int = int(os.getenv("MCP_MAX_OUTPUT_BYTES", "200000"))
+MCP_TOOL_TIMEOUT_SEC: int = int(os.getenv("MCP_TOOL_TIMEOUT_SEC", "60"))
+MCP_ALLOWED_REPO_ROOTS: list[str] = [
+    r.strip()
+    for r in os.getenv("MCP_ALLOWED_REPO_ROOTS", "backend,repo-b,docs,scripts").split(",")
+    if r.strip()
+]
+MCP_DENY_GLOBS: list[str] = [
+    g.strip()
+    for g in os.getenv(
+        "MCP_DENY_GLOBS",
+        ".env,.env.*,**/.env,**/.env.*,**/node_modules/**,**/.git/**",
+    ).split(",")
+    if g.strip()
+]
+
+
+_db_validated = False
+
+
+def require_database_url() -> str:
+    """Return DATABASE_URL or raise RuntimeError.
+
+    Replaces the old import-time sys.exit so that code paths that don't
+    need the database (e.g. MCP bm.list_tools) can still start.
+    """
+    global _db_validated
+    if not DATABASE_URL:
+        raise RuntimeError(
+            "DATABASE_URL is not set.  Set it in .env or environment."
+        )
+    _db_validated = True
+    return DATABASE_URL
+
+
+# Backwards compat: keep the hard exit for the REST server entrypoint.
+# The MCP server will call require_database_url() lazily instead.
+if os.getenv("_BM_SKIP_DB_CHECK") != "1" and not DATABASE_URL:
     print("FATAL: DATABASE_URL is not set. Exiting.", file=sys.stderr)
     sys.exit(1)

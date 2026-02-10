@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import ALLOWED_ORIGINS
-from app.routes import health, business, documents, executions
+from app.routes import health, business, documents, executions, work, audit
 from app.routes.ai import router as ai_router
 
 app = FastAPI(title="Business OS API", version="0.1.0")
@@ -18,4 +18,6 @@ app.include_router(health.router)
 app.include_router(business.router)
 app.include_router(documents.router)
 app.include_router(executions.router)
+app.include_router(work.router)
+app.include_router(audit.router)
 app.include_router(ai_router)

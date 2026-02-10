@@ -1,10 +1,10 @@
 import psycopg
 from contextlib import contextmanager
-from app.config import DATABASE_URL
+from app.config import require_database_url
 
 
 def get_connection() -> psycopg.Connection:
-    return psycopg.connect(DATABASE_URL)
+    return psycopg.connect(require_database_url())
 
 
 @contextmanager

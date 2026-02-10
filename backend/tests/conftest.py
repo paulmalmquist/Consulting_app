@@ -66,9 +66,11 @@ class FakeCursor:
 # All modules that import get_cursor — must be patched at each import site
 _GET_CURSOR_TARGETS = [
     "app.db.get_cursor",
-    "app.routes.business.get_cursor",
-    "app.routes.documents.get_cursor",
-    "app.routes.executions.get_cursor",
+    "app.services.business.get_cursor",
+    "app.services.documents.get_cursor",
+    "app.services.executions.get_cursor",
+    "app.services.work.get_cursor",
+    "app.services.audit.get_cursor",
 ]
 
 
@@ -95,5 +97,5 @@ def fake_storage():
     mock = MagicMock()
     mock.generate_signed_upload_url.return_value = "https://storage.test/upload?token=abc"
     mock.generate_signed_download_url.return_value = "https://storage.test/download?token=xyz"
-    with patch("app.routes.documents.storage", mock):
+    with patch("app.services.documents._storage", mock):
         yield mock

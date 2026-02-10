@@ -228,5 +228,199 @@ INSERT INTO app.capabilities (department_id, key, label, kind, sort_order, metad
   ((SELECT department_id FROM app.departments WHERE key='marketing'), 'marketing_history', 'Run History', 'history', 95, '{}')
 ON CONFLICT (department_id, key) DO NOTHING;
 
--- TODO: Add append-only event tables for audit trail
--- TODO: Add RLS policies for business_departments, business_capabilities, executions
+-- ─────────────────────────────────────────────
+-- WORK SYSTEM (Ownership-first; replaces Slack/helpdesk)
+-- ─────────────────────────────────────────────
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'app' AND t.typname = 'work_item_type'
+  ) THEN
+    CREATE TYPE app.work_item_type AS ENUM (
+      'request', 'task', 'incident', 'decision', 'question'
+    );
+  END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'app' AND t.typname = 'work_item_status'
+  ) THEN
+    CREATE TYPE app.work_item_status AS ENUM (
+      'open', 'in_progress', 'waiting', 'blocked', 'resolved', 'closed'
+    );
+  END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'app' AND t.typname = 'work_comment_type'
+  ) THEN
+    CREATE TYPE app.work_comment_type AS ENUM (
+      'clarification', 'evidence', 'proposal', 'status_update'
+    );
+  END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'app' AND t.typname = 'work_resolution_outcome'
+  ) THEN
+    CREATE TYPE app.work_resolution_outcome AS ENUM (
+      'solved', 'deferred', 'rejected'
+    );
+  END IF;
+END;
+$$;
+
+CREATE TABLE IF NOT EXISTS app.work_items (
+  work_item_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES app.tenants(tenant_id),
+  business_id uuid NOT NULL REFERENCES app.businesses(business_id),
+  department_id uuid NULL REFERENCES app.departments(department_id),
+  capability_id uuid NULL REFERENCES app.capabilities(capability_id),
+  type app.work_item_type NOT NULL,
+  status app.work_item_status NOT NULL DEFAULT 'open',
+  owner text NOT NULL,
+  priority int NULL CHECK (priority >= 1 AND priority <= 5),
+  title text NOT NULL,
+  description text NULL,
+  created_by text NOT NULL,
+  updated_by text NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS work_items_business_status_idx
+  ON app.work_items (business_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS work_items_business_owner_idx
+  ON app.work_items (business_id, owner, created_at DESC);
+CREATE INDEX IF NOT EXISTS work_items_business_dept_idx
+  ON app.work_items (business_id, department_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS work_items_business_cap_idx
+  ON app.work_items (business_id, capability_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS app.work_comments (
+  comment_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES app.tenants(tenant_id),
+  work_item_id uuid NOT NULL REFERENCES app.work_items(work_item_id) ON DELETE CASCADE,
+  comment_type app.work_comment_type NOT NULL,
+  author text NOT NULL,
+  body text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS work_comments_item_idx
+  ON app.work_comments (work_item_id, created_at ASC);
+
+CREATE TABLE IF NOT EXISTS app.work_resolutions (
+  resolution_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES app.tenants(tenant_id),
+  work_item_id uuid NOT NULL UNIQUE REFERENCES app.work_items(work_item_id) ON DELETE CASCADE,
+  summary text NOT NULL,
+  outcome app.work_resolution_outcome NOT NULL,
+  linked_documents jsonb NOT NULL DEFAULT '[]'::jsonb,
+  linked_executions jsonb NOT NULL DEFAULT '[]'::jsonb,
+  created_by text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────
+-- AUDIT EVENTS (append-only)
+-- ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS app.audit_events (
+  audit_event_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NULL REFERENCES app.tenants(tenant_id),
+  business_id uuid NULL REFERENCES app.businesses(business_id),
+  actor text NOT NULL,
+  action text NOT NULL,
+  tool_name text NOT NULL,
+  object_type text NULL,
+  object_id uuid NULL,
+  success boolean NOT NULL,
+  latency_ms int NOT NULL,
+  input_redacted jsonb NOT NULL DEFAULT '{}'::jsonb,
+  output_redacted jsonb NOT NULL DEFAULT '{}'::jsonb,
+  error_message text NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS audit_events_business_idx
+  ON app.audit_events (business_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS audit_events_tool_idx
+  ON app.audit_events (tool_name, created_at DESC);
+CREATE INDEX IF NOT EXISTS audit_events_success_idx
+  ON app.audit_events (success, created_at DESC);
+
+-- ─────────────────────────────────────────────
+-- DOCUMENT TAGS
+-- ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS app.document_tags (
+  tenant_id uuid NOT NULL REFERENCES app.tenants(tenant_id),
+  document_id uuid NOT NULL REFERENCES app.documents(document_id) ON DELETE CASCADE,
+  tag text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  created_by text NOT NULL DEFAULT 'system',
+  PRIMARY KEY (document_id, tag)
+);
+
+CREATE INDEX IF NOT EXISTS document_tags_tenant_tag_idx
+  ON app.document_tags (tenant_id, tag);
+
+-- ─────────────────────────────────────────────
+-- TRIGGERS for updated_at
+-- ─────────────────────────────────────────────
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'work_items_set_updated_at'
+  ) THEN
+    CREATE TRIGGER work_items_set_updated_at
+      BEFORE UPDATE ON app.work_items
+      FOR EACH ROW
+      EXECUTE FUNCTION app.set_updated_at();
+  END IF;
+END;
+$$;
+
+-- RLS policies for new tables
+ALTER TABLE IF EXISTS app.work_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS app.work_comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS app.work_resolutions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS app.audit_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS app.document_tags ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY IF NOT EXISTS work_items_tenant_isolation
+  ON app.work_items
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+CREATE POLICY IF NOT EXISTS work_comments_tenant_isolation
+  ON app.work_comments
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+CREATE POLICY IF NOT EXISTS work_resolutions_tenant_isolation
+  ON app.work_resolutions
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+CREATE POLICY IF NOT EXISTS audit_events_tenant_isolation
+  ON app.audit_events
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+CREATE POLICY IF NOT EXISTS document_tags_tenant_isolation
+  ON app.document_tags
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid);
