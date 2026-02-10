@@ -31,7 +31,17 @@ async function proxy(request: NextRequest, ctx: { params: { path: string[] } }) 
   const upstreamOrigin = inferUpstreamOrigin(request);
 
   const incomingUrl = new URL(request.url);
-  const upstreamUrl = new URL(`/v1/${(ctx.params.path || []).join("/")}`, upstreamOrigin);
+
+  // Handle same-origin API routes (e.g., DEMO_API_ORIGIN="/api")
+  let upstreamUrl: URL;
+  if (upstreamOrigin.startsWith("/")) {
+    // Relative path: construct URL relative to current origin
+    const currentOrigin = new URL(request.url).origin;
+    upstreamUrl = new URL(`${upstreamOrigin}/v1/${(ctx.params.path || []).join("/")}`, currentOrigin);
+  } else {
+    // Absolute origin: use as-is
+    upstreamUrl = new URL(`/v1/${(ctx.params.path || []).join("/")}`, upstreamOrigin);
+  }
   upstreamUrl.search = incomingUrl.search;
 
   const requestId =
