@@ -19,7 +19,7 @@ function inferUpstreamOrigin(request: NextRequest): string {
   const hostname = hostHeader.split(",")[0].trim().split(":")[0].toLowerCase();
 
   if (hostname === "localhost" || hostname === "127.0.0.1") {
-    return "http://localhost:8001";
+    return "http://localhost:8000";
   }
 
   const root = hostname.startsWith("www.") ? hostname.slice(4) : hostname;
