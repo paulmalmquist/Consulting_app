@@ -54,6 +54,9 @@ async function proxy(request: NextRequest, ctx: { params: { path: string[] } }) 
   headers.delete("connection");
   headers.delete("content-length");
   headers.delete("cookie");
+  // Avoid upstream compression: Node/undici transparently decompresses but keeps
+  // the `content-encoding` header, which can cause browsers to fail decoding.
+  headers.set("accept-encoding", "identity");
   headers.set("x-bm-request-id", requestId);
 
   let upstreamRes: Response;
@@ -91,6 +94,11 @@ async function proxy(request: NextRequest, ctx: { params: { path: string[] } }) 
   resHeaders.delete("access-control-allow-headers");
   resHeaders.delete("access-control-allow-methods");
   resHeaders.delete("access-control-expose-headers");
+  // Node fetch transparently decompresses but keeps upstream encoding/length.
+  // If we forward those headers, browsers can throw ERR_CONTENT_DECODING_FAILED.
+  resHeaders.delete("content-encoding");
+  resHeaders.delete("content-length");
+  resHeaders.delete("transfer-encoding");
   resHeaders.set("x-bm-request-id", requestId);
 
   const elapsed = nowMs() - start;
