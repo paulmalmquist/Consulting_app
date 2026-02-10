@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 
-const industries = ["healthcare", "legal", "construction"] as const;
+const industries = ["healthcare", "legal", "construction", "website"] as const;
 
 export default function EnvironmentsPage() {
   const { environments, refresh, selectEnv } = useEnv();
