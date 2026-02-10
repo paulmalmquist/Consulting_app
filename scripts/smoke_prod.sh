@@ -65,18 +65,23 @@ test_endpoint "Direct API health (/api/v1/health)" "$PROD_BASE_URL/api/v1/health
 # Save critical test results
 CRITICAL_FAILURES=$FAILURES
 
-# Additional endpoint tests (these may fail if backend not fully deployed)
+# Stub endpoint tests (temporary Next.js routes)
 echo ""
 echo "========================================="
-echo "Extended Backend Tests (may fail if backend incomplete)"
+echo "Stub Backend Endpoints"
 echo "========================================="
 
-# Test 4: Environments endpoint (requires full backend)
-if test_endpoint "Environments list (/v1/environments)" "$PROD_BASE_URL/v1/environments" 200 true 2>/dev/null; then
-    echo "  Backend appears fully deployed!"
-else
-    echo "  ⚠️  Backend not fully deployed - only health check working (expected for temp Next.js endpoint)"
-fi
+# Test 4: Environments endpoint (stub)
+test_endpoint "Environments GET (/v1/environments)" "$PROD_BASE_URL/v1/environments" 200 true
+
+# Test 5: Audit endpoint (stub)
+test_endpoint "Audit list (/v1/audit)" "$PROD_BASE_URL/v1/audit" 200 true
+
+# Test 6: Queue endpoint (stub)
+test_endpoint "Queue list (/v1/queue)" "$PROD_BASE_URL/v1/queue" 200 true
+
+# Test 7: Metrics endpoint (stub)
+test_endpoint "Metrics (/v1/metrics)" "$PROD_BASE_URL/v1/metrics" 200 true
 
 # Summary
 echo ""
