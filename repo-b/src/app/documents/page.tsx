@@ -4,6 +4,8 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessContext } from "@/lib/business-context";
 import DocumentsView from "@/components/bos/DocumentsView";
+import { buttonVariants } from "@/components/ui/buttonVariants";
+import { cn } from "@/lib/cn";
 
 function DocumentsContent() {
   const searchParams = useSearchParams();
@@ -14,10 +16,10 @@ function DocumentsContent() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
         <h2 className="text-xl font-semibold mb-2">No Business Configured</h2>
-        <p className="text-slate-400 text-sm mb-6">Set up your business to manage documents.</p>
+        <p className="text-bm-muted text-sm mb-6">Set up your business to manage documents.</p>
         <a
           href="/onboarding"
-          className="bg-sky-600 hover:bg-sky-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors"
+          className={buttonVariants({ variant: "primary" })}
         >
           Start Setup
         </a>
@@ -32,7 +34,7 @@ function DocumentsContent() {
   return (
     <div className="max-w-4xl">
       <h1 className="text-xl font-bold mb-1">Documents</h1>
-      <p className="text-sm text-slate-400 mb-6">
+      <p className="text-sm text-bm-muted mb-6">
         {dept ? `Filtered to: ${dept.label}` : "All business documents"}
       </p>
 
@@ -41,11 +43,12 @@ function DocumentsContent() {
         <div className="flex flex-wrap gap-2 mb-6">
           <a
             href="/documents"
-            className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
+            className={cn(
+              "text-xs px-3 py-1.5 rounded-lg transition border",
               !departmentId
-                ? "bg-sky-600 text-white"
-                : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-            }`}
+                ? "bg-bm-accent/12 text-bm-text border-bm-accent/30 shadow-bm-glow"
+                : "bg-bm-surface/50 text-bm-muted border-bm-border/70 hover:bg-bm-surface2/50"
+            )}
           >
             All
           </a>
@@ -53,11 +56,12 @@ function DocumentsContent() {
             <a
               key={d.department_id}
               href={`/documents?department=${d.department_id}`}
-              className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
+              className={cn(
+                "text-xs px-3 py-1.5 rounded-lg transition border",
                 departmentId === d.department_id
-                  ? "bg-sky-600 text-white"
-                  : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-              }`}
+                  ? "bg-bm-accent/12 text-bm-text border-bm-accent/30 shadow-bm-glow"
+                  : "bg-bm-surface/50 text-bm-muted border-bm-border/70 hover:bg-bm-surface2/50"
+              )}
             >
               {d.label}
             </a>
@@ -72,7 +76,11 @@ function DocumentsContent() {
 
 export default function GlobalDocumentsPage() {
   return (
-    <Suspense fallback={<div className="animate-pulse h-64 bg-slate-800 rounded-lg" />}>
+    <Suspense
+      fallback={
+        <div className="animate-pulse h-64 bg-bm-surface/60 border border-bm-border/60 rounded-lg" />
+      }
+    >
       <DocumentsContent />
     </Suspense>
   );

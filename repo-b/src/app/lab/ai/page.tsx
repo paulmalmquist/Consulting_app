@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Card, CardContent, CardTitle } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Textarea } from "@/components/ui/Textarea";
+import { Badge } from "@/components/ui/Badge";
 
 type Health = {
   enabled: boolean;
@@ -64,7 +68,7 @@ export default function LocalAiPage() {
     return (
       <div className="max-w-2xl">
         <h1 className="text-xl font-semibold">Local AI</h1>
-        <p className="mt-2 text-sm text-slate-400">
+        <p className="mt-2 text-sm text-bm-muted">
           AI is disabled. Set <span className="font-mono">NEXT_PUBLIC_AI_MODE=local</span> to enable the local sidecar.
         </p>
       </div>
@@ -78,62 +82,64 @@ export default function LocalAiPage() {
     <div className="max-w-3xl space-y-6">
       <header className="space-y-2">
         <h1 className="text-xl font-semibold">Local AI (Codex Sidecar)</h1>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-bm-muted">
           Developer/operator-only helper. The UI talks to the backend, which talks to a localhost sidecar.
         </p>
-        <p className={`text-sm ${health?.sidecar_ok ? "text-emerald-300" : "text-amber-300"}`}>{statusText}</p>
+        <p className={`text-sm ${health?.sidecar_ok ? "text-bm-success" : "text-bm-warning"}`}>{statusText}</p>
       </header>
 
-      <section className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-        <label className="text-sm text-slate-300">Prompt</label>
-        <textarea
+      <Card>
+        <CardContent className="space-y-3">
+        <label className="text-sm text-bm-muted">Prompt</label>
+        <Textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           rows={6}
           placeholder="Ask about the repo (e.g., 'Where is environment creation implemented?')"
-          className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm"
+          className="rounded-xl"
         />
         <div className="flex flex-col sm:flex-row gap-3">
-          <button
+          <Button
             onClick={ask}
             disabled={!canAsk || loading || prompt.trim().length === 0}
-            className="px-4 py-2 rounded-lg bg-sky-500 text-slate-950 font-semibold disabled:opacity-50"
           >
             {loading ? "Asking..." : "Ask"}
-          </button>
-          <div className="text-xs text-slate-500 flex items-center">
+          </Button>
+          <div className="text-xs text-bm-muted2 flex items-center">
             Runs lightweight repo retrieval and sends context to the local sidecar.
           </div>
         </div>
-        {error ? <p className="text-sm text-red-300">{error}</p> : null}
-      </section>
+        {error ? <p className="text-sm text-bm-danger">{error}</p> : null}
+        </CardContent>
+      </Card>
 
       {result ? (
-        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
+        <Card>
+          <CardContent className="space-y-4">
           <div>
-            <h2 className="text-sm font-semibold text-slate-300">Answer</h2>
-            <pre className="mt-2 whitespace-pre-wrap text-sm text-slate-100">{result.answer}</pre>
+            <CardTitle>Answer</CardTitle>
+            <pre className="mt-2 whitespace-pre-wrap text-sm text-bm-text">{result.answer}</pre>
           </div>
 
-          <div className="flex flex-wrap gap-3 text-xs text-slate-400">
-            <span className="px-2 py-1 rounded-full bg-slate-800">
+          <div className="flex flex-wrap gap-3 text-xs">
+            <Badge>
               elapsed: {result.diagnostics.elapsed_ms}ms
-            </span>
-            <span className="px-2 py-1 rounded-full bg-slate-800">
+            </Badge>
+            <Badge>
               files: {result.diagnostics.used_files}
-            </span>
+            </Badge>
           </div>
 
           <div>
-            <h2 className="text-sm font-semibold text-slate-300">Citations</h2>
+            <CardTitle>Citations</CardTitle>
             {result.citations.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-500">No citations.</p>
+              <p className="mt-2 text-sm text-bm-muted2">No citations.</p>
             ) : (
               <ul className="mt-2 space-y-2">
                 {result.citations.map((c, idx) => (
                   <li key={`${c.path}:${idx}`} className="text-sm">
                     <a
-                      className="text-sky-400 hover:text-sky-300"
+                      className="text-bm-accent hover:text-bm-accent2"
                       href={`https://github.com/paulmalmquist/Consulting_app/blob/main/${c.path}#L${c.start_line}`}
                       target="_blank"
                       rel="noreferrer"
@@ -145,9 +151,9 @@ export default function LocalAiPage() {
               </ul>
             )}
           </div>
-        </section>
+          </CardContent>
+        </Card>
       ) : null}
     </div>
   );
 }
-

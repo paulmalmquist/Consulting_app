@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useEnv } from "@/components/EnvProvider";
+import EnvGate from "@/components/EnvGate";
 import { apiFetch } from "@/lib/api";
+import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/Card";
 
 type Metrics = {
   uploads_count: number;
@@ -39,24 +41,27 @@ export default function MetricsPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-        <h1 className="text-xl font-semibold">Metrics</h1>
-        <p className="text-sm text-slate-400 mt-2">
-          Track throughput and HITL performance.
-        </p>
-      </section>
-      <section className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {cards.map((card) => (
-          <div
-            key={card.label}
-            className="bg-slate-900 border border-slate-800 rounded-2xl p-6"
-          >
-            <p className="text-xs text-slate-400 uppercase">{card.label}</p>
-            <p className="text-2xl font-semibold mt-2">{card.value}</p>
-          </div>
-        ))}
-      </section>
-    </div>
+    <EnvGate>
+      <div className="space-y-6">
+        <Card>
+          <CardContent>
+            <CardTitle className="text-xl">Metrics</CardTitle>
+            <CardDescription>Track throughput and HITL performance.</CardDescription>
+          </CardContent>
+        </Card>
+        <section className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {cards.map((card) => (
+            <Card key={card.label}>
+              <CardContent>
+                <p className="text-xs text-bm-muted2 uppercase tracking-[0.14em]">
+                  {card.label}
+                </p>
+                <p className="text-2xl font-semibold mt-2">{card.value}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </section>
+      </div>
+    </EnvGate>
   );
 }

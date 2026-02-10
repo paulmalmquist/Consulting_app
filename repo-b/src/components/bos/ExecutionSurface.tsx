@@ -8,6 +8,11 @@ import {
   computeSha256,
   RunResult,
 } from "@/lib/bos-api";
+import { Card, CardContent, CardTitle } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Textarea";
+import { Badge } from "@/components/ui/Badge";
 
 interface InputField {
   name: string;
@@ -119,13 +124,16 @@ export default function ExecutionSurface({
   return (
     <div className="space-y-6">
       {/* Input form */}
-      <div className="border border-slate-700 rounded-lg p-4 space-y-4">
-        <h3 className="text-sm font-semibold text-slate-400 uppercase">Inputs</h3>
+      <Card>
+        <CardContent className="space-y-4">
+          <CardTitle className="text-sm font-semibold uppercase tracking-[0.14em] text-bm-muted2">
+            Inputs
+          </CardTitle>
 
         {hasSchema ? (
           inputs.map((field) => (
             <div key={field.name}>
-              <label className="block text-sm text-slate-400 mb-1">{field.label}</label>
+              <label className="block text-sm text-bm-muted mb-1">{field.label}</label>
               {field.type === "file" ? (
                 <div>
                   <input
@@ -135,94 +143,92 @@ export default function ExecutionSurface({
                       const f = e.target.files?.[0];
                       if (f) setFileInputs((prev) => ({ ...prev, [field.name]: f }));
                     }}
-                    className="w-full text-sm text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700"
+                    className="w-full text-sm text-bm-muted file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-bm-border/70 file:bg-bm-surface/60 file:text-bm-text hover:file:bg-bm-surface2/60"
                   />
                   {fileInputs[field.name] && (
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-bm-muted2 mt-1">
                       {fileInputs[field.name].name} ({(fileInputs[field.name].size / 1024).toFixed(1)} KB)
                     </p>
                   )}
                 </div>
               ) : field.type === "textarea" ? (
-                <textarea
+                <Textarea
                   rows={3}
                   value={formValues[field.name] || ""}
                   onChange={(e) =>
                     setFormValues((prev) => ({ ...prev, [field.name]: e.target.value }))
                   }
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 resize-y"
+                  className="resize-y"
                 />
               ) : (
-                <input
+                <Input
                   type={field.type === "number" ? "number" : "text"}
                   value={formValues[field.name] || ""}
                   onChange={(e) =>
                     setFormValues((prev) => ({ ...prev, [field.name]: e.target.value }))
                   }
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
                 />
               )}
             </div>
           ))
         ) : (
           <div>
-            <label className="block text-sm text-slate-400 mb-1">Input JSON</label>
-            <textarea
+            <label className="block text-sm text-bm-muted mb-1">Input JSON</label>
+            <Textarea
               rows={5}
               value={jsonInput}
               onChange={(e) => setJsonInput(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sky-500 resize-y"
+              className="font-mono resize-y"
             />
           </div>
         )}
 
         {uploadStatus && (
-          <p className="text-xs text-sky-400">{uploadStatus}</p>
+          <p className="text-xs text-bm-accent">{uploadStatus}</p>
         )}
 
-        <button
+        <Button
           onClick={handleRun}
           disabled={running}
-          className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-40 text-white font-medium py-2.5 rounded-lg text-sm transition-colors"
+          className="w-full"
         >
           {running ? "Running..." : "Run"}
-        </button>
-      </div>
+        </Button>
+        </CardContent>
+      </Card>
 
       {/* Error */}
       {error && (
-        <div className="bg-red-950 border border-red-800 text-red-200 px-4 py-3 rounded-lg text-sm">
+        <div className="bg-bm-danger/15 border border-bm-danger/30 text-bm-text px-4 py-3 rounded-lg text-sm">
           {error}
         </div>
       )}
 
       {/* Result */}
       {result && (
-        <div className="border border-slate-700 rounded-lg p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-slate-400 uppercase">Result</h3>
+        <Card>
+          <CardContent className="space-y-3">
+          <CardTitle className="text-sm font-semibold uppercase tracking-[0.14em] text-bm-muted2">
+            Result
+          </CardTitle>
           <div className="flex items-center gap-3">
-            <span className="text-xs font-mono text-slate-500">Run ID:</span>
+            <span className="text-xs font-mono text-bm-muted2">Run ID:</span>
             <span className="text-sm font-mono">{result.run_id}</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs font-mono text-slate-500">Status:</span>
-            <span
-              className={`text-xs px-2 py-0.5 rounded ${
-                result.status === "completed"
-                  ? "bg-emerald-900 text-emerald-300"
-                  : "bg-yellow-900 text-yellow-300"
-              }`}
-            >
+            <span className="text-xs font-mono text-bm-muted2">Status:</span>
+            <Badge variant={result.status === "completed" ? "success" : "warning"}>
               {result.status}
-            </span>
+            </Badge>
           </div>
           <div>
-            <span className="text-xs font-mono text-slate-500 block mb-1">Outputs:</span>
-            <pre className="text-xs bg-slate-900 rounded-lg p-3 overflow-x-auto">
+            <span className="text-xs font-mono text-bm-muted2 block mb-1">Outputs:</span>
+            <pre className="text-xs bg-bm-bg/20 border border-bm-border/60 rounded-lg p-3 overflow-x-auto">
               {JSON.stringify(result.outputs_json, null, 2)}
             </pre>
           </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

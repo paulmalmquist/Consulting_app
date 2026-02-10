@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import {
   getAllDepartments,
   getCatalogCapabilities,
@@ -140,13 +143,13 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-start justify-center p-4 pt-8 sm:pt-16">
+    <div className="min-h-screen flex items-start justify-center p-4 pt-8 sm:pt-16">
       <div className="w-full max-w-2xl">
         <h1 className="text-2xl font-bold mb-1">Business OS Setup</h1>
-        <p className="text-slate-400 text-sm mb-8">Configure your business workspace</p>
+        <p className="text-bm-muted text-sm mb-8">Configure your business workspace</p>
 
         {error && (
-          <div className="bg-red-950 border border-red-800 text-red-200 px-4 py-3 rounded-lg mb-6 text-sm">
+          <div className="bg-bm-danger/15 border border-bm-danger/30 text-bm-text px-4 py-3 rounded-lg mb-6 text-sm">
             {error}
           </div>
         )}
@@ -156,43 +159,40 @@ export default function OnboardingPage() {
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Create Your Business</h2>
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Business Name</label>
-              <input
+              <label className="block text-sm text-bm-muted mb-1">Business Name</label>
+              <Input
                 type="text"
                 value={bizName}
                 onChange={(e) => setBizName(e.target.value)}
                 placeholder="Acme Corp"
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
               />
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Slug</label>
-              <input
+              <label className="block text-sm text-bm-muted mb-1">Slug</label>
+              <Input
                 type="text"
                 value={bizSlug}
                 onChange={(e) => setBizSlug(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
               />
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Region</label>
-              <select
+              <label className="block text-sm text-bm-muted mb-1">Region</label>
+              <Select
                 value={bizRegion}
                 onChange={(e) => setBizRegion(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
               >
                 <option value="us">United States</option>
                 <option value="eu">Europe</option>
                 <option value="apac">Asia-Pacific</option>
-              </select>
+              </Select>
             </div>
-            <button
+            <Button
               disabled={!bizName.trim()}
               onClick={() => setStep("choose")}
-              className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-lg text-sm transition-colors"
+              className="w-full"
             >
               Continue
-            </button>
+            </Button>
           </div>
         )}
 
@@ -200,26 +200,26 @@ export default function OnboardingPage() {
         {step === "choose" && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Choose Setup Path</h2>
-            <p className="text-sm text-slate-400">Start from a template or build a custom configuration.</p>
+            <p className="text-sm text-bm-muted">Start from a template or build a custom configuration.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button
                 onClick={() => setStep("template-pick")}
-                className="border border-slate-700 rounded-lg p-4 text-left hover:border-sky-500 transition-colors"
+                className="bm-glass-interactive rounded-xl p-4 text-left border border-bm-border/70 hover:border-bm-accent/35"
               >
                 <p className="font-semibold">Template</p>
-                <p className="text-sm text-slate-400 mt-1">Pre-configured department bundles. Review &amp; toggle before provisioning.</p>
+                <p className="text-sm text-bm-muted mt-1">Pre-configured department bundles. Review &amp; toggle before provisioning.</p>
               </button>
               <button
                 onClick={() => setStep("custom-depts")}
-                className="border border-slate-700 rounded-lg p-4 text-left hover:border-sky-500 transition-colors"
+                className="bm-glass-interactive rounded-xl p-4 text-left border border-bm-border/70 hover:border-bm-accent/35"
               >
                 <p className="font-semibold">Custom</p>
-                <p className="text-sm text-slate-400 mt-1">Pick departments and capabilities individually.</p>
+                <p className="text-sm text-bm-muted mt-1">Pick departments and capabilities individually.</p>
               </button>
             </div>
             <button
               onClick={() => setStep("create")}
-              className="text-sm text-slate-400 hover:text-slate-200"
+              className="text-sm text-bm-muted hover:text-bm-text"
             >
               ← Back
             </button>
@@ -238,19 +238,22 @@ export default function OnboardingPage() {
                     setSelectedTemplate(tmpl);
                     setStep("template-review");
                   }}
-                  className={`w-full border rounded-lg p-4 text-left transition-colors ${
+                  className={`w-full bm-glass-interactive border rounded-xl p-4 text-left transition-colors ${
                     selectedTemplate?.key === tmpl.key
-                      ? "border-sky-500 bg-slate-900"
-                      : "border-slate-700 hover:border-slate-500"
+                      ? "border-bm-accent/35"
+                      : "border-bm-border/70 hover:border-bm-borderStrong"
                   }`}
                 >
                   <p className="font-semibold">{tmpl.label}</p>
-                  <p className="text-sm text-slate-400 mt-1">{tmpl.description}</p>
+                  <p className="text-sm text-bm-muted mt-1">{tmpl.description}</p>
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {tmpl.departments.map((dk) => {
                       const dept = allDepts.find((d) => d.key === dk);
                       return (
-                        <span key={dk} className="text-xs bg-slate-800 px-2 py-0.5 rounded">
+                        <span
+                          key={dk}
+                          className="text-xs bg-bm-surface2/60 border border-bm-border/60 px-2 py-0.5 rounded"
+                        >
                           {dept ? `${iconFor(dept.icon)} ${dept.label}` : dk}
                         </span>
                       );
@@ -261,7 +264,7 @@ export default function OnboardingPage() {
             </div>
             <button
               onClick={() => setStep("choose")}
-              className="text-sm text-slate-400 hover:text-slate-200"
+              className="text-sm text-bm-muted hover:text-bm-text"
             >
               ← Back
             </button>
@@ -272,16 +275,16 @@ export default function OnboardingPage() {
         {step === "template-review" && selectedTemplate && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Review: {selectedTemplate.label}</h2>
-            <p className="text-sm text-slate-400">Toggle departments and capabilities on/off before provisioning.</p>
+            <p className="text-sm text-bm-muted">Toggle departments and capabilities on/off before provisioning.</p>
 
             {/* Top bar preview */}
-            <div className="bg-slate-900 rounded-lg p-3">
-              <p className="text-xs text-slate-500 mb-2 uppercase">Top Bar Preview</p>
+            <div className="bm-glass rounded-lg p-3">
+              <p className="text-xs text-bm-muted2 mb-2 uppercase tracking-[0.14em]">Top Bar Preview</p>
               <div className="flex flex-wrap gap-2">
                 {allDepts
                   .filter((d) => templateDepts.has(d.key))
                   .map((d) => (
-                    <span key={d.key} className="text-sm bg-slate-800 px-3 py-1 rounded-lg">
+                    <span key={d.key} className="text-sm bg-bm-surface2/60 border border-bm-border/60 px-3 py-1 rounded-lg">
                       {iconFor(d.icon)} {d.label}
                     </span>
                   ))}
@@ -296,7 +299,7 @@ export default function OnboardingPage() {
                   const enabled = templateDepts.has(dept.key);
                   const caps = allCaps[dept.key] || [];
                   return (
-                    <div key={dept.key} className="border border-slate-700 rounded-lg overflow-hidden">
+                    <div key={dept.key} className="bm-glass rounded-lg overflow-hidden">
                       <button
                         onClick={() => {
                           const next = new Set(templateDepts);
@@ -304,21 +307,23 @@ export default function OnboardingPage() {
                           else next.add(dept.key);
                           setTemplateDepts(next);
                         }}
-                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-900 transition-colors"
+                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-bm-surface/35 transition"
                       >
                         <span className="font-medium">
                           {iconFor(dept.icon)} {dept.label}
                         </span>
                         <span
-                          className={`text-xs px-2 py-0.5 rounded ${
-                            enabled ? "bg-emerald-900 text-emerald-300" : "bg-slate-800 text-slate-400"
+                          className={`text-xs px-2 py-0.5 rounded border ${
+                            enabled
+                              ? "bg-bm-success/15 text-bm-text border-bm-success/35"
+                              : "bg-bm-surface2/50 text-bm-muted border-bm-border/60"
                           }`}
                         >
                           {enabled ? "ON" : "OFF"}
                         </span>
                       </button>
                       {enabled && caps.length > 0 && (
-                        <div className="border-t border-slate-800 px-4 py-2 space-y-1">
+                        <div className="border-t border-bm-border/70 px-4 py-2 space-y-1">
                           {caps.map((cap) => {
                             const capEnabled = templateCaps.has(cap.key);
                             return (
@@ -330,12 +335,14 @@ export default function OnboardingPage() {
                                   else next.add(cap.key);
                                   setTemplateCaps(next);
                                 }}
-                                className="w-full flex items-center justify-between py-1.5 text-sm hover:bg-slate-900 px-2 rounded transition-colors"
+                                className="w-full flex items-center justify-between py-1.5 text-sm hover:bg-bm-surface/30 px-2 rounded transition"
                               >
-                                <span className="text-slate-300">{cap.label}</span>
+                                <span className="text-bm-text">{cap.label}</span>
                                 <span
-                                  className={`text-xs px-1.5 py-0.5 rounded ${
-                                    capEnabled ? "bg-emerald-900 text-emerald-300" : "bg-slate-800 text-slate-500"
+                                  className={`text-xs px-1.5 py-0.5 rounded border ${
+                                    capEnabled
+                                      ? "bg-bm-success/15 text-bm-text border-bm-success/35"
+                                      : "bg-bm-surface2/50 text-bm-muted border-bm-border/60"
                                   }`}
                                 >
                                   {capEnabled ? "ON" : "OFF"}
@@ -350,16 +357,16 @@ export default function OnboardingPage() {
                 })}
             </div>
 
-            <button
+            <Button
               onClick={handleProvision}
               disabled={loading || templateDepts.size === 0}
-              className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-40 text-white font-medium py-2.5 rounded-lg text-sm transition-colors"
+              className="w-full"
             >
               {loading ? "Provisioning..." : "Provision Business"}
-            </button>
+            </Button>
             <button
               onClick={() => setStep("template-pick")}
-              className="text-sm text-slate-400 hover:text-slate-200"
+              className="text-sm text-bm-muted hover:text-bm-text"
             >
               ← Back
             </button>
@@ -370,7 +377,7 @@ export default function OnboardingPage() {
         {step === "custom-depts" && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Select Departments</h2>
-            <p className="text-sm text-slate-400">Choose which departments to enable.</p>
+            <p className="text-sm text-bm-muted">Choose which departments to enable.</p>
             <div className="space-y-2">
               {allDepts.map((dept) => {
                 const selected = customDepts.has(dept.key);
@@ -383,16 +390,20 @@ export default function OnboardingPage() {
                       else next.add(dept.key);
                       setCustomDepts(next);
                     }}
-                    className={`w-full flex items-center justify-between border rounded-lg px-4 py-3 transition-colors ${
-                      selected ? "border-sky-500 bg-slate-900" : "border-slate-700 hover:border-slate-500"
+                    className={`w-full flex items-center justify-between bm-glass-interactive border rounded-xl px-4 py-3 transition-colors ${
+                      selected
+                        ? "border-bm-accent/35"
+                        : "border-bm-border/70 hover:border-bm-borderStrong"
                     }`}
                   >
                     <span>
                       {iconFor(dept.icon)} {dept.label}
                     </span>
                     <span
-                      className={`text-xs px-2 py-0.5 rounded ${
-                        selected ? "bg-sky-900 text-sky-300" : "bg-slate-800 text-slate-400"
+                      className={`text-xs px-2 py-0.5 rounded border ${
+                        selected
+                          ? "bg-bm-accent/15 text-bm-text border-bm-accent/35"
+                          : "bg-bm-surface2/50 text-bm-muted border-bm-border/60"
                       }`}
                     >
                       {selected ? "Selected" : ""}
@@ -401,16 +412,16 @@ export default function OnboardingPage() {
                 );
               })}
             </div>
-            <button
+            <Button
               disabled={customDepts.size === 0}
               onClick={() => setStep("custom-caps")}
-              className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-40 text-white font-medium py-2.5 rounded-lg text-sm transition-colors"
+              className="w-full"
             >
               Next: Capabilities
-            </button>
+            </Button>
             <button
               onClick={() => setStep("choose")}
-              className="text-sm text-slate-400 hover:text-slate-200"
+              className="text-sm text-bm-muted hover:text-bm-text"
             >
               ← Back
             </button>
@@ -421,18 +432,18 @@ export default function OnboardingPage() {
         {step === "custom-caps" && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Select Capabilities</h2>
-            <p className="text-sm text-slate-400">Choose capabilities for each department.</p>
+            <p className="text-sm text-bm-muted">Choose capabilities for each department.</p>
             {Array.from(customDepts).map((dk) => {
               const dept = allDepts.find((d) => d.key === dk);
               const caps = allCaps[dk] || [];
               return (
-                <div key={dk} className="border border-slate-700 rounded-lg overflow-hidden">
-                  <div className="px-4 py-3 bg-slate-900 font-medium text-sm">
+                <div key={dk} className="bm-glass rounded-lg overflow-hidden">
+                  <div className="px-4 py-3 bg-bm-bg/15 font-medium text-sm border-b border-bm-border/60">
                     {dept ? `${iconFor(dept.icon)} ${dept.label}` : dk}
                   </div>
                   <div className="px-4 py-2 space-y-1">
                     {caps.length === 0 && (
-                      <p className="text-sm text-slate-500 py-1">Loading capabilities...</p>
+                      <p className="text-sm text-bm-muted2 py-1">Loading capabilities...</p>
                     )}
                     {caps.map((cap) => {
                       const selected = customCaps.has(cap.key);
@@ -445,12 +456,14 @@ export default function OnboardingPage() {
                             else next.add(cap.key);
                             setCustomCaps(next);
                           }}
-                          className="w-full flex items-center justify-between py-1.5 text-sm hover:bg-slate-900 px-2 rounded transition-colors"
+                          className="w-full flex items-center justify-between py-1.5 text-sm hover:bg-bm-surface/30 px-2 rounded transition"
                         >
-                          <span className="text-slate-300">{cap.label}</span>
+                          <span className="text-bm-text">{cap.label}</span>
                           <span
-                            className={`text-xs px-1.5 py-0.5 rounded ${
-                              selected ? "bg-sky-900 text-sky-300" : "bg-slate-800 text-slate-500"
+                            className={`text-xs px-1.5 py-0.5 rounded border ${
+                              selected
+                                ? "bg-bm-accent/15 text-bm-text border-bm-accent/35"
+                                : "bg-bm-surface2/50 text-bm-muted border-bm-border/60"
                             }`}
                           >
                             {selected ? "ON" : "OFF"}
@@ -462,16 +475,16 @@ export default function OnboardingPage() {
                 </div>
               );
             })}
-            <button
+            <Button
               disabled={customCaps.size === 0}
               onClick={() => setStep("custom-review")}
-              className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-40 text-white font-medium py-2.5 rounded-lg text-sm transition-colors"
+              className="w-full"
             >
               Review Configuration
-            </button>
+            </Button>
             <button
               onClick={() => setStep("custom-depts")}
-              className="text-sm text-slate-400 hover:text-slate-200"
+              className="text-sm text-bm-muted hover:text-bm-text"
             >
               ← Back
             </button>
@@ -483,13 +496,13 @@ export default function OnboardingPage() {
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Review Custom Configuration</h2>
 
-            <div className="bg-slate-900 rounded-lg p-3">
-              <p className="text-xs text-slate-500 mb-2 uppercase">Top Bar Preview</p>
+            <div className="bm-glass rounded-lg p-3">
+              <p className="text-xs text-bm-muted2 mb-2 uppercase tracking-[0.14em]">Top Bar Preview</p>
               <div className="flex flex-wrap gap-2">
                 {allDepts
                   .filter((d) => customDepts.has(d.key))
                   .map((d) => (
-                    <span key={d.key} className="text-sm bg-slate-800 px-3 py-1 rounded-lg">
+                    <span key={d.key} className="text-sm bg-bm-surface2/60 border border-bm-border/60 px-3 py-1 rounded-lg">
                       {iconFor(d.icon)} {d.label}
                     </span>
                   ))}
@@ -500,34 +513,34 @@ export default function OnboardingPage() {
               const dept = allDepts.find((d) => d.key === dk);
               const caps = (allCaps[dk] || []).filter((c) => customCaps.has(c.key));
               return (
-                <div key={dk} className="border border-slate-700 rounded-lg overflow-hidden">
-                  <div className="px-4 py-3 bg-slate-900 font-medium text-sm">
+                <div key={dk} className="bm-glass rounded-lg overflow-hidden">
+                  <div className="px-4 py-3 bg-bm-bg/15 font-medium text-sm border-b border-bm-border/60">
                     {dept ? `${iconFor(dept.icon)} ${dept.label}` : dk}
                   </div>
                   <div className="px-4 py-2 space-y-1">
                     {caps.map((cap) => (
-                      <div key={cap.key} className="text-sm text-slate-300 py-1 px-2">
+                      <div key={cap.key} className="text-sm text-bm-text py-1 px-2">
                         {cap.label}
                       </div>
                     ))}
                     {caps.length === 0 && (
-                      <p className="text-sm text-slate-500 py-1">No capabilities selected</p>
+                      <p className="text-sm text-bm-muted2 py-1">No capabilities selected</p>
                     )}
                   </div>
                 </div>
               );
             })}
 
-            <button
+            <Button
               onClick={handleProvision}
               disabled={loading}
-              className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-40 text-white font-medium py-2.5 rounded-lg text-sm transition-colors"
+              className="w-full"
             >
               {loading ? "Provisioning..." : "Provision Business"}
-            </button>
+            </Button>
             <button
               onClick={() => setStep("custom-caps")}
-              className="text-sm text-slate-400 hover:text-slate-200"
+              className="text-sm text-bm-muted hover:text-bm-text"
             >
               ← Back
             </button>

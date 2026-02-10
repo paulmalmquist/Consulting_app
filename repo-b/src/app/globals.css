@@ -2,8 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-slate-950 text-slate-100;
+@layer base {
+  :root {
+    /* Semantic tokens (HSL triplets: "H S L") */
+    --bm-bg: 222 52% 5%;
+    --bm-bg-2: 222 58% 4%;
+    --bm-surface: 220 42% 10%;
+    --bm-surface-2: 220 36% 13%;
+    --bm-border: 216 28% 22%;
+    --bm-border-strong: 210 30% 28%;
+    --bm-text: 210 40% 96%;
+    --bm-text-muted: 215 18% 72%;
+    --bm-text-muted-2: 218 14% 60%;
+
+    --bm-accent: 192 100% 55%;
+    --bm-accent-2: 205 100% 58%;
+    --bm-accent-contrast: 222 55% 6%;
+
+    --bm-success: 165 78% 45%;
+    --bm-warning: 40 96% 56%;
+    --bm-danger: 355 86% 58%;
+    --bm-focus-ring: 192 100% 55%;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-bm-bg text-bm-text font-sans antialiased;
+    background-image: theme("backgroundImage.bm-vignette");
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display tracking-tight;
+  }
+
+  ::selection {
+    background: hsl(var(--bm-accent) / 0.22);
+    color: hsl(var(--bm-text));
+  }
+
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--bm-focus-ring) / 0.45),
+      0 0 0 6px hsl(var(--bm-focus-ring) / 0.12);
+    border-radius: 0.6rem;
+  }
+}
+
+@layer components {
+  .bm-glass {
+    @apply bg-bm-surface/60 border border-bm-border/70 backdrop-blur-md shadow-bm-card;
+  }
+
+  .bm-glass-interactive {
+    @apply bm-glass transition;
+  }
+  .bm-glass-interactive:hover {
+    box-shadow: 0 0 0 1px hsl(var(--bm-border-strong) / 0.7),
+      0 18px 52px -30px hsl(var(--bm-accent) / 0.38);
+  }
 }
 
 /* Hide scrollbar for horizontal scroll areas */

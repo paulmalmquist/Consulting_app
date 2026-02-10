@@ -5,6 +5,7 @@ import { useBusinessContext } from "@/lib/business-context";
 import ExecutionSurface from "@/components/bos/ExecutionSurface";
 import DocumentsView from "@/components/bos/DocumentsView";
 import HistoryView from "@/components/bos/HistoryView";
+import { Button } from "@/components/ui/Button";
 
 export default function CapabilityPageClient({
   deptKey,
@@ -23,7 +24,7 @@ export default function CapabilityPageClient({
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
         <h2 className="text-xl font-semibold mb-2">Not Provisioned</h2>
-        <p className="text-slate-400 text-sm">
+        <p className="text-bm-muted text-sm">
           The department &ldquo;{deptKey}&rdquo; is not enabled for this business.
         </p>
       </div>
@@ -33,8 +34,8 @@ export default function CapabilityPageClient({
   if (loadingCapabilities) {
     return (
       <div className="space-y-4 animate-pulse">
-        <div className="h-8 w-48 bg-slate-800 rounded" />
-        <div className="h-64 bg-slate-800 rounded-lg" />
+        <div className="h-8 w-48 bg-bm-surface/60 border border-bm-border/60 rounded" />
+        <div className="h-64 bg-bm-surface/60 border border-bm-border/60 rounded-lg" />
       </div>
     );
   }
@@ -43,15 +44,15 @@ export default function CapabilityPageClient({
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
         <h2 className="text-xl font-semibold mb-2">Capability Not Found</h2>
-        <p className="text-slate-400 text-sm mb-4">
+        <p className="text-bm-muted text-sm mb-4">
           &ldquo;{capKey}&rdquo; is not enabled for {dept.label}.
         </p>
-        <button
+        <Button
+          variant="ghost"
           onClick={() => router.push(`/app/${deptKey}`)}
-          className="text-sky-400 hover:text-sky-300 text-sm"
         >
           Back to {dept.label}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -60,7 +61,7 @@ export default function CapabilityPageClient({
     return (
       <div className="max-w-4xl">
         <h1 className="text-xl font-bold mb-1">{cap.label}</h1>
-        <p className="text-sm text-slate-400 mb-6">{dept.label} documents</p>
+        <p className="text-sm text-bm-muted mb-6">{dept.label} documents</p>
         <DocumentsView businessId={businessId!} departmentId={dept.department_id} />
       </div>
     );
@@ -70,7 +71,7 @@ export default function CapabilityPageClient({
     return (
       <div className="max-w-4xl">
         <h1 className="text-xl font-bold mb-1">{cap.label}</h1>
-        <p className="text-sm text-slate-400 mb-6">{dept.label} execution history</p>
+        <p className="text-sm text-bm-muted mb-6">{dept.label} execution history</p>
         <HistoryView businessId={businessId!} departmentId={dept.department_id} />
       </div>
     );
@@ -78,14 +79,15 @@ export default function CapabilityPageClient({
 
   return (
     <div className="max-w-4xl">
-      <button
+      <Button
+        variant="ghost"
         onClick={() => router.push(`/app/${deptKey}`)}
-        className="text-sm text-slate-400 hover:text-slate-200 mb-4 block"
+        className="mb-4"
       >
         &larr; {dept.label}
-      </button>
+      </Button>
       <h1 className="text-xl font-bold mb-1">{cap.label}</h1>
-      <p className="text-sm text-slate-400 mb-6">Execute action</p>
+      <p className="text-sm text-bm-muted mb-6">Execute action</p>
       <ExecutionSurface
         businessId={businessId!}
         departmentId={dept.department_id}

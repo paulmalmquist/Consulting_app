@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useEnv } from "@/components/EnvProvider";
+import EnvGate from "@/components/EnvGate";
 import { apiFetch } from "@/lib/api";
+import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 
 type QueueItem = {
   id: string;
@@ -49,55 +52,60 @@ export default function QueuePage() {
   };
 
   return (
-    <div className="space-y-6">
-      <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-        <h1 className="text-xl font-semibold">HITL Queue</h1>
-        <p className="text-sm text-slate-400 mt-2">
-          Demo Approver reviews medium/high risk actions.
-        </p>
-        {message ? <p className="mt-3 text-sm text-emerald-300">{message}</p> : null}
-      </section>
-      <section className="space-y-3">
-        {items.map((item) => (
-          <div
-            key={item.id}
-            className="bg-slate-900 border border-slate-800 rounded-2xl p-6"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-semibold">
-                  {typeof item.requested_action.type === "string"
-                    ? item.requested_action.type
-                    : "Requested action"}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {item.risk_level} risk · {item.status}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => decide(item.id, "approve")}
-                  className="px-3 py-1 rounded-lg bg-emerald-400 text-slate-900 text-sm font-semibold"
-                >
-                  Approve
-                </button>
-                <button
-                  onClick={() => decide(item.id, "deny")}
-                  className="px-3 py-1 rounded-lg border border-slate-700 text-sm"
-                >
-                  Deny
-                </button>
-              </div>
-            </div>
-            <pre className="mt-4 text-xs text-slate-400 bg-slate-950 p-3 rounded-lg overflow-auto">
+    <EnvGate>
+      <div className="space-y-6">
+        <Card>
+          <CardContent>
+            <CardTitle className="text-xl">HITL Queue</CardTitle>
+            <CardDescription>
+              Demo Approver reviews medium/high risk actions.
+            </CardDescription>
+            {message ? <p className="mt-3 text-sm text-bm-success">{message}</p> : null}
+          </CardContent>
+        </Card>
+        <section className="space-y-3">
+          {items.map((item) => (
+            <Card key={item.id}>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold">
+                      {typeof item.requested_action.type === "string"
+                        ? item.requested_action.type
+                        : "Requested action"}
+                    </p>
+                    <p className="text-xs text-bm-muted2">
+                      {item.risk_level} risk · {item.status}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => decide(item.id, "approve")}
+                      className="bg-bm-success text-bm-accentContrast hover:bg-bm-success/90"
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => decide(item.id, "deny")}
+                    >
+                      Deny
+                    </Button>
+                  </div>
+                </div>
+                <pre className="mt-4 text-xs text-bm-muted bg-bm-bg/20 p-3 rounded-lg overflow-auto border border-bm-border/60">
 {JSON.stringify(item.requested_action, null, 2)}
-            </pre>
-          </div>
-        ))}
-        {items.length === 0 ? (
-          <p className="text-sm text-slate-500">No pending approvals.</p>
-        ) : null}
-      </section>
-    </div>
+                </pre>
+              </CardContent>
+            </Card>
+          ))}
+          {items.length === 0 ? (
+            <p className="text-sm text-bm-muted2">No pending approvals.</p>
+          ) : null}
+        </section>
+      </div>
+    </EnvGate>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useBusinessContext } from "@/lib/business-context";
+import { buttonVariants } from "@/components/ui/buttonVariants";
 
 export default function AppIndexPage() {
   const router = useRouter();
@@ -19,10 +20,10 @@ export default function AppIndexPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
         <h2 className="text-xl font-semibold mb-2">No Business Configured</h2>
-        <p className="text-slate-400 text-sm mb-6">Set up your business to get started.</p>
+        <p className="text-bm-muted text-sm mb-6">Set up your business to get started.</p>
         <a
           href="/onboarding"
-          className="bg-sky-600 hover:bg-sky-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors"
+          className={buttonVariants({ variant: "primary" })}
         >
           Start Setup
         </a>
@@ -33,9 +34,9 @@ export default function AppIndexPage() {
   if (loadingDepartments) {
     return (
       <div className="space-y-4 animate-pulse">
-        <div className="h-8 w-48 bg-slate-800 rounded" />
-        <div className="h-32 bg-slate-800 rounded-lg" />
-        <div className="h-32 bg-slate-800 rounded-lg" />
+        <div className="h-8 w-48 bg-bm-surface/60 border border-bm-border/60 rounded" />
+        <div className="h-32 bg-bm-surface/60 border border-bm-border/60 rounded-lg" />
+        <div className="h-32 bg-bm-surface/60 border border-bm-border/60 rounded-lg" />
       </div>
     );
   }
@@ -44,12 +45,12 @@ export default function AppIndexPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
         <h2 className="text-xl font-semibold mb-2">No Departments Provisioned</h2>
-        <p className="text-slate-400 text-sm mb-6">
+        <p className="text-bm-muted text-sm mb-6">
           Your business has no enabled departments. Update your configuration.
         </p>
         <a
           href="/onboarding"
-          className="bg-sky-600 hover:bg-sky-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors"
+          className={buttonVariants({ variant: "primary" })}
         >
           Reconfigure
         </a>

@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test:e2e": "playwright test",
     "db:dry": "node db/schema/apply.js --dry-run",
     "db:apply": "NODE_TLS_REJECT_UNAUTHORIZED=0 node db/schema/apply.js",
     "db:verify": "NODE_TLS_REJECT_UNAUTHORIZED=0 node db/schema/verify.js",
@@ -19,9 +20,11 @@
     "react-dom": "18.2.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.41.2",
     "@types/node": "25.0.10",
     "@types/react": "19.2.9",
     "autoprefixer": "10.4.19",
+    "playwright": "^1.41.2",
     "postcss": "8.4.38",
     "tailwindcss": "3.4.4",
     "typescript": "5.4.5"

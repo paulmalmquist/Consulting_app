@@ -38,7 +38,7 @@ export default function BosAppShell({ children }: { children: React.ReactNode })
   }, [sidebarOpen]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-bm-bg text-bm-text flex flex-col">
       <TopBar
         activeDeptKey={deptKey}
         onHamburgerClick={() => setSidebarOpen(true)}
