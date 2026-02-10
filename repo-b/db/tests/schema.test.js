@@ -199,13 +199,15 @@ async function main() {
     const modules = await q("SELECT module_id, key FROM module ORDER BY key");
     assert(modules.length >= 6, `${modules.length} modules seeded`);
 
+    const bbMod = modules.find(m => m.key === 'backbone');
+    const repMod = modules.find(m => m.key === 'reporting');
     const accMod = modules.find(m => m.key === 'accounting');
     const projMod = modules.find(m => m.key === 'projects');
     const propMod = modules.find(m => m.key === 'property');
     const msMod = modules.find(m => m.key === 'milestones');
 
-    // Enable all four
-    for (const mod of [accMod, projMod, propMod, msMod]) {
+    // Enable all six (backbone+reporting are always-on but still need business_module rows)
+    for (const mod of [bbMod, repMod, accMod, projMod, propMod, msMod]) {
       await q(
         "INSERT INTO business_module (business_id, module_id, enabled_by) VALUES ($1, $2, $3)",
         [biz.business_id, mod.module_id, actor.actor_id]

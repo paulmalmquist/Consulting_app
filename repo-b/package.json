@@ -8,9 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "db:dry": "node db/schema/apply.js --dry-run",
-    "db:apply": "node db/schema/apply.js",
-    "db:verify": "node db/schema/verify.js",
-    "db:test": "node db/tests/schema.test.js"
+    "db:apply": "NODE_TLS_REJECT_UNAUTHORIZED=0 node db/schema/apply.js",
+    "db:verify": "NODE_TLS_REJECT_UNAUTHORIZED=0 node db/schema/verify.js",
+    "db:test": "NODE_TLS_REJECT_UNAUTHORIZED=0 node db/tests/schema.test.js"
   },
   "dependencies": {
     "next": "14.2.4",
