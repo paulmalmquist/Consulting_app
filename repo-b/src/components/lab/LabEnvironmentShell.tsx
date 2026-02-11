@@ -11,6 +11,7 @@ import {
   type LabDepartmentKey,
 } from "@/lib/lab/DepartmentRegistry";
 import { getCapabilitiesForDepartment } from "@/lib/lab/CapabilityRegistry";
+import { DeptIcon } from "@/components/lab/LabIcons";
 
 type Props = {
   envId: string;
@@ -93,9 +94,10 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* ── Department icon tab bar ──────────────────────── */}
       <div className="rounded-xl border border-bm-border/70 bg-bm-surface/35 p-3">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             {departments.map((dept) => {
               const active = dept.key === currentDept;
               return (
@@ -103,14 +105,16 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
                   key={dept.key}
                   href={`/lab/env/${envId}/${dept.key}`}
                   data-testid={`dept-tab-${dept.key}`}
+                  aria-label={dept.label}
+                  title={dept.label}
                   className={cn(
-                    "rounded-lg border px-3 py-1.5 text-sm transition",
+                    "rounded-lg border p-2 transition inline-flex items-center justify-center",
                     active
                       ? "border-bm-accent/40 bg-bm-accent/10 text-bm-text"
-                      : "border-bm-border/70 text-bm-muted hover:bg-bm-surface/50"
+                      : "border-bm-border/70 text-bm-muted hover:bg-bm-surface/50 hover:text-bm-text"
                   )}
                 >
-                  {dept.label}
+                  <DeptIcon deptKey={dept.key} size={18} />
                 </Link>
               );
             })}
@@ -126,6 +130,7 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
         </div>
       </div>
 
+      {/* ── Desktop sidebar + content ────────────────────── */}
       <div className="grid gap-4 lg:grid-cols-[240px,1fr]">
         <aside
           className="hidden lg:block rounded-xl border border-bm-border/70 bg-bm-surface/30 p-3"
@@ -159,6 +164,7 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
         <div>{children}</div>
       </div>
 
+      {/* ── Mobile capability drawer ─────────────────────── */}
       {mobileSidebarOpen ? (
         <div className="lg:hidden fixed inset-0 z-40">
           <button
