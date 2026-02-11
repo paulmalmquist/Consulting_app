@@ -16,11 +16,14 @@ export default function EnvironmentsPage() {
   const router = useRouter();
   const { environments, refresh, selectEnv } = useEnv();
   const [clientName, setClientName] = useState("");
-  const [industry, setIndustry] = useState<(typeof industries)[number]>(
-    "healthcare"
-  );
+  const [industry, setIndustry] = useState<(typeof industries)[number]>("healthcare");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<string | null>(null);
+
+  const openEnvironment = (envId: string) => {
+    selectEnv(envId);
+    router.push(`/lab/env/${envId}`);
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -35,11 +38,10 @@ export default function EnvironmentsPage() {
         })
       });
       await refresh();
-      selectEnv(payload.env_id);
-      router.push("/lab");
       setClientName("");
       setNotes("");
       setStatus("Environment created.");
+      openEnvironment(payload.env_id);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Create failed";
       setStatus(message);
@@ -56,10 +58,7 @@ export default function EnvironmentsPage() {
             {environments.map((env) => (
               <button
                 key={env.env_id}
-                onClick={() => {
-                  selectEnv(env.env_id);
-                  router.push("/lab");
-                }}
+                onClick={() => openEnvironment(env.env_id)}
                 className="w-full text-left bm-glass-interactive rounded-xl p-4"
               >
                 <div className="flex items-center justify-between">
