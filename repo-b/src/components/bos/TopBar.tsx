@@ -44,7 +44,7 @@ export default function TopBar({
 
         {/* Brand */}
         <Link href="/app" className="flex-shrink-0 text-sm font-semibold font-display mr-3 hidden sm:block">
-          Business OS
+          Winston
         </Link>
 
         {/* Departments - horizontal scrollable */}

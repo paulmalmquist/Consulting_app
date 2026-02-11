@@ -168,7 +168,7 @@ export default function Sidebar({
         }`}
       >
         <div className="flex items-center justify-between p-3 border-b border-bm-border/70">
-          <span className="text-sm font-semibold font-display">Business OS</span>
+          <span className="text-sm font-semibold font-display">Winston</span>
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg hover:bg-bm-surface/50 transition-colors"

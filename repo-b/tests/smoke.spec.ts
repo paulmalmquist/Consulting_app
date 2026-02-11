@@ -116,13 +116,13 @@ test.beforeEach(async ({ context, page, baseURL }) => {
 
 test("Marketing home loads", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Business OS" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your Business Machine" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Login" })).toBeVisible();
 });
 
 test("Onboarding loads", async ({ page }) => {
   await page.goto("/onboarding");
-  await expect(page.getByRole("heading", { name: "Business OS Setup" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Winston Setup" })).toBeVisible();
 });
 
 test("App shell loads", async ({ page }) => {
@@ -130,7 +130,7 @@ test("App shell loads", async ({ page }) => {
   // The shell should render (top bar + mobile hamburger).
   await expect(page.getByRole("banner")).toBeVisible();
   const hamburger = page.getByLabel("Open sidebar");
-  const brand = page.getByRole("banner").getByRole("link", { name: "Business OS" });
+  const brand = page.getByRole("banner").getByRole("link", { name: "Winston" });
   if (await hamburger.isVisible()) {
     await expect(hamburger).toBeVisible();
   } else {

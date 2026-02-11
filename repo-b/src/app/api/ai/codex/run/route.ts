@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createRunAndStart, isLocalAiEnabled } from "@/lib/server/codexBridge";
+import { askOnce, createRunAndStart, isLocalAiEnabled } from "@/lib/server/codexBridge";
 
 export const runtime = "nodejs";
 
@@ -23,6 +23,20 @@ export async function POST(request: Request) {
 
   if (!prompt) {
     return NextResponse.json({ error: "Prompt is required." }, { status: 400 });
+  }
+
+  // In serverless production, in-memory run state can be split across invocations.
+  // Return a direct answer for reliability, while keeping run+stream for local dev.
+  if (process.env.VERCEL === "1") {
+    try {
+      const answer = await askOnce(prompt);
+      return NextResponse.json({ answer });
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "AI run failed." },
+        { status: 503 }
+      );
+    }
   }
 
   const run = createRunAndStart(contextKey, prompt);

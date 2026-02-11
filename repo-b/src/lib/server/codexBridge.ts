@@ -57,6 +57,31 @@ export async function checkSidecarHealth() {
   }
 }
 
+async function requestSidecarAnswer(prompt: string): Promise<string> {
+  const response = await fetch(`${SIDE_CAR_URL}/v1/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt, timeout_ms: 45000 }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Sidecar ask failed (${response.status}): ${text.slice(0, 400)}`);
+  }
+
+  const payload = (await response.json()) as AskResponse;
+  const answer = payload.answer || payload.output_text || payload.stdout || "";
+  return answer || "No output received from local sidecar.";
+}
+
+export async function askOnce(prompt: string): Promise<string> {
+  if (!isLocalAiEnabled()) {
+    throw new Error("AI_MODE is not local.");
+  }
+  return requestSidecarAnswer(prompt);
+}
+
 async function runPrompt(runId: string, prompt: string) {
   appendRunEvent(runId, {
     type: "status",
@@ -75,29 +100,7 @@ async function runPrompt(runId: string, prompt: string) {
   }
 
   try {
-    const response = await fetch(`${SIDE_CAR_URL}/v1/ask`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, timeout_ms: 45000 }),
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      setRunStatus(runId, "failed");
-      appendRunEvent(runId, {
-        type: "error",
-        payload: {
-          message: `Sidecar ask failed (${response.status}).`,
-          detail: text.slice(0, 400),
-        },
-        at: Date.now(),
-      });
-      return;
-    }
-
-    const payload = (await response.json()) as AskResponse;
-    const answer = payload.answer || payload.output_text || payload.stdout || "";
+    const answer = await requestSidecarAnswer(prompt);
 
     const run = getRun(runId);
     if (!run || run.cancelled) {

@@ -163,7 +163,22 @@ export default function GlobalCommandBar() {
         throw new Error(err.error || "Run failed");
       }
 
-      const runPayload = (await runResponse.json()) as { runId: string };
+      const runPayload = (await runResponse.json()) as { runId?: string; answer?: string };
+      if ("answer" in runPayload && typeof (runPayload as { answer?: unknown }).answer === "string") {
+        const finalAnswer = (runPayload as { answer: string }).answer;
+        setMessages((prev) =>
+          prev.map((item) =>
+            item.id === assistantId ? { ...item, content: finalAnswer } : item
+          )
+        );
+        setRunning(false);
+        setRunId(null);
+        return;
+      }
+      if (!runPayload.runId) {
+        throw new Error("Run started without runId.");
+      }
+
       setRunId(runPayload.runId);
 
       const source = new EventSource(

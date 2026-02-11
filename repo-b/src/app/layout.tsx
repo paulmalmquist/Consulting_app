@@ -4,8 +4,22 @@ import "./globals.css";
 import Providers from "@/components/Providers";
 
 export const metadata: Metadata = {
-  title: "Business OS",
-  description: "Data-driven business execution platform"
+  title: "Winston — Your Business Machine",
+  description: "Winston is the data-driven business execution platform that powers deal flow, CRM, and operational workflows.",
+  icons: {
+    icon: "/favicon.svg",
+  },
+  openGraph: {
+    title: "Winston — Your Business Machine",
+    description: "Data-driven business execution platform for deal flow, CRM, and operations.",
+    siteName: "Winston",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Winston — Your Business Machine",
+    description: "Data-driven business execution platform for deal flow, CRM, and operations.",
+  },
 };
 
 export const viewport: Viewport = {

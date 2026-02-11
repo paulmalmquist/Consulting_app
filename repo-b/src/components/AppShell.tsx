@@ -159,8 +159,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className={cn("flex items-center", collapsed ? "justify-center mb-3" : "justify-between mb-6")}>
           {!collapsed && (
             <div className="min-w-0">
-              <p className="text-xs uppercase text-bm-muted2 tracking-[0.14em]">Demo Lab</p>
-              <p className="text-lg font-semibold truncate">Workflow Ops</p>
+              <p className="text-xs uppercase text-bm-muted2 tracking-[0.14em]">Winston</p>
+              <p className="text-lg font-semibold truncate">Your Business Machine</p>
             </div>
           )}
           <button
@@ -203,7 +203,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className={cn("mt-auto pt-4", collapsed && "text-center")}>
           {!collapsed && (
             <p className="text-xs text-bm-muted2 mb-3">
-              Safe, auditable AI workflow automation.
+              Winston — Your Business Machine
             </p>
           )}
         </div>
@@ -312,8 +312,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           >
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-xs uppercase text-bm-muted2 tracking-[0.14em]">Demo Lab</p>
-                <p className="text-base font-semibold">Workflow Ops</p>
+                <p className="text-xs uppercase text-bm-muted2 tracking-[0.14em]">Winston</p>
+                <p className="text-base font-semibold">Your Business Machine</p>
               </div>
               <button
                 type="button"
