@@ -165,22 +165,22 @@ test("open environment routes to homepage and supports department/capability nav
   await expect(page.getByTestId("active-env-indicator")).toContainText(selectedEnvShort);
 
   await page.locator('[data-testid="dept-tab-accounting"]:visible').first().click();
-  await expect(page).toHaveURL(new RegExp(`/lab/env/${selectedEnvId}/accounting$`));
+  await expect(page).toHaveURL(new RegExp(`/lab/env/${selectedEnvId}/dept/accounting$`));
   await expect(page.locator('[data-testid="cap-link-general-ledger"]:visible').first()).toBeVisible();
 
   await openCapability(page, "general-ledger");
   await expect(page).toHaveURL(
-    new RegExp(`/lab/env/${selectedEnvId}/accounting/capability/general-ledger$`)
+    new RegExp(`/lab/env/${selectedEnvId}/dept/accounting/capability/general-ledger$`)
   );
   await expect(page.getByRole("heading", { name: "General Ledger" })).toBeVisible();
   await expect(page.getByTestId("active-env-indicator")).toContainText(selectedEnvShort);
 
   await page.locator('[data-testid="dept-tab-it"]:visible').first().click();
-  await expect(page).toHaveURL(new RegExp(`/lab/env/${selectedEnvId}/it$`));
+  await expect(page).toHaveURL(new RegExp(`/lab/env/${selectedEnvId}/dept/it$`));
   await expect(page.locator('[data-testid="cap-link-tickets"]:visible').first()).toBeVisible();
   await openCapability(page, "queue");
   await expect(page).toHaveURL(
-    new RegExp(`/lab/env/${selectedEnvId}/it/capability/queue$`)
+    new RegExp(`/lab/env/${selectedEnvId}/dept/it/capability/queue$`)
   );
 
   const isMobileProject = /webkit|mobile|iphone|android/i.test(testInfo.project.name);
@@ -259,7 +259,7 @@ test("accounting department tab exists and navigates correctly", async ({ page }
 
   // Click and navigate
   await page.locator('[data-testid="dept-tab-accounting"]:visible').first().click();
-  await expect(page).toHaveURL(new RegExp(`/lab/env/${selectedEnvId}/accounting$`));
+  await expect(page).toHaveURL(new RegExp(`/lab/env/${selectedEnvId}/dept/accounting$`));
 
   // Should show accounting capabilities
   await expect(page.locator('[data-testid="cap-link-general-ledger"]:visible').first()).toBeVisible();
@@ -270,7 +270,7 @@ test("accounting department tab exists and navigates correctly", async ({ page }
   // Navigate to a capability
   await openCapability(page, "general-ledger");
   await expect(page).toHaveURL(
-    new RegExp(`/lab/env/${selectedEnvId}/accounting/capability/general-ledger$`)
+    new RegExp(`/lab/env/${selectedEnvId}/dept/accounting/capability/general-ledger$`)
   );
   await expect(page.getByRole("heading", { name: "General Ledger" })).toBeVisible();
 });
@@ -285,12 +285,12 @@ test("lab sidebar includes accounting capability links", async ({ page }) => {
   await firstEnvOpen.click();
 
   await page.locator('[data-testid="dept-tab-accounting"]:visible').first().click();
-  await expect(page).toHaveURL(new RegExp(`/lab/env/${selectedEnvId}/accounting$`));
+  await expect(page).toHaveURL(new RegExp(`/lab/env/${selectedEnvId}/dept/accounting$`));
   await expect(page.getByTestId("lab-sidebar")).toContainText("General Ledger");
 
   await openCapability(page, "general-ledger");
   await expect(page).toHaveURL(
-    new RegExp(`/lab/env/${selectedEnvId}/accounting/capability/general-ledger$`)
+    new RegExp(`/lab/env/${selectedEnvId}/dept/accounting/capability/general-ledger$`)
   );
 });
 

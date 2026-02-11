@@ -67,7 +67,7 @@ test.beforeEach(async ({ context, page, baseURL }) => {
 // ─── PART A: Header Tests ──────────────────────────────────────
 
 test("env title shows environment name without code suffix", async ({ page }) => {
-  await page.goto(`/lab/env/${TEST_ENV_ID}/executive`);
+  await page.goto(`/lab/env/${TEST_ENV_ID}/dept/executive`);
 
   const envTitle = page.getByTestId("env-title");
   await expect(envTitle).toBeVisible();
@@ -78,7 +78,7 @@ test("env title shows environment name without code suffix", async ({ page }) =>
 });
 
 test("logout button is present and clears session", async ({ page }) => {
-  await page.goto(`/lab/env/${TEST_ENV_ID}/executive`);
+  await page.goto(`/lab/env/${TEST_ENV_ID}/dept/executive`);
 
   const logoutButton = page.getByTestId("logout-button");
   await expect(logoutButton).toBeVisible();
@@ -86,19 +86,19 @@ test("logout button is present and clears session", async ({ page }) => {
   // Click logout
   await logoutButton.click();
 
-  // Should redirect to /lab
-  await expect(page).toHaveURL(/\/lab$/);
+  // Should leave environment context and return to environments list
+  await expect(page).toHaveURL(/\/lab\/environments$/);
 });
 
 test("env-header test-id is present", async ({ page }) => {
-  await page.goto(`/lab/env/${TEST_ENV_ID}/executive`);
+  await page.goto(`/lab/env/${TEST_ENV_ID}/dept/executive`);
   await expect(page.getByTestId("env-header")).toBeVisible();
 });
 
 // ─── PART B: Add Department Tests ──────────────────────────────
 
 test("add department shows menu and adds department tab", async ({ page }) => {
-  await page.goto(`/lab/env/${TEST_ENV_ID}/executive`);
+  await page.goto(`/lab/env/${TEST_ENV_ID}/dept/executive`);
 
   const addDeptButton = page.getByTestId("add-dept-button");
   await expect(addDeptButton).toBeVisible();
@@ -123,7 +123,7 @@ test("add department shows menu and adds department tab", async ({ page }) => {
 });
 
 test("cannot add same department twice", async ({ page }) => {
-  await page.goto(`/lab/env/${TEST_ENV_ID}/executive`);
+  await page.goto(`/lab/env/${TEST_ENV_ID}/dept/executive`);
 
   // Add legal department
   await page.getByTestId("add-dept-button").click();
@@ -140,7 +140,7 @@ test("add capability shows in sidebar", async ({ page }) => {
   // Skip on mobile - sidebar is hidden
   const isMobile = await page.getByTestId("lab-env-sidebar-toggle").isVisible().catch(() => false);
 
-  await page.goto(`/lab/env/${TEST_ENV_ID}/executive`);
+  await page.goto(`/lab/env/${TEST_ENV_ID}/dept/executive`);
 
   // On mobile, the add-cap button would be in the drawer. Test only desktop.
   if (isMobile) return;
@@ -160,7 +160,7 @@ test("add capability shows in sidebar", async ({ page }) => {
 
 test("can add company in CRM", async ({ page }) => {
   // First add CRM department
-  await page.goto(`/lab/env/${TEST_ENV_ID}/executive`);
+  await page.goto(`/lab/env/${TEST_ENV_ID}/dept/executive`);
   await page.getByTestId("add-dept-button").click();
 
   // CRM might already be in the general template
@@ -171,7 +171,7 @@ test("can add company in CRM", async ({ page }) => {
 
   // Navigate to CRM
   await page.locator('[data-testid="dept-tab-crm"]:visible').first().click();
-  await expect(page).toHaveURL(new RegExp(`/lab/env/${TEST_ENV_ID}/crm$`));
+  await expect(page).toHaveURL(new RegExp(`/lab/env/${TEST_ENV_ID}/dept/crm$`));
 
   // Navigate to companies capability
   // Open sidebar on mobile if needed
@@ -189,7 +189,7 @@ test("can add company in CRM", async ({ page }) => {
   }
 
   await expect(page).toHaveURL(
-    new RegExp(`/lab/env/${TEST_ENV_ID}/crm/capability/companies$`)
+    new RegExp(`/lab/env/${TEST_ENV_ID}/dept/crm/capability/companies$`)
   );
 
   // Add a company
@@ -230,7 +230,7 @@ test("can add contact linked to company", async ({ page }) => {
     window.localStorage.setItem(`lab_env_data_${envId}`, JSON.stringify(store));
   }, TEST_ENV_ID);
 
-  await page.goto(`/lab/env/${TEST_ENV_ID}/crm/capability/contacts`);
+  await page.goto(`/lab/env/${TEST_ENV_ID}/dept/crm/capability/contacts`);
 
   await page.getByTestId("add-contact-button").click();
   await expect(page.getByTestId("add-contact-modal")).toBeVisible();
@@ -286,7 +286,7 @@ test("can log interaction and updates lastTouch/nextDue", async ({ page }) => {
     window.localStorage.setItem(`lab_env_data_${envId}`, JSON.stringify(store));
   }, TEST_ENV_ID);
 
-  await page.goto(`/lab/env/${TEST_ENV_ID}/crm/capability/interactions`);
+  await page.goto(`/lab/env/${TEST_ENV_ID}/dept/crm/capability/interactions`);
 
   await page.getByTestId("log-interaction-button").click();
   await expect(page.getByTestId("log-interaction-modal")).toBeVisible();

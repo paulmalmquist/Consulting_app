@@ -19,6 +19,7 @@ import {
   ChevronsRightIcon,
   LogOutIcon,
 } from "@/components/lab/LabIcons";
+import { capabilityRoute } from "@/lib/lab/deptRouting";
 
 const navItems = [
   { id: "dashboard", href: "/lab", label: "Dashboard" },
@@ -55,7 +56,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (item.id === "metrics") {
       return {
         ...item,
-        href: `/lab/env/${selectedEnv.env_id}/executive/capability/metrics`,
+        href: capabilityRoute(selectedEnv.env_id, "executive", "metrics"),
       };
     }
     return item;

@@ -29,6 +29,7 @@ import { logLabAuditEvent } from "@/lib/lab/clientAudit";
 import { addDepartment, addCapability, getAddedDepartments, getEnabledCapabilities } from "@/lib/envData";
 import AddDepartmentMenu from "@/components/lab/AddDepartmentMenu";
 import AddCapabilityMenu from "@/components/lab/AddCapabilityMenu";
+import { capabilityRoute, deptRoute, setStoredLastDept } from "@/lib/lab/deptRouting";
 
 type Props = {
   envId: string;
@@ -36,7 +37,7 @@ type Props = {
 };
 
 function parseDepartmentFromPath(pathname: string, envId: string): LabDepartmentKey | null {
-  const prefix = `/lab/env/${envId}/`;
+  const prefix = `/lab/env/${envId}/dept/`;
   if (!pathname.startsWith(prefix)) return null;
   const rest = pathname.slice(prefix.length);
   const [dept] = rest.split("/");
@@ -45,7 +46,7 @@ function parseDepartmentFromPath(pathname: string, envId: string): LabDepartment
 }
 
 function parseCapabilityFromPath(pathname: string, envId: string): string | null {
-  const prefix = `/lab/env/${envId}/`;
+  const prefix = `/lab/env/${envId}/dept/`;
   if (!pathname.startsWith(prefix)) return null;
   const rest = pathname.slice(prefix.length);
   const parts = rest.split("/");
@@ -60,6 +61,7 @@ function GroupedCapabilityNav({
   groups,
   collapsedGroups,
   onToggleGroup,
+  onNavigate,
 }: {
   envId: string;
   currentDept: LabDepartmentKey;
@@ -67,6 +69,7 @@ function GroupedCapabilityNav({
   groups: Record<LabCapabilityCategory, LabCapabilityMeta[]>;
   collapsedGroups: Record<LabCapabilityCategory, boolean>;
   onToggleGroup: (group: LabCapabilityCategory) => void;
+  onNavigate?: () => void;
 }) {
   return (
     <div className="space-y-2">
@@ -90,8 +93,9 @@ function GroupedCapabilityNav({
                   return (
                     <Link
                       key={cap.key}
-                      href={`/lab/env/${envId}/${currentDept}/capability/${cap.key}`}
+                      href={capabilityRoute(envId, currentDept, cap.key)}
                       data-testid={`cap-link-${cap.key}`}
+                      onClick={onNavigate}
                       className={cn(
                         "block rounded-lg border px-3 py-2 text-sm transition",
                         active
@@ -159,12 +163,16 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
     [industry]
   );
 
+  const fallbackDept = useMemo(() => {
+    if (departments.some((dept) => dept.key === defaultDepartment)) return defaultDepartment;
+    return departments[0]?.key || null;
+  }, [departments, defaultDepartment]);
+
   const currentDept = useMemo(() => {
     const pathDept = parseDepartmentFromPath(pathname, envId);
     if (pathDept && departments.some((dept) => dept.key === pathDept)) return pathDept;
-    if (departments.some((dept) => dept.key === defaultDepartment)) return defaultDepartment;
-    return departments[0]?.key || null;
-  }, [pathname, envId, departments, defaultDepartment]);
+    return fallbackDept;
+  }, [pathname, envId, departments, fallbackDept]);
 
   const capabilities = useMemo(() => {
     if (!currentDept) return [];
@@ -240,7 +248,11 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
       localStorage.removeItem("demo_lab_env_id");
       localStorage.removeItem("lab_user_role");
     }
-    router.push("/lab");
+    if (typeof window !== "undefined") {
+      window.location.assign("/lab/environments");
+      return;
+    }
+    router.push("/lab/environments");
   }, [router]);
 
   useEffect(() => {
@@ -248,6 +260,19 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
       selectEnv(envId);
     }
   }, [envId, selectedEnv?.env_id, selectEnv]);
+
+  useEffect(() => {
+    const pathDept = parseDepartmentFromPath(pathname, envId);
+    if (!pathDept || !fallbackDept) return;
+    if (!departments.some((dept) => dept.key === pathDept)) {
+      router.replace(deptRoute(envId, fallbackDept));
+    }
+  }, [pathname, envId, departments, fallbackDept, router]);
+
+  useEffect(() => {
+    if (!currentDept) return;
+    setStoredLastDept(envId, currentDept);
+  }, [envId, currentDept]);
 
   useEffect(() => {
     const syncRole = () => setRole(getStoredLabRole());
@@ -351,19 +376,22 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
               return (
                 <Link
                   key={dept.key}
-                  href={`/lab/env/${envId}/${dept.key}`}
+                  href={deptRoute(envId, dept.key)}
                   data-testid={`dept-tab-${dept.key}`}
                   aria-label={dept.label}
+                  aria-current={active ? "page" : undefined}
+                  data-selected={active ? "true" : "false"}
                   title={dept.label}
+                  onClick={() => setStoredLastDept(envId, dept.key)}
                   className={cn(
-                    "rounded-lg border px-2.5 py-1.5 transition inline-flex items-center gap-1.5",
+                    "rounded-lg border h-9 w-9 transition inline-flex items-center justify-center",
                     active
                       ? "border-bm-accent/40 bg-bm-accent/10 text-bm-text"
                       : "border-bm-border/70 text-bm-muted hover:bg-bm-surface/50 hover:text-bm-text"
                   )}
                 >
                   <DeptIcon deptKey={dept.key} size={16} />
-                  <span className="text-xs font-medium hidden sm:inline">{dept.label}</span>
+                  <span className="sr-only">{dept.label}</span>
                 </Link>
               );
             })}
@@ -451,6 +479,36 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
               placeholder="Filter capabilities"
               className="mb-3 w-full rounded-lg border border-bm-border/70 bg-bm-surface/35 px-3 py-2 text-sm text-bm-text placeholder:text-bm-muted2"
             />
+            <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2 mb-2">Departments</p>
+            <nav className="mb-3 grid grid-cols-4 gap-2" data-testid="lab-mobile-dept-nav">
+              {departments.map((dept) => {
+                const active = dept.key === currentDept;
+                return (
+                  <Link
+                    key={dept.key}
+                    href={deptRoute(envId, dept.key)}
+                    data-testid={`drawer-dept-tab-${dept.key}`}
+                    aria-label={dept.label}
+                    aria-current={active ? "page" : undefined}
+                    data-selected={active ? "true" : "false"}
+                    title={dept.label}
+                    onClick={() => {
+                      setStoredLastDept(envId, dept.key);
+                      setMobileSidebarOpen(false);
+                    }}
+                    className={cn(
+                      "rounded-lg border h-9 w-9 transition inline-flex items-center justify-center",
+                      active
+                        ? "border-bm-accent/40 bg-bm-accent/10 text-bm-text"
+                        : "border-bm-border/70 text-bm-muted hover:bg-bm-surface/50 hover:text-bm-text"
+                    )}
+                  >
+                    <DeptIcon deptKey={dept.key} size={15} />
+                    <span className="sr-only">{dept.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
             <nav data-testid="lab-sidebar">
               <GroupedCapabilityNav
                 envId={envId}
@@ -459,6 +517,7 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
                 groups={groupedCapabilities}
                 collapsedGroups={collapsedGroups}
                 onToggleGroup={toggleGroup}
+                onNavigate={() => setMobileSidebarOpen(false)}
               />
             </nav>
           </div>
