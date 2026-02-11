@@ -22,6 +22,12 @@ def _register_all_tools():
     from app.mcp.tools.execution_tools import register_execution_tools
     from app.mcp.tools.work_tools import register_work_tools
     from app.mcp.tools.repo_tools import register_repo_tools
+    from app.mcp.tools.env_tools import register_env_tools
+    from app.mcp.tools.git_tools import register_git_tools
+    from app.mcp.tools.fe_tools import register_fe_tools
+    from app.mcp.tools.api_tools import register_api_tools
+    from app.mcp.tools.codex_tools import register_codex_tools
+    from app.mcp.tools.db_tools import register_db_tools
 
     register_meta_tools()
     register_business_tools()
@@ -29,6 +35,12 @@ def _register_all_tools():
     register_execution_tools()
     register_work_tools()
     register_repo_tools()
+    register_env_tools()
+    register_git_tools()
+    register_fe_tools()
+    register_api_tools()
+    register_codex_tools()
+    register_db_tools()
 
 
 def _make_response(req_id, result=None, error=None):
