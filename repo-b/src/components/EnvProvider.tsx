@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { logLabAuditEvent } from "@/lib/lab/clientAudit";
 
@@ -69,14 +69,14 @@ export function EnvProvider({ children }: { children: React.ReactNode }) {
     refresh();
   }, []);
 
-  const selectEnv = (envId: string) => {
+  const selectEnv = useCallback((envId: string) => {
     if (selectedEnvId !== envId) {
       logLabAuditEvent("env_selected", { envId, details: { source: "client" } });
     }
     setSelectedEnvId(envId);
     localStorage.setItem(STORAGE_KEY, envId);
     localStorage.removeItem(LEGACY_STORAGE_KEY);
-  };
+  }, [selectedEnvId]);
 
   const selectedEnv = useMemo(
     () => environments.find((env) => env.env_id === selectedEnvId) || null,
@@ -93,7 +93,7 @@ export function EnvProvider({ children }: { children: React.ReactNode }) {
       refresh,
       loading,
     }),
-    [environments, selectedEnvId, selectedEnv, loading]
+    [environments, selectedEnvId, selectedEnv, loading, selectEnv]
   );
 
   return <EnvContext.Provider value={value}>{children}</EnvContext.Provider>;

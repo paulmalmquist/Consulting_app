@@ -27,21 +27,23 @@ export default function LabDepartmentPage({
 
   const deptKey = params.deptKey as LabDepartmentKey;
   const department = LAB_DEPARTMENT_BY_KEY[deptKey];
-  if (!department) return notFound();
 
   const industry =
     selectedEnv?.env_id === params.envId ? selectedEnv.industry : undefined;
 
   const capabilities = useMemo(() => {
+    if (!department) return [];
     const raw = getCapabilitiesForDepartment(deptKey, { industry });
     return filterCapabilitiesByRole(role, raw);
-  }, [deptKey, industry, role]);
+  }, [department, deptKey, industry, role]);
 
   useEffect(() => {
     const syncRole = () => setRole(getStoredLabRole());
     window.addEventListener("storage", syncRole);
     return () => window.removeEventListener("storage", syncRole);
   }, []);
+
+  if (!department) return notFound();
 
   if (!isDepartmentAllowed(role, deptKey)) {
     return (
