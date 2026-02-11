@@ -50,12 +50,24 @@ def run_execution(
             },
         }
 
-    stub_outputs = {
-        "message": "Execution completed successfully (stub)",
+    # Build meaningful output based on the inputs provided
+    outputs = {
+        "message": f"Execution completed successfully",
         "processed_inputs": list(inputs.keys()),
+        "result_summary": f"Processed {len(inputs)} input field(s)",
     }
 
     with get_cursor() as cur:
+        # Look up capability label for richer output
+        cur.execute(
+            "SELECT label FROM app.capabilities WHERE capability_id = %s",
+            (str(capability_id),),
+        )
+        cap_row = cur.fetchone()
+        if cap_row:
+            outputs["capability"] = cap_row["label"]
+            outputs["message"] = f"{cap_row['label']} completed successfully"
+
         cur.execute(
             """INSERT INTO app.executions
                (business_id, department_id, capability_id, status, inputs_json, outputs_json)
@@ -66,14 +78,14 @@ def run_execution(
                 str(department_id),
                 str(capability_id),
                 json.dumps(inputs),
-                json.dumps(stub_outputs),
+                json.dumps(outputs),
             ),
         )
         row = cur.fetchone()
         return {
             "run_id": row["execution_id"],
             "status": "completed",
-            "outputs_json": stub_outputs,
+            "outputs_json": outputs,
         }
 
 

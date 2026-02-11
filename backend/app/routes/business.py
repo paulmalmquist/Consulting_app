@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+import time
 from uuid import UUID
 from app.db import get_cursor
 from app.schemas.business import (
@@ -11,6 +12,7 @@ from app.schemas.business import (
     CapabilityOut,
 )
 from app.services import business as biz_svc
+from app.services import audit as audit_svc
 
 router = APIRouter(prefix="/api")
 
@@ -23,12 +25,21 @@ def list_templates():
 
 @router.post("/businesses", response_model=CreateBusinessResponse)
 def create_business(req: CreateBusinessRequest):
+    start = time.monotonic()
     result = biz_svc.create_business(req.name, req.slug, req.region)
+    ms = int((time.monotonic() - start) * 1000)
+    audit_svc.record_event(
+        actor="api_user", action="create_business", tool_name="bm.create_business",
+        success=True, latency_ms=ms, business_id=result["business_id"],
+        object_type="business", object_id=result["business_id"],
+        input_data={"name": req.name, "slug": req.slug},
+    )
     return CreateBusinessResponse(business_id=result["business_id"], slug=result["slug"])
 
 
 @router.post("/businesses/{business_id}/apply-template", response_model=OkResponse)
 def apply_template(business_id: UUID, req: ApplyTemplateRequest):
+    start = time.monotonic()
     try:
         biz_svc.apply_template(
             business_id, req.template_key, req.enabled_departments, req.enabled_capabilities
@@ -37,15 +48,30 @@ def apply_template(business_id: UUID, req: ApplyTemplateRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except LookupError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    ms = int((time.monotonic() - start) * 1000)
+    audit_svc.record_event(
+        actor="api_user", action="apply_template", tool_name="bm.apply_template",
+        success=True, latency_ms=ms, business_id=business_id,
+        object_type="business", object_id=business_id,
+        input_data={"template_key": req.template_key},
+    )
     return OkResponse()
 
 
 @router.post("/businesses/{business_id}/apply-custom", response_model=OkResponse)
 def apply_custom(business_id: UUID, req: ApplyCustomRequest):
+    start = time.monotonic()
     try:
         biz_svc.apply_custom(business_id, req.enabled_departments, req.enabled_capabilities)
     except LookupError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    ms = int((time.monotonic() - start) * 1000)
+    audit_svc.record_event(
+        actor="api_user", action="apply_custom", tool_name="bm.apply_custom",
+        success=True, latency_ms=ms, business_id=business_id,
+        object_type="business", object_id=business_id,
+        input_data={"departments": req.enabled_departments, "capabilities": req.enabled_capabilities},
+    )
     return OkResponse()
 
 

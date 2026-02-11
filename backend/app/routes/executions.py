@@ -1,19 +1,30 @@
 from fastapi import APIRouter, Query
+import time
 from uuid import UUID
 from typing import Optional
 from app.schemas.executions import RunExecutionRequest, RunExecutionResponse, ExecutionOut
 from app.services import executions as exec_svc
+from app.services import audit as audit_svc
 
 router = APIRouter(prefix="/api/executions")
 
 
 @router.post("/run", response_model=RunExecutionResponse)
 def run_execution(req: RunExecutionRequest):
+    start = time.monotonic()
     result = exec_svc.run_execution(
         business_id=req.business_id,
         department_id=req.department_id,
         capability_id=req.capability_id,
         inputs_json=req.inputs_json,
+    )
+    ms = int((time.monotonic() - start) * 1000)
+    audit_svc.record_event(
+        actor="api_user", action="run_execution", tool_name="bm.run_execution",
+        success=result["status"] == "completed", latency_ms=ms,
+        business_id=req.business_id, object_type="execution",
+        object_id=result["run_id"],
+        input_data={"department_id": str(req.department_id), "capability_id": str(req.capability_id)},
     )
     return RunExecutionResponse(
         run_id=result["run_id"],

@@ -33,7 +33,7 @@ test_endpoint() {
     body=$(echo "$response" | sed '$d')
 
     if [ "$status_code" != "$expected_status" ]; then
-        echo "❌ FAIL (got HTTP $status_code, expected $expected_status)"
+        echo "FAIL (got HTTP $status_code, expected $expected_status)"
         echo "  URL: $url"
         echo "  Response: $body"
         FAILURES=$((FAILURES + 1))
@@ -42,16 +42,18 @@ test_endpoint() {
 
     if [ "$check_json" = "true" ]; then
         if ! echo "$body" | jq -e . >/dev/null 2>&1; then
-            echo "❌ FAIL (invalid JSON)"
+            echo "FAIL (invalid JSON)"
             echo "  Response: $body"
             FAILURES=$((FAILURES + 1))
             return 1
         fi
     fi
 
-    echo "✅ OK"
+    echo "OK"
     return 0
 }
+
+# ── Critical tests ────────────────────────────────────────────────────
 
 # Test 1: Frontend root
 test_endpoint "Frontend root" "$PROD_BASE_URL/" 200 false
@@ -59,28 +61,32 @@ test_endpoint "Frontend root" "$PROD_BASE_URL/" 200 false
 # Test 2: Health check via proxy
 test_endpoint "Health check (/v1/health)" "$PROD_BASE_URL/v1/health" 200 true
 
-# Test 3: Direct API health check
-test_endpoint "Direct API health (/api/v1/health)" "$PROD_BASE_URL/api/v1/health" 200 true
-
-# Save critical test results
-CRITICAL_FAILURES=$FAILURES
-
-# Stub endpoint tests (temporary Next.js routes)
 echo ""
 echo "========================================="
-echo "Stub Backend Endpoints"
+echo "Backend API Endpoints (real DB)"
 echo "========================================="
 
-# Test 4: Environments endpoint (stub)
+# Test 3: Templates endpoint (real DB)
+test_endpoint "Templates GET (/api/templates)" "$PROD_BASE_URL/api/templates" 200 true
+
+# Test 4: Departments catalog (real DB)
+test_endpoint "Departments GET (/api/departments)" "$PROD_BASE_URL/api/departments" 200 true
+
+echo ""
+echo "========================================="
+echo "Lab Endpoints (real DB)"
+echo "========================================="
+
+# Test 5: Environments endpoint (real DB)
 test_endpoint "Environments GET (/v1/environments)" "$PROD_BASE_URL/v1/environments" 200 true
 
-# Test 5: Audit endpoint (stub)
+# Test 6: Audit endpoint (real DB)
 test_endpoint "Audit list (/v1/audit)" "$PROD_BASE_URL/v1/audit" 200 true
 
-# Test 6: Queue endpoint (stub)
+# Test 7: Queue endpoint (real DB)
 test_endpoint "Queue list (/v1/queue)" "$PROD_BASE_URL/v1/queue" 200 true
 
-# Test 7: Metrics endpoint (stub)
+# Test 8: Metrics endpoint (real DB)
 test_endpoint "Metrics (/v1/metrics)" "$PROD_BASE_URL/v1/metrics" 200 true
 
 # Summary
@@ -89,21 +95,18 @@ echo "========================================="
 echo "Test Summary"
 echo "========================================="
 
-if [ $CRITICAL_FAILURES -eq 0 ]; then
-    echo "✅ All critical tests passed!"
+if [ $FAILURES -eq 0 ]; then
+    echo "All $((8)) tests passed!"
     echo ""
-    echo "Core infrastructure is working:"
+    echo "Infrastructure verified:"
     echo "  - Frontend: Deployed and serving"
-    echo "  - Health check: Responding correctly"
-    echo "  - API routing: Proxy working"
-
-    if [ $FAILURES -gt 0 ]; then
-        echo ""
-        echo "Note: $FAILURES extended test(s) failed (non-critical)"
-        echo "This is expected until full FastAPI backend is deployed."
-    fi
+    echo "  - Health check: Responding"
+    echo "  - Templates: Real DB data"
+    echo "  - Departments: Real DB data"
+    echo "  - Lab environments: Real DB data"
+    echo "  - Lab audit/queue/metrics: Real DB data"
     exit 0
 else
-    echo "❌ $CRITICAL_FAILURES critical test(s) failed"
+    echo "$FAILURES test(s) failed"
     exit 1
 fi

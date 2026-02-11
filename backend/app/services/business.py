@@ -5,48 +5,25 @@ from uuid import UUID
 from app.db import get_cursor
 
 
-TEMPLATES = {
-    "starter": {
-        "label": "Starter",
-        "description": "Core business departments: Finance, Operations, HR",
-        "departments": ["finance", "operations", "hr"],
-        "capabilities": [
-            "invoice_processing", "expense_review", "finance_documents", "finance_history",
-            "quality_check", "vendor_onboarding", "ops_documents", "ops_history",
-            "onboard_employee", "policy_review", "hr_documents", "hr_history",
-        ],
-    },
-    "growth": {
-        "label": "Growth",
-        "description": "Starter + Sales and Marketing",
-        "departments": ["finance", "operations", "hr", "sales", "marketing"],
-        "capabilities": [
-            "invoice_processing", "expense_review", "finance_documents", "finance_history",
-            "quality_check", "vendor_onboarding", "ops_documents", "ops_history",
-            "onboard_employee", "policy_review", "hr_documents", "hr_history",
-            "proposal_gen", "contract_review", "sales_documents", "sales_history",
-            "campaign_brief", "marketing_documents", "marketing_history",
-        ],
-    },
-    "enterprise": {
-        "label": "Enterprise",
-        "description": "All departments and capabilities",
-        "departments": ["finance", "operations", "hr", "sales", "legal", "it", "marketing"],
-        "capabilities": "__all__",
-    },
-}
-
-
 def list_templates() -> list[dict]:
-    out = []
-    for key, tmpl in TEMPLATES.items():
-        out.append({
-            "key": key,
-            "label": tmpl["label"],
-            "description": tmpl["description"],
-            "departments": tmpl["departments"],
-        })
-    return out
+    """Return available provisioning templates from the database."""
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT key, label, description, departments
+               FROM app.templates
+               ORDER BY key"""
+        )
+        return cur.fetchall()
+
+
+def _get_template(template_key: str) -> dict | None:
+    """Fetch a single template by key, including capabilities."""
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT key, label, description, departments, capabilities FROM app.templates WHERE key = %s",
+            (template_key,),
+        )
+        return cur.fetchone()
 
 
 def create_business(name: str, slug: str, region: str = "us") -> dict:
@@ -83,12 +60,13 @@ def apply_template(
     enabled_departments: list[str] | None = None,
     enabled_capabilities: list[str] | None = None,
 ) -> None:
-    tmpl = TEMPLATES.get(template_key)
+    tmpl = _get_template(template_key)
     if not tmpl:
         raise ValueError(f"Unknown template: {template_key}")
 
     dept_keys = enabled_departments or tmpl["departments"]
     cap_keys = enabled_capabilities
+    tmpl_capabilities = tmpl["capabilities"]
 
     with get_cursor() as cur:
         cur.execute("SELECT 1 FROM app.businesses WHERE business_id = %s", (str(business_id),))
@@ -106,7 +84,7 @@ def apply_template(
                     (str(business_id), str(dept["department_id"])),
                 )
 
-        if tmpl["capabilities"] == "__all__":
+        if tmpl_capabilities == "__all__":
             cur.execute(
                 """INSERT INTO app.business_capabilities (business_id, capability_id, enabled)
                    SELECT %s, c.capability_id, true
@@ -117,7 +95,7 @@ def apply_template(
                 (str(business_id), dept_keys),
             )
         else:
-            actual_cap_keys = cap_keys if cap_keys else tmpl.get("capabilities", [])
+            actual_cap_keys = cap_keys if cap_keys else (tmpl_capabilities if isinstance(tmpl_capabilities, list) else [])
             if isinstance(actual_cap_keys, list):
                 for ck in actual_cap_keys:
                     cur.execute("SELECT capability_id FROM app.capabilities WHERE key = %s", (ck,))
