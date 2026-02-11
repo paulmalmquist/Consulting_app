@@ -67,7 +67,6 @@ async function proxy(request: NextRequest, ctx: { params: { path: string[] } }) 
       body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
       redirect: "manual",
       // Required by Node fetch when streaming request bodies.
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       duplex: "half",
     });

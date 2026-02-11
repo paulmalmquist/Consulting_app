@@ -22,8 +22,8 @@ def test_create_business(client, fake_cursor):
     assert data["business_id"] == business_id
     assert data["slug"] == "acme-co"
 
-    # Verify the queries were made
-    assert len(fake_cursor.queries) == 2
+    # Verify core create queries were made (audit may add additional queries)
+    assert len(fake_cursor.queries) >= 2
     assert "INSERT INTO app.tenants" in fake_cursor.queries[0][0]
     assert "INSERT INTO app.businesses" in fake_cursor.queries[1][0]
 

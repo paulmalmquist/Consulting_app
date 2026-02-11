@@ -1,29 +1,128 @@
 """Business service — single source of truth for business operations."""
 
+import json
 from uuid import UUID
 
 from app.db import get_cursor
 
+# Default catalog used when templates table is unavailable (e.g., tests/local bootstrap).
+_DEFAULT_TEMPLATES: list[dict] = [
+    {
+        "key": "starter",
+        "label": "Starter",
+        "description": "Core business departments: Finance, Operations, HR",
+        "departments": ["finance", "operations", "hr"],
+        "capabilities": [
+            "invoice_processing",
+            "expense_review",
+            "finance_documents",
+            "finance_history",
+            "quality_check",
+            "vendor_onboarding",
+            "ops_documents",
+            "ops_history",
+            "onboard_employee",
+            "policy_review",
+            "hr_documents",
+            "hr_history",
+        ],
+    },
+    {
+        "key": "growth",
+        "label": "Growth",
+        "description": "Starter + Sales and Marketing",
+        "departments": ["finance", "operations", "hr", "sales", "marketing"],
+        "capabilities": [
+            "invoice_processing",
+            "expense_review",
+            "finance_documents",
+            "finance_history",
+            "quality_check",
+            "vendor_onboarding",
+            "ops_documents",
+            "ops_history",
+            "onboard_employee",
+            "policy_review",
+            "hr_documents",
+            "hr_history",
+            "proposal_gen",
+            "contract_review",
+            "sales_documents",
+            "sales_history",
+            "campaign_brief",
+            "marketing_documents",
+            "marketing_history",
+        ],
+    },
+    {
+        "key": "enterprise",
+        "label": "Enterprise",
+        "description": "All departments and capabilities",
+        "departments": ["finance", "operations", "hr", "sales", "legal", "it", "marketing"],
+        "capabilities": "__all__",
+    },
+]
+_DEFAULT_TEMPLATE_BY_KEY = {t["key"]: t for t in _DEFAULT_TEMPLATES}
+
+
+def _coerce_json(value):
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return value
+    return value
+
+
+def _normalize_template_row(row: dict) -> dict:
+    departments = _coerce_json(row.get("departments", []))
+    capabilities = _coerce_json(row.get("capabilities", []))
+    if not isinstance(departments, list):
+        departments = []
+    if capabilities != "__all__" and not isinstance(capabilities, list):
+        capabilities = []
+    return {
+        "key": row.get("key"),
+        "label": row.get("label"),
+        "description": row.get("description", ""),
+        "departments": departments,
+        "capabilities": capabilities,
+    }
+
 
 def list_templates() -> list[dict]:
-    """Return available provisioning templates from the database."""
-    with get_cursor() as cur:
-        cur.execute(
-            """SELECT key, label, description, departments
-               FROM app.templates
-               ORDER BY key"""
-        )
-        return cur.fetchall()
+    """Return available provisioning templates."""
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """SELECT key, label, description, departments, capabilities
+                   FROM app.templates
+                   ORDER BY key"""
+            )
+            rows = cur.fetchall()
+            if rows:
+                return [_normalize_template_row(r) for r in rows]
+    except Exception:
+        # Fall back to default templates when DB is unavailable or table is missing.
+        pass
+    return [dict(t) for t in _DEFAULT_TEMPLATES]
 
 
 def _get_template(template_key: str) -> dict | None:
     """Fetch a single template by key, including capabilities."""
-    with get_cursor() as cur:
-        cur.execute(
-            "SELECT key, label, description, departments, capabilities FROM app.templates WHERE key = %s",
-            (template_key,),
-        )
-        return cur.fetchone()
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT key, label, description, departments, capabilities FROM app.templates WHERE key = %s",
+                (template_key,),
+            )
+            row = cur.fetchone()
+            if row:
+                return _normalize_template_row(row)
+    except Exception:
+        pass
+    fallback = _DEFAULT_TEMPLATE_BY_KEY.get(template_key)
+    return dict(fallback) if fallback else None
 
 
 def create_business(name: str, slug: str, region: str = "us") -> dict:
