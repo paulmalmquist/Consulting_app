@@ -12,7 +12,7 @@ export default function LabPage() {
   useEffect(() => {
     if (loading) return;
     if (selectedEnv) {
-      router.replace("/lab/metrics");
+      router.replace(`/lab/env/${selectedEnv.env_id}`);
       return;
     }
     router.replace("/lab/environments");

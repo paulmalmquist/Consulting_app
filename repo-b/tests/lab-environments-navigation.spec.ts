@@ -8,9 +8,9 @@ type Env = {
   status?: string;
 };
 
-// Root cause seen in prior webkit traces:
-// desktop-only sidebar nav made "Metrics" unreachable on mobile, and generic "Open"
-// selectors also matched the header's mobile-nav button.
+// Root cause from triage:
+// "Open" routed to /lab/metrics because environment homepage routes did not exist.
+// Mobile also needed explicit sidebar access for capability navigation.
 async function openLabNav(page: Page) {
   const mobileToggle = page.getByTestId("lab-mobile-nav-toggle");
   if (await mobileToggle.isVisible()) {
@@ -27,6 +27,25 @@ async function clickLabNavLink(page: Page, key: string) {
   const navMode = await openLabNav(page);
   await page.locator(`[data-testid="lab-nav-link-${key}"]:visible`).first().click();
   return navMode;
+}
+
+async function openCapability(page: Page, capKey: string) {
+  const mobileToggle = page.getByTestId("lab-env-sidebar-toggle");
+  if (await mobileToggle.isVisible()) {
+    await mobileToggle.click();
+    await expect(page.getByTestId("lab-env-sidebar-drawer")).toBeVisible();
+    const drawerLink = page
+      .getByTestId("lab-env-sidebar-drawer")
+      .locator(`[data-testid="cap-link-${capKey}"]`)
+      .first();
+    await drawerLink.scrollIntoViewIfNeeded();
+    await drawerLink.click();
+    await expect(page.getByTestId("lab-env-sidebar-drawer")).toBeHidden();
+    return;
+  }
+  const link = page.locator(`[data-testid="cap-link-${capKey}"]:visible`).first();
+  await link.scrollIntoViewIfNeeded();
+  await link.click();
 }
 
 test.beforeEach(async ({ context, page, baseURL }) => {
@@ -114,12 +133,13 @@ test.beforeEach(async ({ context, page, baseURL }) => {
   });
 });
 
-test("open environment updates selection and keeps it while navigating lab routes", async (
+test("open environment routes to homepage and supports department/capability navigation", async (
   { page },
   testInfo
 ) => {
   await page.goto("/lab/environments");
   await expect(page.getByRole("heading", { name: "Lab Environments" })).toBeVisible();
+  await expect(page.getByTestId(/^env-name-/).first()).toBeVisible();
 
   const firstEnvOpen = page.getByTestId(/^env-open-/).first();
   await firstEnvOpen.scrollIntoViewIfNeeded();
@@ -130,31 +150,48 @@ test("open environment updates selection and keeps it while navigating lab route
 
   await firstEnvOpen.click();
 
-  await expect(page).toHaveURL(/\/lab\/metrics$/);
+  await expect(page).toHaveURL(new RegExp(`/lab/env/${selectedEnvId}/`));
+  await expect(page.getByTestId("dept-tab-accounting")).toBeVisible();
+  if (await page.getByTestId("lab-env-sidebar-toggle").isVisible()) {
+    await page.getByTestId("lab-env-sidebar-toggle").click();
+    await expect(page.getByTestId("lab-env-sidebar-drawer")).toBeVisible();
+    await page
+      .getByTestId("lab-env-sidebar-drawer")
+      .getByRole("button", { name: "Close" })
+      .click();
+  } else {
+    await expect(page.getByTestId("lab-sidebar")).toBeVisible();
+  }
   await expect(page.getByTestId("active-env-indicator")).toContainText(selectedEnvShort);
 
+  await page.getByTestId("dept-tab-accounting").click();
+  await expect(page).toHaveURL(new RegExp(`/lab/env/${selectedEnvId}/accounting$`));
+  await expect(page.locator('[data-testid="cap-link-ledger"]:visible').first()).toBeVisible();
+
+  await openCapability(page, "ledger");
+  await expect(page).toHaveURL(
+    new RegExp(`/lab/env/${selectedEnvId}/accounting/capability/ledger$`)
+  );
+  await expect(page.getByRole("heading", { name: "Ledger" })).toBeVisible();
+  await expect(page.getByTestId("active-env-indicator")).toContainText(selectedEnvShort);
+
+  await page.getByTestId("dept-tab-it").click();
+  await expect(page).toHaveURL(new RegExp(`/lab/env/${selectedEnvId}/it$`));
+  await expect(page.locator('[data-testid="cap-link-tickets"]:visible').first()).toBeVisible();
+  await openCapability(page, "queue");
+  await expect(page).toHaveURL(
+    new RegExp(`/lab/env/${selectedEnvId}/it/capability/queue$`)
+  );
+
   const isMobileProject = /webkit|mobile|iphone|android/i.test(testInfo.project.name);
-  const navMode = await clickLabNavLink(page, "audit");
+  const navMode = await clickLabNavLink(page, "environments");
   if (isMobileProject) {
     expect(navMode).toBe("mobile");
     await expect(page.getByTestId("lab-mobile-nav-drawer")).toBeHidden();
   } else {
     expect(navMode).toBe("desktop");
   }
-
-  await expect(page).toHaveURL(/\/lab\/audit$/);
-  await expect(page.getByTestId("active-env-indicator")).toContainText(selectedEnvShort);
-
-  await clickLabNavLink(page, "metrics");
-  await expect(page).toHaveURL(/\/lab\/metrics$/);
-  await expect(page.getByTestId("active-env-indicator")).toContainText(selectedEnvShort);
-
-  const [metricsRequest] = await Promise.all([
-    page.waitForRequest("**/v1/metrics**"),
-    page.reload(),
-  ]);
-  const metricsEnvId = new URL(metricsRequest.url()).searchParams.get("env_id");
-  expect(metricsEnvId).toBe(selectedEnvId);
+  await expect(page).toHaveURL(/\/lab\/environments$/);
 });
 
 test("create environment from industry template and selects it", async ({ page }) => {
@@ -164,6 +201,6 @@ test("create environment from industry template and selects it", async ({ page }
   await page.getByRole("button", { name: "Create Environment" }).click();
 
   await expect(page.getByText("Environment created and selected.")).toBeVisible();
-  await expect(page.getByText("Dental Practice · 33333333")).toBeVisible();
+  await expect(page.getByText("Dental Practice Environment")).toBeVisible();
   await expect(page.getByTestId("active-env-indicator")).toContainText("33333333");
 });

@@ -1,0 +1,106 @@
+export type LabDepartmentKey =
+  | "crm"
+  | "accounting"
+  | "operations"
+  | "projects"
+  | "it"
+  | "legal"
+  | "hr"
+  | "executive"
+  | "documents"
+  | "admin";
+
+export type LabDepartmentMeta = {
+  key: LabDepartmentKey;
+  label: string;
+  description: string;
+};
+
+export const LAB_DEPARTMENTS: LabDepartmentMeta[] = [
+  { key: "crm", label: "CRM", description: "Pipeline, contacts, and client activity" },
+  { key: "accounting", label: "Accounting", description: "Books, AP/AR, and controls" },
+  { key: "operations", label: "Operations", description: "Workflows, SOPs, and daily execution" },
+  { key: "projects", label: "Projects", description: "Milestones, budget, and delivery" },
+  { key: "it", label: "IT Tickets", description: "Requests, queue, and SLA" },
+  { key: "legal", label: "Legal", description: "Contracts, obligations, and policy" },
+  { key: "hr", label: "HR", description: "People operations and staffing" },
+  { key: "executive", label: "Executive", description: "Company-level KPIs and risk" },
+  { key: "documents", label: "Documents", description: "Files, versions, and access" },
+  { key: "admin", label: "Admin", description: "Users, settings, and audit controls" },
+];
+
+export const LAB_DEPARTMENT_BY_KEY: Record<LabDepartmentKey, LabDepartmentMeta> =
+  LAB_DEPARTMENTS.reduce((acc, dept) => {
+    acc[dept.key] = dept;
+    return acc;
+  }, {} as Record<LabDepartmentKey, LabDepartmentMeta>);
+
+const INDUSTRY_DEPARTMENT_MAP: Record<string, LabDepartmentKey[]> = {
+  legal: ["legal", "documents", "admin"],
+  healthcare: ["operations", "documents", "hr", "accounting", "it", "executive"],
+  dental: ["operations", "documents", "hr", "accounting", "it", "executive"],
+  med_spa: ["operations", "documents", "crm", "accounting", "it", "executive"],
+  real_estate: ["crm", "operations", "projects", "accounting", "legal", "documents"],
+  construction: ["projects", "operations", "accounting", "legal", "documents"],
+  accounting_firm: ["accounting", "documents", "admin", "crm"],
+  insurance: ["crm", "operations", "legal", "documents"],
+  logistics: ["operations", "projects", "accounting", "it"],
+  manufacturing: ["operations", "projects", "accounting", "it"],
+  retail: ["crm", "operations", "accounting", "projects"],
+  restaurant: ["operations", "hr", "accounting", "documents"],
+  saas: ["crm", "it", "projects", "executive", "accounting"],
+  marketing_agency: ["crm", "projects", "executive", "accounting"],
+  nonprofit: ["operations", "hr", "documents", "executive"],
+  education: ["operations", "hr", "documents", "crm"],
+  financial_services: ["accounting", "legal", "executive", "crm"],
+  wealth_management: ["crm", "legal", "executive", "documents"],
+  home_services: ["operations", "accounting", "crm", "projects"],
+  it_msp: ["it", "operations", "executive", "crm"],
+  recruiting: ["crm", "hr", "operations", "documents"],
+  media: ["projects", "crm", "executive", "documents"],
+  website: ["operations", "documents", "admin", "executive"],
+};
+
+const DEFAULT_DEPARTMENT_BY_INDUSTRY: Record<string, LabDepartmentKey> = {
+  legal: "legal",
+  healthcare: "operations",
+  dental: "operations",
+  med_spa: "operations",
+  real_estate: "crm",
+  construction: "projects",
+  accounting_firm: "accounting",
+  insurance: "crm",
+  logistics: "operations",
+  manufacturing: "operations",
+  retail: "crm",
+  restaurant: "operations",
+  saas: "executive",
+  marketing_agency: "crm",
+  nonprofit: "operations",
+  education: "operations",
+  financial_services: "executive",
+  wealth_management: "executive",
+  home_services: "operations",
+  it_msp: "it",
+  recruiting: "hr",
+  media: "projects",
+  website: "operations",
+};
+
+const GENERAL_DEPARTMENTS: LabDepartmentKey[] = [
+  "executive",
+  "operations",
+  "crm",
+  "documents",
+  "admin",
+];
+
+export function getEnabledDepartmentsForIndustry(industry?: string | null): LabDepartmentMeta[] {
+  const keys = industry ? INDUSTRY_DEPARTMENT_MAP[industry] : undefined;
+  const enabled = keys?.length ? keys : GENERAL_DEPARTMENTS;
+  return enabled.map((key) => LAB_DEPARTMENT_BY_KEY[key]).filter(Boolean);
+}
+
+export function getDefaultDepartmentForIndustry(industry?: string | null): LabDepartmentKey {
+  return (industry && DEFAULT_DEPARTMENT_BY_INDUSTRY[industry]) || "executive";
+}

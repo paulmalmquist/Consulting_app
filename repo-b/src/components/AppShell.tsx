@@ -24,10 +24,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const mobileDrawerRef = useRef<HTMLDivElement>(null);
   const aiMode = process.env.NEXT_PUBLIC_AI_MODE || "off";
-  const items =
+  const rawItems =
     aiMode === "local"
       ? [...navItems, { id: "ai", href: "/lab/ai", label: "AI" }]
       : navItems;
+  const items = rawItems.map((item) => {
+    if (!selectedEnv) return item;
+    if (item.id === "dashboard") {
+      return { ...item, href: `/lab/env/${selectedEnv.env_id}` };
+    }
+    if (item.id === "metrics") {
+      return {
+        ...item,
+        href: `/lab/env/${selectedEnv.env_id}/executive/capability/metrics`,
+      };
+    }
+    return item;
+  });
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });

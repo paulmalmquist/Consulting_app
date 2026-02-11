@@ -10,6 +10,7 @@ import {
   type LabIndustryKey,
   getLabIndustryMeta,
 } from "@/lib/lab-industries";
+import { getLabHomepageHealth } from "@/lib/lab/homepageHealth";
 import { cn } from "@/lib/cn";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -75,7 +76,7 @@ export default function EnvironmentsPage() {
 
   const openEnvironment = (envId: string) => {
     selectEnv(envId);
-    router.push("/lab/metrics");
+    router.push(`/lab/env/${envId}`);
   };
 
   const resetEnvironment = async (envId: string) => {
@@ -128,9 +129,19 @@ export default function EnvironmentsPage() {
                 environments.map((env) => {
                   const industryMeta = getLabIndustryMeta(env.industry);
                   const industryLabel = industryMeta?.label || "General";
+                  const envName =
+                    env.client_name?.trim() ||
+                    `${industryLabel.replace(/\s*\/\s*/g, " ")} Environment`;
                   const statusLabel = statusForEnvironment(env);
                   const createdAt = formatDate(env.created_at);
                   const isSelected = selectedEnv?.env_id === env.env_id;
+                  const health = getLabHomepageHealth(env.env_id, env.industry);
+                  const healthPass =
+                    health.hasRoutes &&
+                    health.hasDeptRegistry &&
+                    health.hasCapabilityRegistry &&
+                    health.openButtonTargetsHomepage &&
+                    health.canRenderShell;
 
                   return (
                     <div
@@ -168,6 +179,13 @@ export default function EnvironmentsPage() {
                             {isSelected ? <Badge variant="default">Selected</Badge> : null}
                           </div>
 
+                          <div
+                            className="text-base font-semibold text-bm-text"
+                            data-testid={`env-name-${env.env_id}`}
+                          >
+                            {envName}
+                          </div>
+
                           <div className="text-xs text-bm-muted2">
                             Environment ID: {env.env_id.slice(0, 8)}
                           </div>
@@ -197,6 +215,29 @@ export default function EnvironmentsPage() {
                             {resettingEnvId === env.env_id ? "Resetting..." : "Reset"}
                           </Button>
                         </div>
+                      </div>
+
+                      <div className="mt-3 rounded-lg border border-bm-border/60 bg-bm-surface/25 p-2.5 text-xs text-bm-muted2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-bm-muted">
+                            Environment Homepage Status
+                          </span>
+                          <Badge variant={healthPass ? "success" : "warning"}>
+                            {healthPass ? "PASS" : "FAIL"}
+                          </Badge>
+                        </div>
+                        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+                          <span>Version {health.version}</span>
+                          <span>Default dept: {health.defaultDeptKey}</span>
+                          <span>Departments: {health.departmentCount}</span>
+                          <span>Capabilities: {health.capabilityCount}</span>
+                          <span>Open target: {health.openTargetRoute}</span>
+                        </div>
+                        {!healthPass && health.suggestedFixes.length ? (
+                          <p className="mt-1.5 text-bm-warning">
+                            {health.suggestedFixes.join(" ")}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                   );
