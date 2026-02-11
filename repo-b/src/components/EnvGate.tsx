@@ -1,12 +1,20 @@
 "use client";
 
-import Link from "next/link";
+import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useEnv } from "@/components/EnvProvider";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/Card";
-import { buttonVariants } from "@/components/ui/buttonVariants";
 
 export default function EnvGate({ children }: { children: React.ReactNode }) {
   const { selectedEnv, loading } = useEnv();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!loading && !selectedEnv && pathname !== "/lab/environments") {
+      router.replace("/lab/environments");
+    }
+  }, [loading, selectedEnv, pathname, router]);
 
   if (loading) {
     return (
@@ -25,14 +33,8 @@ export default function EnvGate({ children }: { children: React.ReactNode }) {
         <CardContent>
           <CardTitle>Select an environment</CardTitle>
           <CardDescription>
-            This page is specific to a client environment. Create or select one to
-            continue.
+            Redirecting to environment selection.
           </CardDescription>
-          <div className="mt-4">
-            <Link href="/lab/environments" className={buttonVariants()}>
-              Choose environment
-            </Link>
-          </div>
         </CardContent>
       </Card>
     );

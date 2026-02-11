@@ -8,6 +8,9 @@ type Env = {
   status?: string;
 };
 
+// Root cause seen in prior webkit traces:
+// desktop-only sidebar nav made "Metrics" unreachable on mobile, and generic "Open"
+// selectors also matched the header's mobile-nav button.
 async function openLabNav(page: Page) {
   const mobileToggle = page.getByTestId("lab-mobile-nav-toggle");
   if (await mobileToggle.isVisible()) {
@@ -105,6 +108,10 @@ test.beforeEach(async ({ context, page, baseURL }) => {
   await page.route("**/v1/queue**", async (route) => {
     await route.fulfill({ json: { items: [] } });
   });
+
+  await page.route("**/v1/audit**", async (route) => {
+    await route.fulfill({ json: { items: [] } });
+  });
 });
 
 test("open environment updates selection and keeps it while navigating lab routes", async (
@@ -114,17 +121,20 @@ test("open environment updates selection and keeps it while navigating lab route
   await page.goto("/lab/environments");
   await expect(page.getByRole("heading", { name: "Lab Environments" })).toBeVisible();
 
-  await expect(page.getByText("Healthcare Provider · 11111111")).toBeVisible();
+  const firstEnvOpen = page.getByTestId(/^env-open-/).first();
+  await firstEnvOpen.scrollIntoViewIfNeeded();
+  const firstEnvTestId = await firstEnvOpen.getAttribute("data-testid");
+  expect(firstEnvTestId).toBeTruthy();
+  const selectedEnvId = firstEnvTestId!.replace("env-open-", "");
+  const selectedEnvShort = selectedEnvId.slice(0, 8);
 
-  await page.getByRole("button", { name: /^Open$/ }).nth(1).click();
+  await firstEnvOpen.click();
 
-  await expect(page).toHaveURL(/\/lab$/);
-  await expect(
-    page.getByRole("banner").getByText("Construction / Trades · 22222222")
-  ).toBeVisible();
+  await expect(page).toHaveURL(/\/lab\/metrics$/);
+  await expect(page.getByTestId("active-env-indicator")).toContainText(selectedEnvShort);
 
   const isMobileProject = /webkit|mobile|iphone|android/i.test(testInfo.project.name);
-  const navMode = await clickLabNavLink(page, "metrics");
+  const navMode = await clickLabNavLink(page, "audit");
   if (isMobileProject) {
     expect(navMode).toBe("mobile");
     await expect(page.getByTestId("lab-mobile-nav-drawer")).toBeHidden();
@@ -132,20 +142,19 @@ test("open environment updates selection and keeps it while navigating lab route
     expect(navMode).toBe("desktop");
   }
 
+  await expect(page).toHaveURL(/\/lab\/audit$/);
+  await expect(page.getByTestId("active-env-indicator")).toContainText(selectedEnvShort);
+
+  await clickLabNavLink(page, "metrics");
   await expect(page).toHaveURL(/\/lab\/metrics$/);
+  await expect(page.getByTestId("active-env-indicator")).toContainText(selectedEnvShort);
 
   const [metricsRequest] = await Promise.all([
     page.waitForRequest("**/v1/metrics**"),
     page.reload(),
   ]);
   const metricsEnvId = new URL(metricsRequest.url()).searchParams.get("env_id");
-  expect(metricsEnvId).toBe("22222222-2222-4222-8222-222222222222");
-
-  await clickLabNavLink(page, "dashboard");
-  await expect(page).toHaveURL(/\/lab$/);
-  await expect(
-    page.getByRole("banner").getByText("Construction / Trades · 22222222")
-  ).toBeVisible();
+  expect(metricsEnvId).toBe(selectedEnvId);
 });
 
 test("create environment from industry template and selects it", async ({ page }) => {
@@ -156,4 +165,5 @@ test("create environment from industry template and selects it", async ({ page }
 
   await expect(page.getByText("Environment created and selected.")).toBeVisible();
   await expect(page.getByText("Dental Practice · 33333333")).toBeVisible();
+  await expect(page.getByTestId("active-env-indicator")).toContainText("33333333");
 });

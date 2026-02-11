@@ -149,9 +149,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 Current Environment
               </p>
               <p className="text-sm font-semibold text-bm-text">
+                <span data-testid="active-env-indicator">
                 {selectedEnv
                   ? `${activeIndustry}${shortEnvId ? ` · ${shortEnvId}` : ""}`
                   : "No environment selected"}
+                </span>
               </p>
             </div>
           </div>

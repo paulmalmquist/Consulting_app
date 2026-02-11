@@ -75,7 +75,7 @@ export default function EnvironmentsPage() {
 
   const openEnvironment = (envId: string) => {
     selectEnv(envId);
-    router.push("/lab");
+    router.push("/lab/metrics");
   };
 
   const resetEnvironment = async (envId: string) => {
@@ -116,7 +116,7 @@ export default function EnvironmentsPage() {
               Select an environment and open it in the dashboard.
             </CardDescription>
 
-            <div className="mt-5 space-y-3">
+            <div className="mt-5 space-y-3" data-testid="client-environments-list">
               {loading ? (
                 <>
                   <div className="h-20 rounded-xl bg-bm-surface/45 border border-bm-border/60 animate-pulse" />
@@ -135,6 +135,7 @@ export default function EnvironmentsPage() {
                   return (
                     <div
                       key={env.env_id}
+                      data-testid={`env-card-${env.env_id}`}
                       className={cn(
                         "rounded-xl border p-4 bg-bm-surface/35 transition",
                         isSelected
@@ -143,7 +144,12 @@ export default function EnvironmentsPage() {
                       )}
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="space-y-2">
+                        <button
+                          type="button"
+                          className="space-y-2 text-left flex-1 min-w-[220px]"
+                          onClick={() => openEnvironment(env.env_id)}
+                          aria-label={`Open environment ${env.env_id}`}
+                        >
                           <div className="flex items-center gap-2">
                             <Badge variant="accent">{industryLabel}</Badge>
                             {statusLabel ? (
@@ -169,13 +175,15 @@ export default function EnvironmentsPage() {
                           {createdAt ? (
                             <div className="text-xs text-bm-muted2">Created {createdAt}</div>
                           ) : null}
-                        </div>
+                        </button>
 
                         <div className="flex items-center gap-2">
                           <Button
                             type="button"
                             size="sm"
                             onClick={() => openEnvironment(env.env_id)}
+                            data-testid={`env-open-${env.env_id}`}
+                            aria-label={`Open environment ${env.env_id}`}
                           >
                             Open
                           </Button>
@@ -271,4 +279,3 @@ export default function EnvironmentsPage() {
     </div>
   );
 }
-
