@@ -12,10 +12,18 @@ import {
 } from "@/lib/lab/DepartmentRegistry";
 import {
   getCapabilitiesForDepartment,
+  type LabCapabilityMeta,
   groupCapabilities,
   type LabCapabilityCategory,
 } from "@/lib/lab/CapabilityRegistry";
 import { DeptIcon } from "@/components/lab/LabIcons";
+import {
+  type LabRole,
+  filterCapabilitiesByRole,
+  filterDepartmentsByRole,
+  getStoredLabRole,
+} from "@/lib/lab/rbac";
+import { logLabAuditEvent } from "@/lib/lab/clientAudit";
 
 type Props = {
   envId: string;
@@ -51,7 +59,7 @@ function GroupedCapabilityNav({
   envId: string;
   currentDept: LabDepartmentKey;
   pathname: string;
-  groups: Record<LabCapabilityCategory, ReturnType<typeof getCapabilitiesForDepartment>>;
+  groups: Record<LabCapabilityCategory, LabCapabilityMeta[]>;
   collapsedGroups: Record<LabCapabilityCategory, boolean>;
   onToggleGroup: (group: LabCapabilityCategory) => void;
 }) {
@@ -104,6 +112,7 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
   const { selectedEnv, selectEnv } = useEnv();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [capabilityQuery, setCapabilityQuery] = useState("");
+  const [role, setRole] = useState<LabRole>(() => getStoredLabRole());
   const mobileSidebarRef = useRef<HTMLDivElement>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<LabCapabilityCategory, boolean>>({
     Data: false,
@@ -113,7 +122,10 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
   });
 
   const industry = selectedEnv?.env_id === envId ? selectedEnv.industry : undefined;
-  const departments = useMemo(() => getEnabledDepartmentsForIndustry(industry), [industry]);
+  const departments = useMemo(() => {
+    const enabled = getEnabledDepartmentsForIndustry(industry);
+    return filterDepartmentsByRole(role, enabled);
+  }, [industry, role]);
   const defaultDepartment = useMemo(
     () => getDefaultDepartmentForIndustry(industry),
     [industry]
@@ -128,8 +140,9 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
 
   const capabilities = useMemo(() => {
     if (!currentDept) return [];
-    return getCapabilitiesForDepartment(currentDept, { industry });
-  }, [currentDept, industry]);
+    const raw = getCapabilitiesForDepartment(currentDept, { industry });
+    return filterCapabilitiesByRole(role, raw);
+  }, [currentDept, industry, role]);
 
   const filteredCapabilities = useMemo(() => {
     const query = capabilityQuery.trim().toLowerCase();
@@ -167,6 +180,12 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
   }, [envId, selectedEnv?.env_id, selectEnv]);
 
   useEffect(() => {
+    const syncRole = () => setRole(getStoredLabRole());
+    window.addEventListener("storage", syncRole);
+    return () => window.removeEventListener("storage", syncRole);
+  }, []);
+
+  useEffect(() => {
     setMobileSidebarOpen(false);
   }, [pathname]);
 
@@ -176,6 +195,18 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
       document.title = `${titleParts.join(" > ")} | Lab Environments`;
     }
   }, [envName, currentDeptMeta?.label, currentCapability?.label]);
+
+  useEffect(() => {
+    if (!currentDept || !currentCapability) return;
+    logLabAuditEvent("capability_navigation", {
+      envId,
+      details: {
+        deptKey: currentDept,
+        capabilityKey: currentCapability.key,
+        pathname,
+      },
+    });
+  }, [envId, currentDept, currentCapability?.key, pathname]);
 
   useEffect(() => {
     if (!mobileSidebarOpen) return;
@@ -209,7 +240,7 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
   if (!currentDept) {
     return (
       <div className="rounded-xl border border-bm-border/70 bg-bm-surface/35 p-4">
-        No department configuration found for this environment.
+        No department access for current role. Switch role to view this environment.
       </div>
     );
   }

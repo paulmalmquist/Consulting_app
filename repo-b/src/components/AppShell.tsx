@@ -8,6 +8,12 @@ import { cn } from "@/lib/cn";
 import { buttonVariants } from "@/components/ui/buttonVariants";
 import { getLabIndustryMeta } from "@/lib/lab-industries";
 import {
+  type LabRole,
+  getStoredLabRole,
+  setStoredLabRole,
+} from "@/lib/lab/rbac";
+import { logLabAuditEvent } from "@/lib/lab/clientAudit";
+import {
   NavIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
@@ -34,6 +40,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (typeof window === "undefined") return false;
     return localStorage.getItem(COLLAPSED_STORAGE_KEY) === "1";
   });
+  const [role, setRole] = useState<LabRole>(() => getStoredLabRole());
   const mobileDrawerRef = useRef<HTMLDivElement>(null);
   const aiMode = process.env.NEXT_PUBLIC_AI_MODE || "off";
   const rawItems =
@@ -79,6 +86,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setMobileNavOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    const syncRole = () => setRole(getStoredLabRole());
+    window.addEventListener("storage", syncRole);
+    return () => window.removeEventListener("storage", syncRole);
+  }, []);
 
   useEffect(() => {
     if (!mobileNavOpen) return;
@@ -254,6 +267,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           >
             Logout
           </button>
+          <label className="inline-flex items-center gap-2 text-xs text-bm-muted">
+            Role
+            <select
+              value={role}
+              onChange={(event) => {
+                const next = event.target.value as LabRole;
+                setRole(next);
+                setStoredLabRole(next);
+                logLabAuditEvent("role_changed", {
+                  envId: selectedEnv?.env_id,
+                  details: { role: next },
+                });
+              }}
+              className="rounded-md border border-bm-border/70 bg-bm-surface/45 px-2 py-1 text-xs text-bm-text"
+            >
+              <option value="admin">Admin</option>
+              <option value="operator">Operator</option>
+              <option value="viewer">Viewer</option>
+            </select>
+          </label>
         </header>
         <main className="flex-1 p-6">{children}</main>
       </div>

@@ -40,4 +40,15 @@ test.describe("Global command bar", () => {
     await page.goto("/");
     await expect(page.getByTestId("global-commandbar-toggle")).toBeVisible();
   });
+
+  test("viewer role cannot submit commands", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("lab_user_role", "viewer");
+    });
+    await page.goto("/lab/environments");
+    await page.getByTestId("global-commandbar-toggle").click();
+
+    await expect(page.getByText("Viewer role can review transcripts")).toBeVisible();
+    await expect(page.getByTestId("global-commandbar-send")).toBeDisabled();
+  });
 });

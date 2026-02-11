@@ -8,6 +8,12 @@ import {
   type LabDepartmentKey,
 } from "@/lib/lab/DepartmentRegistry";
 import { getCapabilityByKey } from "@/lib/lab/CapabilityRegistry";
+import {
+  filterCapabilitiesByRole,
+  getStoredLabRole,
+  isDepartmentAllowed,
+  type LabRole,
+} from "@/lib/lab/rbac";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/Card";
 
 type Metrics = {
@@ -25,11 +31,16 @@ export default function LabCapabilityPage({
   params: { envId: string; deptKey: string; capKey: string };
 }) {
   const { selectedEnv } = useEnv();
+  const [role, setRole] = useState<LabRole>(() => getStoredLabRole());
   const deptKey = params.deptKey as LabDepartmentKey;
   const department = LAB_DEPARTMENT_BY_KEY[deptKey];
   const industry =
     selectedEnv?.env_id === params.envId ? selectedEnv.industry : undefined;
   const capability = getCapabilityByKey(deptKey, params.capKey, { industry });
+  const deptAllowed = department ? isDepartmentAllowed(role, deptKey) : false;
+  const capAllowed = capability
+    ? filterCapabilitiesByRole(role, [capability]).length > 0
+    : false;
 
   const [metrics, setMetrics] = useState<Metrics | null>(null);
 
@@ -59,6 +70,38 @@ export default function LabCapabilityPage({
     if (!department || !capability) return;
     document.title = `${capability.label} | ${department.label} | Lab Environments`;
   }, [department, capability]);
+
+  useEffect(() => {
+    const syncRole = () => setRole(getStoredLabRole());
+    window.addEventListener("storage", syncRole);
+    return () => window.removeEventListener("storage", syncRole);
+  }, []);
+
+  if (department && !deptAllowed) {
+    return (
+      <Card>
+        <CardContent>
+          <CardTitle className="text-xl">Access Restricted</CardTitle>
+          <CardDescription>
+            Your role does not have access to this department.
+          </CardDescription>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (capability && !capAllowed) {
+    return (
+      <Card>
+        <CardContent>
+          <CardTitle className="text-xl">Access Restricted</CardTitle>
+          <CardDescription>
+            Your role does not have access to this capability.
+          </CardDescription>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!department || !capability) {
     return (

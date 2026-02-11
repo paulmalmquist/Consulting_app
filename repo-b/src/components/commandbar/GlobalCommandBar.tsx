@@ -11,6 +11,8 @@ import {
   persistHistory,
   resolveCommandContext,
 } from "@/lib/commandbar/store";
+import { getStoredLabRole, type LabRole } from "@/lib/lab/rbac";
+import { logLabAuditEvent } from "@/lib/lab/clientAudit";
 
 type HealthResponse = {
   ok: boolean;
@@ -29,6 +31,7 @@ export default function GlobalCommandBar() {
   const [messages, setMessages] = useState<CommandMessage[]>([]);
   const [prompt, setPrompt] = useState("");
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [role, setRole] = useState<LabRole>(() => getStoredLabRole());
   const [running, setRunning] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
@@ -51,6 +54,12 @@ export default function GlobalCommandBar() {
       window.clearInterval(interval);
       window.removeEventListener("storage", onStorage);
     };
+  }, []);
+
+  useEffect(() => {
+    const syncRole = () => setRole(getStoredLabRole());
+    window.addEventListener("storage", syncRole);
+    return () => window.removeEventListener("storage", syncRole);
   }, []);
 
   useEffect(() => {
@@ -101,13 +110,22 @@ export default function GlobalCommandBar() {
     return "Unavailable";
   }, [health, publicAiMode]);
 
-  const canSend = publicAiMode === "local" && health?.ok === true && !running;
+  const canSend =
+    publicAiMode === "local" && health?.ok === true && !running && role !== "viewer";
 
   const sendPrompt = async () => {
     const text = prompt.trim();
     if (!text || running) return;
 
     const userMessage = makeMessage("user", text);
+    logLabAuditEvent("commandbar_submitted", {
+      envId: contextKey.startsWith("env:") ? contextKey.slice(4) : undefined,
+      details: {
+        contextKey,
+        role,
+        promptLength: text.length,
+      },
+    });
     setMessages((prev) => [...prev, userMessage]);
     setPrompt("");
     setRunning(true);
@@ -270,6 +288,11 @@ export default function GlobalCommandBar() {
             </div>
 
             <div className="mt-3 space-y-2">
+              {role === "viewer" ? (
+                <p className="text-xs text-bm-warning">
+                  Viewer role can review transcripts but cannot submit commands.
+                </p>
+              ) : null}
               <Textarea
                 data-testid="global-commandbar-input"
                 value={prompt}

@@ -285,3 +285,15 @@ test("create environment from industry template and selects it", async ({ page }
   await expect(page.getByTestId("current-env-name")).toHaveText("Dental Practice Environment");
   await expect(page.getByTestId("active-env-indicator")).toContainText("33333333");
 });
+
+test("viewer role hides admin department tab", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("lab_user_role", "viewer");
+  });
+
+  await page.goto("/lab/environments");
+  const firstEnvOpen = page.getByTestId(/^env-open-/).first();
+  await firstEnvOpen.click();
+
+  await expect(page.getByTestId("dept-tab-admin")).toHaveCount(0);
+});

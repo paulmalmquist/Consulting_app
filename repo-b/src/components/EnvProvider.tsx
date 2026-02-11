@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { logLabAuditEvent } from "@/lib/lab/clientAudit";
 
 export type Environment = {
   env_id: string;
@@ -69,6 +70,9 @@ export function EnvProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const selectEnv = (envId: string) => {
+    if (selectedEnvId !== envId) {
+      logLabAuditEvent("env_selected", { envId, details: { source: "client" } });
+    }
     setSelectedEnvId(envId);
     localStorage.setItem(STORAGE_KEY, envId);
     localStorage.removeItem(LEGACY_STORAGE_KEY);

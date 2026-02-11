@@ -1,22 +1,60 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { notFound } from "next/navigation";
+import { useEnv } from "@/components/EnvProvider";
 import {
   LAB_DEPARTMENT_BY_KEY,
   type LabDepartmentKey,
 } from "@/lib/lab/DepartmentRegistry";
 import { getCapabilitiesForDepartment } from "@/lib/lab/CapabilityRegistry";
+import {
+  filterCapabilitiesByRole,
+  getStoredLabRole,
+  isDepartmentAllowed,
+  type LabRole,
+} from "@/lib/lab/rbac";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/Card";
 
-export default async function LabDepartmentPage({
+export default function LabDepartmentPage({
   params,
 }: {
-  params: Promise<{ envId: string; deptKey: string }>;
+  params: { envId: string; deptKey: string };
 }) {
-  const { envId, deptKey } = await params;
-  const department = LAB_DEPARTMENT_BY_KEY[deptKey as LabDepartmentKey];
+  const { selectedEnv } = useEnv();
+  const [role, setRole] = useState<LabRole>(() => getStoredLabRole());
+
+  const deptKey = params.deptKey as LabDepartmentKey;
+  const department = LAB_DEPARTMENT_BY_KEY[deptKey];
   if (!department) return notFound();
 
-  const capabilities = getCapabilitiesForDepartment(deptKey as LabDepartmentKey);
+  const industry =
+    selectedEnv?.env_id === params.envId ? selectedEnv.industry : undefined;
+
+  const capabilities = useMemo(() => {
+    const raw = getCapabilitiesForDepartment(deptKey, { industry });
+    return filterCapabilitiesByRole(role, raw);
+  }, [deptKey, industry, role]);
+
+  useEffect(() => {
+    const syncRole = () => setRole(getStoredLabRole());
+    window.addEventListener("storage", syncRole);
+    return () => window.removeEventListener("storage", syncRole);
+  }, []);
+
+  if (!isDepartmentAllowed(role, deptKey)) {
+    return (
+      <Card>
+        <CardContent>
+          <CardTitle className="text-xl">Access Restricted</CardTitle>
+          <CardDescription>
+            Your role does not have access to this department.
+          </CardDescription>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -31,7 +69,7 @@ export default async function LabDepartmentPage({
         {capabilities.map((cap) => (
           <Link
             key={cap.key}
-            href={`/lab/env/${envId}/${deptKey}/capability/${cap.key}`}
+            href={`/lab/env/${params.envId}/${deptKey}/capability/${cap.key}`}
             data-testid={`cap-link-${cap.key}`}
             className="rounded-xl border border-bm-border/70 bg-bm-surface/35 p-4 transition hover:bg-bm-surface/50"
           >
