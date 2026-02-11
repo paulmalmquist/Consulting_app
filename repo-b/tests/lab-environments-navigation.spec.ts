@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 type Env = {
   env_id: string;
@@ -7,6 +7,24 @@ type Env = {
   created_at?: string;
   status?: string;
 };
+
+async function openLabNav(page: Page) {
+  const mobileToggle = page.getByTestId("lab-mobile-nav-toggle");
+  if (await mobileToggle.isVisible()) {
+    await mobileToggle.click();
+    await expect(page.getByTestId("lab-mobile-nav-drawer")).toBeVisible();
+    return "mobile";
+  }
+
+  await expect(page.getByTestId("lab-nav")).toBeVisible();
+  return "desktop";
+}
+
+async function clickLabNavLink(page: Page, key: string) {
+  const navMode = await openLabNav(page);
+  await page.locator(`[data-testid="lab-nav-link-${key}"]:visible`).first().click();
+  return navMode;
+}
 
 test.beforeEach(async ({ context, page, baseURL }) => {
   if (!baseURL) throw new Error("baseURL missing");
@@ -89,22 +107,31 @@ test.beforeEach(async ({ context, page, baseURL }) => {
   });
 });
 
-test("open environment updates selection and keeps it while navigating lab routes", async ({
-  page,
-}) => {
+test("open environment updates selection and keeps it while navigating lab routes", async (
+  { page },
+  testInfo
+) => {
   await page.goto("/lab/environments");
   await expect(page.getByRole("heading", { name: "Lab Environments" })).toBeVisible();
 
   await expect(page.getByText("Healthcare Provider · 11111111")).toBeVisible();
 
-  await page.getByRole("button", { name: "Open" }).nth(1).click();
+  await page.getByRole("button", { name: /^Open$/ }).nth(1).click();
 
   await expect(page).toHaveURL(/\/lab$/);
   await expect(
     page.getByRole("banner").getByText("Construction / Trades · 22222222")
   ).toBeVisible();
 
-  await page.getByRole("link", { name: "Metrics" }).click();
+  const isMobileProject = /webkit|mobile|iphone|android/i.test(testInfo.project.name);
+  const navMode = await clickLabNavLink(page, "metrics");
+  if (isMobileProject) {
+    expect(navMode).toBe("mobile");
+    await expect(page.getByTestId("lab-mobile-nav-drawer")).toBeHidden();
+  } else {
+    expect(navMode).toBe("desktop");
+  }
+
   await expect(page).toHaveURL(/\/lab\/metrics$/);
 
   const [metricsRequest] = await Promise.all([
@@ -113,6 +140,12 @@ test("open environment updates selection and keeps it while navigating lab route
   ]);
   const metricsEnvId = new URL(metricsRequest.url()).searchParams.get("env_id");
   expect(metricsEnvId).toBe("22222222-2222-4222-8222-222222222222");
+
+  await clickLabNavLink(page, "dashboard");
+  await expect(page).toHaveURL(/\/lab$/);
+  await expect(
+    page.getByRole("banner").getByText("Construction / Trades · 22222222")
+  ).toBeVisible();
 });
 
 test("create environment from industry template and selects it", async ({ page }) => {
