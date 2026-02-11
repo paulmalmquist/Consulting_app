@@ -134,7 +134,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-bm-bg text-bm-text flex">
       {/* ── Desktop sidebar ──────────────────────────────── */}
       <aside
-        data-testid="lab-sidebar"
+        data-testid="lab-main-sidebar"
         {...(collapsed ? { "data-testid-collapsed": "lab-sidebar-collapsed" } : {})}
         className={cn(
           "border-r border-bm-border/70 hidden lg:flex flex-col bg-bm-bg/40 backdrop-blur-md transition-all duration-200",

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { useEnv } from "@/components/EnvProvider";
 import {
   LAB_DEPARTMENT_BY_KEY,
   type LabDepartmentKey,
@@ -23,9 +24,12 @@ export default function LabCapabilityPage({
 }: {
   params: { envId: string; deptKey: string; capKey: string };
 }) {
+  const { selectedEnv } = useEnv();
   const deptKey = params.deptKey as LabDepartmentKey;
   const department = LAB_DEPARTMENT_BY_KEY[deptKey];
-  const capability = getCapabilityByKey(deptKey, params.capKey);
+  const industry =
+    selectedEnv?.env_id === params.envId ? selectedEnv.industry : undefined;
+  const capability = getCapabilityByKey(deptKey, params.capKey, { industry });
 
   const [metrics, setMetrics] = useState<Metrics | null>(null);
 
@@ -50,6 +54,11 @@ export default function LabCapabilityPage({
       },
     ];
   }, [metrics]);
+
+  useEffect(() => {
+    if (!department || !capability) return;
+    document.title = `${capability.label} | ${department.label} | Lab Environments`;
+  }, [department, capability]);
 
   if (!department || !capability) {
     return (

@@ -3,7 +3,7 @@ import {
   getDefaultDepartmentForIndustry,
   getEnabledDepartmentsForIndustry,
 } from "./DepartmentRegistry";
-import { LAB_CAPABILITIES_BY_DEPARTMENT } from "./CapabilityRegistry";
+import { getCapabilitiesForDepartment } from "./CapabilityRegistry";
 
 export type LabHomepageHealth = {
   version: string;
@@ -23,7 +23,7 @@ export function getLabHomepageHealth(envId: string, industry?: string | null): L
   const departments = getEnabledDepartmentsForIndustry(industry);
   const defaultDept = getDefaultDepartmentForIndustry(industry);
   const capabilityCount = departments.reduce((sum, dept) => {
-    const entries = LAB_CAPABILITIES_BY_DEPARTMENT[dept.key] || [];
+    const entries = getCapabilitiesForDepartment(dept.key, { industry });
     return sum + entries.length;
   }, 0);
 

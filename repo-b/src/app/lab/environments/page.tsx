@@ -58,6 +58,8 @@ export default function EnvironmentsPage() {
         body: JSON.stringify({
           client_name: clientName,
           industry,
+          // If backend supports template metadata, keep explicit template key in payload.
+          template_key: industry,
           notes,
         }),
       });

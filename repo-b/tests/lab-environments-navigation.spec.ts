@@ -202,14 +202,14 @@ test("sidebar toggle collapses and expands lab navigation", async ({ page }) => 
   if (!(await toggle.isVisible())) return;
 
   // Sidebar should be expanded by default with labels visible
-  await expect(page.getByTestId("lab-sidebar")).toBeVisible();
+  await expect(page.getByTestId("lab-main-sidebar")).toBeVisible();
   await expect(page.getByTestId("lab-nav-link-dashboard")).toContainText("Dashboard");
 
   // Collapse sidebar
   await toggle.click();
 
   // After collapse: sidebar still visible (as narrow rail), but labels hidden
-  await expect(page.getByTestId("lab-sidebar")).toBeVisible();
+  await expect(page.getByTestId("lab-main-sidebar")).toBeVisible();
 
   // Expand sidebar
   await toggle.click();
@@ -282,6 +282,6 @@ test("create environment from industry template and selects it", async ({ page }
   await page.getByRole("button", { name: "Create Environment" }).click();
 
   await expect(page.getByText("Environment created and selected.")).toBeVisible();
-  await expect(page.getByText("Dental Practice Environment")).toBeVisible();
+  await expect(page.getByTestId("current-env-name")).toHaveText("Dental Practice Environment");
   await expect(page.getByTestId("active-env-indicator")).toContainText("33333333");
 });
