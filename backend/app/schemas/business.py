@@ -45,8 +45,20 @@ class CapabilityOut(BaseModel):
     department_key: str
     key: str
     label: str
-    kind: str
+    kind: str  # action | document_view | history | data_grid | dashboard | kanban | timeline | tree | form
     sort_order: int
     metadata_json: dict = {}
     enabled: bool = True
     sort_order_override: Optional[int] = None
+
+
+class DepartmentPermission(BaseModel):
+    department_key: str
+    permission_keys: list[str]  # read | write | delete | admin | approve
+
+
+class RoleOut(BaseModel):
+    role_id: UUID
+    key: str
+    label: str
+    department_permissions: list[DepartmentPermission] = []

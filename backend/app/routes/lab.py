@@ -3,7 +3,7 @@
 These replace the temporary stub routes that were in the Next.js frontend.
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 from uuid import UUID
 from typing import Optional
 from app.schemas.lab import (

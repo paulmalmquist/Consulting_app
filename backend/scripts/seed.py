@@ -87,32 +87,25 @@ def seed_templates(cur):
         {
             "key": "starter",
             "label": "Starter",
-            "description": "Core business departments: Finance, Operations, HR",
-            "departments": ["finance", "operations", "hr"],
-            "capabilities": [
-                "invoice_processing", "expense_review", "finance_documents", "finance_history",
-                "quality_check", "vendor_onboarding", "ops_documents", "ops_history",
-                "onboard_employee", "policy_review", "hr_documents", "hr_history",
-            ],
+            "description": "Core business departments: CRM, Accounting, Operations, HR",
+            "departments": ["crm", "accounting", "operations", "hr"],
+            "capabilities": "__all__",
         },
         {
             "key": "growth",
             "label": "Growth",
-            "description": "Starter + Sales and Marketing",
-            "departments": ["finance", "operations", "hr", "sales", "marketing"],
-            "capabilities": [
-                "invoice_processing", "expense_review", "finance_documents", "finance_history",
-                "quality_check", "vendor_onboarding", "ops_documents", "ops_history",
-                "onboard_employee", "policy_review", "hr_documents", "hr_history",
-                "proposal_gen", "contract_review", "sales_documents", "sales_history",
-                "campaign_brief", "marketing_documents", "marketing_history",
-            ],
+            "description": "Starter + Projects and Legal",
+            "departments": ["crm", "accounting", "operations", "projects", "hr", "legal"],
+            "capabilities": "__all__",
         },
         {
             "key": "enterprise",
             "label": "Enterprise",
             "description": "All departments and capabilities",
-            "departments": ["finance", "operations", "hr", "sales", "legal", "it", "marketing"],
+            "departments": [
+                "crm", "accounting", "operations", "projects",
+                "it", "legal", "hr", "executive", "documents", "admin",
+            ],
             "capabilities": "__all__",
         },
     ]
@@ -147,7 +140,7 @@ def seed_environments(cur):
 
 
 def lookup_departments(cur):
-    cur.execute("SELECT department_id, key FROM app.departments ORDER BY sort_order")
+    cur.execute("SELECT department_id, key FROM app.departments WHERE sort_order < 999 ORDER BY sort_order")
     return {r["key"]: str(r["department_id"]) for r in cur.fetchall()}
 
 
@@ -156,6 +149,7 @@ def lookup_capabilities(cur):
         """SELECT c.capability_id, c.key, d.key as dept_key
            FROM app.capabilities c
            JOIN app.departments d ON d.department_id = c.department_id
+           WHERE d.sort_order < 999
            ORDER BY c.sort_order"""
     )
     result = {}
@@ -219,26 +213,34 @@ def seed_executions(cur, biz_id, depts, caps):
                 "completed", "completed", "running", "queued", "completed"]
 
     execution_data = [
-        ("finance", "invoice_processing", {"vendor": "Acme Supplies", "amount": 4250.00}),
-        ("finance", "expense_review", {"employee": "Jane Smith", "total": 320.50}),
-        ("operations", "quality_check", {"batch_id": "BATCH-2025-001"}),
-        ("operations", "vendor_onboarding", {"vendor_name": "GlobalParts Inc"}),
-        ("hr", "onboard_employee", {"employee_name": "Alex Johnson", "role": "Senior Analyst"}),
-        ("hr", "policy_review", {"policy_name": "Remote Work Policy v3"}),
-        ("sales", "proposal_gen", {"client_name": "MedTech Corp", "scope": "EHR integration"}),
-        ("sales", "contract_review", {"contract_name": "MSA-2025-042"}),
-        ("legal", "compliance_check", {"regulation": "HIPAA Section 164.312"}),
-        ("it", "incident_report", {"severity": "P2", "description": "API latency spike"}),
-        ("it", "change_request", {"system": "Production DB", "change_description": "Index optimization"}),
-        ("marketing", "campaign_brief", {"campaign_name": "Q1 Product Launch"}),
-        ("finance", "invoice_processing", {"vendor": "DataServ LLC", "amount": 12800.00}),
-        ("finance", "invoice_processing", {"vendor": "CloudHost Pro", "amount": 2400.00}),
-        ("operations", "quality_check", {"batch_id": "BATCH-2025-002"}),
-        ("hr", "onboard_employee", {"employee_name": "Morgan Lee", "role": "Designer"}),
-        ("sales", "proposal_gen", {"client_name": "FinServ Group", "scope": "Compliance audit"}),
-        ("legal", "compliance_check", {"regulation": "SOC 2 Type II"}),
-        ("it", "change_request", {"system": "Auth Service", "change_description": "MFA rollout"}),
-        ("marketing", "campaign_brief", {"campaign_name": "Annual Conference Promo"}),
+        # CRM
+        ("crm", "accounts", {"account_name": "Acme Corp", "industry": "Technology"}),
+        ("crm", "leads", {"lead_name": "Jane Doe", "source": "Website"}),
+        ("crm", "opportunities", {"deal_name": "Enterprise License", "value": 125000}),
+        # Accounting
+        ("accounting", "journal_entries", {"description": "Monthly depreciation", "amount": 4250.00}),
+        ("accounting", "invoices", {"vendor": "DataServ LLC", "amount": 12800.00}),
+        ("accounting", "payments", {"payee": "CloudHost Pro", "amount": 2400.00}),
+        ("accounting", "reconciliations", {"account": "Operating Checking", "period": "2025-12"}),
+        # Operations
+        ("operations", "workflows", {"workflow": "Order Fulfillment", "batch": "BATCH-2025-001"}),
+        ("operations", "vendor_tracker", {"vendor_name": "GlobalParts Inc", "status": "onboarding"}),
+        # Projects
+        ("projects", "active_projects", {"project": "ERP Migration", "phase": "Discovery"}),
+        ("projects", "issues", {"issue": "Data mapping gaps", "priority": "High"}),
+        # IT
+        ("it", "ticket_queue", {"severity": "P2", "description": "API latency spike"}),
+        ("it", "change_requests", {"system": "Production DB", "change": "Index optimization"}),
+        ("it", "incidents", {"severity": "P1", "description": "Auth service outage"}),
+        # Legal
+        ("legal", "contracts", {"contract": "MSA-2025-042", "counterparty": "MedTech Corp"}),
+        ("legal", "compliance_tests", {"regulation": "HIPAA Section 164.312", "result": "pass"}),
+        # HR
+        ("hr", "employees", {"employee_name": "Alex Johnson", "role": "Senior Analyst"}),
+        ("hr", "recruiting", {"position": "Product Designer", "candidates": 12}),
+        ("hr", "onboarding", {"employee_name": "Morgan Lee", "role": "Designer"}),
+        # Executive (no executions typically, but some for demo)
+        ("executive", "revenue_summary", {"period": "Q4-2025", "total_revenue": 2850000}),
     ]
 
     for i, (dept_key, cap_key, inputs) in enumerate(execution_data):
@@ -276,11 +278,14 @@ def seed_executions(cur, biz_id, depts, caps):
 
 def seed_documents(cur, biz_id, tenant_id, depts):
     docs = [
-        ("Invoice - Acme Supplies Q4", "finance", "/finance/invoices/acme-q4.pdf", "application/pdf", 245_000),
-        ("Expense Report - Jane Smith Dec", "finance", "/finance/expenses/smith-dec.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 128_000),
+        ("Invoice - Acme Supplies Q4", "accounting", "/accounting/invoices/acme-q4.pdf", "application/pdf", 245_000),
+        ("Expense Report - Jane Smith Dec", "accounting", "/accounting/expenses/smith-dec.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 128_000),
         ("Quality Checklist Template", "operations", "/ops/templates/quality-checklist.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 85_000),
         ("Employee Handbook v5", "hr", "/hr/policies/handbook-v5.pdf", "application/pdf", 1_200_000),
-        ("MSA - MedTech Corp", "sales", "/sales/contracts/medtech-msa.pdf", "application/pdf", 520_000),
+        ("MSA - MedTech Corp", "legal", "/legal/contracts/medtech-msa.pdf", "application/pdf", 520_000),
+        ("ERP Migration Plan", "projects", "/projects/erp-migration/plan.pdf", "application/pdf", 380_000),
+        ("IT Asset Register", "it", "/it/assets/register-2025.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 156_000),
+        ("CRM Data Import Template", "crm", "/crm/templates/data-import.csv", "text/csv", 42_000),
     ]
 
     for title, dept_key, vpath, mime, size in docs:
@@ -319,8 +324,8 @@ def seed_work_items(cur, biz_id, tenant_id, depts, caps):
             "priority": 2,
             "title": "Approve invoice batch for Q4 processing",
             "description": "5 invoices totaling $42,500 require approval before payment run.",
-            "dept": "finance",
-            "cap": "invoice_processing",
+            "dept": "accounting",
+            "cap": "invoices",
         },
         {
             "type": "incident",
@@ -330,7 +335,7 @@ def seed_work_items(cur, biz_id, tenant_id, depts, caps):
             "title": "API latency spike affecting document uploads",
             "description": "Upload endpoint p99 latency exceeded 5s threshold for 30 minutes.",
             "dept": "it",
-            "cap": "incident_report",
+            "cap": "incidents",
         },
         {
             "type": "decision",
@@ -340,7 +345,7 @@ def seed_work_items(cur, biz_id, tenant_id, depts, caps):
             "title": "Review vendor onboarding for GlobalParts Inc",
             "description": "New vendor requires compliance check before contract execution.",
             "dept": "operations",
-            "cap": "vendor_onboarding",
+            "cap": "vendor_tracker",
         },
         {
             "type": "task",
@@ -350,7 +355,7 @@ def seed_work_items(cur, biz_id, tenant_id, depts, caps):
             "title": "Update remote work policy to reflect new state regulations",
             "description": "Three states updated employment laws effective Jan 1.",
             "dept": "hr",
-            "cap": "policy_review",
+            "cap": "employees",
         },
         {
             "type": "question",
@@ -360,7 +365,27 @@ def seed_work_items(cur, biz_id, tenant_id, depts, caps):
             "title": "Which compliance framework applies to the new EU client?",
             "description": "Need to determine if GDPR or sector-specific regulation applies.",
             "dept": "legal",
-            "cap": "compliance_check",
+            "cap": "regulatory_requirements",
+        },
+        {
+            "type": "request",
+            "status": "open",
+            "owner": "demo_user",
+            "priority": 3,
+            "title": "New CRM account setup for Enterprise client",
+            "description": "Enterprise license deal requires account provisioning.",
+            "dept": "crm",
+            "cap": "accounts",
+        },
+        {
+            "type": "task",
+            "status": "waiting",
+            "owner": "demo_approver",
+            "priority": 2,
+            "title": "Project milestone review - ERP Migration Phase 1",
+            "description": "Phase 1 deliverables need sign-off before Phase 2 kickoff.",
+            "dept": "projects",
+            "cap": "milestones",
         },
     ]
 

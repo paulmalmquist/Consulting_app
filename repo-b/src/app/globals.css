@@ -68,6 +68,58 @@
   }
 }
 
+/* Lab-specific theme scope (isolated from Business OS shell). */
+.lab-theme-scope.lab-theme-light {
+  --bm-bg: 210 38% 98%;
+  --bm-bg-2: 210 44% 96%;
+  --bm-surface: 0 0% 100%;
+  --bm-surface-2: 210 28% 95%;
+  --bm-border: 210 22% 84%;
+  --bm-border-strong: 210 22% 72%;
+  --bm-text: 220 35% 14%;
+  --bm-text-muted: 220 18% 34%;
+  --bm-text-muted-2: 220 14% 45%;
+  --bm-accent: 198 88% 45%;
+  --bm-accent-2: 204 86% 48%;
+  --bm-accent-contrast: 0 0% 100%;
+  --bm-success: 156 70% 35%;
+  --bm-warning: 38 90% 48%;
+  --bm-danger: 357 74% 52%;
+  --bm-focus-ring: 198 88% 45%;
+}
+
+.lab-theme-scope.lab-theme-dark {
+  --bm-bg: 222 52% 5%;
+  --bm-bg-2: 222 58% 4%;
+  --bm-surface: 220 42% 10%;
+  --bm-surface-2: 220 36% 13%;
+  --bm-border: 216 28% 22%;
+  --bm-border-strong: 210 30% 28%;
+  --bm-text: 210 40% 96%;
+  --bm-text-muted: 215 18% 72%;
+  --bm-text-muted-2: 218 14% 60%;
+  --bm-accent: 192 100% 55%;
+  --bm-accent-2: 205 100% 58%;
+  --bm-accent-contrast: 222 55% 6%;
+  --bm-success: 165 78% 45%;
+  --bm-warning: 40 96% 56%;
+  --bm-danger: 355 86% 58%;
+  --bm-focus-ring: 192 100% 55%;
+}
+
+.lab-readable {
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.lab-readable h1,
+.lab-readable h2,
+.lab-readable h3 {
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+
 /* Hide scrollbar for horizontal scroll areas */
 .scrollbar-hide {
   -ms-overflow-style: none;

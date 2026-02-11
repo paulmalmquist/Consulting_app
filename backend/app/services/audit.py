@@ -59,33 +59,45 @@ def record_event(
     input_data: dict | None = None,
     output_data: dict | None = None,
     error_message: str | None = None,
-) -> UUID:
-    """Persist an audit event. Returns the audit_event_id."""
+) -> UUID | None:
+    """Persist an audit event.
+
+    Returns the audit_event_id when persisted, otherwise None.
+    Logging failures must not break primary API flows.
+    """
     input_redacted = redact_dict(input_data or {})
     output_redacted = redact_dict(output_data or {})
 
-    with get_cursor() as cur:
-        cur.execute(
-            """INSERT INTO app.audit_events
-               (tenant_id, business_id, actor, action, tool_name,
-                object_type, object_id, success, latency_ms,
-                input_redacted, output_redacted, error_message)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-               RETURNING audit_event_id""",
-            (
-                str(tenant_id) if tenant_id else None,
-                str(business_id) if business_id else None,
-                actor, action, tool_name,
-                object_type,
-                str(object_id) if object_id else None,
-                success, latency_ms,
-                json.dumps(input_redacted),
-                json.dumps(output_redacted),
-                error_message,
-            ),
-        )
-        row = cur.fetchone()
-        return row["audit_event_id"]
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """INSERT INTO app.audit_events
+                   (tenant_id, business_id, actor, action, tool_name,
+                    object_type, object_id, success, latency_ms,
+                    input_redacted, output_redacted, error_message)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                   RETURNING audit_event_id""",
+                (
+                    str(tenant_id) if tenant_id else None,
+                    str(business_id) if business_id else None,
+                    actor,
+                    action,
+                    tool_name,
+                    object_type,
+                    str(object_id) if object_id else None,
+                    success,
+                    latency_ms,
+                    json.dumps(input_redacted),
+                    json.dumps(output_redacted),
+                    error_message,
+                ),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            return row.get("audit_event_id")
+    except Exception:
+        return None
 
 
 def list_events(
