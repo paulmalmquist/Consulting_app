@@ -31,7 +31,7 @@ const EMPTY_BILL: BillFormState = {
   description: "",
 };
 
-function badgeVariant(status: BillStatus): "default" | "warning" | "success" {
+function badgeVariant(status: BillStatus): "default" | "accent" | "success" {
   if (status === "paid") return "success";
   if (status === "approved") return "accent";
   return "default";

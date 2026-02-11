@@ -205,7 +205,6 @@ export default function VendorManagementView() {
         onOpenChange={setOpen}
         title={editingVendorId ? "Edit Vendor" : "Add Vendor"}
         description="Vendor master profile"
-        data-testid="vendor-modal"
       >
         <div data-testid="vendor-modal" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input placeholder="Vendor name" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
@@ -236,7 +235,9 @@ export default function VendorManagementView() {
 
         <div className="mt-6 flex justify-end gap-2">
           <Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={submit}>{editingVendorId ? "Save" : "Add Vendor"}</Button>
+          <Button data-testid="vendor-submit-button" onClick={submit}>
+            {editingVendorId ? "Save" : "Add Vendor"}
+          </Button>
         </div>
       </Dialog>
     </div>

@@ -12,6 +12,9 @@ import KanbanStub from "@/components/bos/capabilities/KanbanStub";
 import TimelineStub from "@/components/bos/capabilities/TimelineStub";
 import TreeStub from "@/components/bos/capabilities/TreeStub";
 import FormStub from "@/components/bos/capabilities/FormStub";
+import VendorManagementView from "@/components/accounting/VendorManagementView";
+import AccountsPayableView from "@/components/accounting/AccountsPayableView";
+import GeneralLedgerView from "@/components/accounting/GeneralLedgerView";
 import { Button } from "@/components/ui/Button";
 
 export default function CapabilityPageClient({
@@ -88,6 +91,15 @@ export default function CapabilityPageClient({
       );
 
     case "data_grid":
+      if (deptKey === "accounting" && capKey === "vendor-management") {
+        return <VendorManagementView />;
+      }
+      if (deptKey === "accounting" && capKey === "accounts-payable") {
+        return <AccountsPayableView />;
+      }
+      if (deptKey === "accounting" && (capKey === "general-ledger" || capKey === "journal-entries")) {
+        return <GeneralLedgerView />;
+      }
       return <DataGridStub deptKey={deptKey} capKey={capKey} capLabel={cap.label} />;
 
     case "dashboard":
