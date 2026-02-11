@@ -154,11 +154,10 @@ test("open environment routes to homepage and supports department/capability nav
   await expect(page.getByTestId("dept-tab-accounting")).toBeVisible();
   if (await page.getByTestId("lab-env-sidebar-toggle").isVisible()) {
     await page.getByTestId("lab-env-sidebar-toggle").click();
-    await expect(page.getByTestId("lab-env-sidebar-drawer")).toBeVisible();
-    await page
-      .getByTestId("lab-env-sidebar-drawer")
-      .getByRole("button", { name: "Close" })
-      .click();
+    const drawer = page.getByTestId("lab-env-sidebar-drawer");
+    await expect(drawer).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(drawer).toBeHidden();
   } else {
     await expect(page.getByTestId("lab-sidebar")).toBeVisible();
   }

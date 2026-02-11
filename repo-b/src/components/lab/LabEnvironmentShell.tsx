@@ -271,8 +271,12 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
 
   useEffect(() => {
     if (!currentDept) return;
+    const pathDept = parseDepartmentFromPath(pathname, envId);
+    if (!pathDept) return;
+    if (pathDept !== currentDept) return;
+    if (!departments.some((dept) => dept.key === pathDept)) return;
     setStoredLastDept(envId, currentDept);
-  }, [envId, currentDept]);
+  }, [envId, pathname, currentDept, departments]);
 
   useEffect(() => {
     const syncRole = () => setRole(getStoredLabRole());

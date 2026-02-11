@@ -58,16 +58,16 @@ test.beforeEach(async ({ context, page, baseURL }) => {
   await page.route("**/v1/audit**", async (route) => {
     await route.fulfill({ json: { items: [] } });
   });
+});
 
-  await page.addInitScript(([envId]) => {
+test("redirects /lab/env/:envId to default dept route", async ({ page }) => {
+  await page.goto("/lab/environments");
+  await page.evaluate((envId) => {
     window.localStorage.removeItem(`lab:lastDept:${envId}`);
     window.localStorage.removeItem("lab_active_env_id");
     window.localStorage.removeItem("demo_lab_env_id");
     window.localStorage.removeItem("lab_user_role");
-  }, [ENV_ID]);
-});
-
-test("redirects /lab/env/:envId to default dept route", async ({ page }) => {
+  }, ENV_ID);
   await page.goto(`/lab/env/${ENV_ID}`);
   await expect(page).toHaveURL(new RegExp(`/lab/env/${ENV_ID}/dept/operations$`));
 });
@@ -75,6 +75,9 @@ test("redirects /lab/env/:envId to default dept route", async ({ page }) => {
 test("redirects /lab/env/:envId to stored last dept when valid", async ({ page }) => {
   await page.goto("/lab/environments");
   await page.evaluate((envId) => {
+    window.localStorage.removeItem("lab_active_env_id");
+    window.localStorage.removeItem("demo_lab_env_id");
+    window.localStorage.removeItem("lab_user_role");
     window.localStorage.setItem(`lab:lastDept:${envId}`, "accounting");
   }, ENV_ID);
   await page.goto(`/lab/env/${ENV_ID}`);
