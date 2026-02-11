@@ -9,6 +9,7 @@ installed `codex` CLI (which uses local ChatGPT-managed auth via `codex login`).
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -46,6 +47,17 @@ class CodeTaskResponse(BaseModel):
 
 
 app = FastAPI(title="Local Codex Sidecar", version="0.1.0")
+logger = logging.getLogger("ai_sidecar")
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+
+
+def _log(event: str, **fields: Any) -> None:
+    payload = {"event": event, **fields}
+    logger.info(json.dumps(payload, default=str))
 
 
 def _check_codex_available() -> tuple[bool, str]:
@@ -102,6 +114,7 @@ def _run_codex(prompt: str, timeout_ms: int) -> tuple[int, str, str]:
     ]
 
     try:
+        _log("codex_exec_start", timeout_ms=timeout_ms, prompt_bytes=len(prompt.encode("utf-8")))
         p = subprocess.run(
             cmd,
             capture_output=True,
@@ -109,14 +122,22 @@ def _run_codex(prompt: str, timeout_ms: int) -> tuple[int, str, str]:
             timeout=timeout_ms / 1000.0,
             env=_minimal_env(),
         )
+        _log(
+            "codex_exec_done",
+            returncode=p.returncode,
+            stdout_bytes=len((p.stdout or "").encode("utf-8")),
+            stderr_bytes=len((p.stderr or "").encode("utf-8")),
+        )
         return p.returncode, p.stdout, p.stderr
     except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="Codex sidecar timed out")
+        _log("codex_exec_timeout", timeout_ms=timeout_ms)
+        raise HTTPException(status_code=503, detail="codex exec timeout")
 
 
 @app.get("/health")
 def health() -> dict[str, Any]:
     ok, msg = _check_codex_available()
+    _log("health_check", codex_available=ok, message=msg)
     return {"ok": True, "codex_available": ok, "message": msg}
 
 
@@ -127,9 +148,9 @@ def ask(payload: AskRequest) -> AskResponse:
     elapsed_ms = int((time.time() - start) * 1000)
 
     if rc != 0:
-        # Avoid leaking stderr; truncate.
-        detail = (err or out or "Codex execution failed").strip()[:500]
-        raise HTTPException(status_code=502, detail=detail)
+        detail = (err or out or "codex execution failed").strip()[:500]
+        _log("ask_failed", returncode=rc, elapsed_ms=elapsed_ms, detail=detail)
+        raise HTTPException(status_code=503, detail=f"codex exec failed (rc={rc}): {detail}")
 
     answer = out.strip()
     # Codex CLI includes a lot of headers/metadata. Keep the last non-empty line as the answer.
@@ -138,8 +159,10 @@ def ask(payload: AskRequest) -> AskResponse:
     if lines:
         answer = lines[-1]
     if not answer:
-        raise HTTPException(status_code=502, detail="Empty response from codex")
+        _log("ask_empty_response", elapsed_ms=elapsed_ms)
+        raise HTTPException(status_code=503, detail="empty response from codex")
 
+    _log("ask_ok", elapsed_ms=elapsed_ms)
     return AskResponse(answer=answer, elapsed_ms=elapsed_ms)
 
 
@@ -156,12 +179,14 @@ def code_task(payload: CodeTaskRequest) -> CodeTaskResponse:
     elapsed_ms = int((time.time() - start) * 1000)
 
     if rc != 0:
-        detail = (err or out or "Codex execution failed").strip()[:500]
-        raise HTTPException(status_code=502, detail=detail)
+        detail = (err or out or "codex execution failed").strip()[:500]
+        _log("code_task_failed", returncode=rc, elapsed_ms=elapsed_ms, detail=detail)
+        raise HTTPException(status_code=503, detail=f"codex exec failed (rc={rc}): {detail}")
 
     text = out.strip()
     if not text:
-        raise HTTPException(status_code=502, detail="Empty response from codex")
+        _log("code_task_empty_response", elapsed_ms=elapsed_ms)
+        raise HTTPException(status_code=503, detail="empty response from codex")
 
     # Best-effort extraction: split on first "diff" fence if present.
     diff = None
@@ -172,6 +197,7 @@ def code_task(payload: CodeTaskRequest) -> CodeTaskResponse:
         diff_body = after.split("```", 1)[0]
         diff = diff_body.strip() or None
 
+    _log("code_task_ok", elapsed_ms=elapsed_ms, has_diff=bool(diff))
     return CodeTaskResponse(plan=plan, diff=diff, elapsed_ms=elapsed_ms)
 
 

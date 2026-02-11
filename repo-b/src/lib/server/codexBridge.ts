@@ -37,17 +37,22 @@ export async function checkSidecarHealth() {
     if (!response.ok) {
       return { ok: false, mode: aiMode(), message: `Sidecar returned ${response.status}.` };
     }
-    const payload = (await response.json()) as { codex_available?: boolean; message?: string };
+    const payload = (await response.json()) as {
+      codex_available?: boolean;
+      status?: string;
+      message?: string;
+    };
+    const ok = payload.codex_available === true || payload.status === "ok";
     return {
-      ok: payload.codex_available === true,
+      ok,
       mode: aiMode(),
-      message: payload.message || (payload.codex_available ? "Connected" : "Unavailable"),
+      message: payload.message || (ok ? "Connected" : "Unavailable"),
     };
   } catch {
     return {
       ok: false,
       mode: aiMode(),
-      message: "Sidecar not reachable. Run scripts/ai_start_sidecar.sh.",
+      message: "Sidecar not reachable. Run ./scripts/dev_all.sh or start codex app-server + ai_sidecar.py.",
     };
   }
 }
@@ -70,7 +75,7 @@ async function runPrompt(runId: string, prompt: string) {
   }
 
   try {
-    const response = await fetch(`${SIDE_CAR_URL}/ask`, {
+    const response = await fetch(`${SIDE_CAR_URL}/v1/ask`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, timeout_ms: 45000 }),

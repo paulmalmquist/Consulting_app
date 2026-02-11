@@ -4,10 +4,8 @@ from pydantic import BaseModel, Field
 
 
 class AiHealthResponse(BaseModel):
-    enabled: bool
-    sidecar_ok: bool
+    status: str
     mode: str
-    message: str | None = None
 
 
 class AskScope(BaseModel):
@@ -55,4 +53,3 @@ class AiCodeTaskResponse(BaseModel):
     diff: str | None = None
     citations: list[Citation]
     diagnostics: Diagnostics
-

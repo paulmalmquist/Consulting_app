@@ -35,6 +35,7 @@ export default function GlobalCommandBar() {
   const [running, setRunning] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
+  const loggedConnectedRef = useRef(false);
 
   const publicAiMode = process.env.NEXT_PUBLIC_AI_MODE || "off";
 
@@ -102,6 +103,20 @@ export default function GlobalCommandBar() {
     if (!transcriptRef.current) return;
     transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
   }, [messages, isOpen]);
+
+  useEffect(() => {
+    if (health?.ok && !loggedConnectedRef.current) {
+      // Explicitly confirm successful local AI connectivity in browser console.
+      console.info("[Business OS] Local AI connected", {
+        mode: health.mode,
+        message: health.message || "Connected",
+      });
+      loggedConnectedRef.current = true;
+    }
+    if (!health?.ok) {
+      loggedConnectedRef.current = false;
+    }
+  }, [health]);
 
   const statusLabel = useMemo(() => {
     if (!health) return "Checking";

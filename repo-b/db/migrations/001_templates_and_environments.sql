@@ -48,22 +48,22 @@ INSERT INTO app.templates (key, label, description, departments, capabilities) V
   (
     'starter',
     'Starter',
-    'Core business departments: Finance, Operations, HR',
-    '["finance", "operations", "hr"]'::jsonb,
-    '["invoice_processing", "expense_review", "finance_documents", "finance_history", "quality_check", "vendor_onboarding", "ops_documents", "ops_history", "onboard_employee", "policy_review", "hr_documents", "hr_history"]'::jsonb
+    'Core business departments: CRM, Accounting, Operations, HR',
+    '["crm", "accounting", "operations", "hr"]'::jsonb,
+    '"__all__"'::jsonb
   ),
   (
     'growth',
     'Growth',
-    'Starter + Sales and Marketing',
-    '["finance", "operations", "hr", "sales", "marketing"]'::jsonb,
-    '["invoice_processing", "expense_review", "finance_documents", "finance_history", "quality_check", "vendor_onboarding", "ops_documents", "ops_history", "onboard_employee", "policy_review", "hr_documents", "hr_history", "proposal_gen", "contract_review", "sales_documents", "sales_history", "campaign_brief", "marketing_documents", "marketing_history"]'::jsonb
+    'Starter + Projects and Legal',
+    '["crm", "accounting", "operations", "projects", "hr", "legal"]'::jsonb,
+    '"__all__"'::jsonb
   ),
   (
     'enterprise',
     'Enterprise',
     'All departments and capabilities',
-    '["finance", "operations", "hr", "sales", "legal", "it", "marketing"]'::jsonb,
+    '["crm", "accounting", "operations", "projects", "it", "legal", "hr", "executive", "documents", "admin"]'::jsonb,
     '"__all__"'::jsonb
   )
 ON CONFLICT (key) DO UPDATE SET

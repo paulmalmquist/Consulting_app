@@ -75,16 +75,27 @@ def _build_augmented_prompt(user_prompt: str, snippets) -> tuple[str, list[Citat
 def health() -> AiHealthResponse:
     mode = _ai_mode()
     if mode != "local":
-        return AiHealthResponse(
-            enabled=False,
-            sidecar_ok=False,
-            mode=mode,
-            message="AI_MODE is not 'local'. Set AI_MODE=local to enable local sidecar features.",
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "error",
+                "mode": mode,
+                "message": "AI_MODE is not local. Set AI_MODE=local.",
+            },
         )
 
     client = SidecarClient(_sidecar_url(), timeout_ms=_timeout_ms())
     ok, msg = client.health()
-    return AiHealthResponse(enabled=True, sidecar_ok=ok, mode=mode, message=None if ok else msg)
+    if not ok:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "error",
+                "mode": mode,
+                "message": msg,
+            },
+        )
+    return AiHealthResponse(status="ok", mode=mode)
 
 
 @router.post("/ask", response_model=AiAskResponse)

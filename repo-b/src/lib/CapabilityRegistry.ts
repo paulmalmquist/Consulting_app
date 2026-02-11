@@ -43,19 +43,13 @@ export const CAPABILITY_REGISTRY: Record<string, CapabilityMeta[]> = {
 
   // ── Accounting ───────────────────────────────────────────────────────
   accounting: [
-    { key: "chart_of_accounts", label: "Chart of Accounts", kind: "tree", icon: "list", sidebarGroup: "Ledger", sortOrder: 10, description: "Account hierarchy and structure" },
-    { key: "journal_entries", label: "Journal Entries", kind: "data_grid", icon: "edit", sidebarGroup: "Ledger", sortOrder: 20, description: "Manual and automated journal entries" },
-    { key: "ledger", label: "General Ledger", kind: "data_grid", icon: "book", sidebarGroup: "Ledger", sortOrder: 30, description: "Full general ledger view" },
-    { key: "ar", label: "Accounts Receivable", kind: "data_grid", icon: "arrow-down-left", sidebarGroup: "Receivables & Payables", sortOrder: 40, description: "Customer invoices and collections" },
-    { key: "ap", label: "Accounts Payable", kind: "data_grid", icon: "arrow-up-right", sidebarGroup: "Receivables & Payables", sortOrder: 50, description: "Vendor bills and payments" },
-    { key: "vendors", label: "Vendors", kind: "data_grid", icon: "truck", sidebarGroup: "Receivables & Payables", sortOrder: 55, description: "Vendor master list" },
-    { key: "invoices", label: "Invoices", kind: "data_grid", icon: "file-text", sidebarGroup: "Receivables & Payables", sortOrder: 60, description: "Invoice management" },
-    { key: "payments", label: "Payments", kind: "data_grid", icon: "credit-card", sidebarGroup: "Receivables & Payables", sortOrder: 70, description: "Payment processing and tracking" },
-    { key: "reconciliations", label: "Reconciliations", kind: "data_grid", icon: "check-circle", sidebarGroup: "Close", sortOrder: 80, description: "Bank and account reconciliations" },
-    { key: "budgets", label: "Budgets", kind: "dashboard", icon: "target", sidebarGroup: "Planning", sortOrder: 85, description: "Budget creation and variance analysis" },
-    { key: "financial_statements", label: "Financial Statements", kind: "dashboard", icon: "bar-chart", sidebarGroup: "Reports", sortOrder: 90, description: "Income statement, balance sheet, cash flow" },
-    { key: "controls", label: "Controls", kind: "data_grid", icon: "shield", sidebarGroup: "Compliance", sortOrder: 95, description: "Internal controls and SOX compliance" },
-    { key: "audit_log", label: "Audit Log", kind: "history", icon: "clock", sidebarGroup: "Compliance", sortOrder: 100, description: "Financial audit trail" },
+    { key: "general-ledger", label: "General Ledger", kind: "data_grid", icon: "book", sidebarGroup: "Ledger", sortOrder: 10, description: "Core ledger activity and account balances" },
+    { key: "journal-entries", label: "Journal Entries", kind: "data_grid", icon: "edit", sidebarGroup: "Ledger", sortOrder: 20, description: "Draft, post, and review journal entries" },
+    { key: "accounts-payable", label: "Accounts Payable", kind: "data_grid", icon: "arrow-up-right", sidebarGroup: "Payables & Receivables", sortOrder: 30, description: "Bills, approvals, and outbound payments" },
+    { key: "accounts-receivable", label: "Accounts Receivable", kind: "data_grid", icon: "arrow-down-left", sidebarGroup: "Payables & Receivables", sortOrder: 40, description: "Invoices, aging, and collections" },
+    { key: "vendor-management", label: "Vendor Management", kind: "data_grid", icon: "truck", sidebarGroup: "Payables & Receivables", sortOrder: 50, description: "Vendor master records and compliance tracking" },
+    { key: "reporting", label: "Reporting", kind: "dashboard", icon: "bar-chart", sidebarGroup: "Financial Controls", sortOrder: 60, description: "P&L, balance sheet, and executive rollups" },
+    { key: "audit-log", label: "Audit Log", kind: "history", icon: "clock", sidebarGroup: "Financial Controls", sortOrder: 70, description: "Immutable accounting audit trail" },
   ],
 
   // ── Operations ───────────────────────────────────────────────────────

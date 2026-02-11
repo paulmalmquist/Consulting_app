@@ -4,16 +4,49 @@ const BIZ_ID = "biz_smoke_123";
 
 const departments = [
   {
+    department_id: "dept_accounting",
+    key: "accounting",
+    label: "Accounting",
+    icon: "calculator",
+    sort_order: 1,
+    enabled: true,
+  },
+  {
     department_id: "dept_ops",
     key: "operations",
     label: "Operations",
     icon: "settings",
-    sort_order: 1,
+    sort_order: 2,
     enabled: true,
   },
 ];
 
-const capabilities = [
+const accountingCapabilities = [
+  {
+    capability_id: "cap_gl",
+    department_id: "dept_accounting",
+    department_key: "accounting",
+    key: "general-ledger",
+    label: "General Ledger",
+    kind: "data_grid",
+    sort_order: 1,
+    metadata_json: {},
+    enabled: true,
+  },
+  {
+    capability_id: "cap_je",
+    department_id: "dept_accounting",
+    department_key: "accounting",
+    key: "journal-entries",
+    label: "Journal Entries",
+    kind: "data_grid",
+    sort_order: 2,
+    metadata_json: {},
+    enabled: true,
+  },
+];
+
+const operationsCapabilities = [
   {
     capability_id: "cap_1",
     department_id: "dept_ops",
@@ -64,7 +97,11 @@ test.beforeEach(async ({ context, page, baseURL }) => {
   await page.route(
     `**/api/businesses/${BIZ_ID}/departments/**/capabilities`,
     async (route) => {
-      await route.fulfill({ json: capabilities });
+      const url = route.request().url();
+      const payload = url.includes("/departments/accounting/")
+        ? accountingCapabilities
+        : operationsCapabilities;
+      await route.fulfill({ json: payload });
     }
   );
 
@@ -99,6 +136,12 @@ test("App shell loads", async ({ page }) => {
   } else {
     await expect(brand).toBeVisible();
   }
+});
+
+test("Accounting page loads without crash", async ({ page }) => {
+  await page.goto("/app/accounting");
+  await expect(page.getByRole("heading", { name: "Accounting" })).toBeVisible();
+  await expect(page.getByText("Financial Overview")).toBeVisible();
 });
 
 test("Documents page loads", async ({ page }) => {

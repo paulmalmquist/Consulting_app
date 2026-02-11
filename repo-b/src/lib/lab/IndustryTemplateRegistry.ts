@@ -9,7 +9,7 @@ export type IndustryTemplate = {
 
 const GENERAL_TEMPLATE: IndustryTemplate = {
   key: "general",
-  enabledDepartments: ["executive", "operations", "crm", "documents", "admin"],
+  enabledDepartments: ["executive", "operations", "crm", "accounting", "documents", "admin"],
   defaultDeptKey: "executive",
   hiddenCapabilities: {},
 };
@@ -17,7 +17,7 @@ const GENERAL_TEMPLATE: IndustryTemplate = {
 const TEMPLATES: Record<string, IndustryTemplate> = {
   legal: {
     key: "legal",
-    enabledDepartments: ["legal", "documents", "admin"],
+    enabledDepartments: ["legal", "accounting", "documents", "admin"],
     defaultDeptKey: "legal",
   },
   healthcare: {
@@ -53,7 +53,7 @@ const TEMPLATES: Record<string, IndustryTemplate> = {
   },
   insurance: {
     key: "insurance",
-    enabledDepartments: ["crm", "operations", "legal", "documents"],
+    enabledDepartments: ["crm", "operations", "legal", "accounting", "documents"],
     defaultDeptKey: "crm",
   },
   logistics: {
@@ -88,12 +88,12 @@ const TEMPLATES: Record<string, IndustryTemplate> = {
   },
   nonprofit: {
     key: "nonprofit",
-    enabledDepartments: ["operations", "hr", "documents", "executive"],
+    enabledDepartments: ["operations", "hr", "accounting", "documents", "executive"],
     defaultDeptKey: "operations",
   },
   education: {
     key: "education",
-    enabledDepartments: ["operations", "hr", "documents", "crm"],
+    enabledDepartments: ["operations", "hr", "accounting", "documents", "crm"],
     defaultDeptKey: "operations",
   },
   financial_services: {
@@ -103,7 +103,7 @@ const TEMPLATES: Record<string, IndustryTemplate> = {
   },
   wealth_management: {
     key: "wealth_management",
-    enabledDepartments: ["crm", "legal", "executive", "documents"],
+    enabledDepartments: ["crm", "legal", "accounting", "executive", "documents"],
     defaultDeptKey: "executive",
   },
   home_services: {
@@ -113,22 +113,22 @@ const TEMPLATES: Record<string, IndustryTemplate> = {
   },
   it_msp: {
     key: "it_msp",
-    enabledDepartments: ["it", "operations", "executive", "crm"],
+    enabledDepartments: ["it", "operations", "executive", "crm", "accounting"],
     defaultDeptKey: "it",
   },
   recruiting: {
     key: "recruiting",
-    enabledDepartments: ["crm", "hr", "operations", "documents"],
+    enabledDepartments: ["crm", "hr", "operations", "accounting", "documents"],
     defaultDeptKey: "hr",
   },
   media: {
     key: "media",
-    enabledDepartments: ["projects", "crm", "executive", "documents"],
+    enabledDepartments: ["projects", "crm", "executive", "accounting", "documents"],
     defaultDeptKey: "projects",
   },
   website: {
     key: "website",
-    enabledDepartments: ["operations", "documents", "admin", "executive"],
+    enabledDepartments: ["operations", "documents", "admin", "executive", "accounting"],
     defaultDeptKey: "operations",
   },
 };

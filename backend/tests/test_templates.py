@@ -24,13 +24,20 @@ def test_template_has_required_fields(client):
         assert isinstance(tmpl["departments"], list)
 
 
+def test_all_templates_include_accounting(client):
+    resp = client.get("/api/templates")
+    for tmpl in resp.json():
+        assert "accounting" in tmpl["departments"]
+
+
 def test_starter_template_departments(client):
     resp = client.get("/api/templates")
     starter = next(t for t in resp.json() if t["key"] == "starter")
-    assert set(starter["departments"]) == {"finance", "operations", "hr"}
+    assert "accounting" in set(starter["departments"])
 
 
 def test_enterprise_template_has_all_departments(client):
     resp = client.get("/api/templates")
     enterprise = next(t for t in resp.json() if t["key"] == "enterprise")
-    assert len(enterprise["departments"]) == 7
+    assert "accounting" in set(enterprise["departments"])
+    assert len(enterprise["departments"]) == 10

@@ -53,18 +53,15 @@ def test_apply_template_business_not_found(client, fake_cursor):
 def test_apply_template_success(client, fake_cursor):
     business_id = str(uuid4())
     dept_id = str(uuid4())
-    cap_id = str(uuid4())
 
     # Mock: SELECT 1 (business exists)
     fake_cursor.push_result([{"?column?": 1}])
-    # Mock: SELECT department_id for each dept key (3 depts for starter)
+    # Mock: SELECT department_id for each dept key (4 depts for starter)
     fake_cursor.push_result([{"department_id": dept_id}])
     fake_cursor.push_result([{"department_id": dept_id}])
     fake_cursor.push_result([{"department_id": dept_id}])
-    # Mock: INSERT business_departments (3x, but execute() doesn't fetchone)
-    # Mock: SELECT capability_id for each cap key (12 caps for starter)
-    for _ in range(12):
-        fake_cursor.push_result([{"capability_id": cap_id}])
+    fake_cursor.push_result([{"department_id": dept_id}])
+    # Capabilities are "__all__", so no per-capability fetches are expected.
 
     resp = client.post(f"/api/businesses/{business_id}/apply-template", json={
         "template_key": "starter",
@@ -78,8 +75,8 @@ def test_apply_custom_business_not_found(client, fake_cursor):
     fake_cursor.push_result([])  # business not found
 
     resp = client.post(f"/api/businesses/{business_id}/apply-custom", json={
-        "enabled_departments": ["finance"],
-        "enabled_capabilities": ["invoice_processing"],
+        "enabled_departments": ["accounting"],
+        "enabled_capabilities": ["general-ledger"],
     })
     assert resp.status_code == 404
 
@@ -90,9 +87,9 @@ def test_get_business_departments(client, fake_cursor):
 
     fake_cursor.push_result([{
         "department_id": dept_id,
-        "key": "finance",
-        "label": "Finance",
-        "icon": "dollar-sign",
+        "key": "accounting",
+        "label": "Accounting",
+        "icon": "calculator",
         "sort_order": 1,
         "enabled": True,
         "sort_order_override": None,
@@ -102,7 +99,7 @@ def test_get_business_departments(client, fake_cursor):
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 1
-    assert data[0]["key"] == "finance"
+    assert data[0]["key"] == "accounting"
 
 
 def test_get_department_capabilities(client, fake_cursor):
@@ -113,21 +110,21 @@ def test_get_department_capabilities(client, fake_cursor):
     fake_cursor.push_result([{
         "capability_id": cap_id,
         "department_id": dept_id,
-        "department_key": "finance",
-        "key": "invoice_processing",
-        "label": "Invoice Processing",
-        "kind": "action",
+        "department_key": "accounting",
+        "key": "general-ledger",
+        "label": "General Ledger",
+        "kind": "data_grid",
         "sort_order": 1,
         "metadata_json": {},
         "enabled": True,
         "sort_order_override": None,
     }])
 
-    resp = client.get(f"/api/businesses/{business_id}/departments/finance/capabilities")
+    resp = client.get(f"/api/businesses/{business_id}/departments/accounting/capabilities")
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 1
-    assert data[0]["key"] == "invoice_processing"
+    assert data[0]["key"] == "general-ledger"
 
 
 def test_list_all_departments(client, fake_cursor):

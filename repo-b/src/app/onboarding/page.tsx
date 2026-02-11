@@ -21,6 +21,7 @@ type Step = "create" | "choose" | "template-pick" | "template-review" | "custom-
 
 const ICON_MAP: Record<string, string> = {
   "dollar-sign": "$",
+  calculator: "🧮",
   settings: "⚙",
   users: "👤",
   "trending-up": "📈",

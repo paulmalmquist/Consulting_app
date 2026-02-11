@@ -29,11 +29,11 @@ export const DEPARTMENT_REGISTRY: Record<string, DepartmentMeta> = {
   accounting: {
     key: "accounting",
     displayName: "Accounting",
-    icon: "dollar-sign",
+    icon: "calculator",
     description: "General ledger, payables, receivables, and financial reporting",
     accentColor: "green",
     category: "core",
-    defaultCapKey: "chart_of_accounts",
+    defaultCapKey: "general-ledger",
     sortOrder: 20,
   },
   operations: {

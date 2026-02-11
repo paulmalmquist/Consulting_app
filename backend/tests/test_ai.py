@@ -6,13 +6,22 @@ from unittest.mock import patch, MagicMock
 
 
 def test_ai_health_disabled(client):
-    """AI health should return enabled=false when AI_MODE != local."""
+    """AI health should return 503 when AI_MODE != local."""
     with patch.dict(os.environ, {"AI_MODE": "off"}):
         resp = client.get("/api/ai/health")
-    assert resp.status_code == 200
+    assert resp.status_code == 503
     data = resp.json()
-    assert data["enabled"] is False
-    assert data["sidecar_ok"] is False
+    assert data["detail"]["status"] == "error"
+    assert data["detail"]["mode"] == "off"
+
+
+def test_ai_health_local_ok(client):
+    """AI health should return status=ok in local mode when sidecar is healthy."""
+    with patch.dict(os.environ, {"AI_MODE": "local"}):
+        with patch("app.routes.ai.SidecarClient.health", return_value=(True, "ok")):
+            resp = client.get("/api/ai/health")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok", "mode": "local"}
 
 
 def test_ai_ask_disabled(client):

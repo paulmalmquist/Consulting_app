@@ -7,8 +7,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Badge } from "@/components/ui/Badge";
 
 type Health = {
-  enabled: boolean;
-  sidecar_ok: boolean;
+  status: string;
   mode: string;
   message?: string | null;
 };
@@ -34,12 +33,16 @@ export default function LocalAiPage() {
   useEffect(() => {
     if (!enabled) return;
     fetch("/api/ai/health")
-      .then((r) => r.json())
+      .then(async (r) => {
+        if (r.ok) return r.json();
+        const err = await r.json().catch(() => ({}));
+        return err.detail || { status: "error", mode: aiMode, message: "Failed to check AI health." };
+      })
       .then(setHealth)
-      .catch(() => setHealth({ enabled: false, sidecar_ok: false, mode: aiMode, message: "Failed to check AI health." }));
+      .catch(() => setHealth({ status: "error", mode: aiMode, message: "Failed to check AI health." }));
   }, [enabled, aiMode]);
 
-  const canAsk = useMemo(() => enabled && health?.enabled && health?.sidecar_ok, [enabled, health]);
+  const canAsk = useMemo(() => enabled && health?.status === "ok", [enabled, health]);
 
   const ask = async () => {
     setError(null);
@@ -76,7 +79,7 @@ export default function LocalAiPage() {
   }
 
   const statusText =
-    !health ? "Checking sidecar..." : health.sidecar_ok ? "Sidecar ready." : `AI unavailable: ${health.message || "sidecar not running"}`;
+    !health ? "Checking sidecar..." : health.status === "ok" ? "Sidecar ready." : `AI unavailable: ${health.message || "sidecar not running"}`;
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -85,7 +88,7 @@ export default function LocalAiPage() {
         <p className="text-sm text-bm-muted">
           Developer/operator-only helper. The UI talks to the backend, which talks to a localhost sidecar.
         </p>
-        <p className={`text-sm ${health?.sidecar_ok ? "text-bm-success" : "text-bm-warning"}`}>{statusText}</p>
+        <p className={`text-sm ${health?.status === "ok" ? "text-bm-success" : "text-bm-warning"}`}>{statusText}</p>
       </header>
 
       <Card>

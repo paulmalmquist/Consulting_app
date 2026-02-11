@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useEnv } from "@/components/EnvProvider";
 import { cn } from "@/lib/cn";
 import {
   getDefaultDepartmentForIndustry,
   getEnabledDepartmentsForIndustry,
+  LAB_DEPARTMENTS,
   type LabDepartmentKey,
+  type LabDepartmentMeta,
 } from "@/lib/lab/DepartmentRegistry";
 import {
   getCapabilitiesForDepartment,
@@ -16,7 +18,7 @@ import {
   groupCapabilities,
   type LabCapabilityCategory,
 } from "@/lib/lab/CapabilityRegistry";
-import { DeptIcon } from "@/components/lab/LabIcons";
+import { DeptIcon, LogOutIcon } from "@/components/lab/LabIcons";
 import {
   type LabRole,
   filterCapabilitiesByRole,
@@ -24,6 +26,9 @@ import {
   getStoredLabRole,
 } from "@/lib/lab/rbac";
 import { logLabAuditEvent } from "@/lib/lab/clientAudit";
+import { addDepartment, addCapability, getAddedDepartments, getEnabledCapabilities } from "@/lib/envData";
+import AddDepartmentMenu from "@/components/lab/AddDepartmentMenu";
+import AddCapabilityMenu from "@/components/lab/AddCapabilityMenu";
 
 type Props = {
   envId: string;
@@ -109,6 +114,7 @@ function GroupedCapabilityNav({
 
 export default function LabEnvironmentShell({ envId, children }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
   const { selectedEnv, selectEnv } = useEnv();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [capabilityQuery, setCapabilityQuery] = useState("");
@@ -120,12 +126,34 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
     Reports: false,
     Admin: false,
   });
+  const [addedDepts, setAddedDepts] = useState<string[]>([]);
+  const [addedCaps, setAddedCaps] = useState<Record<string, string[]>>({});
+
+  // Load persisted added departments/capabilities
+  useEffect(() => {
+    setAddedDepts(getAddedDepartments(envId));
+    // Load capabilities for all departments
+    const caps: Record<string, string[]> = {};
+    for (const dept of LAB_DEPARTMENTS) {
+      const enabled = getEnabledCapabilities(envId, dept.key);
+      if (enabled.length) caps[dept.key] = enabled;
+    }
+    setAddedCaps(caps);
+  }, [envId]);
 
   const industry = selectedEnv?.env_id === envId ? selectedEnv.industry : undefined;
+
+  // Merge industry-template departments + user-added departments
   const departments = useMemo(() => {
     const enabled = getEnabledDepartmentsForIndustry(industry);
-    return filterDepartmentsByRole(role, enabled);
-  }, [industry, role]);
+    const enabledKeys = new Set(enabled.map((d) => d.key));
+    const extra = addedDepts
+      .filter((k) => !enabledKeys.has(k as LabDepartmentKey))
+      .map((k) => LAB_DEPARTMENTS.find((d) => d.key === k))
+      .filter(Boolean) as LabDepartmentMeta[];
+    return filterDepartmentsByRole(role, [...enabled, ...extra]);
+  }, [industry, role, addedDepts]);
+
   const defaultDepartment = useMemo(
     () => getDefaultDepartmentForIndustry(industry),
     [industry]
@@ -172,6 +200,48 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
 
   const currentDeptMeta = departments.find((dept) => dept.key === currentDept);
   const envName = selectedEnv?.client_name?.trim() || `Environment ${envId.slice(0, 8)}`;
+
+  // Available departments that are not already active
+  const availableDepartments = useMemo(() => {
+    const activeKeys = new Set(departments.map((d) => d.key));
+    return LAB_DEPARTMENTS.filter((d) => !activeKeys.has(d.key));
+  }, [departments]);
+
+  // Available capabilities not yet shown for current department
+  const availableCapabilities = useMemo(() => {
+    if (!currentDept) return [];
+    const allCaps = getCapabilitiesForDepartment(currentDept, { industry });
+    const visibleKeys = new Set(capabilities.map((c) => c.key));
+    return allCaps.filter((c) => !visibleKeys.has(c.key));
+  }, [currentDept, industry, capabilities]);
+
+  const handleAddDepartment = useCallback((deptKey: string) => {
+    addDepartment(envId, deptKey);
+    setAddedDepts((prev) => prev.includes(deptKey) ? prev : [...prev, deptKey]);
+  }, [envId]);
+
+  const handleAddCapability = useCallback((capKey: string) => {
+    if (!currentDept) return;
+    addCapability(envId, currentDept, capKey);
+    setAddedCaps((prev) => {
+      const existing = prev[currentDept] || [];
+      if (existing.includes(capKey)) return prev;
+      return { ...prev, [currentDept]: [...existing, capKey] };
+    });
+  }, [envId, currentDept]);
+
+  const handleLogout = useCallback(() => {
+    // Clear session artifacts
+    if (typeof document !== "undefined") {
+      document.cookie = "demo_lab_session=; path=/; max-age=0";
+    }
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("lab_active_env_id");
+      localStorage.removeItem("demo_lab_env_id");
+      localStorage.removeItem("lab_user_role");
+    }
+    router.push("/lab");
+  }, [router]);
 
   useEffect(() => {
     if (selectedEnv?.env_id !== envId) {
@@ -247,19 +317,33 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/35 p-3">
-        <div className="mb-3 rounded-lg border border-bm-border/60 bg-bm-surface/25 px-3 py-2 text-sm text-bm-muted">
-          <span className="font-medium text-bm-text">{envName}</span>
-          <span className="mx-1.5">&gt;</span>
-          <span>{currentDeptMeta?.label || "Department"}</span>
-          {currentCapability ? (
-            <>
-              <span className="mx-1.5">&gt;</span>
-              <span>{currentCapability.label}</span>
-            </>
-          ) : null}
+      {/* ── Environment Header ─────────────────────────────────── */}
+      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/35 p-3" data-testid="env-header">
+        <div className="mb-3 flex items-center justify-between rounded-lg border border-bm-border/60 bg-bm-surface/25 px-3 py-2">
+          <div className="text-sm text-bm-muted" data-testid="env-title">
+            <span className="font-medium text-bm-text">{envName}</span>
+            <span className="mx-1.5">&gt;</span>
+            <span>{currentDeptMeta?.label || "Department"}</span>
+            {currentCapability ? (
+              <>
+                <span className="mx-1.5">&gt;</span>
+                <span>{currentCapability.label}</span>
+              </>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            data-testid="logout-button"
+            onClick={handleLogout}
+            title="Logout"
+            className="rounded-lg border border-bm-border/70 px-2.5 py-1.5 text-xs text-bm-muted hover:bg-bm-surface/50 hover:text-bm-text transition inline-flex items-center gap-1.5"
+          >
+            <LogOutIcon size={14} />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
         </div>
 
+        {/* ── Department tabs + Add Department ──────────────────── */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             {departments.map((dept) => {
@@ -283,6 +367,10 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
                 </Link>
               );
             })}
+            <AddDepartmentMenu
+              availableDepartments={availableDepartments}
+              onAdd={handleAddDepartment}
+            />
           </div>
           <button
             type="button"
@@ -295,14 +383,21 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
         </div>
       </div>
 
+      {/* ── Sidebar + Main content ─────────────────────────────── */}
       <div className="grid gap-4 lg:grid-cols-[280px,1fr]">
         <aside
           className="hidden lg:block rounded-xl border border-bm-border/70 bg-bm-surface/30 p-3"
           data-testid="lab-sidebar"
         >
-          <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2 px-2 pb-2">
-            {currentDeptMeta?.label} Functions
-          </p>
+          <div className="flex items-center justify-between px-2 pb-2">
+            <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">
+              {currentDeptMeta?.label} Functions
+            </p>
+            <AddCapabilityMenu
+              availableCapabilities={availableCapabilities}
+              onAdd={handleAddCapability}
+            />
+          </div>
           <input
             type="search"
             value={capabilityQuery}
@@ -323,6 +418,7 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
         <div>{children}</div>
       </div>
 
+      {/* ── Mobile sidebar drawer ──────────────────────────────── */}
       {mobileSidebarOpen ? (
         <div className="lg:hidden fixed inset-0 z-40">
           <button

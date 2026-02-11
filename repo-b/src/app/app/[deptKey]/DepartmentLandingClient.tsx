@@ -39,6 +39,7 @@ export default function DepartmentLandingClient({ deptKey }: { deptKey: string }
   const actionCaps = registryCaps.filter(
     (c) => c.kind !== "dashboard" && c.kind !== "document_view" && c.kind !== "history"
   );
+  const showAccountingOverview = deptKey === "accounting";
 
   useEffect(() => {
     if (!businessId || !deptId) return;
@@ -75,6 +76,42 @@ export default function DepartmentLandingClient({ deptKey }: { deptKey: string }
           {meta?.description || "Department overview and quick actions"}
         </p>
       </div>
+
+      {showAccountingOverview && (
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="bm-glass rounded-xl p-4 md:col-span-2">
+            <p className="text-xs text-bm-muted2 uppercase tracking-[0.14em] mb-2">Financial Overview</p>
+            <p className="text-sm text-bm-muted mb-3">Stub P&amp;L widget</p>
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <div className="rounded-lg border border-bm-border/60 bg-bm-surface/25 p-3">
+                <p className="text-bm-muted2 text-xs">Revenue</p>
+                <p className="font-semibold">$0.00</p>
+              </div>
+              <div className="rounded-lg border border-bm-border/60 bg-bm-surface/25 p-3">
+                <p className="text-bm-muted2 text-xs">COGS</p>
+                <p className="font-semibold">$0.00</p>
+              </div>
+              <div className="rounded-lg border border-bm-border/60 bg-bm-surface/25 p-3">
+                <p className="text-bm-muted2 text-xs">Net Income</p>
+                <p className="font-semibold">$0.00</p>
+              </div>
+            </div>
+          </div>
+          <div className="bm-glass rounded-xl p-4">
+            <p className="text-xs text-bm-muted2 uppercase tracking-[0.14em] mb-2">AR/AP Metrics</p>
+            <div className="space-y-2 text-sm">
+              <div className="rounded-lg border border-bm-border/60 bg-bm-surface/25 p-3">
+                <p className="text-bm-muted2 text-xs">Open AR</p>
+                <p className="font-semibold">$0.00</p>
+              </div>
+              <div className="rounded-lg border border-bm-border/60 bg-bm-surface/25 p-3">
+                <p className="text-bm-muted2 text-xs">Open AP</p>
+                <p className="font-semibold">$0.00</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Dashboards section */}
       {!loadingCapabilities && dashboardCaps.length > 0 && (

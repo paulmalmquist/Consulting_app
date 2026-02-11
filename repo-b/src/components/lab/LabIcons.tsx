@@ -159,6 +159,21 @@ export function DollarSignIcon(props: IconProps) {
   );
 }
 
+export function CalculatorIcon(props: IconProps) {
+  return (
+    <svg {...defaultProps(props)}>
+      <rect x="4" y="2" width="16" height="20" rx="2" />
+      <line x1="8" y1="6" x2="16" y2="6" />
+      <line x1="8" y1="11" x2="10" y2="11" />
+      <line x1="12" y1="11" x2="14" y2="11" />
+      <line x1="16" y1="11" x2="16" y2="11" />
+      <line x1="8" y1="15" x2="10" y2="15" />
+      <line x1="12" y1="15" x2="14" y2="15" />
+      <line x1="16" y1="15" x2="16" y2="15" />
+    </svg>
+  );
+}
+
 export function SettingsIcon(props: IconProps) {
   return (
     <svg {...defaultProps(props)}>
@@ -244,7 +259,7 @@ export function LockIcon(props: IconProps) {
 
 const DEPT_ICON_MAP: Record<string, React.FC<IconProps>> = {
   crm: UsersIcon,
-  accounting: DollarSignIcon,
+  accounting: CalculatorIcon,
   operations: SettingsIcon,
   projects: ClipboardListIcon,
   it: CpuIcon,

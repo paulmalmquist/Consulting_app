@@ -5,6 +5,7 @@ import { useBusinessContext } from "@/lib/business-context";
 
 const ICON_MAP: Record<string, string> = {
   "dollar-sign": "$",
+  calculator: "🧮",
   settings: "⚙",
   users: "👤",
   "trending-up": "📈",
@@ -63,14 +64,16 @@ export default function TopBar({
                 <Link
                   key={dept.key}
                   href={`/app/${dept.key}`}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition flex-shrink-0 border ${
+                  aria-label={dept.label}
+                  title={dept.label}
+                  className={`inline-flex items-center justify-center h-8 w-8 rounded-lg text-sm whitespace-nowrap transition flex-shrink-0 border ${
                     isActive
                       ? "bg-bm-accent/12 text-bm-text border-bm-accent/30 shadow-bm-glow"
                       : "text-bm-muted border-transparent hover:bg-bm-surface/50 hover:border-bm-border/70 active:bg-bm-surface2/60"
                   }`}
                 >
                   <span>{icon}</span>
-                  <span>{dept.label}</span>
+                  <span className="sr-only">{dept.label}</span>
                 </Link>
               );
             })}

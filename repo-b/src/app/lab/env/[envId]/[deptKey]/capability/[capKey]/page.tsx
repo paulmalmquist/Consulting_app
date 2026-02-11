@@ -15,6 +15,9 @@ import {
   type LabRole,
 } from "@/lib/lab/rbac";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/Card";
+import CrmCompanies from "@/components/lab/crm/CrmCompanies";
+import CrmContacts from "@/components/lab/crm/CrmContacts";
+import CrmInteractions from "@/components/lab/crm/CrmInteractions";
 
 type Metrics = {
   uploads_count: number;
@@ -116,6 +119,13 @@ export default function LabCapabilityPage({
     );
   }
 
+  // CRM capability dispatch
+  if (deptKey === "crm") {
+    if (params.capKey === "companies") return <CrmCompanies envId={params.envId} />;
+    if (params.capKey === "contacts") return <CrmContacts envId={params.envId} />;
+    if (params.capKey === "interactions") return <CrmInteractions envId={params.envId} />;
+  }
+
   return (
     <div className="space-y-4">
       <Card>
@@ -148,7 +158,6 @@ export default function LabCapabilityPage({
       ) : (
         <Card>
           <CardContent>
-            {/* Server should provide capability-specific data models in a later phase. */}
             <p className="text-sm text-bm-muted">{capability.description}</p>
           </CardContent>
         </Card>
