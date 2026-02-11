@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 import { Pool } from "pg";
+import { createFallbackEnvironment, listFallbackEnvironments } from "@/lib/labV1Fallback";
+import { proxyOrFallback } from "@/lib/v1Proxy";
 
 export const runtime = "nodejs";
 
@@ -9,15 +11,16 @@ type EnvironmentRow = {
   industry: string;
   schema_name: string;
   is_active: boolean;
+  created_at?: string | Date;
 };
 
 let _pool: Pool | null = null;
 
-function getPool(): Pool {
+function getPool(): Pool | null {
   if (_pool) return _pool;
   const raw = process.env.DATABASE_URL;
   if (!raw) {
-    throw new Error("DATABASE_URL is not set");
+    return null;
   }
 
   // Don't rely on connection string `sslmode=` parsing. In some environments
@@ -54,54 +57,78 @@ function slugSchemaName(clientName: string): string {
   return `env_${base || "client"}`;
 }
 
-export async function GET() {
-  try {
-    const pool = getPool();
-    const { rows } = await pool.query<EnvironmentRow>(
-      `SELECT env_id::text, client_name, industry, schema_name, is_active
-       FROM app.environments
-       ORDER BY created_at DESC`
-    );
-    return Response.json({ environments: rows });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return Response.json({ message }, { status: 500 });
-  }
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  return proxyOrFallback(request, `/v1/environments${url.search}`, async () => {
+      try {
+        const pool = getPool();
+        if (!pool) {
+          return Response.json({ environments: listFallbackEnvironments() });
+        }
+        const { rows } = await pool.query<EnvironmentRow>(
+          `SELECT env_id::text, client_name, industry, schema_name, is_active, created_at
+         FROM app.environments
+         ORDER BY created_at DESC`
+        );
+        const environments = rows.map((row) => ({
+          ...row,
+          created_at:
+            row.created_at instanceof Date
+              ? row.created_at.toISOString()
+              : row.created_at,
+        }));
+        return Response.json({ environments });
+      } catch {
+        return Response.json({ environments: listFallbackEnvironments() });
+      }
+    });
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const body = (await request.json()) as {
-      client_name?: string;
-      industry?: string;
-      notes?: string | null;
-    };
+  return proxyOrFallback(request, "/v1/environments", async () => {
+    try {
+      const body = (await request.json()) as {
+        client_name?: string;
+        industry?: string;
+        notes?: string | null;
+      };
 
-    const clientName = String(body.client_name || "").trim();
-    if (!clientName) {
-      return Response.json({ message: "client_name is required" }, { status: 400 });
+      const clientName = String(body.client_name || "").trim();
+      if (!clientName) {
+        return Response.json({ message: "client_name is required" }, { status: 400 });
+      }
+
+      const industry = String(body.industry || "general").trim() || "general";
+      const notes = body.notes ?? null;
+      const schemaName = slugSchemaName(clientName);
+
+      const pool = getPool();
+      if (!pool) {
+        const created = createFallbackEnvironment({
+          client_name: clientName,
+          industry,
+        });
+        return Response.json({ env_id: created.env_id }, { status: 201 });
+      }
+
+      const { rows } = await pool.query<{
+        env_id: string;
+        client_name: string;
+        industry: string;
+        schema_name: string;
+      }>(
+        `INSERT INTO app.environments (client_name, industry, schema_name, notes)
+         VALUES ($1, $2, $3, $4)
+         RETURNING env_id::text, client_name, industry, schema_name`,
+        [clientName, industry, schemaName, notes]
+      );
+
+      return Response.json(rows[0], { status: 201 });
+    } catch {
+      return Response.json(
+        { message: "Failed to create environment" },
+        { status: 500 }
+      );
     }
-
-    const industry = String(body.industry || "general").trim() || "general";
-    const notes = body.notes ?? null;
-    const schemaName = slugSchemaName(clientName);
-
-    const pool = getPool();
-    const { rows } = await pool.query<{
-      env_id: string;
-      client_name: string;
-      industry: string;
-      schema_name: string;
-    }>(
-      `INSERT INTO app.environments (client_name, industry, schema_name, notes)
-       VALUES ($1, $2, $3, $4)
-       RETURNING env_id::text, client_name, industry, schema_name`,
-      [clientName, industry, schemaName, notes]
-    );
-
-    return Response.json(rows[0], { status: 201 });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return Response.json({ message }, { status: 500 });
-  }
+  });
 }
