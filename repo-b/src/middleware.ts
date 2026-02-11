@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const protectedPrefixes = ["/lab", "/app", "/onboarding", "/documents"];
+const protectedPrefixes = ["/lab", "/app", "/onboarding", "/documents", "/tasks"];
 
 function isProtectedPath(pathname: string): boolean {
   return protectedPrefixes.some(
@@ -35,5 +35,7 @@ export const config = {
     "/onboarding/:path*",
     "/documents",
     "/documents/:path*",
+    "/tasks",
+    "/tasks/:path*",
   ],
 };
