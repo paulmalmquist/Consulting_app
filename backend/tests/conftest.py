@@ -71,6 +71,9 @@ _GET_CURSOR_TARGETS = [
     "app.services.executions.get_cursor",
     "app.services.work.get_cursor",
     "app.services.audit.get_cursor",
+    "app.services.finance.get_cursor",
+    "app.services.ingest.get_cursor",
+    "app.services.tasks.get_cursor",
 ]
 
 
@@ -93,9 +96,12 @@ def fake_cursor():
 
 @pytest.fixture
 def fake_storage():
-    """Mock the SupabaseStorageRepository used by document routes."""
+    """Mock the SupabaseStorageRepository used by document/ingest routes."""
     mock = MagicMock()
     mock.generate_signed_upload_url.return_value = "https://storage.test/upload?token=abc"
     mock.generate_signed_download_url.return_value = "https://storage.test/download?token=xyz"
-    with patch("app.services.documents._storage", mock):
+    with (
+        patch("app.services.documents._storage", mock),
+        patch("app.services.ingest._storage", mock),
+    ):
         yield mock

@@ -134,6 +134,14 @@ export default function Sidebar({
           <span>All Documents</span>
         </Link>
         <Link
+          href="/ingest/sources"
+          onClick={onClose}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-bm-muted hover:bg-bm-surface/40 hover:text-bm-text transition border border-transparent hover:border-bm-border/70"
+        >
+          <span className="text-xs">⬆</span>
+          <span>Ingest</span>
+        </Link>
+        <Link
           href="/onboarding"
           onClick={onClose}
           className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-bm-muted hover:bg-bm-surface/40 hover:text-bm-text transition border border-transparent hover:border-bm-border/70"

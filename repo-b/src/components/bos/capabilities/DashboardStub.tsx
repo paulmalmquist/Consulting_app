@@ -1,6 +1,8 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/Card";
+import { useBusinessContext } from "@/lib/business-context";
+import IngestMetricsHelper from "@/components/ingest/IngestMetricsHelper";
 
 interface Props {
   deptKey: string;
@@ -16,6 +18,8 @@ const METRIC_PLACEHOLDERS = [
 ];
 
 export default function DashboardStub({ capLabel }: Props) {
+  const { businessId } = useBusinessContext();
+
   return (
     <div className="max-w-5xl space-y-6">
       <h1 className="text-xl font-bold">{capLabel}</h1>
@@ -77,6 +81,10 @@ export default function DashboardStub({ capLabel }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      {(capLabel.toLowerCase().includes("report") || capLabel.toLowerCase().includes("metric")) && businessId && (
+        <IngestMetricsHelper businessId={businessId} />
+      )}
     </div>
   );
 }

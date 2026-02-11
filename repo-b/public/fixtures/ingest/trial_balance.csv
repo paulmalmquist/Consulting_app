@@ -1,0 +1,4 @@
+ Account # , Account Name , Period End , Ending Balance , Debit , Credit
+1000 , Cash , 2025-12 , 125000.12 , 130000.12 , 5000.00
+2100 , Accounts Payable , 2025-12 , -34250.00 , 2500.00 , 36750.00
+4000 , Revenue , 2025-12 , -90750.12 , 0.00 , 90750.12

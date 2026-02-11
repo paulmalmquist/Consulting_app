@@ -83,10 +83,22 @@ export default function TopBar({
         {/* Global links */}
         <div className="flex-shrink-0 flex items-center gap-1 ml-2">
           <Link
+            href="/tasks"
+            className="text-xs text-bm-muted hover:text-bm-text px-2 py-1.5 rounded hover:bg-bm-surface/50 transition-colors hidden sm:block"
+          >
+            Tasks
+          </Link>
+          <Link
             href="/documents"
             className="text-xs text-bm-muted hover:text-bm-text px-2 py-1.5 rounded hover:bg-bm-surface/50 transition-colors hidden sm:block"
           >
             Docs
+          </Link>
+          <Link
+            href="/ingest/sources"
+            className="text-xs text-bm-muted hover:text-bm-text px-2 py-1.5 rounded hover:bg-bm-surface/50 transition-colors hidden sm:block"
+          >
+            Ingest
           </Link>
         </div>
       </div>
