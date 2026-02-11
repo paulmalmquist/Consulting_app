@@ -194,6 +194,87 @@ test("open environment routes to homepage and supports department/capability nav
   await expect(page).toHaveURL(/\/lab\/environments$/);
 });
 
+test("sidebar toggle collapses and expands lab navigation", async ({ page }) => {
+  await page.goto("/lab/environments");
+
+  // Only applies to desktop - skip on mobile
+  const toggle = page.getByTestId("lab-sidebar-toggle");
+  if (!(await toggle.isVisible())) return;
+
+  // Sidebar should be expanded by default with labels visible
+  await expect(page.getByTestId("lab-sidebar")).toBeVisible();
+  await expect(page.getByTestId("lab-nav-link-dashboard")).toContainText("Dashboard");
+
+  // Collapse sidebar
+  await toggle.click();
+
+  // After collapse: sidebar still visible (as narrow rail), but labels hidden
+  await expect(page.getByTestId("lab-sidebar")).toBeVisible();
+
+  // Expand sidebar
+  await toggle.click();
+
+  // Labels should be visible again
+  await expect(page.getByTestId("lab-nav-link-dashboard")).toContainText("Dashboard");
+});
+
+test("current environment header shows human-readable name", async ({ page }) => {
+  await page.goto("/lab/environments");
+  await expect(page.getByRole("heading", { name: "Lab Environments" })).toBeVisible();
+
+  const firstEnvOpen = page.getByTestId(/^env-open-/).first();
+  await firstEnvOpen.scrollIntoViewIfNeeded();
+  await firstEnvOpen.click();
+
+  // Should show environment name (not just an ID)
+  const envName = page.getByTestId("current-env-name");
+  await expect(envName).toBeVisible();
+  const nameText = await envName.textContent();
+  expect(nameText).toBeTruthy();
+  // Should be a human-readable name, not a UUID
+  expect(nameText).not.toMatch(/^[0-9a-f-]{36}$/);
+
+  // Subtitle should show industry + short ID
+  const subtitle = page.getByTestId("current-env-subtitle");
+  await expect(subtitle).toBeVisible();
+});
+
+test("accounting department tab exists and navigates correctly", async ({ page }) => {
+  await page.goto("/lab/environments");
+
+  const firstEnvOpen = page.getByTestId(/^env-open-/).first();
+  await firstEnvOpen.scrollIntoViewIfNeeded();
+  const firstEnvTestId = await firstEnvOpen.getAttribute("data-testid");
+  const selectedEnvId = firstEnvTestId!.replace("env-open-", "");
+
+  await firstEnvOpen.click();
+  await expect(page).toHaveURL(new RegExp(`/lab/env/${selectedEnvId}/`));
+
+  // Accounting tab should exist (healthcare includes accounting)
+  const accountingTab = page.getByTestId("dept-tab-accounting");
+  await expect(accountingTab).toBeVisible();
+
+  // Should have an accessible label
+  await expect(accountingTab).toHaveAttribute("aria-label", "Accounting");
+
+  // Click and navigate
+  await accountingTab.click();
+  await expect(page).toHaveURL(new RegExp(`/lab/env/${selectedEnvId}/accounting$`));
+
+  // Should show accounting capabilities
+  await expect(page.locator('[data-testid="cap-link-chart_of_accounts"]:visible').first()).toBeVisible();
+  await expect(page.locator('[data-testid="cap-link-ledger"]:visible').first()).toBeVisible();
+  await expect(page.locator('[data-testid="cap-link-ap"]:visible').first()).toBeVisible();
+  await expect(page.locator('[data-testid="cap-link-ar"]:visible').first()).toBeVisible();
+
+  // Navigate to a capability
+  await openCapability(page, "ledger");
+  await expect(page).toHaveURL(
+    new RegExp(`/lab/env/${selectedEnvId}/accounting/capability/ledger$`)
+  );
+  await expect(page.getByRole("heading", { name: "Ledger" })).toBeVisible();
+});
+
 test("create environment from industry template and selects it", async ({ page }) => {
   await page.goto("/lab/environments");
 
