@@ -19,14 +19,17 @@ npm run dev
 ```
 
 ## Environment Variables
-- `NEXT_PUBLIC_DEMO_API_BASE_URL` - (Optional) Direct Demo Lab API base URL (e.g. `https://demo-api.yourdomain.com`). If omitted, the UI calls same-origin `/v1/*` and proxies server-side.
-- `DEMO_API_ORIGIN` - (Recommended) Server-only upstream origin for the `/v1/*` proxy (e.g. Railway/Fly URL or `https://api.yourdomain.com`).
-- `DEMO_INVITE_CODE` - Shared invite code (server-side only).
+- `DEMO_INVITE_CODE` - Shared invite code for `/login` (server-side only).
+- `DATABASE_URL` - Required for real `app.environments` DB reads/writes in `/api/v1/environments`.
+- `DEMO_API_ORIGIN` - Optional upstream origin for `/api/v1/*` proxy-first behavior. If unset or upstream returns 404/501, local fallback handlers respond.
+- `DEMO_API_BASE_URL` - Optional alternative server-side upstream origin.
+- `NEXT_PUBLIC_DEMO_API_BASE_URL` / `NEXT_PUBLIC_API_BASE_URL` - Optional browser API base overrides. Default is same-origin (`/v1/*` rewrite to `/api/v1/*`).
 
 ## Deployment Checklist (Vercel)
-1. Set `DEMO_API_ORIGIN` and `DEMO_INVITE_CODE` in Vercel project env vars.
-2. Point `app.<domain>` to Vercel.
-3. (If calling backend directly from browser) Ensure the FastAPI backend allows `https://app.<domain>` in CORS.
+1. Set Production env vars: `DEMO_INVITE_CODE`, `DATABASE_URL` (plus optional `DEMO_API_ORIGIN`).
+2. Set the same vars for Preview (`DATABASE_URL` is often missed and causes runtime failures).
+3. Point `app.<domain>` to Vercel.
+4. (If using upstream DEMO API) Ensure backend CORS allows the app domain.
 
 ## DNS
 - `app.<domain>` → Vercel project
