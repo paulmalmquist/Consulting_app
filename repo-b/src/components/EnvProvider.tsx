@@ -5,10 +5,12 @@ import { apiFetch } from "@/lib/api";
 
 export type Environment = {
   env_id: string;
-  client_name: string;
+  client_name?: string;
   industry: string;
-  schema_name: string;
+  schema_name?: string;
   is_active: boolean;
+  created_at?: string;
+  status?: string;
 };
 
 type EnvContextValue = {

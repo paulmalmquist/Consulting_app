@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/C
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { Badge } from "@/components/ui/Badge";
+import { getLabIndustryMeta } from "@/lib/lab-industries";
 
 export default function LabDashboard() {
   const { environments, selectedEnv, selectEnv, refresh, loading } = useEnv();
@@ -47,6 +48,9 @@ export default function LabDashboard() {
     }
   };
 
+  const selectedIndustry =
+    getLabIndustryMeta(selectedEnv?.industry)?.label || "General";
+
   return (
     <div className="space-y-6">
       <Card>
@@ -70,7 +74,8 @@ export default function LabDashboard() {
                 </option>
                 {environments.map((env) => (
                   <option key={env.env_id} value={env.env_id}>
-                    {env.client_name} · {env.industry}
+                    {(getLabIndustryMeta(env.industry)?.label || "General") +
+                      ` · ${env.env_id.slice(0, 8)}`}
                   </option>
                 ))}
               </Select>
@@ -89,7 +94,7 @@ export default function LabDashboard() {
             {loading
               ? "Loading environments..."
               : selectedEnv
-                ? `Schema ${selectedEnv.schema_name} is active for ${selectedEnv.client_name}.`
+                ? `Environment ${selectedEnv.env_id.slice(0, 8)} is active for ${selectedIndustry}.`
                 : "No environment created yet."}
           </CardDescription>
           <div className="mt-4 flex items-center gap-3 text-xs">

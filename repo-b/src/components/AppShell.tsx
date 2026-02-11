@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEnv } from "@/components/EnvProvider";
 import { cn } from "@/lib/cn";
 import { buttonVariants } from "@/components/ui/buttonVariants";
+import { getLabIndustryMeta } from "@/lib/lab-industries";
 
 const navItems = [
   { href: "/lab", label: "Dashboard" },
@@ -27,12 +28,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     window.location.href = "/login";
   };
 
+  const activeIndustry =
+    getLabIndustryMeta(selectedEnv?.industry)?.label || "General";
+  const shortEnvId = selectedEnv?.env_id ? selectedEnv.env_id.slice(0, 8) : null;
+
   return (
     <div className="min-h-screen bg-bm-bg text-bm-text flex">
       <aside className="w-64 border-r border-bm-border/70 p-6 hidden lg:flex flex-col gap-6 bg-bm-bg/40 backdrop-blur-md">
         <div>
-          <p className="text-xs uppercase text-bm-muted2 tracking-[0.18em]">Demo Lab</p>
-          <p className="text-lg font-semibold font-display">Workflow Ops</p>
+          <p className="text-xs uppercase text-bm-muted2 tracking-[0.14em]">Demo Lab</p>
+          <p className="text-lg font-semibold">Workflow Ops</p>
         </div>
         <nav className="flex flex-col gap-2">
           {items.map((item) => (
@@ -57,12 +62,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col">
         <header className="border-b border-bm-border/70 px-6 py-4 flex flex-wrap items-center justify-between gap-4 bg-bm-bg/35 backdrop-blur-md">
           <div>
-            <p className="text-xs uppercase text-bm-muted2 tracking-[0.16em]">
+            <p className="text-xs uppercase text-bm-muted2 tracking-[0.14em]">
               Current Environment
             </p>
-            <p className="text-sm font-semibold">
+            <p className="text-sm font-semibold text-bm-text">
               {selectedEnv
-                ? `${selectedEnv.client_name} · ${selectedEnv.industry}`
+                ? `${activeIndustry}${shortEnvId ? ` · ${shortEnvId}` : ""}`
                 : "No environment selected"}
             </p>
           </div>
