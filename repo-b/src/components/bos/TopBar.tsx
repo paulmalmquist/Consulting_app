@@ -12,6 +12,10 @@ const ICON_MAP: Record<string, string> = {
   cpu: "💻",
   megaphone: "📣",
   folder: "📁",
+  clipboard: "📋",
+  "bar-chart": "📊",
+  lock: "🔒",
+  heart: "❤",
 };
 
 export default function TopBar({

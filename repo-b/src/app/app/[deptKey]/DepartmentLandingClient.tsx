@@ -3,8 +3,20 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useBusinessContext } from "@/lib/business-context";
+import { getDepartmentMeta } from "@/lib/DepartmentRegistry";
+import { getCapabilitiesForDept, CapabilityMeta } from "@/lib/CapabilityRegistry";
 import { listDocuments, listExecutions, DocumentItem, ExecutionItem } from "@/lib/bos-api";
 import { Badge } from "@/components/ui/Badge";
+
+const KIND_LABEL: Record<string, string> = {
+  data_grid: "Data",
+  dashboard: "Dashboard",
+  kanban: "Board",
+  timeline: "Timeline",
+  form: "Form",
+  tree: "Hierarchy",
+  action: "Action",
+};
 
 export default function DepartmentLandingClient({ deptKey }: { deptKey: string }) {
   const { businessId, departments, capabilities, loadingCapabilities } = useBusinessContext();
@@ -16,6 +28,17 @@ export default function DepartmentLandingClient({ deptKey }: { deptKey: string }
 
   const dept = departments.find((d) => d.key === deptKey);
   const deptId = dept?.department_id;
+  const meta = getDepartmentMeta(deptKey);
+
+  // Get registry capabilities that are also enabled in DB
+  const enabledKeys = new Set(capabilities.map((c) => c.key));
+  const registryCaps = getCapabilitiesForDept(deptKey).filter((m) => enabledKeys.has(m.key));
+
+  // Group into sections for the landing page
+  const dashboardCaps = registryCaps.filter((c) => c.kind === "dashboard");
+  const actionCaps = registryCaps.filter(
+    (c) => c.kind !== "dashboard" && c.kind !== "document_view" && c.kind !== "history"
+  );
 
   useEffect(() => {
     if (!businessId || !deptId) return;
@@ -44,31 +67,54 @@ export default function DepartmentLandingClient({ deptKey }: { deptKey: string }
     );
   }
 
-  const actionCaps = capabilities.filter((c) => c.kind === "action");
-
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
         <h1 className="text-xl font-bold">{dept.label}</h1>
-        <p className="text-sm text-bm-muted">Department overview and quick actions</p>
+        <p className="text-sm text-bm-muted">
+          {meta?.description || "Department overview and quick actions"}
+        </p>
       </div>
 
-      {!loadingCapabilities && actionCaps.length > 0 && (
+      {/* Dashboards section */}
+      {!loadingCapabilities && dashboardCaps.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-bm-muted2 uppercase tracking-[0.14em] mb-3">
-            Quick Actions
+            Dashboards
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {actionCaps.map((cap) => (
+            {dashboardCaps.map((cap) => (
               <Link
                 key={cap.key}
                 href={`/app/${deptKey}/capability/${cap.key}`}
                 className="bm-glass-interactive rounded-xl p-4"
               >
                 <p className="font-medium text-sm">{cap.label}</p>
-                <p className="text-xs text-bm-muted2 mt-1">
-                  {cap.kind === "action" ? "Run action" : cap.kind}
-                </p>
+                <p className="text-xs text-bm-muted2 mt-1">{cap.description || "View dashboard"}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Quick actions / capabilities */}
+      {!loadingCapabilities && actionCaps.length > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold text-bm-muted2 uppercase tracking-[0.14em] mb-3">
+            Capabilities
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {actionCaps.slice(0, 9).map((cap) => (
+              <Link
+                key={cap.key}
+                href={`/app/${deptKey}/capability/${cap.key}`}
+                className="bm-glass-interactive rounded-xl p-4"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <p className="font-medium text-sm">{cap.label}</p>
+                  <Badge variant="default">{KIND_LABEL[cap.kind] || cap.kind}</Badge>
+                </div>
+                <p className="text-xs text-bm-muted2">{cap.description || cap.kind}</p>
               </Link>
             ))}
           </div>
@@ -93,7 +139,7 @@ export default function DepartmentLandingClient({ deptKey }: { deptKey: string }
           </div>
         ) : executions.length === 0 ? (
           <p className="text-sm text-bm-muted2 bm-glass rounded-lg p-4">
-            No runs yet. Use a quick action above to create one.
+            No runs yet. Use a capability above to create one.
           </p>
         ) : (
           <div className="space-y-2">
