@@ -424,3 +424,197 @@ CREATE POLICY IF NOT EXISTS audit_events_tenant_isolation
 CREATE POLICY IF NOT EXISTS document_tags_tenant_isolation
   ON app.document_tags
   USING (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- ─────────────────────────────────────────────
+-- COMPLIANCE PRIMITIVES (SOC 2 MVP)
+-- ─────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS app.event_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  timestamp timestamptz NOT NULL DEFAULT now(),
+  tenant_id uuid NULL REFERENCES app.tenants(tenant_id),
+  business_id uuid NULL REFERENCES app.businesses(business_id),
+  user_id text NULL,
+  entity_type text NOT NULL,
+  entity_id text NOT NULL,
+  action_type text NOT NULL,
+  before_state jsonb NULL,
+  after_state jsonb NULL,
+  ip_address inet NULL,
+  session_id text NULL
+);
+
+CREATE INDEX IF NOT EXISTS event_log_timestamp_idx ON app.event_log (timestamp DESC);
+CREATE INDEX IF NOT EXISTS event_log_entity_idx ON app.event_log (entity_type, entity_id, timestamp DESC);
+
+CREATE OR REPLACE FUNCTION app.prevent_event_log_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION 'app.event_log is append-only; % is not allowed', TG_OP;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'event_log_no_update') THEN
+    CREATE TRIGGER event_log_no_update
+      BEFORE UPDATE ON app.event_log
+      FOR EACH ROW EXECUTE FUNCTION app.prevent_event_log_mutation();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'event_log_no_delete') THEN
+    CREATE TRIGGER event_log_no_delete
+      BEFORE DELETE ON app.event_log
+      FOR EACH ROW EXECUTE FUNCTION app.prevent_event_log_mutation();
+  END IF;
+END;
+$$;
+
+CREATE TABLE IF NOT EXISTS app.segregation_of_duties_rules (
+  rule_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NULL REFERENCES app.tenants(tenant_id),
+  entity_type text NOT NULL,
+  creator_action text NOT NULL,
+  approver_action text NOT NULL,
+  active boolean NOT NULL DEFAULT true,
+  config_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS app.role_change_log (
+  role_change_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NULL REFERENCES app.tenants(tenant_id),
+  actor_id text NOT NULL,
+  target_user_id text NOT NULL,
+  role_key text NOT NULL,
+  change_type text NOT NULL CHECK (change_type IN ('grant', 'revoke')),
+  reason text NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS app.configuration_change_log (
+  configuration_change_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NULL REFERENCES app.tenants(tenant_id),
+  changed_by text NOT NULL,
+  config_type text NOT NULL CHECK (config_type IN ('chart_of_accounts', 'roles', 'workflows', 'thresholds')),
+  config_key text NOT NULL,
+  before_state jsonb NULL,
+  after_state jsonb NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS app.journal_entries (
+  journal_entry_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES app.tenants(tenant_id),
+  business_id uuid NOT NULL REFERENCES app.businesses(business_id),
+  entry_number text NOT NULL,
+  status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'approved', 'posted')),
+  total_debits numeric(18,2) NOT NULL DEFAULT 0,
+  total_credits numeric(18,2) NOT NULL DEFAULT 0,
+  created_by text NOT NULL,
+  approved_by text NULL,
+  posted_by text NULL,
+  deleted_at timestamptz NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (business_id, entry_number)
+);
+
+CREATE TABLE IF NOT EXISTS app.journal_entry_versions (
+  journal_entry_version_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  journal_entry_id uuid NOT NULL REFERENCES app.journal_entries(journal_entry_id) ON DELETE CASCADE,
+  version_number int NOT NULL,
+  status text NOT NULL CHECK (status IN ('draft', 'approved', 'posted')),
+  snapshot jsonb NOT NULL,
+  created_by text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (journal_entry_id, version_number)
+);
+
+CREATE TABLE IF NOT EXISTS app.deployment_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  commit_hash text NOT NULL,
+  environment text NOT NULL CHECK (environment IN ('dev', 'stage', 'prod')),
+  deployed_by text NOT NULL,
+  timestamp timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS app.compliance_controls (
+  control_id text PRIMARY KEY,
+  description text NOT NULL,
+  control_type text NOT NULL CHECK (control_type IN ('Preventative', 'Detective')),
+  system_component text NOT NULL,
+  evidence_generated text NOT NULL,
+  frequency text NOT NULL,
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'pending', 'misconfigured')),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS app.access_review_tasks (
+  review_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NULL REFERENCES app.tenants(tenant_id),
+  review_period_start date NOT NULL,
+  review_period_end date NOT NULL,
+  generated_by text NOT NULL,
+  reviewer text NULL,
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_review', 'approved')),
+  signoff_notes text NULL,
+  signed_off_at timestamptz NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS app.backup_verification_log (
+  backup_verification_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  environment text NOT NULL CHECK (environment IN ('dev', 'stage', 'prod')),
+  backup_tested_at timestamptz NOT NULL,
+  restore_confirmed boolean NOT NULL,
+  evidence_notes text NULL,
+  recorded_by text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS app.incidents (
+  incident_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NULL REFERENCES app.tenants(tenant_id),
+  title text NOT NULL,
+  severity text NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+  status text NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'investigating', 'resolved', 'closed')),
+  created_by text NOT NULL,
+  resolution_notes text NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  resolved_at timestamptz NULL
+);
+
+CREATE TABLE IF NOT EXISTS app.incident_timeline (
+  timeline_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  incident_id uuid NOT NULL REFERENCES app.incidents(incident_id) ON DELETE CASCADE,
+  event_time timestamptz NOT NULL DEFAULT now(),
+  actor text NOT NULL,
+  note text NOT NULL
+);
+
+ALTER TABLE IF EXISTS app.event_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS app.deployment_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS app.compliance_controls ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS app.access_review_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS app.backup_verification_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS app.incidents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS app.incident_timeline ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY IF NOT EXISTS event_log_tenant_isolation
+  ON app.event_log
+  USING (tenant_id IS NULL OR tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+CREATE POLICY IF NOT EXISTS access_review_tasks_tenant_isolation
+  ON app.access_review_tasks
+  USING (tenant_id IS NULL OR tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+CREATE POLICY IF NOT EXISTS incidents_tenant_isolation
+  ON app.incidents
+  USING (tenant_id IS NULL OR tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+INSERT INTO app.segregation_of_duties_rules (entity_type, creator_action, approver_action, active)
+VALUES ('journal_entry', 'create', 'approve', true)
+ON CONFLICT DO NOTHING;
