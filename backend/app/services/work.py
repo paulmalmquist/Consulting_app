@@ -3,6 +3,7 @@
 from uuid import UUID
 
 from app.db import get_cursor
+from app.services import compliance as compliance_svc
 
 # Statuses that require a rationale comment
 _RATIONALE_REQUIRED = {"waiting", "blocked", "resolved", "closed"}
@@ -39,18 +40,35 @@ def create_item(
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                RETURNING work_item_id, status::text as status, created_at""",
             (
-                str(tenant_id), str(business_id),
+                str(tenant_id),
+                str(business_id),
                 str(department_id) if department_id else None,
                 str(capability_id) if capability_id else None,
-                item_type, owner, priority, title, description, created_by,
+                item_type,
+                owner,
+                priority,
+                title,
+                description,
+                created_by,
             ),
         )
         row = cur.fetchone()
-        return {
-            "work_item_id": row["work_item_id"],
-            "status": row["status"],
-            "created_at": row["created_at"],
-        }
+
+    compliance_svc.log_event(
+        entity_type="work_item",
+        entity_id=str(row["work_item_id"]),
+        action_type="create",
+        user_id=created_by,
+        before_state=None,
+        after_state={"status": row["status"], "title": title, "owner": owner},
+        tenant_id=tenant_id,
+        business_id=business_id,
+    )
+    return {
+        "work_item_id": row["work_item_id"],
+        "status": row["status"],
+        "created_at": row["created_at"],
+    }
 
 
 def get_item(work_item_id: UUID) -> dict | None:
@@ -178,9 +196,7 @@ def update_status(
     rationale: str | None = None,
 ) -> dict:
     if new_status in _RATIONALE_REQUIRED and not rationale:
-        raise ValueError(
-            f"Rationale is required when setting status to '{new_status}'"
-        )
+        raise ValueError(f"Rationale is required when setting status to '{new_status}'")
 
     with get_cursor() as cur:
         cur.execute(
@@ -190,6 +206,8 @@ def update_status(
         item = cur.fetchone()
         if not item:
             raise LookupError("Work item not found")
+
+        compliance_svc.validate_transition("work_item", item["status"], new_status)
 
         cur.execute(
             """UPDATE app.work_items
@@ -212,11 +230,20 @@ def update_status(
         )
         comment_row = cur.fetchone()
 
-        return {
-            "work_item_id": work_item_id,
-            "new_status": new_status,
-            "comment_id": comment_row["comment_id"],
-        }
+    compliance_svc.log_event(
+        entity_type="work_item",
+        entity_id=str(work_item_id),
+        action_type="status_transition",
+        user_id=actor,
+        before_state={"status": item["status"]},
+        after_state={"status": new_status},
+    )
+
+    return {
+        "work_item_id": work_item_id,
+        "new_status": new_status,
+        "comment_id": comment_row["comment_id"],
+    }
 
 
 def resolve_item(
@@ -239,6 +266,8 @@ def resolve_item(
         if item["status"] == "closed":
             raise ValueError("Cannot resolve a closed work item")
 
+        compliance_svc.validate_transition("work_item", item["status"], "resolved")
+
         import json
 
         cur.execute(
@@ -252,7 +281,10 @@ def resolve_item(
                    created_by = EXCLUDED.created_by
                RETURNING resolution_id, created_at""",
             (
-                str(item["tenant_id"]), str(work_item_id), summary, outcome,
+                str(item["tenant_id"]),
+                str(work_item_id),
+                summary,
+                outcome,
                 json.dumps(linked_documents or []),
                 json.dumps(linked_executions or []),
                 created_by,
@@ -273,14 +305,27 @@ def resolve_item(
             """INSERT INTO app.work_comments
                (tenant_id, work_item_id, comment_type, author, body)
                VALUES (%s, %s, 'status_update', %s, %s)""",
-            (str(item["tenant_id"]), str(work_item_id), created_by,
-             f"Resolved ({outcome}): {summary}"),
+            (
+                str(item["tenant_id"]),
+                str(work_item_id),
+                created_by,
+                f"Resolved ({outcome}): {summary}",
+            ),
         )
 
-        return {
-            "resolution_id": res_row["resolution_id"],
-            "created_at": res_row["created_at"],
-        }
+    compliance_svc.log_event(
+        entity_type="work_item",
+        entity_id=str(work_item_id),
+        action_type="resolve",
+        user_id=created_by,
+        before_state={"status": item["status"]},
+        after_state={"status": "resolved", "outcome": outcome},
+    )
+
+    return {
+        "resolution_id": res_row["resolution_id"],
+        "created_at": res_row["created_at"],
+    }
 
 
 def search_resolutions(
