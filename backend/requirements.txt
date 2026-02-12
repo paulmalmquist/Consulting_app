@@ -9,3 +9,6 @@ httpx==0.28.1
 pytest==8.3.2
 respx==0.22.0
 ruff==0.9.6
+
+pypdf==5.1.0
+jsonschema==4.23.0
