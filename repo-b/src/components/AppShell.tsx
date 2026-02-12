@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEnv } from "@/components/EnvProvider";
+import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/cn";
 import { buttonVariants } from "@/components/ui/buttonVariants";
 
@@ -66,12 +67,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 : "No environment selected"}
             </p>
           </div>
-          <button
-            onClick={logout}
-            className={buttonVariants({ variant: "secondary", size: "sm" })}
-          >
-            Logout
-          </button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button
+              onClick={logout}
+              className={buttonVariants({ variant: "secondary", size: "sm" })}
+            >
+              Logout
+            </button>
+          </div>
         </header>
         <main className="flex-1 p-6">{children}</main>
       </div>

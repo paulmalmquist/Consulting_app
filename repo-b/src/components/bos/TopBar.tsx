@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useBusinessContext } from "@/lib/business-context";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const ICON_MAP: Record<string, string> = {
   "dollar-sign": "$",
@@ -75,6 +76,7 @@ export default function TopBar({
 
         {/* Global links */}
         <div className="flex-shrink-0 flex items-center gap-1 ml-2">
+          <ThemeToggle size="sm" />
           <Link
             href="/documents"
             className="text-xs text-bm-muted hover:text-bm-text px-2 py-1.5 rounded hover:bg-bm-surface/50 transition-colors hidden sm:block"
