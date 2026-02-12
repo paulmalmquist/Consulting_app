@@ -71,6 +71,26 @@ export default function CapabilityPageClient({
   const registryMeta = getCapabilityMeta(deptKey, capKey);
   const effectiveKind = registryMeta?.kind || cap.kind;
 
+  if (deptKey === "finance" && capKey === "jv-waterfall-model") {
+    return (
+      <div className="max-w-4xl space-y-4">
+        <Button
+          variant="ghost"
+          onClick={() => router.push(`/app/${deptKey}`)}
+        >
+          &larr; {dept.label}
+        </Button>
+        <h1 className="text-xl font-bold">{cap.label}</h1>
+        <p className="text-sm text-bm-muted">
+          Deterministic JV waterfall and scenario workspace.
+        </p>
+        <Button onClick={() => router.push("/app/finance/deals")}>
+          Open Deal Waterfall Workspace
+        </Button>
+      </div>
+    );
+  }
+
   switch (effectiveKind) {
     case "document_view":
       return (

@@ -27,6 +27,19 @@ export interface CapabilityMeta {
 }
 
 export const CAPABILITY_REGISTRY: Record<string, CapabilityMeta[]> = {
+  // ── Finance ──────────────────────────────────────────────────────────
+  finance: [
+    {
+      key: "jv-waterfall-model",
+      label: "JV Waterfall Model",
+      kind: "dashboard",
+      icon: "dollar-sign",
+      sidebarGroup: "Investments",
+      sortOrder: 10,
+      description: "Create fund/deal scenarios and run promote waterfall allocations",
+    },
+  ],
+
   // ── CRM ──────────────────────────────────────────────────────────────
   crm: [
     { key: "accounts", label: "Accounts", kind: "data_grid", icon: "building", sidebarGroup: "Pipeline", sortOrder: 10, description: "Manage customer accounts" },

@@ -16,6 +16,16 @@ export interface DepartmentMeta {
 }
 
 export const DEPARTMENT_REGISTRY: Record<string, DepartmentMeta> = {
+  finance: {
+    key: "finance",
+    displayName: "Finance",
+    icon: "dollar-sign",
+    description: "Fund models, JV waterfalls, and investment scenario analysis",
+    accentColor: "teal",
+    category: "core",
+    defaultCapKey: "jv-waterfall-model",
+    sortOrder: 15,
+  },
   crm: {
     key: "crm",
     displayName: "CRM",
