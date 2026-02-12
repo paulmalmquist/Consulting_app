@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useEnv } from "@/components/EnvProvider";
 import { apiFetch } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/Card";
@@ -12,6 +13,7 @@ import { Textarea } from "@/components/ui/Textarea";
 const industries = ["healthcare", "legal", "construction", "website"] as const;
 
 export default function EnvironmentsPage() {
+  const router = useRouter();
   const { environments, refresh, selectEnv } = useEnv();
   const [clientName, setClientName] = useState("");
   const [industry, setIndustry] = useState<(typeof industries)[number]>(
@@ -34,6 +36,7 @@ export default function EnvironmentsPage() {
       });
       await refresh();
       selectEnv(payload.env_id);
+      router.push("/lab");
       setClientName("");
       setNotes("");
       setStatus("Environment created.");
@@ -53,7 +56,10 @@ export default function EnvironmentsPage() {
             {environments.map((env) => (
               <button
                 key={env.env_id}
-                onClick={() => selectEnv(env.env_id)}
+                onClick={() => {
+                  selectEnv(env.env_id);
+                  router.push("/lab");
+                }}
                 className="w-full text-left bm-glass-interactive rounded-xl p-4"
               >
                 <div className="flex items-center justify-between">
