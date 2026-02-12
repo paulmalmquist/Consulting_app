@@ -113,6 +113,31 @@ export interface RunResult {
   outputs_json: Record<string, unknown>;
 }
 
+export interface ExtractedDocument {
+  id: string;
+  document_id: string;
+  document_version_id: string;
+  doc_type: string;
+  status: string;
+  created_at: string;
+}
+
+export interface ExtractedField {
+  id: string;
+  extracted_document_id: string;
+  field_key: string;
+  field_value_json: unknown;
+  confidence: number | null;
+  evidence_json: { page?: number; snippet?: string };
+  created_at: string;
+}
+
+export interface ExtractionDetail {
+  extracted_document: ExtractedDocument;
+  latest_run?: { status: string; error?: string | null } | null;
+  fields: ExtractedField[];
+}
+
 // ── Templates ────────────────────────────────────────────────────────
 
 export function getTemplates(): Promise<Template[]> {
@@ -242,4 +267,27 @@ export async function computeSha256(file: File): Promise<string> {
   const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+
+export function initExtraction(body: { document_id: string; version_id: string; extraction_profile?: string }): Promise<ExtractedDocument> {
+  return bosFetch('/api/extract/init', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function runExtraction(body: { extracted_document_id: string }): Promise<ExtractionDetail> {
+  return bosFetch('/api/extract/run', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function getExtraction(extractedDocumentId: string): Promise<ExtractionDetail> {
+  return bosFetch(`/api/extract/${extractedDocumentId}`);
+}
+
+export function listExtractionFields(extractedDocumentId: string): Promise<ExtractedField[]> {
+  return bosFetch(`/api/extract/${extractedDocumentId}/fields`);
 }

@@ -276,6 +276,42 @@ BEGIN
 END;
 $$;
 
+
+
+CREATE TABLE IF NOT EXISTS app.extracted_document (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  document_id uuid NOT NULL REFERENCES app.documents(document_id) ON DELETE CASCADE,
+  document_version_id uuid NOT NULL REFERENCES app.document_versions(version_id) ON DELETE CASCADE,
+  doc_type text NOT NULL,
+  status text NOT NULL DEFAULT 'pending',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS app.extracted_field (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  extracted_document_id uuid NOT NULL REFERENCES app.extracted_document(id) ON DELETE CASCADE,
+  field_key text NOT NULL,
+  field_value_json jsonb NOT NULL,
+  confidence numeric(5,4),
+  evidence_json jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS app.extraction_run (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  extracted_document_id uuid NOT NULL REFERENCES app.extracted_document(id) ON DELETE CASCADE,
+  run_hash text NOT NULL,
+  engine_version text NOT NULL,
+  status text NOT NULL,
+  error text,
+  started_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS extracted_document_doc_idx ON app.extracted_document(document_id, document_version_id);
+CREATE INDEX IF NOT EXISTS extracted_field_doc_idx ON app.extracted_field(extracted_document_id, field_key);
+CREATE INDEX IF NOT EXISTS extraction_run_doc_idx ON app.extraction_run(extracted_document_id, started_at DESC);
+
 ALTER TABLE IF EXISTS app.tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS app.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS app.documents ENABLE ROW LEVEL SECURITY;

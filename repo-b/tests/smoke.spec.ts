@@ -70,7 +70,16 @@ test.beforeEach(async ({ context, page, baseURL }) => {
 
   // Documents views can request these.
   await page.route("**/api/documents?**", async (route) => {
-    await route.fulfill({ json: [] });
+    await route.fulfill({ json: [{ document_id: "doc_1", business_id: BIZ_ID, department_id: null, title: "Loan Package", virtual_path: null, status: "draft", created_at: "2024-01-01T00:00:00Z", latest_version_number: 1, latest_content_type: "application/pdf", latest_size_bytes: 1024 }] });
+  });
+  await page.route("**/api/documents/doc_1/versions", async (route) => {
+    await route.fulfill({ json: [{ version_id: "ver_1", document_id: "doc_1", version_number: 1, state: "available", original_filename: "loan.pdf", mime_type: "application/pdf", size_bytes: 1024, content_hash: "x", created_at: "2024-01-01T00:00:00Z" }] });
+  });
+  await page.route("**/api/extract/init", async (route) => {
+    await route.fulfill({ json: { id: "ext_1", document_id: "doc_1", document_version_id: "ver_1", doc_type: "loan_real_estate_v1", status: "pending", created_at: "2024-01-01T00:00:00Z" } });
+  });
+  await page.route("**/api/extract/run", async (route) => {
+    await route.fulfill({ json: { extracted_document: { id: "ext_1", document_id: "doc_1", document_version_id: "ver_1", doc_type: "loan_real_estate_v1", status: "completed", created_at: "2024-01-01T00:00:00Z" }, latest_run: { status: "completed" }, fields: [{ id: "f1", extracted_document_id: "ext_1", field_key: "loan_terms.loan_amount", field_value_json: "500000", confidence: 0.9, evidence_json: { page: 1, snippet: "Loan Amount: 500000" }, created_at: "2024-01-01T00:00:00Z" }] } });
   });
   await page.route("**/api/executions?**", async (route) => {
     await route.fulfill({ json: [] });
@@ -104,4 +113,14 @@ test("App shell loads", async ({ page }) => {
 test("Documents page loads", async ({ page }) => {
   await page.goto("/documents");
   await expect(page.getByRole("heading", { name: "Documents", level: 1 })).toBeVisible();
+});
+
+
+test("Extract terms flow works", async ({ page }) => {
+  await page.goto("/documents");
+  await page.getByRole("button", { name: "Loan Package" }).click();
+  await page.getByRole("button", { name: "Extract terms" }).click();
+  await expect(page.getByText("Completed (1 fields)")).toBeVisible();
+  await page.getByRole("button", { name: /loan_terms.loan_amount/ }).click();
+  await expect(page.getByText(/Loan Amount: 500000/)).toBeVisible();
 });
