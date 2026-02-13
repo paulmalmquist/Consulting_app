@@ -130,7 +130,28 @@ export default function GlobalCommandBar() {
         throw new Error(err.error || "Run failed");
       }
 
-      const runPayload = (await runResponse.json()) as { runId: string };
+      const runPayload = (await runResponse.json()) as {
+        runId?: string;
+        output?: string;
+        mode?: string;
+      };
+
+      if (runPayload.mode === "direct") {
+        const directOutput = runPayload.output || "";
+        setMessages((prev) =>
+          prev.map((item) =>
+            item.id === assistantId ? { ...item, content: directOutput } : item
+          )
+        );
+        setRunning(false);
+        setRunId(null);
+        return;
+      }
+
+      if (!runPayload.runId) {
+        throw new Error("Run started but no runId was returned.");
+      }
+
       setRunId(runPayload.runId);
 
       const source = new EventSource(

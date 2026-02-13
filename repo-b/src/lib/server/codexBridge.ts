@@ -175,3 +175,37 @@ export function createRunAndStart(contextKey: string, prompt: string) {
   void runPrompt(run.runId, prompt);
   return run;
 }
+
+export async function runPromptDirect(prompt: string): Promise<{ ok: boolean; output: string; error?: string }> {
+  if (!isLocalAiEnabled()) {
+    return { ok: false, output: "", error: "AI_MODE is not local." };
+  }
+
+  try {
+    const response = await fetch(`${SIDE_CAR_URL}/ask`, {
+      method: "POST",
+      headers: sidecarHeaders("application/json"),
+      body: JSON.stringify({ prompt, timeout_ms: 45000 }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      return {
+        ok: false,
+        output: "",
+        error: `Sidecar ask failed (${response.status}): ${text.slice(0, 400)}`,
+      };
+    }
+
+    const payload = (await response.json()) as AskResponse;
+    const answer = payload.answer || payload.output_text || payload.stdout || "";
+    return { ok: true, output: answer || "No output received from local sidecar." };
+  } catch (error) {
+    return {
+      ok: false,
+      output: "",
+      error: error instanceof Error ? error.message : "Run failed",
+    };
+  }
+}

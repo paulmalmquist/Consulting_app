@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { createRunAndStart, isLocalAiEnabled } from "@/lib/server/codexBridge";
+import {
+  createRunAndStart,
+  isLocalAiEnabled,
+  runPromptDirect,
+} from "@/lib/server/codexBridge";
 
 export const runtime = "nodejs";
 
@@ -23,6 +27,16 @@ export async function POST(request: Request) {
 
   if (!prompt) {
     return NextResponse.json({ error: "Prompt is required." }, { status: 400 });
+  }
+
+  // Vercel/serverless does not guarantee shared in-memory run state across
+  // /run and /stream invocations. Return direct output in that environment.
+  if (process.env.VERCEL === "1") {
+    const result = await runPromptDirect(prompt);
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error || "Run failed" }, { status: 502 });
+    }
+    return NextResponse.json({ output: result.output, mode: "direct" });
   }
 
   const run = createRunAndStart(contextKey, prompt);
