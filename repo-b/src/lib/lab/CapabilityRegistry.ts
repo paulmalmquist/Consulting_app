@@ -6,6 +6,26 @@ export type LabCapabilityMeta = {
   description: string;
 };
 
+type CapabilityOptions = {
+  industry?: string | null;
+  includeHidden?: boolean;
+};
+
+const INDUSTRY_HIDDEN_CAPABILITIES: Partial<
+  Record<string, Partial<Record<LabDepartmentKey, string[]>>>
+> = {
+  healthcare: {
+    operations: ["automation"],
+    it: ["changes"],
+  },
+  dental: {
+    it: ["changes"],
+  },
+  legal: {
+    legal: ["evidence_requests"],
+  },
+};
+
 export const LAB_CAPABILITIES_BY_DEPARTMENT: Record<LabDepartmentKey, LabCapabilityMeta[]> = {
   crm: [
     { key: "accounts", label: "Accounts", description: "Manage account records and segmentation." },
@@ -89,10 +109,34 @@ export const LAB_CAPABILITIES_BY_DEPARTMENT: Record<LabDepartmentKey, LabCapabil
   ],
 };
 
-export function getCapabilitiesForDepartment(deptKey: LabDepartmentKey): LabCapabilityMeta[] {
-  return LAB_CAPABILITIES_BY_DEPARTMENT[deptKey] || [];
+export function getCapabilitiesForDepartment(
+  deptKey: LabDepartmentKey,
+  options?: CapabilityOptions
+): LabCapabilityMeta[] {
+  const allCapabilities = LAB_CAPABILITIES_BY_DEPARTMENT[deptKey] || [];
+  if (options?.includeHidden) return allCapabilities;
+
+  const industry = options?.industry;
+  if (!industry) return allCapabilities;
+
+  const hiddenCapabilities = INDUSTRY_HIDDEN_CAPABILITIES[industry]?.[deptKey] || [];
+  if (!hiddenCapabilities.length) return allCapabilities;
+
+  const hiddenSet = new Set(hiddenCapabilities);
+  return allCapabilities.filter((capability) => !hiddenSet.has(capability.key));
 }
 
-export function getCapabilityByKey(deptKey: LabDepartmentKey, capKey: string) {
-  return getCapabilitiesForDepartment(deptKey).find((cap) => cap.key === capKey) || null;
+export function getAllCapabilitiesForDepartment(
+  deptKey: LabDepartmentKey,
+  options?: Omit<CapabilityOptions, "includeHidden">
+): LabCapabilityMeta[] {
+  return getCapabilitiesForDepartment(deptKey, { ...options, includeHidden: true });
+}
+
+export function getCapabilityByKey(
+  deptKey: LabDepartmentKey,
+  capKey: string,
+  options?: CapabilityOptions
+) {
+  return getCapabilitiesForDepartment(deptKey, options).find((cap) => cap.key === capKey) || null;
 }

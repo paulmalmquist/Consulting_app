@@ -2,10 +2,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import ALLOWED_ORIGINS
 from app.routes import (
+    metrics,
     health,
     business,
     documents,
     executions,
+    tasks,
     work,
     audit,
     lab,
@@ -29,6 +31,8 @@ app.include_router(health.router)
 app.include_router(business.router)
 app.include_router(documents.router)
 app.include_router(executions.router)
+app.include_router(tasks.router)
+app.include_router(metrics.router)
 app.include_router(work.router)
 app.include_router(audit.router)
 app.include_router(lab.router)

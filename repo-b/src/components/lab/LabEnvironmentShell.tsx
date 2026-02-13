@@ -1,17 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useEnv } from "@/components/EnvProvider";
 import { cn } from "@/lib/cn";
 import {
+  LAB_DEPARTMENTS,
   getDefaultDepartmentForIndustry,
   getEnabledDepartmentsForIndustry,
+  type LabDepartmentMeta,
   type LabDepartmentKey,
 } from "@/lib/lab/DepartmentRegistry";
-import { getCapabilitiesForDepartment } from "@/lib/lab/CapabilityRegistry";
+import {
+  getAllCapabilitiesForDepartment,
+  getCapabilitiesForDepartment,
+} from "@/lib/lab/CapabilityRegistry";
 import { DeptIcon } from "@/components/lab/LabIcons";
+import {
+  addCapability,
+  addDepartment,
+  getAddedCapabilities,
+  getAddedDepartments,
+} from "@/lib/lab/envHomepageState";
+import AddDepartmentMenu from "@/components/lab/AddDepartmentMenu";
+import AddCapabilityMenu from "@/components/lab/AddCapabilityMenu";
 
 type Props = {
   envId: string;
@@ -31,10 +44,25 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
   const pathname = usePathname();
   const { selectedEnv, selectEnv } = useEnv();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [addedDepts, setAddedDepts] = useState<string[]>([]);
+  const [addedCaps, setAddedCaps] = useState<Record<string, string[]>>({});
   const mobileSidebarRef = useRef<HTMLDivElement>(null);
 
   const industry = selectedEnv?.env_id === envId ? selectedEnv.industry : undefined;
-  const departments = useMemo(() => getEnabledDepartmentsForIndustry(industry), [industry]);
+  const departments = useMemo(() => {
+    const baseDepartments = getEnabledDepartmentsForIndustry(industry);
+    if (!addedDepts.length) return baseDepartments;
+
+    const baseKeys = new Set(baseDepartments.map((department) => department.key));
+    const extraDepartments = addedDepts
+      .map((departmentKey) =>
+        LAB_DEPARTMENTS.find((department) => department.key === departmentKey)
+      )
+      .filter((department): department is LabDepartmentMeta => Boolean(department))
+      .filter((department) => !baseKeys.has(department.key));
+
+    return [...baseDepartments, ...extraDepartments];
+  }, [industry, addedDepts]);
   const defaultDepartment = useMemo(
     () => getDefaultDepartmentForIndustry(industry),
     [industry]
@@ -47,13 +75,63 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
     return departments[0]?.key || null;
   }, [pathname, envId, departments, defaultDepartment]);
 
-  const capabilities = currentDept ? getCapabilitiesForDepartment(currentDept) : [];
+  const capabilities = useMemo(() => {
+    if (!currentDept) return [];
+    const baseCapabilities = getCapabilitiesForDepartment(currentDept, { industry });
+    const allCapabilities = getAllCapabilitiesForDepartment(currentDept, { industry });
+    const enabledCapabilityKeys = new Set(baseCapabilities.map((capability) => capability.key));
+    for (const capabilityKey of addedCaps[currentDept] || []) {
+      enabledCapabilityKeys.add(capabilityKey);
+    }
+    return allCapabilities.filter((capability) => enabledCapabilityKeys.has(capability.key));
+  }, [currentDept, industry, addedCaps]);
+
+  const availableDepartments = useMemo(() => {
+    const activeKeys = new Set(departments.map((department) => department.key));
+    return LAB_DEPARTMENTS.filter((department) => !activeKeys.has(department.key));
+  }, [departments]);
+
+  const availableCapabilities = useMemo(() => {
+    if (!currentDept) return [];
+    const allCapabilities = getAllCapabilitiesForDepartment(currentDept, { industry });
+    const activeCapabilityKeys = new Set(capabilities.map((capability) => capability.key));
+    return allCapabilities.filter((capability) => !activeCapabilityKeys.has(capability.key));
+  }, [currentDept, industry, capabilities]);
+
+  const handleAddDepartment = useCallback((deptKey: string) => {
+    addDepartment(envId, deptKey);
+    setAddedDepts((previous) =>
+      previous.includes(deptKey) ? previous : [...previous, deptKey]
+    );
+  }, [envId]);
+
+  const handleAddCapability = useCallback((capKey: string) => {
+    if (!currentDept) return;
+    addCapability(envId, currentDept, capKey);
+    setAddedCaps((previous) => {
+      const existing = previous[currentDept] || [];
+      if (existing.includes(capKey)) return previous;
+      return { ...previous, [currentDept]: [...existing, capKey] };
+    });
+  }, [envId, currentDept]);
 
   useEffect(() => {
     if (selectedEnv?.env_id !== envId) {
       selectEnv(envId);
     }
   }, [envId, selectedEnv?.env_id, selectEnv]);
+
+  useEffect(() => {
+    setAddedDepts(getAddedDepartments(envId));
+    const persistedCapabilities: Record<string, string[]> = {};
+    for (const department of LAB_DEPARTMENTS) {
+      const capabilityKeys = getAddedCapabilities(envId, department.key);
+      if (capabilityKeys.length) {
+        persistedCapabilities[department.key] = capabilityKeys;
+      }
+    }
+    setAddedCaps(persistedCapabilities);
+  }, [envId]);
 
   useEffect(() => {
     setMobileSidebarOpen(false);
@@ -118,6 +196,10 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
                 </Link>
               );
             })}
+            <AddDepartmentMenu
+              availableDepartments={availableDepartments}
+              onAdd={handleAddDepartment}
+            />
           </div>
           <button
             type="button"
@@ -136,9 +218,15 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
           className="hidden lg:block rounded-xl border border-bm-border/70 bg-bm-surface/30 p-3"
           data-testid="lab-sidebar"
         >
-          <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2 px-2 pb-2">
-            {departments.find((dept) => dept.key === currentDept)?.label} Functions
-          </p>
+          <div className="flex items-center justify-between px-2 pb-2">
+            <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">
+              {departments.find((dept) => dept.key === currentDept)?.label} Functions
+            </p>
+            <AddCapabilityMenu
+              availableCapabilities={availableCapabilities}
+              onAdd={handleAddCapability}
+            />
+          </div>
           <nav className="space-y-1.5">
             {capabilities.map((cap) => {
               const active = pathname.includes(`/capability/${cap.key}`);
