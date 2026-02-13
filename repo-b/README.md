@@ -45,6 +45,7 @@ npm run dev
 Notes:
 - This is local-only by default. Vercel serverless functions cannot reach your laptop's `127.0.0.1`.
 - For hosted AI commands, deploy a reachable sidecar service and point `AI_SIDECAR_URL` to it.
+- Deployment guide: `docs/SIDECAR_DEPLOY.md`.
 
 ## Environment Variables
 - `DEMO_INVITE_CODE` - Shared invite code for `/login` (server-side only).

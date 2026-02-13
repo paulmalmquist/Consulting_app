@@ -9,6 +9,7 @@ const HOST = process.env.AI_SIDECAR_HOST || "127.0.0.1";
 const PORT = Number(process.env.AI_SIDECAR_PORT || 7337);
 const WORKDIR = process.env.AI_WORKDIR || process.cwd();
 const AUTH_TOKEN = (process.env.AI_SIDECAR_TOKEN || "").trim();
+const CODEX_BIN = (process.env.CODEX_BIN || "codex").trim();
 
 function isAuthorized(req) {
   if (!AUTH_TOKEN) return true;
@@ -113,7 +114,7 @@ async function runCodexPrompt(prompt, timeoutMs) {
     prompt,
   ];
 
-  const result = await runProcess("codex", args, timeoutMs);
+  const result = await runProcess(CODEX_BIN, args, timeoutMs);
   let answer = "";
   try {
     answer = await fs.readFile(outputFile, "utf8");
@@ -142,7 +143,7 @@ const server = createServer(async (req, res) => {
 
   if (req.method === "GET" && req.url === "/health") {
     if (!isAuthorized(req)) return sendJson(res, 401, { message: "Unauthorized" });
-    const probe = await runProcess("codex", ["--version"], 5000);
+    const probe = await runProcess(CODEX_BIN, ["--version"], 5000);
     if (probe.ok) {
       return sendJson(res, 200, {
         codex_available: true,
