@@ -7,6 +7,7 @@ export type Environment = {
   env_id: string;
   client_name: string;
   industry: string;
+  industry_type?: string;
   schema_name: string;
   is_active: boolean;
 };
@@ -34,10 +35,14 @@ export function EnvProvider({ children }: { children: React.ReactNode }) {
       const data = await apiFetch<{ environments: Environment[] }>(
         "/v1/environments"
       );
-      setEnvironments(data.environments);
+      const normalized = (data.environments || []).map((env) => ({
+        ...env,
+        industry_type: env.industry_type || env.industry,
+      }));
+      setEnvironments(normalized);
       const stored = localStorage.getItem(STORAGE_KEY);
-      const fallbackId = data.environments[0]?.env_id || null;
-      const nextId = data.environments.find((env) => env.env_id === stored)
+      const fallbackId = normalized[0]?.env_id || null;
+      const nextId = normalized.find((env) => env.env_id === stored)
         ? stored
         : fallbackId;
       setSelectedEnvId(nextId);

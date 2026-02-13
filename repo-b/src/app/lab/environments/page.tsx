@@ -34,6 +34,7 @@ export default function EnvironmentsPage() {
         body: JSON.stringify({
           client_name: clientName,
           industry,
+          industry_type: industry,
           notes
         })
       });
@@ -64,7 +65,9 @@ export default function EnvironmentsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-semibold">{env.client_name}</p>
-                    <p className="text-xs text-bm-muted2">{env.industry}</p>
+                    <p className="text-xs text-bm-muted2">
+                      {env.industry_type || env.industry}
+                    </p>
                   </div>
                   <span className="text-xs text-bm-muted">{env.schema_name}</span>
                 </div>

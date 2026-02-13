@@ -95,6 +95,16 @@ export function BarChart3Icon(props: IconProps) {
   );
 }
 
+export function Columns3Icon(props: IconProps) {
+  return (
+    <svg {...defaultProps(props)}>
+      <rect x="3" y="4" width="5" height="16" rx="1" />
+      <rect x="10" y="4" width="4" height="16" rx="1" />
+      <rect x="16" y="4" width="5" height="16" rx="1" />
+    </svg>
+  );
+}
+
 export function SparklesIcon(props: IconProps) {
   return (
     <svg {...defaultProps(props)}>
@@ -268,6 +278,7 @@ const NAV_ICON_MAP: Record<string, React.FC<IconProps>> = {
   uploads: UploadIcon,
   chat: MessageCircleIcon,
   queue: ListTodoIcon,
+  pipeline: Columns3Icon,
   audit: ClipboardCheckIcon,
   metrics: BarChart3Icon,
   ai: SparklesIcon,

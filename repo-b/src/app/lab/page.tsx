@@ -44,6 +44,7 @@ export default function LabDashboard() {
         body: JSON.stringify({
           client_name: "New Demo Client",
           industry: "healthcare",
+          industry_type: "healthcare",
           notes: "Auto-created from dashboard"
         })
       });
@@ -84,7 +85,7 @@ export default function LabDashboard() {
                 </option>
                 {environments.map((env) => (
                   <option key={env.env_id} value={env.env_id}>
-                    {env.client_name} · {env.industry}
+                    {env.client_name} · {env.industry_type || env.industry}
                   </option>
                 ))}
               </Select>

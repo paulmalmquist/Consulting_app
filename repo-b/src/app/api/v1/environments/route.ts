@@ -9,12 +9,14 @@ type EnvironmentRow = {
   env_id: string;
   client_name: string;
   industry: string;
+  industry_type?: string;
   schema_name: string;
   is_active: boolean;
   created_at?: string | Date;
 };
 
 let _pool: Pool | null = null;
+let _hasIndustryTypeColumn: boolean | null = null;
 
 function getPool(): Pool | null {
   if (_pool) return _pool;
@@ -57,6 +59,25 @@ function slugSchemaName(clientName: string): string {
   return `env_${base || "client"}`;
 }
 
+async function hasIndustryTypeColumn(pool: Pool) {
+  if (_hasIndustryTypeColumn !== null) return _hasIndustryTypeColumn;
+  try {
+    const { rows } = await pool.query<{ exists: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1
+         FROM information_schema.columns
+         WHERE table_schema = 'app'
+           AND table_name = 'environments'
+           AND column_name = 'industry_type'
+       ) AS exists`
+    );
+    _hasIndustryTypeColumn = Boolean(rows[0]?.exists);
+  } catch {
+    _hasIndustryTypeColumn = false;
+  }
+  return _hasIndustryTypeColumn;
+}
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   return proxyOrFallback(request, `/v1/environments${url.search}`, async () => {
@@ -65,13 +86,17 @@ export async function GET(request: NextRequest) {
         if (!pool) {
           return Response.json({ environments: listFallbackEnvironments() });
         }
+        const industryTypeEnabled = await hasIndustryTypeColumn(pool);
         const { rows } = await pool.query<EnvironmentRow>(
-          `SELECT env_id::text, client_name, industry, schema_name, is_active, created_at
+          `SELECT env_id::text, client_name, industry,
+                  ${industryTypeEnabled ? "industry_type" : "industry AS industry_type"},
+                  schema_name, is_active, created_at
          FROM app.environments
          ORDER BY created_at DESC`
         );
         const environments = rows.map((row) => ({
           ...row,
+          industry_type: row.industry_type || row.industry,
           created_at:
             row.created_at instanceof Date
               ? row.created_at.toISOString()
@@ -90,6 +115,7 @@ export async function POST(request: NextRequest) {
       const body = (await request.json()) as {
         client_name?: string;
         industry?: string;
+        industry_type?: string;
         notes?: string | null;
       };
 
@@ -98,7 +124,8 @@ export async function POST(request: NextRequest) {
         return Response.json({ message: "client_name is required" }, { status: 400 });
       }
 
-      const industry = String(body.industry || "general").trim() || "general";
+      const industryType = String(body.industry_type || body.industry || "general").trim() || "general";
+      const industry = String(body.industry || industryType).trim() || "general";
       const notes = body.notes ?? null;
       const schemaName = slugSchemaName(clientName);
 
@@ -107,20 +134,39 @@ export async function POST(request: NextRequest) {
         const created = createFallbackEnvironment({
           client_name: clientName,
           industry,
+          industry_type: industryType,
         });
-        return Response.json({ env_id: created.env_id }, { status: 201 });
+        return Response.json(
+          {
+            env_id: created.env_id,
+            client_name: created.client_name,
+            industry: created.industry,
+            industry_type: created.industry_type,
+            schema_name: created.schema_name,
+          },
+          { status: 201 }
+        );
       }
+
+      const industryTypeEnabled = await hasIndustryTypeColumn(pool);
 
       const { rows } = await pool.query<{
         env_id: string;
         client_name: string;
         industry: string;
+        industry_type?: string;
         schema_name: string;
       }>(
-        `INSERT INTO app.environments (client_name, industry, schema_name, notes)
-         VALUES ($1, $2, $3, $4)
-         RETURNING env_id::text, client_name, industry, schema_name`,
-        [clientName, industry, schemaName, notes]
+        industryTypeEnabled
+          ? `INSERT INTO app.environments (client_name, industry, industry_type, schema_name, notes)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING env_id::text, client_name, industry, industry_type, schema_name`
+          : `INSERT INTO app.environments (client_name, industry, schema_name, notes)
+             VALUES ($1, $2, $3, $4)
+             RETURNING env_id::text, client_name, industry, industry AS industry_type, schema_name`,
+        industryTypeEnabled
+          ? [clientName, industry, industryType, schemaName, notes]
+          : [clientName, industry, schemaName, notes]
       );
 
       return Response.json(rows[0], { status: 201 });

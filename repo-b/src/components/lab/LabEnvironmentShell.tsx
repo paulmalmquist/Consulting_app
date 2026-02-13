@@ -48,7 +48,9 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
   const [addedCaps, setAddedCaps] = useState<Record<string, string[]>>({});
   const mobileSidebarRef = useRef<HTMLDivElement>(null);
 
-  const industry = selectedEnv?.env_id === envId ? selectedEnv.industry : undefined;
+  const industry = selectedEnv?.env_id === envId
+    ? selectedEnv.industry_type || selectedEnv.industry
+    : undefined;
   const departments = useMemo(() => {
     const baseDepartments = getEnabledDepartmentsForIndustry(industry);
     if (!addedDepts.length) return baseDepartments;
@@ -196,6 +198,19 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
                 </Link>
               );
             })}
+            <Link
+              href={`/lab/env/${envId}/pipeline`}
+              aria-label="Pipeline"
+              title="Pipeline"
+              className={cn(
+                "rounded-lg border px-2.5 py-2 text-xs font-medium transition inline-flex items-center justify-center",
+                pathname === `/lab/env/${envId}/pipeline`
+                  ? "border-bm-accent/40 bg-bm-accent/10 text-bm-text"
+                  : "border-bm-border/70 text-bm-muted hover:bg-bm-surface/50 hover:text-bm-text"
+              )}
+            >
+              Pipeline
+            </Link>
             <AddDepartmentMenu
               availableDepartments={availableDepartments}
               onAdd={handleAddDepartment}

@@ -6,22 +6,26 @@ import { useEnv } from "@/components/EnvProvider";
 import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/cn";
 import { buttonVariants } from "@/components/ui/buttonVariants";
+import { NavIcon } from "@/components/lab/LabIcons";
 
 const navItems = [
-  { href: "/lab", label: "Dashboard" },
-  { href: "/lab/environments", label: "Environments" },
-  { href: "/lab/upload", label: "Uploads" },
-  { href: "/lab/chat", label: "Chat" },
-  { href: "/lab/queue", label: "Queue" },
-  { href: "/lab/audit", label: "Audit" },
-  { href: "/lab/metrics", label: "Metrics" }
+  { href: "/lab", label: "Dashboard", navKey: "dashboard" },
+  { href: "/lab/environments", label: "Environments", navKey: "environments" },
+  { href: "/lab/pipeline", label: "Pipeline", navKey: "pipeline" },
+  { href: "/lab/upload", label: "Uploads", navKey: "uploads" },
+  { href: "/lab/chat", label: "Chat", navKey: "chat" },
+  { href: "/lab/queue", label: "Queue", navKey: "queue" },
+  { href: "/lab/audit", label: "Audit", navKey: "audit" },
+  { href: "/lab/metrics", label: "Metrics", navKey: "metrics" }
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { selectedEnv } = useEnv();
   const aiMode = process.env.NEXT_PUBLIC_AI_MODE || "off";
-  const items = aiMode === "local" ? [...navItems, { href: "/lab/ai", label: "AI" }] : navItems;
+  const items = aiMode === "local"
+    ? [...navItems, { href: "/lab/ai", label: "AI", navKey: "ai" }]
+    : navItems;
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -41,12 +45,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               key={item.href}
               href={item.href}
               className={cn(
-                "px-3 py-2 rounded-lg text-sm border transition",
+                "px-3 py-2 rounded-lg text-sm border transition flex items-center gap-2",
                 pathname === item.href
                   ? "bg-bm-accent/10 text-bm-text border-bm-accent/30 shadow-bm-glow"
                   : "text-bm-muted border-transparent hover:bg-bm-surface/40 hover:border-bm-border/70"
               )}
             >
+              <NavIcon navKey={item.navKey} size={15} />
               {item.label}
             </Link>
           ))}
@@ -63,7 +68,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </p>
             <p className="text-sm font-semibold">
               {selectedEnv
-                ? `${selectedEnv.client_name} · ${selectedEnv.industry}`
+                ? `${selectedEnv.client_name} · ${selectedEnv.industry_type || selectedEnv.industry}`
                 : "No environment selected"}
             </p>
           </div>
