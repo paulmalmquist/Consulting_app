@@ -47,7 +47,7 @@ export async function checkSidecarHealth() {
     return {
       ok: false,
       mode: aiMode(),
-      message: "Sidecar not reachable. Run scripts/ai_start_sidecar.sh.",
+      message: "Sidecar not reachable. Run: npm run ai:sidecar",
     };
   }
 }

@@ -250,7 +250,7 @@ export default function GlobalCommandBar() {
                 <p className="text-sm text-bm-muted">
                   {publicAiMode === "local"
                     ? "Ask a command to run against your local codex bridge."
-                    : "Local Codex server is not connected. Set AI_MODE=local and run codex app-server."}
+                    : "Local Codex server is not connected. Set AI_MODE=local and NEXT_PUBLIC_AI_MODE=local, then run npm run ai:sidecar."}
                 </p>
               ) : (
                 <div className="space-y-2">
