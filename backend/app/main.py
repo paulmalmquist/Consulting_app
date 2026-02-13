@@ -11,6 +11,7 @@ from app.routes import (
     lab,
     extraction,
     compliance,
+    admin_tools,
 )
 from app.routes.ai import router as ai_router
 
@@ -34,3 +35,4 @@ app.include_router(lab.router)
 app.include_router(ai_router)
 app.include_router(extraction.router)
 app.include_router(compliance.router)
+app.include_router(admin_tools.router)

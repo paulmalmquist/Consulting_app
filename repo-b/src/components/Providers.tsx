@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { ToastProvider } from "@/components/ui/Toast";
+import GlobalCommandBar from "@/components/commandbar/GlobalCommandBar";
 import { applyThemeMode, getStoredThemeMode } from "@/lib/theme";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -9,5 +10,10 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     applyThemeMode(getStoredThemeMode());
   }, []);
 
-  return <ToastProvider>{children}</ToastProvider>;
+  return (
+    <ToastProvider>
+      {children}
+      <GlobalCommandBar />
+    </ToastProvider>
+  );
 }
