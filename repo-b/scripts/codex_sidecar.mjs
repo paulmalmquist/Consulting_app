@@ -8,6 +8,13 @@ import { promises as fs } from "node:fs";
 const HOST = process.env.AI_SIDECAR_HOST || "127.0.0.1";
 const PORT = Number(process.env.AI_SIDECAR_PORT || 7337);
 const WORKDIR = process.env.AI_WORKDIR || process.cwd();
+const AUTH_TOKEN = (process.env.AI_SIDECAR_TOKEN || "").trim();
+
+function isAuthorized(req) {
+  if (!AUTH_TOKEN) return true;
+  const auth = req.headers.authorization || "";
+  return auth === `Bearer ${AUTH_TOKEN}`;
+}
 
 function sendJson(res, status, payload) {
   res.statusCode = status;
@@ -134,6 +141,7 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === "GET" && req.url === "/health") {
+    if (!isAuthorized(req)) return sendJson(res, 401, { message: "Unauthorized" });
     const probe = await runProcess("codex", ["--version"], 5000);
     if (probe.ok) {
       return sendJson(res, 200, {
@@ -148,6 +156,7 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === "POST" && req.url === "/ask") {
+    if (!isAuthorized(req)) return sendJson(res, 401, { message: "Unauthorized" });
     try {
       const payload = await readJson(req);
       const prompt = String(payload?.prompt || "").trim();

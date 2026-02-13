@@ -31,6 +31,7 @@ AI_MODE=local
 NEXT_PUBLIC_AI_MODE=local
 AI_SIDECAR_URL=http://127.0.0.1:7337
 AI_SIDECAR_PORT=7337
+AI_SIDECAR_TOKEN=change-me-strong-token
 ```
 3. Start the sidecar in one terminal:
 ```bash
@@ -53,6 +54,7 @@ Notes:
 - `NEXT_PUBLIC_DEMO_API_BASE_URL` / `NEXT_PUBLIC_API_BASE_URL` - Optional browser API base overrides. Default is same-origin (`/v1/*` rewrite to `/api/v1/*`).
 - `AI_MODE` / `NEXT_PUBLIC_AI_MODE` - Set both to `local` to enable local Codex command routes.
 - `AI_SIDECAR_URL` - URL for sidecar API (`/health`, `/ask`), default `http://127.0.0.1:7337`.
+- `AI_SIDECAR_TOKEN` - Optional bearer token used by app and sidecar; strongly recommended for non-local deployments.
 
 ## Deployment Checklist (Vercel)
 1. Set Production env vars: `DEMO_INVITE_CODE`, `DATABASE_URL` (plus optional `DEMO_API_ORIGIN`).

@@ -14,6 +14,18 @@ type AskResponse = {
 };
 
 const SIDE_CAR_URL = process.env.AI_SIDECAR_URL || "http://127.0.0.1:7337";
+const SIDE_CAR_TOKEN = (process.env.AI_SIDECAR_TOKEN || "").trim();
+
+function sidecarHeaders(contentType?: string): HeadersInit {
+  const headers: Record<string, string> = {};
+  if (contentType) {
+    headers["Content-Type"] = contentType;
+  }
+  if (SIDE_CAR_TOKEN) {
+    headers.Authorization = `Bearer ${SIDE_CAR_TOKEN}`;
+  }
+  return headers;
+}
 
 export function aiMode(): string {
   return (process.env.AI_MODE || "off").trim().toLowerCase();
@@ -33,7 +45,10 @@ export async function checkSidecarHealth() {
   }
 
   try {
-    const response = await fetch(`${SIDE_CAR_URL}/health`, { cache: "no-store" });
+    const response = await fetch(`${SIDE_CAR_URL}/health`, {
+      cache: "no-store",
+      headers: sidecarHeaders(),
+    });
     if (!response.ok) {
       return { ok: false, mode: aiMode(), message: `Sidecar returned ${response.status}.` };
     }
@@ -72,7 +87,7 @@ async function runPrompt(runId: string, prompt: string) {
   try {
     const response = await fetch(`${SIDE_CAR_URL}/ask`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: sidecarHeaders("application/json"),
       body: JSON.stringify({ prompt, timeout_ms: 45000 }),
       cache: "no-store",
     });
