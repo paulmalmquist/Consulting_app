@@ -5,12 +5,17 @@ export type CommandMessage = {
   role: "user" | "assistant" | "system";
   content: string;
   createdAt: number;
+  kind?: "text" | "plan" | "run" | "verification";
+  planId?: string | null;
+  runId?: string | null;
 };
 
 export function resolveCommandContext(): CommandContextKey {
   if (typeof window === "undefined") return "global";
 
-  const envId = window.localStorage.getItem("lab_active_env_id");
+  const routeEnvMatch = window.location.pathname.match(/^\/lab\/env\/([^/]+)/);
+  const envId =
+    routeEnvMatch?.[1] || window.localStorage.getItem("demo_lab_env_id");
   if (envId) return `env:${envId}`;
 
   const businessId = window.localStorage.getItem("bos_business_id");

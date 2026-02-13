@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { Pool } from "pg";
 import {
+  deleteFallbackEnvironment,
   getFallbackEnvironment,
   updateFallbackEnvironment,
 } from "@/lib/labV1Fallback";
@@ -152,6 +153,35 @@ export async function PATCH(
       return Response.json(updated);
     } catch {
       return Response.json({ message: "Failed to update environment" }, { status: 500 });
+    }
+  });
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  return proxyOrFallback(request, `/v1/environments/${params.id}`, async () => {
+    try {
+      const pool = getPool();
+      if (!pool) {
+        const deleted = deleteFallbackEnvironment(params.id);
+        if (!deleted) {
+          return Response.json({ message: "Environment not found" }, { status: 404 });
+        }
+        return Response.json(deleted);
+      }
+
+      const { rowCount } = await pool.query(
+        `DELETE FROM app.environments WHERE env_id = $1::uuid`,
+        [params.id]
+      );
+      if (!rowCount) {
+        return Response.json({ message: "Environment not found" }, { status: 404 });
+      }
+      return Response.json({ ok: true, env_id: params.id });
+    } catch {
+      return Response.json({ message: "Failed to delete environment" }, { status: 500 });
     }
   });
 }

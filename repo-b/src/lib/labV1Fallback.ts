@@ -445,6 +445,20 @@ export function updateFallbackEnvironment(
   return updated;
 }
 
+export function deleteFallbackEnvironment(envId: string) {
+  ensureSeededDefaults();
+  const s = state();
+  const current = s.environments.get(envId);
+  if (!current) return null;
+  s.environments.delete(envId);
+  s.documentsByEnv.delete(envId);
+  s.queueByEnv.delete(envId);
+  s.auditByEnv.delete(envId);
+  s.pipelineStagesByEnv.delete(envId);
+  s.pipelineCardsByEnv.delete(envId);
+  return { ok: true, env_id: envId };
+}
+
 export function listFallbackDocuments(envId: string) {
   ensureEnvironment(envId);
   return state().documentsByEnv.get(envId) || [];

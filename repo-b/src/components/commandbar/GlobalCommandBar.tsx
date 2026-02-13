@@ -1,8 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useToast } from "@/components/ui/Toast";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Dialog } from "@/components/ui/Dialog";
 import { Textarea } from "@/components/ui/Textarea";
+import { Input } from "@/components/ui/Input";
+import PlanCard from "@/components/commandbar/PlanCard";
+import ExecutionTimeline from "@/components/commandbar/ExecutionTimeline";
+import VerificationCard from "@/components/commandbar/VerificationCard";
 import {
   type CommandContextKey,
   type CommandMessage,
@@ -11,11 +18,35 @@ import {
   persistHistory,
   resolveCommandContext,
 } from "@/lib/commandbar/store";
+import type {
+  CommandAuditEvent,
+  CommandContext,
+  CommandRun,
+  ExecutionPlan,
+  PlanResponse,
+} from "@/lib/commandbar/types";
 
-type HealthResponse = {
-  ok: boolean;
-  mode: string;
-  message?: string;
+type RunStatusResponse = {
+  run: CommandRun;
+  plan: {
+    plan_id: string;
+    risk: string;
+    read_only: boolean;
+    intent_summary: string;
+    impacted_entities: string[];
+    mutations: string[];
+    requires_double_confirmation: boolean;
+    double_confirmation_phrase: string | null;
+  } | null;
+  audit_events: CommandAuditEvent[];
+};
+
+type PlanEdits = {
+  envId: string;
+  businessId: string;
+  name: string;
+  industry: string;
+  notes: string;
 };
 
 function formatContextBadge(contextKey: CommandContextKey) {
@@ -23,17 +54,68 @@ function formatContextBadge(contextKey: CommandContextKey) {
   return contextKey;
 }
 
+function readRouteEnvId(pathname: string): string | null {
+  const m = pathname.match(/^\/lab\/env\/([^/]+)/);
+  return m?.[1] || null;
+}
+
+function readContextFromBrowser(): CommandContext {
+  if (typeof window === "undefined") return {};
+  const route = window.location.pathname;
+  const envFromRoute = readRouteEnvId(route);
+  const envFromStorage = window.localStorage.getItem("demo_lab_env_id");
+  const businessId = window.localStorage.getItem("bos_business_id");
+  const selected = window.getSelection?.()?.toString().trim() || "";
+
+  return {
+    currentEnvId: envFromRoute || envFromStorage || null,
+    currentBusinessId: businessId || null,
+    route,
+    selection: selected || null,
+  };
+}
+
+function planEditsFromPlan(plan: ExecutionPlan): PlanEdits {
+  return {
+    envId: String(plan.intent.parameters.envId || plan.context.currentEnvId || ""),
+    businessId: String(plan.intent.parameters.businessId || plan.context.currentBusinessId || ""),
+    name: String(plan.intent.parameters.name || ""),
+    industry: String(plan.intent.parameters.industry || ""),
+    notes: String(plan.intent.parameters.notes || ""),
+  };
+}
+
+function formatRunSummary(run: CommandRun): string {
+  if (run.status === "completed") return "Execution completed with verification.";
+  if (run.status === "failed") return "Execution failed. Review step errors and logs.";
+  if (run.status === "cancelled") return "Execution was cancelled.";
+  return "Execution in progress.";
+}
+
 export default function GlobalCommandBar() {
+  const { push } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [contextKey, setContextKey] = useState<CommandContextKey>("global");
   const [messages, setMessages] = useState<CommandMessage[]>([]);
   const [prompt, setPrompt] = useState("");
-  const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [running, setRunning] = useState(false);
-  const [runId, setRunId] = useState<string | null>(null);
+  const [planning, setPlanning] = useState(false);
+  const [activePlan, setActivePlan] = useState<ExecutionPlan | null>(null);
+  const [editingPlan, setEditingPlan] = useState(false);
+  const [planEdits, setPlanEdits] = useState<PlanEdits>({
+    envId: "",
+    businessId: "",
+    name: "",
+    industry: "",
+    notes: "",
+  });
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const [run, setRun] = useState<CommandRun | null>(null);
+  const [auditEvents, setAuditEvents] = useState<CommandAuditEvent[]>([]);
+  const [showAudit, setShowAudit] = useState(false);
+  const [logsOpen, setLogsOpen] = useState(false);
   const transcriptRef = useRef<HTMLDivElement>(null);
-
-  const publicAiMode = process.env.NEXT_PUBLIC_AI_MODE || "off";
 
   useEffect(() => {
     const syncContext = () => {
@@ -54,18 +136,13 @@ export default function GlobalCommandBar() {
   }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
-    fetch("/api/ai/codex/health")
-      .then((r) => r.json())
-      .then((payload: HealthResponse) => setHealth(payload))
-      .catch(() =>
-        setHealth({
-          ok: false,
-          mode: "off",
-          message: "Unavailable",
-        })
-      );
-  }, [isOpen]);
+    persistHistory(contextKey, messages);
+  }, [contextKey, messages]);
+
+  useEffect(() => {
+    if (!transcriptRef.current) return;
+    transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
+  }, [messages, isOpen]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -86,135 +163,179 @@ export default function GlobalCommandBar() {
   }, []);
 
   useEffect(() => {
-    persistHistory(contextKey, messages);
-  }, [contextKey, messages]);
+    if (!run?.runId) return;
+    if (run.status !== "running" && run.status !== "pending") return;
 
-  useEffect(() => {
-    if (!transcriptRef.current) return;
-    transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
-  }, [messages, isOpen]);
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/commands/runs/${encodeURIComponent(run.runId)}`, {
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+        const payload = (await response.json()) as RunStatusResponse;
+        if (cancelled) return;
 
-  const statusLabel = useMemo(() => {
-    if (!health) return "Checking";
-    if (health.ok) return "Connected";
-    if (publicAiMode !== "local") return "Local-only";
-    return "Unavailable";
-  }, [health, publicAiMode]);
+        setRun(payload.run);
+        setAuditEvents(payload.audit_events || []);
 
-  const canSend = publicAiMode === "local" && health?.ok === true && !running;
-
-  const sendPrompt = async () => {
-    const text = prompt.trim();
-    if (!text || running) return;
-
-    const userMessage = makeMessage("user", text);
-    setMessages((prev) => [...prev, userMessage]);
-    setPrompt("");
-    setRunning(true);
-
-    const assistantId =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `assistant_${Date.now()}`;
-    setMessages((prev) => [...prev, makeMessage("assistant", "", assistantId)]);
-
-    try {
-      const runResponse = await fetch("/api/ai/codex/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contextKey, prompt: text }),
-      });
-
-      if (!runResponse.ok) {
-        const err = await runResponse.json().catch(() => ({}));
-        throw new Error(err.error || "Run failed");
+        if (payload.run.status === "completed" || payload.run.status === "failed" || payload.run.status === "cancelled") {
+          setMessages((prev) => [...prev, makeMessage("assistant", formatRunSummary(payload.run))]);
+        }
+      } catch {
+        // ignore polling blips
       }
+    };
 
-      const runPayload = (await runResponse.json()) as {
-        runId?: string;
-        output?: string;
-        mode?: string;
-      };
+    void poll();
+    const id = window.setInterval(() => {
+      void poll();
+    }, 800);
 
-      if (runPayload.mode === "direct") {
-        const directOutput = runPayload.output || "";
-        setMessages((prev) =>
-          prev.map((item) =>
-            item.id === assistantId ? { ...item, content: directOutput } : item
-          )
-        );
-        setRunning(false);
-        setRunId(null);
-        return;
-      }
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [run?.runId, run?.status]);
 
-      if (!runPayload.runId) {
-        throw new Error("Run started but no runId was returned.");
-      }
+  const contextSnapshot = useMemo(() => readContextFromBrowser(), [isOpen, contextKey]);
 
-      setRunId(runPayload.runId);
-
-      const source = new EventSource(
-        `/api/ai/codex/stream?runId=${encodeURIComponent(runPayload.runId)}`
-      );
-
-      source.addEventListener("token", (event) => {
-        const data = JSON.parse((event as MessageEvent).data) as { text?: string };
-        const chunk = data.text || "";
-        if (!chunk) return;
-        setMessages((prev) =>
-          prev.map((item) =>
-            item.id === assistantId ? { ...item, content: `${item.content}${chunk}` } : item
-          )
-        );
-      });
-
-      source.addEventListener("error", (event) => {
-        const data = JSON.parse((event as MessageEvent).data || "{}") as { message?: string };
-        setMessages((prev) => [
-          ...prev,
-          makeMessage("system", data.message || "Command stream error."),
-        ]);
-      });
-
-      source.addEventListener("final", () => {
-        source.close();
-        setRunning(false);
-        setRunId(null);
-      });
-
-      source.onerror = () => {
-        source.close();
-        setRunning(false);
-        setRunId(null);
-      };
-    } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        makeMessage(
-          "system",
-          error instanceof Error ? error.message : "Command failed to start"
-        ),
-      ]);
-      setRunning(false);
-      setRunId(null);
-    }
-  };
+  const canSend = !planning && !(run && run.status === "running");
 
   const clearHistory = () => {
     setMessages([]);
     persistHistory(contextKey, []);
+    setActivePlan(null);
+    setRun(null);
+    setAuditEvents([]);
   };
 
-  const cancelRunRequest = async () => {
-    if (!runId) return;
-    await fetch("/api/ai/codex/cancel", {
+  const submitPlanRequest = async (text: string) => {
+    const response = await fetch("/api/commands/plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ runId }),
+      body: JSON.stringify({
+        message: text,
+        context: readContextFromBrowser(),
+      }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || "Failed to build plan");
+    }
+    return (await response.json()) as PlanResponse;
+  };
+
+  const sendPrompt = async () => {
+    const text = prompt.trim();
+    if (!text || !canSend) return;
+
+    setMessages((prev) => [...prev, makeMessage("user", text)]);
+    setPrompt("");
+    setPlanning(true);
+    setRun(null);
+    setAuditEvents([]);
+    setShowAudit(false);
+
+    try {
+      const payload = await submitPlanRequest(text);
+      setActivePlan(payload.plan);
+      setPlanEdits(planEditsFromPlan(payload.plan));
+      setEditingPlan(false);
+      setMessages((prev) => [...prev, makeMessage("assistant", "Draft plan ready. Review and confirm to execute.")]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Planning failed";
+      setMessages((prev) => [...prev, makeMessage("system", message)]);
+      push({ title: "Planning failed", description: message, variant: "danger" });
+    } finally {
+      setPlanning(false);
+    }
+  };
+
+  const cancelDraftPlan = () => {
+    setActivePlan(null);
+    setEditingPlan(false);
+    setConfirmOpen(false);
+    setConfirmText("");
+    setMessages((prev) => [...prev, makeMessage("system", "Plan cancelled. No changes were made.")]);
+  };
+
+  const stopRun = async () => {
+    if (!run?.runId) return;
+    await fetch(`/api/commands/runs/${encodeURIComponent(run.runId)}/cancel`, {
+      method: "POST",
     }).catch(() => null);
-    setRunning(false);
-    setRunId(null);
+  };
+
+  const confirmAndRun = async () => {
+    if (!activePlan) return;
+    setConfirming(true);
+
+    const overrides = {
+      envId: planEdits.envId || undefined,
+      businessId: planEdits.businessId || undefined,
+      name: planEdits.name || undefined,
+      industry: planEdits.industry || undefined,
+      notes: planEdits.notes || undefined,
+    };
+
+    try {
+      const confirmResponse = await fetch("/api/commands/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan_id: activePlan.planId,
+          confirmation_text: confirmText,
+          overrides,
+        }),
+      });
+      if (!confirmResponse.ok) {
+        const err = await confirmResponse.json().catch(() => ({}));
+        throw new Error(err.error || "Confirmation failed");
+      }
+      const confirmedPayload = (await confirmResponse.json()) as {
+        confirm_token: string;
+        plan?: ExecutionPlan;
+      };
+
+      const effectivePlan = confirmedPayload.plan || activePlan;
+      setActivePlan(effectivePlan);
+
+      const executeResponse = await fetch("/api/commands/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan_id: effectivePlan.planId,
+          confirm_token: confirmedPayload.confirm_token,
+        }),
+      });
+      if (!executeResponse.ok) {
+        const err = await executeResponse.json().catch(() => ({}));
+        throw new Error(err.error || "Execution failed to start");
+      }
+      const executePayload = (await executeResponse.json()) as { run_id: string; status: CommandRun["status"] };
+      const startedRun: CommandRun = {
+        runId: executePayload.run_id,
+        planId: effectivePlan.planId,
+        status: executePayload.status,
+        createdAt: Date.now(),
+        cancelled: false,
+        logs: [],
+        stepResults: [],
+        verification: [],
+      };
+      setRun(startedRun);
+      setConfirmOpen(false);
+      setConfirmText("");
+      setMessages((prev) => [...prev, makeMessage("assistant", "Execution started." )]);
+      push({ title: "Execution started", description: `Run ${executePayload.run_id}`, variant: "success" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to execute plan";
+      setMessages((prev) => [...prev, makeMessage("system", message)]);
+      push({ title: "Execution blocked", description: message, variant: "danger" });
+    } finally {
+      setConfirming(false);
+    }
   };
 
   return (
@@ -238,19 +359,15 @@ export default function GlobalCommandBar() {
             aria-label="Close command console"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute bottom-0 right-0 h-[82vh] w-full max-w-xl rounded-t-2xl border border-bm-border/70 bg-bm-bg p-4 shadow-bm-card md:right-4 md:top-4 md:h-auto md:rounded-2xl">
-            <div className="mb-3 flex items-center justify-between gap-3">
+
+          <div className="absolute bottom-0 right-0 h-[90vh] w-full max-w-2xl rounded-t-2xl border border-bm-border/70 bg-bm-bg p-4 shadow-bm-card md:right-4 md:top-4 md:h-auto md:max-h-[92vh] md:rounded-2xl">
+            <div className="mb-3 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold">Commands</h2>
                 <p className="text-xs text-bm-muted">Context: {formatContextBadge(contextKey)}</p>
               </div>
               <div className="flex items-center gap-2">
-                <span
-                  className="rounded-full border border-bm-border/70 px-2 py-1 text-xs text-bm-muted"
-                  data-testid="global-commandbar-status"
-                >
-                  {statusLabel}
-                </span>
+                <Badge variant="accent">Plan → Confirm → Execute</Badge>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -262,16 +379,29 @@ export default function GlobalCommandBar() {
               </div>
             </div>
 
+            <div className="mb-3 rounded-xl border border-bm-border/70 bg-bm-surface/35 p-3">
+              <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Context Header</p>
+              <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-bm-muted md:grid-cols-3">
+                <p>
+                  Env: <span className="text-bm-text">{contextSnapshot.currentEnvId || "none"}</span>
+                </p>
+                <p>
+                  Business: <span className="text-bm-text">{contextSnapshot.currentBusinessId || "none"}</span>
+                </p>
+                <p>
+                  Route: <span className="text-bm-text">{contextSnapshot.route || "/"}</span>
+                </p>
+              </div>
+            </div>
+
             <div
               ref={transcriptRef}
               data-testid="global-commandbar-output"
-              className="h-[48vh] overflow-y-auto rounded-xl border border-bm-border/70 bg-bm-surface/35 p-3 md:h-80"
+              className="h-[26vh] overflow-y-auto rounded-xl border border-bm-border/70 bg-bm-surface/35 p-3 md:h-56"
             >
               {messages.length === 0 ? (
                 <p className="text-sm text-bm-muted">
-                  {publicAiMode === "local"
-                    ? "Ask a command to run against your local codex bridge."
-                    : "Local Codex server is not connected. Set AI_MODE=local and NEXT_PUBLIC_AI_MODE=local, then run npm run ai:sidecar."}
+                  Type a command. The system will interpret, draft a plan, then wait for your confirmation before executing.
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -288,6 +418,73 @@ export default function GlobalCommandBar() {
                   ))}
                 </div>
               )}
+            </div>
+
+            <div className="mt-3 space-y-3 overflow-y-auto max-h-[42vh] pr-1">
+              {planning ? (
+                <div className="rounded-xl border border-bm-border/70 bg-bm-surface/25 p-3">
+                  <p className="mb-2 text-sm text-bm-muted">Interpreting...</p>
+                  <div className="space-y-2 animate-pulse">
+                    <div className="h-3 rounded bg-bm-surface/80" />
+                    <div className="h-3 rounded bg-bm-surface/60" />
+                    <div className="h-3 w-2/3 rounded bg-bm-surface/60" />
+                  </div>
+                </div>
+              ) : null}
+
+              {activePlan && !run ? (
+                <PlanCard
+                  plan={activePlan}
+                  onConfirm={() => setConfirmOpen(true)}
+                  onCancel={cancelDraftPlan}
+                  onToggleEdit={() => setEditingPlan((prev) => !prev)}
+                  editing={editingPlan}
+                  edits={planEdits}
+                  onEditChange={(key, value) =>
+                    setPlanEdits((prev) => ({
+                      ...prev,
+                      [key]: value,
+                    }))
+                  }
+                />
+              ) : null}
+
+              {activePlan && run ? (
+                <>
+                  <ExecutionTimeline
+                    run={run}
+                    steps={activePlan.steps}
+                    onStop={stopRun}
+                    logsOpen={logsOpen}
+                    onToggleLogs={() => setLogsOpen((prev) => !prev)}
+                  />
+                  <VerificationCard items={run.verification || []} />
+                  <div className="rounded-xl border border-bm-border/70 bg-bm-surface/25 p-3">
+                    <button
+                      type="button"
+                      className="text-xs text-bm-muted hover:text-bm-text"
+                      onClick={() => setShowAudit((prev) => !prev)}
+                    >
+                      {showAudit ? "Hide audit details" : "View audit details"}
+                    </button>
+                    {showAudit ? (
+                      <div className="mt-2 max-h-40 overflow-y-auto rounded-md bg-bm-bg/70 p-2 text-xs text-bm-muted">
+                        {auditEvents.length ? (
+                          <ul className="space-y-1">
+                            {auditEvents.map((event) => (
+                              <li key={event.id}>
+                                {new Date(event.at).toLocaleTimeString()} - {event.kind}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p>No audit records yet.</p>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
             </div>
 
             <div className="mt-3 space-y-2">
@@ -309,26 +506,57 @@ export default function GlobalCommandBar() {
                 <Button size="sm" variant="secondary" onClick={clearHistory}>
                   Clear
                 </Button>
-                <div className="flex items-center gap-2">
-                  {running ? (
-                    <Button size="sm" variant="secondary" onClick={cancelRunRequest}>
-                      Cancel
-                    </Button>
-                  ) : null}
-                  <Button
-                    data-testid="global-commandbar-send"
-                    size="sm"
-                    onClick={() => void sendPrompt()}
-                    disabled={!canSend || !prompt.trim()}
-                  >
-                    Send
-                  </Button>
-                </div>
+                <Button
+                  data-testid="global-commandbar-send"
+                  size="sm"
+                  onClick={() => void sendPrompt()}
+                  disabled={!canSend || !prompt.trim()}
+                >
+                  Send
+                </Button>
               </div>
             </div>
           </div>
         </div>
       ) : null}
+
+      <Dialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Confirm Plan Execution"
+        description="No mutation steps will run until this is confirmed."
+        footer={
+          <>
+            <Button size="sm" variant="secondary" onClick={() => setConfirmOpen(false)} disabled={confirming}>
+              Back
+            </Button>
+            <Button size="sm" onClick={() => void confirmAndRun()} disabled={confirming}>
+              {confirming ? "Starting..." : "Confirm & Run"}
+            </Button>
+          </>
+        }
+      >
+        {activePlan ? (
+          <div className="space-y-3 text-sm">
+            <p>
+              Risk level: <span className="font-medium">{activePlan.risk.toUpperCase()}</span>
+            </p>
+            <p>Mutations: {activePlan.mutations.length ? activePlan.mutations.join(", ") : "Read-only"}</p>
+            {activePlan.requiresDoubleConfirmation ? (
+              <div className="space-y-2 rounded-lg border border-bm-danger/40 bg-bm-danger/10 p-3">
+                <p className="text-xs text-bm-muted">
+                  High-risk action detected. Type <span className="font-semibold text-bm-text">{activePlan.doubleConfirmationPhrase}</span> to continue.
+                </p>
+                <Input
+                  value={confirmText}
+                  onChange={(event) => setConfirmText(event.target.value)}
+                  placeholder={activePlan.doubleConfirmationPhrase || "CONFIRM DELETE"}
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </Dialog>
     </>
   );
 }
