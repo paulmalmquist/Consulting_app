@@ -33,6 +33,16 @@ export function LayoutDashboardIcon(props: IconProps) {
   );
 }
 
+export function HouseIcon(props: IconProps) {
+  return (
+    <svg {...defaultProps(props)}>
+      <path d="m3 10 9-7 9 7" />
+      <path d="M5 10v10h14V10" />
+      <path d="M10 20v-6h4v6" />
+    </svg>
+  );
+}
+
 export function GlobeIcon(props: IconProps) {
   return (
     <svg {...defaultProps(props)}>
@@ -273,11 +283,11 @@ export function DeptIcon({ deptKey, ...props }: IconProps & { deptKey: string })
 /* ── Nav icon lookup map ─────────────────────────────────── */
 
 const NAV_ICON_MAP: Record<string, React.FC<IconProps>> = {
+  home: HouseIcon,
   dashboard: LayoutDashboardIcon,
   environments: GlobeIcon,
   uploads: UploadIcon,
   chat: MessageCircleIcon,
-  queue: ListTodoIcon,
   pipeline: Columns3Icon,
   audit: ClipboardCheckIcon,
   metrics: BarChart3Icon,

@@ -16,7 +16,7 @@ import {
   getAllCapabilitiesForDepartment,
   getCapabilitiesForDepartment,
 } from "@/lib/lab/CapabilityRegistry";
-import { DeptIcon } from "@/components/lab/LabIcons";
+import { Columns3Icon, DeptIcon, HouseIcon } from "@/components/lab/LabIcons";
 import {
   addCapability,
   addDepartment,
@@ -178,6 +178,20 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
       <div className="rounded-xl border border-bm-border/70 bg-bm-surface/35 p-3">
         <div className="flex items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-1.5">
+            <Link
+              href={`/lab/env/${envId}`}
+              data-testid="dept-tab-home"
+              aria-label="Environment home"
+              title="Environment home"
+              className={cn(
+                "rounded-lg border p-2 transition inline-flex items-center justify-center",
+                pathname === `/lab/env/${envId}`
+                  ? "border-bm-accent/40 bg-bm-accent/10 text-bm-text"
+                  : "border-bm-border/70 text-bm-muted hover:bg-bm-surface/50 hover:text-bm-text"
+              )}
+            >
+              <HouseIcon size={18} />
+            </Link>
             {departments.map((dept) => {
               const active = dept.key === currentDept;
               return (
@@ -203,12 +217,13 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
               aria-label="Pipeline"
               title="Pipeline"
               className={cn(
-                "rounded-lg border px-2.5 py-2 text-xs font-medium transition inline-flex items-center justify-center",
+                "rounded-lg border px-2.5 py-2 text-xs font-medium transition inline-flex items-center justify-center gap-1.5",
                 pathname === `/lab/env/${envId}/pipeline`
                   ? "border-bm-accent/40 bg-bm-accent/10 text-bm-text"
                   : "border-bm-border/70 text-bm-muted hover:bg-bm-surface/50 hover:text-bm-text"
               )}
             >
+              <Columns3Icon size={14} />
               Pipeline
             </Link>
             <AddDepartmentMenu

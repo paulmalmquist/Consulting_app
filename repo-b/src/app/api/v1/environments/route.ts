@@ -11,6 +11,7 @@ type EnvironmentRow = {
   industry: string;
   industry_type?: string;
   schema_name: string;
+  notes?: string | null;
   is_active: boolean;
   created_at?: string | Date;
 };
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
         const { rows } = await pool.query<EnvironmentRow>(
           `SELECT env_id::text, client_name, industry,
                   ${industryTypeEnabled ? "industry_type" : "industry AS industry_type"},
-                  schema_name, is_active, created_at
+                  schema_name, notes, is_active, created_at
          FROM app.environments
          ORDER BY created_at DESC`
         );

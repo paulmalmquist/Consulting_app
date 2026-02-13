@@ -9,7 +9,9 @@ export type Environment = {
   industry: string;
   industry_type?: string;
   schema_name: string;
+  notes?: string | null;
   is_active: boolean;
+  created_at?: string;
 };
 
 type EnvContextValue = {
@@ -41,13 +43,14 @@ export function EnvProvider({ children }: { children: React.ReactNode }) {
       }));
       setEnvironments(normalized);
       const stored = localStorage.getItem(STORAGE_KEY);
-      const fallbackId = normalized[0]?.env_id || null;
       const nextId = normalized.find((env) => env.env_id === stored)
         ? stored
-        : fallbackId;
+        : null;
       setSelectedEnvId(nextId);
       if (nextId) {
         localStorage.setItem(STORAGE_KEY, nextId);
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
       }
     } catch {
       setEnvironments([]);

@@ -4,6 +4,7 @@ type LabEnvironment = {
   industry: string;
   industry_type: string;
   schema_name: string;
+  notes: string | null;
   is_active: boolean;
   created_at: string;
 };
@@ -291,6 +292,7 @@ function ensureEnvironment(envId: string) {
       industry: "website",
       industry_type: "website",
       schema_name: slugSchemaName("General Client"),
+      notes: null,
       is_active: true,
       created_at: nowIso(),
     };
@@ -326,6 +328,7 @@ function ensureSeededDefaults() {
       industry: env.industry,
       industry_type: env.industry,
       schema_name: slugSchemaName(env.client_name),
+      notes: null,
       is_active: true,
       created_at: nowIso(),
     };
@@ -362,6 +365,7 @@ export function createFallbackEnvironment(input: {
   client_name: string;
   industry?: string;
   industry_type?: string;
+  notes?: string | null;
 }) {
   ensureSeededDefaults();
   const industryType = input.industry_type || input.industry || "general";
@@ -371,6 +375,7 @@ export function createFallbackEnvironment(input: {
     industry: input.industry || industryType,
     industry_type: industryType,
     schema_name: slugSchemaName(input.client_name),
+    notes: input.notes || null,
     is_active: true,
     created_at: nowIso(),
   };
@@ -390,6 +395,54 @@ export function createFallbackEnvironment(input: {
     details: { fallback: true, industry: row.industry, industry_type: row.industry_type },
   });
   return row;
+}
+
+export function getFallbackEnvironment(envId: string) {
+  ensureSeededDefaults();
+  return state().environments.get(envId) || null;
+}
+
+export function updateFallbackEnvironment(
+  envId: string,
+  patch: {
+    client_name?: string;
+    industry?: string;
+    industry_type?: string;
+    notes?: string | null;
+    is_active?: boolean;
+  }
+) {
+  ensureSeededDefaults();
+  const s = state();
+  const current = s.environments.get(envId);
+  if (!current) return null;
+
+  const nextIndustryType = patch.industry_type ?? patch.industry ?? current.industry_type;
+  const nextIndustry = patch.industry ?? nextIndustryType ?? current.industry;
+  const nextClientName = patch.client_name?.trim() || current.client_name;
+  const updated: LabEnvironment = {
+    ...current,
+    client_name: nextClientName,
+    industry: nextIndustry,
+    industry_type: nextIndustryType,
+    schema_name: current.schema_name,
+    notes: patch.notes === undefined ? current.notes : patch.notes,
+    is_active: patch.is_active === undefined ? current.is_active : patch.is_active,
+  };
+  s.environments.set(envId, updated);
+  pushAudit(envId, {
+    actor: "demo-user",
+    action: "environment.updated",
+    entity_type: "environment",
+    entity_id: envId,
+    details: {
+      client_name: updated.client_name,
+      industry: updated.industry,
+      industry_type: updated.industry_type,
+      is_active: updated.is_active,
+    },
+  });
+  return updated;
 }
 
 export function listFallbackDocuments(envId: string) {
