@@ -7,7 +7,8 @@ import type { CommandRun, PlanStep } from "@/lib/commandbar/types";
 
 function statusVariant(status: string) {
   if (status === "completed") return "success" as const;
-  if (status === "failed" || status === "cancelled") return "danger" as const;
+  if (status === "failed" || status === "cancelled" || status === "blocked") return "danger" as const;
+  if (status === "needs_clarification") return "warning" as const;
   if (status === "running") return "accent" as const;
   return "default" as const;
 }

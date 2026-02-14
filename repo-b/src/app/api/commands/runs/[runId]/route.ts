@@ -30,6 +30,8 @@ export async function GET(
           intent_summary: plan.intentSummary,
           impacted_entities: plan.impactedEntities,
           mutations: plan.mutations,
+          target: plan.target || null,
+          clarification: plan.clarification || null,
           requires_double_confirmation: plan.requiresDoubleConfirmation,
           double_confirmation_phrase: plan.doubleConfirmationPhrase || null,
         }

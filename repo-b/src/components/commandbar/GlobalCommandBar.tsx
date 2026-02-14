@@ -89,6 +89,8 @@ function formatRunSummary(run: CommandRun): string {
   if (run.status === "completed") return "Execution completed with verification.";
   if (run.status === "failed") return "Execution failed. Review step errors and logs.";
   if (run.status === "cancelled") return "Execution was cancelled.";
+  if (run.status === "needs_clarification") return "Execution paused: clarification required.";
+  if (run.status === "blocked") return "Execution was blocked.";
   return "Execution in progress.";
 }
 
@@ -269,6 +271,14 @@ export default function GlobalCommandBar() {
 
   const confirmAndRun = async () => {
     if (!activePlan) return;
+    if (activePlan.clarification?.needed) {
+      const reason =
+        activePlan.clarification.reason ||
+        "I couldn't resolve a unique target. Please edit the plan and retry.";
+      setMessages((prev) => [...prev, makeMessage("system", reason)]);
+      push({ title: "Needs clarification", description: reason, variant: "warning" });
+      return;
+    }
     setConfirming(true);
 
     const overrides = {
@@ -446,6 +456,7 @@ export default function GlobalCommandBar() {
                       [key]: value,
                     }))
                   }
+                  confirmDisabled={Boolean(activePlan.clarification?.needed)}
                 />
               ) : null}
 
@@ -530,7 +541,11 @@ export default function GlobalCommandBar() {
             <Button size="sm" variant="secondary" onClick={() => setConfirmOpen(false)} disabled={confirming}>
               Back
             </Button>
-            <Button size="sm" onClick={() => void confirmAndRun()} disabled={confirming}>
+            <Button
+              size="sm"
+              onClick={() => void confirmAndRun()}
+              disabled={confirming || Boolean(activePlan?.clarification?.needed)}
+            >
               {confirming ? "Starting..." : "Confirm & Run"}
             </Button>
           </>
@@ -542,6 +557,11 @@ export default function GlobalCommandBar() {
               Risk level: <span className="font-medium">{activePlan.risk.toUpperCase()}</span>
             </p>
             <p>Mutations: {activePlan.mutations.length ? activePlan.mutations.join(", ") : "Read-only"}</p>
+            {activePlan.clarification?.needed ? (
+              <div className="rounded-lg border border-bm-warning/40 bg-bm-warning/10 p-3 text-sm">
+                {activePlan.clarification.reason || "Clarification is required before execution."}
+              </div>
+            ) : null}
             {activePlan.requiresDoubleConfirmation ? (
               <div className="space-y-2 rounded-lg border border-bm-danger/40 bg-bm-danger/10 p-3">
                 <p className="text-xs text-bm-muted">

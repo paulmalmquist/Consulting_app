@@ -1,7 +1,7 @@
 # ── Consulting App Makefile ────────────────────────────────────────
 .PHONY: dev dev-bos dev-demo test test-backend test-demo test-e2e \
         lint fmt db\:migrate db\:seed db\:dry db\:verify install \
-        bmctl smoke mcp-smoke
+        bmctl smoke mcp-smoke command-regression
 
 # ── Ports ──────────────────────────────────────────────────────────
 BACKEND_PORT   ?= 8000
@@ -72,6 +72,9 @@ smoke:  ## Smoke-test all local services via bmctl
 
 mcp-smoke:  ## Smoke-test command orchestrator plan/confirm/execute lifecycle
 	./scripts/mcp_smoke_test.sh http://127.0.0.1:$(FRONTEND_PORT)
+
+command-regression:  ## Regression tests for delete-by-name command lifecycle
+	./scripts/command_orchestrator_regression.sh http://127.0.0.1:$(FRONTEND_PORT)
 
 # ── Help ──────────────────────────────────────────────────────────
 help:  ## Show this help

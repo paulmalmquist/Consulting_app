@@ -29,6 +29,17 @@ export async function POST(request: Request) {
   if (!plan) {
     return NextResponse.json({ error: "Plan not found" }, { status: 404 });
   }
+  if (plan.clarification?.needed) {
+    return NextResponse.json(
+      {
+        error:
+          plan.clarification.reason ||
+          "Plan needs clarification and cannot execute yet.",
+        clarification: plan.clarification,
+      },
+      { status: 409 }
+    );
+  }
 
   const check = verifyAndConsumeConfirmationToken(planId, confirmToken);
   if (!check.ok) {

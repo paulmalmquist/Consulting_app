@@ -23,7 +23,9 @@ export type RunStatus =
   | "running"
   | "completed"
   | "failed"
-  | "cancelled";
+  | "cancelled"
+  | "needs_clarification"
+  | "blocked";
 
 export type CommandContext = {
   currentEnvId?: string | null;
@@ -65,6 +67,16 @@ export type ExecutionPlan = {
   requiresConfirmation: boolean;
   requiresDoubleConfirmation: boolean;
   doubleConfirmationPhrase?: string | null;
+  target?: {
+    envId?: string | null;
+    envName?: string | null;
+    businessId?: string | null;
+  };
+  clarification?: {
+    needed: boolean;
+    reason?: string | null;
+    options?: Array<{ label: string; value: string }>;
+  };
   context: CommandContext;
   createdAt: number;
 };

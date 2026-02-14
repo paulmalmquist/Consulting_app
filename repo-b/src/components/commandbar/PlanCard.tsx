@@ -75,6 +75,36 @@ export default function PlanCard({
           </div>
         </div>
 
+        {plan.target?.envName || plan.target?.envId ? (
+          <div className="rounded-lg border border-bm-border/70 bg-bm-surface/20 p-2 text-xs text-bm-muted">
+            <p>
+              Target environment:{" "}
+              <span className="text-bm-text">
+                {plan.target?.envName || "unknown"}{" "}
+                {plan.target?.envId ? `(${plan.target.envId})` : ""}
+              </span>
+            </p>
+            {plan.intent.action === "delete" ? (
+              <p className="mt-1 text-bm-danger">
+                Endpoint: <span className="font-mono">DELETE /api/v1/environments/{plan.target?.envId || "{envId}"}</span>
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {plan.clarification?.needed ? (
+          <div className="rounded-lg border border-bm-warning/40 bg-bm-warning/10 p-2 text-sm text-bm-text">
+            <p>{plan.clarification.reason || "This command needs clarification before execution."}</p>
+            {plan.clarification.options?.length ? (
+              <ul className="mt-1 space-y-1 text-xs text-bm-muted">
+                {plan.clarification.options.map((option) => (
+                  <li key={option.value}>{option.label}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+
         {editing ? (
           <div className="space-y-2 rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3">
             <p className="text-xs text-bm-muted">Edit plan parameters before confirmation.</p>
@@ -116,7 +146,7 @@ export default function PlanCard({
             Cancel
           </Button>
           <Button size="sm" onClick={onConfirm} disabled={Boolean(confirmDisabled)}>
-            {confirmLabel || "Confirm & Run"}
+            {plan.clarification?.needed ? "Needs Clarification" : confirmLabel || "Confirm & Run"}
           </Button>
         </div>
       </CardContent>

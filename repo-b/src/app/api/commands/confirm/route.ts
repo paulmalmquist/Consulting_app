@@ -42,9 +42,21 @@ export async function POST(request: Request) {
     plan = updated;
   }
 
+  if (plan.clarification?.needed) {
+    return NextResponse.json(
+      {
+        error:
+          plan.clarification.reason ||
+          "Plan requires clarification before it can be confirmed.",
+        clarification: plan.clarification,
+      },
+      { status: 409 }
+    );
+  }
+
   if (plan.requiresDoubleConfirmation) {
     const typed = String(payload.confirmation_text || "").trim();
-    const required = plan.doubleConfirmationPhrase || "CONFIRM DELETE";
+    const required = plan.doubleConfirmationPhrase || "DELETE";
     if (typed !== required) {
       return NextResponse.json(
         {
@@ -63,6 +75,7 @@ export async function POST(request: Request) {
 
   appendAuditEvent(planId, "plan.confirmed", {
     risk: plan.risk,
+    target: plan.target || null,
     expires_at: new Date(minted.expiresAt).toISOString(),
   });
 
