@@ -18,6 +18,7 @@ export default function PlanCard({
   plan,
   onConfirm,
   onCancel,
+  onChooseClarification,
   onToggleEdit,
   editing,
   edits,
@@ -28,6 +29,7 @@ export default function PlanCard({
   plan: ExecutionPlan;
   onConfirm: () => void;
   onCancel: () => void;
+  onChooseClarification: (value: string) => void;
   onToggleEdit: () => void;
   editing: boolean;
   edits: PlanEdits;
@@ -51,6 +53,19 @@ export default function PlanCard({
       </CardHeader>
 
       <CardContent className="space-y-3 pt-0">
+        <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
+          <div>
+            <p className="mb-1 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Operation</p>
+            <p className="text-bm-text">{plan.operationName || "unknown"}</p>
+          </div>
+          <div>
+            <p className="mb-1 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Risk + Mutations</p>
+            <p className="text-bm-text">
+              {plan.risk.toUpperCase()} · {plan.mutations.length ? plan.mutations.join(", ") : "Read-only"}
+            </p>
+          </div>
+        </div>
+
         <div>
           <p className="mb-1 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
             Proposed Actions
@@ -70,10 +85,22 @@ export default function PlanCard({
             <p className="text-bm-text">{plan.impactedEntities.join(", ") || "none"}</p>
           </div>
           <div>
-            <p className="mb-1 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Mutations</p>
-            <p className="text-bm-text">{plan.mutations.length ? plan.mutations.join(", ") : "Read-only"}</p>
+            <p className="mb-1 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Target</p>
+            <p className="text-bm-text">
+              {plan.target?.envName || "n/a"}
+              {plan.target?.envId ? ` (${plan.target.envId})` : ""}
+            </p>
           </div>
         </div>
+
+        {plan.operationParams ? (
+          <div className="rounded-lg border border-bm-border/70 bg-bm-surface/20 p-2 text-xs text-bm-muted">
+            <p className="mb-1 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Parameters</p>
+            <pre className="overflow-x-auto whitespace-pre-wrap text-bm-text">
+              {JSON.stringify(plan.operationParams, null, 2)}
+            </pre>
+          </div>
+        ) : null}
 
         {plan.target?.envName || plan.target?.envId ? (
           <div className="rounded-lg border border-bm-border/70 bg-bm-surface/20 p-2 text-xs text-bm-muted">
@@ -96,11 +123,18 @@ export default function PlanCard({
           <div className="rounded-lg border border-bm-warning/40 bg-bm-warning/10 p-2 text-sm text-bm-text">
             <p>{plan.clarification.reason || "This command needs clarification before execution."}</p>
             {plan.clarification.options?.length ? (
-              <ul className="mt-1 space-y-1 text-xs text-bm-muted">
+              <div className="mt-2 space-y-2">
                 {plan.clarification.options.map((option) => (
-                  <li key={option.value}>{option.label}</li>
+                  <button
+                    key={option.value}
+                    type="button"
+                    className="block w-full rounded-md border border-bm-border/70 bg-bm-bg/40 px-2 py-1 text-left text-xs text-bm-text hover:bg-bm-surface/60"
+                    onClick={() => onChooseClarification(option.value)}
+                  >
+                    {option.label}
+                  </button>
                 ))}
-              </ul>
+              </div>
             ) : null}
           </div>
         ) : null}
@@ -145,9 +179,11 @@ export default function PlanCard({
           <Button size="sm" variant="secondary" onClick={onCancel}>
             Cancel
           </Button>
-          <Button size="sm" onClick={onConfirm} disabled={Boolean(confirmDisabled)}>
-            {plan.clarification?.needed ? "Needs Clarification" : confirmLabel || "Confirm & Run"}
-          </Button>
+          {!plan.clarification?.needed ? (
+            <Button size="sm" onClick={onConfirm} disabled={Boolean(confirmDisabled)}>
+              {confirmLabel || "Confirm & Run"}
+            </Button>
+          ) : null}
         </div>
       </CardContent>
     </Card>

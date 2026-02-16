@@ -1,4 +1,4 @@
-export type CommandDomain = "lab" | "bos" | "system" | "unknown";
+export type CommandDomain = "lab" | "bos" | "tasks" | "system" | "unknown";
 
 export type CommandAction =
   | "list"
@@ -34,6 +34,34 @@ export type CommandContext = {
   selection?: string | null;
 };
 
+export type ContextSnapshot = {
+  route: string | null;
+  environments: Array<{
+    env_id: string;
+    client_name: string;
+    industry?: string;
+    industry_type?: string;
+  }>;
+  selectedEnv: {
+    env_id: string;
+    client_name: string;
+    industry?: string;
+    industry_type?: string;
+  } | null;
+  business: {
+    business_id: string;
+    name?: string;
+    slug?: string;
+  } | null;
+  modulesAvailable: string[];
+  recentRuns: Array<{
+    runId: string;
+    planId: string;
+    status: RunStatus;
+    createdAt: number;
+  }>;
+};
+
 export type CommandIntent = {
   rawMessage: string;
   domain: CommandDomain;
@@ -59,6 +87,8 @@ export type ExecutionPlan = {
   planId: string;
   intentSummary: string;
   intent: CommandIntent;
+  operationName?: string;
+  operationParams?: Record<string, unknown>;
   steps: PlanStep[];
   impactedEntities: string[];
   mutations: string[];
@@ -74,6 +104,7 @@ export type ExecutionPlan = {
   };
   clarification?: {
     needed: boolean;
+    kind?: "needs_clarification" | "missing_capability";
     reason?: string | null;
     options?: Array<{ label: string; value: string }>;
   };

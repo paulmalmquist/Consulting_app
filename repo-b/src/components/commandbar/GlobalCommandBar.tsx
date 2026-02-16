@@ -21,6 +21,7 @@ import {
 import type {
   CommandAuditEvent,
   CommandContext,
+  ContextSnapshot,
   CommandRun,
   ExecutionPlan,
   PlanResponse,
@@ -212,13 +213,33 @@ export default function GlobalCommandBar() {
     setAuditEvents([]);
   };
 
-  const submitPlanRequest = async (text: string) => {
-    const response = await fetch("/api/commands/plan", {
+  const fetchContextSnapshot = async (context: CommandContext): Promise<ContextSnapshot> => {
+    const url = new URL("/api/mcp/context-snapshot", window.location.origin);
+    if (context.route) url.searchParams.set("route", context.route);
+    if (context.currentEnvId) url.searchParams.set("currentEnvId", context.currentEnvId);
+    if (context.currentBusinessId) url.searchParams.set("businessId", context.currentBusinessId);
+
+    const response = await fetch(url.toString(), { cache: "no-store" });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || "Failed to load context snapshot");
+    }
+    return (await response.json()) as ContextSnapshot;
+  };
+
+  const submitPlanRequest = async (text: string, contextOverride?: Partial<CommandContext>) => {
+    const context = {
+      ...readContextFromBrowser(),
+      ...(contextOverride || {}),
+    };
+    const contextSnapshotPayload = await fetchContextSnapshot(context);
+    const response = await fetch("/api/mcp/plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message: text,
-        context: readContextFromBrowser(),
+        context,
+        contextSnapshot: contextSnapshotPayload,
       }),
     });
     if (!response.ok) {
@@ -226,6 +247,26 @@ export default function GlobalCommandBar() {
       throw new Error(error.error || "Failed to build plan");
     }
     return (await response.json()) as PlanResponse;
+  };
+
+  const handleClarificationChoice = async (value: string) => {
+    if (!activePlan) return;
+    setPlanning(true);
+    try {
+      const payload = await submitPlanRequest(activePlan.intent.rawMessage, {
+        currentEnvId: value,
+      });
+      setActivePlan(payload.plan);
+      setPlanEdits(planEditsFromPlan(payload.plan));
+      setEditingPlan(false);
+      setMessages((prev) => [...prev, makeMessage("assistant", "Plan updated with your clarification.")]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to apply clarification";
+      setMessages((prev) => [...prev, makeMessage("system", message)]);
+      push({ title: "Clarification failed", description: message, variant: "danger" });
+    } finally {
+      setPlanning(false);
+    }
   };
 
   const sendPrompt = async () => {
@@ -447,6 +488,7 @@ export default function GlobalCommandBar() {
                   plan={activePlan}
                   onConfirm={() => setConfirmOpen(true)}
                   onCancel={cancelDraftPlan}
+                  onChooseClarification={handleClarificationChoice}
                   onToggleEdit={() => setEditingPlan((prev) => !prev)}
                   editing={editingPlan}
                   edits={planEdits}

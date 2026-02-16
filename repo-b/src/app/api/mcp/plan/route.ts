@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
-import type { CommandContext } from "@/lib/commandbar/types";
-import {
-  buildExecutionPlan,
-  toPlanResponse,
-} from "@/lib/server/commandOrchestrator";
+import type { CommandContext, ContextSnapshot } from "@/lib/commandbar/types";
+import { buildExecutionPlan, toPlanResponse } from "@/lib/server/commandOrchestrator";
 import { appendAuditEvent, storePlan } from "@/lib/server/commandOrchestratorStore";
-import { buildContextSnapshot } from "@/lib/server/mcpContext";
 
 export const runtime = "nodejs";
 
 type PlanRequest = {
   message?: string;
   context?: CommandContext;
+  contextSnapshot?: ContextSnapshot;
 };
 
 function normalizeContext(input: CommandContext | undefined): CommandContext {
@@ -30,22 +27,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "message is required" }, { status: 400 });
   }
 
+  if (!payload.contextSnapshot) {
+    return NextResponse.json(
+      { error: "contextSnapshot is required" },
+      { status: 400 }
+    );
+  }
+
   const context = normalizeContext(payload.context);
   const origin = new URL(request.url).origin;
-  const contextSnapshot = await buildContextSnapshot({
-    origin,
-    route: context.route || null,
-    currentEnvId: context.currentEnvId || null,
-    businessId: context.currentBusinessId || null,
-  });
   const plan = await buildExecutionPlan({
     message,
     context,
-    contextSnapshot,
+    contextSnapshot: payload.contextSnapshot,
     baseOrigin: origin,
   });
-  storePlan(plan);
 
+  storePlan(plan);
   appendAuditEvent(plan.planId, "plan.created", {
     route: context.route || null,
     message,
@@ -53,6 +51,8 @@ export async function POST(request: Request) {
     action: plan.intent.action,
     resource: plan.intent.resource,
     risk: plan.risk,
+    operation: plan.operationName || null,
+    operation_params: plan.operationParams || null,
     mutations: plan.mutations,
     target: plan.target || null,
     clarification: plan.clarification || null,
@@ -60,3 +60,4 @@ export async function POST(request: Request) {
 
   return NextResponse.json(toPlanResponse(plan));
 }
+

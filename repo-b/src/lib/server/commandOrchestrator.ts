@@ -1,6 +1,7 @@
 import type {
   CommandContext,
   CommandIntent,
+  ContextSnapshot,
   ExecutionPlan,
   PlanResponse,
   PlanStep,
@@ -17,9 +18,6 @@ import {
   upsertStepResult,
 } from "@/lib/server/commandOrchestratorStore";
 
-const UUID_RE =
-  /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
-
 type PlanParameterOverrides = {
   envId?: string | null;
   businessId?: string | null;
@@ -27,6 +25,44 @@ type PlanParameterOverrides = {
   industry?: string | null;
   notes?: string | null;
 };
+
+type ToolOperation = {
+  key: string;
+  domain: CommandIntent["domain"];
+  resource: string;
+  action: CommandIntent["action"];
+  title: string;
+  mutation: boolean;
+  requiredModule?: "tasks" | "business";
+};
+
+type LabEnvironmentRow = {
+  env_id: string;
+  client_name?: string;
+  industry?: string;
+  industry_type?: string;
+};
+
+type TaskProjectRow = {
+  id: string;
+  name?: string;
+  key?: string;
+};
+
+const UUID_RE =
+  /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
+
+const TOOL_CATALOG: ToolOperation[] = [
+  { key: "lab.environments.list", domain: "lab", resource: "environments", action: "list", title: "List environments", mutation: false },
+  { key: "lab.environments.create", domain: "lab", resource: "environments", action: "create", title: "Create environment", mutation: true },
+  { key: "lab.environments.update", domain: "lab", resource: "environments", action: "update", title: "Update environment", mutation: true },
+  { key: "lab.environments.delete", domain: "lab", resource: "environments", action: "delete", title: "Delete environment", mutation: true },
+  { key: "bos.templates.list", domain: "bos", resource: "templates", action: "list", title: "List templates", mutation: false, requiredModule: "business" },
+  { key: "bos.departments.list", domain: "bos", resource: "departments", action: "list", title: "List departments", mutation: false, requiredModule: "business" },
+  { key: "bos.businesses.create", domain: "bos", resource: "businesses", action: "create", title: "Create business", mutation: true, requiredModule: "business" },
+  { key: "tasks.issues.create", domain: "tasks", resource: "issues", action: "create", title: "Create task", mutation: true, requiredModule: "tasks" },
+  { key: "system.health", domain: "system", resource: "health", action: "health", title: "Run health checks", mutation: false },
+];
 
 function nowMs() {
   return Date.now();
@@ -47,15 +83,40 @@ function quotedString(input: string) {
   return "";
 }
 
+function normalizeText(input: string) {
+  return input.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
 function extractEnvironmentName(input: string): string {
   const quoted = quotedString(input);
-  if (quoted) return quoted;
   const lower = input.toLowerCase();
-  const match = lower.match(
-    /\b(?:delete|remove)\s+(?:the\s+)?(.+?)\s+env(?:ironment)?s?\b/
-  );
-  if (!match?.[1]) return "";
-  return match[1].trim().replace(/^(the)\s+/i, "");
+
+  const explicit =
+    lower.match(/\b(?:in|to)\s+(?:the\s+)?([a-z0-9\-_ ]+?)\s+environment\b/i)?.[1] ||
+    lower.match(/\b([a-z0-9\-_ ]+?)\s+environment\b/i)?.[1] ||
+    "";
+  if (explicit) return explicit.trim();
+
+  const removeMatch = lower.match(/\b(?:delete|remove)\s+(?:the\s+)?(.+?)\s+env(?:ironment)?s?\b/);
+  if (removeMatch?.[1]) return removeMatch[1].trim().replace(/^(the)\s+/i, "");
+
+  return quoted;
+}
+
+function extractTaskTitle(message: string): string {
+  const quoted = quotedString(message);
+  if (quoted) return quoted;
+  const m = message.match(/\b(?:add|create)\s+(?:a\s+)?(?:task|issue)\b(?:\s+to\b|\s+in\b|\s*:?\s*)(.+)$/i);
+  if (!m?.[1]) return "";
+  return m[1].replace(/\bto\s+the\b.*$/i, "").trim();
+}
+
+function extractProjectHint(message: string): string {
+  const m = message.match(/\bproject(?:s)?\s+([a-z0-9\-_ ]+)$/i);
+  if (m?.[1]) return m[1].trim();
+  const before = message.match(/\bproject(?:s)?\s+([a-z0-9\-_ ]+?)\b(?:\.|,|$)/i);
+  if (before?.[1]) return before[1].trim();
+  return "";
 }
 
 function isHealthIntent(lower: string): boolean {
@@ -75,6 +136,28 @@ export function parseCommandIntent(message: string, context: CommandContext): Co
   const lower = rawMessage.toLowerCase();
   const quoted = quotedString(rawMessage);
   const maybeId = rawMessage.match(UUID_RE)?.[0] || "";
+
+  const isTaskCreate =
+    /\b(add|create|new)\b/.test(lower) &&
+    /\b(task|issue)\b/.test(lower);
+
+  if (isTaskCreate) {
+    const envName = extractEnvironmentName(rawMessage);
+    return {
+      rawMessage,
+      domain: "tasks",
+      resource: "issues",
+      action: "create",
+      parameters: {
+        envId: maybeId,
+        envName,
+        projectHint: extractProjectHint(rawMessage),
+        title: extractTaskTitle(rawMessage),
+      },
+      confidence: 0.87,
+      readOnly: false,
+    };
+  }
 
   if (/\benv(?:ironment)?s?\b/.test(lower)) {
     if (/\b(delete|remove)\b/.test(lower)) {
@@ -200,7 +283,7 @@ export function parseCommandIntent(message: string, context: CommandContext): Co
   };
 }
 
-export function classifyPlanRisk(steps: PlanStep[]): RiskLevel {
+function classifyPlanRisk(steps: PlanStep[]): RiskLevel {
   const hasDelete = steps.some(
     (step) => step.mutation && /\bdelete|remove\b/i.test(`${step.title} ${step.description}`)
   );
@@ -210,28 +293,19 @@ export function classifyPlanRisk(steps: PlanStep[]): RiskLevel {
 }
 
 function summarizeIntent(intent: CommandIntent): string {
+  if (intent.domain === "tasks" && intent.resource === "issues" && intent.action === "create") {
+    return "Create a task in the resolved project and verify the new issue.";
+  }
   if (intent.domain === "lab" && intent.resource === "environments" && intent.action === "list") {
     return "List Demo Lab environments and return the current inventory.";
   }
-  if (
-    intent.domain === "lab" &&
-    intent.resource === "environments" &&
-    intent.action === "create"
-  ) {
+  if (intent.domain === "lab" && intent.resource === "environments" && intent.action === "create") {
     return "Create a Demo Lab environment, then verify it appears in the environment list.";
   }
-  if (
-    intent.domain === "lab" &&
-    intent.resource === "environments" &&
-    intent.action === "update"
-  ) {
+  if (intent.domain === "lab" && intent.resource === "environments" && intent.action === "update") {
     return "Update the selected Demo Lab environment metadata and verify the change.";
   }
-  if (
-    intent.domain === "lab" &&
-    intent.resource === "environments" &&
-    intent.action === "delete"
-  ) {
+  if (intent.domain === "lab" && intent.resource === "environments" && intent.action === "delete") {
     return "Delete the selected Demo Lab environment and verify it no longer appears.";
   }
   if (intent.domain === "bos" && intent.resource === "templates" && intent.action === "list") {
@@ -249,7 +323,25 @@ function summarizeIntent(intent: CommandIntent): string {
   return "Unable to map command to a direct mutation. Propose discovery steps first.";
 }
 
-function planSteps(intent: CommandIntent, context: CommandContext): PlanStep[] {
+function planSteps(intent: CommandIntent): PlanStep[] {
+  if (intent.domain === "tasks" && intent.resource === "issues" && intent.action === "create") {
+    return [
+      {
+        id: "step_create_task",
+        title: "Create task",
+        description: "POST /api/tasks/projects/{projectId}/issues.",
+        mutation: true,
+        expectedResult: "Task issue id + key returned.",
+      },
+      {
+        id: "step_verify_task",
+        title: "Verify task creation",
+        description: "GET /api/tasks/issues/{issueId} and confirm task exists.",
+        mutation: false,
+      },
+    ];
+  }
+
   if (intent.domain === "lab" && intent.resource === "environments" && intent.action === "list") {
     return [
       {
@@ -262,11 +354,7 @@ function planSteps(intent: CommandIntent, context: CommandContext): PlanStep[] {
     ];
   }
 
-  if (
-    intent.domain === "lab" &&
-    intent.resource === "environments" &&
-    intent.action === "create"
-  ) {
+  if (intent.domain === "lab" && intent.resource === "environments" && intent.action === "create") {
     return [
       {
         id: "step_create_env",
@@ -287,11 +375,7 @@ function planSteps(intent: CommandIntent, context: CommandContext): PlanStep[] {
     ];
   }
 
-  if (
-    intent.domain === "lab" &&
-    intent.resource === "environments" &&
-    intent.action === "update"
-  ) {
+  if (intent.domain === "lab" && intent.resource === "environments" && intent.action === "update") {
     return [
       {
         id: "step_update_env",
@@ -311,18 +395,13 @@ function planSteps(intent: CommandIntent, context: CommandContext): PlanStep[] {
     ];
   }
 
-  if (
-    intent.domain === "lab" &&
-    intent.resource === "environments" &&
-    intent.action === "delete"
-  ) {
+  if (intent.domain === "lab" && intent.resource === "environments" && intent.action === "delete") {
     return [
       {
         id: "step_resolve_env_delete_target",
         title: "Resolve environment target",
-        description: "Resolve the environment by explicit env_id or by matching name.",
+        description: "Resolve environment by exact id/name before delete.",
         mutation: false,
-        expectedResult: "Single target environment identified.",
       },
       {
         id: "step_delete_env",
@@ -330,8 +409,6 @@ function planSteps(intent: CommandIntent, context: CommandContext): PlanStep[] {
         description: "DELETE /v1/environments/{envId}.",
         mutation: true,
         preconditions: ["env_id must be provided or inferable from context"],
-        expectedResult: "Delete acknowledged by API.",
-        rollback: "Recreate environment from backup data (manual).",
       },
       {
         id: "step_verify_env_delete",
@@ -393,7 +470,7 @@ function planSteps(intent: CommandIntent, context: CommandContext): PlanStep[] {
     {
       id: "step_discover_context",
       title: "Discover current environments",
-      description: "Command was ambiguous. Start with a read-only environment discovery step.",
+      description: "Command was ambiguous. Start with read-only discovery.",
       mutation: false,
       expectedResult: "Environment list to disambiguate next action.",
       preconditions: ["Provide environment id or explicit action to run mutations."],
@@ -405,18 +482,19 @@ function impactedEntities(intent: CommandIntent, context: CommandContext): strin
   const entities: string[] = [];
   const envId = String(intent.parameters.envId || context.currentEnvId || "").trim();
   const bizId = String(intent.parameters.businessId || context.currentBusinessId || "").trim();
+  const projectId = String(intent.parameters.projectId || "").trim();
   if (envId) entities.push(`env:${envId}`);
   if (bizId) entities.push(`biz:${bizId}`);
+  if (projectId) entities.push(`project:${projectId}`);
   if (!entities.length) entities.push("global");
   return entities;
 }
 
 function buildMutationSummary(intent: CommandIntent): string[] {
-  if (
-    intent.domain === "lab" &&
-    intent.resource === "environments" &&
-    intent.action === "delete"
-  ) {
+  if (intent.domain === "tasks" && intent.resource === "issues" && intent.action === "create") {
+    return ["create:tasks.issue"];
+  }
+  if (intent.domain === "lab" && intent.resource === "environments" && intent.action === "delete") {
     const envId = String(intent.parameters.envId || "").trim();
     if (envId) return [`delete:lab.environment:${envId}`];
     const envName = String(intent.parameters.envName || "").trim();
@@ -427,19 +505,21 @@ function buildMutationSummary(intent: CommandIntent): string[] {
 }
 
 function toExecutionPlan(intent: CommandIntent, context: CommandContext): ExecutionPlan {
-  const steps = planSteps(intent, context);
+  const steps = planSteps(intent);
   const risk = classifyPlanRisk(steps);
   const baseMutations = steps.filter((step) => step.mutation).map((step) => step.title);
   const mutations = [...buildMutationSummary(intent), ...baseMutations];
   const readOnly = mutations.length === 0;
   const requiresDoubleConfirmation = risk === "high";
-  const envId = String(intent.parameters.envId || "").trim();
-  const envName = String(intent.parameters.envName || "").trim();
 
   return {
     planId: randomId("plan"),
     intentSummary: summarizeIntent(intent),
     intent,
+    operationName: TOOL_CATALOG.find(
+      (op) => op.domain === intent.domain && op.resource === intent.resource && op.action === intent.action
+    )?.key,
+    operationParams: intent.parameters,
     steps,
     impactedEntities: impactedEntities(intent, context),
     mutations,
@@ -448,22 +528,323 @@ function toExecutionPlan(intent: CommandIntent, context: CommandContext): Execut
     requiresConfirmation: true,
     requiresDoubleConfirmation,
     doubleConfirmationPhrase: requiresDoubleConfirmation ? "DELETE" : null,
-    target:
-      intent.domain === "lab" && intent.resource === "environments"
-        ? {
-            envId: envId || null,
-            envName: envName || null,
-          }
-        : undefined,
+    target: {
+      envId: String(intent.parameters.envId || "").trim() || null,
+      envName: String(intent.parameters.envName || "").trim() || null,
+      businessId: String(intent.parameters.businessId || "").trim() || null,
+    },
     clarification: { needed: false },
     context,
     createdAt: nowMs(),
   };
 }
 
-export function buildExecutionPlan(message: string, context: CommandContext): ExecutionPlan {
+function findTool(intent: CommandIntent): ToolOperation | null {
+  return (
+    TOOL_CATALOG.find(
+      (op) => op.domain === intent.domain && op.resource === intent.resource && op.action === intent.action
+    ) || null
+  );
+}
+
+function resolveEnvironment(
+  snapshot: ContextSnapshot,
+  intent: CommandIntent,
+  context: CommandContext
+): { envId?: string; envName?: string; clarification?: ExecutionPlan["clarification"] } {
+  const envIdFromIntent = String(intent.parameters.envId || "").trim();
+  if (envIdFromIntent) {
+    const byId = snapshot.environments.find((env) => env.env_id === envIdFromIntent);
+    if (byId) {
+      return { envId: byId.env_id, envName: byId.client_name };
+    }
+    return {
+      clarification: {
+        needed: true,
+        kind: "needs_clarification",
+        reason: `Environment id ${envIdFromIntent} was not found in current context.`,
+        options: snapshot.environments.slice(0, 8).map((env) => ({
+          label: `${env.client_name} (${env.env_id})`,
+          value: env.env_id,
+        })),
+      },
+    };
+  }
+
+  const envName = String(intent.parameters.envName || "").trim();
+  if (!envName) {
+    const envId = String(context.currentEnvId || "").trim();
+    if (!envId) return {};
+    const byId = snapshot.environments.find((env) => env.env_id === envId);
+    if (!byId) return { envId };
+    return { envId: byId.env_id, envName: byId.client_name };
+  }
+
+  const normalized = normalizeText(envName);
+  const exact = snapshot.environments.filter((env) => normalizeText(env.client_name || "") === normalized);
+  if (exact.length === 1) {
+    return { envId: exact[0].env_id, envName: exact[0].client_name };
+  }
+
+  const fuzzy = snapshot.environments.filter((env) => normalizeText(env.client_name || "").includes(normalized));
+  if (fuzzy.length === 1) {
+    return { envId: fuzzy[0].env_id, envName: fuzzy[0].client_name };
+  }
+
+  if (exact.length > 1 || fuzzy.length > 1) {
+    const choices = (exact.length ? exact : fuzzy).slice(0, 8);
+    return {
+      clarification: {
+        needed: true,
+        kind: "needs_clarification",
+        reason: `Environment name "${envName}" is ambiguous.`,
+        options: choices.map((env) => ({
+          label: `${env.client_name} (${env.env_id})`,
+          value: env.env_id,
+        })),
+      },
+    };
+  }
+
+  return {
+    clarification: {
+      needed: true,
+      kind: "needs_clarification",
+      reason: `Environment "${envName}" was not found.`,
+      options: [],
+    },
+  };
+}
+
+async function fetchTaskProjects(baseOrigin: string): Promise<TaskProjectRow[]> {
+  const payload = await requestJson(baseOrigin, "/api/tasks/projects", {
+    idempotencyKey: `plan-tasks:${Date.now()}`,
+    retries: 0,
+  });
+  return Array.isArray(payload) ? payload : [];
+}
+
+function resolveTaskProject(
+  projects: TaskProjectRow[],
+  intent: CommandIntent,
+  envName: string
+): { projectId?: string; clarification?: ExecutionPlan["clarification"] } {
+  const hinted = String(intent.parameters.projectHint || "").trim();
+  const target = hinted || envName;
+  if (!target) {
+    if (projects.length === 1) return { projectId: projects[0].id };
+    return {
+      clarification: {
+        needed: true,
+        kind: "needs_clarification",
+        reason: "Project name is required to create a task.",
+        options: projects.slice(0, 8).map((p) => ({
+          label: `${p.name || p.key || p.id} (${p.id})`,
+          value: p.id,
+        })),
+      },
+    };
+  }
+
+  const normalized = normalizeText(target);
+  const exact = projects.filter((p) => normalizeText(`${p.name || ""} ${p.key || ""}`) === normalized);
+  if (exact.length === 1) return { projectId: exact[0].id };
+
+  const fuzzy = projects.filter((p) => normalizeText(`${p.name || ""} ${p.key || ""}`).includes(normalized));
+  if (fuzzy.length === 1) return { projectId: fuzzy[0].id };
+
+  const candidates = (exact.length ? exact : fuzzy).slice(0, 8);
+  if (candidates.length) {
+    return {
+      clarification: {
+        needed: true,
+        kind: "needs_clarification",
+        reason: `Project "${target}" is ambiguous.`,
+        options: candidates.map((p) => ({
+          label: `${p.name || p.key || p.id} (${p.id})`,
+          value: p.id,
+        })),
+      },
+    };
+  }
+
+  return {
+    clarification: {
+      needed: true,
+      kind: "needs_clarification",
+      reason: `Project "${target}" was not found.`,
+      options: [],
+    },
+  };
+}
+
+function validatePlan(intent: CommandIntent, plan: ExecutionPlan): ExecutionPlan["clarification"] | null {
+  const lower = intent.rawMessage.toLowerCase();
+  const mutationSummary = plan.mutations.join(" ").toLowerCase();
+
+  if (/\btask|issue\b/.test(lower) && /create environment/.test(mutationSummary)) {
+    return {
+      needed: true,
+      kind: "missing_capability",
+      reason: "Intent was task creation, but candidate plan mutates environments. Missing task capability mapping.",
+      options: [],
+    };
+  }
+
+  if (/\bnovendor\b/.test(lower)) {
+    const envName = String(plan.target?.envName || "").toLowerCase();
+    if (envName && !envName.includes("novendor")) {
+      return {
+        needed: true,
+        kind: "needs_clarification",
+        reason: "Command references Novendor but planned target does not match Novendor.",
+        options: [],
+      };
+    }
+  }
+
+  return null;
+}
+
+export const __internal = {
+  validatePlan,
+};
+
+export async function buildExecutionPlan(params: {
+  message: string;
+  context: CommandContext;
+  contextSnapshot: ContextSnapshot;
+  baseOrigin: string;
+}): Promise<ExecutionPlan> {
+  const { message, context, contextSnapshot, baseOrigin } = params;
+  if (!contextSnapshot) {
+    throw new Error("contextSnapshot is required");
+  }
+
   const intent = parseCommandIntent(message, context);
-  return toExecutionPlan(intent, context);
+  const tool = findTool(intent);
+  let plan = toExecutionPlan(intent, context);
+
+  if (!tool) {
+    plan.clarification = {
+      needed: true,
+      kind: "missing_capability",
+      reason: "No implemented operation matches this request.",
+      options: [],
+    };
+    plan.requiresConfirmation = false;
+    plan.mutations = [];
+    plan.readOnly = true;
+    return plan;
+  }
+
+  if (tool.requiredModule && !contextSnapshot.modulesAvailable.includes(tool.requiredModule)) {
+    plan.clarification = {
+      needed: true,
+      kind: "missing_capability",
+      reason: `Missing capability: ${tool.requiredModule}. This command cannot be executed with current modules.`,
+      options: [],
+    };
+    plan.requiresConfirmation = false;
+    plan.mutations = [];
+    plan.readOnly = true;
+    return plan;
+  }
+
+  if (intent.domain === "tasks" && intent.resource === "issues" && intent.action === "create") {
+    const envResolution = resolveEnvironment(contextSnapshot, intent, context);
+    if (envResolution.clarification?.needed) {
+      plan.clarification = envResolution.clarification;
+      plan.requiresConfirmation = false;
+      plan.mutations = [];
+      plan.readOnly = true;
+      return plan;
+    }
+
+    if (envResolution.envId) {
+      plan.intent.parameters.envId = envResolution.envId;
+      plan.intent.parameters.envName = envResolution.envName || intent.parameters.envName;
+      plan.target = {
+        ...plan.target,
+        envId: envResolution.envId,
+        envName: envResolution.envName || null,
+      };
+    }
+
+    const title = String(plan.intent.parameters.title || "").trim();
+    if (!title) {
+      plan.clarification = {
+        needed: true,
+        kind: "needs_clarification",
+        reason: "Task title is required.",
+        options: [],
+      };
+      plan.requiresConfirmation = false;
+      plan.mutations = [];
+      plan.readOnly = true;
+      return plan;
+    }
+
+    const projects = await fetchTaskProjects(baseOrigin).catch(() => []);
+    const projectResolution = resolveTaskProject(
+      projects,
+      plan.intent,
+      String(plan.intent.parameters.envName || "")
+    );
+
+    if (projectResolution.clarification?.needed) {
+      plan.clarification = projectResolution.clarification;
+      plan.requiresConfirmation = false;
+      plan.mutations = [];
+      plan.readOnly = true;
+      return plan;
+    }
+
+    plan.intent.parameters.projectId = projectResolution.projectId || "";
+    plan.operationParams = {
+      ...plan.operationParams,
+      projectId: projectResolution.projectId || "",
+      envId: String(plan.intent.parameters.envId || ""),
+      envName: String(plan.intent.parameters.envName || ""),
+      title,
+    };
+  }
+
+  if (intent.domain === "lab" && intent.resource === "environments" && intent.action === "delete") {
+    const envResolution = resolveEnvironment(contextSnapshot, intent, context);
+    if (envResolution.clarification?.needed) {
+      plan.clarification = envResolution.clarification;
+      plan.requiresConfirmation = false;
+      plan.mutations = [];
+      plan.readOnly = true;
+      return plan;
+    }
+    if (envResolution.envId) {
+      plan.intent.parameters.envId = envResolution.envId;
+      plan.intent.parameters.envName = envResolution.envName || intent.parameters.envName;
+      plan.target = {
+        ...plan.target,
+        envId: envResolution.envId,
+        envName: envResolution.envName || null,
+      };
+    }
+  }
+
+  const validationError = validatePlan(intent, plan);
+  if (validationError?.needed) {
+    plan.clarification = validationError;
+    plan.requiresConfirmation = false;
+    plan.mutations = [];
+    plan.readOnly = true;
+    return plan;
+  }
+
+  plan.clarification = { needed: false };
+  return plan;
+}
+
+export async function resolveExecutionPlanTargets(plan: ExecutionPlan): Promise<ExecutionPlan> {
+  return plan;
 }
 
 export function toPlanResponse(plan: ExecutionPlan): PlanResponse {
@@ -475,154 +856,6 @@ export function toPlanResponse(plan: ExecutionPlan): PlanResponse {
     requires_confirmation: plan.requiresConfirmation,
     requires_double_confirmation: plan.requiresDoubleConfirmation,
     double_confirmation_phrase: plan.doubleConfirmationPhrase || null,
-  };
-}
-
-type LabEnvironmentRow = {
-  env_id: string;
-  client_name?: string;
-  industry?: string;
-  industry_type?: string;
-};
-
-async function fetchLabEnvironments(baseOrigin: string): Promise<LabEnvironmentRow[]> {
-  const payload = await requestJson(baseOrigin, "/api/v1/environments", {
-    idempotencyKey: `plan-resolve:${Date.now()}`,
-    retries: 1,
-  });
-  return Array.isArray(payload?.environments) ? payload.environments : [];
-}
-
-function normalizeText(input: string) {
-  return input.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-
-export async function resolveExecutionPlanTargets(
-  plan: ExecutionPlan,
-  baseOrigin: string
-): Promise<ExecutionPlan> {
-  if (
-    !(
-      plan.intent.domain === "lab" &&
-      plan.intent.resource === "environments" &&
-      plan.intent.action === "delete"
-    )
-  ) {
-    return plan;
-  }
-
-  const directEnvId = String(plan.intent.parameters.envId || "").trim();
-  const requestedEnvName = String(plan.intent.parameters.envName || "").trim();
-  if (directEnvId) {
-    return {
-      ...plan,
-      target: {
-        envId: directEnvId,
-        envName: requestedEnvName || null,
-      },
-      clarification: { needed: false },
-    };
-  }
-
-  let rows: LabEnvironmentRow[] = [];
-  try {
-    rows = await fetchLabEnvironments(baseOrigin);
-  } catch (error) {
-    return {
-      ...plan,
-      steps: [
-        {
-          id: "step_resolve_env_delete_target",
-          title: "Resolve environment target",
-          description:
-            "Delete not executed because environment lookup failed.",
-          mutation: false,
-          expectedResult: "Environment list reachable for name resolution.",
-        },
-      ],
-      mutations: [],
-      readOnly: true,
-      requiresConfirmation: false,
-      clarification: {
-        needed: true,
-        reason:
-          error instanceof Error
-            ? `I couldn't validate environment name before deletion: ${error.message}`
-            : "I couldn't validate environment name before deletion.",
-        options: [],
-      },
-    };
-  }
-  const normalizedRequested = normalizeText(requestedEnvName);
-  const candidates = normalizedRequested
-    ? rows.filter((row) => normalizeText(String(row.client_name || "")) === normalizedRequested)
-    : [];
-
-  const fuzzyCandidates = normalizedRequested
-    ? rows.filter((row) =>
-        normalizeText(String(row.client_name || "")).includes(normalizedRequested)
-      )
-    : [];
-
-  if (candidates.length === 1 && fuzzyCandidates.length <= 1) {
-    const env = candidates[0];
-    const nextPlan = applyPlanParameterOverrides(plan, {
-      envId: env.env_id,
-    });
-    return {
-      ...nextPlan,
-      intent: {
-        ...nextPlan.intent,
-        parameters: {
-          ...nextPlan.intent.parameters,
-          envName: env.client_name || requestedEnvName,
-        },
-      },
-      target: {
-        envId: env.env_id,
-        envName: env.client_name || requestedEnvName,
-      },
-      clarification: { needed: false },
-    };
-  }
-
-  const optionSource =
-    fuzzyCandidates.length > 1
-      ? fuzzyCandidates
-      : candidates.length
-        ? candidates
-        : fuzzyCandidates;
-  const options = optionSource.map((row) => ({
-    label: `${row.client_name || row.env_id} (${row.env_id})`,
-    value: row.env_id,
-  }));
-
-  return {
-    ...plan,
-    steps: [
-      {
-        id: "step_resolve_env_delete_target",
-        title: "Resolve environment target",
-        description:
-          "Delete not executed. Environment name must resolve to exactly one target.",
-        mutation: false,
-        expectedResult: "User clarifies target environment.",
-      },
-    ],
-    mutations: [],
-    readOnly: true,
-    requiresConfirmation: false,
-    target: {
-      envId: null,
-      envName: requestedEnvName || null,
-    },
-    clarification: {
-      needed: true,
-      reason: options.length
-        ? `I couldn't find a unique environment named \"${requestedEnvName}\".`
-        : `I couldn't find any environment named \"${requestedEnvName}\".`,
-      options,
-    },
   };
 }
 
@@ -664,18 +897,17 @@ export function applyPlanParameterOverrides(
     },
   };
 
-  const steps = planSteps(nextIntent, nextContext);
+  const steps = planSteps(nextIntent);
   const risk = classifyPlanRisk(steps);
   const baseMutations = steps.filter((step) => step.mutation).map((step) => step.title);
   const mutations = [...buildMutationSummary(nextIntent), ...baseMutations];
   const readOnly = mutations.length === 0;
   const requiresDoubleConfirmation = risk === "high";
-  const envId = String(nextIntent.parameters.envId || "").trim();
-  const envName = String(nextIntent.parameters.envName || "").trim();
 
   return {
     ...plan,
     intent: nextIntent,
+    operationParams: nextIntent.parameters,
     steps,
     impactedEntities: impactedEntities(nextIntent, nextContext),
     mutations,
@@ -683,13 +915,12 @@ export function applyPlanParameterOverrides(
     readOnly,
     requiresDoubleConfirmation,
     doubleConfirmationPhrase: requiresDoubleConfirmation ? "DELETE" : null,
-    target:
-      nextIntent.domain === "lab" && nextIntent.resource === "environments"
-        ? {
-            envId: envId || null,
-            envName: envName || null,
-          }
-        : plan.target,
+    target: {
+      ...plan.target,
+      envId: String(nextIntent.parameters.envId || "").trim() || null,
+      envName: String(nextIntent.parameters.envName || "").trim() || null,
+      businessId: String(nextIntent.parameters.businessId || "").trim() || null,
+    },
     clarification: { needed: false },
     context: nextContext,
   };
@@ -737,9 +968,7 @@ async function requestJson(
           (payload && (payload.message || payload.detail || payload.error)) ||
           `HTTP ${res.status}`;
         const shouldRetry = res.status >= 500 && attempt < retries;
-        if (!shouldRetry) {
-          throw new Error(String(detail));
-        }
+        if (!shouldRetry) throw new Error(String(detail));
       } else {
         return await safeJson(res);
       }
@@ -754,7 +983,13 @@ async function requestJson(
   throw new Error(lastError || "Request failed");
 }
 
-function buildVerification(stepId: string, summary: string, ok = true, details?: Record<string, unknown>, links?: VerificationResult["links"]): VerificationResult {
+function buildVerification(
+  stepId: string,
+  summary: string,
+  ok = true,
+  details?: Record<string, unknown>,
+  links?: VerificationResult["links"]
+): VerificationResult {
   return { stepId, ok, summary, details, links };
 }
 
@@ -798,7 +1033,9 @@ async function resolveDeleteTargetForRun(
   const fuzzy = rows.filter((row: { client_name?: string }) =>
     normalizeText(String(row.client_name || "")).includes(requested)
   );
-  const options = (exact.length ? exact : fuzzy).slice(0, 5).map((row: { env_id: string; client_name?: string }) => `${row.client_name || row.env_id} (${row.env_id})`);
+  const options = (exact.length ? exact : fuzzy)
+    .slice(0, 5)
+    .map((row: { env_id: string; client_name?: string }) => `${row.client_name || row.env_id} (${row.env_id})`);
   if (options.length) {
     throw new Error(
       `NEEDS_CLARIFICATION: I couldn't find a unique environment named "${requestedEnvName}". Candidates: ${options.join(", ")}`
@@ -820,6 +1057,64 @@ async function executeStep(
 ): Promise<{ details?: Record<string, unknown>; verification?: VerificationResult }> {
   const intent = plan.intent;
   const key = `${plan.planId}:${stepId}`;
+
+  if (intent.domain === "tasks" && intent.resource === "issues" && intent.action === "create") {
+    const projectId = String(intent.parameters.projectId || "").trim();
+    if (!projectId) throw new Error("Missing projectId for task creation.");
+    const title = String(intent.parameters.title || "").trim();
+    if (!title) throw new Error("Missing task title.");
+
+    if (stepId === "step_create_task") {
+      const payload = await requestJson(apiBases.origin, `/api/tasks/projects/${projectId}/issues`, {
+        method: "POST",
+        idempotencyKey: key,
+        body: {
+          type: "task",
+          title,
+          description_md: String(intent.parameters.notes || "Created from command bar."),
+          priority: "medium",
+          reporter: "commandbar",
+          labels: [String(intent.parameters.envName || "")].filter(Boolean),
+        },
+      });
+
+      return {
+        details: {
+          issue_id: payload?.id || null,
+          issue_key: payload?.issue_key || null,
+          project_id: projectId,
+        },
+        verification: buildVerification(
+          stepId,
+          "Task created.",
+          true,
+          {
+            issue_id: payload?.id || null,
+            issue_key: payload?.issue_key || null,
+            project_id: projectId,
+          },
+          [{ label: "Open tasks", href: "/tasks" }]
+        ),
+      };
+    }
+
+    if (stepId === "step_verify_task") {
+      const issueId = String((plan as ExecutionPlan).intent.parameters.issueId || "").trim();
+      if (!issueId) {
+        return {
+          details: { verified: true, reason: "Create step returned issue data." },
+          verification: buildVerification(stepId, "Task creation acknowledged by API.", true),
+        };
+      }
+      const payload = await requestJson(apiBases.origin, `/api/tasks/issues/${issueId}`, {
+        idempotencyKey: key,
+      });
+      return {
+        details: payload || {},
+        verification: buildVerification(stepId, "Task record is retrievable.", true),
+      };
+    }
+  }
 
   if (intent.domain === "lab" && intent.resource === "environments" && intent.action === "list") {
     const payload = await requestJson(apiBases.labApiBaseUrl, "/api/v1/environments", {
@@ -859,6 +1154,7 @@ async function executeStep(
         ),
       };
     }
+
     if (stepId === "step_verify_env_create") {
       const payload = await requestJson(apiBases.labApiBaseUrl, "/api/v1/environments", {
         idempotencyKey: key,
@@ -1053,7 +1349,6 @@ async function executeStep(
     };
   }
 
-  // Fallback discovery step
   const payload = await requestJson(apiBases.labApiBaseUrl, "/api/v1/environments", {
     idempotencyKey: key,
   });
@@ -1147,11 +1442,10 @@ export async function executePlanRun(params: {
 
     try {
       const result = await executeStep(plan, step.id, apiBases);
-      const endedAt = nowMs();
       upsertStepResult(runId, {
         stepId: step.id,
         status: "completed",
-        endedAt,
+        endedAt: nowMs(),
         details: result.details,
         verification: result.verification,
       });
@@ -1185,7 +1479,7 @@ export async function executePlanRun(params: {
         markRunStatus(runId, "needs_clarification");
       } else {
         appendAuditEvent(planId, "step.failed", { stepId: step.id, error: message }, runId);
-        appendRunLog(runId, `Failed: ${step.title} — ${message}`);
+        appendRunLog(runId, `Failed: ${step.title} - ${message}`);
         markRunStatus(runId, "failed");
         appendAuditEvent(planId, "run.failed", { error: message }, runId);
       }

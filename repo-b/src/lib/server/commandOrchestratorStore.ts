@@ -266,3 +266,21 @@ export function listAuditEvents(planId: string): CommandAuditEvent[] {
   const s = getStore();
   return s.auditsByPlan.get(planId) || [];
 }
+
+export function listRecentRuns(limit = 8): Array<{
+  runId: string;
+  planId: string;
+  status: RunStatus;
+  createdAt: number;
+}> {
+  const s = getStore();
+  return [...s.runs.values()]
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, Math.max(1, limit))
+    .map((run) => ({
+      runId: run.runId,
+      planId: run.planId,
+      status: run.status,
+      createdAt: run.createdAt,
+    }));
+}
