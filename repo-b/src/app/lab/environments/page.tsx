@@ -42,6 +42,14 @@ export default function EnvironmentsPage() {
       setClientName("");
       setNotes("");
       setStatus("Environment created.");
+      sessionStorage.setItem(
+        "bm_env_flash",
+        JSON.stringify({
+          envId: payload.env_id,
+          kind: "created",
+          message: `Created environment "${clientName}".`,
+        })
+      );
       openEnvironment(payload.env_id);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Create failed";

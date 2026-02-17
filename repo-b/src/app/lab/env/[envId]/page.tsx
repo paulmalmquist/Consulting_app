@@ -40,6 +40,7 @@ export default function LabEnvironmentHomePage({
   const { environments, selectEnv, refresh } = useEnv();
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
   const [detail, setDetail] = useState<EnvironmentDetail | null>(null);
   const [form, setForm] = useState({
     client_name: "",
@@ -52,6 +53,20 @@ export default function LabEnvironmentHomePage({
   useEffect(() => {
     selectEnv(params.envId);
   }, [params.envId, selectEnv]);
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem("bm_env_flash");
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as { envId?: string; message?: string };
+      if (parsed.envId === params.envId && parsed.message) {
+        setFlash(parsed.message);
+        sessionStorage.removeItem("bm_env_flash");
+      }
+    } catch {
+      sessionStorage.removeItem("bm_env_flash");
+    }
+  }, [params.envId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -131,6 +146,11 @@ export default function LabEnvironmentHomePage({
           <CardDescription>
             Start in pipeline, jump to the default department workspace, or update environment metadata.
           </CardDescription>
+          {flash ? (
+            <div className="mt-3 rounded-lg border border-bm-success/35 bg-bm-success/10 px-3 py-2 text-sm text-bm-text">
+              {flash}
+            </div>
+          ) : null}
           <div className="mt-4 flex flex-wrap gap-2">
             <Link href={`/lab/env/${params.envId}/pipeline`} className={buttonVariants()}>
               Open Pipeline

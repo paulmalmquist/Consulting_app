@@ -97,6 +97,81 @@ test("Onboarding loads", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Business OS Setup" })).toBeVisible();
 });
 
+test("Onboarding provisioning redirects to created environment home", async ({ page }) => {
+  await page.route("**/api/templates", async (route) => {
+    await route.fulfill({
+      json: [
+        {
+          key: "starter",
+          label: "Starter",
+          description: "Starter template",
+          departments: ["operations"],
+        },
+      ],
+    });
+  });
+  await page.route("**/api/businesses", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    await route.fulfill({ json: { business_id: BIZ_ID, slug: "acme-corp" } });
+  });
+  await page.route(`**/api/businesses/${BIZ_ID}/apply-template`, async (route) => {
+    await route.fulfill({ json: { ok: true } });
+  });
+  await page.route("**/v1/environments", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        json: {
+          environments: [
+            {
+              env_id: "env_new_123",
+              client_name: "Acme Corp",
+              industry: "general",
+              industry_type: "general",
+              schema_name: "acme_corp",
+              is_active: true,
+            },
+          ],
+        },
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 201,
+      json: {
+        env_id: "env_new_123",
+        client_name: "Acme Corp",
+        industry: "general",
+        industry_type: "general",
+        schema_name: "acme_corp",
+      },
+    });
+  });
+  await page.route("**/v1/environments/env_new_123", async (route) => {
+    await route.fulfill({
+      json: {
+        env_id: "env_new_123",
+        client_name: "Acme Corp",
+        industry: "general",
+        industry_type: "general",
+        schema_name: "acme_corp",
+        notes: "Linked to business biz_smoke_123",
+        is_active: true,
+        created_at: "2026-01-01T00:00:00Z",
+      },
+    });
+  });
+
+  await page.goto("/onboarding");
+  await page.getByPlaceholder("Acme Corp").fill("Acme Corp");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Template" }).click();
+  await page.getByRole("button", { name: /Starter/ }).click();
+  await page.getByRole("button", { name: "Provision Business" }).click();
+
+  await expect(page).toHaveURL(/\/lab\/env\/env_new_123$/);
+  await expect(page.getByText(/Created environment "Acme Corp"/)).toBeVisible();
+});
+
 test("App shell loads", async ({ page }) => {
   await page.goto("/app");
   // The shell should render (top bar + mobile hamburger).

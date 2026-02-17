@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { apiFetch } from "@/lib/api";
 import {
   getAllDepartments,
   getCatalogCapabilities,
@@ -18,6 +19,14 @@ import {
 } from "@/lib/bos-api";
 
 type Step = "create" | "choose" | "template-pick" | "template-review" | "custom-depts" | "custom-caps" | "custom-review" | "provisioning";
+
+type CreatedEnvironment = {
+  env_id: string;
+  client_name: string;
+  industry: string;
+  industry_type?: string;
+  schema_name: string;
+};
 
 const ICON_MAP: Record<string, string> = {
   "dollar-sign": "$",
@@ -60,6 +69,16 @@ export default function OnboardingPage() {
   // State
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  function inferIndustryType(): string {
+    const keys = selectedTemplate
+      ? selectedTemplate.departments
+      : Array.from(customDepts);
+    if (keys.includes("legal")) return "legal";
+    if (keys.includes("construction")) return "construction";
+    if (keys.includes("healthcare")) return "healthcare";
+    return "general";
+  }
 
   // Load catalog
   useEffect(() => {
@@ -130,11 +149,27 @@ export default function OnboardingPage() {
         await applyCustom(businessId, Array.from(customDepts), Array.from(customCaps));
       }
 
-      // Navigate to app - pick first department
-      const firstDept = selectedTemplate
-        ? selectedTemplate.departments[0]
-        : Array.from(customDepts)[0];
-      router.push(firstDept ? `/app/${firstDept}` : "/app");
+      // For now, business == environment in UX.
+      const industryType = inferIndustryType();
+      const createdEnv = await apiFetch<CreatedEnvironment>("/v1/environments", {
+        method: "POST",
+        body: JSON.stringify({
+          client_name: bizName.trim(),
+          industry: industryType,
+          industry_type: industryType,
+          notes: `Linked to business ${businessId}`,
+        }),
+      });
+      localStorage.setItem("demo_lab_env_id", createdEnv.env_id);
+      sessionStorage.setItem(
+        "bm_env_flash",
+        JSON.stringify({
+          envId: createdEnv.env_id,
+          kind: "created",
+          message: `Created environment "${createdEnv.client_name}" and linked business ${businessId.slice(0, 8)}.`,
+        })
+      );
+      router.push(`/lab/env/${createdEnv.env_id}`);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Provisioning failed");
     } finally {
