@@ -35,7 +35,9 @@ export default function PublicOnboardingPage() {
       if (!response.ok) {
         throw new Error(payload.error || "Failed to capture onboarding request");
       }
-      setResult(`Request captured. Lead ID: ${payload.lead_id}`);
+      setResult(
+        `Environment created: ${payload.client_name || companyName} (${payload.env_id || "unknown"}).`
+      );
       setCompanyName("");
       setEmail("");
     } catch (err) {

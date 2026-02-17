@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { Pool } from "pg";
-import { createFallbackEnvironment, listFallbackEnvironments } from "@/lib/labV1Fallback";
 import { proxyOrFallback } from "@/lib/v1Proxy";
 
 export const runtime = "nodejs";
@@ -85,7 +84,10 @@ export async function GET(request: NextRequest) {
       try {
         const pool = getPool();
         if (!pool) {
-          return Response.json({ environments: listFallbackEnvironments() });
+          return Response.json(
+            { message: "Environment store unavailable: DATABASE_URL is not configured." },
+            { status: 503 }
+          );
         }
         const industryTypeEnabled = await hasIndustryTypeColumn(pool);
         const { rows } = await pool.query<EnvironmentRow>(
@@ -105,7 +107,10 @@ export async function GET(request: NextRequest) {
         }));
         return Response.json({ environments });
       } catch {
-        return Response.json({ environments: listFallbackEnvironments() });
+        return Response.json(
+          { message: "Failed to load environments" },
+          { status: 500 }
+        );
       }
     });
 }
@@ -132,20 +137,11 @@ export async function POST(request: NextRequest) {
 
       const pool = getPool();
       if (!pool) {
-        const created = createFallbackEnvironment({
-          client_name: clientName,
-          industry,
-          industry_type: industryType,
-        });
         return Response.json(
           {
-            env_id: created.env_id,
-            client_name: created.client_name,
-            industry: created.industry,
-            industry_type: created.industry_type,
-            schema_name: created.schema_name,
+            message: "Environment store unavailable: DATABASE_URL is not configured.",
           },
-          { status: 201 }
+          { status: 503 }
         );
       }
 

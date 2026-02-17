@@ -45,6 +45,10 @@ function passthrough(upstream: Response) {
   });
 }
 
+function unavailable(message: string) {
+  return Response.json({ message }, { status: 503 });
+}
+
 export async function proxyOrFallback(
   request: NextRequest,
   upstreamPath: string,
@@ -77,5 +81,30 @@ export async function proxyOrFallback(
     return passthrough(upstream);
   } catch {
     return fallback();
+  }
+}
+
+export async function proxyOrFail(request: NextRequest, upstreamPath: string) {
+  const origin = configuredDemoOrigin();
+  if (shouldSkipProxy(request, origin)) {
+    return unavailable("Demo API upstream is not configured for this route.");
+  }
+
+  const method = request.method.toUpperCase();
+  const body =
+    method === "GET" || method === "HEAD"
+      ? undefined
+      : await request.clone().arrayBuffer();
+
+  const url = new URL(upstreamPath, origin);
+  try {
+    const upstream = await fetch(url.toString(), {
+      method,
+      headers: buildForwardHeaders(request),
+      body,
+    });
+    return passthrough(upstream);
+  } catch {
+    return unavailable("Failed to reach Demo API upstream.");
   }
 }

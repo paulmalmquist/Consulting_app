@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import type { PublicLeadCreateRequest } from "@/lib/public-assistant/types";
-import { createPublicLead } from "@/lib/server/publicBoundaryStore";
 
 export const runtime = "nodejs";
 
@@ -21,13 +20,42 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
   }
 
-  const created = createPublicLead({
-    company_name,
-    email,
-    industry: industry || undefined,
-    team_size: team_size || undefined,
-    source,
+  const notes = [
+    `intake_source=${source}`,
+    `contact_email=${email}`,
+    team_size ? `team_size=${team_size}` : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
+
+  const envCreateUrl = new URL("/api/v1/environments", request.url);
+  const envResp = await fetch(envCreateUrl.toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_name: company_name,
+      industry: industry || "general",
+      industry_type: industry || "general",
+      notes,
+    }),
   });
 
-  return NextResponse.json(created, { status: 201 });
+  const envPayload = await envResp.json().catch(() => ({}));
+  if (!envResp.ok) {
+    const message =
+      (typeof envPayload?.message === "string" && envPayload.message) ||
+      (typeof envPayload?.error === "string" && envPayload.error) ||
+      "Failed to create environment from onboarding intake";
+    return NextResponse.json({ error: message }, { status: envResp.status });
+  }
+
+  return NextResponse.json(
+    {
+      status: "created",
+      env_id: envPayload.env_id,
+      client_name: envPayload.client_name,
+      schema_name: envPayload.schema_name,
+    },
+    { status: 201 }
+  );
 }

@@ -58,36 +58,7 @@ export default function EnvironmentsPage() {
   };
 
   return (
-    <div className="grid lg:grid-cols-[2fr,1fr] gap-6">
-      <Card>
-        <CardContent>
-          <CardTitle className="text-xl">Client Environments</CardTitle>
-          <CardDescription>Select or review configured environments.</CardDescription>
-          <div className="mt-6 space-y-3">
-            {environments.map((env) => (
-              <button
-                key={env.env_id}
-                onClick={() => openEnvironment(env.env_id)}
-                className="w-full text-left bm-glass-interactive rounded-xl p-4"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold">{env.client_name}</p>
-                    <p className="text-xs text-bm-muted2">
-                      {env.industry_type || env.industry}
-                    </p>
-                  </div>
-                  <span className="text-xs text-bm-muted">{env.schema_name}</span>
-                </div>
-              </button>
-            ))}
-            {environments.length === 0 ? (
-              <p className="text-sm text-bm-muted2">No environments yet.</p>
-            ) : null}
-          </div>
-        </CardContent>
-      </Card>
-
+    <div className="grid lg:grid-cols-[1fr,2fr] gap-6">
       <Card>
         <CardContent>
           <CardTitle>Create Environment</CardTitle>
@@ -134,6 +105,35 @@ export default function EnvironmentsPage() {
               Create
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <CardTitle className="text-xl">Client Environments</CardTitle>
+          <CardDescription>Select or review configured environments.</CardDescription>
+          <div className="mt-6 space-y-3">
+            {environments.map((env) => (
+              <button
+                key={env.env_id}
+                onClick={() => openEnvironment(env.env_id)}
+                className="w-full text-left bm-glass-interactive rounded-xl p-4"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold">{env.client_name}</p>
+                    <p className="text-xs text-bm-muted2">
+                      {env.industry_type || env.industry}
+                    </p>
+                  </div>
+                  <span className="text-xs text-bm-muted">{env.schema_name}</span>
+                </div>
+              </button>
+            ))}
+            {environments.length === 0 ? (
+              <p className="text-sm text-bm-muted2">No environments yet.</p>
+            ) : null}
+          </div>
         </CardContent>
       </Card>
     </div>

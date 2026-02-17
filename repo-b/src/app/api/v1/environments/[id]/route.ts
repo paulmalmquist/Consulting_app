@@ -1,10 +1,5 @@
 import { NextRequest } from "next/server";
 import { Pool } from "pg";
-import {
-  deleteFallbackEnvironment,
-  getFallbackEnvironment,
-  updateFallbackEnvironment,
-} from "@/lib/labV1Fallback";
 import { proxyOrFallback } from "@/lib/v1Proxy";
 
 export const runtime = "nodejs";
@@ -67,9 +62,10 @@ export async function GET(
     try {
       const pool = getPool();
       if (!pool) {
-        const env = getFallbackEnvironment(params.id);
-        if (!env) return Response.json({ message: "Environment not found" }, { status: 404 });
-        return Response.json(env);
+        return Response.json(
+          { message: "Environment store unavailable: DATABASE_URL is not configured." },
+          { status: 503 }
+        );
       }
       const industryTypeEnabled = await hasIndustryTypeColumn(pool);
       const { rows } = await pool.query(
@@ -106,9 +102,10 @@ export async function PATCH(
 
       const pool = getPool();
       if (!pool) {
-        const updated = updateFallbackEnvironment(params.id, body);
-        if (!updated) return Response.json({ message: "Environment not found" }, { status: 404 });
-        return Response.json(updated);
+        return Response.json(
+          { message: "Environment store unavailable: DATABASE_URL is not configured." },
+          { status: 503 }
+        );
       }
 
       const industryTypeEnabled = await hasIndustryTypeColumn(pool);
@@ -165,11 +162,10 @@ export async function DELETE(
     try {
       const pool = getPool();
       if (!pool) {
-        const deleted = deleteFallbackEnvironment(params.id);
-        if (!deleted) {
-          return Response.json({ message: "Environment not found" }, { status: 404 });
-        }
-        return Response.json(deleted);
+        return Response.json(
+          { message: "Environment store unavailable: DATABASE_URL is not configured." },
+          { status: 503 }
+        );
       }
 
       const { rowCount } = await pool.query(
