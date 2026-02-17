@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { buildContextSnapshot } from "@/lib/server/mcpContext";
+import { hasDemoSession, unauthorizedJson } from "@/lib/server/sessionAuth";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
+  if (!hasDemoSession(request)) {
+    return unauthorizedJson();
+  }
   const url = new URL(request.url);
   const route = url.searchParams.get("route");
   const currentEnvId = url.searchParams.get("currentEnvId");
@@ -18,4 +22,3 @@ export async function GET(request: Request) {
 
   return NextResponse.json(snapshot);
 }
-

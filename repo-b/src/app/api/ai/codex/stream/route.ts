@@ -1,5 +1,6 @@
 import { getRun } from "@/lib/server/codexRunStore";
 import { aiMode, isLocalAiEnabled } from "@/lib/server/codexBridge";
+import { hasDemoSession, unauthorizedJson } from "@/lib/server/sessionAuth";
 
 export const runtime = "nodejs";
 
@@ -8,6 +9,9 @@ function sseLine(event: string, data: Record<string, unknown>) {
 }
 
 export async function GET(request: Request) {
+  if (!hasDemoSession(request)) {
+    return unauthorizedJson();
+  }
   if (!isLocalAiEnabled()) {
     return new Response(
       JSON.stringify({ error: "Local Codex routes are disabled.", mode: aiMode() }),

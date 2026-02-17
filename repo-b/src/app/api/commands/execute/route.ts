@@ -5,6 +5,7 @@ import {
   getPlan,
   verifyAndConsumeConfirmationToken,
 } from "@/lib/server/commandOrchestratorStore";
+import { hasDemoSession, unauthorizedJson } from "@/lib/server/sessionAuth";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,9 @@ type ExecuteRequest = {
 };
 
 export async function POST(request: Request) {
+  if (!hasDemoSession(request)) {
+    return unauthorizedJson();
+  }
   const payload = (await request.json().catch(() => ({}))) as ExecuteRequest;
   const planId = String(payload.plan_id || "").trim();
   const confirmToken = String(payload.confirm_token || "").trim();

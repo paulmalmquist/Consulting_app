@@ -5,6 +5,7 @@ import {
   toPlanResponse,
 } from "@/lib/server/commandOrchestrator";
 import { appendAuditEvent, storePlan } from "@/lib/server/commandOrchestratorStore";
+import { hasDemoSession, unauthorizedJson } from "@/lib/server/sessionAuth";
 import { buildContextSnapshot } from "@/lib/server/mcpContext";
 
 export const runtime = "nodejs";
@@ -24,6 +25,9 @@ function normalizeContext(input: CommandContext | undefined): CommandContext {
 }
 
 export async function POST(request: Request) {
+  if (!hasDemoSession(request)) {
+    return unauthorizedJson();
+  }
   const payload = (await request.json().catch(() => ({}))) as PlanRequest;
   const message = String(payload.message || "").trim();
   if (!message) {

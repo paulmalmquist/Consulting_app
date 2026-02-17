@@ -4,6 +4,7 @@ import {
   isLocalAiEnabled,
   runPromptDirect,
 } from "@/lib/server/codexBridge";
+import { hasDemoSession, unauthorizedJson } from "@/lib/server/sessionAuth";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,9 @@ type RunRequest = {
 };
 
 export async function POST(request: Request) {
+  if (!hasDemoSession(request)) {
+    return unauthorizedJson();
+  }
   if (!isLocalAiEnabled()) {
     return NextResponse.json(
       { error: "Local Codex routes are disabled. Set AI_MODE=local." },

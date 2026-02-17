@@ -5,13 +5,17 @@ import {
   cancelRun,
   getPlanForRun,
 } from "@/lib/server/commandOrchestratorStore";
+import { hasDemoSession, unauthorizedJson } from "@/lib/server/sessionAuth";
 
 export const runtime = "nodejs";
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: { runId: string } }
 ) {
+  if (!hasDemoSession(request)) {
+    return unauthorizedJson();
+  }
   const { runId } = params;
   const run = cancelRun(runId);
   if (!run) {

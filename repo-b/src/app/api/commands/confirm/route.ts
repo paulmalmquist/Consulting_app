@@ -6,6 +6,7 @@ import {
   mintConfirmationToken,
   updatePlan,
 } from "@/lib/server/commandOrchestratorStore";
+import { hasDemoSession, unauthorizedJson } from "@/lib/server/sessionAuth";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,9 @@ type ConfirmRequest = {
 };
 
 export async function POST(request: Request) {
+  if (!hasDemoSession(request)) {
+    return unauthorizedJson();
+  }
   const payload = (await request.json().catch(() => ({}))) as ConfirmRequest;
   const planId = String(payload.plan_id || "").trim();
   if (!planId) {

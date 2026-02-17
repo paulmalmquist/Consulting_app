@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -96,6 +97,7 @@ function formatRunSummary(run: CommandRun): string {
 }
 
 export default function GlobalCommandBar() {
+  const pathname = usePathname();
   const { push } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [contextKey, setContextKey] = useState<CommandContextKey>("global");
@@ -119,6 +121,13 @@ export default function GlobalCommandBar() {
   const [showAudit, setShowAudit] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const transcriptRef = useRef<HTMLDivElement>(null);
+
+  const isPrivateSurface = useMemo(() => {
+    const privatePrefixes = ["/lab", "/app", "/tasks", "/documents", "/onboarding"];
+    return privatePrefixes.some(
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+    );
+  }, [pathname]);
 
   useEffect(() => {
     const syncContext = () => {
@@ -389,6 +398,8 @@ export default function GlobalCommandBar() {
     }
   };
 
+  if (!isPrivateSurface) return null;
+
   return (
     <>
       <button
@@ -428,6 +439,13 @@ export default function GlobalCommandBar() {
                   Close
                 </Button>
               </div>
+            </div>
+
+            <div className="mb-3 rounded-xl border border-bm-border/70 bg-bm-surface/35 p-3">
+              <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Trust Boundary</p>
+              <p className="mt-1 text-xs text-bm-muted">
+                Operational actions are available only in authenticated workspace surfaces.
+              </p>
             </div>
 
             <div className="mb-3 rounded-xl border border-bm-border/70 bg-bm-surface/35 p-3">
@@ -522,6 +540,9 @@ export default function GlobalCommandBar() {
                     </button>
                     {showAudit ? (
                       <div className="mt-2 max-h-40 overflow-y-auto rounded-md bg-bm-bg/70 p-2 text-xs text-bm-muted">
+                        <p className="mb-2 text-[11px] text-bm-muted2">
+                          Command run audit is process-memory and non-durable in this release.
+                        </p>
                         {auditEvents.length ? (
                           <ul className="space-y-1">
                             {auditEvents.map((event) => (
