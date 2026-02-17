@@ -2,6 +2,7 @@
 
 import json
 import re
+from uuid import uuid4
 from uuid import UUID
 
 from app.db import get_cursor
@@ -85,7 +86,9 @@ def record_event(
             ),
         )
         row = cur.fetchone()
-        return row["audit_event_id"]
+        if row and row.get("audit_event_id"):
+            return row["audit_event_id"]
+        return uuid4()
 
 
 def list_events(

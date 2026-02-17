@@ -7,6 +7,7 @@ from app.routes import (
     business,
     documents,
     executions,
+    finance,
     tasks,
     work,
     audit,
@@ -31,6 +32,7 @@ app.include_router(health.router)
 app.include_router(business.router)
 app.include_router(documents.router)
 app.include_router(executions.router)
+app.include_router(finance.router)
 app.include_router(tasks.router)
 app.include_router(metrics.router)
 app.include_router(work.router)

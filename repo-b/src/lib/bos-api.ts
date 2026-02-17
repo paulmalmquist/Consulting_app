@@ -291,3 +291,161 @@ export function getExtraction(extractedDocumentId: string): Promise<ExtractionDe
 export function listExtractionFields(extractedDocumentId: string): Promise<ExtractedField[]> {
   return bosFetch(`/api/extract/${extractedDocumentId}/fields`);
 }
+
+export interface FinPartition {
+  partition_id: string;
+  tenant_id: string;
+  business_id: string;
+  key: string;
+  partition_type: "live" | "snapshot" | "scenario";
+  base_partition_id?: string | null;
+  is_read_only: boolean;
+  status: string;
+  created_at: string;
+}
+
+export interface FinFund {
+  fin_fund_id: string;
+  business_id: string;
+  partition_id: string;
+  fund_code: string;
+  name: string;
+  strategy: string;
+  pref_rate: string;
+  carry_rate: string;
+  waterfall_style: "american" | "european";
+  created_at: string;
+}
+
+export interface FinRun {
+  fin_run_id: string;
+  business_id: string;
+  partition_id: string;
+  engine_kind: string;
+  status: string;
+  deterministic_hash: string;
+  as_of_date: string;
+  idempotency_key: string;
+  created_at: string;
+  completed_at?: string | null;
+}
+
+export interface FinRunResponse {
+  run: FinRun;
+  result_refs: Array<{ result_table: string; result_id: string; created_at?: string }>;
+}
+
+export function listFinPartitions(businessId: string): Promise<FinPartition[]> {
+  return bosFetch("/api/fin/v1/partitions", {
+    params: { business_id: businessId },
+  });
+}
+
+export function listFinFunds(businessId: string, partitionId: string): Promise<FinFund[]> {
+  return bosFetch("/api/fin/v1/funds", {
+    params: { business_id: businessId, partition_id: partitionId },
+  });
+}
+
+export function createFinFund(body: {
+  business_id: string;
+  partition_id: string;
+  fund_code: string;
+  name: string;
+  strategy: string;
+  vintage_date?: string;
+  term_years?: number;
+  pref_rate: string;
+  pref_is_compound?: boolean;
+  catchup_rate?: string;
+  carry_rate: string;
+  waterfall_style: "american" | "european";
+}): Promise<FinFund> {
+  return bosFetch("/api/fin/v1/funds", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createFinCommitment(fundId: string, body: {
+  fin_participant_id: string;
+  commitment_role: "lp" | "gp" | "co_invest";
+  commitment_date: string;
+  committed_amount: string;
+  fin_entity_id?: string;
+}) {
+  return bosFetch(`/api/fin/v1/funds/${fundId}/commitments`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createFinCapitalCall(fundId: string, body: {
+  call_date: string;
+  due_date?: string;
+  amount_requested: string;
+  purpose?: string;
+}) {
+  return bosFetch(`/api/fin/v1/funds/${fundId}/capital-calls`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createFinContribution(fundId: string, body: {
+  fin_capital_call_id?: string;
+  fin_participant_id: string;
+  contribution_date: string;
+  amount_contributed: string;
+  status?: "pending" | "collected" | "failed" | "waived";
+}) {
+  return bosFetch(`/api/fin/v1/funds/${fundId}/contributions`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createFinDistributionEvent(fundId: string, body: {
+  event_date: string;
+  gross_proceeds: string;
+  net_distributable?: string;
+  event_type: "sale" | "partial_sale" | "refinance" | "operating_distribution" | "other";
+  reference?: string;
+  fin_asset_investment_id?: string;
+}) {
+  return bosFetch(`/api/fin/v1/funds/${fundId}/distribution-events`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function runFinWaterfall(fundId: string, body: {
+  business_id: string;
+  partition_id: string;
+  as_of_date: string;
+  idempotency_key: string;
+  distribution_event_id: string;
+}): Promise<FinRunResponse> {
+  return bosFetch(`/api/fin/v1/funds/${fundId}/waterfall-runs`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function runFinCapitalRollforward(fundId: string, body: {
+  business_id: string;
+  partition_id: string;
+  as_of_date: string;
+  idempotency_key: string;
+}): Promise<FinRunResponse> {
+  return bosFetch(`/api/fin/v1/funds/${fundId}/capital-rollforward-runs`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listFinCapitalRollforward(fundId: string, asOfDate?: string) {
+  return bosFetch(`/api/fin/v1/funds/${fundId}/capital-rollforward`, {
+    params: { as_of_date: asOfDate },
+  });
+}
