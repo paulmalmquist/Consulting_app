@@ -31,6 +31,10 @@ function isPublicPage(pathname: string): boolean {
 }
 
 export function middleware(request: NextRequest) {
+  if (process.env.PLAYWRIGHT_BYPASS_AUTH === "1") {
+    return NextResponse.next();
+  }
+
   const { pathname } = request.nextUrl;
 
   if (isPublicApiPath(pathname)) {

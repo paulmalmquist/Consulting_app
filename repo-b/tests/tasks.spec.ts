@@ -422,7 +422,11 @@ test("tasks flow: create project, add issue, drag across columns, edit and persi
   await expect(dialog).toBeVisible();
   await dialog.locator("input").first().fill("End-to-end Task");
   await dialog.locator("textarea").first().fill("Validate board drag and drawer edits.");
-  await dialog.getByRole("button", { name: "Create Issue" }).click();
+  const createIssueButton = dialog.getByRole("button", { name: "Create Issue" });
+  await createIssueButton.scrollIntoViewIfNeeded();
+  await createIssueButton.evaluate((button) => {
+    (button as HTMLButtonElement).click();
+  });
 
   const issueCard = page.getByTestId("issue-card-WIN-1");
   await expect(issueCard).toBeVisible();

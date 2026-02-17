@@ -84,11 +84,13 @@ test("validator rejects mismatched plans", async () => {
 });
 
 test("integration smoke: context snapshot -> plan -> confirm -> execute -> complete", async ({ request }) => {
-  const snapshotRes = await request.get("/api/mcp/context-snapshot?route=/lab/environments");
+  const authed = { headers: { cookie: "demo_lab_session=active" } };
+  const snapshotRes = await request.get("/api/mcp/context-snapshot?route=/lab/environments", authed);
   expect(snapshotRes.ok()).toBeTruthy();
   const contextSnapshot = (await snapshotRes.json()) as ContextSnapshot;
 
   const planRes = await request.post("/api/mcp/plan", {
+    ...authed,
     data: {
       message: "list environments",
       context: { route: "/lab/environments" },
@@ -100,12 +102,14 @@ test("integration smoke: context snapshot -> plan -> confirm -> execute -> compl
   expect(planned.plan.operationName).toBe("lab.environments.list");
 
   const confirmRes = await request.post("/api/commands/confirm", {
+    ...authed,
     data: { plan_id: planned.plan_id },
   });
   expect(confirmRes.ok()).toBeTruthy();
   const confirmed = await confirmRes.json();
 
   const executeRes = await request.post("/api/commands/execute", {
+    ...authed,
     data: { plan_id: planned.plan_id, confirm_token: confirmed.confirm_token },
   });
   expect(executeRes.ok()).toBeTruthy();
@@ -113,7 +117,10 @@ test("integration smoke: context snapshot -> plan -> confirm -> execute -> compl
 
   let status = "pending";
   for (let i = 0; i < 20; i += 1) {
-    const runRes = await request.get(`/api/commands/runs/${encodeURIComponent(executePayload.run_id)}`);
+    const runRes = await request.get(
+      `/api/commands/runs/${encodeURIComponent(executePayload.run_id)}`,
+      authed
+    );
     expect(runRes.ok()).toBeTruthy();
     const run = await runRes.json();
     status = run.run.status;
@@ -122,4 +129,3 @@ test("integration smoke: context snapshot -> plan -> confirm -> execute -> compl
   }
   expect(status).toBe("completed");
 });
-

@@ -61,15 +61,18 @@ async function proxy(request: NextRequest, ctx: { params: { path: string[] } }) 
 
   let upstreamRes: Response;
   try {
-    upstreamRes = await fetch(upstreamUrl.toString(), {
+    const init: RequestInit & { duplex?: "half" } = {
       method: request.method,
       headers,
       body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
       redirect: "manual",
-      // Required by Node fetch when streaming request bodies.
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      duplex: "half",
+    };
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      init.duplex = "half";
+    }
+
+    upstreamRes = await fetch(upstreamUrl.toString(), {
+      ...init,
     });
   } catch (err) {
     // eslint-disable-next-line no-console

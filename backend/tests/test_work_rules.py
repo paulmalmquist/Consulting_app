@@ -65,36 +65,40 @@ def test_update_status_requires_rationale_for_closed():
             update_status(uuid4(), "closed", "actor")
 
 
-def test_update_status_allows_open_without_rationale():
+def test_update_status_allows_in_progress_without_rationale():
     from app.services.work import update_status
 
     cur = FakeCursor()
     # fetchone for SELECT tenant_id, status
-    cur.push_result([{"tenant_id": uuid4(), "status": "in_progress"}])
+    cur.push_result([{"tenant_id": uuid4(), "status": "open"}])
     # INSERT comment RETURNING (UPDATE doesn't consume a result via fetchone)
     cur.push_result([{"comment_id": uuid4(), "created_at": "2026-01-01T00:00:00Z"}])
 
-    with patch("app.services.work.get_cursor", _make_fake_cursor(cur)):
-        result = update_status(uuid4(), "open", "actor")
-        assert result["new_status"] == "open"
+    with patch("app.services.work.get_cursor", _make_fake_cursor(cur)), patch(
+        "app.services.compliance.get_cursor", _make_fake_cursor(cur)
+    ):
+        result = update_status(uuid4(), "in_progress", "actor")
+        assert result["new_status"] == "in_progress"
 
 
 def test_resolve_item_requires_summary():
     from app.services.work import resolve_item
 
     cur = FakeCursor()
-    cur.push_result([{"tenant_id": uuid4(), "status": "open"}])
+    cur.push_result([{"tenant_id": uuid4(), "status": "in_progress"}])
 
     with patch("app.services.work.get_cursor", _make_fake_cursor(cur)):
         # resolve_item always requires summary — empty string is valid
         # but calling with None would fail at DB level
         result_cur = FakeCursor()
-        result_cur.push_result([{"tenant_id": uuid4(), "status": "open"}])
+        result_cur.push_result([{"tenant_id": uuid4(), "status": "in_progress"}])
         result_cur.push_result([{"resolution_id": uuid4(), "created_at": "2026-01-01T00:00:00Z"}])
         result_cur.push_result([])  # UPDATE work_items
         result_cur.push_result([])  # INSERT comment
 
-        with patch("app.services.work.get_cursor", _make_fake_cursor(result_cur)):
+        with patch("app.services.work.get_cursor", _make_fake_cursor(result_cur)), patch(
+            "app.services.compliance.get_cursor", _make_fake_cursor(result_cur)
+        ):
             result = resolve_item(uuid4(), "Fixed the issue", "solved", "actor")
             assert "resolution_id" in result
 

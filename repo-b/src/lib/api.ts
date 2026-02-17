@@ -6,9 +6,7 @@
 export const API_BASE_URL =
   (() => {
     const configured =
-      process.env.NEXT_PUBLIC_DEMO_API_BASE_URL ||
-      process.env.NEXT_PUBLIC_API_BASE_URL ||
-      "";
+      process.env.NEXT_PUBLIC_DEMO_API_BASE_URL || "";
 
     // Guardrail: if a production deploy accidentally has a localhost base URL
     // configured, ignore it and use same-origin so the `/v1/*` proxy works.

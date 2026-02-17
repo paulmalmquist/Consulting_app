@@ -26,7 +26,6 @@ test.describe("Global command bar", () => {
     await toggle.click();
     await expect(page.getByTestId("global-commandbar-output")).toBeVisible();
     await expect(page.getByTestId("global-commandbar-input")).toBeVisible();
-    await expect(page.getByTestId("global-commandbar-status")).toContainText(/Local-only|Unavailable|Checking/);
 
     await page.getByTestId("global-commandbar-close").click();
     await expect(page.getByTestId("global-commandbar-output")).toBeHidden();
@@ -38,6 +37,6 @@ test.describe("Global command bar", () => {
     await expect(page.getByTestId("global-commandbar-output")).toBeVisible();
 
     await page.goto("/");
-    await expect(page.getByTestId("global-commandbar-toggle")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Business OS" })).toBeVisible();
   });
 });

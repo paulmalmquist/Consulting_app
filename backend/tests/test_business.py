@@ -22,10 +22,11 @@ def test_create_business(client, fake_cursor):
     assert data["business_id"] == business_id
     assert data["slug"] == "acme-co"
 
-    # Verify the queries were made
-    assert len(fake_cursor.queries) == 2
+    # Verify the queries were made (business create + audit event)
+    assert len(fake_cursor.queries) == 3
     assert "INSERT INTO app.tenants" in fake_cursor.queries[0][0]
     assert "INSERT INTO app.businesses" in fake_cursor.queries[1][0]
+    assert "INSERT INTO app.audit_events" in fake_cursor.queries[2][0]
 
 
 def test_apply_template_unknown_key(client, fake_cursor):
@@ -40,6 +41,14 @@ def test_apply_template_unknown_key(client, fake_cursor):
 def test_apply_template_business_not_found(client, fake_cursor):
     business_id = str(uuid4())
 
+    # Mock: _get_template lookup
+    fake_cursor.push_result([{
+        "key": "starter",
+        "label": "Starter",
+        "description": "Starter template",
+        "departments": ["finance", "operations", "hr"],
+        "capabilities": ["invoice_processing"],
+    }])
     # Mock: SELECT 1 FROM app.businesses -> no rows
     fake_cursor.push_result([])
 
@@ -55,15 +64,22 @@ def test_apply_template_success(client, fake_cursor):
     dept_id = str(uuid4())
     cap_id = str(uuid4())
 
+    # Mock: _get_template lookup
+    fake_cursor.push_result([{
+        "key": "starter",
+        "label": "Starter",
+        "description": "Starter template",
+        "departments": ["finance", "operations", "hr"],
+        "capabilities": ["invoice_processing", "ar_aging"],
+    }])
     # Mock: SELECT 1 (business exists)
     fake_cursor.push_result([{"?column?": 1}])
     # Mock: SELECT department_id for each dept key (3 depts for starter)
     fake_cursor.push_result([{"department_id": dept_id}])
     fake_cursor.push_result([{"department_id": dept_id}])
     fake_cursor.push_result([{"department_id": dept_id}])
-    # Mock: INSERT business_departments (3x, but execute() doesn't fetchone)
-    # Mock: SELECT capability_id for each cap key (12 caps for starter)
-    for _ in range(12):
+    # Mock: SELECT capability_id for each cap key from template
+    for _ in range(2):
         fake_cursor.push_result([{"capability_id": cap_id}])
 
     resp = client.post(f"/api/businesses/{business_id}/apply-template", json={

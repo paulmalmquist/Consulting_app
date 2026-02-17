@@ -77,6 +77,7 @@ _GET_CURSOR_TARGETS = [
     "app.services.finance_scenarios.get_cursor",
     "app.services.work.get_cursor",
     "app.services.audit.get_cursor",
+    "app.services.compliance.get_cursor",
     "app.services.extraction.get_cursor",
 ]
 

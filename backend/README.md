@@ -28,11 +28,12 @@ Required variables:
 
 ## Database Migration
 
-Apply the Business OS schema to your Supabase database:
+Apply the canonical schema bundle from `repo-b/db/schema`:
 
 ```bash
 # From repo root
-psql "$DATABASE_URL" -f repo-b/db/business_os_schema.sql
+make db:migrate
+make db:verify
 ```
 
 ## Run
