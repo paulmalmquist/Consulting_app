@@ -38,15 +38,29 @@ def init_upload(
         actual_title = title or filename
 
         cur.execute(
-            """INSERT INTO app.documents
-               (tenant_id, business_id, department_id, domain, classification, title, virtual_path, status)
-               VALUES (%s, %s, %s, 'general', 'other', %s, %s, 'draft')
-               RETURNING document_id""",
-            (tenant_id, str(business_id), str(department_id) if department_id else None,
-             actual_title, virtual_path),
+            """SELECT document_id
+               FROM app.documents
+               WHERE business_id = %s
+                 AND COALESCE(department_id::text, '') = COALESCE(%s, '')
+                 AND title = %s
+               ORDER BY created_at ASC
+               LIMIT 1""",
+            (str(business_id), str(department_id) if department_id else None, actual_title),
         )
-        doc_row = cur.fetchone()
-        document_id = str(doc_row["document_id"])
+        existing_doc = cur.fetchone()
+        if existing_doc:
+            document_id = str(existing_doc["document_id"])
+        else:
+            cur.execute(
+                """INSERT INTO app.documents
+                   (tenant_id, business_id, department_id, domain, classification, title, virtual_path, status)
+                   VALUES (%s, %s, %s, 'general', 'other', %s, %s, 'draft')
+                   RETURNING document_id""",
+                (tenant_id, str(business_id), str(department_id) if department_id else None,
+                 actual_title, virtual_path),
+            )
+            doc_row = cur.fetchone()
+            document_id = str(doc_row["document_id"])
 
         cur.execute(
             "SELECT COALESCE(MAX(version_number), 0) + 1 as next_ver FROM app.document_versions WHERE document_id = %s",

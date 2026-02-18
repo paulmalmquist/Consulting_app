@@ -63,6 +63,7 @@ export default function DepartmentLandingClient({ deptKey }: { deptKey: string }
               <Link
                 key={cap.key}
                 href={`/app/${deptKey}/capability/${cap.key}`}
+                data-testid={`cap-tile-${cap.key}`}
                 className="bm-glass-interactive rounded-xl p-4"
               >
                 <p className="font-medium text-sm">{cap.label}</p>

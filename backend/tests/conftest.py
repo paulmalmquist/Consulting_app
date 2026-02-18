@@ -79,6 +79,10 @@ _GET_CURSOR_TARGETS = [
     "app.services.audit.get_cursor",
     "app.services.compliance.get_cursor",
     "app.services.extraction.get_cursor",
+    "app.services.metrics_semantic.get_cursor",
+    "app.services.materialization.get_cursor",
+    "app.services.reports.get_cursor",
+    "app.services.crm.get_cursor",
 ]
 
 

@@ -403,3 +403,90 @@ DO $$ BEGIN
       )
     );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- ─────────────────────────────────────────────
+-- CRM Native tables
+-- ─────────────────────────────────────────────
+
+ALTER TABLE crm_account ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY crm_account_isolation ON crm_account
+    USING (tenant_id = current_tenant_id());
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE crm_contact ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY crm_contact_isolation ON crm_contact
+    USING (tenant_id = current_tenant_id());
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE crm_pipeline_stage ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY crm_pipeline_stage_isolation ON crm_pipeline_stage
+    USING (tenant_id = current_tenant_id());
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE crm_opportunity ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY crm_opportunity_isolation ON crm_opportunity
+    USING (tenant_id = current_tenant_id());
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE crm_opportunity_stage_history ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY crm_opportunity_stage_history_isolation ON crm_opportunity_stage_history
+    USING (tenant_id = current_tenant_id());
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE crm_activity ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY crm_activity_isolation ON crm_activity
+    USING (tenant_id = current_tenant_id());
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- ─────────────────────────────────────────────
+-- Reporting runtime tables
+-- ─────────────────────────────────────────────
+
+ALTER TABLE metric_permission ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY metric_permission_isolation ON metric_permission
+    USING (tenant_id = current_tenant_id());
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE report_run ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY report_run_isolation ON report_run
+    USING (tenant_id = current_tenant_id());
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE report_result_cache ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY report_result_cache_isolation ON report_result_cache
+    USING (tenant_id = current_tenant_id());
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE number_trace ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY number_trace_isolation ON number_trace
+    USING (tenant_id = current_tenant_id());
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- number_trace_row is business/tenant-scoped through number_trace
+ALTER TABLE number_trace_row ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY number_trace_row_isolation ON number_trace_row
+    USING (
+      EXISTS (
+        SELECT 1 FROM number_trace nt
+        WHERE nt.number_trace_id = number_trace_row.number_trace_id
+          AND nt.tenant_id = current_tenant_id()
+      )
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE report_materialization_job ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY report_materialization_job_isolation ON report_materialization_job
+    USING (tenant_id = current_tenant_id());
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

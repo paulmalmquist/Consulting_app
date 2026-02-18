@@ -9,6 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "test:e2e": "playwright test",
+    "test:qa-reports": "playwright test tests/reports-qa.spec.ts --config=playwright.local.config.ts",
+    "qa:loop": "node scripts/qa_loop.mjs",
     "db:dry": "node db/schema/apply.js --dry-run",
     "db:apply": "NODE_TLS_REJECT_UNAUTHORIZED=0 node db/schema/apply.js",
     "db:verify": "NODE_TLS_REJECT_UNAUTHORIZED=0 node db/schema/verify.js",

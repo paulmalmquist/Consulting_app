@@ -147,6 +147,35 @@ def apply_template(
                             (str(business_id), str(cap["capability_id"])),
                         )
 
+        # Capture expected template shape for downstream drift reporting.
+        effective_cap_keys: list[str]
+        if tmpl_capabilities == "__all__":
+            cur.execute(
+                """SELECT c.key
+                   FROM app.capabilities c
+                   JOIN app.departments d ON d.department_id = c.department_id
+                   WHERE d.key = ANY(%s)
+                   ORDER BY c.key""",
+                (dept_keys,),
+            )
+            effective_cap_keys = [row["key"] for row in cur.fetchall()]
+        else:
+            effective_cap_keys = cap_keys if cap_keys else (
+                tmpl_capabilities if isinstance(tmpl_capabilities, list) else []
+            )
+
+        cur.execute(
+            """INSERT INTO app.business_template_snapshot
+                 (business_id, template_key, expected_departments, expected_capabilities, captured_at, updated_at)
+               VALUES (%s, %s, %s, %s, now(), now())
+               ON CONFLICT (business_id) DO UPDATE
+                 SET template_key = EXCLUDED.template_key,
+                     expected_departments = EXCLUDED.expected_departments,
+                     expected_capabilities = EXCLUDED.expected_capabilities,
+                     updated_at = now()""",
+            (str(business_id), template_key, dept_keys, effective_cap_keys),
+        )
+
 
 def apply_custom(
     business_id: UUID,

@@ -159,3 +159,66 @@ CREATE INDEX IF NOT EXISTS milestone_instance_status_idx
   ON milestone_instance (tenant_id, business_id, status);
 CREATE INDEX IF NOT EXISTS milestone_event_instance_idx
   ON milestone_event (milestone_instance_id, created_at DESC);
+
+-- ═══════════════════════════════════════════════════════
+-- CRM Native
+-- ═══════════════════════════════════════════════════════
+
+CREATE INDEX IF NOT EXISTS crm_account_tenant_business_idx
+  ON crm_account (tenant_id, business_id);
+CREATE INDEX IF NOT EXISTS crm_account_counterparty_idx
+  ON crm_account (counterparty_id) WHERE counterparty_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS crm_contact_tenant_business_idx
+  ON crm_contact (tenant_id, business_id);
+CREATE INDEX IF NOT EXISTS crm_contact_account_idx
+  ON crm_contact (crm_account_id) WHERE crm_account_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS crm_pipeline_stage_tenant_business_idx
+  ON crm_pipeline_stage (tenant_id, business_id, stage_order);
+
+CREATE INDEX IF NOT EXISTS crm_opportunity_tenant_business_idx
+  ON crm_opportunity (tenant_id, business_id);
+CREATE INDEX IF NOT EXISTS crm_opportunity_stage_idx
+  ON crm_opportunity (crm_pipeline_stage_id) WHERE crm_pipeline_stage_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS crm_opportunity_status_idx
+  ON crm_opportunity (tenant_id, business_id, status);
+CREATE INDEX IF NOT EXISTS crm_opportunity_expected_close_idx
+  ON crm_opportunity (tenant_id, business_id, expected_close_date DESC);
+
+CREATE INDEX IF NOT EXISTS crm_opportunity_stage_history_opp_idx
+  ON crm_opportunity_stage_history (crm_opportunity_id, changed_at DESC);
+
+CREATE INDEX IF NOT EXISTS crm_activity_tenant_business_idx
+  ON crm_activity (tenant_id, business_id, activity_at DESC);
+CREATE INDEX IF NOT EXISTS crm_activity_opportunity_idx
+  ON crm_activity (crm_opportunity_id) WHERE crm_opportunity_id IS NOT NULL;
+
+-- ═══════════════════════════════════════════════════════
+-- Reporting runtime
+-- ═══════════════════════════════════════════════════════
+
+CREATE INDEX IF NOT EXISTS metric_permission_tenant_metric_idx
+  ON metric_permission (tenant_id, metric_id);
+
+CREATE INDEX IF NOT EXISTS report_run_tenant_business_idx
+  ON report_run (tenant_id, business_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS report_run_report_idx
+  ON report_run (report_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS report_run_status_idx
+  ON report_run (tenant_id, status);
+
+CREATE INDEX IF NOT EXISTS report_result_cache_report_hash_idx
+  ON report_result_cache (tenant_id, report_id, query_hash);
+CREATE INDEX IF NOT EXISTS report_result_cache_expiry_idx
+  ON report_result_cache (expires_at) WHERE expires_at IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS number_trace_report_run_idx
+  ON number_trace (report_run_id);
+CREATE INDEX IF NOT EXISTS number_trace_metric_idx
+  ON number_trace (tenant_id, business_id, metric_id);
+CREATE INDEX IF NOT EXISTS number_trace_row_trace_idx
+  ON number_trace_row (number_trace_id);
+
+CREATE INDEX IF NOT EXISTS report_materialization_job_status_idx
+  ON report_materialization_job (tenant_id, business_id, status, created_at DESC);

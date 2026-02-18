@@ -144,6 +144,7 @@ export default function ExecutionSurface({
                       if (f) setFileInputs((prev) => ({ ...prev, [field.name]: f }));
                     }}
                     className="w-full text-sm text-bm-muted file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-bm-border/70 file:bg-bm-surface/60 file:text-bm-text hover:file:bg-bm-surface2/60"
+                    data-testid={`exec-file-${field.name}`}
                   />
                   {fileInputs[field.name] && (
                     <p className="text-xs text-bm-muted2 mt-1">
@@ -159,6 +160,7 @@ export default function ExecutionSurface({
                     setFormValues((prev) => ({ ...prev, [field.name]: e.target.value }))
                   }
                   className="resize-y"
+                  data-testid={`exec-input-${field.name}`}
                 />
               ) : (
                 <Input
@@ -167,6 +169,7 @@ export default function ExecutionSurface({
                   onChange={(e) =>
                     setFormValues((prev) => ({ ...prev, [field.name]: e.target.value }))
                   }
+                  data-testid={`exec-input-${field.name}`}
                 />
               )}
             </div>
@@ -179,6 +182,7 @@ export default function ExecutionSurface({
               value={jsonInput}
               onChange={(e) => setJsonInput(e.target.value)}
               className="font-mono resize-y"
+              data-testid="exec-json-input"
             />
           </div>
         )}
@@ -191,6 +195,7 @@ export default function ExecutionSurface({
           onClick={handleRun}
           disabled={running}
           className="w-full"
+          data-testid="exec-run"
         >
           {running ? "Running..." : "Run"}
         </Button>
@@ -206,7 +211,7 @@ export default function ExecutionSurface({
 
       {/* Result */}
       {result && (
-        <Card>
+        <Card data-testid="exec-result">
           <CardContent className="space-y-3">
           <CardTitle className="text-sm font-semibold uppercase tracking-[0.14em] text-bm-muted2">
             Result

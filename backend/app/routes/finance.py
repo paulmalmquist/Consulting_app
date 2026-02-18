@@ -50,6 +50,7 @@ from app.services import (
     finance_repe,
     finance_runtime,
     finance_scenarios,
+    materialization,
 )
 
 router = APIRouter(prefix="/api/fin/v1")
@@ -199,7 +200,7 @@ def list_participants(
 @router.post("/funds/{fund_id}/commitments")
 def create_commitment(fund_id: UUID, req: CommitmentCreateRequest):
     try:
-        return finance_repe.create_commitment(
+        row = finance_repe.create_commitment(
             fund_id=fund_id,
             fin_participant_id=req.fin_participant_id,
             commitment_role=req.commitment_role,
@@ -207,6 +208,14 @@ def create_commitment(fund_id: UUID, req: CommitmentCreateRequest):
             committed_amount=req.committed_amount,
             fin_entity_id=req.fin_entity_id,
         )
+        materialization.enqueue_materialization_job(
+            business_id=row["business_id"],
+            event_type="fin.commitment.created",
+            event_payload={"fin_commitment_id": str(row["fin_commitment_id"])},
+            idempotency_key=f"fin_commitment_{row['fin_commitment_id']}",
+        )
+        materialization.materialize_business_snapshot(business_id=row["business_id"])
+        return row
     except Exception as exc:
         raise _to_http_error(exc)
 
@@ -222,13 +231,21 @@ def list_commitments(fund_id: UUID):
 @router.post("/funds/{fund_id}/capital-calls")
 def create_capital_call(fund_id: UUID, req: CapitalCallCreateRequest):
     try:
-        return finance_repe.create_capital_call(
+        row = finance_repe.create_capital_call(
             fund_id=fund_id,
             call_date=req.call_date,
             due_date=req.due_date,
             amount_requested=req.amount_requested,
             purpose=req.purpose,
         )
+        materialization.enqueue_materialization_job(
+            business_id=row["business_id"],
+            event_type="fin.capital_call.created",
+            event_payload={"fin_capital_call_id": str(row["fin_capital_call_id"])},
+            idempotency_key=f"fin_capital_call_{row['fin_capital_call_id']}",
+        )
+        materialization.materialize_business_snapshot(business_id=row["business_id"])
+        return row
     except Exception as exc:
         raise _to_http_error(exc)
 
@@ -244,13 +261,21 @@ def list_capital_calls(fund_id: UUID):
 @router.post("/funds/{fund_id}/assets")
 def create_asset_investment(fund_id: UUID, req: AssetInvestmentCreateRequest):
     try:
-        return finance_repe.create_asset_investment(
+        row = finance_repe.create_asset_investment(
             fund_id=fund_id,
             asset_name=req.asset_name,
             acquisition_date=req.acquisition_date,
             cost_basis=req.cost_basis,
             current_valuation=req.current_valuation,
         )
+        materialization.enqueue_materialization_job(
+            business_id=row["business_id"],
+            event_type="fin.asset.created",
+            event_payload={"fin_asset_investment_id": str(row["fin_asset_investment_id"])},
+            idempotency_key=f"fin_asset_{row['fin_asset_investment_id']}",
+        )
+        materialization.materialize_business_snapshot(business_id=row["business_id"])
+        return row
     except Exception as exc:
         raise _to_http_error(exc)
 
@@ -266,7 +291,7 @@ def list_assets(fund_id: UUID):
 @router.post("/funds/{fund_id}/contributions")
 def create_contribution(fund_id: UUID, req: ContributionCreateRequest):
     try:
-        return finance_repe.create_contribution(
+        row = finance_repe.create_contribution(
             fund_id=fund_id,
             fin_capital_call_id=req.fin_capital_call_id,
             fin_participant_id=req.fin_participant_id,
@@ -274,6 +299,14 @@ def create_contribution(fund_id: UUID, req: ContributionCreateRequest):
             amount_contributed=req.amount_contributed,
             status=req.status,
         )
+        materialization.enqueue_materialization_job(
+            business_id=row["business_id"],
+            event_type="fin.contribution.created",
+            event_payload={"fin_contribution_id": str(row["fin_contribution_id"])},
+            idempotency_key=f"fin_contribution_{row['fin_contribution_id']}",
+        )
+        materialization.materialize_business_snapshot(business_id=row["business_id"])
+        return row
     except Exception as exc:
         raise _to_http_error(exc)
 
@@ -281,7 +314,7 @@ def create_contribution(fund_id: UUID, req: ContributionCreateRequest):
 @router.post("/funds/{fund_id}/distribution-events")
 def create_distribution_event(fund_id: UUID, req: DistributionEventCreateRequest):
     try:
-        return finance_repe.create_distribution_event(
+        row = finance_repe.create_distribution_event(
             fund_id=fund_id,
             event_date=req.event_date,
             gross_proceeds=req.gross_proceeds,
@@ -290,6 +323,14 @@ def create_distribution_event(fund_id: UUID, req: DistributionEventCreateRequest
             reference=req.reference,
             fin_asset_investment_id=req.fin_asset_investment_id,
         )
+        materialization.enqueue_materialization_job(
+            business_id=row["business_id"],
+            event_type="fin.distribution_event.created",
+            event_payload={"fin_distribution_event_id": str(row["fin_distribution_event_id"])},
+            idempotency_key=f"fin_distribution_event_{row['fin_distribution_event_id']}",
+        )
+        materialization.materialize_business_snapshot(business_id=row["business_id"])
+        return row
     except Exception as exc:
         raise _to_http_error(exc)
 

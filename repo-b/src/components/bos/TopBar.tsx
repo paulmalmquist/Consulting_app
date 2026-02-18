@@ -60,6 +60,7 @@ export default function TopBar({
                 <Link
                   key={dept.key}
                   href={`/app/${dept.key}`}
+                  data-testid={`dept-tab-${dept.key}`}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition flex-shrink-0 border ${
                     isActive
                       ? "bg-bm-accent/12 text-bm-text border-bm-accent/30 shadow-bm-glow"

@@ -567,3 +567,274 @@ export function listFinCapitalRollforward(fundId: string, asOfDate?: string) {
 export function listFinWaterfallAllocations(fundId: string, runId: string) {
   return bosFetch(`/api/fin/v1/funds/${fundId}/waterfall-runs/${runId}/allocations`);
 }
+
+export interface MetricDefinition {
+  metric_id: string;
+  key: string;
+  label: string;
+  description?: string | null;
+  unit?: string | null;
+  aggregation: string;
+}
+
+export interface MetricDimension {
+  key: string;
+  label: string;
+  source: string;
+}
+
+export interface MetricQueryPoint {
+  metric_id: string;
+  metric_key: string;
+  metric_label: string;
+  unit?: string | null;
+  aggregation: string;
+  dimension?: string | null;
+  dimension_value?: string | null;
+  value: string;
+  source_fact_ids: string[];
+}
+
+export interface MetricDefinitionsResponse {
+  metrics: MetricDefinition[];
+  dimensions: MetricDimension[];
+}
+
+export interface MetricQueryResponse {
+  query_hash: string;
+  points: MetricQueryPoint[];
+}
+
+export interface Report {
+  report_id: string;
+  key: string;
+  label: string;
+  description?: string | null;
+  version: number;
+  config: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ReportRunResponse {
+  report_run_id: string;
+  run_id?: string | null;
+  query_hash: string;
+  points: MetricQueryPoint[];
+}
+
+export function getMetricDefinitions(businessId: string): Promise<MetricDefinitionsResponse> {
+  return bosFetch("/api/metrics/definitions", {
+    params: { business_id: businessId },
+  });
+}
+
+export function queryMetrics(body: {
+  business_id: string;
+  metric_keys: string[];
+  dimension?: string;
+  date_from?: string;
+  date_to?: string;
+  refresh?: boolean;
+}): Promise<MetricQueryResponse> {
+  return bosFetch("/api/metrics/query", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createReport(body: {
+  business_id: string;
+  title: string;
+  description?: string;
+  query: Record<string, unknown>;
+  is_draft?: boolean;
+}): Promise<Report> {
+  return bosFetch("/api/reports", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listReports(businessId: string): Promise<Report[]> {
+  return bosFetch("/api/reports", {
+    params: { business_id: businessId },
+  });
+}
+
+export function getReport(businessId: string, reportId: string): Promise<Report> {
+  return bosFetch(`/api/reports/${reportId}`, {
+    params: { business_id: businessId },
+  });
+}
+
+export function runReport(reportId: string, body: {
+  business_id: string;
+  refresh?: boolean;
+}): Promise<ReportRunResponse> {
+  return bosFetch(`/api/reports/${reportId}/run`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function explainReportRun(
+  businessId: string,
+  reportId: string,
+  reportRunId: string
+): Promise<{ report_id: string; report_run_id: string; explanation: Array<Record<string, unknown>> }> {
+  return bosFetch(`/api/reports/${reportId}/runs/${reportRunId}/explain`, {
+    params: { business_id: businessId },
+  });
+}
+
+export function getBusinessOverviewReport(businessId: string) {
+  return bosFetch<{
+    business: Record<string, unknown>;
+    links: Record<string, string>;
+  }>("/api/reports/business-overview", {
+    params: { business_id: businessId },
+  });
+}
+
+export function getDepartmentHealthReport(businessId: string, deptKey?: string) {
+  return bosFetch<{
+    rows: Array<Record<string, unknown>>;
+  }>("/api/reports/department-health", {
+    params: { business_id: businessId, deptKey },
+  });
+}
+
+export function getDocRegisterReport(businessId: string) {
+  return bosFetch<{
+    rows: Array<Record<string, unknown>>;
+  }>("/api/reports/doc-register", {
+    params: { business_id: businessId },
+  });
+}
+
+export function getDocComplianceReport(businessId: string) {
+  return bosFetch<{
+    rows: Array<Record<string, unknown>>;
+  }>("/api/reports/doc-compliance", {
+    params: { business_id: businessId },
+  });
+}
+
+export function getExecutionLedgerReport(businessId: string) {
+  return bosFetch<{
+    rows: Array<Record<string, unknown>>;
+  }>("/api/reports/execution-ledger", {
+    params: { business_id: businessId },
+  });
+}
+
+export function getTemplateAdoptionReport(businessId: string) {
+  return bosFetch<{
+    template_key: string | null;
+    drift: {
+      has_drift: boolean;
+      missing_departments: string[];
+      extra_departments: string[];
+      missing_capabilities: string[];
+      extra_capabilities: string[];
+    };
+    deep_link: string;
+  }>("/api/reports/template-adoption", {
+    params: { business_id: businessId },
+  });
+}
+
+export function simulateTemplateDrift(businessId: string) {
+  return bosFetch<{ ok: boolean; disabled_capability_key: string }>("/api/reports/template-adoption/simulate-drift", {
+    method: "POST",
+    params: { business_id: businessId },
+  });
+}
+
+export function getReadinessReport(businessId: string) {
+  return bosFetch<{
+    score: Record<string, unknown>;
+    rows: Array<Record<string, unknown>>;
+  }>("/api/reports/readiness", {
+    params: { business_id: businessId },
+  });
+}
+
+export interface CrmAccount {
+  crm_account_id: string;
+  name: string;
+  account_type: string;
+  industry?: string | null;
+  website?: string | null;
+  created_at: string;
+}
+
+export interface CrmOpportunity {
+  crm_opportunity_id: string;
+  name: string;
+  amount: string;
+  currency_code: string;
+  status: string;
+  expected_close_date?: string | null;
+  actual_close_date?: string | null;
+  account_name?: string | null;
+  stage_key?: string | null;
+  stage_label?: string | null;
+  created_at: string;
+}
+
+export interface CrmPipelineStage {
+  crm_pipeline_stage_id: string;
+  key: string;
+  label: string;
+  stage_order: number;
+  win_probability?: string | null;
+  is_closed: boolean;
+  is_won: boolean;
+  created_at: string;
+}
+
+export function listCrmAccounts(businessId: string): Promise<CrmAccount[]> {
+  return bosFetch("/api/crm/accounts", {
+    params: { business_id: businessId },
+  });
+}
+
+export function createCrmAccount(body: {
+  business_id: string;
+  name: string;
+  account_type?: string;
+  industry?: string;
+  website?: string;
+}): Promise<CrmAccount> {
+  return bosFetch("/api/crm/accounts", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listCrmPipelineStages(businessId: string): Promise<CrmPipelineStage[]> {
+  return bosFetch("/api/crm/pipeline-stages", {
+    params: { business_id: businessId },
+  });
+}
+
+export function listCrmOpportunities(businessId: string): Promise<CrmOpportunity[]> {
+  return bosFetch("/api/crm/opportunities", {
+    params: { business_id: businessId },
+  });
+}
+
+export function createCrmOpportunity(body: {
+  business_id: string;
+  name: string;
+  amount: string;
+  crm_account_id?: string;
+  crm_pipeline_stage_id?: string;
+  expected_close_date?: string;
+}): Promise<CrmOpportunity> {
+  return bosFetch("/api/crm/opportunities", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}

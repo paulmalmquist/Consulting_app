@@ -161,6 +161,7 @@ export default function OnboardingPage() {
                 value={bizName}
                 onChange={(e) => setBizName(e.target.value)}
                 placeholder="Acme Corp"
+                data-testid="onboarding-business-name"
               />
             </div>
             <div>
@@ -169,6 +170,7 @@ export default function OnboardingPage() {
                 type="text"
                 value={bizSlug}
                 onChange={(e) => setBizSlug(e.target.value)}
+                data-testid="onboarding-business-slug"
               />
             </div>
             <div>
@@ -176,6 +178,7 @@ export default function OnboardingPage() {
               <Select
                 value={bizRegion}
                 onChange={(e) => setBizRegion(e.target.value)}
+                data-testid="onboarding-business-region"
               >
                 <option value="us">United States</option>
                 <option value="eu">Europe</option>
@@ -210,6 +213,7 @@ export default function OnboardingPage() {
               <button
                 onClick={() => setStep("custom-depts")}
                 className="bm-glass-interactive rounded-xl p-4 text-left border border-bm-border/70 hover:border-bm-accent/35"
+                data-testid="onboarding-path-custom"
               >
                 <p className="font-semibold">Custom</p>
                 <p className="text-sm text-bm-muted mt-1">Pick departments and capabilities individually.</p>
@@ -395,6 +399,7 @@ export default function OnboardingPage() {
                         ? "border-bm-accent/35"
                         : "border-bm-border/70 hover:border-bm-borderStrong"
                     }`}
+                    data-testid={`onboarding-custom-dept-${dept.key}`}
                   >
                     <span>
                       {iconFor(dept.icon)} {dept.label}
@@ -457,6 +462,7 @@ export default function OnboardingPage() {
                             setCustomCaps(next);
                           }}
                           className="w-full flex items-center justify-between py-1.5 text-sm hover:bg-bm-surface/30 px-2 rounded transition"
+                          data-testid={`onboarding-custom-cap-${cap.key}`}
                         >
                           <span className="text-bm-text">{cap.label}</span>
                           <span
