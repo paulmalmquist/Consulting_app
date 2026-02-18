@@ -108,6 +108,13 @@ class FundCreateRequest(BaseModel):
     waterfall_style: Literal["american", "european"] = "european"
 
 
+class ParticipantCreateRequest(BaseModel):
+    business_id: UUID
+    name: str
+    participant_type: Literal["investor", "gp", "lp", "provider", "subcontractor", "referral_source", "other"]
+    external_key: str | None = None
+
+
 class CommitmentCreateRequest(BaseModel):
     fin_participant_id: UUID
     commitment_role: Literal["lp", "gp", "co_invest"]
@@ -138,6 +145,13 @@ class DistributionEventCreateRequest(BaseModel):
     event_type: Literal["sale", "partial_sale", "refinance", "operating_distribution", "other"]
     reference: str | None = None
     fin_asset_investment_id: UUID | None = None
+
+
+class AssetInvestmentCreateRequest(BaseModel):
+    asset_name: str
+    acquisition_date: date | None = None
+    cost_basis: Decimal = Field(ge=0)
+    current_valuation: Decimal | None = Field(default=None, ge=0)
 
 
 class WaterfallRunTriggerRequest(BaseModel):

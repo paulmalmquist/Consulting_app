@@ -1,5 +1,6 @@
 import os
 import sys
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -8,9 +9,35 @@ DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 STORAGE_BUCKET: str = os.getenv("STORAGE_BUCKET", "documents")
-ALLOWED_ORIGINS: list[str] = [
-    o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
-]
+def _expand_localhost_origins(origins_csv: str) -> list[str]:
+    # Keep CORS deterministic while tolerating localhost/127.0.0.1 dev host aliases.
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in origins_csv.split(","):
+        origin = raw.strip()
+        if not origin:
+            continue
+        if origin not in seen:
+            out.append(origin)
+            seen.add(origin)
+        parsed = urlparse(origin)
+        if not parsed.scheme or not parsed.hostname or parsed.port is None:
+            continue
+        if parsed.hostname == "localhost":
+            alias = f"{parsed.scheme}://127.0.0.1:{parsed.port}"
+        elif parsed.hostname == "127.0.0.1":
+            alias = f"{parsed.scheme}://localhost:{parsed.port}"
+        else:
+            alias = ""
+        if alias and alias not in seen:
+            out.append(alias)
+            seen.add(alias)
+    return out
+
+
+ALLOWED_ORIGINS: list[str] = _expand_localhost_origins(
+    os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+)
 
 # ── MCP / Work system feature flags ─────────────────────────────────
 MCP_API_TOKEN: str = os.getenv("MCP_API_TOKEN", "")

@@ -335,6 +335,64 @@ export interface FinRunResponse {
   result_refs: Array<{ result_table: string; result_id: string; created_at?: string }>;
 }
 
+export interface FinParticipant {
+  fin_participant_id: string;
+  business_id: string;
+  name: string;
+  participant_type: string;
+  external_key?: string | null;
+  created_at: string;
+}
+
+export interface FinCommitment {
+  fin_commitment_id: string;
+  fin_participant_id: string;
+  participant_name?: string;
+  commitment_role: "lp" | "gp" | "co_invest";
+  commitment_date: string;
+  committed_amount: string;
+}
+
+export interface FinCapitalCall {
+  fin_capital_call_id: string;
+  call_number: number;
+  call_date: string;
+  due_date?: string | null;
+  amount_requested: string;
+  purpose?: string | null;
+  status: string;
+}
+
+export interface FinAssetInvestment {
+  fin_asset_investment_id: string;
+  asset_name: string;
+  acquisition_date?: string | null;
+  cost_basis: string;
+  current_valuation?: string | null;
+  status: string;
+}
+
+export interface FinDistributionEvent {
+  fin_distribution_event_id: string;
+  fin_asset_investment_id?: string | null;
+  asset_name?: string | null;
+  event_date: string;
+  gross_proceeds: string;
+  net_distributable: string;
+  event_type: string;
+  status: string;
+  reference?: string | null;
+}
+
+export interface FinDistributionPayout {
+  fin_distribution_payout_id: string;
+  fin_participant_id: string;
+  participant_name?: string | null;
+  payout_type: string;
+  amount: string;
+  payout_date: string;
+}
+
 export function listFinPartitions(businessId: string): Promise<FinPartition[]> {
   return bosFetch("/api/fin/v1/partitions", {
     params: { business_id: businessId },
@@ -373,11 +431,15 @@ export function createFinCommitment(fundId: string, body: {
   commitment_date: string;
   committed_amount: string;
   fin_entity_id?: string;
-}) {
+}): Promise<FinCommitment> {
   return bosFetch(`/api/fin/v1/funds/${fundId}/commitments`, {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export function listFinCommitments(fundId: string): Promise<FinCommitment[]> {
+  return bosFetch(`/api/fin/v1/funds/${fundId}/commitments`);
 }
 
 export function createFinCapitalCall(fundId: string, body: {
@@ -385,11 +447,15 @@ export function createFinCapitalCall(fundId: string, body: {
   due_date?: string;
   amount_requested: string;
   purpose?: string;
-}) {
+}): Promise<FinCapitalCall> {
   return bosFetch(`/api/fin/v1/funds/${fundId}/capital-calls`, {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export function listFinCapitalCalls(fundId: string): Promise<FinCapitalCall[]> {
+  return bosFetch(`/api/fin/v1/funds/${fundId}/capital-calls`);
 }
 
 export function createFinContribution(fundId: string, body: {
@@ -398,7 +464,7 @@ export function createFinContribution(fundId: string, body: {
   contribution_date: string;
   amount_contributed: string;
   status?: "pending" | "collected" | "failed" | "waived";
-}) {
+}): Promise<Record<string, unknown>> {
   return bosFetch(`/api/fin/v1/funds/${fundId}/contributions`, {
     method: "POST",
     body: JSON.stringify(body),
@@ -412,11 +478,59 @@ export function createFinDistributionEvent(fundId: string, body: {
   event_type: "sale" | "partial_sale" | "refinance" | "operating_distribution" | "other";
   reference?: string;
   fin_asset_investment_id?: string;
-}) {
+}): Promise<FinDistributionEvent> {
   return bosFetch(`/api/fin/v1/funds/${fundId}/distribution-events`, {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export function listFinDistributionEvents(fundId: string): Promise<FinDistributionEvent[]> {
+  return bosFetch(`/api/fin/v1/funds/${fundId}/distribution-events`);
+}
+
+export function listFinDistributionPayouts(
+  fundId: string,
+  distributionEventId: string
+): Promise<FinDistributionPayout[]> {
+  return bosFetch(`/api/fin/v1/funds/${fundId}/distribution-events/${distributionEventId}/payouts`);
+}
+
+export function createFinParticipant(body: {
+  business_id: string;
+  name: string;
+  participant_type: "investor" | "gp" | "lp" | "provider" | "subcontractor" | "referral_source" | "other";
+  external_key?: string;
+}): Promise<FinParticipant> {
+  return bosFetch("/api/fin/v1/participants", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listFinParticipants(
+  businessId: string,
+  participantType?: string
+): Promise<FinParticipant[]> {
+  return bosFetch("/api/fin/v1/participants", {
+    params: { business_id: businessId, participant_type: participantType },
+  });
+}
+
+export function createFinAsset(fundId: string, body: {
+  asset_name: string;
+  acquisition_date?: string;
+  cost_basis: string;
+  current_valuation?: string;
+}): Promise<FinAssetInvestment> {
+  return bosFetch(`/api/fin/v1/funds/${fundId}/assets`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listFinAssets(fundId: string): Promise<FinAssetInvestment[]> {
+  return bosFetch(`/api/fin/v1/funds/${fundId}/assets`);
 }
 
 export function runFinWaterfall(fundId: string, body: {
@@ -448,4 +562,8 @@ export function listFinCapitalRollforward(fundId: string, asOfDate?: string) {
   return bosFetch(`/api/fin/v1/funds/${fundId}/capital-rollforward`, {
     params: { as_of_date: asOfDate },
   });
+}
+
+export function listFinWaterfallAllocations(fundId: string, runId: string) {
+  return bosFetch(`/api/fin/v1/funds/${fundId}/waterfall-runs/${runId}/allocations`);
 }

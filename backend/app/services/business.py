@@ -35,14 +35,53 @@ def create_business(name: str, slug: str, region: str = "us") -> dict:
         tenant_row = cur.fetchone()
         tenant_id = tenant_row["tenant_id"]
 
-        cur.execute(
-            """INSERT INTO app.businesses (tenant_id, name, slug, region)
-               VALUES (%s, %s, %s, %s)
-               RETURNING business_id, slug""",
-            (tenant_id, name, slug, region),
-        )
-        row = cur.fetchone()
-        return {"business_id": row["business_id"], "slug": row["slug"]}
+        base_slug = slug
+        for attempt in range(0, 20):
+            candidate = base_slug if attempt == 0 else f"{base_slug}-{attempt + 1}"
+            cur.execute(
+                """INSERT INTO app.businesses (tenant_id, name, slug, region)
+                   VALUES (%s, %s, %s, %s)
+                   ON CONFLICT (slug) DO NOTHING
+                   RETURNING business_id, slug""",
+                (tenant_id, name, candidate, region),
+            )
+            row = cur.fetchone()
+            if row:
+                canonical_tenant_slug = f"{candidate}-{str(tenant_id)[:8]}"
+                cur.execute(
+                    """INSERT INTO tenant (tenant_id, name, slug)
+                       VALUES (%s, %s, %s)
+                       ON CONFLICT (tenant_id) DO NOTHING""",
+                    (tenant_id, name, canonical_tenant_slug),
+                )
+                cur.execute(
+                    """INSERT INTO business (business_id, tenant_id, name, slug, region)
+                       VALUES (%s, %s, %s, %s, %s)
+                       ON CONFLICT (business_id) DO NOTHING""",
+                    (row["business_id"], tenant_id, name, candidate, region),
+                )
+                cur.execute(
+                    """INSERT INTO fin_partition (
+                         tenant_id, business_id, key, partition_type, is_read_only, status
+                       )
+                       SELECT %s, %s, 'live', 'live', false, 'active'
+                       WHERE NOT EXISTS (
+                         SELECT 1
+                         FROM fin_partition
+                         WHERE tenant_id = %s
+                           AND business_id = %s
+                           AND partition_type = 'live'
+                           AND status = 'active'
+                       )""",
+                    (
+                        tenant_id,
+                        row["business_id"],
+                        tenant_id,
+                        row["business_id"],
+                    ),
+                )
+                return {"business_id": row["business_id"], "slug": row["slug"]}
+        raise ValueError("Could not allocate a unique business slug")
 
 
 def get_business(business_id: UUID) -> dict | None:

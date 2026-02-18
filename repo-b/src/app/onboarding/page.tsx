@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { apiFetch } from "@/lib/api";
 import {
   getAllDepartments,
   getCatalogCapabilities,
@@ -19,14 +18,6 @@ import {
 } from "@/lib/bos-api";
 
 type Step = "create" | "choose" | "template-pick" | "template-review" | "custom-depts" | "custom-caps" | "custom-review" | "provisioning";
-
-type CreatedEnvironment = {
-  env_id: string;
-  client_name: string;
-  industry: string;
-  industry_type?: string;
-  schema_name: string;
-};
 
 const ICON_MAP: Record<string, string> = {
   "dollar-sign": "$",
@@ -69,16 +60,6 @@ export default function OnboardingPage() {
   // State
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  function inferIndustryType(): string {
-    const keys = selectedTemplate
-      ? selectedTemplate.departments
-      : Array.from(customDepts);
-    if (keys.includes("legal")) return "legal";
-    if (keys.includes("construction")) return "construction";
-    if (keys.includes("healthcare")) return "healthcare";
-    return "general";
-  }
 
   // Load catalog
   useEffect(() => {
@@ -149,27 +130,7 @@ export default function OnboardingPage() {
         await applyCustom(businessId, Array.from(customDepts), Array.from(customCaps));
       }
 
-      // For now, business == environment in UX.
-      const industryType = inferIndustryType();
-      const createdEnv = await apiFetch<CreatedEnvironment>("/v1/environments", {
-        method: "POST",
-        body: JSON.stringify({
-          client_name: bizName.trim(),
-          industry: industryType,
-          industry_type: industryType,
-          notes: `Linked to business ${businessId}`,
-        }),
-      });
-      localStorage.setItem("demo_lab_env_id", createdEnv.env_id);
-      sessionStorage.setItem(
-        "bm_env_flash",
-        JSON.stringify({
-          envId: createdEnv.env_id,
-          kind: "created",
-          message: `Created environment "${createdEnv.client_name}" and linked business ${businessId.slice(0, 8)}.`,
-        })
-      );
-      router.push(`/lab/env/${createdEnv.env_id}`);
+      router.push("/app");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Provisioning failed");
     } finally {
@@ -225,6 +186,7 @@ export default function OnboardingPage() {
               disabled={!bizName.trim()}
               onClick={() => setStep("choose")}
               className="w-full"
+              data-testid="onboarding-continue"
             >
               Continue
             </Button>
@@ -240,6 +202,7 @@ export default function OnboardingPage() {
               <button
                 onClick={() => setStep("template-pick")}
                 className="bm-glass-interactive rounded-xl p-4 text-left border border-bm-border/70 hover:border-bm-accent/35"
+                data-testid="onboarding-path-template"
               >
                 <p className="font-semibold">Template</p>
                 <p className="text-sm text-bm-muted mt-1">Pre-configured department bundles. Review &amp; toggle before provisioning.</p>
@@ -273,6 +236,7 @@ export default function OnboardingPage() {
                     setSelectedTemplate(tmpl);
                     setStep("template-review");
                   }}
+                  data-testid={`template-card-${tmpl.key}`}
                   className={`w-full bm-glass-interactive border rounded-xl p-4 text-left transition-colors ${
                     selectedTemplate?.key === tmpl.key
                       ? "border-bm-accent/35"
@@ -396,6 +360,7 @@ export default function OnboardingPage() {
               onClick={handleProvision}
               disabled={loading || templateDepts.size === 0}
               className="w-full"
+              data-testid="onboarding-provision"
             >
               {loading ? "Provisioning..." : "Provision Business"}
             </Button>
@@ -570,6 +535,7 @@ export default function OnboardingPage() {
               onClick={handleProvision}
               disabled={loading}
               className="w-full"
+              data-testid="onboarding-provision"
             >
               {loading ? "Provisioning..." : "Provision Business"}
             </Button>

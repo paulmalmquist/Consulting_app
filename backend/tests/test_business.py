@@ -22,11 +22,14 @@ def test_create_business(client, fake_cursor):
     assert data["business_id"] == business_id
     assert data["slug"] == "acme-co"
 
-    # Verify the queries were made (business create + audit event)
-    assert len(fake_cursor.queries) == 3
+    # Verify the queries were made (app+canonical tenant/business + live partition + audit event)
+    assert len(fake_cursor.queries) == 6
     assert "INSERT INTO app.tenants" in fake_cursor.queries[0][0]
     assert "INSERT INTO app.businesses" in fake_cursor.queries[1][0]
-    assert "INSERT INTO app.audit_events" in fake_cursor.queries[2][0]
+    assert "INSERT INTO tenant" in fake_cursor.queries[2][0]
+    assert "INSERT INTO business" in fake_cursor.queries[3][0]
+    assert "INSERT INTO fin_partition" in fake_cursor.queries[4][0]
+    assert "INSERT INTO app.audit_events" in fake_cursor.queries[5][0]
 
 
 def test_apply_template_unknown_key(client, fake_cursor):

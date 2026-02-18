@@ -22,6 +22,7 @@ from app.schemas.finance import (
     ContingencyRunRequest,
     ContingencyRunTriggerRequest,
     DistributionEventCreateRequest,
+    AssetInvestmentCreateRequest,
     EnsureConstructionProjectRequest,
     FinRunOut,
     FinRunResponse,
@@ -35,6 +36,7 @@ from app.schemas.finance import (
     ProviderCompRunRequest,
     ProviderCompRunTriggerRequest,
     ProviderCreateRequest,
+    ParticipantCreateRequest,
     SimulationCreateRequest,
     SnapshotCreateRequest,
     TrustTransactionCreateRequest,
@@ -167,6 +169,33 @@ def list_funds(
         raise _to_http_error(exc)
 
 
+@router.post("/participants")
+def create_participant(req: ParticipantCreateRequest):
+    try:
+        return finance_repe.create_participant(
+            business_id=req.business_id,
+            name=req.name,
+            participant_type=req.participant_type,
+            external_key=req.external_key,
+        )
+    except Exception as exc:
+        raise _to_http_error(exc)
+
+
+@router.get("/participants")
+def list_participants(
+    business_id: UUID = Query(...),
+    participant_type: str | None = Query(None),
+):
+    try:
+        return finance_repe.list_participants(
+            business_id=business_id,
+            participant_type=participant_type,
+        )
+    except Exception as exc:
+        raise _to_http_error(exc)
+
+
 @router.post("/funds/{fund_id}/commitments")
 def create_commitment(fund_id: UUID, req: CommitmentCreateRequest):
     try:
@@ -212,6 +241,28 @@ def list_capital_calls(fund_id: UUID):
         raise _to_http_error(exc)
 
 
+@router.post("/funds/{fund_id}/assets")
+def create_asset_investment(fund_id: UUID, req: AssetInvestmentCreateRequest):
+    try:
+        return finance_repe.create_asset_investment(
+            fund_id=fund_id,
+            asset_name=req.asset_name,
+            acquisition_date=req.acquisition_date,
+            cost_basis=req.cost_basis,
+            current_valuation=req.current_valuation,
+        )
+    except Exception as exc:
+        raise _to_http_error(exc)
+
+
+@router.get("/funds/{fund_id}/assets")
+def list_assets(fund_id: UUID):
+    try:
+        return finance_repe.list_assets(fund_id=fund_id)
+    except Exception as exc:
+        raise _to_http_error(exc)
+
+
 @router.post("/funds/{fund_id}/contributions")
 def create_contribution(fund_id: UUID, req: ContributionCreateRequest):
     try:
@@ -238,6 +289,25 @@ def create_distribution_event(fund_id: UUID, req: DistributionEventCreateRequest
             event_type=req.event_type,
             reference=req.reference,
             fin_asset_investment_id=req.fin_asset_investment_id,
+        )
+    except Exception as exc:
+        raise _to_http_error(exc)
+
+
+@router.get("/funds/{fund_id}/distribution-events")
+def list_distribution_events(fund_id: UUID):
+    try:
+        return finance_repe.list_distribution_events(fund_id=fund_id)
+    except Exception as exc:
+        raise _to_http_error(exc)
+
+
+@router.get("/funds/{fund_id}/distribution-events/{distribution_event_id}/payouts")
+def list_distribution_payouts(fund_id: UUID, distribution_event_id: UUID):
+    try:
+        return finance_repe.list_distribution_payouts(
+            fund_id=fund_id,
+            distribution_event_id=distribution_event_id,
         )
     except Exception as exc:
         raise _to_http_error(exc)

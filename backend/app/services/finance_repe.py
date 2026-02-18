@@ -135,6 +135,53 @@ def list_funds(*, business_id: UUID, partition_id: UUID) -> list[dict]:
         return cur.fetchall()
 
 
+def create_participant(
+    *,
+    business_id: UUID,
+    name: str,
+    participant_type: str,
+    external_key: str | None = None,
+) -> dict:
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT tenant_id FROM business WHERE business_id = %s",
+            (str(business_id),),
+        )
+        biz = cur.fetchone()
+        if not biz:
+            raise LookupError("Business not found")
+
+        cur.execute(
+            """INSERT INTO fin_participant
+               (tenant_id, business_id, external_key, name, participant_type)
+               VALUES (%s, %s, %s, %s, %s)
+               RETURNING *""",
+            (biz["tenant_id"], str(business_id), external_key, name, participant_type),
+        )
+        return cur.fetchone()
+
+
+def list_participants(*, business_id: UUID, participant_type: str | None = None) -> list[dict]:
+    with get_cursor() as cur:
+        if participant_type:
+            cur.execute(
+                """SELECT *
+                   FROM fin_participant
+                   WHERE business_id = %s AND participant_type = %s
+                   ORDER BY created_at DESC""",
+                (str(business_id), participant_type),
+            )
+        else:
+            cur.execute(
+                """SELECT *
+                   FROM fin_participant
+                   WHERE business_id = %s
+                   ORDER BY created_at DESC""",
+                (str(business_id),),
+            )
+        return cur.fetchall()
+
+
 def _get_fund(cur, fund_id: UUID) -> dict:
     cur.execute("SELECT * FROM fin_fund WHERE fin_fund_id = %s", (str(fund_id),))
     row = cur.fetchone()
@@ -278,6 +325,49 @@ def list_capital_calls(*, fund_id: UUID) -> list[dict]:
         return cur.fetchall()
 
 
+def create_asset_investment(
+    *,
+    fund_id: UUID,
+    asset_name: str,
+    acquisition_date: date | None,
+    cost_basis: Decimal,
+    current_valuation: Decimal | None = None,
+) -> dict:
+    with get_cursor() as cur:
+        fund = _get_fund(cur, fund_id)
+        cur.execute(
+            """INSERT INTO fin_asset_investment
+               (tenant_id, business_id, partition_id, fin_fund_id, asset_name, acquisition_date,
+                cost_basis, current_valuation, status)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'active')
+               RETURNING *""",
+            (
+                fund["tenant_id"],
+                fund["business_id"],
+                fund["partition_id"],
+                str(fund_id),
+                asset_name,
+                acquisition_date,
+                qmoney(cost_basis),
+                qmoney(current_valuation) if current_valuation is not None else None,
+            ),
+        )
+        return cur.fetchone()
+
+
+def list_assets(*, fund_id: UUID) -> list[dict]:
+    with get_cursor() as cur:
+        _get_fund(cur, fund_id)
+        cur.execute(
+            """SELECT *
+               FROM fin_asset_investment
+               WHERE fin_fund_id = %s
+               ORDER BY created_at DESC""",
+            (str(fund_id),),
+        )
+        return cur.fetchall()
+
+
 def create_contribution(
     *,
     fund_id: UUID,
@@ -377,6 +467,45 @@ def create_distribution_event(
             ),
         )
         return cur.fetchone()
+
+
+def list_distribution_events(*, fund_id: UUID) -> list[dict]:
+    with get_cursor() as cur:
+        _get_fund(cur, fund_id)
+        cur.execute(
+            """SELECT de.*, ai.asset_name
+               FROM fin_distribution_event de
+               LEFT JOIN fin_asset_investment ai
+                 ON ai.fin_asset_investment_id = de.fin_asset_investment_id
+               WHERE de.fin_fund_id = %s
+               ORDER BY de.event_date DESC, de.created_at DESC""",
+            (str(fund_id),),
+        )
+        return cur.fetchall()
+
+
+def list_distribution_payouts(*, fund_id: UUID, distribution_event_id: UUID) -> list[dict]:
+    with get_cursor() as cur:
+        _get_fund(cur, fund_id)
+        cur.execute(
+            """SELECT *
+               FROM fin_distribution_event
+               WHERE fin_distribution_event_id = %s
+                 AND fin_fund_id = %s""",
+            (str(distribution_event_id), str(fund_id)),
+        )
+        if not cur.fetchone():
+            raise LookupError("Distribution event not found for fund")
+
+        cur.execute(
+            """SELECT dp.*, p.name AS participant_name
+               FROM fin_distribution_payout dp
+               LEFT JOIN fin_participant p ON p.fin_participant_id = dp.fin_participant_id
+               WHERE dp.fin_distribution_event_id = %s
+               ORDER BY dp.created_at, dp.fin_distribution_payout_id""",
+            (str(distribution_event_id),),
+        )
+        return cur.fetchall()
 
 
 def _build_waterfall_participants(cur, fund: dict, distribution_event: dict, as_of_date: date) -> tuple[list[ParticipantState], Decimal, Decimal]:
