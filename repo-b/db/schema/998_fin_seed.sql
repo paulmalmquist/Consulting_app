@@ -12,7 +12,8 @@ INSERT INTO module (key, name, version, description) VALUES
   ('fin_healthcare', 'Healthcare/MSO', '1.0.0', 'MSO allocations, claims/denials, provider compensation.'),
   ('fin_construction', 'Construction Finance', '1.0.0', 'Budget/commitment/forecast controls and change-order lineage.'),
   ('fin_security_governance', 'Finance Security', '1.0.0', 'Entity ACL and field-level classification controls.'),
-  ('fin_runtime', 'Finance Runtime', '1.0.0', 'Deterministic run envelopes, hashes, and result references.')
+  ('fin_runtime', 'Finance Runtime', '1.0.0', 'Deterministic run envelopes, hashes, and result references.'),
+  ('fin_underwriting', 'Underwriting Orchestrator', '1.0.0', 'Deterministic underwriting pipeline with cited research ingestion, scenarios, and report artifacts.')
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO module_dependency (module_id, depends_on_module_id)
@@ -50,6 +51,12 @@ INSERT INTO module_dependency (module_id, depends_on_module_id)
 SELECT m1.module_id, m2.module_id
 FROM module m1, module m2
 WHERE m1.key = 'fin_runtime' AND m2.key = 'fin_allocation_engine'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO module_dependency (module_id, depends_on_module_id)
+SELECT m1.module_id, m2.module_id
+FROM module m1, module m2
+WHERE m1.key = 'fin_underwriting' AND m2.key = 'fin_runtime'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO module_dependency (module_id, depends_on_module_id)

@@ -94,5 +94,18 @@ SELECT fin_apply_tenant_rls('fin_download_audit');
 SELECT fin_apply_tenant_rls('fin_run');
 SELECT fin_apply_tenant_rls('fin_run_result_ref');
 SELECT fin_apply_tenant_rls('fin_run_event');
+SELECT fin_apply_tenant_rls('uw_run');
+SELECT fin_apply_tenant_rls('uw_research_source');
+SELECT fin_apply_tenant_rls('uw_research_datum');
+SELECT fin_apply_tenant_rls('uw_comp_sale');
+SELECT fin_apply_tenant_rls('uw_comp_lease');
+SELECT fin_apply_tenant_rls('uw_market_snapshot');
+SELECT fin_apply_tenant_rls('uw_assumption');
+SELECT fin_apply_tenant_rls('uw_scenario');
+SELECT fin_apply_tenant_rls('uw_model_result');
+SELECT fin_apply_tenant_rls('uw_report_artifact');
+SELECT fin_apply_tenant_rls('uw_input_snapshot');
+SELECT fin_apply_tenant_rls('uw_output_snapshot');
+SELECT fin_apply_tenant_rls('uw_audit_event');
 
 DROP FUNCTION fin_apply_tenant_rls(text);

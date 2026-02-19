@@ -20,28 +20,22 @@ export default function PublicOnboardingPage() {
     setError(null);
     setResult(null);
     try {
-      const response = await fetch("/api/public/onboarding-lead", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          company_name: companyName,
-          email,
-          industry,
-          team_size: teamSize,
-          source: "public_onboarding_page",
-        }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload.error || "Failed to capture onboarding request");
-      }
-      setResult(
-        `Environment created: ${payload.client_name || companyName} (${payload.env_id || "unknown"}).`
+      const subject = encodeURIComponent(`Onboarding Intake - ${companyName}`);
+      const body = encodeURIComponent(
+        [
+          `Company Name: ${companyName}`,
+          `Work Email: ${email}`,
+          `Industry: ${industry}`,
+          `Team Size: ${teamSize}`,
+          `Source: public_onboarding_page`,
+        ].join("\n")
       );
+      window.location.href = `mailto:info@novendor.ai?subject=${subject}&body=${body}`;
+      setResult("Email draft opened to info@novendor.ai.");
       setCompanyName("");
       setEmail("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit request");
+      setError(err instanceof Error ? err.message : "Failed to prepare email");
     } finally {
       setLoading(false);
     }

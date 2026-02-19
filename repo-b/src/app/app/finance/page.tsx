@@ -7,6 +7,11 @@ const CARDS = [
     description: "Fund setup, commitments, capital calls, and deterministic waterfall runs.",
   },
   {
+    href: "/app/finance/underwriting",
+    title: "Underwriting",
+    description: "Cited market/comps ingest, scenario levers, and reproducible IC/appraisal artifacts.",
+  },
+  {
     href: "/app/finance/legal",
     title: "Legal Economics",
     description: "Matter-level economics, trust ledger segregation, and contingency runs.",

@@ -568,6 +568,234 @@ export function listFinWaterfallAllocations(fundId: string, runId: string) {
   return bosFetch(`/api/fin/v1/funds/${fundId}/waterfall-runs/${runId}/allocations`);
 }
 
+export type UnderwritingPropertyType =
+  | "multifamily"
+  | "industrial"
+  | "office"
+  | "retail"
+  | "medical_office"
+  | "senior_housing"
+  | "student_housing";
+
+export interface UnderwritingRun {
+  run_id: string;
+  tenant_id: string;
+  business_id: string;
+  env_id?: string | null;
+  execution_id?: string | null;
+  property_name: string;
+  property_type: UnderwritingPropertyType;
+  status: string;
+  research_version: number;
+  normalized_version: number;
+  model_input_version: number;
+  output_version: number;
+  model_version: string;
+  normalization_version: string;
+  contract_version: string;
+  input_hash: string;
+  dataset_version_id?: string | null;
+  rule_version_id?: string | null;
+  error_message?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UnderwritingResearchIngestPayload {
+  contract_version?: string;
+  sources: Array<{
+    citation_key: string;
+    url: string;
+    title?: string | null;
+    publisher?: string | null;
+    date_accessed: string;
+    raw_text_excerpt?: string | null;
+    raw_payload?: Record<string, unknown>;
+  }>;
+  extracted_datapoints: Array<{
+    datum_key: string;
+    fact_class: "fact" | "assumption" | "inference";
+    value: unknown;
+    unit?: "pct_decimal" | "usd_cents" | "sf" | "units" | "bps" | "ratio" | "count";
+    confidence?: number;
+    citation_key?: string | null;
+  }>;
+  sale_comps: Array<{
+    address: string;
+    submarket?: string | null;
+    close_date?: string | null;
+    sale_price: unknown;
+    cap_rate?: unknown;
+    noi?: unknown;
+    size_sf?: unknown;
+    citation_key: string;
+    confidence?: number;
+  }>;
+  lease_comps: Array<{
+    address: string;
+    submarket?: string | null;
+    lease_date?: string | null;
+    rent_psf: unknown;
+    term_months?: number | null;
+    size_sf?: unknown;
+    concessions?: unknown;
+    citation_key: string;
+    confidence?: number;
+  }>;
+  market_snapshot: Array<{
+    metric_key: string;
+    metric_date?: string | null;
+    metric_grain?: string;
+    metric_value: unknown;
+    unit: "pct_decimal" | "usd_cents" | "sf" | "units" | "bps" | "ratio" | "count";
+    citation_key: string;
+    confidence?: number;
+  }>;
+  unknowns?: string[];
+  assumption_suggestions?: Array<{
+    assumption_key: string;
+    value: unknown;
+    rationale?: string | null;
+  }>;
+}
+
+export interface UnderwritingScenarioLevers {
+  rent_growth_bps?: number;
+  vacancy_bps?: number;
+  exit_cap_bps?: number;
+  expense_growth_bps?: number;
+  opex_ratio_delta?: number;
+  ti_lc_per_sf?: number;
+  capex_reserve_per_sf?: number;
+  debt_rate_bps?: number;
+  ltv_delta?: number;
+  amort_years?: number;
+  io_months?: number;
+}
+
+export interface UnderwritingScenarioResult {
+  scenario_id: string;
+  name: string;
+  scenario_type: "base" | "upside" | "downside" | "custom";
+  recommendation: "buy" | "pass" | "reprice";
+  valuation: Record<string, unknown>;
+  returns: Record<string, unknown>;
+  debt: Record<string, unknown>;
+  sensitivities: Record<string, unknown>;
+}
+
+export interface UnderwritingReports {
+  run_id: string;
+  scenarios: Array<{
+    scenario_id?: string | null;
+    name: string;
+    scenario_type?: "base" | "upside" | "downside" | "custom" | null;
+    recommendation?: "buy" | "pass" | "reprice" | null;
+    artifacts: Record<
+      string,
+      {
+        artifact_type: "ic_memo_md" | "appraisal_md" | "outputs_json" | "outputs_md" | "sources_ledger_md";
+        content_md?: string | null;
+        content_json?: Record<string, unknown> | null;
+      }
+    >;
+  }>;
+}
+
+export function getUnderwritingResearchContract() {
+  return bosFetch<{
+    contract_version: string;
+    schema: Record<string, unknown>;
+  }>("/api/underwriting/contracts/research");
+}
+
+export function createUnderwritingRun(body: {
+  business_id: string;
+  env_id?: string;
+  property_name: string;
+  property_type: UnderwritingPropertyType;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state_province?: string;
+  postal_code?: string;
+  country?: string;
+  submarket?: string;
+  gross_area_sf?: number;
+  unit_count?: number;
+  occupancy_pct?: number;
+  in_place_noi_cents?: number;
+  purchase_price_cents?: number;
+  property_inputs_json?: Record<string, unknown>;
+  contract_version?: string;
+}): Promise<UnderwritingRun> {
+  return bosFetch("/api/underwriting/runs", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listUnderwritingRuns(
+  businessId: string,
+  options?: { status?: string; limit?: number }
+): Promise<UnderwritingRun[]> {
+  return bosFetch("/api/underwriting/runs", {
+    params: {
+      business_id: businessId,
+      status: options?.status,
+      limit: options?.limit ? String(options.limit) : undefined,
+    },
+  });
+}
+
+export function getUnderwritingRun(runId: string): Promise<UnderwritingRun> {
+  return bosFetch(`/api/underwriting/runs/${runId}`);
+}
+
+export function ingestUnderwritingResearch(
+  runId: string,
+  body: UnderwritingResearchIngestPayload
+): Promise<{
+  run_id: string;
+  research_version: number;
+  normalized_version: number;
+  source_count: number;
+  datum_count: number;
+  sale_comp_count: number;
+  lease_comp_count: number;
+  market_metric_count: number;
+  assumption_count: number;
+  warnings: string[];
+}> {
+  return bosFetch(`/api/underwriting/runs/${runId}/ingest-research`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function runUnderwritingScenarios(
+  runId: string,
+  body: {
+    include_defaults?: boolean;
+    custom_scenarios?: Array<{ name: string; levers?: UnderwritingScenarioLevers }>;
+  }
+): Promise<{
+  run_id: string;
+  status: string;
+  model_input_version: number;
+  output_version: number;
+  scenarios: UnderwritingScenarioResult[];
+}> {
+  return bosFetch(`/api/underwriting/runs/${runId}/scenarios/run`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getUnderwritingReports(runId: string): Promise<UnderwritingReports> {
+  return bosFetch(`/api/underwriting/runs/${runId}/reports`);
+}
+
 export interface MetricDefinition {
   metric_id: string;
   key: string;

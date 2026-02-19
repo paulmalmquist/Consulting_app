@@ -68,3 +68,23 @@ uvicorn app.main:app --reload --port 8000
 ### Executions
 - `POST /api/executions/run` — Run an execution (stub)
 - `GET /api/executions?business_id=...` — List executions
+
+### Underwriting
+- `GET /api/underwriting/contracts/research` — Strict ingest contract JSON schema
+- `POST /api/underwriting/runs` — Create deterministic underwriting run (`run_id` = UUIDv5 hash identity)
+- `GET /api/underwriting/runs?business_id=...` — List underwriting runs
+- `GET /api/underwriting/runs/{run_id}` — Get run status/details
+- `POST /api/underwriting/runs/{run_id}/ingest-research` — Ingest structured research payload with citation validation
+- `POST /api/underwriting/runs/{run_id}/scenarios/run` — Run Base/Upside/Downside + custom scenarios
+- `GET /api/underwriting/runs/{run_id}/reports` — Retrieve report artifacts (IC memo, appraisal narrative, outputs, sources ledger)
+
+## Local CLI Flow (Underwriting)
+
+From repo root:
+
+```bash
+scripts/underwriting_run.sh \
+  --business-id <business_uuid> \
+  --property-file backend/tests/fixtures/underwriting/sample_property_multifamily.json \
+  --research-file backend/tests/fixtures/underwriting/sample_research_payload.json
+```

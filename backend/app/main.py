@@ -18,6 +18,7 @@ from app.routes import (
     extraction,
     compliance,
     admin_tools,
+    underwriting,
 )
 from app.routes.ai import router as ai_router
 
@@ -48,3 +49,4 @@ app.include_router(ai_router)
 app.include_router(extraction.router)
 app.include_router(compliance.router)
 app.include_router(admin_tools.router)
+app.include_router(underwriting.router)

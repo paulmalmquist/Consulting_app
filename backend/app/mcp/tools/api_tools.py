@@ -17,6 +17,7 @@ ALLOWED_API_PATHS = [
     "/api/capabilities",
     "/api/documents",
     "/api/executions",
+    "/api/underwriting",
     "/api/admin/",  # Admin tools endpoints
 ]
 
