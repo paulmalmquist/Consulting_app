@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import {
@@ -51,6 +52,17 @@ export default function LabCapabilityPage({
     ];
   }, [metrics]);
 
+  const financeRouteByCapability: Record<string, string> = {
+    repe_waterfalls: "/app/finance/repe",
+    underwriting: "/app/finance/underwriting",
+    scenario_lab: "/app/finance/scenarios",
+    legal_economics: "/app/finance/legal",
+    healthcare_mso: "/app/finance/healthcare",
+    construction_finance: "/app/finance/construction",
+    security_acl: "/app/finance/security",
+  };
+  const financeRoute = deptKey === "finance" ? financeRouteByCapability[params.capKey] : undefined;
+
   if (!department || !capability) {
     return (
       <Card>
@@ -74,6 +86,23 @@ export default function LabCapabilityPage({
           </CardDescription>
         </CardContent>
       </Card>
+
+      {financeRoute ? (
+        <Card>
+          <CardContent className="space-y-2">
+            <p className="text-sm text-bm-muted">
+              This capability runs in the dedicated finance workspace.
+            </p>
+            <Link
+              href={financeRoute}
+              className="inline-flex rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/50"
+              data-testid="open-finance-workspace"
+            >
+              Open {capability.label}
+            </Link>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {params.capKey === "metrics" ? (
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

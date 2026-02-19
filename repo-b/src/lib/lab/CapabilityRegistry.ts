@@ -27,6 +27,15 @@ const INDUSTRY_HIDDEN_CAPABILITIES: Partial<
 };
 
 export const LAB_CAPABILITIES_BY_DEPARTMENT: Record<LabDepartmentKey, LabCapabilityMeta[]> = {
+  finance: [
+    { key: "repe_waterfalls", label: "REPE Waterfalls", description: "Fund setup, commitments, capital calls, and deterministic waterfall runs." },
+    { key: "underwriting", label: "Underwriting", description: "Cited market/comps ingest, scenario levers, and reproducible IC/appraisal artifacts." },
+    { key: "scenario_lab", label: "Scenario Lab", description: "Snapshot live baselines, spin simulations, and diff against production." },
+    { key: "legal_economics", label: "Legal Economics", description: "Matter-level economics, trust ledger segregation, and contingency runs." },
+    { key: "healthcare_mso", label: "Healthcare / MSO", description: "MSO-clinic-provider economics, provider comp, and claims reconciliation." },
+    { key: "construction_finance", label: "Construction Finance", description: "CSI budget versions, commitments, and forecast-at-completion runs." },
+    { key: "security_acl", label: "Security & ACL", description: "Entity access controls and field segregation policy surfaces." },
+  ],
   crm: [
     { key: "accounts", label: "Accounts", description: "Manage account records and segmentation." },
     { key: "contacts", label: "Contacts", description: "Track stakeholders and relationship history." },

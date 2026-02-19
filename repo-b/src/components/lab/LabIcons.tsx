@@ -115,6 +115,17 @@ export function Columns3Icon(props: IconProps) {
   );
 }
 
+export function PipeIcon(props: IconProps) {
+  return (
+    <svg {...defaultProps(props)}>
+      <path d="M8 3v18" />
+      <path d="M16 3v18" />
+      <path d="M8 6h8" />
+      <path d="M8 18h8" />
+    </svg>
+  );
+}
+
 export function SparklesIcon(props: IconProps) {
   return (
     <svg {...defaultProps(props)}>
@@ -260,9 +271,22 @@ export function LockIcon(props: IconProps) {
   );
 }
 
+export function Trash2Icon(props: IconProps) {
+  return (
+    <svg {...defaultProps(props)}>
+      <path d="M3 6h18" />
+      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>
+  );
+}
+
 /* ── Department icon lookup map ──────────────────────────── */
 
 const DEPT_ICON_MAP: Record<string, React.FC<IconProps>> = {
+  finance: DollarSignIcon,
   crm: UsersIcon,
   accounting: DollarSignIcon,
   operations: SettingsIcon,

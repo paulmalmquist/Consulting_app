@@ -1,4 +1,5 @@
 export type LabDepartmentKey =
+  | "finance"
   | "crm"
   | "accounting"
   | "operations"
@@ -17,6 +18,7 @@ export type LabDepartmentMeta = {
 };
 
 export const LAB_DEPARTMENTS: LabDepartmentMeta[] = [
+  { key: "finance", label: "Finance", description: "Underwriting, REPE, and scenario analysis" },
   { key: "crm", label: "CRM", description: "Pipeline, contacts, and client activity" },
   { key: "accounting", label: "Accounting", description: "Books, AP/AR, and controls" },
   { key: "operations", label: "Operations", description: "Workflows, SOPs, and daily execution" },
@@ -40,7 +42,7 @@ const INDUSTRY_DEPARTMENT_MAP: Record<string, LabDepartmentKey[]> = {
   healthcare: ["operations", "documents", "hr", "accounting", "it", "executive"],
   dental: ["operations", "documents", "hr", "accounting", "it", "executive"],
   med_spa: ["operations", "documents", "crm", "accounting", "it", "executive"],
-  real_estate: ["crm", "operations", "projects", "accounting", "legal", "documents"],
+  real_estate: ["finance", "crm", "operations", "projects", "accounting", "legal", "documents"],
   construction: ["projects", "operations", "accounting", "legal", "documents"],
   accounting_firm: ["accounting", "documents", "admin", "crm"],
   insurance: ["crm", "operations", "legal", "documents"],
@@ -66,7 +68,7 @@ const DEFAULT_DEPARTMENT_BY_INDUSTRY: Record<string, LabDepartmentKey> = {
   healthcare: "operations",
   dental: "operations",
   med_spa: "operations",
-  real_estate: "crm",
+  real_estate: "finance",
   construction: "projects",
   accounting_firm: "accounting",
   insurance: "crm",

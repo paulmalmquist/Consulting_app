@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
+import { Trash2Icon } from "@/components/lab/LabIcons";
 
-const industries = ["healthcare", "legal", "construction", "website"] as const;
+const industries = ["healthcare", "legal", "construction", "real_estate", "website"] as const;
 
 export default function EnvironmentsPage() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function EnvironmentsPage() {
   const [industry, setIndustry] = useState<(typeof industries)[number]>("healthcare");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<string | null>(null);
+  const [rowIndustryDraft, setRowIndustryDraft] = useState<Record<string, (typeof industries)[number]>>({});
 
   const openEnvironment = (envId: string) => {
     selectEnv(envId);
@@ -53,6 +55,38 @@ export default function EnvironmentsPage() {
       openEnvironment(payload.env_id);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Create failed";
+      setStatus(message);
+    }
+  };
+
+  const updateIndustry = async (envId: string) => {
+    const nextIndustry = rowIndustryDraft[envId];
+    if (!nextIndustry) return;
+    setStatus(null);
+    try {
+      await apiFetch(`/v1/environments/${envId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          industry: nextIndustry,
+          industry_type: nextIndustry,
+        }),
+      });
+      await refresh();
+      setStatus(`Environment updated to ${nextIndustry}.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Update failed";
+      setStatus(message);
+    }
+  };
+
+  const deleteEnvironment = async (envId: string) => {
+    setStatus(null);
+    try {
+      await apiFetch(`/v1/environments/${envId}`, { method: "DELETE" });
+      await refresh();
+      setStatus("Environment deleted.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Delete failed";
       setStatus(message);
     }
   };
@@ -114,21 +148,57 @@ export default function EnvironmentsPage() {
           <CardDescription>Select or review configured environments.</CardDescription>
           <div className="mt-6 space-y-3">
             {environments.map((env) => (
-              <button
-                key={env.env_id}
-                onClick={() => openEnvironment(env.env_id)}
-                className="w-full text-left bm-glass-interactive rounded-xl p-4"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold">{env.client_name}</p>
-                    <p className="text-xs text-bm-muted2">
-                      {env.industry_type || env.industry}
-                    </p>
-                  </div>
-                  <span className="text-xs text-bm-muted">{env.schema_name}</span>
+              <div key={env.env_id} className="w-full bm-glass-interactive rounded-xl p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <button
+                    onClick={() => openEnvironment(env.env_id)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <div>
+                      <p className="font-semibold">{env.client_name}</p>
+                      <p className="text-xs text-bm-muted2">
+                        {env.industry_type || env.industry}
+                      </p>
+                    </div>
+                  </button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteEnvironment(env.env_id)}
+                    className="h-8 w-8 p-0 text-bm-muted hover:text-red-400"
+                    aria-label={`Delete ${env.client_name}`}
+                    data-testid={`env-delete-${env.env_id}`}
+                  >
+                    <Trash2Icon size={16} />
+                  </Button>
                 </div>
-              </button>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={rowIndustryDraft[env.env_id] || (env.industry_type || env.industry)}
+                    onChange={(event) =>
+                      setRowIndustryDraft((prev) => ({
+                        ...prev,
+                        [env.env_id]: event.target.value as (typeof industries)[number],
+                      }))
+                    }
+                    data-testid={`env-industry-${env.env_id}`}
+                  >
+                    {industries.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </Select>
+                  <Button
+                    type="button"
+                    onClick={() => updateIndustry(env.env_id)}
+                    data-testid={`env-save-industry-${env.env_id}`}
+                  >
+                    Save Industry
+                  </Button>
+                </div>
+              </div>
             ))}
             {environments.length === 0 ? (
               <p className="text-sm text-bm-muted2">No environments yet.</p>
