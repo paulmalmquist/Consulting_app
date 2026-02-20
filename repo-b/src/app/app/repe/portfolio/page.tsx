@@ -26,10 +26,11 @@ export default function RepePortfolioPage() {
   useEffect(() => {
     let cancelled = false;
     if (!businessId) return;
+    const resolvedBusinessId = businessId;
 
     async function load() {
       try {
-        const partitions = await listFinPartitions(businessId);
+        const partitions = await listFinPartitions(resolvedBusinessId);
         if (cancelled) return;
         const livePartitionId = partitions.find((row) => row.partition_type === "live")?.partition_id || partitions[0]?.partition_id || "";
         setPartitionId(livePartitionId);
@@ -37,7 +38,7 @@ export default function RepePortfolioPage() {
           setFunds([]);
           return;
         }
-        const rows = await listFinFunds(businessId, livePartitionId);
+        const rows = await listFinFunds(resolvedBusinessId, livePartitionId);
         if (cancelled) return;
         setFunds(rows);
       } catch (err) {
@@ -136,7 +137,7 @@ export default function RepePortfolioPage() {
         {funds.map((fund) => (
           <Link key={fund.fin_fund_id} href={`/app/repe/funds/${fund.fin_fund_id}`} className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 hover:bg-bm-surface/40">
             <p className="text-lg font-semibold">{fund.name}</p>
-            <p className="text-xs text-bm-muted2">{fund.fund_code} · {fund.vintage_date}</p>
+            <p className="text-xs text-bm-muted2">{fund.fund_code} · {fund.created_at?.slice(0, 10) || "n/a"}</p>
           </Link>
         ))}
       </div>

@@ -106,11 +106,12 @@ export function useRepeContext(): UseRepeContextResult {
       setReady(true);
       return;
     }
+    const resolvedEnvironmentId = environmentId;
 
     async function resolve() {
       setLoading(true);
       try {
-        const [env, businessRows] = await Promise.all([fetchEnvironment(environmentId), listBusinesses().catch(() => [])]);
+        const [env, businessRows] = await Promise.all([fetchEnvironment(resolvedEnvironmentId), listBusinesses().catch(() => [])]);
         if (cancelled) return;
 
         setEnvironment(env);
@@ -120,7 +121,7 @@ export function useRepeContext(): UseRepeContextResult {
           ? safeParseMap(window.localStorage.getItem(ENV_BIZ_MAP_KEY))
           : {};
 
-        const mappedBusinessId = envMap[environmentId];
+        const mappedBusinessId = envMap[resolvedEnvironmentId];
         const mappedBusiness = mappedBusinessId
           ? businessRows.find((row) => row.business_id === mappedBusinessId)
           : null;
@@ -131,7 +132,7 @@ export function useRepeContext(): UseRepeContextResult {
 
         if (nextBusinessId) {
           setBusinessId(nextBusinessId);
-          persistEnvBusiness(environmentId, nextBusinessId);
+          persistEnvBusiness(resolvedEnvironmentId, nextBusinessId);
           setReady(true);
           return;
         }
@@ -146,7 +147,7 @@ export function useRepeContext(): UseRepeContextResult {
           }
           if (cancelled) return;
           setBusinessId(created.business_id);
-          persistEnvBusiness(environmentId, created.business_id);
+          persistEnvBusiness(resolvedEnvironmentId, created.business_id);
           setBusinesses((prev) => [
             ...prev,
             {
@@ -159,12 +160,12 @@ export function useRepeContext(): UseRepeContextResult {
             },
           ]);
           logInfo("repe.business.seeded", "Seeded REPE business for environment", {
-            env_id: environmentId,
+            env_id: resolvedEnvironmentId,
             business_id: created.business_id,
           });
         } else {
           logWarn("repe.business.missing", "No business could be resolved for current context", {
-            env_id: environmentId,
+            env_id: resolvedEnvironmentId,
           });
         }
       } catch {

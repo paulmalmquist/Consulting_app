@@ -12,12 +12,13 @@ export default function RepeFundDetailPage({ params }: { params: { fundId: strin
   useEffect(() => {
     let cancelled = false;
     if (!businessId) return;
+    const resolvedBusinessId = businessId;
 
     async function loadFund() {
-      const partitions = await listFinPartitions(businessId);
+      const partitions = await listFinPartitions(resolvedBusinessId);
       const liveId = partitions.find((row) => row.partition_type === "live")?.partition_id || partitions[0]?.partition_id;
       if (!liveId) return;
-      const rows = await listFinFunds(businessId, liveId);
+      const rows = await listFinFunds(resolvedBusinessId, liveId);
       if (cancelled) return;
       setFund(rows.find((row) => row.fin_fund_id === params.fundId) || null);
     }
