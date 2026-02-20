@@ -84,6 +84,16 @@ def create_business(name: str, slug: str, region: str = "us") -> dict:
         raise ValueError("Could not allocate a unique business slug")
 
 
+def list_businesses() -> list[dict]:
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT business_id, tenant_id, name, slug, region, created_at
+               FROM app.businesses
+               ORDER BY created_at ASC"""
+        )
+        return cur.fetchall()
+
+
 def get_business(business_id: UUID) -> dict | None:
     with get_cursor() as cur:
         cur.execute(

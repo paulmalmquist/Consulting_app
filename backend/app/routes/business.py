@@ -5,6 +5,7 @@ from app.db import get_cursor
 from app.schemas.business import (
     CreateBusinessRequest,
     CreateBusinessResponse,
+    BusinessOut,
     ApplyTemplateRequest,
     ApplyCustomRequest,
     OkResponse,
@@ -35,6 +36,12 @@ def create_business(req: CreateBusinessRequest):
         input_data={"name": req.name, "slug": req.slug},
     )
     return CreateBusinessResponse(business_id=result["business_id"], slug=result["slug"])
+
+
+@router.get("/businesses", response_model=list[BusinessOut])
+def list_businesses():
+    rows = biz_svc.list_businesses()
+    return [BusinessOut(**r) for r in rows]
 
 
 @router.post("/businesses/{business_id}/apply-template", response_model=OkResponse)

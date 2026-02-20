@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import type { Environment } from "@/components/EnvProvider";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
-import { apiFetch } from "@/lib/api";
 import { EnvironmentCard, EnvironmentStats } from "./EnvironmentCard";
 import { EnvironmentStatus, statusFromFlags } from "./constants";
 
@@ -32,7 +31,6 @@ export function EnvironmentList({
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("created");
   const [activeFilters, setActiveFilters] = useState<Array<"active" | "archived" | "failed">>(["active"]);
-  const [stats, setStats] = useState<Record<string, EnvironmentStats>>({});
   const dedupedEnvironments = useMemo(() => {
     const before = environments.length;
     const byId = new Map<string, Environment>();
@@ -83,45 +81,6 @@ export function EnvironmentList({
       return bd - ad;
     });
   }, [dedupedEnvironments, query, sortBy, activeFilters]);
-
-  useEffect(() => {
-    const visible = filtered.slice(0, 24).map((env) => env.env_id);
-    const missing = visible.filter((id) => !stats[id]);
-    if (missing.length === 0) return;
-    let cancelled = false;
-
-    Promise.all(
-      missing.map(async (envId) => {
-        try {
-          const metric = await apiFetch<{
-            uploads_count?: number;
-            tickets_count?: number;
-          }>("/v1/metrics", { params: { env_id: envId } });
-          return [
-            envId,
-            {
-                documents_count: metric.uploads_count,
-                executions_count: metric.tickets_count,
-                recent_events_count: metric.tickets_count,
-              } satisfies EnvironmentStats,
-          ] as const;
-        } catch {
-          return [envId, {} satisfies EnvironmentStats] as const;
-        }
-      })
-    ).then((entries) => {
-      if (cancelled) return;
-      setStats((prev) => {
-        const next = { ...prev };
-        for (const [id, value] of entries) next[id] = value;
-        return next;
-      });
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [filtered, stats]);
 
   const toggleFilter = (filter: "active" | "archived" | "failed") => {
     setActiveFilters((prev) => {
@@ -206,10 +165,7 @@ export function EnvironmentList({
                 key={env.env_id}
                 env={env}
                 status={status}
-                stats={{
-                  ...(stats[env.env_id] || {}),
-                  last_activity: env.created_at,
-                }}
+                stats={{ last_activity: env.created_at } satisfies EnvironmentStats}
                 onOpen={onOpen}
                 onSettings={onSettings}
                 onArchive={onArchive}

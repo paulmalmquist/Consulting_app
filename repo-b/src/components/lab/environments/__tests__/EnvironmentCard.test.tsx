@@ -62,4 +62,19 @@ describe("EnvironmentCard", () => {
     );
     expect(screen.queryByText(baseEnv.env_id)).not.toBeInTheDocument();
   });
+
+  test("renders icon + label action buttons", () => {
+    render(
+      <EnvironmentCard
+        env={baseEnv}
+        status="active"
+        onOpen={() => {}}
+        onSettings={() => {}}
+        onArchive={() => {}}
+      />
+    );
+    expect(screen.getByRole("button", { name: /open/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /archive/i })).toBeInTheDocument();
+  });
 });

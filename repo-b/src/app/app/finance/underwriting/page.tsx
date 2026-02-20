@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import React, { FormEvent, useEffect, useMemo, useState } from "react";
 
 import {
   UnderwritingReports,
@@ -11,7 +12,7 @@ import {
   listUnderwritingRuns,
   runUnderwritingScenarios,
 } from "@/lib/bos-api";
-import { useBusinessContext } from "@/lib/business-context";
+import { useRepeContext } from "@/lib/repe-context";
 
 const SAMPLE_RESEARCH_PAYLOAD = `{
   "contract_version": "uw_research_contract_v1",
@@ -46,7 +47,7 @@ function artifactPreview(artifacts: UnderwritingReports["scenarios"][number]["ar
 }
 
 export default function UnderwritingPage() {
-  const { businessId } = useBusinessContext();
+  const { businessId, loading: repeContextLoading } = useRepeContext();
 
   const [runs, setRuns] = useState<UnderwritingRun[]>([]);
   const [selectedRunId, setSelectedRunId] = useState("");
@@ -164,23 +165,45 @@ export default function UnderwritingPage() {
   return (
     <div className="max-w-7xl space-y-6">
       <div className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.14em] text-bm-muted2">Finance / Underwriting</p>
+        <p className="text-xs uppercase tracking-[0.14em] text-bm-muted2">REPE / Underwriting</p>
         <h1 className="text-2xl font-bold">Underwriting Orchestrator v1</h1>
         <p className="text-sm text-bm-muted max-w-3xl">
-          Deterministic, citation-aware underwriting pipeline. Facts must be source-backed; uncited values must be assumptions.
+          Deal-scoped, citation-aware underwriting pipeline. Create or select a deal to run scenarios.
         </p>
       </div>
 
       {!businessId && (
         <div className="rounded-xl border border-bm-border bg-bm-surface p-4 text-sm text-bm-muted2">
-          Select a business first to use underwriting.
+          {repeContextLoading ? "Resolving workspace context..." : "No REPE workspace context is available."}
         </div>
       )}
 
       {businessId && (
         <>
+          {!runs.length ? (
+            <section className="rounded-xl border border-bm-border bg-bm-surface p-4 space-y-2" data-testid="uw-empty-state">
+              <h2 className="text-lg font-semibold">No deals yet</h2>
+              <p className="text-sm text-bm-muted2">
+                Start by creating a deal. Underwriting runs are attached to deals and model versions.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => document.querySelector<HTMLInputElement>("[data-testid='uw-create-property-name']")?.focus()}
+                  className="rounded-lg bg-bm-accent px-3 py-2 text-sm text-white"
+                  data-testid="uw-create-deal-cta"
+                >
+                  Create Deal
+                </button>
+                <Link href="/app/repe/funds" className="rounded-lg border border-bm-border px-3 py-2 text-sm">
+                  Select Fund
+                </Link>
+              </div>
+            </section>
+          ) : null}
+
           <section className="bm-glass rounded-xl p-4 space-y-3">
-            <h2 className="text-lg font-semibold">Create Run</h2>
+            <h2 className="text-lg font-semibold">Create Deal</h2>
             <form className="grid grid-cols-1 md:grid-cols-4 gap-3" onSubmit={onCreateRun}>
               <input
                 data-testid="uw-create-property-name"
@@ -269,7 +292,7 @@ export default function UnderwritingPage() {
           </section>
 
           <section className="bm-glass rounded-xl p-4 space-y-3">
-            <h2 className="text-lg font-semibold">Run Workspace</h2>
+            <h2 className="text-lg font-semibold">Select Deal</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <select
                 data-testid="uw-run-select"

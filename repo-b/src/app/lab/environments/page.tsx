@@ -7,7 +7,7 @@ import { apiFetch } from "@/lib/api";
 import { CreateEnvironmentPanel } from "@/components/lab/environments/CreateEnvironmentPanel";
 import { EnvironmentList } from "@/components/lab/environments/EnvironmentList";
 import { EnvironmentSettingsModal } from "@/components/lab/environments/EnvironmentSettingsModal";
-import type { Industry } from "@/components/lab/environments/constants";
+import { resolveEnvironmentOpenPath, type Industry } from "@/components/lab/environments/constants";
 
 export default function EnvironmentsPage() {
   const router = useRouter();
@@ -21,8 +21,10 @@ export default function EnvironmentsPage() {
   );
 
   const openEnvironment = (envId: string) => {
+    const env = environments.find((row) => row.env_id === envId);
+    const industry = env?.industry_type || env?.industry;
     selectEnv(envId);
-    router.push(`/lab/env/${envId}`);
+    router.push(resolveEnvironmentOpenPath({ envId, industry }));
   };
 
   const provisionEnvironment = async ({ clientName, industry, notes }: { clientName: string; industry: Industry; notes: string }) => {

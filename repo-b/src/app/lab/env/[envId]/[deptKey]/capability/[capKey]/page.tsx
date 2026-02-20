@@ -53,8 +53,8 @@ export default function LabCapabilityPage({
   }, [metrics]);
 
   const financeRouteByCapability: Record<string, string> = {
-    repe_waterfalls: "/app/finance/repe",
-    underwriting: "/app/finance/underwriting",
+    repe_waterfalls: "/app/repe/waterfalls",
+    underwriting: "/app/repe/deals",
     scenario_lab: "/app/finance/scenarios",
     legal_economics: "/app/finance/legal",
     healthcare_mso: "/app/finance/healthcare",

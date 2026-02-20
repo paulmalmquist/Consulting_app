@@ -126,6 +126,15 @@ export interface BusinessCreateResult {
   slug: string;
 }
 
+export interface BusinessItem {
+  business_id: string;
+  tenant_id: string;
+  name: string;
+  slug: string;
+  region: string;
+  created_at?: string | null;
+}
+
 export interface DocumentItem {
   document_id: string;
   business_id: string | null;
@@ -326,6 +335,10 @@ export function createBusiness(name: string, slug: string, region: string): Prom
     method: "POST",
     body: JSON.stringify({ name, slug, region }),
   });
+}
+
+export function listBusinesses(): Promise<BusinessItem[]> {
+  return bosFetch("/api/businesses");
 }
 
 export function applyTemplate(businessId: string, templateKey: string, departments: string[], capabilities: string[]): Promise<{ ok: boolean }> {

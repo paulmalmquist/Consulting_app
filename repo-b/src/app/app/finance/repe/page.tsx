@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import React, { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   FinAssetInvestment,
   FinCapitalCall,
@@ -27,7 +27,7 @@ import {
   listFinWaterfallAllocations,
   runFinWaterfall,
 } from "@/lib/bos-api";
-import { useBusinessContext } from "@/lib/business-context";
+import { useRepeContext } from "@/lib/repe-context";
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -40,7 +40,7 @@ function toMoney(value: string | number | null | undefined): number {
 }
 
 export default function RepeFinancePage() {
-  const { businessId } = useBusinessContext();
+  const { businessId, loading: repeContextLoading } = useRepeContext();
   const [partitions, setPartitions] = useState<FinPartition[]>([]);
   const [partitionId, setPartitionId] = useState("");
   const [funds, setFunds] = useState<FinFund[]>([]);
@@ -355,7 +355,11 @@ export default function RepeFinancePage() {
   }
 
   if (!businessId) {
-    return <p className="text-sm text-bm-muted">Select or create a business to access Finance.</p>;
+    return (
+      <p className="text-sm text-bm-muted" data-testid="repe-context-wait">
+        {repeContextLoading ? "Resolving REPE business context..." : "No REPE business is mapped for this environment."}
+      </p>
+    );
   }
 
   return (
@@ -407,6 +411,11 @@ export default function RepeFinancePage() {
         </form>
 
         <div className="space-y-2">
+          {funds.length === 0 ? (
+            <div className="rounded-lg border border-bm-border/70 bg-bm-surface/20 px-3 py-3 text-sm text-bm-muted2" data-testid="repe-fund-empty">
+              No funds yet. Create a fund to unlock deals, assets, and waterfall runs.
+            </div>
+          ) : null}
           {funds.map((fund) => (
             <button
               key={fund.fin_fund_id}

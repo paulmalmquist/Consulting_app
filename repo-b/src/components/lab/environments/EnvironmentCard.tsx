@@ -1,16 +1,14 @@
 "use client";
 
 import React from "react";
+import { Archive, ArrowRightCircle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { Environment } from "@/components/EnvProvider";
 import { EnvironmentStatus, formatDate, humanIndustry } from "./constants";
-import { getFreshnessLabel, getHealthLabel, getIndustryIcon, getStatusBadge } from "./visuals";
+import { getIndustryIcon, getStatusBadge } from "./visuals";
 
 type EnvironmentStats = {
-  documents_count?: number;
-  executions_count?: number;
   last_activity?: string;
-  recent_events_count?: number;
 };
 
 export function EnvironmentCard({
@@ -63,10 +61,10 @@ export function EnvironmentCard({
 
         <div className="flex items-center gap-2">
           <Button type="button" variant="primary" size="sm" onClick={() => onOpen(env.env_id)} data-testid={`env-open-${env.env_id}`}>
-            Open
+            <span className="inline-flex items-center gap-1"><ArrowRightCircle size={14} />Open</span>
           </Button>
           <Button type="button" variant="secondary" size="sm" onClick={() => onSettings(env.env_id)} data-testid={`env-settings-${env.env_id}`}>
-            Settings
+            <span className="inline-flex items-center gap-1"><Settings size={14} />Settings</span>
           </Button>
           {status !== "archived" ? (
             <Button
@@ -76,7 +74,7 @@ export function EnvironmentCard({
               onClick={() => onArchive(env.env_id)}
               data-testid={`env-archive-${env.env_id}`}
             >
-              Archive
+              <span className="inline-flex items-center gap-1"><Archive size={14} />Archive</span>
             </Button>
           ) : null}
         </div>
@@ -96,21 +94,6 @@ export function EnvironmentCard({
         <div className="rounded-xl border border-bm-border/60 bg-bm-surface/25 px-3 py-2">
           <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Last Activity</p>
           <p className="text-bm-text mt-1">{formatDate(lastActivity)}</p>
-        </div>
-      </section>
-
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="rounded-xl border border-bm-border/60 bg-bm-surface/20 px-3 py-2">
-          <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Health</p>
-          <p className="text-sm font-semibold mt-1">{getHealthLabel(status)}</p>
-        </div>
-        <div className="rounded-xl border border-bm-border/60 bg-bm-surface/20 px-3 py-2">
-          <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Data Freshness</p>
-          <p className="text-sm font-semibold mt-1">{getFreshnessLabel(lastActivity)}</p>
-        </div>
-        <div className="rounded-xl border border-bm-border/60 bg-bm-surface/20 px-3 py-2">
-          <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Recent Events (7d)</p>
-          <p className="text-sm font-semibold mt-1">{stats?.recent_events_count ?? "0"}</p>
         </div>
       </section>
     </article>

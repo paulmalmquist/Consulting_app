@@ -14,6 +14,15 @@ class CreateBusinessResponse(BaseModel):
     slug: str
 
 
+class BusinessOut(BaseModel):
+    business_id: UUID
+    tenant_id: UUID
+    name: str
+    slug: str
+    region: str
+    created_at: str | None = None
+
+
 class ApplyTemplateRequest(BaseModel):
     template_key: str
     enabled_departments: Optional[list[str]] = None  # department keys

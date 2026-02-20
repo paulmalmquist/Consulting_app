@@ -26,3 +26,13 @@ export function formatDate(value?: string): string {
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
+
+export function isRepeEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key.includes("real_estate") || key.includes("repe") || key.includes("real estate");
+}
+
+export function resolveEnvironmentOpenPath(args: { envId: string; industry?: string | null }): string {
+  if (isRepeEnvironment(args.industry)) return "/app/repe/portfolio";
+  return `/lab/env/${args.envId}`;
+}
