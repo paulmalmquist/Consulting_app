@@ -6,6 +6,7 @@ from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
+from app.observability.logger import emit_log
 
 from app.schemas.finance import (
     BudgetCreateRequest,
@@ -64,8 +65,41 @@ def _to_http_error(exc: Exception) -> HTTPException:
     return HTTPException(status_code=500, detail=str(exc))
 
 
+def _log_repe(action: str, message: str, *, context: dict | None = None, level: str = "info") -> None:
+    emit_log(
+        level=level,
+        service="backend",
+        action=action,
+        message=message,
+        context=context or {},
+    )
+
+
+def _raise_repe_error(exc: Exception, *, action: str, context: dict | None = None):
+    _log_repe(
+        "repe.db_error",
+        "REPE route failed",
+        level="error",
+        context={
+            "failed_action": action,
+            "error_type": exc.__class__.__name__,
+            **(context or {}),
+        },
+    )
+    raise _to_http_error(exc)
+
+
 @router.post("/runs", response_model=FinRunResponse)
 def submit_run(req: FinanceRunRequest):
+    _log_repe(
+        "repe.run.submit.start",
+        "Submitting finance run",
+        context={
+            "engine_kind": req.engine_kind,
+            "business_id": str(req.business_id),
+            "partition_id": str(req.partition_id),
+        },
+    )
     try:
         payload = {}
         if isinstance(req, WaterfallRunRequest):
@@ -116,32 +150,47 @@ def submit_run(req: FinanceRunRequest):
             fin_rule_version_id=req.fin_rule_version_id,
         )
         refs = finance_runtime.get_run_results(run_id=run_row["fin_run_id"])
-        return FinRunResponse(
+        response = FinRunResponse(
             run=FinRunOut(**run_row),
             result_refs=[FinRunResultRef(**r) for r in refs],
         )
+        _log_repe(
+            "repe.run.submit.ok",
+            "Finance run submitted",
+            context={"engine_kind": req.engine_kind, "run_id": str(run_row["fin_run_id"])},
+        )
+        return response
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.run.submit")
 
 
 @router.get("/runs/{run_id}", response_model=FinRunOut)
 def get_run(run_id: UUID):
+    _log_repe("repe.run.get.start", "Loading run", context={"run_id": str(run_id)})
     run_row = finance_runtime.get_run(run_id=run_id)
     if not run_row:
         raise HTTPException(status_code=404, detail="Run not found")
+    _log_repe("repe.run.get.ok", "Loaded run", context={"run_id": str(run_id)})
     return FinRunOut(**run_row)
 
 
 @router.get("/runs/{run_id}/results", response_model=list[FinRunResultRef])
 def get_run_results(run_id: UUID):
+    _log_repe("repe.run.results.start", "Loading run results", context={"run_id": str(run_id)})
     rows = finance_runtime.get_run_results(run_id=run_id)
+    _log_repe("repe.run.results.ok", "Loaded run results", context={"run_id": str(run_id), "count": len(rows)})
     return [FinRunResultRef(**r) for r in rows]
 
 
 @router.post("/funds")
 def create_fund(req: FundCreateRequest):
+    _log_repe(
+        "repe.fund.create.start",
+        "Creating fund",
+        context={"business_id": str(req.business_id), "partition_id": str(req.partition_id), "fund_code": req.fund_code},
+    )
     try:
-        return finance_repe.create_fund(
+        row = finance_repe.create_fund(
             business_id=req.business_id,
             partition_id=req.partition_id,
             fund_code=req.fund_code,
@@ -155,8 +204,10 @@ def create_fund(req: FundCreateRequest):
             carry_rate=req.carry_rate,
             waterfall_style=req.waterfall_style,
         )
+        _log_repe("repe.fund.create.ok", "Fund created", context={"fund_id": str(row.get("fin_fund_id", ""))})
+        return row
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.fund.create", context={"fund_code": req.fund_code})
 
 
 @router.get("/funds")
@@ -164,23 +215,29 @@ def list_funds(
     business_id: UUID = Query(...),
     partition_id: UUID = Query(...),
 ):
+    _log_repe("repe.fund.list.start", "Listing funds", context={"business_id": str(business_id), "partition_id": str(partition_id)})
     try:
-        return finance_repe.list_funds(business_id=business_id, partition_id=partition_id)
+        rows = finance_repe.list_funds(business_id=business_id, partition_id=partition_id)
+        _log_repe("repe.fund.list.ok", "Listed funds", context={"count": len(rows)})
+        return rows
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.fund.list")
 
 
 @router.post("/participants")
 def create_participant(req: ParticipantCreateRequest):
+    _log_repe("repe.participant.create.start", "Creating participant", context={"business_id": str(req.business_id), "participant_type": req.participant_type})
     try:
-        return finance_repe.create_participant(
+        row = finance_repe.create_participant(
             business_id=req.business_id,
             name=req.name,
             participant_type=req.participant_type,
             external_key=req.external_key,
         )
+        _log_repe("repe.participant.create.ok", "Participant created", context={"participant_id": str(row.get("fin_participant_id", ""))})
+        return row
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.participant.create")
 
 
 @router.get("/participants")
@@ -188,17 +245,21 @@ def list_participants(
     business_id: UUID = Query(...),
     participant_type: str | None = Query(None),
 ):
+    _log_repe("repe.participant.list.start", "Listing participants", context={"business_id": str(business_id), "participant_type": participant_type})
     try:
-        return finance_repe.list_participants(
+        rows = finance_repe.list_participants(
             business_id=business_id,
             participant_type=participant_type,
         )
+        _log_repe("repe.participant.list.ok", "Listed participants", context={"count": len(rows)})
+        return rows
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.participant.list")
 
 
 @router.post("/funds/{fund_id}/commitments")
 def create_commitment(fund_id: UUID, req: CommitmentCreateRequest):
+    _log_repe("repe.commitment.create.start", "Creating commitment", context={"fund_id": str(fund_id)})
     try:
         row = finance_repe.create_commitment(
             fund_id=fund_id,
@@ -215,21 +276,26 @@ def create_commitment(fund_id: UUID, req: CommitmentCreateRequest):
             idempotency_key=f"fin_commitment_{row['fin_commitment_id']}",
         )
         materialization.materialize_business_snapshot(business_id=row["business_id"])
+        _log_repe("repe.commitment.create.ok", "Commitment created", context={"fund_id": str(fund_id), "commitment_id": str(row.get("fin_commitment_id", ""))})
         return row
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.commitment.create", context={"fund_id": str(fund_id)})
 
 
 @router.get("/funds/{fund_id}/commitments")
 def list_commitments(fund_id: UUID):
+    _log_repe("repe.commitment.list.start", "Listing commitments", context={"fund_id": str(fund_id)})
     try:
-        return finance_repe.list_commitments(fund_id=fund_id)
+        rows = finance_repe.list_commitments(fund_id=fund_id)
+        _log_repe("repe.commitment.list.ok", "Listed commitments", context={"fund_id": str(fund_id), "count": len(rows)})
+        return rows
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.commitment.list", context={"fund_id": str(fund_id)})
 
 
 @router.post("/funds/{fund_id}/capital-calls")
 def create_capital_call(fund_id: UUID, req: CapitalCallCreateRequest):
+    _log_repe("repe.capital_call.create.start", "Creating capital call", context={"fund_id": str(fund_id)})
     try:
         row = finance_repe.create_capital_call(
             fund_id=fund_id,
@@ -245,21 +311,26 @@ def create_capital_call(fund_id: UUID, req: CapitalCallCreateRequest):
             idempotency_key=f"fin_capital_call_{row['fin_capital_call_id']}",
         )
         materialization.materialize_business_snapshot(business_id=row["business_id"])
+        _log_repe("repe.capital_call.create.ok", "Capital call created", context={"fund_id": str(fund_id), "capital_call_id": str(row.get("fin_capital_call_id", ""))})
         return row
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.capital_call.create", context={"fund_id": str(fund_id)})
 
 
 @router.get("/funds/{fund_id}/capital-calls")
 def list_capital_calls(fund_id: UUID):
+    _log_repe("repe.capital_call.list.start", "Listing capital calls", context={"fund_id": str(fund_id)})
     try:
-        return finance_repe.list_capital_calls(fund_id=fund_id)
+        rows = finance_repe.list_capital_calls(fund_id=fund_id)
+        _log_repe("repe.capital_call.list.ok", "Listed capital calls", context={"fund_id": str(fund_id), "count": len(rows)})
+        return rows
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.capital_call.list", context={"fund_id": str(fund_id)})
 
 
 @router.post("/funds/{fund_id}/assets")
 def create_asset_investment(fund_id: UUID, req: AssetInvestmentCreateRequest):
+    _log_repe("repe.asset.create.start", "Creating asset", context={"fund_id": str(fund_id)})
     try:
         row = finance_repe.create_asset_investment(
             fund_id=fund_id,
@@ -275,21 +346,26 @@ def create_asset_investment(fund_id: UUID, req: AssetInvestmentCreateRequest):
             idempotency_key=f"fin_asset_{row['fin_asset_investment_id']}",
         )
         materialization.materialize_business_snapshot(business_id=row["business_id"])
+        _log_repe("repe.asset.create.ok", "Asset created", context={"fund_id": str(fund_id), "asset_id": str(row.get("fin_asset_investment_id", ""))})
         return row
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.asset.create", context={"fund_id": str(fund_id)})
 
 
 @router.get("/funds/{fund_id}/assets")
 def list_assets(fund_id: UUID):
+    _log_repe("repe.asset.list.start", "Listing assets", context={"fund_id": str(fund_id)})
     try:
-        return finance_repe.list_assets(fund_id=fund_id)
+        rows = finance_repe.list_assets(fund_id=fund_id)
+        _log_repe("repe.asset.list.ok", "Listed assets", context={"fund_id": str(fund_id), "count": len(rows)})
+        return rows
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.asset.list", context={"fund_id": str(fund_id)})
 
 
 @router.post("/funds/{fund_id}/contributions")
 def create_contribution(fund_id: UUID, req: ContributionCreateRequest):
+    _log_repe("repe.contribution.create.start", "Creating contribution", context={"fund_id": str(fund_id)})
     try:
         row = finance_repe.create_contribution(
             fund_id=fund_id,
@@ -306,13 +382,15 @@ def create_contribution(fund_id: UUID, req: ContributionCreateRequest):
             idempotency_key=f"fin_contribution_{row['fin_contribution_id']}",
         )
         materialization.materialize_business_snapshot(business_id=row["business_id"])
+        _log_repe("repe.contribution.create.ok", "Contribution created", context={"fund_id": str(fund_id), "contribution_id": str(row.get("fin_contribution_id", ""))})
         return row
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.contribution.create", context={"fund_id": str(fund_id)})
 
 
 @router.post("/funds/{fund_id}/distribution-events")
 def create_distribution_event(fund_id: UUID, req: DistributionEventCreateRequest):
+    _log_repe("repe.distribution.create.start", "Creating distribution event", context={"fund_id": str(fund_id)})
     try:
         row = finance_repe.create_distribution_event(
             fund_id=fund_id,
@@ -330,32 +408,40 @@ def create_distribution_event(fund_id: UUID, req: DistributionEventCreateRequest
             idempotency_key=f"fin_distribution_event_{row['fin_distribution_event_id']}",
         )
         materialization.materialize_business_snapshot(business_id=row["business_id"])
+        _log_repe("repe.distribution.create.ok", "Distribution event created", context={"fund_id": str(fund_id), "distribution_event_id": str(row.get("fin_distribution_event_id", ""))})
         return row
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.distribution.create", context={"fund_id": str(fund_id)})
 
 
 @router.get("/funds/{fund_id}/distribution-events")
 def list_distribution_events(fund_id: UUID):
+    _log_repe("repe.distribution.list.start", "Listing distribution events", context={"fund_id": str(fund_id)})
     try:
-        return finance_repe.list_distribution_events(fund_id=fund_id)
+        rows = finance_repe.list_distribution_events(fund_id=fund_id)
+        _log_repe("repe.distribution.list.ok", "Listed distribution events", context={"fund_id": str(fund_id), "count": len(rows)})
+        return rows
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.distribution.list", context={"fund_id": str(fund_id)})
 
 
 @router.get("/funds/{fund_id}/distribution-events/{distribution_event_id}/payouts")
 def list_distribution_payouts(fund_id: UUID, distribution_event_id: UUID):
+    _log_repe("repe.distribution.payouts.start", "Listing distribution payouts", context={"fund_id": str(fund_id), "distribution_event_id": str(distribution_event_id)})
     try:
-        return finance_repe.list_distribution_payouts(
+        rows = finance_repe.list_distribution_payouts(
             fund_id=fund_id,
             distribution_event_id=distribution_event_id,
         )
+        _log_repe("repe.distribution.payouts.ok", "Listed distribution payouts", context={"fund_id": str(fund_id), "distribution_event_id": str(distribution_event_id), "count": len(rows)})
+        return rows
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.distribution.payouts", context={"fund_id": str(fund_id), "distribution_event_id": str(distribution_event_id)})
 
 
 @router.post("/funds/{fund_id}/waterfall-runs", response_model=FinRunResponse)
 def run_waterfall(fund_id: UUID, req: WaterfallRunTriggerRequest):
+    _log_repe("repe.waterfall.run.start", "Running waterfall", context={"fund_id": str(fund_id), "distribution_event_id": str(req.distribution_event_id)})
     try:
         run_row = finance_runtime.submit_run(
             business_id=req.business_id,
@@ -371,24 +457,30 @@ def run_waterfall(fund_id: UUID, req: WaterfallRunTriggerRequest):
             },
         )
         refs = finance_runtime.get_run_results(run_id=run_row["fin_run_id"])
-        return FinRunResponse(
+        response = FinRunResponse(
             run=FinRunOut(**run_row),
             result_refs=[FinRunResultRef(**r) for r in refs],
         )
+        _log_repe("repe.waterfall.run.ok", "Waterfall completed", context={"fund_id": str(fund_id), "run_id": str(run_row["fin_run_id"])})
+        return response
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.waterfall.run", context={"fund_id": str(fund_id)})
 
 
 @router.get("/funds/{fund_id}/waterfall-runs/{run_id}/allocations")
 def list_waterfall_allocations(fund_id: UUID, run_id: UUID):
+    _log_repe("repe.waterfall.allocations.start", "Listing waterfall allocations", context={"fund_id": str(fund_id), "run_id": str(run_id)})
     try:
-        return finance_repe.list_waterfall_allocations(fund_id=fund_id, run_id=run_id)
+        rows = finance_repe.list_waterfall_allocations(fund_id=fund_id, run_id=run_id)
+        _log_repe("repe.waterfall.allocations.ok", "Listed waterfall allocations", context={"fund_id": str(fund_id), "run_id": str(run_id), "count": len(rows)})
+        return rows
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.waterfall.allocations", context={"fund_id": str(fund_id), "run_id": str(run_id)})
 
 
 @router.post("/funds/{fund_id}/capital-rollforward-runs", response_model=FinRunResponse)
 def run_capital_rollforward(fund_id: UUID, req: CapitalRollforwardTriggerRequest):
+    _log_repe("repe.rollforward.run.start", "Running capital rollforward", context={"fund_id": str(fund_id)})
     try:
         run_row = finance_runtime.submit_run(
             business_id=req.business_id,
@@ -403,20 +495,25 @@ def run_capital_rollforward(fund_id: UUID, req: CapitalRollforwardTriggerRequest
             },
         )
         refs = finance_runtime.get_run_results(run_id=run_row["fin_run_id"])
-        return FinRunResponse(
+        response = FinRunResponse(
             run=FinRunOut(**run_row),
             result_refs=[FinRunResultRef(**r) for r in refs],
         )
+        _log_repe("repe.rollforward.run.ok", "Capital rollforward completed", context={"fund_id": str(fund_id), "run_id": str(run_row["fin_run_id"])})
+        return response
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.rollforward.run", context={"fund_id": str(fund_id)})
 
 
 @router.get("/funds/{fund_id}/capital-rollforward")
 def get_capital_rollforward(fund_id: UUID, as_of_date: date | None = Query(None)):
+    _log_repe("repe.rollforward.list.start", "Listing capital rollforward", context={"fund_id": str(fund_id), "as_of_date": str(as_of_date) if as_of_date else None})
     try:
-        return finance_repe.list_capital_rollforward(fund_id=fund_id, as_of_date=as_of_date)
+        rows = finance_repe.list_capital_rollforward(fund_id=fund_id, as_of_date=as_of_date)
+        _log_repe("repe.rollforward.list.ok", "Listed capital rollforward", context={"fund_id": str(fund_id), "count": len(rows)})
+        return rows
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.rollforward.list", context={"fund_id": str(fund_id)})
 
 
 @router.post("/matters")
@@ -773,41 +870,53 @@ def list_forecasts(project_id: UUID):
 
 @router.post("/partitions/{live_partition_id}/snapshot")
 def create_snapshot(live_partition_id: UUID, req: SnapshotCreateRequest):
+    _log_repe("repe.partition.snapshot.start", "Creating snapshot partition", context={"live_partition_id": str(live_partition_id), "business_id": str(req.business_id)})
     try:
-        return finance_scenarios.snapshot_live_partition(
+        row = finance_scenarios.snapshot_live_partition(
             business_id=req.business_id,
             live_partition_id=live_partition_id,
             snapshot_as_of=req.snapshot_as_of,
             dataset_version_id=req.dataset_version_id,
             rule_version_id=req.rule_version_id,
         )
+        _log_repe("repe.partition.snapshot.ok", "Created snapshot partition", context={"partition_id": str(row.get("partition_id", ""))})
+        return row
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.partition.snapshot")
 
 
 @router.get("/partitions")
 def list_partitions(business_id: UUID = Query(...)):
+    _log_repe("repe.partition.list.start", "Listing partitions", context={"business_id": str(business_id)})
     try:
-        return finance_scenarios.list_partitions(business_id=business_id)
+        rows = finance_scenarios.list_partitions(business_id=business_id)
+        _log_repe("repe.partition.list.ok", "Listed partitions", context={"count": len(rows)})
+        return rows
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.partition.list")
 
 
 @router.post("/simulations")
 def create_simulation(req: SimulationCreateRequest):
+    _log_repe("repe.simulation.create.start", "Creating simulation", context={"business_id": str(req.business_id), "base_partition_id": str(req.base_partition_id)})
     try:
-        return finance_scenarios.create_simulation(
+        row = finance_scenarios.create_simulation(
             business_id=req.business_id,
             base_partition_id=req.base_partition_id,
             scenario_key=req.scenario_key,
         )
+        _log_repe("repe.simulation.create.ok", "Created simulation", context={"simulation_id": str(row.get("simulation_id", ""))})
+        return row
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.simulation.create")
 
 
 @router.get("/simulations/{simulation_id}/diff-vs-live")
 def diff_vs_live(simulation_id: UUID):
+    _log_repe("repe.simulation.diff.start", "Getting simulation diff", context={"simulation_id": str(simulation_id)})
     try:
-        return finance_scenarios.diff_vs_live(simulation_id=simulation_id)
+        out = finance_scenarios.diff_vs_live(simulation_id=simulation_id)
+        _log_repe("repe.simulation.diff.ok", "Fetched simulation diff", context={"simulation_id": str(simulation_id)})
+        return out
     except Exception as exc:
-        raise _to_http_error(exc)
+        _raise_repe_error(exc, action="repe.simulation.diff")

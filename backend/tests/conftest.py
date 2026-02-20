@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 import pytest
+pytest_plugins = ("tests.plugins.repe_logging",)
 
 # Ensure DATABASE_URL is set before importing app modules
 # (config.py exits if missing)

@@ -2,28 +2,90 @@
  * Business OS API client.
  * All calls go to the Python FastAPI backend.
  */
+import { logError, logInfo } from "@/lib/logging/logger";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_BOS_API_BASE_URL ||
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   "http://localhost:8000";
 
+function makeRequestId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `req_${Math.random().toString(16).slice(2)}_${Date.now()}`;
+}
+
+function getRunIdForRequest(): string | null {
+  const mode = process.env.NODE_ENV;
+  if (mode === "production") return null;
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem("bm_run_id");
+  } catch {
+    return null;
+  }
+}
+
 async function bosFetch<T>(path: string, options: RequestInit & { params?: Record<string, string | undefined> } = {}): Promise<T> {
+  const requestId = makeRequestId();
+  const runId = getRunIdForRequest();
+  const startedAt = Date.now();
   const url = new URL(path, API_BASE);
   if (options.params) {
     Object.entries(options.params).forEach(([k, v]) => {
       if (v) url.searchParams.set(k, v);
     });
   }
+  const payloadSize =
+    typeof options.body === "string"
+      ? options.body.length
+      : options.body
+        ? JSON.stringify(options.body).length
+        : 0;
+  logInfo("api.request_start", "API request start", {
+    path,
+    method: options.method || "GET",
+    request_id: requestId,
+    run_id: runId,
+    payload_size: payloadSize,
+  });
+
+  const reqHeaders: HeadersInit = {
+    "Content-Type": "application/json",
+    "X-Request-Id": requestId,
+    ...(runId ? { "X-Run-Id": runId } : {}),
+    ...(options.headers || {}),
+  };
+
   const res = await fetch(url.toString(), {
     ...options,
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    headers: reqHeaders,
   });
+  const durationMs = Date.now() - startedAt;
+
   if (!res.ok) {
     let msg = `Request failed (${res.status})`;
     try { const j = await res.json(); msg = j.detail || j.message || msg; } catch {}
+    logError("api.request_error", "API request failed", {
+      path,
+      method: options.method || "GET",
+      request_id: requestId,
+      run_id: runId,
+      status: res.status,
+      duration_ms: durationMs,
+    });
     throw new Error(msg);
   }
+  logInfo("api.request_end", "API request completed", {
+    path,
+    method: options.method || "GET",
+    request_id: requestId,
+    run_id: runId,
+    status: res.status,
+    response_request_id: res.headers.get("X-Request-Id"),
+    duration_ms: durationMs,
+  });
   return res.json() as Promise<T>;
 }
 

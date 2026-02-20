@@ -1,5 +1,5 @@
 # ── Consulting App Makefile ────────────────────────────────────────
-.PHONY: dev dev-bos dev-demo test test-backend test-demo test-e2e \
+.PHONY: dev dev-bos dev-demo test test-backend test-demo test-e2e test-repe-backend test-repe-unit test-repe-e2e test-repe \
         lint fmt db\:migrate db\:seed db\:dry db\:verify install \
         bmctl smoke mcp-smoke command-regression public-walloff-smoke \
         orchestration\:install-hooks orchestration\:validate orchestration\:verify-logs
@@ -37,6 +37,17 @@ test-demo:  ## Run Demo Lab backend tests
 
 test-e2e:  ## Run Playwright E2E tests
 	cd repo-b && npx playwright test
+
+test-repe-backend: ## Run REPE backend API tests with logging artifacts
+	cd backend && .venv/bin/python -m pytest tests/test_finance_repe_api.py -q
+
+test-repe-unit: ## Run REPE frontend unit tests
+	cd repo-b && npm run test:unit
+
+test-repe-e2e: ## Run REPE Playwright flows
+	cd repo-b && npm run test:repe:e2e
+
+test-repe: test-repe-backend test-repe-unit test-repe-e2e ## Run full REPE verification suite
 
 # ── Lint / Format ─────────────────────────────────────────────────
 lint:  ## Lint all code

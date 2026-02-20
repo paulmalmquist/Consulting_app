@@ -1,6 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from app.config import ALLOWED_ORIGINS
+from app.middleware import RequestLoggingMiddleware
+from app.observability.logger import emit_log
 from app.routes import (
     metrics,
     metrics_query,
@@ -32,6 +36,42 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestLoggingMiddleware)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # Keep validation logs concise and safe: no raw payloads.
+    errors = []
+    for item in exc.errors()[:8]:
+        errors.append(
+            {
+                "loc": item.get("loc"),
+                "msg": item.get("msg"),
+                "type": item.get("type"),
+            }
+        )
+    emit_log(
+        level="warn",
+        service="backend",
+        action="repe.validation_failed",
+        message="Request validation failed",
+        context={"path": request.url.path, "errors": errors},
+    )
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    emit_log(
+        level="error",
+        service="backend",
+        action="request_failed",
+        message="Unhandled application exception",
+        context={"path": request.url.path},
+        error=exc,
+    )
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 app.include_router(health.router)
 app.include_router(business.router)

@@ -65,3 +65,7 @@ verceltoken.txt
 # OS files
 .DS_Store
 .vercel
+
+# Local test/runtime artifacts
+artifacts/
+repo-b/.next.bak*/

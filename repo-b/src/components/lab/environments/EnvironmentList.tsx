@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { Environment } from "@/components/EnvProvider";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -10,7 +10,7 @@ import { apiFetch } from "@/lib/api";
 import { EnvironmentCard, EnvironmentStats } from "./EnvironmentCard";
 import { EnvironmentStatus, statusFromFlags } from "./constants";
 
-type SortKey = "name" | "created" | "industry" | "status";
+type SortKey = "name" | "created" | "last_activity";
 
 const FILTERS: Array<{ key: "active" | "archived" | "failed"; label: string }> = [
   { key: "active", label: "Active" },
@@ -33,11 +33,30 @@ export function EnvironmentList({
   const [sortBy, setSortBy] = useState<SortKey>("created");
   const [activeFilters, setActiveFilters] = useState<Array<"active" | "archived" | "failed">>(["active"]);
   const [stats, setStats] = useState<Record<string, EnvironmentStats>>({});
+  const dedupedEnvironments = useMemo(() => {
+    const before = environments.length;
+    const byId = new Map<string, Environment>();
+    for (const env of environments) {
+      if (!byId.has(env.env_id)) byId.set(env.env_id, env);
+    }
+    const values = [...byId.values()];
+    if (process.env.NODE_ENV !== "production" && values.length < before) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        JSON.stringify({
+          action: "env_list.deduped",
+          count_before: before,
+          count_after: values.length,
+        })
+      );
+    }
+    return values;
+  }, [environments]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
 
-    const base = environments.filter((env) => {
+    const base = dedupedEnvironments.filter((env) => {
       const status = statusFromFlags(env.is_active);
       const filterHit = activeFilters.includes(status as "active" | "archived") || (status === "failed" && activeFilters.includes("failed"));
       if (!filterHit) return false;
@@ -45,7 +64,6 @@ export function EnvironmentList({
       return [
         env.client_name,
         env.schema_name,
-        env.env_id,
         env.industry_type || env.industry,
       ]
         .join(" ")
@@ -55,13 +73,16 @@ export function EnvironmentList({
 
     return base.sort((a, b) => {
       if (sortBy === "name") return a.client_name.localeCompare(b.client_name);
-      if (sortBy === "industry") return (a.industry_type || a.industry).localeCompare(b.industry_type || b.industry);
-      if (sortBy === "status") return statusFromFlags(a.is_active).localeCompare(statusFromFlags(b.is_active));
+      if (sortBy === "last_activity") {
+        const ad = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bd = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return bd - ad;
+      }
       const ad = a.created_at ? new Date(a.created_at).getTime() : 0;
       const bd = b.created_at ? new Date(b.created_at).getTime() : 0;
       return bd - ad;
     });
-  }, [environments, query, sortBy, activeFilters]);
+  }, [dedupedEnvironments, query, sortBy, activeFilters]);
 
   useEffect(() => {
     const visible = filtered.slice(0, 24).map((env) => env.env_id);
@@ -79,9 +100,10 @@ export function EnvironmentList({
           return [
             envId,
             {
-              documents_count: metric.uploads_count,
-              executions_count: metric.tickets_count,
-            } satisfies EnvironmentStats,
+                documents_count: metric.uploads_count,
+                executions_count: metric.tickets_count,
+                recent_events_count: metric.tickets_count,
+              } satisfies EnvironmentStats,
           ] as const;
         } catch {
           return [envId, {} satisfies EnvironmentStats] as const;
@@ -111,7 +133,7 @@ export function EnvironmentList({
     });
   };
 
-  if (environments.length === 0) {
+  if (dedupedEnvironments.length === 0) {
     return (
       <Card>
         <CardContent className="min-h-[420px] flex items-center justify-center">
@@ -146,14 +168,13 @@ export function EnvironmentList({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name, schema, industry, environment id"
+            placeholder="Search name, schema, industry"
             data-testid="env-search"
           />
           <Select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortKey)} data-testid="env-sort">
             <option value="created">Sort: Created</option>
             <option value="name">Sort: Name</option>
-            <option value="industry">Sort: Industry</option>
-            <option value="status">Sort: Status</option>
+            <option value="last_activity">Sort: Last Activity</option>
           </Select>
         </section>
 

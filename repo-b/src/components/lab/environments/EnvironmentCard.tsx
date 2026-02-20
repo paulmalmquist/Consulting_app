@@ -1,20 +1,16 @@
 "use client";
 
+import React from "react";
 import { Button } from "@/components/ui/Button";
 import type { Environment } from "@/components/EnvProvider";
-import { EnvironmentStatus, formatDate, humanIndustry, statusLabel } from "./constants";
+import { EnvironmentStatus, formatDate, humanIndustry } from "./constants";
+import { getFreshnessLabel, getHealthLabel, getIndustryIcon, getStatusBadge } from "./visuals";
 
 type EnvironmentStats = {
   documents_count?: number;
   executions_count?: number;
   last_activity?: string;
-};
-
-const statusClasses: Record<EnvironmentStatus, string> = {
-  active: "bg-emerald-500/15 text-emerald-300 border-emerald-400/30",
-  provisioning: "bg-amber-500/15 text-amber-300 border-amber-400/30",
-  failed: "bg-red-500/15 text-red-300 border-red-400/30",
-  archived: "bg-slate-500/15 text-slate-300 border-slate-400/30",
+  recent_events_count?: number;
 };
 
 export function EnvironmentCard({
@@ -32,6 +28,12 @@ export function EnvironmentCard({
   onSettings: (envId: string) => void;
   onArchive: (envId: string) => void;
 }) {
+  const industry = env.industry_type || env.industry;
+  const industryVisual = getIndustryIcon(industry);
+  const IndustryIcon = industryVisual.icon;
+  const statusBadge = getStatusBadge(status);
+  const lastActivity = stats?.last_activity || env.created_at;
+
   return (
     <article
       className="rounded-2xl border border-bm-borderStrong/70 bg-bm-surface/30 shadow-bm-card/40 p-4 md:p-5 space-y-4"
@@ -39,13 +41,22 @@ export function EnvironmentCard({
     >
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1.5">
-          <h3 className="text-xl md:text-2xl font-semibold tracking-tight text-bm-text leading-tight">{env.client_name}</h3>
+          <div className="flex items-center gap-2">
+            <div
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-bm-border/70 bg-bm-surface/40 text-bm-muted2"
+              title={`Industry: ${industryVisual.label}`}
+            >
+              <IndustryIcon size={18} data-testid={industryVisual.testId} />
+            </div>
+            <h3 className="text-xl md:text-2xl font-semibold tracking-tight text-bm-text leading-tight">{env.client_name}</h3>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center rounded-full border border-bm-border/70 px-2.5 py-1 text-xs text-bm-muted2">
-              {humanIndustry(env.industry_type || env.industry)}
+              {humanIndustry(industry)}
             </span>
-            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs ${statusClasses[status]}`}>
-              {statusLabel[status]}
+            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${statusBadge.pillClass}`}>
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${statusBadge.dotClass}`} />
+              {statusBadge.label}
             </span>
           </div>
         </div>
@@ -74,7 +85,9 @@ export function EnvironmentCard({
       <section className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
         <div className="rounded-xl border border-bm-border/60 bg-bm-surface/25 px-3 py-2">
           <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Schema</p>
-          <p className="font-mono text-xs text-bm-text mt-1 truncate">{env.schema_name || "—"}</p>
+          <p className="font-mono text-xs text-bm-text mt-1 truncate" title={env.schema_name || "—"}>
+            {env.schema_name || "—"}
+          </p>
         </div>
         <div className="rounded-xl border border-bm-border/60 bg-bm-surface/25 px-3 py-2">
           <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Created</p>
@@ -82,22 +95,22 @@ export function EnvironmentCard({
         </div>
         <div className="rounded-xl border border-bm-border/60 bg-bm-surface/25 px-3 py-2">
           <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Last Activity</p>
-          <p className="text-bm-text mt-1">{formatDate(stats?.last_activity || env.created_at)}</p>
+          <p className="text-bm-text mt-1">{formatDate(lastActivity)}</p>
         </div>
       </section>
 
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="rounded-xl border border-bm-border/60 bg-bm-surface/20 px-3 py-2">
-          <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Documents</p>
-          <p className="text-lg font-semibold mt-1">{stats?.documents_count ?? "—"}</p>
+          <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Health</p>
+          <p className="text-sm font-semibold mt-1">{getHealthLabel(status)}</p>
         </div>
         <div className="rounded-xl border border-bm-border/60 bg-bm-surface/20 px-3 py-2">
-          <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Executions</p>
-          <p className="text-lg font-semibold mt-1">{stats?.executions_count ?? "—"}</p>
+          <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Data Freshness</p>
+          <p className="text-sm font-semibold mt-1">{getFreshnessLabel(lastActivity)}</p>
         </div>
-        <div className="rounded-xl border border-bm-border/60 bg-bm-surface/20 px-3 py-2 col-span-2">
-          <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Environment ID</p>
-          <p className="text-xs font-mono text-bm-muted mt-1 truncate">{env.env_id}</p>
+        <div className="rounded-xl border border-bm-border/60 bg-bm-surface/20 px-3 py-2">
+          <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Recent Events (7d)</p>
+          <p className="text-sm font-semibold mt-1">{stats?.recent_events_count ?? "0"}</p>
         </div>
       </section>
     </article>

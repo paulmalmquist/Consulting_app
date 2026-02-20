@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Environment } from "@/components/EnvProvider";
 import { useEnv } from "@/components/EnvProvider";
 import { apiFetch } from "@/lib/api";
 import { CreateEnvironmentPanel } from "@/components/lab/environments/CreateEnvironmentPanel";
@@ -16,19 +15,9 @@ export default function EnvironmentsPage() {
   const [selectedSettingsId, setSelectedSettingsId] = useState<string | null>(null);
   const [settingsSaving, setSettingsSaving] = useState(false);
 
-  const dedupedEnvironments = useMemo(() => {
-    const byId = new Map<string, Environment>();
-    for (const env of environments) {
-      if (!byId.has(env.env_id)) {
-        byId.set(env.env_id, env);
-      }
-    }
-    return [...byId.values()];
-  }, [environments]);
-
   const selectedSettingsEnv = useMemo(
-    () => dedupedEnvironments.find((env) => env.env_id === selectedSettingsId) || null,
-    [dedupedEnvironments, selectedSettingsId]
+    () => environments.find((env) => env.env_id === selectedSettingsId) || null,
+    [environments, selectedSettingsId]
   );
 
   const openEnvironment = (envId: string) => {
@@ -95,7 +84,7 @@ export default function EnvironmentsPage() {
       <CreateEnvironmentPanel onProvision={provisionEnvironment} />
 
       <EnvironmentList
-        environments={dedupedEnvironments}
+        environments={environments}
         onOpen={openEnvironment}
         onSettings={setSelectedSettingsId}
         onArchive={archiveEnvironment}
@@ -104,6 +93,13 @@ export default function EnvironmentsPage() {
       <EnvironmentSettingsModal
         open={Boolean(selectedSettingsEnv)}
         env={selectedSettingsEnv}
+        stats={
+          selectedSettingsEnv
+            ? {
+                last_activity: selectedSettingsEnv.created_at,
+              }
+            : undefined
+        }
         saving={settingsSaving}
         onOpenChange={(open) => {
           if (!open) setSelectedSettingsId(null);
