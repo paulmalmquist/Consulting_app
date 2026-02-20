@@ -7,7 +7,9 @@ If a feature violates these rules, it must not be implemented.
 Last updated: 2026-02-20 — synchronized with repo inventory.
 
 -------------------------------------
+
 1. FINANCIAL DETERMINISM
+
 -------------------------------------
 
 - All financial math must run in backend Python (backend/app/finance/).
@@ -24,7 +26,9 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   audit-log integration before merge.
 
 -------------------------------------
-2. LEDGER DISCIPLINE
+
+1. LEDGER DISCIPLINE
+
 -------------------------------------
 
 - Every capital movement must generate double-entry journal entries via posting_engine.
@@ -37,7 +41,9 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   partitions — never commingled with operating accounts.
 
 -------------------------------------
-3. WATERFALL ENGINE RULES
+
+1. WATERFALL ENGINE RULES
+
 -------------------------------------
 
 - Tier definitions must be stored structurally in fin_repe.sql / repe_object_model tables;
@@ -48,14 +54,16 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
 - Clawback must be calculable at any point in time from clawback_engine without running
   a full distribution pass.
 - Engine must support:
-    - American (deal-by-deal)
-    - European (whole-fund)
+  - American (deal-by-deal)
+  - European (whole-fund)
 - Waterfall runs are initiated via the background job queue (Celery / finance/tasks.py);
   synchronous HTTP calls must not block on waterfall computation.
 - Each waterfall run must produce a structured output persisted under a unique run_id.
 
 -------------------------------------
-4. SCENARIO ISOLATION
+
+1. SCENARIO ISOLATION
+
 -------------------------------------
 
 - No scenario may mutate live production data.
@@ -68,7 +76,9 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   never update live fund/deal/capital-account rows.
 
 -------------------------------------
-5. MULTI-ENTITY MODELING
+
+1. MULTI-ENTITY MODELING
+
 -------------------------------------
 
 - All entities (LPs, GPs, funds, deals, assets, investors) must support parent-child
@@ -81,7 +91,9 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   chains that embed business logic in schema.
 
 -------------------------------------
-6. PERMISSION ENFORCEMENT
+
+1. PERMISSION ENFORCEMENT
+
 -------------------------------------
 
 - All access control enforced at the API layer (FastAPI route dependencies).
@@ -99,7 +111,9 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   no MCP tool may bypass RLS.
 
 -------------------------------------
-7. AUDIT LOGGING
+
+1. AUDIT LOGGING
+
 -------------------------------------
 
 - All state mutations logged to operational_audit (235_operational_audit.sql).
@@ -114,14 +128,16 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   in orchestration/log_schema.json.
 
 -------------------------------------
-8. INDUSTRY EXTENSIBILITY
+
+1. INDUSTRY EXTENSIBILITY
+
 -------------------------------------
 
 - REPE, Legal, Healthcare, and Construction share:
-    - Ledger (fin_accounting_core.sql, posting_engine.py)
-    - Allocation engine (allocation_engine.py)
-    - Scenario engine (scenario_engine.py)
-    - Execution runtime (execution_runtime.py)
+  - Ledger (fin_accounting_core.sql, posting_engine.py)
+  - Allocation engine (allocation_engine.py)
+  - Scenario engine (scenario_engine.py)
+  - Execution runtime (execution_runtime.py)
 - Industry modules (finance_repe.py, finance_legal.py, finance_healthcare.py,
   finance_construction.py, underwriting/) may extend core but must not fork or
   duplicate it.
@@ -131,7 +147,9 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   in routes.
 
 -------------------------------------
-9. PERFORMANCE
+
+1. PERFORMANCE
+
 -------------------------------------
 
 - Heavy math (waterfall runs, IRR, scenario sweeps, clawback recalculation) must run
@@ -146,7 +164,9 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   endpoints must add equivalent rate limiting before production launch.
 
 -------------------------------------
-10. MIGRATION DISCIPLINE
+
+1. MIGRATION DISCIPLINE
+
 -------------------------------------
 
 - All schema changes via numbered migration files in repo-b/db/schema/.
@@ -161,7 +181,9 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   view entries in 995_fin_views.sql.
 
 -------------------------------------
-11. DOCUMENT GOVERNANCE
+
+1. DOCUMENT GOVERNANCE
+
 -------------------------------------
 
 - Version all documents; document tables must carry a version/revision column.
@@ -176,7 +198,9 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   any production code path.
 
 -------------------------------------
-12. TRUST & SEGREGATION
+
+1. TRUST & SEGREGATION
+
 -------------------------------------
 
 - Trust accounts must be separate ledger partitions (trust_engine.py posts to
@@ -191,7 +215,9 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   leak into another tenant's query results.
 
 -------------------------------------
-13. EXECUTION ENGINE
+
+1. EXECUTION ENGINE
+
 -------------------------------------
 
 - No stub execution allowed in production; all engines must call real calculation
@@ -208,7 +234,9 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   silent state changes.
 
 -------------------------------------
-14. UI RULE
+
+1. UI RULE
+
 -------------------------------------
 
 - UI displays derived data only; all values come from API responses.
@@ -265,6 +293,7 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
 -------------------------------------
 
 If unsure, default to:
+
 - Determinism
 - Auditability
 - Ledger-first design
