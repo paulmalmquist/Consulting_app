@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from uuid import UUID
+from datetime import datetime
 
 
 class CreateBusinessRequest(BaseModel):
@@ -20,7 +21,7 @@ class BusinessOut(BaseModel):
     name: str
     slug: str
     region: str
-    created_at: str | None = None
+    created_at: datetime | str | None = None
 
 
 class ApplyTemplateRequest(BaseModel):

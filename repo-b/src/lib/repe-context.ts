@@ -126,8 +126,14 @@ export function useRepeContext(): UseRepeContextResult {
           ? businessRows.find((row) => row.business_id === mappedBusinessId)
           : null;
 
+        const envSlugToken = resolvedEnvironmentId.slice(0, 8).toLowerCase();
+        const envMatchedBusiness = businessRows.find((row) =>
+          (row.slug || "").toLowerCase().includes(envSlugToken)
+        );
+
         const nextBusinessId =
           mappedBusiness?.business_id ||
+          envMatchedBusiness?.business_id ||
           (businessRows.length === 1 ? businessRows[0].business_id : businessRows[0]?.business_id || null);
 
         if (nextBusinessId) {
