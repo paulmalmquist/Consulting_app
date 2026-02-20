@@ -24,6 +24,7 @@ from app.routes import (
     admin_tools,
     underwriting,
     real_estate,
+    repe,
 )
 from app.routes.ai import router as ai_router
 
@@ -92,3 +93,4 @@ app.include_router(compliance.router)
 app.include_router(admin_tools.router)
 app.include_router(underwriting.router)
 app.include_router(real_estate.router)
+app.include_router(repe.router)

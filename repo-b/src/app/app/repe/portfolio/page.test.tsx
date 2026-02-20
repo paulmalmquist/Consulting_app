@@ -10,9 +10,9 @@ vi.mock("@/lib/repe-context", () => ({
 }));
 
 vi.mock("@/lib/bos-api", () => ({
-  listFinPartitions: vi.fn().mockResolvedValue([{ partition_id: "p-live", partition_type: "live" }]),
-  listFinFunds: vi.fn().mockResolvedValue([]),
-  createFinFund: vi.fn(),
+  listRepeFunds: vi.fn().mockResolvedValue([]),
+  createRepeFund: vi.fn(),
+  seedRepeBusiness: vi.fn(),
 }));
 
 describe("REPE portfolio", () => {

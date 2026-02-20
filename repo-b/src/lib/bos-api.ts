@@ -892,6 +892,221 @@ export function listFinWaterfallAllocations(fundId: string, runId: string) {
   return bosFetch(`/api/fin/v1/funds/${fundId}/waterfall-runs/${runId}/allocations`);
 }
 
+export interface RepeFund {
+  fund_id: string;
+  business_id: string;
+  name: string;
+  vintage_year: number;
+  fund_type: "closed_end" | "open_end" | "sma" | "co_invest";
+  strategy: "equity" | "debt";
+  sub_strategy?: string | null;
+  target_size?: string | null;
+  term_years?: number | null;
+  status: "fundraising" | "investing" | "harvesting" | "closed";
+  created_at: string;
+}
+
+export interface RepeFundTerm {
+  fund_term_id: string;
+  fund_id: string;
+  effective_from: string;
+  effective_to?: string | null;
+  management_fee_rate?: string | null;
+  management_fee_basis?: "committed" | "invested" | "nav" | null;
+  preferred_return_rate?: string | null;
+  carry_rate?: string | null;
+  waterfall_style?: "european" | "american" | null;
+  catch_up_style?: "none" | "partial" | "full" | null;
+  created_at: string;
+}
+
+export interface RepeFundDetail {
+  fund: RepeFund;
+  terms: RepeFundTerm[];
+}
+
+export interface RepeDeal {
+  deal_id: string;
+  fund_id: string;
+  name: string;
+  deal_type: "equity" | "debt";
+  stage: "sourcing" | "underwriting" | "ic" | "closing" | "operating" | "exited";
+  sponsor?: string | null;
+  target_close_date?: string | null;
+  created_at: string;
+}
+
+export interface RepeAsset {
+  asset_id: string;
+  deal_id: string;
+  asset_type: "property" | "cmbs";
+  name: string;
+  created_at: string;
+}
+
+export interface RepeAssetDetail {
+  asset: RepeAsset;
+  details: Record<string, unknown>;
+}
+
+export interface RepeEntity {
+  entity_id: string;
+  business_id: string;
+  name: string;
+  entity_type: "fund_lp" | "gp" | "holdco" | "spv" | "jv_partner" | "borrower";
+  jurisdiction?: string | null;
+  created_at: string;
+}
+
+export interface RepeOwnershipEdge {
+  ownership_edge_id: string;
+  from_entity_id: string;
+  to_entity_id: string;
+  percent: string;
+  effective_from: string;
+  effective_to?: string | null;
+  created_at: string;
+}
+
+export interface RepeAssetOwnership {
+  asset_id: string;
+  as_of_date: string;
+  links: Array<Record<string, unknown>>;
+  entity_edges: Array<Record<string, unknown>>;
+}
+
+export function listRepeFunds(businessId: string): Promise<RepeFund[]> {
+  return bosFetch(`/api/repe/businesses/${businessId}/funds`);
+}
+
+export function createRepeFund(
+  businessId: string,
+  body: {
+    name: string;
+    vintage_year: number;
+    fund_type: "closed_end" | "open_end" | "sma" | "co_invest";
+    strategy: "equity" | "debt";
+    sub_strategy?: string;
+    target_size?: string;
+    term_years?: number;
+    status?: "fundraising" | "investing" | "harvesting" | "closed";
+    management_fee_rate?: string;
+    management_fee_basis?: "committed" | "invested" | "nav";
+    preferred_return_rate?: string;
+    carry_rate?: string;
+    waterfall_style?: "european" | "american";
+    catch_up_style?: "none" | "partial" | "full";
+    terms_effective_from?: string;
+  }
+): Promise<RepeFund> {
+  return bosFetch(`/api/repe/businesses/${businessId}/funds`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getRepeFund(fundId: string): Promise<RepeFundDetail> {
+  return bosFetch(`/api/repe/funds/${fundId}`);
+}
+
+export function listRepeDeals(fundId: string): Promise<RepeDeal[]> {
+  return bosFetch(`/api/repe/funds/${fundId}/deals`);
+}
+
+export function createRepeDeal(
+  fundId: string,
+  body: {
+    name: string;
+    deal_type: "equity" | "debt";
+    stage?: "sourcing" | "underwriting" | "ic" | "closing" | "operating" | "exited";
+    sponsor?: string;
+    target_close_date?: string;
+  }
+): Promise<RepeDeal> {
+  return bosFetch(`/api/repe/funds/${fundId}/deals`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getRepeDeal(dealId: string): Promise<RepeDeal> {
+  return bosFetch(`/api/repe/deals/${dealId}`);
+}
+
+export function listRepeAssets(dealId: string): Promise<RepeAsset[]> {
+  return bosFetch(`/api/repe/deals/${dealId}/assets`);
+}
+
+export function createRepeAsset(
+  dealId: string,
+  body: {
+    asset_type: "property" | "cmbs";
+    name: string;
+    property_type?: string;
+    units?: number;
+    market?: string;
+    current_noi?: string;
+    occupancy?: string;
+    tranche?: string;
+    rating?: string;
+    coupon?: string;
+    maturity_date?: string;
+    collateral_summary_json?: Record<string, unknown>;
+  }
+): Promise<RepeAsset> {
+  return bosFetch(`/api/repe/deals/${dealId}/assets`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getRepeAsset(assetId: string): Promise<RepeAssetDetail> {
+  return bosFetch(`/api/repe/assets/${assetId}`);
+}
+
+export function createRepeEntity(body: {
+  business_id: string;
+  name: string;
+  entity_type: "fund_lp" | "gp" | "holdco" | "spv" | "jv_partner" | "borrower";
+  jurisdiction?: string;
+}): Promise<RepeEntity> {
+  return bosFetch("/api/repe/entities", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createRepeOwnershipEdge(body: {
+  from_entity_id: string;
+  to_entity_id: string;
+  percent: string;
+  effective_from: string;
+  effective_to?: string;
+}): Promise<RepeOwnershipEdge> {
+  return bosFetch("/api/repe/ownership-edges", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getRepeAssetOwnership(assetId: string, asOfDate?: string): Promise<RepeAssetOwnership> {
+  return bosFetch(`/api/repe/assets/${assetId}/ownership`, {
+    params: { as_of_date: asOfDate },
+  });
+}
+
+export function seedRepeBusiness(businessId: string): Promise<{
+  business_id: string;
+  funds: string[];
+  deals: string[];
+  assets: string[];
+  entities: string[];
+}> {
+  return bosFetch(`/api/repe/businesses/${businessId}/seed`, {
+    method: "POST",
+  });
+}
+
 export type UnderwritingPropertyType =
   | "multifamily"
   | "industrial"
