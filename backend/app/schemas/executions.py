@@ -6,8 +6,9 @@ from datetime import datetime
 
 class RunExecutionRequest(BaseModel):
     business_id: UUID
-    department_id: UUID
-    capability_id: UUID
+    department_id: Optional[UUID] = None
+    capability_id: Optional[UUID] = None
+    execution_type: Optional[str] = None
     inputs_json: dict = {}
 
 

@@ -12,6 +12,11 @@ const CARDS = [
     description: "Cited market/comps ingest, scenario levers, and reproducible IC/appraisal artifacts.",
   },
   {
+    href: "/app/real-estate",
+    title: "Real Estate Command Center",
+    description: "Special servicing workflow: trusts, loans, surveillance, re-underwriting, workouts, and events.",
+  },
+  {
     href: "/app/finance/legal",
     title: "Legal Economics",
     description: "Matter-level economics, trust ledger segregation, and contingency runs.",

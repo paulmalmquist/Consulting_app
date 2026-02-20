@@ -113,6 +113,109 @@ export interface RunResult {
   outputs_json: Record<string, unknown>;
 }
 
+export interface ReTrust {
+  trust_id: string;
+  business_id: string;
+  name: string;
+  external_ids: Record<string, unknown>;
+  created_by?: string | null;
+  created_at: string;
+}
+
+export interface ReLoan {
+  loan_id: string;
+  trust_id: string;
+  business_id: string;
+  loan_identifier: string;
+  external_ids: Record<string, unknown>;
+  original_balance_cents: number;
+  current_balance_cents: number;
+  rate_decimal?: number | null;
+  maturity_date?: string | null;
+  servicer_status: string;
+  metadata_json: Record<string, unknown>;
+  created_by?: string | null;
+  created_at: string;
+}
+
+export interface ReSurveillance {
+  surveillance_id: string;
+  loan_id: string;
+  business_id: string;
+  period_end_date: string;
+  metrics_json: Record<string, unknown>;
+  dscr?: number | null;
+  occupancy?: number | null;
+  noi_cents?: number | null;
+  notes?: string | null;
+  created_by?: string | null;
+  created_at: string;
+}
+
+export interface ReUnderwriteRun {
+  underwrite_run_id: string;
+  loan_id: string;
+  business_id: string;
+  execution_id?: string | null;
+  run_at: string;
+  inputs_json: Record<string, unknown>;
+  outputs_json: Record<string, unknown>;
+  document_ids: string[];
+  diff_from_run_id?: string | null;
+  created_by?: string | null;
+  version: number;
+  created_at: string;
+}
+
+export interface ReWorkoutAction {
+  action_id: string;
+  case_id: string;
+  business_id: string;
+  action_type: string;
+  status: string;
+  due_date?: string | null;
+  owner?: string | null;
+  summary?: string | null;
+  audit_log_json: Record<string, unknown>;
+  document_ids: string[];
+  created_by?: string | null;
+  created_at: string;
+}
+
+export interface ReWorkoutCase {
+  case_id: string;
+  loan_id: string;
+  business_id: string;
+  case_status: string;
+  opened_at: string;
+  closed_at?: string | null;
+  assigned_to?: string | null;
+  summary?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  actions: ReWorkoutAction[];
+}
+
+export interface ReEvent {
+  event_id: string;
+  loan_id: string;
+  business_id: string;
+  event_type: string;
+  event_date: string;
+  severity: string;
+  description: string;
+  document_ids: string[];
+  created_by?: string | null;
+  created_at: string;
+}
+
+export interface ReLoanDetail {
+  loan: ReLoan;
+  borrowers: Array<Record<string, unknown>>;
+  properties: Array<Record<string, unknown>>;
+  latest_surveillance?: Record<string, unknown> | null;
+}
+
 export interface ExtractedDocument {
   id: string;
   document_id: string;
@@ -240,8 +343,9 @@ export function getDownloadUrl(documentId: string, versionId: string): Promise<{
 
 export function runExecution(body: {
   business_id: string;
-  department_id: string;
-  capability_id: string;
+  department_id?: string;
+  capability_id?: string;
+  execution_type?: string;
   inputs_json: Record<string, unknown>;
 }): Promise<RunResult> {
   return bosFetch("/api/executions/run", {
@@ -258,6 +362,151 @@ export function listExecutions(businessId: string, departmentId?: string, capabi
       capability_id: capabilityId,
     },
   });
+}
+
+// ── Real Estate (Special Servicing) ─────────────────────────────────
+
+export function listReTrusts(businessId: string): Promise<ReTrust[]> {
+  return bosFetch("/api/real-estate/trusts", { params: { business_id: businessId } });
+}
+
+export function createReTrust(body: {
+  business_id: string;
+  name: string;
+  external_ids?: Record<string, unknown>;
+  created_by?: string;
+}): Promise<ReTrust> {
+  return bosFetch("/api/real-estate/trusts", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listReLoans(businessId: string, trustId?: string): Promise<ReLoan[]> {
+  return bosFetch("/api/real-estate/loans", { params: { business_id: businessId, trust_id: trustId } });
+}
+
+export function createReLoan(body: {
+  business_id: string;
+  trust_id: string;
+  loan_identifier: string;
+  external_ids?: Record<string, unknown>;
+  original_balance_cents: number;
+  current_balance_cents: number;
+  rate_decimal?: number;
+  maturity_date?: string;
+  servicer_status?: string;
+  metadata_json?: Record<string, unknown>;
+  borrowers?: Array<Record<string, unknown>>;
+  properties?: Array<Record<string, unknown>>;
+  created_by?: string;
+}): Promise<ReLoan> {
+  return bosFetch("/api/real-estate/loans", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getReLoan(loanId: string): Promise<ReLoanDetail> {
+  return bosFetch(`/api/real-estate/loans/${loanId}`);
+}
+
+export function listReSurveillance(loanId: string): Promise<ReSurveillance[]> {
+  return bosFetch(`/api/real-estate/loans/${loanId}/surveillance`);
+}
+
+export function createReSurveillance(loanId: string, body: {
+  business_id: string;
+  period_end_date: string;
+  metrics_json?: Record<string, unknown>;
+  dscr?: number;
+  occupancy?: number;
+  noi_cents?: number;
+  notes?: string;
+  created_by?: string;
+}): Promise<ReSurveillance> {
+  return bosFetch(`/api/real-estate/loans/${loanId}/surveillance`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listReUnderwriteRuns(loanId: string): Promise<ReUnderwriteRun[]> {
+  return bosFetch(`/api/real-estate/loans/${loanId}/underwrite-runs`);
+}
+
+export function createReUnderwriteRun(loanId: string, body: {
+  business_id: string;
+  cap_rate?: number;
+  stabilized_noi_cents?: number;
+  vacancy_factor?: number;
+  expense_growth?: number;
+  interest_rate?: number;
+  amortization_years?: number;
+  created_by?: string;
+  document_ids?: string[];
+}): Promise<ReUnderwriteRun> {
+  return bosFetch(`/api/real-estate/loans/${loanId}/underwrite-runs`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listReWorkoutCases(loanId: string): Promise<ReWorkoutCase[]> {
+  return bosFetch(`/api/real-estate/loans/${loanId}/workout-cases`);
+}
+
+export function createReWorkoutCase(loanId: string, body: {
+  business_id: string;
+  case_status?: string;
+  assigned_to?: string;
+  summary?: string;
+  created_by?: string;
+}): Promise<ReWorkoutCase> {
+  return bosFetch(`/api/real-estate/loans/${loanId}/workout-cases`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createReWorkoutAction(caseId: string, body: {
+  business_id: string;
+  action_type: string;
+  status?: string;
+  due_date?: string;
+  owner?: string;
+  summary?: string;
+  audit_log_json?: Record<string, unknown>;
+  document_ids?: string[];
+  created_by?: string;
+}): Promise<ReWorkoutAction> {
+  return bosFetch(`/api/real-estate/workout-cases/${caseId}/actions`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listReEvents(loanId: string): Promise<ReEvent[]> {
+  return bosFetch(`/api/real-estate/loans/${loanId}/events`);
+}
+
+export function createReEvent(loanId: string, body: {
+  business_id: string;
+  event_type: string;
+  event_date: string;
+  severity?: string;
+  description: string;
+  document_ids?: string[];
+  created_by?: string;
+}): Promise<ReEvent> {
+  return bosFetch(`/api/real-estate/loans/${loanId}/events`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function seedReDemo(businessId: string): Promise<{ trust_id: string; loan_ids: string[] }> {
+  return bosFetch("/api/real-estate/dev/seed", { method: "POST", params: { business_id: businessId } });
 }
 
 // ── SHA-256 helper (client-side, Web Crypto) ─────────────────────────

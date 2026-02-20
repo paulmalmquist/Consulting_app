@@ -66,7 +66,7 @@ uvicorn app.main:app --reload --port 8000
 - `GET /api/documents/{id}/versions/{vid}/download-url` — Signed download
 
 ### Executions
-- `POST /api/executions/run` — Run an execution (stub)
+- `POST /api/executions/run` — Run an execution (`RE_UNDERWRITE_RUN` supported)
 - `GET /api/executions?business_id=...` — List executions
 
 ### Underwriting
@@ -77,6 +77,23 @@ uvicorn app.main:app --reload --port 8000
 - `POST /api/underwriting/runs/{run_id}/ingest-research` — Ingest structured research payload with citation validation
 - `POST /api/underwriting/runs/{run_id}/scenarios/run` — Run Base/Upside/Downside + custom scenarios
 - `GET /api/underwriting/runs/{run_id}/reports` — Retrieve report artifacts (IC memo, appraisal narrative, outputs, sources ledger)
+
+### Real Estate (Special Servicing)
+- `GET /api/real-estate/trusts?business_id=...` — List trusts
+- `POST /api/real-estate/trusts` — Create trust
+- `GET /api/real-estate/loans?business_id=...&trust_id=...` — List loans
+- `POST /api/real-estate/loans` — Create loan
+- `GET /api/real-estate/loans/{loan_id}` — Loan detail with borrower/property/latest surveillance
+- `GET /api/real-estate/loans/{loan_id}/surveillance` — List surveillance snapshots
+- `POST /api/real-estate/loans/{loan_id}/surveillance` — Create surveillance snapshot
+- `GET /api/real-estate/loans/{loan_id}/underwrite-runs` — List runs
+- `POST /api/real-estate/loans/{loan_id}/underwrite-runs` — Queue + execute deterministic re-underwrite
+- `GET /api/real-estate/loans/{loan_id}/workout-cases` — List workout cases (+actions)
+- `POST /api/real-estate/loans/{loan_id}/workout-cases` — Create workout case
+- `POST /api/real-estate/workout-cases/{case_id}/actions` — Create workout action
+- `GET /api/real-estate/loans/{loan_id}/events` — List events
+- `POST /api/real-estate/loans/{loan_id}/events` — Create event
+- `POST /api/real-estate/dev/seed?business_id=...` — Seed demo trust/loans/surveillance
 
 ## Local CLI Flow (Underwriting)
 

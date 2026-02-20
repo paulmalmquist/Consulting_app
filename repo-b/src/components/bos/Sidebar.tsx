@@ -100,6 +100,14 @@ export default function Sidebar({
           <span>CRM</span>
         </Link>
         <Link
+          href="/app/real-estate"
+          onClick={onClose}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-bm-muted hover:bg-bm-surface/40 hover:text-bm-text transition border border-transparent hover:border-bm-border/70"
+        >
+          <span className="text-xs">🏢</span>
+          <span>Real Estate</span>
+        </Link>
+        <Link
           href="/app/compliance"
           onClick={onClose}
           className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-bm-muted hover:bg-bm-surface/40 hover:text-bm-text transition border border-transparent hover:border-bm-border/70"

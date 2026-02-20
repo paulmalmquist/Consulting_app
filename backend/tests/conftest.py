@@ -84,6 +84,7 @@ _GET_CURSOR_TARGETS = [
     "app.services.reports.get_cursor",
     "app.services.crm.get_cursor",
     "app.services.underwriting.get_cursor",
+    "app.services.real_estate.get_cursor",
 ]
 
 

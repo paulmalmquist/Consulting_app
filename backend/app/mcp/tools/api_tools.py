@@ -18,6 +18,7 @@ ALLOWED_API_PATHS = [
     "/api/documents",
     "/api/executions",
     "/api/underwriting",
+    "/api/real-estate",
     "/api/admin/",  # Admin tools endpoints
 ]
 

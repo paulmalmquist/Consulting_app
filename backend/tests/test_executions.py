@@ -9,6 +9,9 @@ def test_run_execution_stub(client, fake_cursor):
     cap_id = str(uuid4())
     exec_id = str(uuid4())
 
+    fake_cursor.push_result([{"ok": 1}])  # business exists
+    fake_cursor.push_result([{"ok": 1}])  # department enabled
+    fake_cursor.push_result([{"ok": 1}])  # capability enabled
     fake_cursor.push_result([{"execution_id": exec_id}])
 
     resp = client.post("/api/executions/run", json={

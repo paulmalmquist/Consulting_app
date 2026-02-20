@@ -17,6 +17,7 @@ def run_execution(req: RunExecutionRequest):
         department_id=req.department_id,
         capability_id=req.capability_id,
         inputs_json=req.inputs_json,
+        execution_type=req.execution_type,
     )
     ms = int((time.monotonic() - start) * 1000)
     audit_svc.record_event(
