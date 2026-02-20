@@ -126,3 +126,22 @@ See each sub-project's `.env.example` for the full list.
 - `docs/execution-engine-v1/` — canonical schema, capability contracts, bootstrap flow
 - `docs/LOCAL_AI_SIDECAR.md` — local AI sidecar setup
 - `ROADMAP.md` — feature roadmap and test plan
+- `orchestration/README.md` — controlled parallel Codex orchestration (sessions, branch isolation, scope/risk controls, audit logs)
+
+## Controlled Codex Orchestration
+
+This repository includes a production orchestration layer for Codex execution:
+
+- Runner: `scripts/codex_orchestrator.py`
+- Contracts/policies: `orchestration/*.json` and `orchestration/*.md`
+- Runtime state: `.orchestration/`
+- Hooks installer: `scripts/install_orchestration_hooks.sh`
+
+Quick start:
+
+```bash
+./scripts/install_orchestration_hooks.sh
+python3 scripts/codex_orchestrator.py session create --session-id <uuid> --intent ui_refactor --model fast --reasoning-effort low --allowed-directories repo-b/src/app --allowed-tools read,edit,shell --max-files-per-execution 20
+python3 scripts/codex_orchestrator.py run --session-id <uuid> --prompt \"Refactor hero CTA spacing\" --approval-text CONFIRM
+python3 scripts/codex_orchestrator.py log verify-chain
+```

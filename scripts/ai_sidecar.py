@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""
-Local-only Codex sidecar.
-
-This is a developer/operator tool. It runs on localhost and shells out to the
-installed `codex` CLI (which uses local ChatGPT-managed auth via `codex login`).
-"""
+"""Local-only Codex sidecar routed through orchestration enforcement."""
 
 from __future__ import annotations
 
@@ -13,7 +8,9 @@ import os
 import shutil
 import subprocess
 import time
+from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -22,36 +19,53 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 7337
 DEFAULT_TIMEOUT_MS = 45_000
 MAX_PROMPT_BYTES = 50_000
+ROOT = Path(__file__).resolve().parents[1]
+ORCH = ROOT / "scripts" / "codex_orchestrator.py"
 
 
 class AskRequest(BaseModel):
     prompt: str = Field(min_length=1)
     timeout_ms: int = Field(default=DEFAULT_TIMEOUT_MS, ge=1_000, le=180_000)
+    session_id: str | None = None
+    intent: str | None = None
+    allowed_directories: list[str] | None = None
+    auto_approval: bool = False
+    reasoning_effort: str = "low"
 
 
 class AskResponse(BaseModel):
     answer: str
     elapsed_ms: int
+    execution_id: str | None = None
+    log_path: str | None = None
 
 
 class CodeTaskRequest(BaseModel):
     task: str = Field(min_length=1)
     timeout_ms: int = Field(default=DEFAULT_TIMEOUT_MS, ge=1_000, le=300_000)
+    session_id: str | None = None
+    intent: str | None = "documentation"
+    allowed_directories: list[str] | None = None
+    auto_approval: bool = False
 
 
 class CodeTaskResponse(BaseModel):
     plan: str
     diff: str | None = None
     elapsed_ms: int
+    execution_id: str | None = None
+    log_path: str | None = None
 
 
-app = FastAPI(title="Local Codex Sidecar", version="0.1.0")
+app = FastAPI(title="Local Codex Sidecar", version="0.2.0")
 
 
 def _check_codex_available() -> tuple[bool, str]:
     path = shutil.which("codex")
     if not path:
         return False, "codex CLI not found on PATH"
+    if not ORCH.exists():
+        return False, "orchestration runner not found"
     try:
         out = subprocess.run([path, "--version"], capture_output=True, text=True, timeout=5)
         if out.returncode != 0:
@@ -62,9 +76,10 @@ def _check_codex_available() -> tuple[bool, str]:
 
 
 def _minimal_env() -> dict[str, str]:
-    # Do not forward arbitrary environment variables (especially secrets).
-    # Keep only what is required for the process to run.
-    keep = ["PATH", "HOME", "USER", "SHELL", "LANG", "LC_ALL", "TERM"]
+    keep = [
+        "PATH", "HOME", "USER", "SHELL", "LANG", "LC_ALL", "TERM",
+        "CODEX_MODEL_FAST", "CODEX_MODEL_DEEP",
+    ]
     out: dict[str, str] = {}
     for key in keep:
         if key in os.environ:
@@ -72,46 +87,47 @@ def _minimal_env() -> dict[str, str]:
     return out
 
 
-def _run_codex(prompt: str, timeout_ms: int) -> tuple[int, str, str]:
-    if len(prompt.encode("utf-8")) > MAX_PROMPT_BYTES:
-        raise HTTPException(status_code=413, detail="Prompt too large")
+def _session_create(session_id: str, intent: str, allowed_directories: list[str], auto_approval: bool, reasoning_effort: str = "low") -> None:
+    if not ORCH.exists():
+        raise HTTPException(status_code=500, detail="orchestration runner missing")
 
-    codex_path = shutil.which("codex")
-    if not codex_path:
-        raise HTTPException(status_code=503, detail="codex CLI not installed")
-
-    # Strongly discourage Codex from running commands/tools.
-    # We provide retrieval context upstream in the backend.
-    safe_prompt = (
-        "SYSTEM:\n"
-        "- You are running locally on a developer machine.\n"
-        "- Do NOT run any commands, tools, or searches.\n"
-        "- Do NOT attempt to access the network.\n"
-        "- Answer ONLY based on the provided text.\n\n"
-        f"USER:\n{prompt.strip()}\n"
-    )
-
-    # Read-only sandbox: no shell execution / no repo mutation.
-    cmd = [
-        codex_path,
-        "exec",
-        "--sandbox",
-        "read-only",
-        "--skip-git-repo-check",
-        safe_prompt,
+    model = "fast" if intent in {"ui_refactor", "file_move", "test_fix", "documentation", "analytics_query"} else "deep"
+    allowed = ",".join(allowed_directories or ["repo-b/src", "backend", "scripts"]) 
+    args = [
+        "python3", str(ORCH), "session", "create",
+        "--session-id", session_id,
+        "--intent", intent,
+        "--model", model,
+        "--reasoning-effort", reasoning_effort,
+        "--allowed-directories", allowed,
+        "--allowed-tools", "read,edit,shell",
+        "--max-files-per-execution", "25",
     ]
+    if auto_approval:
+        args.append("--auto-approval")
+    cp = subprocess.run(args, capture_output=True, text=True, env=_minimal_env(), cwd=str(ROOT))
+    if cp.returncode != 0 and "already" not in (cp.stderr + cp.stdout).lower():
+        # session might already exist; validate attempt next
+        val = subprocess.run(["python3", str(ORCH), "session", "validate", "--session-id", session_id], capture_output=True, text=True, env=_minimal_env(), cwd=str(ROOT))
+        if val.returncode != 0:
+            raise HTTPException(status_code=422, detail=(cp.stderr or cp.stdout or "session creation failed")[:500])
 
-    try:
-        p = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout_ms / 1000.0,
-            env=_minimal_env(),
-        )
-        return p.returncode, p.stdout, p.stderr
-    except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="Codex sidecar timed out")
+
+def _run_orchestrated(prompt: str, session_id: str, intent: str, allowed_directories: list[str], auto_approval: bool, timeout_ms: int) -> tuple[int, str, str]:
+    _session_create(session_id=session_id, intent=intent, allowed_directories=allowed_directories, auto_approval=auto_approval)
+
+    args = [
+        "python3", str(ORCH), "run",
+        "--session-id", session_id,
+        "--prompt", prompt,
+        "--simulate",  # sidecar keeps previous read-only semantics for now
+    ]
+    if intent:
+        args.extend(["--intent", intent])
+    if auto_approval:
+        args.extend(["--approval-text", "CONFIRM"])
+    cp = subprocess.run(args, capture_output=True, text=True, timeout=timeout_ms / 1000.0, env=_minimal_env(), cwd=str(ROOT))
+    return cp.returncode, cp.stdout, cp.stderr
 
 
 @app.get("/health")
@@ -123,56 +139,71 @@ def health() -> dict[str, Any]:
 @app.post("/v1/ask", response_model=AskResponse)
 def ask(payload: AskRequest) -> AskResponse:
     start = time.time()
-    rc, out, err = _run_codex(payload.prompt, payload.timeout_ms)
-    elapsed_ms = int((time.time() - start) * 1000)
+    if len(payload.prompt.encode("utf-8")) > MAX_PROMPT_BYTES:
+        raise HTTPException(status_code=413, detail="Prompt too large")
 
+    sid = payload.session_id or str(uuid4())
+    intent = payload.intent or "documentation"
+    allowed = payload.allowed_directories or ["repo-b/src", "backend", "scripts"]
+    try:
+        rc, out, err = _run_orchestrated(
+            prompt=payload.prompt,
+            session_id=sid,
+            intent=intent,
+            allowed_directories=allowed,
+            auto_approval=payload.auto_approval,
+            timeout_ms=payload.timeout_ms,
+        )
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Codex sidecar timed out")
+
+    elapsed_ms = int((time.time() - start) * 1000)
     if rc != 0:
-        # Avoid leaking stderr; truncate.
-        detail = (err or out or "Codex execution failed").strip()[:500]
+        detail = (err or out or "Orchestrated run failed").strip()[:1000]
         raise HTTPException(status_code=502, detail=detail)
 
-    answer = out.strip()
-    # Codex CLI includes a lot of headers/metadata. Keep the last non-empty line as the answer.
-    # This is a pragmatic heuristic for local usage; backend already supplies citations separately.
-    lines = [ln.strip() for ln in answer.splitlines() if ln.strip()]
-    if lines:
-        answer = lines[-1]
-    if not answer:
-        raise HTTPException(status_code=502, detail="Empty response from codex")
+    parsed = {}
+    try:
+        parsed = json.loads(out)
+    except Exception:
+        parsed = {"status": "completed", "raw": out}
 
-    return AskResponse(answer=answer, elapsed_ms=elapsed_ms)
+    answer = json.dumps(parsed, sort_keys=True)
+    return AskResponse(
+        answer=answer,
+        elapsed_ms=elapsed_ms,
+        execution_id=parsed.get("execution_id"),
+        log_path=parsed.get("log_path"),
+    )
 
 
 @app.post("/v1/code_task", response_model=CodeTaskResponse)
 def code_task(payload: CodeTaskRequest) -> CodeTaskResponse:
     start = time.time()
-    # Ask Codex to return a plan and (optionally) a unified diff.
-    prompt = (
-        "You are a coding assistant. Provide a concise implementation plan, then if possible "
-        "provide a unified diff. If you cannot produce a diff, say so explicitly.\n\n"
-        f"TASK:\n{payload.task}\n"
+    sid = payload.session_id or str(uuid4())
+    intent = payload.intent or "documentation"
+    allowed = payload.allowed_directories or ["repo-b/src", "backend", "scripts"]
+    rc, out, err = _run_orchestrated(
+        prompt=payload.task,
+        session_id=sid,
+        intent=intent,
+        allowed_directories=allowed,
+        auto_approval=payload.auto_approval,
+        timeout_ms=payload.timeout_ms,
     )
-    rc, out, err = _run_codex(prompt, payload.timeout_ms)
     elapsed_ms = int((time.time() - start) * 1000)
-
     if rc != 0:
-        detail = (err or out or "Codex execution failed").strip()[:500]
+        detail = (err or out or "Orchestrated run failed").strip()[:1000]
         raise HTTPException(status_code=502, detail=detail)
 
-    text = out.strip()
-    if not text:
-        raise HTTPException(status_code=502, detail="Empty response from codex")
-
-    # Best-effort extraction: split on first "diff" fence if present.
-    diff = None
-    plan = text
-    if "```diff" in text:
-        before, after = text.split("```diff", 1)
-        plan = before.strip()
-        diff_body = after.split("```", 1)[0]
-        diff = diff_body.strip() or None
-
-    return CodeTaskResponse(plan=plan, diff=diff, elapsed_ms=elapsed_ms)
+    parsed = json.loads(out)
+    return CodeTaskResponse(
+        plan=json.dumps(parsed.get("plan", {}), sort_keys=True),
+        diff=None,
+        elapsed_ms=elapsed_ms,
+        execution_id=parsed.get("execution_id"),
+        log_path=parsed.get("log_path"),
+    )
 
 
 if __name__ == "__main__":

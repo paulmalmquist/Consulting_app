@@ -55,6 +55,13 @@ verceltoken.txt
 **/playwright-report/
 **/coverage/
 
+# Orchestration runtime artifacts
+.orchestration/worktrees/
+.orchestration/locks/
+.orchestration/logs/*.json
+.orchestration/logs/*.jsonl
+.orchestration/sessions/*.json
+
 # OS files
 .DS_Store
 .vercel

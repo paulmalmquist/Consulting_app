@@ -1,15 +1,14 @@
 #!/usr/bin/env node
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
-import os from "node:os";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { promises as fs } from "node:fs";
 
 const HOST = process.env.AI_SIDECAR_HOST || "127.0.0.1";
 const PORT = Number(process.env.AI_SIDECAR_PORT || 7337);
 const WORKDIR = process.env.AI_WORKDIR || process.cwd();
 const AUTH_TOKEN = (process.env.AI_SIDECAR_TOKEN || "").trim();
-const CODEX_BIN = (process.env.CODEX_BIN || "codex").trim();
+const ORCH = process.env.ORCH_RUNNER || path.resolve(WORKDIR, "scripts/codex_orchestrator.py");
 
 function isAuthorized(req) {
   if (!AUTH_TOKEN) return true;
@@ -29,9 +28,7 @@ function readJson(req) {
     let raw = "";
     req.on("data", (chunk) => {
       raw += String(chunk);
-      if (raw.length > 1_000_000) {
-        reject(new Error("Payload too large"));
-      }
+      if (raw.length > 1_000_000) reject(new Error("Payload too large"));
     });
     req.on("end", () => {
       if (!raw) return resolve({});
@@ -47,112 +44,97 @@ function readJson(req) {
 
 function runProcess(command, args, timeoutMs) {
   return new Promise((resolve) => {
-    const child = spawn(command, args, {
-      cwd: WORKDIR,
-      env: process.env,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    const child = spawn(command, args, { cwd: WORKDIR, env: process.env, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
     let settled = false;
     const timer = setTimeout(() => {
       if (settled) return;
       child.kill("SIGTERM");
-      setTimeout(() => child.kill("SIGKILL"), 1500);
+      setTimeout(() => child.kill("SIGKILL"), 1000);
       settled = true;
-      resolve({
-        ok: false,
-        timedOut: true,
-        exitCode: null,
-        stdout,
-        stderr: `${stderr}\nTimed out after ${timeoutMs}ms`,
-      });
+      resolve({ ok: false, exitCode: null, stdout, stderr: `${stderr}\nTimed out after ${timeoutMs}ms` });
     }, timeoutMs);
 
-    child.stdout.on("data", (chunk) => {
-      stdout += String(chunk);
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += String(chunk);
-    });
-    child.on("error", (error) => {
-      if (settled) return;
-      clearTimeout(timer);
-      settled = true;
-      resolve({
-        ok: false,
-        timedOut: false,
-        exitCode: null,
-        stdout,
-        stderr: `${stderr}\n${error.message}`,
-      });
-    });
+    child.stdout.on("data", (c) => (stdout += String(c)));
+    child.stderr.on("data", (c) => (stderr += String(c)));
     child.on("close", (exitCode) => {
       if (settled) return;
       clearTimeout(timer);
       settled = true;
-      resolve({
-        ok: exitCode === 0,
-        timedOut: false,
-        exitCode,
-        stdout,
-        stderr,
-      });
+      resolve({ ok: exitCode === 0, exitCode, stdout, stderr });
+    });
+    child.on("error", (err) => {
+      if (settled) return;
+      clearTimeout(timer);
+      settled = true;
+      resolve({ ok: false, exitCode: null, stdout, stderr: `${stderr}\n${err.message}` });
     });
   });
 }
 
-async function runCodexPrompt(prompt, timeoutMs) {
-  const outputFile = path.join(os.tmpdir(), `codex_sidecar_${Date.now()}_${Math.random().toString(16).slice(2)}.txt`);
-  const args = [
-    "exec",
-    "--skip-git-repo-check",
-    "-C",
-    WORKDIR,
-    "-o",
-    outputFile,
-    prompt,
-  ];
+async function runOrchestrated(payload) {
+  const sessionId = (payload.session_id || randomUUID()).trim();
+  const intent = (payload.intent || "documentation").trim();
+  const allowedDirectories = Array.isArray(payload.allowed_directories) && payload.allowed_directories.length
+    ? payload.allowed_directories
+    : ["repo-b/src", "backend", "scripts"];
+  const autoApproval = Boolean(payload.auto_approval);
+  const reasoning = (payload.reasoning_effort || "low").trim();
 
-  const result = await runProcess(CODEX_BIN, args, timeoutMs);
-  let answer = "";
-  try {
-    answer = await fs.readFile(outputFile, "utf8");
-  } catch {
-    answer = "";
-  } finally {
-    await fs.unlink(outputFile).catch(() => undefined);
+  const createArgs = [
+    ORCH,
+    "session",
+    "create",
+    "--session-id",
+    sessionId,
+    "--intent",
+    intent,
+    "--model",
+    ["schema_change", "business_logic_update", "mcp_contract_update", "infra_change"].includes(intent) ? "deep" : "fast",
+    "--reasoning-effort",
+    reasoning,
+    "--allowed-directories",
+    allowedDirectories.join(","),
+    "--allowed-tools",
+    "read,edit,shell",
+    "--max-files-per-execution",
+    String(Number(payload.max_files_per_execution || 25)),
+  ];
+  if (autoApproval) createArgs.push("--auto-approval");
+  const create = await runProcess("python3", createArgs, 30_000);
+  if (!create.ok) {
+    const validate = await runProcess("python3", [ORCH, "session", "validate", "--session-id", sessionId], 10_000);
+    if (!validate.ok) {
+      return { ok: false, stderr: create.stderr || create.stdout || "session create failed" };
+    }
   }
 
-  return {
-    ...result,
-    answer: answer.trim(),
-  };
+  const runArgs = [ORCH, "run", "--session-id", sessionId, "--prompt", String(payload.prompt || ""), "--intent", intent, "--simulate"];
+  if (payload.plan_preview_id) runArgs.push("--plan-preview-id", String(payload.plan_preview_id));
+  if (payload.approval_text) runArgs.push("--approval-text", String(payload.approval_text));
+  else if (autoApproval) runArgs.push("--approval-text", "CONFIRM");
+
+  const run = await runProcess("python3", runArgs, Number(payload.timeout_ms || 45_000));
+  return run;
 }
 
 const server = createServer(async (req, res) => {
   if (!req.url) return sendJson(res, 404, { message: "Not found" });
-
   if (req.method === "OPTIONS") {
     res.statusCode = 204;
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
     return res.end();
   }
 
   if (req.method === "GET" && req.url === "/health") {
     if (!isAuthorized(req)) return sendJson(res, 401, { message: "Unauthorized" });
-    const probe = await runProcess(CODEX_BIN, ["--version"], 5000);
-    if (probe.ok) {
-      return sendJson(res, 200, {
-        codex_available: true,
-        message: "Connected",
-      });
-    }
+    const probe = await runProcess("python3", [ORCH, "--help"], 5000);
     return sendJson(res, 200, {
-      codex_available: false,
-      message: probe.stderr.trim() || "codex command unavailable",
+      codex_available: probe.ok,
+      message: probe.ok ? "Orchestrator connected" : (probe.stderr || "orchestrator unavailable"),
     });
   }
 
@@ -160,25 +142,16 @@ const server = createServer(async (req, res) => {
     if (!isAuthorized(req)) return sendJson(res, 401, { message: "Unauthorized" });
     try {
       const payload = await readJson(req);
-      const prompt = String(payload?.prompt || "").trim();
-      const timeoutMs = Number(payload?.timeout_ms || 45000);
-      if (!prompt) return sendJson(res, 400, { message: "prompt is required" });
-
-      const result = await runCodexPrompt(prompt, Number.isFinite(timeoutMs) ? timeoutMs : 45000);
+      if (!String(payload.prompt || "").trim()) return sendJson(res, 400, { message: "prompt is required" });
+      const result = await runOrchestrated(payload);
       if (!result.ok) {
-        return sendJson(res, 502, {
-          message: result.timedOut ? "codex prompt timed out" : "codex prompt failed",
-          stderr: result.stderr.slice(-4000),
-          exit_code: result.exitCode,
-        });
+        return sendJson(res, 502, { message: "orchestrated run failed", stderr: String(result.stderr || "").slice(-4000) });
       }
-      return sendJson(res, 200, {
-        answer: result.answer || result.stdout.trim() || "No response",
-      });
-    } catch (error) {
-      return sendJson(res, 500, {
-        message: error instanceof Error ? error.message : "Unexpected error",
-      });
+      let parsed = {};
+      try { parsed = JSON.parse(result.stdout || "{}"); } catch { parsed = { raw: result.stdout || "" }; }
+      return sendJson(res, 200, { answer: JSON.stringify(parsed), execution_id: parsed.execution_id, log_path: parsed.log_path });
+    } catch (err) {
+      return sendJson(res, 500, { message: err instanceof Error ? err.message : "Unexpected error" });
     }
   }
 
@@ -186,6 +159,5 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  // eslint-disable-next-line no-console
   console.log(`[codex-sidecar] listening on http://${HOST}:${PORT} (workdir: ${WORKDIR})`);
 });

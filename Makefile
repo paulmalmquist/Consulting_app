@@ -1,7 +1,8 @@
 # ── Consulting App Makefile ────────────────────────────────────────
 .PHONY: dev dev-bos dev-demo test test-backend test-demo test-e2e \
         lint fmt db\:migrate db\:seed db\:dry db\:verify install \
-        bmctl smoke mcp-smoke command-regression public-walloff-smoke
+        bmctl smoke mcp-smoke command-regression public-walloff-smoke \
+        orchestration\:install-hooks orchestration\:validate orchestration\:verify-logs
 
 # ── Ports ──────────────────────────────────────────────────────────
 BACKEND_PORT   ?= 8000
@@ -78,6 +79,15 @@ command-regression:  ## Regression tests for delete-by-name command lifecycle
 
 public-walloff-smoke:  ## Smoke-test public/private wall-off boundaries and public APIs
 	./scripts/public_walloff_smoke_test.sh http://127.0.0.1:$(FRONTEND_PORT)
+
+orchestration\:install-hooks: ## Install protected-branch git hooks
+	./scripts/install_orchestration_hooks.sh
+
+orchestration\:validate: ## Validate orchestration contracts + tests
+	cd backend && .venv/bin/python -m pytest tests/test_orchestration_*.py -q
+
+orchestration\:verify-logs: ## Verify orchestration log hash chain
+	python3 scripts/codex_orchestrator.py log verify-chain
 
 # ── Help ──────────────────────────────────────────────────────────
 help:  ## Show this help

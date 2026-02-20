@@ -11,6 +11,8 @@ type AskResponse = {
   output_text?: string;
   stdout?: string;
   stderr?: string;
+  execution_id?: string;
+  log_path?: string;
 };
 
 const SIDE_CAR_URL = process.env.AI_SIDECAR_URL || "http://127.0.0.1:7337";
@@ -33,6 +35,18 @@ export function aiMode(): string {
 
 export function isLocalAiEnabled(): boolean {
   return aiMode() === "local";
+}
+
+function inferIntent(prompt: string): string {
+  const p = prompt.toLowerCase();
+  if (/(schema|migration|ddl|drop table|drop column|drop schema)/.test(p)) return "schema_change";
+  if (/(infra|deployment|pipeline|docker|k8s|ci)/.test(p)) return "infra_change";
+  if (/(mcp|contract update|tool schema)/.test(p)) return "mcp_contract_update";
+  if (/(test|pytest|failing test)/.test(p)) return "test_fix";
+  if (/(ui|component|css|layout)/.test(p)) return "ui_refactor";
+  if (/(analytics|query|metric)/.test(p)) return "analytics_query";
+  if (/(docs|readme|documentation)/.test(p)) return "documentation";
+  return "business_logic_update";
 }
 
 export async function checkSidecarHealth() {
@@ -85,10 +99,22 @@ async function runPrompt(runId: string, prompt: string) {
   }
 
   try {
+    const sessionId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `sess_${Date.now()}`;
     const response = await fetch(`${SIDE_CAR_URL}/ask`, {
       method: "POST",
       headers: sidecarHeaders("application/json"),
-      body: JSON.stringify({ prompt, timeout_ms: 45000 }),
+      body: JSON.stringify({
+        prompt,
+        timeout_ms: 45000,
+        session_id: sessionId,
+        intent: inferIntent(prompt),
+        allowed_directories: ["repo-b/src", "backend", "scripts"],
+        auto_approval: false,
+        reasoning_effort: "low",
+      }),
       cache: "no-store",
     });
 
@@ -182,10 +208,22 @@ export async function runPromptDirect(prompt: string): Promise<{ ok: boolean; ou
   }
 
   try {
+    const sessionId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `sess_${Date.now()}`;
     const response = await fetch(`${SIDE_CAR_URL}/ask`, {
       method: "POST",
       headers: sidecarHeaders("application/json"),
-      body: JSON.stringify({ prompt, timeout_ms: 45000 }),
+      body: JSON.stringify({
+        prompt,
+        timeout_ms: 45000,
+        session_id: sessionId,
+        intent: inferIntent(prompt),
+        allowed_directories: ["repo-b/src", "backend", "scripts"],
+        auto_approval: false,
+        reasoning_effort: "low",
+      }),
       cache: "no-store",
     });
 
