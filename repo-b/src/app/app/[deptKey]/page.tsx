@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import DepartmentLandingClient from "./DepartmentLandingClient";
 import { DEPARTMENT_KEYS } from "@/lib/static-routes";
 
@@ -10,5 +11,9 @@ export default function DepartmentLandingPage({
 }: {
   params: { deptKey: string };
 }) {
+  if (params.deptKey === "finance") {
+    redirect("/app/finance/portfolio");
+  }
+
   return <DepartmentLandingClient deptKey={params.deptKey} />;
 }

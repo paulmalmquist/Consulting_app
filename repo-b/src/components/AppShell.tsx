@@ -16,6 +16,7 @@ type NavItem = {
   href: string;
   label: string;
   navKey: string;
+  group: "operations" | "intelligence" | "system";
 };
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -30,18 +31,28 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const navItems = useMemo(() => {
     const homeHref = selectedEnv ? `/lab/env/${selectedEnv.env_id}` : "/lab/environments";
     const base: NavItem[] = [
-      { id: "dashboard", href: homeHref, label: "Dashboard", navKey: "dashboard" },
-      { id: "environments", href: "/lab/environments", label: "Environments", navKey: "environments" },
-      { id: "pipeline", href: "/lab/pipeline", label: "Pipeline", navKey: "pipeline" },
-      { id: "uploads", href: "/lab/upload", label: "Uploads", navKey: "uploads" },
-      { id: "chat", href: "/lab/chat", label: "Chat", navKey: "chat" },
-      { id: "audit", href: "/lab/audit", label: "Audit", navKey: "audit" },
-      { id: "metrics", href: "/lab/metrics", label: "Metrics", navKey: "metrics" },
+      { id: "dashboard", href: homeHref, label: "Dashboard", navKey: "dashboard", group: "operations" },
+      { id: "environments", href: "/lab/environments", label: "Environments", navKey: "environments", group: "operations" },
+      { id: "pipeline", href: "/lab/pipeline", label: "Pipeline", navKey: "pipeline", group: "operations" },
+      { id: "uploads", href: "/lab/upload", label: "Uploads", navKey: "uploads", group: "operations" },
+      { id: "chat", href: "/lab/chat", label: "Chat", navKey: "chat", group: "intelligence" },
+      { id: "metrics", href: "/lab/metrics", label: "Metrics", navKey: "metrics", group: "intelligence" },
+      { id: "audit", href: "/lab/audit", label: "Audit", navKey: "audit", group: "system" },
     ];
     return aiMode === "local"
-      ? [...base, { id: "ai", href: "/lab/ai", label: "AI", navKey: "ai" }]
+      ? [...base, { id: "ai", href: "/lab/ai", label: "AI", navKey: "ai", group: "intelligence" }]
       : base;
   }, [selectedEnv, aiMode]);
+
+  const groupedItems = useMemo(() => {
+    const groups: Record<NavItem["group"], NavItem[]> = {
+      operations: [],
+      intelligence: [],
+      system: [],
+    };
+    for (const item of navItems) groups[item.group].push(item);
+    return groups;
+  }, [navItems]);
 
   const toggleCollapsed = () => {
     setCollapsed((previous) => {
@@ -82,31 +93,46 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        <nav className="flex flex-col gap-2" data-testid="lab-nav">
-          {navItems.map((item) => {
-            const isActive =
-              item.id === "dashboard"
-                ? pathname.startsWith("/lab/env/")
-                : pathname === item.href;
-            return (
-              <Link
-                key={item.id}
-                href={item.href}
-                data-testid={`lab-nav-link-${item.id}`}
-                title={collapsed ? item.label : undefined}
-                className={cn(
-                  "rounded-lg text-sm border transition flex items-center",
-                  collapsed ? "justify-center p-2" : "px-3 py-2 gap-2",
-                  isActive
-                    ? "bg-bm-accent/10 text-bm-text border-bm-accent/30 shadow-bm-glow"
-                    : "text-bm-muted border-transparent hover:bg-bm-surface/40 hover:border-bm-border/70"
-                )}
-              >
-                <NavIcon navKey={item.navKey} size={15} />
-                {!collapsed ? item.label : null}
-              </Link>
-            );
-          })}
+        <nav className="flex flex-col gap-4" data-testid="lab-nav">
+          {([
+            ["operations", "Operations"],
+            ["intelligence", "Intelligence"],
+            ["system", "System"],
+          ] as const).map(([groupKey, groupLabel]) => (
+            <div key={groupKey} className="space-y-2">
+              {!collapsed ? (
+                <p className="px-2 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
+                  {groupLabel}
+                </p>
+              ) : null}
+              <div className="flex flex-col gap-1.5">
+                {groupedItems[groupKey].map((item) => {
+                  const isActive =
+                    item.id === "dashboard"
+                      ? pathname.startsWith("/lab/env/")
+                      : pathname === item.href;
+                  return (
+                    <Link
+                      key={item.id}
+                      href={item.href}
+                      data-testid={`lab-nav-link-${item.id}`}
+                      title={collapsed ? item.label : undefined}
+                      className={cn(
+                        "rounded-lg text-sm border transition flex items-center",
+                        collapsed ? "justify-center p-2.5" : "px-3 py-2.5 gap-2",
+                        isActive
+                          ? "bg-bm-accent/18 text-bm-text border-bm-accent/70 shadow-bm-glow ring-1 ring-bm-accent/45"
+                          : "text-bm-muted border-transparent hover:bg-bm-surface/40 hover:border-bm-border/70"
+                      )}
+                    >
+                      <NavIcon navKey={item.navKey} size={15} />
+                      {!collapsed ? item.label : null}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         <div className={cn("mt-auto text-xs text-bm-muted2", collapsed && "text-center")}> 
