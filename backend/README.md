@@ -95,6 +95,22 @@ uvicorn app.main:app --reload --port 8000
 - `POST /api/real-estate/loans/{loan_id}/events` — Create event
 - `POST /api/real-estate/dev/seed?business_id=...` — Seed demo trust/loans/surveillance
 
+### Real Estate Private Equity (Fund Engine)
+- `POST /api/re/valuation/run-quarter`
+- `POST /api/re/waterfall/run-shadow`
+- `POST /api/re/fund/compute-summary`
+- `POST /api/re/refinance/simulate`
+- `POST /api/re/stress/run`
+- `POST /api/re/surveillance/compute`
+- `POST /api/re/montecarlo/run`
+- `GET /api/re/asset/{asset_id}/quarter/{quarter}`
+- `GET /api/re/fund/{fund_id}/summary/{quarter}`
+- `GET /api/re/investor/{investor_id}/statement/{fund_id}/{quarter}`
+
+Demo flow script:
+- `python -m scripts.seed_re_demo`
+- `python -m scripts.seed_re_demo --fund-id <uuid> --asset-id <uuid> --quarter 2026Q1`
+
 ## Local CLI Flow (Underwriting)
 
 From repo root:

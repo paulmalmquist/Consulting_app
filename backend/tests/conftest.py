@@ -87,6 +87,16 @@ _GET_CURSOR_TARGETS = [
     "app.services.underwriting.get_cursor",
     "app.services.real_estate.get_cursor",
     "app.services.repe.get_cursor",
+    "app.services.re_valuation.get_cursor",
+    "app.services.re_waterfall.get_cursor",
+    "app.services.re_capital_accounts.get_cursor",
+    "app.services.re_fund_aggregation.get_cursor",
+    "app.services.re_refinance.get_cursor",
+    "app.services.re_stress.get_cursor",
+    "app.services.re_surveillance.get_cursor",
+    "app.services.re_monte_carlo.get_cursor",
+    "app.services.re_risk_scoring.get_cursor",
+    "app.services.re_reports.get_cursor",
 ]
 
 

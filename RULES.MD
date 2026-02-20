@@ -4,13 +4,15 @@ This file defines non-negotiable architectural, accounting, security, and determ
 
 If a feature violates these rules, it must not be implemented.
 
-Last updated: 2026-02-20 — synchronized with repo inventory.
+Last updated: 2026-02-20 — synchronized with repo inventory and REPE underwriting engine scope.
 
--------------------------------------
+---
 
-1. FINANCIAL DETERMINISM
+## PART A — PLATFORM FOUNDATION
 
--------------------------------------
+---
+
+### 1. FINANCIAL DETERMINISM
 
 - All financial math must run in backend Python (backend/app/finance/).
 - All engines must be replayable from their stored inputs alone.
@@ -21,15 +23,15 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   ledger entry or engine run.
 - Engine modules in scope: allocation_engine, capital_account_engine, clawback_engine,
   irr_engine, posting_engine, waterfall_engine, trust_engine, scenario_engine,
-  construction_forecast_engine, provider_comp_engine, execution_runtime.
+  construction_forecast_engine, provider_comp_engine, execution_runtime,
+  underwriting_engine, risk_scoring_engine, cmbs_surveillance_engine,
+  monte_carlo_engine, capital_call_engine, distribution_forecast_engine.
 - Adding a new financial engine requires: unit tests, run-ID assignment, and
   audit-log integration before merge.
 
--------------------------------------
+---
 
-1. LEDGER DISCIPLINE
-
--------------------------------------
+### 2. LEDGER DISCIPLINE
 
 - Every capital movement must generate double-entry journal entries via posting_engine.
 - No direct balance mutations on any finance table.
@@ -39,12 +41,12 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
 - Period close must freeze prior entries; no backdating after close.
 - Trust accounts (trust_engine, real_estate trust pages) must post to separate ledger
   partitions — never commingled with operating accounts.
+- Capital calls, distributions, and promote payouts must each generate journal entries
+  with full tranche attribution (LP, GP, promote, clawback reserve).
 
--------------------------------------
+---
 
-1. WATERFALL ENGINE RULES
-
--------------------------------------
+### 3. WATERFALL ENGINE RULES
 
 - Tier definitions must be stored structurally in fin_repe.sql / repe_object_model tables;
   no hard-coded tier logic in application code.
@@ -53,18 +55,21 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
 - Promote/carry percentages must be parameterized per fund/deal record.
 - Clawback must be calculable at any point in time from clawback_engine without running
   a full distribution pass.
+- GP carry crystallization timing must be modeled explicitly — carry is not realized
+  until the crystallization event is triggered and posted.
 - Engine must support:
   - American (deal-by-deal)
   - European (whole-fund)
+  - Hybrid (deal-by-deal with whole-fund clawback)
 - Waterfall runs are initiated via the background job queue (Celery / finance/tasks.py);
   synchronous HTTP calls must not block on waterfall computation.
 - Each waterfall run must produce a structured output persisted under a unique run_id.
+- Waterfall output must include per-tier breakdown: LP return, GP carry, catch-up,
+  promote payout amount, MOIC per tranche.
 
--------------------------------------
+---
 
-1. SCENARIO ISOLATION
-
--------------------------------------
+### 4. SCENARIO ISOLATION
 
 - No scenario may mutate live production data.
 - All simulations require an environment partition (Demo Lab per-env schema in repo-c,
@@ -74,12 +79,12 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
 - Lab environments (repo-c) may not share a schema with Business OS production tables.
 - Finance scenarios (finance_scenarios.py) must write results to a scenarios result table,
   never update live fund/deal/capital-account rows.
+- Monte Carlo simulations produce probability distributions, not point estimates; results
+  stored as run arrays tied to a scenario run_id.
 
--------------------------------------
+---
 
-1. MULTI-ENTITY MODELING
-
--------------------------------------
+### 5. MULTI-ENTITY MODELING
 
 - All entities (LPs, GPs, funds, deals, assets, investors) must support parent-child
   relationships as defined in fin_entity_core.sql.
@@ -89,12 +94,12 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   Healthcare, and Legal modules without modification.
 - Cross-entity relationships must be expressed via association tables, not foreign-key
   chains that embed business logic in schema.
+- Fund-level entities must support multi-asset portfolio aggregation: weighted average
+  DSCR, weighted average LTV, diversification scoring, IRR contribution per asset.
 
--------------------------------------
+---
 
-1. PERMISSION ENFORCEMENT
-
--------------------------------------
+### 6. PERMISSION ENFORCEMENT
 
 - All access control enforced at the API layer (FastAPI route dependencies).
 - No frontend-only permission logic; middleware.ts in repo-b is for UX routing only,
@@ -109,12 +114,12 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   sensitive financial data in production deployments.
 - MCP tool calls (mcp/auth.py) follow the same permission model as REST endpoints;
   no MCP tool may bypass RLS.
+- IC memo access must be scoped: draft memos visible only to originator and IC members
+  until formally circulated.
 
--------------------------------------
+---
 
-1. AUDIT LOGGING
-
--------------------------------------
+### 7. AUDIT LOGGING
 
 - All state mutations logged to operational_audit (235_operational_audit.sql).
 - MCP tool calls logged via mcp/audit.py — inputs, caller identity, and outputs.
@@ -126,12 +131,12 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   engine calls and returned to the caller.
 - Codex/AI orchestration sessions must produce append-only session logs as defined
   in orchestration/log_schema.json.
+- Underwriting model runs, risk score changes, and IC memo generation events must
+  produce audit records with full assumption snapshots.
 
--------------------------------------
+---
 
-1. INDUSTRY EXTENSIBILITY
-
--------------------------------------
+### 8. INDUSTRY EXTENSIBILITY
 
 - REPE, Legal, Healthcare, and Construction share:
   - Ledger (fin_accounting_core.sql, posting_engine.py)
@@ -142,18 +147,19 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   finance_construction.py, underwriting/) may extend core but must not fork or
   duplicate it.
 - New industry modules must route through finance_common.py for shared operations.
-- Adding a new industry vertical requires a schema migration file (db/schema/2xx\_fin\_{industry}.sql)
-  and a corresponding service file (services/finance\_{industry}.py); no inline logic
-  in routes.
+- Adding a new industry vertical requires a schema migration file
+  (`db/schema/2xx_fin_{industry}.sql`) and a corresponding service file
+  (`services/finance_{industry}.py`); no inline logic in routes.
+- Underwriting engine must be property-type-agnostic at the interface level:
+  multifamily, industrial, office, retail, and CMBS each provide type-specific
+  assumptions but share the same calculation pipeline.
 
--------------------------------------
+---
 
-1. PERFORMANCE
+### 9. PERFORMANCE
 
--------------------------------------
-
-- Heavy math (waterfall runs, IRR, scenario sweeps, clawback recalculation) must run
-  via Celery task queue (finance/celery_app.py, finance/tasks.py).
+- Heavy math (waterfall runs, IRR, scenario sweeps, clawback recalculation, Monte Carlo,
+  risk scoring) must run via Celery task queue (finance/celery_app.py, finance/tasks.py).
 - HTTP request handlers must not block on financial engine computation; return a
   job_id and let the client poll or subscribe.
 - All engines must be idempotent: running the same engine with the same run_id must
@@ -162,12 +168,12 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   synchronous extraction is permitted only in test fixtures.
 - MCP rate limiting (mcp/rate_limit.py) applies to all tool categories; REST API
   endpoints must add equivalent rate limiting before production launch.
+- Monte Carlo simulations (1,000+ iterations) must run as background jobs; never
+  synchronous in a request handler.
 
--------------------------------------
+---
 
-1. MIGRATION DISCIPLINE
-
--------------------------------------
+### 10. MIGRATION DISCIPLINE
 
 - All schema changes via numbered migration files in repo-b/db/schema/.
 - Naming convention: `NNN_domain.sql` — do not reuse or renumber existing sequence numbers.
@@ -180,11 +186,9 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
 - New finance tables require corresponding index entries in 955_fin_indexes.sql and
   view entries in 995_fin_views.sql.
 
--------------------------------------
+---
 
-1. DOCUMENT GOVERNANCE
-
--------------------------------------
+### 11. DOCUMENT GOVERNANCE
 
 - Version all documents; document tables must carry a version/revision column.
 - Support redline diff storage per document version.
@@ -196,12 +200,12 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
   authoritative and must be retained.
 - Unsigned or unauthenticated storage URLs must not be exposed to the frontend in
   any production code path.
+- IC memos are versioned documents; each generation event creates a new version, never
+  overwrites.
 
--------------------------------------
+---
 
-1. TRUST & SEGREGATION
-
--------------------------------------
+### 12. TRUST & SEGREGATION
 
 - Trust accounts must be separate ledger partitions (trust_engine.py posts to
   isolated trust ledger identifiers).
@@ -214,11 +218,9 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
 - Multi-tenant data must be isolated via RLS (900_rls.sql); no business's data may
   leak into another tenant's query results.
 
--------------------------------------
+---
 
-1. EXECUTION ENGINE
-
--------------------------------------
+### 13. EXECUTION ENGINE
 
 - No stub execution allowed in production; all engines must call real calculation
   logic (execution_runtime.py enforces this).
@@ -233,11 +235,9 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
 - Execution state machine transitions (execution_runtime.py) must be logged; no
   silent state changes.
 
--------------------------------------
+---
 
-1. UI RULE
-
--------------------------------------
+### 14. UI RULE
 
 - UI displays derived data only; all values come from API responses.
 - UI (repo-b) must not compute financial outputs, totals, allocations, or
@@ -250,11 +250,9 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
 - Dark/light mode, table sorting, and pagination are acceptable client-side
   operations; financial aggregation is not.
 
--------------------------------------
+---
 
-## 15. MCP & AI TOOL GOVERNANCE
-
--------------------------------------
+### 15. MCP & AI TOOL GOVERNANCE
 
 - All MCP tools must be registered in mcp/registry.py with a version and schema.
 - MCP tool implementations (mcp/tools/) must not call each other directly; compose
@@ -271,14 +269,12 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
 - AI-generated code that modifies finance engines, migrations, or RLS policies
   requires human review before merge (enforced via .githooks).
 
--------------------------------------
+---
 
-## 16. BACKEND ARCHITECTURE
+### 16. BACKEND ARCHITECTURE
 
--------------------------------------
-
-- Three-layer structure is mandatory: routes/ (HTTP boundary) → services/ (business
-  logic) → finance/ engines (computation). No route may call an engine directly.
+- Three-layer structure is mandatory: routes/ (HTTP boundary) -> services/ (business
+  logic) -> finance/ engines (computation). No route may call an engine directly.
 - Service files must not embed SQL strings; all queries go through the db.py pool
   with parameterized statements.
 - Business OS backend (backend/, port 8000) and Demo Lab API (repo-c/, port 8001)
@@ -290,7 +286,392 @@ Last updated: 2026-02-20 — synchronized with repo inventory.
 - Configuration (config.py) is the single source of truth for environment variables;
   no os.environ calls outside config.py.
 
--------------------------------------
+---
+
+## PART B — INSTITUTIONAL REPE UNDERWRITING ENGINE
+
+These rules govern the fund-grade underwriting framework. The engine must support
+multifamily, industrial, office repositioning, retail, and CMBS loan purchases
+through a shared calculation pipeline with property-type-specific assumption modules.
+
+---
+
+### 17. ACQUISITION UNDERWRITING ENGINE
+
+The base underwriting engine calculates deal economics from raw inputs. No shortcuts.
+
+Required inputs (stored structurally, never hard-coded):
+
+- Purchase price, closing costs (% and dollar)
+- CapEx budget (total and per-unit)
+- In-place rent, market rent, occupancy
+- Other income per unit
+- Operating expenses (line item and ratio)
+- Debt terms: LTV, rate, IO period, amortization schedule
+- Exit cap rate, hold period
+
+Required outputs (all must be Decimal-precision, all must be engine-computed):
+
+- Gross Potential Rent (GPR)
+- Vacancy loss (physical + economic, separately)
+- Effective Gross Income (EGI)
+- Other income
+- Operating expenses (line item + ratio comparison)
+- Net Operating Income (NOI)
+- Going-in cap rate
+- Price per unit, price per SF
+- Debt service (monthly + annual)
+- DSCR
+- Cash-on-cash return
+- Levered IRR, unlevered IRR
+- Equity multiple
+- Breakeven occupancy
+- Debt yield
+- Loan constant
+- Implied value at market cap
+- Value per basis point of cap rate movement
+
+Rules:
+
+- No output may be returned without the full chain of intermediate calculations stored.
+- Each underwriting run produces a run_id with all inputs and outputs persisted.
+- Aggressive assumptions must be flagged: rent growth above market comps, exit cap
+  tighter than going-in, expense ratio below 30% for multifamily.
+- Contradictions must be surfaced: NOI growth assumed but occupancy declining, exit cap
+  tighter than trailing cap in softening market.
+
+---
+
+### 18. STABILIZATION & VALUE-ADD MODEL
+
+Extends the base underwriting with renovation and lease-up projections.
+
+Additional inputs:
+
+- Rent growth assumption (annual %)
+- Expense growth assumption (annual %)
+- Renovation premium per unit
+- Renovation cost per unit
+- Lease-up timeline (months to stabilization)
+
+Required outputs:
+
+- Stabilized NOI
+- Return on cost (ROC)
+- Development spread (ROC minus exit cap)
+- Yield on cost vs market cap
+- Exit value
+- Profit on sale
+
+Required sensitivity outputs (engine must produce grids, not single values):
+
+- IRR sensitivity to rent growth +/- 100bps
+- IRR sensitivity to exit cap +/- 50bps
+- DSCR stress test at +100bps interest rate
+- Breakpoint where DSCR falls below 1.25x
+
+Rules:
+
+- Sensitivity grids are engine outputs, not UI calculations.
+- Stabilization assumptions must include a time-to-stabilize parameter; no instantaneous
+  stabilization allowed.
+- Value-add renovation costs must flow through CapEx ledger entries, not operating expenses.
+
+---
+
+### 19. CAPITAL STACK STRUCTURING
+
+The engine must model multiple capital structures for the same deal simultaneously.
+
+Required structures (minimum):
+
+- A) Senior debt only
+- B) Senior + preferred equity
+- C) Senior + mezzanine
+- D) Lower leverage conservative case
+
+Per-structure required outputs:
+
+- Weighted average cost of capital (WACC)
+- Equity contribution required
+- Promote structure (parameterized: pref rate, split, catch-up)
+- GP catch-up amount and timing
+- Waterfall tiers (linked to waterfall_engine, Section 3)
+- IRR to LP, IRR to GP (separately)
+- Promote payout amount
+- Capital at risk per tranche
+- MOIC per tranche
+
+Rules:
+
+- Capital stack structures are stored as configuration records, not code branches.
+- Each structure must produce a complete waterfall run via waterfall_engine; no
+  simplified or shortcut calculations.
+- The engine must support equity recycling: reinvestment of disposition proceeds into
+  new acquisitions within the same fund vehicle.
+- GP carry crystallization must be modeled with explicit timing — not assumed at exit.
+
+---
+
+### 20. REFINANCE SCENARIO ENGINE
+
+Models mid-hold refinance events and their impact on returns.
+
+Required inputs:
+
+- Refinance timing (year of hold)
+- Updated NOI at refi date (from stabilization model)
+- New LTV, rate, IO period, amortization
+
+Required outputs:
+
+- New valuation based on updated NOI
+- Refi proceeds
+- Equity returned to LPs
+- Cash-on-cash post-refi
+- IRR impact (compared to hold-to-maturity base case)
+- DSCR post-refi
+
+Required stress scenarios (engine must run all three automatically):
+
+- 100bps higher rates than base case
+- 5% NOI decline from projection
+- 10% valuation haircut
+
+Rules:
+
+- Refinance events generate ledger entries: debt payoff, new debt origination,
+  equity return distributions.
+- Refinance scenarios must be stored as scenario runs, not mutations to the base model.
+- Each stress scenario is a separate run_id with full output.
+
+---
+
+### 21. CMBS SURVEILLANCE ENGINE
+
+Converts deal-level metrics into CMBS-style surveillance analysis.
+
+Required outputs:
+
+- Debt yield
+- DSCR (actual and stressed at +200bps)
+- LTV at issuance and current
+- Implied value if cap rate widens 75bps
+- Expected loss given default
+- Recovery rate
+- Balloon risk at maturity
+- Refinance risk probability score
+
+Watchlist trigger thresholds (parameterized, not hard-coded):
+
+- DSCR below 1.15x
+- Occupancy below 85%
+- NOI decline exceeding 10% trailing 12 months
+- Debt yield below 8%
+
+Surveillance risk rating output:
+
+- LOW / MODERATE / HIGH / CRITICAL
+- Rating must include the triggering metrics and threshold breaches.
+- Rating changes must generate audit log entries.
+
+Rules:
+
+- Surveillance runs on a schedule (Celery periodic task) or on-demand; never only
+  at origination.
+- Watchlist thresholds are configuration records per loan/deal, not global constants.
+- CMBS engine must be property-type-agnostic: same interface for multifamily,
+  industrial, office, retail.
+
+---
+
+### 22. RISK SCORING ENGINE
+
+Produces a composite risk score (1-100) across multiple dimensions.
+
+Required scoring dimensions:
+
+- Market risk (submarket fundamentals, supply pipeline, absorption)
+- Interest rate risk (rate sensitivity, floating vs fixed exposure)
+- Execution risk (renovation scope, operator track record)
+- Lease-up risk (time to stabilization, concession burn)
+- Capital stack complexity (number of tranches, subordination depth)
+- Liquidity risk (hold period, exit market depth)
+- Refinance risk (balloon maturity, DSCR trajectory)
+- Concentration risk (fund-level: % of equity in single asset/market)
+
+Rules:
+
+- Each dimension scored independently (1-100) with weighted composite.
+- Weights are parameterized per fund/strategy, not hard-coded.
+- Risk scores are engine outputs with run_ids; not UI-computed badges.
+- Score changes between runs must be diffable and auditable.
+- No dimension may be omitted from the composite; partial scores must be flagged as
+  incomplete.
+
+---
+
+### 23. INVESTMENT COMMITTEE MEMO GENERATOR
+
+Produces structured IC memo content from engine outputs. The memo is a document, not
+a dashboard view.
+
+Required sections:
+
+- Executive summary (auto-generated from deal metrics)
+- Investment thesis (templated with deal-specific data)
+- Key risks (pulled from risk scoring engine output)
+- Downside case, base case, upside case (from scenario engine runs)
+- Sensitivity table (from stabilization engine grid output)
+- Capital stack summary (from capital stack engine)
+- Recommendation: APPROVE / REVISE / DECLINE (derived from risk score thresholds)
+
+Rules:
+
+- IC memos are versioned documents (Section 11 applies).
+- Memo generation is an execution engine run with a run_id.
+- All figures in the memo must reference their source engine run_id — no detached
+  numbers.
+- The recommendation is derived from parameterized thresholds on risk score and return
+  metrics; no hard-coded approve/decline logic.
+- Draft memos are not visible to LPs or external parties (Section 6 permission rules
+  apply).
+- Memos must support PDF export with branded templates.
+
+---
+
+### 24. FUND-LEVEL PORTFOLIO ENGINE
+
+Aggregates deal-level underwriting into fund-level portfolio analytics.
+
+Required inputs:
+
+- Fund size, target equity, target leverage
+- Asset-level underwriting runs (linked by fund_id)
+
+Required outputs:
+
+- Percentage of total equity deployed per asset
+- Portfolio weighted average DSCR
+- Portfolio weighted average LTV
+- Diversification index (property type, geography, vintage)
+- IRR contribution per asset to fund-level return
+- Risk concentration score (per asset and per market)
+- Capital call schedule (timing and amounts per LP commitment)
+- Distribution forecast by LP tranche (quarterly projected)
+
+Rules:
+
+- Portfolio metrics are derived from the constituent deal runs; no separate manual
+  input of portfolio-level numbers.
+- Capital call schedule must generate projected ledger entries; calls are not just
+  a timeline — they must tie to the allocation engine.
+- Distribution forecasts are scenario-dependent: base, upside, downside each produce
+  a separate forecast.
+- Fund-level metrics must update automatically when any constituent deal run is
+  re-executed.
+
+---
+
+### 25. STOCHASTIC MODELING RULES
+
+Governs Monte Carlo simulation and probability-weighted outputs.
+
+Required capabilities:
+
+- Monte Carlo simulation on rent growth and exit cap rate
+- Probability-weighted IRR (distribution, not point estimate)
+- Covenant breach forecasting timeline (probability of breach by period)
+- NOI margin compression modeling (stochastic expense shocks)
+- Reversion value based on replacement cost (floor valuation)
+
+Rules:
+
+- Monte Carlo runs must store the full iteration array, not just summary statistics.
+- Random seeds must be stored per run_id for reproducibility.
+- Minimum 1,000 iterations for any Monte Carlo output used in IC memos; configurable
+  upward.
+- Probability-weighted IRR must report: mean, median, 5th percentile, 25th percentile,
+  75th percentile, 95th percentile.
+- Stochastic models run as Celery background jobs (Section 9); never synchronous.
+- Results are scenario runs (Section 4 isolation rules apply).
+
+---
+
+### 26. TAX IMPACT MODELING
+
+Models depreciation, cost segregation, and tax-adjusted returns.
+
+Required capabilities:
+
+- Straight-line and accelerated depreciation schedules
+- Cost segregation study allocation (5yr, 7yr, 15yr, 27.5yr, 39yr components)
+- After-tax IRR and equity multiple
+- Depreciation recapture at disposition
+- Capital gains treatment (short-term vs long-term)
+
+Rules:
+
+- Tax calculations are engine outputs, not spreadsheet overlays.
+- Depreciation schedules must be stored as structured records, not computed on-the-fly
+  from assumptions alone.
+- Tax modeling is optional per deal but required for IC memos when tax-advantaged
+  structures are part of the thesis.
+- All tax outputs must carry a disclaimer flag: "for modeling purposes only, not tax advice."
+
+---
+
+### 27. CROSS-PROPERTY-TYPE REUSABILITY
+
+The underwriting engine must be reusable across property types without forking.
+
+Supported property types (minimum):
+
+- Multifamily
+- Industrial
+- Office (including repositioning)
+- Retail
+- CMBS loan purchases
+
+Rules:
+
+- The calculation pipeline is shared; property-type-specific logic lives in assumption
+  modules (e.g., rent roll structure, TI/LC for office, cam reimbursements for retail).
+- Property type is a parameter on the deal record, not a code branch.
+- Adding a new property type requires: an assumption module, test fixtures, and seed
+  data — not a new engine.
+- CMBS loan purchases use the same underwriting pipeline but enter at the debt-level
+  (no equity stack); the engine must handle this without special-case branching.
+
+---
+
+### 28. STRUCTURED OUTPUT REQUIREMENTS
+
+All engine outputs must be available as structured JSON for downstream consumption.
+
+Required structured outputs:
+
+- Underwriting model (all inputs + all computed outputs)
+- Waterfall distribution (per-tier, per-tranche)
+- Sensitivity grid (2D matrix: row variable x column variable)
+- IC memo (structured sections with source run_id references)
+- Risk scorecard (per-dimension scores + composite)
+- CMBS surveillance snapshot (all metrics + watchlist status + rating)
+- Capital call schedule (per-LP, per-period)
+- Distribution forecast (per-LP, per-period, per-scenario)
+
+Rules:
+
+- All structured outputs must conform to Pydantic schemas in backend/app/schemas/.
+- No output may be returned as untyped dict; every field must be named and typed.
+- JSON outputs must include metadata: run_id, engine_version, timestamp, assumption
+  snapshot hash.
+- These outputs are the contract between backend engines and frontend display; breaking
+  schema changes require migration and versioning.
+
+---
+
+## PART C — DEFAULTS
 
 If unsure, default to:
 
@@ -299,3 +680,6 @@ If unsure, default to:
 - Ledger-first design
 - Isolation over convenience
 - Backend enforcement over frontend convenience
+- Flag aggressive assumptions rather than silently accepting them
+- Institutional standards over simplified models
+- Stress everything; surface contradictions

@@ -25,6 +25,13 @@ from app.routes import (
     underwriting,
     real_estate,
     repe,
+    re_valuation,
+    re_waterfall,
+    re_fund,
+    re_scenarios,
+    re_surveillance,
+    re_montecarlo,
+    re_reports,
 )
 from app.routes.ai import router as ai_router
 
@@ -94,3 +101,10 @@ app.include_router(admin_tools.router)
 app.include_router(underwriting.router)
 app.include_router(real_estate.router)
 app.include_router(repe.router)
+app.include_router(re_valuation.router)
+app.include_router(re_waterfall.router)
+app.include_router(re_fund.router)
+app.include_router(re_scenarios.router)
+app.include_router(re_surveillance.router)
+app.include_router(re_montecarlo.router)
+app.include_router(re_reports.router)

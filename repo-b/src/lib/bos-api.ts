@@ -1605,3 +1605,164 @@ export function createCrmOpportunity(body: {
     body: JSON.stringify(body),
   });
 }
+
+// RE Fund Engine API
+export interface ReAssetFinancialState {
+  id: string;
+  fin_asset_investment_id: string;
+  fin_fund_id?: string | null;
+  quarter: string;
+  valuation_snapshot_id: string;
+  net_operating_income?: string | number | null;
+  implied_gross_value?: string | number | null;
+  implied_equity_value?: string | number | null;
+  nav_equity?: string | number | null;
+  dscr?: string | number | null;
+  ltv?: string | number | null;
+  debt_yield?: string | number | null;
+  loan_balance?: string | number | null;
+  debt_service?: string | number | null;
+  created_at?: string;
+}
+
+export interface ReFundSummary {
+  id: string;
+  fin_fund_id: string;
+  quarter: string;
+  portfolio_nav: string | number;
+  gross_irr?: string | number | null;
+  net_irr?: string | number | null;
+  dpi?: string | number | null;
+  rvpi?: string | number | null;
+  tvpi?: string | number | null;
+  weighted_ltv?: string | number | null;
+  weighted_dscr?: string | number | null;
+  concentration_json?: Record<string, unknown> | null;
+  maturity_wall_json?: Record<string, unknown> | null;
+  carry_summary_json?: Record<string, unknown> | null;
+  waterfall_snapshot_id?: string | null;
+  created_at?: string;
+}
+
+export interface ReInvestorStatement {
+  investor_id: string;
+  fund_id: string;
+  quarter: string;
+  committed: string | number;
+  contributions: string | number;
+  distributions: string | number;
+  nav_share: string | number;
+  dpi: string | number;
+  rvpi: string | number;
+  tvpi: string | number;
+}
+
+export interface ReValuationRunResponse {
+  valuation_snapshot: Record<string, unknown>;
+  asset_financial_state: ReAssetFinancialState;
+  input_hash: string;
+}
+
+export function runReValuationQuarter(body: {
+  fin_asset_investment_id: string;
+  quarter: string;
+  assumption_set_id: string;
+  fin_fund_id?: string;
+  forward_noi_override?: number;
+  accrued_pref?: number;
+  deduct_pref_from_nav?: boolean;
+  cumulative_contributions?: number;
+  cumulative_distributions?: number;
+  cashflows_for_irr?: number[][];
+}): Promise<ReValuationRunResponse> {
+  return bosFetch("/api/re/valuation/run-quarter", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function runReWaterfallShadow(body: {
+  fin_fund_id: string;
+  quarter: string;
+  waterfall_style?: "american" | "european";
+  fin_rule_version_id?: string;
+  sale_costs_pct?: number;
+}): Promise<Record<string, unknown>> {
+  return bosFetch("/api/re/waterfall/run-shadow", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function computeReFundSummary(body: {
+  fin_fund_id: string;
+  quarter: string;
+}): Promise<ReFundSummary> {
+  return bosFetch("/api/re/fund/compute-summary", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function runReRefinanceSimulation(body: {
+  fin_asset_investment_id: string;
+  quarter: string;
+  new_rate: number;
+  new_term_years?: number;
+  new_amort_years?: number;
+  max_ltv_constraint?: number;
+  min_dscr_constraint?: number;
+  prepayment_penalty_pct?: number;
+  origination_fee_pct?: number;
+}): Promise<Record<string, unknown>> {
+  return bosFetch("/api/re/refinance/simulate", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function runReStress(body: {
+  fin_asset_investment_id: string;
+  quarter: string;
+  scenarios?: Array<Record<string, unknown>>;
+}): Promise<Array<Record<string, unknown>>> {
+  return bosFetch("/api/re/stress/run", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function computeReSurveillance(body: {
+  fin_asset_investment_id: string;
+  quarter: string;
+}): Promise<Record<string, unknown>> {
+  return bosFetch("/api/re/surveillance/compute", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function runReMonteCarlo(body: {
+  fin_asset_investment_id: string;
+  quarter: string;
+  n_sims?: number;
+  seed?: number;
+  distribution_params?: Record<string, unknown>;
+}): Promise<Record<string, unknown>> {
+  return bosFetch("/api/re/montecarlo/run", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getReAssetQuarterState(assetId: string, quarter: string): Promise<ReAssetFinancialState> {
+  return bosFetch(`/api/re/asset/${assetId}/quarter/${quarter}`);
+}
+
+export function getReFundSummary(fundId: string, quarter: string): Promise<ReFundSummary> {
+  return bosFetch(`/api/re/fund/${fundId}/summary/${quarter}`);
+}
+
+export function getReInvestorStatement(investorId: string, fundId: string, quarter: string): Promise<ReInvestorStatement> {
+  return bosFetch(`/api/re/investor/${investorId}/statement/${fundId}/${quarter}`);
+}
