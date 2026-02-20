@@ -234,7 +234,7 @@ export default function RealEstateLoanCommandCenterPage({ params }: { params: { 
               </div>
             ))}
           </div>
-          {latestOutputs.diff && (
+          {latestOutputs.diff !== undefined && latestOutputs.diff !== null && (
             <pre className="rounded-lg border border-bm-border/60 bg-black/20 p-2 text-xs overflow-x-auto" data-testid="re-underwrite-diff">
               {JSON.stringify(latestOutputs.diff, null, 2)}
             </pre>
@@ -281,4 +281,3 @@ export default function RealEstateLoanCommandCenterPage({ params }: { params: { 
     </div>
   );
 }
-

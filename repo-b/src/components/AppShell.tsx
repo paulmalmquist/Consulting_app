@@ -28,7 +28,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
   });
 
-  const navItems = useMemo(() => {
+  const navItems = useMemo<NavItem[]>(() => {
     const homeHref = selectedEnv ? `/lab/env/${selectedEnv.env_id}` : "/lab/environments";
     const base: NavItem[] = [
       { id: "dashboard", href: homeHref, label: "Dashboard", navKey: "dashboard", group: "operations" },
@@ -40,7 +40,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       { id: "audit", href: "/lab/audit", label: "Audit", navKey: "audit", group: "system" },
     ];
     return aiMode === "local"
-      ? [...base, { id: "ai", href: "/lab/ai", label: "AI", navKey: "ai", group: "intelligence" }]
+      ? [...base, { id: "ai", href: "/lab/ai", label: "AI", navKey: "ai", group: "intelligence" } as NavItem]
       : base;
   }, [selectedEnv, aiMode]);
 

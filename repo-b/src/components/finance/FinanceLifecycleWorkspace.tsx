@@ -182,31 +182,33 @@ export default function FinanceLifecycleWorkspace({
     }
 
     async function loadFinanceWorkspace() {
+      const currentBusinessId = businessId;
+      if (!currentBusinessId) return;
       setLoading(true);
       try {
         const now = new Date();
         const currentYear = now.getFullYear();
 
         const [partitions, uwRuns, execRows, docRows, envPayload, overview, health, ledger, docRegister] = await Promise.all([
-          listFinPartitions(businessId).catch(() => []),
-          listUnderwritingRuns(businessId, { limit: 1000 }).catch(() => []),
+          listFinPartitions(currentBusinessId).catch(() => []),
+          listUnderwritingRuns(currentBusinessId, { limit: 1000 }).catch(() => []),
           financeDept
-            ? listExecutions(businessId, financeDept.department_id).catch(() => [])
-            : listExecutions(businessId).catch(() => []),
+            ? listExecutions(currentBusinessId, financeDept.department_id).catch(() => [])
+            : listExecutions(currentBusinessId).catch(() => []),
           financeDept
-            ? listDocuments(businessId, financeDept.department_id).catch(() => [])
-            : listDocuments(businessId).catch(() => []),
+            ? listDocuments(currentBusinessId, financeDept.department_id).catch(() => [])
+            : listDocuments(currentBusinessId).catch(() => []),
           fetch("/api/v1/environments")
             .then((res) => (res.ok ? res.json() : { environments: [] }))
             .catch(() => ({ environments: [] })),
-          getBusinessOverviewReport(businessId).catch(() => null),
-          getDepartmentHealthReport(businessId, "finance").catch(() => ({ rows: [] })),
-          getExecutionLedgerReport(businessId).catch(() => ({ rows: [] })),
-          getDocRegisterReport(businessId).catch(() => ({ rows: [] })),
+          getBusinessOverviewReport(currentBusinessId).catch(() => null),
+          getDepartmentHealthReport(currentBusinessId, "finance").catch(() => ({ rows: [] })),
+          getExecutionLedgerReport(currentBusinessId).catch(() => ({ rows: [] })),
+          getDocRegisterReport(currentBusinessId).catch(() => ({ rows: [] })),
         ]);
 
         const fundRowsByPartition = await Promise.all(
-          partitions.map((partition) => listFinFunds(businessId, partition.partition_id).catch(() => []))
+          partitions.map((partition) => listFinFunds(currentBusinessId, partition.partition_id).catch(() => []))
         );
         const allFunds = fundRowsByPartition.flat();
 
