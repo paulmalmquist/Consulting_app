@@ -78,8 +78,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className={cn("flex items-start", collapsed ? "justify-center" : "justify-between gap-2")}>
           {!collapsed ? (
             <div>
-              <p className="text-xs uppercase text-bm-muted2 tracking-[0.18em]">Demo Lab</p>
-              <p className="text-lg font-semibold font-display">Workflow Ops</p>
+              <p className="text-xs uppercase text-bm-muted2 tracking-[0.18em]">Business OS</p>
+              <p className="text-lg font-semibold font-display">
+                {selectedEnv?.client_name || "Environments"}
+              </p>
             </div>
           ) : null}
           <button

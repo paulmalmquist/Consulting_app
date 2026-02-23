@@ -1,70 +1,76 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const protectedPrefixes = ["/lab", "/app", "/onboarding", "/documents", "/tasks"];
-const privateApiPrefixes = ["/api/commands", "/api/mcp", "/api/ai/codex"];
-const publicApiPrefixes = ["/api/public", "/api/auth/login"];
-const publicPagePrefixes = ["/", "/login", "/public"];
+type SessionPayload = { role?: string; env_id?: string };
 
-function isProtectedPath(pathname: string): boolean {
-  return protectedPrefixes.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
-  );
-}
+function parseSession(request: NextRequest): SessionPayload | null {
+  if (process.env.PLAYWRIGHT_BYPASS_AUTH === "1") return { role: "admin" };
 
-function isPrivateApiPath(pathname: string): boolean {
-  return privateApiPrefixes.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
-  );
-}
+  // Prefer the new structured session cookie
+  const newCookie = request.cookies.get("bos_session")?.value;
+  if (newCookie) {
+    try {
+      return JSON.parse(newCookie) as SessionPayload;
+    } catch {
+      return null;
+    }
+  }
 
-function isPublicApiPath(pathname: string): boolean {
-  return publicApiPrefixes.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
-  );
-}
+  // Fall back to legacy invite-code cookie (treat as env_user)
+  const legacyCookie = request.cookies.get("demo_lab_session")?.value;
+  if (legacyCookie === "active") {
+    return { role: "env_user" };
+  }
 
-function isPublicPage(pathname: string): boolean {
-  return publicPagePrefixes.some((prefix) =>
-    prefix === "/" ? pathname === "/" : pathname === prefix || pathname.startsWith(`${prefix}/`)
-  );
+  return null;
 }
 
 export function middleware(request: NextRequest) {
-  if (process.env.PLAYWRIGHT_BYPASS_AUTH === "1") {
-    return NextResponse.next();
-  }
-
   const { pathname } = request.nextUrl;
+  const session = parseSession(request);
+  const role = session?.role;
 
-  if (isPublicApiPath(pathname)) {
+  // ── Always public ──────────────────────────────────────────────
+  if (
+    pathname.startsWith("/api/auth/") ||
+    pathname.startsWith("/api/public/")
+  ) {
     return NextResponse.next();
   }
 
-  const hasSession = Boolean(request.cookies.get("demo_lab_session")?.value);
-
-  if (pathname === "/onboarding" && !hasSession) {
-    const rewriteUrl = request.nextUrl.clone();
-    rewriteUrl.pathname = "/public/onboarding";
-    return NextResponse.rewrite(rewriteUrl);
+  // ── Admin-only routes (/admin) ─────────────────────────────────
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    if (role !== "admin") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("loginType", "admin");
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
   }
 
-  if (isPrivateApiPath(pathname) && !hasSession) {
+  // ── Protected env-user routes ─────────────────────────────────
+  const protectedPrefixes = ["/lab", "/app", "/onboarding", "/documents", "/tasks"];
+  const isProtected = protectedPrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+
+  if (isProtected) {
+    if (!role) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
+
+  // ── Private API routes ─────────────────────────────────────────
+  const privateApiPrefixes = ["/api/commands", "/api/mcp", "/api/ai/codex"];
+  const isPrivateApi = privateApiPrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+  if (isPrivateApi && !role) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-  }
-
-  if (isPublicPage(pathname)) {
-    return NextResponse.next();
-  }
-
-  if (!isProtectedPath(pathname)) {
-    return NextResponse.next();
-  }
-
-  if (!hasSession) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
@@ -72,6 +78,8 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/admin",
+    "/admin/:path*",
     "/api/commands/:path*",
     "/api/mcp/:path*",
     "/api/ai/codex/:path*",

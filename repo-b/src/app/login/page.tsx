@@ -1,14 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const loginType = (searchParams.get("loginType") as "admin" | "environment") || "environment";
+  const isAdmin = loginType === "admin";
+
   const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const heading = isAdmin ? "Admin Access" : "Environment Access";
+  const codeLabel = isAdmin ? "Admin code" : "Access code";
+  const submitLabel = isAdmin ? "Enter Admin Dashboard" : "Enter Environment";
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -18,7 +27,7 @@ export default function LoginPage() {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inviteCode })
+        body: JSON.stringify({ inviteCode, loginType }),
       });
 
       if (!response.ok) {
@@ -26,7 +35,8 @@ export default function LoginPage() {
         throw new Error(payload.message || "Invalid code");
       }
 
-      window.location.href = "/lab";
+      const data = await response.json();
+      window.location.href = data.redirectTo || (isAdmin ? "/admin" : "/lab/environments");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Login failed";
       setError(message);
@@ -39,13 +49,15 @@ export default function LoginPage() {
     <main className="min-h-screen flex items-center justify-center px-6">
       <Card className="w-full max-w-md">
         <CardContent className="p-8">
-          <h1 className="text-2xl font-semibold">Demo Lab Access</h1>
+          <h1 className="text-2xl font-semibold">{heading}</h1>
           <p className="text-sm text-bm-muted mt-2">
-            Enter the shared invite code to continue.
+            {isAdmin
+              ? "Enter the admin code to manage environments."
+              : "Enter the access code to enter the Business OS."}
           </p>
           <form onSubmit={submit} className="mt-6 space-y-4">
             <div>
-              <label className="text-sm text-bm-muted">Invite code</label>
+              <label className="text-sm text-bm-muted">{codeLabel}</label>
               <Input
                 className="mt-2"
                 value={inviteCode}
@@ -61,11 +73,24 @@ export default function LoginPage() {
               </div>
             ) : null}
             <Button type="submit" disabled={loading} className="w-full">
-              {loading ? "Checking..." : "Enter Demo Lab"}
+              {loading ? "Checking..." : submitLabel}
             </Button>
           </form>
+          <div className="mt-4 text-center">
+            <a href="/" className="text-xs text-bm-muted hover:text-bm-text">
+              ← Back to start
+            </a>
+          </div>
         </CardContent>
       </Card>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

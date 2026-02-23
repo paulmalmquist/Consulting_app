@@ -511,4 +511,3 @@ The platform currently supports:
 - `docs/MCP_SETUP.md` (MCP integration and tool surface)
 - `docs/security-architecture.md` (security control architecture)
 - `docs/underwriting_pipeline.md` and `docs/real_estate_wedge_demo.md` (domain flows)
-

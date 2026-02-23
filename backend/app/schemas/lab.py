@@ -8,13 +8,19 @@ class EnvironmentOut(BaseModel):
     env_id: UUID
     client_name: str
     industry: str
+    industry_type: Optional[str] = None
     schema_name: str
     is_active: bool
+    business_id: Optional[UUID] = None
+    repe_initialized: bool = False
+    created_at: Optional[datetime] = None
+    notes: Optional[str] = None
 
 
 class CreateEnvironmentRequest(BaseModel):
     client_name: str
     industry: str = "general"
+    industry_type: Optional[str] = None
     notes: Optional[str] = None
 
 
@@ -23,6 +29,25 @@ class CreateEnvironmentResponse(BaseModel):
     client_name: str
     industry: str
     schema_name: str
+    business_id: Optional[UUID] = None
+    repe_initialized: bool = False
+
+
+class UpdateEnvironmentRequest(BaseModel):
+    client_name: Optional[str] = None
+    industry: Optional[str] = None
+    industry_type: Optional[str] = None
+    notes: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class EnvironmentHealthResponse(BaseModel):
+    env_id: str
+    business_exists: bool
+    modules_initialized: bool
+    repe_status: Optional[str] = None  # "initialized" | "pending" | "not_applicable"
+    data_integrity: bool
+    details: dict = {}
 
 
 class QueueItem(BaseModel):

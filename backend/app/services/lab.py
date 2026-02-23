@@ -1,9 +1,11 @@
 """Lab service — environments, metrics, queue, audit for the Demo Lab UI."""
 
 import json
+import re
 from uuid import UUID
 
 from app.db import get_cursor
+from app.services import business as business_svc
 
 
 # ── Environments ──────────────────────────────────────────────────────
@@ -11,23 +13,143 @@ from app.db import get_cursor
 def list_environments() -> list[dict]:
     with get_cursor() as cur:
         cur.execute(
-            """SELECT env_id, client_name, industry, schema_name, is_active
+            """SELECT env_id, client_name, industry, industry_type, schema_name,
+                      is_active, business_id, repe_initialized, created_at, notes
                FROM app.environments
                ORDER BY created_at DESC"""
         )
         return cur.fetchall()
 
 
-def create_environment(client_name: str, industry: str, notes: str | None = None) -> dict:
-    schema_name = f"env_{client_name.lower().replace(' ', '_').replace('-', '_')[:30]}"
+def get_environment(env_id: UUID) -> dict | None:
     with get_cursor() as cur:
         cur.execute(
-            """INSERT INTO app.environments (client_name, industry, schema_name, notes)
-               VALUES (%s, %s, %s, %s)
-               RETURNING env_id, client_name, industry, schema_name""",
-            (client_name, industry, schema_name, notes),
+            """SELECT env_id, client_name, industry, industry_type, schema_name,
+                      is_active, business_id, repe_initialized, created_at, notes
+               FROM app.environments
+               WHERE env_id = %s""",
+            (str(env_id),),
         )
         return cur.fetchone()
+
+
+def _derive_slug(client_name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", client_name.lower()).strip("-")
+    return slug[:40] or "env"
+
+
+def create_environment(
+    client_name: str,
+    industry: str,
+    industry_type: str | None = None,
+    notes: str | None = None,
+) -> dict:
+    """Create an environment and auto-provision its business, modules, and REPE workspace if applicable."""
+    schema_name = f"env_{client_name.lower().replace(' ', '_').replace('-', '_')[:30]}"
+
+    # Step 1: Insert the environment row
+    with get_cursor() as cur:
+        cur.execute(
+            """INSERT INTO app.environments (client_name, industry, industry_type, schema_name, notes)
+               VALUES (%s, %s, %s, %s, %s)
+               RETURNING env_id, client_name, industry, industry_type, schema_name""",
+            (client_name, industry, industry_type, schema_name, notes),
+        )
+        env_row = cur.fetchone()
+
+    env_id = env_row["env_id"]
+    repe_initialized = False
+    business_id = None
+
+    # Step 2: Auto-create the business
+    try:
+        slug = _derive_slug(client_name)
+        biz = business_svc.create_business(name=client_name, slug=slug, region="us")
+        business_id = biz["business_id"]
+
+        # Step 3: Bind env → business
+        with get_cursor() as cur:
+            cur.execute(
+                """INSERT INTO app.env_business_bindings (env_id, business_id)
+                   VALUES (%s::uuid, %s::uuid)
+                   ON CONFLICT (env_id) DO NOTHING""",
+                (str(env_id), str(business_id)),
+            )
+
+        # Step 4: Apply industry template (env-scoped)
+        business_svc.apply_industry_template(
+            UUID(str(business_id)),
+            industry_type or industry,
+            environment_id=UUID(str(env_id)),
+        )
+
+        # Step 5: Seed REPE workspace if applicable
+        ind = (industry_type or industry or "").lower()
+        if ind in ("repe", "real_estate_pe", "real_estate"):
+            from app.services import repe_context as repe_ctx
+            repe_ctx.seed_repe_workspace(str(business_id), str(env_id))
+            repe_initialized = True
+
+        # Step 6: Update environment row with business_id and repe_initialized
+        with get_cursor() as cur:
+            cur.execute(
+                """UPDATE app.environments
+                   SET business_id = %s::uuid, repe_initialized = %s
+                   WHERE env_id = %s::uuid""",
+                (str(business_id), repe_initialized, str(env_id)),
+            )
+
+    except Exception as exc:
+        # Log the error but don't fail the environment create entirely
+        from app.observability.logger import emit_log
+        emit_log(
+            level="error",
+            service="backend",
+            action="env.create.provision_failed",
+            message=f"Environment created but auto-provisioning failed: {exc}",
+            context={
+                "env_id": str(env_id),
+                "industry_type": industry_type,
+                "error_reason": str(exc),
+            },
+        )
+
+    return {
+        "env_id": env_id,
+        "client_name": env_row["client_name"],
+        "industry": env_row["industry"],
+        "industry_type": industry_type,
+        "schema_name": env_row["schema_name"],
+        "business_id": business_id,
+        "repe_initialized": repe_initialized,
+    }
+
+
+def update_environment(env_id: UUID, fields: dict) -> dict:
+    """Patch updatable environment fields."""
+    allowed = {"client_name", "industry", "industry_type", "notes", "is_active"}
+    updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
+    if not updates:
+        row = get_environment(env_id)
+        if not row:
+            raise LookupError(f"Environment not found: {env_id}")
+        return row
+
+    set_clause = ", ".join(f"{k} = %s" for k in updates)
+    values = list(updates.values()) + [str(env_id)]
+    with get_cursor() as cur:
+        cur.execute(
+            f"""UPDATE app.environments
+                SET {set_clause}, updated_at = now()
+                WHERE env_id = %s::uuid
+                RETURNING env_id, client_name, industry, industry_type, schema_name,
+                          is_active, business_id, repe_initialized, created_at, notes""",
+            values,
+        )
+        row = cur.fetchone()
+    if not row:
+        raise LookupError(f"Environment not found: {env_id}")
+    return row
 
 
 def reset_environment(env_id: UUID) -> None:
@@ -38,6 +160,60 @@ def reset_environment(env_id: UUID) -> None:
             "UPDATE app.environments SET updated_at = now() WHERE env_id = %s",
             (str(env_id),),
         )
+
+
+def get_environment_health(env_id: UUID) -> dict:
+    """Structured health check for a single environment."""
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT env_id, business_id, industry_type, industry, repe_initialized
+               FROM app.environments WHERE env_id = %s::uuid""",
+            (str(env_id),),
+        )
+        env_row = cur.fetchone()
+
+    if not env_row:
+        raise LookupError(f"Environment not found: {env_id}")
+
+    business_id = env_row.get("business_id")
+    business_exists = False
+    modules_initialized = False
+
+    if business_id:
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM app.businesses WHERE business_id = %s::uuid",
+                (str(business_id),),
+            )
+            business_exists = bool(cur.fetchone())
+
+            if business_exists:
+                cur.execute(
+                    """SELECT COUNT(*) as cnt FROM app.business_departments
+                       WHERE business_id = %s::uuid
+                         AND environment_id = %s::uuid
+                         AND enabled = true""",
+                    (str(business_id), str(env_id)),
+                )
+                modules_initialized = cur.fetchone()["cnt"] > 0
+
+    ind = ((env_row.get("industry_type") or env_row.get("industry")) or "").lower()
+    if ind in ("repe", "real_estate_pe", "real_estate"):
+        repe_status = "initialized" if env_row["repe_initialized"] else "pending"
+    else:
+        repe_status = "not_applicable"
+
+    return {
+        "env_id": str(env_id),
+        "business_exists": business_exists,
+        "modules_initialized": modules_initialized,
+        "repe_status": repe_status,
+        "data_integrity": business_exists and modules_initialized,
+        "details": {
+            "business_id": str(business_id) if business_id else None,
+            "industry_type": env_row.get("industry_type"),
+        },
+    }
 
 
 # ── Queue (HITL work items) ──────────────────────────────────────────
@@ -123,7 +299,7 @@ def get_metrics(env_id: str | None = None) -> dict:
 
         total_decided = resolved + denied
         approval_rate = resolved / total_decided if total_decided > 0 else 0.0
-        override_rate = 0.0  # Would require tracking overrides
+        override_rate = 0.0
 
         avg_time = 0.0
         if total_decided > 0:

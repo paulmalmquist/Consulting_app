@@ -3,8 +3,45 @@
 from __future__ import annotations
 
 from uuid import UUID
+from typing import Optional
 
 from app.db import get_cursor
+
+
+def resolve_business_for_env(env_id: Optional[str], business_id: Optional[str]) -> str:
+    """Resolve business_id from an env_id, falling back to explicit business_id.
+
+    Use this in report endpoints to support both ?env_id= and ?business_id= params.
+    The business_id for an env_id is stored in app.environments.business_id
+    (set during environment provisioning) and also in app.env_business_bindings.
+    """
+    if env_id:
+        with get_cursor() as cur:
+            # Fast path: environments table now stores business_id directly
+            cur.execute(
+                "SELECT business_id::text FROM app.environments WHERE env_id = %s::uuid",
+                (env_id,),
+            )
+            row = cur.fetchone()
+            if row and row["business_id"]:
+                return row["business_id"]
+
+            # Fallback: look up via binding table
+            cur.execute(
+                """SELECT b.business_id::text
+                   FROM app.env_business_bindings eb
+                   JOIN app.businesses b ON b.business_id = eb.business_id
+                   WHERE eb.env_id = %s::uuid""",
+                (env_id,),
+            )
+            row = cur.fetchone()
+            if row:
+                return row["business_id"]
+
+    if business_id:
+        return business_id
+
+    raise ValueError("Cannot resolve business context: provide env_id or business_id")
 
 
 def business_overview(*, business_id: UUID) -> dict:

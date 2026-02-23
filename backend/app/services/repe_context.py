@@ -213,6 +213,74 @@ def resolve_repe_business_context(
     )
 
 
+def seed_repe_workspace(business_id: str, env_id: str) -> None:
+    """Seed a minimal REPE workspace for a newly created environment.
+
+    Creates one placeholder fund root + empty capital account ledger if none exist.
+    Logs all outcomes with structured context so failures are traceable.
+    """
+    ctx = {"environment_id": env_id, "module_name": "repe_context", "business_id": business_id}
+
+    emit_log(
+        level="info",
+        service="backend",
+        action="repe.workspace.seed_start",
+        message="Seeding REPE workspace",
+        context=ctx,
+    )
+
+    try:
+        with get_cursor() as cur:
+            if not _table_exists(cur, "repe_fund"):
+                emit_log(
+                    level="warn",
+                    service="backend",
+                    action="repe.workspace.seed_skipped",
+                    message="repe_fund table missing — skipping REPE seed",
+                    context={**ctx, "init_status": "skipped", "error_reason": "missing_table:repe_fund"},
+                )
+                return
+
+            cur.execute(
+                "SELECT 1 FROM repe_fund WHERE business_id = %s::uuid LIMIT 1",
+                (business_id,),
+            )
+            if cur.fetchone():
+                emit_log(
+                    level="info",
+                    service="backend",
+                    action="repe.workspace.seed_skipped",
+                    message="REPE seed skipped — fund already exists",
+                    context={**ctx, "init_status": "already_initialized"},
+                )
+                return
+
+            cur.execute(
+                """INSERT INTO repe_fund
+                     (business_id, name, vintage_year, fund_type, strategy, status)
+                   VALUES (%s::uuid, %s, %s, 'closed_end', 'equity', 'fundraising')""",
+                (business_id, "Fund I (Seed)", 2025),
+            )
+
+        emit_log(
+            level="info",
+            service="backend",
+            action="repe.workspace.seed_complete",
+            message="REPE workspace seeded successfully",
+            context={**ctx, "init_status": "initialized"},
+        )
+
+    except Exception as exc:
+        emit_log(
+            level="error",
+            service="backend",
+            action="repe.workspace.seed_failed",
+            message=f"REPE workspace seed failed: {exc}",
+            context={**ctx, "init_status": "failed", "error_reason": str(exc)},
+        )
+        raise
+
+
 def repe_health() -> dict[str, Any]:
     required_tables = [
         "app.environments",

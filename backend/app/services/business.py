@@ -1,8 +1,19 @@
 """Business service — single source of truth for business operations."""
 
 from uuid import UUID
+from typing import Optional
 
 from app.db import get_cursor
+
+# Maps industry_type values to template keys
+INDUSTRY_TYPE_TO_TEMPLATE_KEY: dict[str, str] = {
+    "repe": "real_estate_pe",
+    "real_estate_pe": "real_estate_pe",
+    "real_estate": "real_estate_pe",
+    "floyorker": "digital_media",
+    "digital_media": "digital_media",
+    "website": "digital_media",
+}
 
 
 def list_templates() -> list[dict]:
@@ -108,6 +119,7 @@ def apply_template(
     template_key: str,
     enabled_departments: list[str] | None = None,
     enabled_capabilities: list[str] | None = None,
+    environment_id: Optional[UUID] = None,
 ) -> None:
     tmpl = _get_template(template_key)
     if not tmpl:
@@ -116,6 +128,7 @@ def apply_template(
     dept_keys = enabled_departments or tmpl["departments"]
     cap_keys = enabled_capabilities
     tmpl_capabilities = tmpl["capabilities"]
+    env_id_str = str(environment_id) if environment_id else None
 
     with get_cursor() as cur:
         cur.execute("SELECT 1 FROM app.businesses WHERE business_id = %s", (str(business_id),))
@@ -127,21 +140,21 @@ def apply_template(
             dept = cur.fetchone()
             if dept:
                 cur.execute(
-                    """INSERT INTO app.business_departments (business_id, department_id, enabled)
-                       VALUES (%s, %s, true)
+                    """INSERT INTO app.business_departments (business_id, department_id, enabled, environment_id)
+                       VALUES (%s, %s, true, %s)
                        ON CONFLICT (business_id, department_id) DO UPDATE SET enabled = true""",
-                    (str(business_id), str(dept["department_id"])),
+                    (str(business_id), str(dept["department_id"]), env_id_str),
                 )
 
         if tmpl_capabilities == "__all__":
             cur.execute(
-                """INSERT INTO app.business_capabilities (business_id, capability_id, enabled)
-                   SELECT %s, c.capability_id, true
+                """INSERT INTO app.business_capabilities (business_id, capability_id, enabled, environment_id)
+                   SELECT %s, c.capability_id, true, %s
                    FROM app.capabilities c
                    JOIN app.departments d ON d.department_id = c.department_id
                    WHERE d.key = ANY(%s)
                    ON CONFLICT (business_id, capability_id) DO UPDATE SET enabled = true""",
-                (str(business_id), dept_keys),
+                (str(business_id), env_id_str, dept_keys),
             )
         else:
             actual_cap_keys = cap_keys if cap_keys else (tmpl_capabilities if isinstance(tmpl_capabilities, list) else [])
@@ -151,10 +164,10 @@ def apply_template(
                     cap = cur.fetchone()
                     if cap:
                         cur.execute(
-                            """INSERT INTO app.business_capabilities (business_id, capability_id, enabled)
-                               VALUES (%s, %s, true)
+                            """INSERT INTO app.business_capabilities (business_id, capability_id, enabled, environment_id)
+                               VALUES (%s, %s, true, %s)
                                ON CONFLICT (business_id, capability_id) DO UPDATE SET enabled = true""",
-                            (str(business_id), str(cap["capability_id"])),
+                            (str(business_id), str(cap["capability_id"]), env_id_str),
                         )
 
         # Capture expected template shape for downstream drift reporting.
@@ -187,11 +200,29 @@ def apply_template(
         )
 
 
+def apply_industry_template(
+    business_id: UUID,
+    industry_type: str | None,
+    environment_id: Optional[UUID] = None,
+) -> str | None:
+    """Resolve industry_type to a template key and apply it.
+    Passes environment_id so department rows are environment-scoped."""
+    if not industry_type:
+        return None
+    template_key = INDUSTRY_TYPE_TO_TEMPLATE_KEY.get(industry_type.lower())
+    if not template_key:
+        return None
+    apply_template(business_id, template_key, environment_id=environment_id)
+    return template_key
+
+
 def apply_custom(
     business_id: UUID,
     enabled_departments: list[str],
     enabled_capabilities: list[str],
+    environment_id: Optional[UUID] = None,
 ) -> None:
+    env_id_str = str(environment_id) if environment_id else None
     with get_cursor() as cur:
         cur.execute("SELECT 1 FROM app.businesses WHERE business_id = %s", (str(business_id),))
         if not cur.fetchone():
@@ -202,10 +233,10 @@ def apply_custom(
             dept = cur.fetchone()
             if dept:
                 cur.execute(
-                    """INSERT INTO app.business_departments (business_id, department_id, enabled)
-                       VALUES (%s, %s, true)
+                    """INSERT INTO app.business_departments (business_id, department_id, enabled, environment_id)
+                       VALUES (%s, %s, true, %s)
                        ON CONFLICT (business_id, department_id) DO UPDATE SET enabled = true""",
-                    (str(business_id), str(dept["department_id"])),
+                    (str(business_id), str(dept["department_id"]), env_id_str),
                 )
 
         for ck in enabled_capabilities:
@@ -213,40 +244,65 @@ def apply_custom(
             cap = cur.fetchone()
             if cap:
                 cur.execute(
-                    """INSERT INTO app.business_capabilities (business_id, capability_id, enabled)
-                       VALUES (%s, %s, true)
+                    """INSERT INTO app.business_capabilities (business_id, capability_id, enabled, environment_id)
+                       VALUES (%s, %s, true, %s)
                        ON CONFLICT (business_id, capability_id) DO UPDATE SET enabled = true""",
-                    (str(business_id), str(cap["capability_id"])),
+                    (str(business_id), str(cap["capability_id"]), env_id_str),
                 )
 
 
-def list_departments(business_id: UUID) -> list[dict]:
+def list_departments(business_id: UUID, environment_id: Optional[UUID] = None) -> list[dict]:
     with get_cursor() as cur:
-        cur.execute(
-            """SELECT d.department_id, d.key, d.label, d.icon, d.sort_order,
-                      bd.enabled, bd.sort_order_override
-               FROM app.departments d
-               JOIN app.business_departments bd ON bd.department_id = d.department_id
-               WHERE bd.business_id = %s AND bd.enabled = true
-               ORDER BY COALESCE(bd.sort_order_override, d.sort_order)""",
-            (str(business_id),),
-        )
+        if environment_id:
+            cur.execute(
+                """SELECT d.department_id, d.key, d.label, d.icon, d.sort_order,
+                          bd.enabled, bd.sort_order_override
+                   FROM app.departments d
+                   JOIN app.business_departments bd ON bd.department_id = d.department_id
+                   WHERE bd.business_id = %s AND bd.environment_id = %s AND bd.enabled = true
+                   ORDER BY COALESCE(bd.sort_order_override, d.sort_order)""",
+                (str(business_id), str(environment_id)),
+            )
+        else:
+            cur.execute(
+                """SELECT d.department_id, d.key, d.label, d.icon, d.sort_order,
+                          bd.enabled, bd.sort_order_override
+                   FROM app.departments d
+                   JOIN app.business_departments bd ON bd.department_id = d.department_id
+                   WHERE bd.business_id = %s AND bd.enabled = true
+                   ORDER BY COALESCE(bd.sort_order_override, d.sort_order)""",
+                (str(business_id),),
+            )
         return cur.fetchall()
 
 
-def list_capabilities(business_id: UUID, dept_key: str) -> list[dict]:
+def list_capabilities(business_id: UUID, dept_key: str, environment_id: Optional[UUID] = None) -> list[dict]:
     with get_cursor() as cur:
-        cur.execute(
-            """SELECT c.capability_id, c.department_id, d.key as department_key,
-                      c.key, c.label, c.kind, c.sort_order, c.metadata_json,
-                      bc.enabled, bc.sort_order_override
-               FROM app.capabilities c
-               JOIN app.departments d ON d.department_id = c.department_id
-               JOIN app.business_capabilities bc ON bc.capability_id = c.capability_id
-               WHERE bc.business_id = %s AND d.key = %s AND bc.enabled = true
-               ORDER BY COALESCE(bc.sort_order_override, c.sort_order)""",
-            (str(business_id), dept_key),
-        )
+        if environment_id:
+            cur.execute(
+                """SELECT c.capability_id, c.department_id, d.key as department_key,
+                          c.key, c.label, c.kind, c.sort_order, c.metadata_json,
+                          bc.enabled, bc.sort_order_override
+                   FROM app.capabilities c
+                   JOIN app.departments d ON d.department_id = c.department_id
+                   JOIN app.business_capabilities bc ON bc.capability_id = c.capability_id
+                   WHERE bc.business_id = %s AND d.key = %s AND bc.enabled = true
+                     AND bc.environment_id = %s
+                   ORDER BY COALESCE(bc.sort_order_override, c.sort_order)""",
+                (str(business_id), dept_key, str(environment_id)),
+            )
+        else:
+            cur.execute(
+                """SELECT c.capability_id, c.department_id, d.key as department_key,
+                          c.key, c.label, c.kind, c.sort_order, c.metadata_json,
+                          bc.enabled, bc.sort_order_override
+                   FROM app.capabilities c
+                   JOIN app.departments d ON d.department_id = c.department_id
+                   JOIN app.business_capabilities bc ON bc.capability_id = c.capability_id
+                   WHERE bc.business_id = %s AND d.key = %s AND bc.enabled = true
+                   ORDER BY COALESCE(bc.sort_order_override, c.sort_order)""",
+                (str(business_id), dept_key),
+            )
         return cur.fetchall()
 
 

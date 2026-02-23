@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 import time
 from uuid import UUID
+from typing import Optional
 from app.db import get_cursor
 from app.schemas.business import (
     CreateBusinessRequest,
@@ -83,14 +84,16 @@ def apply_custom(business_id: UUID, req: ApplyCustomRequest):
 
 
 @router.get("/businesses/{business_id}/departments", response_model=list[DepartmentOut])
-def get_business_departments(business_id: UUID):
-    rows = biz_svc.list_departments(business_id)
+def get_business_departments(business_id: UUID, env_id: Optional[str] = Query(None)):
+    environment_id = UUID(env_id) if env_id else None
+    rows = biz_svc.list_departments(business_id, environment_id=environment_id)
     return [DepartmentOut(**r) for r in rows]
 
 
 @router.get("/businesses/{business_id}/departments/{dept_key}/capabilities", response_model=list[CapabilityOut])
-def get_department_capabilities(business_id: UUID, dept_key: str):
-    rows = biz_svc.list_capabilities(business_id, dept_key)
+def get_department_capabilities(business_id: UUID, dept_key: str, env_id: Optional[str] = Query(None)):
+    environment_id = UUID(env_id) if env_id else None
+    rows = biz_svc.list_capabilities(business_id, dept_key, environment_id=environment_id)
     return [CapabilityOut(**r) for r in rows]
 
 

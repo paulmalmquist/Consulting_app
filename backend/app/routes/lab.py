@@ -10,6 +10,8 @@ from app.schemas.lab import (
     EnvironmentOut,
     CreateEnvironmentRequest,
     CreateEnvironmentResponse,
+    UpdateEnvironmentRequest,
+    EnvironmentHealthResponse,
     QueueItem,
     QueueDecisionRequest,
     AuditItem,
@@ -37,16 +39,49 @@ def list_environments():
     return {"environments": [EnvironmentOut(**e) for e in envs]}
 
 
+@router.get("/environments/{env_id}", response_model=EnvironmentOut)
+def get_environment(env_id: UUID):
+    result = lab_svc.get_environment(env_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Environment not found")
+    return EnvironmentOut(**result)
+
+
 @router.post("/environments", response_model=CreateEnvironmentResponse, status_code=201)
 def create_environment(req: CreateEnvironmentRequest):
-    result = lab_svc.create_environment(req.client_name, req.industry, req.notes)
+    result = lab_svc.create_environment(
+        req.client_name,
+        req.industry,
+        req.industry_type,
+        req.notes,
+    )
     return CreateEnvironmentResponse(**result)
+
+
+@router.patch("/environments/{env_id}", response_model=EnvironmentOut)
+def update_environment(env_id: UUID, req: UpdateEnvironmentRequest):
+    try:
+        result = lab_svc.update_environment(env_id, req.model_dump(exclude_none=True))
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return EnvironmentOut(**result)
 
 
 @router.post("/environments/{env_id}/reset")
 def reset_environment(env_id: UUID):
     lab_svc.reset_environment(env_id)
     return {"ok": True, "message": "Environment reset and reseeded."}
+
+
+# ── Environment Health ────────────────────────────────────────────────
+
+@router.get("/env/{env_id}/health", response_model=EnvironmentHealthResponse)
+def environment_health(env_id: UUID):
+    try:
+        result = lab_svc.get_environment_health(env_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return EnvironmentHealthResponse(**result)
 
 
 # ── Queue (HITL) ──────────────────────────────────────────────────────

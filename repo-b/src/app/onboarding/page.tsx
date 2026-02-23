@@ -3,21 +3,19 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import {
   getAllDepartments,
   getCatalogCapabilities,
   getTemplates,
-  createBusiness,
   applyTemplate,
   applyCustom,
   Department,
   Capability,
   Template,
 } from "@/lib/bos-api";
+import { useEnv } from "@/components/EnvProvider";
 
-type Step = "create" | "choose" | "template-pick" | "template-review" | "custom-depts" | "custom-caps" | "custom-review" | "provisioning";
+type Step = "choose" | "template-pick" | "template-review" | "custom-depts" | "custom-caps" | "custom-review" | "provisioning";
 
 const ICON_MAP: Record<string, string> = {
   "dollar-sign": "$",
@@ -36,12 +34,8 @@ function iconFor(icon: string) {
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>("create");
-
-  // Business creation
-  const [bizName, setBizName] = useState("");
-  const [bizSlug, setBizSlug] = useState("");
-  const [bizRegion, setBizRegion] = useState("us");
+  const { selectedEnv } = useEnv();
+  const [step, setStep] = useState<Step>("choose");
 
   // Catalog data
   const [allDepts, setAllDepts] = useState<Department[]>([]);
@@ -113,10 +107,15 @@ export default function OnboardingPage() {
     setLoading(true);
     setError("");
     try {
-      const biz = await createBusiness(bizName, bizSlug, bizRegion);
-      const businessId = biz.business_id;
+      // Business is auto-created when the environment is provisioned.
+      // Use the business_id from the current environment context.
+      const businessId = selectedEnv?.business_id;
+      if (!businessId) {
+        setError("No active environment found. Please select an environment first.");
+        return;
+      }
 
-      // Store for app context
+      // Store for app context (legacy compatibility)
       localStorage.setItem("bos_business_id", businessId);
 
       if (selectedTemplate) {
@@ -130,7 +129,8 @@ export default function OnboardingPage() {
         await applyCustom(businessId, Array.from(customDepts), Array.from(customCaps));
       }
 
-      router.push("/app");
+      const envId = selectedEnv?.env_id;
+      router.push(envId ? `/lab/env/${envId}` : "/lab/environments");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Provisioning failed");
     } finally {
@@ -147,52 +147,6 @@ export default function OnboardingPage() {
         {error && (
           <div className="bg-bm-danger/15 border border-bm-danger/30 text-bm-text px-4 py-3 rounded-lg mb-6 text-sm">
             {error}
-          </div>
-        )}
-
-        {/* STEP: Create Business */}
-        {step === "create" && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Create Your Business</h2>
-            <div>
-              <label className="block text-sm text-bm-muted mb-1">Business Name</label>
-              <Input
-                type="text"
-                value={bizName}
-                onChange={(e) => setBizName(e.target.value)}
-                placeholder="Acme Corp"
-                data-testid="onboarding-business-name"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-bm-muted mb-1">Slug</label>
-              <Input
-                type="text"
-                value={bizSlug}
-                onChange={(e) => setBizSlug(e.target.value)}
-                data-testid="onboarding-business-slug"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-bm-muted mb-1">Region</label>
-              <Select
-                value={bizRegion}
-                onChange={(e) => setBizRegion(e.target.value)}
-                data-testid="onboarding-business-region"
-              >
-                <option value="us">United States</option>
-                <option value="eu">Europe</option>
-                <option value="apac">Asia-Pacific</option>
-              </Select>
-            </div>
-            <Button
-              disabled={!bizName.trim()}
-              onClick={() => setStep("choose")}
-              className="w-full"
-              data-testid="onboarding-continue"
-            >
-              Continue
-            </Button>
           </div>
         )}
 
@@ -219,12 +173,6 @@ export default function OnboardingPage() {
                 <p className="text-sm text-bm-muted mt-1">Pick departments and capabilities individually.</p>
               </button>
             </div>
-            <button
-              onClick={() => setStep("create")}
-              className="text-sm text-bm-muted hover:text-bm-text"
-            >
-              ← Back
-            </button>
           </div>
         )}
 

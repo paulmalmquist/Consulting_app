@@ -12,6 +12,8 @@ export type Environment = {
   notes?: string | null;
   is_active: boolean;
   created_at?: string;
+  business_id?: string | null;
+  repe_initialized?: boolean;
 };
 
 type EnvContextValue = {
