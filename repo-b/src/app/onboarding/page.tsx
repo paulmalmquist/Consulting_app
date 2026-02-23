@@ -70,16 +70,6 @@ export default function OnboardingPage() {
     [allCaps]
   );
 
-  // Auto-slug
-  useEffect(() => {
-    setBizSlug(
-      bizName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "")
-    );
-  }, [bizName]);
-
   // When template is selected, pre-populate toggles
   useEffect(() => {
     if (!selectedTemplate) return;
