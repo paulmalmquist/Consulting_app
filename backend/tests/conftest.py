@@ -97,6 +97,7 @@ _GET_CURSOR_TARGETS = [
     "app.services.re_monte_carlo.get_cursor",
     "app.services.re_risk_scoring.get_cursor",
     "app.services.re_reports.get_cursor",
+    "app.services.repe_context.get_cursor",
 ]
 
 

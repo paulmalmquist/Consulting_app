@@ -975,6 +975,32 @@ export interface RepeAssetOwnership {
   entity_edges: Array<Record<string, unknown>>;
 }
 
+export interface RepeContext {
+  env_id: string;
+  business_id: string;
+  created: boolean;
+  source: string;
+  diagnostics: Record<string, unknown>;
+}
+
+export function getRepeContext(envId?: string, businessId?: string): Promise<RepeContext> {
+  return bosFetch("/api/repe/context", {
+    params: {
+      env_id: envId,
+      business_id: businessId,
+    },
+    headers: envId ? { "X-Env-Id": envId } : undefined,
+  });
+}
+
+export function initRepeContext(body: { env_id?: string; business_id?: string }): Promise<RepeContext> {
+  return bosFetch("/api/repe/context/init", {
+    method: "POST",
+    body: JSON.stringify(body),
+    headers: body.env_id ? { "X-Env-Id": body.env_id } : undefined,
+  });
+}
+
 export function listRepeFunds(businessId: string): Promise<RepeFund[]> {
   return bosFetch(`/api/repe/businesses/${businessId}/funds`);
 }

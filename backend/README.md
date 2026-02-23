@@ -111,6 +111,23 @@ Demo flow script:
 - `python -m scripts.seed_re_demo`
 - `python -m scripts.seed_re_demo --fund-id <uuid> --asset-id <uuid> --quarter 2026Q1`
 
+### REPE Context Bootstrap
+- `GET /api/repe/context?env_id=<env_uuid>` resolves business context and auto-creates binding if missing.
+- `POST /api/repe/context/init` explicit one-click initialize fallback.
+- `GET /api/repe/health` reports missing REPE/binding tables and DB readiness.
+
+### Deployment Checklist (Vercel + Backend)
+1. Deploy backend and frontend from compatible commits.
+2. Run DB schema apply on the backend database:
+   `make db:migrate`
+3. Verify:
+   - `GET /api/health`
+   - `GET /api/repe/health`
+   - `GET /api/repe/context?env_id=<env_uuid>`
+4. If `/api/repe/health` shows missing tables, apply migrations including:
+   - `repo-b/db/schema/265_repe_object_model.sql`
+   - `repo-b/db/schema/266_repe_env_business_binding.sql`
+
 ## Local CLI Flow (Underwriting)
 
 From repo root:

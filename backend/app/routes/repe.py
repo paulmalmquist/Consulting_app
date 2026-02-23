@@ -3,7 +3,9 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
+import psycopg
 from fastapi import APIRouter, HTTPException, Query
+from fastapi import Request
 
 from app.observability.logger import emit_log
 from app.schemas.repe import (
@@ -16,18 +18,32 @@ from app.schemas.repe import (
     RepeEntityCreateRequest,
     RepeEntityOut,
     RepeFundCreateRequest,
+    RepeFundCreateWithContextRequest,
     RepeFundDetailOut,
     RepeFundOut,
+    RepeContextInitRequest,
+    RepeContextOut,
     RepeOwnershipEdgeCreateRequest,
     RepeOwnershipEdgeOut,
     RepeSeedOut,
 )
 from app.services import repe
+from app.services import repe_context
 
 router = APIRouter(prefix="/api/repe", tags=["repe"])
 
 
 def _to_http_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, repe_context.RepeContextError):
+        msg = str(exc)
+        if "missing" in msg.lower() or "migration" in msg.lower():
+            return HTTPException(status_code=503, detail=msg)
+        return HTTPException(status_code=400, detail=msg)
+    if isinstance(exc, psycopg.errors.UndefinedTable):
+        return HTTPException(
+            status_code=503,
+            detail="REPE schema not migrated. Run migrations 265/266 on this database.",
+        )
     if isinstance(exc, LookupError):
         return HTTPException(status_code=404, detail=str(exc))
     if isinstance(exc, ValueError):
@@ -70,6 +86,28 @@ def list_business_funds(business_id: UUID):
         _raise_error(exc, action="repe.fund.list", context={"business_id": str(business_id)})
 
 
+@router.get("/funds", response_model=list[RepeFundOut])
+def list_funds(
+    request: Request,
+    business_id: UUID | None = Query(default=None),
+    env_id: str | None = Query(default=None),
+):
+    """List funds for explicit business_id or implicit resolved REPE context."""
+    try:
+        if business_id is None:
+            resolved = repe_context.resolve_repe_business_context(
+                request=request,
+                env_id=env_id,
+                allow_create=True,
+            )
+            business_id = UUID(resolved.business_id)
+        rows = repe.list_funds(business_id=business_id)
+        _log("repe.fund.list.ok", "Listed REPE funds (resolved context)", context={"count": len(rows), "business_id": str(business_id)})
+        return [RepeFundOut(**row) for row in rows]
+    except Exception as exc:
+        _raise_error(exc, action="repe.fund.list.implicit", context={"business_id": str(business_id) if business_id else None, "env_id": env_id})
+
+
 @router.post("/businesses/{business_id}/funds", response_model=RepeFundOut)
 def create_business_fund(business_id: UUID, req: RepeFundCreateRequest):
     _log("repe.fund.create.start", "Creating REPE fund", context={"business_id": str(business_id), "name": req.name})
@@ -79,6 +117,27 @@ def create_business_fund(business_id: UUID, req: RepeFundCreateRequest):
         return RepeFundOut(**row)
     except Exception as exc:
         _raise_error(exc, action="repe.fund.create", context={"business_id": str(business_id), "name": req.name})
+
+
+@router.post("/funds", response_model=RepeFundOut)
+def create_fund(req: RepeFundCreateWithContextRequest, request: Request):
+    """Create fund with explicit business_id or implicit resolved REPE context."""
+    try:
+        if req.business_id:
+            target_business_id = req.business_id
+        else:
+            resolved = repe_context.resolve_repe_business_context(
+                request=request,
+                env_id=req.env_id,
+                allow_create=True,
+            )
+            target_business_id = UUID(resolved.business_id)
+        payload = req.model_dump(exclude={"business_id", "env_id"})
+        row = repe.create_fund(business_id=target_business_id, payload=payload)
+        _log("repe.fund.create.ok", "Created REPE fund (resolved context)", context={"fund_id": str(row["fund_id"]), "business_id": str(target_business_id)})
+        return RepeFundOut(**row)
+    except Exception as exc:
+        _raise_error(exc, action="repe.fund.create.implicit", context={"env_id": req.env_id})
 
 
 @router.get("/funds/{fund_id}", response_model=RepeFundDetailOut)
@@ -203,3 +262,64 @@ def seed_business_repe(business_id: UUID):
         return RepeSeedOut(**out)
     except Exception as exc:
         _raise_error(exc, action="repe.seed", context={"business_id": str(business_id)})
+
+
+@router.get("/context", response_model=RepeContextOut)
+def get_repe_context(request: Request, env_id: str | None = Query(default=None), business_id: UUID | None = Query(default=None)):
+    """Resolve REPE business context from env/session and auto-create binding if missing."""
+    try:
+        resolved = repe_context.resolve_repe_business_context(
+            request=request,
+            env_id=env_id,
+            business_id=str(business_id) if business_id else None,
+            allow_create=True,
+        )
+        _log(
+            "repe.context.resolve.ok",
+            "Resolved REPE context",
+            context={
+                "env_id": resolved.env_id,
+                "business_id": resolved.business_id,
+                "created": resolved.created,
+                "source": resolved.source,
+                **resolved.diagnostics,
+            },
+        )
+        return RepeContextOut(
+            env_id=resolved.env_id,
+            business_id=UUID(resolved.business_id),
+            created=resolved.created,
+            source=resolved.source,
+            diagnostics=resolved.diagnostics,
+        )
+    except Exception as exc:
+        _raise_error(exc, action="repe.context.resolve", context={"env_id": env_id})
+
+
+@router.post("/context/init", response_model=RepeContextOut)
+def init_repe_context(req: RepeContextInitRequest, request: Request):
+    """Explicit one-click workspace initialization fallback."""
+    try:
+        resolved = repe_context.resolve_repe_business_context(
+            request=request,
+            env_id=req.env_id,
+            business_id=str(req.business_id) if req.business_id else None,
+            allow_create=True,
+        )
+        return RepeContextOut(
+            env_id=resolved.env_id,
+            business_id=UUID(resolved.business_id),
+            created=resolved.created,
+            source=resolved.source,
+            diagnostics=resolved.diagnostics,
+        )
+    except Exception as exc:
+        _raise_error(exc, action="repe.context.init", context={"env_id": req.env_id})
+
+
+@router.get("/health")
+def repe_health():
+    try:
+        return repe_context.repe_health()
+    except Exception as exc:
+        _raise_error(exc, action="repe.health")

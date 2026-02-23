@@ -6,7 +6,7 @@ import { createRepeFund, listRepeFunds, RepeFund, seedRepeBusiness } from "@/lib
 import { useRepeContext } from "@/lib/repe-context";
 
 export default function RepePortfolioPage() {
-  const { businessId, loading } = useRepeContext();
+  const { businessId, loading, contextError, initializeWorkspace } = useRepeContext();
   const [funds, setFunds] = useState<RepeFund[]>([]);
   const [status, setStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +92,21 @@ export default function RepePortfolioPage() {
   }
 
   if (!businessId) {
-    return <div className="rounded-xl border border-bm-border/70 p-4 text-sm text-bm-muted2">No business context available for this environment.</div>;
+    return (
+      <div className="rounded-xl border border-bm-border/70 p-4 text-sm space-y-2">
+        <p className="text-bm-muted2">{loading ? "Initializing REPE workspace..." : "REPE workspace not initialized."}</p>
+        {contextError ? <p className="text-red-400">{contextError}</p> : null}
+        {!loading ? (
+          <button
+            type="button"
+            className="rounded-lg border border-bm-border px-3 py-2 hover:bg-bm-surface/40"
+            onClick={() => void initializeWorkspace()}
+          >
+            Initialize REPE Workspace
+          </button>
+        ) : null}
+      </div>
+    );
   }
 
   if (funds.length === 0) {

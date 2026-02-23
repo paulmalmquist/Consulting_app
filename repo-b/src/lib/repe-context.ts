@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { getRepeContext, initRepeContext, listBusinesses, type BusinessItem } from "@/lib/bos-api";
 import { logInfo, logWarn } from "@/lib/logging/logger";
-import { applyTemplate, BusinessItem, createBusiness, listBusinesses } from "@/lib/bos-api";
 import { useBusinessContext } from "@/lib/business-context";
 
 export type RepeEnvironment = {
@@ -22,41 +22,23 @@ type UseRepeContextResult = {
   businesses: BusinessItem[];
   businessId: string | null;
   showBusinessSwitcher: boolean;
+  contextError: string | null;
+  initializeWorkspace: () => Promise<void>;
   setBusinessForEnvironment: (nextBusinessId: string) => void;
 };
 
 const ENV_STORAGE_KEY = "demo_lab_env_id";
 const ENV_BIZ_MAP_KEY = "bm_env_business_map";
 
-function normalizeKey(value?: string | null) {
-  return (value || "").trim().toLowerCase();
-}
-
-export function isRepeIndustry(industry?: string | null): boolean {
-  const key = normalizeKey(industry);
-  return key.includes("real_estate") || key.includes("repe") || key.includes("real estate");
-}
-
 function safeParseMap(raw: string | null): Record<string, string> {
   if (!raw) return {};
   try {
     const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object") {
-      return parsed as Record<string, string>;
-    }
+    if (parsed && typeof parsed === "object") return parsed as Record<string, string>;
   } catch {
     // ignore malformed storage
   }
   return {};
-}
-
-function toSlug(input: string): string {
-  const base = input
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 42);
-  return base || "repe-business";
 }
 
 async function fetchEnvironment(envId: string): Promise<RepeEnvironment | null> {
@@ -69,6 +51,18 @@ async function fetchEnvironment(envId: string): Promise<RepeEnvironment | null> 
   }
 }
 
+function toUserFacingContextError(input: unknown): string {
+  const raw = input instanceof Error ? input.message : String(input || "");
+  const lowered = raw.toLowerCase();
+  if (lowered.includes("schema not migrated") || (lowered.includes("missing") && lowered.includes("repe"))) {
+    return "REPE schema not installed. Run migration 265/266 on this database.";
+  }
+  if (lowered.includes("no environment context")) {
+    return "No environment selected. Choose an environment, then retry.";
+  }
+  return "Unable to initialize REPE workspace. Please retry.";
+}
+
 export function useRepeContext(): UseRepeContextResult {
   const { businessId, setBusinessId } = useBusinessContext();
   const [environmentId, setEnvironmentId] = useState<string | null>(null);
@@ -76,6 +70,7 @@ export function useRepeContext(): UseRepeContextResult {
   const [businesses, setBusinesses] = useState<BusinessItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
+  const [contextError, setContextError] = useState<string | null>(null);
 
   const persistEnvBusiness = useCallback((envId: string, nextBusinessId: string) => {
     if (typeof window === "undefined") return;
@@ -97,7 +92,44 @@ export function useRepeContext(): UseRepeContextResult {
     if (typeof window === "undefined") return;
     const envId = window.localStorage.getItem(ENV_STORAGE_KEY);
     setEnvironmentId(envId);
+    if (envId) {
+      document.cookie = `demo_lab_env_id=${envId}; Path=/; SameSite=Lax`;
+    }
   }, []);
+
+  const initializeWorkspace = useCallback(async () => {
+    if (!environmentId) {
+      setContextError("No environment selected.");
+      return;
+    }
+    setLoading(true);
+    setContextError(null);
+    try {
+      const [env, context, businessRows] = await Promise.all([
+        fetchEnvironment(environmentId),
+        initRepeContext({ env_id: environmentId }),
+        listBusinesses().catch(() => []),
+      ]);
+      setEnvironment(env);
+      setBusinesses(businessRows);
+      setBusinessForEnvironment(context.business_id);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("bos_business_id", context.business_id);
+      }
+      if (context.created) {
+        logWarn("repe.context.initialized", "Workspace initialized automatically", {
+          env_id: context.env_id,
+          business_id: context.business_id,
+          source: context.source,
+        });
+      }
+    } catch (err) {
+      setContextError(toUserFacingContextError(err));
+    } finally {
+      setLoading(false);
+      setReady(true);
+    }
+  }, [environmentId, setBusinessForEnvironment]);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,76 +138,39 @@ export function useRepeContext(): UseRepeContextResult {
       setReady(true);
       return;
     }
-    const resolvedEnvironmentId = environmentId;
 
     async function resolve() {
       setLoading(true);
+      setContextError(null);
       try {
-        const [env, businessRows] = await Promise.all([fetchEnvironment(resolvedEnvironmentId), listBusinesses().catch(() => [])]);
+        const [env, context, businessRows] = await Promise.all([
+          fetchEnvironment(environmentId),
+          getRepeContext(environmentId),
+          listBusinesses().catch(() => []),
+        ]);
         if (cancelled) return;
 
         setEnvironment(env);
         setBusinesses(businessRows);
-
-        const envMap = typeof window !== "undefined"
-          ? safeParseMap(window.localStorage.getItem(ENV_BIZ_MAP_KEY))
-          : {};
-
-        const mappedBusinessId = envMap[resolvedEnvironmentId];
-        const mappedBusiness = mappedBusinessId
-          ? businessRows.find((row) => row.business_id === mappedBusinessId)
-          : null;
-
-        const envSlugToken = resolvedEnvironmentId.slice(0, 8).toLowerCase();
-        const envMatchedBusiness = businessRows.find((row) =>
-          (row.slug || "").toLowerCase().includes(envSlugToken)
-        );
-
-        const nextBusinessId =
-          mappedBusiness?.business_id ||
-          envMatchedBusiness?.business_id ||
-          (businessRows.length === 1 ? businessRows[0].business_id : businessRows[0]?.business_id || null);
-
-        if (nextBusinessId) {
-          setBusinessId(nextBusinessId);
-          persistEnvBusiness(resolvedEnvironmentId, nextBusinessId);
-          setReady(true);
-          return;
+        setBusinessForEnvironment(context.business_id);
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("bos_business_id", context.business_id);
         }
-
-        if (env && isRepeIndustry(env.industry_type || env.industry)) {
-          const seedName = `${env.client_name || "REPE"} REPE`;
-          const created = await createBusiness(seedName, `${toSlug(seedName)}-${env.env_id.slice(0, 8)}`, "us");
-          try {
-            await applyTemplate(created.business_id, "finance", ["finance"], ["repe_waterfalls", "underwriting", "scenario_lab"]);
-          } catch {
-            // template may not exist in all environments; business creation is enough to unblock context
-          }
-          if (cancelled) return;
-          setBusinessId(created.business_id);
-          persistEnvBusiness(resolvedEnvironmentId, created.business_id);
-          setBusinesses((prev) => [
-            ...prev,
-            {
-              business_id: created.business_id,
-              tenant_id: "",
-              name: seedName,
-              slug: created.slug,
-              region: "us",
-              created_at: new Date().toISOString(),
-            },
-          ]);
-          logInfo("repe.business.seeded", "Seeded REPE business for environment", {
-            env_id: resolvedEnvironmentId,
-            business_id: created.business_id,
-          });
-        } else {
-          logWarn("repe.business.missing", "No business could be resolved for current context", {
-            env_id: resolvedEnvironmentId,
+        if (context.created) {
+          logInfo("repe.context.auto_created", "Auto-created REPE workspace business", {
+            env_id: context.env_id,
+            business_id: context.business_id,
+            source: context.source,
           });
         }
-      } catch {
+      } catch (err) {
         if (cancelled) return;
+        const msg = toUserFacingContextError(err);
+        setContextError(msg);
+        logWarn("repe.context.resolve_failed", "REPE context resolution failed", {
+          env_id: environmentId,
+          error: err instanceof Error ? err.message : String(err),
+        });
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -184,13 +179,13 @@ export function useRepeContext(): UseRepeContextResult {
       }
     }
 
-    resolve();
+    void resolve();
     return () => {
       cancelled = true;
     };
-  }, [environmentId, persistEnvBusiness, setBusinessId]);
+  }, [environmentId, setBusinessForEnvironment]);
 
-  const showBusinessSwitcher = useMemo(() => businesses.length > 1, [businesses.length]);
+  const showBusinessSwitcher = useMemo(() => false, []);
 
   return {
     ready,
@@ -200,6 +195,8 @@ export function useRepeContext(): UseRepeContextResult {
     businesses,
     businessId,
     showBusinessSwitcher,
+    contextError,
+    initializeWorkspace,
     setBusinessForEnvironment,
   };
 }

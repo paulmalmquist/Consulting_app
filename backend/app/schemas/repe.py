@@ -156,3 +156,21 @@ class RepeSeedOut(BaseModel):
     deals: list[UUID]
     assets: list[UUID]
     entities: list[UUID]
+
+
+class RepeContextOut(BaseModel):
+    env_id: str
+    business_id: UUID
+    created: bool
+    source: str
+    diagnostics: dict[str, Any] = {}
+
+
+class RepeContextInitRequest(BaseModel):
+    env_id: str | None = None
+    business_id: UUID | None = None
+
+
+class RepeFundCreateWithContextRequest(RepeFundCreateRequest):
+    business_id: UUID | None = None
+    env_id: str | None = None
