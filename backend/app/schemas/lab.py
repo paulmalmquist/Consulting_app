@@ -47,6 +47,10 @@ class EnvironmentHealthResponse(BaseModel):
     modules_initialized: bool
     repe_status: Optional[str] = None  # "initialized" | "pending" | "not_applicable"
     data_integrity: bool
+    content_count: int = 0
+    ranking_count: int = 0
+    analytics_count: int = 0
+    crm_count: int = 0
     details: dict = {}
 
 

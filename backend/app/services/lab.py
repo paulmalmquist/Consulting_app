@@ -83,12 +83,15 @@ def create_environment(
             environment_id=UUID(str(env_id)),
         )
 
-        # Step 5: Seed REPE workspace if applicable
+        # Step 5: Seed workspace based on industry type
         ind = (industry_type or industry or "").lower()
         if ind in ("repe", "real_estate_pe", "real_estate"):
             from app.services import repe_context as repe_ctx
             repe_ctx.seed_repe_workspace(str(business_id), str(env_id))
             repe_initialized = True
+        elif ind in ("floyorker", "digital_media", "website"):
+            from app.services import website_seeder
+            website_seeder.seed_website_workspace(str(business_id), str(env_id), client_name)
 
         # Step 6: Update environment row with business_id and repe_initialized
         with get_cursor() as cur:
@@ -203,12 +206,52 @@ def get_environment_health(env_id: UUID) -> dict:
     else:
         repe_status = "not_applicable"
 
+    # Count website module data for this environment
+    content_count = 0
+    ranking_count = 0
+    analytics_count = 0
+    crm_count = 0
+
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM website_content_items WHERE environment_id = %s::uuid",
+                (str(env_id),),
+            )
+            content_count = cur.fetchone()["cnt"]
+
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM website_ranking_lists WHERE environment_id = %s::uuid",
+                (str(env_id),),
+            )
+            ranking_count = cur.fetchone()["cnt"]
+
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM website_analytics_snapshots WHERE environment_id = %s::uuid",
+                (str(env_id),),
+            )
+            analytics_count = cur.fetchone()["cnt"]
+
+        if business_id:
+            with get_cursor() as cur:
+                cur.execute(
+                    "SELECT COUNT(*) AS cnt FROM crm_account WHERE business_id = %s::uuid",
+                    (str(business_id),),
+                )
+                crm_count = cur.fetchone()["cnt"]
+    except Exception:
+        pass  # Tables may not exist yet (migration pending)
+
     return {
         "env_id": str(env_id),
         "business_exists": business_exists,
         "modules_initialized": modules_initialized,
         "repe_status": repe_status,
         "data_integrity": business_exists and modules_initialized,
+        "content_count": content_count,
+        "ranking_count": ranking_count,
+        "analytics_count": analytics_count,
+        "crm_count": crm_count,
         "details": {
             "business_id": str(business_id) if business_id else None,
             "industry_type": env_row.get("industry_type"),

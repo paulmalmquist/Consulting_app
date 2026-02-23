@@ -58,8 +58,13 @@ export function isFloyorkerEnvironment(industry?: string | null): boolean {
   return key.includes("floyorker") || key.includes("digital_media");
 }
 
+export function isWebsiteEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "website" || key.includes("floyorker") || key.includes("digital_media");
+}
+
 export function resolveEnvironmentOpenPath(args: { envId: string; industry?: string | null }): string {
   if (isRepeEnvironment(args.industry)) return "/app/repe/portfolio";
-  if (isFloyorkerEnvironment(args.industry)) return `/lab/env/${args.envId}/content`;
+  if (isWebsiteEnvironment(args.industry)) return `/lab/env/${args.envId}/content`;
   return `/lab/env/${args.envId}`;
 }

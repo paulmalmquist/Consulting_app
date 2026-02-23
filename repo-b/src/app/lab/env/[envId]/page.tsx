@@ -4,10 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useEnv } from "@/components/EnvProvider";
 import { apiFetch } from "@/lib/api";
-import { Card, CardContent, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent } from "@/components/ui/Card";
 import { buttonVariants } from "@/components/ui/buttonVariants";
 import { Button } from "@/components/ui/Button";
-import { isRepeEnvironment, isFloyorkerEnvironment } from "@/components/lab/environments/constants";
+import {
+  isRepeEnvironment,
+  isWebsiteEnvironment,
+} from "@/components/lab/environments/constants";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -31,13 +34,36 @@ type HealthStatus = {
   modules_initialized: boolean;
   repe_status: string;
   data_integrity: boolean;
+  content_count: number;
+  ranking_count: number;
+  analytics_count: number;
+  crm_count: number;
+};
+
+type WebsiteAnalyticsSummary = {
+  sessions_7d: number;
+  sessions_30d: number;
+  top_page_7d: string | null;
+  new_content_30d: number;
+  revenue_mtd: number;
+  conversion_events_7d: number;
+  ranking_changes_30d: number;
+};
+
+type ContentStats = {
+  idea: number;
+  draft: number;
+  review: number;
+  scheduled: number;
+  published: number;
+  total: number;
 };
 
 type KPI = { label: string; value: string | number };
 
 // ── Industry-aware KPI config ─────────────────────────────────────────
 
-function getKpiConfig(industry: string): KPI[] {
+function getStaticKpiConfig(industry: string): KPI[] {
   if (isRepeEnvironment(industry)) {
     return [
       { label: "AUM", value: "—" },
@@ -47,20 +73,23 @@ function getKpiConfig(industry: string): KPI[] {
       { label: "Compliance", value: "—" },
     ];
   }
-  if (isFloyorkerEnvironment(industry)) {
-    return [
-      { label: "Total Rankings", value: "—" },
-      { label: "Area Champions", value: "—" },
-      { label: "Content Published", value: "—" },
-      { label: "Traffic", value: "—" },
-      { label: "Revenue", value: "—" },
-    ];
-  }
   return [
     { label: "Documents", value: "—" },
     { label: "Work Items", value: "—" },
     { label: "Pending Approvals", value: "—" },
     { label: "Approval Rate", value: "—" },
+  ];
+}
+
+function buildWebsiteKpis(summary: WebsiteAnalyticsSummary): KPI[] {
+  return [
+    { label: "Sessions (7d)", value: summary.sessions_7d.toLocaleString() },
+    { label: "Sessions (30d)", value: summary.sessions_30d.toLocaleString() },
+    { label: "Top Page", value: summary.top_page_7d ?? "—" },
+    { label: "New Content (30d)", value: summary.new_content_30d },
+    { label: "Revenue MTD", value: summary.revenue_mtd > 0 ? `$${summary.revenue_mtd.toLocaleString()}` : "—" },
+    { label: "Conversions (7d)", value: summary.conversion_events_7d },
+    { label: "Ranking Changes", value: summary.ranking_changes_30d },
   ];
 }
 
@@ -72,11 +101,13 @@ function getQuickActions(industry: string, envId: string): Array<{ label: string
       { label: "Run Waterfall", href: `/lab/env/${envId}/waterfall` },
     ];
   }
-  if (isFloyorkerEnvironment(industry)) {
+  if (isWebsiteEnvironment(industry)) {
     return [
-      { label: "Add Ranking", href: `/lab/env/${envId}/rankings` },
-      { label: "Publish Content", href: `/lab/env/${envId}/content` },
-      { label: "View Analytics", href: `/lab/env/${envId}/analytics` },
+      { label: "Create Content", href: `/lab/env/${envId}/content` },
+      { label: "Add Entity", href: `/lab/env/${envId}/rankings` },
+      { label: "Update Ranking", href: `/lab/env/${envId}/rankings` },
+      { label: "Log Revenue", href: `/lab/env/${envId}/analytics` },
+      { label: "Create Task", href: `/lab/env/${envId}/projects` },
     ];
   }
   return [
@@ -92,20 +123,20 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
   const [departments, setDepartments] = useState<Department[]>([]);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [health, setHealth] = useState<HealthStatus | null>(null);
+  const [analyticsSummary, setAnalyticsSummary] = useState<WebsiteAnalyticsSummary | null>(null);
+  const [contentStats, setContentStats] = useState<ContentStats | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
 
-  // Find the environment from context
   const env = environments.find((e) => e.env_id === params.envId);
   const industry = env?.industry_type || env?.industry || "";
   const businessId = env?.business_id;
+  const isWebsite = isWebsiteEnvironment(industry);
 
-  // Select this env in the provider context
   useEffect(() => {
     selectEnv(params.envId);
   }, [params.envId, selectEnv]);
 
-  // Read flash message
   useEffect(() => {
     const raw = sessionStorage.getItem("bm_env_flash");
     if (!raw) return;
@@ -120,7 +151,6 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
     }
   }, [params.envId]);
 
-  // Load health, departments, audit
   useEffect(() => {
     apiFetch<HealthStatus>(`/v1/env/${params.envId}/health`)
       .then(setHealth)
@@ -138,7 +168,22 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
       .catch(() => null);
   }, [businessId, params.envId]);
 
-  const kpis = getKpiConfig(industry);
+  // Load website-specific analytics
+  useEffect(() => {
+    if (!isWebsite) return;
+    apiFetch<WebsiteAnalyticsSummary>(`/api/website/analytics/summary?env_id=${params.envId}`)
+      .then(setAnalyticsSummary)
+      .catch(() => null);
+    apiFetch<ContentStats>(`/api/website/content/stats?env_id=${params.envId}`)
+      .then(setContentStats)
+      .catch(() => null);
+  }, [params.envId, isWebsite]);
+
+  const kpis: KPI[] =
+    isWebsite && analyticsSummary
+      ? buildWebsiteKpis(analyticsSummary)
+      : getStaticKpiConfig(industry);
+
   const quickActions = getQuickActions(industry, params.envId);
 
   const retrySetup = async () => {
@@ -176,17 +221,65 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
       {/* KPI row */}
       <div>
         <h2 className="text-xs uppercase tracking-[0.12em] text-bm-muted2 mb-3">Overview</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
           {kpis.map((kpi) => (
             <Card key={kpi.label}>
               <CardContent className="py-4">
                 <p className="text-xs text-bm-muted2 uppercase tracking-[0.1em]">{kpi.label}</p>
-                <p className="text-2xl font-semibold mt-1">{kpi.value}</p>
+                <p className="text-2xl font-semibold mt-1 truncate">{kpi.value}</p>
               </CardContent>
             </Card>
           ))}
         </div>
       </div>
+
+      {/* Today panel — website environments only */}
+      {isWebsite && contentStats ? (
+        <div>
+          <h2 className="text-xs uppercase tracking-[0.12em] text-bm-muted2 mb-3">Today</h2>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <Link
+              href={`/lab/env/${params.envId}/content`}
+              className="bm-glass-interactive rounded-xl p-4 border border-bm-warning/40 hover:border-bm-warning/70 transition-colors"
+            >
+              <p className="text-sm font-medium">{contentStats.review} awaiting review</p>
+              <p className="text-xs text-bm-muted mt-1">Content pipeline</p>
+            </Link>
+            <Link
+              href={`/lab/env/${params.envId}/rankings`}
+              className="bm-glass-interactive rounded-xl p-4 border border-bm-border/70 hover:border-bm-accent/35 transition-colors"
+            >
+              <p className="text-sm font-medium">{analyticsSummary?.ranking_changes_30d ?? 0} recent ranking changes</p>
+              <p className="text-xs text-bm-muted mt-1">Ranking audit log</p>
+            </Link>
+            {health && health.ranking_count === 0 ? (
+              <Link
+                href={`/lab/env/${params.envId}/rankings`}
+                className="bm-glass-interactive rounded-xl p-4 border border-bm-border/70 hover:border-bm-accent/35 transition-colors"
+              >
+                <p className="text-sm font-medium">Set up rankings</p>
+                <p className="text-xs text-bm-muted mt-1">No lists yet</p>
+              </Link>
+            ) : null}
+            {health && health.analytics_count === 0 ? (
+              <Link
+                href={`/lab/env/${params.envId}/analytics`}
+                className="bm-glass-interactive rounded-xl p-4 border border-bm-border/70 hover:border-bm-accent/35 transition-colors"
+              >
+                <p className="text-sm font-medium">Log first snapshot</p>
+                <p className="text-xs text-bm-muted mt-1">Analytics</p>
+              </Link>
+            ) : null}
+            <Link
+              href={`/lab/env/${params.envId}/content`}
+              className="bm-glass-interactive rounded-xl p-4 border border-bm-border/70 hover:border-bm-accent/35 transition-colors"
+            >
+              <p className="text-sm font-medium">{contentStats.published} published</p>
+              <p className="text-xs text-bm-muted mt-1">{contentStats.draft} in draft</p>
+            </Link>
+          </div>
+        </div>
+      ) : null}
 
       {/* Module tiles */}
       {departments.length > 0 ? (
