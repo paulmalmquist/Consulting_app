@@ -110,6 +110,48 @@ export const LAB_CAPABILITIES_BY_DEPARTMENT: Record<LabDepartmentKey, LabCapabil
     { key: "versions", label: "Versions", description: "Version history and rollbacks." },
     { key: "permissions", label: "Permissions", description: "Document access and policies." },
   ],
+  waterfall: [
+    { key: "fund_setup", label: "Fund Setup", description: "Fund terms, classes, and distribution rules." },
+    { key: "commitments", label: "Commitments", description: "LP commitments and subscription tracking." },
+    { key: "capital_calls", label: "Capital Calls", description: "Notice runs and contribution tracking." },
+    { key: "distribution_runs", label: "Distribution Runs", description: "Deterministic waterfall execution and snapshots." },
+  ],
+  underwriting: [
+    { key: "deal_pipeline", label: "Deal Pipeline", description: "Intake, stage progression, and ownership." },
+    { key: "models", label: "Models", description: "Underwriting assumptions, comps, and scenario models." },
+    { key: "ic_memos", label: "IC Memos", description: "Investment committee artifacts and decision trails." },
+    { key: "stress_tests", label: "Stress Tests", description: "Sensitivity bands and downside case analysis." },
+  ],
+  reporting: [
+    { key: "executive_dashboards", label: "Executive Dashboards", description: "KPI rollups and operating pulse." },
+    { key: "financial_reports", label: "Financial Reports", description: "Statement and performance report packs." },
+    { key: "investor_reporting", label: "Investor Reporting", description: "Recurring investor updates and disclosures." },
+    { key: "scheduled_exports", label: "Scheduled Exports", description: "Automated report delivery and extracts." },
+  ],
+  compliance: [
+    { key: "controls_matrix", label: "Controls Matrix", description: "Mapped controls, owners, and test cadence." },
+    { key: "policy_library", label: "Policy Library", description: "Policy source-of-truth and attestations." },
+    { key: "evidence", label: "Evidence", description: "Control evidence collection and review status." },
+    { key: "exceptions", label: "Exceptions", description: "Tracked exceptions, risk ratings, and remediation." },
+  ],
+  content: [
+    { key: "calendar", label: "Calendar", description: "Editorial calendar and publishing schedule." },
+    { key: "briefs", label: "Briefs", description: "Creative briefs and production checklists." },
+    { key: "approvals", label: "Approvals", description: "Review gates and sign-off workflow." },
+    { key: "publishing", label: "Publishing", description: "Channel publish status and distribution log." },
+  ],
+  rankings: [
+    { key: "serp_monitor", label: "SERP Monitor", description: "Keyword and local ranking trend tracking." },
+    { key: "competitor_tracking", label: "Competitor Tracking", description: "Peer comparison and movement alerts." },
+    { key: "geo_views", label: "Geo Views", description: "Location-based rank segmentation." },
+    { key: "alerts", label: "Alerts", description: "Threshold alerts for major ranking changes." },
+  ],
+  analytics: [
+    { key: "traffic", label: "Traffic", description: "Session, source, and trend monitoring." },
+    { key: "conversions", label: "Conversions", description: "Goal funnels and conversion rates." },
+    { key: "cohorts", label: "Cohorts", description: "Retention and repeat behavior analysis." },
+    { key: "attribution", label: "Attribution", description: "Channel attribution and contribution models." },
+  ],
   admin: [
     { key: "users", label: "Users", description: "User management and invitations." },
     { key: "roles", label: "Roles", description: "Role-based access controls." },
