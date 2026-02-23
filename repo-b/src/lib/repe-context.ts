@@ -138,14 +138,15 @@ export function useRepeContext(): UseRepeContextResult {
       setReady(true);
       return;
     }
+    const envId = environmentId;
 
     async function resolve() {
       setLoading(true);
       setContextError(null);
       try {
         const [env, context, businessRows] = await Promise.all([
-          fetchEnvironment(environmentId),
-          getRepeContext(environmentId),
+          fetchEnvironment(envId),
+          getRepeContext(envId),
           listBusinesses().catch(() => []),
         ]);
         if (cancelled) return;
@@ -168,7 +169,7 @@ export function useRepeContext(): UseRepeContextResult {
         const msg = toUserFacingContextError(err);
         setContextError(msg);
         logWarn("repe.context.resolve_failed", "REPE context resolution failed", {
-          env_id: environmentId,
+          env_id: envId,
           error: err instanceof Error ? err.message : String(err),
         });
       } finally {
