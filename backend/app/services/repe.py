@@ -33,6 +33,122 @@ def list_funds(*, business_id: UUID) -> list[dict]:
         return cur.fetchall()
 
 
+def _default_waterfall_definition(style: str) -> dict:
+    return {
+        "style": style,
+        "tiers": [
+            {
+                "name": "return_of_capital",
+                "priority": 1,
+                "rule": "distribute_until_contributed_capital_returned",
+            },
+            {
+                "name": "preferred_return",
+                "priority": 2,
+                "rule": "distribute_until_pref_hurdle",
+            },
+            {
+                "name": "carried_interest_split",
+                "priority": 3,
+                "rule": "split_residual",
+                "carry_rate": "0.20",
+                "gp_share": "0.20",
+                "lp_share": "0.80",
+            },
+        ],
+    }
+
+
+def _seed_fund_defaults(cur, *, business_id: UUID, fund: dict, payload: dict) -> None:
+    scenario_name = payload.get("base_scenario_name") or "Base Scenario"
+    style = payload.get("initial_waterfall_template") or payload.get("waterfall_style") or "european"
+    base_currency = payload.get("base_currency") or "USD"
+    cadence = payload.get("quarter_cadence") or "quarterly"
+
+    cur.execute(
+        """
+        INSERT INTO repe_fund_scenario (fund_id, name, scenario_type, is_base, assumptions_json)
+        VALUES (%s, %s, 'base', true, %s::jsonb)
+        ON CONFLICT (fund_id, name) DO NOTHING
+        """,
+        (
+            fund["fund_id"],
+            scenario_name,
+            json.dumps(
+                {
+                    "base_currency": base_currency,
+                    "quarter_cadence": cadence,
+                }
+            ),
+        ),
+    )
+
+    cur.execute(
+        """
+        INSERT INTO repe_fund_waterfall_definition
+        (fund_id, name, style, definition_json, is_default)
+        VALUES (%s, 'Default Waterfall', %s, %s::jsonb, true)
+        ON CONFLICT (fund_id, name) DO NOTHING
+        """,
+        (fund["fund_id"], style, json.dumps(_default_waterfall_definition(style))),
+    )
+
+    gp_name = payload.get("gp_entity_name") or f"{fund['name']} GP"
+    cur.execute(
+        """
+        INSERT INTO repe_entity (business_id, name, entity_type, jurisdiction)
+        VALUES (%s, %s, 'gp', %s)
+        RETURNING entity_id
+        """,
+        (
+            str(business_id),
+            gp_name,
+            payload.get("gp_jurisdiction"),
+        ),
+    )
+    gp_entity = cur.fetchone()
+
+    cur.execute(
+        """
+        INSERT INTO repe_fund_entity_link (fund_id, entity_id, role, ownership_percent)
+        VALUES (%s, %s, 'gp', %s)
+        ON CONFLICT (fund_id, entity_id, role) DO NOTHING
+        """,
+        (
+            fund["fund_id"],
+            gp_entity["entity_id"],
+            _qmoney(payload.get("gp_ownership_percent")) or Decimal("1"),
+        ),
+    )
+
+    lp_rows = payload.get("lp_entities") or []
+    for row in lp_rows:
+        lp_name = row.get("name")
+        if not lp_name:
+            continue
+        cur.execute(
+            """
+            INSERT INTO repe_entity (business_id, name, entity_type, jurisdiction)
+            VALUES (%s, %s, 'fund_lp', %s)
+            RETURNING entity_id
+            """,
+            (str(business_id), lp_name, row.get("jurisdiction")),
+        )
+        lp_entity = cur.fetchone()
+        cur.execute(
+            """
+            INSERT INTO repe_fund_entity_link (fund_id, entity_id, role, ownership_percent)
+            VALUES (%s, %s, 'lp', %s)
+            ON CONFLICT (fund_id, entity_id, role) DO NOTHING
+            """,
+            (
+                fund["fund_id"],
+                lp_entity["entity_id"],
+                _qmoney(row.get("ownership_percent")),
+            ),
+        )
+
+
 def create_fund(*, business_id: UUID, payload: dict) -> dict:
     with get_cursor() as cur:
         if not _business_exists(cur, business_id):
@@ -41,8 +157,15 @@ def create_fund(*, business_id: UUID, payload: dict) -> dict:
         cur.execute(
             """
             INSERT INTO repe_fund
-            (business_id, name, vintage_year, fund_type, strategy, sub_strategy, target_size, term_years, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            (
+              business_id, name, vintage_year, fund_type, strategy, sub_strategy,
+              target_size, term_years, status, base_currency, inception_date,
+              quarter_cadence, target_sectors_json, target_geographies_json,
+              target_leverage_min, target_leverage_max,
+              target_hold_period_min_years, target_hold_period_max_years, metadata_json
+            )
+            VALUES
+            (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s, %s::jsonb)
             RETURNING *
             """,
             (
@@ -55,6 +178,16 @@ def create_fund(*, business_id: UUID, payload: dict) -> dict:
                 _qmoney(payload.get("target_size")),
                 payload.get("term_years"),
                 payload["status"],
+                (payload.get("base_currency") or "USD").upper(),
+                payload.get("inception_date"),
+                payload.get("quarter_cadence") or "quarterly",
+                json.dumps(payload.get("target_sectors") or []),
+                json.dumps(payload.get("target_geographies") or []),
+                _qmoney(payload.get("target_leverage_min")),
+                _qmoney(payload.get("target_leverage_max")),
+                payload.get("target_hold_period_min_years"),
+                payload.get("target_hold_period_max_years"),
+                json.dumps(payload.get("metadata_json") or {}),
             ),
         )
         fund = cur.fetchone()
@@ -88,6 +221,9 @@ def create_fund(*, business_id: UUID, payload: dict) -> dict:
                     payload.get("catch_up_style"),
                 ),
             )
+
+        if payload.get("seed_defaults", True):
+            _seed_fund_defaults(cur, business_id=business_id, fund=fund, payload=payload)
 
         return fund
 

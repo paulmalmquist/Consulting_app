@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getRepeContext, initRepeContext, listBusinesses, type BusinessItem } from "@/lib/bos-api";
 import { logInfo, logWarn } from "@/lib/logging/logger";
 import { useBusinessContext } from "@/lib/business-context";
+import { useMaybeReEnv } from "@/components/repe/workspace/ReEnvProvider";
 
 export type RepeEnvironment = {
   env_id: string;
@@ -71,6 +72,7 @@ export function useRepeBasePath(): string {
 
 export function useRepeContext(envIdOverride?: string | null): UseRepeContextResult {
   const { businessId, setBusinessId } = useBusinessContext();
+  const reEnv = useMaybeReEnv();
   const [environmentId, setEnvironmentId] = useState<string | null>(null);
   const [environment, setEnvironment] = useState<RepeEnvironment | null>(null);
   const [businesses, setBusinesses] = useState<BusinessItem[]>([]);
@@ -95,6 +97,7 @@ export function useRepeContext(envIdOverride?: string | null): UseRepeContextRes
   );
 
   useEffect(() => {
+    if (reEnv) return;
     if (typeof window === "undefined") return;
     const envId = envIdOverride || window.localStorage.getItem(ENV_STORAGE_KEY);
     setEnvironmentId(envId);
@@ -102,7 +105,7 @@ export function useRepeContext(envIdOverride?: string | null): UseRepeContextRes
       window.localStorage.setItem(ENV_STORAGE_KEY, envId);
       document.cookie = `demo_lab_env_id=${envId}; Path=/; SameSite=Lax`;
     }
-  }, [envIdOverride]);
+  }, [envIdOverride, reEnv]);
 
   const initializeWorkspace = useCallback(async () => {
     if (!environmentId) {
@@ -139,6 +142,7 @@ export function useRepeContext(envIdOverride?: string | null): UseRepeContextRes
   }, [environmentId, setBusinessForEnvironment]);
 
   useEffect(() => {
+    if (reEnv) return;
     let cancelled = false;
     if (!environmentId) {
       setLoading(false);
@@ -191,9 +195,24 @@ export function useRepeContext(envIdOverride?: string | null): UseRepeContextRes
     return () => {
       cancelled = true;
     };
-  }, [environmentId, setBusinessForEnvironment]);
+  }, [environmentId, setBusinessForEnvironment, reEnv]);
 
   const showBusinessSwitcher = useMemo(() => false, []);
+
+  if (reEnv) {
+    return {
+      ready: reEnv.ready,
+      loading: reEnv.loading,
+      environmentId: reEnv.envId,
+      environment: reEnv.environment,
+      businesses: [],
+      businessId: reEnv.businessId,
+      showBusinessSwitcher: false,
+      contextError: reEnv.requestId ? `${reEnv.error || ""} (req: ${reEnv.requestId})` : reEnv.error,
+      initializeWorkspace: reEnv.retry,
+      setBusinessForEnvironment: setBusinessId,
+    };
+  }
 
   return {
     ready,

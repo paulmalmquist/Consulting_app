@@ -9,6 +9,12 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   "http://localhost:8000";
 
+export type BosApiError = Error & {
+  status?: number;
+  requestId?: string;
+  detail?: unknown;
+};
+
 function makeRequestId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -63,19 +69,38 @@ async function bosFetch<T>(path: string, options: RequestInit & { params?: Recor
     headers: reqHeaders,
   });
   const durationMs = Date.now() - startedAt;
+  const responseRequestId = res.headers.get("X-Request-Id") || undefined;
 
   if (!res.ok) {
     let msg = `Request failed (${res.status})`;
-    try { const j = await res.json(); msg = j.detail || j.message || msg; } catch {}
+    let payload: unknown;
+    try {
+      payload = await res.json();
+      if (payload && typeof payload === "object") {
+        const detail = (payload as Record<string, unknown>).detail;
+        const message = (payload as Record<string, unknown>).message;
+        if (typeof detail === "string") msg = detail;
+        else if (typeof message === "string") msg = message;
+      }
+    } catch {
+      payload = undefined;
+    }
     logError("api.request_error", "API request failed", {
       path,
       method: options.method || "GET",
       request_id: requestId,
       run_id: runId,
       status: res.status,
+      response_request_id: responseRequestId,
       duration_ms: durationMs,
     });
-    throw new Error(msg);
+    const error = new Error(
+      responseRequestId ? `${msg} (req: ${responseRequestId})` : msg
+    ) as BosApiError;
+    error.status = res.status;
+    error.requestId = responseRequestId || requestId;
+    error.detail = payload;
+    throw error;
   }
   logInfo("api.request_end", "API request completed", {
     path,
@@ -83,7 +108,7 @@ async function bosFetch<T>(path: string, options: RequestInit & { params?: Recor
     request_id: requestId,
     run_id: runId,
     status: res.status,
-    response_request_id: res.headers.get("X-Request-Id"),
+    response_request_id: responseRequestId,
     duration_ms: durationMs,
   });
   return res.json() as Promise<T>;
@@ -381,6 +406,9 @@ export function initUpload(body: {
   content_type: string;
   title?: string;
   virtual_path?: string;
+  entity_type?: "fund" | "investment" | "asset";
+  entity_id?: string;
+  env_id?: string;
 }): Promise<InitUploadResult> {
   return bosFetch("/api/documents/init-upload", {
     method: "POST",
@@ -393,6 +421,9 @@ export function completeUpload(body: {
   version_id: string;
   sha256: string;
   byte_size: number;
+  entity_type?: "fund" | "investment" | "asset";
+  entity_id?: string;
+  env_id?: string;
 }): Promise<{ ok: boolean }> {
   return bosFetch("/api/documents/complete-upload", {
     method: "POST",
@@ -400,9 +431,23 @@ export function completeUpload(body: {
   });
 }
 
-export function listDocuments(businessId: string, departmentId?: string): Promise<DocumentItem[]> {
+export function listDocuments(
+  businessId: string,
+  departmentId?: string,
+  entityContext?: {
+    env_id?: string;
+    entity_type?: "fund" | "investment" | "asset";
+    entity_id?: string;
+  }
+): Promise<DocumentItem[]> {
   return bosFetch("/api/documents", {
-    params: { business_id: businessId, department_id: departmentId },
+    params: {
+      business_id: businessId,
+      department_id: departmentId,
+      env_id: entityContext?.env_id,
+      entity_type: entityContext?.entity_type,
+      entity_id: entityContext?.entity_id,
+    },
   });
 }
 
@@ -903,6 +948,16 @@ export interface RepeFund {
   target_size?: string | null;
   term_years?: number | null;
   status: "fundraising" | "investing" | "harvesting" | "closed";
+  base_currency: string;
+  inception_date?: string | null;
+  quarter_cadence: "monthly" | "quarterly" | "semi_annual" | "annual";
+  target_sectors_json?: string[] | null;
+  target_geographies_json?: string[] | null;
+  target_leverage_min?: string | null;
+  target_leverage_max?: string | null;
+  target_hold_period_min_years?: number | null;
+  target_hold_period_max_years?: number | null;
+  metadata_json?: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -1023,12 +1078,79 @@ export function createRepeFund(
     waterfall_style?: "european" | "american";
     catch_up_style?: "none" | "partial" | "full";
     terms_effective_from?: string;
+    base_currency?: string;
+    inception_date?: string;
+    quarter_cadence?: "monthly" | "quarterly" | "semi_annual" | "annual";
+    target_sectors?: string[];
+    target_geographies?: string[];
+    target_leverage_min?: string;
+    target_leverage_max?: string;
+    target_hold_period_min_years?: number;
+    target_hold_period_max_years?: number;
+    gp_entity_name?: string;
+    lp_entities?: Array<{ name: string; jurisdiction?: string; ownership_percent?: string }>;
+    initial_waterfall_template?: "european" | "american";
   }
 ): Promise<RepeFund> {
   return bosFetch(`/api/repe/businesses/${businessId}/funds`, {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export function listReV1Funds(params: {
+  env_id?: string;
+  business_id?: string;
+}): Promise<RepeFund[]> {
+  return bosFetch("/api/re/v1/funds", {
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+    },
+  });
+}
+
+export function createReV1Fund(body: {
+  env_id?: string;
+  business_id?: string;
+  name: string;
+  vintage_year: number;
+  fund_type: "closed_end" | "open_end" | "sma" | "co_invest";
+  strategy: "equity" | "debt";
+  sub_strategy?: string;
+  target_size?: string;
+  term_years?: number;
+  status?: "fundraising" | "investing" | "harvesting" | "closed";
+  base_currency?: string;
+  inception_date?: string;
+  quarter_cadence?: "monthly" | "quarterly" | "semi_annual" | "annual";
+  target_sectors?: string[];
+  target_geographies?: string[];
+  target_leverage_min?: string;
+  target_leverage_max?: string;
+  target_hold_period_min_years?: number;
+  target_hold_period_max_years?: number;
+  management_fee_rate?: string;
+  management_fee_basis?: "committed" | "invested" | "nav";
+  preferred_return_rate?: string;
+  carry_rate?: string;
+  waterfall_style?: "european" | "american";
+  catch_up_style?: "none" | "partial" | "full";
+  terms_effective_from?: string;
+  gp_entity_name?: string;
+  lp_entities?: Array<{ name: string; jurisdiction?: string; ownership_percent?: string }>;
+  initial_waterfall_template?: "european" | "american";
+  seed_defaults?: boolean;
+}): Promise<RepeFund> {
+  return bosFetch("/api/re/v1/funds", {
+    method: "POST",
+    body: JSON.stringify(body),
+    headers: body.env_id ? { "X-Env-Id": body.env_id } : undefined,
+  });
+}
+
+export function getReV1Fund(fundId: string): Promise<RepeFundDetail> {
+  return bosFetch(`/api/re/v1/funds/${fundId}`);
 }
 
 export function getRepeFund(fundId: string): Promise<RepeFundDetail> {

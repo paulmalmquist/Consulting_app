@@ -11,7 +11,7 @@ import {
   isRepeEnvironment,
   isWebsiteEnvironment,
 } from "@/components/lab/environments/constants";
-import { listRepeFunds, getReFundSummary, ReFundSummary } from "@/lib/bos-api";
+import { listReV1Funds, getReFundSummary, ReFundSummary } from "@/lib/bos-api";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -124,7 +124,7 @@ function buildWebsiteKpis(summary: WebsiteAnalyticsSummary): KPI[] {
 function getQuickActions(industry: string, envId: string): Array<{ label: string; href: string }> {
   if (isRepeEnvironment(industry)) {
     return [
-      { label: "Create Fund", href: `/lab/env/${envId}/re/portfolio` },
+      { label: "Create Fund", href: `/lab/env/${envId}/re/funds/new` },
       { label: "Start Underwriting", href: `/lab/env/${envId}/re/deals` },
       { label: "Run Waterfall", href: `/lab/env/${envId}/re/waterfalls` },
     ];
@@ -212,12 +212,15 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
   // Load REPE-specific metrics
   const isRepe = isRepeEnvironment(industry);
   useEffect(() => {
-    if (!isRepe || !businessId) return;
+    if (!isRepe || (!businessId && !params.envId)) return;
     const quarter = (() => {
       const d = new Date();
       return `${d.getUTCFullYear()}Q${Math.floor(d.getUTCMonth() / 3) + 1}`;
     })();
-    listRepeFunds(businessId)
+    listReV1Funds({
+      env_id: params.envId,
+      business_id: businessId || undefined,
+    })
       .then(async (funds) => {
         setRepeFundCount(funds.length);
         if (funds.length > 0) {
@@ -226,7 +229,7 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
         }
       })
       .catch(() => null);
-  }, [isRepe, businessId]);
+  }, [isRepe, businessId, params.envId]);
 
   const kpis: KPI[] =
     isWebsite && analyticsSummary

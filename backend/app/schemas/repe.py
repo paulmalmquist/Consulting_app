@@ -7,24 +7,53 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+QuarterCadence = Literal["monthly", "quarterly", "semi_annual", "annual"]
+FundStatus = Literal["fundraising", "investing", "harvesting", "closed"]
+FundType = Literal["closed_end", "open_end", "sma", "co_invest"]
+FundStrategy = Literal["equity", "debt"]
+WaterfallStyle = Literal["european", "american"]
+
+
+class RepeLpSetup(BaseModel):
+    name: str = Field(min_length=2, max_length=200)
+    jurisdiction: str | None = Field(default=None, max_length=80)
+    ownership_percent: Decimal | None = Field(default=None, ge=0, le=1)
+
 
 class RepeFundCreateRequest(BaseModel):
     name: str = Field(min_length=2, max_length=200)
     vintage_year: int = Field(ge=1900, le=2100)
-    fund_type: Literal["closed_end", "open_end", "sma", "co_invest"]
-    strategy: Literal["equity", "debt"]
+    fund_type: FundType
+    strategy: FundStrategy
     sub_strategy: str | None = Field(default=None, max_length=120)
     target_size: Decimal | None = Field(default=None, ge=0)
     term_years: int | None = Field(default=None, ge=1, le=100)
-    status: Literal["fundraising", "investing", "harvesting", "closed"] = "fundraising"
+    status: FundStatus = "fundraising"
 
+    # Wizard metadata
+    base_currency: str = Field(default="USD", min_length=3, max_length=8)
+    inception_date: date | None = None
+    quarter_cadence: QuarterCadence = "quarterly"
+    target_sectors: list[str] = Field(default_factory=list)
+    target_geographies: list[str] = Field(default_factory=list)
+    target_leverage_min: Decimal | None = Field(default=None, ge=0)
+    target_leverage_max: Decimal | None = Field(default=None, ge=0)
+    target_hold_period_min_years: int | None = Field(default=None, ge=0, le=100)
+    target_hold_period_max_years: int | None = Field(default=None, ge=0, le=100)
+
+    # Terms / ownership seed
     management_fee_rate: Decimal | None = Field(default=None, ge=0)
     management_fee_basis: Literal["committed", "invested", "nav"] | None = None
     preferred_return_rate: Decimal | None = Field(default=None, ge=0)
     carry_rate: Decimal | None = Field(default=None, ge=0)
-    waterfall_style: Literal["european", "american"] | None = None
+    waterfall_style: WaterfallStyle | None = None
     catch_up_style: Literal["none", "partial", "full"] | None = None
     terms_effective_from: date | None = None
+
+    gp_entity_name: str | None = Field(default=None, max_length=200)
+    lp_entities: list[RepeLpSetup] = Field(default_factory=list)
+    initial_waterfall_template: WaterfallStyle = "european"
+    seed_defaults: bool = True
 
 
 class RepeFundOut(BaseModel):
@@ -38,6 +67,18 @@ class RepeFundOut(BaseModel):
     target_size: Decimal | None = None
     term_years: int | None = None
     status: str
+
+    base_currency: str = "USD"
+    inception_date: date | None = None
+    quarter_cadence: str = "quarterly"
+    target_sectors_json: list[Any] = Field(default_factory=list)
+    target_geographies_json: list[Any] = Field(default_factory=list)
+    target_leverage_min: Decimal | None = None
+    target_leverage_max: Decimal | None = None
+    target_hold_period_min_years: int | None = None
+    target_hold_period_max_years: int | None = None
+    metadata_json: dict[str, Any] = Field(default_factory=dict)
+
     created_at: datetime
 
 
@@ -57,7 +98,7 @@ class RepeFundTermOut(BaseModel):
 
 class RepeFundDetailOut(BaseModel):
     fund: RepeFundOut
-    terms: list[RepeFundTermOut] = []
+    terms: list[RepeFundTermOut] = Field(default_factory=list)
 
 
 class RepeDealCreateRequest(BaseModel):
@@ -106,7 +147,7 @@ class RepeAssetOut(BaseModel):
 
 class RepeAssetDetailOut(BaseModel):
     asset: RepeAssetOut
-    details: dict[str, Any] = {}
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class RepeEntityCreateRequest(BaseModel):
@@ -146,8 +187,8 @@ class RepeOwnershipEdgeOut(BaseModel):
 class RepeAssetOwnershipOut(BaseModel):
     asset_id: UUID
     as_of_date: date
-    links: list[dict[str, Any]] = []
-    entity_edges: list[dict[str, Any]] = []
+    links: list[dict[str, Any]] = Field(default_factory=list)
+    entity_edges: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class RepeSeedOut(BaseModel):
@@ -163,7 +204,7 @@ class RepeContextOut(BaseModel):
     business_id: UUID
     created: bool
     source: str
-    diagnostics: dict[str, Any] = {}
+    diagnostics: dict[str, Any] = Field(default_factory=dict)
 
 
 class RepeContextInitRequest(BaseModel):

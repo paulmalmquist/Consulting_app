@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+import time
 from uuid import UUID
 
 import psycopg
@@ -29,6 +30,7 @@ from app.schemas.repe import (
 )
 from app.services import repe
 from app.services import repe_context
+from app.services import audit as audit_svc
 
 router = APIRouter(prefix="/api/repe", tags=["repe"])
 
@@ -42,7 +44,7 @@ def _to_http_error(exc: Exception) -> HTTPException:
     if isinstance(exc, psycopg.errors.UndefinedTable):
         return HTTPException(
             status_code=503,
-            detail="REPE schema not migrated. Run migrations 265/266 on this database.",
+            detail="REPE schema not migrated. Run migrations 265/266/267 on this database.",
         )
     if isinstance(exc, LookupError):
         return HTTPException(status_code=404, detail=str(exc))
@@ -110,9 +112,22 @@ def list_funds(
 
 @router.post("/businesses/{business_id}/funds", response_model=RepeFundOut)
 def create_business_fund(business_id: UUID, req: RepeFundCreateRequest):
+    started = time.monotonic()
     _log("repe.fund.create.start", "Creating REPE fund", context={"business_id": str(business_id), "name": req.name})
     try:
         row = repe.create_fund(business_id=business_id, payload=req.model_dump())
+        audit_svc.record_event(
+            actor="api_user",
+            action="fund.created",
+            tool_name="repe.funds.create_business",
+            success=True,
+            latency_ms=int((time.monotonic() - started) * 1000),
+            business_id=business_id,
+            object_type="fund",
+            object_id=row["fund_id"],
+            input_data={"name": req.name, "strategy": req.strategy},
+            output_data={"fund_id": str(row["fund_id"])},
+        )
         _log("repe.fund.create.ok", "Created REPE fund", context={"fund_id": str(row["fund_id"])})
         return RepeFundOut(**row)
     except Exception as exc:
@@ -122,6 +137,7 @@ def create_business_fund(business_id: UUID, req: RepeFundCreateRequest):
 @router.post("/funds", response_model=RepeFundOut)
 def create_fund(req: RepeFundCreateWithContextRequest, request: Request):
     """Create fund with explicit business_id or implicit resolved REPE context."""
+    started = time.monotonic()
     try:
         if req.business_id:
             target_business_id = req.business_id
@@ -134,6 +150,18 @@ def create_fund(req: RepeFundCreateWithContextRequest, request: Request):
             target_business_id = UUID(resolved.business_id)
         payload = req.model_dump(exclude={"business_id", "env_id"})
         row = repe.create_fund(business_id=target_business_id, payload=payload)
+        audit_svc.record_event(
+            actor="api_user",
+            action="fund.created",
+            tool_name="repe.funds.create",
+            success=True,
+            latency_ms=int((time.monotonic() - started) * 1000),
+            business_id=target_business_id,
+            object_type="fund",
+            object_id=row["fund_id"],
+            input_data={"env_id": req.env_id, "name": req.name, "strategy": req.strategy},
+            output_data={"fund_id": str(row["fund_id"])},
+        )
         _log("repe.fund.create.ok", "Created REPE fund (resolved context)", context={"fund_id": str(row["fund_id"]), "business_id": str(target_business_id)})
         return RepeFundOut(**row)
     except Exception as exc:

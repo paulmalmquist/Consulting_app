@@ -23,6 +23,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { selectedEnv } = useEnv();
   const aiMode = process.env.NEXT_PUBLIC_AI_MODE || "off";
+  const isReRoute = /^\/lab\/env\/[^/]+\/re(\/|$)/.test(pathname);
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
@@ -66,6 +67,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     await fetch("/api/auth/logout", { method: "POST" });
     window.location.href = "/login";
   };
+
+  if (isReRoute) {
+    return (
+      <div className="min-h-screen bg-bm-bg text-bm-text">
+        <main className="p-6">{children}</main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-bm-bg text-bm-text flex">

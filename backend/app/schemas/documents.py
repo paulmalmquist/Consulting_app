@@ -1,7 +1,8 @@
-from pydantic import BaseModel
-from typing import Optional
-from uuid import UUID
 from datetime import datetime
+from typing import Literal, Optional
+from uuid import UUID
+
+from pydantic import BaseModel
 
 
 class InitUploadRequest(BaseModel):
@@ -11,6 +12,9 @@ class InitUploadRequest(BaseModel):
     content_type: str
     title: Optional[str] = None
     virtual_path: Optional[str] = None
+    entity_type: Optional[Literal["fund", "investment", "asset"]] = None
+    entity_id: Optional[UUID] = None
+    env_id: Optional[UUID] = None
 
 
 class InitUploadResponse(BaseModel):
@@ -25,6 +29,9 @@ class CompleteUploadRequest(BaseModel):
     version_id: UUID
     sha256: str
     byte_size: int
+    entity_type: Optional[Literal["fund", "investment", "asset"]] = None
+    entity_id: Optional[UUID] = None
+    env_id: Optional[UUID] = None
 
 
 class DocumentOut(BaseModel):

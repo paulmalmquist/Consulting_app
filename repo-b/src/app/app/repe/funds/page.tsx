@@ -1,54 +1,25 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { createRepeFund, listRepeFunds, RepeFund } from "@/lib/bos-api";
+import { listReV1Funds, RepeFund } from "@/lib/bos-api";
 import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
 
 export default function RepeFundsPage() {
-  const { businessId, loading, contextError, initializeWorkspace } = useRepeContext();
+  const { businessId, environmentId, loading, contextError, initializeWorkspace } = useRepeContext();
   const basePath = useRepeBasePath();
   const [funds, setFunds] = useState<RepeFund[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState("");
-  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    if (!businessId) return;
-    listRepeFunds(businessId)
+    if (!businessId && !environmentId) return;
+    listReV1Funds({
+      env_id: environmentId || undefined,
+      business_id: businessId || undefined,
+    })
       .then(setFunds)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load funds"));
-  }, [businessId]);
-
-  async function onAddFund() {
-    if (!businessId) return;
-    setCreating(true);
-    setError(null);
-    setStatus("Creating fund...");
-    try {
-      const created = await createRepeFund(businessId, {
-        name: `New Fund ${new Date().toISOString().slice(0, 10)}`,
-        vintage_year: new Date().getUTCFullYear(),
-        strategy: "equity",
-        fund_type: "closed_end",
-        sub_strategy: "value_add",
-        target_size: "250000000",
-        term_years: 10,
-        preferred_return_rate: "0.08",
-        carry_rate: "0.20",
-        waterfall_style: "european",
-      });
-      const rows = await listRepeFunds(businessId);
-      setFunds(rows);
-      setStatus(`Fund created: ${created.name}`);
-    } catch (err) {
-      setStatus("");
-      setError(err instanceof Error ? err.message : "Failed to create fund");
-    } finally {
-      setCreating(false);
-    }
-  }
+  }, [businessId, environmentId]);
 
   if (!businessId) {
     return (
@@ -61,62 +32,69 @@ export default function RepeFundsPage() {
             className="rounded-lg border border-bm-border px-3 py-2 hover:bg-bm-surface/40"
             onClick={() => void initializeWorkspace()}
           >
-            Initialize REPE Workspace
+            Retry Context Setup
           </button>
         ) : null}
       </div>
     );
   }
 
-  if (funds.length === 0) {
-    return (
-      <section className="rounded-xl border border-bm-border/70 bg-bm-surface/25 p-4 space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">Funds</h2>
-          <button
-            type="button"
-            className="rounded-lg bg-bm-accent px-3 py-2 text-sm text-white disabled:opacity-60"
-            onClick={() => void onAddFund()}
-            disabled={creating}
-          >
-            {creating ? "Adding..." : "Add Fund"}
-          </button>
-        </div>
-        <p className="text-sm text-bm-muted2">No funds yet. Create one from Portfolio to initialize the operating model.</p>
-        <Link href={`${basePath}/portfolio`} className="inline-flex rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
-          Go to Portfolio
-        </Link>
-        {status ? <p className="text-sm text-bm-muted2">{status}</p> : null}
-        {error ? <p className="text-sm text-red-400">{error}</p> : null}
-      </section>
-    );
-  }
-
   return (
-    <section className="rounded-xl border border-bm-border/70 bg-bm-surface/25 p-4 space-y-3">
+    <section className="rounded-xl border border-bm-border/70 bg-bm-surface/25 p-4 space-y-4" data-testid="re-funds-list">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">Funds</h2>
-        <button
-          type="button"
-          className="rounded-lg bg-bm-accent px-3 py-2 text-sm text-white disabled:opacity-60"
-          onClick={() => void onAddFund()}
-          disabled={creating}
+        <div>
+          <h2 className="text-lg font-semibold">Funds</h2>
+          <p className="text-sm text-bm-muted2">All funds in this environment.</p>
+        </div>
+        <Link
+          href={`${basePath}/funds/new`}
+          className="rounded-lg bg-bm-accent px-3 py-2 text-sm text-white"
         >
-          {creating ? "Adding..." : "Add Fund"}
-        </button>
+          + New Fund
+        </Link>
       </div>
-      {status ? <p className="text-sm text-bm-muted2">{status}</p> : null}
+
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
-      <div className="grid gap-3 md:grid-cols-2">
-        {funds.map((fund) => (
-          <Link key={fund.fund_id} href={`${basePath}/funds/${fund.fund_id}`} className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 hover:bg-bm-surface/40">
-            <p className="text-base font-semibold">{fund.name}</p>
-            <p className="text-xs text-bm-muted2">
-              {fund.strategy.toUpperCase()} · {fund.sub_strategy || "general"} · {fund.status}
-            </p>
+
+      {funds.length === 0 ? (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 text-center">
+          <p className="text-sm text-bm-muted2">No funds yet.</p>
+          <Link href={`${basePath}/funds/new`} className="mt-3 inline-flex rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
+            Create First Fund
           </Link>
-        ))}
-      </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-bm-border/70 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-bm-border/70 bg-bm-surface/20">
+                <th className="px-4 py-2.5 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">Name</th>
+                <th className="px-4 py-2.5 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">Strategy</th>
+                <th className="px-4 py-2.5 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">Currency</th>
+                <th className="px-4 py-2.5 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">Status</th>
+                <th className="px-4 py-2.5 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">Inception</th>
+                <th className="px-4 py-2.5 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-bm-border/40">
+              {funds.map((fund) => (
+                <tr key={fund.fund_id} className="hover:bg-bm-surface/20">
+                  <td className="px-4 py-3 font-medium">{fund.name}</td>
+                  <td className="px-4 py-3 text-bm-muted2 capitalize">{fund.strategy}</td>
+                  <td className="px-4 py-3 text-bm-muted2">{fund.base_currency || "USD"}</td>
+                  <td className="px-4 py-3 text-bm-muted2 capitalize">{fund.status}</td>
+                  <td className="px-4 py-3 text-bm-muted2">{fund.inception_date ? fund.inception_date.slice(0, 10) : "—"}</td>
+                  <td className="px-4 py-3">
+                    <Link href={`${basePath}/funds/${fund.fund_id}`} className="text-xs text-bm-accent hover:underline">
+                      Open →
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }
