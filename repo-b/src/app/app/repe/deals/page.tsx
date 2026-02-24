@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -32,7 +32,7 @@ const STAGE_LABELS: Record<RepeDeal["stage"], string> = {
 
 type InvestmentRow = RepeDeal & { fund_name: string };
 
-export default function RepeInvestmentsPage() {
+function RepeInvestmentsPageContent() {
   const { businessId, environmentId, loading, contextError, initializeWorkspace } = useRepeContext();
   const basePath = useRepeBasePath();
   const searchParams = useSearchParams();
@@ -261,5 +261,19 @@ export default function RepeInvestmentsPage() {
       {status ? <p className="text-sm text-bm-muted2">{status}</p> : null}
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
     </section>
+  );
+}
+
+export default function RepeInvestmentsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="rounded-xl border border-bm-border/70 p-4 text-sm text-bm-muted2">
+          Loading investments...
+        </div>
+      }
+    >
+      <RepeInvestmentsPageContent />
+    </Suspense>
   );
 }

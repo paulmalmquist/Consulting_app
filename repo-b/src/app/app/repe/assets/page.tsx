@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -17,7 +17,7 @@ import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
 type DealRow = RepeDeal & { fund_name: string };
 type AssetRow = RepeAsset & { deal_name: string; fund_id: string; fund_name: string };
 
-export default function RepeAssetsPage() {
+function RepeAssetsPageContent() {
   const { businessId, environmentId, loading, contextError, initializeWorkspace } = useRepeContext();
   const basePath = useRepeBasePath();
   const searchParams = useSearchParams();
@@ -278,5 +278,19 @@ export default function RepeAssetsPage() {
       {status ? <p className="text-sm text-bm-muted2">{status}</p> : null}
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
     </section>
+  );
+}
+
+export default function RepeAssetsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="rounded-xl border border-bm-border/70 p-4 text-sm text-bm-muted2">
+          Loading assets...
+        </div>
+      }
+    >
+      <RepeAssetsPageContent />
+    </Suspense>
   );
 }
