@@ -11,6 +11,7 @@ import {
   isRepeEnvironment,
   isWebsiteEnvironment,
 } from "@/components/lab/environments/constants";
+import { listRepeFunds, getReFundSummary, ReFundSummary } from "@/lib/bos-api";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -63,14 +64,41 @@ type KPI = { label: string; value: string | number };
 
 // ── Industry-aware KPI config ─────────────────────────────────────────
 
+function fmtNav(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  const n = Number(value);
+  if (Number.isNaN(n)) return "—";
+  if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(2)}B`;
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+  return `$${n.toFixed(0)}`;
+}
+
+function fmtMultiple(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  const n = Number(value);
+  if (Number.isNaN(n)) return "—";
+  return `${n.toFixed(2)}x`;
+}
+
+function buildRepeKpis(fundCount: number, summary: ReFundSummary | null): KPI[] {
+  return [
+    { label: "Active Funds", value: fundCount > 0 ? fundCount : "0" },
+    { label: "Portfolio NAV", value: fmtNav(summary?.portfolio_nav) },
+    { label: "TVPI", value: fmtMultiple(summary?.tvpi) },
+    { label: "DPI", value: fmtMultiple(summary?.dpi) },
+    { label: "Weighted LTV", value: summary?.weighted_ltv != null ? `${(Number(summary.weighted_ltv) * 100).toFixed(1)}%` : "—" },
+  ];
+}
+
 function getStaticKpiConfig(industry: string): KPI[] {
   if (isRepeEnvironment(industry)) {
     return [
-      { label: "AUM", value: "—" },
-      { label: "NAV", value: "—" },
-      { label: "Active Funds", value: "—" },
-      { label: "IRR Snapshot", value: "—" },
-      { label: "Compliance", value: "—" },
+      { label: "Active Funds", value: "0" },
+      { label: "Portfolio NAV", value: "—" },
+      { label: "TVPI", value: "—" },
+      { label: "DPI", value: "—" },
+      { label: "Weighted LTV", value: "—" },
     ];
   }
   return [
@@ -96,9 +124,9 @@ function buildWebsiteKpis(summary: WebsiteAnalyticsSummary): KPI[] {
 function getQuickActions(industry: string, envId: string): Array<{ label: string; href: string }> {
   if (isRepeEnvironment(industry)) {
     return [
-      { label: "Create Fund", href: `/lab/env/${envId}/finance` },
-      { label: "Start Underwriting", href: `/lab/env/${envId}/underwriting` },
-      { label: "Run Waterfall", href: `/lab/env/${envId}/waterfall` },
+      { label: "Create Fund", href: `/lab/env/${envId}/re/portfolio` },
+      { label: "Start Underwriting", href: `/lab/env/${envId}/re/deals` },
+      { label: "Run Waterfall", href: `/lab/env/${envId}/re/waterfalls` },
     ];
   }
   if (isWebsiteEnvironment(industry)) {
@@ -127,6 +155,8 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
   const [contentStats, setContentStats] = useState<ContentStats | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
+  const [repeFundCount, setRepeFundCount] = useState<number>(0);
+  const [repeSummary, setRepeSummary] = useState<ReFundSummary | null>(null);
 
   const env = environments.find((e) => e.env_id === params.envId);
   const industry = env?.industry_type || env?.industry || "";
@@ -179,9 +209,30 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
       .catch(() => null);
   }, [params.envId, isWebsite]);
 
+  // Load REPE-specific metrics
+  const isRepe = isRepeEnvironment(industry);
+  useEffect(() => {
+    if (!isRepe || !businessId) return;
+    const quarter = (() => {
+      const d = new Date();
+      return `${d.getUTCFullYear()}Q${Math.floor(d.getUTCMonth() / 3) + 1}`;
+    })();
+    listRepeFunds(businessId)
+      .then(async (funds) => {
+        setRepeFundCount(funds.length);
+        if (funds.length > 0) {
+          const s = await getReFundSummary(funds[0].fund_id, quarter).catch(() => null);
+          setRepeSummary(s);
+        }
+      })
+      .catch(() => null);
+  }, [isRepe, businessId]);
+
   const kpis: KPI[] =
     isWebsite && analyticsSummary
       ? buildWebsiteKpis(analyticsSummary)
+      : isRepe
+      ? buildRepeKpis(repeFundCount, repeSummary)
       : getStaticKpiConfig(industry);
 
   const quickActions = getQuickActions(industry, params.envId);

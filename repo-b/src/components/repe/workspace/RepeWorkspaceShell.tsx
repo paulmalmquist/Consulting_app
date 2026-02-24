@@ -69,7 +69,7 @@ export default function RepeWorkspaceShell({ children, envId }: { children: Reac
                 ))}
               </select>
             ) : null}
-            <Link href={`${base}/funds`} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
+            <Link href={`${base}/portfolio`} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
               <PlusCircle size={14} /> Fund
             </Link>
             <Link href={`${base}/deals`} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
