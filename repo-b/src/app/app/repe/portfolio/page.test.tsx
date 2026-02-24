@@ -7,6 +7,7 @@ vi.mock("@/lib/repe-context", () => ({
     businessId: "biz-1",
     loading: false,
   }),
+  useRepeBasePath: () => "/lab/env/test-env/re",
 }));
 
 vi.mock("@/lib/bos-api", () => ({

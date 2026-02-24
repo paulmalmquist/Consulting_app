@@ -5,10 +5,12 @@ import RepeFundsPage from "@/app/app/repe/funds/page";
 vi.mock("@/lib/repe-context", () => ({
   useRepeContext: () => ({
     businessId: null,
+    environmentId: null,
     loading: false,
     contextError: null,
     initializeWorkspace: vi.fn(),
   }),
+  useRepeBasePath: () => "/lab/env/test-env/re",
 }));
 
 vi.mock("@/lib/bos-api", () => ({

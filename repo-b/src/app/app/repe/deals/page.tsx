@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -41,6 +41,7 @@ function RepeInvestmentsPageContent() {
   const [selectedFundId, setSelectedFundId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("");
+  const preferredFundFromQuery = searchParams.get("fund") || "";
 
   const [form, setForm] = useState({
     name: "",
@@ -49,18 +50,18 @@ function RepeInvestmentsPageContent() {
     sponsor: "",
   });
 
-  async function refreshInvestments(
+  const refreshInvestments = useCallback(async (
     currentBusinessId: string | null,
     currentEnvId: string | null,
     preferredFundId?: string
-  ) {
+  ) => {
     const fundRows = await listReV1Funds({
       env_id: currentEnvId || undefined,
       business_id: currentBusinessId || undefined,
     });
     setFunds(fundRows);
 
-    const candidate = preferredFundId || searchParams.get("fund") || "";
+    const candidate = preferredFundId || preferredFundFromQuery;
     const validPreferred = fundRows.some((fund) => fund.fund_id === candidate)
       ? candidate
       : fundRows[0]?.fund_id || "";
@@ -73,14 +74,14 @@ function RepeInvestmentsPageContent() {
       })
     );
     setRows(grouped.flat());
-  }
+  }, [preferredFundFromQuery]);
 
   useEffect(() => {
     if (!businessId && !environmentId) return;
     refreshInvestments(businessId, environmentId).catch((err) => {
       setError(err instanceof Error ? err.message : "Failed to load investments");
     });
-  }, [businessId, environmentId, searchParams]);
+  }, [businessId, environmentId, refreshInvestments]);
 
   const selectedFund = useMemo(
     () => funds.find((fund) => fund.fund_id === selectedFundId) || null,

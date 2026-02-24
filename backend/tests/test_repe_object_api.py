@@ -13,6 +13,7 @@ def _assert_headers(resp, repe_log_context):
 def test_funds_create_list_get(client, monkeypatch, repe_log_context):
     business_id = str(uuid4())
     fund_id = str(uuid4())
+    monkeypatch.setattr(repe_routes.audit_svc, "record_event", lambda **_: None)
 
     monkeypatch.setattr(
         repe_routes.repe,

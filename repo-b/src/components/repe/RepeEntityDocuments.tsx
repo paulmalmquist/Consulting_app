@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   completeUpload,
   computeSha256,
@@ -41,7 +41,7 @@ export default function RepeEntityDocuments({
     [envId, entityType, entityId]
   );
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setLoading(true);
     try {
       const scopedDocs = await listDocuments(businessId, undefined, {
@@ -56,11 +56,11 @@ export default function RepeEntityDocuments({
     } finally {
       setLoading(false);
     }
-  };
+  }, [businessId, envId, entityType, entityId]);
 
   useEffect(() => {
     void refresh();
-  }, [businessId, pathPrefix]);
+  }, [refresh]);
 
   const onUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

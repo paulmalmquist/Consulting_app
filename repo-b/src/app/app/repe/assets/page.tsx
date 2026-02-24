@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -28,6 +28,8 @@ function RepeAssetsPageContent() {
   const [selectedDealId, setSelectedDealId] = useState("");
   const [status, setStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const preferredFundFromQuery = searchParams.get("fund") || "";
+  const preferredDealFromQuery = searchParams.get("deal") || "";
 
   const [form, setForm] = useState({
     asset_type: "property" as "property" | "cmbs",
@@ -39,12 +41,12 @@ function RepeAssetsPageContent() {
     rating: "",
   });
 
-  async function refreshData(
+  const refreshData = useCallback(async (
     currentBusinessId: string | null,
     currentEnvId: string | null,
     preferredFundId?: string,
     preferredDealId?: string
-  ) {
+  ) => {
     const fundRows = await listReV1Funds({
       env_id: currentEnvId || undefined,
       business_id: currentBusinessId || undefined,
@@ -60,14 +62,14 @@ function RepeAssetsPageContent() {
     const allDeals = dealGroups.flat();
     setDeals(allDeals);
 
-    const fundCandidate = preferredFundId || searchParams.get("fund") || "";
+    const fundCandidate = preferredFundId || preferredFundFromQuery;
     const resolvedFundId = fundRows.some((fund) => fund.fund_id === fundCandidate)
       ? fundCandidate
       : fundRows[0]?.fund_id || "";
     setSelectedFundId(resolvedFundId);
 
     const dealsForFund = allDeals.filter((deal) => deal.fund_id === resolvedFundId);
-    const dealCandidate = preferredDealId || searchParams.get("deal") || "";
+    const dealCandidate = preferredDealId || preferredDealFromQuery;
     const resolvedDealId = dealsForFund.some((deal) => deal.deal_id === dealCandidate)
       ? dealCandidate
       : dealsForFund[0]?.deal_id || "";
@@ -85,14 +87,14 @@ function RepeAssetsPageContent() {
       })
     );
     setAssets(assetGroups.flat());
-  }
+  }, [preferredFundFromQuery, preferredDealFromQuery]);
 
   useEffect(() => {
     if (!businessId && !environmentId) return;
     refreshData(businessId, environmentId).catch((err) => {
       setError(err instanceof Error ? err.message : "Failed to load asset workspace");
     });
-  }, [businessId, environmentId, searchParams]);
+  }, [businessId, environmentId, refreshData]);
 
   const dealsForSelectedFund = useMemo(
     () => deals.filter((deal) => deal.fund_id === selectedFundId),
