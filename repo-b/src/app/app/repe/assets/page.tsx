@@ -12,10 +12,11 @@ import {
   RepeDeal,
   RepeFund,
 } from "@/lib/bos-api";
-import { useRepeContext } from "@/lib/repe-context";
+import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
 
 export default function RepeAssetsPage() {
   const { businessId, loading, contextError, initializeWorkspace } = useRepeContext();
+  const basePath = useRepeBasePath();
   const [funds, setFunds] = useState<RepeFund[]>([]);
   const [deals, setDeals] = useState<RepeDeal[]>([]);
   const [assets, setAssets] = useState<RepeAsset[]>([]);
@@ -156,7 +157,7 @@ export default function RepeAssetsPage() {
       <section className="rounded-xl border border-bm-border/70 bg-bm-surface/25 p-4 space-y-2">
         <h2 className="text-lg font-semibold">Assets</h2>
         <p className="text-sm text-bm-muted2">Create a fund first, then create a deal before adding assets.</p>
-        <Link href="/app/repe/portfolio" className="inline-flex rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
+        <Link href={`${basePath}/portfolio`} className="inline-flex rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
           Create Fund
         </Link>
       </section>

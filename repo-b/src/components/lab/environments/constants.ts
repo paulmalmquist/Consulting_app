@@ -64,7 +64,7 @@ export function isWebsiteEnvironment(industry?: string | null): boolean {
 }
 
 export function resolveEnvironmentOpenPath(args: { envId: string; industry?: string | null }): string {
-  if (isRepeEnvironment(args.industry)) return "/app/repe/portfolio";
+  if (isRepeEnvironment(args.industry)) return `/lab/env/${args.envId}/re/portfolio`;
   if (isWebsiteEnvironment(args.industry)) return `/lab/env/${args.envId}/content`;
   return `/lab/env/${args.envId}`;
 }

@@ -63,7 +63,13 @@ function toUserFacingContextError(input: unknown): string {
   return "Unable to initialize REPE workspace. Please retry.";
 }
 
-export function useRepeContext(): UseRepeContextResult {
+export function useRepeBasePath(): string {
+  if (typeof window === "undefined") return "/app/repe";
+  const match = window.location.pathname.match(/^\/lab\/env\/([^/]+)\/re/);
+  return match ? `/lab/env/${match[1]}/re` : "/app/repe";
+}
+
+export function useRepeContext(envIdOverride?: string | null): UseRepeContextResult {
   const { businessId, setBusinessId } = useBusinessContext();
   const [environmentId, setEnvironmentId] = useState<string | null>(null);
   const [environment, setEnvironment] = useState<RepeEnvironment | null>(null);
@@ -90,12 +96,13 @@ export function useRepeContext(): UseRepeContextResult {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const envId = window.localStorage.getItem(ENV_STORAGE_KEY);
+    const envId = envIdOverride || window.localStorage.getItem(ENV_STORAGE_KEY);
     setEnvironmentId(envId);
     if (envId) {
+      window.localStorage.setItem(ENV_STORAGE_KEY, envId);
       document.cookie = `demo_lab_env_id=${envId}; Path=/; SameSite=Lax`;
     }
-  }, []);
+  }, [envIdOverride]);
 
   const initializeWorkspace = useCallback(async () => {
     if (!environmentId) {

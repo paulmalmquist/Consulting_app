@@ -164,6 +164,11 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
     };
   }, [mobileSidebarOpen]);
 
+  const isReRoute = pathname.includes(`/lab/env/${envId}/re`);
+  if (isReRoute) {
+    return <>{children}</>;
+  }
+
   if (!currentDept) {
     return (
       <div className="rounded-xl border border-bm-border/70 bg-bm-surface/35 p-4">

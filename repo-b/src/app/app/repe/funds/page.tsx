@@ -4,10 +4,11 @@ import React from "react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createRepeFund, listRepeFunds, RepeFund } from "@/lib/bos-api";
-import { useRepeContext } from "@/lib/repe-context";
+import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
 
 export default function RepeFundsPage() {
   const { businessId, loading, contextError, initializeWorkspace } = useRepeContext();
+  const basePath = useRepeBasePath();
   const [funds, setFunds] = useState<RepeFund[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("");
@@ -82,7 +83,7 @@ export default function RepeFundsPage() {
           </button>
         </div>
         <p className="text-sm text-bm-muted2">No funds yet. Create one from Portfolio to initialize the operating model.</p>
-        <Link href="/app/repe/portfolio" className="inline-flex rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
+        <Link href={`${basePath}/portfolio`} className="inline-flex rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
           Go to Portfolio
         </Link>
         {status ? <p className="text-sm text-bm-muted2">{status}</p> : null}
@@ -108,7 +109,7 @@ export default function RepeFundsPage() {
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
       <div className="grid gap-3 md:grid-cols-2">
         {funds.map((fund) => (
-          <Link key={fund.fund_id} href={`/app/repe/funds/${fund.fund_id}`} className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 hover:bg-bm-surface/40">
+          <Link key={fund.fund_id} href={`${basePath}/funds/${fund.fund_id}`} className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 hover:bg-bm-surface/40">
             <p className="text-base font-semibold">{fund.name}</p>
             <p className="text-xs text-bm-muted2">
               {fund.strategy.toUpperCase()} · {fund.sub_strategy || "general"} · {fund.status}

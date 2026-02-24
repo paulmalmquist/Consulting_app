@@ -5,22 +5,25 @@ import { usePathname } from "next/navigation";
 import { Building2, BriefcaseBusiness, FilePlus2, Landmark, PlusCircle } from "lucide-react";
 import { useRepeContext } from "@/lib/repe-context";
 
-const NAV_ITEMS = [
-  { href: "/app/repe/portfolio", label: "Portfolio" },
-  { href: "/app/repe/funds", label: "Funds" },
-  { href: "/app/repe/deals", label: "Deals" },
-  { href: "/app/repe/assets", label: "Assets" },
-  { href: "/app/repe/capital", label: "Capital" },
-  { href: "/app/repe/waterfalls", label: "Waterfalls" },
-  { href: "/app/repe/documents", label: "Documents" },
-  { href: "/app/repe/controls", label: "Controls" },
-];
+function buildNavItems(envId?: string) {
+  const base = envId ? `/lab/env/${envId}/re` : "/app/repe";
+  return [
+    { href: `${base}/portfolio`, label: "Portfolio" },
+    { href: `${base}/funds`, label: "Funds" },
+    { href: `${base}/deals`, label: "Deals" },
+    { href: `${base}/assets`, label: "Assets" },
+    { href: `${base}/capital`, label: "Capital" },
+    { href: `${base}/waterfalls`, label: "Waterfalls" },
+    { href: `${base}/documents`, label: "Documents" },
+    { href: `${base}/controls`, label: "Controls" },
+  ];
+}
 
 function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export default function RepeWorkspaceShell({ children }: { children: React.ReactNode }) {
+export default function RepeWorkspaceShell({ children, envId }: { children: React.ReactNode; envId?: string }) {
   const pathname = usePathname();
   const {
     environment,
@@ -28,7 +31,10 @@ export default function RepeWorkspaceShell({ children }: { children: React.React
     businesses,
     showBusinessSwitcher,
     setBusinessForEnvironment,
-  } = useRepeContext();
+  } = useRepeContext(envId);
+
+  const navItems = buildNavItems(envId);
+  const base = envId ? `/lab/env/${envId}/re` : "/app/repe";
 
   return (
     <div className="space-y-4">
@@ -63,20 +69,20 @@ export default function RepeWorkspaceShell({ children }: { children: React.React
                 ))}
               </select>
             ) : null}
-            <Link href="/app/repe/funds" className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
+            <Link href={`${base}/funds`} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
               <PlusCircle size={14} /> Fund
             </Link>
-            <Link href="/app/repe/deals" className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
+            <Link href={`${base}/deals`} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
               <BriefcaseBusiness size={14} /> Deal
             </Link>
-            <Link href="/app/repe/assets" className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
+            <Link href={`${base}/assets`} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
               <FilePlus2 size={14} /> Asset
             </Link>
           </div>
         </div>
 
         <nav className="mt-4 flex flex-wrap gap-2" data-testid="repe-top-nav">
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}

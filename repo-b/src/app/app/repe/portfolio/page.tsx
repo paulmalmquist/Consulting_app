@@ -3,10 +3,11 @@
 import Link from "next/link";
 import React, { FormEvent, useEffect, useState } from "react";
 import { createRepeFund, listRepeFunds, RepeFund, seedRepeBusiness } from "@/lib/bos-api";
-import { useRepeContext } from "@/lib/repe-context";
+import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
 
 export default function RepePortfolioPage() {
   const { businessId, loading, contextError, initializeWorkspace } = useRepeContext();
+  const basePath = useRepeBasePath();
   const [funds, setFunds] = useState<RepeFund[]>([]);
   const [status, setStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +65,7 @@ export default function RepePortfolioPage() {
       });
       await refreshFunds(businessId);
       setStatus(`Fund created: ${created.name}`);
-      window.location.href = `/app/repe/funds/${created.fund_id}`;
+      window.location.href = `${basePath}/funds/${created.fund_id}`;
     } catch (err) {
       setStatus("");
       setError(err instanceof Error ? err.message : "Failed to create fund");
@@ -163,7 +164,7 @@ export default function RepePortfolioPage() {
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         {funds.map((fund) => (
-          <Link key={fund.fund_id} href={`/app/repe/funds/${fund.fund_id}`} className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 hover:bg-bm-surface/40">
+          <Link key={fund.fund_id} href={`${basePath}/funds/${fund.fund_id}`} className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 hover:bg-bm-surface/40">
             <p className="text-lg font-semibold">{fund.name}</p>
             <p className="text-xs text-bm-muted2">
               {fund.strategy.toUpperCase()} · Vintage {fund.vintage_year} · {fund.created_at?.slice(0, 10) || "n/a"}

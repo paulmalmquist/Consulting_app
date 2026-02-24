@@ -255,12 +255,26 @@ def seed_repe_workspace(business_id: str, env_id: str) -> None:
                 )
                 return
 
-            cur.execute(
-                """INSERT INTO repe_fund
-                     (business_id, name, vintage_year, fund_type, strategy, status)
-                   VALUES (%s::uuid, %s, %s, 'closed_end', 'equity', 'fundraising')""",
-                (business_id, "Fund I (Seed)", 2025),
+        # Use full seed_demo for rich demo data (2 funds, 3 deals, 3 assets, entities, capital events)
+        from app.services import repe as repe_svc
+
+        try:
+            repe_svc.seed_demo(business_id=UUID(business_id))
+        except Exception as seed_err:
+            emit_log(
+                level="warn",
+                service="backend",
+                action="repe.workspace.seed_demo_fallback",
+                message=f"Full seed_demo failed ({seed_err}), falling back to minimal seed",
+                context=ctx,
             )
+            with get_cursor() as cur:
+                cur.execute(
+                    """INSERT INTO repe_fund
+                         (business_id, name, vintage_year, fund_type, strategy, status)
+                       VALUES (%s::uuid, %s, %s, 'closed_end', 'equity', 'fundraising')""",
+                    (business_id, "Fund I (Seed)", 2025),
+                )
 
         emit_log(
             level="info",

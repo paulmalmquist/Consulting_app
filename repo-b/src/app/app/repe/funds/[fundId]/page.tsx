@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getRepeFund, RepeFundDetail } from "@/lib/bos-api";
+import { useRepeBasePath } from "@/lib/repe-context";
 
 export default function RepeFundDetailPage({ params }: { params: { fundId: string } }) {
   const [detail, setDetail] = useState<RepeFundDetail | null>(null);
+  const basePath = useRepeBasePath();
 
   useEffect(() => {
     let cancelled = false;
@@ -35,13 +37,13 @@ export default function RepeFundDetailPage({ params }: { params: { fundId: strin
         Terms versions: {detail?.terms.length || 0}
       </p>
       <div className="flex flex-wrap gap-2">
-        <Link href="/app/repe/deals" className="inline-flex rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
+        <Link href={`${basePath}/deals`} className="inline-flex rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
           Go to Deals
         </Link>
-        <Link href="/app/repe/assets" className="inline-flex rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
+        <Link href={`${basePath}/assets`} className="inline-flex rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
           Go to Assets
         </Link>
-        <Link href="/app/repe/waterfalls" className="inline-flex rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
+        <Link href={`${basePath}/waterfalls`} className="inline-flex rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
           Go to Waterfalls
         </Link>
       </div>
