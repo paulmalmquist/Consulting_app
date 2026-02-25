@@ -322,6 +322,43 @@ async def create_environment(payload: EnvironmentCreate):
     }
 
 
+@app.get("/v1/environments/{env_id}")
+async def get_environment(env_id: str):
+    """GET /v1/environments/{env_id} — returns a single environment by ID.
+
+    Required by the RE workspace loader (ReEnvProvider) which fetches
+    environment metadata via apiFetch('/v1/environments/{envId}').
+    Without this handler FastAPI returns 405 Method Not Allowed because
+    only PATCH/DELETE were registered for this path.
+    """
+    env_uuid = uuid.UUID(env_id)
+    with get_conn() as conn:
+        ensure_extensions(conn)
+        ensure_platform_tables(conn)
+        row = conn.execute(
+            """
+            SELECT env_id, client_name, industry, industry_type, schema_name,
+                   is_active, pipeline_stage_name
+            FROM platform.environments
+            WHERE env_id = %s
+            """,
+            (env_uuid,),
+        ).fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Environment not found")
+
+    return {
+        "env_id": str(row[0]),
+        "client_name": row[1],
+        "industry": row[2],
+        "industry_type": row[3],
+        "schema_name": row[4],
+        "is_active": row[5],
+        "pipeline_stage_name": row[6],
+    }
+
+
 @app.patch("/v1/environments/{env_id}")
 async def update_environment(env_id: str, payload: EnvironmentUpdate):
     env_uuid = uuid.UUID(env_id)

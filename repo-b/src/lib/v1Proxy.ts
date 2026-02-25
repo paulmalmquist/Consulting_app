@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 
-const FALLBACK_STATUSES = new Set([404, 501]);
+const FALLBACK_STATUSES = new Set([404, 405, 501]);
 
 function configuredDemoOrigin() {
   return (
