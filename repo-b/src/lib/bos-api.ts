@@ -1,9 +1,10 @@
 /**
  * Business OS API client.
  *
- * In production, all calls are routed through the same-origin Next.js proxy
- * at /bos/[...path]/route.ts (e.g. /bos/api/repe/context) to avoid CORS
- * issues and the need for NEXT_PUBLIC_BOS_API_BASE_URL to be set.
+ * In production, calls default to the same-origin Next.js proxy at
+ * /bos/[...path]/route.ts (e.g. /bos/api/repe/context) to avoid CORS issues.
+ * If NEXT_PUBLIC_BOS_API_BASE_URL (or NEXT_PUBLIC_API_BASE_URL) is explicitly
+ * configured, the browser calls that backend directly.
  *
  * In development (localhost), calls go directly to the FastAPI backend
  * at http://localhost:8000 for simpler debugging.
@@ -13,23 +14,39 @@ import { logError, logInfo } from "@/lib/logging/logger";
 /**
  * Resolve the BOS API base origin and whether to use the /bos proxy prefix.
  *
- * In production (non-localhost), we route through the same-origin Next.js
- * proxy at /bos/[...path] to avoid CORS and env var misconfiguration.
  * In development (localhost), we call the backend directly.
+ * In production, explicit browser API base URLs are honored when configured.
+ * Otherwise we route through the same-origin /bos proxy.
  */
 const _bosConfig = (() => {
-  const configured =
+  const configuredRaw =
     process.env.NEXT_PUBLIC_BOS_API_BASE_URL ||
     process.env.NEXT_PUBLIC_API_BASE_URL ||
     "";
+  const configured =
+    typeof window !== "undefined" && configuredRaw.startsWith("/")
+      ? window.location.origin
+      : configuredRaw.replace(/\/+$/, "");
 
   if (typeof window !== "undefined") {
     const isLocalHost =
       window.location.hostname === "localhost" ||
       window.location.hostname === "127.0.0.1";
+    const looksLocalApi =
+      configured.includes("localhost") || configured.includes("127.0.0.1");
+
+    // If an explicit browser-safe backend URL is configured, prefer it.
+    // This supports deployments where route handlers (/bos/*) are unavailable.
+    if (configured) {
+      // Guardrail: ignore localhost API URLs in production.
+      if (!isLocalHost && looksLocalApi) {
+        return { origin: window.location.origin, proxyPrefix: "/bos" };
+      }
+      return { origin: configured, proxyPrefix: "" };
+    }
 
     if (isLocalHost) {
-      return { origin: configured || "http://localhost:8000", proxyPrefix: "" };
+      return { origin: "http://localhost:8000", proxyPrefix: "" };
     }
 
     // Production: same-origin proxy at /bos/*
@@ -111,6 +128,7 @@ async function bosFetch<T>(path: string, options: RequestInit & { params?: Recor
   if (!res.ok) {
     let msg = `Request failed (${res.status})`;
     let payload: unknown;
+    const contentType = res.headers.get("content-type") || "";
     try {
       payload = await res.json();
       if (payload && typeof payload === "object") {
@@ -130,12 +148,42 @@ async function bosFetch<T>(path: string, options: RequestInit & { params?: Recor
     } catch {
       payload = undefined;
     }
+
+    if (payload === undefined) {
+      let bodySnippet = "";
+      try {
+        bodySnippet = (await res.clone().text()).slice(0, 220);
+      } catch {
+        bodySnippet = "";
+      }
+      if (
+        contentType.includes("text/html") &&
+        (res.status === 404 || res.status === 405)
+      ) {
+        msg =
+          "Business OS API route is not available in this deployment. Check /bos route handlers or NEXT_PUBLIC_BOS_API_BASE_URL.";
+        payload = {
+          error_code: "PROXY_ROUTE_MISSING",
+          message: msg,
+          detail: { path, method: options.method || "GET" },
+          body_snippet: bodySnippet,
+        };
+      } else if (bodySnippet) {
+        payload = {
+          error_code: "NON_JSON_ERROR_RESPONSE",
+          message: msg,
+          detail: { path, method: options.method || "GET" },
+          body_snippet: bodySnippet,
+        };
+      }
+    }
     logError("api.request_error", "API request failed", {
       path,
       method: options.method || "GET",
       request_id: requestId,
       run_id: runId,
       status: res.status,
+      content_type: contentType || undefined,
       response_request_id: responseRequestId,
       duration_ms: durationMs,
     });

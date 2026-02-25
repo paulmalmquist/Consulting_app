@@ -5,8 +5,14 @@
 // and also avoids frontend CORS configuration.
 export const API_BASE_URL =
   (() => {
+    const configuredRaw =
+      process.env.NEXT_PUBLIC_DEMO_API_BASE_URL ||
+      process.env.NEXT_PUBLIC_API_BASE_URL ||
+      "";
     const configured =
-      process.env.NEXT_PUBLIC_DEMO_API_BASE_URL || "";
+      typeof window !== "undefined" && configuredRaw.startsWith("/")
+        ? window.location.origin
+        : configuredRaw.replace(/\/+$/, "");
 
     // Guardrail: if a production deploy accidentally has a localhost base URL
     // configured, ignore it and use same-origin so the `/v1/*` proxy works.
@@ -71,12 +77,26 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}) {
   if (!response.ok) {
     let message = "Request failed";
     let debugBody: unknown = undefined;
+    const contentType = response.headers.get("content-type") || "";
+    const responseClone = response.clone();
     try {
       const payload = await response.json();
       debugBody = payload;
       message = payload.message || payload.detail || message;
     } catch {
-      // ignore parse errors
+      try {
+        const snippet = (await responseClone.text()).slice(0, 220);
+        debugBody = { content_type: contentType || null, body_snippet: snippet };
+        if (
+          contentType.includes("text/html") &&
+          (response.status === 404 || response.status === 405)
+        ) {
+          message =
+            "API route is not available in this deployment. Check /v1 and /bos route handlers or NEXT_PUBLIC_*_API_BASE_URL settings.";
+        }
+      } catch {
+        // ignore parse errors
+      }
     }
     // Client-side debugging (browser console); Vercel server logs are handled in the `/v1` proxy.
     // eslint-disable-next-line no-console
@@ -84,6 +104,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}) {
       requestId,
       url: url.toString(),
       status: response.status,
+      contentType,
       body: debugBody
     });
     throw new Error(`${message} (req: ${requestId})`);
