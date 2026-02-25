@@ -1,13 +1,45 @@
 /**
  * Business OS API client.
- * All calls go to the Python FastAPI backend.
+ *
+ * In production, all calls are routed through the same-origin Next.js proxy
+ * at /bos/[...path]/route.ts (e.g. /bos/api/repe/context) to avoid CORS
+ * issues and the need for NEXT_PUBLIC_BOS_API_BASE_URL to be set.
+ *
+ * In development (localhost), calls go directly to the FastAPI backend
+ * at http://localhost:8000 for simpler debugging.
  */
 import { logError, logInfo } from "@/lib/logging/logger";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_BOS_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  "http://localhost:8000";
+/**
+ * Resolve the BOS API base origin and whether to use the /bos proxy prefix.
+ *
+ * In production (non-localhost), we route through the same-origin Next.js
+ * proxy at /bos/[...path] to avoid CORS and env var misconfiguration.
+ * In development (localhost), we call the backend directly.
+ */
+const _bosConfig = (() => {
+  const configured =
+    process.env.NEXT_PUBLIC_BOS_API_BASE_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    "";
+
+  if (typeof window !== "undefined") {
+    const isLocalHost =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
+
+    if (isLocalHost) {
+      return { origin: configured || "http://localhost:8000", proxyPrefix: "" };
+    }
+
+    // Production: same-origin proxy at /bos/*
+    return { origin: window.location.origin, proxyPrefix: "/bos" };
+  }
+
+  return { origin: configured || "http://localhost:8000", proxyPrefix: "" };
+})();
+
+const API_BASE = _bosConfig.origin;
 
 export type BosApiError = Error & {
   status?: number;
@@ -37,7 +69,12 @@ async function bosFetch<T>(path: string, options: RequestInit & { params?: Recor
   const requestId = makeRequestId();
   const runId = getRunIdForRequest();
   const startedAt = Date.now();
-  const url = new URL(path, API_BASE);
+  // In production, prepend /bos proxy prefix so paths like /api/repe/context
+  // become /bos/api/repe/context and route through the same-origin proxy.
+  const effectivePath = _bosConfig.proxyPrefix
+    ? `${_bosConfig.proxyPrefix}${path}`
+    : path;
+  const url = new URL(effectivePath, API_BASE);
   if (options.params) {
     Object.entries(options.params).forEach(([k, v]) => {
       if (v) url.searchParams.set(k, v);
@@ -79,8 +116,16 @@ async function bosFetch<T>(path: string, options: RequestInit & { params?: Recor
       if (payload && typeof payload === "object") {
         const detail = (payload as Record<string, unknown>).detail;
         const message = (payload as Record<string, unknown>).message;
-        if (typeof detail === "string") msg = detail;
-        else if (typeof message === "string") msg = message;
+        if (typeof detail === "string") {
+          msg = detail;
+        } else if (detail && typeof detail === "object") {
+          // Structured error: { error_code, message, detail }
+          const structured = detail as Record<string, unknown>;
+          if (typeof structured.message === "string") msg = structured.message;
+          else if (typeof structured.error_code === "string") msg = structured.error_code;
+        } else if (typeof message === "string") {
+          msg = message;
+        }
       }
     } catch {
       payload = undefined;

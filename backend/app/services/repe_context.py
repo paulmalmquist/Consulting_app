@@ -217,6 +217,7 @@ def seed_repe_workspace(business_id: str, env_id: str) -> None:
     """Seed a minimal REPE workspace for a newly created environment.
 
     Creates one placeholder fund root + empty capital account ledger if none exist.
+    Also seeds RE v2 structures (base scenario, default assumption set) if tables exist.
     Logs all outcomes with structured context so failures are traceable.
     """
     ctx = {"environment_id": env_id, "module_name": "repe_context", "business_id": business_id}
@@ -253,6 +254,8 @@ def seed_repe_workspace(business_id: str, env_id: str) -> None:
                     message="REPE seed skipped — fund already exists",
                     context={**ctx, "init_status": "already_initialized"},
                 )
+                # Still seed v2 structures in case they're missing
+                _seed_re_v2_structures(business_id, ctx)
                 return
 
         # Use full seed_demo for rich demo data (2 funds, 3 deals, 3 assets, entities, capital events)
@@ -276,6 +279,9 @@ def seed_repe_workspace(business_id: str, env_id: str) -> None:
                     (business_id, "Fund I (Seed)", 2025),
                 )
 
+        # Seed RE v2 structures (base scenario + default assumption set)
+        _seed_re_v2_structures(business_id, ctx)
+
         emit_log(
             level="info",
             service="backend",
@@ -293,6 +299,77 @@ def seed_repe_workspace(business_id: str, env_id: str) -> None:
             context={**ctx, "init_status": "failed", "error_reason": str(exc)},
         )
         raise
+
+
+def _seed_re_v2_structures(business_id: str, ctx: dict) -> None:
+    """Seed RE v2 tables (scenarios, assumption sets) for all funds owned by this business.
+
+    Fails silently with a log if RE v2 tables are not yet migrated — this is non-fatal.
+    """
+    try:
+        with get_cursor() as cur:
+            if not _table_exists(cur, "re_scenario"):
+                emit_log(
+                    level="info",
+                    service="backend",
+                    action="repe.workspace.v2_seed_skipped",
+                    message="re_scenario table missing — skipping RE v2 seed",
+                    context=ctx,
+                )
+                return
+
+            cur.execute(
+                "SELECT fund_id FROM repe_fund WHERE business_id = %s::uuid",
+                (business_id,),
+            )
+            funds = cur.fetchall()
+
+            for fund in funds:
+                fund_id = str(fund["fund_id"])
+
+                # Create base scenario if none exists
+                cur.execute(
+                    "SELECT 1 FROM re_scenario WHERE fund_id = %s::uuid AND is_base = true LIMIT 1",
+                    (fund_id,),
+                )
+                if not cur.fetchone():
+                    cur.execute(
+                        """INSERT INTO re_scenario (fund_id, name, scenario_type, is_base, status)
+                           VALUES (%s::uuid, 'Base', 'base', true, 'active')
+                           ON CONFLICT (fund_id, name) DO NOTHING""",
+                        (fund_id,),
+                    )
+
+                # Create default assumption set if table exists
+                if _table_exists(cur, "re_assumption_set"):
+                    cur.execute(
+                        "SELECT 1 FROM re_assumption_set WHERE fund_id = %s::uuid AND name = 'Default' LIMIT 1",
+                        (fund_id,),
+                    )
+                    if not cur.fetchone():
+                        cur.execute(
+                            """INSERT INTO re_assumption_set (fund_id, name, version, notes)
+                               VALUES (%s::uuid, 'Default', 1, 'Auto-created during environment provisioning')
+                               ON CONFLICT DO NOTHING""",
+                            (fund_id,),
+                        )
+
+        emit_log(
+            level="info",
+            service="backend",
+            action="repe.workspace.v2_seed_complete",
+            message=f"RE v2 structures seeded for {len(funds)} funds",
+            context=ctx,
+        )
+
+    except Exception as v2_err:
+        emit_log(
+            level="warn",
+            service="backend",
+            action="repe.workspace.v2_seed_failed",
+            message=f"RE v2 seed failed (non-fatal): {v2_err}",
+            context=ctx,
+        )
 
 
 def repe_health() -> dict[str, Any]:

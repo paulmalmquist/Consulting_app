@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEnv } from "@/components/EnvProvider";
 import { apiFetch } from "@/lib/api";
@@ -226,6 +227,7 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
   const [repeFundCount, setRepeFundCount] = useState<number>(0);
   const [repeSummary, setRepeSummary] = useState<ReFundSummary | null>(null);
 
+  const router = useRouter();
   const env = environments.find((e) => e.env_id === params.envId);
   const industry = env?.industry_type || env?.industry || "";
   const businessId = env?.business_id;
@@ -234,6 +236,14 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
   useEffect(() => {
     selectEnv(params.envId);
   }, [params.envId, selectEnv]);
+
+  // Auto-redirect domain-specific environments to their workspace
+  useEffect(() => {
+    if (!env) return;
+    if (isRepeEnvironment(industry)) {
+      router.replace(`/lab/env/${params.envId}/re`);
+    }
+  }, [env, industry, params.envId, router]);
 
   useEffect(() => {
     const raw = sessionStorage.getItem("bm_env_flash");

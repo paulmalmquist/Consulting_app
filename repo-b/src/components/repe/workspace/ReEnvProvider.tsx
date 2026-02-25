@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { apiFetch } from "@/lib/api";
@@ -32,6 +33,7 @@ type ReEnvContextValue = {
   loading: boolean;
   ready: boolean;
   error: string | null;
+  errorCode: string | null;
   requestId: string | null;
   retry: () => Promise<void>;
 };
@@ -46,6 +48,41 @@ function parseRequestId(error: unknown): string | null {
   return match?.[1] || null;
 }
 
+/** Extract structured error_code from backend error detail if present. */
+function parseErrorCode(error: unknown): string | null {
+  const detail = (error as BosApiError | undefined)?.detail;
+  if (detail && typeof detail === "object") {
+    const d = detail as Record<string, unknown>;
+    if (typeof d.error_code === "string") return d.error_code;
+    if (typeof d.detail === "object" && d.detail) {
+      const inner = d.detail as Record<string, unknown>;
+      if (typeof inner.error_code === "string") return inner.error_code;
+    }
+  }
+  return null;
+}
+
+/** Convert raw error into a user-friendly message. */
+function humanizeError(err: unknown): string {
+  if (!(err instanceof Error)) return "Failed to resolve environment context.";
+
+  const msg = err.message;
+
+  // Network-level failures (CORS, offline, proxy unreachable)
+  if (msg === "Failed to fetch" || msg.includes("NetworkError") || msg.includes("UPSTREAM_UNREACHABLE")) {
+    return "Cannot reach the Real Estate API. Please check that the backend is running and try again.";
+  }
+
+  // Schema not migrated
+  if (msg.includes("not migrated") || msg.includes("migration")) {
+    return "Real Estate database tables are not yet provisioned. Contact your administrator.";
+  }
+
+  // Strip request ID suffix for cleaner display
+  const cleaned = msg.replace(/\s*\(req:\s*[a-zA-Z0-9_-]+\)\s*$/, "");
+  return cleaned || "Failed to resolve environment context.";
+}
+
 export function ReEnvProvider({ envId, children }: { envId: string; children: React.ReactNode }) {
   const { setBusinessId } = useBusinessContext();
   const [environment, setEnvironment] = useState<ReEnvironment | null>(null);
@@ -53,12 +90,15 @@ export function ReEnvProvider({ envId, children }: { envId: string; children: Re
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [requestId, setRequestId] = useState<string | null>(null);
+  const hasAutoRetried = useRef(false);
 
   const resolve = useCallback(
     async (forceInit = false) => {
       setLoading(true);
       setError(null);
+      setErrorCode(null);
       setRequestId(null);
       try {
         const envPromise = apiFetch<ReEnvironment>(`/v1/environments/${envId}`);
@@ -69,7 +109,26 @@ export function ReEnvProvider({ envId, children }: { envId: string; children: Re
         setResolvedBusinessId(repeCtx.business_id);
         setBusinessId(repeCtx.business_id);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to resolve environment context.");
+        // On first load failure, auto-retry with forceInit to trigger auto-create
+        if (!forceInit && !hasAutoRetried.current) {
+          hasAutoRetried.current = true;
+          try {
+            const [env, repeCtx] = await Promise.all([
+              apiFetch<ReEnvironment>(`/v1/environments/${envId}`),
+              initRepeContext({ env_id: envId }),
+            ]);
+            setEnvironment(env);
+            setResolvedBusinessId(repeCtx.business_id);
+            setBusinessId(repeCtx.business_id);
+            return; // Success on auto-retry
+          } catch (retryErr) {
+            // Fall through to error display
+            err = retryErr;
+          }
+        }
+
+        setError(humanizeError(err));
+        setErrorCode(parseErrorCode(err));
         setRequestId(parseRequestId(err));
       } finally {
         setLoading(false);
@@ -84,6 +143,7 @@ export function ReEnvProvider({ envId, children }: { envId: string; children: Re
   }, [resolve]);
 
   const retry = useCallback(async () => {
+    hasAutoRetried.current = false;
     await resolve(true);
   }, [resolve]);
 
@@ -95,10 +155,11 @@ export function ReEnvProvider({ envId, children }: { envId: string; children: Re
       loading,
       ready,
       error,
+      errorCode,
       requestId,
       retry,
     }),
-    [envId, environment, businessId, loading, ready, error, requestId, retry]
+    [envId, environment, businessId, loading, ready, error, errorCode, requestId, retry]
   );
 
   return <ReEnvContext.Provider value={value}>{children}</ReEnvContext.Provider>;

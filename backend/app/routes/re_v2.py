@@ -60,12 +60,24 @@ router = APIRouter(prefix="/api/re/v2", tags=["re-v2"])
 
 def _to_http(exc: Exception) -> HTTPException:
     if isinstance(exc, psycopg.errors.UndefinedTable):
-        return HTTPException(503, "RE schema not migrated. Run migration 270.")
+        return HTTPException(
+            503,
+            {"error_code": "SCHEMA_NOT_MIGRATED", "message": "RE schema not migrated.", "detail": "Run migration 270."},
+        )
     if isinstance(exc, LookupError):
-        return HTTPException(404, str(exc))
+        return HTTPException(
+            404,
+            {"error_code": "NOT_FOUND", "message": str(exc), "detail": None},
+        )
     if isinstance(exc, ValueError):
-        return HTTPException(400, str(exc))
-    return HTTPException(500, str(exc))
+        return HTTPException(
+            400,
+            {"error_code": "VALIDATION_ERROR", "message": str(exc), "detail": None},
+        )
+    return HTTPException(
+        500,
+        {"error_code": "INTERNAL_ERROR", "message": "An unexpected error occurred.", "detail": str(exc)},
+    )
 
 
 def _log(action: str, msg: str, **ctx):

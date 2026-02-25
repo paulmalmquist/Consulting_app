@@ -39,18 +39,33 @@ def _to_http_error(exc: Exception) -> HTTPException:
     if isinstance(exc, repe_context.RepeContextError):
         msg = str(exc)
         if "missing" in msg.lower() or "migration" in msg.lower():
-            return HTTPException(status_code=503, detail=msg)
-        return HTTPException(status_code=400, detail=msg)
+            return HTTPException(
+                status_code=503,
+                detail={"error_code": "SCHEMA_NOT_MIGRATED", "message": msg, "detail": "Run pending database migrations."},
+            )
+        return HTTPException(
+            status_code=400,
+            detail={"error_code": "CONTEXT_ERROR", "message": msg, "detail": None},
+        )
     if isinstance(exc, psycopg.errors.UndefinedTable):
         return HTTPException(
             status_code=503,
-            detail="REPE schema not migrated. Run migrations 265/266/267 on this database.",
+            detail={"error_code": "SCHEMA_NOT_MIGRATED", "message": "REPE schema not migrated.", "detail": "Run migrations 265/266/267 on this database."},
         )
     if isinstance(exc, LookupError):
-        return HTTPException(status_code=404, detail=str(exc))
+        return HTTPException(
+            status_code=404,
+            detail={"error_code": "NOT_FOUND", "message": str(exc), "detail": None},
+        )
     if isinstance(exc, ValueError):
-        return HTTPException(status_code=400, detail=str(exc))
-    return HTTPException(status_code=500, detail=str(exc))
+        return HTTPException(
+            status_code=400,
+            detail={"error_code": "VALIDATION_ERROR", "message": str(exc), "detail": None},
+        )
+    return HTTPException(
+        status_code=500,
+        detail={"error_code": "INTERNAL_ERROR", "message": "An unexpected error occurred.", "detail": str(exc)},
+    )
 
 
 def _log(action: str, message: str, *, context: dict | None = None, level: str = "info") -> None:

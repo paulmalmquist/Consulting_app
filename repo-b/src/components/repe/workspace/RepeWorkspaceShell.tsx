@@ -32,7 +32,7 @@ function parsePathId(pathname: string, segment: string): string | null {
 export default function RepeWorkspaceShell({ children, envId }: { children: React.ReactNode; envId?: string }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { environment, businessId, loading, error, requestId, retry } = useReEnv();
+  const { environment, businessId, loading, error, errorCode, requestId, retry } = useReEnv();
 
   const base = envId ? `/lab/env/${envId}/re` : "/app/repe";
   const navItems = useMemo(
@@ -139,11 +139,30 @@ export default function RepeWorkspaceShell({ children, envId }: { children: Reac
 
   if (error) {
     return (
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 space-y-3" data-testid="re-context-error">
-        <h2 className="text-lg font-semibold">Unable to load Real Estate context</h2>
+      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-6 space-y-4" data-testid="re-context-error">
+        <h2 className="text-lg font-semibold">Unable to load Real Estate workspace</h2>
         <p className="text-sm text-red-300">{error}</p>
-        {requestId ? <p className="text-xs text-bm-muted2">Request ID: {requestId}</p> : null}
-        <button type="button" onClick={() => void retry()} className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">Retry</button>
+        {errorCode ? (
+          <p className="text-xs text-bm-muted2 font-mono">Error: {errorCode}</p>
+        ) : null}
+        {requestId ? (
+          <p className="text-xs text-bm-muted2">Request ID: {requestId}</p>
+        ) : null}
+        <div className="flex items-center gap-3 pt-1">
+          <button
+            type="button"
+            onClick={() => void retry()}
+            className="rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90"
+          >
+            Retry
+          </button>
+          <a
+            href={`/lab/env/${envId}`}
+            className="rounded-lg border border-bm-border px-4 py-2 text-sm hover:bg-bm-surface/40"
+          >
+            Back to Environment
+          </a>
+        </div>
       </div>
     );
   }
