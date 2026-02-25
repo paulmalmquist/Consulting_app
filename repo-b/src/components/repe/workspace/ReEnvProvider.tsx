@@ -12,8 +12,9 @@ import {
 import { apiFetch } from "@/lib/api";
 import {
   BosApiError,
-  getRepeContext,
-  initRepeContext,
+  getReV1Context,
+  bootstrapReV1Context,
+  ReV1Context,
 } from "@/lib/bos-api";
 import { useBusinessContext } from "@/lib/business-context";
 
@@ -35,6 +36,8 @@ type ReEnvContextValue = {
   error: string | null;
   errorCode: string | null;
   requestId: string | null;
+  isBootstrapped: boolean;
+  fundsCount: number;
   retry: () => Promise<void>;
 };
 
@@ -92,34 +95,45 @@ export function ReEnvProvider({ envId, children }: { envId: string; children: Re
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [requestId, setRequestId] = useState<string | null>(null);
+  const [isBootstrapped, setIsBootstrapped] = useState(false);
+  const [fundsCount, setFundsCount] = useState(0);
   const hasAutoRetried = useRef(false);
 
+  const applyContext = useCallback(
+    (env: ReEnvironment, ctx: ReV1Context) => {
+      setEnvironment(env);
+      setResolvedBusinessId(ctx.business_id);
+      setBusinessId(ctx.business_id);
+      setIsBootstrapped(ctx.is_bootstrapped);
+      setFundsCount(ctx.funds_count);
+    },
+    [setBusinessId]
+  );
+
   const resolve = useCallback(
-    async (forceInit = false) => {
+    async (forceBootstrap = false) => {
       setLoading(true);
       setError(null);
       setErrorCode(null);
       setRequestId(null);
       try {
         const envPromise = apiFetch<ReEnvironment>(`/v1/environments/${envId}`);
-        const contextPromise = forceInit ? initRepeContext({ env_id: envId }) : getRepeContext(envId);
+        const contextPromise = forceBootstrap
+          ? bootstrapReV1Context(envId)
+          : getReV1Context(envId);
 
-        const [env, repeCtx] = await Promise.all([envPromise, contextPromise]);
-        setEnvironment(env);
-        setResolvedBusinessId(repeCtx.business_id);
-        setBusinessId(repeCtx.business_id);
+        const [env, reCtx] = await Promise.all([envPromise, contextPromise]);
+        applyContext(env, reCtx);
       } catch (err) {
-        // On first load failure, auto-retry with forceInit to trigger auto-create
-        if (!forceInit && !hasAutoRetried.current) {
+        // On first load failure, auto-retry with bootstrap to trigger auto-create
+        if (!forceBootstrap && !hasAutoRetried.current) {
           hasAutoRetried.current = true;
           try {
-            const [env, repeCtx] = await Promise.all([
+            const [env, reCtx] = await Promise.all([
               apiFetch<ReEnvironment>(`/v1/environments/${envId}`),
-              initRepeContext({ env_id: envId }),
+              bootstrapReV1Context(envId),
             ]);
-            setEnvironment(env);
-            setResolvedBusinessId(repeCtx.business_id);
-            setBusinessId(repeCtx.business_id);
+            applyContext(env, reCtx);
             return; // Success on auto-retry
           } catch (retryErr) {
             // Fall through to error display
@@ -135,7 +149,7 @@ export function ReEnvProvider({ envId, children }: { envId: string; children: Re
         setReady(true);
       }
     },
-    [envId, setBusinessId]
+    [envId, applyContext]
   );
 
   useEffect(() => {
@@ -157,9 +171,11 @@ export function ReEnvProvider({ envId, children }: { envId: string; children: Re
       error,
       errorCode,
       requestId,
+      isBootstrapped,
+      fundsCount,
       retry,
     }),
-    [envId, environment, businessId, loading, ready, error, errorCode, requestId, retry]
+    [envId, environment, businessId, loading, ready, error, errorCode, requestId, isBootstrapped, fundsCount, retry]
   );
 
   return <ReEnvContext.Provider value={value}>{children}</ReEnvContext.Provider>;

@@ -683,3 +683,109 @@ If unsure, default to:
 - Flag aggressive assumptions rather than silently accepting them
 - Institutional standards over simplified models
 - Stress everything; surface contradictions
+# Frontend-Realistic Testing Rules (MANDATORY)
+
+These rules exist to ensure tests behave like a real user session in the browser. Tests must validate UI + routing + network + error states, not just component rendering.
+
+## 1) Always test through the UI, not internal functions
+- Prefer Playwright E2E for anything involving navigation, auth, environment selection, and /re drill paths.
+- Unit tests are allowed for pure UI components, but anything that depends on API state must have an E2E and/or integration test.
+
+## 2) Network mocking must mirror production shape
+- Do NOT stub business logic in the browser.
+- Use a single mock layer that imitates the API contract (status codes, error envelopes, latency, and empty states).
+- Mock responses must match:
+  - URL paths exactly
+  - HTTP methods exactly
+  - JSON schema exactly
+  - error envelope exactly: { error_code, message, detail }
+- Mock failure modes explicitly (401, 403, 404, 422, 500, network error).
+
+## 3) Every E2E test must assert “no silent failures”
+For each Playwright test:
+- Fail if any request returns 500 (unless explicitly testing 500 UI).
+- Fail if any request is “Failed to fetch” / network error (unless explicitly testing it).
+- Fail if console has errors (except known allowlist).
+- Fail if UI displays generic fallback error strings (TBD, placeholder copy, raw stack traces).
+
+## 4) Deterministic test data & environment bootstrap
+- Tests must create their own environment(s) via UI or API and never depend on existing prod/staging data.
+- Use deterministic fixture builders:
+  - createEnv(industry=real_estate)
+  - seedFund(strategy=equity|credit|cmbs)
+  - seedInvestment()
+  - seedJV()
+  - seedAsset(type=property|loan)
+- Every fixture builder must return IDs and a stable “expected state” snapshot for assertions.
+
+## 5) Use data-testid for all user-critical actions
+All clickable elements in the RE drill path MUST have stable selectors:
+- env card open: data-testid="env-open"
+- re landing: data-testid="re-home"
+- fund table: data-testid="fund-list"
+- create fund: data-testid="re-create-fund"
+- fund wizard: data-testid="re-fund-create-wizard"
+- wizard step next/back: data-testid="wizard-next" / "wizard-back"
+- fund row: data-testid="fund-row-<fundId>"
+- investment list: data-testid="investment-list"
+- jv list: data-testid="jv-list"
+- asset list: data-testid="asset-list"
+- scenario selector: data-testid="scenario-selector"
+- run quarter close: data-testid="run-quarter-close"
+
+Never use brittle text selectors for primary flows.
+
+## 6) Contract tests for API clients
+- Add API contract tests that validate frontend client decoding:
+  - success payloads
+  - empty payloads
+  - error payloads
+  - unexpected payload shape (must surface a friendly error)
+- Contract tests must run in CI and block merges.
+
+## 7) Route-level acceptance tests (minimum set)
+Playwright MUST cover:
+1) Provision RE environment -> auto-land on /re (no generic dashboard leak)
+2) /re shows fund list table (even empty) + “Create Fund” CTA
+3) Create Fund wizard -> submit -> redirect to /re/funds/:fundId -> fund header visible
+4) Drill path:
+   - create investment/jv/asset (or seed via API) -> navigate fund -> investment -> jv -> asset
+5) Asset fork:
+   - property asset shows Accounting + Valuation panels
+   - loan asset shows Credit/CMBS panels
+6) Error UX:
+   - simulate 401 -> redirect/login prompt
+   - simulate 422 -> inline form errors
+   - simulate 500 -> friendly error page with retry + error_code displayed
+7) Nav guard:
+   - inside /re/* global Lab items (Pipeline/Uploads) must NOT be visible
+
+## 8) Mocking strategy (choose ONE and enforce)
+Pick one of these and apply consistently:
+A) Playwright route mocking (page.route) for API calls
+B) MSW (Mock Service Worker) for browser-level API mocking
+C) Test backend in docker (preferred for “realism” if stable)
+
+Whichever is chosen:
+- It must support latency injection (50–200ms) to catch loading state bugs.
+- It must support forced failures per endpoint.
+
+## 9) Assertions must include visual state expectations
+For critical screens, assert:
+- loading skeleton appears briefly
+- empty state has a real CTA (not dead text)
+- table renders with correct columns
+- computed rollup tiles show numbers or explicit “0” (not “—” unless intentionally unknown)
+
+## 10) CI Gates
+PRs cannot merge unless:
+- Playwright suite passes
+- contract tests pass
+- lint + typecheck pass
+- no snapshot tests used as substitutes for E2E navigation tests
+
+## Definition of Done for RE changes
+A change is NOT done unless:
+- It has at least one Playwright test proving the user flow works
+- It has a mocked failure test proving the UI fails gracefully
+- It asserts no console errors and no failed network calls

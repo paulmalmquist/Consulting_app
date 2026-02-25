@@ -40,6 +40,8 @@ export default function RepeWorkspaceShell({ children, envId }: { children: Reac
       { href: `${base}`, label: "Funds" },
       { href: `${base}/deals`, label: "Investments" },
       { href: `${base}/assets`, label: "Assets" },
+      { href: `${base}/scenarios`, label: "Scenarios" },
+      { href: `${base}/runs/quarter-close`, label: "Run Center" },
     ],
     [base]
   );

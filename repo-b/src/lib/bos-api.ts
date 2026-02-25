@@ -1375,6 +1375,30 @@ export interface RepeContext {
   diagnostics: Record<string, unknown>;
 }
 
+export interface ReV1Context {
+  env_id: string;
+  business_id: string;
+  industry: string;
+  is_bootstrapped: boolean;
+  funds_count: number;
+  scenarios_count: number;
+}
+
+export function getReV1Context(envId: string): Promise<ReV1Context> {
+  return bosFetch("/api/re/v1/context", {
+    params: { env_id: envId },
+    headers: { "X-Env-Id": envId },
+  });
+}
+
+export function bootstrapReV1Context(envId: string): Promise<ReV1Context> {
+  return bosFetch("/api/re/v1/context/bootstrap", {
+    method: "POST",
+    params: { env_id: envId },
+    headers: { "X-Env-Id": envId },
+  });
+}
+
 export function getRepeContext(envId?: string, businessId?: string): Promise<RepeContext> {
   return bosFetch("/api/repe/context", {
     params: {

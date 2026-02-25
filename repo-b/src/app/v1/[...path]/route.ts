@@ -26,9 +26,10 @@ function inferUpstreamOrigin(request: NextRequest): string {
   return `https://api.${root}`;
 }
 
-async function proxy(request: NextRequest, ctx: { params: { path: string[] } }) {
+async function proxy(request: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   const start = nowMs();
   const upstreamOrigin = inferUpstreamOrigin(request);
+  const { path } = await ctx.params;
 
   const incomingUrl = new URL(request.url);
 
@@ -37,10 +38,10 @@ async function proxy(request: NextRequest, ctx: { params: { path: string[] } }) 
   if (upstreamOrigin.startsWith("/")) {
     // Relative path: construct URL relative to current origin
     const currentOrigin = new URL(request.url).origin;
-    upstreamUrl = new URL(`${upstreamOrigin}/v1/${(ctx.params.path || []).join("/")}`, currentOrigin);
+    upstreamUrl = new URL(`${upstreamOrigin}/v1/${(path || []).join("/")}`, currentOrigin);
   } else {
     // Absolute origin: use as-is
-    upstreamUrl = new URL(`/v1/${(ctx.params.path || []).join("/")}`, upstreamOrigin);
+    upstreamUrl = new URL(`/v1/${(path || []).join("/")}`, upstreamOrigin);
   }
   upstreamUrl.search = incomingUrl.search;
 

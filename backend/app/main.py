@@ -32,6 +32,7 @@ from app.routes import (
     re_surveillance,
     re_montecarlo,
     re_reports,
+    re_v1_context,
     re_v1_funds,
     re_v2,
     pds,
@@ -115,6 +116,7 @@ app.include_router(re_scenarios.router)
 app.include_router(re_surveillance.router)
 app.include_router(re_montecarlo.router)
 app.include_router(re_reports.router)
+app.include_router(re_v1_context.router)
 app.include_router(re_v1_funds.router)
 app.include_router(re_v2.router)
 app.include_router(pds.router)
