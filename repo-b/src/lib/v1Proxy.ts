@@ -3,11 +3,12 @@ import type { NextRequest } from "next/server";
 const FALLBACK_STATUSES = new Set([404, 405, 501]);
 
 function configuredDemoOrigin() {
+  // Only check Demo-Lab-specific env vars. NEXT_PUBLIC_API_BASE_URL points at
+  // the BOS backend (port 8000) and must NOT be used here.
   return (
     process.env.DEMO_API_ORIGIN ||
     process.env.DEMO_API_BASE_URL ||
     process.env.NEXT_PUBLIC_DEMO_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
     ""
   )
     .trim()

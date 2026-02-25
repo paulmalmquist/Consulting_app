@@ -7,11 +7,13 @@ function nowMs() {
 }
 
 function inferUpstreamOrigin(request: NextRequest): string {
+  // Only check Demo-Lab-specific env vars. NEXT_PUBLIC_API_BASE_URL points at
+  // the BOS backend (port 8000) and must NOT be used here — the /v1/* proxy
+  // forwards exclusively to the Demo Lab backend (repo-c, port 8001).
   const configured =
     process.env.DEMO_API_ORIGIN ||
     process.env.DEMO_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_DEMO_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_API_BASE_URL;
+    process.env.NEXT_PUBLIC_DEMO_API_BASE_URL;
   if (configured) return configured.replace(/\/+$/, "");
 
   const hostHeader =
@@ -19,7 +21,7 @@ function inferUpstreamOrigin(request: NextRequest): string {
   const hostname = hostHeader.split(",")[0].trim().split(":")[0].toLowerCase();
 
   if (hostname === "localhost" || hostname === "127.0.0.1") {
-    return "http://localhost:8000";
+    return "http://localhost:8001";
   }
 
   const root = hostname.startsWith("www.") ? hostname.slice(4) : hostname;
