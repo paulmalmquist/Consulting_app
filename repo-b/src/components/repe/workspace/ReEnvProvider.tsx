@@ -71,6 +71,11 @@ function humanizeError(err: unknown): string {
 
   const msg = err.message;
 
+  // Timeout — must never result in a silent spinner
+  if (msg.includes("CONTEXT_TIMEOUT")) {
+    return "Context resolution timed out after 10 seconds. The backend may be overloaded or unreachable. Please retry.";
+  }
+
   // Network-level failures (CORS, offline, proxy unreachable)
   if (msg === "Failed to fetch" || msg.includes("NetworkError") || msg.includes("UPSTREAM_UNREACHABLE")) {
     return "Cannot reach the Real Estate API. Please check that the backend is running and try again.";
@@ -84,6 +89,28 @@ function humanizeError(err: unknown): string {
   // Strip request ID suffix for cleaner display
   const cleaned = msg.replace(/\s*\(req:\s*[a-zA-Z0-9_-]+\)\s*$/, "");
   return cleaned || "Failed to resolve environment context.";
+}
+
+/**
+ * Race a promise against a 10-second hard timeout.
+ * Guarantees the loader never hangs indefinitely regardless of network state.
+ */
+const CONTEXT_TIMEOUT_MS = 10_000;
+function withContextTimeout<T>(promise: Promise<T>): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              "CONTEXT_TIMEOUT: Context resolution timed out. The backend did not respond within 10 seconds."
+            )
+          ),
+        CONTEXT_TIMEOUT_MS
+      )
+    ),
+  ]);
 }
 
 export function ReEnvProvider({ envId, children }: { envId: string; children: React.ReactNode }) {
@@ -122,17 +149,22 @@ export function ReEnvProvider({ envId, children }: { envId: string; children: Re
           ? bootstrapReV1Context(envId)
           : getReV1Context(envId);
 
-        const [env, reCtx] = await Promise.all([envPromise, contextPromise]);
+        const [env, reCtx] = await withContextTimeout(Promise.all([envPromise, contextPromise]));
         applyContext(env, reCtx);
       } catch (err) {
-        // On first load failure, auto-retry with bootstrap to trigger auto-create
-        if (!forceBootstrap && !hasAutoRetried.current) {
+        // Do not auto-retry on timeout — surface the error immediately
+        const isTimeout = err instanceof Error && err.message.includes("CONTEXT_TIMEOUT");
+
+        // On first load failure (non-timeout), auto-retry with bootstrap to trigger auto-create
+        if (!isTimeout && !forceBootstrap && !hasAutoRetried.current) {
           hasAutoRetried.current = true;
           try {
-            const [env, reCtx] = await Promise.all([
-              apiFetch<ReEnvironment>(`/v1/environments/${envId}`),
-              bootstrapReV1Context(envId),
-            ]);
+            const [env, reCtx] = await withContextTimeout(
+              Promise.all([
+                apiFetch<ReEnvironment>(`/v1/environments/${envId}`),
+                bootstrapReV1Context(envId),
+              ])
+            );
             applyContext(env, reCtx);
             return; // Success on auto-retry
           } catch (retryErr) {

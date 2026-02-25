@@ -789,3 +789,115 @@ A change is NOT done unless:
 - It has at least one Playwright test proving the user flow works
 - It has a mocked failure test proving the UI fails gracefully
 - It asserts no console errors and no failed network calls
+
+---
+
+## Production Regression Rule — Context Integrity
+
+This section exists because the Real Estate workspace has failed in production multiple times
+with either "Request failed (405)" or "Resolving environment context..." spinning indefinitely.
+These are not UI bugs. They are architecture contract failures. The rules below are permanent.
+
+**Repeated deployment of a broken workspace loader constitutes a release gating failure.**
+
+---
+
+### 1. Canonical Context Endpoint Contract
+
+Every industry workspace must define one canonical context endpoint:
+
+- Method: **GET only** — never POST for context resolution
+- URL pattern: `/api/{industry}/v1/context?env_id=...`
+- Must be explicitly registered in `backend/app/main.py`
+- Must export an explicit OPTIONS handler
+- Must validate: env exists, industry matches, business mapping exists, bootstrap complete
+- Must return deterministic JSON payload on 200
+- Must return structured error envelope on ALL non-200 paths:
+  `{ error_code: string, message: string, detail: object }`
+- Must never return 405
+- Must never return unstructured 500
+- Must never hang silently (DB connection timeout is the only acceptable hang)
+
+If bootstrap is not complete: return `{ error_code: "RE_NOT_BOOTSTRAPPED", ... }` (422).
+Frontend must trigger bootstrap and retry — never display an empty workspace silently.
+
+### 2. Method Mismatch Prevention
+
+- No frontend may POST to a context endpoint.
+- All GET routes must be defined with `@router.get()`.
+- All POST routes must be defined with `@router.post()`.
+- All route files must include an OPTIONS handler on context routes.
+- The API proxy layer (`/bos/[...path]/route.ts`, `/v1/[...path]/route.ts`) must not rewrite HTTP method.
+- A test must introspect route handler registrations and fail if GET is missing from context routes.
+
+### 3. Frontend Loader Requirements
+
+- All workspace loaders must have a **10-second hard timeout**.
+- If timeout fires: surface structured error with `error_code: CONTEXT_TIMEOUT`. Never stay in loading state.
+- All loaders must have a visible Retry button that re-requests — not just re-renders.
+- The text "Resolving environment context..." must never appear for more than 10 seconds.
+- Swallowed fetch errors are forbidden. Every catch block must produce a visible user state.
+
+### 4. Bootstrap Guarantee
+
+Provisioning a `real_estate` environment must:
+
+1. Create business mapping in `app.env_business_bindings`
+2. Create RE schema tables (repe_fund, repe_deal, repe_asset, etc.)
+3. Seed base scenario and default assumption set
+4. Mark `bootstrap_complete = true` on the environment
+
+An environment with `industry = real_estate` must not be marked Active until bootstrap is verified.
+
+### 5. Mandatory Tests Before Merge
+
+Any new industry workspace or change to context resolution requires:
+
+- A Playwright E2E test named `{industry}-workspace-load.spec.ts` covering:
+  - Happy path: workspace loads with fund/entity list rendered
+  - Auto-bootstrap: first load triggers bootstrap and then renders
+  - 405 guard: asserts no 405 responses in network traffic
+  - Error state: backend failure shows structured error, not infinite spinner
+- A backend pytest test covering:
+  - GET returns 200 for bootstrapped environment
+  - GET returns structured 422 RE_NOT_BOOTSTRAPPED for unbootstrapped
+  - GET returns 400 WRONG_INDUSTRY for non-matching industry
+  - GET returns 400/503 for missing env_id / schema
+  - POST to GET-only endpoint returns 405
+  - OPTIONS returns 200
+  - Route introspection: GET is registered in main.py
+
+### 6. Deployment Safety Gate
+
+Before any RE deployment:
+
+- Run `re-workspace-load.spec.ts` locally against a real backend
+- Run with empty DB — must show structured error, not spinner
+- Run with seeded DB — must show fund list
+- Confirm `GET /api/re/v1/context` returns 200 for valid env
+- Confirm `GET /api/re/v1/context` returns structured error (not 405, not hang) for invalid env
+- Confirm no 405 appears anywhere in the browser network tab
+
+Deployment must fail if any 405 exists on context endpoints.
+
+### 7. 405 Is an Architecture Violation
+
+A 405 on any context endpoint in production is not a bug to be patched.
+It is an architecture violation indicating one of:
+
+- Route not registered in main.py
+- Frontend using wrong HTTP method
+- Proxy rewriting the method
+
+All three causes must be fixed structurally, not with workarounds.
+
+### 8. No New Workspace Without These Guarantees
+
+Any new industry module (Legal, Healthcare, Construction, etc.) must:
+
+- Define a canonical context endpoint before the workspace page ships
+- Pass the deployment safety gate before first production deploy
+- Have a Playwright load test committed before merge
+- Have backend route introspection test committed before merge
+
+No workspace may ship without these. No exception.
