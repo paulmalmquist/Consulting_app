@@ -29,6 +29,18 @@ function normalizeIndustry(industry?: string | null): string {
 
 export function getIndustryIcon(industry?: string | null): IndustryVisual {
   const key = normalizeIndustry(industry);
+  if (key === "pds_command" || key === "pds") {
+    return { icon: HardHat, label: "PDS Command", testId: "industry-icon-pds_command" };
+  }
+  if (key === "credit_risk_hub" || key === "credit") {
+    return { icon: PiggyBank, label: "Credit Risk Hub", testId: "industry-icon-credit_risk_hub" };
+  }
+  if (key === "legal_ops_command" || key === "legal_ops") {
+    return { icon: Scale, label: "Legal Ops Command", testId: "industry-icon-legal_ops_command" };
+  }
+  if (key === "medical_office_backoffice" || key === "medical") {
+    return { icon: HeartPulse, label: "Medical Office Backoffice", testId: "industry-icon-medical_office_backoffice" };
+  }
   if (key === "real_estate" || key === "real_estate_pe") {
     return { icon: Building2, label: "Real Estate", testId: "industry-icon-real_estate" };
   }

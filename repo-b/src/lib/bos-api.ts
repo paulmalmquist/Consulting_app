@@ -192,6 +192,17 @@ export interface InitUploadResult {
   signed_upload_url: string;
 }
 
+export type DocumentEntityType =
+  | "fund"
+  | "investment"
+  | "asset"
+  | "pds_project"
+  | "pds_program"
+  | "credit_case"
+  | "legal_matter"
+  | "medical_property"
+  | "medical_tenant";
+
 export interface ExecutionItem {
   execution_id: string;
   business_id: string;
@@ -406,7 +417,7 @@ export function initUpload(body: {
   content_type: string;
   title?: string;
   virtual_path?: string;
-  entity_type?: "fund" | "investment" | "asset";
+  entity_type?: DocumentEntityType;
   entity_id?: string;
   env_id?: string;
 }): Promise<InitUploadResult> {
@@ -421,7 +432,7 @@ export function completeUpload(body: {
   version_id: string;
   sha256: string;
   byte_size: number;
-  entity_type?: "fund" | "investment" | "asset";
+  entity_type?: DocumentEntityType;
   entity_id?: string;
   env_id?: string;
 }): Promise<{ ok: boolean }> {
@@ -436,7 +447,7 @@ export function listDocuments(
   departmentId?: string,
   entityContext?: {
     env_id?: string;
-    entity_type?: "fund" | "investment" | "asset";
+    entity_type?: DocumentEntityType;
     entity_id?: string;
   }
 ): Promise<DocumentItem[]> {
@@ -481,6 +492,287 @@ export function listExecutions(businessId: string, departmentId?: string, capabi
       department_id: departmentId,
       capability_id: capabilityId,
     },
+  });
+}
+
+// ── PDS Command ──────────────────────────────────────────────────────
+
+export interface DomainContext {
+  env_id: string;
+  business_id: string;
+  created: boolean;
+  source: string;
+  diagnostics: Record<string, unknown>;
+}
+
+export interface PdsProject {
+  project_id: string;
+  env_id: string;
+  business_id: string;
+  program_id: string | null;
+  name: string;
+  stage: string;
+  project_manager: string | null;
+  approved_budget: string;
+  committed_amount: string;
+  spent_amount: string;
+  forecast_at_completion: string;
+  contingency_budget: string;
+  contingency_remaining: string;
+  pending_change_order_amount: string;
+  next_milestone_date: string | null;
+  risk_score: string;
+  currency_code: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PdsPortfolioKpis {
+  env_id: string;
+  business_id: string;
+  period: string;
+  approved_budget: string;
+  committed: string;
+  spent: string;
+  eac: string;
+  variance: string;
+  contingency_remaining: string;
+  open_change_order_count: number;
+  pending_approval_count: number;
+  top_risk_count: number;
+}
+
+export interface PdsSnapshotRun {
+  run_id: string;
+  env_id: string;
+  business_id: string;
+  period: string;
+  project_id: string | null;
+  snapshot_hash: string;
+  portfolio_snapshot_id: string;
+  schedule_snapshot_id: string;
+  risk_snapshot_id: string;
+  vendor_snapshot_ids: string[];
+}
+
+export interface PdsReportPackRun {
+  report_run_id: string;
+  env_id: string;
+  business_id: string;
+  period: string;
+  run_id: string;
+  snapshot_hash: string | null;
+  narrative_text: string | null;
+  artifact_refs_json: Array<Record<string, unknown>>;
+  deterministic_deltas_json: Record<string, unknown>;
+  created_at: string;
+}
+
+export function getPdsContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/pds/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listPdsProjects(envId: string, businessId?: string): Promise<PdsProject[]> {
+  return bosFetch("/api/pds/v1/projects", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function createPdsProject(body: {
+  env_id: string;
+  business_id?: string;
+  name: string;
+  stage?: string;
+  project_manager?: string;
+  approved_budget?: string | number;
+  contingency_budget?: string | number;
+  currency_code?: string;
+  next_milestone_date?: string;
+  created_by?: string;
+}): Promise<PdsProject> {
+  return bosFetch("/api/pds/v1/projects", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getPdsPortfolio(envId: string, period?: string, businessId?: string): Promise<PdsPortfolioKpis> {
+  return bosFetch("/api/pds/v1/portfolio", {
+    params: { env_id: envId, period, business_id: businessId },
+  });
+}
+
+export function runPdsSnapshot(body: {
+  env_id: string;
+  business_id?: string;
+  period: string;
+  project_id?: string;
+  run_id?: string;
+  created_by?: string;
+}): Promise<PdsSnapshotRun> {
+  return bosFetch("/api/pds/v1/snapshot/run", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function runPdsReportPack(body: {
+  env_id: string;
+  business_id?: string;
+  period: string;
+  run_id?: string;
+  created_by?: string;
+}): Promise<PdsReportPackRun> {
+  return bosFetch("/api/pds/v1/report-pack/run", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function seedPdsWorkspace(envId: string, businessId?: string): Promise<{ ok: boolean; seeded: boolean }> {
+  return bosFetch("/api/pds/v1/seed", {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+// ── Credit Risk Hub ──────────────────────────────────────────────────
+
+export interface CreditCase {
+  case_id: string;
+  env_id: string;
+  business_id: string;
+  case_number: string;
+  borrower_name: string;
+  facility_type: string | null;
+  stage: string;
+  requested_amount: string;
+  approved_amount: string;
+  risk_grade: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function getCreditContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/credit/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listCreditCases(envId: string, businessId?: string): Promise<CreditCase[]> {
+  return bosFetch("/api/credit/v1/cases", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function createCreditCase(body: {
+  env_id: string;
+  business_id?: string;
+  case_number: string;
+  borrower_name: string;
+  facility_type?: string;
+  stage?: string;
+  requested_amount?: string | number;
+  risk_grade?: string;
+  created_by?: string;
+}): Promise<CreditCase> {
+  return bosFetch("/api/credit/v1/cases", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+// ── Legal Ops Command ────────────────────────────────────────────────
+
+export interface LegalMatter {
+  matter_id: string;
+  env_id: string;
+  business_id: string;
+  matter_number: string;
+  title: string;
+  matter_type: string;
+  related_entity_type: string | null;
+  related_entity_id: string | null;
+  counterparty: string | null;
+  outside_counsel: string | null;
+  internal_owner: string | null;
+  risk_level: string;
+  budget_amount: string;
+  actual_spend: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function getLegalOpsContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/legalops/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listLegalMatters(envId: string, businessId?: string): Promise<LegalMatter[]> {
+  return bosFetch("/api/legalops/v1/matters", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function createLegalMatter(body: {
+  env_id: string;
+  business_id?: string;
+  matter_number: string;
+  title: string;
+  matter_type: string;
+  risk_level?: string;
+  budget_amount?: string | number;
+  status?: string;
+  created_by?: string;
+}): Promise<LegalMatter> {
+  return bosFetch("/api/legalops/v1/matters", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+// ── Medical Office Backoffice ────────────────────────────────────────
+
+export interface MedOfficeProperty {
+  property_id: string;
+  env_id: string;
+  business_id: string;
+  property_name: string;
+  market: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function getMedOfficeContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/medoffice/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listMedOfficeProperties(envId: string, businessId?: string): Promise<MedOfficeProperty[]> {
+  return bosFetch("/api/medoffice/v1/properties", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function createMedOfficeProperty(body: {
+  env_id: string;
+  business_id?: string;
+  property_name: string;
+  market?: string;
+  status?: string;
+  created_by?: string;
+}): Promise<MedOfficeProperty> {
+  return bosFetch("/api/medoffice/v1/properties", {
+    method: "POST",
+    body: JSON.stringify(body),
   });
 }
 
@@ -1914,3 +2206,415 @@ export function getReFundSummary(fundId: string, quarter: string): Promise<ReFun
 export function getReInvestorStatement(investorId: string, fundId: string, quarter: string): Promise<ReInvestorStatement> {
   return bosFetch(`/api/re/investor/${investorId}/statement/${fundId}/${quarter}`);
 }
+
+// ── RE V2 Institutional API ──────────────────────────────────────────────────
+
+// Investments
+export function listReV2Investments(fundId: string): Promise<ReV2Investment[]> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/investments`);
+}
+
+export function getReV2Investment(investmentId: string): Promise<ReV2Investment> {
+  return bosFetch(`/api/re/v2/investments/${investmentId}`);
+}
+
+export function createReV2Investment(fundId: string, body: {
+  name: string;
+  deal_type?: string;
+  stage?: string;
+  sponsor?: string;
+  target_close_date?: string;
+  committed_capital?: number;
+  invested_capital?: number;
+}): Promise<ReV2Investment> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/investments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+// JVs
+export function listReV2Jvs(investmentId: string): Promise<ReV2Jv[]> {
+  return bosFetch(`/api/re/v2/investments/${investmentId}/jvs`);
+}
+
+export function getReV2Jv(jvId: string): Promise<ReV2Jv> {
+  return bosFetch(`/api/re/v2/jvs/${jvId}`);
+}
+
+export function createReV2Jv(investmentId: string, body: {
+  legal_name: string;
+  ownership_percent?: number;
+  gp_percent?: number;
+  lp_percent?: number;
+}): Promise<ReV2Jv> {
+  return bosFetch(`/api/re/v2/investments/${investmentId}/jvs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listReV2JvAssets(jvId: string): Promise<RepeAsset[]> {
+  return bosFetch(`/api/re/v2/jvs/${jvId}/assets`);
+}
+
+// Partners
+export function listReV2Partners(businessId: string): Promise<ReV2Partner[]> {
+  return bosFetch(`/api/re/v2/partners`, { params: { business_id: businessId } });
+}
+
+export function listReV2FundPartners(fundId: string): Promise<ReV2Partner[]> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/partners`);
+}
+
+export function createReV2Partner(businessId: string, body: {
+  name: string;
+  partner_type: string;
+  entity_id?: string;
+}): Promise<ReV2Partner> {
+  return bosFetch(`/api/re/v2/partners`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    params: { business_id: businessId },
+  });
+}
+
+export function createReV2Commitment(fundId: string, partnerId: string, body: {
+  committed_amount: number;
+  commitment_date: string;
+}): Promise<ReV2Commitment> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/partners/${partnerId}/commitments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listReV2Commitments(fundId: string): Promise<ReV2Commitment[]> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/commitments`);
+}
+
+// Capital Ledger
+export function recordReV2CapitalEntry(fundId: string, body: {
+  partner_id: string;
+  entry_type: string;
+  amount: number;
+  effective_date: string;
+  quarter: string;
+  memo?: string;
+}): Promise<ReV2CapitalLedgerEntry> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/capital-ledger`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listReV2CapitalLedger(fundId: string, quarter?: string): Promise<ReV2CapitalLedgerEntry[]> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/capital-ledger`, { params: { quarter } });
+}
+
+// Quarter State
+export function getReV2FundQuarterState(fundId: string, quarter: string, scenarioId?: string): Promise<ReV2FundQuarterState> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/quarter-state/${quarter}`, { params: { scenario_id: scenarioId } });
+}
+
+export function getReV2InvestmentQuarterState(investmentId: string, quarter: string): Promise<ReV2InvestmentQuarterState> {
+  return bosFetch(`/api/re/v2/investments/${investmentId}/quarter-state/${quarter}`);
+}
+
+export function getReV2JvQuarterState(jvId: string, quarter: string): Promise<ReV2JvQuarterState> {
+  return bosFetch(`/api/re/v2/jvs/${jvId}/quarter-state/${quarter}`);
+}
+
+// Metrics
+export function getReV2FundMetrics(fundId: string, quarter: string): Promise<ReV2FundMetrics> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/metrics/${quarter}`);
+}
+
+export function getReV2PartnerMetrics(fundId: string, quarter: string): Promise<ReV2PartnerMetrics[]> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/partner-metrics/${quarter}`);
+}
+
+// Quarter Close
+export function runReV2QuarterClose(fundId: string, body: {
+  quarter: string;
+  scenario_id?: string;
+  accounting_basis?: string;
+  valuation_method?: string;
+  run_waterfall?: boolean;
+}): Promise<ReV2QuarterCloseResult> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/quarter-close`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+// Waterfall
+export function runReV2Waterfall(fundId: string, body: {
+  quarter: string;
+  scenario_id?: string;
+  run_type?: string;
+}): Promise<ReV2WaterfallRun> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/waterfall/run`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listReV2WaterfallRuns(fundId: string, quarter?: string): Promise<ReV2WaterfallRun[]> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/waterfall/runs`, { params: { quarter } });
+}
+
+// Scenarios
+export function listReV2Scenarios(fundId: string): Promise<ReV2Scenario[]> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/scenarios`);
+}
+
+export function createReV2Scenario(fundId: string, body: {
+  name: string;
+  description?: string;
+  scenario_type?: string;
+  parent_scenario_id?: string;
+}): Promise<ReV2Scenario> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/scenarios`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function setReV2Override(scenarioId: string, body: {
+  scope_node_type: string;
+  scope_node_id: string;
+  key: string;
+  value_type?: string;
+  value_decimal?: number;
+  reason?: string;
+}): Promise<ReV2Override> {
+  return bosFetch(`/api/re/v2/scenarios/${scenarioId}/overrides`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listReV2Overrides(scenarioId: string): Promise<ReV2Override[]> {
+  return bosFetch(`/api/re/v2/scenarios/${scenarioId}/overrides`);
+}
+
+// Provenance
+export function listReV2Runs(fundId: string, quarter?: string): Promise<ReV2RunProvenance[]> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/runs`, { params: { quarter } });
+}
+
+// ── RE V2 Types ──────────────────────────────────────────────────────────────
+
+export type ReV2Investment = {
+  investment_id: string;
+  fund_id: string;
+  name: string;
+  investment_type: string;
+  stage: string;
+  sponsor?: string;
+  target_close_date?: string;
+  committed_capital?: number;
+  invested_capital?: number;
+  realized_distributions?: number;
+  created_at: string;
+};
+
+export type ReV2Jv = {
+  jv_id: string;
+  investment_id: string;
+  legal_name: string;
+  ownership_percent: number;
+  gp_percent?: number;
+  lp_percent?: number;
+  promote_structure_id?: string;
+  status: string;
+  created_at: string;
+};
+
+export type ReV2Partner = {
+  partner_id: string;
+  business_id: string;
+  entity_id?: string;
+  name: string;
+  partner_type: string;
+  created_at: string;
+  committed_amount?: number;
+  commitment_date?: string;
+  commitment_status?: string;
+};
+
+export type ReV2Commitment = {
+  commitment_id: string;
+  partner_id: string;
+  fund_id: string;
+  committed_amount: number;
+  commitment_date: string;
+  status: string;
+  created_at: string;
+  partner_name?: string;
+  partner_type?: string;
+};
+
+export type ReV2CapitalLedgerEntry = {
+  entry_id: string;
+  fund_id: string;
+  partner_id: string;
+  entry_type: string;
+  amount: number;
+  amount_base: number;
+  effective_date: string;
+  quarter: string;
+  memo?: string;
+  source: string;
+  created_at: string;
+};
+
+export type ReV2FundQuarterState = {
+  id: string;
+  fund_id: string;
+  quarter: string;
+  run_id: string;
+  portfolio_nav?: number;
+  total_committed?: number;
+  total_called?: number;
+  total_distributed?: number;
+  dpi?: number;
+  rvpi?: number;
+  tvpi?: number;
+  gross_irr?: number;
+  net_irr?: number;
+  inputs_hash: string;
+  created_at: string;
+};
+
+export type ReV2InvestmentQuarterState = {
+  id: string;
+  investment_id: string;
+  quarter: string;
+  nav?: number;
+  committed_capital?: number;
+  invested_capital?: number;
+  equity_multiple?: number;
+  inputs_hash: string;
+  created_at: string;
+};
+
+export type ReV2JvQuarterState = {
+  id: string;
+  jv_id: string;
+  quarter: string;
+  nav?: number;
+  noi?: number;
+  debt_balance?: number;
+  inputs_hash: string;
+  created_at: string;
+};
+
+export type ReV2FundMetrics = {
+  id: string;
+  fund_id: string;
+  quarter: string;
+  contributed_to_date?: number;
+  distributed_to_date?: number;
+  nav?: number;
+  dpi?: number;
+  tvpi?: number;
+  irr?: number;
+  created_at: string;
+};
+
+export type ReV2PartnerMetrics = {
+  id: string;
+  partner_id: string;
+  fund_id: string;
+  quarter: string;
+  contributed_to_date?: number;
+  distributed_to_date?: number;
+  nav?: number;
+  dpi?: number;
+  tvpi?: number;
+  irr?: number;
+  created_at: string;
+};
+
+export type ReV2QuarterCloseResult = {
+  run_id: string;
+  fund_id: string;
+  quarter: string;
+  fund_state?: ReV2FundQuarterState;
+  fund_metrics?: ReV2FundMetrics;
+  waterfall_run?: ReV2WaterfallRun;
+  assets_processed: number;
+  jvs_processed: number;
+  investments_processed: number;
+  status: string;
+};
+
+export type ReV2WaterfallRun = {
+  run_id: string;
+  fund_id: string;
+  definition_id: string;
+  quarter: string;
+  run_type: string;
+  total_distributable?: number;
+  status: string;
+  created_at: string;
+  results?: ReV2WaterfallResult[];
+};
+
+export type ReV2WaterfallResult = {
+  result_id: string;
+  run_id: string;
+  partner_id: string;
+  tier_code: string;
+  payout_type: string;
+  amount: number;
+  created_at: string;
+};
+
+export type ReV2Scenario = {
+  scenario_id: string;
+  fund_id: string;
+  name: string;
+  description?: string;
+  scenario_type: string;
+  is_base: boolean;
+  parent_scenario_id?: string;
+  status: string;
+  created_at: string;
+};
+
+export type ReV2Override = {
+  id: string;
+  scenario_id: string;
+  scope_node_type: string;
+  scope_node_id: string;
+  key: string;
+  value_type: string;
+  value_decimal?: number;
+  reason?: string;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type ReV2RunProvenance = {
+  provenance_id: string;
+  run_id: string;
+  run_type: string;
+  fund_id: string;
+  quarter: string;
+  status: string;
+  triggered_by?: string;
+  started_at: string;
+  completed_at?: string;
+};

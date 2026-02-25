@@ -33,6 +33,11 @@ from app.routes import (
     re_montecarlo,
     re_reports,
     re_v1_funds,
+    re_v2,
+    pds,
+    credit,
+    legal_ops,
+    medoffice,
 )
 from app.routes.ai import router as ai_router
 from app.routes import website_content, website_rankings, website_analytics
@@ -111,6 +116,11 @@ app.include_router(re_surveillance.router)
 app.include_router(re_montecarlo.router)
 app.include_router(re_reports.router)
 app.include_router(re_v1_funds.router)
+app.include_router(re_v2.router)
+app.include_router(pds.router)
+app.include_router(credit.router)
+app.include_router(legal_ops.router)
+app.include_router(medoffice.router)
 app.include_router(website_content.router)
 app.include_router(website_rankings.router)
 app.include_router(website_analytics.router)

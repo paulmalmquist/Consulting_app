@@ -273,3 +273,44 @@ def test_complete_upload_rejects_entity_context_mismatch(client, fake_cursor):
     })
     assert resp.status_code == 400
     assert "Entity context does not match document virtual_path" in resp.json()["detail"]
+
+
+def test_init_upload_accepts_pds_entity_context_and_canonical_path(client, fake_cursor):
+    tenant_id = str(uuid4())
+    business_id = str(uuid4())
+    env_id = str(uuid4())
+    project_id = str(uuid4())
+    document_id = str(uuid4())
+    version_id = str(uuid4())
+
+    fake_cursor.push_result([{"tenant_id": tenant_id}])  # tenant lookup
+    fake_cursor.push_result([])  # existing document lookup
+    fake_cursor.push_result([{"document_id": document_id}])  # insert document
+    fake_cursor.push_result([{"next_ver": 1}])  # next version
+    fake_cursor.push_result([{"version_id": version_id}])  # insert version
+
+    resp = client.post("/api/documents/init-upload", json={
+        "business_id": business_id,
+        "filename": "budget-pack.xlsx",
+        "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "entity_type": "pds_project",
+        "entity_id": project_id,
+        "env_id": env_id,
+    })
+    assert resp.status_code == 200
+    assert any(
+        "INSERT INTO app.document_entity_links" in sql
+        for (sql, _params) in fake_cursor.queries
+    )
+
+
+def test_list_documents_accepts_domain_entity_types(client, fake_cursor):
+    business_id = str(uuid4())
+    env_id = str(uuid4())
+    entity_id = str(uuid4())
+
+    fake_cursor.push_result([])
+    resp = client.get(
+        f"/api/documents?business_id={business_id}&env_id={env_id}&entity_type=legal_matter&entity_id={entity_id}"
+    )
+    assert resp.status_code == 200

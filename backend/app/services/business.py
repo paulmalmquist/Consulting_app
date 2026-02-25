@@ -13,6 +13,14 @@ INDUSTRY_TYPE_TO_TEMPLATE_KEY: dict[str, str] = {
     "floyorker": "digital_media",
     "digital_media": "digital_media",
     "website": "digital_media",
+    "pds_command": "pds_command",
+    "credit_risk_hub": "credit_risk_hub",
+    "legal_ops_command": "legal_ops_command",
+    "medical_office_backoffice": "medical_office_backoffice",
+    "pds": "pds_command",
+    "credit": "credit_risk_hub",
+    "legal": "legal_ops_command",
+    "medical": "medical_office_backoffice",
 }
 
 

@@ -164,8 +164,8 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
     };
   }, [mobileSidebarOpen]);
 
-  const isReRoute = pathname.includes(`/lab/env/${envId}/re`);
-  if (isReRoute) {
+  const isDomainRoute = new RegExp(`^/lab/env/${envId}/(re|pds|credit|legal|medical)(/|$)`).test(pathname);
+  if (isDomainRoute) {
     return <>{children}</>;
   }
 

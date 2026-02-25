@@ -9,4 +9,24 @@ describe("environment open routing", () => {
   test("keeps non-RE environments in lab workspace", () => {
     expect(resolveEnvironmentOpenPath({ envId: "env-9", industry: "healthcare" })).toBe("/lab/env/env-9");
   });
+
+  test("routes PDS environments into PDS workspace", () => {
+    expect(resolveEnvironmentOpenPath({ envId: "env-2", industry: "pds_command" })).toBe("/lab/env/env-2/pds");
+  });
+
+  test("routes Credit environments into Credit workspace", () => {
+    expect(resolveEnvironmentOpenPath({ envId: "env-3", industry: "credit_risk_hub" })).toBe("/lab/env/env-3/credit");
+  });
+
+  test("routes Legal Ops environments into Legal workspace", () => {
+    expect(resolveEnvironmentOpenPath({ envId: "env-4", industry: "legal_ops_command" })).toBe("/lab/env/env-4/legal");
+  });
+
+  test("routes legacy legal environments into Legal workspace", () => {
+    expect(resolveEnvironmentOpenPath({ envId: "env-6", industry: "legal" })).toBe("/lab/env/env-6/legal");
+  });
+
+  test("routes Medical Office environments into Medical workspace", () => {
+    expect(resolveEnvironmentOpenPath({ envId: "env-5", industry: "medical_office_backoffice" })).toBe("/lab/env/env-5/medical");
+  });
 });

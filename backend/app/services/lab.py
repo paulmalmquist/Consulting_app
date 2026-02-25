@@ -92,6 +92,18 @@ def create_environment(
         elif ind in ("floyorker", "digital_media", "website"):
             from app.services import website_seeder
             website_seeder.seed_website_workspace(str(business_id), str(env_id), client_name)
+        elif ind in ("pds_command", "pds"):
+            from app.services import pds as pds_svc
+            pds_svc.seed_demo_workspace(env_id=UUID(str(env_id)), business_id=UUID(str(business_id)))
+        elif ind in ("credit_risk_hub", "credit"):
+            from app.services import credit as credit_svc
+            credit_svc.seed_demo_workspace(env_id=UUID(str(env_id)), business_id=UUID(str(business_id)))
+        elif ind in ("legal_ops_command", "legal"):
+            from app.services import legal_ops as legal_ops_svc
+            legal_ops_svc.seed_demo_workspace(env_id=UUID(str(env_id)), business_id=UUID(str(business_id)))
+        elif ind in ("medical_office_backoffice", "medical"):
+            from app.services import medoffice as medoffice_svc
+            medoffice_svc.seed_demo_workspace(env_id=UUID(str(env_id)), business_id=UUID(str(business_id)))
 
         # Step 6: Update environment row with business_id and repe_initialized
         with get_cursor() as cur:

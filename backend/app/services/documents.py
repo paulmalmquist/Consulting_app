@@ -8,11 +8,25 @@ from app.config import STORAGE_BUCKET
 from app.repos.supabase_storage_repo import SupabaseStorageRepository
 
 _storage = SupabaseStorageRepository()
-_RE_ENTITY_VPATH = re.compile(
-    r"^re/env/(?P<env_id>[0-9a-fA-F-]{36})/(?P<segment>fund|deal|asset)/(?P<entity_id>[0-9a-fA-F-]{36})(?:/.*)?$"
+_DOMAIN_ENTITY_VPATH = re.compile(
+    r"^(?P<domain>re|pds|credit|legalops|medoffice)/env/(?P<env_id>[0-9a-fA-F-]{36})/(?P<segment>[a-z_]+)/(?P<entity_id>[0-9a-fA-F-]{36})(?:/.*)?$"
 )
-_SEGMENT_TO_ENTITY = {"fund": "fund", "deal": "investment", "asset": "asset"}
-_ENTITY_TO_SEGMENT = {"fund": "fund", "investment": "deal", "asset": "asset"}
+_ENTITY_TYPE_TO_PATH_PARTS = {
+    "fund": ("re", "fund"),
+    "investment": ("re", "deal"),
+    "asset": ("re", "asset"),
+    "pds_project": ("pds", "project"),
+    "pds_program": ("pds", "program"),
+    "credit_case": ("credit", "case"),
+    "legal_matter": ("legalops", "matter"),
+    "medical_property": ("medoffice", "property"),
+    "medical_tenant": ("medoffice", "tenant"),
+}
+_PATH_PARTS_TO_ENTITY_TYPE = {
+    (domain, segment): entity_type
+    for entity_type, (domain, segment) in _ENTITY_TYPE_TO_PATH_PARTS.items()
+}
+_DOMAIN_PREFIXES = ("re/", "pds/", "credit/", "legalops/", "medoffice/")
 
 
 def _storage_key(
@@ -23,30 +37,44 @@ def _storage_key(
     return f"tenant/{tenant_id}/business/{business_id}/department/{dept_part}/document/{document_id}/v/{version_id}/{filename}"
 
 
-def _extract_re_context_from_virtual_path(virtual_path: str | None) -> dict | None:
+def _extract_entity_context_from_virtual_path(virtual_path: str | None) -> dict | None:
     if not virtual_path:
         return None
-    m = _RE_ENTITY_VPATH.match(virtual_path)
+    m = _DOMAIN_ENTITY_VPATH.match(virtual_path)
     if not m:
         return None
+    domain = m.group("domain")
     segment = m.group("segment")
+    entity_type = _PATH_PARTS_TO_ENTITY_TYPE.get((domain, segment))
+    if not entity_type:
+        return None
     return {
         "env_id": m.group("env_id"),
-        "entity_type": _SEGMENT_TO_ENTITY[segment],
+        "entity_type": entity_type,
         "entity_id": m.group("entity_id"),
     }
 
 
-def _canonical_re_virtual_path(
+def _canonical_entity_virtual_path(
     *,
     env_id: str,
     entity_type: str,
     entity_id: str,
     filename: str,
 ) -> str:
-    segment = _ENTITY_TO_SEGMENT[entity_type]
+    domain, segment = _ENTITY_TYPE_TO_PATH_PARTS[entity_type]
     safe_filename = filename.replace("/", "_").strip() or "file"
-    return f"re/env/{env_id}/{segment}/{entity_id}/{safe_filename}"
+    return f"{domain}/env/{env_id}/{segment}/{entity_id}/{safe_filename}"
+
+
+def _validate_path_prefix(virtual_path: str, *, message_context: str = "domain") -> None:
+    if not virtual_path.startswith(_DOMAIN_PREFIXES):
+        return
+    if _extract_entity_context_from_virtual_path(virtual_path):
+        return
+    if virtual_path.startswith("re/"):
+        raise ValueError("Malformed RE virtual_path prefix")
+    raise ValueError(f"Malformed {message_context} virtual_path prefix")
 
 
 def _insert_entity_link(cur, *, document_id: str, env_id: str, entity_type: str, entity_id: str) -> None:
@@ -71,16 +99,18 @@ def init_upload(
     entity_id: UUID | None = None,
     env_id: UUID | None = None,
 ) -> dict:
-    vpath_ctx = _extract_re_context_from_virtual_path(virtual_path)
+    vpath_ctx = _extract_entity_context_from_virtual_path(virtual_path)
     has_entity_inputs = any([entity_type, entity_id, env_id])
     if has_entity_inputs and not (entity_type and entity_id and env_id):
         raise ValueError("entity_type, entity_id, and env_id are required together")
     if has_entity_inputs:
-        if entity_type not in _ENTITY_TO_SEGMENT:
-            raise ValueError("entity_type must be one of: fund, investment, asset")
+        if entity_type not in _ENTITY_TYPE_TO_PATH_PARTS:
+            allowed = ", ".join(sorted(_ENTITY_TYPE_TO_PATH_PARTS.keys()))
+            raise ValueError(f"entity_type must be one of: {allowed}")
         if virtual_path:
             if not vpath_ctx:
-                raise ValueError("Malformed RE virtual_path prefix")
+                _validate_path_prefix(virtual_path, message_context="domain")
+                raise ValueError("virtual_path context is not canonical for entity attachments")
             if (
                 vpath_ctx["entity_type"] != entity_type
                 or vpath_ctx["entity_id"] != str(entity_id)
@@ -88,15 +118,15 @@ def init_upload(
             ):
                 raise ValueError("virtual_path context does not match entity context")
         else:
-            virtual_path = _canonical_re_virtual_path(
+            virtual_path = _canonical_entity_virtual_path(
                 env_id=str(env_id),
                 entity_type=entity_type,
                 entity_id=str(entity_id),
                 filename=filename,
             )
-            vpath_ctx = _extract_re_context_from_virtual_path(virtual_path)
-    elif virtual_path and virtual_path.startswith("re/") and not vpath_ctx:
-        raise ValueError("Malformed RE virtual_path prefix")
+            vpath_ctx = _extract_entity_context_from_virtual_path(virtual_path)
+    elif virtual_path:
+        _validate_path_prefix(virtual_path, message_context="domain")
 
     with get_cursor() as cur:
         cur.execute(
@@ -142,10 +172,11 @@ def init_upload(
             document_id = str(doc_row["document_id"])
 
         resolved_ctx = vpath_ctx
-        if not resolved_ctx and virtual_path and virtual_path.startswith("re/"):
-            resolved_ctx = _extract_re_context_from_virtual_path(virtual_path)
+        if not resolved_ctx and virtual_path and virtual_path.startswith(_DOMAIN_PREFIXES):
+            resolved_ctx = _extract_entity_context_from_virtual_path(virtual_path)
             if not resolved_ctx:
-                raise ValueError("Malformed RE virtual_path prefix")
+                _validate_path_prefix(virtual_path, message_context="domain")
+                raise ValueError("Malformed domain virtual_path prefix")
         if resolved_ctx:
             _insert_entity_link(
                 cur,
@@ -207,8 +238,9 @@ def complete_upload(
     has_entity_inputs = any([entity_type, entity_id, env_id])
     if has_entity_inputs and not (entity_type and entity_id and env_id):
         raise ValueError("entity_type, entity_id, and env_id are required together")
-    if entity_type and entity_type not in _ENTITY_TO_SEGMENT:
-        raise ValueError("entity_type must be one of: fund, investment, asset")
+    if entity_type and entity_type not in _ENTITY_TYPE_TO_PATH_PARTS:
+        allowed = ", ".join(sorted(_ENTITY_TYPE_TO_PATH_PARTS.keys()))
+        raise ValueError(f"entity_type must be one of: {allowed}")
 
     with get_cursor() as cur:
         cur.execute(
@@ -220,9 +252,9 @@ def complete_upload(
             raise LookupError("Document not found")
 
         vpath = doc.get("virtual_path")
-        vpath_ctx = _extract_re_context_from_virtual_path(vpath)
-        if vpath and vpath.startswith("re/") and not vpath_ctx:
-            raise ValueError("Malformed RE virtual_path prefix")
+        vpath_ctx = _extract_entity_context_from_virtual_path(vpath)
+        if vpath:
+            _validate_path_prefix(vpath, message_context="domain")
 
         if has_entity_inputs and vpath_ctx:
             if (
@@ -267,8 +299,9 @@ def list_documents(
     has_entity_scope = any([env_id, entity_type, entity_id])
     if has_entity_scope and not (env_id and entity_type and entity_id):
         raise ValueError("env_id, entity_type, and entity_id are required together")
-    if entity_type and entity_type not in _ENTITY_TO_SEGMENT:
-        raise ValueError("entity_type must be one of: fund, investment, asset")
+    if entity_type and entity_type not in _ENTITY_TYPE_TO_PATH_PARTS:
+        allowed = ", ".join(sorted(_ENTITY_TYPE_TO_PATH_PARTS.keys()))
+        raise ValueError(f"entity_type must be one of: {allowed}")
 
     with get_cursor() as cur:
         conditions = ["d.business_id = %s"]

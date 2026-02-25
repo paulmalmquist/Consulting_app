@@ -98,6 +98,22 @@ _GET_CURSOR_TARGETS = [
     "app.services.re_risk_scoring.get_cursor",
     "app.services.re_reports.get_cursor",
     "app.services.repe_context.get_cursor",
+    "app.services.env_context.get_cursor",
+    "app.services.pds.get_cursor",
+    "app.services.credit.get_cursor",
+    "app.services.legal_ops.get_cursor",
+    "app.services.medoffice.get_cursor",
+    "app.services.re_investment.get_cursor",
+    "app.services.re_jv.get_cursor",
+    "app.services.re_partner.get_cursor",
+    "app.services.re_capital_ledger.get_cursor",
+    "app.services.re_cashflow_ledger.get_cursor",
+    "app.services.re_rollup.get_cursor",
+    "app.services.re_metrics.get_cursor",
+    "app.services.re_scenario.get_cursor",
+    "app.services.re_provenance.get_cursor",
+    "app.services.re_waterfall_runtime.get_cursor",
+    "app.services.re_quarter_close.get_cursor",
 ]
 
 

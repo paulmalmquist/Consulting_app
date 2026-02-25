@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query
 import time
 from uuid import UUID
-from typing import Literal, Optional
+from typing import Optional
 from app.schemas.documents import (
     InitUploadRequest,
     InitUploadResponse,
@@ -9,6 +9,7 @@ from app.schemas.documents import (
     DocumentOut,
     DocumentVersionOut,
     DownloadUrlResponse,
+    DocumentEntityType,
 )
 from app.schemas.business import OkResponse
 from app.services import audit as audit_svc
@@ -94,7 +95,7 @@ def list_documents(
     business_id: UUID = Query(...),
     department_id: Optional[UUID] = Query(None),
     env_id: Optional[UUID] = Query(None),
-    entity_type: Optional[Literal["fund", "investment", "asset"]] = Query(None),
+    entity_type: Optional[DocumentEntityType] = Query(None),
     entity_id: Optional[UUID] = Query(None),
 ):
     try:

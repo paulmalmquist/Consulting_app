@@ -10,6 +10,10 @@ import { Button } from "@/components/ui/Button";
 import {
   isRepeEnvironment,
   isWebsiteEnvironment,
+  isPdsEnvironment,
+  isCreditEnvironment,
+  isLegalOpsEnvironment,
+  isMedicalBackofficeEnvironment,
 } from "@/components/lab/environments/constants";
 import { listReV1Funds, getReFundSummary, ReFundSummary } from "@/lib/bos-api";
 
@@ -101,6 +105,42 @@ function getStaticKpiConfig(industry: string): KPI[] {
       { label: "Weighted LTV", value: "—" },
     ];
   }
+  if (isPdsEnvironment(industry)) {
+    return [
+      { label: "Approved Budget", value: "—" },
+      { label: "Committed", value: "—" },
+      { label: "Spent", value: "—" },
+      { label: "EAC", value: "—" },
+      { label: "Variance", value: "—" },
+      { label: "Top Risks", value: "—" },
+    ];
+  }
+  if (isCreditEnvironment(industry)) {
+    return [
+      { label: "Active Cases", value: "—" },
+      { label: "Watchlist Cases", value: "—" },
+      { label: "Breaches", value: "—" },
+      { label: "Approved Amount", value: "—" },
+      { label: "Workout Exposure", value: "—" },
+    ];
+  }
+  if (isLegalOpsEnvironment(industry)) {
+    return [
+      { label: "Open Matters", value: "—" },
+      { label: "Deadlines (30d)", value: "—" },
+      { label: "Litigation Exposure", value: "—" },
+      { label: "Legal Spend YTD", value: "—" },
+    ];
+  }
+  if (isMedicalBackofficeEnvironment(industry)) {
+    return [
+      { label: "Properties", value: "—" },
+      { label: "Tenants", value: "—" },
+      { label: "A/R Outstanding", value: "—" },
+      { label: "Compliance Alerts", value: "—" },
+      { label: "Work Orders Open", value: "—" },
+    ];
+  }
   return [
     { label: "Documents", value: "—" },
     { label: "Work Items", value: "—" },
@@ -127,6 +167,34 @@ function getQuickActions(industry: string, envId: string): Array<{ label: string
       { label: "Create Fund", href: `/lab/env/${envId}/re/funds/new` },
       { label: "Start Underwriting", href: `/lab/env/${envId}/re/deals` },
       { label: "Run Waterfall", href: `/lab/env/${envId}/re/waterfalls` },
+    ];
+  }
+  if (isPdsEnvironment(industry)) {
+    return [
+      { label: "Open Command Center", href: `/lab/env/${envId}/pds` },
+      { label: "Create Project", href: `/lab/env/${envId}/pds` },
+      { label: "Run Snapshot", href: `/lab/env/${envId}/pds` },
+    ];
+  }
+  if (isCreditEnvironment(industry)) {
+    return [
+      { label: "Open Credit Hub", href: `/lab/env/${envId}/credit` },
+      { label: "New Case", href: `/lab/env/${envId}/credit` },
+      { label: "Watchlist", href: `/lab/env/${envId}/credit` },
+    ];
+  }
+  if (isLegalOpsEnvironment(industry)) {
+    return [
+      { label: "Open Legal Ops", href: `/lab/env/${envId}/legal` },
+      { label: "New Matter", href: `/lab/env/${envId}/legal` },
+      { label: "Upcoming Deadlines", href: `/lab/env/${envId}/legal` },
+    ];
+  }
+  if (isMedicalBackofficeEnvironment(industry)) {
+    return [
+      { label: "Open Backoffice", href: `/lab/env/${envId}/medical` },
+      { label: "Add Property", href: `/lab/env/${envId}/medical` },
+      { label: "Compliance Queue", href: `/lab/env/${envId}/medical` },
     ];
   }
   if (isWebsiteEnvironment(industry)) {

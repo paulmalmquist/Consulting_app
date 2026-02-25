@@ -34,6 +34,8 @@ export const LAB_CAPABILITIES_BY_DEPARTMENT: Record<LabDepartmentKey, LabCapabil
     { key: "legal_economics", label: "Legal Economics", description: "Matter-level economics, trust ledger segregation, and contingency runs." },
     { key: "healthcare_mso", label: "Healthcare / MSO", description: "MSO-clinic-provider economics, provider comp, and claims reconciliation." },
     { key: "construction_finance", label: "Construction Finance", description: "CSI budget versions, commitments, and forecast-at-completion runs." },
+    { key: "credit_underwriting", label: "Credit Underwriting", description: "Case intake, underwriting model versions, and committee prep." },
+    { key: "credit_watchlist", label: "Credit Watchlist", description: "Portfolio monitoring, covenant breaches, and workout escalation." },
     { key: "security_acl", label: "Security & ACL", description: "Entity access controls and field segregation policy surfaces." },
   ],
   crm: [
@@ -61,9 +63,11 @@ export const LAB_CAPABILITIES_BY_DEPARTMENT: Record<LabDepartmentKey, LabCapabil
     { key: "kpis", label: "KPIs", description: "Operational KPI tracking." },
     { key: "vendors", label: "Vendors", description: "Vendor records and obligations." },
     { key: "inventory", label: "Inventory", description: "Stock, reorder points, and cycle counts." },
+    { key: "medical_backoffice", label: "Medical Backoffice", description: "Tenant CRM, lease revenue, compliance, and vendor controls." },
     { key: "automation", label: "Automation", description: "Automations and manual override controls." },
   ],
   projects: [
+    { key: "pds_command_center", label: "PDS Command Center", description: "Portfolio budgeting, schedule health, change orders, and risk rollups." },
     { key: "active_projects", label: "Active Projects", description: "Project portfolio and owners." },
     { key: "milestones", label: "Milestones", description: "Timeline and milestone progress." },
     { key: "gantt", label: "Gantt", description: "Schedule view and dependencies." },
@@ -80,6 +84,7 @@ export const LAB_CAPABILITIES_BY_DEPARTMENT: Record<LabDepartmentKey, LabCapabil
     { key: "changes", label: "Changes", description: "Change requests and approvals." },
   ],
   legal: [
+    { key: "legal_matter_cockpit", label: "Matter Cockpit", description: "Matter management, deadlines, and litigation exposure controls." },
     { key: "contracts", label: "Contracts", description: "Contract lifecycle and obligations." },
     { key: "obligations", label: "Obligations", description: "Deliverables and legal commitments." },
     { key: "renewals", label: "Renewals", description: "Upcoming renewals and notice windows." },

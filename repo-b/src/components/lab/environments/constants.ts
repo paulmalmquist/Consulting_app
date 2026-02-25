@@ -1,5 +1,9 @@
 export const industries = [
   "repe",
+  "pds_command",
+  "credit_risk_hub",
+  "legal_ops_command",
+  "medical_office_backoffice",
   "floyorker",
   "healthcare",
   "legal",
@@ -21,6 +25,10 @@ export const statusLabel: Record<EnvironmentStatus, string> = {
 
 const INDUSTRY_DISPLAY_MAP: Record<string, string> = {
   repe: "Real Estate Private Equity",
+  pds_command: "PDS Command",
+  credit_risk_hub: "Credit Risk Hub",
+  legal_ops_command: "Legal Ops Command",
+  medical_office_backoffice: "Medical Office Backoffice",
   floyorker: "Digital Media / Floyorker",
   healthcare: "Healthcare",
   legal: "Legal",
@@ -63,8 +71,32 @@ export function isWebsiteEnvironment(industry?: string | null): boolean {
   return key === "website" || key.includes("floyorker") || key.includes("digital_media");
 }
 
+export function isPdsEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "pds_command" || key === "pds";
+}
+
+export function isCreditEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "credit_risk_hub" || key === "credit";
+}
+
+export function isLegalOpsEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "legal_ops_command" || key === "legal_ops" || key === "legal";
+}
+
+export function isMedicalBackofficeEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "medical_office_backoffice" || key === "medical";
+}
+
 export function resolveEnvironmentOpenPath(args: { envId: string; industry?: string | null }): string {
   if (isRepeEnvironment(args.industry)) return `/lab/env/${args.envId}/re`;
+  if (isPdsEnvironment(args.industry)) return `/lab/env/${args.envId}/pds`;
+  if (isCreditEnvironment(args.industry)) return `/lab/env/${args.envId}/credit`;
+  if (isLegalOpsEnvironment(args.industry)) return `/lab/env/${args.envId}/legal`;
+  if (isMedicalBackofficeEnvironment(args.industry)) return `/lab/env/${args.envId}/medical`;
   if (isWebsiteEnvironment(args.industry)) return `/lab/env/${args.envId}/content`;
   return `/lab/env/${args.envId}`;
 }

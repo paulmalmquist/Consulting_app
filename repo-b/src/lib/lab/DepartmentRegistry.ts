@@ -52,6 +52,10 @@ export const LAB_DEPARTMENT_BY_KEY: Record<LabDepartmentKey, LabDepartmentMeta> 
   }, {} as Record<LabDepartmentKey, LabDepartmentMeta>);
 
 const INDUSTRY_DEPARTMENT_MAP: Record<string, LabDepartmentKey[]> = {
+  pds_command: ["projects", "operations", "accounting", "reporting", "legal", "documents", "crm", "compliance"],
+  credit_risk_hub: ["finance", "crm", "compliance", "reporting", "legal", "documents"],
+  legal_ops_command: ["legal", "documents", "compliance", "crm", "accounting", "reporting"],
+  medical_office_backoffice: ["operations", "accounting", "crm", "projects", "legal", "documents", "compliance", "hr"],
   repe: ["finance", "underwriting", "waterfall", "accounting", "crm", "reporting", "compliance", "documents"],
   real_estate_pe: ["finance", "underwriting", "waterfall", "accounting", "crm", "reporting", "compliance", "documents"],
   floyorker: ["projects", "content", "rankings", "analytics", "crm", "accounting", "reporting", "documents"],
@@ -82,6 +86,10 @@ const INDUSTRY_DEPARTMENT_MAP: Record<string, LabDepartmentKey[]> = {
 };
 
 const DEFAULT_DEPARTMENT_BY_INDUSTRY: Record<string, LabDepartmentKey> = {
+  pds_command: "projects",
+  credit_risk_hub: "finance",
+  legal_ops_command: "legal",
+  medical_office_backoffice: "operations",
   repe: "finance",
   real_estate_pe: "finance",
   floyorker: "content",

@@ -4,14 +4,25 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Building2, Landmark, PlusCircle } from "lucide-react";
-import { listReV1Funds, listRepeAssets, listRepeDeals, RepeAsset, RepeDeal, RepeFund } from "@/lib/bos-api";
+import {
+  listReV1Funds,
+  listRepeAssets,
+  listRepeDeals,
+  listReV2Jvs,
+  listReV2Scenarios,
+  RepeAsset,
+  RepeDeal,
+  RepeFund,
+  ReV2Jv,
+  ReV2Scenario,
+} from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 
 function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function parsePathId(pathname: string, segment: "funds" | "deals" | "assets"): string | null {
+function parsePathId(pathname: string, segment: string): string | null {
   const match = pathname.match(
     new RegExp(`/re/${segment}/([0-9a-fA-F-]{36})(?:/|$)`)
   );
@@ -26,8 +37,7 @@ export default function RepeWorkspaceShell({ children, envId }: { children: Reac
   const base = envId ? `/lab/env/${envId}/re` : "/app/repe";
   const navItems = useMemo(
     () => [
-      { href: `${base}`, label: "Home" },
-      { href: `${base}/funds`, label: "Funds" },
+      { href: `${base}`, label: "Funds" },
       { href: `${base}/deals`, label: "Investments" },
       { href: `${base}/assets`, label: "Assets" },
     ],
@@ -37,96 +47,94 @@ export default function RepeWorkspaceShell({ children, envId }: { children: Reac
   const [funds, setFunds] = useState<RepeFund[]>([]);
   const [deals, setDeals] = useState<RepeDeal[]>([]);
   const [assets, setAssets] = useState<RepeAsset[]>([]);
+  const [jvs, setJvs] = useState<ReV2Jv[]>([]);
+  const [scenarios, setScenarios] = useState<ReV2Scenario[]>([]);
   const [selectorFundId, setSelectorFundId] = useState("");
   const [selectorDealId, setSelectorDealId] = useState("");
+  const [selectorJvId, setSelectorJvId] = useState("");
   const [selectorAssetId, setSelectorAssetId] = useState("");
 
   const pathFundId = parsePathId(pathname, "funds");
-  const pathDealId = parsePathId(pathname, "deals");
+  const pathDealId = parsePathId(pathname, "deals") || parsePathId(pathname, "investments");
+  const pathJvId = parsePathId(pathname, "jv");
   const pathAssetId = parsePathId(pathname, "assets");
 
   const activeFundId = pathFundId || selectorFundId;
   const activeDealId = pathDealId || selectorDealId;
+  const activeJvId = pathJvId || selectorJvId;
   const activeAssetId = pathAssetId || selectorAssetId;
 
+  // Load funds
   useEffect(() => {
     if (!businessId && !envId) return;
     let cancelled = false;
-    listReV1Funds({
-      env_id: envId || undefined,
-      business_id: businessId || undefined,
-    })
+    listReV1Funds({ env_id: envId || undefined, business_id: businessId || undefined })
       .then((rows) => {
         if (cancelled) return;
         setFunds(rows);
-        if (!pathFundId && rows[0]?.fund_id) {
-          setSelectorFundId(rows[0].fund_id);
-        }
+        if (!pathFundId && rows[0]?.fund_id) setSelectorFundId(rows[0].fund_id);
       })
-      .catch(() => {
-        if (cancelled) return;
-        setFunds([]);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .catch(() => { if (!cancelled) setFunds([]); });
+    return () => { cancelled = true; };
   }, [businessId, envId, pathFundId]);
 
+  // Load deals for selected fund
   useEffect(() => {
-    if (!activeFundId) {
-      setDeals([]);
-      return;
-    }
+    if (!activeFundId) { setDeals([]); return; }
     let cancelled = false;
     listRepeDeals(activeFundId)
       .then((rows) => {
         if (cancelled) return;
         setDeals(rows);
-        if (!pathDealId && rows[0]?.deal_id) {
-          setSelectorDealId(rows[0].deal_id);
-        }
+        if (!pathDealId && rows[0]?.deal_id) setSelectorDealId(rows[0].deal_id);
       })
-      .catch(() => {
-        if (cancelled) return;
-        setDeals([]);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .catch(() => { if (!cancelled) setDeals([]); });
+    return () => { cancelled = true; };
   }, [activeFundId, pathDealId]);
 
+  // Load JVs for selected deal
   useEffect(() => {
-    if (!activeDealId) {
-      setAssets([]);
-      return;
-    }
+    if (!activeDealId) { setJvs([]); return; }
+    let cancelled = false;
+    listReV2Jvs(activeDealId)
+      .then((rows) => {
+        if (cancelled) return;
+        setJvs(rows);
+        if (!pathJvId && rows[0]?.jv_id) setSelectorJvId(rows[0].jv_id);
+      })
+      .catch(() => { if (!cancelled) setJvs([]); });
+    return () => { cancelled = true; };
+  }, [activeDealId, pathJvId]);
+
+  // Load assets for selected deal
+  useEffect(() => {
+    if (!activeDealId) { setAssets([]); return; }
     let cancelled = false;
     listRepeAssets(activeDealId)
       .then((rows) => {
         if (cancelled) return;
         setAssets(rows);
-        if (!pathAssetId && rows[0]?.asset_id) {
-          setSelectorAssetId(rows[0].asset_id);
-        }
+        if (!pathAssetId && rows[0]?.asset_id) setSelectorAssetId(rows[0].asset_id);
       })
-      .catch(() => {
-        if (cancelled) return;
-        setAssets([]);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .catch(() => { if (!cancelled) setAssets([]); });
+    return () => { cancelled = true; };
   }, [activeDealId, pathAssetId]);
+
+  // Load scenarios for selected fund
+  useEffect(() => {
+    if (!activeFundId) { setScenarios([]); return; }
+    let cancelled = false;
+    listReV2Scenarios(activeFundId)
+      .then((rows) => { if (!cancelled) setScenarios(rows); })
+      .catch(() => { if (!cancelled) setScenarios([]); });
+    return () => { cancelled = true; };
+  }, [activeFundId]);
 
   const envLabel = environment?.client_name || envId || "Real Estate";
   const envSchema = environment?.schema_name || envId || "n/a";
 
   if (loading) {
-    return (
-      <div className="rounded-xl border border-bm-border/70 p-5 text-sm text-bm-muted2">
-        Resolving environment context...
-      </div>
-    );
+    return <div className="rounded-xl border border-bm-border/70 p-5 text-sm text-bm-muted2">Resolving environment context...</div>;
   }
 
   if (error) {
@@ -135,22 +143,17 @@ export default function RepeWorkspaceShell({ children, envId }: { children: Reac
         <h2 className="text-lg font-semibold">Unable to load Real Estate context</h2>
         <p className="text-sm text-red-300">{error}</p>
         {requestId ? <p className="text-xs text-bm-muted2">Request ID: {requestId}</p> : null}
-        <button
-          type="button"
-          onClick={() => void retry()}
-          className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
-        >
-          Retry
-        </button>
+        <button type="button" onClick={() => void retry()} className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">Retry</button>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      {/* Environment Header */}
       <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-2">
+          <div className="space-y-1">
             <div className="flex items-center gap-2">
               <Building2 size={18} className="text-bm-muted2" />
               <h1 className="text-xl font-semibold">{envLabel}</h1>
@@ -159,108 +162,77 @@ export default function RepeWorkspaceShell({ children, envId }: { children: Reac
               </span>
             </div>
             <p className="text-xs text-bm-muted2">
-              Environment: {envSchema}
-              {businessId ? ` · Business: ${businessId.slice(0, 8)}` : ""}
+              {envSchema}{businessId ? ` · ${businessId.slice(0, 8)}` : ""}
             </p>
           </div>
-
           <div className="flex flex-wrap items-center gap-2">
-            <Link href={`${base}/funds/new`} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
-              <PlusCircle size={14} /> New Fund
-            </Link>
-            <Link href={`${base}/deals`} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
-              <PlusCircle size={14} /> New Investment
-            </Link>
-            <Link href={`${base}/assets`} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
-              <PlusCircle size={14} /> New Asset
-            </Link>
+            <Link href={`${base}/funds/new`} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"><PlusCircle size={14} /> Fund</Link>
+            <Link href={`${base}/deals`} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"><PlusCircle size={14} /> Investment</Link>
+            <Link href={`${base}/assets`} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"><PlusCircle size={14} /> Asset</Link>
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+        {/* Selectors: Fund → Investment → JV → Asset + Scenario */}
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-2">
           <label className="text-xs text-bm-muted2 uppercase tracking-[0.1em]">
             Fund
-            <select
-              className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm"
-              value={activeFundId || ""}
-              onChange={(e) => {
-                const next = e.target.value;
-                setSelectorFundId(next);
-                if (next) router.push(`${base}/funds/${next}`);
-              }}
-            >
+            <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm"
+              value={activeFundId || ""} onChange={(e) => { setSelectorFundId(e.target.value); if (e.target.value) router.push(`${base}/funds/${e.target.value}`); }}>
               <option value="">Select fund</option>
-              {funds.map((fund) => (
-                <option key={fund.fund_id} value={fund.fund_id}>{fund.name}</option>
-              ))}
+              {funds.map((f) => <option key={f.fund_id} value={f.fund_id}>{f.name}</option>)}
             </select>
           </label>
 
           <label className="text-xs text-bm-muted2 uppercase tracking-[0.1em]">
             Investment
-            <select
-              className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm"
-              value={activeDealId || ""}
-              onChange={(e) => {
-                const next = e.target.value;
-                setSelectorDealId(next);
-                if (next) router.push(`${base}/deals/${next}`);
-              }}
-            >
+            <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm"
+              value={activeDealId || ""} onChange={(e) => { setSelectorDealId(e.target.value); if (e.target.value) router.push(`${base}/investments/${e.target.value}`); }}>
               <option value="">Select investment</option>
-              {deals.map((deal) => (
-                <option key={deal.deal_id} value={deal.deal_id}>{deal.name}</option>
-              ))}
+              {deals.map((d) => <option key={d.deal_id} value={d.deal_id}>{d.name}</option>)}
+            </select>
+          </label>
+
+          <label className="text-xs text-bm-muted2 uppercase tracking-[0.1em]">
+            JV Entity
+            <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm"
+              value={activeJvId || ""} onChange={(e) => { setSelectorJvId(e.target.value); if (e.target.value) router.push(`${base}/jv/${e.target.value}`); }}>
+              <option value="">Select JV</option>
+              {jvs.map((j) => <option key={j.jv_id} value={j.jv_id}>{j.legal_name}</option>)}
             </select>
           </label>
 
           <label className="text-xs text-bm-muted2 uppercase tracking-[0.1em]">
             Asset
-            <select
-              className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm"
-              value={activeAssetId || ""}
-              onChange={(e) => {
-                const next = e.target.value;
-                setSelectorAssetId(next);
-                if (next) router.push(`${base}/assets/${next}`);
-              }}
-            >
+            <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm"
+              value={activeAssetId || ""} onChange={(e) => { setSelectorAssetId(e.target.value); if (e.target.value) router.push(`${base}/assets/${e.target.value}`); }}>
               <option value="">Select asset</option>
-              {assets.map((asset) => (
-                <option key={asset.asset_id} value={asset.asset_id}>{asset.name}</option>
-              ))}
+              {assets.map((a) => <option key={a.asset_id} value={a.asset_id}>{a.name}</option>)}
             </select>
           </label>
 
           <label className="text-xs text-bm-muted2 uppercase tracking-[0.1em]">
             Scenario
-            <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm" defaultValue="base">
-              <option value="base">Base</option>
+            <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm" defaultValue="">
+              <option value="">Base</option>
+              {scenarios.filter((s) => !s.is_base).map((s) => (
+                <option key={s.scenario_id} value={s.scenario_id}>{s.name}</option>
+              ))}
             </select>
           </label>
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-[220px,1fr]">
+      <div className="grid gap-4 lg:grid-cols-[200px,1fr]">
         <aside className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3 h-fit" data-testid="repe-sidebar">
-          <p className="mb-2 px-1 text-xs uppercase tracking-[0.12em] text-bm-muted2">Navigation</p>
           <nav className="space-y-1" data-testid="repe-left-nav">
             {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`block rounded-lg border px-3 py-2 text-sm transition ${
-                  isActive(pathname, item.href)
-                    ? "border-bm-accent/60 bg-bm-accent/10"
-                    : "border-bm-border/70 hover:bg-bm-surface/40"
-                }`}
-              >
+              <Link key={item.href} href={item.href}
+                className={`block rounded-lg border px-3 py-2 text-sm transition ${isActive(pathname, item.href) ? "border-bm-accent/60 bg-bm-accent/10" : "border-bm-border/70 hover:bg-bm-surface/40"}`}>
                 {item.label}
               </Link>
             ))}
           </nav>
         </aside>
-
         <div>{children}</div>
       </div>
     </div>

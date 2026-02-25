@@ -511,3 +511,34 @@ The platform currently supports:
 - `docs/MCP_SETUP.md` (MCP integration and tool surface)
 - `docs/security-architecture.md` (security control architecture)
 - `docs/underwriting_pipeline.md` and `docs/real_estate_wedge_demo.md` (domain flows)
+
+## 14) Multi-Domain Command Workspaces (New)
+
+Added environment templates and route families:
+
+- `pds_command` -> `/lab/env/[envId]/pds`
+- `credit_risk_hub` -> `/lab/env/[envId]/credit`
+- `legal_ops_command` -> `/lab/env/[envId]/legal`
+- `medical_office_backoffice` -> `/lab/env/[envId]/medical`
+
+Backend namespaces:
+
+- `/api/pds/v1/*`
+- `/api/credit/v1/*`
+- `/api/legalops/v1/*`
+- `/api/medoffice/v1/*`
+
+Data model migrations:
+
+- `271_domain_templates.sql`
+- `272_pds_core.sql`
+- `273_pds_indexes_and_constraints.sql`
+- `274_credit_core.sql`
+- `275_legal_ops_core.sql`
+- `276_medical_backoffice_core.sql`
+- `277_domain_document_links.sql`
+
+New docs:
+
+- `docs/pds-command.md`
+- `docs/domain-command-workspaces.md`

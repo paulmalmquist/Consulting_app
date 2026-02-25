@@ -5,6 +5,19 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
+DocumentEntityType = Literal[
+    "fund",
+    "investment",
+    "asset",
+    "pds_project",
+    "pds_program",
+    "credit_case",
+    "legal_matter",
+    "medical_property",
+    "medical_tenant",
+]
+
+
 class InitUploadRequest(BaseModel):
     business_id: UUID
     department_id: Optional[UUID] = None
@@ -12,7 +25,7 @@ class InitUploadRequest(BaseModel):
     content_type: str
     title: Optional[str] = None
     virtual_path: Optional[str] = None
-    entity_type: Optional[Literal["fund", "investment", "asset"]] = None
+    entity_type: Optional[DocumentEntityType] = None
     entity_id: Optional[UUID] = None
     env_id: Optional[UUID] = None
 
@@ -29,7 +42,7 @@ class CompleteUploadRequest(BaseModel):
     version_id: UUID
     sha256: str
     byte_size: int
-    entity_type: Optional[Literal["fund", "investment", "asset"]] = None
+    entity_type: Optional[DocumentEntityType] = None
     entity_id: Optional[UUID] = None
     env_id: Optional[UUID] = None
 
