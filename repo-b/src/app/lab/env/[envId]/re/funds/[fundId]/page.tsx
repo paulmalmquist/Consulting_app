@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { MetricCard } from "@/components/ui/MetricCard";
 import {
   getRepeFund,
   listRepeDeals,
@@ -147,7 +148,7 @@ export default function FundDetailPage({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Fund</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight">{fund?.name || "—"}</h1>
+            <h1 className="mt-1 text-2xl font-display font-bold tracking-tight">{fund?.name || "—"}</h1>
             <p className="mt-1 text-sm text-bm-muted2">
               {fund?.strategy?.toUpperCase()}{fund?.sub_strategy ? ` · ${fund.sub_strategy}` : ""}
               {fund?.vintage_year ? ` · Vintage ${fund.vintage_year}` : ""}
@@ -166,20 +167,13 @@ export default function FundDetailPage({
 
       {/* KPI Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-        {[
-          { label: "NAV", value: fmtMoney(fundState?.portfolio_nav) },
-          { label: "Committed", value: fmtMoney(fundState?.total_committed) },
-          { label: "Called", value: fmtMoney(fundState?.total_called) },
-          { label: "Distributed", value: fmtMoney(fundState?.total_distributed) },
-          { label: "DPI", value: fmtMultiple(fundState?.dpi) },
-          { label: "TVPI", value: fmtMultiple(fundState?.tvpi) },
-          { label: "IRR", value: fmtPercent(fundMetrics?.irr) },
-        ].map((kpi) => (
-          <div key={kpi.label} className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3">
-            <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">{kpi.label}</p>
-            <p className="mt-1 text-lg font-bold">{kpi.value}</p>
-          </div>
-        ))}
+        <MetricCard label="NAV" value={fmtMoney(fundState?.portfolio_nav)} size="large" />
+        <MetricCard label="Committed" value={fmtMoney(fundState?.total_committed)} size="large" />
+        <MetricCard label="Called" value={fmtMoney(fundState?.total_called)} size="large" />
+        <MetricCard label="Distributed" value={fmtMoney(fundState?.total_distributed)} size="compact" />
+        <MetricCard label="DPI" value={fmtMultiple(fundState?.dpi)} size="compact" />
+        <MetricCard label="TVPI" value={fmtMultiple(fundState?.tvpi)} size="compact" />
+        <MetricCard label="IRR" value={fmtPercent(fundMetrics?.irr)} size="compact" />
       </div>
 
       {/* Tabs */}
@@ -189,8 +183,10 @@ export default function FundDetailPage({
             key={label}
             type="button"
             onClick={() => setTab(label)}
-            className={`rounded-lg border px-3 py-1.5 text-sm transition ${
-              tab === label ? "border-bm-accent/60 bg-bm-accent/10" : "border-bm-border/70 hover:bg-bm-surface/40"
+            className={`rounded-lg border px-3 py-1.5 text-sm transition-[transform,box-shadow] duration-[120ms] ${
+              tab === label
+                ? "border-transparent border-b-2 border-b-bm-accent bg-bm-surface/30 text-bm-text font-medium"
+                : "border-transparent text-bm-muted hover:bg-bm-surface/30 hover:text-bm-text"
             }`}
             data-testid={`tab-${label.toLowerCase().replace(/[^a-z]/g, "-")}`}
           >
@@ -234,18 +230,9 @@ function OverviewTab({ deals, scenarios, fund }: {
 }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-        <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Investments</p>
-        <p className="mt-1 text-2xl font-bold">{deals.length}</p>
-      </div>
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-        <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Strategy</p>
-        <p className="mt-1 text-2xl font-bold capitalize">{fund?.strategy || "—"}</p>
-      </div>
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-        <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Scenarios</p>
-        <p className="mt-1 text-2xl font-bold">{scenarios.length}</p>
-      </div>
+      <MetricCard label="Investments" value={String(deals.length)} size="large" />
+      <MetricCard label="Strategy" value={fund?.strategy?.toUpperCase() || "—"} size="large" />
+      <MetricCard label="Scenarios" value={String(scenarios.length)} size="large" />
     </div>
   );
 }
@@ -279,21 +266,18 @@ function VarianceTab({ envId, businessId, fundId, quarter }: {
     <div className="space-y-4" data-testid="variance-section">
       {/* Rollup Cards */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-          <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">NOI Actual</p>
-          <p className="mt-1 text-lg font-bold">{fmtMoney(data.rollup.total_actual)}</p>
-        </div>
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-          <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">NOI Plan</p>
-          <p className="mt-1 text-lg font-bold">{fmtMoney(data.rollup.total_plan)}</p>
-        </div>
-        <div className={`rounded-xl border p-4 ${Number(data.rollup.total_variance) >= 0 ? "border-green-500/50 bg-green-500/10" : "border-red-500/50 bg-red-500/10"}`}>
-          <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">NOI Variance</p>
-          <p className="mt-1 text-lg font-bold">{fmtMoney(data.rollup.total_variance)}</p>
-          {data.rollup.total_variance_pct && (
-            <p className="text-xs text-bm-muted2">{fmtPercent(data.rollup.total_variance_pct)}</p>
-          )}
-        </div>
+        <MetricCard label="NOI Actual" value={fmtMoney(data.rollup.total_actual)} size="large" />
+        <MetricCard label="NOI Plan" value={fmtMoney(data.rollup.total_plan)} size="large" />
+        <MetricCard
+          label="NOI Variance"
+          value={fmtMoney(data.rollup.total_variance)}
+          size="large"
+          status={Number(data.rollup.total_variance) >= 0 ? "success" : "danger"}
+          delta={data.rollup.total_variance_pct ? {
+            value: fmtPercent(data.rollup.total_variance_pct),
+            direction: Number(data.rollup.total_variance) >= 0 ? "up" as const : "down" as const,
+          } : undefined}
+        />
       </div>
 
       {/* Variance Table */}
@@ -361,31 +345,18 @@ function ReturnsTab({ envId, businessId, fundId, quarter }: {
     <div className="space-y-4" data-testid="returns-section">
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" data-testid="returns-kpis">
-        {[
-          { label: "Cash-on-Cash", value: fmtPercent(m.cash_on_cash) },
-          { label: "Gross IRR", value: fmtPercent(m.gross_irr) },
-          { label: "Net IRR", value: fmtPercent(m.net_irr) },
-          { label: "Gross TVPI", value: fmtMultiple(m.gross_tvpi) },
-          { label: "Net TVPI", value: fmtMultiple(m.net_tvpi) },
-          { label: "Spread", value: m.gross_net_spread ? `${(Number(m.gross_net_spread) * 100).toFixed(0)}bps` : "—" },
-        ].map((kpi) => (
-          <div key={kpi.label} className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3">
-            <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">{kpi.label}</p>
-            <p className="mt-1 text-lg font-bold">{kpi.value}</p>
-          </div>
-        ))}
+        <MetricCard label="Cash-on-Cash" value={fmtPercent(m.cash_on_cash)} size="large" />
+        <MetricCard label="Gross IRR" value={fmtPercent(m.gross_irr)} size="large" />
+        <MetricCard label="Net IRR" value={fmtPercent(m.net_irr)} size="large" />
+        <MetricCard label="Gross TVPI" value={fmtMultiple(m.gross_tvpi)} size="large" />
+        <MetricCard label="Net TVPI" value={fmtMultiple(m.net_tvpi)} size="large" />
+        <MetricCard label="Spread" value={m.gross_net_spread ? `${(Number(m.gross_net_spread) * 100).toFixed(0)}bps` : "—"} size="large" />
       </div>
 
       {/* Additional metrics */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3">
-          <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">DPI</p>
-          <p className="mt-1 text-lg font-bold">{fmtMultiple(m.dpi)}</p>
-        </div>
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3">
-          <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">RVPI</p>
-          <p className="mt-1 text-lg font-bold">{fmtMultiple(m.rvpi)}</p>
-        </div>
+        <MetricCard label="DPI" value={fmtMultiple(m.dpi)} size="compact" />
+        <MetricCard label="RVPI" value={fmtMultiple(m.rvpi)} size="compact" />
       </div>
 
       {/* Gross→Net Bridge */}

@@ -30,7 +30,7 @@ export default function TopBar({
         {/* Mobile hamburger */}
         <button
           onClick={onHamburgerClick}
-          className="lg:hidden flex-shrink-0 p-2 mr-1 rounded-md hover:brightness-105 hover:bg-bm-surface/50"
+          className="lg:hidden flex-shrink-0 p-2 mr-1 rounded-md hover:bg-bm-surface/40"
           aria-label="Open sidebar"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -40,7 +40,7 @@ export default function TopBar({
 
         {/* Brand */}
         <Link href="/app" className="flex-shrink-0 text-sm font-medium mr-3 hidden sm:block">
-          Business OS
+          Winston
         </Link>
 
         {/* Departments - horizontal scrollable */}
@@ -61,10 +61,10 @@ export default function TopBar({
                   key={dept.key}
                   href={`/app/${dept.key}`}
                   data-testid={`dept-tab-${dept.key}`}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm whitespace-nowrap transition-[filter,box-shadow] duration-150 flex-shrink-0 border ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm whitespace-nowrap transition-[transform,box-shadow] duration-[120ms] flex-shrink-0 border ${
                     isActive
-                      ? "bg-bm-accent/10 text-bm-text border-bm-accent/35 shadow-bm-glow font-medium"
-                      : "text-bm-muted border-transparent hover:brightness-105 hover:bg-bm-surface/50 hover:border-bm-border/70"
+                      ? "bg-bm-surface/30 text-bm-text border-b-2 border-b-bm-accent border-transparent font-medium"
+                      : "text-bm-muted border-transparent hover:bg-bm-surface/40 hover:text-bm-text"
                   }`}
                 >
                   <span>{icon}</span>
@@ -80,7 +80,7 @@ export default function TopBar({
           <ThemeToggle />
           <Link
             href="/documents"
-            className="text-xs text-bm-muted hover:text-bm-text px-2 py-1.5 rounded-md hover:brightness-105 hover:bg-bm-surface/50 hidden sm:block"
+            className="text-xs text-bm-muted hover:text-bm-text px-2 py-1.5 rounded-md hover:bg-bm-surface/40 hidden sm:block"
           >
             Docs
           </Link>

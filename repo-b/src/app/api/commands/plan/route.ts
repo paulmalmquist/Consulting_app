@@ -5,7 +5,8 @@ import {
   toPlanResponse,
 } from "@/lib/server/commandOrchestrator";
 import { appendAuditEvent, storePlan } from "@/lib/server/commandOrchestratorStore";
-import { hasDemoSession, unauthorizedJson } from "@/lib/server/sessionAuth";
+import { resolveRequestId, traceLog, withRequestId } from "@/lib/server/requestTrace";
+import { hasDemoSession } from "@/lib/server/sessionAuth";
 import { buildContextSnapshot } from "@/lib/server/mcpContext";
 
 export const runtime = "nodejs";
@@ -25,13 +26,14 @@ function normalizeContext(input: CommandContext | undefined): CommandContext {
 }
 
 export async function POST(request: Request) {
+  const requestId = resolveRequestId(request);
   if (!hasDemoSession(request)) {
-    return unauthorizedJson();
+    return NextResponse.json({ error: "Authentication required" }, { status: 401, ...withRequestId(requestId) });
   }
   const payload = (await request.json().catch(() => ({}))) as PlanRequest;
   const message = String(payload.message || "").trim();
   if (!message) {
-    return NextResponse.json({ error: "message is required" }, { status: 400 });
+    return NextResponse.json({ error: "message is required" }, { status: 400, ...withRequestId(requestId) });
   }
 
   const context = normalizeContext(payload.context);
@@ -49,6 +51,12 @@ export async function POST(request: Request) {
     baseOrigin: origin,
   });
   storePlan(plan);
+  traceLog("commands.plan", {
+    request_id: requestId,
+    plan_id: plan.planId,
+    risk: plan.risk,
+    operation: plan.operationName || null,
+  });
 
   appendAuditEvent(plan.planId, "plan.created", {
     route: context.route || null,
@@ -62,5 +70,5 @@ export async function POST(request: Request) {
     clarification: plan.clarification || null,
   });
 
-  return NextResponse.json(toPlanResponse(plan));
+  return NextResponse.json(toPlanResponse(plan), withRequestId(requestId));
 }

@@ -53,7 +53,7 @@ function LoginForm() {
           <p className="text-sm text-bm-muted mt-2">
             {isAdmin
               ? "Enter the admin code to manage environments."
-              : "Enter the access code to enter the Business OS."}
+              : "Enter the access code to enter Winston."}
           </p>
           <form onSubmit={submit} className="mt-6 space-y-4">
             <div>

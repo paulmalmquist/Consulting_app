@@ -13,7 +13,7 @@ export function CardInteractive({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("bm-glass-interactive rounded-lg", className)} {...props} />
+    <div className={cn("bm-glass-interactive rounded-lg cursor-pointer", className)} {...props} />
   );
 }
 

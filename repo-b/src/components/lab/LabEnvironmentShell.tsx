@@ -189,10 +189,10 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
               aria-label="Environment home"
               title="Environment home"
                 className={cn(
-                "rounded-md border p-2 transition-[filter,box-shadow] duration-150 inline-flex items-center justify-center",
+                "rounded-md border p-2 transition-[transform,box-shadow] duration-[120ms] inline-flex items-center justify-center",
                 pathname === `/lab/env/${envId}`
                   ? "border-bm-accent/40 bg-bm-accent/10 text-bm-text"
-                  : "border-bm-border/70 text-bm-muted hover:brightness-105 hover:bg-bm-surface/50 hover:text-bm-text"
+                  : "border-bm-border/70 text-bm-muted hover:bg-bm-surface/50 hover:text-bm-text"
               )}
             >
               <HouseIcon size={18} />
@@ -207,10 +207,10 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
                   aria-label={dept.label}
                   title={dept.label}
                   className={cn(
-                    "rounded-md border p-2 transition-[filter,box-shadow] duration-150 inline-flex items-center justify-center",
+                    "rounded-md border p-2 transition-[transform,box-shadow] duration-[120ms] inline-flex items-center justify-center",
                     active
                       ? "border-bm-accent/40 bg-bm-accent/10 text-bm-text"
-                      : "border-bm-border/70 text-bm-muted hover:brightness-105 hover:bg-bm-surface/50 hover:text-bm-text"
+                      : "border-bm-border/70 text-bm-muted hover:bg-bm-surface/50 hover:text-bm-text"
                   )}
                 >
                   <DeptIcon deptKey={dept.key} size={18} />
@@ -222,10 +222,10 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
               aria-label="Pipeline"
               title="Pipeline"
               className={cn(
-                "rounded-md border p-2 transition-[filter,box-shadow] duration-150 inline-flex items-center justify-center",
+                "rounded-md border p-2 transition-[transform,box-shadow] duration-[120ms] inline-flex items-center justify-center",
                 pathname === `/lab/env/${envId}/pipeline`
                   ? "border-bm-accent/40 bg-bm-accent/10 text-bm-text"
-                  : "border-bm-border/70 text-bm-muted hover:brightness-105 hover:bg-bm-surface/50 hover:text-bm-text"
+                  : "border-bm-border/70 text-bm-muted hover:bg-bm-surface/50 hover:text-bm-text"
               )}
             >
               <PipeIcon size={18} />
@@ -270,10 +270,10 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
                   href={`/lab/env/${envId}/${currentDept}/capability/${cap.key}`}
                   data-testid={`cap-link-${cap.key}`}
                   className={cn(
-                    "block rounded-md border px-3 py-2 text-sm font-normal transition-[filter,box-shadow] duration-150",
+                    "block rounded-md border px-3 py-2 text-sm font-normal transition-[transform,box-shadow] duration-[120ms]",
                     active
                       ? "border-bm-accent/40 bg-bm-accent/10 text-bm-text font-medium"
-                      : "border-transparent text-bm-muted hover:border-bm-border/70 hover:brightness-105 hover:bg-bm-surface/45"
+                      : "border-transparent text-bm-muted hover:border-bm-border/70 hover:bg-bm-surface/45"
                   )}
                 >
                   {cap.label}
@@ -318,7 +318,7 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
                   key={`${cap.key}-mobile`}
                   href={`/lab/env/${envId}/${currentDept}/capability/${cap.key}`}
                   data-testid={`cap-link-${cap.key}`}
-                  className="block rounded-md border border-transparent px-3 py-2 text-sm text-bm-muted hover:border-bm-border/70 hover:brightness-105 hover:bg-bm-surface/45"
+                  className="block rounded-md border border-transparent px-3 py-2 text-sm text-bm-muted hover:border-bm-border/70 hover:bg-bm-surface/45"
                   onClick={() => setMobileSidebarOpen(false)}
                 >
                   {cap.label}

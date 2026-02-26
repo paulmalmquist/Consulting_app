@@ -1,16 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { useToast } from "@/components/ui/Toast";
-import { Badge } from "@/components/ui/Badge";
+import AssistantShell, { type AssistantStage } from "@/components/commandbar/AssistantShell";
+import AdvancedDrawer from "@/components/commandbar/AdvancedDrawer";
+import ConfirmPanel from "@/components/commandbar/ConfirmPanel";
+import ConversationPane from "@/components/commandbar/ConversationPane";
+import ExecutePanel from "@/components/commandbar/ExecutePanel";
+import PlanPanel from "@/components/commandbar/PlanPanel";
+import QuickActions, { type QuickAction } from "@/components/commandbar/QuickActions";
 import { Button } from "@/components/ui/Button";
-import { Dialog } from "@/components/ui/Dialog";
 import { Textarea } from "@/components/ui/Textarea";
-import { Input } from "@/components/ui/Input";
-import PlanCard from "@/components/commandbar/PlanCard";
-import ExecutionTimeline from "@/components/commandbar/ExecutionTimeline";
-import VerificationCard from "@/components/commandbar/VerificationCard";
+import { useToast } from "@/components/ui/Toast";
+import {
+  type AssistantApiError,
+  type AssistantApiTrace,
+  type DiagnosticsCheck,
+  buildExecutionSummary,
+  cancelRun,
+  confirmPlan,
+  createPlan,
+  fetchContextSnapshot,
+  getAssistantFeatureFlags,
+  getRunStatus,
+  executePlan,
+  runDiagnostics,
+} from "@/lib/commandbar/assistantApi";
 import {
   type CommandContextKey,
   type CommandMessage,
@@ -19,31 +34,10 @@ import {
   persistHistory,
   resolveCommandContext,
 } from "@/lib/commandbar/store";
-import type {
-  CommandAuditEvent,
-  CommandContext,
-  ContextSnapshot,
-  CommandRun,
-  ExecutionPlan,
-  PlanResponse,
-} from "@/lib/commandbar/types";
+import type { CommandContext, CommandRun, ContextSnapshot } from "@/lib/commandbar/types";
+import { ContractValidationError, type AssistantPlan } from "@/lib/commandbar/schemas";
 
-type RunStatusResponse = {
-  run: CommandRun;
-  plan: {
-    plan_id: string;
-    risk: string;
-    read_only: boolean;
-    intent_summary: string;
-    impacted_entities: string[];
-    mutations: string[];
-    requires_double_confirmation: boolean;
-    double_confirmation_phrase: string | null;
-  } | null;
-  audit_events: CommandAuditEvent[];
-};
-
-type PlanEdits = {
+type PlanOverrides = {
   envId: string;
   businessId: string;
   name: string;
@@ -51,20 +45,17 @@ type PlanEdits = {
   notes: string;
 };
 
-function formatContextBadge(contextKey: CommandContextKey) {
-  if (contextKey === "global") return "Global";
-  return contextKey;
-}
+const FEATURE_FLAGS = getAssistantFeatureFlags();
 
 function readRouteEnvId(pathname: string): string | null {
-  const m = pathname.match(/^\/lab\/env\/([^/]+)/);
-  return m?.[1] || null;
+  const match = pathname.match(/^\/lab\/env\/([^/]+)/);
+  return match?.[1] || null;
 }
 
-function readContextFromBrowser(): CommandContext {
-  if (typeof window === "undefined") return {};
-  const route = window.location.pathname;
-  const envFromRoute = readRouteEnvId(route);
+function readContextFromBrowser(pathname: string): CommandContext {
+  if (typeof window === "undefined") return { route: pathname || "/" };
+
+  const envFromRoute = readRouteEnvId(pathname);
   const envFromStorage = window.localStorage.getItem("demo_lab_env_id");
   const businessId = window.localStorage.getItem("bos_business_id");
   const selected = window.getSelection?.()?.toString().trim() || "";
@@ -72,12 +63,12 @@ function readContextFromBrowser(): CommandContext {
   return {
     currentEnvId: envFromRoute || envFromStorage || null,
     currentBusinessId: businessId || null,
-    route,
+    route: pathname || window.location.pathname,
     selection: selected || null,
   };
 }
 
-function planEditsFromPlan(plan: ExecutionPlan): PlanEdits {
+function overridesFromPlan(plan: AssistantPlan): PlanOverrides {
   return {
     envId: String(plan.intent.parameters.envId || plan.context.currentEnvId || ""),
     businessId: String(plan.intent.parameters.businessId || plan.context.currentBusinessId || ""),
@@ -87,47 +78,121 @@ function planEditsFromPlan(plan: ExecutionPlan): PlanEdits {
   };
 }
 
-function formatRunSummary(run: CommandRun): string {
-  if (run.status === "completed") return "Execution completed with verification.";
-  if (run.status === "failed") return "Execution failed. Review step errors and logs.";
-  if (run.status === "cancelled") return "Execution was cancelled.";
-  if (run.status === "needs_clarification") return "Execution paused: clarification required.";
-  if (run.status === "blocked") return "Execution was blocked.";
-  return "Execution in progress.";
+function workspaceFromContext(snapshot: ContextSnapshot | null, fallback: CommandContext) {
+  return {
+    env: snapshot?.selectedEnv?.client_name || fallback.currentEnvId || "none",
+    business: snapshot?.business?.name || fallback.currentBusinessId || "none",
+    route: snapshot?.route || fallback.route || "/",
+  };
 }
+
+function toFriendlyError(error: unknown): string {
+  if (error instanceof ContractValidationError) {
+    return "Winston received an unexpected response format. Review Advanced / Debug for raw payload details.";
+  }
+  if (error instanceof Error) return error.message;
+  return "Unknown assistant error";
+}
+
+function deriveQuickActions(pathname: string, context: ContextSnapshot | null): QuickAction[] {
+  const defaults: QuickAction[] = [
+    {
+      id: "list-environments",
+      label: "List Environments",
+      prompt: "List environments and highlight any needing attention.",
+      description: "Read-only environment overview",
+    },
+    {
+      id: "run-health",
+      label: "Workspace Health",
+      prompt: "Run a workspace health check and summarize issues.",
+      description: "Health check with no mutations",
+    },
+    {
+      id: "recent-docs",
+      label: "Recent Documents",
+      prompt: "List recent documents for the current workspace.",
+      description: "Read-only document discovery",
+    },
+  ];
+
+  if (pathname.startsWith("/tasks")) {
+    defaults.unshift({
+      id: "tasks-summary",
+      label: "Task Summary",
+      prompt: "Summarize high-priority tasks for this workspace.",
+      description: "Read-only task report",
+    });
+  }
+
+  if (context?.selectedEnv?.env_id) {
+    defaults.unshift({
+      id: "env-context",
+      label: "Current Env Snapshot",
+      prompt: `Summarize environment ${context.selectedEnv.env_id} with active modules and recent run context.`,
+      description: "Read-only summary tied to current environment",
+    });
+  }
+
+  return defaults.slice(0, 5);
+}
+
+const EMPTY_EXAMPLES = [
+  "List environments and summarize readiness.",
+  "Run a health check for this workspace.",
+  "Show the last successful command run and verification links.",
+  "Plan a read-only review of recent documents.",
+];
 
 export default function GlobalCommandBar() {
   const pathname = usePathname();
   const { push } = useToast();
+
   const [isOpen, setIsOpen] = useState(false);
+  const [stage, setStage] = useState<AssistantStage>("plan");
   const [contextKey, setContextKey] = useState<CommandContextKey>("global");
   const [messages, setMessages] = useState<CommandMessage[]>([]);
   const [prompt, setPrompt] = useState("");
+  const [contextSnapshot, setContextSnapshot] = useState<ContextSnapshot | null>(null);
+  const [authState, setAuthState] = useState<"unknown" | "authenticated" | "unauthenticated">("unknown");
   const [planning, setPlanning] = useState(false);
-  const [activePlan, setActivePlan] = useState<ExecutionPlan | null>(null);
-  const [editingPlan, setEditingPlan] = useState(false);
-  const [planEdits, setPlanEdits] = useState<PlanEdits>({
+  const [confirming, setConfirming] = useState(false);
+  const [activePlan, setActivePlan] = useState<AssistantPlan | null>(null);
+  const [run, setRun] = useState<CommandRun | null>(null);
+  const [overrides, setOverrides] = useState<PlanOverrides>({
     envId: "",
     businessId: "",
     name: "",
     industry: "",
     notes: "",
   });
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
-  const [confirming, setConfirming] = useState(false);
-  const [run, setRun] = useState<CommandRun | null>(null);
-  const [auditEvents, setAuditEvents] = useState<CommandAuditEvent[]>([]);
-  const [showAudit, setShowAudit] = useState(false);
-  const [logsOpen, setLogsOpen] = useState(false);
-  const transcriptRef = useRef<HTMLDivElement>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsCheck[]>([]);
+  const [runningDiagnostics, setRunningDiagnostics] = useState(false);
+  const [traces, setTraces] = useState<AssistantApiTrace[]>([]);
+  const [recentRuns, setRecentRuns] = useState<ContextSnapshot["recentRuns"]>([]);
+  const [raw, setRaw] = useState<{
+    contextSnapshot?: unknown;
+    plan?: unknown;
+    confirm?: unknown;
+    execute?: unknown;
+    run?: unknown;
+    error?: unknown;
+  }>({});
 
-  const isPrivateSurface = useMemo(() => {
-    const privatePrefixes = ["/lab", "/app", "/tasks", "/documents", "/onboarding"];
-    return privatePrefixes.some(
-      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
-    );
-  }, [pathname]);
+  const context = useMemo(() => readContextFromBrowser(pathname), [pathname, isOpen]);
+  const workspace = useMemo(() => workspaceFromContext(contextSnapshot, context), [contextSnapshot, context]);
+  const quickActions = useMemo(() => deriveQuickActions(pathname, contextSnapshot), [pathname, contextSnapshot]);
+  const authenticated = authState === "authenticated";
+
+  const appendTrace = (trace: AssistantApiTrace) => {
+    setTraces((prev) => [trace, ...prev].slice(0, 30));
+  };
+
+  const appendMessage = (role: CommandMessage["role"], content: string) => {
+    setMessages((prev) => [...prev, makeMessage(role, content)]);
+  };
 
   useEffect(() => {
     const syncContext = () => {
@@ -152,11 +217,6 @@ export default function GlobalCommandBar() {
   }, [contextKey, messages]);
 
   useEffect(() => {
-    if (!transcriptRef.current) return;
-    transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
-  }, [messages, isOpen]);
-
-  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const shortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
       if (!shortcut) return;
@@ -175,34 +235,76 @@ export default function GlobalCommandBar() {
   }, []);
 
   useEffect(() => {
+    if (!isOpen) return;
+
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const payload = await fetchContextSnapshot(context);
+        if (cancelled) return;
+        setContextSnapshot(payload.snapshot);
+        setRecentRuns(payload.snapshot.recentRuns || []);
+        setAuthState("authenticated");
+        appendTrace(payload.trace);
+        setRaw((prev) => ({ ...prev, contextSnapshot: payload.raw }));
+      } catch (error) {
+        if (cancelled) return;
+        const isAuthError =
+          typeof error === "object" &&
+          error !== null &&
+          "status" in error &&
+          Number((error as AssistantApiError).status) === 401;
+        setAuthState(isAuthError ? "unauthenticated" : "unknown");
+        setRaw((prev) => ({ ...prev, error }));
+      }
+    };
+
+    void refresh();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, context]);
+
+  useEffect(() => {
     if (!run?.runId) return;
-    if (run.status !== "running" && run.status !== "pending") return;
+    if (!["running", "pending"].includes(run.status)) return;
 
     let cancelled = false;
     const poll = async () => {
       try {
-        const response = await fetch(`/api/commands/runs/${encodeURIComponent(run.runId)}`, {
-          cache: "no-store",
-        });
-        if (!response.ok) return;
-        const payload = (await response.json()) as RunStatusResponse;
+        const payload = await getRunStatus(run.runId);
         if (cancelled) return;
 
+        appendTrace(payload.trace);
         setRun(payload.run);
-        setAuditEvents(payload.audit_events || []);
+        setRaw((prev) => ({ ...prev, run: payload.raw }));
 
-        if (payload.run.status === "completed" || payload.run.status === "failed" || payload.run.status === "cancelled") {
-          setMessages((prev) => [...prev, makeMessage("assistant", formatRunSummary(payload.run))]);
+        if (!["running", "pending"].includes(payload.run.status)) {
+          setRecentRuns((prev) => {
+            const next = [
+              {
+                runId: payload.run.runId,
+                planId: payload.run.planId,
+                status: payload.run.status,
+                createdAt: payload.run.createdAt,
+              },
+              ...prev.filter((item) => item.runId !== payload.run.runId),
+            ];
+            return next.slice(0, 8);
+          });
+
+          appendMessage("assistant", `Run ${payload.run.runId} finished with status ${payload.run.status}.`);
         }
-      } catch {
-        // ignore polling blips
+      } catch (error) {
+        if (cancelled) return;
+        appendMessage("system", toFriendlyError(error));
       }
     };
 
     void poll();
     const id = window.setInterval(() => {
       void poll();
-    }, 800);
+    }, 900);
 
     return () => {
       cancelled = true;
@@ -210,195 +312,194 @@ export default function GlobalCommandBar() {
     };
   }, [run?.runId, run?.status]);
 
-  const contextSnapshot = useMemo(() => readContextFromBrowser(), [isOpen, contextKey]);
-
-  const canSend = !planning && !(run && run.status === "running");
-
   const clearHistory = () => {
     setMessages([]);
     persistHistory(contextKey, []);
     setActivePlan(null);
     setRun(null);
-    setAuditEvents([]);
-  };
-
-  const fetchContextSnapshot = async (context: CommandContext): Promise<ContextSnapshot> => {
-    const url = new URL("/api/mcp/context-snapshot", window.location.origin);
-    if (context.route) url.searchParams.set("route", context.route);
-    if (context.currentEnvId) url.searchParams.set("currentEnvId", context.currentEnvId);
-    if (context.currentBusinessId) url.searchParams.set("businessId", context.currentBusinessId);
-
-    const response = await fetch(url.toString(), { cache: "no-store" });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || "Failed to load context snapshot");
-    }
-    return (await response.json()) as ContextSnapshot;
-  };
-
-  const submitPlanRequest = async (text: string, contextOverride?: Partial<CommandContext>) => {
-    const context = {
-      ...readContextFromBrowser(),
-      ...(contextOverride || {}),
-    };
-    const contextSnapshotPayload = await fetchContextSnapshot(context);
-    const response = await fetch("/api/mcp/plan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: text,
-        context,
-        contextSnapshot: contextSnapshotPayload,
-      }),
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || "Failed to build plan");
-    }
-    return (await response.json()) as PlanResponse;
-  };
-
-  const handleClarificationChoice = async (value: string) => {
-    if (!activePlan) return;
-    setPlanning(true);
-    try {
-      const payload = await submitPlanRequest(activePlan.intent.rawMessage, {
-        currentEnvId: value,
-      });
-      setActivePlan(payload.plan);
-      setPlanEdits(planEditsFromPlan(payload.plan));
-      setEditingPlan(false);
-      setMessages((prev) => [...prev, makeMessage("assistant", "Plan updated with your clarification.")]);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to apply clarification";
-      setMessages((prev) => [...prev, makeMessage("system", message)]);
-      push({ title: "Clarification failed", description: message, variant: "danger" });
-    } finally {
-      setPlanning(false);
-    }
-  };
-
-  const sendPrompt = async () => {
-    const text = prompt.trim();
-    if (!text || !canSend) return;
-
-    setMessages((prev) => [...prev, makeMessage("user", text)]);
     setPrompt("");
-    setPlanning(true);
-    setRun(null);
-    setAuditEvents([]);
-    setShowAudit(false);
-
-    try {
-      const payload = await submitPlanRequest(text);
-      setActivePlan(payload.plan);
-      setPlanEdits(planEditsFromPlan(payload.plan));
-      setEditingPlan(false);
-      setMessages((prev) => [...prev, makeMessage("assistant", "Draft plan ready. Review and confirm to execute.")]);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Planning failed";
-      setMessages((prev) => [...prev, makeMessage("system", message)]);
-      push({ title: "Planning failed", description: message, variant: "danger" });
-    } finally {
-      setPlanning(false);
-    }
+    setRaw({});
+    setStage("plan");
   };
 
-  const cancelDraftPlan = () => {
-    setActivePlan(null);
-    setEditingPlan(false);
-    setConfirmOpen(false);
-    setConfirmText("");
-    setMessages((prev) => [...prev, makeMessage("system", "Plan cancelled. No changes were made.")]);
+  const ensureContextSnapshot = async () => {
+    if (contextSnapshot) return contextSnapshot;
+    const payload = await fetchContextSnapshot(context);
+    setContextSnapshot(payload.snapshot);
+    setRecentRuns(payload.snapshot.recentRuns || []);
+    appendTrace(payload.trace);
+    setRaw((prev) => ({ ...prev, contextSnapshot: payload.raw }));
+    return payload.snapshot;
   };
 
-  const stopRun = async () => {
-    if (!run?.runId) return;
-    await fetch(`/api/commands/runs/${encodeURIComponent(run.runId)}/cancel`, {
-      method: "POST",
-    }).catch(() => null);
-  };
-
-  const confirmAndRun = async () => {
-    if (!activePlan) return;
-    if (activePlan.clarification?.needed) {
-      const reason =
-        activePlan.clarification.reason ||
-        "I couldn't resolve a unique target. Please edit the plan and retry.";
-      setMessages((prev) => [...prev, makeMessage("system", reason)]);
-      push({ title: "Needs clarification", description: reason, variant: "warning" });
+  const requestPlan = async (message: string, contextOverride?: Partial<CommandContext>) => {
+    if (!authenticated) {
+      appendMessage("system", "Authentication required. Sign in to generate plans.");
+      setAuthState("unauthenticated");
       return;
     }
-    setConfirming(true);
 
-    const overrides = {
-      envId: planEdits.envId || undefined,
-      businessId: planEdits.businessId || undefined,
-      name: planEdits.name || undefined,
-      industry: planEdits.industry || undefined,
-      notes: planEdits.notes || undefined,
+    const content = message.trim();
+    if (!content) return;
+
+    setPlanning(true);
+    setStage("plan");
+
+    const nextContext: CommandContext = {
+      ...context,
+      ...(contextOverride || {}),
     };
 
     try {
-      const confirmResponse = await fetch("/api/commands/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          plan_id: activePlan.planId,
-          confirmation_text: confirmText,
-          overrides,
-        }),
+      const snapshot = await ensureContextSnapshot();
+      const response = await createPlan({
+        message: content,
+        context: nextContext,
+        contextSnapshot: snapshot,
       });
-      if (!confirmResponse.ok) {
-        const err = await confirmResponse.json().catch(() => ({}));
-        throw new Error(err.error || "Confirmation failed");
-      }
-      const confirmedPayload = (await confirmResponse.json()) as {
-        confirm_token: string;
-        plan?: ExecutionPlan;
-      };
 
-      const effectivePlan = confirmedPayload.plan || activePlan;
+      setActivePlan(response.plan);
+      setOverrides(overridesFromPlan(response.plan));
+      appendTrace(response.trace);
+      setRaw((prev) => ({ ...prev, plan: response.raw }));
+      appendMessage("assistant", "Plan drafted. Review details before confirmation.");
+    } catch (error) {
+      const friendly = toFriendlyError(error);
+      setRaw((prev) => ({ ...prev, error }));
+      appendMessage("system", friendly);
+      push({ title: "Planning failed", description: friendly, variant: "danger" });
+    } finally {
+      setPlanning(false);
+    }
+  };
+
+  const onSend = async (message?: string) => {
+    const next = (message || prompt).trim();
+    if (!next) return;
+
+    appendMessage("user", next);
+    setPrompt("");
+    setRun(null);
+    void requestPlan(next);
+  };
+
+  const onConfirmExecute = async () => {
+    if (!activePlan) return;
+    if (!authenticated) {
+      appendMessage("system", "Authentication required. Sign in to execute plans.");
+      return;
+    }
+
+    setConfirming(true);
+    setStage("confirm");
+
+    try {
+      const confirmed = await confirmPlan({
+        planId: activePlan.planId,
+        confirmationText: confirmText,
+        overrides: {
+          envId: overrides.envId || undefined,
+          businessId: overrides.businessId || undefined,
+          name: overrides.name || undefined,
+          industry: overrides.industry || undefined,
+          notes: overrides.notes || undefined,
+        },
+      });
+      appendTrace(confirmed.trace);
+      setRaw((prev) => ({ ...prev, confirm: confirmed.raw }));
+
+      const effectivePlan = confirmed.plan || activePlan;
       setActivePlan(effectivePlan);
 
-      const executeResponse = await fetch("/api/commands/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          plan_id: effectivePlan.planId,
-          confirm_token: confirmedPayload.confirm_token,
-        }),
-      });
-      if (!executeResponse.ok) {
-        const err = await executeResponse.json().catch(() => ({}));
-        throw new Error(err.error || "Execution failed to start");
-      }
-      const executePayload = (await executeResponse.json()) as { run_id: string; status: CommandRun["status"] };
-      const startedRun: CommandRun = {
-        runId: executePayload.run_id,
+      const executed = await executePlan({
         planId: effectivePlan.planId,
-        status: executePayload.status,
+        confirmToken: confirmed.confirmToken,
+      });
+      appendTrace(executed.trace);
+      setRaw((prev) => ({ ...prev, execute: executed.raw }));
+
+      const startedRun: CommandRun = {
+        runId: executed.runId,
+        planId: effectivePlan.planId,
+        status: executed.status,
         createdAt: Date.now(),
         cancelled: false,
-        logs: [],
+        logs: [
+          `request_id=${executed.trace.requestId}`,
+          `Run ${executed.runId} accepted.`,
+        ],
         stepResults: [],
         verification: [],
       };
+
       setRun(startedRun);
-      setConfirmOpen(false);
+      setStage("execute");
       setConfirmText("");
-      setMessages((prev) => [...prev, makeMessage("assistant", "Execution started." )]);
-      push({ title: "Execution started", description: `Run ${executePayload.run_id}`, variant: "success" });
+      appendMessage("assistant", `Execution started for run ${executed.runId}.`);
+      push({
+        title: "Execution started",
+        description: `Run ${executed.runId}`,
+        variant: "success",
+      });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to execute plan";
-      setMessages((prev) => [...prev, makeMessage("system", message)]);
-      push({ title: "Execution blocked", description: message, variant: "danger" });
+      const friendly = toFriendlyError(error);
+      setRaw((prev) => ({ ...prev, error }));
+      appendMessage("system", friendly);
+      push({ title: "Execution blocked", description: friendly, variant: "danger" });
     } finally {
       setConfirming(false);
     }
   };
 
-  if (!isPrivateSurface) return null;
+  const onCancelRun = async () => {
+    if (!run?.runId) return;
+    try {
+      const payload = await cancelRun(run.runId);
+      appendTrace(payload.trace);
+      setRun((prev) => (prev ? { ...prev, status: payload.status } : prev));
+      appendMessage("assistant", `Run ${run.runId} cancelled.`);
+    } catch (error) {
+      appendMessage("system", toFriendlyError(error));
+    }
+  };
+
+  const onRetry = () => {
+    if (!activePlan) return;
+    setStage("confirm");
+    appendMessage("assistant", "Review confirmation details and run again.");
+  };
+
+  const onCopySummary = async () => {
+    const summary = buildExecutionSummary(activePlan, run);
+    try {
+      await navigator.clipboard.writeText(summary);
+      push({ title: "Summary copied", description: "Run summary copied to clipboard.", variant: "success" });
+    } catch {
+      push({ title: "Copy failed", description: "Clipboard permission is unavailable.", variant: "warning" });
+    }
+  };
+
+  const onRunDiagnostics = async () => {
+    setRunningDiagnostics(true);
+    try {
+      const checks = await runDiagnostics({ context, contextSnapshot });
+      setDiagnostics(checks);
+      const failed = checks.some((check) => !check.ok);
+      push({
+        title: failed ? "Diagnostics found issues" : "Diagnostics passed",
+        description: failed ? "Review Advanced / Debug for details." : "All checks completed successfully.",
+        variant: failed ? "warning" : "success",
+      });
+    } catch (error) {
+      const friendly = toFriendlyError(error);
+      appendMessage("system", friendly);
+      push({ title: "Diagnostics failed", description: friendly, variant: "danger" });
+    } finally {
+      setRunningDiagnostics(false);
+    }
+  };
+
+  const canSend = authenticated && !planning && !(run && run.status === "running");
 
   return (
     <>
@@ -406,240 +507,138 @@ export default function GlobalCommandBar() {
         type="button"
         data-testid="global-commandbar-toggle"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="fixed bottom-5 right-5 z-[55] inline-flex h-11 w-11 items-center justify-center rounded-full border border-bm-border/70 bg-bm-surface/80 text-bm-text shadow-bm-card backdrop-blur-md hover:bg-bm-surface"
-        aria-label="Toggle command bar"
-        title="Commands"
+        className="fixed bottom-5 right-5 z-[55] inline-flex h-11 items-center justify-center rounded-full border border-bm-border/70 bg-bm-surface/85 px-4 text-sm font-medium text-bm-text shadow-bm-card backdrop-blur-md hover:bg-bm-surface"
+        aria-label="Open Winston command center"
+        title="Winston Commands"
       >
-        <span className="text-base">⌘</span>
+        Winston
       </button>
 
-      {isOpen ? (
-        <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/45"
-            aria-label="Close command console"
-            onClick={() => setIsOpen(false)}
-          />
-
-          <div className="absolute bottom-0 right-0 h-[90vh] w-full max-w-2xl rounded-t-2xl border border-bm-border/70 bg-bm-bg p-4 shadow-bm-card md:right-4 md:top-4 md:h-auto md:max-h-[92vh] md:rounded-2xl">
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold">Commands</h2>
-                <p className="text-xs text-bm-muted">Context: {formatContextBadge(contextKey)}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="accent">Plan → Confirm → Execute</Badge>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  data-testid="global-commandbar-close"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Close
-                </Button>
-              </div>
-            </div>
-
-            <div className="mb-3 rounded-xl border border-bm-border/70 bg-bm-surface/35 p-3">
-              <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Trust Boundary</p>
-              <p className="mt-1 text-xs text-bm-muted">
-                Operational actions are available only in authenticated workspace surfaces.
-              </p>
-            </div>
-
-            <div className="mb-3 rounded-xl border border-bm-border/70 bg-bm-surface/35 p-3">
-              <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Context Header</p>
-              <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-bm-muted md:grid-cols-3">
-                <p>
-                  Env: <span className="text-bm-text">{contextSnapshot.currentEnvId || "none"}</span>
-                </p>
-                <p>
-                  Business: <span className="text-bm-text">{contextSnapshot.currentBusinessId || "none"}</span>
-                </p>
-                <p>
-                  Route: <span className="text-bm-text">{contextSnapshot.route || "/"}</span>
-                </p>
-              </div>
-            </div>
-
-            <div
-              ref={transcriptRef}
-              data-testid="global-commandbar-output"
-              className="h-[26vh] overflow-y-auto rounded-xl border border-bm-border/70 bg-bm-surface/35 p-3 md:h-56"
-            >
-              {messages.length === 0 ? (
-                <p className="text-sm text-bm-muted">
-                  Type a command. The system will interpret, draft a plan, then wait for your confirmation before executing.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className="rounded-lg border border-bm-border/60 bg-bm-surface/30 p-2"
-                    >
-                      <p className="mb-1 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
-                        {message.role}
-                      </p>
-                      <p className="whitespace-pre-wrap text-sm text-bm-text">{message.content}</p>
-                    </div>
-                  ))}
+      <AssistantShell
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        stage={stage}
+        authenticated={authState === "authenticated" ? true : authState === "unauthenticated" ? false : null}
+        workspace={workspace}
+        advancedOpen={advancedOpen}
+        onToggleAdvanced={() => setAdvancedOpen((prev) => !prev)}
+        leftPane={
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="border-b border-bm-border/60 p-3">
+              {authenticated ? null : (
+                <div className="mb-3 rounded-lg border border-bm-warning/40 bg-bm-warning/10 p-2 text-xs text-bm-text">
+                  Authentication required to run commands. Sign in, then reopen this panel.
                 </div>
               )}
+              <QuickActions
+                actions={quickActions}
+                disabled={!authenticated}
+                onSelect={(action) => {
+                  appendMessage("user", action.prompt);
+                  void requestPlan(action.prompt);
+                }}
+              />
             </div>
 
-            <div className="mt-3 space-y-3 overflow-y-auto max-h-[42vh] pr-1">
-              {planning ? (
-                <div className="rounded-xl border border-bm-border/70 bg-bm-surface/25 p-3">
-                  <p className="mb-2 text-sm text-bm-muted">Interpreting...</p>
-                  <div className="space-y-2 animate-pulse">
-                    <div className="h-3 rounded bg-bm-surface/80" />
-                    <div className="h-3 rounded bg-bm-surface/60" />
-                    <div className="h-3 w-2/3 rounded bg-bm-surface/60" />
-                  </div>
-                </div>
-              ) : null}
-
-              {activePlan && !run ? (
-                <PlanCard
-                  plan={activePlan}
-                  onConfirm={() => setConfirmOpen(true)}
-                  onCancel={cancelDraftPlan}
-                  onChooseClarification={handleClarificationChoice}
-                  onToggleEdit={() => setEditingPlan((prev) => !prev)}
-                  editing={editingPlan}
-                  edits={planEdits}
-                  onEditChange={(key, value) =>
-                    setPlanEdits((prev) => ({
-                      ...prev,
-                      [key]: value,
-                    }))
-                  }
-                  confirmDisabled={Boolean(activePlan.clarification?.needed)}
-                />
-              ) : null}
-
-              {activePlan && run ? (
-                <>
-                  <ExecutionTimeline
-                    run={run}
-                    steps={activePlan.steps}
-                    onStop={stopRun}
-                    logsOpen={logsOpen}
-                    onToggleLogs={() => setLogsOpen((prev) => !prev)}
-                  />
-                  <VerificationCard items={run.verification || []} />
-                  <div className="rounded-xl border border-bm-border/70 bg-bm-surface/25 p-3">
-                    <button
-                      type="button"
-                      className="text-xs text-bm-muted hover:text-bm-text"
-                      onClick={() => setShowAudit((prev) => !prev)}
-                    >
-                      {showAudit ? "Hide audit details" : "View audit details"}
-                    </button>
-                    {showAudit ? (
-                      <div className="mt-2 max-h-40 overflow-y-auto rounded-md bg-bm-bg/70 p-2 text-xs text-bm-muted">
-                        <p className="mb-2 text-[11px] text-bm-muted2">
-                          Command run audit is process-memory and non-durable in this release.
-                        </p>
-                        {auditEvents.length ? (
-                          <ul className="space-y-1">
-                            {auditEvents.map((event) => (
-                              <li key={event.id}>
-                                {new Date(event.at).toLocaleTimeString()} - {event.kind}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p>No audit records yet.</p>
-                        )}
-                      </div>
-                    ) : null}
-                  </div>
-                </>
-              ) : null}
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <ConversationPane
+                contextKey={contextKey}
+                messages={messages}
+                examples={EMPTY_EXAMPLES}
+                recentRuns={recentRuns}
+              />
             </div>
 
-            <div className="mt-3 space-y-2">
+            <div className="border-t border-bm-border/60 p-3">
               <Textarea
                 data-testid="global-commandbar-input"
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
                 rows={3}
-                placeholder="Type a command..."
+                placeholder="Tell Winston what you want to do..."
+                aria-label="Command input"
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
-                    void sendPrompt();
+                    void onSend();
                   }
                 }}
                 disabled={!canSend}
               />
-              <div className="flex items-center justify-between gap-2">
-                <Button size="sm" variant="secondary" onClick={clearHistory}>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <Button type="button" size="sm" variant="secondary" onClick={clearHistory}>
                   Clear
                 </Button>
                 <Button
+                  type="button"
                   data-testid="global-commandbar-send"
                   size="sm"
-                  onClick={() => void sendPrompt()}
                   disabled={!canSend || !prompt.trim()}
+                  onClick={() => void onSend()}
                 >
-                  Send
+                  Plan Command
                 </Button>
               </div>
             </div>
           </div>
-        </div>
-      ) : null}
-
-      <Dialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        title="Confirm Plan Execution"
-        description="No mutation steps will run until this is confirmed."
-        footer={
-          <>
-            <Button size="sm" variant="secondary" onClick={() => setConfirmOpen(false)} disabled={confirming}>
-              Back
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => void confirmAndRun()}
-              disabled={confirming || Boolean(activePlan?.clarification?.needed)}
-            >
-              {confirming ? "Starting..." : "Confirm & Run"}
-            </Button>
-          </>
         }
-      >
-        {activePlan ? (
-          <div className="space-y-3 text-sm">
-            <p>
-              Risk level: <span className="font-medium">{activePlan.risk.toUpperCase()}</span>
-            </p>
-            <p>Mutations: {activePlan.mutations.length ? activePlan.mutations.join(", ") : "Read-only"}</p>
-            {activePlan.clarification?.needed ? (
-              <div className="rounded-lg border border-bm-warning/40 bg-bm-warning/10 p-3 text-sm">
-                {activePlan.clarification.reason || "Clarification is required before execution."}
-              </div>
-            ) : null}
-            {activePlan.requiresDoubleConfirmation ? (
-              <div className="space-y-2 rounded-lg border border-bm-danger/40 bg-bm-danger/10 p-3">
-                <p className="text-xs text-bm-muted">
-                  High-risk action detected. Type <span className="font-semibold text-bm-text">{activePlan.doubleConfirmationPhrase}</span> to continue.
-                </p>
-                <Input
-                  value={confirmText}
-                  onChange={(event) => setConfirmText(event.target.value)}
-                  placeholder={activePlan.doubleConfirmationPhrase || "CONFIRM DELETE"}
-                />
-              </div>
-            ) : null}
+        rightPane={
+          <div className="flex h-full min-h-0 flex-col overflow-hidden">
+            <PlanPanel
+              plan={activePlan}
+              planning={planning}
+              onNeedConfirm={() => setStage("confirm")}
+              onReset={() => {
+                setActivePlan(null);
+                setRun(null);
+                setStage("plan");
+              }}
+              onClarificationChoice={(value) => {
+                if (!activePlan) return;
+                appendMessage("user", `Clarification: ${value}`);
+                void requestPlan(activePlan.intent.rawMessage, { currentEnvId: value });
+              }}
+            />
+
+            <ConfirmPanel
+              plan={activePlan}
+              stageActive={stage === "confirm"}
+              overrides={overrides}
+              onOverrideChange={(key, value) =>
+                setOverrides((prev) => ({
+                  ...prev,
+                  [key]: value,
+                }))
+              }
+              confirmText={confirmText}
+              onConfirmTextChange={setConfirmText}
+              confirming={confirming}
+              onBack={() => setStage("plan")}
+              onConfirmExecute={() => void onConfirmExecute()}
+            />
+
+            <ExecutePanel
+              plan={activePlan}
+              run={run}
+              running={Boolean(run && (run.status === "running" || run.status === "pending"))}
+              onCancel={() => void onCancelRun()}
+              onRetry={onRetry}
+              onCopySummary={() => void onCopySummary()}
+            />
+
+            <AdvancedDrawer
+              open={advancedOpen}
+              context={contextSnapshot}
+              traces={traces}
+              diagnostics={diagnostics}
+              runningDiagnostics={runningDiagnostics}
+              raw={raw}
+              flags={FEATURE_FLAGS}
+              onRunDiagnostics={() => void onRunDiagnostics()}
+            />
           </div>
-        ) : null}
-      </Dialog>
+        }
+      />
     </>
   );
 }

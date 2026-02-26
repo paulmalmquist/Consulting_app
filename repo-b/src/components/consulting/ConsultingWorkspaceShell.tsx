@@ -83,9 +83,9 @@ export default function ConsultingWorkspaceShell({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold">{envLabel}</h1>
+              <h1 className="text-xl font-display font-semibold tracking-tight">{envLabel}</h1>
               <span className="inline-flex items-center gap-1 rounded-full border border-bm-border/70 px-2.5 py-1 text-xs text-bm-muted2">
-                Consulting Revenue OS
+                Consulting Revenue Engine
               </span>
             </div>
             <p className="text-xs text-bm-muted2">
@@ -112,18 +112,18 @@ export default function ConsultingWorkspaceShell({
 
       <div className="grid gap-4 lg:grid-cols-[200px,1fr]">
         <aside
-          className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3 h-fit"
+          className="rounded-xl border border-bm-border/70 bg-bm-bg p-3 h-fit"
           data-testid="consulting-sidebar"
         >
-          <nav className="space-y-1" data-testid="consulting-left-nav">
+          <nav className="space-y-1.5" data-testid="consulting-left-nav">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`block rounded-lg border px-3 py-2 text-sm transition ${
+                className={`block rounded-lg border px-3 py-2.5 text-sm transition-[transform,box-shadow] duration-[120ms] ${
                   isActive(pathname, item.href, item.isBase)
-                    ? "border-bm-accent/60 bg-bm-accent/10"
-                    : "border-bm-border/70 hover:bg-bm-surface/40"
+                    ? "bg-bm-surface/30 text-bm-text border-transparent border-l-2 border-l-bm-accent font-medium"
+                    : "text-bm-muted border-transparent hover:bg-bm-surface/30 hover:text-bm-text"
                 }`}
               >
                 {item.label}

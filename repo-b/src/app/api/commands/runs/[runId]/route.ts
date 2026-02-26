@@ -4,7 +4,8 @@ import {
   getRun,
   listAuditEvents,
 } from "@/lib/server/commandOrchestratorStore";
-import { hasDemoSession, unauthorizedJson } from "@/lib/server/sessionAuth";
+import { resolveRequestId, traceLog, withRequestId } from "@/lib/server/requestTrace";
+import { hasDemoSession } from "@/lib/server/sessionAuth";
 
 export const runtime = "nodejs";
 
@@ -12,17 +13,24 @@ export async function GET(
   request: Request,
   { params }: { params: { runId: string } }
 ) {
+  const requestId = resolveRequestId(request);
   if (!hasDemoSession(request)) {
-    return unauthorizedJson();
+    return NextResponse.json({ error: "Authentication required" }, { status: 401, ...withRequestId(requestId) });
   }
   const { runId } = params;
   const run = getRun(runId);
   if (!run) {
-    return NextResponse.json({ error: "Run not found" }, { status: 404 });
+    return NextResponse.json({ error: "Run not found" }, { status: 404, ...withRequestId(requestId) });
   }
 
   const plan = getPlanForRun(runId);
   const auditEvents = plan ? listAuditEvents(plan.planId) : [];
+
+  traceLog("commands.run_status", {
+    request_id: requestId,
+    run_id: runId,
+    status: run.status,
+  });
 
   return NextResponse.json({
     run,
@@ -41,5 +49,5 @@ export async function GET(
         }
       : null,
     audit_events: auditEvents,
-  });
+  }, withRequestId(requestId));
 }

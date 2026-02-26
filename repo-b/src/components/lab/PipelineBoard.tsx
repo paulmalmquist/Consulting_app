@@ -80,7 +80,7 @@ function DraggableCard({
       {...listeners}
       {...attributes}
       className={cn(
-        "rounded-md border border-bm-border/70 bg-bm-surface/50 p-3 cursor-grab transition-[transform,box-shadow,filter] duration-150 hover:brightness-105 hover:shadow-bm-card",
+        "rounded-md border border-bm-border/70 bg-bm-surface/50 p-3 cursor-grab transition-[transform,box-shadow] duration-[120ms] hover:-translate-y-[2px] hover:shadow-bm-card",
         isDragging && "opacity-40"
       )}
       data-testid={`pipeline-card-${card.card_id}`}

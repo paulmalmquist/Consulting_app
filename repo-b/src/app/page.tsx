@@ -6,7 +6,7 @@ export default function HomePage() {
     <main className="min-h-screen flex items-center justify-center bg-bm-bg px-6">
       <div className="w-full max-w-md space-y-8 text-center">
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold font-display">Business OS</h1>
+          <h1 className="text-3xl font-bold font-display">Winston</h1>
           <p className="text-bm-muted text-sm">Select your access path to continue.</p>
         </div>
         <div className="flex flex-col gap-4">

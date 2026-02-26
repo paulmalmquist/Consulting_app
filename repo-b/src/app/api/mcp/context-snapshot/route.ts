@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { buildContextSnapshot } from "@/lib/server/mcpContext";
-import { hasDemoSession, unauthorizedJson } from "@/lib/server/sessionAuth";
+import { resolveRequestId, traceLog, withRequestId } from "@/lib/server/requestTrace";
+import { hasDemoSession } from "@/lib/server/sessionAuth";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
+  const requestId = resolveRequestId(request);
   if (!hasDemoSession(request)) {
-    return unauthorizedJson();
+    return NextResponse.json({ error: "Authentication required" }, { status: 401, ...withRequestId(requestId) });
   }
   const url = new URL(request.url);
   const route = url.searchParams.get("route");
@@ -20,5 +22,12 @@ export async function GET(request: Request) {
     businessId,
   });
 
-  return NextResponse.json(snapshot);
+  traceLog("commands.context_snapshot", {
+    request_id: requestId,
+    route,
+    env_id: currentEnvId,
+    business_id: businessId,
+  });
+
+  return NextResponse.json(snapshot, withRequestId(requestId));
 }

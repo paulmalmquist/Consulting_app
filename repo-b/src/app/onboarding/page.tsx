@@ -131,7 +131,7 @@ export default function OnboardingPage() {
   return (
     <div className="min-h-screen flex items-start justify-center p-4 pt-8 sm:pt-16">
       <div className="w-full max-w-2xl">
-        <h1 className="text-2xl font-bold mb-1">Business OS Setup</h1>
+        <h1 className="text-2xl font-display font-bold mb-1">Winston Setup</h1>
         <p className="text-bm-muted text-sm mb-8">Configure your business workspace</p>
 
         {error && (

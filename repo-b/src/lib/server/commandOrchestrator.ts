@@ -1396,10 +1396,11 @@ export async function executePlanRun(params: {
   planId: string;
   runId: string;
   origin: string;
+  requestId?: string;
   labApiBaseUrl?: string;
   bosApiBaseUrl?: string;
 }) {
-  const { planId, runId, origin } = params;
+  const { planId, runId, origin, requestId } = params;
   const plan = getPlan(planId);
   if (!plan) {
     markRunStatus(runId, "failed");
@@ -1416,6 +1417,15 @@ export async function executePlanRun(params: {
 
   markRunStatus(runId, "running");
   appendRunLog(runId, `Execution started for plan ${planId}.`);
+  if (requestId) {
+    appendRunLog(runId, `request_id=${requestId}`);
+    console.info("[commands.execute_plan_run]", {
+      request_id: requestId,
+      run_id: runId,
+      plan_id: planId,
+      operation: plan.operationName || null,
+    });
+  }
 
   for (const step of plan.steps) {
     if (isRunCancelled(runId)) {

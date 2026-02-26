@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, Inter_Tight, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
 
 export const metadata: Metadata = {
-  title: "Business OS",
-  description: "Data-driven business execution platform"
+  title: "Winston",
+  description: "Institutional business intelligence platform"
 };
 
 export const viewport: Viewport = {
@@ -21,7 +21,7 @@ const bodyFont = Inter({
   display: "swap",
 });
 
-const displayFont = Inter({
+const displayFont = Inter_Tight({
   subsets: ["latin"],
   weight: ["500", "600", "700"],
   variable: "--font-display",

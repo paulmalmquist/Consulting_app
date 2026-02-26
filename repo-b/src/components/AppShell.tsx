@@ -80,14 +80,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-bm-bg text-bm-text flex">
       <aside
         className={cn(
-          "border-r border-bm-border/70 hidden lg:flex flex-col gap-6 bg-bm-surface/90 transition-[width,padding] duration-150",
+          "border-r border-bm-border/70 hidden lg:flex flex-col gap-6 bg-bm-bg transition-[width,padding] duration-[120ms]",
           collapsed ? "w-[84px] p-4" : "w-64 p-6"
         )}
       >
         <div className={cn("flex items-start", collapsed ? "justify-center" : "justify-between gap-2")}>
           {!collapsed ? (
             <div>
-              <p className="bm-section-label">Business OS</p>
+              <p className="bm-section-label">Winston</p>
               <p className="text-lg font-semibold tracking-[-0.01em]">
                 {selectedEnv?.client_name || "Environments"}
               </p>
@@ -132,8 +132,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         "rounded-md text-sm font-normal border flex items-center relative",
                         collapsed ? "justify-center p-2.5" : "px-3 py-2.5 gap-2",
                         isActive
-                          ? "text-bm-text font-medium border-bm-accent/45 shadow-bm-glow ring-1 ring-bm-accent/25"
-                          : "text-bm-muted border-transparent hover:brightness-105 hover:bg-bm-surface/45 hover:border-bm-border/70"
+                          ? "text-bm-text font-medium border-transparent bg-bm-surface/30 border-l-2 border-l-bm-accent"
+                          : "text-bm-muted border-transparent hover:bg-bm-surface/30 hover:text-bm-text"
                       )}
                     >
                       <NavIcon navKey={item.navKey} size={15} />
@@ -147,7 +147,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className={cn("mt-auto text-xs text-bm-muted2", collapsed && "text-center")}> 
-          {!collapsed ? "Safe, auditable AI workflow automation." : "AI"}
+          {!collapsed ? "Winston" : "W"}
         </div>
       </aside>
       <div className="flex-1 flex flex-col">

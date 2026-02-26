@@ -157,7 +157,7 @@ export function EnvironmentList({
           })}
         </section>
 
-        <section className="space-y-3" data-testid="env-list">
+        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" data-testid="env-list">
           {filtered.map((env) => {
             const status: EnvironmentStatus = statusFromFlags(env.is_active);
             return (
@@ -173,7 +173,7 @@ export function EnvironmentList({
             );
           })}
           {filtered.length === 0 ? (
-            <div className="rounded-xl border border-bm-border/60 bg-bm-surface/20 px-4 py-8 text-center">
+            <div className="col-span-full rounded-xl border border-dashed border-bm-border/50 bg-bm-surface/10 px-4 py-8 text-center">
               <p className="text-sm text-bm-muted2">No environments match current filters.</p>
             </div>
           ) : null}

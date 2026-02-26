@@ -21,9 +21,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="min-h-screen bg-bm-bg text-bm-text flex">
-      <aside className="hidden lg:flex flex-col gap-6 w-64 p-6 border-r border-bm-border/70 bg-bm-bg/40 backdrop-blur-md">
+      <aside className="hidden lg:flex flex-col gap-6 w-64 p-6 border-r border-bm-border/70 bg-bm-bg">
         <div>
-          <p className="text-xs uppercase text-bm-muted2 tracking-[0.18em]">Business OS</p>
+          <p className="text-xs uppercase text-bm-muted2 tracking-[0.18em]">Winston</p>
           <p className="text-lg font-semibold font-display">Admin</p>
         </div>
 
@@ -35,10 +35,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                 key={item.id}
                 href={item.href}
                 className={cn(
-                  "rounded-lg text-sm border px-3 py-2.5 transition",
+                  "rounded-lg text-sm border px-3 py-2.5 transition-[transform,box-shadow] duration-[120ms]",
                   isActive
-                    ? "bg-bm-accent/18 text-bm-text border-bm-accent/70 shadow-bm-glow ring-1 ring-bm-accent/45"
-                    : "text-bm-muted border-transparent hover:bg-bm-surface/40 hover:border-bm-border/70"
+                    ? "bg-bm-surface/30 text-bm-text border-transparent border-l-2 border-l-bm-accent font-medium"
+                    : "text-bm-muted border-transparent hover:bg-bm-surface/30 hover:text-bm-text"
                 )}
               >
                 {item.label}

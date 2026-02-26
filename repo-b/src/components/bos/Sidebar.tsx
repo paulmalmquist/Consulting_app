@@ -67,10 +67,10 @@ export default function Sidebar({
                     key={item.key}
                     href={item.href}
                     onClick={onClose}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-normal transition-[filter,box-shadow] duration-150 border ${
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-normal transition-[transform,box-shadow] duration-[120ms] border ${
                       isActive
-                        ? "bg-bm-accent/10 text-bm-text border-bm-accent/35 shadow-bm-glow font-medium"
-                        : "text-bm-muted border-transparent hover:brightness-105 hover:bg-bm-surface/40 hover:border-bm-border/70"
+                        ? "bg-bm-surface/30 text-bm-text border-transparent border-l-2 border-l-bm-accent font-medium"
+                        : "text-bm-muted border-transparent hover:bg-bm-surface/30 hover:text-bm-text"
                     }`}
                   >
                     <span className="text-xs">▸</span>
@@ -91,10 +91,10 @@ export default function Sidebar({
                     key={`${item.section}-${item.href}`}
                     href={item.href}
                     onClick={onClose}
-                    className={`flex items-center justify-between gap-2 px-3 py-2 rounded-md text-sm font-normal transition-[filter,box-shadow] duration-150 border ${
+                    className={`flex items-center justify-between gap-2 px-3 py-2 rounded-md text-sm font-normal transition-[transform,box-shadow] duration-[120ms] border ${
                       isActive
-                        ? "bg-bm-accent/10 text-bm-text border-bm-accent/35 shadow-bm-glow font-medium"
-                        : "text-bm-muted border-transparent hover:brightness-105 hover:bg-bm-surface/40 hover:border-bm-border/70"
+                        ? "bg-bm-surface/30 text-bm-text border-transparent border-l-2 border-l-bm-accent font-medium"
+                        : "text-bm-muted border-transparent hover:bg-bm-surface/30 hover:text-bm-text"
                     }`}
                   >
                     <span>{item.label}</span>
@@ -126,10 +126,10 @@ export default function Sidebar({
                   key={cap.key}
                   href={`/app/${activeDeptKey}/capability/${cap.key}`}
                   onClick={onClose}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-normal transition-[filter,box-shadow] duration-150 border ${
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-normal transition-[transform,box-shadow] duration-[120ms] border ${
                     isActive
-                      ? "bg-bm-accent/10 text-bm-text border-bm-accent/35 shadow-bm-glow font-medium"
-                      : "text-bm-muted border-transparent hover:brightness-105 hover:bg-bm-surface/40 hover:border-bm-border/70"
+                      ? "bg-bm-surface/30 text-bm-text border-transparent border-l-2 border-l-bm-accent font-medium"
+                      : "text-bm-muted border-transparent hover:bg-bm-surface/30 hover:text-bm-text"
                   }`}
                 >
                   <span className="text-xs">{kindIcon(cap.kind)}</span>
@@ -145,7 +145,7 @@ export default function Sidebar({
 
   return (
     <>
-      <aside className="hidden lg:flex w-56 border-r border-bm-border/70 bg-bm-surface/90 backdrop-blur-sm flex-col flex-shrink-0">
+      <aside className="hidden lg:flex w-56 border-r border-bm-border/70 bg-bm-bg flex-col flex-shrink-0">
         {sidebarContent}
       </aside>
 
@@ -158,15 +158,15 @@ export default function Sidebar({
       )}
 
       <aside
-        className={`lg:hidden fixed top-0 left-0 z-50 h-full w-64 bg-bm-surface/95 backdrop-blur-sm border-r border-bm-border/70 transform transition-transform duration-150 ${
+        className={`lg:hidden fixed top-0 left-0 z-50 h-full w-64 bg-bm-surface/95 backdrop-blur-sm border-r border-bm-border/70 transform transition-transform duration-[200ms] ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex items-center justify-between p-3 border-b border-bm-border/70">
-          <span className="text-sm font-medium">Business OS</span>
+          <span className="text-sm font-medium">Winston</span>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md hover:brightness-105 hover:bg-bm-surface/50"
+            className="p-1.5 rounded-md hover:bg-bm-surface/40"
             aria-label="Close sidebar"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

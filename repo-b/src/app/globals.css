@@ -4,19 +4,19 @@
 
 @layer base {
   :root {
-    /* Command center tokens */
-    --accent: 191 88% 55%;
-    --accent-alt: 191 88% 55%;
-    --accent-glow: 68, 213, 242;
-    --bg-base: 220 16% 10%;
-    --bg-elevated: 222 15% 13%;
-    --bg-panel: 222 14% 16%;
+    /* Winston cinematic tokens — Deep Electric Blue */
+    --accent: 216 74% 55%;
+    --accent-alt: 216 74% 55%;
+    --accent-glow: 54, 120, 224;
+    --bg-base: 216 31% 6%;
+    --bg-elevated: 217 29% 9%;
+    --bg-panel: 216 22% 11%;
     --border-subtle: 0 0% 100%;
-    --border-accent: 191 88% 55%;
+    --border-accent: 216 74% 55%;
 
     /* Semantic tokens (HSL triplets: "H S L") */
     --bm-bg: var(--bg-base);
-    --bm-bg-2: 220 14% 12%;
+    --bm-bg-2: 216 30% 7.5%;
     --bm-surface: var(--bg-elevated);
     --bm-surface-2: var(--bg-panel);
     --bm-border: var(--border-subtle);
@@ -24,27 +24,28 @@
     --bm-text: 210 24% 94%;
     --bm-text-muted: 215 12% 72%;
     --bm-text-muted-2: 215 10% 58%;
+    --bm-card-glass: 0 0% 100%;
 
     --bm-accent: var(--accent);
     --bm-accent-2: var(--accent-alt);
     --bm-accent-contrast: 220 18% 10%;
-    --bm-accent-glow: 191 88% 55%;
+    --bm-accent-glow: 216 74% 55%;
 
-    --bm-success: 165 78% 45%;
-    --bm-warning: 40 96% 56%;
-    --bm-danger: 355 86% 58%;
+    --bm-success: 142 64% 40%;
+    --bm-warning: 38 85% 50%;
+    --bm-danger: 0 72% 48%;
     --bm-focus-ring: var(--accent);
   }
 
   html[data-theme="light"] {
-    --accent: 210 92% 46%;
-    --accent-alt: 210 92% 46%;
-    --accent-glow: 41, 121, 235;
-    --bg-base: 220 27% 96%;
+    --accent: 216 74% 55%;
+    --accent-alt: 216 74% 55%;
+    --accent-glow: 54, 120, 224;
+    --bg-base: 210 33% 97%;
     --bg-elevated: 0 0% 100%;
     --bg-panel: 0 0% 100%;
-    --border-subtle: 0 0% 0%;
-    --border-accent: 210 92% 46%;
+    --border-subtle: 220 13% 91%;
+    --border-accent: 216 74% 55%;
 
     --bm-bg: var(--bg-base);
     --bm-bg-2: 220 22% 94%;
@@ -55,37 +56,16 @@
     --bm-text: 224 28% 15%;
     --bm-text-muted: 220 14% 36%;
     --bm-text-muted-2: 220 11% 46%;
+    --bm-card-glass: 0 0% 0%;
 
     --bm-accent: var(--accent);
     --bm-accent-2: var(--accent-alt);
     --bm-accent-contrast: 0 0% 100%;
-    --bm-accent-glow: 210 92% 46%;
+    --bm-accent-glow: 216 74% 55%;
 
-    --bm-success: 161 82% 34%;
-    --bm-warning: 34 95% 45%;
-    --bm-danger: 354 82% 48%;
-    --bm-focus-ring: var(--accent);
-  }
-
-  html[data-accent="blue"]:not([data-theme="light"]) {
-    --accent: 208 92% 56%;
-    --accent-alt: 208 92% 56%;
-    --accent-glow: 52, 162, 247;
-    --border-accent: 208 92% 56%;
-    --bm-accent: var(--accent);
-    --bm-accent-2: var(--accent-alt);
-    --bm-accent-glow: 208 92% 56%;
-    --bm-focus-ring: var(--accent);
-  }
-
-  html[data-accent="teal"][data-theme="light"] {
-    --accent: 186 92% 39%;
-    --accent-alt: 186 92% 39%;
-    --accent-glow: 8, 164, 186;
-    --border-accent: 186 92% 39%;
-    --bm-accent: var(--accent);
-    --bm-accent-2: var(--accent-alt);
-    --bm-accent-glow: 186 92% 39%;
+    --bm-success: 142 64% 34%;
+    --bm-warning: 38 85% 45%;
+    --bm-danger: 0 72% 44%;
     --bm-focus-ring: var(--accent);
   }
 
@@ -129,22 +109,22 @@
 @layer components {
   .bm-glass {
     @apply border backdrop-blur-md shadow-bm-card;
-    background-color: hsl(var(--bm-surface) / 0.9);
+    background-color: hsl(var(--bm-card-glass) / 0.03);
     border-color: hsl(var(--bm-border) / 0.06);
   }
 
   .bm-glass-interactive {
-    @apply bm-glass transition-[box-shadow,transform,filter] duration-150;
+    @apply bm-glass transition-[box-shadow,transform] duration-[120ms];
   }
 
   .bm-glass-interactive:hover {
-    filter: brightness(1.03);
-    box-shadow: 0 0 0 1px hsl(var(--bm-border-strong) / 0.68), 0 12px 26px -20px rgba(5, 9, 14, 0.55);
+    transform: translateY(-2px);
+    box-shadow: 0 0 0 1px hsl(var(--bm-border-strong) / 0.68), 0 14px 28px -20px rgba(5, 9, 14, 0.6);
   }
 
   html[data-theme="light"] .bm-glass {
     background-color: hsl(var(--bm-surface) / 1);
-    border-color: hsl(var(--bm-border) / 0.06);
+    border-color: hsl(var(--bm-border) / 0.08);
     backdrop-filter: none;
   }
 
@@ -182,6 +162,10 @@
     @apply font-mono text-[11px] uppercase text-bm-muted2;
     letter-spacing: 0.14em;
   }
+
+  .bm-focus-glow {
+    box-shadow: 0 0 4px hsl(var(--bm-accent) / 0.3);
+  }
 }
 
 @layer utilities {
@@ -212,4 +196,15 @@
 /* iOS safe area padding */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Respect reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -5,7 +5,8 @@ import {
   getPlan,
   verifyAndConsumeConfirmationToken,
 } from "@/lib/server/commandOrchestratorStore";
-import { hasDemoSession, unauthorizedJson } from "@/lib/server/sessionAuth";
+import { resolveRequestId, traceLog, withRequestId } from "@/lib/server/requestTrace";
+import { hasDemoSession } from "@/lib/server/sessionAuth";
 
 export const runtime = "nodejs";
 
@@ -15,8 +16,9 @@ type ExecuteRequest = {
 };
 
 export async function POST(request: Request) {
+  const requestId = resolveRequestId(request);
   if (!hasDemoSession(request)) {
-    return unauthorizedJson();
+    return NextResponse.json({ error: "Authentication required" }, { status: 401, ...withRequestId(requestId) });
   }
   const payload = (await request.json().catch(() => ({}))) as ExecuteRequest;
   const planId = String(payload.plan_id || "").trim();
@@ -25,13 +27,13 @@ export async function POST(request: Request) {
   if (!planId || !confirmToken) {
     return NextResponse.json(
       { error: "plan_id and confirm_token are required" },
-      { status: 400 }
+      { status: 400, ...withRequestId(requestId) }
     );
   }
 
   const plan = getPlan(planId);
   if (!plan) {
-    return NextResponse.json({ error: "Plan not found" }, { status: 404 });
+    return NextResponse.json({ error: "Plan not found" }, { status: 404, ...withRequestId(requestId) });
   }
   if (plan.clarification?.needed) {
     return NextResponse.json(
@@ -41,13 +43,13 @@ export async function POST(request: Request) {
           "Plan needs clarification and cannot execute yet.",
         clarification: plan.clarification,
       },
-      { status: 409 }
+      { status: 409, ...withRequestId(requestId) }
     );
   }
 
   const check = verifyAndConsumeConfirmationToken(planId, confirmToken);
   if (!check.ok) {
-    return NextResponse.json({ error: check.error || "Confirmation failed" }, { status: 403 });
+    return NextResponse.json({ error: check.error || "Confirmation failed" }, { status: 403, ...withRequestId(requestId) });
   }
 
   const run = createRun(planId);
@@ -57,7 +59,15 @@ export async function POST(request: Request) {
     planId,
     runId: run.runId,
     origin,
+    requestId,
   });
 
-  return NextResponse.json({ run_id: run.runId, status: run.status });
+  traceLog("commands.execute", {
+    request_id: requestId,
+    plan_id: planId,
+    run_id: run.runId,
+    status: run.status,
+  });
+
+  return NextResponse.json({ run_id: run.runId, status: run.status }, withRequestId(requestId));
 }

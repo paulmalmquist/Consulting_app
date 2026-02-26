@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { listReV1Funds, RepeFund } from "@/lib/bos-api";
 import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
+import { StateCard } from "@/components/ui/StateCard";
+import { MetricCard } from "@/components/ui/MetricCard";
+import { Button } from "@/components/ui/Button";
 
 export default function RepeFundsPage() {
   const { businessId, environmentId, loading, contextError, initializeWorkspace } = useRepeContext();
@@ -23,77 +26,101 @@ export default function RepeFundsPage() {
   }, [businessId, environmentId]);
 
   if (!businessId) {
+    if (loading) {
+      return <StateCard state="loading" />;
+    }
     return (
-      <div className="rounded-xl border border-bm-border/70 p-4 text-sm space-y-2">
-        <p className="text-bm-muted2">{loading ? "Initializing REPE workspace..." : "REPE workspace not initialized."}</p>
-        {contextError ? <p className="text-red-400">{contextError}</p> : null}
-        {!loading ? (
-          <button
-            type="button"
-            className="rounded-lg border border-bm-border px-3 py-2 hover:bg-bm-surface/40"
-            onClick={() => void initializeWorkspace()}
-          >
-            Retry Context Setup
-          </button>
-        ) : null}
-      </div>
+      <StateCard
+        state="error"
+        title="REPE workspace not initialized"
+        message={contextError || "Unable to resolve workspace context."}
+        onRetry={() => void initializeWorkspace()}
+      />
     );
   }
 
+  // KPI summary
+  const activeFunds = funds.filter((f) => f.status !== "closed");
+  const strategies = new Set(funds.map((f) => f.strategy));
+
   return (
-    <section className="rounded-xl border border-bm-border/70 bg-bm-surface/25 p-4 space-y-4" data-testid="re-funds-list">
-      <div className="flex items-center justify-between gap-2">
+    <section className="space-y-6" data-testid="re-funds-list">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold">Funds</h2>
-          <p className="text-sm text-bm-muted2">All funds in this environment.</p>
+          <h2 className="text-[28px] font-display font-bold tracking-tight">Funds</h2>
+          <p className="text-sm text-bm-muted2 mt-1">Portfolio of funds in this environment.</p>
         </div>
-        <Link
-          href={`${basePath}/funds/new`}
-          className="rounded-lg bg-bm-accent px-3 py-2 text-sm text-white"
-        >
-          + New Fund
+        <Link href={`${basePath}/funds/new`}>
+          <Button>+ New Fund</Button>
         </Link>
       </div>
 
-      {error ? <p className="text-sm text-red-400">{error}</p> : null}
+      {/* Portfolio KPI Strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        <MetricCard label="Total Funds" value={String(funds.length)} size="compact" />
+        <MetricCard label="Active" value={String(activeFunds.length)} size="compact" status={activeFunds.length > 0 ? "success" : "neutral"} />
+        <MetricCard label="Strategies" value={String(strategies.size)} size="compact" />
+        <MetricCard label="Currencies" value={String(new Set(funds.map((f) => f.base_currency || "USD")).size)} size="compact" />
+      </div>
 
-      {funds.length === 0 ? (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 text-center">
-          <p className="text-sm text-bm-muted2">No funds yet.</p>
-          <Link href={`${basePath}/funds/new`} className="mt-3 inline-flex rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
-            Create First Fund
-          </Link>
-        </div>
+      {error && (
+        <StateCard state="error" title="Failed to load funds" message={error} />
+      )}
+
+      {funds.length === 0 && !error ? (
+        <StateCard
+          state="empty"
+          title="No funds yet"
+          description="Create your first fund to get started with the portfolio."
+          cta={{ label: "Create First Fund", onClick: () => { window.location.href = `${basePath}/funds/new`; } }}
+        />
       ) : (
-        <div className="rounded-xl border border-bm-border/70 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-bm-border/70 bg-bm-surface/20">
-                <th className="px-4 py-2.5 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">Name</th>
-                <th className="px-4 py-2.5 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">Strategy</th>
-                <th className="px-4 py-2.5 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">Currency</th>
-                <th className="px-4 py-2.5 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">Status</th>
-                <th className="px-4 py-2.5 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">Inception</th>
-                <th className="px-4 py-2.5 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-bm-border/40">
-              {funds.map((fund) => (
-                <tr key={fund.fund_id} className="hover:bg-bm-surface/20">
-                  <td className="px-4 py-3 font-medium">{fund.name}</td>
-                  <td className="px-4 py-3 text-bm-muted2 capitalize">{fund.strategy}</td>
-                  <td className="px-4 py-3 text-bm-muted2">{fund.base_currency || "USD"}</td>
-                  <td className="px-4 py-3 text-bm-muted2 capitalize">{fund.status}</td>
-                  <td className="px-4 py-3 text-bm-muted2">{fund.inception_date ? fund.inception_date.slice(0, 10) : "—"}</td>
-                  <td className="px-4 py-3">
-                    <Link href={`${basePath}/funds/${fund.fund_id}`} className="text-xs text-bm-accent hover:underline">
-                      Open →
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {funds.map((fund) => (
+            <div
+              key={fund.fund_id}
+              className="group rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 transition-[transform,box-shadow] duration-[120ms] hover:-translate-y-[2px] hover:shadow-bm-card"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-base font-display font-semibold truncate">{fund.name}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="inline-flex items-center rounded-full border border-bm-border/70 px-2 py-0.5 text-[11px] uppercase tracking-[0.08em] text-bm-muted2 capitalize">
+                      {fund.strategy}
+                    </span>
+                    <span className="text-xs text-bm-muted2">{fund.base_currency || "USD"}</span>
+                  </div>
+                </div>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${
+                  fund.status === "closed"
+                    ? "bg-bm-muted2/15 text-bm-muted2"
+                    : fund.status === "investing"
+                    ? "bg-bm-success/15 text-bm-success"
+                    : "bg-bm-warning/15 text-bm-warning"
+                }`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${
+                    fund.status === "closed" ? "bg-bm-muted2" : fund.status === "investing" ? "bg-bm-success" : "bg-bm-warning"
+                  }`} />
+                  {fund.status}
+                </span>
+              </div>
+
+              <div className="mt-3 flex items-center gap-4 text-xs text-bm-muted2">
+                {fund.vintage_year && <span>Vintage {fund.vintage_year}</span>}
+                {fund.inception_date && <span>Inception {fund.inception_date.slice(0, 10)}</span>}
+              </div>
+
+              <div className="mt-4 flex items-center justify-between">
+                <Link
+                  href={`${basePath}/funds/${fund.fund_id}`}
+                  className="rounded-lg bg-bm-accent px-3 py-1.5 text-sm font-medium text-bm-accentContrast transition-[transform,box-shadow] duration-[120ms] hover:-translate-y-[1px]"
+                >
+                  Open Fund
+                </Link>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </section>

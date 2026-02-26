@@ -37,12 +37,16 @@ module.exports = {
         "2xl": "0.375rem",
       },
       boxShadow: {
-        "bm-glow": "0 0 0 1px hsl(var(--bm-accent) / 0.28), 0 8px 18px -14px rgba(0, 0, 0, 0.5)",
-        "bm-card": "0 0 0 1px hsl(var(--bm-border) / 0.06), 0 14px 28px -22px rgba(6, 9, 14, 0.62)",
+        "bm-glow": "0 0 4px hsl(var(--bm-accent) / 0.2), 0 4px 12px -8px rgba(0, 0, 0, 0.4)",
+        "bm-card": "0 0 0 1px hsl(var(--bm-border) / 0.06), 0 12px 24px -18px rgba(6, 9, 14, 0.55)",
       },
       backgroundImage: {
         "bm-vignette":
           "linear-gradient(180deg, hsl(var(--bm-bg-2) / 1), hsl(var(--bm-bg) / 1))",
+      },
+      transitionDuration: {
+        fast: "120ms",
+        panel: "200ms",
       },
     }
   },
