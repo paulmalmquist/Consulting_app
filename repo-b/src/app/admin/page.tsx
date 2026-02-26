@@ -73,10 +73,9 @@ export default function AdminPage() {
     await refresh();
   };
 
-  const archiveEnvironment = async (envId: string) => {
+  const deleteEnvironment = async (envId: string) => {
     await apiFetch(`/v1/environments/${envId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ is_active: false }),
+      method: "DELETE",
     });
     await refresh();
   };
@@ -97,7 +96,7 @@ export default function AdminPage() {
           environments={environments}
           onOpen={openEnvironment}
           onSettings={setSelectedSettingsId}
-          onArchive={archiveEnvironment}
+          onDelete={deleteEnvironment}
         />
       </div>
 
@@ -128,16 +127,11 @@ export default function AdminPage() {
             setSettingsSaving(false);
           }
         }}
-        onArchiveToggle={async ({ isActive }) => {
+        onDelete={async () => {
           if (!selectedSettingsEnv) return;
           setSettingsSaving(true);
           try {
-            await updateEnvironmentSettings({
-              envId: selectedSettingsEnv.env_id,
-              industry: (selectedSettingsEnv.industry_type || selectedSettingsEnv.industry) as Industry,
-              notes: selectedSettingsEnv.notes || "",
-              isActive,
-            });
+            await deleteEnvironment(selectedSettingsEnv.env_id);
             setSelectedSettingsId(null);
           } finally {
             setSettingsSaving(false);

@@ -5,7 +5,7 @@ export function Card({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("bm-glass rounded-xl", className)} {...props} />;
+  return <div className={cn("bm-glass rounded-lg", className)} {...props} />;
 }
 
 export function CardInteractive({
@@ -13,7 +13,7 @@ export function CardInteractive({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("bm-glass-interactive rounded-xl", className)} {...props} />
+    <div className={cn("bm-glass-interactive rounded-lg", className)} {...props} />
   );
 }
 
@@ -29,7 +29,7 @@ export function CardTitle({
   ...props
 }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <h2 className={cn("text-[1.05rem] font-semibold", className)} {...props} />
+    <h2 className={cn("text-[1.1rem] font-semibold tracking-[-0.01em]", className)} {...props} />
   );
 }
 

@@ -80,15 +80,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-bm-bg text-bm-text flex">
       <aside
         className={cn(
-          "border-r border-bm-border/60 hidden lg:flex flex-col gap-6 bg-[#0b0f15]/92 transition-all duration-200",
+          "border-r border-bm-border/70 hidden lg:flex flex-col gap-6 bg-bm-surface/90 transition-[width,padding] duration-150",
           collapsed ? "w-[84px] p-4" : "w-64 p-6"
         )}
       >
         <div className={cn("flex items-start", collapsed ? "justify-center" : "justify-between gap-2")}>
           {!collapsed ? (
             <div>
-              <p className="text-[11px] uppercase text-bm-muted tracking-[0.12em]">Business OS</p>
-              <p className="text-lg font-semibold font-display">
+              <p className="bm-section-label">Business OS</p>
+              <p className="text-lg font-semibold tracking-[-0.01em]">
                 {selectedEnv?.client_name || "Environments"}
               </p>
             </div>
@@ -112,7 +112,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           ] as const).map(([groupKey, groupLabel]) => (
             <div key={groupKey} className="space-y-2">
               {!collapsed ? (
-                <p className="px-2 text-[11px] uppercase tracking-[0.12em] text-bm-muted">
+                <p className="bm-section-label px-2">
                   {groupLabel}
                 </p>
               ) : null}
@@ -129,11 +129,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       data-testid={`lab-nav-link-${item.id}`}
                       title={collapsed ? item.label : undefined}
                       className={cn(
-                        "rounded-md text-sm border transition duration-150 flex items-center relative overflow-hidden",
+                        "rounded-md text-sm font-normal border flex items-center relative",
                         collapsed ? "justify-center p-2.5" : "px-3 py-2.5 gap-2",
                         isActive
-                          ? "text-bm-text border-bm-accent/50 shadow-bm-glow ring-1 ring-bm-accent/35 before:absolute before:left-0 before:top-0 before:h-full before:w-0.5 before:bg-bm-accent before:content-[''] after:absolute after:inset-0 after:pointer-events-none after:bg-gradient-to-r after:from-bm-accent/10 after:to-transparent after:content-['']"
-                          : "text-bm-muted border-transparent hover:bg-bm-surface/42 hover:border-bm-border/70 hover:brightness-110"
+                          ? "text-bm-text font-medium border-bm-accent/45 shadow-bm-glow ring-1 ring-bm-accent/25"
+                          : "text-bm-muted border-transparent hover:brightness-105 hover:bg-bm-surface/45 hover:border-bm-border/70"
                       )}
                     >
                       <NavIcon navKey={item.navKey} size={15} />
@@ -151,12 +151,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
       <div className="flex-1 flex flex-col">
-        <header className="bm-command-bar border-b border-bm-border/70 px-6 py-4 flex flex-wrap items-center justify-between gap-4 bg-bm-surface/35 backdrop-blur-md">
+        <header className="bm-command-bar border-b border-bm-border/70 px-6 py-4 flex flex-wrap items-center justify-between gap-4 bg-bm-surface/96 backdrop-blur-sm">
           <div className="space-y-1">
-            <p className="text-[11px] uppercase text-bm-muted tracking-[0.12em]">
+            <p className="bm-section-label">
               Current Environment
             </p>
-            <span className="inline-flex items-center rounded-md border border-bm-border/80 bg-bm-surface/75 px-3 py-1.5 text-sm font-semibold">
+            <span className="inline-flex items-center rounded-md border border-bm-border/70 bg-bm-surface/90 px-2.5 py-1 text-[11px] font-mono tracking-[0.08em] text-bm-text">
               {selectedEnv
                 ? `${selectedEnv.client_name} · ${selectedEnv.industry_type || selectedEnv.industry}`
                 : "No environment selected"}

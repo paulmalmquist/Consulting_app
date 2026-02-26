@@ -35,13 +35,13 @@ export function Dialog({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
         className={cn(
-          "relative w-full max-w-lg rounded-xl bm-glass p-6",
+          "relative w-full max-w-lg rounded-lg bm-glass p-6",
           "shadow-bm-card"
         )}
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold">{title}</h2>
+            <h2 className="text-[1.45rem] font-semibold leading-tight tracking-[-0.01em]">{title}</h2>
             {description ? (
               <p className="text-sm text-bm-muted mt-2">{description}</p>
             ) : null}

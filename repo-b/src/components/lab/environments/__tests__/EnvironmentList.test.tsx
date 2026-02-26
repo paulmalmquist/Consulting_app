@@ -36,7 +36,7 @@ describe("EnvironmentList", () => {
         environments={[envA, envA, envB]}
         onOpen={() => {}}
         onSettings={() => {}}
-        onArchive={() => {}}
+        onDelete={() => {}}
       />
     );
 
@@ -53,7 +53,7 @@ describe("EnvironmentList", () => {
         environments={[envA, envB]}
         onOpen={() => {}}
         onSettings={() => {}}
-        onArchive={() => {}}
+        onDelete={() => {}}
       />
     );
 

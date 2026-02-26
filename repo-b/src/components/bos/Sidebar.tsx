@@ -52,7 +52,7 @@ export default function Sidebar({
   const sidebarContent = (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-bm-border/70">
-        <p className="text-xs text-bm-muted2 uppercase tracking-[0.16em]">
+        <p className="bm-section-label">
           {isFinance ? "Lifecycle" : "Capabilities"}
         </p>
       </div>
@@ -67,10 +67,10 @@ export default function Sidebar({
                     key={item.key}
                     href={item.href}
                     onClick={onClose}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition border ${
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-normal transition-[filter,box-shadow] duration-150 border ${
                       isActive
-                        ? "bg-bm-accent/10 text-bm-text border-bm-accent/25 shadow-bm-glow"
-                        : "text-bm-muted border-transparent hover:bg-bm-surface/40 hover:border-bm-border/70 active:bg-bm-surface2/60"
+                        ? "bg-bm-accent/10 text-bm-text border-bm-accent/35 shadow-bm-glow font-medium"
+                        : "text-bm-muted border-transparent hover:brightness-105 hover:bg-bm-surface/40 hover:border-bm-border/70"
                     }`}
                   >
                     <span className="text-xs">▸</span>
@@ -81,7 +81,7 @@ export default function Sidebar({
             </div>
 
             <div className="pt-2 mt-2 border-t border-bm-border/60">
-              <p className="px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-bm-muted2">
+              <p className="bm-section-label px-3 py-1">
                 Embedded Modules
               </p>
               {FINANCE_MODULE_LINKS.map((item) => {
@@ -91,10 +91,10 @@ export default function Sidebar({
                     key={`${item.section}-${item.href}`}
                     href={item.href}
                     onClick={onClose}
-                    className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition border ${
+                    className={`flex items-center justify-between gap-2 px-3 py-2 rounded-md text-sm font-normal transition-[filter,box-shadow] duration-150 border ${
                       isActive
-                        ? "bg-bm-accent/10 text-bm-text border-bm-accent/25 shadow-bm-glow"
-                        : "text-bm-muted border-transparent hover:bg-bm-surface/40 hover:border-bm-border/70 active:bg-bm-surface2/60"
+                        ? "bg-bm-accent/10 text-bm-text border-bm-accent/35 shadow-bm-glow font-medium"
+                        : "text-bm-muted border-transparent hover:brightness-105 hover:bg-bm-surface/40 hover:border-bm-border/70"
                     }`}
                   >
                     <span>{item.label}</span>
@@ -108,9 +108,9 @@ export default function Sidebar({
           <>
             {loadingCapabilities && (
               <>
-                <div className="h-8 bg-bm-surface/60 border border-bm-border/60 rounded-lg animate-pulse mb-1" />
-                <div className="h-8 bg-bm-surface/60 border border-bm-border/60 rounded-lg animate-pulse mb-1" />
-                <div className="h-8 bg-bm-surface/60 border border-bm-border/60 rounded-lg animate-pulse mb-1" />
+                <div className="h-8 bg-bm-surface/60 border border-bm-border/60 rounded-md mb-1" />
+                <div className="h-8 bg-bm-surface/60 border border-bm-border/60 rounded-md mb-1" />
+                <div className="h-8 bg-bm-surface/60 border border-bm-border/60 rounded-md mb-1" />
               </>
             )}
             {!loadingCapabilities && capabilities.length === 0 && activeDeptKey && (
@@ -126,10 +126,10 @@ export default function Sidebar({
                   key={cap.key}
                   href={`/app/${activeDeptKey}/capability/${cap.key}`}
                   onClick={onClose}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition border ${
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-normal transition-[filter,box-shadow] duration-150 border ${
                     isActive
-                      ? "bg-bm-accent/10 text-bm-text border-bm-accent/25 shadow-bm-glow"
-                      : "text-bm-muted border-transparent hover:bg-bm-surface/40 hover:border-bm-border/70 active:bg-bm-surface2/60"
+                      ? "bg-bm-accent/10 text-bm-text border-bm-accent/35 shadow-bm-glow font-medium"
+                      : "text-bm-muted border-transparent hover:brightness-105 hover:bg-bm-surface/40 hover:border-bm-border/70"
                   }`}
                 >
                   <span className="text-xs">{kindIcon(cap.kind)}</span>
@@ -145,7 +145,7 @@ export default function Sidebar({
 
   return (
     <>
-      <aside className="hidden lg:flex w-56 border-r border-bm-border/70 bg-bm-bg/40 backdrop-blur-md flex-col flex-shrink-0">
+      <aside className="hidden lg:flex w-56 border-r border-bm-border/70 bg-bm-surface/90 backdrop-blur-sm flex-col flex-shrink-0">
         {sidebarContent}
       </aside>
 
@@ -158,15 +158,15 @@ export default function Sidebar({
       )}
 
       <aside
-        className={`lg:hidden fixed top-0 left-0 z-50 h-full w-64 bg-bm-bg/60 backdrop-blur-md border-r border-bm-border/70 transform transition-transform duration-200 ${
+        className={`lg:hidden fixed top-0 left-0 z-50 h-full w-64 bg-bm-surface/95 backdrop-blur-sm border-r border-bm-border/70 transform transition-transform duration-150 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex items-center justify-between p-3 border-b border-bm-border/70">
-          <span className="text-sm font-semibold font-display">Business OS</span>
+          <span className="text-sm font-medium">Business OS</span>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-bm-surface/50 transition-colors"
+            className="p-1.5 rounded-md hover:brightness-105 hover:bg-bm-surface/50"
             aria-label="Close sidebar"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

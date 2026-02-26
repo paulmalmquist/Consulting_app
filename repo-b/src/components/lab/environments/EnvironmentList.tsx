@@ -21,12 +21,12 @@ export function EnvironmentList({
   environments,
   onOpen,
   onSettings,
-  onArchive,
+  onDelete,
 }: {
   environments: Environment[];
   onOpen: (envId: string) => void;
   onSettings: (envId: string) => void;
-  onArchive: (envId: string) => void;
+  onDelete: (envId: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("created");
@@ -168,7 +168,7 @@ export function EnvironmentList({
                 stats={{ last_activity: env.created_at } satisfies EnvironmentStats}
                 onOpen={onOpen}
                 onSettings={onSettings}
-                onArchive={onArchive}
+                onDelete={onDelete}
               />
             );
           })}

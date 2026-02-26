@@ -22,7 +22,7 @@ describe("EnvironmentCard", () => {
         status="active"
         onOpen={() => {}}
         onSettings={() => {}}
-        onArchive={() => {}}
+        onDelete={() => {}}
       />
     );
     expect(screen.getByTestId("industry-icon-real_estate")).toBeInTheDocument();
@@ -33,7 +33,7 @@ describe("EnvironmentCard", () => {
         status="active"
         onOpen={() => {}}
         onSettings={() => {}}
-        onArchive={() => {}}
+        onDelete={() => {}}
       />
     );
     expect(screen.getByTestId("industry-icon-healthcare")).toBeInTheDocument();
@@ -44,7 +44,7 @@ describe("EnvironmentCard", () => {
         status="active"
         onOpen={() => {}}
         onSettings={() => {}}
-        onArchive={() => {}}
+        onDelete={() => {}}
       />
     );
     expect(screen.getByTestId("industry-icon-default")).toBeInTheDocument();
@@ -57,7 +57,7 @@ describe("EnvironmentCard", () => {
         status="active"
         onOpen={() => {}}
         onSettings={() => {}}
-        onArchive={() => {}}
+        onDelete={() => {}}
       />
     );
     expect(screen.queryByText(baseEnv.env_id)).not.toBeInTheDocument();
@@ -70,11 +70,11 @@ describe("EnvironmentCard", () => {
         status="active"
         onOpen={() => {}}
         onSettings={() => {}}
-        onArchive={() => {}}
+        onDelete={() => {}}
       />
     );
     expect(screen.getByRole("button", { name: /open/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /archive/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /delete/i })).toBeInTheDocument();
   });
 });

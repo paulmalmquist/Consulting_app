@@ -171,7 +171,7 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
 
   if (!currentDept) {
     return (
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/35 p-4">
+      <div className="rounded-lg border border-bm-border/70 bg-bm-surface/35 p-4">
         No department configuration found for this environment.
       </div>
     );
@@ -180,7 +180,7 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
   return (
     <div className="space-y-4">
       {/* ── Department icon tab bar ──────────────────────── */}
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/35 p-3">
+      <div className="rounded-lg border border-bm-border/70 bg-bm-surface/35 p-3">
         <div className="flex items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-1.5">
             <Link
@@ -188,11 +188,11 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
               data-testid="dept-tab-home"
               aria-label="Environment home"
               title="Environment home"
-              className={cn(
-                "rounded-lg border p-2 transition inline-flex items-center justify-center",
+                className={cn(
+                "rounded-md border p-2 transition-[filter,box-shadow] duration-150 inline-flex items-center justify-center",
                 pathname === `/lab/env/${envId}`
                   ? "border-bm-accent/40 bg-bm-accent/10 text-bm-text"
-                  : "border-bm-border/70 text-bm-muted hover:bg-bm-surface/50 hover:text-bm-text"
+                  : "border-bm-border/70 text-bm-muted hover:brightness-105 hover:bg-bm-surface/50 hover:text-bm-text"
               )}
             >
               <HouseIcon size={18} />
@@ -207,10 +207,10 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
                   aria-label={dept.label}
                   title={dept.label}
                   className={cn(
-                    "rounded-lg border p-2 transition inline-flex items-center justify-center",
+                    "rounded-md border p-2 transition-[filter,box-shadow] duration-150 inline-flex items-center justify-center",
                     active
                       ? "border-bm-accent/40 bg-bm-accent/10 text-bm-text"
-                      : "border-bm-border/70 text-bm-muted hover:bg-bm-surface/50 hover:text-bm-text"
+                      : "border-bm-border/70 text-bm-muted hover:brightness-105 hover:bg-bm-surface/50 hover:text-bm-text"
                   )}
                 >
                   <DeptIcon deptKey={dept.key} size={18} />
@@ -222,10 +222,10 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
               aria-label="Pipeline"
               title="Pipeline"
               className={cn(
-                "rounded-lg border p-2 transition inline-flex items-center justify-center",
+                "rounded-md border p-2 transition-[filter,box-shadow] duration-150 inline-flex items-center justify-center",
                 pathname === `/lab/env/${envId}/pipeline`
                   ? "border-bm-accent/40 bg-bm-accent/10 text-bm-text"
-                  : "border-bm-border/70 text-bm-muted hover:bg-bm-surface/50 hover:text-bm-text"
+                  : "border-bm-border/70 text-bm-muted hover:brightness-105 hover:bg-bm-surface/50 hover:text-bm-text"
               )}
             >
               <PipeIcon size={18} />
@@ -237,7 +237,7 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
           </div>
           <button
             type="button"
-            className="lg:hidden rounded-lg border border-bm-border/70 bg-bm-surface/40 px-3 py-1.5 text-sm text-bm-text"
+            className="lg:hidden rounded-md border border-bm-border/70 bg-bm-surface/40 px-3 py-1.5 text-sm text-bm-text"
             onClick={() => setMobileSidebarOpen(true)}
             data-testid="lab-env-sidebar-toggle"
           >
@@ -249,11 +249,11 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
       {/* ── Desktop sidebar + content ────────────────────── */}
       <div className="grid gap-4 lg:grid-cols-[240px,1fr]">
         <aside
-          className="hidden lg:block rounded-xl border border-bm-border/70 bg-bm-surface/30 p-3"
+          className="hidden lg:block rounded-lg border border-bm-border/70 bg-bm-surface/30 p-3"
           data-testid="lab-sidebar"
         >
           <div className="flex items-center justify-between px-2 pb-2">
-            <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">
+            <p className="bm-section-label">
               {departments.find((dept) => dept.key === currentDept)?.label} Functions
             </p>
             <AddCapabilityMenu
@@ -270,10 +270,10 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
                   href={`/lab/env/${envId}/${currentDept}/capability/${cap.key}`}
                   data-testid={`cap-link-${cap.key}`}
                   className={cn(
-                    "block rounded-lg border px-3 py-2 text-sm transition",
+                    "block rounded-md border px-3 py-2 text-sm font-normal transition-[filter,box-shadow] duration-150",
                     active
-                      ? "border-bm-accent/40 bg-bm-accent/10 text-bm-text"
-                      : "border-transparent text-bm-muted hover:border-bm-border/70 hover:bg-bm-surface/45"
+                      ? "border-bm-accent/40 bg-bm-accent/10 text-bm-text font-medium"
+                      : "border-transparent text-bm-muted hover:border-bm-border/70 hover:brightness-105 hover:bg-bm-surface/45"
                   )}
                 >
                   {cap.label}
@@ -303,10 +303,10 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
             data-testid="lab-env-sidebar-drawer"
           >
             <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-semibold">Functions</p>
+              <p className="text-sm font-medium">Functions</p>
               <button
                 type="button"
-                className="rounded-lg border border-bm-border/70 px-2 py-1 text-xs"
+                className="rounded-md border border-bm-border/70 px-2 py-1 text-xs"
                 onClick={() => setMobileSidebarOpen(false)}
               >
                 Close
@@ -318,7 +318,7 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
                   key={`${cap.key}-mobile`}
                   href={`/lab/env/${envId}/${currentDept}/capability/${cap.key}`}
                   data-testid={`cap-link-${cap.key}`}
-                  className="block rounded-lg border border-transparent px-3 py-2 text-sm text-bm-muted hover:border-bm-border/70 hover:bg-bm-surface/45"
+                  className="block rounded-md border border-transparent px-3 py-2 text-sm text-bm-muted hover:border-bm-border/70 hover:brightness-105 hover:bg-bm-surface/45"
                   onClick={() => setMobileSidebarOpen(false)}
                 >
                   {cap.label}

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Archive, ArrowRightCircle, Settings } from "lucide-react";
+import { ArrowRightCircle, Settings, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { Environment } from "@/components/EnvProvider";
 import { EnvironmentStatus, formatDate, humanIndustry } from "./constants";
@@ -17,14 +17,14 @@ export function EnvironmentCard({
   stats,
   onOpen,
   onSettings,
-  onArchive,
+  onDelete,
 }: {
   env: Environment;
   status: EnvironmentStatus;
   stats?: EnvironmentStats;
   onOpen: (envId: string) => void;
   onSettings: (envId: string) => void;
-  onArchive: (envId: string) => void;
+  onDelete: (envId: string) => void;
 }) {
   const industry = env.industry_type || env.industry;
   const industryVisual = getIndustryIcon(industry);
@@ -66,17 +66,15 @@ export function EnvironmentCard({
           <Button type="button" variant="secondary" size="sm" onClick={() => onSettings(env.env_id)} data-testid={`env-settings-${env.env_id}`}>
             <span className="inline-flex items-center gap-1"><Settings size={14} />Settings</span>
           </Button>
-          {status !== "archived" ? (
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              onClick={() => onArchive(env.env_id)}
-              data-testid={`env-archive-${env.env_id}`}
-            >
-              <span className="inline-flex items-center gap-1"><Archive size={14} />Archive</span>
-            </Button>
-          ) : null}
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            onClick={() => onDelete(env.env_id)}
+            data-testid={`env-delete-${env.env_id}`}
+          >
+            <span className="inline-flex items-center gap-1"><Trash2 size={14} />Delete</span>
+          </Button>
         </div>
       </header>
 

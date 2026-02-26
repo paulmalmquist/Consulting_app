@@ -16,7 +16,7 @@ export function EnvironmentSettingsModal({
   saving,
   onOpenChange,
   onSave,
-  onArchiveToggle,
+  onDelete,
 }: {
   open: boolean;
   env: Environment | null;
@@ -28,7 +28,7 @@ export function EnvironmentSettingsModal({
   saving: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (payload: { industry: Industry; notes: string; isActive: boolean }) => Promise<void>;
-  onArchiveToggle: (payload: { isActive: boolean }) => Promise<void>;
+  onDelete: () => Promise<void>;
 }) {
   const [industry, setIndustry] = useState<Industry>("healthcare");
   const [notes, setNotes] = useState("");
@@ -91,7 +91,7 @@ export function EnvironmentSettingsModal({
     >
       <div className="space-y-4">
         <div>
-          <label className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Industry</label>
+          <label className="bm-section-label">Industry</label>
           <Select className="mt-2" value={industry} onChange={(e) => setIndustry(e.target.value as Industry)}>
             {industries.map((option) => (
               <option key={option} value={option}>{humanIndustry(option)}</option>
@@ -100,7 +100,7 @@ export function EnvironmentSettingsModal({
         </div>
 
         <div>
-          <label className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Notes</label>
+          <label className="bm-section-label">Notes</label>
           <Textarea className="mt-2" rows={4} placeholder="Operational notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
 
@@ -145,18 +145,18 @@ export function EnvironmentSettingsModal({
           <div>
             <p className="text-sm font-semibold">Lifecycle</p>
             <p className="text-xs text-bm-muted2">
-              {env?.is_active ? "Archive this environment to hide it from active operations." : "Restore this archived environment."}
+              Delete this environment and all associated data. This action cannot be undone.
             </p>
           </div>
           <Button
             type="button"
-            variant={env?.is_active ? "destructive" : "secondary"}
+            variant="destructive"
             size="sm"
             disabled={!env || saving}
-            onClick={() => onArchiveToggle({ isActive: !Boolean(env?.is_active) })}
-            data-testid="env-settings-archive-toggle"
+            onClick={() => onDelete()}
+            data-testid="env-settings-delete"
           >
-            {env?.is_active ? "Archive" : "Restore"}
+            Delete Environment
           </Button>
         </div>
       </div>

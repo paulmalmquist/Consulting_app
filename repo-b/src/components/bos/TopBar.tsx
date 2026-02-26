@@ -25,12 +25,12 @@ export default function TopBar({
   const { departments, loadingDepartments } = useBusinessContext();
 
   return (
-    <header className="border-b border-bm-border/70 bg-bm-bg/35 backdrop-blur-md sticky top-0 z-30">
+    <header className="sticky top-0 z-30 border-b border-bm-border/70 bg-bm-surface/95 backdrop-blur-sm shadow-[0_10px_18px_-18px_rgba(4,8,12,0.72)]">
       <div className="flex items-center h-12 px-2 sm:px-4">
         {/* Mobile hamburger */}
         <button
           onClick={onHamburgerClick}
-          className="lg:hidden flex-shrink-0 p-2 mr-1 rounded-lg hover:bg-bm-surface/50 active:bg-bm-surface2/60 transition-colors"
+          className="lg:hidden flex-shrink-0 p-2 mr-1 rounded-md hover:brightness-105 hover:bg-bm-surface/50"
           aria-label="Open sidebar"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -39,7 +39,7 @@ export default function TopBar({
         </button>
 
         {/* Brand */}
-        <Link href="/app" className="flex-shrink-0 text-sm font-semibold font-display mr-3 hidden sm:block">
+        <Link href="/app" className="flex-shrink-0 text-sm font-medium mr-3 hidden sm:block">
           Business OS
         </Link>
 
@@ -48,9 +48,9 @@ export default function TopBar({
           <div className="flex items-center gap-1 min-w-max px-1">
             {loadingDepartments && (
               <>
-                <div className="h-8 w-20 bg-bm-surface/60 border border-bm-border/60 rounded-lg animate-pulse" />
-                <div className="h-8 w-24 bg-bm-surface/60 border border-bm-border/60 rounded-lg animate-pulse" />
-                <div className="h-8 w-20 bg-bm-surface/60 border border-bm-border/60 rounded-lg animate-pulse" />
+                <div className="h-8 w-20 bg-bm-surface/60 border border-bm-border/60 rounded-md" />
+                <div className="h-8 w-24 bg-bm-surface/60 border border-bm-border/60 rounded-md" />
+                <div className="h-8 w-20 bg-bm-surface/60 border border-bm-border/60 rounded-md" />
               </>
             )}
             {departments.map((dept) => {
@@ -61,10 +61,10 @@ export default function TopBar({
                   key={dept.key}
                   href={`/app/${dept.key}`}
                   data-testid={`dept-tab-${dept.key}`}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition flex-shrink-0 border ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm whitespace-nowrap transition-[filter,box-shadow] duration-150 flex-shrink-0 border ${
                     isActive
-                      ? "bg-bm-accent/12 text-bm-text border-bm-accent/30 shadow-bm-glow"
-                      : "text-bm-muted border-transparent hover:bg-bm-surface/50 hover:border-bm-border/70 active:bg-bm-surface2/60"
+                      ? "bg-bm-accent/10 text-bm-text border-bm-accent/35 shadow-bm-glow font-medium"
+                      : "text-bm-muted border-transparent hover:brightness-105 hover:bg-bm-surface/50 hover:border-bm-border/70"
                   }`}
                 >
                   <span>{icon}</span>
@@ -80,7 +80,7 @@ export default function TopBar({
           <ThemeToggle />
           <Link
             href="/documents"
-            className="text-xs text-bm-muted hover:text-bm-text px-2 py-1.5 rounded hover:bg-bm-surface/50 transition-colors hidden sm:block"
+            className="text-xs text-bm-muted hover:text-bm-text px-2 py-1.5 rounded-md hover:brightness-105 hover:bg-bm-surface/50 hidden sm:block"
           >
             Docs
           </Link>

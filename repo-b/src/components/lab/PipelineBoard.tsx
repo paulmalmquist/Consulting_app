@@ -80,7 +80,7 @@ function DraggableCard({
       {...listeners}
       {...attributes}
       className={cn(
-        "rounded-lg border border-bm-border/70 bg-bm-surface/45 p-3 cursor-grab transition hover:brightness-110",
+        "rounded-md border border-bm-border/70 bg-bm-surface/50 p-3 cursor-grab transition-[transform,box-shadow,filter] duration-150 hover:brightness-105 hover:shadow-bm-card",
         isDragging && "opacity-40"
       )}
       data-testid={`pipeline-card-${card.card_id}`}
@@ -125,16 +125,16 @@ function StageColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "bm-command-module p-3 min-h-[220px] border",
+        "bm-command-module p-4 min-h-[220px] border",
         stageTone(stage.color_token),
-        isOver && "shadow-bm-glow border-bm-accent/50"
+        isOver && "shadow-bm-glow border-bm-accent/40"
       )}
       data-testid={`pipeline-stage-${stage.stage_key}`}
     >
-      <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="mb-4 flex items-center justify-between gap-2 border-b border-bm-border/60 pb-3">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">{stage.stage_name}</p>
-          <p className="text-lg font-semibold text-bm-muted">{cards.length}</p>
+          <p className="font-mono text-xs font-medium uppercase tracking-[0.14em] text-bm-muted2">{stage.stage_name}</p>
+          <p className="mt-1 text-[1.9rem] leading-none font-medium text-bm-muted">{cards.length}</p>
         </div>
         <button
           type="button"
@@ -149,11 +149,11 @@ function StageColumn({
           <DraggableCard key={card.card_id} card={card} onDelete={onDeleteCard} />
         ))}
         {cards.length === 0 ? (
-          <div className="bm-command-empty rounded-lg p-5 text-center">
-            <div className="mx-auto mb-2 inline-flex h-7 w-7 items-center justify-center rounded-full border border-bm-border/70 text-bm-muted">
+          <div className="bm-command-empty rounded-md p-5 text-center">
+            <div className="mx-auto mb-2 inline-flex h-7 w-7 items-center justify-center rounded-md border border-dashed border-bm-border/70 text-bm-muted">
               +
             </div>
-            <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Drop Deals Here</p>
+            <p className="font-mono text-xs uppercase tracking-[0.14em] text-bm-muted2">Drop Deals Here</p>
           </div>
         ) : null}
       </div>
@@ -414,10 +414,10 @@ export default function PipelineBoard({
         <CardContent>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <CardTitle className="text-[1.4rem]">{heading}</CardTitle>
+              <CardTitle className="text-[1.6rem] leading-tight tracking-[-0.01em]">{heading}</CardTitle>
               <CardDescription>{subheading}</CardDescription>
               {showContext ? (
-                <p className="mt-2 text-xs text-bm-muted2">
+                <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-bm-muted2">
                   {board.client_name} · {board.industry_type}
                 </p>
               ) : null}
@@ -446,7 +446,7 @@ export default function PipelineBoard({
         </section>
         <DragOverlay>
           {activeCard ? (
-            <div className="w-[260px] rounded-lg border border-bm-accent/45 bg-bm-surface/90 p-3 shadow-bm-card">
+            <div className="w-[260px] rounded-md border border-bm-accent/45 bg-bm-surface/95 p-3 shadow-bm-card">
               <p className="text-sm font-semibold">{activeCard.title}</p>
               <p className="mt-1 text-xs text-bm-muted">{activeCard.account_name || "No account"}</p>
             </div>
@@ -472,7 +472,7 @@ export default function PipelineBoard({
       >
         <div className="space-y-3">
           <div>
-            <label className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Stage name</label>
+            <label className="bm-section-label">Stage name</label>
             <Input
               value={newStageName}
               onChange={(event) => setNewStageName(event.target.value)}
@@ -480,7 +480,7 @@ export default function PipelineBoard({
             />
           </div>
           <div>
-            <label className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Color</label>
+            <label className="bm-section-label">Color</label>
             <Select value={newStageColor} onChange={(event) => setNewStageColor(event.target.value)}>
               <option value="slate">Slate</option>
               <option value="blue">Blue</option>
@@ -510,11 +510,11 @@ export default function PipelineBoard({
       >
         <div className="space-y-3">
           <div>
-            <label className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Title</label>
+            <label className="bm-section-label">Title</label>
             <Input value={newCardTitle} onChange={(event) => setNewCardTitle(event.target.value)} />
           </div>
           <div>
-            <label className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Stage</label>
+            <label className="bm-section-label">Stage</label>
             <Select value={newCardStageId} onChange={(event) => setNewCardStageId(event.target.value)}>
               {stages.map((stage) => (
                 <option key={stage.stage_id} value={stage.stage_id}>
@@ -525,16 +525,16 @@ export default function PipelineBoard({
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Account</label>
+              <label className="bm-section-label">Account</label>
               <Input value={newCardAccount} onChange={(event) => setNewCardAccount(event.target.value)} />
             </div>
             <div>
-              <label className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Owner</label>
+              <label className="bm-section-label">Owner</label>
               <Input value={newCardOwner} onChange={(event) => setNewCardOwner(event.target.value)} />
             </div>
           </div>
           <div>
-            <label className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Value (USD)</label>
+            <label className="bm-section-label">Value (USD)</label>
             <Input
               value={newCardValue}
               onChange={(event) => setNewCardValue(event.target.value)}
