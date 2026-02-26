@@ -4,10 +4,12 @@ import { Pool } from "pg";
 export const runtime = "nodejs";
 
 let _pool: Pool | null = null;
+let _poolUrl: string | undefined;
 
 function getPool(): Pool | null {
-  if (_pool) return _pool;
   const raw = process.env.PG_POOLER_URL || process.env.DATABASE_URL;
+  if (_pool && _poolUrl === raw) return _pool;
+  _pool = null;
   if (!raw) return null;
   try {
     const u = new URL(raw);
@@ -24,6 +26,7 @@ function getPool(): Pool | null {
       database: u.pathname?.replace(/^\//, "") || "postgres",
       ...(isLocal ? {} : { ssl: { rejectUnauthorized: false } }),
     });
+    _poolUrl = raw;
     return _pool;
   } catch {
     return null;
