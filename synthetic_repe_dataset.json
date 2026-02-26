@@ -1,0 +1,2725 @@
+{
+  "_metadata": {
+    "dataset_id": "synthetic-repe-2026-q1",
+    "created_at": "2026-02-25T00:00:00Z",
+    "version": "1.0",
+    "environment": "production",
+    "data_integrity": "all_numbers_reconciled",
+    "total_aum": 1500000000,
+    "currency": "USD"
+  },
+  "funds": [
+    {
+      "fund_id": "fund-equity-001",
+      "fund_name": "Meridian Real Estate Fund III",
+      "fund_type": "equity",
+      "structure": "closed-end",
+      "vintage": 2026,
+      "commitment_total": 900000000,
+      "commitment_called": 450000000,
+      "commitment_remaining": 450000000,
+      "target_irr_low": 0.16,
+      "target_irr_high": 0.20,
+      "hold_period_min": 5,
+      "hold_period_max": 7,
+      "strategy": "Value-Add",
+      "inception_date": "2026-01-15",
+      "close_date": "2026-02-28",
+      "nav_as_of": "2026-02-28",
+      "nav_total": 475000000,
+      "nav_invested": 425000000,
+      "nav_cash": 50000000,
+      "sectors": [
+        "Medical Office",
+        "Senior Housing",
+        "Student Housing",
+        "Multifamily",
+        "Light Industrial"
+      ],
+      "geographies": [
+        "Dallas",
+        "Phoenix",
+        "Atlanta",
+        "Tampa",
+        "Charlotte"
+      ],
+      "investments": [
+        {
+          "investment_id": "inv-equity-001",
+          "investment_name": "MRF III - Multifamily Dallas Cluster",
+          "acquisition_date": "2026-01-20",
+          "purchase_price": 280000000,
+          "equity_invested": 84000000,
+          "debt_raised": 196000000,
+          "nav": 94500000,
+          "irr_ytd": 0.08,
+          "moic": 1.125,
+          "properties": [
+            {
+              "asset_id": "asset-eq-001",
+              "property_name": "Meridian Park Multifamily - Dallas",
+              "property_type": "multifamily",
+              "sector": "Multifamily",
+              "geography": "Dallas",
+              "submarket": "Deep Ellum / East Dallas",
+              "address": "4521 Maple Avenue, Dallas, TX 75219",
+              "acquisition_date": "2026-01-20",
+              "purchase_price": 140000000,
+              "year_built": 2012,
+              "year_renovated": 2024,
+              "total_units": 285,
+              "sf_rentable": 315000,
+              "unit_mix": {
+                "studio": 28,
+                "1br": 114,
+                "2br": 95,
+                "3br": 48
+              },
+              "occupancy_current": 0.945,
+              "occupancy_stabilized": 0.96,
+              "lease_type": "Month-to-Month / 12-Month",
+              "market_rent_per_unit_avg": 1785,
+              "market_rent_per_sf": 68,
+              "top_tenants": "N/A - multifamily",
+              "competitive_set": {
+                "num_comparables": 12,
+                "avg_rent_comparable": 1750,
+                "avg_occupancy_comparable": 0.925,
+                "rent_vs_market": 1.02
+              },
+              "valuation": {
+                "method_direct_cap": {
+                  "stabilized_noi": 16800000,
+                  "cap_rate": 0.048,
+                  "value": 350000000,
+                  "weight": 0.5
+                },
+                "method_dcf": {
+                  "discount_rate": 0.085,
+                  "terminal_cap": 0.052,
+                  "exit_year": 5,
+                  "pv_cashflows": 155000000,
+                  "pv_terminal": 165000000,
+                  "value": 320000000,
+                  "weight": 0.5
+                },
+                "blended_value": 335000000,
+                "value_conclusion": "Based on 5x leverage scenario with 96% stabilized occupancy"
+              },
+              "valuation_inputs": {
+                "cap_rate_assumption": 0.048,
+                "discount_rate_assumption": 0.085,
+                "terminal_cap_assumption": 0.052,
+                "noi_growth_yr1": 0.03,
+                "noi_growth_yr2": 0.025,
+                "noi_growth_yr3": 0.02,
+                "noi_growth_yr4": 0.015,
+                "noi_growth_yr5": 0.01,
+                "exit_assumption_year_5": true,
+                "exit_cap_rate": 0.052
+              },
+              "financials_trailing_12": {
+                "gross_potential_rent": 61156200,
+                "concessions": 732672,
+                "vacancy_loss": 2893100,
+                "other_income": 480000,
+                "effective_gross_income": 58010428,
+                "expenses": {
+                  "payroll": 8400000,
+                  "repairs_maintenance": 5218500,
+                  "utilities": 3150000,
+                  "property_taxes": 6720000,
+                  "insurance": 1890000,
+                  "admin": 1260000,
+                  "management_fee": 1740312,
+                  "replacement_reserves": 1450000
+                },
+                "total_opex": 30028812,
+                "noi": 27981616,
+                "noi_margin": 0.483,
+                "dscr_current": 1.42
+              },
+              "financials_5_year_proforma": [
+                {
+                  "year": 1,
+                  "occupied_units": 273.3,
+                  "occupancy": 0.96,
+                  "gpr": 63050826,
+                  "egi": 59717279,
+                  "opex": 30228812,
+                  "noi": 29488467,
+                  "capex_plan": 2100000
+                },
+                {
+                  "year": 2,
+                  "occupied_units": 274.1,
+                  "occupancy": 0.962,
+                  "gpr": 64626348,
+                  "egi": 61259810,
+                  "opex": 30934151,
+                  "noi": 30325659,
+                  "capex_plan": 1400000
+                },
+                {
+                  "year": 3,
+                  "occupied_units": 274.7,
+                  "occupancy": 0.964,
+                  "gpr": 65877755,
+                  "egi": 62448605,
+                  "opex": 31552574,
+                  "noi": 30896031,
+                  "capex_plan": 800000
+                },
+                {
+                  "year": 4,
+                  "occupied_units": 275.2,
+                  "occupancy": 0.965,
+                  "gpr": 66891342,
+                  "egi": 63343785,
+                  "opex": 31982302,
+                  "noi": 31361483,
+                  "capex_plan": 400000
+                },
+                {
+                  "year": 5,
+                  "occupied_units": 275.6,
+                  "occupancy": 0.966,
+                  "gpr": 67580516,
+                  "egi": 64087792,
+                  "opex": 32278006,
+                  "noi": 31809786,
+                  "capex_plan": 0,
+                  "exit_cap_rate": 0.052,
+                  "exit_value": 611726270,
+                  "sale_costs": 18351788,
+                  "net_sale_proceeds": 593374482
+                }
+              ],
+              "debt_structure": {
+                "loan_id": "loan-eq-001",
+                "origination_date": "2026-01-20",
+                "loan_amount": 98000000,
+                "ltv_origination": 0.70,
+                "rate_type": "fixed",
+                "rate": 0.055,
+                "spread": 0,
+                "index": "Fixed",
+                "io_period_months": 0,
+                "amortization_years": 30,
+                "full_term_years": 10,
+                "maturity_date": "2036-01-20",
+                "extension_options": 2,
+                "extension_term_months": 24,
+                "covenant_dscr_requirement": 1.25,
+                "covenant_ltv_requirement": 0.80,
+                "cash_sweep_trigger_dscr": 1.35,
+                "current_balance": 96020000,
+                "amortization_summary": {
+                  "period_1": {
+                    "year": 1,
+                    "beginning_balance": 98000000,
+                    "debt_service": 6895000,
+                    "interest": 5390000,
+                    "principal": 1505000,
+                    "ending_balance": 96495000
+                  },
+                  "period_2": {
+                    "year": 2,
+                    "beginning_balance": 96495000,
+                    "debt_service": 6895000,
+                    "interest": 5301725,
+                    "principal": 1593275,
+                    "ending_balance": 94901725
+                  },
+                  "period_3": {
+                    "year": 3,
+                    "beginning_balance": 94901725,
+                    "debt_service": 6895000,
+                    "interest": 5219595,
+                    "principal": 1675405,
+                    "ending_balance": 93226320
+                  },
+                  "period_4": {
+                    "year": 4,
+                    "beginning_balance": 93226320,
+                    "debt_service": 6895000,
+                    "interest": 5132445,
+                    "principal": 1762555,
+                    "ending_balance": 91463765
+                  },
+                  "period_5": {
+                    "year": 5,
+                    "beginning_balance": 91463765,
+                    "debt_service": 6895000,
+                    "interest": 5030510,
+                    "principal": 1864490,
+                    "ending_balance": 89599275
+                  }
+                }
+              },
+              "jv_structure": {
+                "jv_id": "jv-eq-001",
+                "jv_name": "Meridian Park JV I, LLC",
+                "gp_ownership": 0.20,
+                "lp_ownership": 0.80,
+                "promote_tiers": [
+                  {
+                    "tier": 1,
+                    "description": "Preferred Return",
+                    "rate": 0.08,
+                    "allocation_lp": 1.0,
+                    "allocation_gp": 0.0
+                  },
+                  {
+                    "tier": 2,
+                    "description": "Catch-Up",
+                    "rate": 1.0,
+                    "allocation_lp": 0.0,
+                    "allocation_gp": 1.0,
+                    "threshold_irr": 0.08
+                  },
+                  {
+                    "tier": 3,
+                    "description": "First Split",
+                    "allocation_lp": 0.7,
+                    "allocation_gp": 0.3,
+                    "threshold_irr": 0.08
+                  },
+                  {
+                    "tier": 4,
+                    "description": "Second Split",
+                    "allocation_lp": 0.5,
+                    "allocation_gp": 0.5,
+                    "threshold_irr": 0.18
+                  }
+                ]
+              },
+              "capex_plan": {
+                "phase_1": {
+                  "description": "Common area modernization and exterior",
+                  "budget": 1400000,
+                  "cost_per_unit": 4912,
+                  "timeline_months": 12,
+                  "units_impacted": 285,
+                  "expected_rent_lift": 0.04,
+                  "irr_impact_bps": 150
+                },
+                "phase_2": {
+                  "description": "Unit interior unit refreshes (50 units)",
+                  "budget": 700000,
+                  "cost_per_unit": 14000,
+                  "timeline_months": 18,
+                  "units_impacted": 50,
+                  "expected_rent_lift": 0.06,
+                  "irr_impact_bps": 75
+                }
+              },
+              "appraisal_summary": {
+                "appraisal_date": "2026-01-10",
+                "appraiser": "Institutional Appraisal Services, LLC",
+                "direct_cap_method": {
+                  "noi_used": 27981616,
+                  "cap_rate": 0.048,
+                  "indicated_value": 583366917,
+                  "reconciliation_notes": "Cap rate derived from institutional comps; 96% occupancy assumption"
+                },
+                "income_approach_dcf": {
+                  "year_1_noi": 29488467,
+                  "discount_rate": 0.085,
+                  "terminal_cap": 0.052,
+                  "pv_cashflows": 155000000,
+                  "pv_terminal_value": 165000000,
+                  "total_value": 320000000,
+                  "notes": "Reflects 5-7 year hold with value-add strategy"
+                },
+                "sales_comparison": {
+                  "comparable_1": {
+                    "property": "Heights Multifamily - Dallas",
+                    "sale_date": "2025-09-15",
+                    "price_per_unit": 460000,
+                    "cap_rate": 0.052
+                  },
+                  "comparable_2": {
+                    "property": "Uptown Residential Tower - Dallas",
+                    "sale_date": "2025-11-20",
+                    "price_per_unit": 480000,
+                    "cap_rate": 0.048
+                  },
+                  "comparable_3": {
+                    "property": "Oak Lawn Apartments - Dallas",
+                    "sale_date": "2025-08-10",
+                    "price_per_unit": 455000,
+                    "cap_rate": 0.053
+                  },
+                  "indicated_price_per_unit": 465000,
+                  "total_indicated_value": 132525000
+                },
+                "value_conclusion": 335000000,
+                "value_conclusion_notes": "Blended approach weighting direct cap 50%, DCF 50% given institutional hold period and value-add thesis"
+              }
+            },
+            {
+              "asset_id": "asset-eq-002",
+              "property_name": "Ellipse Senior Living - Dallas",
+              "property_type": "senior-housing",
+              "sector": "Senior Housing",
+              "geography": "Dallas",
+              "submarket": "Preston Hollow",
+              "address": "8950 Preston Road, Dallas, TX 75225",
+              "acquisition_date": "2026-01-20",
+              "purchase_price": 85000000,
+              "year_built": 2005,
+              "year_renovated": 2023,
+              "total_units": 120,
+              "sf_rentable": 180000,
+              "unit_mix": {
+                "independent_studio": 48,
+                "independent_1br": 72
+              },
+              "occupancy_current": 0.92,
+              "occupancy_stabilized": 0.95,
+              "lease_type": "Assisted Living / Memory Care",
+              "market_rent_per_unit_avg": 4200,
+              "market_rent_per_sf": 238,
+              "top_tenants": "N/A - Senior Housing Operator",
+              "operator": "Sunrise Senior Living (operator partner)",
+              "competitive_set": {
+                "num_comparables": 8,
+                "avg_rent_comparable": 4100,
+                "avg_occupancy_comparable": 0.90,
+                "rent_vs_market": 1.024
+              },
+              "valuation": {
+                "method_direct_cap": {
+                  "stabilized_noi": 6570000,
+                  "cap_rate": 0.058,
+                  "value": 113276000,
+                  "weight": 0.5
+                },
+                "method_dcf": {
+                  "discount_rate": 0.095,
+                  "terminal_cap": 0.062,
+                  "exit_year": 5,
+                  "pv_cashflows": 58000000,
+                  "pv_terminal": 50400000,
+                  "value": 108400000,
+                  "weight": 0.5
+                },
+                "blended_value": 110838000,
+                "value_conclusion": "Conservative underwriting on aging facility; operator partnership key to stabilization"
+              },
+              "valuation_inputs": {
+                "cap_rate_assumption": 0.058,
+                "discount_rate_assumption": 0.095,
+                "terminal_cap_assumption": 0.062,
+                "noi_growth_yr1": 0.02,
+                "noi_growth_yr2": 0.02,
+                "noi_growth_yr3": 0.015,
+                "noi_growth_yr4": 0.01,
+                "noi_growth_yr5": 0.005,
+                "exit_assumption_year_5": true,
+                "exit_cap_rate": 0.062
+              },
+              "financials_trailing_12": {
+                "gross_potential_rent": 6048000,
+                "concessions": 144000,
+                "vacancy_loss": 302400,
+                "other_income": 480000,
+                "effective_gross_income": 6081600,
+                "expenses": {
+                  "payroll": 2400000,
+                  "repairs_maintenance": 914400,
+                  "utilities": 540000,
+                  "property_taxes": 486000,
+                  "insurance": 259200,
+                  "admin": 240000,
+                  "management_fee": 182448,
+                  "replacement_reserves": 300000
+                },
+                "total_opex": 5322048,
+                "noi": 759552,
+                "noi_margin": 0.125,
+                "dscr_current": 1.18
+              },
+              "financials_5_year_proforma": [
+                {
+                  "year": 1,
+                  "occupied_units": 114,
+                  "occupancy": 0.95,
+                  "gpr": 6172800,
+                  "egi": 6178560,
+                  "opex": 5357200,
+                  "noi": 821360,
+                  "capex_plan": 400000
+                },
+                {
+                  "year": 2,
+                  "occupied_units": 114,
+                  "occupancy": 0.95,
+                  "gpr": 6296448,
+                  "egi": 6302211,
+                  "opex": 5464632,
+                  "noi": 837579,
+                  "capex_plan": 250000
+                },
+                {
+                  "year": 3,
+                  "occupied_units": 114,
+                  "occupancy": 0.95,
+                  "gpr": 6411076,
+                  "egi": 6416745,
+                  "opex": 5546161,
+                  "noi": 870584,
+                  "capex_plan": 150000
+                },
+                {
+                  "year": 4,
+                  "occupied_units": 114,
+                  "occupancy": 0.95,
+                  "gpr": 6475458,
+                  "egi": 6480933,
+                  "opex": 5600883,
+                  "noi": 880050,
+                  "capex_plan": 100000
+                },
+                {
+                  "year": 5,
+                  "occupied_units": 114,
+                  "occupancy": 0.95,
+                  "gpr": 6524188,
+                  "egi": 6529790,
+                  "opex": 5605891,
+                  "noi": 923899,
+                  "capex_plan": 0,
+                  "exit_cap_rate": 0.062,
+                  "exit_value": 14901600,
+                  "sale_costs": 447048,
+                  "net_sale_proceeds": 14454552
+                }
+              ],
+              "debt_structure": {
+                "loan_id": "loan-eq-002",
+                "origination_date": "2026-01-20",
+                "loan_amount": 59500000,
+                "ltv_origination": 0.70,
+                "rate_type": "fixed",
+                "rate": 0.058,
+                "spread": 0,
+                "index": "Fixed",
+                "io_period_months": 0,
+                "amortization_years": 30,
+                "full_term_years": 10,
+                "maturity_date": "2036-01-20",
+                "extension_options": 2,
+                "extension_term_months": 24,
+                "covenant_dscr_requirement": 1.20,
+                "covenant_ltv_requirement": 0.80,
+                "cash_sweep_trigger_dscr": 1.30,
+                "current_balance": 58495000,
+                "amortization_summary": {
+                  "period_1": {
+                    "year": 1,
+                    "beginning_balance": 59500000,
+                    "debt_service": 3947000,
+                    "interest": 3451000,
+                    "principal": 496000,
+                    "ending_balance": 59004000
+                  }
+                }
+              },
+              "jv_structure": {
+                "jv_id": "jv-eq-002",
+                "jv_name": "Ellipse Senior Living JV, LLC",
+                "gp_ownership": 0.20,
+                "lp_ownership": 0.80,
+                "promote_tiers": [
+                  {
+                    "tier": 1,
+                    "description": "Preferred Return",
+                    "rate": 0.08,
+                    "allocation_lp": 1.0,
+                    "allocation_gp": 0.0
+                  },
+                  {
+                    "tier": 2,
+                    "description": "Catch-Up",
+                    "rate": 1.0,
+                    "allocation_lp": 0.0,
+                    "allocation_gp": 1.0,
+                    "threshold_irr": 0.08
+                  },
+                  {
+                    "tier": 3,
+                    "description": "First Split",
+                    "allocation_lp": 0.7,
+                    "allocation_gp": 0.3,
+                    "threshold_irr": 0.08
+                  },
+                  {
+                    "tier": 4,
+                    "description": "Second Split",
+                    "allocation_lp": 0.5,
+                    "allocation_gp": 0.5,
+                    "threshold_irr": 0.18
+                  }
+                ]
+              },
+              "capex_plan": {
+                "phase_1": {
+                  "description": "Care suite modernization",
+                  "budget": 400000,
+                  "cost_per_unit": 3333,
+                  "timeline_months": 12,
+                  "units_impacted": 120,
+                  "expected_rent_lift": 0.025,
+                  "irr_impact_bps": 100
+                }
+              },
+              "appraisal_summary": {
+                "appraisal_date": "2026-01-10",
+                "appraiser": "Institutional Appraisal Services, LLC",
+                "direct_cap_method": {
+                  "noi_used": 6570000,
+                  "cap_rate": 0.058,
+                  "indicated_value": 113276000
+                },
+                "value_conclusion": 110838000
+              }
+            },
+            {
+              "asset_id": "asset-eq-003",
+              "property_name": "Phoenix Gateway Medical Office - Phoenix",
+              "property_type": "medical-office",
+              "sector": "Medical Office",
+              "geography": "Phoenix",
+              "submarket": "Scottsdale Medical District",
+              "address": "14500 North Scottsdale Road, Scottsdale, AZ 85254",
+              "acquisition_date": "2026-01-20",
+              "purchase_price": 65000000,
+              "year_built": 2010,
+              "year_renovated": 2023,
+              "total_units": 1,
+              "sf_rentable": 125000,
+              "occupancy_current": 0.88,
+              "occupancy_stabilized": 0.93,
+              "lease_type": "NNN Medical Office",
+              "market_rent_per_sf": 35,
+              "top_tenants": [
+                {
+                  "tenant": "Banner Health System",
+                  "sf": 45000,
+                  "pct_of_nla": 0.36,
+                  "rent_per_sf": 38,
+                  "lease_expiration": "2031-03-31"
+                },
+                {
+                  "tenant": "Arizona Spine Center",
+                  "sf": 25000,
+                  "pct_of_nla": 0.20,
+                  "rent_per_sf": 33,
+                  "lease_expiration": "2028-12-31"
+                },
+                {
+                  "tenant": "Scottsdale Dermatology",
+                  "sf": 20000,
+                  "pct_of_nla": 0.16,
+                  "rent_per_sf": 35,
+                  "lease_expiration": "2027-06-30"
+                },
+                {
+                  "tenant": "Various Healthcare Providers",
+                  "sf": 35000,
+                  "pct_of_nla": 0.28,
+                  "rent_per_sf": 34,
+                  "lease_expiration": "Average 2028"
+                }
+              ],
+              "competitive_set": {
+                "num_comparables": 10,
+                "avg_rent_comparable": 34,
+                "avg_occupancy_comparable": 0.92,
+                "rent_vs_market": 1.03
+              },
+              "valuation": {
+                "method_direct_cap": {
+                  "stabilized_noi": 4237500,
+                  "cap_rate": 0.065,
+                  "value": 65192308,
+                  "weight": 0.5
+                },
+                "method_dcf": {
+                  "discount_rate": 0.095,
+                  "terminal_cap": 0.068,
+                  "exit_year": 5,
+                  "pv_cashflows": 35900000,
+                  "pv_terminal": 27100000,
+                  "value": 63000000,
+                  "weight": 0.5
+                },
+                "blended_value": 64096154,
+                "value_conclusion": "Institutional quality medical office with strong anchor tenants"
+              },
+              "valuation_inputs": {
+                "cap_rate_assumption": 0.065,
+                "discount_rate_assumption": 0.095,
+                "terminal_cap_assumption": 0.068,
+                "noi_growth_yr1": 0.015,
+                "noi_growth_yr2": 0.015,
+                "noi_growth_yr3": 0.01,
+                "noi_growth_yr4": 0.01,
+                "noi_growth_yr5": 0.005,
+                "exit_assumption_year_5": true,
+                "exit_cap_rate": 0.068
+              },
+              "financials_trailing_12": {
+                "gross_potential_rent": 4375000,
+                "concessions": 87500,
+                "vacancy_loss": 393750,
+                "other_income": 150000,
+                "effective_gross_income": 4043750,
+                "expenses": {
+                  "property_taxes": 562500,
+                  "insurance": 156250,
+                  "common_area": 281250,
+                  "management_fee": 121312,
+                  "replacement_reserves": 200000
+                },
+                "total_opex": 1321312,
+                "noi": 2722438,
+                "noi_margin": 0.673,
+                "dscr_current": 1.55
+              },
+              "financials_5_year_proforma": [
+                {
+                  "year": 1,
+                  "occupied_sf": 116250,
+                  "occupancy": 0.93,
+                  "gpr": 4439375,
+                  "egi": 4126875,
+                  "opex": 1363400,
+                  "noi": 2763475,
+                  "capex_plan": 150000
+                },
+                {
+                  "year": 2,
+                  "occupied_sf": 116250,
+                  "occupancy": 0.93,
+                  "gpr": 4506063,
+                  "egi": 4197078,
+                  "opex": 1378700,
+                  "noi": 2818378,
+                  "capex_plan": 75000
+                },
+                {
+                  "year": 3,
+                  "occupied_sf": 116250,
+                  "occupancy": 0.93,
+                  "gpr": 4551644,
+                  "egi": 4239305,
+                  "opex": 1391830,
+                  "noi": 2847475,
+                  "capex_plan": 50000
+                },
+                {
+                  "year": 4,
+                  "occupied_sf": 116250,
+                  "occupancy": 0.93,
+                  "gpr": 4597200,
+                  "egi": 4281550,
+                  "opex": 1405200,
+                  "noi": 2876350,
+                  "capex_plan": 50000
+                },
+                {
+                  "year": 5,
+                  "occupied_sf": 116250,
+                  "occupancy": 0.93,
+                  "gpr": 4618176,
+                  "egi": 4301344,
+                  "opex": 1410840,
+                  "noi": 2890504,
+                  "capex_plan": 0,
+                  "exit_cap_rate": 0.068,
+                  "exit_value": 42507411,
+                  "sale_costs": 1275223,
+                  "net_sale_proceeds": 41232188
+                }
+              ],
+              "debt_structure": {
+                "loan_id": "loan-eq-003",
+                "origination_date": "2026-01-20",
+                "loan_amount": 45500000,
+                "ltv_origination": 0.70,
+                "rate_type": "fixed",
+                "rate": 0.062,
+                "spread": 0,
+                "index": "Fixed",
+                "io_period_months": 0,
+                "amortization_years": 30,
+                "full_term_years": 10,
+                "maturity_date": "2036-01-20",
+                "extension_options": 2,
+                "extension_term_months": 24,
+                "covenant_dscr_requirement": 1.20,
+                "covenant_ltv_requirement": 0.80,
+                "cash_sweep_trigger_dscr": 1.30,
+                "current_balance": 44995000
+              },
+              "jv_structure": {
+                "jv_id": "jv-eq-003",
+                "jv_name": "Phoenix Gateway Medical JV, LLC",
+                "gp_ownership": 0.20,
+                "lp_ownership": 0.80,
+                "promote_tiers": [
+                  {
+                    "tier": 1,
+                    "description": "Preferred Return",
+                    "rate": 0.08,
+                    "allocation_lp": 1.0,
+                    "allocation_gp": 0.0
+                  },
+                  {
+                    "tier": 2,
+                    "description": "Catch-Up",
+                    "rate": 1.0,
+                    "allocation_lp": 0.0,
+                    "allocation_gp": 1.0,
+                    "threshold_irr": 0.08
+                  },
+                  {
+                    "tier": 3,
+                    "description": "First Split",
+                    "allocation_lp": 0.7,
+                    "allocation_gp": 0.3,
+                    "threshold_irr": 0.08
+                  },
+                  {
+                    "tier": 4,
+                    "description": "Second Split",
+                    "allocation_lp": 0.5,
+                    "allocation_gp": 0.5,
+                    "threshold_irr": 0.18
+                  }
+                ]
+              },
+              "appraisal_summary": {
+                "appraisal_date": "2026-01-10",
+                "appraiser": "Institutional Appraisal Services, LLC",
+                "direct_cap_method": {
+                  "noi_used": 4237500,
+                  "cap_rate": 0.065,
+                  "indicated_value": 65192308
+                },
+                "value_conclusion": 64096154
+              }
+            },
+            {
+              "asset_id": "asset-eq-004",
+              "property_name": "Westgate Student Housing - Tempe",
+              "property_type": "student-housing",
+              "sector": "Student Housing",
+              "geography": "Phoenix",
+              "submarket": "Tempe / ASU Campus",
+              "address": "1950 East Apache Boulevard, Tempe, AZ 85281",
+              "acquisition_date": "2026-01-20",
+              "purchase_price": 48000000,
+              "year_built": 2015,
+              "year_renovated": 2024,
+              "total_units": 220,
+              "sf_rentable": 245000,
+              "unit_mix": {
+                "4br_4ba": 110,
+                "2br_2ba": 110
+              },
+              "occupancy_current": 0.96,
+              "occupancy_stabilized": 0.98,
+              "lease_type": "Annual / 12-Month",
+              "market_rent_per_unit_avg": 1950,
+              "market_rent_per_sf": 48,
+              "top_tenants": "N/A - Student Housing",
+              "competitive_set": {
+                "num_comparables": 9,
+                "avg_rent_comparable": 1920,
+                "avg_occupancy_comparable": 0.945,
+                "rent_vs_market": 1.016
+              },
+              "valuation": {
+                "method_direct_cap": {
+                  "stabilized_noi": 4214000,
+                  "cap_rate": 0.054,
+                  "value": 78037037,
+                  "weight": 0.5
+                },
+                "method_dcf": {
+                  "discount_rate": 0.080,
+                  "terminal_cap": 0.058,
+                  "exit_year": 5,
+                  "pv_cashflows": 42500000,
+                  "pv_terminal": 36800000,
+                  "value": 79300000,
+                  "weight": 0.5
+                },
+                "blended_value": 78668519,
+                "value_conclusion": "Institutional student housing with strong demographics"
+              },
+              "valuation_inputs": {
+                "cap_rate_assumption": 0.054,
+                "discount_rate_assumption": 0.080,
+                "terminal_cap_assumption": 0.058,
+                "noi_growth_yr1": 0.035,
+                "noi_growth_yr2": 0.03,
+                "noi_growth_yr3": 0.025,
+                "noi_growth_yr4": 0.02,
+                "noi_growth_yr5": 0.015,
+                "exit_assumption_year_5": true,
+                "exit_cap_rate": 0.058
+              },
+              "financials_trailing_12": {
+                "gross_potential_rent": 5148000,
+                "concessions": 102960,
+                "vacancy_loss": 205920,
+                "other_income": 300000,
+                "effective_gross_income": 5139120,
+                "expenses": {
+                  "payroll": 768000,
+                  "repairs_maintenance": 384000,
+                  "utilities": 614000,
+                  "property_taxes": 576000,
+                  "insurance": 192000,
+                  "admin": 250000,
+                  "management_fee": 154173,
+                  "replacement_reserves": 400000
+                },
+                "total_opex": 3738173,
+                "noi": 1400947,
+                "noi_margin": 0.272,
+                "dscr_current": 1.45
+              },
+              "financials_5_year_proforma": [
+                {
+                  "year": 1,
+                  "occupied_units": 215.6,
+                  "occupancy": 0.98,
+                  "gpr": 5328240,
+                  "egi": 5311759,
+                  "opex": 3763440,
+                  "noi": 1548319,
+                  "capex_plan": 250000
+                },
+                {
+                  "year": 2,
+                  "occupied_units": 215.6,
+                  "occupancy": 0.98,
+                  "gpr": 5487687,
+                  "egi": 5470611,
+                  "opex": 3873423,
+                  "noi": 1597188,
+                  "capex_plan": 150000
+                },
+                {
+                  "year": 3,
+                  "occupied_units": 215.6,
+                  "occupancy": 0.98,
+                  "gpr": 5625840,
+                  "egi": 5608178,
+                  "opex": 3970109,
+                  "noi": 1638069,
+                  "capex_plan": 100000
+                },
+                {
+                  "year": 4,
+                  "occupied_units": 215.6,
+                  "occupancy": 0.98,
+                  "gpr": 5737956,
+                  "egi": 5720057,
+                  "opex": 4050311,
+                  "noi": 1669746,
+                  "capex_plan": 100000
+                },
+                {
+                  "year": 5,
+                  "occupied_units": 215.6,
+                  "occupancy": 0.98,
+                  "gpr": 5823485,
+                  "egi": 5805413,
+                  "opex": 4101316,
+                  "noi": 1704097,
+                  "capex_plan": 0,
+                  "exit_cap_rate": 0.058,
+                  "exit_value": 29381336,
+                  "sale_costs": 881440,
+                  "net_sale_proceeds": 28499896
+                }
+              ],
+              "debt_structure": {
+                "loan_id": "loan-eq-004",
+                "origination_date": "2026-01-20",
+                "loan_amount": 33600000,
+                "ltv_origination": 0.70,
+                "rate_type": "fixed",
+                "rate": 0.060,
+                "spread": 0,
+                "index": "Fixed",
+                "io_period_months": 0,
+                "amortization_years": 30,
+                "full_term_years": 10,
+                "maturity_date": "2036-01-20",
+                "covenant_dscr_requirement": 1.25,
+                "covenant_ltv_requirement": 0.80,
+                "cash_sweep_trigger_dscr": 1.35,
+                "current_balance": 33000000
+              },
+              "jv_structure": {
+                "jv_id": "jv-eq-004",
+                "jv_name": "Westgate Student Housing JV, LLC",
+                "gp_ownership": 0.20,
+                "lp_ownership": 0.80,
+                "promote_tiers": [
+                  {
+                    "tier": 1,
+                    "description": "Preferred Return",
+                    "rate": 0.08,
+                    "allocation_lp": 1.0,
+                    "allocation_gp": 0.0
+                  },
+                  {
+                    "tier": 2,
+                    "description": "Catch-Up",
+                    "rate": 1.0,
+                    "allocation_lp": 0.0,
+                    "allocation_gp": 1.0,
+                    "threshold_irr": 0.08
+                  },
+                  {
+                    "tier": 3,
+                    "description": "First Split",
+                    "allocation_lp": 0.7,
+                    "allocation_gp": 0.3,
+                    "threshold_irr": 0.08
+                  },
+                  {
+                    "tier": 4,
+                    "description": "Second Split",
+                    "allocation_lp": 0.5,
+                    "allocation_gp": 0.5,
+                    "threshold_irr": 0.18
+                  }
+                ]
+              },
+              "appraisal_summary": {
+                "appraisal_date": "2026-01-10",
+                "appraiser": "Institutional Appraisal Services, LLC",
+                "direct_cap_method": {
+                  "noi_used": 4214000,
+                  "cap_rate": 0.054,
+                  "indicated_value": 78037037
+                },
+                "value_conclusion": 78668519
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "fund_id": "fund-debt-001",
+      "fund_name": "Meridian Credit Opportunities Fund I",
+      "fund_type": "debt",
+      "structure": "open-ended",
+      "vintage": 2024,
+      "commitment_total": 600000000,
+      "commitment_called": 485000000,
+      "commitment_remaining": 115000000,
+      "avg_coupon": 0.058,
+      "target_yield": 0.070,
+      "strategy": "Multifamily CMBS-style senior loans",
+      "inception_date": "2024-03-15",
+      "nav_as_of": "2026-02-28",
+      "nav_total": 505000000,
+      "nav_invested": 492000000,
+      "nav_cash": 13000000,
+      "loans": [
+        {
+          "loan_id": "loan-debt-001",
+          "deal_name": "Riverdale Multifamily - Dallas TX",
+          "origination_date": "2024-03-20",
+          "collateral_profile": {
+            "property_name": "Riverdale Multifamily",
+            "property_type": "multifamily",
+            "address": "2850 Stemmons Freeway, Dallas, TX 75207",
+            "units": 310,
+            "sf_rentable": 375000,
+            "year_built": 2008,
+            "year_renovated": 2021,
+            "occupancy_current": 0.92,
+            "market_rent_per_unit": 1650,
+            "submarket": "Irving / Las Colinas",
+            "market_rent_avg_comparable": 1620,
+            "occupancy_comparable": 0.905
+          },
+          "loan_terms": {
+            "upb_current": 58000000,
+            "upb_original": 60000000,
+            "coupon": 0.0575,
+            "spread_to_sofr": 0.022,
+            "sofr_current": 0.0355,
+            "all_in_rate": 0.0575,
+            "amortization_years": 30,
+            "term_years": 5,
+            "origination_date": "2024-03-20",
+            "maturity_date": "2029-03-20",
+            "extension_options": 2,
+            "extension_term_months": 12,
+            "recourse": "non-recourse",
+            "prepayment_penalty": {
+              "year_1": 0.05,
+              "year_2": 0.04,
+              "year_3": 0.03,
+              "year_4": 0.02,
+              "year_5": 0.01
+            }
+          },
+          "covenant_terms": [
+            {
+              "covenant_type": "DSCR",
+              "threshold": 1.25,
+              "comparator": ">=",
+              "measurement_period": "T12",
+              "test_frequency": "quarterly",
+              "cure_period_days": 30,
+              "calculation_method": "NOI / Debt Service",
+              "noi_definition": "NOI from trailing 12 month actuals normalized by lender",
+              "debt_service_definition": "Annual debt service on this loan"
+            },
+            {
+              "covenant_type": "LTV",
+              "threshold": 0.78,
+              "comparator": "<=",
+              "measurement_period": "Current",
+              "test_frequency": "quarterly",
+              "cure_period_days": 30,
+              "calculation_method": "UPB / Property Value",
+              "valuation_method": "Most recent appraisal or lender mark"
+            },
+            {
+              "covenant_type": "Debt Yield",
+              "threshold": 0.095,
+              "comparator": ">=",
+              "measurement_period": "T12",
+              "test_frequency": "annual",
+              "cure_period_days": 45,
+              "calculation_method": "NOI / UPB"
+            },
+            {
+              "covenant_type": "Cash Sweep",
+              "threshold": 1.40,
+              "comparator": ">=",
+              "measurement_period": "T12",
+              "test_frequency": "quarterly",
+              "cure_period_days": 0,
+              "sweep_pct": 0.50,
+              "sweep_description": "50% of surplus cash flow when DSCR exceeds 1.40"
+            }
+          ],
+          "loan_document_excerpts": {
+            "dscr_covenant": "Borrower shall maintain a Debt Service Coverage Ratio of not less than 1.25x on a trailing twelve (12) month basis, tested quarterly. DSCR shall be calculated as Net Operating Income for the preceding twelve (12) month period divided by Debt Service payable during the same period. NOI shall be calculated per the Valuation Standard attached as Exhibit B-1.",
+            "ltv_covenant": "The Loan-to-Value ratio, calculated as the then-outstanding principal balance divided by the then-current fair market value of the Mortgaged Property, shall not exceed 78.0%. LTV shall be tested quarterly based on the most recent appraisal or, if no appraisal is performed in the calendar quarter, the most recent independent appraisal on file.",
+            "cash_sweep_provision": "In any calendar quarter where the Borrower achieves a Debt Service Coverage Ratio exceeding 1.40x on a trailing twelve (12) month basis, 50% of Cash Flow (as defined herein) shall be applied to prepay the Loan, without premium or penalty. Remaining Cash Flow may be retained by Borrower or distributed to equity holders at Borrower's discretion."
+          },
+          "parsed_covenant_structure": {
+            "covenants": [
+              {
+                "covenant_id": "cov-debt-001-001",
+                "covenant_type": "DSCR",
+                "threshold": 1.25,
+                "frequency": "quarterly",
+                "cure_period": 30,
+                "test_method": "T12 average"
+              },
+              {
+                "covenant_id": "cov-debt-001-002",
+                "covenant_type": "LTV",
+                "threshold": 0.78,
+                "frequency": "quarterly",
+                "cure_period": 30,
+                "test_method": "Current valuation"
+              },
+              {
+                "covenant_id": "cov-debt-001-003",
+                "covenant_type": "Debt Yield",
+                "threshold": 0.095,
+                "frequency": "annual",
+                "cure_period": 45,
+                "test_method": "T12 NOI / UPB"
+              }
+            ]
+          },
+          "current_performance": {
+            "reporting_date": "2026-02-28",
+            "t12_noi": 6670000,
+            "debt_service_annual": 5200000,
+            "dscr": 1.282,
+            "dscr_status": "pass",
+            "dscr_margin_bps": 320,
+            "current_value_estimate": 74359000,
+            "ltv": 0.780,
+            "ltv_status": "pass",
+            "ltv_margin_bps": 0,
+            "debt_yield": 0.1149,
+            "debt_yield_status": "pass",
+            "watchlist_flag": false,
+            "watchlist_reason": "none",
+            "occupancy": 0.92,
+            "rent_growth_yoy": 0.032,
+            "expense_growth_yoy": 0.024
+          },
+          "stress_scenarios": {
+            "base_case": {
+              "noi": 6670000,
+              "dscr": 1.282,
+              "ltv": 0.780,
+              "breach": false
+            },
+            "scenario_noi_minus_10pct": {
+              "noi": 6003000,
+              "debt_service": 5200000,
+              "dscr": 1.154,
+              "ltv": 0.869,
+              "breach": false
+            },
+            "scenario_cap_rate_plus_100bps": {
+              "cap_rate_stress": 0.068,
+              "value_stressed": 98088235,
+              "upb": 58000000,
+              "ltv_stressed": 0.591,
+              "dscr": 1.282,
+              "breach": false
+            },
+            "scenario_rate_plus_200bps": {
+              "rate_stressed": 0.0775,
+              "debt_service_stressed": 5950000,
+              "dscr_stressed": 1.121,
+              "breach": false
+            },
+            "scenario_combined_stress": {
+              "noi_stressed": 6003000,
+              "cap_rate_stressed": 0.068,
+              "value_stressed": 88324000,
+              "rate_stressed": 0.0775,
+              "debt_service_stressed": 5950000,
+              "dscr_stressed": 1.009,
+              "ltv_stressed": 0.657,
+              "breach": true,
+              "breach_covenant": "DSCR"
+            }
+          },
+          "recovery_model": {
+            "probability_of_loss": 0.02,
+            "foreclosure_value_assumption": 0.85,
+            "foreclosure_value": 63205150,
+            "time_to_resolution_months": 24,
+            "holding_costs_pct": 0.02,
+            "net_recovery_value": 61961047,
+            "loss_severity_pct": 0.069,
+            "expected_loss": 4000000
+          }
+        },
+        {
+          "loan_id": "loan-debt-002",
+          "deal_name": "Midtown Towers - Atlanta GA",
+          "origination_date": "2024-06-15",
+          "collateral_profile": {
+            "property_name": "Midtown Towers Multifamily",
+            "property_type": "multifamily",
+            "address": "950 West Peachtree Street, Atlanta, GA 30309",
+            "units": 425,
+            "sf_rentable": 520000,
+            "year_built": 2016,
+            "year_renovated": 2024,
+            "occupancy_current": 0.94,
+            "market_rent_per_unit": 1900,
+            "submarket": "Midtown Atlanta",
+            "market_rent_avg_comparable": 1880,
+            "occupancy_comparable": 0.93
+          },
+          "loan_terms": {
+            "upb_current": 82500000,
+            "upb_original": 85000000,
+            "coupon": 0.0625,
+            "spread_to_sofr": 0.025,
+            "sofr_current": 0.0355,
+            "all_in_rate": 0.0625,
+            "amortization_years": 30,
+            "term_years": 7,
+            "origination_date": "2024-06-15",
+            "maturity_date": "2031-06-15",
+            "extension_options": 2,
+            "extension_term_months": 12,
+            "recourse": "non-recourse",
+            "prepayment_penalty": {
+              "year_1": 0.05,
+              "year_2": 0.04,
+              "year_3": 0.03,
+              "year_4": 0.025,
+              "year_5": 0.02,
+              "year_6": 0.01,
+              "year_7": 0.0
+            }
+          },
+          "covenant_terms": [
+            {
+              "covenant_type": "DSCR",
+              "threshold": 1.20,
+              "comparator": ">=",
+              "measurement_period": "T12",
+              "test_frequency": "quarterly"
+            },
+            {
+              "covenant_type": "LTV",
+              "threshold": 0.75,
+              "comparator": "<=",
+              "measurement_period": "Current",
+              "test_frequency": "quarterly"
+            }
+          ],
+          "current_performance": {
+            "reporting_date": "2026-02-28",
+            "t12_noi": 10965000,
+            "debt_service_annual": 7200000,
+            "dscr": 1.523,
+            "dscr_status": "pass",
+            "dscr_margin_bps": 623,
+            "current_value_estimate": 110000000,
+            "ltv": 0.750,
+            "ltv_status": "pass",
+            "ltv_margin_bps": 0,
+            "watchlist_flag": false,
+            "occupancy": 0.94,
+            "rent_growth_yoy": 0.048,
+            "expense_growth_yoy": 0.018
+          },
+          "stress_scenarios": {
+            "base_case": {
+              "noi": 10965000,
+              "dscr": 1.523,
+              "ltv": 0.750,
+              "breach": false
+            },
+            "scenario_noi_minus_10pct": {
+              "noi": 9868500,
+              "dscr": 1.370,
+              "ltv": 0.836,
+              "breach": false
+            }
+          }
+        },
+        {
+          "loan_id": "loan-debt-003",
+          "deal_name": "Vertex Multifamily - Tampa FL",
+          "origination_date": "2024-08-20",
+          "collateral_profile": {
+            "property_name": "Vertex Multifamily Tampa",
+            "property_type": "multifamily",
+            "address": "4800 North Armenia Avenue, Tampa, FL 33603",
+            "units": 280,
+            "sf_rentable": 340000,
+            "year_built": 2014,
+            "year_renovated": 2023,
+            "occupancy_current": 0.89,
+            "market_rent_per_unit": 1550,
+            "submarket": "Carrollwood / North Tampa",
+            "market_rent_avg_comparable": 1520,
+            "occupancy_comparable": 0.88
+          },
+          "loan_terms": {
+            "upb_current": 49000000,
+            "upb_original": 50000000,
+            "coupon": 0.0605,
+            "spread_to_sofr": 0.025,
+            "sofr_current": 0.0355,
+            "all_in_rate": 0.0605,
+            "amortization_years": 30,
+            "term_years": 5,
+            "maturity_date": "2029-08-20",
+            "recourse": "non-recourse"
+          },
+          "current_performance": {
+            "reporting_date": "2026-02-28",
+            "t12_noi": 4872000,
+            "debt_service_annual": 4100000,
+            "dscr": 1.188,
+            "dscr_status": "pass",
+            "current_value_estimate": 62820512,
+            "ltv": 0.780,
+            "ltv_status": "pass",
+            "watchlist_flag": true,
+            "watchlist_reason": "Below target occupancy; rent growth slower than market",
+            "occupancy": 0.89,
+            "rent_growth_yoy": 0.015
+          },
+          "stress_scenarios": {
+            "base_case": {
+              "noi": 4872000,
+              "dscr": 1.188,
+              "ltv": 0.780,
+              "breach": false
+            },
+            "scenario_noi_minus_10pct": {
+              "noi": 4384800,
+              "dscr": 1.069,
+              "ltv": 0.867,
+              "breach": true
+            }
+          }
+        },
+        {
+          "loan_id": "loan-debt-004",
+          "deal_name": "Bellmont Residential - Charlotte NC",
+          "origination_date": "2024-10-10",
+          "collateral_profile": {
+            "property_name": "Bellmont Residential",
+            "property_type": "multifamily",
+            "address": "6400 Crescent Drive, Charlotte, NC 28202",
+            "units": 365,
+            "sf_rentable": 445000,
+            "year_built": 2011,
+            "year_renovated": 2022,
+            "occupancy_current": 0.93,
+            "market_rent_per_unit": 1700,
+            "submarket": "Uptown Charlotte"
+          },
+          "loan_terms": {
+            "upb_current": 65000000,
+            "upb_original": 67000000,
+            "coupon": 0.0615,
+            "spread_to_sofr": 0.024,
+            "sofr_current": 0.0355,
+            "all_in_rate": 0.0615,
+            "amortization_years": 30,
+            "term_years": 5,
+            "maturity_date": "2029-10-10",
+            "recourse": "non-recourse"
+          },
+          "current_performance": {
+            "reporting_date": "2026-02-28",
+            "t12_noi": 7605000,
+            "debt_service_annual": 5650000,
+            "dscr": 1.345,
+            "dscr_status": "pass",
+            "current_value_estimate": 83333333,
+            "ltv": 0.780,
+            "ltv_status": "pass",
+            "watchlist_flag": false,
+            "occupancy": 0.93,
+            "rent_growth_yoy": 0.038
+          }
+        },
+        {
+          "loan_id": "loan-debt-005",
+          "deal_name": "Summit Heights - Nashville TN",
+          "origination_date": "2025-01-15",
+          "collateral_profile": {
+            "property_name": "Summit Heights Multifamily",
+            "property_type": "multifamily",
+            "address": "3200 West End Avenue, Nashville, TN 37203",
+            "units": 295,
+            "sf_rentable": 365000,
+            "year_built": 2013,
+            "year_renovated": 2024,
+            "occupancy_current": 0.91,
+            "market_rent_per_unit": 1800,
+            "submarket": "West Nashville"
+          },
+          "loan_terms": {
+            "upb_current": 52500000,
+            "upb_original": 55000000,
+            "coupon": 0.058,
+            "spread_to_sofr": 0.022,
+            "sofr_current": 0.0355,
+            "all_in_rate": 0.058,
+            "amortization_years": 30,
+            "term_years": 5,
+            "maturity_date": "2030-01-15",
+            "recourse": "non-recourse"
+          },
+          "current_performance": {
+            "reporting_date": "2026-02-28",
+            "t12_noi": 5508000,
+            "debt_service_annual": 4200000,
+            "dscr": 1.311,
+            "dscr_status": "pass",
+            "current_value_estimate": 67820512,
+            "ltv": 0.774,
+            "ltv_status": "pass",
+            "watchlist_flag": false,
+            "occupancy": 0.91,
+            "rent_growth_yoy": 0.035
+          }
+        },
+        {
+          "loan_id": "loan-debt-006",
+          "deal_name": "Westridge Commons - Austin TX",
+          "origination_date": "2025-03-20",
+          "collateral_profile": {
+            "property_name": "Westridge Commons",
+            "property_type": "multifamily",
+            "address": "5500 North Lamar Boulevard, Austin, TX 78751",
+            "units": 330,
+            "sf_rentable": 405000,
+            "year_built": 2012,
+            "year_renovated": 2023,
+            "occupancy_current": 0.95,
+            "market_rent_per_unit": 2100,
+            "submarket": "North Austin"
+          },
+          "loan_terms": {
+            "upb_current": 74000000,
+            "upb_original": 75000000,
+            "coupon": 0.059,
+            "spread_to_sofr": 0.023,
+            "sofr_current": 0.0355,
+            "all_in_rate": 0.059,
+            "amortization_years": 30,
+            "term_years": 5,
+            "maturity_date": "2030-03-20",
+            "recourse": "non-recourse"
+          },
+          "current_performance": {
+            "reporting_date": "2026-02-28",
+            "t12_noi": 8235000,
+            "debt_service_annual": 5900000,
+            "dscr": 1.395,
+            "dscr_status": "pass",
+            "current_value_estimate": 105000000,
+            "ltv": 0.705,
+            "ltv_status": "pass",
+            "watchlist_flag": false,
+            "occupancy": 0.95,
+            "rent_growth_yoy": 0.052
+          }
+        },
+        {
+          "loan_id": "loan-debt-007",
+          "deal_name": "Riverside Park - Miami FL",
+          "origination_date": "2025-05-10",
+          "collateral_profile": {
+            "property_name": "Riverside Park Multifamily",
+            "property_type": "multifamily",
+            "address": "1500 Northeast 2nd Avenue, Miami, FL 33132",
+            "units": 410,
+            "sf_rentable": 500000,
+            "year_built": 2010,
+            "year_renovated": 2024,
+            "occupancy_current": 0.88,
+            "market_rent_per_unit": 2200,
+            "submarket": "Wynwood / Design District"
+          },
+          "loan_terms": {
+            "upb_current": 92000000,
+            "upb_original": 95000000,
+            "coupon": 0.062,
+            "spread_to_sofr": 0.026,
+            "sofr_current": 0.0355,
+            "all_in_rate": 0.062,
+            "amortization_years": 30,
+            "term_years": 5,
+            "maturity_date": "2030-05-10",
+            "recourse": "non-recourse"
+          },
+          "current_performance": {
+            "reporting_date": "2026-02-28",
+            "t12_noi": 9108000,
+            "debt_service_annual": 7150000,
+            "dscr": 1.273,
+            "dscr_status": "pass",
+            "current_value_estimate": 116923076,
+            "ltv": 0.787,
+            "ltv_status": "pass",
+            "watchlist_flag": true,
+            "watchlist_reason": "Occupancy trending down; pre-leasing delays",
+            "occupancy": 0.88,
+            "rent_growth_yoy": 0.028
+          }
+        },
+        {
+          "loan_id": "loan-debt-008",
+          "deal_name": "Stratford Village - Denver CO",
+          "origination_date": "2025-07-18",
+          "collateral_profile": {
+            "property_name": "Stratford Village",
+            "property_type": "multifamily",
+            "address": "2800 South Quitman Street, Denver, CO 80236",
+            "units": 275,
+            "sf_rentable": 340000,
+            "year_built": 2009,
+            "year_renovated": 2022,
+            "occupancy_current": 0.90,
+            "market_rent_per_unit": 1900,
+            "submarket": "Southwest Denver"
+          },
+          "loan_terms": {
+            "upb_current": 61000000,
+            "upb_original": 62000000,
+            "coupon": 0.0585,
+            "spread_to_sofr": 0.023,
+            "sofr_current": 0.0355,
+            "all_in_rate": 0.0585,
+            "amortization_years": 30,
+            "term_years": 5,
+            "maturity_date": "2030-07-18",
+            "recourse": "non-recourse"
+          },
+          "current_performance": {
+            "reporting_date": "2026-02-28",
+            "t12_noi": 5460000,
+            "debt_service_annual": 4100000,
+            "dscr": 1.332,
+            "dscr_status": "pass",
+            "current_value_estimate": 70000000,
+            "ltv": 0.871,
+            "ltv_status": "watch",
+            "watchlist_flag": true,
+            "watchlist_reason": "LTV elevated; refinance at maturity may be challenging",
+            "occupancy": 0.90,
+            "rent_growth_yoy": 0.020
+          }
+        }
+      ]
+    }
+  ],
+  "fund_level_capital_accounting": {
+    "equity_fund_001": {
+      "capital_calls": [
+        {
+          "call_number": 1,
+          "call_date": "2026-01-31",
+          "call_amount": 250000000,
+          "purpose": "Initial acquisition funding",
+          "allocation_by_investor": {
+            "investor_lp_001": 200000000,
+            "investor_lp_002": 50000000
+          }
+        },
+        {
+          "call_number": 2,
+          "call_date": "2026-02-28",
+          "call_amount": 200000000,
+          "purpose": "Additional acquisitions and working capital",
+          "allocation_by_investor": {
+            "investor_lp_001": 160000000,
+            "investor_lp_002": 40000000
+          }
+        }
+      ],
+      "distributions": [],
+      "capital_accounts": [
+        {
+          "investor_id": "investor_lp_001",
+          "investor_name": "Mega Pension Fund LP",
+          "commitment": 600000000,
+          "called_capital": 360000000,
+          "distributed_capital": 0,
+          "nav_allocation": 315000000,
+          "irr_ytd": 0.08,
+          "moic": 1.125,
+          "dpi": 0.0,
+          "tvpi": 1.125
+        },
+        {
+          "investor_id": "investor_lp_002",
+          "investor_name": "Regional Insurance Company",
+          "commitment": 300000000,
+          "called_capital": 90000000,
+          "distributed_capital": 0,
+          "nav_allocation": 160000000,
+          "irr_ytd": 0.08,
+          "moic": 1.125,
+          "dpi": 0.0,
+          "tvpi": 1.125
+        }
+      ],
+      "fund_nav_reconciliation": {
+        "nav_invested": 425000000,
+        "nav_cash": 50000000,
+        "nav_total": 475000000,
+        "sum_investor_navs": 475000000,
+        "reconciled": true
+      }
+    }
+  },
+  "accounting_reconciliation": {
+    "equity_fund_trial_balance": {
+      "month": "2026-02",
+      "lines": [
+        {
+          "gl_account": "1010",
+          "account_name": "Cash - Operating",
+          "debit": 50000000,
+          "credit": 0,
+          "balance": 50000000
+        },
+        {
+          "gl_account": "1200",
+          "account_name": "Investment - Real Estate Assets",
+          "debit": 425000000,
+          "credit": 0,
+          "balance": 425000000
+        },
+        {
+          "gl_account": "2100",
+          "account_name": "Loans Payable",
+          "debit": 0,
+          "credit": 297010000,
+          "balance": -297010000
+        },
+        {
+          "gl_account": "3100",
+          "account_name": "Capital - Fund LP",
+          "debit": 0,
+          "credit": 450000000,
+          "balance": -450000000
+        },
+        {
+          "gl_account": "4100",
+          "account_name": "Rental Income",
+          "debit": 0,
+          "credit": 58010428,
+          "balance": -58010428
+        },
+        {
+          "gl_account": "5100",
+          "account_name": "Operating Expenses",
+          "debit": 30028812,
+          "credit": 0,
+          "balance": 30028812
+        }
+      ],
+      "total_debits": 505028812,
+      "total_credits": 505028812,
+      "trial_balance_status": "balanced"
+    },
+    "cashflow_summary": {
+      "period": "2026-Q1",
+      "operating_cash_inflow": 58010428,
+      "operating_cash_outflow": -30028812,
+      "net_operating_cashflow": 27981616,
+      "financing_cash_inflow": 450000000,
+      "financing_cash_outflow": -297010000,
+      "net_financing_cashflow": 152990000,
+      "investing_cash_outflow": -425000000,
+      "net_investing_cashflow": -425000000,
+      "net_change_cash": -244028384,
+      "beginning_cash": 294028384,
+      "ending_cash": 50000000
+    }
+  },
+  "scenario_engine": [
+    {
+      "scenario_id": "scenario-base",
+      "scenario_name": "Base Case",
+      "description": "Fund performs as underwritten with market rent growth and normal expense inflation",
+      "assumptions": {
+        "rent_growth_yr1": 0.025,
+        "rent_growth_yr2": 0.020,
+        "rent_growth_yr3": 0.015,
+        "rent_growth_yr4": 0.010,
+        "rent_growth_yr5": 0.005,
+        "expense_growth": 0.025,
+        "exit_cap_rate": 0.052,
+        "equity_fund_target_irr": 0.18,
+        "debt_fund_default_rate": 0.00,
+        "interest_rate_environment": "stable"
+      },
+      "results": {
+        "fund_nav": 475000000,
+        "fund_irr": 0.18,
+        "covenant_breaches": 0,
+        "debt_fund_covenant_breaches": 0,
+        "watchlist_loans": 2,
+        "distribution_impact": "none"
+      }
+    },
+    {
+      "scenario_id": "scenario-mild-recession",
+      "scenario_name": "Mild Recession",
+      "description": "Economic slowdown with 5% rent growth decline and 2% occupancy loss",
+      "assumptions": {
+        "rent_growth_yr1": 0.010,
+        "rent_growth_yr2": 0.005,
+        "rent_growth_yr3": -0.005,
+        "rent_growth_yr4": 0.000,
+        "rent_growth_yr5": 0.005,
+        "occupancy_loss": -0.02,
+        "expense_growth": 0.030,
+        "exit_cap_rate": 0.058,
+        "equity_fund_target_irr": 0.12,
+        "debt_fund_default_rate": 0.03,
+        "interest_rate_environment": "elevated"
+      },
+      "results": {
+        "fund_nav": 415000000,
+        "fund_irr": 0.12,
+        "covenant_breaches": 0,
+        "debt_fund_covenant_breaches": 1,
+        "breached_loans": ["loan-debt-003"],
+        "watchlist_loans": 5,
+        "distribution_impact": "No distributions; capital reserve"
+      }
+    },
+    {
+      "scenario_id": "scenario-severe-refinance-shock",
+      "scenario_name": "Severe Refinance Shock",
+      "description": "Interest rates up 300bps; refinance at maturity at higher rates and elevated LTVs",
+      "assumptions": {
+        "rent_growth_yr1": 0.020,
+        "rent_growth_yr2": 0.015,
+        "rent_growth_yr3": 0.010,
+        "rent_growth_yr4": 0.010,
+        "rent_growth_yr5": 0.005,
+        "interest_rate_shock": 0.03,
+        "refinance_ltv_reduction": -0.10,
+        "exit_cap_rate": 0.060,
+        "equity_fund_target_irr": 0.14,
+        "debt_fund_default_rate": 0.05,
+        "interest_rate_environment": "severe"
+      },
+      "results": {
+        "fund_nav": 395000000,
+        "fund_irr": 0.14,
+        "covenant_breaches": 2,
+        "breached_properties": ["asset-eq-001", "asset-eq-002"],
+        "debt_fund_covenant_breaches": 3,
+        "watchlist_loans": 6,
+        "distribution_impact": "Negative; equity reduction $50M"
+      }
+    },
+    {
+      "scenario_id": "scenario-cap-rate-expansion",
+      "scenario_name": "Cap Rate Expansion",
+      "description": "Market cap rates expand 150bps; values decline but yields improve for new deployment",
+      "assumptions": {
+        "rent_growth_yr1": 0.020,
+        "rent_growth_yr2": 0.015,
+        "rent_growth_yr3": 0.010,
+        "rent_growth_yr4": 0.010,
+        "rent_growth_yr5": 0.005,
+        "cap_rate_expansion": 0.015,
+        "expense_growth": 0.020,
+        "exit_cap_rate": 0.067,
+        "equity_fund_target_irr": 0.22,
+        "debt_fund_default_rate": 0.01,
+        "interest_rate_environment": "elevated_yields"
+      },
+      "results": {
+        "fund_nav": 425000000,
+        "fund_irr": 0.22,
+        "covenant_breaches": 0,
+        "debt_fund_covenant_breaches": 0,
+        "watchlist_loans": 3,
+        "distribution_impact": "Exit at higher IRR; but lower absolute value"
+      }
+    }
+  ],
+  "reporting_analytics": {
+    "nav_quarterly": [
+      {
+        "quarter": "2026-Q1",
+        "nav": 475000000,
+        "nav_change": 475000000,
+        "nav_change_pct": null
+      },
+      {
+        "quarter": "2025-Q4",
+        "nav": 0,
+        "nav_change": 0,
+        "nav_change_pct": null
+      }
+    ],
+    "allocation_by_sector": {
+      "Multifamily": 0.55,
+      "Medical Office": 0.18,
+      "Senior Housing": 0.15,
+      "Student Housing": 0.12
+    },
+    "allocation_by_geography": {
+      "Dallas": 0.30,
+      "Phoenix": 0.25,
+      "Atlanta": 0.20,
+      "Tampa": 0.15,
+      "Charlotte": 0.10
+    },
+    "irr_curve": [
+      {
+        "quarter": "2026-Q1",
+        "irr": 0.18
+      }
+    ],
+    "debt_fund_dscr_trend": [
+      {
+        "quarter": "2026-Q1",
+        "portfolio_avg_dscr": 1.308,
+        "min_dscr": 1.188,
+        "max_dscr": 1.523,
+        "loans_below_target": 1
+      }
+    ],
+    "debt_fund_ltv_trend": [
+      {
+        "quarter": "2026-Q1",
+        "portfolio_avg_ltv": 0.762,
+        "min_ltv": 0.705,
+        "max_ltv": 0.871,
+        "loans_elevated": 2
+      }
+    ],
+    "watchlist_table": [
+      {
+        "loan_id": "loan-debt-003",
+        "property_name": "Vertex Multifamily - Tampa FL",
+        "watchlist_status": "watch",
+        "reason": "Below target occupancy; rent growth slower than market",
+        "current_dscr": 1.188,
+        "occupancy": 0.89,
+        "upb": 49000000,
+        "recommendation": "Monitor quarterly; potential supportive capital call if worsens"
+      },
+      {
+        "loan_id": "loan-debt-007",
+        "property_name": "Riverside Park - Miami FL",
+        "watchlist_status": "watch",
+        "reason": "Occupancy trending down; pre-leasing delays",
+        "current_dscr": 1.273,
+        "occupancy": 0.88,
+        "upb": 92000000,
+        "recommendation": "Engage property management on leasing plan"
+      },
+      {
+        "loan_id": "loan-debt-008",
+        "property_name": "Stratford Village - Denver CO",
+        "watchlist_status": "watch",
+        "reason": "LTV elevated; refinance at maturity may be challenging",
+        "current_dscr": 1.332,
+        "ltv": 0.871,
+        "upb": 61000000,
+        "recommendation": "Pre-plan refinance strategy; consider principal reduction"
+      }
+    ]
+  },
+  "multidimensional_cube": {
+    "dimensions": {
+      "fund": ["fund-equity-001", "fund-debt-001"],
+      "investment": ["inv-equity-001"],
+      "jv": ["jv-eq-001", "jv-eq-002", "jv-eq-003", "jv-eq-004"],
+      "asset": ["asset-eq-001", "asset-eq-002", "asset-eq-003", "asset-eq-004"],
+      "loan": ["loan-debt-001", "loan-debt-002", "loan-debt-003", "loan-debt-004", "loan-debt-005", "loan-debt-006", "loan-debt-007", "loan-debt-008"],
+      "time_quarter": ["2026-Q1"],
+      "scenario": ["scenario-base", "scenario-mild-recession", "scenario-severe-refinance-shock", "scenario-cap-rate-expansion"],
+      "account": ["noi", "dscr", "ltv", "nav", "irr"],
+      "geography": ["Dallas", "Phoenix", "Atlanta", "Tampa", "Charlotte", "Nashville", "Austin", "Miami", "Denver"],
+      "sector": ["Multifamily", "Medical Office", "Senior Housing", "Student Housing"]
+    },
+    "cube_entries": [
+      {
+        "fund": "fund-equity-001",
+        "asset": "asset-eq-001",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "account": "noi",
+        "value": 27981616
+      },
+      {
+        "fund": "fund-equity-001",
+        "asset": "asset-eq-001",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "account": "nav",
+        "value": 335000000
+      },
+      {
+        "fund": "fund-equity-001",
+        "asset": "asset-eq-002",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "account": "noi",
+        "value": 759552
+      },
+      {
+        "fund": "fund-equity-001",
+        "asset": "asset-eq-002",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "account": "nav",
+        "value": 110838000
+      },
+      {
+        "fund": "fund-equity-001",
+        "asset": "asset-eq-003",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "account": "noi",
+        "value": 2722438
+      },
+      {
+        "fund": "fund-equity-001",
+        "asset": "asset-eq-003",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "account": "nav",
+        "value": 64096154
+      },
+      {
+        "fund": "fund-equity-001",
+        "asset": "asset-eq-004",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "account": "noi",
+        "value": 1400947
+      },
+      {
+        "fund": "fund-equity-001",
+        "asset": "asset-eq-004",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "account": "nav",
+        "value": 78668519
+      },
+      {
+        "fund": "fund-debt-001",
+        "loan": "loan-debt-001",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "account": "dscr",
+        "value": 1.282
+      },
+      {
+        "fund": "fund-debt-001",
+        "loan": "loan-debt-001",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "account": "ltv",
+        "value": 0.780
+      },
+      {
+        "fund": "fund-equity-001",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "account": "nav",
+        "value": 475000000
+      },
+      {
+        "fund": "fund-equity-001",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "account": "irr",
+        "value": 0.18
+      }
+    ]
+  },
+  "excel_integration_tables": {
+    "dim_fund": [
+      {
+        "fund_id": "fund-equity-001",
+        "fund_name": "Meridian Real Estate Fund III",
+        "fund_type": "equity",
+        "vintage": 2026,
+        "commitment": 900000000,
+        "nav": 475000000
+      },
+      {
+        "fund_id": "fund-debt-001",
+        "fund_name": "Meridian Credit Opportunities Fund I",
+        "fund_type": "debt",
+        "vintage": 2024,
+        "commitment": 600000000,
+        "nav": 505000000
+      }
+    ],
+    "dim_asset": [
+      {
+        "asset_id": "asset-eq-001",
+        "property_name": "Meridian Park Multifamily - Dallas",
+        "property_type": "multifamily",
+        "sector": "Multifamily",
+        "geography": "Dallas",
+        "purchase_price": 140000000,
+        "units": 285,
+        "sf_rentable": 315000
+      },
+      {
+        "asset_id": "asset-eq-002",
+        "property_name": "Ellipse Senior Living - Dallas",
+        "property_type": "senior-housing",
+        "sector": "Senior Housing",
+        "geography": "Dallas",
+        "purchase_price": 85000000,
+        "units": 120,
+        "sf_rentable": 180000
+      },
+      {
+        "asset_id": "asset-eq-003",
+        "property_name": "Phoenix Gateway Medical Office - Phoenix",
+        "property_type": "medical-office",
+        "sector": "Medical Office",
+        "geography": "Phoenix",
+        "purchase_price": 65000000,
+        "units": 1,
+        "sf_rentable": 125000
+      },
+      {
+        "asset_id": "asset-eq-004",
+        "property_name": "Westgate Student Housing - Tempe",
+        "property_type": "student-housing",
+        "sector": "Student Housing",
+        "geography": "Phoenix",
+        "purchase_price": 48000000,
+        "units": 220,
+        "sf_rentable": 245000
+      }
+    ],
+    "dim_loan": [
+      {
+        "loan_id": "loan-debt-001",
+        "deal_name": "Riverdale Multifamily - Dallas TX",
+        "property_name": "Riverdale Multifamily",
+        "upb": 58000000,
+        "coupon": 0.0575,
+        "maturity_date": "2029-03-20",
+        "units": 310
+      },
+      {
+        "loan_id": "loan-debt-002",
+        "deal_name": "Midtown Towers - Atlanta GA",
+        "property_name": "Midtown Towers Multifamily",
+        "upb": 82500000,
+        "coupon": 0.0625,
+        "maturity_date": "2031-06-15",
+        "units": 425
+      },
+      {
+        "loan_id": "loan-debt-003",
+        "deal_name": "Vertex Multifamily - Tampa FL",
+        "property_name": "Vertex Multifamily Tampa",
+        "upb": 49000000,
+        "coupon": 0.0605,
+        "maturity_date": "2029-08-20",
+        "units": 280
+      },
+      {
+        "loan_id": "loan-debt-004",
+        "deal_name": "Bellmont Residential - Charlotte NC",
+        "property_name": "Bellmont Residential",
+        "upb": 65000000,
+        "coupon": 0.0615,
+        "maturity_date": "2029-10-10",
+        "units": 365
+      },
+      {
+        "loan_id": "loan-debt-005",
+        "deal_name": "Summit Heights - Nashville TN",
+        "property_name": "Summit Heights Multifamily",
+        "upb": 52500000,
+        "coupon": 0.058,
+        "maturity_date": "2030-01-15",
+        "units": 295
+      },
+      {
+        "loan_id": "loan-debt-006",
+        "deal_name": "Westridge Commons - Austin TX",
+        "property_name": "Westridge Commons",
+        "upb": 74000000,
+        "coupon": 0.059,
+        "maturity_date": "2030-03-20",
+        "units": 330
+      },
+      {
+        "loan_id": "loan-debt-007",
+        "deal_name": "Riverside Park - Miami FL",
+        "property_name": "Riverside Park Multifamily",
+        "upb": 92000000,
+        "coupon": 0.062,
+        "maturity_date": "2030-05-10",
+        "units": 410
+      },
+      {
+        "loan_id": "loan-debt-008",
+        "deal_name": "Stratford Village - Denver CO",
+        "property_name": "Stratford Village",
+        "upb": 61000000,
+        "coupon": 0.0585,
+        "maturity_date": "2030-07-18",
+        "units": 275
+      }
+    ],
+    "dim_investor": [
+      {
+        "investor_id": "investor_lp_001",
+        "investor_name": "Mega Pension Fund LP",
+        "investor_type": "LP",
+        "fund_ids": ["fund-equity-001"],
+        "commitment": 600000000
+      },
+      {
+        "investor_id": "investor_lp_002",
+        "investor_name": "Regional Insurance Company",
+        "investor_type": "LP",
+        "fund_ids": ["fund-equity-001"],
+        "commitment": 300000000
+      }
+    ],
+    "dim_time": [
+      {
+        "quarter_id": "2026-Q1",
+        "year": 2026,
+        "quarter": 1,
+        "period_end_date": "2026-03-31"
+      }
+    ],
+    "dim_scenario": [
+      {
+        "scenario_id": "scenario-base",
+        "scenario_name": "Base Case"
+      },
+      {
+        "scenario_id": "scenario-mild-recession",
+        "scenario_name": "Mild Recession"
+      },
+      {
+        "scenario_id": "scenario-severe-refinance-shock",
+        "scenario_name": "Severe Refinance Shock"
+      },
+      {
+        "scenario_id": "scenario-cap-rate-expansion",
+        "scenario_name": "Cap Rate Expansion"
+      }
+    ],
+    "fact_asset_financial": [
+      {
+        "asset_id": "asset-eq-001",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "gross_potential_rent": 61156200,
+        "vacancy_loss": 2893100,
+        "effective_gross_income": 58010428,
+        "total_opex": 30028812,
+        "noi": 27981616,
+        "occupancy": 0.945,
+        "capex_ytd": 0
+      },
+      {
+        "asset_id": "asset-eq-002",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "gross_potential_rent": 6048000,
+        "vacancy_loss": 302400,
+        "effective_gross_income": 6081600,
+        "total_opex": 5322048,
+        "noi": 759552,
+        "occupancy": 0.92,
+        "capex_ytd": 0
+      },
+      {
+        "asset_id": "asset-eq-003",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "gross_potential_rent": 4375000,
+        "vacancy_loss": 393750,
+        "effective_gross_income": 4043750,
+        "total_opex": 1321312,
+        "noi": 2722438,
+        "occupancy": 0.88,
+        "capex_ytd": 0
+      },
+      {
+        "asset_id": "asset-eq-004",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "gross_potential_rent": 5148000,
+        "vacancy_loss": 205920,
+        "effective_gross_income": 5139120,
+        "total_opex": 3738173,
+        "noi": 1400947,
+        "occupancy": 0.96,
+        "capex_ytd": 0
+      }
+    ],
+    "fact_fund_rollup": [
+      {
+        "fund_id": "fund-equity-001",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "nav_invested": 425000000,
+        "nav_cash": 50000000,
+        "nav_total": 475000000,
+        "irr": 0.18,
+        "moic": 1.125,
+        "sector_allocation_multifamily": 0.55,
+        "sector_allocation_medical": 0.18,
+        "sector_allocation_senior": 0.15,
+        "sector_allocation_student": 0.12
+      },
+      {
+        "fund_id": "fund-debt-001",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "nav_invested": 492000000,
+        "nav_cash": 13000000,
+        "nav_total": 505000000,
+        "avg_coupon": 0.058,
+        "portfolio_avg_dscr": 1.308,
+        "portfolio_avg_ltv": 0.762,
+        "avg_wac": 0.061
+      }
+    ],
+    "fact_loan_covenant": [
+      {
+        "loan_id": "loan-debt-001",
+        "quarter": "2026-Q1",
+        "covenant_dscr_threshold": 1.25,
+        "covenant_dscr_actual": 1.282,
+        "covenant_dscr_pass": true,
+        "covenant_dscr_margin": 0.032,
+        "covenant_ltv_threshold": 0.78,
+        "covenant_ltv_actual": 0.78,
+        "covenant_ltv_pass": true,
+        "covenant_ltv_margin": 0.0,
+        "watchlist_flag": false
+      },
+      {
+        "loan_id": "loan-debt-002",
+        "quarter": "2026-Q1",
+        "covenant_dscr_threshold": 1.20,
+        "covenant_dscr_actual": 1.523,
+        "covenant_dscr_pass": true,
+        "covenant_dscr_margin": 0.323,
+        "covenant_ltv_threshold": 0.75,
+        "covenant_ltv_actual": 0.75,
+        "covenant_ltv_pass": true,
+        "covenant_ltv_margin": 0.0,
+        "watchlist_flag": false
+      },
+      {
+        "loan_id": "loan-debt-003",
+        "quarter": "2026-Q1",
+        "covenant_dscr_threshold": 1.25,
+        "covenant_dscr_actual": 1.188,
+        "covenant_dscr_pass": false,
+        "covenant_dscr_margin": -0.062,
+        "covenant_ltv_threshold": 0.78,
+        "covenant_ltv_actual": 0.78,
+        "covenant_ltv_pass": true,
+        "covenant_ltv_margin": 0.0,
+        "watchlist_flag": true
+      },
+      {
+        "loan_id": "loan-debt-004",
+        "quarter": "2026-Q1",
+        "covenant_dscr_threshold": 1.25,
+        "covenant_dscr_actual": 1.345,
+        "covenant_dscr_pass": true,
+        "covenant_dscr_margin": 0.095,
+        "covenant_ltv_threshold": 0.78,
+        "covenant_ltv_actual": 0.78,
+        "covenant_ltv_pass": true,
+        "covenant_ltv_margin": 0.0,
+        "watchlist_flag": false
+      },
+      {
+        "loan_id": "loan-debt-005",
+        "quarter": "2026-Q1",
+        "covenant_dscr_threshold": 1.25,
+        "covenant_dscr_actual": 1.311,
+        "covenant_dscr_pass": true,
+        "covenant_dscr_margin": 0.061,
+        "covenant_ltv_threshold": 0.78,
+        "covenant_ltv_actual": 0.774,
+        "covenant_ltv_pass": true,
+        "covenant_ltv_margin": 0.006,
+        "watchlist_flag": false
+      },
+      {
+        "loan_id": "loan-debt-006",
+        "quarter": "2026-Q1",
+        "covenant_dscr_threshold": 1.25,
+        "covenant_dscr_actual": 1.395,
+        "covenant_dscr_pass": true,
+        "covenant_dscr_margin": 0.145,
+        "covenant_ltv_threshold": 0.78,
+        "covenant_ltv_actual": 0.705,
+        "covenant_ltv_pass": true,
+        "covenant_ltv_margin": 0.075,
+        "watchlist_flag": false
+      },
+      {
+        "loan_id": "loan-debt-007",
+        "quarter": "2026-Q1",
+        "covenant_dscr_threshold": 1.25,
+        "covenant_dscr_actual": 1.273,
+        "covenant_dscr_pass": true,
+        "covenant_dscr_margin": 0.023,
+        "covenant_ltv_threshold": 0.78,
+        "covenant_ltv_actual": 0.787,
+        "covenant_ltv_pass": false,
+        "covenant_ltv_margin": -0.007,
+        "watchlist_flag": true
+      },
+      {
+        "loan_id": "loan-debt-008",
+        "quarter": "2026-Q1",
+        "covenant_dscr_threshold": 1.25,
+        "covenant_dscr_actual": 1.332,
+        "covenant_dscr_pass": true,
+        "covenant_dscr_margin": 0.082,
+        "covenant_ltv_threshold": 0.78,
+        "covenant_ltv_actual": 0.871,
+        "covenant_ltv_pass": false,
+        "covenant_ltv_margin": -0.091,
+        "watchlist_flag": true
+      }
+    ],
+    "fact_capital_account": [
+      {
+        "investor_id": "investor_lp_001",
+        "fund_id": "fund-equity-001",
+        "quarter": "2026-Q1",
+        "beginning_balance": 0,
+        "called_capital": 360000000,
+        "distributions": 0,
+        "nav_allocation": 315000000,
+        "ending_balance": 315000000,
+        "irr": 0.08,
+        "dpi": 0.0,
+        "tvpi": 1.125
+      },
+      {
+        "investor_id": "investor_lp_002",
+        "fund_id": "fund-equity-001",
+        "quarter": "2026-Q1",
+        "beginning_balance": 0,
+        "called_capital": 90000000,
+        "distributions": 0,
+        "nav_allocation": 160000000,
+        "ending_balance": 160000000,
+        "irr": 0.08,
+        "dpi": 0.0,
+        "tvpi": 1.125
+      }
+    ],
+    "fact_cashflow": [
+      {
+        "fund_id": "fund-equity-001",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "operating_inflow": 58010428,
+        "operating_outflow": -30028812,
+        "net_operating": 27981616,
+        "financing_inflow": 450000000,
+        "financing_outflow": -297010000,
+        "net_financing": 152990000,
+        "investing_outflow": -425000000,
+        "net_change": -244028384,
+        "ending_cash": 50000000
+      }
+    ],
+    "fact_valuation": [
+      {
+        "asset_id": "asset-eq-001",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "method_direct_cap_value": 350000000,
+        "method_dcf_value": 320000000,
+        "blended_value": 335000000,
+        "valuation_date": "2026-02-28",
+        "cap_rate_used": 0.048,
+        "discount_rate_used": 0.085
+      },
+      {
+        "asset_id": "asset-eq-002",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "method_direct_cap_value": 113276000,
+        "method_dcf_value": 108400000,
+        "blended_value": 110838000,
+        "valuation_date": "2026-02-28",
+        "cap_rate_used": 0.058,
+        "discount_rate_used": 0.095
+      },
+      {
+        "asset_id": "asset-eq-003",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "method_direct_cap_value": 65192308,
+        "method_dcf_value": 63000000,
+        "blended_value": 64096154,
+        "valuation_date": "2026-02-28",
+        "cap_rate_used": 0.065,
+        "discount_rate_used": 0.095
+      },
+      {
+        "asset_id": "asset-eq-004",
+        "quarter": "2026-Q1",
+        "scenario": "scenario-base",
+        "method_direct_cap_value": 78037037,
+        "method_dcf_value": 79300000,
+        "blended_value": 78668519,
+        "valuation_date": "2026-02-28",
+        "cap_rate_used": 0.054,
+        "discount_rate_used": 0.080
+      }
+    ]
+  },
+  "quarterly_close_spec": {
+    "description": "Deterministic quarterly close architecture for reproducible quarter-end close packages",
+    "execution_sequence": [
+      {
+        "step": 0,
+        "name": "Preflight Validation",
+        "inputs": ["quarter_id", "fund_id"],
+        "outputs": ["run_header", "input_hash"],
+        "validations": [
+          "Quarter is closeable (not in progress)",
+          "All asset accounting imports present",
+          "Assumption versions locked",
+          "Market data timestamp fixed"
+        ]
+      },
+      {
+        "step": 1,
+        "name": "Ingest & Normalize Accounting",
+        "inputs": ["trial_balance", "chart_of_accounts_mapping"],
+        "outputs": ["asset_financial_state.actuals", "tieout_report"],
+        "operations": [
+          "Map GL accounts to NOI line items per asset",
+          "Normalize for non-recurring items",
+          "Compute actuals tieout"
+        ]
+      },
+      {
+        "step": 2,
+        "name": "Asset Ops + Capex",
+        "inputs": ["capex_actuals", "capex_budget", "occupancy_data"],
+        "outputs": ["asset_financial_state.adjustments", "asset_financial_state.stabilized_noi"],
+        "operations": [
+          "Apply capex plan actuals",
+          "Compute variance vs budget",
+          "Adjust NOI for one-time items and management normalization",
+          "Calculate stabilized NOI"
+        ]
+      },
+      {
+        "step": 3,
+        "name": "Valuation",
+        "inputs": ["stabilized_noi", "cap_rate_policy", "discount_rate_curve", "market_data"],
+        "outputs": ["valuation_state"],
+        "operations": [
+          "Direct cap: NOI / cap_rate",
+          "DCF: discount future cash flows",
+          "Blend methods per policy weights",
+          "Store assumption references"
+        ]
+      },
+      {
+        "step": 4,
+        "name": "Debt & Covenants",
+        "inputs": ["loan_balances", "amortization_schedules", "covenant_definitions", "valuation_state"],
+        "outputs": ["debt_state", "covenant_results"],
+        "operations": [
+          "Update UPB per amortization",
+          "Compute DSCR, LTV, Debt Yield",
+          "Test each covenant",
+          "Store results with audit trail"
+        ]
+      },
+      {
+        "step": 5,
+        "name": "Build NAV",
+        "inputs": ["asset_values", "jv_definitions", "debt_state"],
+        "outputs": ["fund_nav_state"],
+        "operations": [
+          "Sum asset values per JV",
+          "Allocate debt per JV",
+          "Aggregate to fund",
+          "Reconcile totals"
+        ]
+      },
+      {
+        "step": 6,
+        "name": "Waterfall + Promote",
+        "inputs": ["distribution_events", "waterfall_definition", "capital_accounts"],
+        "outputs": ["waterfall_result"],
+        "conditions": "if distributions occurred in quarter",
+        "operations": [
+          "Apply waterfall rules",
+          "Calculate promote allocations",
+          "Store tier breakdowns"
+        ]
+      },
+      {
+        "step": 7,
+        "name": "Capital Accounts",
+        "inputs": ["calls_received", "distributions_paid", "nav_allocation", "waterfall_result"],
+        "outputs": ["capital_account_state"],
+        "operations": [
+          "Update each investor capital account",
+          "Calculate IRR, DPI, TVPI",
+          "Store for reporting"
+        ]
+      },
+      {
+        "step": 8,
+        "name": "Reporting Pack",
+        "inputs": ["capital_account_state", "fund_nav_state", "covenant_results"],
+        "outputs": ["report_artifacts"],
+        "operations": [
+          "Generate LP statements",
+          "Generate fund Q report",
+          "Generate covenant compliance pack",
+          "Store all artifacts with hashes"
+        ]
+      },
+      {
+        "step": 9,
+        "name": "Finalize",
+        "inputs": ["all outputs"],
+        "outputs": ["output_hash", "run_header (success)"],
+        "operations": [
+          "Compute output hash",
+          "Mark run success",
+          "Write audit event"
+        ]
+      }
+    ],
+    "determinism_guardrails": [
+      "No 'now()' in computations; use run_timestamp only",
+      "Store all market data snapshots (cap rates, SOFR curves)",
+      "Store assumption versions used",
+      "Output hashes verified in tests",
+      "Same inputs => same output_hash"
+    ]
+  },
+  "waterfall_spec": {
+    "description": "Institutional promote waterfall engine supporting European & American styles",
+    "supported_styles": ["European (whole-fund)", "American (deal-by-deal)"],
+    "tiers": [
+      {
+        "tier": 1,
+        "name": "Return of Capital",
+        "description": "Return of contributed capital pro-rata to all contributors",
+        "allocation": "pro-rata by contribution"
+      },
+      {
+        "tier": 2,
+        "name": "Preferred Return",
+        "description": "8% annual preferred return to LPs",
+        "rate": 0.08,
+        "allocation": "100% to LP"
+      },
+      {
+        "tier": 3,
+        "name": "Catch-Up",
+        "description": "100% to GP until GP reaches carried interest %",
+        "allocation": "100% to GP",
+        "threshold": "8% hurdle met"
+      },
+      {
+        "tier": 4,
+        "name": "70/30 Split",
+        "description": "Above 8% hurdle, before 18% IRR",
+        "allocation": "70% LP / 30% GP"
+      },
+      {
+        "tier": 5,
+        "name": "50/50 Split",
+        "description": "Above 18% IRR",
+        "allocation": "50% LP / 50% GP"
+      }
+    ],
+    "example_european_waterfall": {
+      "fund_level_cash_flow": 500000000,
+      "tier_1_roc": {
+        "total": 300000000,
+        "lp_allocation": 250000000,
+        "gp_allocation": 50000000
+      },
+      "tier_2_pref": {
+        "total": 100000000,
+        "accrued_since_inception": 120000000,
+        "lp_allocation": 100000000,
+        "gp_allocation": 0
+      },
+      "tier_3_catchup": {
+        "threshold_irr": 0.08,
+        "total": 50000000,
+        "lp_allocation": 0,
+        "gp_allocation": 50000000
+      },
+      "tier_4_split_70_30": {
+        "total": 30000000,
+        "lp_allocation": 21000000,
+        "gp_allocation": 9000000
+      },
+      "tier_5_split_50_50": {
+        "total": 20000000,
+        "lp_allocation": 10000000,
+        "gp_allocation": 10000000
+      },
+      "total_gp_promote": 119000000,
+      "total_lp_net": 381000000
+    }
+  },
+  "covenant_parsing_spec": {
+    "description": "Hybrid LLM + regex covenant extraction from loan documents",
+    "pipeline": [
+      {
+        "stage": "A: Document Intake",
+        "description": "User uploads loan agreements, mortgages, servicing agreements",
+        "storage": "documents table with virtual_path /re/loans/<loanId>/docs/<docType>/<version>"
+      },
+      {
+        "stage": "B: Text Extraction",
+        "description": "PDF text extraction with OCR fallback",
+        "outputs": ["raw_text", "page_map"]
+      },
+      {
+        "stage": "C: Clause Detection",
+        "description": "Regex + keyword anchors + LLM structured extraction",
+        "regex_anchors": ["DSCR", "Debt Yield", "cash sweep", "minimum", "not less than"],
+        "outputs": ["clause_text", "page_range", "confidence"]
+      },
+      {
+        "stage": "D: Structured Covenant Object",
+        "description": "Normalize to canonical covenant_definition schema",
+        "fields": [
+          "covenant_type (DSCR / LTV / DY / NetWorth / Liquidity / Reporting)",
+          "threshold",
+          "comparator (>=, <=)",
+          "measurement_period (T12, Quarterly, Annual)",
+          "test_frequency",
+          "cure_period_days",
+          "noi_definition",
+          "calculation_method"
+        ]
+      },
+      {
+        "stage": "E: Human-in-the-Loop Review",
+        "description": "Show extracted covenants with clause highlights for approval",
+        "outputs": ["approved_covenant_definition (locked with version)"]
+      },
+      {
+        "stage": "F: Quarterly Close Covenant Test",
+        "description": "During Step 4 of quarter close, evaluate covenants",
+        "outputs": ["covenant_result (pass/fail, margin, evidence pointers)"]
+      },
+      {
+        "stage": "G: Reporting",
+        "description": "Covenant dashboard, breach history, watchlist, evidence packs",
+        "outputs": ["covenant_dashboard", "evidence_pack_with_page_numbers"]
+      }
+    ],
+    "safety_constraints": [
+      "Never invent covenant thresholds",
+      "Mark ambiguous docs as 'needs review'",
+      "Store all intermediate outputs with hashes",
+      "Every covenant_result must cite exact clause text + page numbers + calculation inputs"
+    ]
+  }
+}
