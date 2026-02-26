@@ -1031,3 +1031,59 @@ After setting the env var, redeploy Vercel to pick it up.
 **Files changed:**
 
 - `RULES.MD` — BUG-002 appended
+
+---
+
+### BUG-003 — 2026-02-26 — Production context endpoint fails ENOTFOUND on Supabase direct connection
+
+**Problem:**
+After implementing real Supabase queries in `/api/re/v1/context`, `/api/re/v1/funds`, and environment
+routes, production GET requests returned 500 with error `getaddrinfo ENOTFOUND db.ozboonlsplroialdwuxj.supabase.co`
+despite the query working fine locally.
+
+**Root cause:**
+Supabase project `ozboonlsplroialdwuxj` configured its direct connection hostname `db.PROJECT.supabase.co`
+with **IPv6 only** (AAAA record only, no A record). Vercel's Lambda serverless functions have **no IPv6
+networking support**. When Node.js tried to resolve the hostname via `dns.lookup()` (the default for `pg` library),
+it got `ENOTFOUND` because:
+
+1. `dns.lookup()` by default only returns IPv4 addresses (A records)
+2. The hostname has no A record, only AAAA (IPv6)
+3. Vercel's Lambda cannot make outbound IPv6 TCP connections (`EADDRNOTAVAIL` if forced to IPv6 address)
+
+**Attempted fixes that FAILED:**
+- Using IPv6 address directly: `[2600:1f18:...]:5432` → `EADDRNOTAVAIL` (no IPv6 networking)
+- Trying Supabase's shared pooler `aws-0-us-east-1.pooler.supabase.com` → `FATAL: Tenant or user not found`
+  (this project was created before Supavisor rollout and wasn't auto-migrated)
+
+**Correct fix:**
+Use Supabase's **Transaction Mode Connection Pooler** — an IPv4-accessible endpoint provided by the project:
+
+Format: `postgresql://postgres.{PROJECT_REF}:{PASSWORD}@aws-{N}-{REGION}.pooler.supabase.com:6543/postgres`
+
+For project `ozboonlsplroialdwuxj`:
+```
+postgresql://postgres.ozboonlsplroialdwuxj:ripsalesforce8084@aws-1-us-east-1.pooler.supabase.com:6543/postgres
+```
+
+**To get your project's pooler URL:**
+1. Log into Supabase dashboard
+2. Select the project
+3. Go to **Settings → Database → Connection pooling**
+4. Copy the **Transaction mode** connection string (port 6543, always IPv4)
+
+**Implementation:**
+- Set `PG_POOLER_URL` env var in Vercel (both production and preview targets) to the pooler URL
+- All four pg routes check `process.env.PG_POOLER_URL || process.env.DATABASE_URL`
+- This ensures production uses the pooler while local dev can use direct connection if available
+- The direct connection (`DATABASE_URL`) will continue to work in local dev (where IPv6 is available)
+
+**Permanent rule added:** See "Supabase / DB Connection (Production)" section at the top of Part A.
+
+**Files changed:**
+- `repo-b/src/app/api/re/v1/context/route.ts` — added `PG_POOLER_URL` check
+- `repo-b/src/app/api/re/v1/funds/route.ts` — added `PG_POOLER_URL` check
+- `repo-b/src/app/api/v1/environments/route.ts` — added `PG_POOLER_URL` check
+- `repo-b/src/app/api/v1/environments/[id]/route.ts` — added `PG_POOLER_URL` check
+- `MEMORY.md` — added Supabase connection pooler section
+- `RULES.MD` — BUG-003 appended
