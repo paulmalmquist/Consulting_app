@@ -30,12 +30,13 @@ export async function GET(
       ),
       pool.query(
         `SELECT
-           term_id::text, fund_id::text, effective_date,
+           fund_term_id::text AS term_id,
+           fund_id::text,
+           effective_from AS effective_date,
            preferred_return_rate, carry_rate, waterfall_style,
-           management_fee_rate, hurdle_rate, created_at
+           management_fee_rate, created_at
          FROM repe_fund_term WHERE fund_id = $1::uuid
-         ORDER BY effective_date DESC`
-        ,
+         ORDER BY effective_from DESC`,
         [params.fundId]
       ).catch(() => ({ rows: [] })),
     ]);
