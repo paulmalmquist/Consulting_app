@@ -20,7 +20,7 @@ let _hasIndustryTypeColumn: boolean | null = null;
 
 function getPool(): Pool | null {
   if (_pool) return _pool;
-  const raw = process.env.DATABASE_URL;
+  const raw = process.env.PG_POOLER_URL || process.env.DATABASE_URL;
   if (!raw) {
     return null;
   }

@@ -7,7 +7,7 @@ let _pool: Pool | null = null;
 
 function getPool(): Pool | null {
   if (_pool) return _pool;
-  const raw = process.env.DATABASE_URL;
+  const raw = process.env.PG_POOLER_URL || process.env.DATABASE_URL;
   if (!raw) return null;
   try {
     const u = new URL(raw);
@@ -127,10 +127,9 @@ export async function GET(request: NextRequest) {
       scenarios_count: scenariosCount,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
     console.error("[re/v1/context] DB error", err);
     return Response.json(
-      { error_code: "INTERNAL_ERROR", message: "Failed to resolve RE context", detail: msg },
+      { error_code: "INTERNAL_ERROR", message: "Failed to resolve RE context" },
       { status: 500 }
     );
   }
