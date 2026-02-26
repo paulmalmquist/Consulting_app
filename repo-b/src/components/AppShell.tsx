@@ -23,7 +23,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { selectedEnv } = useEnv();
   const aiMode = process.env.NEXT_PUBLIC_AI_MODE || "off";
-  const isDomainRoute = /^\/lab\/env\/[^/]+\/(re|pds|credit|legal|medical)(\/|$)/.test(pathname);
+  const isDomainRoute = /^\/lab\/env\/[^/]+\/(re|pds|credit|legal|medical|consulting)(\/|$)/.test(pathname);
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
@@ -80,14 +80,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-bm-bg text-bm-text flex">
       <aside
         className={cn(
-          "border-r border-bm-border/70 hidden lg:flex flex-col gap-6 bg-bm-bg/40 backdrop-blur-md transition-all duration-200",
+          "border-r border-bm-border/60 hidden lg:flex flex-col gap-6 bg-[#0b0f15]/92 transition-all duration-200",
           collapsed ? "w-[84px] p-4" : "w-64 p-6"
         )}
       >
         <div className={cn("flex items-start", collapsed ? "justify-center" : "justify-between gap-2")}>
           {!collapsed ? (
             <div>
-              <p className="text-xs uppercase text-bm-muted2 tracking-[0.18em]">Business OS</p>
+              <p className="text-[11px] uppercase text-bm-muted tracking-[0.12em]">Business OS</p>
               <p className="text-lg font-semibold font-display">
                 {selectedEnv?.client_name || "Environments"}
               </p>
@@ -97,7 +97,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             type="button"
             onClick={toggleCollapsed}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="inline-flex items-center justify-center rounded-lg border border-bm-border/70 bg-bm-surface/40 p-1.5 text-bm-muted hover:bg-bm-surface/60 hover:text-bm-text"
+            className="inline-flex items-center justify-center rounded-md border border-bm-border/70 bg-bm-surface/35 p-1.5 text-bm-muted hover:bg-bm-surface/60 hover:text-bm-text"
             data-testid="lab-sidebar-toggle"
           >
             {collapsed ? <ChevronsRightIcon size={16} /> : <ChevronsLeftIcon size={16} />}
@@ -112,7 +112,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           ] as const).map(([groupKey, groupLabel]) => (
             <div key={groupKey} className="space-y-2">
               {!collapsed ? (
-                <p className="px-2 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
+                <p className="px-2 text-[11px] uppercase tracking-[0.12em] text-bm-muted">
                   {groupLabel}
                 </p>
               ) : null}
@@ -129,11 +129,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       data-testid={`lab-nav-link-${item.id}`}
                       title={collapsed ? item.label : undefined}
                       className={cn(
-                        "rounded-lg text-sm border transition flex items-center",
+                        "rounded-md text-sm border transition duration-150 flex items-center relative overflow-hidden",
                         collapsed ? "justify-center p-2.5" : "px-3 py-2.5 gap-2",
                         isActive
-                          ? "bg-bm-accent/18 text-bm-text border-bm-accent/70 shadow-bm-glow ring-1 ring-bm-accent/45"
-                          : "text-bm-muted border-transparent hover:bg-bm-surface/40 hover:border-bm-border/70"
+                          ? "text-bm-text border-bm-accent/50 shadow-bm-glow ring-1 ring-bm-accent/35 before:absolute before:left-0 before:top-0 before:h-full before:w-0.5 before:bg-bm-accent before:content-[''] after:absolute after:inset-0 after:pointer-events-none after:bg-gradient-to-r after:from-bm-accent/10 after:to-transparent after:content-['']"
+                          : "text-bm-muted border-transparent hover:bg-bm-surface/42 hover:border-bm-border/70 hover:brightness-110"
                       )}
                     >
                       <NavIcon navKey={item.navKey} size={15} />
@@ -151,16 +151,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
       <div className="flex-1 flex flex-col">
-        <header className="border-b border-bm-border/70 px-6 py-4 flex flex-wrap items-center justify-between gap-4 bg-bm-bg/35 backdrop-blur-md">
-          <div>
-            <p className="text-xs uppercase text-bm-muted2 tracking-[0.16em]">
+        <header className="bm-command-bar border-b border-bm-border/70 px-6 py-4 flex flex-wrap items-center justify-between gap-4 bg-bm-surface/35 backdrop-blur-md">
+          <div className="space-y-1">
+            <p className="text-[11px] uppercase text-bm-muted tracking-[0.12em]">
               Current Environment
             </p>
-            <p className="text-sm font-semibold">
+            <span className="inline-flex items-center rounded-md border border-bm-border/80 bg-bm-surface/75 px-3 py-1.5 text-sm font-semibold">
               {selectedEnv
                 ? `${selectedEnv.client_name} · ${selectedEnv.industry_type || selectedEnv.industry}`
                 : "No environment selected"}
-            </p>
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />

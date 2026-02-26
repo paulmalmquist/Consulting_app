@@ -35,7 +35,7 @@ export function Dialog({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
         className={cn(
-          "relative w-full max-w-lg rounded-2xl bm-glass p-6",
+          "relative w-full max-w-lg rounded-xl bm-glass p-6",
           "shadow-bm-card"
         )}
       >
@@ -64,4 +64,3 @@ export function Dialog({
     </div>
   );
 }
-

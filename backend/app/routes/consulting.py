@@ -1,0 +1,536 @@
+"""Consulting Revenue OS API routes.
+
+Pipeline management, lead scoring, outreach tracking, proposals,
+client lifecycle, engagements, revenue scheduling, and metrics.
+"""
+from __future__ import annotations
+
+from uuid import UUID
+
+import psycopg
+from fastapi import APIRouter, HTTPException, Query
+
+from app.observability.logger import emit_log
+from app.schemas.consulting import (
+    AdvanceStageRequest,
+    ClientOut,
+    ConvertToClientRequest,
+    EngagementCreateRequest,
+    EngagementOut,
+    LeadCreateRequest,
+    LeadOut,
+    LeadScoreUpdate,
+    MetricsSnapshotOut,
+    OutreachAnalyticsOut,
+    OutreachLogCreateRequest,
+    OutreachLogOut,
+    OutreachReplyRequest,
+    OutreachTemplateCreateRequest,
+    OutreachTemplateOut,
+    PipelineKanbanResult,
+    PipelineStageOut,
+    ProposalCreateRequest,
+    ProposalOut,
+    ProposalStatusUpdate,
+    RevenueEntryOut,
+    RevenueInvoiceStatusUpdate,
+    RevenueScheduleCreateRequest,
+    RevenueSummaryOut,
+    SeedRequest,
+    SeedResult,
+)
+from app.services import (
+    cro_clients,
+    cro_engagements,
+    cro_leads,
+    cro_metrics_engine,
+    cro_outreach,
+    cro_pipeline,
+    cro_proposals,
+    cro_revenue,
+    cro_seed,
+)
+
+router = APIRouter(prefix="/api/consulting", tags=["consulting-revenue-os"])
+
+
+def _to_http(exc: Exception) -> HTTPException:
+    if isinstance(exc, psycopg.errors.UndefinedTable):
+        return HTTPException(
+            503,
+            {"error_code": "SCHEMA_NOT_MIGRATED", "message": "Consulting Revenue OS schema not migrated.", "detail": "Run migration 280."},
+        )
+    if isinstance(exc, LookupError):
+        return HTTPException(404, {"error_code": "NOT_FOUND", "message": str(exc)})
+    if isinstance(exc, ValueError):
+        return HTTPException(400, {"error_code": "VALIDATION_ERROR", "message": str(exc)})
+    return HTTPException(500, {"error_code": "INTERNAL_ERROR", "message": str(exc)})
+
+
+def _log(action: str, msg: str, **ctx):
+    emit_log(level="info", service="backend", action=action, message=msg, context=ctx)
+
+
+# ── Pipeline ────────────────────────────────────────────────────────────────────
+
+@router.get("/pipeline/stages", response_model=list[PipelineStageOut])
+def list_pipeline_stages(
+    business_id: UUID = Query(...),
+):
+    try:
+        return cro_pipeline.list_consulting_pipeline_stages(business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/pipeline/kanban", response_model=PipelineKanbanResult)
+def get_pipeline_kanban(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return cro_pipeline.get_pipeline_kanban(env_id=env_id, business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/pipeline/advance")
+def advance_stage(body: AdvanceStageRequest):
+    try:
+        result = cro_pipeline.advance_opportunity_stage(
+            business_id=body.business_id,
+            opportunity_id=body.opportunity_id,
+            to_stage_key=body.to_stage_key,
+            note=body.note,
+        )
+        _log("cro.pipeline.advanced", f"Opportunity advanced to {body.to_stage_key}")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Leads ───────────────────────────────────────────────────────────────────────
+
+@router.get("/leads", response_model=list[LeadOut])
+def list_leads(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    min_score: int | None = Query(None, ge=0, le=100),
+):
+    try:
+        return cro_leads.list_leads(
+            env_id=env_id,
+            business_id=business_id,
+            min_score=min_score,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/leads", response_model=LeadOut, status_code=201)
+def create_lead(body: LeadCreateRequest):
+    try:
+        result = cro_leads.create_lead(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            company_name=body.company_name,
+            industry=body.industry,
+            website=body.website,
+            ai_maturity=body.ai_maturity,
+            pain_category=body.pain_category,
+            lead_source=body.lead_source,
+            company_size=body.company_size,
+            revenue_band=body.revenue_band,
+            erp_system=body.erp_system,
+            estimated_budget=body.estimated_budget,
+            contact_name=body.contact_name,
+            contact_email=body.contact_email,
+            contact_title=body.contact_title,
+            contact_linkedin=body.contact_linkedin,
+        )
+        _log("cro.lead.created", f"Lead created: {body.company_name}")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch("/leads/{lead_profile_id}/score")
+def update_lead_score(lead_profile_id: UUID, body: LeadScoreUpdate):
+    try:
+        return cro_leads.update_lead_score(lead_profile_id=lead_profile_id, score=body.score)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/leads/{lead_profile_id}/qualify")
+def qualify_lead(lead_profile_id: UUID):
+    try:
+        return cro_leads.qualify_lead(lead_profile_id=lead_profile_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/leads/{lead_profile_id}/disqualify")
+def disqualify_lead(lead_profile_id: UUID, reason: str = Query(...)):
+    try:
+        return cro_leads.disqualify_lead(lead_profile_id=lead_profile_id, reason=reason)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Outreach Templates ────────────────────────────────────────────────────────
+
+@router.get("/outreach/templates", response_model=list[OutreachTemplateOut])
+def list_outreach_templates(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    active_only: bool = Query(True),
+):
+    try:
+        return cro_outreach.list_templates(env_id=env_id, business_id=business_id, active_only=active_only)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/outreach/templates", response_model=OutreachTemplateOut, status_code=201)
+def create_outreach_template(body: OutreachTemplateCreateRequest):
+    try:
+        result = cro_outreach.create_template(
+            env_id=body.env_id, business_id=body.business_id,
+            name=body.name, channel=body.channel, category=body.category,
+            subject_template=body.subject_template, body_template=body.body_template,
+        )
+        _log("cro.outreach.template_created", f"Template created: {body.name}")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Outreach Log ──────────────────────────────────────────────────────────────
+
+@router.get("/outreach/log", response_model=list[OutreachLogOut])
+def list_outreach_log(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    crm_account_id: UUID | None = Query(None),
+    channel: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+):
+    try:
+        return cro_outreach.list_outreach_log(
+            env_id=env_id, business_id=business_id,
+            crm_account_id=crm_account_id, channel=channel, limit=limit,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/outreach/log", response_model=OutreachLogOut, status_code=201)
+def log_outreach(body: OutreachLogCreateRequest):
+    try:
+        result = cro_outreach.log_outreach(
+            env_id=body.env_id, business_id=body.business_id,
+            crm_account_id=body.crm_account_id,
+            crm_contact_id=body.crm_contact_id,
+            template_id=body.template_id,
+            channel=body.channel, direction=body.direction,
+            subject=body.subject, body_preview=body.body_preview,
+            meeting_booked=body.meeting_booked, sent_by=body.sent_by,
+        )
+        _log("cro.outreach.logged", f"Outreach logged: {body.channel}")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/outreach/log/{outreach_log_id}/reply")
+def record_outreach_reply(outreach_log_id: UUID, body: OutreachReplyRequest):
+    try:
+        return cro_outreach.record_reply(
+            outreach_log_id=outreach_log_id,
+            sentiment=body.sentiment,
+            meeting_booked=body.meeting_booked,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/outreach/analytics", response_model=OutreachAnalyticsOut)
+def get_outreach_analytics(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return cro_outreach.get_outreach_analytics(env_id=env_id, business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Proposals ─────────────────────────────────────────────────────────────────
+
+@router.get("/proposals", response_model=list[ProposalOut])
+def list_proposals(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    status: str | None = Query(None),
+    crm_account_id: UUID | None = Query(None),
+):
+    try:
+        return cro_proposals.list_proposals(
+            env_id=env_id, business_id=business_id,
+            status=status, crm_account_id=crm_account_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/proposals", response_model=ProposalOut, status_code=201)
+def create_proposal(body: ProposalCreateRequest):
+    try:
+        result = cro_proposals.create_proposal(
+            env_id=body.env_id, business_id=body.business_id,
+            crm_opportunity_id=body.crm_opportunity_id,
+            crm_account_id=body.crm_account_id,
+            title=body.title, pricing_model=body.pricing_model,
+            total_value=body.total_value, cost_estimate=body.cost_estimate,
+            valid_until=body.valid_until,
+            scope_summary=body.scope_summary, risk_notes=body.risk_notes,
+        )
+        _log("cro.proposal.created", f"Proposal created: {body.title}")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/proposals/{proposal_id}", response_model=ProposalOut)
+def get_proposal(proposal_id: UUID):
+    try:
+        return cro_proposals.get_proposal(proposal_id=proposal_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch("/proposals/{proposal_id}/status")
+def update_proposal_status(proposal_id: UUID, body: ProposalStatusUpdate):
+    try:
+        return cro_proposals.update_proposal_status(
+            proposal_id=proposal_id,
+            status=body.status,
+            rejection_reason=body.rejection_reason,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/proposals/{proposal_id}/version", response_model=ProposalOut, status_code=201)
+def create_proposal_version(proposal_id: UUID):
+    try:
+        result = cro_proposals.create_new_version(proposal_id=proposal_id)
+        _log("cro.proposal.versioned", f"Proposal {proposal_id} new version created")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Clients ───────────────────────────────────────────────────────────────────
+
+@router.get("/clients", response_model=list[ClientOut])
+def list_clients(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    status: str | None = Query(None),
+):
+    try:
+        return cro_clients.list_clients(env_id=env_id, business_id=business_id, status=status)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/clients/convert", response_model=ClientOut, status_code=201)
+def convert_to_client(body: ConvertToClientRequest):
+    try:
+        result = cro_clients.convert_to_client(
+            env_id=body.env_id, business_id=body.business_id,
+            crm_account_id=body.crm_account_id,
+            crm_opportunity_id=body.crm_opportunity_id,
+            proposal_id=body.proposal_id,
+            account_owner=body.account_owner,
+            start_date=body.start_date,
+        )
+        _log("cro.client.converted", f"Account converted to client")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/clients/{client_id}", response_model=ClientOut)
+def get_client(client_id: UUID):
+    try:
+        return cro_clients.get_client(client_id=client_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch("/clients/{client_id}/status")
+def update_client_status(client_id: UUID, status: str = Query(...)):
+    try:
+        return cro_clients.update_client_status(client_id=client_id, status=status)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Engagements ───────────────────────────────────────────────────────────────
+
+@router.get("/engagements", response_model=list[EngagementOut])
+def list_engagements(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    client_id: UUID | None = Query(None),
+    status: str | None = Query(None),
+):
+    try:
+        return cro_engagements.list_engagements(
+            env_id=env_id, business_id=business_id,
+            client_id=client_id, status=status,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/engagements", response_model=EngagementOut, status_code=201)
+def create_engagement(body: EngagementCreateRequest):
+    try:
+        result = cro_engagements.create_engagement(
+            env_id=body.env_id, business_id=body.business_id,
+            client_id=body.client_id, name=body.name,
+            engagement_type=body.engagement_type, budget=body.budget,
+            start_date=body.start_date, end_date=body.end_date,
+            notes=body.notes,
+        )
+        _log("cro.engagement.created", f"Engagement created: {body.name}")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/engagements/{engagement_id}", response_model=EngagementOut)
+def get_engagement(engagement_id: UUID):
+    try:
+        return cro_engagements.get_engagement(engagement_id=engagement_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch("/engagements/{engagement_id}/spend")
+def update_engagement_spend(engagement_id: UUID, actual_spend: str = Query(...)):
+    try:
+        from decimal import Decimal
+        return cro_engagements.update_engagement_spend(
+            engagement_id=engagement_id,
+            actual_spend=Decimal(actual_spend),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/engagements/{engagement_id}/complete")
+def complete_engagement(engagement_id: UUID):
+    try:
+        return cro_engagements.complete_engagement(engagement_id=engagement_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Revenue Schedule ──────────────────────────────────────────────────────────
+
+@router.get("/revenue/entries", response_model=list[RevenueEntryOut])
+def list_revenue_entries(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    client_id: UUID | None = Query(None),
+    engagement_id: UUID | None = Query(None),
+    invoice_status: str | None = Query(None),
+):
+    try:
+        return cro_revenue.list_revenue_entries(
+            env_id=env_id, business_id=business_id,
+            client_id=client_id, engagement_id=engagement_id,
+            invoice_status=invoice_status,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/revenue/entries", response_model=list[RevenueEntryOut], status_code=201)
+def create_revenue_entries(body: RevenueScheduleCreateRequest):
+    try:
+        entries = [e.model_dump() for e in body.entries]
+        result = cro_revenue.create_revenue_entries(
+            env_id=body.env_id, business_id=body.business_id, entries=entries,
+        )
+        _log("cro.revenue.entries_created", f"Created {len(entries)} revenue entries")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch("/revenue/entries/{entry_id}/status")
+def update_revenue_invoice_status(entry_id: UUID, body: RevenueInvoiceStatusUpdate):
+    try:
+        return cro_revenue.update_invoice_status(
+            entry_id=entry_id, invoice_status=body.invoice_status,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/revenue/summary", response_model=RevenueSummaryOut)
+def get_revenue_summary(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return cro_revenue.get_revenue_summary(env_id=env_id, business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Metrics ───────────────────────────────────────────────────────────────────
+
+@router.post("/metrics/compute", response_model=MetricsSnapshotOut, status_code=201)
+def compute_metrics(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        result = cro_metrics_engine.compute_all_metrics(env_id=env_id, business_id=business_id)
+        _log("cro.metrics.computed", "Metrics snapshot computed")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/metrics/latest", response_model=MetricsSnapshotOut)
+def get_latest_metrics(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        snapshot = cro_metrics_engine.get_latest_snapshot(env_id=env_id, business_id=business_id)
+        if not snapshot:
+            raise LookupError("No metrics snapshot found. Run /metrics/compute first.")
+        return snapshot
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Seed ──────────────────────────────────────────────────────────────────────
+
+@router.post("/seed", response_model=SeedResult, status_code=201)
+def seed_consulting_environment(body: SeedRequest):
+    try:
+        result = cro_seed.seed_consulting_environment(env_id=body.env_id, business_id=body.business_id)
+        _log("cro.seed.completed", "Consulting environment seeded")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)

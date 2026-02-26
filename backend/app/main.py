@@ -43,6 +43,7 @@ from app.routes import (
 )
 from app.routes.ai import router as ai_router
 from app.routes import website_content, website_rankings, website_analytics
+from app.routes import consulting
 
 app = FastAPI(title="Business OS API", version="0.1.0")
 
@@ -128,3 +129,4 @@ app.include_router(medoffice.router)
 app.include_router(website_content.router)
 app.include_router(website_rankings.router)
 app.include_router(website_analytics.router)
+app.include_router(consulting.router)

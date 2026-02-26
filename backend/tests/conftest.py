@@ -120,6 +120,15 @@ _GET_CURSOR_TARGETS = [
     "app.services.re_fund_metrics.get_cursor",
     "app.services.re_debt_surveillance.get_cursor",
     "app.services.re_run_engine.get_cursor",
+    "app.services.cro_pipeline.get_cursor",
+    "app.services.cro_leads.get_cursor",
+    "app.services.cro_outreach.get_cursor",
+    "app.services.cro_proposals.get_cursor",
+    "app.services.cro_clients.get_cursor",
+    "app.services.cro_engagements.get_cursor",
+    "app.services.cro_revenue.get_cursor",
+    "app.services.cro_metrics_engine.get_cursor",
+    "app.services.cro_seed.get_cursor",
 ]
 
 

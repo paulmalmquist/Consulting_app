@@ -51,7 +51,7 @@ function stageTone(colorToken: string | null | undefined) {
   if (colorToken === "green") return "border-bm-success/45";
   if (colorToken === "purple") return "border-bm-accent/45";
   if (colorToken === "amber") return "border-bm-warning/45";
-  if (colorToken === "blue") return "border-blue-400/45";
+  if (colorToken === "blue") return "border-bm-accent2/45";
   return "border-bm-border/70";
 }
 
@@ -80,7 +80,7 @@ function DraggableCard({
       {...listeners}
       {...attributes}
       className={cn(
-        "rounded-xl border border-bm-border/70 bg-bm-surface/45 p-3 cursor-grab",
+        "rounded-lg border border-bm-border/70 bg-bm-surface/45 p-3 cursor-grab transition hover:brightness-110",
         isDragging && "opacity-40"
       )}
       data-testid={`pipeline-card-${card.card_id}`}
@@ -125,16 +125,16 @@ function StageColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "rounded-2xl border bg-bm-surface/20 p-3 min-h-[220px]",
+        "bm-command-module p-3 min-h-[220px] border",
         stageTone(stage.color_token),
-        isOver && "shadow-bm-glow"
+        isOver && "shadow-bm-glow border-bm-accent/50"
       )}
       data-testid={`pipeline-stage-${stage.stage_key}`}
     >
       <div className="mb-3 flex items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-bm-text">{stage.stage_name}</p>
-          <p className="text-[11px] text-bm-muted">{cards.length} deals</p>
+          <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">{stage.stage_name}</p>
+          <p className="text-lg font-semibold text-bm-muted">{cards.length}</p>
         </div>
         <button
           type="button"
@@ -149,9 +149,12 @@ function StageColumn({
           <DraggableCard key={card.card_id} card={card} onDelete={onDeleteCard} />
         ))}
         {cards.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-bm-border/50 p-3 text-xs text-bm-muted2">
-            Drop deals here
-          </p>
+          <div className="bm-command-empty rounded-lg p-5 text-center">
+            <div className="mx-auto mb-2 inline-flex h-7 w-7 items-center justify-center rounded-full border border-bm-border/70 text-bm-muted">
+              +
+            </div>
+            <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Drop Deals Here</p>
+          </div>
         ) : null}
       </div>
     </div>
@@ -411,7 +414,7 @@ export default function PipelineBoard({
         <CardContent>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <CardTitle className="text-xl">{heading}</CardTitle>
+              <CardTitle className="text-[1.4rem]">{heading}</CardTitle>
               <CardDescription>{subheading}</CardDescription>
               {showContext ? (
                 <p className="mt-2 text-xs text-bm-muted2">
@@ -443,7 +446,7 @@ export default function PipelineBoard({
         </section>
         <DragOverlay>
           {activeCard ? (
-            <div className="w-[260px] rounded-xl border border-bm-accent/45 bg-bm-surface/80 p-3 shadow-bm-card">
+            <div className="w-[260px] rounded-lg border border-bm-accent/45 bg-bm-surface/90 p-3 shadow-bm-card">
               <p className="text-sm font-semibold">{activeCard.title}</p>
               <p className="mt-1 text-xs text-bm-muted">{activeCard.account_name || "No account"}</p>
             </div>

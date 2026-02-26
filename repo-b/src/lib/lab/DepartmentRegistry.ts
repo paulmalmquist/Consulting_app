@@ -16,7 +16,13 @@ export type LabDepartmentKey =
   | "compliance"
   | "content"
   | "rankings"
-  | "analytics";
+  | "analytics"
+  | "pipeline"
+  | "outreach"
+  | "proposals"
+  | "clients"
+  | "authority"
+  | "revenue";
 
 export type LabDepartmentMeta = {
   key: LabDepartmentKey;
@@ -43,6 +49,12 @@ export const LAB_DEPARTMENTS: LabDepartmentMeta[] = [
   { key: "content", label: "Content", description: "Content creation and publishing" },
   { key: "rankings", label: "Rankings", description: "Local and area rankings" },
   { key: "analytics", label: "Analytics", description: "Traffic and performance analytics" },
+  { key: "pipeline", label: "Pipeline", description: "Deal pipeline and opportunity tracking" },
+  { key: "outreach", label: "Outreach", description: "Lead generation and outreach management" },
+  { key: "proposals", label: "Proposals", description: "Proposal creation and tracking" },
+  { key: "clients", label: "Clients", description: "Client lifecycle and engagement tracking" },
+  { key: "authority", label: "Authority", description: "Thought leadership and brand content" },
+  { key: "revenue", label: "Revenue", description: "Revenue intelligence and forecasting" },
 ];
 
 export const LAB_DEPARTMENT_BY_KEY: Record<LabDepartmentKey, LabDepartmentMeta> =
@@ -83,6 +95,7 @@ const INDUSTRY_DEPARTMENT_MAP: Record<string, LabDepartmentKey[]> = {
   recruiting: ["crm", "hr", "operations", "documents"],
   media: ["projects", "crm", "executive", "documents"],
   website: ["projects", "content", "rankings", "analytics", "crm", "accounting", "reporting", "documents"],
+  consulting: ["pipeline", "outreach", "proposals", "clients", "authority", "revenue", "crm", "documents"],
 };
 
 const DEFAULT_DEPARTMENT_BY_INDUSTRY: Record<string, LabDepartmentKey> = {
@@ -117,6 +130,7 @@ const DEFAULT_DEPARTMENT_BY_INDUSTRY: Record<string, LabDepartmentKey> = {
   recruiting: "hr",
   media: "projects",
   website: "content",
+  consulting: "pipeline",
 };
 
 const GENERAL_DEPARTMENTS: LabDepartmentKey[] = [

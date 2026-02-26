@@ -164,7 +164,7 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
     };
   }, [mobileSidebarOpen]);
 
-  const isDomainRoute = new RegExp(`^/lab/env/${envId}/(re|pds|credit|legal|medical)(/|$)`).test(pathname);
+  const isDomainRoute = new RegExp(`^/lab/env/${envId}/(re|pds|credit|legal|medical|consulting)(/|$)`).test(pathname);
   if (isDomainRoute) {
     return <>{children}</>;
   }

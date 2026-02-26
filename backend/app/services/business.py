@@ -21,6 +21,8 @@ INDUSTRY_TYPE_TO_TEMPLATE_KEY: dict[str, str] = {
     "credit": "credit_risk_hub",
     "legal": "legal_ops_command",
     "medical": "medical_office_backoffice",
+    "consulting": "consulting",
+    "consulting_revenue_os": "consulting",
 }
 
 

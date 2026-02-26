@@ -32,17 +32,17 @@ module.exports = {
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "monospace"],
       },
       borderRadius: {
-        lg: "0.9rem",
-        xl: "1.1rem",
-        "2xl": "1.25rem",
+        lg: "0.6rem",
+        xl: "0.8rem",
+        "2xl": "1rem",
       },
       boxShadow: {
-        "bm-glow": "0 0 0 1px hsl(var(--bm-border) / 0.6), 0 10px 30px -12px hsl(var(--bm-accent) / 0.25)",
-        "bm-card": "0 0 0 1px hsl(var(--bm-border) / 0.55), 0 18px 50px -28px hsl(var(--bm-accent) / 0.25)",
+        "bm-glow": "0 0 8px rgba(var(--accent-glow), 0.45)",
+        "bm-card": "0 0 0 1px hsl(var(--bm-border) / 0.06), 0 14px 36px -26px rgba(0, 0, 0, 0.75)",
       },
       backgroundImage: {
         "bm-vignette":
-          "radial-gradient(1200px 600px at 20% 0%, hsl(var(--bm-accent) / 0.12), transparent 55%), radial-gradient(900px 500px at 80% 10%, hsl(var(--bm-accent-2) / 0.10), transparent 60%), linear-gradient(180deg, hsl(var(--bm-bg-2) / 0.85), hsl(var(--bm-bg) / 1))",
+          "radial-gradient(1200px 600px at 20% 0%, hsl(var(--bm-accent) / 0.08), transparent 55%), radial-gradient(900px 500px at 80% 10%, hsl(var(--bm-accent-2) / 0.07), transparent 60%), linear-gradient(180deg, hsl(var(--bm-bg-2) / 0.92), hsl(var(--bm-bg) / 1))",
       },
     }
   },

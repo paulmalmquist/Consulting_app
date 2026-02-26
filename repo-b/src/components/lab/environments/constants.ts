@@ -10,6 +10,7 @@ export const industries = [
   "construction",
   "real_estate",
   "website",
+  "consulting",
 ] as const;
 
 export type Industry = (typeof industries)[number];
@@ -35,6 +36,7 @@ const INDUSTRY_DISPLAY_MAP: Record<string, string> = {
   construction: "Construction",
   real_estate: "Real Estate",
   website: "Website / General",
+  consulting: "Consulting Revenue OS",
 };
 
 export function statusFromFlags(isActive: boolean): EnvironmentStatus {
@@ -91,8 +93,14 @@ export function isMedicalBackofficeEnvironment(industry?: string | null): boolea
   return key === "medical_office_backoffice" || key === "medical";
 }
 
+export function isConsultingEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "consulting" || key === "consulting_revenue_os";
+}
+
 export function resolveEnvironmentOpenPath(args: { envId: string; industry?: string | null }): string {
   if (isRepeEnvironment(args.industry)) return `/lab/env/${args.envId}/re`;
+  if (isConsultingEnvironment(args.industry)) return `/lab/env/${args.envId}/consulting`;
   if (isPdsEnvironment(args.industry)) return `/lab/env/${args.envId}/pds`;
   if (isCreditEnvironment(args.industry)) return `/lab/env/${args.envId}/credit`;
   if (isLegalOpsEnvironment(args.industry)) return `/lab/env/${args.envId}/legal`;

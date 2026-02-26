@@ -163,6 +163,42 @@ export const LAB_CAPABILITIES_BY_DEPARTMENT: Record<LabDepartmentKey, LabCapabil
     { key: "settings", label: "Settings", description: "Global configuration knobs." },
     { key: "audit_logs", label: "Audit Logs", description: "Administrative audit events." },
   ],
+  pipeline: [
+    { key: "kanban", label: "Kanban", description: "Pipeline kanban board with stage progression." },
+    { key: "deals", label: "Deals", description: "Open opportunities and weighted pipeline value." },
+    { key: "stages", label: "Stages", description: "Pipeline stage configuration and win probabilities." },
+    { key: "forecasting", label: "Forecasting", description: "Deterministic revenue forecast based on pipeline." },
+  ],
+  outreach: [
+    { key: "leads", label: "Leads", description: "Lead intake, scoring, and qualification." },
+    { key: "templates", label: "Templates", description: "Reusable outreach templates by channel." },
+    { key: "log", label: "Outreach Log", description: "Touch history and reply tracking." },
+    { key: "analytics", label: "Analytics", description: "Response rates and outreach performance." },
+  ],
+  proposals: [
+    { key: "active", label: "Active Proposals", description: "In-flight proposals and status tracking." },
+    { key: "builder", label: "Builder", description: "Proposal creation with pricing and margin calc." },
+    { key: "versions", label: "Versions", description: "Proposal version history and comparisons." },
+    { key: "acceptance", label: "Acceptance", description: "Acceptance workflow and conversion triggers." },
+  ],
+  clients: [
+    { key: "portfolio", label: "Portfolio", description: "Active client portfolio and lifecycle status." },
+    { key: "engagements", label: "Engagements", description: "Delivery tracking, budgets, and margin." },
+    { key: "health", label: "Health", description: "Client health scores and renewal risk." },
+    { key: "billing", label: "Billing", description: "Revenue schedules and invoice status." },
+  ],
+  authority: [
+    { key: "case_studies", label: "Case Studies", description: "Published case studies and results." },
+    { key: "content", label: "Content", description: "LinkedIn posts, whitepapers, and lead magnets." },
+    { key: "attribution", label: "Attribution", description: "Lead generation attribution from content." },
+    { key: "calendar", label: "Calendar", description: "Publishing schedule and content pipeline." },
+  ],
+  revenue: [
+    { key: "dashboard", label: "Dashboard", description: "Revenue intelligence with MTD/QTD/YTD metrics." },
+    { key: "schedules", label: "Schedules", description: "Billing entries and payment tracking." },
+    { key: "margins", label: "Margins", description: "Engagement margin analysis by type." },
+    { key: "snapshots", label: "Snapshots", description: "Deterministic metrics snapshots with audit trail." },
+  ],
 };
 
 export function getCapabilitiesForDepartment(

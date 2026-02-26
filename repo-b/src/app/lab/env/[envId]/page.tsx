@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import {
   isRepeEnvironment,
   isWebsiteEnvironment,
+  isConsultingEnvironment,
   isPdsEnvironment,
   isCreditEnvironment,
   isLegalOpsEnvironment,
@@ -162,7 +163,27 @@ function buildWebsiteKpis(summary: WebsiteAnalyticsSummary): KPI[] {
   ];
 }
 
+function getConsultingKpis(): KPI[] {
+  return [
+    { label: "Weighted Pipeline", value: "—" },
+    { label: "Forecast (90d)", value: "—" },
+    { label: "Revenue MTD", value: "—" },
+    { label: "Close Rate (90d)", value: "—" },
+    { label: "Outreach (30d)", value: "—" },
+    { label: "Meetings (30d)", value: "—" },
+  ];
+}
+
 function getQuickActions(industry: string, envId: string): Array<{ label: string; href: string }> {
+  if (isConsultingEnvironment(industry)) {
+    return [
+      { label: "Add Lead", href: `/lab/env/${envId}/consulting/outreach` },
+      { label: "Log Outreach", href: `/lab/env/${envId}/consulting/outreach` },
+      { label: "Create Proposal", href: `/lab/env/${envId}/consulting/proposals` },
+      { label: "View Pipeline", href: `/lab/env/${envId}/consulting/pipeline` },
+      { label: "Revenue Dashboard", href: `/lab/env/${envId}/consulting/revenue` },
+    ];
+  }
   if (isRepeEnvironment(industry)) {
     return [
       { label: "Create Fund", href: `/lab/env/${envId}/re/funds/new` },
@@ -242,6 +263,8 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
     if (!env) return;
     if (isRepeEnvironment(industry)) {
       router.replace(`/lab/env/${params.envId}/re`);
+    } else if (isConsultingEnvironment(industry)) {
+      router.replace(`/lab/env/${params.envId}/consulting`);
     }
   }, [env, industry, params.envId, router]);
 
@@ -309,8 +332,12 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
       .catch(() => null);
   }, [isRepe, businessId, params.envId]);
 
+  const isConsulting = isConsultingEnvironment(industry);
+
   const kpis: KPI[] =
-    isWebsite && analyticsSummary
+    isConsulting
+      ? getConsultingKpis()
+      : isWebsite && analyticsSummary
       ? buildWebsiteKpis(analyticsSummary)
       : isRepe
       ? buildRepeKpis(repeFundCount, repeSummary)
