@@ -4,9 +4,6 @@ Mocks the database layer and external services so tests run without Postgres/Sup
 """
 
 import os
-from contextlib import contextmanager
-from unittest.mock import MagicMock, patch
-from uuid import uuid4
 
 import pytest
 

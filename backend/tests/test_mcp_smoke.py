@@ -6,7 +6,6 @@ These tests verify that all new MCP tools are registered and callable
 in dry-run mode without causing errors.
 """
 
-import json
 import os
 import sys
 from pathlib import Path

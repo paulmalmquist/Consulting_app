@@ -4,7 +4,7 @@ import hashlib
 import json
 from datetime import date
 from decimal import Decimal
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from app.db import get_cursor
 from app.services import re_provenance

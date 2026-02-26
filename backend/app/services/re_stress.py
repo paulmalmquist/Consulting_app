@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 
 from app.db import get_cursor
 from app.observability.logger import emit_log
@@ -45,7 +45,6 @@ def run(
     state = get_asset_financial_state(fin_asset_investment_id, quarter)
 
     base_noi = _d(state["forward_12_noi"] or state["net_operating_income"])
-    base_value = _d(state["implied_gross_value"])
     base_nav = _d(state["nav_equity"])
     loan_balance = _d(state["loan_balance"] or 0)
     debt_service = _d(state["debt_service"] or 0)

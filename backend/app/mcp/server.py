@@ -58,10 +58,10 @@ def _make_response(req_id, result=None, error=None):
 
 def _handle_request(msg: dict) -> dict:
     from app.mcp.registry import registry
-    from app.mcp.auth import McpContext, validate_token
+    from app.mcp.auth import McpContext
     from app.mcp.audit import execute_tool, WriteNotEnabled, ConfirmRequired
     from app.mcp.rate_limit import check_rate_limit, RateLimitExceeded
-    from app.config import MCP_API_TOKEN, MCP_MAX_INPUT_BYTES, MCP_MAX_OUTPUT_BYTES
+    from app.config import MCP_MAX_INPUT_BYTES, MCP_MAX_OUTPUT_BYTES
 
     req_id = msg.get("id")
     method = msg.get("method", "")

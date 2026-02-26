@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 
 from app.db import get_cursor
 from app.observability.logger import emit_log

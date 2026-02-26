@@ -1,5 +1,4 @@
 import hashlib
-import json
 from typing import List
 
 import httpx

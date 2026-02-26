@@ -7,7 +7,6 @@ os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-key")
 os.environ.setdefault("_BM_SKIP_DB_CHECK", "1")
 
 import pytest
-from unittest.mock import patch
 
 from app.mcp.tools.repo_tools import _is_allowed_path, _read_file, _search_files
 from app.mcp.auth import McpContext

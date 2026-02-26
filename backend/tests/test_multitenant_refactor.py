@@ -13,7 +13,7 @@ Verifies:
 from __future__ import annotations
 
 import pytest
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch
 from uuid import UUID, uuid4
 from contextlib import contextmanager
 
@@ -382,7 +382,6 @@ def test_list_departments_returns_env_scoped_only(monkeypatch):
     from app.services import business as biz_svc
 
     DEPT_REPE = str(uuid4())
-    DEPT_CONTENT = str(uuid4())
 
     fake_cur = SimpleCursor()
     # Only return the REPE dept for env 1; content dept belongs to env 2

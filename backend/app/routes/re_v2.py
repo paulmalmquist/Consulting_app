@@ -26,8 +26,6 @@ from app.schemas.re_institutional import (
     ReJvPartnerShareCreateRequest,
     ReJvPartnerShareOut,
     ReJvQuarterStateOut,
-    ReLoanDetailCreateRequest,
-    ReLoanDetailOut,
     RePartnerCommitmentCreateRequest,
     RePartnerCommitmentOut,
     RePartnerCreateRequest,
@@ -38,8 +36,6 @@ from app.schemas.re_institutional import (
     ReRunProvenanceOut,
     ReScenarioCreateRequest,
     ReScenarioOut,
-    ReWaterfallDefinitionCreateRequest,
-    ReWaterfallDefinitionOut,
     ReWaterfallRunOut,
     ReWaterfallRunRequest,
 )

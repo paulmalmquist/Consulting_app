@@ -8,7 +8,6 @@ import pytest
 from decimal import Decimal
 
 from app.services.re_math import (
-    _d,
     calculate_gpr,
     calculate_vacancy_loss,
     calculate_egi,

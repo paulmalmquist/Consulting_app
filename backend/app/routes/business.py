@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException, Query
 import time
 from uuid import UUID
 from typing import Optional
-from app.db import get_cursor
 from app.schemas.business import (
     CreateBusinessRequest,
     CreateBusinessResponse,

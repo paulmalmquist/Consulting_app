@@ -11,8 +11,8 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from orchestration.engine.contracts import load_contracts
-from orchestration.engine.pipeline import build_plan, execute_run
+from orchestration.engine.contracts import load_contracts  # noqa: E402
+from orchestration.engine.pipeline import build_plan, execute_run  # noqa: E402
 
 
 def _session(intent: str = "ui_refactor", risk: str = "low") -> dict:

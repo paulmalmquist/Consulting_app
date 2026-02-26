@@ -10,15 +10,12 @@ from __future__ import annotations
 import json
 import random
 import uuid
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 
 from app.db import get_cursor
 from app.observability.logger import emit_log
 from app.services.re_math import (
-    _d,
-    calculate_equity_value,
     calculate_irr,
-    calculate_value_direct_cap,
 )
 
 TWO_PLACES = Decimal("0.01")
@@ -71,7 +68,6 @@ def run(
 
     for _ in range(n_sims):
         noi = base_noi
-        sim_cashflows = [(-contributions, 0.0)] if contributions > 0 else []
 
         for year in range(1, params["hold_years"] + 1):
             rg = rng.gauss(params["rent_growth_mean"], params["rent_growth_std"])

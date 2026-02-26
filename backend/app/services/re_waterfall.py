@@ -12,7 +12,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from app.db import get_cursor
 from app.observability.logger import emit_log
-from app.services.re_math import _d, calculate_irr
+from app.services.re_math import _d
 
 TWO_PLACES = Decimal("0.01")
 
@@ -80,7 +80,6 @@ def apply_waterfall_tiers(
 
         elif tier_type == "carry_split":
             gp_split = _d(tier.get("split_pct_gp", 0.20))
-            lp_split = Decimal(1) - gp_split
             gp_amount = (remaining * gp_split).quantize(TWO_PLACES, ROUND_HALF_UP)
             lp_amount = remaining - gp_amount
             alloc["amount"] = remaining
@@ -91,7 +90,6 @@ def apply_waterfall_tiers(
         else:
             # Generic split tier
             gp_split = _d(tier.get("split_pct_gp", 0))
-            lp_split = Decimal(1) - gp_split
             amt = min(remaining, _d(tier.get("cap", remaining)))
             alloc["amount"] = amt
             alloc["gp_amount"] = (amt * gp_split).quantize(TWO_PLACES, ROUND_HALF_UP)
@@ -201,7 +199,6 @@ def run_shadow(
 
     # Aggregate contributions/distributions
     total_contributions = sum(_d(s.get("cumulative_contributions") or 0) for s in asset_states)
-    total_distributions = sum(_d(s.get("cumulative_distributions") or 0) for s in asset_states)
     accrued_pref_total = sum(_d(s.get("accrued_pref") or 0) for s in asset_states)
 
     if waterfall_style == "american":

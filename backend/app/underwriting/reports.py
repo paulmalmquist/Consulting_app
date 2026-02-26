@@ -111,7 +111,7 @@ def generate_ic_memo_markdown(
         [
             "# Investment Committee Memo",
             "",
-            f"## Property Overview",
+            "## Property Overview",
             f"- Property: **{run_context.get('property_name', 'n/a')}**",
             f"- Type: **{run_context.get('property_type', 'n/a')}**",
             f"- Submarket: **{run_context.get('submarket') or 'n/a'}**",

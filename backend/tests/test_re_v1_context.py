@@ -12,7 +12,6 @@ from __future__ import annotations
 from contextlib import contextmanager
 from uuid import uuid4
 
-import pytest
 
 import app.routes.re_v1_context as re_v1_ctx_routes
 from tests.conftest import FakeCursor

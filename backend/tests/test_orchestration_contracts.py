@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 from uuid import uuid4
@@ -9,8 +8,8 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from orchestration.engine.contracts import load_contracts, validate_with_schema
-from orchestration.engine.session import create_session_payload
+from orchestration.engine.contracts import load_contracts, validate_with_schema  # noqa: E402
+from orchestration.engine.session import create_session_payload  # noqa: E402
 
 
 def test_contract_files_load_and_have_required_keys():

@@ -20,7 +20,6 @@ from app.services.re_math import (
     calculate_irr,
     calculate_ltv,
     calculate_nav_equity,
-    calculate_noi,
     calculate_value_blended,
     calculate_value_dcf,
     calculate_value_direct_cap,
@@ -291,10 +290,10 @@ def run_quarter(
     loans = get_loans_for_asset(fin_asset_investment_id)
 
     # Aggregate loan data
-    total_loan_balance = sum(_d(l["current_balance"]) for l in loans)
-    total_debt_service = sum(_d(l.get("annual_debt_service") or 0) for l in loans)
+    total_loan_balance = sum(_d(ln["current_balance"]) for ln in loans)
+    total_debt_service = sum(_d(ln.get("annual_debt_service") or 0) for ln in loans)
     weighted_rate = (
-        sum(_d(l["current_balance"]) * _d(l["interest_rate"]) for l in loans) / total_loan_balance
+        sum(_d(ln["current_balance"]) * _d(ln["interest_rate"]) for ln in loans) / total_loan_balance
         if total_loan_balance > 0 else Decimal(0)
     )
 
@@ -368,8 +367,8 @@ def run_quarter(
             if k not in ("id", "created_at")
         },
         "loans": [
-            {k: str(v) for k, v in l.items() if k not in ("re_loan_id", "created_at")}
-            for l in loans
+            {k: str(v) for k, v in ln.items() if k not in ("re_loan_id", "created_at")}
+            for ln in loans
         ],
         "forward_noi_override": str(forward_noi_override) if forward_noi_override else None,
         "accrued_pref": str(accrued_pref),

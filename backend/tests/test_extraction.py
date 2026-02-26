@@ -1,7 +1,7 @@
 from pathlib import Path
 from uuid import uuid4
 
-from app.services.pdf_processing import OCRUnavailableError, PDFProcessor
+from app.services.pdf_processing import PDFProcessor
 
 
 def test_pdf_text_extraction_fixture():

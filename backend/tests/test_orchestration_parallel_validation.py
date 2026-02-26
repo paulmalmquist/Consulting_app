@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from orchestration.engine.parallel_validation import validate_parallel
+from orchestration.engine.parallel_validation import validate_parallel  # noqa: E402
 
 
 class _CP:
@@ -20,7 +20,6 @@ class _CP:
 def test_parallel_validation_writes_report(monkeypatch, tmp_path):
     def _run(*args, **kwargs):
         cmd = args[0]
-        cwd = kwargs.get("cwd")
         if isinstance(cmd, list) and cmd[:3] == ["git", "diff", "--name-only"]:
             branch = cmd[-1]
             if branch.endswith("ui_refactor"):

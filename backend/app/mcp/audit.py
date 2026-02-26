@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import time
-import uuid
 from typing import Any
 
 from app.config import ENABLE_MCP_WRITES
@@ -33,7 +32,6 @@ def execute_tool(
     Returns the tool output dict on success.
     Raises on permission/validation/audit failure.
     """
-    request_id = str(uuid.uuid4())
     start = time.time()
 
     # ── Permission checks ───────────────────────────────────────────

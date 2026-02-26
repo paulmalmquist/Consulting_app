@@ -12,7 +12,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from app.db import get_cursor
 from app.observability.logger import emit_log
-from app.services.re_math import _d, calculate_irr
+from app.services.re_math import _d
 
 TWO_PLACES = Decimal("0.01")
 FOUR_PLACES = Decimal("0.0001")

@@ -1,6 +1,5 @@
 """Lab service — environments, metrics, queue, audit for the Demo Lab UI."""
 
-import json
 import re
 from uuid import UUID
 

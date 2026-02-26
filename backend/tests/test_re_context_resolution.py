@@ -8,8 +8,6 @@ from __future__ import annotations
 from uuid import uuid4
 
 import app.routes.repe as repe_routes
-from tests.conftest import FakeCursor
-from app.services.repe_context import _table_exists
 
 
 def test_context_returns_structured_error_on_missing_env(client, monkeypatch):

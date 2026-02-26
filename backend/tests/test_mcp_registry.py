@@ -100,8 +100,6 @@ def test_global_registry_has_tools():
     from app.mcp.tools.repo_tools import register_repo_tools
     from app.mcp.registry import registry
 
-    # Use a fresh registry for this test
-    fresh = ToolRegistry()
     # Just verify the registration functions don't crash
     # (They register on the global registry, so we just check it's populated)
     register_meta_tools()

@@ -1,6 +1,5 @@
 """Tests for config / bootstrap behavior."""
 
-import os
 
 
 def test_allowed_origins_parsing():

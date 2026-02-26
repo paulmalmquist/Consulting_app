@@ -7,7 +7,6 @@ No calculation logic here — delegates entirely to service layer.
 from fastapi import APIRouter, HTTPException
 from app.observability.logger import emit_log
 from app.schemas.re_valuation import (
-    AssetFinancialStateResponse,
     CreateAssumptionSetRequest,
     CreateLoanRequest,
     RunQuarterRequest,

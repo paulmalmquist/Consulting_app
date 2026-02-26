@@ -1,6 +1,5 @@
 """Tests for /api/fin/v1 endpoints (mocked DB)."""
 
-from datetime import date
 from uuid import uuid4
 
 

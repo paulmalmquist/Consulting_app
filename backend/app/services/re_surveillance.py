@@ -101,7 +101,6 @@ def compute(*, fin_asset_investment_id: str, quarter: str) -> dict:
     flags = []
     current_dscr = _d(state.get("dscr") or 0)
     current_ltv = _d(state.get("ltv") or 0)
-    current_noi = _d(state.get("net_operating_income") or 0)
 
     if current_dscr > 0 and current_dscr < THRESHOLDS["dscr_warning"]:
         flags.append(f"DSCR {current_dscr} below {THRESHOLDS['dscr_warning']}x threshold")

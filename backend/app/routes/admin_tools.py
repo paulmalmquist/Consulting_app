@@ -1,6 +1,6 @@
 """Admin tools API endpoints for MCP db operations."""
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Any, Optional
 import psycopg
