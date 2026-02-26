@@ -1,6 +1,6 @@
 # ── Consulting App Makefile ────────────────────────────────────────
-.PHONY: dev dev-bos dev-demo test test-backend test-demo test-e2e test-repe-backend test-repe-unit test-repe-e2e test-repe \
-        lint fmt db\:migrate db\:seed db\:dry db\:verify install \
+.PHONY: dev dev-bos dev-demo test test-backend test-demo test-frontend test-e2e test-repe-backend test-repe-unit test-repe-e2e test-repe \
+        lint lint-strict typecheck quality fmt db\:migrate db\:seed db\:dry db\:verify install \
         bmctl smoke mcp-smoke command-regression public-walloff-smoke \
         orchestration\:install-hooks orchestration\:validate orchestration\:verify-logs
 
@@ -35,6 +35,9 @@ test-backend:  ## Run Business OS backend tests
 test-demo:  ## Run Demo Lab backend tests
 	cd repo-c && .venv/bin/python -m pytest tests/ -v
 
+test-frontend:  ## Run frontend unit tests
+	cd repo-b && npm run test:unit
+
 test-e2e:  ## Run Playwright E2E tests
 	cd repo-b && npx playwright test
 
@@ -54,6 +57,16 @@ lint:  ## Lint all code
 	cd backend && .venv/bin/python -m ruff check app/ tests/ || true
 	cd repo-c  && .venv/bin/python -m ruff check app/ tests/ || true
 	cd repo-b  && npx next lint || true
+
+lint-strict:  ## Lint all code (fails on violations)
+	cd backend && .venv/bin/python -m ruff check app/ tests/
+	cd repo-c  && .venv/bin/python -m ruff check app/ tests/
+	cd repo-b  && npm run lint
+
+typecheck:  ## Typecheck frontend code
+	cd repo-b && npm run typecheck
+
+quality: lint-strict typecheck test-frontend  ## CI-aligned strict checks
 
 fmt:  ## Format all code
 	cd backend && .venv/bin/python -m ruff format app/ tests/ || true

@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import time
+import tempfile
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -21,6 +22,9 @@ DEFAULT_TIMEOUT_MS = 45_000
 MAX_PROMPT_BYTES = 50_000
 ROOT = Path(__file__).resolve().parents[1]
 ORCH = ROOT / "scripts" / "codex_orchestrator.py"
+ASK_MODE = os.getenv("AI_SIDECAR_ASK_MODE", "direct").strip().lower()
+
+FAST_INTENTS = {"ui_refactor", "file_move", "test_fix", "documentation", "analytics_query"}
 
 
 class AskRequest(BaseModel):
@@ -130,6 +134,56 @@ def _run_orchestrated(prompt: str, session_id: str, intent: str, allowed_directo
     return cp.returncode, cp.stdout, cp.stderr
 
 
+def _run_direct_ask(prompt: str, intent: str, timeout_ms: int) -> tuple[int, str, str]:
+    model = "fast" if intent in FAST_INTENTS else "deep"
+    with tempfile.NamedTemporaryFile(prefix="codex-sidecar-last-", suffix=".txt", delete=False) as tf:
+        output_path = tf.name
+
+    ask_prompt = "\n".join(
+        [
+            "You are answering in a local developer workspace.",
+            "Provide a concise, directly actionable answer.",
+            "When stating repo facts, include concrete file paths.",
+            "If uncertain, state what context is missing.",
+            "",
+            "User request:",
+            prompt,
+        ]
+    )
+    args = [
+        "codex",
+        "exec",
+        "-m",
+        model,
+        "--sandbox",
+        "read-only",
+        "--cd",
+        str(ROOT),
+        "--output-last-message",
+        output_path,
+        ask_prompt,
+    ]
+    cp = subprocess.run(
+        args,
+        capture_output=True,
+        text=True,
+        timeout=timeout_ms / 1000.0,
+        env=_minimal_env(),
+        cwd=str(ROOT),
+    )
+    answer = ""
+    try:
+        answer = Path(output_path).read_text(encoding="utf-8").strip()
+    except Exception:
+        answer = ""
+    finally:
+        Path(output_path).unlink(missing_ok=True)
+
+    if not answer:
+        answer = (cp.stdout or "").strip()
+    return cp.returncode, answer, cp.stderr
+
+
 @app.get("/health")
 def health() -> dict[str, Any]:
     ok, msg = _check_codex_available()
@@ -145,7 +199,19 @@ def ask(payload: AskRequest) -> AskResponse:
     sid = payload.session_id or str(uuid4())
     intent = payload.intent or "documentation"
     allowed = payload.allowed_directories or ["repo-b/src", "backend", "scripts"]
+    if ASK_MODE not in {"direct", "orchestrated"}:
+        raise HTTPException(status_code=500, detail=f"Invalid AI_SIDECAR_ASK_MODE: {ASK_MODE}")
+
     try:
+        if ASK_MODE == "direct":
+            rc, out, err = _run_direct_ask(
+                prompt=payload.prompt,
+                intent=intent,
+                timeout_ms=payload.timeout_ms,
+            )
+            if rc == 0 and out.strip():
+                elapsed_ms = int((time.time() - start) * 1000)
+                return AskResponse(answer=out, elapsed_ms=elapsed_ms)
         rc, out, err = _run_orchestrated(
             prompt=payload.prompt,
             session_id=sid,
@@ -168,7 +234,9 @@ def ask(payload: AskRequest) -> AskResponse:
     except Exception:
         parsed = {"status": "completed", "raw": out}
 
-    answer = json.dumps(parsed, sort_keys=True)
+    answer = parsed.get("stdout_tail") if isinstance(parsed, dict) else None
+    if not isinstance(answer, str) or not answer.strip():
+        answer = json.dumps(parsed, sort_keys=True)
     return AskResponse(
         answer=answer,
         elapsed_ms=elapsed_ms,

@@ -2,6 +2,8 @@
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 const HOST = process.env.AI_SIDECAR_HOST || "127.0.0.1";
@@ -9,6 +11,10 @@ const PORT = Number(process.env.AI_SIDECAR_PORT || 7337);
 const WORKDIR = process.env.AI_WORKDIR || process.cwd();
 const AUTH_TOKEN = (process.env.AI_SIDECAR_TOKEN || "").trim();
 const ORCH = process.env.ORCH_RUNNER || path.resolve(WORKDIR, "scripts/codex_orchestrator.py");
+const ASK_MODE = (process.env.AI_SIDECAR_ASK_MODE || "direct").trim().toLowerCase();
+const ASK_TIMEOUT_MS = Number(process.env.AI_SIDECAR_ASK_TIMEOUT_MS || 45_000);
+
+const FAST_INTENTS = new Set(["ui_refactor", "file_move", "test_fix", "documentation", "analytics_query"]);
 
 function isAuthorized(req) {
   if (!AUTH_TOKEN) return true;
@@ -73,6 +79,57 @@ function runProcess(command, args, timeoutMs) {
   });
 }
 
+async function runCodexAsk(payload) {
+  const prompt = String(payload.prompt || "").trim();
+  const intent = String(payload.intent || "documentation").trim();
+  const model = FAST_INTENTS.has(intent) ? "fast" : "deep";
+  const timeoutMs = Number(payload.timeout_ms || ASK_TIMEOUT_MS);
+  const outputFile = path.join(os.tmpdir(), `codex-sidecar-last-${randomUUID()}.txt`);
+  const askPrompt = [
+    "You are answering in a local developer workspace.",
+    "Provide a concise, directly actionable answer.",
+    "When stating facts about this repo, include concrete file paths.",
+    "If uncertain, say what is missing.",
+    "",
+    "User request:",
+    prompt,
+  ].join("\n");
+
+  const args = [
+    "exec",
+    "-m",
+    model,
+    "--sandbox",
+    "read-only",
+    "--cd",
+    WORKDIR,
+    "--output-last-message",
+    outputFile,
+    askPrompt,
+  ];
+  const result = await runProcess("codex", args, timeoutMs);
+  let answer = "";
+  try {
+    answer = (await fs.readFile(outputFile, "utf8")).trim();
+  } catch {
+    answer = "";
+  } finally {
+    await fs.unlink(outputFile).catch(() => {});
+  }
+
+  if (!answer) {
+    // Fallback to stdout if the output file is unavailable.
+    answer = String(result.stdout || "").trim();
+  }
+
+  return {
+    ok: result.ok,
+    answer,
+    stderr: result.stderr,
+    exitCode: result.exitCode,
+  };
+}
+
 async function runOrchestrated(payload) {
   const sessionId = (payload.session_id || randomUUID()).trim();
   const intent = (payload.intent || "documentation").trim();
@@ -131,10 +188,15 @@ const server = createServer(async (req, res) => {
 
   if (req.method === "GET" && req.url === "/health") {
     if (!isAuthorized(req)) return sendJson(res, 401, { message: "Unauthorized" });
-    const probe = await runProcess("python3", [ORCH, "--help"], 5000);
+    const codexProbe = await runProcess("codex", ["--version"], 5000);
+    const orchestratorProbe = await runProcess("python3", [ORCH, "--help"], 5000);
     return sendJson(res, 200, {
-      codex_available: probe.ok,
-      message: probe.ok ? "Orchestrator connected" : (probe.stderr || "orchestrator unavailable"),
+      codex_available: codexProbe.ok,
+      orchestrator_available: orchestratorProbe.ok,
+      ask_mode: ASK_MODE,
+      message: codexProbe.ok
+        ? "Codex sidecar ready"
+        : (codexProbe.stderr || "codex unavailable"),
     });
   }
 
@@ -143,13 +205,43 @@ const server = createServer(async (req, res) => {
     try {
       const payload = await readJson(req);
       if (!String(payload.prompt || "").trim()) return sendJson(res, 400, { message: "prompt is required" });
+      if (ASK_MODE !== "direct" && ASK_MODE !== "orchestrated") {
+        return sendJson(res, 500, { message: `Invalid AI_SIDECAR_ASK_MODE: ${ASK_MODE}` });
+      }
+
+      if (ASK_MODE === "direct") {
+        const direct = await runCodexAsk(payload);
+        if (direct.ok && direct.answer) {
+          return sendJson(res, 200, { answer: direct.answer, mode: "direct" });
+        }
+        // Fall back to orchestrated mode when direct ask fails.
+      }
+
       const result = await runOrchestrated(payload);
       if (!result.ok) {
-        return sendJson(res, 502, { message: "orchestrated run failed", stderr: String(result.stderr || "").slice(-4000) });
+        return sendJson(res, 502, {
+          message: "orchestrated run failed",
+          stderr: String(result.stderr || "").slice(-4000),
+        });
       }
       let parsed = {};
-      try { parsed = JSON.parse(result.stdout || "{}"); } catch { parsed = { raw: result.stdout || "" }; }
-      return sendJson(res, 200, { answer: JSON.stringify(parsed), execution_id: parsed.execution_id, log_path: parsed.log_path });
+      try {
+        parsed = JSON.parse(result.stdout || "{}");
+      } catch {
+        parsed = { raw: result.stdout || "" };
+      }
+      const answer =
+        typeof parsed?.stdout_tail === "string"
+          ? parsed.stdout_tail
+          : typeof parsed?.raw === "string"
+            ? parsed.raw
+            : JSON.stringify(parsed);
+      return sendJson(res, 200, {
+        answer,
+        execution_id: parsed.execution_id,
+        log_path: parsed.log_path,
+        mode: "orchestrated",
+      });
     } catch (err) {
       return sendJson(res, 500, { message: err instanceof Error ? err.message : "Unexpected error" });
     }

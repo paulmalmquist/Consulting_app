@@ -22,6 +22,7 @@ No credentials are stored in this repo.
 Backend environment variables (for local dev):
 - `AI_MODE=local`
 - `AI_SIDECAR_URL=http://127.0.0.1:7337`
+- `AI_SIDECAR_ASK_MODE=direct` (recommended; `orchestrated` available as fallback)
 
 Frontend:
 - `NEXT_PUBLIC_AI_MODE=local`
@@ -57,3 +58,4 @@ With repo-b running:
 - Port in use: set `AI_SIDECAR_PORT=7338` (and update `AI_SIDECAR_URL`)
 - Auth expired: re-run `codex login`
 - Sidecar times out: increase `AI_TIMEOUT_MS` in backend env (local only)
+- Ask quality is generic/JSON-like: ensure `AI_SIDECAR_ASK_MODE=direct` so `/ask` uses `codex exec` and returns the final assistant message instead of orchestration metadata.
