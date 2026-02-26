@@ -20,9 +20,14 @@ import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 
 function isActive(pathname: string, href: string, isBase: boolean): boolean {
   if (isBase) {
-    // Base "Funds" item: only highlight on exact match or /funds/ sub-paths
-    return pathname === href || pathname.startsWith(`${href}/funds/`) || pathname.startsWith(`${href}/funds`);
+    // Base "Funds" item: only highlight on exact match, /funds sub-paths, or /portfolio.
+    // Must NOT match /deals, /assets, /scenarios, /runs paths.
+    if (pathname === href) return true;
+    if (pathname.startsWith(`${href}/funds`)) return true;
+    if (pathname.startsWith(`${href}/portfolio`)) return true;
+    return false;
   }
+  // Non-base items: exact match or direct sub-path only
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

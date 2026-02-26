@@ -2735,3 +2735,250 @@ export type ReV2RunProvenance = {
   started_at: string;
   completed_at?: string;
 };
+
+// ── Financial Intelligence Types ──────────────────────────────────────────────
+
+export type FiVarianceItem = {
+  id: string;
+  run_id: string;
+  asset_id: string;
+  quarter: string;
+  line_code: string;
+  actual_amount: number;
+  plan_amount: number;
+  variance_amount: number;
+  variance_pct: number | null;
+};
+
+export type FiVarianceResult = {
+  items: FiVarianceItem[];
+  rollup: {
+    total_actual: string;
+    total_plan: string;
+    total_variance: string;
+    total_variance_pct: string | null;
+  };
+};
+
+export type FiFundMetricsQtr = {
+  id: string;
+  run_id: string;
+  fund_id: string;
+  quarter: string;
+  gross_irr: number | null;
+  net_irr: number | null;
+  gross_tvpi: number | null;
+  net_tvpi: number | null;
+  dpi: number | null;
+  rvpi: number | null;
+  cash_on_cash: number | null;
+  gross_net_spread: number | null;
+  inputs_missing: string[] | null;
+};
+
+export type FiGrossNetBridge = {
+  id: string;
+  run_id: string;
+  fund_id: string;
+  quarter: string;
+  gross_return: number;
+  mgmt_fees: number;
+  fund_expenses: number;
+  carry_shadow: number;
+  net_return: number;
+};
+
+export type FiFundMetricsResult = {
+  metrics: FiFundMetricsQtr | null;
+  bridge: FiGrossNetBridge | null;
+};
+
+export type FiLoan = {
+  id: string;
+  fund_id: string;
+  loan_name: string;
+  upb: number;
+  rate_type: string;
+  rate: number;
+  spread: number | null;
+  maturity: string | null;
+  amort_type: string;
+  created_at: string;
+};
+
+export type FiCovenantResult = {
+  id: string;
+  run_id: string;
+  fund_id: string;
+  loan_id: string;
+  quarter: string;
+  dscr: number | null;
+  ltv: number | null;
+  debt_yield: number | null;
+  pass: boolean;
+  headroom: number | null;
+  breached: boolean;
+  created_at: string;
+};
+
+export type FiWatchlistEvent = {
+  id: string;
+  fund_id: string;
+  loan_id: string;
+  quarter: string;
+  severity: string;
+  reason: string;
+  created_at: string;
+};
+
+export type FiRun = {
+  id: string;
+  env_id: string;
+  business_id: string;
+  fund_id: string;
+  quarter: string;
+  run_type: string;
+  status: string;
+  created_at: string;
+  created_by: string | null;
+};
+
+export type FiRunQuarterCloseResult = {
+  run_id: string;
+  fund_id: string;
+  quarter: string;
+  run_type: string;
+  status: string;
+  variance?: { items_count: number } | null;
+  fee_accrual?: string;
+  metrics?: FiFundMetricsQtr | null;
+  bridge?: FiGrossNetBridge | null;
+  inputs_missing: string[];
+};
+
+export type FiUwVersion = {
+  id: string;
+  env_id: string;
+  business_id: string;
+  name: string;
+  effective_from: string;
+  created_at: string;
+};
+
+// ── Financial Intelligence API Functions ──────────────────────────────────────
+
+export function getFiNOIVariance(params: {
+  env_id: string;
+  business_id: string;
+  fund_id: string;
+  quarter: string;
+}): Promise<FiVarianceResult> {
+  return bosFetch("/api/re/v2/variance/noi", { params });
+}
+
+export function getFiFundMetrics(params: {
+  env_id: string;
+  business_id: string;
+  fund_id: string;
+  quarter: string;
+}): Promise<FiFundMetricsResult> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/metrics-detail`, {
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+      quarter: params.quarter,
+    },
+  });
+}
+
+export function getFiLoans(params: {
+  env_id: string;
+  business_id: string;
+  fund_id: string;
+}): Promise<FiLoan[]> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/loans`, {
+    params: { env_id: params.env_id, business_id: params.business_id },
+  });
+}
+
+export function getFiCovenantResults(loanId: string, quarter?: string): Promise<FiCovenantResult[]> {
+  return bosFetch(`/api/re/v2/loans/${loanId}/covenant_results`, { params: { quarter } });
+}
+
+export function getFiWatchlist(params: {
+  env_id: string;
+  business_id: string;
+  fund_id: string;
+  quarter?: string;
+}): Promise<FiWatchlistEvent[]> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/watchlist`, {
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+      quarter: params.quarter,
+    },
+  });
+}
+
+export function runFiQuarterClose(body: {
+  env_id: string;
+  business_id: string;
+  fund_id: string;
+  quarter: string;
+  scenario_id?: string;
+  uw_version_id?: string;
+}): Promise<FiRunQuarterCloseResult> {
+  return bosFetch("/api/re/v2/runs/quarter_close", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function runFiCovenantTests(body: {
+  env_id: string;
+  business_id: string;
+  fund_id: string;
+  quarter: string;
+}): Promise<{ run_id: string; status: string; violations: number; total_tested: number }> {
+  return bosFetch("/api/re/v2/runs/covenant_tests", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function runFiWaterfallShadow(body: {
+  env_id: string;
+  business_id: string;
+  fund_id: string;
+  quarter: string;
+}): Promise<{ run_id: string; status: string; carry_shadow: string }> {
+  return bosFetch("/api/re/v2/runs/waterfall_shadow", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listFiRuns(params: {
+  env_id: string;
+  business_id: string;
+  fund_id: string;
+  quarter?: string;
+}): Promise<FiRun[]> {
+  return bosFetch("/api/re/v2/fi/runs", { params });
+}
+
+export function listFiUwVersions(params: {
+  env_id: string;
+  business_id: string;
+}): Promise<FiUwVersion[]> {
+  return bosFetch("/api/re/v2/budget/uw_versions", { params });
+}
+
+export function seedFiData(params: {
+  env_id: string;
+  business_id: string;
+  fund_id: string;
+  debt_fund_id?: string;
+}): Promise<Record<string, unknown>> {
+  return bosFetch("/api/re/v2/fi/seed", { method: "POST", params });
+}

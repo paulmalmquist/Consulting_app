@@ -114,6 +114,12 @@ _GET_CURSOR_TARGETS = [
     "app.services.re_provenance.get_cursor",
     "app.services.re_waterfall_runtime.get_cursor",
     "app.services.re_quarter_close.get_cursor",
+    "app.services.re_accounting.get_cursor",
+    "app.services.re_budget.get_cursor",
+    "app.services.re_variance.get_cursor",
+    "app.services.re_fund_metrics.get_cursor",
+    "app.services.re_debt_surveillance.get_cursor",
+    "app.services.re_run_engine.get_cursor",
 ]
 
 
