@@ -4,7 +4,7 @@ This file defines non-negotiable architectural, accounting, security, and determ
 
 If a feature violates these rules, it must not be implemented.
 
-Last updated: 2026-02-20 — synchronized with repo inventory and REPE underwriting engine scope.
+Last updated: 2026-02-25 — added environment registration rules, seed layer discipline, and bug fix log.
 
 ---
 
@@ -901,3 +901,133 @@ Any new industry module (Legal, Healthcare, Construction, etc.) must:
 - Have backend route introspection test committed before merge
 
 No workspace may ship without these. No exception.
+
+---
+
+## PART D — DATA & ENVIRONMENT REGISTRATION RULES
+
+---
+
+### 29. ENVIRONMENT REGISTRATION CONTRACT
+
+The platform uses three separate tables to resolve a business context. All three must be
+populated for an environment to be reachable by the UI and backend context resolver.
+Missing any one of them produces a silent failure (environment never appears in the UI
+or context resolution errors out).
+
+**Required table chain (all three must exist for every active environment):**
+
+| Table | Schema | Purpose |
+| --- | --- | --- |
+| `app.environments` | app | What the Admin UI lists; carries `client_name`, `industry`, `schema_name`, `is_active` |
+| `app.businesses` | app | What `repe_context.py` joins to when resolving business name/slug |
+| `app.env_business_bindings` | app | Links `env_id → business_id`; the context resolver's lookup key |
+
+**Common mistake:** Seeding data into `public.business` does NOT make it visible.
+The context service (`backend/app/services/repe_context.py`) only joins on `app.businesses`.
+
+**Rules:**
+
+- Any seed script or provisioning path that creates a business must write to BOTH
+  `public.business` (for shared FK references) AND `app.businesses` (for context resolution).
+- Any seed script that creates funds/assets must also create the corresponding
+  `app.environments` + `app.businesses` + `app.env_business_bindings` records or the
+  environment will not appear in the UI.
+- `industry` on `app.environments` must be exactly `'real_estate'` for RE workspaces —
+  not `'repe'`, not `'real estate'`.
+- `app.env_business_bindings` has a unique constraint on `env_id`; one env maps to exactly
+  one business. Do not create multiple bindings per env.
+- The `schema_name` field on `app.environments` is display metadata; the actual schema
+  isolation (Demo Lab) is separate and does not need to match exactly.
+
+---
+
+### 30. SEED SCRIPT DISCIPLINE
+
+Seed scripts must always register all three layers or they are considered incomplete.
+
+**Required checklist for any seed script that creates a business + funds:**
+
+1. `public.business` — for FK integrity with `public.repe_fund`, `public.fin_fund`, etc.
+2. `public.fin_partition` — required by all `fin_*` tables (tenant_id + business_id + partition_id)
+3. `app.businesses` — required for context resolution
+4. `app.environments` — required for Admin UI visibility and context endpoint resolution
+5. `app.env_business_bindings` — links env → business
+
+Missing any one of these means the seeded data is unreachable through the application.
+
+**Idempotency:** All seed scripts must use `ON CONFLICT DO NOTHING` or `ON CONFLICT DO UPDATE`
+throughout. Re-running a seed script must never fail or duplicate data.
+
+**Deterministic UUIDs:** Seed scripts must use fixed, hardcoded UUIDs (not `uuid4()` at
+call time) so that re-runs produce the same IDs. This is required for FK integrity across
+multiple seed runs and for test fixtures.
+
+---
+
+## PART E — BUG FIX LOG
+
+This section is append-only. Every time a bug is fixed, append a new entry.
+Never edit or delete prior entries.
+
+---
+
+### BUG-001 — 2026-02-25 — Seeded environment invisible in Admin UI
+
+**Problem:**
+Institutional REPE dataset was seeded into `public.business` + `public.repe_fund` +
+`public.fin_fund` etc., but the "Meridian Capital Management" environment never appeared
+in the Admin UI Environment Control Tower and the RE context resolver threw a lookup error.
+
+**Root cause:**
+The context resolver (`repe_context.py`) resolves business context through `app.businesses`
+and `app.env_business_bindings`, NOT `public.business`. The seed script had only written
+to `public.business`. Additionally, no `app.environments` record was created, so the Admin
+UI had nothing to list.
+
+**Fix:**
+Added three records to complete the context chain:
+- `app.environments` — `client_name='Meridian Capital Management'`, `industry='real_estate'`
+- `app.businesses` — same `business_id` as `public.business`, matching slug/tenant
+- `app.env_business_bindings` — linked the new `env_id` to `business_id`
+
+**Rule added:** See Rule 29 (Environment Registration Contract) and Rule 30 (Seed Script
+Discipline) in Part D above.
+
+**Files changed:**
+- `backend/scripts/seed_institutional_repe.py` — seed script (does not yet write the app.*
+  layer; run the three-insert fix manually or extend the script)
+- `RULES.MD` — Part D added
+
+---
+
+### BUG-002 — 2026-02-26 — RE funds show 0 on production despite correct DB data
+
+**Problem:**
+After seeding the Meridian dataset and registering the environment, the Fund Portfolio page
+showed "No funds yet." and "FUNDS: 0" despite the database containing 2 `repe_fund` rows
+linked to the correct `business_id`.
+
+**Root cause:**
+The `/bos/[...path]/route.ts` proxy was NOT reaching the Railway-deployed BOS backend.
+The proxy's `inferUpstreamOrigin()` infers the backend URL from env vars (`BOS_API_ORIGIN`,
+`NEXT_PUBLIC_BOS_API_BASE_URL`, `NEXT_PUBLIC_API_BASE_URL`) or falls back to
+`https://api.{hostname}`. Since `api.paulmalmquist.com` does not exist (DNS failure),
+the proxy was either returning 502 OR (if an env var pointed to the Vercel app itself)
+routing back to Vercel fallback routes at `/api/re/v1/context` and `/api/re/v1/funds`
+which return hardcoded stubs (`is_bootstrapped: true, funds_count: 0` and `[]` respectively).
+
+Confirmed by curl: `GET /bos/api/re/v1/funds?env_id=...` returned `[]` and
+`GET /bos/api/re/v1/context?env_id=...` returned `{business_id: <env_id>, funds_count: 0}`.
+
+**Fix:**
+Set the `BOS_API_ORIGIN` environment variable in Vercel to the actual Railway backend
+public URL (e.g. `https://backend-production-xxxx.up.railway.app`).
+Also verify `NEXT_PUBLIC_BOS_API_BASE_URL` and `NEXT_PUBLIC_API_BASE_URL` do NOT point
+to the Vercel frontend domain itself (that creates a proxy loop to the fallback routes).
+
+After setting the env var, redeploy Vercel to pick it up.
+
+**Files changed:**
+
+- `RULES.MD` — BUG-002 appended

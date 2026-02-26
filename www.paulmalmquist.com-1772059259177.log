@@ -1,7 +1,0 @@
-/v1/env/ee340334-d7b1-4ec8-af73-e431927b38ba/health:1  Failed to load resource: the server responded with a status of 404 ()
-7023-c0b65f2c98e888f1.js:1 apiFetch failed Object
-window.console.error @ 7023-c0b65f2c98e888f1.js:1
-/bos/api/re/v1/funds?env_id=ee340334-d7b1-4ec8-af73-e431927b38ba:1  Failed to load resource: the server responded with a status of 404 ()
-/bos/api/re/v1/funds?env_id=ee340334-d7b1-4ec8-af73-e431927b38ba:1  Failed to load resource: the server responded with a status of 404 ()
-/bos/api/re/v1/context?env_id=ee340334-d7b1-4ec8-af73-e431927b38ba:1  Failed to load resource: the server responded with a status of 404 ()
-/bos/api/re/v1/context/bootstrap?env_id=ee340334-d7b1-4ec8-af73-e431927b38ba:1  Failed to load resource: the server responded with a status of 405 ()
