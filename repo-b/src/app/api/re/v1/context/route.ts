@@ -127,9 +127,10 @@ export async function GET(request: NextRequest) {
       scenarios_count: scenariosCount,
     });
   } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
     console.error("[re/v1/context] DB error", err);
     return Response.json(
-      { error_code: "INTERNAL_ERROR", message: "Failed to resolve RE context" },
+      { error_code: "INTERNAL_ERROR", message: "Failed to resolve RE context", detail },
       { status: 500 }
     );
   }
