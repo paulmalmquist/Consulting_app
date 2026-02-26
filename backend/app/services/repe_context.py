@@ -302,7 +302,7 @@ def seed_repe_workspace(business_id: str, env_id: str) -> None:
 
 
 def _seed_re_v2_structures(business_id: str, ctx: dict) -> None:
-    """Seed RE v2 tables (scenarios, assumption sets) for all funds owned by this business.
+    """Seed RE v2 tables (JVs, scenarios, assumption sets) for all funds owned by this business.
 
     Fails silently with a log if RE v2 tables are not yet migrated — this is non-fatal.
     """
@@ -353,6 +353,41 @@ def _seed_re_v2_structures(business_id: str, ctx: dict) -> None:
                                ON CONFLICT DO NOTHING""",
                             (fund_id,),
                         )
+
+            # Seed JV entities for each deal/investment (so the full hierarchy exists)
+            if _table_exists(cur, "re_jv"):
+                for fund in funds:
+                    fund_id = str(fund["fund_id"])
+                    cur.execute(
+                        "SELECT deal_id, name, deal_type FROM repe_deal WHERE fund_id = %s",
+                        (fund_id,),
+                    )
+                    deals = cur.fetchall()
+                    for deal in deals:
+                        deal_id = str(deal["deal_id"])
+                        cur.execute(
+                            "SELECT 1 FROM re_jv WHERE investment_id = %s LIMIT 1",
+                            (deal_id,),
+                        )
+                        if not cur.fetchone():
+                            jv_name = f"{deal['name']} JV"
+                            gp_pct = "0.200000000000" if deal.get("deal_type") == "equity" else None
+                            lp_pct = "0.800000000000" if deal.get("deal_type") == "equity" else None
+                            cur.execute(
+                                """INSERT INTO re_jv
+                                   (investment_id, legal_name, ownership_percent, gp_percent, lp_percent, status)
+                                   VALUES (%s, %s, 1.0, %s, %s, 'active')
+                                   RETURNING jv_id""",
+                                (deal_id, jv_name, gp_pct, lp_pct),
+                            )
+                            jv_row = cur.fetchone()
+                            if jv_row:
+                                # Link existing unlinked assets to this JV
+                                cur.execute(
+                                    """UPDATE repe_asset SET jv_id = %s
+                                       WHERE deal_id = %s AND jv_id IS NULL""",
+                                    (str(jv_row["jv_id"]), deal_id),
+                                )
 
         emit_log(
             level="info",

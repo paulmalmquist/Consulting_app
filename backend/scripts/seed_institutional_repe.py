@@ -289,6 +289,35 @@ def seed_equity_fund(cur) -> None:
             (str(asset_id), ptype, units or None, market, q(noi), occ),
         )
 
+    # ---------- JV Entities (RE v2 hierarchy) ----------
+    EQ_JV_1_ID = UUID("a1b2c3d4-0001-0010-0009-000000000001")  # Dallas Cluster JV
+    EQ_JV_2_ID = UUID("a1b2c3d4-0001-0010-0009-000000000002")  # Phoenix Portfolio JV
+    for jv_id, deal_id, name, gp_pct, lp_pct in [
+        (EQ_JV_1_ID, EQ_DEAL_1_ID, "MRF III – Dallas JV SPV LLC", q(0.20), q(0.80)),
+        (EQ_JV_2_ID, EQ_DEAL_2_ID, "MRF III – Phoenix JV SPV LLC", q(0.20), q(0.80)),
+    ]:
+        cur.execute(
+            """
+            INSERT INTO re_jv
+            (jv_id, investment_id, legal_name, ownership_percent, gp_percent, lp_percent, status)
+            VALUES (%s, %s, %s, 1.0, %s, %s, 'active')
+            ON CONFLICT (jv_id) DO NOTHING
+            """,
+            (str(jv_id), str(deal_id), name, gp_pct, lp_pct),
+        )
+
+    # ---------- Link assets to JVs ----------
+    for asset_id, jv_id in [
+        (EQ_ASSET_1_ID, EQ_JV_1_ID),
+        (EQ_ASSET_2_ID, EQ_JV_1_ID),
+        (EQ_ASSET_3_ID, EQ_JV_2_ID),
+        (EQ_ASSET_4_ID, EQ_JV_2_ID),
+    ]:
+        cur.execute(
+            "UPDATE repe_asset SET jv_id = %s WHERE asset_id = %s AND jv_id IS NULL",
+            (str(jv_id), str(asset_id)),
+        )
+
     # ---------- Asset–Entity links (SPV ownership) ----------
     asset_entity_links = [
         (EQ_ASSET_1_ID, EQ_SPV1_ID, "owner",    q(1.0)),
@@ -533,6 +562,25 @@ def seed_debt_fund(cur) -> None:
                     "watchlist": watchlist,
                 }),
             ),
+        )
+
+    # ---------- JV entities for each debt deal ----------
+    # Each loan gets its own JV entity for legal isolation
+    dt_jv_base = UUID("a1b2c3d4-0002-0020-0009-000000000001")
+    for idx, (deal_id, asset_id, deal_name, *_rest) in enumerate(loans):
+        dt_jv_id = UUID(str(dt_jv_base)[:24] + f"{idx+1:012d}")
+        cur.execute(
+            """
+            INSERT INTO re_jv
+            (jv_id, investment_id, legal_name, ownership_percent, status)
+            VALUES (%s, %s, %s, 1.0, 'active')
+            ON CONFLICT (jv_id) DO NOTHING
+            """,
+            (str(dt_jv_id), str(deal_id), f"{deal_name} – Loan SPV"),
+        )
+        cur.execute(
+            "UPDATE repe_asset SET jv_id = %s WHERE asset_id = %s AND jv_id IS NULL",
+            (str(dt_jv_id), str(asset_id)),
         )
 
     # Debt fund capital events

@@ -18,7 +18,11 @@ import {
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 
-function isActive(pathname: string, href: string): boolean {
+function isActive(pathname: string, href: string, isBase: boolean): boolean {
+  if (isBase) {
+    // Base "Funds" item: only highlight on exact match or /funds/ sub-paths
+    return pathname === href || pathname.startsWith(`${href}/funds/`) || pathname.startsWith(`${href}/funds`);
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -37,11 +41,11 @@ export default function RepeWorkspaceShell({ children, envId }: { children: Reac
   const base = envId ? `/lab/env/${envId}/re` : "/app/repe";
   const navItems = useMemo(
     () => [
-      { href: `${base}`, label: "Funds" },
-      { href: `${base}/deals`, label: "Investments" },
-      { href: `${base}/assets`, label: "Assets" },
-      { href: `${base}/scenarios`, label: "Scenarios" },
-      { href: `${base}/runs/quarter-close`, label: "Run Center" },
+      { href: `${base}`, label: "Funds", isBase: true },
+      { href: `${base}/deals`, label: "Investments", isBase: false },
+      { href: `${base}/assets`, label: "Assets", isBase: false },
+      { href: `${base}/scenarios`, label: "Scenarios", isBase: false },
+      { href: `${base}/runs/quarter-close`, label: "Run Center", isBase: false },
     ],
     [base]
   );
@@ -248,7 +252,7 @@ export default function RepeWorkspaceShell({ children, envId }: { children: Reac
           <nav className="space-y-1" data-testid="repe-left-nav">
             {navItems.map((item) => (
               <Link key={item.href} href={item.href}
-                className={`block rounded-lg border px-3 py-2 text-sm transition ${isActive(pathname, item.href) ? "border-bm-accent/60 bg-bm-accent/10" : "border-bm-border/70 hover:bg-bm-surface/40"}`}>
+                className={`block rounded-lg border px-3 py-2 text-sm transition ${isActive(pathname, item.href, item.isBase) ? "border-bm-accent/60 bg-bm-accent/10" : "border-bm-border/70 hover:bg-bm-surface/40"}`}>
                 {item.label}
               </Link>
             ))}

@@ -706,6 +706,34 @@ def seed_demo(*, business_id: UUID) -> dict:
         }
     )
 
+    # Create JV entities for each deal (RE v2 hierarchy)
+    jv_ids = []
+    with get_cursor() as cur:
+        # Check if re_jv table exists before trying to seed
+        cur.execute(
+            "SELECT 1 FROM information_schema.tables "
+            "WHERE table_schema = 'public' AND table_name = 're_jv'"
+        )
+        if cur.fetchone():
+            for deal, jv_name in [
+                (deal1, "Sunset Towers JV"),
+                (deal2, "Riverpoint Reposition JV"),
+                (deal3, "CMBS 2026-B JV"),
+            ]:
+                cur.execute(
+                    """INSERT INTO re_jv (investment_id, legal_name, ownership_percent, gp_percent, lp_percent, status)
+                       VALUES (%s, %s, 1.0, 0.2, 0.8, 'active')
+                       RETURNING jv_id""",
+                    (str(deal["deal_id"]), jv_name),
+                )
+                jv_row = cur.fetchone()
+                jv_ids.append(str(jv_row["jv_id"]))
+                # Link assets that belong to this deal to the JV
+                cur.execute(
+                    "UPDATE repe_asset SET jv_id = %s WHERE deal_id = %s AND jv_id IS NULL",
+                    (str(jv_row["jv_id"]), str(deal["deal_id"])),
+                )
+
     with get_cursor() as cur:
         cur.execute(
             """
