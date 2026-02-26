@@ -1,0 +1,113 @@
+name: Perf Nightly
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-query-perf:
+    name: Backend Query Perf Matrix
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: app
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d app"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/app
+      ALLOWED_ORIGINS: http://127.0.0.1:3000
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: test-key
+      STORAGE_BUCKET: documents
+      AI_MODE: local
+      AI_SIDECAR_URL: http://127.0.0.1:7337
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: repo-b/package-lock.json
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install repo-b dependencies
+        run: |
+          cd repo-b
+          npm ci
+
+      - name: Apply database schema
+        run: make db:migrate
+
+      - name: Start mock sidecar
+        run: |
+          nohup python backend/perf/scripts/mock_sidecar.py > /tmp/mock-sidecar.log 2>&1 &
+
+      - name: Start backend API
+        run: |
+          nohup bash -lc 'cd backend && python -m uvicorn app.main:app --host 127.0.0.1 --port 8000' > /tmp/backend.log 2>&1 &
+
+      - name: Wait for health
+        run: |
+          for i in {1..60}; do
+            if curl -sf http://127.0.0.1:8000/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend failed to start"
+          tail -n 120 /tmp/backend.log || true
+          exit 1
+
+      - name: Run full nightly perf suite
+        run: |
+          ./backend/perf/scripts/run_nightly.sh
+
+      - name: Upload perf artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-artifacts
+          path: artifacts/perf
+
+      - name: Upload backend logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-logs
+          path: |
+            /tmp/backend.log
+            /tmp/mock-sidecar.log

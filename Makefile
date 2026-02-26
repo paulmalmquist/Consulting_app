@@ -2,7 +2,8 @@
 .PHONY: dev dev-bos dev-demo test test-backend test-demo test-frontend test-e2e test-repe-backend test-repe-unit test-repe-e2e test-repe \
         lint lint-strict typecheck quality fmt db\:migrate db\:seed db\:dry db\:verify install \
         bmctl smoke mcp-smoke command-regression public-walloff-smoke \
-        orchestration\:install-hooks orchestration\:validate orchestration\:verify-logs
+        orchestration\:install-hooks orchestration\:validate orchestration\:verify-logs \
+        perf\:smoke perf\:baseline perf\:nightly
 
 # ── Ports ──────────────────────────────────────────────────────────
 BACKEND_PORT   ?= 8000
@@ -118,3 +119,17 @@ help:  ## Show this help
 	@grep -E '^[a-zA-Z_:/-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
 .DEFAULT_GOAL := help
+
+# ── Performance ───────────────────────────────────────────────────
+perf\:smoke: ## Run local backend query performance smoke suite (AI + metrics)
+	./backend/perf/scripts/run_local.sh
+
+perf\:baseline: ## Re-run local smoke three times and build baseline medians
+	rm -rf artifacts/perf/baseline
+	for i in 1 2 3; do ARTIFACT_ROOT=artifacts/perf/baseline/r$$i RUN_LABEL=baseline SKIP_SEED=$$([ $$i -gt 1 ] && echo 1 || echo 0) ./backend/perf/scripts/run_local.sh; done
+	python3 backend/perf/scripts/summarize.py baseline-build --scenario ai_S_smoke_5_mixed_lookup --inputs artifacts/perf/baseline/r1/ai_S_smoke_5_mixed_lookup/report.json artifacts/perf/baseline/r2/ai_S_smoke_5_mixed_lookup/report.json artifacts/perf/baseline/r3/ai_S_smoke_5_mixed_lookup/report.json --output backend/perf/baselines/ai_S_smoke_5_mixed_lookup.json
+	python3 backend/perf/scripts/summarize.py baseline-build --scenario ai_S_smoke_5_mixed_decision_support --inputs artifacts/perf/baseline/r1/ai_S_smoke_5_mixed_decision_support/report.json artifacts/perf/baseline/r2/ai_S_smoke_5_mixed_decision_support/report.json artifacts/perf/baseline/r3/ai_S_smoke_5_mixed_decision_support/report.json --output backend/perf/baselines/ai_S_smoke_5_mixed_decision_support.json
+	python3 backend/perf/scripts/summarize.py baseline-build --scenario metrics_S_smoke_5_none --inputs artifacts/perf/baseline/r1/metrics_S_smoke_5_none/report.json artifacts/perf/baseline/r2/metrics_S_smoke_5_none/report.json artifacts/perf/baseline/r3/metrics_S_smoke_5_none/report.json --output backend/perf/baselines/metrics_S_smoke_5_none.json
+
+perf\:nightly: ## Run full backend query performance matrix + soak profiles
+	./backend/perf/scripts/run_nightly.sh
