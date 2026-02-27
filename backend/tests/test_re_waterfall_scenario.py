@@ -1,9 +1,7 @@
 """Tests for waterfall scenario calculation endpoint and service."""
 from __future__ import annotations
 
-from uuid import UUID, uuid4
-
-import pytest
+from uuid import uuid4
 
 # IDs
 FUND_ID = str(uuid4())
