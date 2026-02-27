@@ -186,8 +186,6 @@ def run_waterfall_scenario(
             "quarter": quarter,
         }
 
-    run_id = str(uuid4())
-
     with get_cursor() as cur:
         # ── Create run record ────────────────────────────────────────────
         cur.execute(
@@ -226,7 +224,6 @@ def run_waterfall_scenario(
         )
         fund_state = cur.fetchone()
         base_nav = Decimal(str(fund_state["portfolio_nav"]))
-        total_committed = Decimal(str(fund_state["total_committed"] or 0))
 
         # ── Compute scenario-adjusted NAV ────────────────────────────────
         # Apply cap rate shift: if cap rate goes up, value goes down
@@ -430,7 +427,7 @@ def run_waterfall_scenario(
                     (wf_run_id, str(fund_id), str(defn_id), quarter,
                      str(scenario_id), _q(scenario_nav), inputs_hash),
                 )
-                wf_run = cur.fetchone()
+                cur.fetchone()  # discard — run record created
                 waterfall_run_id = wf_run_id
 
                 # Store allocation results and build partner map
@@ -447,7 +444,7 @@ def run_waterfall_scenario(
                          line.tier_code, line.payout_type,
                          _q(line.amount)),
                     )
-                    result_row = cur.fetchone()
+                    cur.fetchone()  # discard — result row inserted
 
                     tier_allocations.append({
                         "tier_name": line.tier_code,
