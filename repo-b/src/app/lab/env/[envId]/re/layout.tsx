@@ -1,5 +1,6 @@
 import RepeWorkspaceShell from "@/components/repe/workspace/RepeWorkspaceShell";
 import { ReEnvProvider } from "@/components/repe/workspace/ReEnvProvider";
+import { isAdminSession } from "@/lib/server/sessionRole";
 
 export default async function ReLayout({
   children,
@@ -11,7 +12,7 @@ export default async function ReLayout({
   const { envId } = await params;
   return (
     <ReEnvProvider envId={envId}>
-      <RepeWorkspaceShell envId={envId}>{children}</RepeWorkspaceShell>
+      <RepeWorkspaceShell envId={envId} isAdmin={isAdminSession()}>{children}</RepeWorkspaceShell>
     </ReEnvProvider>
   );
 }

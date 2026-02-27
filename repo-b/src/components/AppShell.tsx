@@ -19,7 +19,13 @@ type NavItem = {
   group: "operations" | "intelligence" | "system";
 };
 
-export default function AppShell({ children }: { children: React.ReactNode }) {
+export default function AppShell({
+  children,
+  isAdmin = false,
+}: {
+  children: React.ReactNode;
+  isAdmin?: boolean;
+}) {
   const pathname = usePathname();
   const { selectedEnv } = useEnv();
   const aiMode = process.env.NEXT_PUBLIC_AI_MODE || "off";
@@ -29,8 +35,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
   });
 
+  const homeHref = useMemo(() => {
+    if (isAdmin) return "/admin";
+    return selectedEnv ? `/lab/env/${selectedEnv.env_id}` : "/lab/environments";
+  }, [isAdmin, selectedEnv]);
+
   const navItems = useMemo<NavItem[]>(() => {
-    const homeHref = selectedEnv ? `/lab/env/${selectedEnv.env_id}` : "/lab/environments";
     const base: NavItem[] = [
       { id: "dashboard", href: homeHref, label: "Dashboard", navKey: "dashboard", group: "operations" },
       { id: "environments", href: "/lab/environments", label: "Environments", navKey: "environments", group: "operations" },
@@ -43,7 +53,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return aiMode === "local"
       ? [...base, { id: "ai", href: "/lab/ai", label: "AI", navKey: "ai", group: "intelligence" } as NavItem]
       : base;
-  }, [selectedEnv, aiMode]);
+  }, [homeHref, aiMode]);
 
   const groupedItems = useMemo(() => {
     const groups: Record<NavItem["group"], NavItem[]> = {
@@ -89,7 +99,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div>
               <p className="bm-section-label">Winston</p>
               <p className="text-lg font-semibold tracking-[-0.01em]">
-                {selectedEnv?.client_name || "Environments"}
+                {isAdmin ? "Admin" : selectedEnv?.client_name || "Environments"}
               </p>
             </div>
           ) : null}
@@ -120,7 +130,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 {groupedItems[groupKey].map((item) => {
                   const isActive =
                     item.id === "dashboard"
-                      ? pathname.startsWith("/lab/env/")
+                      ? pathname === item.href || (!isAdmin && pathname.startsWith("/lab/env/"))
                       : pathname === item.href;
                   return (
                     <Link
@@ -157,12 +167,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               Current Environment
             </p>
             <span className="inline-flex items-center rounded-md border border-bm-border/70 bg-bm-surface/90 px-2.5 py-1 text-[11px] font-mono tracking-[0.08em] text-bm-text">
-              {selectedEnv
-                ? `${selectedEnv.client_name} · ${selectedEnv.industry_type || selectedEnv.industry}`
-                : "No environment selected"}
+              {isAdmin
+                ? "Admin session"
+                : selectedEnv
+                  ? `${selectedEnv.client_name} · ${selectedEnv.industry_type || selectedEnv.industry}`
+                  : "No environment selected"}
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href={homeHref}
+              className={buttonVariants({ variant: "secondary", size: "sm" })}
+              data-testid="global-home-button"
+            >
+              Home
+            </Link>
             <ThemeToggle />
             <button
               onClick={logout}

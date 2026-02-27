@@ -56,6 +56,13 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         <header className="border-b border-bm-border/70 px-6 py-4 flex items-center justify-between gap-4 bg-bm-bg/35 backdrop-blur-md">
           <p className="text-sm font-semibold">Environment Management</p>
           <div className="flex items-center gap-2">
+            <Link
+              href="/admin"
+              className={buttonVariants({ variant: "secondary", size: "sm" })}
+              data-testid="global-home-button"
+            >
+              Home
+            </Link>
             <ThemeToggle />
             <button
               onClick={logout}
