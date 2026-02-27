@@ -1,4 +1,5 @@
 export const industries = [
+  "ecc",
   "repe",
   "pds_command",
   "credit_risk_hub",
@@ -25,6 +26,7 @@ export const statusLabel: Record<EnvironmentStatus, string> = {
 };
 
 const INDUSTRY_DISPLAY_MAP: Record<string, string> = {
+  ecc: "Executive Command Center",
   repe: "Real Estate Private Equity",
   pds_command: "PDS Command",
   credit_risk_hub: "Credit Risk Hub",
@@ -63,6 +65,11 @@ export function isRepeEnvironment(industry?: string | null): boolean {
   return key.includes("real_estate") || key.includes("repe") || key.includes("real estate");
 }
 
+export function isEccEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "ecc" || key === "executive_command_center";
+}
+
 export function isFloyorkerEnvironment(industry?: string | null): boolean {
   const key = (industry || "").trim().toLowerCase();
   return key.includes("floyorker") || key.includes("digital_media");
@@ -99,6 +106,7 @@ export function isConsultingEnvironment(industry?: string | null): boolean {
 }
 
 export function resolveEnvironmentOpenPath(args: { envId: string; industry?: string | null }): string {
+  if (isEccEnvironment(args.industry)) return `/lab/env/${args.envId}/ecc`;
   if (isRepeEnvironment(args.industry)) return `/lab/env/${args.envId}/re`;
   if (isConsultingEnvironment(args.industry)) return `/lab/env/${args.envId}/consulting`;
   if (isPdsEnvironment(args.industry)) return `/lab/env/${args.envId}/pds`;

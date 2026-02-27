@@ -1,6 +1,15 @@
 import { NextRequest } from "next/server";
 import { Pool } from "pg";
 import { proxyOrFallback } from "@/lib/v1Proxy";
+import {
+  deleteFallbackEnvironment,
+  getFallbackEnvironment,
+  updateFallbackEnvironment,
+} from "@/lib/labV1Fallback";
+import {
+  getMeridianEnvironmentRecord,
+  MERIDIAN_APEX_ENV_ID,
+} from "@/lib/server/eccStore";
 
 export const runtime = "nodejs";
 
@@ -60,12 +69,14 @@ export async function GET(
 ) {
   return proxyOrFallback(request, `/v1/environments/${params.id}`, async () => {
     try {
+      if (params.id === MERIDIAN_APEX_ENV_ID) {
+        return Response.json(getMeridianEnvironmentRecord(params.id));
+      }
       const pool = getPool();
       if (!pool) {
-        return Response.json(
-          { message: "Environment store unavailable: DATABASE_URL is not configured." },
-          { status: 503 }
-        );
+        const env = getFallbackEnvironment(params.id);
+        if (!env) return Response.json({ message: "Environment not found" }, { status: 404 });
+        return Response.json(env);
       }
       const industryTypeEnabled = await hasIndustryTypeColumn(pool);
       const { rows } = await pool.query(
@@ -100,12 +111,24 @@ export async function PATCH(
         is_active?: boolean;
       };
 
+      if (params.id === MERIDIAN_APEX_ENV_ID) {
+        return Response.json(
+          { message: "ECC demo environment is managed by the Executive Command Center reset flow." },
+          { status: 409 }
+        );
+      }
+
       const pool = getPool();
       if (!pool) {
-        return Response.json(
-          { message: "Environment store unavailable: DATABASE_URL is not configured." },
-          { status: 503 }
-        );
+        const updated = updateFallbackEnvironment(params.id, {
+          client_name: body.client_name,
+          industry: body.industry,
+          industry_type: body.industry_type,
+          notes: body.notes,
+          is_active: body.is_active,
+        });
+        if (!updated) return Response.json({ message: "Environment not found" }, { status: 404 });
+        return Response.json(updated);
       }
 
       const industryTypeEnabled = await hasIndustryTypeColumn(pool);
@@ -160,12 +183,20 @@ export async function DELETE(
 ) {
   return proxyOrFallback(request, `/v1/environments/${params.id}`, async () => {
     try {
+      if (params.id === MERIDIAN_APEX_ENV_ID) {
+        return Response.json(
+          { message: "ECC demo environment is pinned. Use Reset Demo instead." },
+          { status: 409 }
+        );
+      }
+
       const pool = getPool();
       if (!pool) {
-        return Response.json(
-          { message: "Environment store unavailable: DATABASE_URL is not configured." },
-          { status: 503 }
-        );
+        const deleted = deleteFallbackEnvironment(params.id);
+        if (!deleted) {
+          return Response.json({ message: "Environment not found" }, { status: 404 });
+        }
+        return Response.json(deleted);
       }
 
       const { rowCount } = await pool.query(

@@ -343,7 +343,10 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
       ? buildRepeKpis(repeFundCount, repeSummary)
       : getStaticKpiConfig(industry);
 
-  const quickActions = getQuickActions(industry, params.envId);
+  const quickActions = [
+    { label: "Executive Command Center", href: `/lab/env/${params.envId}/ecc` },
+    ...getQuickActions(industry, params.envId).filter((action) => action.href !== `/lab/env/${params.envId}/ecc`),
+  ];
 
   const retrySetup = async () => {
     setRetrying(true);

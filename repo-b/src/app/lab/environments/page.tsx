@@ -8,6 +8,8 @@ import { CreateEnvironmentPanel } from "@/components/lab/environments/CreateEnvi
 import { EnvironmentList } from "@/components/lab/environments/EnvironmentList";
 import { EnvironmentSettingsModal } from "@/components/lab/environments/EnvironmentSettingsModal";
 import { resolveEnvironmentOpenPath, type Industry } from "@/components/lab/environments/constants";
+import { Card, CardContent } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 
 export default function EnvironmentsPage() {
   const router = useRouter();
@@ -80,16 +82,41 @@ export default function EnvironmentsPage() {
     await refresh();
   };
 
-  return (
-    <div className="grid xl:grid-cols-[380px,1fr] gap-6">
-      <CreateEnvironmentPanel onProvision={provisionEnvironment} />
+  const provisionMeridianDemo = async () => {
+    const payload = await apiFetch<{ env: { env_id: string } }>("/api/ecc/demo/create_env_meridian_apex", {
+      method: "POST",
+    });
+    await refresh();
+    selectEnv(payload.env.env_id);
+    router.push(`/lab/env/${payload.env.env_id}/ecc`);
+  };
 
-      <EnvironmentList
-        environments={environments}
-        onOpen={openEnvironment}
-        onSettings={setSelectedSettingsId}
-        onDelete={deleteEnvironment}
-      />
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-bm-text">Executive Command Center Demo</p>
+            <p className="text-xs text-bm-muted">
+              Provision Meridian Apex Holdings with a seeded "messy day" queue and open the mobile-first ECC.
+            </p>
+          </div>
+          <Button type="button" onClick={provisionMeridianDemo}>
+            Open Meridian Apex
+          </Button>
+        </CardContent>
+      </Card>
+
+      <div className="grid xl:grid-cols-[380px,1fr] gap-6">
+        <CreateEnvironmentPanel onProvision={provisionEnvironment} />
+
+        <EnvironmentList
+          environments={environments}
+          onOpen={openEnvironment}
+          onSettings={setSelectedSettingsId}
+          onDelete={deleteEnvironment}
+        />
+      </div>
 
       <EnvironmentSettingsModal
         open={Boolean(selectedSettingsEnv)}

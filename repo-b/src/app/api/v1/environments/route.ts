@@ -1,6 +1,11 @@
 import { NextRequest } from "next/server";
 import { Pool } from "pg";
 import { proxyOrFallback } from "@/lib/v1Proxy";
+import {
+  createFallbackEnvironment,
+  listFallbackEnvironments,
+} from "@/lib/labV1Fallback";
+import { getMeridianEnvironmentRecord } from "@/lib/server/eccStore";
 
 export const runtime = "nodejs";
 
@@ -84,10 +89,9 @@ export async function GET(request: NextRequest) {
       try {
         const pool = getPool();
         if (!pool) {
-          return Response.json(
-            { message: "Environment store unavailable: DATABASE_URL is not configured." },
-            { status: 503 }
-          );
+          const meridian = getMeridianEnvironmentRecord();
+          const environments = [meridian, ...listFallbackEnvironments().filter((env) => env.env_id !== meridian.env_id)];
+          return Response.json({ environments });
         }
         const industryTypeEnabled = await hasIndustryTypeColumn(pool);
         const { rows } = await pool.query<EnvironmentRow>(
@@ -97,6 +101,7 @@ export async function GET(request: NextRequest) {
          FROM app.environments
          ORDER BY created_at DESC`
         );
+        const meridian = getMeridianEnvironmentRecord();
         const environments = rows.map((row) => ({
           ...row,
           industry_type: row.industry_type || row.industry,
@@ -105,6 +110,9 @@ export async function GET(request: NextRequest) {
               ? row.created_at.toISOString()
               : row.created_at,
         }));
+        if (!environments.some((env) => env.env_id === meridian.env_id)) {
+          environments.unshift(meridian);
+        }
         return Response.json({ environments });
       } catch {
         return Response.json(
@@ -137,12 +145,13 @@ export async function POST(request: NextRequest) {
 
       const pool = getPool();
       if (!pool) {
-        return Response.json(
-          {
-            message: "Environment store unavailable: DATABASE_URL is not configured.",
-          },
-          { status: 503 }
-        );
+        const created = createFallbackEnvironment({
+          client_name: clientName,
+          industry,
+          industry_type: industryType,
+          notes,
+        });
+        return Response.json(created, { status: 201 });
       }
 
       const industryTypeEnabled = await hasIndustryTypeColumn(pool);
