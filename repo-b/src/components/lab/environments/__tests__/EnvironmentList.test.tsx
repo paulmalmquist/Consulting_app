@@ -74,4 +74,22 @@ describe("EnvironmentList", () => {
     fireEvent.change(screen.getByTestId("env-sort"), { target: { value: "name" } });
     expect(screen.getByTestId("env-sort")).toHaveValue("name");
   });
+
+  test("uses the delayed 3-column breakpoint and still renders multiple cards", async () => {
+    render(
+      <EnvironmentList
+        environments={[envA, envB]}
+        onOpen={() => {}}
+        onSettings={() => {}}
+        onDelete={() => {}}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Archived" }));
+
+    const cards = await screen.findAllByTestId(/env-card-/);
+    expect(cards).toHaveLength(2);
+    expect(screen.getByTestId("env-list")).toHaveClass("2xl:grid-cols-3");
+    expect(screen.getByTestId("env-list")).not.toHaveClass("xl:grid-cols-3");
+  });
 });

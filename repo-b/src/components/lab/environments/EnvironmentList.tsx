@@ -157,7 +157,7 @@ export function EnvironmentList({
           })}
         </section>
 
-        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" data-testid="env-list">
+        <section className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4" data-testid="env-list">
           {filtered.map((env) => {
             const status: EnvironmentStatus = statusFromFlags(env.is_active);
             return (

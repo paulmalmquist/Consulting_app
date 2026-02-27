@@ -37,16 +37,18 @@ export function EnvironmentCard({
       className="rounded-2xl border border-bm-borderStrong/70 bg-bm-surface/30 shadow-bm-card/40 p-4 md:p-5 space-y-4"
       data-testid={`env-card-${env.env_id}`}
     >
-      <header className="flex flex-wrap items-start justify-between gap-3">
+      <header className="space-y-4">
         <div className="min-w-0 space-y-1.5">
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-2">
             <div
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-bm-border/70 bg-bm-surface/40 text-bm-muted2"
               title={`Industry: ${industryVisual.label}`}
             >
               <IndustryIcon size={18} data-testid={industryVisual.testId} />
             </div>
-            <h3 className="text-xl md:text-2xl font-semibold tracking-tight text-bm-text leading-tight">{env.client_name}</h3>
+            <h3 className="min-w-0 max-w-full flex-1 break-words text-xl md:text-2xl font-semibold tracking-tight text-bm-text leading-tight">
+              {env.client_name}
+            </h3>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center rounded-full border border-bm-border/70 px-2.5 py-1 text-xs text-bm-muted2">
@@ -59,17 +61,35 @@ export function EnvironmentCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button type="button" variant="primary" size="sm" onClick={() => onOpen(env.env_id)} data-testid={`env-open-${env.env_id}`}>
+        <div
+          className="grid w-full grid-cols-2 gap-2"
+          data-testid={`env-actions-${env.env_id}`}
+        >
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            className="w-full"
+            onClick={() => onOpen(env.env_id)}
+            data-testid={`env-open-${env.env_id}`}
+          >
             <span className="inline-flex items-center gap-1"><ArrowRightCircle size={14} />Open</span>
           </Button>
-          <Button type="button" variant="secondary" size="sm" onClick={() => onSettings(env.env_id)} data-testid={`env-settings-${env.env_id}`}>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="w-full"
+            onClick={() => onSettings(env.env_id)}
+            data-testid={`env-settings-${env.env_id}`}
+          >
             <span className="inline-flex items-center gap-1"><Settings size={14} />Settings</span>
           </Button>
           <Button
             type="button"
             variant="destructive"
             size="sm"
+            className="col-span-2 w-full"
             onClick={() => onDelete(env.env_id)}
             data-testid={`env-delete-${env.env_id}`}
           >

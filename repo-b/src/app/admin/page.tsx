@@ -176,7 +176,7 @@ export default function AdminPage() {
       </div>
 
       {/* Main Content: Grid + Insight Rail */}
-      <div className="grid xl:grid-cols-[1fr,320px] gap-6">
+      <div className="grid 2xl:grid-cols-[minmax(0,1fr),320px] gap-6">
         <div className="space-y-6">
           <EnvironmentList
             environments={environments}
@@ -192,11 +192,15 @@ export default function AdminPage() {
         </div>
 
         {/* Insight Rail */}
-        <div className="hidden xl:block">
+        <div className="hidden 2xl:block">
           <div className="sticky top-20">
             <InsightRail sections={insightSections} />
           </div>
         </div>
+      </div>
+
+      <div className="2xl:hidden">
+        <InsightRail sections={insightSections} />
       </div>
 
       {/* Provision Dialog */}
