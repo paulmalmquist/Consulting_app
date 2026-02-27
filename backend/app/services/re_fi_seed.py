@@ -595,7 +595,129 @@ def seed_institutional_fund(
             )
         result["waterfall_definition_id"] = str(wf_def_id)
 
-        # ─── 10. Base scenario + assumption set ──────────────────────────
+        # ─── 10. Loans with amortization params ────────────────────────────
+        loan_configs = [
+            {
+                "name": "Senior Secured Note A",
+                "upb": 15_000_000, "rate_type": "floating", "rate": 0.065,
+                "spread": 0.025, "maturity": "2031-03-15",
+                "amort_type": "amortizing",
+                "amortization_period_years": 30, "term_years": 7,
+                "io_period_months": 0, "balloon_flag": True,
+                "payment_frequency": "monthly",
+            },
+            {
+                "name": "Construction Facility",
+                "upb": 22_000_000, "rate_type": "fixed", "rate": 0.058,
+                "spread": None, "maturity": "2031-06-30",
+                "amort_type": "amortizing",
+                "amortization_period_years": 25, "term_years": 7,
+                "io_period_months": 24, "balloon_flag": False,
+                "payment_frequency": "monthly",
+            },
+            {
+                "name": "Mezzanine Note",
+                "upb": 8_000_000, "rate_type": "floating", "rate": 0.085,
+                "spread": 0.04, "maturity": "2029-12-31",
+                "amort_type": "interest_only",
+                "amortization_period_years": None, "term_years": None,
+                "io_period_months": None, "balloon_flag": True,
+                "payment_frequency": "monthly",
+            },
+        ]
+
+        seed_loan_ids = []
+        for lc in loan_configs:
+            cur.execute(
+                """
+                INSERT INTO re_loan
+                    (env_id, business_id, fund_id, loan_name, upb, rate_type, rate,
+                     spread, maturity, amort_type,
+                     amortization_period_years, term_years, io_period_months,
+                     balloon_flag, payment_frequency)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    env_id, str(business_id), str(fund_id),
+                    lc["name"], lc["upb"], lc["rate_type"], lc["rate"],
+                    lc["spread"], lc["maturity"], lc["amort_type"],
+                    lc["amortization_period_years"], lc["term_years"],
+                    lc["io_period_months"], lc["balloon_flag"],
+                    lc["payment_frequency"],
+                ),
+            )
+            row = cur.fetchone()
+            if row:
+                seed_loan_ids.append(row["id"])
+
+        result["loans"] = len(loan_configs)
+        result["loan_ids"] = [str(lid) for lid in seed_loan_ids]
+
+        # ─── 11. Property comps (sale comps for first 6 assets) ─────────
+        comp_data_per_asset = [
+            # Meridian Office Tower
+            [
+                {"address": "100 Main St, Portland", "submarket": "CBD", "close_date": "2024-11-15", "sale_price": 48_000_000, "cap_rate": 0.058, "size_sf": 120_000, "price_per_sf": 400, "source": "CoStar"},
+                {"address": "250 Oak Ave, Portland", "submarket": "CBD", "close_date": "2024-09-20", "sale_price": 42_000_000, "cap_rate": 0.062, "size_sf": 105_000, "price_per_sf": 400, "source": "CoStar"},
+                {"address": "75 Pine St, Portland", "submarket": "Pearl District", "close_date": "2024-07-10", "sale_price": 51_000_000, "cap_rate": 0.055, "size_sf": 130_000, "price_per_sf": 392, "source": "RCA"},
+            ],
+            # Harborview Logistics Park
+            [
+                {"address": "5000 Terminal Rd, Tacoma", "submarket": "Port Industrial", "close_date": "2024-10-01", "sale_price": 35_000_000, "cap_rate": 0.052, "size_sf": 250_000, "price_per_sf": 140, "source": "CoStar"},
+                {"address": "7200 Commerce Way, Kent", "submarket": "South King", "close_date": "2024-08-15", "sale_price": 41_000_000, "cap_rate": 0.048, "size_sf": 300_000, "price_per_sf": 137, "source": "CBRE"},
+                {"address": "3100 Distribution Dr, Auburn", "submarket": "Green River Valley", "close_date": "2024-06-20", "sale_price": 38_500_000, "cap_rate": 0.050, "size_sf": 275_000, "price_per_sf": 140, "source": "JLL"},
+            ],
+            # Cascade Multifamily
+            [
+                {"address": "1200 Cascade Blvd, Bellevue", "submarket": "Eastside", "close_date": "2024-12-01", "sale_price": 55_000_000, "cap_rate": 0.045, "size_sf": 180_000, "price_per_sf": 306, "source": "Yardi"},
+                {"address": "800 Lake Way, Kirkland", "submarket": "Eastside", "close_date": "2024-10-15", "sale_price": 49_000_000, "cap_rate": 0.047, "size_sf": 165_000, "price_per_sf": 297, "source": "CoStar"},
+                {"address": "450 Forest Ave, Redmond", "submarket": "Eastside", "close_date": "2024-08-01", "sale_price": 52_000_000, "cap_rate": 0.046, "size_sf": 175_000, "price_per_sf": 297, "source": "RCA"},
+            ],
+            # Summit Retail Center
+            [
+                {"address": "9000 Mall Dr, Lynnwood", "submarket": "North Suburban", "close_date": "2024-09-15", "sale_price": 26_000_000, "cap_rate": 0.068, "size_sf": 85_000, "price_per_sf": 306, "source": "CoStar"},
+                {"address": "1500 Retail Pkwy, Federal Way", "submarket": "South Suburban", "close_date": "2024-07-01", "sale_price": 30_000_000, "cap_rate": 0.065, "size_sf": 95_000, "price_per_sf": 316, "source": "Marcus & Millichap"},
+            ],
+            # Ironworks Mixed-Use
+            [
+                {"address": "200 Iron St, Seattle", "submarket": "SoDo", "close_date": "2024-11-01", "sale_price": 43_000_000, "cap_rate": 0.055, "size_sf": 110_000, "price_per_sf": 391, "source": "Cushman"},
+                {"address": "600 Mixed Way, Seattle", "submarket": "Capitol Hill", "close_date": "2024-08-20", "sale_price": 39_000_000, "cap_rate": 0.058, "size_sf": 100_000, "price_per_sf": 390, "source": "CoStar"},
+                {"address": "900 Union Blvd, Seattle", "submarket": "First Hill", "close_date": "2024-06-15", "sale_price": 45_000_000, "cap_rate": 0.053, "size_sf": 115_000, "price_per_sf": 391, "source": "JLL"},
+            ],
+            # Lakeside Senior Living
+            [
+                {"address": "300 Senior Way, Bothell", "submarket": "Eastside North", "close_date": "2024-10-10", "sale_price": 31_000_000, "cap_rate": 0.060, "size_sf": 90_000, "price_per_sf": 344, "source": "NIC MAP"},
+                {"address": "150 Care Dr, Woodinville", "submarket": "Eastside North", "close_date": "2024-07-25", "sale_price": 34_000_000, "cap_rate": 0.058, "size_sf": 95_000, "price_per_sf": 358, "source": "NIC MAP"},
+                {"address": "500 Living Ln, Issaquah", "submarket": "Eastside South", "close_date": "2024-05-15", "sale_price": 29_000_000, "cap_rate": 0.063, "size_sf": 85_000, "price_per_sf": 341, "source": "CoStar"},
+            ],
+        ]
+
+        comp_count = 0
+        for idx, comps in enumerate(comp_data_per_asset):
+            if idx >= len(asset_ids):
+                break
+            for c in comps:
+                cur.execute(
+                    """
+                    INSERT INTO re_property_comp
+                        (env_id, business_id, asset_id, comp_type,
+                         address, submarket, close_date, sale_price,
+                         cap_rate, size_sf, price_per_sf, source)
+                    VALUES (%s, %s, %s, 'sale', %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        env_id, str(business_id), str(asset_ids[idx]),
+                        c["address"], c["submarket"], c["close_date"],
+                        c["sale_price"], c["cap_rate"], c["size_sf"],
+                        c["price_per_sf"], c["source"],
+                    ),
+                )
+                comp_count += 1
+
+        result["property_comps"] = comp_count
+
+        # ─── 12. Base scenario + assumption set ─────────────────────────
         scenario_id = uuid4()
         cur.execute(
             """
@@ -648,6 +770,28 @@ def seed_institutional_fund(
         asset_ids=asset_ids,
     )
     result["fi_data"] = fi_result
+
+    # Generate amortization schedules for amortizing loans
+    from app.services import re_amortization as _re_amort
+    amort_count = 0
+    for lid in seed_loan_ids[:2]:  # first two loans are amortizing
+        try:
+            sched = _re_amort.generate_and_store_schedule(loan_id=lid)
+            amort_count += len(sched)
+        except (ValueError, LookupError):
+            pass
+    result["amortization_rows"] = amort_count
+
+    # Compute capital account snapshots for seeded quarters
+    from app.services import re_capital_snapshot as _re_snap
+    snap_count = 0
+    for qtr in ["2025Q1", "2025Q2", "2025Q3"]:
+        try:
+            snaps = _re_snap.compute_and_store_snapshots(fund_id=fund_id, quarter=qtr)
+            snap_count += len(snaps)
+        except Exception:
+            pass
+    result["capital_snapshots"] = snap_count
 
     emit_log(
         level="info",

@@ -11,15 +11,20 @@ import psycopg
 from fastapi import APIRouter, HTTPException, Query
 
 from app.observability.logger import emit_log
+from fastapi.responses import StreamingResponse
+
 from app.schemas.re_financial_intelligence import (
     AccountingImportRequest,
     AccountingImportResult,
+    AmortizationScheduleRow,
+    CapitalAccountSnapshotOut,
+    CapitalSnapshotComputeRequest,
     CovenantDefinitionOut,
-    CovenantResultOut,
-    FundMetricsResult,
     LoanOut,
     LpSummaryResult,
     NoiBudgetMonthlyRequest,
+    PropertyCompLoadRequest,
+    PropertyCompOut,
     RunCovenantTestRequest,
     RunCovenantTestResult,
     RunOut,
@@ -32,18 +37,22 @@ from app.schemas.re_financial_intelligence import (
     ScenarioComputeResult,
     UwVersionCreateRequest,
     UwVersionOut,
-    VarianceResult,
     WatchlistEventOut,
+    WaterfallBreakdownResult,
 )
 from app.services import (
     re_accounting,
+    re_amortization,
     re_budget,
-    re_variance,
-    re_fund_metrics,
+    re_capital_snapshot,
     re_debt_surveillance,
-    re_run_engine,
+    re_excel_export,
     re_fi_seed,
+    re_fund_metrics,
+    re_property_comps,
+    re_run_engine,
     re_sale_scenario,
+    re_variance,
 )
 
 router = APIRouter(prefix="/api/re/v2", tags=["re-v2-financial-intelligence"])
@@ -440,6 +449,163 @@ def get_lp_summary(
             business_id=business_id,
             fund_id=fund_id,
             quarter=quarter,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Amortization ────────────────────────────────────────────────────────────
+
+@router.get("/loans/{loan_id}/amortization", response_model=list[AmortizationScheduleRow])
+def get_amortization_schedule(loan_id: UUID):
+    """Return stored amortization schedule for a loan."""
+    try:
+        return re_amortization.get_schedule(loan_id=loan_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/loans/{loan_id}/amortization/generate", response_model=list[AmortizationScheduleRow])
+def generate_amortization_schedule(loan_id: UUID):
+    """Generate and store amortization schedule for a loan."""
+    try:
+        result = re_amortization.generate_and_store_schedule(loan_id=loan_id)
+        _log("re.amortization.generated", f"Schedule generated: {len(result)} periods", loan_id=str(loan_id))
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Waterfall Breakdown ─────────────────────────────────────────────────────
+
+@router.get("/funds/{fund_id}/waterfall-breakdown", response_model=WaterfallBreakdownResult)
+def get_waterfall_breakdown(
+    fund_id: UUID,
+    quarter: str = Query(...),
+):
+    """Get tier-by-tier waterfall allocation per partner."""
+    try:
+        from app.db import get_cursor as _gc
+        with _gc() as cur:
+            cur.execute(
+                """
+                SELECT id FROM re_waterfall_run
+                WHERE fund_id = %s AND quarter = %s
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                (str(fund_id), quarter),
+            )
+            run = cur.fetchone()
+            if not run:
+                return {
+                    "fund_id": str(fund_id),
+                    "quarter": quarter,
+                    "run_id": None,
+                    "allocations": [],
+                }
+
+            cur.execute(
+                """
+                SELECT wrr.tier_name, wrr.amount, p.partner_name, p.partner_type
+                FROM re_waterfall_run_result wrr
+                JOIN re_partner p ON p.id = wrr.partner_id
+                WHERE wrr.run_id = %s
+                ORDER BY wrr.tier_name, p.partner_type, p.partner_name
+                """,
+                (str(run["id"]),),
+            )
+            rows = cur.fetchall()
+
+        return {
+            "fund_id": str(fund_id),
+            "quarter": quarter,
+            "run_id": str(run["id"]),
+            "allocations": rows,
+        }
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Property Comps ──────────────────────────────────────────────────────────
+
+@router.get("/assets/{asset_id}/comps", response_model=list[PropertyCompOut])
+def list_asset_comps(
+    asset_id: UUID,
+    comp_type: str | None = Query(None),
+):
+    """List property comps for an asset."""
+    try:
+        return re_property_comps.list_comps(asset_id=asset_id, comp_type=comp_type)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/assets/{asset_id}/comps", response_model=list[PropertyCompOut], status_code=201)
+def load_asset_comps(asset_id: UUID, body: PropertyCompLoadRequest):
+    """Import property comps for an asset."""
+    try:
+        result = re_property_comps.load_comps(
+            asset_id=asset_id,
+            env_id=body.env_id,
+            business_id=body.business_id,
+            comp_type=body.comp_type,
+            data=[c.model_dump() for c in body.comps],
+        )
+        _log("re.comps.loaded", f"Loaded {len(result)} comps", asset_id=str(asset_id))
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Capital Account Snapshots ───────────────────────────────────────────────
+
+@router.get("/funds/{fund_id}/capital-snapshots", response_model=list[CapitalAccountSnapshotOut])
+def get_capital_snapshots(
+    fund_id: UUID,
+    quarter: str = Query(...),
+):
+    """Get materialized capital account snapshots per partner."""
+    try:
+        return re_capital_snapshot.get_snapshots(fund_id=fund_id, quarter=quarter)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/funds/{fund_id}/capital-snapshots/compute", response_model=list[CapitalAccountSnapshotOut])
+def compute_capital_snapshots(fund_id: UUID, body: CapitalSnapshotComputeRequest):
+    """Compute and store capital account snapshots for all partners."""
+    try:
+        result = re_capital_snapshot.compute_and_store_snapshots(
+            fund_id=fund_id,
+            quarter=body.quarter,
+        )
+        _log("re.capital.snapshots", f"Computed {len(result)} snapshots", fund_id=str(fund_id))
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Excel Export ────────────────────────────────────────────────────────────
+
+@router.get("/funds/{fund_id}/export")
+def export_fund_report(
+    fund_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    quarter: str = Query(...),
+):
+    """Download fund report as .xlsx."""
+    try:
+        xlsx_bytes = re_excel_export.export_fund_report(
+            env_id=env_id,
+            business_id=business_id,
+            fund_id=fund_id,
+            quarter=quarter,
+        )
+        return StreamingResponse(
+            iter([xlsx_bytes]),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename=fund_report_{quarter}.xlsx"},
         )
     except Exception as exc:
         raise _to_http(exc)

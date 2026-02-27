@@ -4,8 +4,7 @@ Revenue schedule CRUD, invoice status management, and revenue summaries (MTD/QTD
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
-from decimal import Decimal
+from datetime import datetime, timezone
 from uuid import UUID
 
 from app.db import get_cursor

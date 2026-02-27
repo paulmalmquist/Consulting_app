@@ -13,8 +13,6 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-import pytest
-
 from tests.conftest import FakeCursor
 
 
@@ -336,6 +334,8 @@ class TestDebtCovenantTestsOnlyForDebtFund:
             "comparator": ">=",
             "threshold": Decimal("1.25"),
         }])
+        # re_amortization.get_debt_service_summary → SELECT from schedule (empty → fallback)
+        fake_cursor.push_result([{"annual_debt_service": None, "annual_interest": None, "annual_principal": None, "period_count": None}])
         # INSERT covenant result
         fake_cursor.push_result([{
             "id": str(uuid.uuid4()),

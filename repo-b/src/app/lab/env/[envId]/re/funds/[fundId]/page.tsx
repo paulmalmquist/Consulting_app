@@ -38,6 +38,10 @@ import {
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import SaleScenarioPanel from "@/components/repe/SaleScenarioPanel";
+import { AmortizationViewer } from "@/components/repe/AmortizationViewer";
+import { WaterfallTierTable } from "@/components/repe/WaterfallTierTable";
+import { LPBreakdown } from "@/components/repe/LPBreakdown";
+import { ExcelExportButton } from "@/components/repe/ExcelExportButton";
 
 function pickCurrentQuarter(): string {
   const d = new Date();
@@ -158,6 +162,16 @@ export default function FundDetailPage({
               {fund?.strategy?.toUpperCase()}{fund?.sub_strategy ? ` · ${fund.sub_strategy}` : ""}
               {fund?.vintage_year ? ` · Vintage ${fund.vintage_year}` : ""}
             </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {envId && businessId && (
+              <ExcelExportButton
+                fundId={params.fundId}
+                envId={envId}
+                businessId={businessId}
+                quarter={quarter}
+              />
+            )}
           </div>
           {latestTerms && (
             <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
@@ -494,6 +508,18 @@ function DebtSurveillanceTab({ envId, businessId, fundId, quarter }: {
           </tbody>
         </table>
       </div>
+
+      {/* Amortization Schedules */}
+      {loans.filter((l) => l.amort_type !== "interest_only" && l.amortization_period_years).length > 0 && (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 space-y-4" data-testid="amortization-section">
+          <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Amortization Schedules</h3>
+          {loans
+            .filter((l) => l.amort_type !== "interest_only" && l.amortization_period_years)
+            .map((loan) => (
+              <AmortizationViewer key={loan.id} loan={loan} />
+            ))}
+        </div>
+      )}
 
       {/* Watchlist */}
       {watchlist.length > 0 && (
@@ -911,6 +937,16 @@ function LpSummaryTab({ envId, businessId, fundId, quarter }: {
           </table>
         </div>
       )}
+
+      {/* Capital Account Snapshots (materialized) */}
+      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+        <LPBreakdown fundId={fundId} quarter={quarter} />
+      </div>
+
+      {/* Waterfall Tier Breakdown (detailed) */}
+      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+        <WaterfallTierTable fundId={fundId} quarter={quarter} />
+      </div>
     </div>
   );
 }

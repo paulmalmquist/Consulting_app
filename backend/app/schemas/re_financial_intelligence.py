@@ -216,6 +216,11 @@ class LoanOut(BaseModel):
     spread: Decimal | None = None
     maturity: date | None = None
     amort_type: str
+    amortization_period_years: int | None = None
+    term_years: int | None = None
+    io_period_months: int | None = None
+    balloon_flag: bool | None = None
+    payment_frequency: str | None = None
     created_at: datetime
 
 
@@ -352,3 +357,101 @@ class LpSummaryResult(BaseModel):
     total_contributed: str
     total_distributed: str
     fund_nav: str
+
+
+# ── Amortization ────────────────────────────────────────────────────────────
+
+class AmortizationScheduleRow(BaseModel):
+    period_number: int
+    payment_date: date | None = None
+    beginning_balance: Decimal
+    scheduled_principal: Decimal
+    interest_payment: Decimal
+    total_payment: Decimal
+    ending_balance: Decimal
+
+
+# ── Property Comps ──────────────────────────────────────────────────────────
+
+class PropertyCompCreate(BaseModel):
+    address: str | None = None
+    submarket: str | None = None
+    close_date: date | None = None
+    sale_price: Decimal | None = None
+    cap_rate: Decimal | None = None
+    noi: Decimal | None = None
+    size_sf: Decimal | None = None
+    price_per_sf: Decimal | None = None
+    rent_psf: Decimal | None = None
+    term_months: int | None = None
+    source: str | None = None
+
+
+class PropertyCompLoadRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    comp_type: str = Field(pattern=r"^(sale|lease)$")
+    comps: list[PropertyCompCreate]
+
+
+class PropertyCompOut(BaseModel):
+    id: int
+    env_id: str
+    business_id: UUID
+    asset_id: UUID
+    comp_type: str
+    address: str | None = None
+    submarket: str | None = None
+    close_date: date | None = None
+    sale_price: Decimal | None = None
+    cap_rate: Decimal | None = None
+    noi: Decimal | None = None
+    size_sf: Decimal | None = None
+    price_per_sf: Decimal | None = None
+    rent_psf: Decimal | None = None
+    term_months: int | None = None
+    source: str | None = None
+    created_at: datetime
+
+
+# ── Capital Account Snapshots ───────────────────────────────────────────────
+
+class CapitalAccountSnapshotOut(BaseModel):
+    id: int
+    fund_id: UUID
+    partner_id: UUID
+    partner_name: str | None = None
+    partner_type: str | None = None
+    quarter: str
+    committed: Decimal
+    contributed: Decimal
+    distributed: Decimal
+    unreturned_capital: Decimal
+    pref_accrual: Decimal
+    carry_allocation: Decimal
+    unrealized_gain: Decimal
+    nav_share: Decimal
+    dpi: Decimal | None = None
+    rvpi: Decimal | None = None
+    tvpi: Decimal | None = None
+    created_at: datetime
+
+
+class CapitalSnapshotComputeRequest(BaseModel):
+    quarter: str = Field(pattern=r"^\d{4}Q[1-4]$")
+
+
+# ── Waterfall Breakdown ─────────────────────────────────────────────────────
+
+class WaterfallTierAllocation(BaseModel):
+    tier_name: str
+    partner_name: str
+    partner_type: str
+    amount: Decimal
+
+
+class WaterfallBreakdownResult(BaseModel):
+    fund_id: str
+    quarter: str
+    run_id: str | None = None
+    allocations: list[WaterfallTierAllocation] = Field(default_factory=list)

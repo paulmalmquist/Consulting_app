@@ -9,6 +9,7 @@ from uuid import UUID
 
 from app.db import get_cursor
 from app.observability.logger import emit_log
+from app.services import re_amortization
 
 
 def list_loans(
@@ -148,8 +149,14 @@ def run_covenant_tests(
                     noi = Decimal(str(state["noi"] or 0))
                     asset_value = Decimal(str(state["asset_value"] or 0))
 
-            # Compute metrics
-            annual_debt_service = upb * rate
+            # Compute metrics — prefer amortization schedule over simple interest
+            try:
+                ds = re_amortization.get_debt_service_summary(
+                    loan_id=loan_id, quarter=quarter
+                )
+                annual_debt_service = Decimal(ds["annual_debt_service"])
+            except (LookupError, ValueError):
+                annual_debt_service = upb * rate
             dscr = (noi / annual_debt_service).quantize(Decimal("0.01")) if annual_debt_service > 0 else None
             ltv = (upb / asset_value).quantize(Decimal("0.0001")) if asset_value > 0 else None
             debt_yield = (noi / upb).quantize(Decimal("0.0001")) if upb > 0 else None

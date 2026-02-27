@@ -2803,6 +2803,11 @@ export type FiLoan = {
   spread: number | null;
   maturity: string | null;
   amort_type: string;
+  amortization_period_years: number | null;
+  term_years: number | null;
+  io_period_months: number | null;
+  balloon_flag: boolean | null;
+  payment_frequency: string | null;
   created_at: string;
 };
 
@@ -3122,4 +3127,138 @@ export function seedInstitutionalFund(params: {
   fund_id: string;
 }): Promise<Record<string, unknown>> {
   return bosFetch("/api/re/v2/fi/seed-institutional", { method: "POST", params });
+}
+
+// ── Amortization ────────────────────────────────────────────────────────────
+
+export type AmortizationRow = {
+  period_number: number;
+  payment_date: string | null;
+  beginning_balance: number;
+  scheduled_principal: number;
+  interest_payment: number;
+  total_payment: number;
+  ending_balance: number;
+};
+
+export function getAmortizationSchedule(loanId: string): Promise<AmortizationRow[]> {
+  return bosFetch(`/api/re/v2/loans/${loanId}/amortization`);
+}
+
+export function generateAmortizationSchedule(loanId: string): Promise<AmortizationRow[]> {
+  return bosFetch(`/api/re/v2/loans/${loanId}/amortization/generate`, { method: "POST" });
+}
+
+// ── Property Comps ──────────────────────────────────────────────────────────
+
+export type PropertyComp = {
+  id: number;
+  env_id: string;
+  business_id: string;
+  asset_id: string;
+  comp_type: "sale" | "lease";
+  address: string | null;
+  submarket: string | null;
+  close_date: string | null;
+  sale_price: number | null;
+  cap_rate: number | null;
+  noi: number | null;
+  size_sf: number | null;
+  price_per_sf: number | null;
+  rent_psf: number | null;
+  term_months: number | null;
+  source: string | null;
+  created_at: string;
+};
+
+export function getAssetComps(
+  assetId: string,
+  compType?: string,
+): Promise<PropertyComp[]> {
+  return bosFetch(`/api/re/v2/assets/${assetId}/comps`, {
+    params: compType ? { comp_type: compType } : undefined,
+  });
+}
+
+// ── Capital Account Snapshots ───────────────────────────────────────────────
+
+export type CapitalAccountSnapshot = {
+  id: number;
+  fund_id: string;
+  partner_id: string;
+  partner_name: string | null;
+  partner_type: string | null;
+  quarter: string;
+  committed: number;
+  contributed: number;
+  distributed: number;
+  unreturned_capital: number;
+  pref_accrual: number;
+  carry_allocation: number;
+  unrealized_gain: number;
+  nav_share: number;
+  dpi: number | null;
+  rvpi: number | null;
+  tvpi: number | null;
+  created_at: string;
+};
+
+export function getCapitalSnapshots(params: {
+  fund_id: string;
+  quarter: string;
+}): Promise<CapitalAccountSnapshot[]> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/capital-snapshots`, {
+    params: { quarter: params.quarter },
+  });
+}
+
+export function computeCapitalSnapshots(
+  fundId: string,
+  quarter: string,
+): Promise<CapitalAccountSnapshot[]> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/capital-snapshots/compute`, {
+    method: "POST",
+    body: JSON.stringify({ quarter }),
+  });
+}
+
+// ── Waterfall Breakdown ─────────────────────────────────────────────────────
+
+export type WaterfallTierAllocation = {
+  tier_name: string;
+  partner_name: string;
+  partner_type: string;
+  amount: number;
+};
+
+export type WaterfallBreakdown = {
+  fund_id: string;
+  quarter: string;
+  run_id: string | null;
+  allocations: WaterfallTierAllocation[];
+};
+
+export function getWaterfallBreakdown(params: {
+  fund_id: string;
+  quarter: string;
+}): Promise<WaterfallBreakdown> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/waterfall-breakdown`, {
+    params: { quarter: params.quarter },
+  });
+}
+
+// ── Excel Export ────────────────────────────────────────────────────────────
+
+export function exportFundExcelUrl(params: {
+  fund_id: string;
+  env_id: string;
+  business_id: string;
+  quarter: string;
+}): string {
+  const qs = new URLSearchParams({
+    env_id: params.env_id,
+    business_id: params.business_id,
+    quarter: params.quarter,
+  }).toString();
+  return `/bos/api/re/v2/funds/${params.fund_id}/export?${qs}`;
 }

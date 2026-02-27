@@ -13,8 +13,6 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-import pytest
-
 from tests.conftest import FakeCursor
 
 

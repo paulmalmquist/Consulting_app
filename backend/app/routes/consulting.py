@@ -357,7 +357,7 @@ def convert_to_client(body: ConvertToClientRequest):
             account_owner=body.account_owner,
             start_date=body.start_date,
         )
-        _log("cro.client.converted", f"Account converted to client")
+        _log("cro.client.converted", "Account converted to client")
         return result
     except Exception as exc:
         raise _to_http(exc)
