@@ -1210,3 +1210,41 @@ Viewer:
 - Export allowed
 
 Delete restricted to Admin only.
+
+## Novendor Strategic Outreach
+
+- Novendor outreach must live inside the existing Consulting Revenue OS as an additive module, not as a separate generic CRM.
+- The module is a hypothesis-driven execution intelligence system for operator-level outreach.
+- Never auto-send outreach.
+- Never mass-message.
+- All generated outreach must require human approval before send.
+- Strategic outreach must track:
+  - structured leads
+  - pain hypotheses
+  - governance risk
+  - trigger signals
+  - draft outreach
+  - diagnostics
+  - deliverables
+- Priority should be driven by weighted governance, reporting complexity, vendor fragmentation, AI pressure, and multi-entity exposure.
+- Novendor should use executive-safe positioning:
+  - no hype
+  - no urgency language
+  - no product pitch
+  - no calendar link in first touch
+- The strategic outreach UI should remain a consulting sub-module with tabs for:
+  - Heatmap
+  - Active Leads
+  - Trigger Signals
+  - Outreach Queue (Needs Approval)
+  - Diagnostics
+  - Deliverables Sent
+- Seed targets for Novendor include:
+  - U.S. Oral Surgery Management
+  - American Family Care
+  - Brasfield & Gorrie
+  - DPR Construction
+  - Cortland
+  - Hamilton Zanze
+  - Ogletree Deakins
+  - Live Oak Bank
