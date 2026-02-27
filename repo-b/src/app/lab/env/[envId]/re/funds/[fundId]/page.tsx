@@ -26,6 +26,7 @@ import {
   runFiWaterfallShadow,
   listFiRuns,
   listFiUwVersions,
+  getLpSummary,
   FiVarianceResult,
   FiFundMetricsResult,
   FiLoan,
@@ -33,8 +34,10 @@ import {
   FiWatchlistEvent,
   FiRun,
   FiUwVersion,
+  type LpSummary,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
+import SaleScenarioPanel from "@/components/repe/SaleScenarioPanel";
 
 function pickCurrentQuarter(): string {
   const d = new Date();
@@ -68,6 +71,8 @@ const TABS = [
   "Returns (Gross/Net)",
   "Debt Surveillance",
   "Run Center",
+  "Scenarios",
+  "LP Summary",
 ] as const;
 type TabKey = (typeof TABS)[number];
 
@@ -215,6 +220,24 @@ export default function FundDetailPage({
           fundId={params.fundId}
           quarter={quarter}
           isDebtFund={isDebtFund || false}
+        />
+      )}
+      {tab === "Scenarios" && envId && businessId && (
+        <ScenariosTab
+          envId={envId}
+          businessId={businessId}
+          fundId={params.fundId}
+          quarter={quarter}
+          deals={deals}
+          scenarios={scenarios}
+        />
+      )}
+      {tab === "LP Summary" && envId && businessId && (
+        <LpSummaryTab
+          envId={envId}
+          businessId={businessId}
+          fundId={params.fundId}
+          quarter={quarter}
         />
       )}
     </section>
@@ -689,6 +712,205 @@ function RunCenterTab({ envId, businessId, fundId, quarter, isDebtFund }: {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Scenarios Tab ──────────────────────────────────────────────────────────
+
+function ScenariosTab({ envId, businessId, fundId, quarter, deals, scenarios }: {
+  envId: string; businessId: string; fundId: string; quarter: string;
+  deals: RepeDeal[]; scenarios: ReV2Scenario[];
+}) {
+  const [selectedScenarioId, setSelectedScenarioId] = useState(
+    scenarios.find((s) => !s.is_base)?.scenario_id || ""
+  );
+
+  const nonBaseScenarios = scenarios.filter((s) => !s.is_base);
+
+  return (
+    <div className="space-y-4" data-testid="scenarios-section">
+      {/* Scenario selector */}
+      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+        <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+          Active Scenario
+          <select
+            className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
+            value={selectedScenarioId}
+            onChange={(e) => setSelectedScenarioId(e.target.value)}
+          >
+            <option value="">Select a scenario</option>
+            {nonBaseScenarios.map((s) => (
+              <option key={s.scenario_id} value={s.scenario_id}>
+                {s.name} ({s.scenario_type})
+              </option>
+            ))}
+          </select>
+        </label>
+        {nonBaseScenarios.length === 0 && (
+          <p className="mt-2 text-sm text-bm-muted2">
+            No scenarios created yet. Create a scenario via the API to start modeling.
+          </p>
+        )}
+      </div>
+
+      {/* Sale Scenario Panel */}
+      {selectedScenarioId && (
+        <SaleScenarioPanel
+          fundId={fundId}
+          scenarioId={selectedScenarioId}
+          deals={deals}
+          envId={envId}
+          businessId={businessId}
+          quarter={quarter}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── LP Summary Tab ──────────────────────────────────────────────────────────
+
+function LpSummaryTab({ envId, businessId, fundId, quarter }: {
+  envId: string; businessId: string; fundId: string; quarter: string;
+}) {
+  const [data, setData] = useState<LpSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    getLpSummary({ env_id: envId, business_id: businessId, fund_id: fundId, quarter })
+      .then(setData)
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, [envId, businessId, fundId, quarter]);
+
+  if (loading) return <div className="p-4 text-sm text-bm-muted2">Loading LP summary...</div>;
+  if (!data || data.partners.length === 0) {
+    return (
+      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-6 text-center text-sm text-bm-muted2" data-testid="lp-summary-empty">
+        No LP data available. Seed partners and capital ledger entries first.
+      </div>
+    );
+  }
+
+  const fm = data.fund_metrics;
+  const gnb = data.gross_net_bridge;
+
+  return (
+    <div className="space-y-4" data-testid="lp-summary-section">
+      {/* Fund-level KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <MetricCard label="Gross IRR" value={fm.gross_irr ? fmtPercent(fm.gross_irr) : "—"} size="large" />
+        <MetricCard label="Net IRR" value={fm.net_irr ? fmtPercent(fm.net_irr) : "—"} size="large" />
+        <MetricCard label="Gross TVPI" value={fm.gross_tvpi ? fmtMultiple(fm.gross_tvpi) : "—"} size="large" />
+        <MetricCard label="DPI" value={fm.dpi ? fmtMultiple(fm.dpi) : "—"} size="large" />
+        <MetricCard label="Fund NAV" value={fmtMoney(data.fund_nav)} size="large" />
+        <MetricCard label="Total Committed" value={fmtMoney(data.total_committed)} size="large" />
+      </div>
+
+      {/* Partner Table */}
+      <div className="rounded-xl border border-bm-border/70 overflow-hidden" data-testid="lp-partner-table">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-bm-border/50 bg-bm-surface/30 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
+              <th className="px-4 py-3 font-medium">Partner</th>
+              <th className="px-4 py-3 font-medium">Type</th>
+              <th className="px-4 py-3 font-medium text-right">Committed</th>
+              <th className="px-4 py-3 font-medium text-right">Contributed</th>
+              <th className="px-4 py-3 font-medium text-right">Distributed</th>
+              <th className="px-4 py-3 font-medium text-right">NAV Share</th>
+              <th className="px-4 py-3 font-medium text-right">DPI</th>
+              <th className="px-4 py-3 font-medium text-right">TVPI</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-bm-border/40">
+            {data.partners.map((p) => (
+              <tr key={p.partner_id} className="hover:bg-bm-surface/20">
+                <td className="px-4 py-3 font-medium">{p.name}</td>
+                <td className="px-4 py-3">
+                  <span className="rounded-full border border-bm-border/70 px-2 py-0.5 text-[11px] uppercase tracking-[0.08em]">
+                    {p.partner_type}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-right">{fmtMoney(p.committed)}</td>
+                <td className="px-4 py-3 text-right">{fmtMoney(p.contributed)}</td>
+                <td className="px-4 py-3 text-right">{fmtMoney(p.distributed)}</td>
+                <td className="px-4 py-3 text-right">{p.nav_share ? fmtMoney(p.nav_share) : "—"}</td>
+                <td className="px-4 py-3 text-right">{p.dpi ? fmtMultiple(p.dpi) : "—"}</td>
+                <td className="px-4 py-3 text-right">{p.tvpi ? fmtMultiple(p.tvpi) : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-bm-border/60 bg-bm-surface/20 font-semibold">
+              <td className="px-4 py-3" colSpan={2}>Total</td>
+              <td className="px-4 py-3 text-right">{fmtMoney(data.total_committed)}</td>
+              <td className="px-4 py-3 text-right">{fmtMoney(data.total_contributed)}</td>
+              <td className="px-4 py-3 text-right">{fmtMoney(data.total_distributed)}</td>
+              <td className="px-4 py-3 text-right">{fmtMoney(data.fund_nav)}</td>
+              <td className="px-4 py-3 text-right" colSpan={2} />
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* Gross→Net Bridge */}
+      {gnb && Object.keys(gnb).length > 0 && (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 space-y-3" data-testid="lp-gross-net-bridge">
+          <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Gross → Net Bridge</h3>
+          <div className="space-y-2">
+            {[
+              { label: "Gross Return", value: fmtMoney(gnb.gross_return), color: "text-green-400" },
+              { label: "− Management Fees", value: `(${fmtMoney(gnb.mgmt_fees)})`, color: "text-red-400" },
+              { label: "− Fund Expenses", value: `(${fmtMoney(gnb.fund_expenses)})`, color: "text-red-400" },
+              { label: "− Carry", value: `(${fmtMoney(gnb.carry)})`, color: "text-red-400" },
+            ].map((row) => (
+              <div key={row.label} className="flex items-center justify-between border-b border-bm-border/30 py-2">
+                <span className="text-sm">{row.label}</span>
+                <span className={`font-medium ${row.color}`}>{row.value}</span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between border-t-2 border-bm-border/60 pt-2">
+              <span className="text-sm font-semibold">= Net Return</span>
+              <span className={`text-lg font-bold ${Number(gnb.net_return) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                {fmtMoney(gnb.net_return)}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Waterfall Allocations per Partner */}
+      {data.partners.some((p) => p.waterfall_allocation) && (
+        <div className="rounded-xl border border-bm-border/70 overflow-hidden" data-testid="lp-waterfall-table">
+          <div className="bg-bm-surface/30 px-4 py-3">
+            <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Waterfall Allocation</h3>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-bm-border/50 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
+                <th className="px-4 py-2 font-medium">Partner</th>
+                <th className="px-4 py-2 font-medium text-right">Return of Capital</th>
+                <th className="px-4 py-2 font-medium text-right">Pref Return</th>
+                <th className="px-4 py-2 font-medium text-right">Carry</th>
+                <th className="px-4 py-2 font-medium text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-bm-border/40">
+              {data.partners.filter((p) => p.waterfall_allocation).map((p) => (
+                <tr key={p.partner_id} className="hover:bg-bm-surface/20">
+                  <td className="px-4 py-2 font-medium">{p.name}</td>
+                  <td className="px-4 py-2 text-right">{fmtMoney(p.waterfall_allocation?.return_of_capital)}</td>
+                  <td className="px-4 py-2 text-right">{fmtMoney(p.waterfall_allocation?.preferred_return)}</td>
+                  <td className="px-4 py-2 text-right">{fmtMoney(p.waterfall_allocation?.carry)}</td>
+                  <td className="px-4 py-2 text-right font-semibold">{fmtMoney(p.waterfall_allocation?.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

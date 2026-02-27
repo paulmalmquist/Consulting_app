@@ -2982,3 +2982,144 @@ export function seedFiData(params: {
 }): Promise<Record<string, unknown>> {
   return bosFetch("/api/re/v2/fi/seed", { method: "POST", params });
 }
+
+// ── Sale Scenarios ─────────────────────────────────────────────────────────
+
+export type SaleAssumption = {
+  id: number;
+  fund_id: string;
+  scenario_id: string;
+  deal_id: string;
+  asset_id?: string;
+  sale_price: string;
+  sale_date: string;
+  buyer_costs: string;
+  disposition_fee_pct: string;
+  memo?: string;
+  created_by?: string;
+  created_at: string;
+};
+
+export type ScenarioComputeResult = {
+  scenario_id: string;
+  fund_id: string;
+  quarter: string;
+  base_gross_irr?: string;
+  scenario_gross_irr?: string;
+  irr_delta?: string;
+  base_gross_tvpi?: string;
+  scenario_gross_tvpi?: string;
+  tvpi_delta?: string;
+  scenario_net_irr?: string;
+  scenario_net_tvpi?: string;
+  scenario_dpi?: string;
+  scenario_rvpi?: string;
+  carry_estimate: string;
+  total_sale_proceeds: string;
+  sale_count: number;
+  snapshot_id?: string;
+};
+
+export type WaterfallAllocation = {
+  return_of_capital?: string;
+  preferred_return?: string;
+  carry?: string;
+  total?: string;
+};
+
+export type LpPartnerSummary = {
+  partner_id: string;
+  name: string;
+  partner_type: string;
+  committed: string;
+  contributed: string;
+  distributed: string;
+  nav_share?: string;
+  dpi?: string;
+  tvpi?: string;
+  waterfall_allocation?: WaterfallAllocation;
+};
+
+export type LpSummary = {
+  fund_id: string;
+  quarter: string;
+  fund_metrics: Record<string, string | null>;
+  gross_net_bridge: Record<string, string | null>;
+  partners: LpPartnerSummary[];
+  total_committed: string;
+  total_contributed: string;
+  total_distributed: string;
+  fund_nav: string;
+};
+
+export function createSaleAssumption(
+  fundId: string,
+  body: {
+    scenario_id: string;
+    deal_id: string;
+    asset_id?: string;
+    sale_price: number;
+    sale_date: string;
+    buyer_costs?: number;
+    disposition_fee_pct?: number;
+    memo?: string;
+  },
+): Promise<SaleAssumption> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/sale-scenarios`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listSaleAssumptions(
+  fundId: string,
+  scenarioId: string,
+): Promise<SaleAssumption[]> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/sale-scenarios`, {
+    params: { scenario_id: scenarioId },
+  });
+}
+
+export function deleteSaleAssumption(assumptionId: number): Promise<void> {
+  return bosFetch(`/api/re/v2/sale-scenarios/${assumptionId}`, {
+    method: "DELETE",
+  });
+}
+
+export function computeScenarioMetrics(
+  fundId: string,
+  body: {
+    scenario_id: string;
+    quarter: string;
+    env_id: string;
+    business_id: string;
+  },
+): Promise<ScenarioComputeResult> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/scenario-compute`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getLpSummary(params: {
+  fund_id: string;
+  env_id: string;
+  business_id: string;
+  quarter: string;
+}): Promise<LpSummary> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/lp_summary`, {
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+      quarter: params.quarter,
+    },
+  });
+}
+
+export function seedInstitutionalFund(params: {
+  env_id: string;
+  business_id: string;
+  fund_id: string;
+}): Promise<Record<string, unknown>> {
+  return bosFetch("/api/re/v2/fi/seed-institutional", { method: "POST", params });
+}

@@ -10,7 +10,7 @@ Tests:
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 import pytest
@@ -154,10 +154,22 @@ class TestQuarterCloseCreatesRun:
         fake_cursor.push_result([{"portfolio_nav": Decimal("28000000")}])
         # SELECT cash totals
         fake_cursor.push_result([{"total_called": Decimal("25000000"), "total_distributed": Decimal("1500000")}])
+        # SELECT re_cash_event for gross XIRR
+        fake_cursor.push_result([
+            {"event_date": date(2025, 1, 15), "event_type": "CALL", "amount": Decimal("25000000")},
+            {"event_date": date(2025, 12, 31), "event_type": "DIST", "amount": Decimal("1500000")},
+        ])
         # SELECT fee accruals sum
         fake_cursor.push_result([{"total": Decimal("93750")}])
         # SELECT fund expenses sum
         fake_cursor.push_result([{"total": Decimal("45000")}])
+        # Waterfall definition lookup (empty → fallback to simplified carry)
+        fake_cursor.push_result([])
+        # SELECT re_cash_event for net XIRR
+        fake_cursor.push_result([
+            {"event_date": date(2025, 1, 15), "event_type": "CALL", "amount": Decimal("25000000")},
+            {"event_date": date(2025, 12, 31), "event_type": "DIST", "amount": Decimal("1500000")},
+        ])
         # INSERT re_fund_metrics_qtr
         fake_cursor.push_result([{
             "id": str(uuid.uuid4()),

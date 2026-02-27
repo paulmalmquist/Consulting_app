@@ -263,3 +263,92 @@ class WatchlistEventOut(BaseModel):
     severity: str
     reason: str
     created_at: datetime
+
+
+# ── Sale Scenarios ──────────────────────────────────────────────────────────
+
+class SaleAssumptionCreate(BaseModel):
+    scenario_id: UUID
+    deal_id: UUID
+    asset_id: UUID | None = None
+    sale_price: Decimal
+    sale_date: date
+    buyer_costs: Decimal = Decimal("0")
+    disposition_fee_pct: Decimal = Decimal("0")
+    memo: str | None = None
+
+
+class SaleAssumptionOut(BaseModel):
+    id: int
+    fund_id: UUID
+    scenario_id: UUID
+    deal_id: UUID
+    asset_id: UUID | None = None
+    sale_price: Decimal
+    sale_date: date
+    buyer_costs: Decimal
+    disposition_fee_pct: Decimal
+    memo: str | None = None
+    created_by: str | None = None
+    created_at: datetime
+
+
+class ScenarioComputeRequest(BaseModel):
+    scenario_id: UUID
+    quarter: str = Field(pattern=r"^\d{4}Q[1-4]$")
+    env_id: str
+    business_id: UUID
+
+
+class ScenarioComputeResult(BaseModel):
+    scenario_id: str
+    fund_id: str
+    quarter: str
+    base_gross_irr: str | None = None
+    scenario_gross_irr: str | None = None
+    irr_delta: str | None = None
+    base_gross_tvpi: str | None = None
+    scenario_gross_tvpi: str | None = None
+    tvpi_delta: str | None = None
+    scenario_net_irr: str | None = None
+    scenario_net_tvpi: str | None = None
+    scenario_dpi: str | None = None
+    scenario_rvpi: str | None = None
+    carry_estimate: str
+    total_sale_proceeds: str
+    sale_count: int
+    snapshot_id: str | None = None
+
+
+# ── LP Summary ──────────────────────────────────────────────────────────────
+
+class WaterfallAllocation(BaseModel):
+    return_of_capital: str | None = None
+    preferred_return: str | None = None
+    carry: str | None = None
+    total: str | None = None
+
+
+class LpPartnerSummary(BaseModel):
+    partner_id: str
+    name: str
+    partner_type: str
+    committed: str
+    contributed: str
+    distributed: str
+    nav_share: str | None = None
+    dpi: str | None = None
+    tvpi: str | None = None
+    waterfall_allocation: WaterfallAllocation | None = None
+
+
+class LpSummaryResult(BaseModel):
+    fund_id: str
+    quarter: str
+    fund_metrics: dict = Field(default_factory=dict)
+    gross_net_bridge: dict = Field(default_factory=dict)
+    partners: list[LpPartnerSummary] = Field(default_factory=list)
+    total_committed: str
+    total_contributed: str
+    total_distributed: str
+    fund_nav: str

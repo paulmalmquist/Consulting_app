@@ -4,6 +4,8 @@ Computes quarterly and inception-to-date metrics:
 - Cash-on-Cash, Gross IRR/Net IRR, Gross TVPI/Net TVPI, DPI, RVPI
 - Gross→Net bridge: gross return minus mgmt fees minus expenses minus carry = net
 - Fee accrual via management fee policy
+- XIRR via deterministic binary-search engine (irr_engine)
+- Carry via real waterfall engine when definition exists
 """
 from __future__ import annotations
 
@@ -12,6 +14,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from app.db import get_cursor
+from app.finance.irr_engine import xirr as _xirr
 from app.observability.logger import emit_log
 
 
@@ -33,6 +36,96 @@ def _quarter_end_date(quarter: str) -> date:
         return date(year, 9, 30)
     else:
         return date(year, 12, 31)
+
+
+def _compute_fund_xirr(
+    cur,
+    env_id: str,
+    business_id: UUID,
+    fund_id: UUID,
+    quarter: str,
+    terminal_nav: Decimal,
+) -> Decimal | None:
+    """Compute fund-level gross XIRR from cash events + terminal NAV.
+
+    Builds cashflows:
+      - Capital calls as negative (outflows)
+      - Distributions as positive (inflows)
+      - Terminal NAV as positive on quarter end date
+    """
+    as_of = _quarter_end_date(quarter)
+    cur.execute(
+        """
+        SELECT event_date, event_type, amount
+        FROM re_cash_event
+        WHERE env_id = %s AND business_id = %s AND fund_id = %s
+            AND event_type IN ('CALL', 'DIST')
+            AND event_date <= %s
+        ORDER BY event_date
+        """,
+        (env_id, str(business_id), str(fund_id), str(as_of)),
+    )
+    rows = cur.fetchall()
+
+    cashflows: list[tuple[date, Decimal]] = []
+    for row in rows:
+        amt = Decimal(str(row["amount"]))
+        dt = row["event_date"] if isinstance(row["event_date"], date) else date.fromisoformat(str(row["event_date"]))
+        if row["event_type"] == "CALL":
+            cashflows.append((dt, -amt))
+        else:
+            cashflows.append((dt, amt))
+
+    # Terminal value: NAV as of quarter end
+    if terminal_nav > 0:
+        cashflows.append((as_of, terminal_nav))
+
+    if len(cashflows) < 2:
+        return None
+
+    return _xirr(cashflows)
+
+
+def _compute_net_xirr(
+    cur,
+    env_id: str,
+    business_id: UUID,
+    fund_id: UUID,
+    quarter: str,
+    terminal_nav: Decimal,
+    mgmt_fees: Decimal,
+    fund_expenses: Decimal,
+    carry: Decimal,
+) -> Decimal | None:
+    """Compute fund-level net XIRR.
+
+    Same as gross XIRR but terminal value is reduced by cumulative
+    fees, expenses, and carry.
+    """
+    net_terminal = terminal_nav - mgmt_fees - fund_expenses - carry
+    if net_terminal < 0:
+        net_terminal = Decimal("0")
+    return _compute_fund_xirr(cur, env_id, business_id, fund_id, quarter, net_terminal)
+
+
+def _compute_waterfall_carry(fund_id: UUID, quarter: str, gross_return: Decimal, total_called: Decimal) -> Decimal:
+    """Compute carry using real waterfall engine if definition exists, else simplified fallback."""
+    try:
+        from app.services.re_waterfall_runtime import run_waterfall
+        wf_result = run_waterfall(fund_id=fund_id, quarter=quarter)
+        # Sum carry + catch-up allocations from waterfall results
+        carry = Decimal("0")
+        for result in (wf_result.get("results") or []):
+            tier_code = result.get("tier_code", "")
+            if "carry" in tier_code or "catch_up" in tier_code:
+                carry += Decimal(str(result.get("amount", 0)))
+        return carry.quantize(Decimal("0.01"))
+    except (LookupError, ValueError, ImportError):
+        # Fallback: simplified carry (20% of gains above 8% pref hurdle)
+        pref_hurdle = total_called * Decimal("0.08")
+        if gross_return > pref_hurdle:
+            return ((gross_return - pref_hurdle) * Decimal("0.20")).quantize(Decimal("0.01"))
+        return Decimal("0")
 
 
 def compute_fee_accrual(
@@ -197,9 +290,11 @@ def compute_return_metrics(
         rvpi = (nav / total_called).quantize(Decimal("0.0001")) if total_called > 0 else None
         gross_tvpi = ((total_distributed + nav) / total_called).quantize(Decimal("0.0001")) if total_called > 0 else None
 
-        # Gross return = (distributed + NAV - called) / called
+        # Gross return (absolute)
         gross_return = total_distributed + nav - total_called
-        gross_irr = (gross_return / total_called).quantize(Decimal("0.0001")) if total_called > 0 else None
+
+        # Gross IRR via XIRR engine (date-weighted, not simple ratio)
+        gross_irr = _compute_fund_xirr(cur, env_id, business_id, fund_id, quarter, nav)
 
         # Cash-on-Cash = distributions / called
         cash_on_cash = dpi  # same ratio
@@ -227,15 +322,18 @@ def compute_return_metrics(
         expense_row = cur.fetchone()
         fund_expenses = Decimal(str(expense_row["total"])) if expense_row else Decimal("0")
 
-        # Shadow carry (simplified: 20% of gains above 8% pref)
-        pref_hurdle = total_called * Decimal("0.08")
-        carry_shadow = Decimal("0")
-        if gross_return > pref_hurdle:
-            carry_shadow = ((gross_return - pref_hurdle) * Decimal("0.20")).quantize(Decimal("0.01"))
+        # Carry via real waterfall engine (falls back to simplified if no definition)
+        carry_shadow = _compute_waterfall_carry(fund_id, quarter, gross_return, total_called)
 
         # Net return
         net_return = gross_return - mgmt_fees - fund_expenses - carry_shadow
-        net_irr = (net_return / total_called).quantize(Decimal("0.0001")) if total_called > 0 else None
+
+        # Net IRR via XIRR engine (terminal NAV reduced by fees/expenses/carry)
+        net_irr = _compute_net_xirr(
+            cur, env_id, business_id, fund_id, quarter,
+            nav, mgmt_fees, fund_expenses, carry_shadow,
+        )
+
         net_tvpi = ((total_distributed + nav - mgmt_fees - fund_expenses - carry_shadow) / total_called).quantize(Decimal("0.0001")) if total_called > 0 else None
 
         gross_net_spread = None

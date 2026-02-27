@@ -241,40 +241,55 @@ def run_waterfall_shadow(
     run_id = UUID(str(run["id"]))
 
     try:
-        # Compute simplified carry estimate
-        with get_cursor() as cur:
-            cur.execute(
-                """
-                SELECT
-                    COALESCE(SUM(CASE WHEN event_type = 'CALL' THEN amount ELSE 0 END), 0) AS total_called,
-                    COALESCE(SUM(CASE WHEN event_type = 'DIST' THEN amount ELSE 0 END), 0) AS total_distributed
-                FROM re_cash_event
-                WHERE env_id = %s AND business_id = %s AND fund_id = %s
-                """,
-                (env_id, str(business_id), str(fund_id)),
-            )
-            totals = cur.fetchone()
-
-            cur.execute(
-                """
-                SELECT portfolio_nav FROM re_fund_quarter_state
-                WHERE fund_id = %s AND quarter = %s
-                ORDER BY created_at DESC LIMIT 1
-                """,
-                (str(fund_id), quarter),
-            )
-            state = cur.fetchone()
-
         from decimal import Decimal
-        called = Decimal(str(totals["total_called"])) if totals else Decimal("0")
-        distributed = Decimal(str(totals["total_distributed"])) if totals else Decimal("0")
-        nav = Decimal(str(state["portfolio_nav"])) if state and state.get("portfolio_nav") else Decimal("0")
 
-        gross_return = distributed + nav - called
-        pref_hurdle = called * Decimal("0.08")
         carry = Decimal("0")
-        if gross_return > pref_hurdle:
-            carry = ((gross_return - pref_hurdle) * Decimal("0.20")).quantize(Decimal("0.01"))
+        waterfall_run_id = None
+
+        # Try real waterfall engine first
+        try:
+            from app.services.re_waterfall_runtime import run_waterfall
+            wf_result = run_waterfall(fund_id=fund_id, quarter=quarter)
+            waterfall_run_id = wf_result.get("run_id")
+            # Sum carry + catch-up allocations from waterfall results
+            for result in (wf_result.get("results") or []):
+                tier_code = result.get("tier_code", "")
+                if "carry" in tier_code or "catch_up" in tier_code:
+                    carry += Decimal(str(result.get("amount", 0)))
+            carry = carry.quantize(Decimal("0.01"))
+        except (LookupError, ValueError):
+            # Fallback: simplified carry when no waterfall definition exists
+            with get_cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT
+                        COALESCE(SUM(CASE WHEN event_type = 'CALL' THEN amount ELSE 0 END), 0) AS total_called,
+                        COALESCE(SUM(CASE WHEN event_type = 'DIST' THEN amount ELSE 0 END), 0) AS total_distributed
+                    FROM re_cash_event
+                    WHERE env_id = %s AND business_id = %s AND fund_id = %s
+                    """,
+                    (env_id, str(business_id), str(fund_id)),
+                )
+                totals = cur.fetchone()
+
+                cur.execute(
+                    """
+                    SELECT portfolio_nav FROM re_fund_quarter_state
+                    WHERE fund_id = %s AND quarter = %s
+                    ORDER BY created_at DESC LIMIT 1
+                    """,
+                    (str(fund_id), quarter),
+                )
+                state = cur.fetchone()
+
+            called = Decimal(str(totals["total_called"])) if totals else Decimal("0")
+            distributed = Decimal(str(totals["total_distributed"])) if totals else Decimal("0")
+            nav = Decimal(str(state["portfolio_nav"])) if state and state.get("portfolio_nav") else Decimal("0")
+
+            gross_return = distributed + nav - called
+            pref_hurdle = called * Decimal("0.08")
+            if gross_return > pref_hurdle:
+                carry = ((gross_return - pref_hurdle) * Decimal("0.20")).quantize(Decimal("0.01"))
 
         # Update bridge with carry shadow
         with get_cursor() as cur:
@@ -290,7 +305,7 @@ def run_waterfall_shadow(
 
         _complete_run(run_id=run_id)
 
-        return {
+        result = {
             "run_id": str(run_id),
             "fund_id": str(fund_id),
             "quarter": quarter,
@@ -298,6 +313,9 @@ def run_waterfall_shadow(
             "status": "success",
             "carry_shadow": str(carry),
         }
+        if waterfall_run_id:
+            result["waterfall_run_id"] = str(waterfall_run_id)
+        return result
 
     except Exception as exc:
         _fail_run(run_id=run_id, error_msg=str(exc))

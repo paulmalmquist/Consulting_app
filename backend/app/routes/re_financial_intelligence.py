@@ -18,6 +18,7 @@ from app.schemas.re_financial_intelligence import (
     CovenantResultOut,
     FundMetricsResult,
     LoanOut,
+    LpSummaryResult,
     NoiBudgetMonthlyRequest,
     RunCovenantTestRequest,
     RunCovenantTestResult,
@@ -25,6 +26,10 @@ from app.schemas.re_financial_intelligence import (
     RunQuarterCloseRequest,
     RunQuarterCloseResult,
     RunWaterfallShadowRequest,
+    SaleAssumptionCreate,
+    SaleAssumptionOut,
+    ScenarioComputeRequest,
+    ScenarioComputeResult,
     UwVersionCreateRequest,
     UwVersionOut,
     VarianceResult,
@@ -38,6 +43,7 @@ from app.services import (
     re_debt_surveillance,
     re_run_engine,
     re_fi_seed,
+    re_sale_scenario,
 )
 
 router = APIRouter(prefix="/api/re/v2", tags=["re-v2-financial-intelligence"])
@@ -326,6 +332,24 @@ def seed_fi_data(
         raise _to_http(exc)
 
 
+@router.post("/fi/seed-institutional")
+def seed_institutional_fund(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    fund_id: UUID = Query(...),
+):
+    """Seed Institutional Growth Fund VII with 12 investments, 4 partners, waterfall."""
+    try:
+        result = re_fi_seed.seed_institutional_fund(
+            env_id=env_id,
+            business_id=business_id,
+            fund_id=fund_id,
+        )
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
 # ── Budget UW Versions List ──────────────────────────────────────────────────
 
 @router.get("/budget/uw_versions")
@@ -335,5 +359,87 @@ def list_uw_versions(
 ):
     try:
         return re_budget.list_uw_versions(env_id=env_id, business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Sale Scenarios ──────────────────────────────────────────────────────────
+
+@router.post("/funds/{fund_id}/sale-scenarios", response_model=SaleAssumptionOut, status_code=201)
+def create_sale_assumption(fund_id: UUID, body: SaleAssumptionCreate):
+    """Create or update a hypothetical sale assumption for scenario modeling."""
+    try:
+        return re_sale_scenario.create_sale_assumption(
+            fund_id=fund_id,
+            scenario_id=body.scenario_id,
+            deal_id=body.deal_id,
+            asset_id=body.asset_id,
+            sale_price=body.sale_price,
+            sale_date=body.sale_date,
+            buyer_costs=body.buyer_costs,
+            disposition_fee_pct=body.disposition_fee_pct,
+            memo=body.memo,
+            created_by="api",
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/funds/{fund_id}/sale-scenarios", response_model=list[SaleAssumptionOut])
+def list_sale_assumptions(
+    fund_id: UUID,
+    scenario_id: UUID = Query(...),
+):
+    """List all sale assumptions for a fund+scenario."""
+    try:
+        return re_sale_scenario.list_sale_assumptions(
+            fund_id=fund_id,
+            scenario_id=scenario_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.delete("/sale-scenarios/{assumption_id}", status_code=204)
+def delete_sale_assumption(assumption_id: int):
+    """Delete a sale assumption."""
+    try:
+        re_sale_scenario.delete_sale_assumption(assumption_id=assumption_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/funds/{fund_id}/scenario-compute", response_model=ScenarioComputeResult)
+def compute_scenario_metrics(fund_id: UUID, body: ScenarioComputeRequest):
+    """Compute scenario-specific metrics with sale assumptions applied."""
+    try:
+        return re_sale_scenario.compute_scenario_metrics(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            fund_id=fund_id,
+            scenario_id=body.scenario_id,
+            quarter=body.quarter,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── LP Summary ──────────────────────────────────────────────────────────────
+
+@router.get("/funds/{fund_id}/lp_summary", response_model=LpSummaryResult)
+def get_lp_summary(
+    fund_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    quarter: str = Query(...),
+):
+    """Get consolidated LP summary with capital accounts, metrics, and waterfall allocations."""
+    try:
+        return re_sale_scenario.get_lp_summary(
+            env_id=env_id,
+            business_id=business_id,
+            fund_id=fund_id,
+            quarter=quarter,
+        )
     except Exception as exc:
         raise _to_http(exc)
