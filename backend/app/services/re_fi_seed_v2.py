@@ -14,7 +14,6 @@ Re-runnable: uses deterministic UUIDs + delete-before-insert for accounting data
 from __future__ import annotations
 
 import uuid as _uuid
-from decimal import Decimal
 from uuid import UUID
 
 from app.db import get_cursor

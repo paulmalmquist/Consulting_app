@@ -1248,3 +1248,8 @@ Delete restricted to Admin only.
   - Hamilton Zanze
   - Ogletree Deakins
   - Live Oak Bank
+
+## Deployment Lint Gate
+
+- Before merge or deploy, run backend Ruff on the actual backend paths: `python -m ruff check backend/app backend/tests`.
+- Unused imports and unused locals must be removed before CI; do not leave cleanup for the pipeline.

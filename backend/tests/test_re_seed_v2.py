@@ -12,8 +12,6 @@ Tests:
 
 import uuid
 from datetime import datetime
-from decimal import Decimal
-from unittest.mock import patch
 
 from tests.conftest import FakeCursor
 
@@ -68,7 +66,6 @@ class TestHelperFunctions:
         assert "TAXES" in result
         assert result["RENT"] > 0
         # NOI margin ~65% for office
-        gross = result["RENT"]
         opex = sum(v for k, v in result.items() if k not in ("RENT", "OTHER_INCOME", "VACANCY"))
         vacancy = result["VACANCY"]
         noi = result["RENT"] + result["OTHER_INCOME"] - vacancy - opex
