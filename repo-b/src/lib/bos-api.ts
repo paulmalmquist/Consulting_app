@@ -207,6 +207,34 @@ async function bosFetch<T>(path: string, options: RequestInit & { params?: Recor
   return res.json() as Promise<T>;
 }
 
+/**
+ * Direct same-origin fetch for Next.js API routes that query Supabase directly.
+ * These routes bypass the /bos proxy entirely and work even when the Python
+ * backend is not deployed.
+ */
+async function directFetch<T>(path: string, options: RequestInit & { params?: Record<string, string | undefined> } = {}): Promise<T> {
+  const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+  const url = new URL(path, origin);
+  if (options.params) {
+    Object.entries(options.params).forEach(([k, v]) => {
+      if (v) url.searchParams.set(k, v);
+    });
+  }
+  const res = await fetch(url.toString(), {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+  });
+  if (!res.ok) {
+    const error = new Error(`Direct API request failed (${res.status})`) as BosApiError;
+    error.status = res.status;
+    throw error;
+  }
+  return res.json() as Promise<T>;
+}
+
 // ── Types ────────────────────────────────────────────────────────────
 
 export interface Department {
@@ -1381,7 +1409,19 @@ export interface RepeAsset {
   deal_id: string;
   asset_type: "property" | "cmbs";
   name: string;
+  jv_id?: string | null;
+  acquisition_date?: string | null;
+  cost_basis?: string | null;
+  asset_status?: string | null;
   created_at: string;
+  // Property-specific fields (joined from repe_property_asset)
+  property_type?: string | null;
+  units?: number | null;
+  market?: string | null;
+  current_noi?: string | null;
+  occupancy?: string | null;
+  gross_sf?: string | null;
+  year_built?: number | null;
 }
 
 export interface RepeAssetDetail {
@@ -1563,11 +1603,11 @@ export function getReV1Fund(fundId: string): Promise<RepeFundDetail> {
 }
 
 export function getRepeFund(fundId: string): Promise<RepeFundDetail> {
-  return bosFetch(`/api/repe/funds/${fundId}`);
+  return directFetch(`/api/repe/funds/${fundId}`);
 }
 
 export function listRepeDeals(fundId: string): Promise<RepeDeal[]> {
-  return bosFetch(`/api/repe/funds/${fundId}/deals`);
+  return directFetch(`/api/repe/funds/${fundId}/deals`);
 }
 
 export function createRepeDeal(
@@ -1591,7 +1631,7 @@ export function getRepeDeal(dealId: string): Promise<RepeDeal> {
 }
 
 export function listRepeAssets(dealId: string): Promise<RepeAsset[]> {
-  return bosFetch(`/api/repe/deals/${dealId}/assets`);
+  return directFetch(`/api/repe/deals/${dealId}/assets`);
 }
 
 export function createRepeAsset(
@@ -2328,7 +2368,7 @@ export function getReInvestorStatement(investorId: string, fundId: string, quart
 
 // Investments
 export function listReV2Investments(fundId: string): Promise<ReV2Investment[]> {
-  return bosFetch(`/api/re/v2/funds/${fundId}/investments`);
+  return directFetch(`/api/re/v2/funds/${fundId}/investments`);
 }
 
 export function getReV2Investment(investmentId: string): Promise<ReV2Investment> {
@@ -2436,7 +2476,7 @@ export function listReV2CapitalLedger(fundId: string, quarter?: string): Promise
 
 // Quarter State
 export function getReV2FundQuarterState(fundId: string, quarter: string, scenarioId?: string): Promise<ReV2FundQuarterState> {
-  return bosFetch(`/api/re/v2/funds/${fundId}/quarter-state/${quarter}`, { params: { scenario_id: scenarioId } });
+  return directFetch(`/api/re/v2/funds/${fundId}/quarter-state/${quarter}`, { params: { scenario_id: scenarioId } });
 }
 
 export function getReV2InvestmentQuarterState(investmentId: string, quarter: string): Promise<ReV2InvestmentQuarterState> {
@@ -2449,7 +2489,7 @@ export function getReV2JvQuarterState(jvId: string, quarter: string): Promise<Re
 
 // Metrics
 export function getReV2FundMetrics(fundId: string, quarter: string): Promise<ReV2FundMetrics> {
-  return bosFetch(`/api/re/v2/funds/${fundId}/metrics/${quarter}`);
+  return directFetch(`/api/re/v2/funds/${fundId}/metrics/${quarter}`);
 }
 
 export function getReV2PartnerMetrics(fundId: string, quarter: string): Promise<ReV2PartnerMetrics[]> {
@@ -2490,7 +2530,7 @@ export function listReV2WaterfallRuns(fundId: string, quarter?: string): Promise
 
 // Scenarios
 export function listReV2Scenarios(fundId: string): Promise<ReV2Scenario[]> {
-  return bosFetch(`/api/re/v2/funds/${fundId}/scenarios`);
+  return directFetch(`/api/re/v2/funds/${fundId}/scenarios`);
 }
 
 export function createReV2Scenario(fundId: string, body: {
@@ -2986,6 +3026,16 @@ export function seedFiData(params: {
   debt_fund_id?: string;
 }): Promise<Record<string, unknown>> {
   return bosFetch("/api/re/v2/fi/seed", { method: "POST", params });
+}
+
+export function seedReV2Data(params: {
+  fund_id: string;
+  business_id: string;
+}): Promise<Record<string, unknown>> {
+  return directFetch("/api/re/v2/seed", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
 }
 
 // ── Sale Scenarios ─────────────────────────────────────────────────────────

@@ -16,18 +16,26 @@ export async function GET(
   try {
     const res = await pool.query(
       `SELECT
-         asset_id::text,
-         deal_id::text,
-         asset_type,
-         name,
-         jv_id::text,
-         acquisition_date,
-         cost_basis,
-         asset_status,
-         created_at
-       FROM repe_asset
-       WHERE deal_id = $1::uuid
-       ORDER BY created_at DESC`,
+         a.asset_id::text,
+         a.deal_id::text,
+         a.asset_type,
+         a.name,
+         a.jv_id::text,
+         a.acquisition_date,
+         a.cost_basis,
+         a.asset_status,
+         a.created_at,
+         p.property_type,
+         p.units,
+         p.market,
+         p.current_noi,
+         p.occupancy,
+         p.gross_sf,
+         p.year_built
+       FROM repe_asset a
+       LEFT JOIN repe_property_asset p ON a.asset_id = p.asset_id
+       WHERE a.deal_id = $1::uuid
+       ORDER BY a.created_at DESC`,
       [params.dealId]
     );
     return Response.json(res.rows);

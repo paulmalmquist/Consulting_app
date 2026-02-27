@@ -39,6 +39,7 @@ import {
   FiRun,
   FiUwVersion,
   type LpSummary,
+  seedReV2Data,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import SaleScenarioPanel from "@/components/repe/SaleScenarioPanel";
@@ -109,23 +110,51 @@ export default function FundDetailPage({
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    Promise.all([
-      getRepeFund(params.fundId),
-      listRepeDeals(params.fundId),
-      listReV2Investments(params.fundId).catch(() => []),
-      getReV2FundQuarterState(params.fundId, quarter).catch(() => null),
-      getReV2FundMetrics(params.fundId, quarter).catch(() => null),
-      listReV2Scenarios(params.fundId).catch(() => []),
-    ])
-      .then(([d, dls, inv, fs, fm, sc]) => {
-        if (cancelled) return;
-        setDetail(d);
-        setDeals(dls);
-        setInvestments(inv as ReV2Investment[]);
-        setFundState(fs);
-        setFundMetrics(fm);
-        setScenarios(sc);
-      })
+
+    async function loadFund() {
+      const [d, dls, inv, fs, fm, sc] = await Promise.all([
+        getRepeFund(params.fundId),
+        listRepeDeals(params.fundId),
+        listReV2Investments(params.fundId).catch(() => []),
+        getReV2FundQuarterState(params.fundId, quarter).catch(() => null),
+        getReV2FundMetrics(params.fundId, quarter).catch(() => null),
+        listReV2Scenarios(params.fundId).catch(() => []),
+      ]);
+      if (cancelled) return;
+
+      // Auto-seed scenarios + KPIs if missing and we have businessId
+      const needsSeed = (sc as ReV2Scenario[]).length === 0 || !fs;
+      if (needsSeed && businessId) {
+        try {
+          await seedReV2Data({ fund_id: params.fundId, business_id: businessId });
+          // Re-fetch after seed
+          const [fs2, fm2, sc2] = await Promise.all([
+            getReV2FundQuarterState(params.fundId, quarter).catch(() => null),
+            getReV2FundMetrics(params.fundId, quarter).catch(() => null),
+            listReV2Scenarios(params.fundId).catch(() => []),
+          ]);
+          if (cancelled) return;
+          setDetail(d);
+          setDeals(dls);
+          setInvestments(inv as ReV2Investment[]);
+          setFundState(fs2);
+          setFundMetrics(fm2);
+          setScenarios(sc2);
+          return;
+        } catch {
+          // Seed failed, proceed with original data
+        }
+      }
+
+      setDetail(d);
+      setDeals(dls);
+      setInvestments(inv as ReV2Investment[]);
+      setFundState(fs);
+      setFundMetrics(fm);
+      setScenarios(sc);
+    }
+
+    loadFund()
       .catch((err) => {
         if (cancelled) return;
         if (err && typeof err === "object" && "status" in err && err.status === 404) {
@@ -138,7 +167,7 @@ export default function FundDetailPage({
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [params.fundId, quarter]);
+  }, [params.fundId, quarter, businessId]);
 
   if (loading) return <div className="p-6 text-sm text-bm-muted2">Loading fund...</div>;
   if (error) {
@@ -305,7 +334,13 @@ function InvestmentRow({ inv, envId }: { inv: ReV2Investment; envId: string }) {
       >
         <td className="px-4 py-3">
           <span className="mr-2 text-bm-muted2 text-xs">{open ? "▾" : "▸"}</span>
-          <span className="font-medium">{inv.name}</span>
+          <Link
+            href={`/lab/env/${envId}/re/investments/${inv.investment_id}`}
+            className="font-medium text-bm-accent hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {inv.name}
+          </Link>
         </td>
         <td className="px-4 py-3 text-bm-muted2 text-xs capitalize">{inv.investment_type || "—"}</td>
         <td className="px-4 py-3 text-bm-muted2 text-xs capitalize">{inv.stage || "—"}</td>
@@ -334,8 +369,17 @@ function InvestmentRow({ inv, envId }: { inv: ReV2Investment; envId: string }) {
                     <tr key={asset.asset_id} className="hover:bg-bm-surface/20">
                       <td className="pl-12 pr-4 py-2 text-bm-muted2 text-xs w-8">└</td>
                       <td className="px-2 py-2 font-medium text-sm">{asset.name}</td>
-                      <td className="px-4 py-2 text-xs text-bm-muted2 capitalize">{asset.asset_type}</td>
-                      <td className="px-4 py-2 text-xs text-bm-muted2" colSpan={2} />
+                      <td className="px-4 py-2 text-xs text-bm-muted2 capitalize">
+                        {asset.property_type || asset.asset_type}
+                        {asset.units ? ` · ${asset.units} units` : ""}
+                      </td>
+                      <td className="px-4 py-2 text-xs text-bm-muted2">
+                        {asset.market || ""}
+                        {asset.asset_status ? ` · ${asset.asset_status}` : ""}
+                      </td>
+                      <td className="px-4 py-2 text-xs text-bm-muted2 text-right">
+                        {asset.cost_basis ? fmtMoney(asset.cost_basis) : ""}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

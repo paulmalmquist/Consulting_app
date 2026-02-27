@@ -1,13 +1,14 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 /**
- * Debug footer activated by ?debug=1 in the URL.
- * Shows env context, API base URL, and last API call status.
+ * Inner component that reads searchParams.
+ * Must be wrapped in Suspense because useSearchParams() opts into client-side rendering.
  */
-export function DebugFooter({
+function DebugFooterInner({
   envId,
   fundId,
   businessId,
@@ -75,5 +76,21 @@ export function DebugFooter({
         last: <strong className="text-yellow-400">{lastApiStatus}</strong>
       </span>
     </div>
+  );
+}
+
+/**
+ * Debug footer activated by ?debug=1 in the URL.
+ * Wrapped in Suspense because useSearchParams() requires it in Next.js App Router.
+ */
+export function DebugFooter(props: {
+  envId?: string | null;
+  fundId?: string | null;
+  businessId?: string | null;
+}) {
+  return (
+    <Suspense fallback={null}>
+      <DebugFooterInner {...props} />
+    </Suspense>
   );
 }
