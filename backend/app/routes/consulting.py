@@ -38,6 +38,24 @@ from app.schemas.consulting import (
     RevenueSummaryOut,
     SeedRequest,
     SeedResult,
+    DeliverableCreateRequest,
+    DeliverableOut,
+    DiagnosticSessionCreateRequest,
+    DiagnosticSessionOut,
+    LeadHypothesisOut,
+    LeadHypothesisUpsertRequest,
+    OutreachSequenceApproveRequest,
+    OutreachSequenceOut,
+    StrategicContactCreateRequest,
+    StrategicContactOut,
+    StrategicLeadOut,
+    StrategicLeadUpsertRequest,
+    StrategicOutreachDashboard,
+    StrategicOutreachMonitorResult,
+    StrategicOutreachSeedRequest,
+    StrategicOutreachSeedResult,
+    TriggerSignalCreateRequest,
+    TriggerSignalOut,
 )
 from app.services import (
     cro_clients,
@@ -49,6 +67,7 @@ from app.services import (
     cro_proposals,
     cro_revenue,
     cro_seed,
+    cro_strategic_outreach,
 )
 
 router = APIRouter(prefix="/api/consulting", tags=["consulting-revenue-os"])
@@ -58,7 +77,7 @@ def _to_http(exc: Exception) -> HTTPException:
     if isinstance(exc, psycopg.errors.UndefinedTable):
         return HTTPException(
             503,
-            {"error_code": "SCHEMA_NOT_MIGRATED", "message": "Consulting Revenue OS schema not migrated.", "detail": "Run migration 280."},
+            {"error_code": "SCHEMA_NOT_MIGRATED", "message": "Consulting Revenue OS schema not migrated.", "detail": "Run migrations 280 and 281."},
         )
     if isinstance(exc, LookupError):
         return HTTPException(404, {"error_code": "NOT_FOUND", "message": str(exc)})
@@ -531,6 +550,161 @@ def seed_consulting_environment(body: SeedRequest):
     try:
         result = cro_seed.seed_consulting_environment(env_id=body.env_id, business_id=body.business_id)
         _log("cro.seed.completed", "Consulting environment seeded")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Strategic Outreach ───────────────────────────────────────────────────────
+
+@router.get("/strategic-outreach/dashboard", response_model=StrategicOutreachDashboard)
+def get_strategic_outreach_dashboard(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return cro_strategic_outreach.get_dashboard(env_id=env_id, business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/strategic-outreach/leads", response_model=StrategicLeadOut, status_code=201)
+def upsert_strategic_lead(body: StrategicLeadUpsertRequest):
+    try:
+        return cro_strategic_outreach.upsert_strategic_lead(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            lead_profile_id=body.lead_profile_id,
+            employee_range=body.employee_range,
+            multi_entity_flag=body.multi_entity_flag,
+            pe_backed_flag=body.pe_backed_flag,
+            estimated_system_stack=body.estimated_system_stack,
+            ai_pressure_score=body.ai_pressure_score,
+            reporting_complexity_score=body.reporting_complexity_score,
+            governance_risk_score=body.governance_risk_score,
+            vendor_fragmentation_score=body.vendor_fragmentation_score,
+            status=body.status,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/strategic-outreach/hypotheses", response_model=LeadHypothesisOut, status_code=201)
+def upsert_strategic_hypothesis(body: LeadHypothesisUpsertRequest):
+    try:
+        return cro_strategic_outreach.upsert_hypothesis(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            lead_profile_id=body.lead_profile_id,
+            ai_roi_leakage_notes=body.ai_roi_leakage_notes,
+            erp_integration_risk_notes=body.erp_integration_risk_notes,
+            reconciliation_fragility_notes=body.reconciliation_fragility_notes,
+            governance_gap_notes=body.governance_gap_notes,
+            vendor_fatigue_exposure=body.vendor_fatigue_exposure,
+            primary_wedge_angle=body.primary_wedge_angle,
+            top_2_capabilities=body.top_2_capabilities,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/strategic-outreach/contacts", response_model=StrategicContactOut, status_code=201)
+def create_strategic_contact(body: StrategicContactCreateRequest):
+    try:
+        return cro_strategic_outreach.create_contact(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            lead_profile_id=body.lead_profile_id,
+            name=body.name,
+            title=body.title,
+            linkedin_url=body.linkedin_url,
+            email=body.email,
+            buyer_type=body.buyer_type,
+            authority_level=body.authority_level,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/strategic-outreach/triggers", response_model=TriggerSignalOut, status_code=201)
+def create_strategic_trigger(body: TriggerSignalCreateRequest):
+    try:
+        return cro_strategic_outreach.create_trigger_signal(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            lead_profile_id=body.lead_profile_id,
+            trigger_type=body.trigger_type,
+            source_url=body.source_url,
+            summary=body.summary,
+            detected_at=body.detected_at,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/strategic-outreach/outreach/{sequence_id}/approve", response_model=OutreachSequenceOut)
+def approve_strategic_outreach(sequence_id: UUID, body: OutreachSequenceApproveRequest):
+    try:
+        return cro_strategic_outreach.approve_outreach_sequence(
+            sequence_id=sequence_id,
+            approved_message=body.approved_message,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/strategic-outreach/diagnostics", response_model=DiagnosticSessionOut, status_code=201)
+def create_strategic_diagnostic(body: DiagnosticSessionCreateRequest):
+    try:
+        return cro_strategic_outreach.create_diagnostic_session(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            lead_profile_id=body.lead_profile_id,
+            scheduled_date=body.scheduled_date,
+            notes=body.notes,
+            governance_findings=body.governance_findings,
+            ai_readiness_score=body.ai_readiness_score,
+            reconciliation_risk_score=body.reconciliation_risk_score,
+            recommended_first_intervention=body.recommended_first_intervention,
+            question_responses=body.question_responses,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/strategic-outreach/deliverables", response_model=DeliverableOut, status_code=201)
+def create_strategic_deliverable(body: DeliverableCreateRequest):
+    try:
+        return cro_strategic_outreach.generate_deliverable(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            lead_profile_id=body.lead_profile_id,
+            file_path=body.file_path,
+            sent_date=body.sent_date,
+            followup_status=body.followup_status,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/strategic-outreach/monitor", response_model=StrategicOutreachMonitorResult, status_code=201)
+def run_strategic_outreach_monitor(body: StrategicOutreachSeedRequest):
+    try:
+        result = cro_strategic_outreach.run_daily_monitor(env_id=body.env_id, business_id=body.business_id)
+        _log("cro.strategic_outreach.monitor", "Strategic outreach monitor completed")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/strategic-outreach/seed", response_model=StrategicOutreachSeedResult, status_code=201)
+def seed_strategic_outreach(body: StrategicOutreachSeedRequest):
+    try:
+        result = cro_strategic_outreach.seed_novendor_strategic_outreach(
+            env_id=body.env_id,
+            business_id=body.business_id,
+        )
+        _log("cro.strategic_outreach.seed", "Strategic outreach targets seeded")
         return result
     except Exception as exc:
         raise _to_http(exc)

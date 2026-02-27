@@ -371,3 +371,212 @@ class SeedResult(BaseModel):
     clients_seeded: int
     engagements_seeded: int
     revenue_entries_seeded: int
+
+
+# ── Strategic Outreach ───────────────────────────────────────────────────────
+
+class StrategicLeadUpsertRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    lead_profile_id: UUID
+    employee_range: str
+    multi_entity_flag: bool = False
+    pe_backed_flag: bool = False
+    estimated_system_stack: list[str] = Field(default_factory=list)
+    ai_pressure_score: int = Field(ge=1, le=5)
+    reporting_complexity_score: int = Field(ge=1, le=5)
+    governance_risk_score: int = Field(ge=1, le=5)
+    vendor_fragmentation_score: int = Field(ge=1, le=5)
+    status: str = Field(pattern=r"^(Identified|Hypothesis Built|Outreach Drafted|Sent|Engaged|Diagnostic Scheduled|Deliverable Sent|Closed)$")
+
+
+class StrategicLeadOut(BaseModel):
+    id: UUID
+    lead_profile_id: UUID
+    composite_priority_score: int
+    status: str
+
+
+class LeadHypothesisUpsertRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    lead_profile_id: UUID
+    ai_roi_leakage_notes: str | None = None
+    erp_integration_risk_notes: str | None = None
+    reconciliation_fragility_notes: str | None = None
+    governance_gap_notes: str | None = None
+    vendor_fatigue_exposure: int | None = Field(default=None, ge=1, le=5)
+    primary_wedge_angle: str | None = None
+    top_2_capabilities: list[str] = Field(default_factory=list, max_length=2)
+
+
+class LeadHypothesisOut(BaseModel):
+    id: UUID
+    lead_profile_id: UUID
+    primary_wedge_angle: str | None = None
+
+
+class StrategicContactCreateRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    lead_profile_id: UUID
+    name: str
+    title: str
+    linkedin_url: str | None = None
+    email: str | None = None
+    buyer_type: str = Field(pattern=r"^(CFO|COO|CIO|Other)$")
+    authority_level: str = Field(pattern=r"^(High|Medium|Low)$")
+
+
+class StrategicContactOut(BaseModel):
+    id: UUID
+    lead_profile_id: UUID
+    name: str
+    title: str
+    buyer_type: str
+    authority_level: str
+    created_at: datetime
+
+
+class TriggerSignalCreateRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    lead_profile_id: UUID
+    trigger_type: str = Field(pattern=r"^(ERP_Announcement|AI_Initiative|CFO_Hire|Job_Posting|PE_Acquisition|Other)$")
+    source_url: str
+    summary: str
+    detected_at: datetime | None = None
+
+
+class TriggerSignalOut(BaseModel):
+    id: UUID
+    lead_profile_id: UUID
+    trigger_type: str
+    source_url: str
+    summary: str
+    detected_at: datetime
+
+
+class OutreachSequenceApproveRequest(BaseModel):
+    approved_message: str
+
+
+class OutreachSequenceOut(BaseModel):
+    id: UUID
+    lead_profile_id: UUID
+    sequence_stage: int
+    draft_message: str
+    approved_message: str | None = None
+    sent_timestamp: datetime | None = None
+    response_status: str
+    followup_due_date: date | None = None
+    created_at: datetime
+
+
+class DiagnosticSessionCreateRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    lead_profile_id: UUID
+    scheduled_date: date
+    notes: str | None = None
+    governance_findings: str | None = None
+    ai_readiness_score: int | None = Field(default=None, ge=1, le=5)
+    reconciliation_risk_score: int | None = Field(default=None, ge=1, le=5)
+    recommended_first_intervention: str | None = None
+    question_responses: dict[str, str] = Field(default_factory=dict)
+
+
+class DiagnosticSessionOut(BaseModel):
+    id: UUID
+    lead_profile_id: UUID
+    scheduled_date: date
+    notes: str | None = None
+    governance_findings: str | None = None
+    ai_readiness_score: int | None = None
+    reconciliation_risk_score: int | None = None
+    recommended_first_intervention: str | None = None
+    question_responses: dict[str, str]
+    created_at: datetime
+
+
+class DeliverableCreateRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    lead_profile_id: UUID
+    file_path: str
+    sent_date: date | None = None
+    followup_status: str = Field(pattern=r"^(pending|scheduled|completed)$")
+
+
+class DeliverableOut(BaseModel):
+    id: UUID
+    lead_profile_id: UUID
+    file_path: str
+    summary: str
+    sent_date: date
+    followup_status: str
+    content_markdown: str
+    created_at: datetime
+
+
+class StrategicOutreachSeedRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+
+
+class StrategicOutreachSeedResult(BaseModel):
+    status: str
+    leads_seeded: int
+
+
+class StrategicOutreachMonitorResult(BaseModel):
+    status: str
+    reviewed_leads: int
+    triggered_drafts: int
+
+
+class StrategicOutreachMetrics(BaseModel):
+    high_priority: int
+    medium_priority: int
+    low_priority: int
+    time_in_stage_days: Decimal | None = None
+    engagement_rate: Decimal | None = None
+    sent_count: int
+    diagnostic_questions: list[str]
+
+
+class StrategicOutreachStatusFunnelItem(BaseModel):
+    status: str
+    count: int
+
+
+class StrategicOutreachDashboardLead(BaseModel):
+    id: UUID
+    lead_profile_id: UUID
+    crm_account_id: UUID
+    company_name: str
+    industry: str | None = None
+    employee_range: str
+    multi_entity_flag: bool
+    pe_backed_flag: bool
+    estimated_system_stack: list[str] = Field(default_factory=list)
+    ai_pressure_score: int
+    reporting_complexity_score: int
+    governance_risk_score: int
+    vendor_fragmentation_score: int
+    composite_priority_score: int
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    primary_wedge_angle: str | None = None
+    top_2_capabilities: list[str] = Field(default_factory=list)
+
+
+class StrategicOutreachDashboard(BaseModel):
+    metrics: StrategicOutreachMetrics
+    status_funnel: list[StrategicOutreachStatusFunnelItem]
+    leads: list[StrategicOutreachDashboardLead]
+    trigger_signals: list[TriggerSignalOut]
+    outreach_queue: list[OutreachSequenceOut]
+    diagnostics: list[DiagnosticSessionOut]
+    deliverables: list[DeliverableOut]

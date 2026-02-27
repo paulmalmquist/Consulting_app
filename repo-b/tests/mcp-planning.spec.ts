@@ -5,7 +5,7 @@ import type { ContextSnapshot } from "../src/lib/commandbar/types";
 const baseSnapshot: ContextSnapshot = {
   route: "/lab/chat",
   environments: [
-    { env_id: "env_novendor_1", client_name: "Novendor", industry: "website", industry_type: "website" },
+    { env_id: "env_novendor_1", client_name: "Novendor", industry: "consulting", industry_type: "consulting" },
     { env_id: "env_acme_1", client_name: "Acme", industry: "legal", industry_type: "legal" },
   ],
   selectedEnv: null,

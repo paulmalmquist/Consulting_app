@@ -48,6 +48,24 @@ export type PipelineKanbanResult = {
   weighted_pipeline: number;
 };
 
+export type MetricsSnapshot = {
+  weighted_pipeline: number;
+  unweighted_pipeline: number;
+  open_opportunities: number;
+  close_rate_90d: number | null;
+  won_count_90d: number;
+  lost_count_90d: number;
+  outreach_count_30d: number;
+  response_rate_30d: number | null;
+  meetings_30d: number;
+  revenue_mtd: number;
+  revenue_qtd: number;
+  forecast_90d: number;
+  avg_deal_size: number | null;
+  active_engagements: number;
+  active_clients: number;
+};
+
 export type Lead = {
   crm_account_id: string;
   lead_profile_id: string;
@@ -152,6 +170,18 @@ export type Client = {
   active_engagements: number;
   total_revenue: number;
   created_at: string;
+};
+
+export type SeedResult = {
+  pipeline_stages_seeded: number;
+  leads_seeded: number;
+  contacts_seeded: number;
+  outreach_templates_seeded: number;
+  outreach_logs_seeded: number;
+  proposals_seeded: number;
+  clients_seeded: number;
+  engagements_seeded: number;
+  revenue_entries_seeded: number;
 };
 
 // ── Pipeline ─────────────────────────────────────────────────────────────────
@@ -330,4 +360,142 @@ export function convertToClient(body: {
   start_date?: string;
 }) {
   return apiFetch<Client>(`${CRO_BASE}/clients/convert`, { method: "POST", body: JSON.stringify(body) });
+}
+
+// ── Metrics / Seed ───────────────────────────────────────────────────────────
+
+export function fetchLatestMetrics(envId: string, businessId: string) {
+  return apiFetch<MetricsSnapshot>(
+    `${CRO_BASE}/metrics/latest?env_id=${envId}&business_id=${businessId}`,
+  );
+}
+
+export function seedConsultingWorkspace(body: {
+  env_id: string;
+  business_id: string;
+}) {
+  return apiFetch<SeedResult>(`${CRO_BASE}/seed`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export type StrategicOutreachMetrics = {
+  high_priority: number;
+  medium_priority: number;
+  low_priority: number;
+  time_in_stage_days: number | null;
+  engagement_rate: number | null;
+  sent_count: number;
+  diagnostic_questions: string[];
+};
+
+export type StrategicOutreachLead = {
+  id: string;
+  lead_profile_id: string;
+  crm_account_id: string;
+  company_name: string;
+  industry: string | null;
+  employee_range: string;
+  multi_entity_flag: boolean;
+  pe_backed_flag: boolean;
+  estimated_system_stack: string[];
+  ai_pressure_score: number;
+  reporting_complexity_score: number;
+  governance_risk_score: number;
+  vendor_fragmentation_score: number;
+  composite_priority_score: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  primary_wedge_angle: string | null;
+  top_2_capabilities: string[];
+};
+
+export type TriggerSignal = {
+  id: string;
+  lead_profile_id: string;
+  trigger_type: string;
+  source_url: string;
+  summary: string;
+  detected_at: string;
+};
+
+export type StrategicOutreachSequence = {
+  id: string;
+  lead_profile_id: string;
+  sequence_stage: number;
+  draft_message: string;
+  approved_message: string | null;
+  sent_timestamp: string | null;
+  response_status: string;
+  followup_due_date: string | null;
+  created_at: string;
+};
+
+export type StrategicDiagnosticSession = {
+  id: string;
+  lead_profile_id: string;
+  scheduled_date: string;
+  notes: string | null;
+  governance_findings: string | null;
+  ai_readiness_score: number | null;
+  reconciliation_risk_score: number | null;
+  recommended_first_intervention: string | null;
+  question_responses: Record<string, string>;
+  created_at: string;
+};
+
+export type StrategicDeliverable = {
+  id: string;
+  lead_profile_id: string;
+  file_path: string;
+  summary: string;
+  sent_date: string;
+  followup_status: string;
+  content_markdown: string;
+  created_at: string;
+};
+
+export type StrategicOutreachDashboard = {
+  metrics: StrategicOutreachMetrics;
+  status_funnel: Array<{ status: string; count: number }>;
+  leads: StrategicOutreachLead[];
+  trigger_signals: TriggerSignal[];
+  outreach_queue: StrategicOutreachSequence[];
+  diagnostics: StrategicDiagnosticSession[];
+  deliverables: StrategicDeliverable[];
+};
+
+export function fetchStrategicOutreachDashboard(envId: string, businessId: string) {
+  return apiFetch<StrategicOutreachDashboard>(
+    `${CRO_BASE}/strategic-outreach/dashboard?env_id=${envId}&business_id=${businessId}`,
+  );
+}
+
+export function runStrategicOutreachMonitor(body: {
+  env_id: string;
+  business_id: string;
+}) {
+  return apiFetch<{ status: string; reviewed_leads: number; triggered_drafts: number }>(
+    `${CRO_BASE}/strategic-outreach/monitor`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export function seedStrategicOutreach(body: {
+  env_id: string;
+  business_id: string;
+}) {
+  return apiFetch<{ status: string; leads_seeded: number }>(
+    `${CRO_BASE}/strategic-outreach/seed`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export function approveStrategicOutreach(sequenceId: string, body: { approved_message: string }) {
+  return apiFetch<StrategicOutreachSequence>(
+    `${CRO_BASE}/strategic-outreach/outreach/${sequenceId}/approve`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
 }

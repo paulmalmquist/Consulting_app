@@ -23,25 +23,25 @@ def compute_and_store_snapshots(
     """For each partner in the fund, compute capital account metrics and UPSERT."""
     snapshots = []
     with get_cursor() as cur:
-        # Get fund NAV
+        # Get fund NAV from fund quarter state
         cur.execute(
             """
-            SELECT nav FROM re_fund_metrics_qtr
+            SELECT portfolio_nav FROM re_fund_quarter_state
             WHERE fund_id = %s AND quarter = %s
             ORDER BY created_at DESC LIMIT 1
             """,
             (str(fund_id), quarter),
         )
-        metrics_row = cur.fetchone()
-        fund_nav = Decimal(str(metrics_row["nav"])) if metrics_row and metrics_row.get("nav") else ZERO
+        nav_row = cur.fetchone()
+        fund_nav = Decimal(str(nav_row["portfolio_nav"])) if nav_row and nav_row.get("portfolio_nav") else ZERO
 
-        # Get all partners
+        # Get all partners with commitments for this fund
         cur.execute(
             """
-            SELECT id, partner_name, partner_type, commitment
-            FROM re_partner
-            WHERE fund_id = %s
-            ORDER BY partner_type, partner_name
+            SELECT p.partner_id, p.name, p.partner_type, pc.committed_amount
+            FROM re_partner p
+            JOIN re_partner_commitment pc ON pc.partner_id = p.partner_id AND pc.fund_id = %s
+            ORDER BY p.partner_type, p.name
             """,
             (str(fund_id),),
         )
@@ -50,12 +50,12 @@ def compute_and_store_snapshots(
         if not partners:
             return []
 
-        total_committed = sum(Decimal(str(p["commitment"] or 0)) for p in partners)
+        total_committed = sum(Decimal(str(p["committed_amount"] or 0)) for p in partners)
 
         # Get waterfall results for carry allocations
         cur.execute(
             """
-            SELECT wr.id as run_id
+            SELECT wr.run_id
             FROM re_waterfall_run wr
             WHERE wr.fund_id = %s AND wr.quarter = %s
             ORDER BY wr.created_at DESC LIMIT 1
@@ -78,16 +78,16 @@ def compute_and_store_snapshots(
                 carry_by_partner[str(cr["partner_id"])] = Decimal(str(cr["total_amount"]))
 
         for p in partners:
-            pid = str(p["id"])
-            committed = Decimal(str(p["commitment"] or 0))
+            pid = str(p["partner_id"])
+            committed = Decimal(str(p["committed_amount"] or 0))
             ownership_pct = committed / total_committed if total_committed > 0 else ZERO
 
             # Get capital ledger balances
             cur.execute(
                 """
                 SELECT
-                    COALESCE(SUM(CASE WHEN entry_type = 'CALL' THEN amount ELSE 0 END), 0) as contributed,
-                    COALESCE(SUM(CASE WHEN entry_type = 'DIST' THEN amount ELSE 0 END), 0) as distributed
+                    COALESCE(SUM(CASE WHEN entry_type = 'contribution' THEN amount ELSE 0 END), 0) as contributed,
+                    COALESCE(SUM(CASE WHEN entry_type = 'distribution' THEN amount ELSE 0 END), 0) as distributed
                 FROM re_capital_ledger_entry
                 WHERE fund_id = %s AND partner_id = %s
                 """,
@@ -157,11 +157,11 @@ def get_snapshots(
     with get_cursor() as cur:
         cur.execute(
             """
-            SELECT s.*, p.partner_name, p.partner_type
+            SELECT s.*, p.name as partner_name, p.partner_type
             FROM re_capital_account_snapshot s
-            JOIN re_partner p ON p.id = s.partner_id
+            JOIN re_partner p ON p.partner_id = s.partner_id
             WHERE s.fund_id = %s AND s.quarter = %s
-            ORDER BY p.partner_type, p.partner_name
+            ORDER BY p.partner_type, p.name
             """,
             (str(fund_id), quarter),
         )

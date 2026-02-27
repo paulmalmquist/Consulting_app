@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
 import { Card, CardContent } from "@/components/ui/Card";
 import {
+  fetchLeads,
   fetchPipelineKanban,
+  type Lead,
   type PipelineKanbanResult,
   type PipelineKanbanColumn,
 } from "@/lib/cro-api";
@@ -13,6 +15,17 @@ function fmtCurrency(n: number): string {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
   return `$${n.toFixed(0)}`;
+}
+
+function formatError(err: unknown): string {
+  if (!(err instanceof Error)) {
+    return "Consulting API unreachable. Backend service is not available.";
+  }
+  const msg = err.message.replace(/\s*\(req:\s*[a-zA-Z0-9_-]+\)\s*$/, "");
+  if (msg.includes("Network error")) {
+    return "Consulting API unreachable. Backend service is not available.";
+  }
+  return msg || "Consulting API unreachable. Backend service is not available.";
 }
 
 function StageColumn({
@@ -47,11 +60,11 @@ function StageColumn({
                   <span className="text-sm font-semibold">
                     {fmtCurrency(card.amount)}
                   </span>
-                  {card.expected_close_date && (
+                  {card.expected_close_date ? (
                     <span className="text-xs text-bm-muted">
                       Close: {card.expected_close_date}
                     </span>
-                  )}
+                  ) : null}
                 </div>
               </CardContent>
             </Card>
@@ -59,7 +72,7 @@ function StageColumn({
         )}
       </div>
       <div className="mt-2 px-1 text-xs text-bm-muted2">
-        {column.cards.length} deal{column.cards.length !== 1 ? "s" : ""} ·{" "}
+        {column.cards.length} deal{column.cards.length !== 1 ? "s" : ""} · {" "}
         {fmtCurrency(column.total_value)} total
       </div>
     </div>
@@ -71,20 +84,52 @@ export default function PipelinePage({
 }: {
   params: { envId: string };
 }) {
-  const { businessId } = useConsultingEnv();
+  const {
+    businessId,
+    error: contextError,
+    loading: contextLoading,
+    ready,
+  } = useConsultingEnv();
   const [kanban, setKanban] = useState<PipelineKanbanResult | null>(null);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!businessId) return;
-    setLoading(true);
-    fetchPipelineKanban(params.envId, businessId)
-      .then(setKanban)
-      .catch(() => null)
-      .finally(() => setLoading(false));
-  }, [businessId, params.envId]);
+    if (!ready) return;
+    if (!businessId) {
+      setLoading(false);
+      return;
+    }
 
-  if (loading) {
+    setLoading(true);
+    setDataError(null);
+    Promise.all([
+      fetchPipelineKanban(params.envId, businessId),
+      fetchLeads(params.envId, businessId),
+    ])
+      .then(([nextKanban, nextLeads]) => {
+        setKanban(nextKanban);
+        setLeads(nextLeads);
+      })
+      .catch((err) => {
+        setKanban(null);
+        setLeads([]);
+        setDataError(formatError(err));
+      })
+      .finally(() => setLoading(false));
+  }, [businessId, params.envId, ready]);
+
+  const bannerMessage = contextError
+    ? contextError === "Environment not bound to a business."
+      ? "This environment is not bound to a business, so CRM data cannot be loaded."
+      : contextError
+    : dataError;
+  const isLoading = contextLoading || (ready && loading);
+  const openDeals =
+    kanban?.columns.reduce((total, column) => total + column.cards.length, 0) ?? 0;
+
+  if (isLoading) {
     return (
       <div className="space-y-4">
         <div className="h-8 w-48 bg-bm-surface/60 rounded animate-pulse" />
@@ -99,17 +144,36 @@ export default function PipelinePage({
 
   return (
     <div className="space-y-4">
+      {bannerMessage ? (
+        <div className="rounded-lg border border-bm-danger/35 bg-bm-danger/10 px-4 py-3 text-sm text-bm-text">
+          {bannerMessage}
+        </div>
+      ) : null}
+
       <div className="flex items-center justify-between">
         <h2 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">
           Pipeline Kanban
         </h2>
-        {kanban && (
-          <div className="flex gap-4 text-xs text-bm-muted2">
+        {kanban ? (
+          <div className="flex flex-wrap items-center gap-3 text-xs text-bm-muted2">
+            <span className="rounded-full border border-bm-border/70 px-2 py-1 text-bm-text">
+              {openDeals} open deals
+            </span>
             <span>Total: {fmtCurrency(kanban.total_pipeline)}</span>
             <span>Weighted: {fmtCurrency(kanban.weighted_pipeline)}</span>
           </div>
-        )}
+        ) : null}
       </div>
+
+      {kanban && openDeals === 0 ? (
+        <Card>
+          <CardContent className="py-5 text-sm text-bm-muted2">
+            {leads.length > 0
+              ? "Leads exist, but no opportunities have been converted into the sales pipeline yet."
+              : "No opportunities yet. No CRM data is present yet for this environment."}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="flex gap-4 overflow-x-auto pb-4">
         {kanban?.columns.map((col) => (

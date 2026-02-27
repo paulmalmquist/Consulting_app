@@ -1,28 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent } from "@/components/ui/Card";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { InsightRail, type InsightSection } from "@/components/ui/InsightRail";
 import { QuickActions, type QuickAction } from "@/components/ui/QuickActions";
-import { apiFetch } from "@/lib/api";
+import {
+  fetchClients,
+  fetchLatestMetrics,
+  fetchLeads,
+  fetchOutreachLog,
+  fetchPipelineKanban,
+  fetchProposals,
+  seedConsultingWorkspace,
+  type Lead,
+  type MetricsSnapshot,
+} from "@/lib/cro-api";
 
-type MetricsSnapshot = {
-  weighted_pipeline: number;
-  unweighted_pipeline: number;
-  open_opportunities: number;
-  close_rate_90d: number | null;
-  won_count_90d: number;
-  lost_count_90d: number;
-  outreach_count_30d: number;
-  response_rate_30d: number | null;
-  meetings_30d: number;
-  revenue_mtd: number;
-  revenue_qtd: number;
-  forecast_90d: number;
-  avg_deal_size: number | null;
-  active_engagements: number;
-  active_clients: number;
+type WorkspaceDiagnostics = {
+  lead_count: number;
+  open_pipeline_cards: number;
+  outreach_count: number;
+  proposal_count: number;
+  client_count: number;
 };
 
 function fmtCurrency(n: number | null | undefined): string {
@@ -37,25 +40,128 @@ function fmtPct(n: number | null | undefined): string {
   return `${(n * 100).toFixed(1)}%`;
 }
 
+function formatError(err: unknown): string {
+  if (!(err instanceof Error)) {
+    return "Consulting API unreachable. Backend service is not available.";
+  }
+  const msg = err.message.replace(/\s*\(req:\s*[a-zA-Z0-9_-]+\)\s*$/, "");
+  if (msg.includes("Network error")) {
+    return "Consulting API unreachable. Backend service is not available.";
+  }
+  return msg || "Consulting API unreachable. Backend service is not available.";
+}
+
+function LeadStatus({ lead }: { lead: Lead }) {
+  if (lead.disqualified_at) {
+    return (
+      <span className="text-xs bg-bm-danger/10 text-bm-danger px-1.5 py-0.5 rounded">
+        Disqualified
+      </span>
+    );
+  }
+  if (lead.qualified_at) {
+    return (
+      <span className="text-xs bg-bm-success/10 text-bm-success px-1.5 py-0.5 rounded">
+        Qualified
+      </span>
+    );
+  }
+  return null;
+}
+
 export default function ConsultingCommandCenter({
   params,
 }: {
   params: { envId: string };
 }) {
-  const { businessId } = useConsultingEnv();
+  const {
+    businessId,
+    error: contextError,
+    loading: contextLoading,
+    ready,
+  } = useConsultingEnv();
   const [metrics, setMetrics] = useState<MetricsSnapshot | null>(null);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [diagnostics, setDiagnostics] = useState<WorkspaceDiagnostics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
 
-  useEffect(() => {
-    if (!businessId) return;
-    apiFetch<MetricsSnapshot>(
-      `/bos/api/consulting/metrics/latest?env_id=${params.envId}&business_id=${businessId}`,
-    )
-      .then(setMetrics)
-      .catch(() => null);
+  const base = `/lab/env/${params.envId}/consulting`;
+
+  const loadWorkspace = useCallback(async () => {
+    if (!businessId) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setDataError(null);
+    try {
+      const [nextLeads, outreachLog, proposals, clients, kanban, latestMetrics] =
+        await Promise.all([
+          fetchLeads(params.envId, businessId),
+          fetchOutreachLog(params.envId, businessId),
+          fetchProposals(params.envId, businessId),
+          fetchClients(params.envId, businessId),
+          fetchPipelineKanban(params.envId, businessId),
+          fetchLatestMetrics(params.envId, businessId).catch(() => null),
+        ]);
+
+      const openPipelineCards = kanban.columns.reduce(
+        (total, column) => total + column.cards.length,
+        0,
+      );
+
+      setLeads(nextLeads);
+      setMetrics(latestMetrics);
+      setDiagnostics({
+        lead_count: nextLeads.length,
+        open_pipeline_cards: openPipelineCards,
+        outreach_count: outreachLog.length,
+        proposal_count: proposals.length,
+        client_count: clients.length,
+      });
+    } catch (err) {
+      setLeads([]);
+      setMetrics(null);
+      setDiagnostics(null);
+      setDataError(formatError(err));
+    } finally {
+      setLoading(false);
+    }
   }, [businessId, params.envId]);
 
+  useEffect(() => {
+    if (!ready) return;
+    void loadWorkspace();
+  }, [loadWorkspace, ready]);
+
   const m = metrics;
-  const base = `/lab/env/${params.envId}/consulting`;
+  const isLoading = contextLoading || (ready && loading);
+  const topLeads = useMemo(
+    () =>
+      [...leads]
+        .sort((a, b) => {
+          if (b.lead_score !== a.lead_score) return b.lead_score - a.lead_score;
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        })
+        .slice(0, 5),
+    [leads],
+  );
+  const canSeed = Boolean(
+    diagnostics &&
+      diagnostics.lead_count === 0 &&
+      diagnostics.open_pipeline_cards === 0 &&
+      diagnostics.outreach_count === 0 &&
+      diagnostics.proposal_count === 0 &&
+      diagnostics.client_count === 0,
+  );
+  const bannerMessage = contextError
+    ? contextError === "Environment not bound to a business."
+      ? "This environment is not bound to a business, so CRM data cannot be loaded."
+      : contextError
+    : dataError;
 
   const quickActions = useMemo<QuickAction[]>(
     () => [
@@ -69,10 +175,23 @@ export default function ConsultingCommandCenter({
     [base],
   );
 
+  const seedWorkspace = useCallback(async () => {
+    if (!businessId || !canSeed) return;
+    setSeeding(true);
+    setDataError(null);
+    try {
+      await seedConsultingWorkspace({ env_id: params.envId, business_id: businessId });
+      await loadWorkspace();
+    } catch (err) {
+      setDataError(formatError(err));
+    } finally {
+      setSeeding(false);
+    }
+  }, [businessId, canSeed, loadWorkspace, params.envId]);
+
   const insightSections = useMemo<InsightSection[]>(() => {
     const sections: InsightSection[] = [];
 
-    // Top opportunities insight
     if (m && m.open_opportunities > 0) {
       sections.push({
         title: "Pipeline Health",
@@ -109,18 +228,14 @@ export default function ConsultingCommandCenter({
       });
     }
 
-    // Outreach performance
     sections.push({
       title: "Outreach Performance",
       items: [
         {
           id: "outreach-volume",
-          severity:
-            m && m.outreach_count_30d > 0 ? "info" : "critical",
+          severity: m && m.outreach_count_30d > 0 ? "info" : "critical",
           label: `${m?.outreach_count_30d ?? 0} outreach (30d)`,
-          detail: m
-            ? `Response rate: ${fmtPct(m.response_rate_30d)}`
-            : "No data yet",
+          detail: m ? `Response rate: ${fmtPct(m.response_rate_30d)}` : "No data yet",
           action: { label: "Outreach", href: `${base}/outreach` },
         },
         {
@@ -135,9 +250,27 @@ export default function ConsultingCommandCenter({
     return sections;
   }, [m, base]);
 
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="h-28 rounded-lg border border-bm-border/60 bg-bm-surface/60 animate-pulse"
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Hero Revenue Strip */}
+      {bannerMessage ? (
+        <div className="rounded-lg border border-bm-danger/35 bg-bm-danger/10 px-4 py-3 text-sm text-bm-text">
+          {bannerMessage}
+        </div>
+      ) : null}
+
       <div>
         <p className="bm-section-label mb-3">Revenue Overview</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -176,25 +309,12 @@ export default function ConsultingCommandCenter({
         </div>
       </div>
 
-      {/* Execution Strip */}
       <div>
         <p className="bm-section-label mb-3">Execution Snapshot</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <MetricCard
-            label="Open Deals"
-            value={String(m?.open_opportunities ?? 0)}
-            size="compact"
-          />
-          <MetricCard
-            label="Active Clients"
-            value={String(m?.active_clients ?? 0)}
-            size="compact"
-          />
-          <MetricCard
-            label="Avg Deal Size"
-            value={fmtCurrency(m?.avg_deal_size)}
-            size="compact"
-          />
+          <MetricCard label="Open Deals" value={String(m?.open_opportunities ?? 0)} size="compact" />
+          <MetricCard label="Active Clients" value={String(m?.active_clients ?? 0)} size="compact" />
+          <MetricCard label="Avg Deal Size" value={fmtCurrency(m?.avg_deal_size)} size="compact" />
           <MetricCard
             label="Won (90d)"
             value={String(m?.won_count_90d ?? 0)}
@@ -207,19 +327,122 @@ export default function ConsultingCommandCenter({
             size="compact"
             status={m && m.lost_count_90d > 0 ? "warning" : "neutral"}
           />
-          <MetricCard
-            label="Revenue QTD"
-            value={fmtCurrency(m?.revenue_qtd)}
-            size="compact"
-          />
+          <MetricCard label="Revenue QTD" value={fmtCurrency(m?.revenue_qtd)} size="compact" />
         </div>
       </div>
 
-      {/* Main Content: Quick Actions + Insight Rail */}
+      {canSeed ? (
+        <Card>
+          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium">No consulting CRM records found.</p>
+              <p className="text-sm text-bm-muted mt-1">
+                This environment is empty across leads, outreach, proposals, clients, and pipeline.
+              </p>
+            </div>
+            <Button onClick={() => void seedWorkspace()} disabled={!businessId || seeding}>
+              {seeding ? "Seeding..." : "Seed Consulting Workspace"}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <div>
+        <p className="bm-section-label mb-3">Lead Intake</p>
+        <div className="grid gap-4 xl:grid-cols-[1.4fr,1fr]">
+          <Card>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium">Top Leads</p>
+                  <p className="text-xs text-bm-muted2 mt-1">
+                    Highest-scoring leads in this environment
+                  </p>
+                </div>
+                <div className="flex gap-2 text-xs">
+                  <Link
+                    href={`${base}/outreach`}
+                    className="rounded-md border border-bm-border/70 px-2 py-1 text-bm-text hover:bg-bm-surface/50"
+                  >
+                    All Leads
+                  </Link>
+                  <Link
+                    href={`${base}/pipeline`}
+                    className="rounded-md border border-bm-border/70 px-2 py-1 text-bm-text hover:bg-bm-surface/50"
+                  >
+                    Pipeline
+                  </Link>
+                  <Link
+                    href={`${base}/outreach`}
+                    className="rounded-md border border-bm-border/70 px-2 py-1 text-bm-text hover:bg-bm-surface/50"
+                  >
+                    Add Lead
+                  </Link>
+                </div>
+              </div>
+
+              {topLeads.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-bm-border/70 px-4 py-5 text-sm text-bm-muted2">
+                  No leads yet.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {topLeads.map((lead) => (
+                    <div
+                      key={lead.lead_profile_id}
+                      className="rounded-lg border border-bm-border/60 px-3 py-3"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{lead.company_name}</p>
+                          <p className="text-xs text-bm-muted2 mt-1">
+                            {lead.lead_source || "Unknown source"} · {lead.stage_label || "No stage"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold">{lead.lead_score}</span>
+                          <LeadStatus lead={lead} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-3">
+              <p className="text-sm font-medium">Workspace Verification</p>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-lg border border-bm-border/60 px-3 py-3">
+                  <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Leads</p>
+                  <p className="mt-1 text-xl font-semibold">{diagnostics?.lead_count ?? 0}</p>
+                </div>
+                <div className="rounded-lg border border-bm-border/60 px-3 py-3">
+                  <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Open Deals</p>
+                  <p className="mt-1 text-xl font-semibold">{diagnostics?.open_pipeline_cards ?? 0}</p>
+                </div>
+                <div className="rounded-lg border border-bm-border/60 px-3 py-3">
+                  <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Outreach</p>
+                  <p className="mt-1 text-xl font-semibold">{diagnostics?.outreach_count ?? 0}</p>
+                </div>
+                <div className="rounded-lg border border-bm-border/60 px-3 py-3">
+                  <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Proposals</p>
+                  <p className="mt-1 text-xl font-semibold">{diagnostics?.proposal_count ?? 0}</p>
+                </div>
+              </div>
+              <div className="rounded-lg border border-bm-border/60 px-3 py-3 text-sm">
+                <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Clients</p>
+                <p className="mt-1 text-xl font-semibold">{diagnostics?.client_count ?? 0}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
       <div className="grid xl:grid-cols-[1fr,320px] gap-6">
         <QuickActions actions={quickActions} title="Quick Actions" />
-
-        {/* Insight Rail */}
         <div className="hidden xl:block">
           <div className="sticky top-20">
             <InsightRail sections={insightSections} />

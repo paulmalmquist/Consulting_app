@@ -7,7 +7,6 @@ import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider"
 
 function isActive(pathname: string, href: string, isBase: boolean): boolean {
   if (isBase) {
-    // Command Center: only exact match
     return pathname === href;
   }
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -32,6 +31,7 @@ export default function ConsultingWorkspaceShell({
       { href: base, label: "Command Center", isBase: true },
       { href: `${base}/pipeline`, label: "Pipeline", isBase: false },
       { href: `${base}/outreach`, label: "Outreach", isBase: false },
+      { href: `${base}/strategic-outreach`, label: "Strategic Outreach", isBase: false },
       { href: `${base}/proposals`, label: "Proposals", isBase: false },
       { href: `${base}/clients`, label: "Clients", isBase: false },
       { href: `${base}/authority`, label: "Authority", isBase: false },
@@ -81,7 +81,6 @@ export default function ConsultingWorkspaceShell({
 
   return (
     <div className="space-y-4">
-      {/* Environment Header */}
       <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">

@@ -377,20 +377,20 @@ def seed_institutional_fund(
             cur.execute(
                 """
                 INSERT INTO repe_deal
-                    (deal_id, fund_id, name, strategy, status, acquisition_date)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                    (deal_id, fund_id, name, deal_type, stage)
+                VALUES (%s, %s, %s, 'equity', 'operating')
                 ON CONFLICT (deal_id) DO NOTHING
                 """,
-                (str(deal_id), str(fund_id), inv["name"], inv["strategy"], inv["status"], inv["acq_date"]),
+                (str(deal_id), str(fund_id), inv["name"]),
             )
             cur.execute(
                 """
                 INSERT INTO repe_asset
-                    (asset_id, deal_id, name, property_type, market_value)
-                VALUES (%s, %s, %s, %s, %s)
+                    (asset_id, deal_id, name, asset_type, cost_basis, acquisition_date, asset_status)
+                VALUES (%s, %s, %s, 'property', %s, %s, 'active')
                 ON CONFLICT (asset_id) DO NOTHING
                 """,
-                (str(asset_id), str(deal_id), inv["name"], inv["property_type"], inv["acq_price"]),
+                (str(asset_id), str(deal_id), inv["name"], inv["acq_price"], inv["acq_date"]),
             )
 
         result["investments"] = len(INVESTMENTS)
@@ -401,18 +401,20 @@ def seed_institutional_fund(
         quarters = ["2024Q4", "2025Q1", "2025Q2", "2025Q3", "2025Q4"]
         appreciation = [1.00, 1.02, 1.04, 1.07, 1.10]  # ~10% total appreciation
 
+        seed_run_id = uuid4()
         for i, (inv, asset_id, deal_id) in enumerate(zip(INVESTMENTS, asset_ids, deal_ids)):
             for qi, (qtr, mult) in enumerate(zip(quarters, appreciation)):
                 nav = round(inv["acq_price"] * mult)
                 noi = round(inv["noi_monthly"] * 3 * mult)  # quarterly NOI
+                occ = 0.92 if inv["status"] == "lease_up" else 0.96
                 cur.execute(
                     """
                     INSERT INTO re_asset_quarter_state
-                        (asset_id, quarter, noi, market_value, occupancy)
-                    VALUES (%s, %s, %s, %s, %s)
+                        (asset_id, quarter, run_id, inputs_hash, noi, asset_value, occupancy)
+                    VALUES (%s, %s, %s, 'seed', %s, %s, %s)
                     ON CONFLICT DO NOTHING
                     """,
-                    (str(asset_id), qtr, noi, nav, 0.92 if inv["status"] == "lease_up" else 0.96),
+                    (str(asset_id), qtr, str(seed_run_id), noi, nav, occ),
                 )
 
         result["asset_quarter_states"] = len(INVESTMENTS) * len(quarters)
@@ -427,11 +429,11 @@ def seed_institutional_fund(
             cur.execute(
                 """
                 INSERT INTO re_fund_quarter_state
-                    (fund_id, quarter, portfolio_nav, total_committed, total_called, total_distributed)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                    (fund_id, quarter, run_id, inputs_hash, portfolio_nav, total_committed, total_called, total_distributed)
+                VALUES (%s, %s, %s, 'seed', %s, %s, %s, %s)
                 ON CONFLICT DO NOTHING
                 """,
-                (str(fund_id), qtr, portfolio_nav, TOTAL_COMMITTED, total_called_at_qtr, total_dist_at_qtr),
+                (str(fund_id), qtr, str(seed_run_id), portfolio_nav, TOTAL_COMMITTED, total_called_at_qtr, total_dist_at_qtr),
             )
 
         result["fund_quarter_states"] = len(quarters)
@@ -481,7 +483,7 @@ def seed_institutional_fund(
                     """
                     INSERT INTO re_capital_ledger_entry
                         (fund_id, partner_id, entry_type, amount, amount_base, effective_date, quarter, memo, source)
-                    VALUES (%s, %s, 'contribution', %s, %s, %s, %s, %s, 'seed')
+                    VALUES (%s, %s, 'contribution', %s, %s, %s, %s, %s, 'generated')
                     """,
                     (str(fund_id), str(pid), str(partner_amt), str(partner_amt), call_date, qtr, f"Capital call {call_date}"),
                 )
@@ -504,7 +506,7 @@ def seed_institutional_fund(
                     """
                     INSERT INTO re_capital_ledger_entry
                         (fund_id, partner_id, entry_type, amount, amount_base, effective_date, quarter, memo, source)
-                    VALUES (%s, %s, 'distribution', %s, %s, %s, %s, %s, 'seed')
+                    VALUES (%s, %s, 'distribution', %s, %s, %s, %s, %s, 'generated')
                     """,
                     (str(fund_id), str(pid), str(partner_amt), str(partner_amt), dist_date, qtr, f"Distribution {dist_date}"),
                 )
@@ -732,8 +734,8 @@ def seed_institutional_fund(
         cur.execute(
             """
             INSERT INTO re_assumption_set
-                (set_id, fund_id, name, version, is_active)
-            VALUES (%s, %s, 'Initial Underwrite', 1, true)
+                (assumption_set_id, fund_id, name, version)
+            VALUES (%s, %s, 'Initial Underwrite', 1)
             """,
             (str(assumption_set_id), str(fund_id)),
         )
@@ -750,7 +752,7 @@ def seed_institutional_fund(
             cur.execute(
                 """
                 INSERT INTO re_assumption_value
-                    (set_id, scope_node_type, key, value_decimal)
+                    (assumption_set_id, scope_type, key, value_decimal)
                 VALUES (%s, 'fund', %s, %s)
                 """,
                 (str(assumption_set_id), key, val),
