@@ -48,6 +48,7 @@ from app.services import (
     re_debt_surveillance,
     re_excel_export,
     re_fi_seed,
+    re_fi_seed_v2,
     re_fund_metrics,
     re_property_comps,
     re_run_engine,
@@ -355,6 +356,41 @@ def seed_institutional_fund(
             fund_id=fund_id,
         )
         return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/fi/seed-institutional-v2-patch")
+def seed_institutional_v2_patch(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    fund_id: UUID = Query(...),
+):
+    """V2 seed patch: fills gaps with per-asset debt, accounting, valuations, property metadata."""
+    try:
+        result = re_fi_seed_v2.seed_institutional_v2_patch(
+            env_id=env_id,
+            business_id=business_id,
+            fund_id=fund_id,
+        )
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/fi/validate-institutional-seed")
+def validate_institutional_seed(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    fund_id: UUID = Query(...),
+):
+    """Validate that the institutional seed meets all structural requirements."""
+    try:
+        return re_fi_seed_v2.validate_institutional_seed(
+            env_id=env_id,
+            business_id=business_id,
+            fund_id=fund_id,
+        )
     except Exception as exc:
         raise _to_http(exc)
 

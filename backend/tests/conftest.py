@@ -122,6 +122,7 @@ _GET_CURSOR_TARGETS = [
     "app.services.re_run_engine.get_cursor",
     "app.services.re_sale_scenario.get_cursor",
     "app.services.re_fi_seed.get_cursor",
+    "app.services.re_fi_seed_v2.get_cursor",
     "app.services.re_amortization.get_cursor",
     "app.services.re_property_comps.get_cursor",
     "app.services.re_capital_snapshot.get_cursor",

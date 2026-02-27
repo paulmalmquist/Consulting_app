@@ -297,6 +297,19 @@ const DEPT_ICON_MAP: Record<string, React.FC<IconProps>> = {
   executive: GaugeIcon,
   documents: FolderIcon,
   admin: LockIcon,
+  waterfall: Columns3Icon,
+  underwriting: ClipboardCheckIcon,
+  reporting: BarChart3Icon,
+  compliance: ShieldIcon,
+  content: ClipboardListIcon,
+  rankings: ListTodoIcon,
+  analytics: BarChart3Icon,
+  pipeline: PipeIcon,
+  outreach: MessageCircleIcon,
+  proposals: ClipboardListIcon,
+  clients: UsersIcon,
+  authority: SparklesIcon,
+  revenue: DollarSignIcon,
 };
 
 export function DeptIcon({ deptKey, ...props }: IconProps & { deptKey: string }) {
