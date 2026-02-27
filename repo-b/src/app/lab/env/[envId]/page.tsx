@@ -17,7 +17,7 @@ import {
   isLegalOpsEnvironment,
   isMedicalBackofficeEnvironment,
 } from "@/components/lab/environments/constants";
-import { listReV1Funds, getReFundSummary, ReFundSummary } from "@/lib/bos-api";
+import { listReV1Funds, getReV2FundQuarterState, ReV2FundQuarterState } from "@/lib/bos-api";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -68,6 +68,10 @@ type ContentStats = {
 
 type KPI = { label: string; value: string | number };
 
+type RepeRollupSummary = Pick<ReV2FundQuarterState, "portfolio_nav" | "tvpi" | "dpi"> & {
+  weighted_ltv: null;
+};
+
 // ── Industry-aware KPI config ─────────────────────────────────────────
 
 function fmtNav(value: string | number | null | undefined): string {
@@ -87,7 +91,7 @@ function fmtMultiple(value: string | number | null | undefined): string {
   return `${n.toFixed(2)}x`;
 }
 
-function buildRepeKpis(fundCount: number, summary: ReFundSummary | null): KPI[] {
+function buildRepeKpis(fundCount: number, summary: RepeRollupSummary | null): KPI[] {
   return [
     { label: "Active Funds", value: fundCount > 0 ? fundCount : "0" },
     { label: "Portfolio NAV", value: fmtNav(summary?.portfolio_nav) },
@@ -246,7 +250,7 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
   const [flash, setFlash] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
   const [repeFundCount, setRepeFundCount] = useState<number>(0);
-  const [repeSummary, setRepeSummary] = useState<ReFundSummary | null>(null);
+  const [repeSummary, setRepeSummary] = useState<RepeRollupSummary | null>(null);
 
   const router = useRouter();
   const env = environments.find((e) => e.env_id === params.envId);
@@ -324,12 +328,64 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
     })
       .then(async (funds) => {
         setRepeFundCount(funds.length);
-        if (funds.length > 0) {
-          const s = await getReFundSummary(funds[0].fund_id, quarter).catch(() => null);
-          setRepeSummary(s);
+        if (funds.length === 0) {
+          setRepeSummary(null);
+          return;
         }
+        const states = await Promise.all(
+          funds.map(async (fund) => {
+            try {
+              return await getReV2FundQuarterState(fund.fund_id, quarter);
+            } catch {
+              return null;
+            }
+          })
+        );
+        const validStates = states.filter(
+          (state): state is ReV2FundQuarterState => state !== null
+        );
+        if (validStates.length === 0) {
+          setRepeSummary(null);
+          return;
+        }
+        const weightedAverage = (key: "tvpi" | "dpi"): number | undefined => {
+          let weightedSum = 0;
+          let weightedDenominator = 0;
+          let fallbackSum = 0;
+          let fallbackCount = 0;
+          validStates.forEach((state) => {
+            const value = state[key];
+            if (value == null) return;
+            fallbackSum += value;
+            fallbackCount += 1;
+            const weight = Math.max(0, state.total_committed ?? 0);
+            if (weight > 0) {
+              weightedSum += value * weight;
+              weightedDenominator += weight;
+            }
+          });
+          if (weightedDenominator > 0) {
+            return weightedSum / weightedDenominator;
+          }
+          if (fallbackCount > 0) {
+            return fallbackSum / fallbackCount;
+          }
+          return undefined;
+        };
+        setRepeSummary({
+          portfolio_nav: validStates.reduce(
+            (sum, state) => sum + (state.portfolio_nav ?? 0),
+            0
+          ),
+          tvpi: weightedAverage("tvpi"),
+          dpi: weightedAverage("dpi"),
+          weighted_ltv: null,
+        });
       })
-      .catch(() => null);
+      .catch(() => {
+        setRepeFundCount(0);
+        setRepeSummary(null);
+      });
   }, [isRepe, businessId, params.envId]);
 
   const isConsulting = isConsultingEnvironment(industry);

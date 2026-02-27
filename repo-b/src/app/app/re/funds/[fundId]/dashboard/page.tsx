@@ -22,9 +22,16 @@ export default function ReFundDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = doCompute
-        ? await computeReFundSummary({ fin_fund_id: fundId, quarter })
-        : await getReFundSummary(fundId, quarter);
+      let data: ReFundSummary;
+      if (doCompute) {
+        data = await computeReFundSummary({ fin_fund_id: fundId, quarter });
+      } else {
+        try {
+          data = await getReFundSummary(fundId, quarter);
+        } catch {
+          data = await computeReFundSummary({ fin_fund_id: fundId, quarter });
+        }
+      }
       setSummary(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load fund summary");
