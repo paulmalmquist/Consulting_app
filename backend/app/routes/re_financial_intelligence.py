@@ -39,6 +39,8 @@ from app.schemas.re_financial_intelligence import (
     UwVersionOut,
     WatchlistEventOut,
     WaterfallBreakdownResult,
+    WaterfallScenarioRunRequest,
+    WaterfallScenarioRunResult,
 )
 from app.services import (
     re_accounting,
@@ -54,6 +56,8 @@ from app.services import (
     re_run_engine,
     re_sale_scenario,
     re_variance,
+    re_waterfall_scenario,
+    re_waterfall_scenario_seed,
 )
 
 router = APIRouter(prefix="/api/re/v2", tags=["re-v2-financial-intelligence"])
@@ -617,6 +621,90 @@ def compute_capital_snapshots(fund_id: UUID, body: CapitalSnapshotComputeRequest
         )
         _log("re.capital.snapshots", f"Computed {len(result)} snapshots", fund_id=str(fund_id))
         return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Waterfall Scenario Run ─────────────────────────────────────────────────
+
+@router.post("/funds/{fund_id}/waterfall-scenarios/run", response_model=WaterfallScenarioRunResult)
+def run_waterfall_scenario(fund_id: UUID, body: WaterfallScenarioRunRequest):
+    """Execute a full waterfall scenario calculation.
+
+    Validates all ingredients, applies scenario overrides, runs waterfall
+    with adjusted NAV, and stores immutable run artifact.
+    Does NOT mutate base ledger (shadow mode).
+    """
+    try:
+        return re_waterfall_scenario.run_waterfall_scenario(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            fund_id=fund_id,
+            scenario_id=body.scenario_id,
+            quarter=body.as_of_quarter,
+            mode=body.mode,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/funds/{fund_id}/waterfall-scenarios/runs")
+def list_waterfall_scenario_runs(
+    fund_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    quarter: str | None = Query(None),
+):
+    """List all waterfall scenario runs for a fund."""
+    try:
+        return re_waterfall_scenario.list_scenario_runs(
+            env_id=env_id,
+            business_id=business_id,
+            fund_id=fund_id,
+            quarter=quarter,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/funds/{fund_id}/waterfall-scenarios/validate")
+def validate_waterfall_scenario_ingredients(
+    fund_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    scenario_id: UUID = Query(...),
+    quarter: str = Query(...),
+):
+    """Validate all ingredients required for a waterfall scenario run."""
+    try:
+        return re_waterfall_scenario.validate_ingredients(
+            env_id=env_id,
+            business_id=business_id,
+            fund_id=fund_id,
+            scenario_id=scenario_id,
+            quarter=quarter,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Waterfall Scenario Seed ─────────────────────────────────────────────────
+
+@router.post("/fi/seed-waterfall-scenarios")
+def seed_waterfall_scenarios(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    fund_id: UUID = Query(...),
+    quarter: str = Query("2025Q1"),
+):
+    """Idempotent seed: ensure scenarios + overrides exist for waterfall scenario runs."""
+    try:
+        return re_waterfall_scenario_seed.seed_waterfall_scenario_patch(
+            env_id=env_id,
+            business_id=business_id,
+            fund_id=fund_id,
+            quarter=quarter,
+        )
     except Exception as exc:
         raise _to_http(exc)
 

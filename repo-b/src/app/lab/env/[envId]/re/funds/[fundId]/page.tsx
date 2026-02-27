@@ -6,8 +6,12 @@ import { MetricCard } from "@/components/ui/MetricCard";
 import {
   getRepeFund,
   listRepeDeals,
+  listRepeAssets,
+  listReV2Investments,
   RepeFundDetail,
   RepeDeal,
+  RepeAsset,
+  ReV2Investment,
   getReV2FundQuarterState,
   getReV2FundMetrics,
   runReV2QuarterClose,
@@ -42,6 +46,8 @@ import { AmortizationViewer } from "@/components/repe/AmortizationViewer";
 import { WaterfallTierTable } from "@/components/repe/WaterfallTierTable";
 import { LPBreakdown } from "@/components/repe/LPBreakdown";
 import { ExcelExportButton } from "@/components/repe/ExcelExportButton";
+import WaterfallScenarioPanel from "@/components/repe/WaterfallScenarioPanel";
+import { DebugFooter } from "@/components/repe/DebugFooter";
 
 function pickCurrentQuarter(): string {
   const d = new Date();
@@ -77,6 +83,7 @@ const TABS = [
   "Run Center",
   "Scenarios",
   "LP Summary",
+  "Waterfall Scenario",
 ] as const;
 type TabKey = (typeof TABS)[number];
 
@@ -89,6 +96,7 @@ export default function FundDetailPage({
   const [tab, setTab] = useState<TabKey>("Overview");
   const [detail, setDetail] = useState<RepeFundDetail | null>(null);
   const [deals, setDeals] = useState<RepeDeal[]>([]);
+  const [investments, setInvestments] = useState<ReV2Investment[]>([]);
   const [fundState, setFundState] = useState<ReV2FundQuarterState | null>(null);
   const [fundMetrics, setFundMetrics] = useState<ReV2FundMetrics | null>(null);
   const [scenarios, setScenarios] = useState<ReV2Scenario[]>([]);
@@ -104,14 +112,16 @@ export default function FundDetailPage({
     Promise.all([
       getRepeFund(params.fundId),
       listRepeDeals(params.fundId),
+      listReV2Investments(params.fundId).catch(() => []),
       getReV2FundQuarterState(params.fundId, quarter).catch(() => null),
       getReV2FundMetrics(params.fundId, quarter).catch(() => null),
       listReV2Scenarios(params.fundId).catch(() => []),
     ])
-      .then(([d, dls, fs, fm, sc]) => {
+      .then(([d, dls, inv, fs, fm, sc]) => {
         if (cancelled) return;
         setDetail(d);
         setDeals(dls);
+        setInvestments(inv as ReV2Investment[]);
         setFundState(fs);
         setFundMetrics(fm);
         setScenarios(sc);
@@ -216,7 +226,7 @@ export default function FundDetailPage({
 
       {/* Tab Content */}
       {tab === "Overview" && (
-        <OverviewTab deals={deals} scenarios={scenarios} fund={fund} />
+        <OverviewTab investments={investments} deals={deals} scenarios={scenarios} fund={fund} envId={params.envId} />
       )}
       {tab === "Variance (NOI)" && envId && businessId && (
         <VarianceTab envId={envId} businessId={businessId} fundId={params.fundId} quarter={quarter} />
@@ -254,22 +264,129 @@ export default function FundDetailPage({
           quarter={quarter}
         />
       )}
+      {tab === "Waterfall Scenario" && envId && businessId && (
+        <WaterfallScenarioPanel
+          envId={envId}
+          businessId={businessId}
+          fundId={params.fundId}
+          quarter={quarter}
+        />
+      )}
+      <DebugFooter envId={envId} fundId={params.fundId} businessId={businessId} />
     </section>
   );
 }
 
 // ── Overview Tab ──────────────────────────────────────────────────────────────
 
-function OverviewTab({ deals, scenarios, fund }: {
+function InvestmentRow({ inv, envId }: { inv: ReV2Investment; envId: string }) {
+  const [open, setOpen] = useState(false);
+  const [assets, setAssets] = useState<RepeAsset[] | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleToggle = () => {
+    const next = !open;
+    setOpen(next);
+    if (next && assets === null) {
+      setLoading(true);
+      listRepeAssets(inv.investment_id)
+        .then(setAssets)
+        .catch(() => setAssets([]))
+        .finally(() => setLoading(false));
+    }
+  };
+
+  return (
+    <>
+      <tr
+        className="hover:bg-bm-surface/20 cursor-pointer select-none"
+        onClick={handleToggle}
+        data-testid={`investment-row-${inv.investment_id}`}
+      >
+        <td className="px-4 py-3">
+          <span className="mr-2 text-bm-muted2 text-xs">{open ? "▾" : "▸"}</span>
+          <span className="font-medium">{inv.name}</span>
+        </td>
+        <td className="px-4 py-3 text-bm-muted2 text-xs capitalize">{inv.investment_type || "—"}</td>
+        <td className="px-4 py-3 text-bm-muted2 text-xs capitalize">{inv.stage || "—"}</td>
+        <td className="px-4 py-3 text-right text-sm">
+          {inv.committed_capital ? fmtMoney(inv.committed_capital) : "—"}
+        </td>
+        <td className="px-4 py-3 text-center">
+          <Link
+            href={`/lab/env/${envId}/re/investments/${inv.investment_id}`}
+            className="text-xs text-bm-accent hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Detail →
+          </Link>
+        </td>
+      </tr>
+      {open && (
+        <tr>
+          <td colSpan={5} className="px-0 py-0 bg-bm-surface/10">
+            {loading ? (
+              <div className="px-8 py-3 text-xs text-bm-muted2">Loading assets...</div>
+            ) : assets && assets.length > 0 ? (
+              <table className="w-full text-sm">
+                <tbody className="divide-y divide-bm-border/30">
+                  {assets.map((asset) => (
+                    <tr key={asset.asset_id} className="hover:bg-bm-surface/20">
+                      <td className="pl-12 pr-4 py-2 text-bm-muted2 text-xs w-8">└</td>
+                      <td className="px-2 py-2 font-medium text-sm">{asset.name}</td>
+                      <td className="px-4 py-2 text-xs text-bm-muted2 capitalize">{asset.asset_type}</td>
+                      <td className="px-4 py-2 text-xs text-bm-muted2" colSpan={2} />
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="px-12 py-3 text-xs text-bm-muted2">No assets linked to this investment.</div>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function OverviewTab({ investments, deals, scenarios, fund, envId }: {
+  investments: ReV2Investment[];
   deals: RepeDeal[];
   scenarios: ReV2Scenario[];
   fund: RepeFundDetail["fund"] | undefined;
+  envId: string;
 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <MetricCard label="Investments" value={String(deals.length)} size="large" />
-      <MetricCard label="Strategy" value={fund?.strategy?.toUpperCase() || "—"} size="large" />
-      <MetricCard label="Scenarios" value={String(scenarios.length)} size="large" />
+    <div className="space-y-4">
+      {/* Summary metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <MetricCard label="Investments" value={String(investments.length || deals.length)} size="large" />
+        <MetricCard label="Strategy" value={fund?.strategy?.toUpperCase() || "—"} size="large" />
+        <MetricCard label="Scenarios" value={String(scenarios.length)} size="large" />
+      </div>
+
+      {/* Investment list */}
+      {investments.length > 0 && (
+        <div className="rounded-xl border border-bm-border/70 overflow-hidden" data-testid="investment-list">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-bm-border/50 bg-bm-surface/30 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
+                <th className="px-4 py-3 font-medium">Investment</th>
+                <th className="px-4 py-3 font-medium">Type</th>
+                <th className="px-4 py-3 font-medium">Stage</th>
+                <th className="px-4 py-3 font-medium text-right">Committed</th>
+                <th className="px-4 py-3 font-medium text-center">Link</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-bm-border/40">
+              {investments.map((inv) => (
+                <InvestmentRow key={inv.investment_id} inv={inv} envId={envId} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

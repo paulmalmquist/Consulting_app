@@ -83,6 +83,7 @@ export default function ConsultingCommandCenter({
   const [metrics, setMetrics] = useState<MetricsSnapshot | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [diagnostics, setDiagnostics] = useState<WorkspaceDiagnostics | null>(null);
+  const [diagnosticsReliable, setDiagnosticsReliable] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
@@ -98,15 +99,39 @@ export default function ConsultingCommandCenter({
     setLoading(true);
     setDataError(null);
     try {
-      const [nextLeads, outreachLog, proposals, clients, kanban, latestMetrics] =
-        await Promise.all([
-          fetchLeads(params.envId, businessId),
-          fetchOutreachLog(params.envId, businessId),
-          fetchProposals(params.envId, businessId),
-          fetchClients(params.envId, businessId),
-          fetchPipelineKanban(params.envId, businessId),
-          fetchLatestMetrics(params.envId, businessId).catch(() => null),
-        ]);
+      const [
+        leadsResult,
+        outreachResult,
+        proposalsResult,
+        clientsResult,
+        kanbanResult,
+        metricsResult,
+      ] = await Promise.allSettled([
+        fetchLeads(params.envId, businessId),
+        fetchOutreachLog(params.envId, businessId),
+        fetchProposals(params.envId, businessId),
+        fetchClients(params.envId, businessId),
+        fetchPipelineKanban(params.envId, businessId),
+        fetchLatestMetrics(params.envId, businessId),
+      ]);
+
+      if (leadsResult.status !== "fulfilled") {
+        throw leadsResult.reason;
+      }
+
+      const nextLeads = leadsResult.value;
+      const outreachLog =
+        outreachResult.status === "fulfilled" ? outreachResult.value : [];
+      const proposals =
+        proposalsResult.status === "fulfilled" ? proposalsResult.value : [];
+      const clients =
+        clientsResult.status === "fulfilled" ? clientsResult.value : [];
+      const kanban =
+        kanbanResult.status === "fulfilled"
+          ? kanbanResult.value
+          : { columns: [], total_pipeline: 0, weighted_pipeline: 0 };
+      const latestMetrics =
+        metricsResult.status === "fulfilled" ? metricsResult.value : null;
 
       const openPipelineCards = kanban.columns.reduce(
         (total, column) => total + column.cards.length,
@@ -122,10 +147,17 @@ export default function ConsultingCommandCenter({
         proposal_count: proposals.length,
         client_count: clients.length,
       });
+      setDiagnosticsReliable(
+        outreachResult.status === "fulfilled" &&
+          proposalsResult.status === "fulfilled" &&
+          clientsResult.status === "fulfilled" &&
+          kanbanResult.status === "fulfilled",
+      );
     } catch (err) {
       setLeads([]);
       setMetrics(null);
       setDiagnostics(null);
+      setDiagnosticsReliable(false);
       setDataError(formatError(err));
     } finally {
       setLoading(false);
@@ -150,6 +182,7 @@ export default function ConsultingCommandCenter({
     [leads],
   );
   const canSeed = Boolean(
+    diagnosticsReliable &&
     diagnostics &&
       diagnostics.lead_count === 0 &&
       diagnostics.open_pipeline_cards === 0 &&

@@ -127,6 +127,8 @@ _GET_CURSOR_TARGETS = [
     "app.services.re_property_comps.get_cursor",
     "app.services.re_capital_snapshot.get_cursor",
     "app.services.re_excel_export.get_cursor",
+    "app.services.re_waterfall_scenario.get_cursor",
+    "app.services.re_waterfall_scenario_seed.get_cursor",
     "app.services.cro_pipeline.get_cursor",
     "app.services.cro_leads.get_cursor",
     "app.services.cro_outreach.get_cursor",

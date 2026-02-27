@@ -104,13 +104,20 @@ export default function PipelinePage({
 
     setLoading(true);
     setDataError(null);
-    Promise.all([
+    Promise.allSettled([
       fetchPipelineKanban(params.envId, businessId),
       fetchLeads(params.envId, businessId),
     ])
-      .then(([nextKanban, nextLeads]) => {
-        setKanban(nextKanban);
-        setLeads(nextLeads);
+      .then(([kanbanResult, leadsResult]) => {
+        if (leadsResult.status !== "fulfilled") {
+          throw leadsResult.reason;
+        }
+        setKanban(
+          kanbanResult.status === "fulfilled"
+            ? kanbanResult.value
+            : { columns: [], total_pipeline: 0, weighted_pipeline: 0 },
+        );
+        setLeads(leadsResult.value);
       })
       .catch((err) => {
         setKanban(null);

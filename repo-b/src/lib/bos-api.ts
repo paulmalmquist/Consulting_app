@@ -3247,6 +3247,153 @@ export function getWaterfallBreakdown(params: {
   });
 }
 
+// ── Waterfall Scenario Run ─────────────────────────────────────────────────
+
+export type WaterfallScenarioMetrics = {
+  nav: string | null;
+  gross_irr: string | null;
+  net_irr: string | null;
+  gross_tvpi: string | null;
+  net_tvpi: string | null;
+  dpi: string | null;
+  rvpi: string | null;
+};
+
+export type WaterfallScenarioDeltas = {
+  nav: string | null;
+  gross_irr: string | null;
+  net_irr: string | null;
+  gross_tvpi: string | null;
+};
+
+export type WaterfallScenarioOverrides = {
+  cap_rate_delta_bps: string;
+  noi_stress_pct: string;
+  exit_date_shift_months: number;
+};
+
+export type WaterfallScenarioTierAllocation = {
+  tier_name: string;
+  partner_name: string;
+  partner_type: string;
+  payout_type: string;
+  amount: string;
+};
+
+export type MissingIngredient = {
+  category: string;
+  detail: string;
+};
+
+export type WaterfallScenarioRunResult = {
+  status: string;
+  run_id: string | null;
+  waterfall_run_id: string | null;
+  fund_id: string;
+  scenario_id: string;
+  quarter: string;
+  mode: string | null;
+  error: string | null;
+  missing: MissingIngredient[];
+  overrides: WaterfallScenarioOverrides | null;
+  base: WaterfallScenarioMetrics | null;
+  scenario: WaterfallScenarioMetrics | null;
+  deltas: WaterfallScenarioDeltas | null;
+  carry_estimate: string | null;
+  mgmt_fees: string | null;
+  fund_expenses: string | null;
+  tier_allocations: WaterfallScenarioTierAllocation[];
+  snapshot_id: string | null;
+};
+
+export type WaterfallScenarioRunListItem = {
+  id: string;
+  env_id: string;
+  business_id: string;
+  fund_id: string;
+  quarter: string;
+  scenario_id: string;
+  run_type: string;
+  status: string;
+  output_hash: string | null;
+  created_at: string;
+  scenario_name: string | null;
+};
+
+export type WaterfallScenarioValidation = {
+  ready: boolean;
+  missing: MissingIngredient[];
+};
+
+export function runWaterfallScenario(params: {
+  fund_id: string;
+  env_id: string;
+  business_id: string;
+  scenario_id: string;
+  quarter: string;
+  mode?: string;
+}): Promise<WaterfallScenarioRunResult> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/waterfall-scenarios/run`, {
+    method: "POST",
+    body: JSON.stringify({
+      env_id: params.env_id,
+      business_id: params.business_id,
+      scenario_id: params.scenario_id,
+      as_of_quarter: params.quarter,
+      mode: params.mode || "shadow",
+    }),
+  });
+}
+
+export function listWaterfallScenarioRuns(params: {
+  fund_id: string;
+  env_id: string;
+  business_id: string;
+  quarter?: string;
+}): Promise<WaterfallScenarioRunListItem[]> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/waterfall-scenarios/runs`, {
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+      ...(params.quarter ? { quarter: params.quarter } : {}),
+    },
+  });
+}
+
+export function validateWaterfallScenarioIngredients(params: {
+  fund_id: string;
+  env_id: string;
+  business_id: string;
+  scenario_id: string;
+  quarter: string;
+}): Promise<WaterfallScenarioValidation> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/waterfall-scenarios/validate`, {
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+      scenario_id: params.scenario_id,
+      quarter: params.quarter,
+    },
+  });
+}
+
+export function seedWaterfallScenarios(params: {
+  env_id: string;
+  business_id: string;
+  fund_id: string;
+  quarter?: string;
+}): Promise<Record<string, unknown>> {
+  return bosFetch("/api/re/v2/fi/seed-waterfall-scenarios", {
+    method: "POST",
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+      fund_id: params.fund_id,
+      ...(params.quarter ? { quarter: params.quarter } : {}),
+    },
+  });
+}
+
 // ── Excel Export ────────────────────────────────────────────────────────────
 
 export function exportFundExcelUrl(params: {

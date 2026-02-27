@@ -68,15 +68,22 @@ export default function OutreachPage({
 
     setLoading(true);
     setDataError(null);
-    Promise.all([
+    Promise.allSettled([
       fetchLeads(params.envId, businessId),
       fetchOutreachLog(params.envId, businessId),
       fetchOutreachAnalytics(params.envId, businessId),
     ])
-      .then(([l, o, a]) => {
-        setLeads(l);
-        setOutreachLog(o);
-        setAnalytics(a);
+      .then(([leadsResult, outreachResult, analyticsResult]) => {
+        if (leadsResult.status !== "fulfilled") {
+          throw leadsResult.reason;
+        }
+        setLeads(leadsResult.value);
+        setOutreachLog(
+          outreachResult.status === "fulfilled" ? outreachResult.value : [],
+        );
+        setAnalytics(
+          analyticsResult.status === "fulfilled" ? analyticsResult.value : null,
+        );
       })
       .catch((err) => {
         setLeads([]);

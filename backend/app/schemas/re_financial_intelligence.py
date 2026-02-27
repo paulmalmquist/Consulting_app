@@ -455,3 +455,70 @@ class WaterfallBreakdownResult(BaseModel):
     quarter: str
     run_id: str | None = None
     allocations: list[WaterfallTierAllocation] = Field(default_factory=list)
+
+
+# ── Waterfall Scenario Run ─────────────────────────────────────────────────
+
+class WaterfallScenarioRunRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    scenario_id: UUID
+    as_of_quarter: str = Field(pattern=r"^\d{4}Q[1-4]$")
+    mode: str = "shadow"
+
+
+class WaterfallScenarioTierAllocation(BaseModel):
+    tier_name: str
+    partner_name: str
+    partner_type: str
+    payout_type: str
+    amount: str
+
+
+class WaterfallScenarioMetrics(BaseModel):
+    nav: str | None = None
+    gross_irr: str | None = None
+    net_irr: str | None = None
+    gross_tvpi: str | None = None
+    net_tvpi: str | None = None
+    dpi: str | None = None
+    rvpi: str | None = None
+
+
+class WaterfallScenarioDeltas(BaseModel):
+    nav: str | None = None
+    gross_irr: str | None = None
+    net_irr: str | None = None
+    gross_tvpi: str | None = None
+
+
+class WaterfallScenarioOverrides(BaseModel):
+    cap_rate_delta_bps: str = "0"
+    noi_stress_pct: str = "0"
+    exit_date_shift_months: int = 0
+
+
+class MissingIngredient(BaseModel):
+    category: str
+    detail: str
+
+
+class WaterfallScenarioRunResult(BaseModel):
+    status: str
+    run_id: str | None = None
+    waterfall_run_id: str | None = None
+    fund_id: str
+    scenario_id: str
+    quarter: str
+    mode: str | None = None
+    error: str | None = None
+    missing: list[MissingIngredient] = Field(default_factory=list)
+    overrides: WaterfallScenarioOverrides | None = None
+    base: WaterfallScenarioMetrics | None = None
+    scenario: WaterfallScenarioMetrics | None = None
+    deltas: WaterfallScenarioDeltas | None = None
+    carry_estimate: str | None = None
+    mgmt_fees: str | None = None
+    fund_expenses: str | None = None
+    tier_allocations: list[WaterfallScenarioTierAllocation] = Field(default_factory=list)
+    snapshot_id: str | None = None

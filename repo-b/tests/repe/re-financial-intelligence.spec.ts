@@ -21,6 +21,21 @@ const DEBT_FUND_ID = "33333333-3333-3333-3333-333333333333";
 const BASE = `/lab/env/${ENV_ID}/re`;
 
 async function installMocks(page: Page) {
+  // Mock /v1/environments/* proxy route (apiFetch call from ReEnvProvider)
+  await page.route("**/v1/environments/**", async (route) => {
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        env_id: ENV_ID,
+        client_name: "Meridian Capital",
+        industry: "real_estate",
+        schema_name: "meridian",
+        business_id: BUSINESS_ID,
+      }),
+    });
+  });
+
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/^\/bos/, "");
@@ -41,8 +56,8 @@ async function installMocks(page: Page) {
       });
     }
 
-    // List funds
-    if (path.includes("/api/repe/funds") && method === "GET" && !path.includes(EQUITY_FUND_ID) && !path.includes(DEBT_FUND_ID)) {
+    // List funds (RepeWorkspaceShell calls listReV1Funds → /api/re/v1/funds)
+    if ((path.endsWith("/api/repe/funds") || path.endsWith("/api/re/v1/funds")) && method === "GET") {
       return route.fulfill({
         status: 200,
         body: JSON.stringify([
@@ -72,8 +87,8 @@ async function installMocks(page: Page) {
       });
     }
 
-    // Get equity fund detail
-    if (path.includes(`/api/repe/funds/${EQUITY_FUND_ID}`) && method === "GET") {
+    // Get equity fund detail (exclude sub-paths)
+    if (path.includes(`/api/repe/funds/${EQUITY_FUND_ID}`) && method === "GET" && path.endsWith(EQUITY_FUND_ID)) {
       return route.fulfill({
         status: 200,
         body: JSON.stringify({
@@ -100,8 +115,8 @@ async function installMocks(page: Page) {
       });
     }
 
-    // Get debt fund detail
-    if (path.includes(`/api/repe/funds/${DEBT_FUND_ID}`) && method === "GET") {
+    // Get debt fund detail (exclude sub-paths)
+    if (path.includes(`/api/repe/funds/${DEBT_FUND_ID}`) && method === "GET" && path.endsWith(DEBT_FUND_ID)) {
       return route.fulfill({
         status: 200,
         body: JSON.stringify({
@@ -129,8 +144,8 @@ async function installMocks(page: Page) {
       });
     }
 
-    // Deals
-    if (path.includes("/api/repe/deals") || path.includes("/investments")) {
+    // Deals + Investments
+    if (path.includes("/deals") || path.includes("/investments")) {
       return route.fulfill({
         status: 200,
         body: JSON.stringify([]),
@@ -309,23 +324,23 @@ test.describe("Financial Intelligence E2E", () => {
     await page.goto(`${BASE}/deals`);
     await page.waitForSelector("[data-testid='repe-left-nav']", { timeout: 10000 });
     const investmentsLink = page.locator("[data-testid='repe-left-nav'] a", { hasText: "Investments" });
-    await expect(investmentsLink).toHaveClass(/border-bm-accent/);
+    await expect(investmentsLink).toHaveClass(/border-l-bm-accent/);
 
     // Funds should NOT be active
     const fundsLink = page.locator("[data-testid='repe-left-nav'] a", { hasText: "Funds" });
-    await expect(fundsLink).not.toHaveClass(/border-bm-accent/);
+    await expect(fundsLink).not.toHaveClass(/border-l-bm-accent/);
 
     // Assets route
     await page.goto(`${BASE}/assets`);
     await page.waitForSelector("[data-testid='repe-left-nav']", { timeout: 10000 });
     const assetsLink = page.locator("[data-testid='repe-left-nav'] a", { hasText: "Assets" });
-    await expect(assetsLink).toHaveClass(/border-bm-accent/);
+    await expect(assetsLink).toHaveClass(/border-l-bm-accent/);
 
     // Fund detail route highlights Funds
     await page.goto(`${BASE}/funds/${EQUITY_FUND_ID}`);
     await page.waitForSelector("[data-testid='repe-left-nav']", { timeout: 10000 });
     const fundsLinkDetail = page.locator("[data-testid='repe-left-nav'] a", { hasText: "Funds" });
-    await expect(fundsLinkDetail).toHaveClass(/border-bm-accent/);
+    await expect(fundsLinkDetail).toHaveClass(/border-l-bm-accent/);
   });
 
   test("6. Non-existent fund shows clean 404", async ({ page }) => {

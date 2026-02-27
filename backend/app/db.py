@@ -4,7 +4,7 @@ from app.config import require_database_url
 
 
 def get_connection() -> psycopg.Connection:
-    return psycopg.connect(require_database_url())
+    return psycopg.connect(require_database_url(), prepare_threshold=None)
 
 
 @contextmanager
