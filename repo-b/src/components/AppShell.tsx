@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useEnv } from "@/components/EnvProvider";
 import ThemeToggle from "@/components/ThemeToggle";

@@ -16,14 +16,17 @@ function isActive(pathname: string, href: string, isBase: boolean): boolean {
 export default function ConsultingWorkspaceShell({
   children,
   envId,
+  isAdmin = false,
 }: {
   children: React.ReactNode;
   envId: string;
+  isAdmin?: boolean;
 }) {
   const pathname = usePathname();
   const { environment, businessId, loading, error, retry } = useConsultingEnv();
 
   const base = `/lab/env/${envId}/consulting`;
+  const homeHref = isAdmin ? "/admin" : `/lab/env/${envId}`;
   const navItems = useMemo(
     () => [
       { href: base, label: "Command Center", isBase: true },
@@ -66,7 +69,7 @@ export default function ConsultingWorkspaceShell({
             Retry
           </button>
           <a
-            href={`/lab/env/${envId}`}
+            href={homeHref}
             className="rounded-lg border border-bm-border px-4 py-2 text-sm hover:bg-bm-surface/40"
           >
             Back to Environment
@@ -94,6 +97,13 @@ export default function ConsultingWorkspaceShell({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={homeHref}
+              className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
+              data-testid="global-home-button"
+            >
+              Home
+            </Link>
             <Link
               href={`${base}/outreach`}
               className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"

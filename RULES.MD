@@ -1087,3 +1087,126 @@ postgresql://postgres.ozboonlsplroialdwuxj:ripsalesforce8084@aws-1-us-east-1.poo
 - `repo-b/src/app/api/v1/environments/[id]/route.ts` — added `PG_POOLER_URL` check
 - `MEMORY.md` — added Supabase connection pooler section
 - `RULES.MD` — BUG-003 appended
+## Deterministic Financial Engine
+
+- All financial outputs (NAV, IRR, DPI, TVPI, DSCR, Waterfall allocations) must be derived from versioned input assumptions.
+- Each snapshot must store:
+  - input_hash
+  - engine_version
+  - timestamp
+- Re-running the same snapshot with identical inputs must yield identical outputs.
+- No client-side financial calculations for institutional metrics.
+## Institutional Fund Requirements
+
+A Real Estate PE environment must include:
+
+- ≥1 Fund
+- ≥1 Investment per Fund
+- ≥1 Asset per Investment
+- ≥1 Scenario
+- Capital Commitments defined before distributions allowed
+- Debt instruments must specify amortization type:
+  - IO
+  - Amortizing
+  - Balloon
+  ## Data Mutation Guardrails
+
+- Hard deletes are prohibited in production.
+- All deletes must be soft deletes with:
+  - deleted_at
+  - deleted_by
+- Destructive actions require confirmation modal with:
+  - Environment name typed manually
+  - 2-step confirmation
+  ## Reporting Integrity
+
+- Exports must match UI values exactly.
+- All exported reports must contain:
+  - Environment name
+  - Snapshot timestamp
+  - Engine version
+- No Excel export without validated snapshot.
+## Financial Calculation Standards
+
+- IRR must use XIRR methodology for irregular cash flows.
+- DSCR must use amortized debt service (not interest-only shortcut).
+- Cap rate must be calculated as NOI / Value.
+- All rates displayed as percentages with 2 decimal precision.
+## Environment Template Governance
+
+Every environment must be provisioned from a template.
+
+Template types:
+- Institutional RE Fund
+- Legal Ops
+- Healthcare Provider
+- Consulting / Novendor
+
+Ad hoc environments are prohibited in production.
+## Institutional Readiness Criteria
+
+An environment may be marked "Institutional Ready" only if:
+
+- All required modules load without console errors
+- Loan amortization schedules generate ≥ 12 periods
+- Capital account snapshot exists
+- Export .xlsx validates against UI
+- Audit log entries exist for:
+  - Environment creation
+  - Fund creation
+  - Snapshot generation
+  ## Audit Requirements
+
+The system must log:
+- Login events
+- Fund creation
+- Debt creation
+- Snapshot generation
+- Recompute actions
+- Export events
+
+Logs must include:
+- user_id
+- environment_id
+- timestamp
+- action_type
+## UI Consistency
+
+- All environments must expose:
+  - Dashboard
+  - Intelligence
+  - System
+- RE environments must expose:
+  - Funds
+  - Investments
+  - Assets
+  - Scenarios
+  - Run Center
+- Buttons must not require double-click to activate.
+- No blank states without instructional text.
+## Demo / Test Isolation
+
+- Environments containing "test", "demo", or "autotest" must:
+  - Be tagged as NON-PROD
+  - Be excluded from institutional readiness reports
+- Production demos must use seeded canonical datasets.
+## Single Source of Financial Truth
+
+- All financial metrics must originate from the Winston Financial Engine.
+- No spreadsheet-calculated numbers may be manually uploaded as authoritative values.
+## Role-Based Controls
+
+Admin:
+- Provision
+- Archive
+- Recompute
+
+Manager:
+- Create funds
+- Edit assumptions
+
+Viewer:
+- Read-only
+- Export allowed
+
+Delete restricted to Admin only.

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { EnvironmentCard, EnvironmentStats } from "./EnvironmentCard";
-import { EnvironmentStatus, statusFromFlags } from "./constants";
+import { EnvironmentStatus, statusFromFlags, humanIndustry } from "./constants";
 
 type SortKey = "name" | "created" | "last_activity";
 
@@ -31,6 +31,7 @@ export function EnvironmentList({
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("created");
   const [activeFilters, setActiveFilters] = useState<Array<"active" | "archived" | "failed">>(["active"]);
+  const [sectorFilter, setSectorFilter] = useState<string>("all");
   const dedupedEnvironments = useMemo(() => {
     const before = environments.length;
     const byId = new Map<string, Environment>();
@@ -51,6 +52,15 @@ export function EnvironmentList({
     return values;
   }, [environments]);
 
+  const sectors = useMemo(() => {
+    const set = new Set<string>();
+    for (const env of dedupedEnvironments) {
+      const raw = env.industry_type || env.industry || "";
+      if (raw) set.add(raw);
+    }
+    return [...set].sort((a, b) => humanIndustry(a).localeCompare(humanIndustry(b)));
+  }, [dedupedEnvironments]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
 
@@ -58,6 +68,10 @@ export function EnvironmentList({
       const status = statusFromFlags(env.is_active);
       const filterHit = activeFilters.includes(status as "active" | "archived") || (status === "failed" && activeFilters.includes("failed"));
       if (!filterHit) return false;
+      if (sectorFilter !== "all") {
+        const envIndustry = env.industry_type || env.industry || "";
+        if (envIndustry !== sectorFilter) return false;
+      }
       if (!q) return true;
       return [
         env.client_name,
@@ -80,7 +94,7 @@ export function EnvironmentList({
       const bd = b.created_at ? new Date(b.created_at).getTime() : 0;
       return bd - ad;
     });
-  }, [dedupedEnvironments, query, sortBy, activeFilters]);
+  }, [dedupedEnvironments, query, sortBy, activeFilters, sectorFilter]);
 
   const toggleFilter = (filter: "active" | "archived" | "failed") => {
     setActiveFilters((prev) => {
@@ -123,13 +137,19 @@ export function EnvironmentList({
           </CardDescription>
         </div>
 
-        <section className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
+        <section className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3">
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search name, schema, industry"
             data-testid="env-search"
           />
+          <Select value={sectorFilter} onChange={(e) => setSectorFilter(e.target.value)} data-testid="env-sector-filter">
+            <option value="all">Sector: All</option>
+            {sectors.map((s) => (
+              <option key={s} value={s}>{humanIndustry(s)}</option>
+            ))}
+          </Select>
           <Select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortKey)} data-testid="env-sort">
             <option value="created">Sort: Created</option>
             <option value="name">Sort: Name</option>

@@ -9,12 +9,10 @@ import {
   listRepeAssets,
   listRepeDeals,
   listReV2Jvs,
-  listReV2Scenarios,
   RepeAsset,
   RepeDeal,
   RepeFund,
   ReV2Jv,
-  ReV2Scenario,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 
@@ -38,12 +36,13 @@ function parsePathId(pathname: string, segment: string): string | null {
   return match?.[1] || null;
 }
 
-export default function RepeWorkspaceShell({ children, envId }: { children: React.ReactNode; envId?: string }) {
+export default function RepeWorkspaceShell({ children, envId, isAdmin = false }: { children: React.ReactNode; envId?: string; isAdmin?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const { environment, businessId, loading, error, errorCode, requestId, retry } = useReEnv();
 
   const base = envId ? `/lab/env/${envId}/re` : "/app/repe";
+  const homeHref = isAdmin ? "/admin" : (envId ? `/lab/env/${envId}` : "/lab/environments");
   const navItems = useMemo(
     () => [
       { href: `${base}`, label: "Funds", isBase: true },
@@ -59,7 +58,6 @@ export default function RepeWorkspaceShell({ children, envId }: { children: Reac
   const [deals, setDeals] = useState<RepeDeal[]>([]);
   const [assets, setAssets] = useState<RepeAsset[]>([]);
   const [jvs, setJvs] = useState<ReV2Jv[]>([]);
-  const [scenarios, setScenarios] = useState<ReV2Scenario[]>([]);
   const [selectorFundId, setSelectorFundId] = useState("");
   const [selectorDealId, setSelectorDealId] = useState("");
   const [selectorJvId, setSelectorJvId] = useState("");
@@ -131,15 +129,6 @@ export default function RepeWorkspaceShell({ children, envId }: { children: Reac
     return () => { cancelled = true; };
   }, [activeDealId, pathAssetId]);
 
-  // Load scenarios for selected fund
-  useEffect(() => {
-    if (!activeFundId) { setScenarios([]); return; }
-    let cancelled = false;
-    listReV2Scenarios(activeFundId)
-      .then((rows) => { if (!cancelled) setScenarios(rows); })
-      .catch(() => { if (!cancelled) setScenarios([]); });
-    return () => { cancelled = true; };
-  }, [activeFundId]);
 
   const envLabel = environment?.client_name || envId || "Real Estate";
   const envSchema = environment?.schema_name || envId || "n/a";
@@ -168,7 +157,7 @@ export default function RepeWorkspaceShell({ children, envId }: { children: Reac
             Retry
           </button>
           <a
-            href={`/lab/env/${envId}`}
+            href={homeHref}
             className="rounded-lg border border-bm-border px-4 py-2 text-sm hover:bg-bm-surface/40"
           >
             Back to Environment
@@ -196,14 +185,15 @@ export default function RepeWorkspaceShell({ children, envId }: { children: Reac
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Link href={homeHref} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40" data-testid="global-home-button">Home</Link>
             <Link href={`${base}/funds/new`} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"><PlusCircle size={14} /> Fund</Link>
             <Link href={`${base}/deals`} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"><PlusCircle size={14} /> Investment</Link>
             <Link href={`${base}/assets`} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"><PlusCircle size={14} /> Asset</Link>
           </div>
         </div>
 
-        {/* Selectors: Fund → Investment → JV → Asset + Scenario */}
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-2">
+        {/* Selectors: Fund → Investment → JV → Asset */}
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
           <label className="text-xs text-bm-muted2 uppercase tracking-[0.1em]">
             Fund
             <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm"
@@ -237,16 +227,6 @@ export default function RepeWorkspaceShell({ children, envId }: { children: Reac
               value={activeAssetId || ""} onChange={(e) => { setSelectorAssetId(e.target.value); if (e.target.value) router.push(`${base}/assets/${e.target.value}`); }}>
               <option value="">Select asset</option>
               {assets.map((a) => <option key={a.asset_id} value={a.asset_id}>{a.name}</option>)}
-            </select>
-          </label>
-
-          <label className="text-xs text-bm-muted2 uppercase tracking-[0.1em]">
-            Scenario
-            <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm" defaultValue="">
-              <option value="">Base</option>
-              {scenarios.filter((s) => !s.is_base).map((s) => (
-                <option key={s.scenario_id} value={s.scenario_id}>{s.name}</option>
-              ))}
             </select>
           </label>
         </div>

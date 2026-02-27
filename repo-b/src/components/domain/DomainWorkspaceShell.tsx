@@ -47,15 +47,18 @@ export default function DomainWorkspaceShell({
   envId,
   domain,
   children,
+  isAdmin = false,
 }: {
   envId: string;
   domain: DomainSlug;
   children: React.ReactNode;
+  isAdmin?: boolean;
 }) {
   const pathname = usePathname();
   const { environment, businessId, loading, error, requestId, retry } = useDomainEnv();
 
   const base = `/lab/env/${envId}/${domain}`;
+  const homeHref = isAdmin ? "/admin" : `/lab/env/${envId}`;
   const items = navItems(domain, base);
   const envLabel = environment?.client_name || envId;
 
@@ -101,6 +104,13 @@ export default function DomainWorkspaceShell({
               {businessId ? ` · Business: ${businessId.slice(0, 8)}` : ""}
             </p>
           </div>
+          <Link
+            href={homeHref}
+            className="inline-flex items-center rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
+            data-testid="global-home-button"
+          >
+            Home
+          </Link>
         </div>
       </section>
 
