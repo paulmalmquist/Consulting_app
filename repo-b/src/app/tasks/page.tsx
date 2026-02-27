@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -92,7 +92,7 @@ export default function TasksProjectsPage() {
     [projects]
   );
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setLoading(true);
     try {
       const rows = await listTaskProjects();
@@ -107,11 +107,11 @@ export default function TasksProjectsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [push]);
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [refresh]);
 
   const onSeed = async () => {
     setSeeding(true);

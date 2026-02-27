@@ -205,8 +205,8 @@ export default function PipelineBoard({
     void loadBoard();
   }, [loadBoard]);
 
-  const stages = board?.stages || [];
-  const cards = board?.cards || [];
+  const stages = useMemo(() => board?.stages || [], [board?.stages]);
+  const cards = useMemo(() => board?.cards || [], [board?.cards]);
 
   const cardsByStage = useMemo(() => {
     const map: Record<string, PipelineCard[]> = {};

@@ -98,7 +98,7 @@ export default function EnvironmentsPage() {
           <div>
             <p className="text-sm font-semibold text-bm-text">Executive Command Center Demo</p>
             <p className="text-xs text-bm-muted">
-              Provision Meridian Apex Holdings with a seeded "messy day" queue and open the mobile-first ECC.
+              Provision Meridian Apex Holdings with a seeded &quot;messy day&quot; queue and open the mobile-first ECC.
             </p>
           </div>
           <Button type="button" onClick={provisionMeridianDemo}>

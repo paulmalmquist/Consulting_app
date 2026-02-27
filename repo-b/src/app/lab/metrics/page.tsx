@@ -26,7 +26,7 @@ export default function MetricsPage() {
     })
       .then((data) => setMetrics(data))
       .catch(() => setMetrics(null));
-  }, [selectedEnv?.env_id]);
+  }, [selectedEnv]);
 
   const cards = [
     { label: "Uploads", value: metrics?.uploads_count ?? 0 },

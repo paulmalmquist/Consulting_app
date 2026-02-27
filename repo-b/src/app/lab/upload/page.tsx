@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useEnv } from "@/components/EnvProvider";
 import EnvGate from "@/components/EnvGate";
 import { API_BASE_URL } from "@/lib/api";
@@ -21,7 +21,7 @@ export default function UploadPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const fetchDocuments = async () => {
+  const fetchDocuments = useCallback(async () => {
     if (!selectedEnv) return;
     try {
       const response = await fetch(
@@ -36,11 +36,11 @@ export default function UploadPage() {
     } catch {
       setDocuments([]);
     }
-  };
+  }, [selectedEnv]);
 
   useEffect(() => {
-    fetchDocuments();
-  }, [selectedEnv?.env_id]);
+    void fetchDocuments();
+  }, [fetchDocuments]);
 
   const handleUpload = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

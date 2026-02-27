@@ -27,7 +27,7 @@ export default function AuditPage() {
     })
       .then((data) => setItems(data.items || []))
       .catch(() => setItems([]));
-  }, [selectedEnv?.env_id]);
+  }, [selectedEnv]);
 
   return (
     <EnvGate>

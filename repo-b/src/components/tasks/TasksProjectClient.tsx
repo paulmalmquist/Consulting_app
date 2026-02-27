@@ -655,13 +655,15 @@ export default function TasksProjectClient({
     void refreshProject();
   }, [refreshProject]);
 
+  const projectId = project?.id ?? null;
+
   useEffect(() => {
-    if (!project) return;
+    if (!projectId) return;
     const handle = window.setTimeout(() => {
-      void refreshIssues(project.id, filters);
+      void refreshIssues(projectId, filters);
     }, 220);
     return () => window.clearTimeout(handle);
-  }, [filters, project?.id, refreshIssues]);
+  }, [filters, projectId, refreshIssues]);
 
   useEffect(() => {
     if (!drawerIssueId) {
@@ -681,7 +683,7 @@ export default function TasksProjectClient({
         });
         setDrawerIssueId(null);
       });
-  }, [drawerIssueId]);
+  }, [drawerIssueId, push]);
 
   useEffect(() => {
     if (!drawerIssueId) return;

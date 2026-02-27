@@ -181,7 +181,7 @@ export default function GlobalCommandBar() {
     error?: unknown;
   }>({});
 
-  const context = useMemo(() => readContextFromBrowser(pathname), [pathname, isOpen]);
+  const context = useMemo(() => readContextFromBrowser(pathname), [pathname]);
   const workspace = useMemo(() => workspaceFromContext(contextSnapshot, context), [contextSnapshot, context]);
   const quickActions = useMemo(() => deriveQuickActions(pathname, contextSnapshot), [pathname, contextSnapshot]);
   const authenticated = authState === "authenticated";

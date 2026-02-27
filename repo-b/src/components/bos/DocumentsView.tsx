@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import {
   listDocuments,
   listDocumentVersions,
@@ -39,17 +39,17 @@ export default function DocumentsView({
   const [uploadSuccess, setUploadSuccess] = useState("");
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  function loadDocs() {
+  const loadDocs = useCallback(() => {
     setLoading(true);
     listDocuments(businessId, departmentId)
       .then(setDocs)
       .catch(() => setDocs([]))
       .finally(() => setLoading(false));
-  }
+  }, [businessId, departmentId]);
 
   useEffect(() => {
     loadDocs();
-  }, [businessId, departmentId]);
+  }, [loadDocs]);
 
   function handleSelectDoc(doc: DocumentItem) {
     setSelectedDoc(doc);
