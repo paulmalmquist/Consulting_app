@@ -62,7 +62,7 @@ export function EnvironmentCard({
         </div>
 
         <div
-          className="grid w-full grid-cols-2 gap-2"
+          className="grid w-full grid-cols-3 gap-2"
           data-testid={`env-actions-${env.env_id}`}
         >
           <Button
@@ -89,7 +89,7 @@ export function EnvironmentCard({
             type="button"
             variant="destructive"
             size="sm"
-            className="col-span-2 w-full"
+            className="w-full"
             onClick={() => onDelete(env.env_id)}
             data-testid={`env-delete-${env.env_id}`}
           >

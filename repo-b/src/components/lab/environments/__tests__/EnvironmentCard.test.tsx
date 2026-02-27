@@ -77,6 +77,6 @@ describe("EnvironmentCard", () => {
     expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /delete/i })).toBeInTheDocument();
     expect(screen.getByTestId(`env-actions-${baseEnv.env_id}`)).toHaveClass("grid");
-    expect(screen.getByTestId(`env-delete-${baseEnv.env_id}`)).toHaveClass("col-span-2", "w-full");
+    expect(screen.getByTestId(`env-delete-${baseEnv.env_id}`)).toHaveClass("w-full");
   });
 });
