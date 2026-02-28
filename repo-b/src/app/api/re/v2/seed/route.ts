@@ -45,14 +45,12 @@ export async function POST(request: Request) {
       `SELECT scenario_id::text FROM re_scenario WHERE fund_id = $1::uuid AND scenario_type = 'downside' LIMIT 1`,
       [fund_id]
     );
-    let downsideId = downCheck.rows[0]?.scenario_id;
-    if (!downsideId) {
-      downsideId = randomUUID();
+    if (!downCheck.rows[0]) {
       await pool.query(
         `INSERT INTO re_scenario (scenario_id, fund_id, name, description, scenario_type, is_base, status, created_at)
          VALUES ($1::uuid, $2::uuid, 'Downside CapRate +75bps', 'Stress test with cap rate expansion', 'downside', false, 'active', NOW())
          ON CONFLICT (fund_id, name) DO NOTHING`,
-        [downsideId, fund_id]
+        [randomUUID(), fund_id]
       );
       results.push("Created downside scenario");
     }
@@ -62,14 +60,12 @@ export async function POST(request: Request) {
       `SELECT scenario_id::text FROM re_scenario WHERE fund_id = $1::uuid AND scenario_type = 'upside' LIMIT 1`,
       [fund_id]
     );
-    let upsideId = upCheck.rows[0]?.scenario_id;
-    if (!upsideId) {
-      upsideId = randomUUID();
+    if (!upCheck.rows[0]) {
       await pool.query(
         `INSERT INTO re_scenario (scenario_id, fund_id, name, description, scenario_type, is_base, status, created_at)
          VALUES ($1::uuid, $2::uuid, 'Upside NOI Growth +10%', 'Optimistic scenario with stronger NOI', 'upside', false, 'active', NOW())
          ON CONFLICT (fund_id, name) DO NOTHING`,
-        [upsideId, fund_id]
+        [randomUUID(), fund_id]
       );
       results.push("Created upside scenario");
     }
@@ -97,27 +93,27 @@ export async function POST(request: Request) {
     );
     const targetSize = parseFloat(fundRow.rows[0]?.target_size) || totalCommitted || 500000000;
 
-    // Estimate NAV (invested capital minus distributions plus unrealized appreciation)
+    // Estimate NAV
     const portfolioNav = totalCalled > 0 ? totalCalled * 1.25 - totalDistributed : targetSize * 0.85;
-    const unrealizedValue = portfolioNav;
 
     // Compute basic multiples
-    const dpi = totalCalled > 0 ? totalDistributed / totalCalled : 0;
-    const tvpi = totalCalled > 0 ? (totalDistributed + unrealizedValue) / totalCalled : 0;
+    const dpi = totalCalled > 0 ? totalDistributed / totalCalled : 0.14;
+    const rvpi = totalCalled > 0 ? portfolioNav / totalCalled : 1.07;
+    const tvpi = dpi + rvpi;
     const grossIrr = 0.1245;
     const netIrr = 0.0987;
 
-    // 5. Upsert fund quarter state
+    // 5. Upsert fund quarter state (matches 270_re_institutional_model.sql schema)
     await pool.query(
       `INSERT INTO re_fund_quarter_state (
-         id, fund_id, quarter, run_id, accounting_basis,
+         id, fund_id, quarter, run_id,
          portfolio_nav, total_committed, total_called, total_distributed,
-         unrealized_value, gross_irr, net_irr, cash_balance, debt_balance,
+         dpi, rvpi, tvpi, gross_irr, net_irr,
          inputs_hash, created_at
        ) VALUES (
-         $1::uuid, $2::uuid, $3, $4::uuid, 'accrual',
+         $1::uuid, $2::uuid, $3, $4::uuid,
          $5, $6, $7, $8,
-         $9, $10, $11, 0, 0,
+         $9, $10, $11, $12, $13,
          'seed', NOW()
        )
        ON CONFLICT (fund_id, quarter, COALESCE(scenario_id, '00000000-0000-0000-0000-000000000000'::uuid))
@@ -126,7 +122,9 @@ export async function POST(request: Request) {
          total_committed = EXCLUDED.total_committed,
          total_called = EXCLUDED.total_called,
          total_distributed = EXCLUDED.total_distributed,
-         unrealized_value = EXCLUDED.unrealized_value,
+         dpi = EXCLUDED.dpi,
+         rvpi = EXCLUDED.rvpi,
+         tvpi = EXCLUDED.tvpi,
          gross_irr = EXCLUDED.gross_irr,
          net_irr = EXCLUDED.net_irr,
          run_id = EXCLUDED.run_id,
@@ -134,7 +132,7 @@ export async function POST(request: Request) {
       [
         randomUUID(), fund_id, quarter, runId,
         portfolioNav, totalCommitted, totalCalled, totalDistributed,
-        unrealizedValue, grossIrr, netIrr,
+        dpi, rvpi, tvpi, grossIrr, netIrr,
       ]
     );
     results.push(`Upserted fund quarter state for ${quarter}`);
@@ -178,6 +176,7 @@ export async function POST(request: Request) {
         total_called: totalCalled,
         total_distributed: totalDistributed,
         dpi,
+        rvpi,
         tvpi,
         gross_irr: grossIrr,
         net_irr: netIrr,

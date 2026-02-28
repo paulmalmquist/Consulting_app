@@ -22,16 +22,18 @@ export async function GET(
          quarter,
          scenario_id::text,
          run_id::text,
-         accounting_basis,
          portfolio_nav,
          total_committed,
          total_called,
          total_distributed,
-         unrealized_value,
+         dpi,
+         rvpi,
+         tvpi,
          gross_irr,
          net_irr,
-         cash_balance,
-         debt_balance,
+         weighted_ltv,
+         weighted_dscr,
+         inputs_hash,
          created_at
        FROM re_fund_quarter_state
        WHERE fund_id = $1::uuid
