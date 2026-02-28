@@ -11,22 +11,28 @@ function pickCurrentQuarter(): string {
   return `${now.getUTCFullYear()}Q${q}`;
 }
 
-function fmtMoney(v: number | undefined | null): string {
-  if (v == null || v === 0) return "$0";
-  if (Math.abs(v) >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(1)}B`;
-  if (Math.abs(v) >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(v) >= 1_000) return `$${(v / 1_000).toFixed(0)}K`;
-  return `$${v.toFixed(0)}`;
+function fmtMoney(v: string | number | undefined | null): string {
+  if (v == null) return "$0";
+  const n = Number(v);
+  if (isNaN(n) || n === 0) return "$0";
+  if (Math.abs(n) >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B`;
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+  return `$${n.toFixed(0)}`;
 }
 
-function fmtMultiple(v: number | undefined | null): string {
+function fmtMultiple(v: string | number | undefined | null): string {
   if (v == null) return "—";
-  return `${v.toFixed(2)}x`;
+  const n = Number(v);
+  if (isNaN(n)) return "—";
+  return `${n.toFixed(2)}x`;
 }
 
-function fmtPercent(v: number | undefined | null): string {
+function fmtPercent(v: string | number | undefined | null): string {
   if (v == null) return "—";
-  return `${(v * 100).toFixed(1)}%`;
+  const n = Number(v);
+  if (isNaN(n)) return "—";
+  return `${(n * 100).toFixed(1)}%`;
 }
 
 type FundRow = RepeFund & { state?: ReV2FundQuarterState | null };
@@ -61,8 +67,8 @@ export default function ReFundListPage() {
 
   const base = `/lab/env/${envId}/re`;
 
-  const totalNav = funds.reduce((s, f) => s + (f.state?.portfolio_nav ?? 0), 0);
-  const totalCommitted = funds.reduce((s, f) => s + (f.state?.total_committed ?? 0), 0);
+  const totalNav = funds.reduce((s, f) => s + (Number(f.state?.portfolio_nav) || 0), 0);
+  const totalCommitted = funds.reduce((s, f) => s + (Number(f.state?.total_committed) || 0), 0);
 
   return (
     <section className="space-y-5" data-testid="re-fund-list">
