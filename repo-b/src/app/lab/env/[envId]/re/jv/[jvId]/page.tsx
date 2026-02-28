@@ -6,13 +6,16 @@ import {
   getReV2Jv,
   listReV2JvAssets,
   getReV2JvQuarterState,
+  getReV2JvLineage,
   getReV2Investment,
   ReV2Jv,
   ReV2JvQuarterState,
   ReV2Investment,
-  RepeAsset,
+  ReV2InvestmentAsset,
+  ReV2EntityLineageResponse,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
+import { EntityLineagePanel } from "@/components/repe/EntityLineagePanel";
 
 function pickQ(): string {
   const d = new Date();
@@ -36,9 +39,11 @@ export default function JvHomePage({
 }) {
   const { envId } = useReEnv();
   const [jv, setJv] = useState<ReV2Jv | null>(null);
-  const [assets, setAssets] = useState<RepeAsset[]>([]);
+  const [assets, setAssets] = useState<ReV2InvestmentAsset[]>([]);
   const [state, setState] = useState<ReV2JvQuarterState | null>(null);
   const [investment, setInvestment] = useState<ReV2Investment | null>(null);
+  const [lineage, setLineage] = useState<ReV2EntityLineageResponse | null>(null);
+  const [lineageOpen, setLineageOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const quarter = pickQ();
@@ -48,13 +53,15 @@ export default function JvHomePage({
     setLoading(true);
     Promise.all([
       getReV2Jv(params.jvId),
-      listReV2JvAssets(params.jvId),
+      listReV2JvAssets(params.jvId, quarter),
       getReV2JvQuarterState(params.jvId, quarter).catch(() => null),
+      getReV2JvLineage(params.jvId, quarter).catch(() => null),
     ])
-      .then(async ([j, a, s]) => {
+      .then(async ([j, a, s, lineageData]) => {
         setJv(j);
         setAssets(a);
         setState(s);
+        setLineage(lineageData);
         if (j?.investment_id) {
           try { setInvestment(await getReV2Investment(j.investment_id)); } catch {}
         }
@@ -85,7 +92,16 @@ export default function JvHomePage({
               </p>
             )}
           </div>
-          <span className="rounded-full bg-bm-surface/40 px-3 py-1 text-xs capitalize">{jv.status}</span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setLineageOpen(true)}
+              className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
+            >
+              Lineage
+            </button>
+            <span className="rounded-full bg-bm-surface/40 px-3 py-1 text-xs capitalize">{jv.status}</span>
+          </div>
         </div>
       </div>
 
@@ -118,7 +134,7 @@ export default function JvHomePage({
                 <tr className="border-b border-bm-border/50 bg-bm-surface/30 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
                   <th className="px-4 py-3 font-medium">Name</th>
                   <th className="px-4 py-3 font-medium">Type</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium text-right">Current NAV</th>
                   <th className="px-4 py-3 font-medium"></th>
                 </tr>
               </thead>
@@ -127,7 +143,7 @@ export default function JvHomePage({
                   <tr key={a.asset_id} className="hover:bg-bm-surface/20">
                     <td className="px-4 py-3 font-medium">{a.name}</td>
                     <td className="px-4 py-3 text-bm-muted2">{a.asset_type === "property" ? "Property" : "Loan / CMBS"}</td>
-                    <td className="px-4 py-3"><span className="rounded-full bg-bm-surface/40 px-2 py-0.5 text-xs capitalize">{(a as any).asset_status || "active"}</span></td>
+                    <td className="px-4 py-3 text-right text-bm-muted2">{a.nav ? fmtMoney(a.nav) : "—"}</td>
                     <td className="px-4 py-3">
                       <Link href={`${base}/assets/${a.asset_id}`} className="text-xs text-bm-accent hover:underline">Open</Link>
                     </td>
@@ -138,6 +154,12 @@ export default function JvHomePage({
           </div>
         )}
       </div>
+      <EntityLineagePanel
+        open={lineageOpen}
+        onOpenChange={setLineageOpen}
+        title={`JV Lineage · ${quarter}`}
+        lineage={lineage}
+      />
     </section>
   );
 }

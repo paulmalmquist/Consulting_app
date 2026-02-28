@@ -23,7 +23,6 @@ def compute_and_store_snapshots(
     """For each partner in the fund, compute capital account metrics and UPSERT."""
     snapshots = []
     with get_cursor() as cur:
-        # Get fund NAV from fund quarter state
         cur.execute(
             """
             SELECT portfolio_nav FROM re_fund_quarter_state
@@ -35,15 +34,28 @@ def compute_and_store_snapshots(
         nav_row = cur.fetchone()
         fund_nav = Decimal(str(nav_row["portfolio_nav"])) if nav_row and nav_row.get("portfolio_nav") else ZERO
 
-        # Get all partners with commitments for this fund
         cur.execute(
             """
-            SELECT p.partner_id, p.name, p.partner_type, pc.committed_amount
+            SELECT
+                p.partner_id,
+                p.name,
+                p.partner_type,
+                pc.committed_amount,
+                pm.nav,
+                pm.dpi,
+                pm.tvpi
             FROM re_partner p
             JOIN re_partner_commitment pc ON pc.partner_id = p.partner_id AND pc.fund_id = %s
+            LEFT JOIN LATERAL (
+                SELECT nav, dpi, tvpi
+                FROM re_partner_quarter_metrics pm
+                WHERE pm.partner_id = p.partner_id AND pm.fund_id = pc.fund_id AND pm.quarter = %s
+                ORDER BY pm.created_at DESC
+                LIMIT 1
+            ) pm ON true
             ORDER BY p.partner_type, p.name
             """,
-            (str(fund_id),),
+            (str(fund_id), quarter),
         )
         partners = cur.fetchall()
 
@@ -69,7 +81,7 @@ def compute_and_store_snapshots(
                 """
                 SELECT partner_id, SUM(amount) as total_amount
                 FROM re_waterfall_run_result
-                WHERE run_id = %s AND tier_name LIKE '%%carry%%'
+                WHERE run_id = %s AND (tier_code ILIKE '%%carry%%' OR tier_code ILIKE '%%catch_up%%')
                 GROUP BY partner_id
                 """,
                 (str(wf_run["run_id"]),),
@@ -86,19 +98,20 @@ def compute_and_store_snapshots(
             cur.execute(
                 """
                 SELECT
-                    COALESCE(SUM(CASE WHEN entry_type = 'contribution' THEN amount ELSE 0 END), 0) as contributed,
-                    COALESCE(SUM(CASE WHEN entry_type = 'distribution' THEN amount ELSE 0 END), 0) as distributed
+                    COALESCE(SUM(CASE WHEN entry_type = 'contribution' THEN amount_base ELSE 0 END), 0) as contributed,
+                    COALESCE(SUM(CASE WHEN entry_type = 'distribution' THEN amount_base ELSE 0 END), 0) as distributed
                 FROM re_capital_ledger_entry
                 WHERE fund_id = %s AND partner_id = %s
+                  AND quarter <= %s
                 """,
-                (str(fund_id), pid),
+                (str(fund_id), pid, quarter),
             )
             ledger = cur.fetchone()
             contributed = Decimal(str(ledger["contributed"])) if ledger else ZERO
             distributed = Decimal(str(ledger["distributed"])) if ledger else ZERO
 
             unreturned = (contributed - distributed).quantize(TWO)
-            nav_share = (fund_nav * ownership_pct).quantize(TWO)
+            nav_share = Decimal(str(p["nav"])).quantize(TWO) if p.get("nav") is not None else (fund_nav * ownership_pct).quantize(TWO)
             carry = carry_by_partner.get(pid, ZERO)
 
             # Compute pref accrual (8% of unreturned, annualized by quarter)
@@ -106,14 +119,14 @@ def compute_and_store_snapshots(
 
             unrealized_gain = (nav_share - unreturned).quantize(TWO)
 
-            dpi = (distributed / contributed).quantize(FOUR) if contributed > 0 else ZERO
+            dpi = Decimal(str(p["dpi"])).quantize(FOUR) if p.get("dpi") is not None else ((distributed / contributed).quantize(FOUR) if contributed > 0 else ZERO)
             rvpi = (nav_share / contributed).quantize(FOUR) if contributed > 0 else ZERO
-            tvpi = (dpi + rvpi).quantize(FOUR)
+            tvpi = Decimal(str(p["tvpi"])).quantize(FOUR) if p.get("tvpi") is not None else (dpi + rvpi).quantize(FOUR)
 
             # UPSERT
             cur.execute(
                 """
-                INSERT INTO re_capital_account_snapshot
+                INSERT INTO app.re_capital_account_snapshot
                     (fund_id, partner_id, quarter, committed, contributed,
                      distributed, unreturned_capital, pref_accrual,
                      carry_allocation, unrealized_gain, nav_share,
@@ -158,7 +171,7 @@ def get_snapshots(
         cur.execute(
             """
             SELECT s.*, p.name as partner_name, p.partner_type
-            FROM re_capital_account_snapshot s
+            FROM app.re_capital_account_snapshot s
             JOIN re_partner p ON p.partner_id = s.partner_id
             WHERE s.fund_id = %s AND s.quarter = %s
             ORDER BY p.partner_type, p.name

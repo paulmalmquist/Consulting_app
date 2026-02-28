@@ -21,6 +21,7 @@ from uuid import UUID, uuid4
 from app.db import get_cursor
 from app.finance.irr_engine import xirr as _xirr
 from app.observability.logger import emit_log
+from app.services import re_scenario as re_scenario_service
 
 
 def _q(v: Decimal | None) -> str | None:
@@ -124,7 +125,7 @@ def validate_ingredients(
 
         # 7. Scenario exists
         cur.execute(
-            "SELECT id FROM re_scenario WHERE id = %s AND fund_id = %s",
+            "SELECT scenario_id FROM re_scenario WHERE scenario_id = %s AND fund_id = %s",
             (str(scenario_id), str(fund_id)),
         )
         if not cur.fetchone():
@@ -201,13 +202,17 @@ def run_waterfall_scenario(
 
         # ── Load scenario overrides ──────────────────────────────────────
         cur.execute(
-            """SELECT key, value FROM re_assumption_override
+            """SELECT key, value_type, value_decimal, value_int, value_text, value_json
+               FROM re_assumption_override
                WHERE scenario_id = %s
                ORDER BY key""",
             (str(scenario_id),),
         )
         overrides_raw = cur.fetchall()
-        overrides = {r["key"]: r["value"] for r in overrides_raw}
+        overrides = {
+            r["key"]: re_scenario_service._extract_value(r)
+            for r in overrides_raw
+        }
 
         # Parse scenario parameters
         cap_rate_delta_bps = Decimal(str(overrides.get("exit_cap_rate_delta_bps", "0")))
@@ -422,7 +427,7 @@ def run_waterfall_scenario(
                     """INSERT INTO re_waterfall_run
                         (run_id, fund_id, definition_id, quarter, scenario_id,
                          run_type, total_distributable, inputs_hash, status)
-                       VALUES (%s, %s, %s, %s, %s, 'scenario', %s, %s, 'success')
+                       VALUES (%s, %s, %s, %s, %s, 'shadow', %s, %s, 'success')
                        RETURNING *""",
                     (wf_run_id, str(fund_id), str(defn_id), quarter,
                      str(scenario_id), _q(scenario_nav), inputs_hash),
@@ -447,7 +452,7 @@ def run_waterfall_scenario(
                     cur.fetchone()  # discard — result row inserted
 
                     tier_allocations.append({
-                        "tier_name": line.tier_code,
+                        "tier_code": line.tier_code,
                         "partner_name": partner_name_map.get(line.participant_id, "Unknown"),
                         "partner_type": partner_type_map.get(line.participant_id, "unknown"),
                         "payout_type": line.payout_type,
@@ -639,7 +644,7 @@ def list_scenario_runs(
         cur.execute(
             f"""SELECT r.*, s.name AS scenario_name
                 FROM re_run r
-                LEFT JOIN re_scenario s ON s.id::text = r.scenario_id
+                LEFT JOIN re_scenario s ON s.scenario_id::text = r.scenario_id
                 WHERE {' AND '.join(conditions)}
                 ORDER BY r.created_at DESC""",
             params,
@@ -674,7 +679,7 @@ def get_scenario_run_detail(
                 """SELECT wrr.tier_code, wrr.payout_type, wrr.amount,
                           p.name AS partner_name, p.partner_type
                    FROM re_waterfall_run_result wrr
-                   JOIN re_partner p ON p.partner_id::text = wrr.partner_id
+                   JOIN re_partner p ON p.partner_id = wrr.partner_id
                    WHERE wrr.run_id = %s
                    ORDER BY wrr.tier_code, p.partner_type, p.name""",
                 (str(snapshot["waterfall_run_id"]),),

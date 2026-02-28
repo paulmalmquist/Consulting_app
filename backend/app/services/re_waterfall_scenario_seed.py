@@ -53,15 +53,15 @@ def seed_waterfall_scenario_patch(
     with get_cursor() as cur:
         # ── 1. Ensure downside scenario exists ───────────────────────────
         cur.execute(
-            "SELECT id FROM re_scenario WHERE id = %s",
+            "SELECT scenario_id FROM re_scenario WHERE scenario_id = %s",
             (str(DOWNSIDE_SCENARIO_ID),),
         )
         if not cur.fetchone():
             cur.execute(
                 """INSERT INTO re_scenario
-                    (id, fund_id, name, scenario_type, is_base, parent_scenario_id)
-                   VALUES (%s, %s, %s, 'downside', false, NULL)
-                   ON CONFLICT (id) DO NOTHING""",
+                    (scenario_id, fund_id, name, scenario_type, is_base, parent_scenario_id, status)
+                   VALUES (%s, %s, %s, 'downside', false, NULL, 'active')
+                   ON CONFLICT (scenario_id) DO NOTHING""",
                 (str(DOWNSIDE_SCENARIO_ID), str(fund_id), "Downside CapRate +75bps"),
             )
             summary["scenarios_created"] += 1
@@ -78,24 +78,29 @@ def seed_waterfall_scenario_patch(
             override_id = _sid(f"override-downside-{key}")
             cur.execute(
                 """INSERT INTO re_assumption_override
-                    (id, scenario_id, scope_type, scope_id, key, value)
-                   VALUES (%s, %s, 'fund', %s, %s, %s)
-                   ON CONFLICT (id) DO UPDATE SET value = EXCLUDED.value""",
-                (str(override_id), str(DOWNSIDE_SCENARIO_ID), str(fund_id), key, value),
+                    (id, scenario_id, scope_node_type, scope_node_id, key, value_type, value_int, reason)
+                   VALUES (%s, %s, 'fund', %s, %s, 'int', %s, 'Auto-seeded waterfall scenario')
+                   ON CONFLICT (scenario_id, scope_node_type, scope_node_id, key)
+                   DO UPDATE SET
+                     value_type = EXCLUDED.value_type,
+                     value_int = EXCLUDED.value_int,
+                     reason = EXCLUDED.reason,
+                     is_active = true""",
+                (str(override_id), str(DOWNSIDE_SCENARIO_ID), str(fund_id), key, int(value)),
             )
             summary["overrides_created"] += 1
 
         # ── 3. Ensure upside scenario exists ─────────────────────────────
         cur.execute(
-            "SELECT id FROM re_scenario WHERE id = %s",
+            "SELECT scenario_id FROM re_scenario WHERE scenario_id = %s",
             (str(UPSIDE_SCENARIO_ID),),
         )
         if not cur.fetchone():
             cur.execute(
                 """INSERT INTO re_scenario
-                    (id, fund_id, name, scenario_type, is_base, parent_scenario_id)
-                   VALUES (%s, %s, %s, 'upside', false, NULL)
-                   ON CONFLICT (id) DO NOTHING""",
+                    (scenario_id, fund_id, name, scenario_type, is_base, parent_scenario_id, status)
+                   VALUES (%s, %s, %s, 'upside', false, NULL, 'active')
+                   ON CONFLICT (scenario_id) DO NOTHING""",
                 (str(UPSIDE_SCENARIO_ID), str(fund_id), "Upside NOI Growth +10%"),
             )
             summary["scenarios_created"] += 1
@@ -111,10 +116,15 @@ def seed_waterfall_scenario_patch(
             override_id = _sid(f"override-upside-{key}")
             cur.execute(
                 """INSERT INTO re_assumption_override
-                    (id, scenario_id, scope_type, scope_id, key, value)
-                   VALUES (%s, %s, 'fund', %s, %s, %s)
-                   ON CONFLICT (id) DO UPDATE SET value = EXCLUDED.value""",
-                (str(override_id), str(UPSIDE_SCENARIO_ID), str(fund_id), key, value),
+                    (id, scenario_id, scope_node_type, scope_node_id, key, value_type, value_int, reason)
+                   VALUES (%s, %s, 'fund', %s, %s, 'int', %s, 'Auto-seeded waterfall scenario')
+                   ON CONFLICT (scenario_id, scope_node_type, scope_node_id, key)
+                   DO UPDATE SET
+                     value_type = EXCLUDED.value_type,
+                     value_int = EXCLUDED.value_int,
+                     reason = EXCLUDED.reason,
+                     is_active = true""",
+                (str(override_id), str(UPSIDE_SCENARIO_ID), str(fund_id), key, int(value)),
             )
             summary["overrides_created"] += 1
 

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+from decimal import Decimal
 from uuid import UUID
 
 import psycopg
 from fastapi import APIRouter, HTTPException, Query
 
+from app.db import get_cursor
 from app.observability.logger import emit_log
 from app.schemas.re_institutional import (
     ReAssumptionOverrideInput,
@@ -12,6 +15,7 @@ from app.schemas.re_institutional import (
     ReAssumptionSetCreateRequest,
     ReAssumptionSetOut,
     ReAssumptionValueInput,
+    ReAssetQuarterStateOut,
     ReCapitalLedgerEntryCreateRequest,
     ReCapitalLedgerEntryOut,
     ReCashflowEntryCreateRequest,
@@ -48,6 +52,7 @@ from app.services import (
     re_scenario,
     re_provenance,
     re_quarter_close,
+    re_lineage,
     re_waterfall_runtime,
 )
 
@@ -137,8 +142,14 @@ def get_jv(jv_id: UUID):
 
 
 @router.get("/jvs/{jv_id}/assets")
-def list_jv_assets(jv_id: UUID):
+def list_jv_assets(
+    jv_id: UUID,
+    quarter: str | None = Query(None),
+    scenario_id: UUID | None = Query(None),
+):
     try:
+        if quarter:
+            return re_lineage.list_jv_assets(jv_id=jv_id, quarter=quarter, scenario_id=scenario_id)
         return re_jv.list_jv_assets(jv_id=jv_id)
     except Exception as exc:
         raise _to_http(exc)
@@ -401,6 +412,54 @@ def get_jv_quarter_state(
         raise _to_http(exc)
 
 
+@router.get("/assets/{asset_id}/quarter-state/{quarter}", response_model=ReAssetQuarterStateOut)
+def get_asset_quarter_state(
+    asset_id: UUID,
+    quarter: str,
+    scenario_id: UUID | None = Query(None),
+):
+    try:
+        return re_lineage.get_asset_quarter_state(
+            asset_id=asset_id,
+            quarter=quarter,
+            scenario_id=scenario_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/funds/{fund_id}/investment-rollup/{quarter}")
+def get_fund_investment_rollup(
+    fund_id: UUID,
+    quarter: str,
+    scenario_id: UUID | None = Query(None),
+):
+    try:
+        return re_lineage.list_fund_investment_rollup(
+            fund_id=fund_id,
+            quarter=quarter,
+            scenario_id=scenario_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/investments/{investment_id}/assets/{quarter}")
+def get_investment_assets(
+    investment_id: UUID,
+    quarter: str,
+    scenario_id: UUID | None = Query(None),
+):
+    try:
+        return re_lineage.list_investment_assets(
+            investment_id=investment_id,
+            quarter=quarter,
+            scenario_id=scenario_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
 # ── Metrics ───────────────────────────────────────────────────────────────────
 
 @router.get("/funds/{fund_id}/metrics/{quarter}", response_model=ReFundQuarterMetricsOut)
@@ -609,5 +668,287 @@ def list_runs(
 def get_run(run_id: str):
     try:
         return re_provenance.get_run(run_id=run_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/seed")
+def seed_re_v2(body: dict):
+    try:
+        fund_id = UUID(str(body["fund_id"]))
+        now = datetime.now(timezone.utc)
+        quarter = f"{now.year}Q{((now.month - 1) // 3) + 1}"
+
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT scenario_id
+                FROM re_scenario
+                WHERE fund_id = %s AND is_base = true
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (str(fund_id),),
+            )
+            base_row = cur.fetchone()
+            if base_row:
+                base_scenario_id = str(base_row["scenario_id"])
+                cur.execute(
+                    "UPDATE re_scenario SET status = 'active' WHERE scenario_id = %s",
+                    (base_scenario_id,),
+                )
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO re_scenario (fund_id, name, scenario_type, is_base, status)
+                    VALUES (%s, 'Base', 'base', true, 'active')
+                    RETURNING scenario_id
+                    """,
+                    (str(fund_id),),
+                )
+                base_scenario_id = str(cur.fetchone()["scenario_id"])
+
+            cur.execute(
+                """
+                INSERT INTO re_scenario (fund_id, name, scenario_type, is_base, status)
+                VALUES (%s, 'Downside', 'downside', false, 'active')
+                ON CONFLICT (fund_id, name) DO UPDATE
+                SET status = 'active'
+                RETURNING scenario_id
+                """,
+                (str(fund_id),),
+            )
+            downside_scenario_id = str(cur.fetchone()["scenario_id"])
+
+            cur.execute(
+                """
+                INSERT INTO re_assumption_override (
+                    scenario_id, scope_node_type, scope_node_id, key, value_type, value_int, reason
+                )
+                VALUES (%s, 'fund', %s, 'exit_cap_rate_delta_bps', 'int', 50, 'Auto-seeded downside stress')
+                ON CONFLICT (scenario_id, scope_node_type, scope_node_id, key) DO UPDATE
+                SET value_type = EXCLUDED.value_type,
+                    value_int = EXCLUDED.value_int,
+                    reason = EXCLUDED.reason,
+                    is_active = true
+                """,
+                (downside_scenario_id, str(fund_id)),
+            )
+
+            cur.execute(
+                """
+                SELECT a.asset_id, a.asset_type, a.cost_basis, pa.current_noi, pa.occupancy
+                FROM repe_asset a
+                JOIN repe_deal d ON d.deal_id = a.deal_id
+                LEFT JOIN repe_property_asset pa ON pa.asset_id = a.asset_id
+                WHERE d.fund_id = %s
+                ORDER BY a.created_at
+                """,
+                (str(fund_id),),
+            )
+            assets = cur.fetchall()
+
+            for asset in assets:
+                cur.execute(
+                    """
+                    SELECT current_balance, coupon
+                    FROM re_loan_detail
+                    WHERE asset_id = %s
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                    """,
+                    (str(asset["asset_id"]),),
+                )
+                loan = cur.fetchone()
+                current_noi = Decimal(str(asset.get("current_noi") or 0))
+                current_balance = Decimal(str(loan["current_balance"] or 0)) if loan else Decimal("0")
+                coupon = Decimal(str(loan["coupon"] or 0)) if loan and loan.get("coupon") is not None else Decimal("0")
+
+                if asset["asset_type"] == "property":
+                    revenue = current_noi
+                    other_income = (revenue * Decimal("0.05")).quantize(Decimal("0.01"))
+                    opex = (revenue * Decimal("0.35")).quantize(Decimal("0.01"))
+                    capex = (revenue * Decimal("0.05")).quantize(Decimal("0.01"))
+                    debt_service = (
+                        (current_balance * coupon / Decimal("4")).quantize(Decimal("0.01"))
+                        if current_balance > 0 and coupon > 0
+                        else (revenue * Decimal("0.10")).quantize(Decimal("0.01"))
+                    )
+                    leasing_costs = (revenue * Decimal("0.02")).quantize(Decimal("0.01"))
+                    tenant_improvements = (revenue * Decimal("0.03")).quantize(Decimal("0.01"))
+                    free_rent = (revenue * Decimal("0.01")).quantize(Decimal("0.01"))
+                    cash_balance = (Decimal(str(asset.get("cost_basis") or 0)) * Decimal("0.01")).quantize(Decimal("0.01"))
+                else:
+                    revenue = (
+                        (current_balance * coupon / Decimal("4")).quantize(Decimal("0.01"))
+                        if current_balance > 0 and coupon > 0
+                        else Decimal("0")
+                    )
+                    other_income = Decimal("0")
+                    opex = Decimal("0")
+                    capex = Decimal("0")
+                    debt_service = Decimal("0")
+                    leasing_costs = Decimal("0")
+                    tenant_improvements = Decimal("0")
+                    free_rent = Decimal("0")
+                    cash_balance = Decimal("0")
+
+                inputs_hash = re_quarter_close._compute_hash(
+                    {
+                        "asset_id": str(asset["asset_id"]),
+                        "quarter": quarter,
+                        "source_type": "seed",
+                        "revenue": str(revenue),
+                        "other_income": str(other_income),
+                        "opex": str(opex),
+                    }
+                )
+
+                cur.execute(
+                    """
+                    INSERT INTO re_asset_operating_qtr (
+                        asset_id, quarter, scenario_id, revenue, other_income, opex, capex,
+                        debt_service, leasing_costs, tenant_improvements, free_rent,
+                        occupancy, cash_balance, source_type, inputs_hash
+                    )
+                    VALUES (%s, %s, NULL, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'seed', %s)
+                    ON CONFLICT (asset_id, quarter, COALESCE(scenario_id, '00000000-0000-0000-0000-000000000000'::uuid))
+                    DO UPDATE SET
+                        revenue = EXCLUDED.revenue,
+                        other_income = EXCLUDED.other_income,
+                        opex = EXCLUDED.opex,
+                        capex = EXCLUDED.capex,
+                        debt_service = EXCLUDED.debt_service,
+                        leasing_costs = EXCLUDED.leasing_costs,
+                        tenant_improvements = EXCLUDED.tenant_improvements,
+                        free_rent = EXCLUDED.free_rent,
+                        occupancy = EXCLUDED.occupancy,
+                        cash_balance = EXCLUDED.cash_balance,
+                        source_type = EXCLUDED.source_type,
+                        inputs_hash = EXCLUDED.inputs_hash,
+                        created_at = now()
+                    """,
+                    (
+                        str(asset["asset_id"]),
+                        quarter,
+                        str(revenue),
+                        str(other_income),
+                        str(opex),
+                        str(capex),
+                        str(debt_service),
+                        str(leasing_costs),
+                        str(tenant_improvements),
+                        str(free_rent),
+                        str(asset["occupancy"]) if asset.get("occupancy") is not None else None,
+                        str(cash_balance),
+                        inputs_hash,
+                    ),
+                )
+
+            cur.execute(
+                """
+                SELECT definition_id
+                FROM re_waterfall_definition
+                WHERE fund_id = %s AND is_active = true
+                ORDER BY version DESC
+                LIMIT 1
+                """,
+                (str(fund_id),),
+            )
+            wf = cur.fetchone()
+            if not wf:
+                cur.execute(
+                    """
+                    INSERT INTO re_waterfall_definition (
+                        fund_id, name, waterfall_type, version, is_active
+                    )
+                    VALUES (%s, 'Default', 'european', 1, true)
+                    RETURNING definition_id
+                    """,
+                    (str(fund_id),),
+                )
+                wf = cur.fetchone()
+
+            cur.execute(
+                """
+                INSERT INTO re_waterfall_tier (
+                    definition_id, tier_order, tier_type, hurdle_rate, split_gp, split_lp, catch_up_percent, notes
+                )
+                VALUES
+                    (%s, 1, 'return_of_capital', NULL, NULL, NULL, NULL, 'Auto-seeded'),
+                    (%s, 2, 'preferred_return', 0.08, NULL, NULL, NULL, 'Auto-seeded'),
+                    (%s, 3, 'promote', NULL, 0.20, 0.80, NULL, 'Auto-seeded')
+                ON CONFLICT (definition_id, tier_order) DO NOTHING
+                """,
+                (str(wf["definition_id"]), str(wf["definition_id"]), str(wf["definition_id"])),
+            )
+
+        result = re_quarter_close.run_quarter_close(
+            fund_id=fund_id,
+            quarter=quarter,
+            scenario_id=None,
+            run_waterfall=True,
+            triggered_by="seed",
+        )
+        return {
+            "status": "success",
+            "fund_id": str(fund_id),
+            "quarter": quarter,
+            "base_scenario_id": base_scenario_id,
+            "downside_scenario_id": downside_scenario_id,
+            "run_id": result.get("run_id"),
+        }
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/funds/{fund_id}/lineage/{quarter}")
+def get_fund_lineage(
+    fund_id: UUID,
+    quarter: str,
+    scenario_id: UUID | None = Query(None),
+):
+    try:
+        return re_lineage.fund_lineage(fund_id=fund_id, quarter=quarter, scenario_id=scenario_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/investments/{investment_id}/lineage/{quarter}")
+def get_investment_lineage(
+    investment_id: UUID,
+    quarter: str,
+    scenario_id: UUID | None = Query(None),
+):
+    try:
+        return re_lineage.investment_lineage(
+            investment_id=investment_id,
+            quarter=quarter,
+            scenario_id=scenario_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/jvs/{jv_id}/lineage/{quarter}")
+def get_jv_lineage(
+    jv_id: UUID,
+    quarter: str,
+    scenario_id: UUID | None = Query(None),
+):
+    try:
+        return re_lineage.jv_lineage(jv_id=jv_id, quarter=quarter, scenario_id=scenario_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/assets/{asset_id}/lineage/{quarter}")
+def get_asset_lineage(
+    asset_id: UUID,
+    quarter: str,
+    scenario_id: UUID | None = Query(None),
+):
+    try:
+        return re_lineage.asset_lineage(asset_id=asset_id, quarter=quarter, scenario_id=scenario_id)
     except Exception as exc:
         raise _to_http(exc)

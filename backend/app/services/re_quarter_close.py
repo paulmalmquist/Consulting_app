@@ -11,6 +11,7 @@ from app.services import re_provenance
 from app.services import re_rollup
 from app.services import re_metrics
 from app.services import re_capital_ledger
+from app.services import re_scenario
 from app.services import re_waterfall_runtime
 
 
@@ -21,6 +22,10 @@ def _q(v: Decimal | None) -> Decimal | None:
 def _compute_hash(data: dict) -> str:
     canonical = json.dumps(data, sort_keys=True, default=str)
     return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+def _d(v: object | None) -> Decimal:
+    return Decimal(str(v or 0))
 
 
 def _quarter_end_date(quarter: str) -> date:
@@ -267,87 +272,237 @@ def _compute_asset_state(
     accounting_basis: str,
     valuation_method: str,
 ) -> dict:
-    noi = Decimal("0")
     revenue = Decimal("0")
+    other_income = Decimal("0")
     opex = Decimal("0")
     capex = Decimal("0")
     debt_service = Decimal("0")
-    occupancy = None
+    leasing_costs = Decimal("0")
+    tenant_improvements = Decimal("0")
+    free_rent = Decimal("0")
+    noi = Decimal("0")
+    net_cash_flow = Decimal("0")
+    occupancy: Decimal | None = None
     debt_balance = Decimal("0")
     cash_balance = Decimal("0")
     asset_value = Decimal("0")
+    implied_equity_value = Decimal("0")
+    ltv: Decimal | None = None
+    dscr: Decimal | None = None
+    debt_yield: Decimal | None = None
+    assumptions_hash: str | None = None
+    assumptions: dict = {}
+    value_source = "missing_inputs_fallback"
 
-    if asset_type == "property":
+    cur.execute(
+        """
+        SELECT a.asset_id, a.deal_id, a.jv_id, a.cost_basis, d.fund_id, pa.current_noi, pa.occupancy
+        FROM repe_asset a
+        JOIN repe_deal d ON d.deal_id = a.deal_id
+        LEFT JOIN repe_property_asset pa ON pa.asset_id = a.asset_id
+        WHERE a.asset_id = %s
+        """,
+        (str(asset_id),),
+    )
+    asset_row = cur.fetchone() or {}
+    cost_basis = _d(asset_row.get("cost_basis"))
+
+    cur.execute(
+        """
+        SELECT *
+        FROM re_loan_detail
+        WHERE asset_id = %s
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        (str(asset_id),),
+    )
+    loan = cur.fetchone()
+
+    operating_row = None
+    if scenario_id:
         cur.execute(
             """
-            SELECT pa.current_noi, pa.occupancy, a.cost_basis
-            FROM repe_property_asset pa
-            JOIN repe_asset a ON a.asset_id = pa.asset_id
-            WHERE pa.asset_id = %s
+            SELECT *
+            FROM re_asset_operating_qtr
+            WHERE asset_id = %s AND quarter = %s AND scenario_id = %s
+            ORDER BY created_at DESC
+            LIMIT 1
             """,
-            (str(asset_id),),
+            (str(asset_id), quarter, str(scenario_id)),
         )
-        prop = cur.fetchone()
-        if prop:
-            noi = Decimal(prop["current_noi"] or 0)
-            occupancy = prop["occupancy"]
-            cost_basis = Decimal(prop["cost_basis"] or 0)
-
-            if valuation_method == "cap_rate" and noi > 0:
-                cap_rate = Decimal("0.06")
-                asset_value = (noi / cap_rate).quantize(Decimal("0.01"))
-            else:
-                asset_value = cost_basis
-
-            revenue = noi
-    else:
+        operating_row = cur.fetchone()
+    if not operating_row:
         cur.execute(
-            "SELECT * FROM re_loan_detail WHERE asset_id = %s",
-            (str(asset_id),),
+            """
+            SELECT *
+            FROM re_asset_operating_qtr
+            WHERE asset_id = %s AND quarter = %s AND scenario_id IS NULL
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (str(asset_id), quarter),
         )
-        loan = cur.fetchone()
-        if loan:
-            debt_balance = Decimal(loan["current_balance"] or 0)
-            asset_value = debt_balance
-            if loan.get("coupon"):
-                revenue = (debt_balance * Decimal(loan["coupon"])).quantize(Decimal("0.01"))
+        operating_row = cur.fetchone()
 
-    nav = asset_value - debt_balance + cash_balance
+    if scenario_id:
+        assumptions, assumptions_hash = re_scenario.resolve_assumptions(
+            scenario_id=scenario_id,
+            node_path={
+                "fund_id": asset_row.get("fund_id"),
+                "investment_id": asset_row.get("deal_id"),
+                "jv_id": asset_row.get("jv_id"),
+                "asset_id": asset_id,
+            },
+        )
+
+    if operating_row:
+        revenue = _d(operating_row.get("revenue"))
+        other_income = _d(operating_row.get("other_income"))
+        opex = _d(operating_row.get("opex"))
+        capex = _d(operating_row.get("capex"))
+        debt_service = _d(operating_row.get("debt_service"))
+        leasing_costs = _d(operating_row.get("leasing_costs"))
+        tenant_improvements = _d(operating_row.get("tenant_improvements"))
+        free_rent = _d(operating_row.get("free_rent"))
+        cash_balance = _d(operating_row.get("cash_balance"))
+        if operating_row.get("occupancy") is not None:
+            occupancy = _d(operating_row.get("occupancy"))
+        value_source = "operating_qtr"
+    else:
+        cash_balance = Decimal("0")
+        if asset_type == "property":
+            base_noi = _d(asset_row.get("current_noi"))
+            revenue = base_noi
+            occupancy = _d(asset_row.get("occupancy")) if asset_row.get("occupancy") is not None else None
+        elif loan and loan.get("coupon"):
+            debt_balance = _d(loan.get("current_balance"))
+            revenue = (debt_balance * _d(loan.get("coupon")) / Decimal("4")).quantize(Decimal("0.01"))
+        value_source = "missing_inputs_fallback"
+
+    growth_keys = (
+        assumptions.get("rent_growth_override")
+        or assumptions.get("rent_growth")
+        or Decimal("0")
+    )
+    expense_growth = (
+        assumptions.get("expense_growth_override")
+        or assumptions.get("expense_growth")
+        or Decimal("0")
+    )
+    noi_stress_pct = assumptions.get("noi_stress_pct") or Decimal("0")
+    exit_cap_rate = assumptions.get("exit_cap_rate_override") or assumptions.get("exit_cap_rate") or Decimal("0.06")
+    cap_rate_delta_bps = assumptions.get("exit_cap_rate_delta_bps") or Decimal("0")
+
+    if assumptions:
+        revenue = (revenue * (Decimal("1") + _d(growth_keys))).quantize(Decimal("0.01"))
+        other_income = (other_income * (Decimal("1") + _d(growth_keys))).quantize(Decimal("0.01"))
+        opex = (opex * (Decimal("1") + _d(expense_growth))).quantize(Decimal("0.01"))
+        value_source = "scenario_override"
+
+    effective_revenue = revenue + other_income - free_rent
+    noi = effective_revenue - opex
+    if noi_stress_pct:
+        noi = (noi * (Decimal("1") - (_d(noi_stress_pct) / Decimal("100")))).quantize(Decimal("0.01"))
+
+    if loan:
+        debt_balance = _d(loan.get("current_balance"))
+        if debt_service <= 0 and loan.get("coupon"):
+            debt_service = (debt_balance * _d(loan.get("coupon")) / Decimal("4")).quantize(Decimal("0.01"))
+
+    net_cash_flow = noi - capex - debt_service - leasing_costs - tenant_improvements
+
+    if asset_type == "property":
+        cap_rate = _d(exit_cap_rate)
+        if cap_rate_delta_bps:
+            cap_rate = (cap_rate + (_d(cap_rate_delta_bps) / Decimal("10000"))).quantize(Decimal("0.0001"))
+        if valuation_method == "cap_rate" and noi > 0 and cap_rate > 0:
+            asset_value = (noi / cap_rate).quantize(Decimal("0.01"))
+        else:
+            asset_value = cost_basis
+    else:
+        asset_value = max(cost_basis, debt_balance, revenue)
+
+    implied_equity_value = (asset_value - debt_balance).quantize(Decimal("0.01"))
+    nav = (implied_equity_value + cash_balance).quantize(Decimal("0.01"))
+
+    if asset_value > 0:
+        ltv = (debt_balance / asset_value).quantize(Decimal("0.0001"))
+    elif loan and loan.get("ltv") is not None:
+        ltv = _d(loan.get("ltv")).quantize(Decimal("0.0001"))
+
+    if debt_service > 0:
+        dscr = (noi / debt_service).quantize(Decimal("0.0001"))
+    elif loan and loan.get("dscr") is not None:
+        dscr = _d(loan.get("dscr")).quantize(Decimal("0.0001"))
+
+    if debt_balance > 0:
+        debt_yield = (noi / debt_balance).quantize(Decimal("0.0001"))
 
     inputs_hash = _compute_hash({
         "asset_id": str(asset_id),
         "quarter": quarter,
         "scenario_id": str(scenario_id) if scenario_id else None,
-        "noi": str(noi),
-        "asset_value": str(asset_value),
+        "operating_inputs_hash": operating_row.get("inputs_hash") if operating_row else None,
+        "assumptions_hash": assumptions_hash,
+        "revenue": str(revenue),
+        "other_income": str(other_income),
+        "opex": str(opex),
+        "capex": str(capex),
+        "debt_service": str(debt_service),
+        "leasing_costs": str(leasing_costs),
+        "tenant_improvements": str(tenant_improvements),
+        "free_rent": str(free_rent),
+        "cash_balance": str(cash_balance),
         "debt_balance": str(debt_balance),
+        "asset_value": str(asset_value),
         "valuation_method": valuation_method,
+        "value_source": value_source,
     })
 
     cur.execute(
         """
         INSERT INTO re_asset_quarter_state (
             asset_id, quarter, scenario_id, run_id, accounting_basis,
-            noi, revenue, opex, capex, debt_service,
+            noi, revenue, other_income, opex, capex, debt_service,
+            leasing_costs, tenant_improvements, free_rent, net_cash_flow,
             occupancy, debt_balance, cash_balance,
-            asset_value, nav, valuation_method, inputs_hash
+            asset_value, implied_equity_value, nav,
+            ltv, dscr, debt_yield,
+            valuation_method, value_source, inputs_hash
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (
+            %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s,
+            %s, %s, %s,
+            %s, %s, %s
+        )
         ON CONFLICT (asset_id, quarter, COALESCE(scenario_id, '00000000-0000-0000-0000-000000000000'::uuid))
         DO UPDATE SET
             run_id = EXCLUDED.run_id,
             accounting_basis = EXCLUDED.accounting_basis,
             noi = EXCLUDED.noi,
             revenue = EXCLUDED.revenue,
+            other_income = EXCLUDED.other_income,
             opex = EXCLUDED.opex,
             capex = EXCLUDED.capex,
             debt_service = EXCLUDED.debt_service,
+            leasing_costs = EXCLUDED.leasing_costs,
+            tenant_improvements = EXCLUDED.tenant_improvements,
+            free_rent = EXCLUDED.free_rent,
+            net_cash_flow = EXCLUDED.net_cash_flow,
             occupancy = EXCLUDED.occupancy,
             debt_balance = EXCLUDED.debt_balance,
             cash_balance = EXCLUDED.cash_balance,
             asset_value = EXCLUDED.asset_value,
+            implied_equity_value = EXCLUDED.implied_equity_value,
             nav = EXCLUDED.nav,
+            ltv = EXCLUDED.ltv,
+            dscr = EXCLUDED.dscr,
+            debt_yield = EXCLUDED.debt_yield,
             valuation_method = EXCLUDED.valuation_method,
+            value_source = EXCLUDED.value_source,
             inputs_hash = EXCLUDED.inputs_hash,
             created_at = now()
         RETURNING *
@@ -356,9 +511,12 @@ def _compute_asset_state(
             str(asset_id), quarter,
             str(scenario_id) if scenario_id else None,
             str(run_id), accounting_basis,
-            _q(noi), _q(revenue), _q(opex), _q(capex), _q(debt_service),
-            occupancy, _q(debt_balance), _q(cash_balance),
-            _q(asset_value), _q(nav), valuation_method, inputs_hash,
+            _q(noi), _q(revenue), _q(other_income), _q(opex), _q(capex), _q(debt_service),
+            _q(leasing_costs), _q(tenant_improvements), _q(free_rent), _q(net_cash_flow),
+            _q(occupancy), _q(debt_balance), _q(cash_balance),
+            _q(asset_value), _q(implied_equity_value), _q(nav),
+            _q(ltv), _q(dscr), _q(debt_yield),
+            valuation_method, value_source, inputs_hash,
         ),
     )
     return cur.fetchone()

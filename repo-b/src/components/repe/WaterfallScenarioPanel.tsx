@@ -324,7 +324,7 @@ export default function WaterfallScenarioPanel({
                     (a: WaterfallScenarioTierAllocation, i: number) => (
                       <tr key={i}>
                         <td className="px-4 py-1.5 text-xs font-mono">
-                          {a.tier_name.replace(/_/g, " ")}
+                          {a.tier_code.replace(/_/g, " ")}
                         </td>
                         <td className="px-4 py-1.5">{a.partner_name}</td>
                         <td className="px-4 py-1.5 text-xs">

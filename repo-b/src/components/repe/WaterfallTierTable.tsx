@@ -36,8 +36,8 @@ export function WaterfallTierTable({ fundId, quarter }: Props) {
   // Group by tier
   const tiers: Record<string, WaterfallTierAllocation[]> = {};
   for (const a of data.allocations) {
-    if (!tiers[a.tier_name]) tiers[a.tier_name] = [];
-    tiers[a.tier_name].push(a);
+    if (!tiers[a.tier_code]) tiers[a.tier_code] = [];
+    tiers[a.tier_code].push(a);
   }
 
   return (

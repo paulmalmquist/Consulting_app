@@ -259,15 +259,25 @@ class ReAssetQuarterStateOut(BaseModel):
     accounting_basis: str
     noi: Decimal | None = None
     revenue: Decimal | None = None
+    other_income: Decimal | None = None
     opex: Decimal | None = None
     capex: Decimal | None = None
     debt_service: Decimal | None = None
+    leasing_costs: Decimal | None = None
+    tenant_improvements: Decimal | None = None
+    free_rent: Decimal | None = None
+    net_cash_flow: Decimal | None = None
     occupancy: Decimal | None = None
     debt_balance: Decimal | None = None
     cash_balance: Decimal | None = None
     asset_value: Decimal | None = None
+    implied_equity_value: Decimal | None = None
     nav: Decimal | None = None
+    ltv: Decimal | None = None
+    dscr: Decimal | None = None
+    debt_yield: Decimal | None = None
     valuation_method: str | None = None
+    value_source: str | None = None
     inputs_hash: str
     created_at: datetime
 
@@ -297,6 +307,11 @@ class ReInvestmentQuarterStateOut(BaseModel):
     invested_capital: Decimal | None = None
     realized_distributions: Decimal | None = None
     unrealized_value: Decimal | None = None
+    gross_asset_value: Decimal | None = None
+    debt_balance: Decimal | None = None
+    cash_balance: Decimal | None = None
+    effective_ownership_percent: Decimal | None = None
+    fund_nav_contribution: Decimal | None = None
     gross_irr: Decimal | None = None
     net_irr: Decimal | None = None
     equity_multiple: Decimal | None = None

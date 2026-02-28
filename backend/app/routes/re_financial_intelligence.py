@@ -529,7 +529,7 @@ def get_waterfall_breakdown(
         with _gc() as cur:
             cur.execute(
                 """
-                SELECT id FROM re_waterfall_run
+                SELECT run_id FROM re_waterfall_run
                 WHERE fund_id = %s AND quarter = %s
                 ORDER BY created_at DESC LIMIT 1
                 """,
@@ -546,20 +546,20 @@ def get_waterfall_breakdown(
 
             cur.execute(
                 """
-                SELECT wrr.tier_name, wrr.amount, p.partner_name, p.partner_type
+                SELECT wrr.tier_code, wrr.amount, p.name AS partner_name, p.partner_type
                 FROM re_waterfall_run_result wrr
-                JOIN re_partner p ON p.id = wrr.partner_id
+                JOIN re_partner p ON p.partner_id = wrr.partner_id
                 WHERE wrr.run_id = %s
-                ORDER BY wrr.tier_name, p.partner_type, p.partner_name
+                ORDER BY wrr.tier_code, p.partner_type, p.name
                 """,
-                (str(run["id"]),),
+                (str(run["run_id"]),),
             )
             rows = cur.fetchall()
 
         return {
             "fund_id": str(fund_id),
             "quarter": quarter,
-            "run_id": str(run["id"]),
+            "run_id": str(run["run_id"]),
             "allocations": rows,
         }
     except Exception as exc:

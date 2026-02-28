@@ -6,14 +6,18 @@ import {
   getReV2Investment,
   listReV2Jvs,
   getReV2InvestmentQuarterState,
+  getReV2InvestmentAssets,
+  getReV2InvestmentLineage,
   getRepeFund,
-  listRepeAssets,
   ReV2Investment,
   ReV2Jv,
   ReV2InvestmentQuarterState,
+  ReV2InvestmentAsset,
+  ReV2EntityLineageResponse,
   RepeFundDetail,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
+import { EntityLineagePanel } from "@/components/repe/EntityLineagePanel";
 
 function pickQ(): string {
   const d = new Date();
@@ -50,7 +54,9 @@ export default function InvestmentHomePage({
   const [jvs, setJvs] = useState<ReV2Jv[]>([]);
   const [state, setState] = useState<ReV2InvestmentQuarterState | null>(null);
   const [fundDetail, setFundDetail] = useState<RepeFundDetail | null>(null);
-  const [directAssets, setDirectAssets] = useState<number>(0);
+  const [assets, setAssets] = useState<ReV2InvestmentAsset[]>([]);
+  const [lineage, setLineage] = useState<ReV2EntityLineageResponse | null>(null);
+  const [lineageOpen, setLineageOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const quarter = pickQ();
@@ -62,13 +68,15 @@ export default function InvestmentHomePage({
       getReV2Investment(params.investmentId),
       listReV2Jvs(params.investmentId),
       getReV2InvestmentQuarterState(params.investmentId, quarter).catch(() => null),
-      listRepeAssets(params.investmentId).catch(() => []),
+      getReV2InvestmentAssets(params.investmentId, quarter).catch(() => []),
+      getReV2InvestmentLineage(params.investmentId, quarter).catch(() => null),
     ])
-      .then(async ([i, j, s, assets]) => {
+      .then(async ([i, j, s, assetRows, lineageData]) => {
         setInv(i);
         setJvs(j);
         setState(s);
-        setDirectAssets(assets.length);
+        setAssets(assetRows);
+        setLineage(lineageData);
         if (i?.fund_id) {
           try { setFundDetail(await getRepeFund(i.fund_id)); } catch {}
         }
@@ -99,6 +107,13 @@ export default function InvestmentHomePage({
             )}
           </div>
           <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setLineageOpen(true)}
+              className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
+            >
+              Lineage
+            </button>
             <Link href={`${base}/deals?fund=${inv.fund_id}&deal=${params.investmentId}`} className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
               + JV Entity
             </Link>
@@ -165,11 +180,29 @@ export default function InvestmentHomePage({
       </div>
 
       {/* Direct Assets */}
-      {directAssets > 0 && jvs.length === 0 && (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 text-sm text-bm-muted2">
-          {directAssets} asset(s) attached directly to this investment (no JV wrapper).
+      {assets.filter((asset) => !asset.jv_id).length > 0 && (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+          <h2 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Direct Assets</h2>
+          <div className="mt-3 space-y-2">
+            {assets
+              .filter((asset) => !asset.jv_id)
+              .map((asset) => (
+                <div key={asset.asset_id} className="flex items-center justify-between rounded-lg border border-bm-border/60 px-3 py-2 text-sm">
+                  <Link href={`${base}/assets/${asset.asset_id}`} className="font-medium text-bm-accent hover:underline">
+                    {asset.name}
+                  </Link>
+                  <span className="text-bm-muted2">{asset.nav ? fmtMoney(asset.nav) : "—"}</span>
+                </div>
+              ))}
+          </div>
         </div>
       )}
+      <EntityLineagePanel
+        open={lineageOpen}
+        onOpenChange={setLineageOpen}
+        title={`Investment Lineage · ${quarter}`}
+        lineage={lineage}
+      />
     </section>
   );
 }

@@ -79,6 +79,55 @@ def compute_irr_from_ledger(
     return _q(result) if result is not None else None
 
 
+def compute_fund_irr_from_ledger(
+    *,
+    fund_id: UUID,
+    nav: Decimal,
+    as_of_date: date,
+    as_of_quarter: str | None = None,
+) -> Decimal | None:
+    with get_cursor() as cur:
+        conditions = ["fund_id = %s"]
+        params: list = [str(fund_id)]
+        if as_of_quarter:
+            conditions.append("quarter <= %s")
+            params.append(as_of_quarter)
+
+        where = " AND ".join(conditions)
+        cur.execute(
+            f"""
+            SELECT entry_type, amount_base, effective_date
+            FROM re_capital_ledger_entry
+            WHERE {where}
+            ORDER BY effective_date, created_at
+            """,
+            params,
+        )
+        rows = cur.fetchall()
+
+    cashflows: list[tuple[date, Decimal]] = []
+    for r in rows:
+        amt = Decimal(r["amount_base"])
+        dt = r["effective_date"]
+        if r["entry_type"] in ("contribution", "commitment"):
+            cashflows.append((dt, -abs(amt)))
+        elif r["entry_type"] in ("distribution", "recallable_dist"):
+            cashflows.append((dt, abs(amt)))
+        elif r["entry_type"] == "fee":
+            cashflows.append((dt, -abs(amt)))
+        elif r["entry_type"] == "reversal":
+            cashflows.append((dt, amt))
+
+    if nav and nav != 0:
+        cashflows.append((as_of_date, abs(nav)))
+
+    if len(cashflows) < 2:
+        return None
+
+    result = xirr(cashflows)
+    return _q(result) if result is not None else None
+
+
 def compute_partner_metrics(
     *,
     fund_id: UUID,
@@ -115,7 +164,7 @@ def compute_partner_metrics(
 
     fund_nav = Decimal(fs["portfolio_nav"] or 0) if fs else Decimal("0")
 
-    # Pro-rata NAV allocation based on commitment share
+    # Commitment share is the default fallback for funds without explicit JV shares.
     with get_cursor() as cur:
         cur.execute(
             """
@@ -133,9 +182,56 @@ def compute_partner_metrics(
         share = Decimal(commitment_row["committed_amount"]) / Decimal(
             commitment_row["total_fund_commitment"]
         )
-        partner_nav = fund_nav * share
     else:
-        partner_nav = Decimal("0")
+        share = Decimal("0")
+
+    with get_cursor() as cur:
+        scenario_clause = "s.scenario_id = %s" if scenario_id else "s.scenario_id IS NULL"
+        params = [str(partner_id), str(fund_id), quarter]
+        if scenario_id:
+            params.append(str(scenario_id))
+        cur.execute(
+            f"""
+            SELECT COALESCE(SUM(s.nav * sh.ownership_percent), 0) AS explicit_nav
+            FROM re_jv_partner_share sh
+            JOIN re_jv j ON j.jv_id = sh.jv_id
+            JOIN re_jv_quarter_state s ON s.jv_id = sh.jv_id
+            WHERE sh.partner_id = %s
+              AND j.investment_id IN (SELECT deal_id FROM repe_deal WHERE fund_id = %s)
+              AND s.quarter = %s
+              AND {scenario_clause}
+              AND (sh.effective_to IS NULL OR sh.effective_to >= CURRENT_DATE)
+            """,
+            params,
+        )
+        explicit_nav_row = cur.fetchone()
+        explicit_nav = Decimal(explicit_nav_row["explicit_nav"] or 0) if explicit_nav_row else Decimal("0")
+
+        direct_params = [str(fund_id), quarter]
+        if scenario_id:
+            direct_params.append(str(scenario_id))
+        cur.execute(
+            f"""
+            SELECT COALESCE(SUM(s.nav), 0) AS direct_nav
+            FROM re_asset_quarter_state s
+            WHERE s.asset_id IN (
+                SELECT a.asset_id
+                FROM repe_asset a
+                JOIN repe_deal d ON d.deal_id = a.deal_id
+                WHERE d.fund_id = %s AND a.jv_id IS NULL
+            )
+              AND s.quarter = %s
+              AND {scenario_clause.replace('s.', '')}
+            """,
+            direct_params,
+        )
+        direct_nav_row = cur.fetchone()
+        direct_nav = Decimal(direct_nav_row["direct_nav"] or 0) if direct_nav_row else Decimal("0")
+
+    if explicit_nav > 0:
+        partner_nav = explicit_nav + (direct_nav * share)
+    else:
+        partner_nav = fund_nav * share
 
     dpi = compute_dpi(distributed, contributed)
     tvpi = compute_tvpi(distributed, partner_nav, contributed)
@@ -211,15 +307,21 @@ def compute_fund_metrics(
 
     dpi = compute_dpi(distributed, contributed)
     tvpi = compute_tvpi(distributed, fund_nav, contributed)
+    irr = compute_fund_irr_from_ledger(
+        fund_id=fund_id,
+        nav=fund_nav,
+        as_of_date=as_of_date,
+        as_of_quarter=quarter,
+    )
 
     with get_cursor() as cur:
         cur.execute(
             """
             INSERT INTO re_fund_quarter_metrics (
                 fund_id, quarter, scenario_id, run_id,
-                contributed_to_date, distributed_to_date, nav, dpi, tvpi
+                contributed_to_date, distributed_to_date, nav, dpi, tvpi, irr
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (fund_id, quarter, COALESCE(scenario_id, '00000000-0000-0000-0000-000000000000'::uuid))
             DO UPDATE SET
                 run_id = EXCLUDED.run_id,
@@ -228,6 +330,7 @@ def compute_fund_metrics(
                 nav = EXCLUDED.nav,
                 dpi = EXCLUDED.dpi,
                 tvpi = EXCLUDED.tvpi,
+                irr = EXCLUDED.irr,
                 created_at = now()
             RETURNING *
             """,
@@ -236,7 +339,21 @@ def compute_fund_metrics(
                 str(scenario_id) if scenario_id else None,
                 str(run_id),
                 _q(contributed), _q(distributed), _q(fund_nav),
-                _q(dpi), _q(tvpi),
+                _q(dpi), _q(tvpi), _q(irr),
             ),
         )
-        return cur.fetchone()
+        row = cur.fetchone()
+        scenario_clause = "scenario_id = %s" if scenario_id else "scenario_id IS NULL"
+        params = [_q(irr), _q(irr), str(fund_id), quarter]
+        if scenario_id:
+            params.append(str(scenario_id))
+        cur.execute(
+            f"""
+            UPDATE re_fund_quarter_state
+            SET gross_irr = %s,
+                net_irr = %s
+            WHERE fund_id = %s AND quarter = %s AND {scenario_clause}
+            """,
+            params,
+        )
+        return row

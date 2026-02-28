@@ -105,11 +105,11 @@ def _build_lp_capital_accounts(wb: Workbook, fund_id: UUID, quarter: str) -> Non
     with get_cursor() as cur:
         cur.execute(
             """
-            SELECT s.*, p.partner_name, p.partner_type
-            FROM re_capital_account_snapshot s
-            JOIN re_partner p ON p.id = s.partner_id
+            SELECT s.*, p.name AS partner_name, p.partner_type
+            FROM app.re_capital_account_snapshot s
+            JOIN re_partner p ON p.partner_id = s.partner_id
             WHERE s.fund_id = %s AND s.quarter = %s
-            ORDER BY p.partner_type, p.partner_name
+            ORDER BY p.partner_type, p.name
             """,
             (str(fund_id), quarter),
         )
@@ -147,7 +147,7 @@ def _build_waterfall_breakdown(wb: Workbook, fund_id: UUID, quarter: str) -> Non
     with get_cursor() as cur:
         cur.execute(
             """
-            SELECT wr.id FROM re_waterfall_run wr
+            SELECT wr.run_id FROM re_waterfall_run wr
             WHERE wr.fund_id = %s AND wr.quarter = %s
             ORDER BY wr.created_at DESC LIMIT 1
             """,
@@ -160,13 +160,13 @@ def _build_waterfall_breakdown(wb: Workbook, fund_id: UUID, quarter: str) -> Non
 
         cur.execute(
             """
-            SELECT wrr.tier_name, wrr.amount, p.partner_name, p.partner_type
+            SELECT wrr.tier_code, wrr.amount, p.name AS partner_name, p.partner_type
             FROM re_waterfall_run_result wrr
-            JOIN re_partner p ON p.id = wrr.partner_id
+            JOIN re_partner p ON p.partner_id = wrr.partner_id
             WHERE wrr.run_id = %s
-            ORDER BY wrr.tier_name, p.partner_type, p.partner_name
+            ORDER BY wrr.tier_code, p.partner_type, p.name
             """,
-            (str(run["id"]),),
+            (str(run["run_id"]),),
         )
         rows = cur.fetchall()
 
@@ -176,7 +176,7 @@ def _build_waterfall_breakdown(wb: Workbook, fund_id: UUID, quarter: str) -> Non
         cell.font = HEADER_FONT
 
     for i, r in enumerate(rows, 2):
-        ws.cell(row=i, column=1, value=r.get("tier_name", ""))
+        ws.cell(row=i, column=1, value=r.get("tier_code", ""))
         ws.cell(row=i, column=2, value=r.get("partner_name", ""))
         ws.cell(row=i, column=3, value=r.get("partner_type", ""))
         cell = ws.cell(row=i, column=4)

@@ -444,7 +444,7 @@ class CapitalSnapshotComputeRequest(BaseModel):
 # ── Waterfall Breakdown ─────────────────────────────────────────────────────
 
 class WaterfallTierAllocation(BaseModel):
-    tier_name: str
+    tier_code: str
     partner_name: str
     partner_type: str
     amount: Decimal
@@ -468,7 +468,7 @@ class WaterfallScenarioRunRequest(BaseModel):
 
 
 class WaterfallScenarioTierAllocation(BaseModel):
-    tier_name: str
+    tier_code: str
     partner_name: str
     partner_type: str
     payout_type: str

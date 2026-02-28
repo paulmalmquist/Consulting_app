@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from app.db import get_cursor
 from app.finance.irr_engine import xirr as _xirr
@@ -281,14 +281,15 @@ def compute_scenario_metrics(
     scenario_rvpi = (scenario_nav / total_called).quantize(Decimal("0.0001")) if total_called > 0 else None
 
     # ── Store snapshot ───────────────────────────────────────────────────
+    snapshot_run_id = uuid4()
     with get_cursor() as cur:
         cur.execute(
             """
             INSERT INTO re_scenario_metrics_snapshot
-                (fund_id, scenario_id, quarter,
+                (fund_id, scenario_id, quarter, run_id,
                  gross_irr, net_irr, gross_tvpi, net_tvpi,
                  dpi, rvpi, total_distributed, portfolio_nav, carry_estimate)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (fund_id, scenario_id, quarter, run_id)
             DO UPDATE SET
                 gross_irr = EXCLUDED.gross_irr,
@@ -304,7 +305,7 @@ def compute_scenario_metrics(
             RETURNING *
             """,
             (
-                str(fund_id), str(scenario_id), quarter,
+                str(fund_id), str(scenario_id), quarter, str(snapshot_run_id),
                 _q(scenario_gross_irr), _q(scenario_net_irr),
                 _q(scenario_gross_tvpi), _q(scenario_net_tvpi),
                 _q(scenario_dpi), _q(scenario_rvpi),

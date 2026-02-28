@@ -3,17 +3,20 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
-  getReAssetQuarterState,
+  getReV2AssetLineage,
+  getReV2AssetQuarterState,
   getRepeAsset,
   getRepeAssetOwnership,
   getRepeDeal,
-  ReAssetFinancialState,
+  ReV2AssetQuarterState,
+  ReV2EntityLineageResponse,
   RepeAssetDetail,
   RepeAssetOwnership,
   RepeDeal,
 } from "@/lib/bos-api";
 import RepeEntityDocuments from "@/components/repe/RepeEntityDocuments";
 import { useRepeBasePath, useRepeContext } from "@/lib/repe-context";
+import { EntityLineagePanel } from "@/components/repe/EntityLineagePanel";
 
 const MODULES = [
   "Overview",
@@ -66,7 +69,9 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
   const [detail, setDetail] = useState<RepeAssetDetail | null>(null);
   const [deal, setDeal] = useState<RepeDeal | null>(null);
   const [ownership, setOwnership] = useState<RepeAssetOwnership | null>(null);
-  const [financialState, setFinancialState] = useState<ReAssetFinancialState | null>(null);
+  const [financialState, setFinancialState] = useState<ReV2AssetQuarterState | null>(null);
+  const [lineage, setLineage] = useState<ReV2EntityLineageResponse | null>(null);
+  const [lineageOpen, setLineageOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,13 +86,14 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
         const [dealRow, ownershipRow, finState] = await Promise.all([
           getRepeDeal(assetDetail.asset.deal_id).catch(() => null),
           getRepeAssetOwnership(assetDetail.asset.asset_id).catch(() => null),
-          getReAssetQuarterState(assetDetail.asset.asset_id, quarter).catch(() => null),
+          getReV2AssetQuarterState(assetDetail.asset.asset_id, quarter).catch(() => null),
         ]);
         if (cancelled) return;
         setDetail(assetDetail);
         setDeal(dealRow);
         setOwnership(ownershipRow);
         setFinancialState(finState);
+        setLineage(await getReV2AssetLineage(assetDetail.asset.asset_id, quarter).catch(() => null));
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : "Failed to load asset");
@@ -133,6 +139,13 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setLineageOpen(true)}
+              className="inline-flex items-center rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
+            >
+              Lineage
+            </button>
             {deal ? (
               <Link
                 href={`${basePath}/deals/${deal.deal_id}`}
@@ -209,11 +222,11 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
             <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
               <div className="rounded-lg border border-bm-border/60 p-3">
                 <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">NOI</p>
-                <p className="mt-1 font-medium">{asCurrency(financialState?.net_operating_income)}</p>
+                <p className="mt-1 font-medium">{asCurrency(financialState?.noi)}</p>
               </div>
               <div className="rounded-lg border border-bm-border/60 p-3">
                 <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Implied Value</p>
-                <p className="mt-1 font-medium">{asCurrency(financialState?.implied_gross_value)}</p>
+                <p className="mt-1 font-medium">{asCurrency(financialState?.asset_value)}</p>
               </div>
               <div className="rounded-lg border border-bm-border/60 p-3">
                 <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">LTV</p>
@@ -233,10 +246,10 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
           <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Performance</h2>
           <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: "NOI", value: asCurrency(financialState?.net_operating_income) },
-              { label: "Occupancy", value: asPct(detail.details.occupancy) },
+              { label: "NOI", value: asCurrency(financialState?.noi) },
+              { label: "Occupancy", value: asPct(financialState?.occupancy ?? detail.details.occupancy) },
               { label: "Debt Yield", value: asPct(financialState?.debt_yield) },
-              { label: "NAV Equity", value: asCurrency(financialState?.nav_equity) },
+              { label: "NAV Equity", value: asCurrency(financialState?.implied_equity_value ?? financialState?.nav) },
             ].map((item) => (
               <div key={item.label} className="rounded-lg border border-bm-border/60 p-3">
                 <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">{item.label}</p>
@@ -253,7 +266,7 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
           <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
             <div>
               <dt className="text-xs text-bm-muted2">Loan Balance</dt>
-              <dd className="font-medium">{asCurrency(financialState?.loan_balance)}</dd>
+              <dd className="font-medium">{asCurrency(financialState?.debt_balance)}</dd>
             </div>
             <div>
               <dt className="text-xs text-bm-muted2">Debt Service</dt>
@@ -288,11 +301,11 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
               </div>
               <div>
                 <dt className="text-xs text-bm-muted2">Snapshot</dt>
-                <dd className="font-medium truncate">{financialState.valuation_snapshot_id}</dd>
+                <dd className="font-medium truncate">{financialState.inputs_hash}</dd>
               </div>
               <div>
                 <dt className="text-xs text-bm-muted2">Gross Value</dt>
-                <dd className="font-medium">{asCurrency(financialState.implied_gross_value)}</dd>
+                <dd className="font-medium">{asCurrency(financialState.asset_value)}</dd>
               </div>
               <div>
                 <dt className="text-xs text-bm-muted2">Equity Value</dt>
@@ -343,6 +356,12 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
           </div>
         )
       ) : null}
+      <EntityLineagePanel
+        open={lineageOpen}
+        onOpenChange={setLineageOpen}
+        title={`Asset Lineage · ${quarter}`}
+        lineage={lineage}
+      />
     </section>
   );
 }

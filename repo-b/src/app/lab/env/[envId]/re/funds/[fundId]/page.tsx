@@ -6,29 +6,32 @@ import { MetricCard } from "@/components/ui/MetricCard";
 import {
   getRepeFund,
   listRepeDeals,
-  listRepeAssets,
   listReV2Investments,
   RepeFundDetail,
   RepeDeal,
-  RepeAsset,
   ReV2Investment,
   getReV2FundQuarterState,
   getReV2FundMetrics,
+  getReV2FundLineage,
+  getReV2FundInvestmentRollup,
+  getReV2InvestmentAssets,
   runReV2QuarterClose,
+  runReV2Waterfall,
   listReV2Scenarios,
+  listReV2Runs,
   ReV2FundQuarterState,
   ReV2FundMetrics,
   ReV2Scenario,
-  ReV2QuarterCloseResult,
+  ReV2RunProvenance,
+  ReV2FundInvestmentRollupRow,
+  ReV2EntityLineageResponse,
+  ReV2InvestmentAsset,
   getFiNOIVariance,
   getFiFundMetrics,
   getFiLoans,
   getFiCovenantResults,
   getFiWatchlist,
-  runFiQuarterClose,
   runFiCovenantTests,
-  runFiWaterfallShadow,
-  listFiRuns,
   listFiUwVersions,
   getLpSummary,
   FiVarianceResult,
@@ -36,7 +39,6 @@ import {
   FiLoan,
   FiCovenantResult,
   FiWatchlistEvent,
-  FiRun,
   FiUwVersion,
   type LpSummary,
   seedReV2Data,
@@ -49,6 +51,7 @@ import { LPBreakdown } from "@/components/repe/LPBreakdown";
 import { ExcelExportButton } from "@/components/repe/ExcelExportButton";
 import WaterfallScenarioPanel from "@/components/repe/WaterfallScenarioPanel";
 import { DebugFooter } from "@/components/repe/DebugFooter";
+import { EntityLineagePanel } from "@/components/repe/EntityLineagePanel";
 
 function pickCurrentQuarter(): string {
   const d = new Date();
@@ -98,60 +101,72 @@ export default function FundDetailPage({
   const [detail, setDetail] = useState<RepeFundDetail | null>(null);
   const [deals, setDeals] = useState<RepeDeal[]>([]);
   const [investments, setInvestments] = useState<ReV2Investment[]>([]);
+  const [investmentRollup, setInvestmentRollup] = useState<ReV2FundInvestmentRollupRow[]>([]);
   const [fundState, setFundState] = useState<ReV2FundQuarterState | null>(null);
   const [fundMetrics, setFundMetrics] = useState<ReV2FundMetrics | null>(null);
   const [scenarios, setScenarios] = useState<ReV2Scenario[]>([]);
+  const [lineage, setLineage] = useState<ReV2EntityLineageResponse | null>(null);
+  const [lineageOpen, setLineageOpen] = useState(false);
+  const [lineageLoading, setLineageLoading] = useState(false);
+  const [lineageError, setLineageError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const quarter = pickCurrentQuarter();
 
   const isDebtFund = detail?.fund?.strategy === "debt";
 
+  const refreshCanonical = async () => {
+    setLineageLoading(true);
+    setLineageError(null);
+    try {
+      const [fs, fm, sc, rollup, lineageData] = await Promise.all([
+        getReV2FundQuarterState(params.fundId, quarter).catch(() => null),
+        getReV2FundMetrics(params.fundId, quarter).catch(() => null),
+        listReV2Scenarios(params.fundId).catch(() => []),
+        getReV2FundInvestmentRollup(params.fundId, quarter).catch(() => []),
+        getReV2FundLineage(params.fundId, quarter).catch(() => null),
+      ]);
+      setFundState(fs);
+      setFundMetrics(fm);
+      setScenarios(sc);
+      setInvestmentRollup(rollup);
+      setLineage(lineageData);
+    } catch (err) {
+      setLineageError(err instanceof Error ? err.message : "Failed to load lineage");
+    } finally {
+      setLineageLoading(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
     async function loadFund() {
-      const [d, dls, inv, fs, fm, sc] = await Promise.all([
+      const [d, dls, inv, sc, fsPreview] = await Promise.all([
         getRepeFund(params.fundId),
         listRepeDeals(params.fundId),
         listReV2Investments(params.fundId).catch(() => []),
-        getReV2FundQuarterState(params.fundId, quarter).catch(() => null),
-        getReV2FundMetrics(params.fundId, quarter).catch(() => null),
         listReV2Scenarios(params.fundId).catch(() => []),
+        getReV2FundQuarterState(params.fundId, quarter).catch(() => null),
       ]);
       if (cancelled) return;
 
       // Auto-seed scenarios + KPIs if missing and we have businessId
-      const needsSeed = (sc as ReV2Scenario[]).length === 0 || !fs;
+      const needsSeed = (sc as ReV2Scenario[]).length === 0 || !fsPreview;
       if (needsSeed && businessId) {
         try {
           await seedReV2Data({ fund_id: params.fundId, business_id: businessId });
-          // Re-fetch after seed
-          const [fs2, fm2, sc2] = await Promise.all([
-            getReV2FundQuarterState(params.fundId, quarter).catch(() => null),
-            getReV2FundMetrics(params.fundId, quarter).catch(() => null),
-            listReV2Scenarios(params.fundId).catch(() => []),
-          ]);
-          if (cancelled) return;
-          setDetail(d);
-          setDeals(dls);
-          setInvestments(inv as ReV2Investment[]);
-          setFundState(fs2);
-          setFundMetrics(fm2);
-          setScenarios(sc2);
-          return;
         } catch {
-          // Seed failed, proceed with original data
+          // Seed failed, proceed with available data
         }
       }
 
       setDetail(d);
       setDeals(dls);
       setInvestments(inv as ReV2Investment[]);
-      setFundState(fs);
-      setFundMetrics(fm);
       setScenarios(sc);
+      await refreshCanonical();
     }
 
     loadFund()
@@ -203,6 +218,13 @@ export default function FundDetailPage({
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setLineageOpen(true)}
+              className="inline-flex items-center rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
+            >
+              Lineage
+            </button>
             {envId && businessId && (
               <ExcelExportButton
                 fundId={params.fundId}
@@ -255,7 +277,15 @@ export default function FundDetailPage({
 
       {/* Tab Content */}
       {tab === "Overview" && (
-        <OverviewTab investments={investments} deals={deals} scenarios={scenarios} fund={fund} envId={params.envId} />
+        <OverviewTab
+          investments={investments}
+          investmentRollup={investmentRollup}
+          deals={deals}
+          scenarios={scenarios}
+          fund={fund}
+          envId={params.envId}
+          quarter={quarter}
+        />
       )}
       {tab === "Variance (NOI)" && envId && businessId && (
         <VarianceTab envId={envId} businessId={businessId} fundId={params.fundId} quarter={quarter} />
@@ -273,6 +303,7 @@ export default function FundDetailPage({
           fundId={params.fundId}
           quarter={quarter}
           isDebtFund={isDebtFund || false}
+          onCanonicalRefresh={refreshCanonical}
         />
       )}
       {tab === "Scenarios" && envId && businessId && (
@@ -302,15 +333,33 @@ export default function FundDetailPage({
         />
       )}
       <DebugFooter envId={envId} fundId={params.fundId} businessId={businessId} />
+      <EntityLineagePanel
+        open={lineageOpen}
+        onOpenChange={setLineageOpen}
+        title={`Fund Lineage · ${quarter}`}
+        lineage={lineage}
+        loading={lineageLoading}
+        error={lineageError}
+      />
     </section>
   );
 }
 
 // ── Overview Tab ──────────────────────────────────────────────────────────────
 
-function InvestmentRow({ inv, envId }: { inv: ReV2Investment; envId: string }) {
+function InvestmentRow({
+  inv,
+  envId,
+  quarter,
+  rollup,
+}: {
+  inv: ReV2Investment;
+  envId: string;
+  quarter: string;
+  rollup?: ReV2FundInvestmentRollupRow;
+}) {
   const [open, setOpen] = useState(false);
-  const [assets, setAssets] = useState<RepeAsset[] | null>(null);
+  const [assets, setAssets] = useState<ReV2InvestmentAsset[] | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleToggle = () => {
@@ -318,7 +367,7 @@ function InvestmentRow({ inv, envId }: { inv: ReV2Investment; envId: string }) {
     setOpen(next);
     if (next && assets === null) {
       setLoading(true);
-      listRepeAssets(inv.investment_id)
+      getReV2InvestmentAssets(inv.investment_id, quarter)
         .then(setAssets)
         .catch(() => setAssets([]))
         .finally(() => setLoading(false));
@@ -347,6 +396,9 @@ function InvestmentRow({ inv, envId }: { inv: ReV2Investment; envId: string }) {
         <td className="px-4 py-3 text-right text-sm">
           {inv.committed_capital ? fmtMoney(inv.committed_capital) : "—"}
         </td>
+        <td className="px-4 py-3 text-right text-sm">
+          {rollup?.fund_nav_contribution ? fmtMoney(rollup.fund_nav_contribution) : "—"}
+        </td>
         <td className="px-4 py-3 text-center">
           <Link
             href={`/lab/env/${envId}/re/investments/${inv.investment_id}`}
@@ -359,7 +411,7 @@ function InvestmentRow({ inv, envId }: { inv: ReV2Investment; envId: string }) {
       </tr>
       {open && (
         <tr>
-          <td colSpan={5} className="px-0 py-0 bg-bm-surface/10">
+          <td colSpan={6} className="px-0 py-0 bg-bm-surface/10">
             {loading ? (
               <div className="px-8 py-3 text-xs text-bm-muted2">Loading assets...</div>
             ) : assets && assets.length > 0 ? (
@@ -368,17 +420,19 @@ function InvestmentRow({ inv, envId }: { inv: ReV2Investment; envId: string }) {
                   {assets.map((asset) => (
                     <tr key={asset.asset_id} className="hover:bg-bm-surface/20">
                       <td className="pl-12 pr-4 py-2 text-bm-muted2 text-xs w-8">└</td>
-                      <td className="px-2 py-2 font-medium text-sm">{asset.name}</td>
+                      <td className="px-2 py-2 font-medium text-sm">
+                        <Link href={`/lab/env/${envId}/re/assets/${asset.asset_id}`} className="text-bm-accent hover:underline">
+                          {asset.name}
+                        </Link>
+                      </td>
                       <td className="px-4 py-2 text-xs text-bm-muted2 capitalize">
                         {asset.property_type || asset.asset_type}
-                        {asset.units ? ` · ${asset.units} units` : ""}
                       </td>
                       <td className="px-4 py-2 text-xs text-bm-muted2">
-                        {asset.market || ""}
-                        {asset.asset_status ? ` · ${asset.asset_status}` : ""}
+                        {asset.jv_id ? "JV-backed" : "Direct"}
                       </td>
                       <td className="px-4 py-2 text-xs text-bm-muted2 text-right">
-                        {asset.cost_basis ? fmtMoney(asset.cost_basis) : ""}
+                        {asset.nav ? fmtMoney(asset.nav) : "—"}
                       </td>
                     </tr>
                   ))}
@@ -394,24 +448,39 @@ function InvestmentRow({ inv, envId }: { inv: ReV2Investment; envId: string }) {
   );
 }
 
-function OverviewTab({ investments, deals, scenarios, fund, envId }: {
+function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, envId, quarter }: {
   investments: ReV2Investment[];
+  investmentRollup: ReV2FundInvestmentRollupRow[];
   deals: RepeDeal[];
   scenarios: ReV2Scenario[];
   fund: RepeFundDetail["fund"] | undefined;
   envId: string;
+  quarter: string;
 }) {
+  const rollupById = new Map(investmentRollup.map((row) => [row.investment_id, row]));
+  const nonBaseScenarioCount = scenarios.filter((scenario) => !scenario.is_base).length;
+  const displayInvestments = investments.length > 0
+    ? investments
+    : investmentRollup.map((row) => ({
+        investment_id: row.investment_id,
+        fund_id: fund?.fund_id || "",
+        name: row.name,
+        investment_type: row.deal_type || "equity",
+        stage: row.stage || "operating",
+        created_at: row.created_at || "",
+      } as ReV2Investment));
+
   return (
     <div className="space-y-4">
       {/* Summary metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <MetricCard label="Investments" value={String(investments.length || deals.length)} size="large" />
+        <MetricCard label="Investments" value={String(investmentRollup.length || investments.length || deals.length)} size="large" />
         <MetricCard label="Strategy" value={fund?.strategy?.toUpperCase() || "—"} size="large" />
-        <MetricCard label="Scenarios" value={String(scenarios.length)} size="large" />
+        <MetricCard label="Scenarios" value={String(nonBaseScenarioCount)} size="large" />
       </div>
 
       {/* Investment list */}
-      {investments.length > 0 && (
+      {displayInvestments.length > 0 && (
         <div className="rounded-xl border border-bm-border/70 overflow-hidden" data-testid="investment-list">
           <table className="w-full text-sm">
             <thead>
@@ -420,12 +489,19 @@ function OverviewTab({ investments, deals, scenarios, fund, envId }: {
                 <th className="px-4 py-3 font-medium">Type</th>
                 <th className="px-4 py-3 font-medium">Stage</th>
                 <th className="px-4 py-3 font-medium text-right">Committed</th>
+                <th className="px-4 py-3 font-medium text-right">Fund NAV</th>
                 <th className="px-4 py-3 font-medium text-center">Link</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-bm-border/40">
-              {investments.map((inv) => (
-                <InvestmentRow key={inv.investment_id} inv={inv} envId={envId} />
+              {displayInvestments.map((inv) => (
+                <InvestmentRow
+                  key={inv.investment_id}
+                  inv={inv}
+                  envId={envId}
+                  quarter={quarter}
+                  rollup={rollupById.get(inv.investment_id)}
+                />
               ))}
             </tbody>
           </table>
@@ -707,10 +783,15 @@ function DebtSurveillanceTab({ envId, businessId, fundId, quarter }: {
 
 // ── Run Center Tab ──────────────────────────────────────────────────────────
 
-function RunCenterTab({ envId, businessId, fundId, quarter, isDebtFund }: {
-  envId: string; businessId: string; fundId: string; quarter: string; isDebtFund: boolean;
+function RunCenterTab({ envId, businessId, fundId, quarter, isDebtFund, onCanonicalRefresh }: {
+  envId: string;
+  businessId: string;
+  fundId: string;
+  quarter: string;
+  isDebtFund: boolean;
+  onCanonicalRefresh: () => Promise<void>;
 }) {
-  const [runs, setRuns] = useState<FiRun[]>([]);
+  const [runs, setRuns] = useState<ReV2RunProvenance[]>([]);
   const [uwVersions, setUwVersions] = useState<FiUwVersion[]>([]);
   const [selectedUwVersionId, setSelectedUwVersionId] = useState("");
   const [running, setRunning] = useState<string | null>(null);
@@ -719,17 +800,17 @@ function RunCenterTab({ envId, businessId, fundId, quarter, isDebtFund }: {
 
   useEffect(() => {
     Promise.all([
-      listFiRuns({ env_id: envId, business_id: businessId, fund_id: fundId }).catch(() => []),
+      listReV2Runs(fundId, quarter).catch(() => []),
       listFiUwVersions({ env_id: envId, business_id: businessId }).catch(() => []),
     ]).then(([r, uv]) => {
       setRuns(r);
       setUwVersions(uv);
       if (uv.length > 0) setSelectedUwVersionId(uv[0].id);
     });
-  }, [envId, businessId, fundId]);
+  }, [envId, businessId, fundId, quarter]);
 
   const refreshRuns = () => {
-    listFiRuns({ env_id: envId, business_id: businessId, fund_id: fundId }).then(setRuns).catch(() => {});
+    listReV2Runs(fundId, quarter).then(setRuns).catch(() => {});
   };
 
   const handleQuarterClose = async () => {
@@ -737,14 +818,12 @@ function RunCenterTab({ envId, businessId, fundId, quarter, isDebtFund }: {
     setError(null);
     setResult(null);
     try {
-      const res = await runFiQuarterClose({
-        env_id: envId,
-        business_id: businessId,
-        fund_id: fundId,
+      const res = await runReV2QuarterClose(fundId, {
         quarter,
-        uw_version_id: selectedUwVersionId || undefined,
+        run_waterfall: false,
       });
       setResult(`Quarter Close: ${res.status} (run ${res.run_id.slice(0, 8)})`);
+      await onCanonicalRefresh();
       refreshRuns();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Quarter close failed");
@@ -758,13 +837,12 @@ function RunCenterTab({ envId, businessId, fundId, quarter, isDebtFund }: {
     setError(null);
     setResult(null);
     try {
-      const res = await runFiWaterfallShadow({
-        env_id: envId,
-        business_id: businessId,
-        fund_id: fundId,
+      const res = await runReV2Waterfall(fundId, {
         quarter,
+        run_type: "shadow",
       });
-      setResult(`Waterfall Shadow: ${res.status} (carry: ${fmtMoney(res.carry_shadow)})`);
+      setResult(`Waterfall Shadow: ${res.status} (run ${res.run_id.slice(0, 8)})`);
+      await onCanonicalRefresh();
       refreshRuns();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Waterfall run failed");
@@ -880,8 +958,8 @@ function RunCenterTab({ envId, businessId, fundId, quarter, isDebtFund }: {
               </thead>
               <tbody className="divide-y divide-bm-border/40">
                 {runs.map((r) => (
-                  <tr key={r.id} className="hover:bg-bm-surface/20">
-                    <td className="px-4 py-2 font-mono text-xs">{r.id.slice(0, 8)}</td>
+                  <tr key={r.run_id} className="hover:bg-bm-surface/20">
+                    <td className="px-4 py-2 font-mono text-xs">{r.run_id.slice(0, 8)}</td>
                     <td className="px-4 py-2 text-xs">{r.run_type}</td>
                     <td className="px-4 py-2 text-xs">{r.quarter}</td>
                     <td className="px-4 py-2">
@@ -891,7 +969,7 @@ function RunCenterTab({ envId, businessId, fundId, quarter, isDebtFund }: {
                         "bg-yellow-500/20 text-yellow-300"
                       }`}>{r.status}</span>
                     </td>
-                    <td className="px-4 py-2 text-xs text-bm-muted2">{r.created_at?.slice(0, 19).replace("T", " ")}</td>
+                    <td className="px-4 py-2 text-xs text-bm-muted2">{r.started_at?.slice(0, 19).replace("T", " ")}</td>
                   </tr>
                 ))}
               </tbody>
