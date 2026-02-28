@@ -2371,6 +2371,16 @@ export function listReV2Investments(fundId: string): Promise<ReV2Investment[]> {
   return directFetch(`/api/re/v2/funds/${fundId}/investments`);
 }
 
+export function getReV2EnvironmentPortfolioKpis(
+  envId: string,
+  quarter: string,
+  scenarioId?: string
+): Promise<ReV2EnvironmentPortfolioKpis> {
+  return directFetch(`/api/re/v2/environments/${envId}/portfolio-kpis`, {
+    params: { quarter, scenario_id: scenarioId },
+  });
+}
+
 export function getReV2Investment(investmentId: string): Promise<ReV2Investment> {
   return directFetch(`/api/re/v2/investments/${investmentId}`);
 }
@@ -2731,6 +2741,18 @@ export type ReV2FundQuarterState = {
   weighted_dscr?: number;
   inputs_hash: string;
   created_at: string;
+};
+
+export type ReV2EnvironmentPortfolioKpis = {
+  env_id: string;
+  business_id: string;
+  quarter: string;
+  scenario_id?: string | null;
+  fund_count: number;
+  total_commitments: string;
+  portfolio_nav?: string | null;
+  active_assets: number;
+  warnings: string[];
 };
 
 export type ReV2InvestmentQuarterState = {
@@ -3108,7 +3130,7 @@ export function getFiNOIVariance(params: {
   fund_id: string;
   quarter: string;
 }): Promise<FiVarianceResult> {
-  return bosFetch("/api/re/v2/variance/noi", { params });
+  return directFetch("/api/re/v2/variance/noi", { params });
 }
 
 export function getFiFundMetrics(params: {
@@ -3206,7 +3228,7 @@ export function listFiUwVersions(params: {
   env_id: string;
   business_id: string;
 }): Promise<FiUwVersion[]> {
-  return bosFetch("/api/re/v2/budget/uw_versions", { params });
+  return directFetch("/api/re/v2/budget/uw_versions", { params });
 }
 
 export function seedFiData(params: {

@@ -373,6 +373,18 @@ class ReFundQuarterMetricsOut(BaseModel):
     created_at: datetime
 
 
+class ReEnvironmentPortfolioKpisOut(BaseModel):
+    env_id: str
+    business_id: str
+    quarter: str
+    scenario_id: str | None = None
+    fund_count: int
+    total_commitments: str
+    portfolio_nav: str | None = None
+    active_assets: int
+    warnings: list[str] = Field(default_factory=list)
+
+
 # ── Waterfall ─────────────────────────────────────────────────────────────────
 
 class ReWaterfallDefinitionCreateRequest(BaseModel):

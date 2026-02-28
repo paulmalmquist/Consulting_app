@@ -107,6 +107,145 @@ def backfill_missing_investment_assets(*, fund_id: UUID | None = None) -> dict:
     }
 
 
+def check_budget_proforma_integrity(
+    *,
+    env_id: str,
+    business_id: UUID,
+    required_quarters: list[str] | None = None,
+) -> dict:
+    """Validate budget/proforma/actuals coverage for all assets in an env.
+
+    Returns structured results with per-asset pass/fail detail.
+    Fails (passed=False) if any asset is missing budget or actuals coverage.
+    """
+    if required_quarters is None:
+        required_quarters = ["2026Q1"]
+
+    with get_cursor() as cur:
+        # Get all assets in the environment
+        cur.execute(
+            """
+            SELECT a.asset_id::text, a.name
+            FROM repe_asset a
+            JOIN repe_deal d ON d.deal_id = a.deal_id
+            JOIN repe_fund f ON f.fund_id = d.fund_id
+            WHERE f.business_id = %s
+            ORDER BY a.name
+            """,
+            (str(business_id),),
+        )
+        all_assets = {r["asset_id"]: r["name"] for r in cur.fetchall()}
+
+        if not all_assets:
+            return {
+                "total_assets": 0,
+                "assets_with_budget": 0,
+                "assets_with_proforma": 0,
+                "assets_with_actuals": 0,
+                "assets_with_variance": 0,
+                "missing_budget": [],
+                "missing_proforma": [],
+                "missing_actuals": [],
+                "missing_variance": [],
+                "passed": True,
+            }
+
+        # Get UW versions
+        cur.execute(
+            """
+            SELECT id::text, name FROM uw_version
+            WHERE env_id = %s AND business_id = %s
+            ORDER BY effective_from DESC
+            """,
+            (env_id, str(business_id)),
+        )
+        uw_versions = cur.fetchall()
+        budget_version_id = uw_versions[0]["id"] if uw_versions else None
+        proforma_version_id = uw_versions[1]["id"] if len(uw_versions) > 1 else None
+
+        # Convert quarters to month ranges
+        month_dates: list[str] = []
+        for q in required_quarters:
+            year = int(q[:4])
+            qn = int(q[-1])
+            start_month = (qn - 1) * 3 + 1
+            for i in range(3):
+                month_dates.append(f"{year}-{start_month + i:02d}-01")
+
+        # Check budget coverage
+        bud_set: set[str] = set()
+        if budget_version_id:
+            cur.execute(
+                """
+                SELECT DISTINCT asset_id::text
+                FROM uw_noi_budget_monthly
+                WHERE env_id = %s AND business_id = %s
+                    AND uw_version_id = %s
+                    AND period_month = ANY(%s::date[])
+                """,
+                (env_id, str(business_id), budget_version_id, month_dates),
+            )
+            bud_set = {r["asset_id"] for r in cur.fetchall()}
+
+        # Check proforma coverage
+        pf_set: set[str] = set()
+        if proforma_version_id:
+            cur.execute(
+                """
+                SELECT DISTINCT asset_id::text
+                FROM uw_noi_budget_monthly
+                WHERE env_id = %s AND business_id = %s
+                    AND uw_version_id = %s
+                    AND period_month = ANY(%s::date[])
+                """,
+                (env_id, str(business_id), proforma_version_id, month_dates),
+            )
+            pf_set = {r["asset_id"] for r in cur.fetchall()}
+
+        # Check actuals coverage
+        cur.execute(
+            """
+            SELECT DISTINCT asset_id::text
+            FROM acct_normalized_noi_monthly
+            WHERE env_id = %s AND business_id = %s
+                AND period_month = ANY(%s::date[])
+            """,
+            (env_id, str(business_id), month_dates),
+        )
+        act_set = {r["asset_id"] for r in cur.fetchall()}
+
+        # Check variance coverage
+        cur.execute(
+            """
+            SELECT DISTINCT asset_id::text
+            FROM re_asset_variance_qtr
+            WHERE env_id = %s AND business_id = %s
+                AND quarter = ANY(%s::text[])
+            """,
+            (env_id, str(business_id), required_quarters),
+        )
+        var_set = {r["asset_id"] for r in cur.fetchall()}
+
+        all_ids = set(all_assets.keys())
+        missing_budget = sorted(all_assets[a] for a in all_ids - bud_set)
+        missing_proforma = sorted(all_assets[a] for a in all_ids - pf_set)
+        missing_actuals = sorted(all_assets[a] for a in all_ids - act_set)
+        missing_variance = sorted(all_assets[a] for a in all_ids - var_set)
+
+        return {
+            "total_assets": len(all_assets),
+            "assets_with_budget": len(bud_set),
+            "assets_with_proforma": len(pf_set),
+            "assets_with_actuals": len(act_set),
+            "assets_with_variance": len(var_set),
+            "missing_budget": missing_budget,
+            "missing_proforma": missing_proforma,
+            "missing_actuals": missing_actuals,
+            "missing_variance": missing_variance,
+            "passed": len(missing_budget) == 0 and len(missing_actuals) == 0,
+        }
+
+
 def inspect_repe_integrity(*, fund_id: UUID | None = None) -> dict:
     with get_cursor() as cur:
         deal_params: list[str] = [str(fund_id)] if fund_id else []

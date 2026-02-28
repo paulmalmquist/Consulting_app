@@ -1,8 +1,16 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { listReV1Funds, RepeFund, getReV2FundQuarterState, ReV2FundQuarterState } from "@/lib/bos-api";
+import {
+  getReV2EnvironmentPortfolioKpis,
+  getReV2FundQuarterState,
+  RepeFund,
+  ReV2EnvironmentPortfolioKpis,
+  ReV2FundQuarterState,
+  listReV1Funds,
+} from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 
 function pickCurrentQuarter(): string {
@@ -19,6 +27,11 @@ function fmtMoney(v: string | number | undefined | null): string {
   if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
   return `$${n.toFixed(0)}`;
+}
+
+function fmtMoneyOrDash(v: string | number | undefined | null): string {
+  if (v == null) return "—";
+  return fmtMoney(v);
 }
 
 function fmtMultiple(v: string | number | undefined | null): string {
@@ -40,6 +53,7 @@ type FundRow = RepeFund & { state?: ReV2FundQuarterState | null };
 export default function ReFundListPage() {
   const { envId, businessId } = useReEnv();
   const [funds, setFunds] = useState<FundRow[]>([]);
+  const [portfolioKpis, setPortfolioKpis] = useState<ReV2EnvironmentPortfolioKpis | null>(null);
   const [loading, setLoading] = useState(true);
 
   const quarter = pickCurrentQuarter();
@@ -65,10 +79,17 @@ export default function ReFundListPage() {
       .finally(() => setLoading(false));
   }, [businessId, envId, quarter]);
 
-  const base = `/lab/env/${envId}/re`;
+  useEffect(() => {
+    if (!envId) {
+      setPortfolioKpis(null);
+      return;
+    }
+    getReV2EnvironmentPortfolioKpis(envId, quarter)
+      .then(setPortfolioKpis)
+      .catch(() => setPortfolioKpis(null));
+  }, [envId, quarter]);
 
-  const totalNav = funds.reduce((s, f) => s + (Number(f.state?.portfolio_nav) || 0), 0);
-  const totalCommitted = funds.reduce((s, f) => s + (Number(f.state?.total_committed) || 0), 0);
+  const base = `/lab/env/${envId}/re`;
 
   return (
     <section className="space-y-5" data-testid="re-fund-list">
@@ -90,19 +111,19 @@ export default function ReFundListPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
           <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Funds</p>
-          <p className="mt-1 text-2xl font-bold">{funds.length}</p>
+          <p className="mt-1 text-2xl font-bold">{portfolioKpis ? portfolioKpis.fund_count : "—"}</p>
         </div>
         <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
           <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Total Commitments</p>
-          <p className="mt-1 text-2xl font-bold">{fmtMoney(totalCommitted)}</p>
+          <p className="mt-1 text-2xl font-bold">{fmtMoneyOrDash(portfolioKpis?.total_commitments)}</p>
         </div>
         <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
           <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Portfolio NAV</p>
-          <p className="mt-1 text-2xl font-bold">{fmtMoney(totalNav)}</p>
+          <p className="mt-1 text-2xl font-bold">{fmtMoneyOrDash(portfolioKpis?.portfolio_nav)}</p>
         </div>
         <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
           <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Active Assets</p>
-          <p className="mt-1 text-2xl font-bold">—</p>
+          <p className="mt-1 text-2xl font-bold">{portfolioKpis ? portfolioKpis.active_assets : "—"}</p>
         </div>
       </div>
 

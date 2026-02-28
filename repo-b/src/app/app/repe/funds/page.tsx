@@ -3,17 +3,36 @@
 import React from "react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { listReV1Funds, RepeFund } from "@/lib/bos-api";
+import { getReV2EnvironmentPortfolioKpis, ReV2EnvironmentPortfolioKpis, listReV1Funds, RepeFund } from "@/lib/bos-api";
 import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
 import { StateCard } from "@/components/ui/StateCard";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { Button } from "@/components/ui/Button";
 
+function pickCurrentQuarter(): string {
+  const now = new Date();
+  const q = Math.ceil((now.getUTCMonth() + 1) / 3);
+  return `${now.getUTCFullYear()}Q${q}`;
+}
+
+function fmtMoney(v: string | number | null | undefined): string {
+  if (v == null) return "—";
+  const n = Number(v);
+  if (Number.isNaN(n)) return "—";
+  if (n === 0) return "$0";
+  if (Math.abs(n) >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B`;
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+  return `$${n.toFixed(0)}`;
+}
+
 export default function RepeFundsPage() {
   const { businessId, environmentId, loading, contextError, initializeWorkspace } = useRepeContext();
   const basePath = useRepeBasePath();
   const [funds, setFunds] = useState<RepeFund[]>([]);
+  const [portfolioKpis, setPortfolioKpis] = useState<ReV2EnvironmentPortfolioKpis | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const quarter = pickCurrentQuarter();
 
   useEffect(() => {
     if (!businessId && !environmentId) return;
@@ -24,6 +43,16 @@ export default function RepeFundsPage() {
       .then(setFunds)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load funds"));
   }, [businessId, environmentId]);
+
+  useEffect(() => {
+    if (!environmentId) {
+      setPortfolioKpis(null);
+      return;
+    }
+    getReV2EnvironmentPortfolioKpis(environmentId, quarter)
+      .then(setPortfolioKpis)
+      .catch(() => setPortfolioKpis(null));
+  }, [environmentId, quarter]);
 
   if (!businessId) {
     if (loading) {
@@ -38,10 +67,6 @@ export default function RepeFundsPage() {
       />
     );
   }
-
-  // KPI summary
-  const activeFunds = funds.filter((f) => f.status !== "closed");
-  const strategies = new Set(funds.map((f) => f.strategy));
 
   return (
     <section className="space-y-6" data-testid="re-funds-list">
@@ -58,10 +83,10 @@ export default function RepeFundsPage() {
 
       {/* Portfolio KPI Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        <MetricCard label="Total Funds" value={String(funds.length)} size="compact" />
-        <MetricCard label="Active" value={String(activeFunds.length)} size="compact" status={activeFunds.length > 0 ? "success" : "neutral"} />
-        <MetricCard label="Strategies" value={String(strategies.size)} size="compact" />
-        <MetricCard label="Currencies" value={String(new Set(funds.map((f) => f.base_currency || "USD")).size)} size="compact" />
+        <MetricCard label="Funds" value={portfolioKpis ? String(portfolioKpis.fund_count) : "—"} size="compact" />
+        <MetricCard label="Total Commitments" value={fmtMoney(portfolioKpis?.total_commitments)} size="compact" />
+        <MetricCard label="Portfolio NAV" value={fmtMoney(portfolioKpis?.portfolio_nav)} size="compact" />
+        <MetricCard label="Active Assets" value={portfolioKpis ? String(portfolioKpis.active_assets) : "—"} size="compact" />
       </div>
 
       {error && (

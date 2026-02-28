@@ -5,7 +5,7 @@ from decimal import Decimal
 from uuid import UUID
 
 import psycopg
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.db import get_cursor
 from app.observability.logger import emit_log
@@ -20,6 +20,7 @@ from app.schemas.re_institutional import (
     ReCapitalLedgerEntryOut,
     ReCashflowEntryCreateRequest,
     ReCashflowEntryOut,
+    ReEnvironmentPortfolioKpisOut,
     ReFundQuarterMetricsOut,
     ReFundQuarterStateOut,
     ReInvestmentCreateRequest,
@@ -49,12 +50,14 @@ from app.services import (
     re_partner,
     re_capital_ledger,
     re_cashflow_ledger,
+    re_env_portfolio,
     re_scenario,
     re_provenance,
     re_quarter_close,
     re_integrity,
     re_lineage,
     re_waterfall_runtime,
+    repe_context,
 )
 
 router = APIRouter(prefix="/api/re/v2", tags=["re-v2"])
@@ -84,6 +87,34 @@ def _to_http(exc: Exception) -> HTTPException:
 
 def _log(action: str, msg: str, **ctx):
     emit_log(level="info", service="backend", action=action, message=msg, context=ctx)
+
+
+# ── Environment Portfolio KPIs ────────────────────────────────────────────────
+
+@router.get(
+    "/environments/{env_id}/portfolio-kpis",
+    response_model=ReEnvironmentPortfolioKpisOut,
+)
+def get_environment_portfolio_kpis(
+    env_id: UUID,
+    request: Request,
+    quarter: str = Query(...),
+    scenario_id: UUID | None = Query(None),
+):
+    try:
+        resolved = repe_context.resolve_repe_business_context(
+            request=request,
+            env_id=str(env_id),
+            allow_create=True,
+        )
+        return re_env_portfolio.get_portfolio_kpis(
+            env_id=env_id,
+            business_id=resolved.business_id,
+            quarter=quarter,
+            scenario_id=scenario_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
 
 
 # ── Investments ───────────────────────────────────────────────────────────────

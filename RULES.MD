@@ -1323,3 +1323,34 @@ Last updated: 2026-02-28 — Asset Platform v2 launch.
   - Click-through: fund page → expand investment → click asset hyperlink → verify asset header.
   - Asset detail Accounting tab renders trial balance rows.
   - No console errors on any asset page.
+
+---
+
+## RE / BUDGET + PROFORMA + VARIANCE INVARIANTS
+
+### Data Model Invariants
+
+1. **Reuse existing tables** — Budget and pro forma data live in `uw_noi_budget_monthly` (278_re_financial_intelligence.sql), differentiated by `uw_version_id`. No new plan tables.
+2. **Monthly grain** — Both actuals (`acct_normalized_noi_monthly`) and budget (`uw_noi_budget_monthly`) are stored at monthly granularity by `line_code`. Variance aggregation to quarters happens at query time.
+3. **Line code convention** — Revenue codes are positive; OpEx codes are negative (sign normalized). Standard codes: `RENT`, `OTHER_INCOME`, `PAYROLL`, `REPAIRS_MAINT`, `UTILITIES`, `TAXES`, `INSURANCE`, `MGMT_FEES`.
+4. **UW Version separation** — Budget UW version (`b1b2c3d4-0001-0001-0001-000000000001`) = annual operating budget. Pro forma UW version (`b1b2c3d4-0001-0001-0002-000000000001`) = acquisition underwriting baseline.
+5. **Seed idempotency** — All seed data uses `WHERE NOT EXISTS` or `ON CONFLICT DO NOTHING`. Source tracking via `source_hash = 'seed_286'` for actuals, deterministic UUIDs for UW versions and runs.
+6. **Every asset must have coverage** — After seeding, 0 assets may be missing budget or actuals for required quarters. Integrity check enforces this.
+
+### API Contracts (Budget/Variance)
+
+- `GET /api/re/v2/variance/noi` — NOI variance (actual vs budget) per asset per line-code. Params: `env_id`, `business_id`, `fund_id`, `quarter`. Returns `FiVarianceResult` with `items[]` and `rollup`. Uses **directFetch** (production-safe).
+- `GET /api/re/v2/budget/uw_versions` — List UW versions for a business. Params: `env_id`, `business_id`. Uses **directFetch**.
+- `GET /api/re/v2/integrity/budget` — Budget/proforma integrity check. Params: `env_id`, `business_id`, `quarters` (comma-separated). Returns pass/fail with missing asset lists.
+
+### Variance Resolution Strategy
+
+1. **Pre-computed first** — Endpoint checks `re_asset_variance_qtr` for existing results (from quarter-close runs).
+2. **On-the-fly fallback** — If no pre-computed results, computes variance by joining `acct_normalized_noi_monthly` with `uw_noi_budget_monthly` using the latest `uw_version`.
+3. **Fund scoping** — Variance is always scoped to a single fund (assets resolved through `repe_asset → repe_deal → repe_fund`).
+
+### CI Checks (Budget/Variance)
+
+- Integrity endpoint must return `passed: true` for the Meridian env.
+- Variance endpoint must return non-empty `items[]` for at least one fund + quarter combo.
+- Variance tab on fund detail page must show actual vs budget rows (not empty state).
