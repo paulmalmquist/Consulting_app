@@ -136,6 +136,21 @@ Last updated: 2026-02-25 — added environment registration rules, seed layer di
 
 ---
 
+## REPE INVARIANT RULES
+
+- Every REPE investment (`repe_deal`) must have at least one linked asset (`repe_asset`).
+- `repe_asset.deal_id` is the canonical investment foreign key. UI routing and API calls must use `deal_id` as `investment_id`.
+- Investment detail routes must render deterministically even when child lookups fail: the parent investment can show a structured warning, but it must not crash or downgrade to a false “not found”.
+- Investment detail may return `404` only when the investment id does not exist. Empty child collections are not a `404`.
+- Seed and create flows must create or backfill at least one asset for every investment before the request completes.
+- Fund → Investment → Asset referential integrity must be checked by `/api/re/v2/health/integrity`; non-zero orphan or missing-child counts are release blockers.
+- No join in investment/fund drill paths may eliminate the parent row because a child row is missing; use `LEFT JOIN` for rollups and diagnostics.
+- Direct browser routes must not depend on `bosFetch`-only proxy semantics for core REPE identity reads. Canonical drill-path reads must succeed via direct same-origin API calls.
+- Investment navigation links must use the canonical `investment_id` / `deal_id` emitted by the backend; never derive ids from display order or secondary rollup rows.
+- Automated coverage must click every seeded investment in the institutional fund, verify the page resolves, verify at least one asset row is rendered, and fail on any client-side exception.
+
+---
+
 ### 8. INDUSTRY EXTENSIBILITY
 
 - REPE, Legal, Healthcare, and Construction share:
@@ -1253,3 +1268,58 @@ Delete restricted to Admin only.
 
 - Before merge or deploy, run backend Ruff on the actual backend paths: `python -m ruff check backend/app backend/tests`.
 - Unused imports and unused locals must be removed before CI; do not leave cleanup for the pipeline.
+
+---
+
+## RE / ASSET INVARIANTS
+
+Last updated: 2026-02-28 — Asset Platform v2 launch.
+
+### Data Model Invariants
+
+1. **Asset Index lists ALL assets by default**; investment filter is optional and off by default.
+   The asset list endpoint (`GET /api/re/v2/assets`) requires `env_id` but does NOT default to a
+   single investment. The `investment_id` parameter is optional.
+
+2. **Every investment (repe_deal) MUST have >= 1 asset (repe_asset).**
+   Enforced by `284_repe_investment_asset_invariants.sql` and `re_integrity.py`.
+   The `/api/re/v2/health/integrity?repair=true` endpoint backfills missing placeholder assets.
+
+3. **Every asset MUST have valid `deal_id` (fund linkage via deal -> fund).**
+   All asset-related API JOINs to optional child entities (quarter state, property details,
+   accounting data) MUST be LEFT JOIN to avoid masking assets with missing child records.
+
+4. **Occupancy vs NOI trend MUST use accounting-derived NOI** or a rollup explicitly linked to
+   GL source. The `re_asset_quarter_state.noi` field represents Revenue - OpEx.
+   Seed data traces to `re_asset_acct_quarter_rollup` and `re_asset_occupancy_quarter` tables.
+
+5. **Asset expanded rows in Investment pages MUST hyperlink to the Asset detail route**
+   (`/lab/env/:envId/re/assets/:assetId`). Both the investment detail page and the fund detail
+   page's investment expansion rows provide clickable asset links.
+
+### API Contracts
+
+- `GET /api/re/v2/assets` — List all assets with optional filters (env_id required, sector/state/msa/status/q/investment_id/fund_id optional). Uses directFetch.
+- `GET /api/re/v2/assets/:assetId` — Asset detail with breadcrumb (fund, investment, env). Uses directFetch.
+- `GET /api/re/v2/assets/:assetId/periods` — Quarterly time series for trend charts. Uses directFetch.
+- `GET /api/re/v2/assets/:assetId/accounting/trial-balance?quarter=` — Trial balance. Uses directFetch.
+- `GET /api/re/v2/assets/:assetId/accounting/pnl?quarter=` — P&L by line code. Uses directFetch.
+- `GET /api/re/v2/assets/:assetId/accounting/transactions?quarter=` — GL transactions. Uses directFetch.
+- `POST /api/re/v2/assets/:assetId/reports` — Generate report (snapshot/pnl/trial_balance/transactions/occupancy/audit). Uses directFetch.
+
+### Frontend Contracts
+
+- Asset Index page: `/lab/env/:envId/re/assets` — shows ALL assets, not filtered by investment.
+- Asset Detail page: `/lab/env/:envId/re/assets/:assetId` — 8 tabs (Overview, Financials, Occupancy, Debt, Valuation, Documents, Accounting, Runs/Audit).
+- Each tab loads its own data and fails gracefully with in-tab warnings.
+- "Generate Report" button on asset detail downloads structured JSON payloads.
+
+### CI Checks
+
+- Playwright tests must verify:
+  - Asset index loads with > 0 assets by default.
+  - Sector filter reduces the visible set.
+  - State filter works.
+  - Click-through: fund page → expand investment → click asset hyperlink → verify asset header.
+  - Asset detail Accounting tab renders trial balance rows.
+  - No console errors on any asset page.

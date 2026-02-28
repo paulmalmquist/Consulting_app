@@ -52,6 +52,7 @@ from app.services import (
     re_scenario,
     re_provenance,
     re_quarter_close,
+    re_integrity,
     re_lineage,
     re_waterfall_runtime,
 )
@@ -679,6 +680,8 @@ def seed_re_v2(body: dict):
         now = datetime.now(timezone.utc)
         quarter = f"{now.year}Q{((now.month - 1) // 3) + 1}"
 
+        re_integrity.backfill_missing_investment_assets(fund_id=fund_id)
+
         with get_cursor() as cur:
             cur.execute(
                 """
@@ -898,6 +901,16 @@ def seed_re_v2(body: dict):
             "downside_scenario_id": downside_scenario_id,
             "run_id": result.get("run_id"),
         }
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/health/integrity")
+def get_integrity_health(fund_id: UUID | None = Query(None), repair: bool = Query(False)):
+    try:
+        if repair:
+            re_integrity.backfill_missing_investment_assets(fund_id=fund_id)
+        return re_integrity.inspect_repe_integrity(fund_id=fund_id)
     except Exception as exc:
         raise _to_http(exc)
 

@@ -6,6 +6,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from app.db import get_cursor
+from app.services import re_integrity
 
 
 def _qmoney(value: Decimal | None) -> Decimal | None:
@@ -249,6 +250,7 @@ def get_fund(*, fund_id: UUID) -> tuple[dict, list[dict]]:
 
 
 def list_deals(*, fund_id: UUID) -> list[dict]:
+    re_integrity.backfill_missing_investment_assets(fund_id=fund_id)
     with get_cursor() as cur:
         cur.execute("SELECT 1 FROM repe_fund WHERE fund_id = %s", (str(fund_id),))
         if not cur.fetchone():
@@ -288,7 +290,13 @@ def create_deal(*, fund_id: UUID, payload: dict) -> dict:
                 payload.get("target_close_date"),
             ),
         )
-        return cur.fetchone()
+        row = cur.fetchone()
+        re_integrity.ensure_investment_has_asset(
+            deal_id=UUID(str(row["deal_id"])),
+            deal_name=row["name"],
+            asset_type="cmbs" if row["deal_type"] == "debt" else "property",
+        )
+        return row
 
 
 def get_deal(*, deal_id: UUID) -> dict:
@@ -297,6 +305,11 @@ def get_deal(*, deal_id: UUID) -> dict:
         row = cur.fetchone()
         if not row:
             raise LookupError("Deal not found")
+        re_integrity.ensure_investment_has_asset(
+            deal_id=UUID(str(row["deal_id"])),
+            deal_name=row["name"],
+            asset_type="cmbs" if row["deal_type"] == "debt" else "property",
+        )
         return row
 
 

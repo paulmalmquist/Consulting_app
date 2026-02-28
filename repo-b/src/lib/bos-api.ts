@@ -2372,7 +2372,7 @@ export function listReV2Investments(fundId: string): Promise<ReV2Investment[]> {
 }
 
 export function getReV2Investment(investmentId: string): Promise<ReV2Investment> {
-  return bosFetch(`/api/re/v2/investments/${investmentId}`);
+  return directFetch(`/api/re/v2/investments/${investmentId}`);
 }
 
 export function createReV2Investment(fundId: string, body: {
@@ -2393,11 +2393,11 @@ export function createReV2Investment(fundId: string, body: {
 
 // JVs
 export function listReV2Jvs(investmentId: string): Promise<ReV2Jv[]> {
-  return bosFetch(`/api/re/v2/investments/${investmentId}/jvs`);
+  return directFetch(`/api/re/v2/investments/${investmentId}/jvs`);
 }
 
 export function getReV2Jv(jvId: string): Promise<ReV2Jv> {
-  return bosFetch(`/api/re/v2/jvs/${jvId}`);
+  return directFetch(`/api/re/v2/jvs/${jvId}`);
 }
 
 export function createReV2Jv(investmentId: string, body: {
@@ -2418,7 +2418,7 @@ export function listReV2JvAssets(
   quarter?: string,
   scenarioId?: string
 ): Promise<ReV2InvestmentAsset[]> {
-  return bosFetch(`/api/re/v2/jvs/${jvId}/assets`, {
+  return directFetch(`/api/re/v2/jvs/${jvId}/assets`, {
     params: { quarter, scenario_id: scenarioId },
   });
 }
@@ -2486,11 +2486,11 @@ export function getReV2FundQuarterState(fundId: string, quarter: string, scenari
 }
 
 export function getReV2InvestmentQuarterState(investmentId: string, quarter: string): Promise<ReV2InvestmentQuarterState> {
-  return bosFetch(`/api/re/v2/investments/${investmentId}/quarter-state/${quarter}`);
+  return directFetch(`/api/re/v2/investments/${investmentId}/quarter-state/${quarter}`);
 }
 
 export function getReV2JvQuarterState(jvId: string, quarter: string): Promise<ReV2JvQuarterState> {
-  return bosFetch(`/api/re/v2/jvs/${jvId}/quarter-state/${quarter}`);
+  return directFetch(`/api/re/v2/jvs/${jvId}/quarter-state/${quarter}`);
 }
 
 export function getReV2AssetQuarterState(
@@ -2498,7 +2498,7 @@ export function getReV2AssetQuarterState(
   quarter: string,
   scenarioId?: string
 ): Promise<ReV2AssetQuarterState> {
-  return bosFetch(`/api/re/v2/assets/${assetId}/quarter-state/${quarter}`, {
+  return directFetch(`/api/re/v2/assets/${assetId}/quarter-state/${quarter}`, {
     params: { scenario_id: scenarioId },
   });
 }
@@ -2508,7 +2508,7 @@ export function getReV2FundInvestmentRollup(
   quarter: string,
   scenarioId?: string
 ): Promise<ReV2FundInvestmentRollupRow[]> {
-  return bosFetch(`/api/re/v2/funds/${fundId}/investment-rollup/${quarter}`, {
+  return directFetch(`/api/re/v2/funds/${fundId}/investment-rollup/${quarter}`, {
     params: { scenario_id: scenarioId },
   });
 }
@@ -2518,7 +2518,7 @@ export function getReV2InvestmentAssets(
   quarter: string,
   scenarioId?: string
 ): Promise<ReV2InvestmentAsset[]> {
-  return bosFetch(`/api/re/v2/investments/${investmentId}/assets/${quarter}`, {
+  return directFetch(`/api/re/v2/investments/${investmentId}/assets/${quarter}`, {
     params: { scenario_id: scenarioId },
   });
 }
@@ -2611,7 +2611,7 @@ export function getReV2FundLineage(
   quarter: string,
   scenarioId?: string
 ): Promise<ReV2EntityLineageResponse> {
-  return bosFetch(`/api/re/v2/funds/${fundId}/lineage/${quarter}`, {
+  return directFetch(`/api/re/v2/funds/${fundId}/lineage/${quarter}`, {
     params: { scenario_id: scenarioId },
   });
 }
@@ -2621,7 +2621,7 @@ export function getReV2InvestmentLineage(
   quarter: string,
   scenarioId?: string
 ): Promise<ReV2EntityLineageResponse> {
-  return bosFetch(`/api/re/v2/investments/${investmentId}/lineage/${quarter}`, {
+  return directFetch(`/api/re/v2/investments/${investmentId}/lineage/${quarter}`, {
     params: { scenario_id: scenarioId },
   });
 }
@@ -2631,7 +2631,7 @@ export function getReV2JvLineage(
   quarter: string,
   scenarioId?: string
 ): Promise<ReV2EntityLineageResponse> {
-  return bosFetch(`/api/re/v2/jvs/${jvId}/lineage/${quarter}`, {
+  return directFetch(`/api/re/v2/jvs/${jvId}/lineage/${quarter}`, {
     params: { scenario_id: scenarioId },
   });
 }
@@ -2641,7 +2641,7 @@ export function getReV2AssetLineage(
   quarter: string,
   scenarioId?: string
 ): Promise<ReV2EntityLineageResponse> {
-  return bosFetch(`/api/re/v2/assets/${assetId}/lineage/${quarter}`, {
+  return directFetch(`/api/re/v2/assets/${assetId}/lineage/${quarter}`, {
     params: { scenario_id: scenarioId },
   });
 }
@@ -3225,6 +3225,193 @@ export function seedReV2Data(params: {
   return directFetch("/api/re/v2/seed", {
     method: "POST",
     body: JSON.stringify(params),
+  });
+}
+
+// ── Asset Platform v2 ─────────────────────────────────────────────────────
+
+export type ReV2AssetListItem = {
+  asset_id: string;
+  name: string;
+  asset_type: string;
+  sector?: string;
+  city?: string;
+  state?: string;
+  msa?: string;
+  market?: string;
+  address?: string;
+  units: number;
+  square_feet: number;
+  status: string;
+  investment_id: string;
+  investment_name: string;
+  fund_id: string;
+  fund_name: string;
+  latest_noi?: number;
+  latest_occupancy?: number;
+  latest_value?: number;
+  latest_quarter?: string;
+  created_at: string;
+};
+
+export type ReV2AssetDetail = {
+  asset: {
+    asset_id: string;
+    name: string;
+    asset_type: string;
+    acquisition_date?: string;
+    cost_basis?: number;
+    status: string;
+    jv_id?: string;
+    created_at: string;
+  };
+  property: {
+    property_type?: string;
+    units?: number;
+    market?: string;
+    city?: string;
+    state?: string;
+    msa?: string;
+    address?: string;
+    square_feet?: number;
+    year_built?: number;
+    current_noi?: number;
+    occupancy?: number;
+  };
+  investment: {
+    investment_id: string;
+    name: string;
+    investment_type?: string;
+    stage?: string;
+  };
+  fund: {
+    fund_id: string;
+    name: string;
+  };
+  env: {
+    env_id: string;
+    business_id: string;
+  };
+};
+
+export type ReV2AssetPeriod = {
+  quarter: string;
+  revenue?: number;
+  opex?: number;
+  noi?: number;
+  occupancy?: number;
+  asset_value?: number;
+  cap_rate?: number;
+  capex?: number;
+  debt_service?: number;
+  debt_balance?: number;
+  cash_balance?: number;
+  nav?: number;
+  valuation_method?: string;
+};
+
+export type ReV2TrialBalanceRow = {
+  account_code: string;
+  account_name: string;
+  category: string;
+  is_balance_sheet: boolean;
+  balance: number;
+};
+
+export type ReV2PnlRow = {
+  line_code: string;
+  amount: number;
+};
+
+export type ReV2TransactionRow = {
+  period_month: string;
+  gl_account: string;
+  name: string;
+  category: string;
+  amount: number;
+  source?: string;
+};
+
+export type ReV2AssetReport = {
+  report_type: string;
+  quarter: string;
+  format: string;
+  generated_at: string;
+  asset: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
+export function listReV2Assets(params: {
+  env_id: string;
+  sector?: string;
+  state?: string;
+  msa?: string;
+  status?: string;
+  q?: string;
+  investment_id?: string;
+  fund_id?: string;
+  limit?: string;
+  offset?: string;
+}): Promise<ReV2AssetListItem[]> {
+  return directFetch("/api/re/v2/assets", { params });
+}
+
+export function getReV2AssetDetail(assetId: string): Promise<ReV2AssetDetail> {
+  return directFetch(`/api/re/v2/assets/${assetId}`);
+}
+
+export function getReV2AssetPeriods(
+  assetId: string,
+  quarterFrom?: string,
+  quarterTo?: string,
+  scenarioId?: string
+): Promise<ReV2AssetPeriod[]> {
+  return directFetch(`/api/re/v2/assets/${assetId}/periods`, {
+    params: {
+      quarter_from: quarterFrom,
+      quarter_to: quarterTo,
+      scenario_id: scenarioId,
+    },
+  });
+}
+
+export function getReV2AssetTrialBalance(
+  assetId: string,
+  quarter: string
+): Promise<ReV2TrialBalanceRow[]> {
+  return directFetch(`/api/re/v2/assets/${assetId}/accounting/trial-balance`, {
+    params: { quarter },
+  });
+}
+
+export function getReV2AssetPnl(
+  assetId: string,
+  quarter: string
+): Promise<ReV2PnlRow[]> {
+  return directFetch(`/api/re/v2/assets/${assetId}/accounting/pnl`, {
+    params: { quarter },
+  });
+}
+
+export function getReV2AssetTransactions(
+  assetId: string,
+  quarter?: string,
+  category?: string,
+  limit?: string,
+  offset?: string
+): Promise<ReV2TransactionRow[]> {
+  return directFetch(`/api/re/v2/assets/${assetId}/accounting/transactions`, {
+    params: { quarter, category, limit, offset },
+  });
+}
+
+export function generateReV2AssetReport(
+  assetId: string,
+  body: { report_type: string; quarter?: string; format?: string }
+): Promise<ReV2AssetReport> {
+  return directFetch(`/api/re/v2/assets/${assetId}/reports`, {
+    method: "POST",
+    body: JSON.stringify(body),
   });
 }
 

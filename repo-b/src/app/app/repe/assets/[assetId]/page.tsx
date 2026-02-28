@@ -3,33 +3,37 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
-  getReV2AssetLineage,
+  getReV2AssetDetail,
   getReV2AssetQuarterState,
-  getRepeAsset,
-  getRepeAssetOwnership,
-  getRepeDeal,
+  getReV2AssetPeriods,
+  getReV2AssetLineage,
+  getReV2AssetTrialBalance,
+  getReV2AssetPnl,
+  getReV2AssetTransactions,
+  generateReV2AssetReport,
+  ReV2AssetDetail,
   ReV2AssetQuarterState,
+  ReV2AssetPeriod,
   ReV2EntityLineageResponse,
-  RepeAssetDetail,
-  RepeAssetOwnership,
-  RepeDeal,
+  ReV2TrialBalanceRow,
+  ReV2PnlRow,
+  ReV2TransactionRow,
 } from "@/lib/bos-api";
-import RepeEntityDocuments from "@/components/repe/RepeEntityDocuments";
 import { useRepeBasePath, useRepeContext } from "@/lib/repe-context";
 import { EntityLineagePanel } from "@/components/repe/EntityLineagePanel";
+import RepeEntityDocuments from "@/components/repe/RepeEntityDocuments";
 
-const MODULES = [
+const TABS = [
   "Overview",
-  "Performance",
+  "Financials",
+  "Occupancy",
   "Debt",
-  "CapEx",
   "Valuation",
-  "Scenarios",
-  "Audit",
-  "Attachments",
+  "Documents",
+  "Accounting",
+  "Runs / Audit",
 ] as const;
-
-type ModuleKey = (typeof MODULES)[number];
+type TabKey = (typeof TABS)[number];
 
 function pickQuarter(): string {
   const now = new Date();
@@ -37,44 +41,158 @@ function pickQuarter(): string {
   return `${now.getUTCFullYear()}Q${q}`;
 }
 
-function asText(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
-  if (typeof value === "number") return Number.isFinite(value) ? value.toString() : "—";
-  if (typeof value === "string") return value;
-  return JSON.stringify(value);
-}
-
-function asPct(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
-  const n = Number(value);
-  if (Number.isNaN(n)) return "—";
-  return `${(n * 100).toFixed(1)}%`;
-}
-
-function asCurrency(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
-  const n = Number(value);
-  if (Number.isNaN(n)) return asText(value);
-  if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(2)}B`;
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+function fmtMoney(v: number | string | null | undefined): string {
+  if (v == null) return "—";
+  const n = Number(v);
+  if (Number.isNaN(n) || !n) return "—";
+  if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
+  if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
+  if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
   return `$${n.toFixed(0)}`;
+}
+
+function fmtPct(v: number | string | null | undefined): string {
+  if (v == null) return "—";
+  const n = Number(v);
+  if (Number.isNaN(n)) return "—";
+  if (n <= 1 && n >= 0) return `${(n * 100).toFixed(1)}%`;
+  return `${n.toFixed(1)}%`;
+}
+
+function fmtText(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "—";
+  if (typeof v === "number") return Number.isFinite(v) ? v.toLocaleString() : "—";
+  return String(v);
+}
+
+function fmtX(v: number | string | null | undefined): string {
+  if (v == null) return "—";
+  const n = Number(v);
+  if (Number.isNaN(n)) return "—";
+  return `${n.toFixed(2)}x`;
+}
+
+const REPORT_TYPES = [
+  { value: "snapshot", label: "Asset Snapshot" },
+  { value: "pnl", label: "Quarterly P&L Package" },
+  { value: "trial_balance", label: "Trial Balance Export" },
+  { value: "transactions", label: "Transaction Ledger" },
+  { value: "occupancy", label: "Occupancy & Rent Summary" },
+  { value: "audit", label: "Asset Audit Pack" },
+] as const;
+
+// Simple bar chart component (no chart library needed)
+function MiniBarChart({
+  data,
+  valueKey,
+  labelKey,
+  color = "bg-blue-500",
+  formatValue,
+}: {
+  data: Record<string, unknown>[];
+  valueKey: string;
+  labelKey: string;
+  color?: string;
+  formatValue?: (v: unknown) => string;
+}) {
+  if (!data.length) return <p className="text-sm text-bm-muted2">No data available.</p>;
+  const maxVal = Math.max(...data.map((d) => Math.abs(Number(d[valueKey] ?? 0))), 1);
+  return (
+    <div className="space-y-1.5">
+      {data.map((d, i) => {
+        const val = Number(d[valueKey] ?? 0);
+        const pct = Math.abs(val) / maxVal;
+        return (
+          <div key={i} className="flex items-center gap-2 text-xs">
+            <span className="w-16 text-bm-muted2 shrink-0">{String(d[labelKey])}</span>
+            <div className="flex-1 h-4 rounded bg-bm-surface/30 overflow-hidden">
+              <div
+                className={`h-full ${color} rounded`}
+                style={{ width: `${(pct * 100).toFixed(1)}%` }}
+              />
+            </div>
+            <span className="w-20 text-right font-medium">{formatValue ? formatValue(val) : fmtMoney(val)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Dual-series trend: Occupancy vs NOI
+function OccupancyNoiTrend({ periods }: { periods: ReV2AssetPeriod[] }) {
+  if (!periods.length) {
+    return <p className="text-sm text-bm-muted2">No quarterly data available for trend chart.</p>;
+  }
+  const maxNoi = Math.max(...periods.map((p) => Math.abs(Number(p.noi ?? 0))), 1);
+  return (
+    <div className="space-y-3">
+      <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Occupancy vs NOI Trend</h3>
+      <div className="space-y-2">
+        {periods.map((p, i) => {
+          const noiPct = Math.abs(Number(p.noi ?? 0)) / maxNoi;
+          const occ = Number(p.occupancy ?? 0);
+          const occDisplay = occ <= 1 ? (occ * 100).toFixed(1) : occ.toFixed(1);
+          return (
+            <div key={i} className="flex items-center gap-3 text-xs">
+              <span className="w-16 text-bm-muted2 shrink-0">{p.quarter}</span>
+              <div className="flex-1 space-y-0.5">
+                <div className="flex items-center gap-1">
+                  <span className="w-8 text-blue-300">NOI</span>
+                  <div className="flex-1 h-3 rounded bg-bm-surface/30 overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded" style={{ width: `${(noiPct * 100).toFixed(1)}%` }} />
+                  </div>
+                  <span className="w-16 text-right font-medium">{fmtMoney(p.noi)}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-8 text-green-300">Occ</span>
+                  <div className="flex-1 h-3 rounded bg-bm-surface/30 overflow-hidden">
+                    <div className="h-full bg-green-500 rounded" style={{ width: `${occDisplay}%` }} />
+                  </div>
+                  <span className="w-16 text-right font-medium">{occDisplay}%</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-[10px] text-bm-muted2">
+        NOI is accounting-derived (Revenue - OpEx). Occupancy from asset quarter state.
+      </p>
+    </div>
+  );
 }
 
 export default function ReAssetDetailPage({ params }: { params: { assetId: string } }) {
   const { businessId, environmentId } = useRepeContext();
   const basePath = useRepeBasePath();
   const quarter = pickQuarter();
-  const [moduleTab, setModuleTab] = useState<ModuleKey>("Overview");
-  const [detail, setDetail] = useState<RepeAssetDetail | null>(null);
-  const [deal, setDeal] = useState<RepeDeal | null>(null);
-  const [ownership, setOwnership] = useState<RepeAssetOwnership | null>(null);
+  const [tab, setTab] = useState<TabKey>("Overview");
+
+  // Core data
+  const [detail, setDetail] = useState<ReV2AssetDetail | null>(null);
   const [financialState, setFinancialState] = useState<ReV2AssetQuarterState | null>(null);
+  const [periods, setPeriods] = useState<ReV2AssetPeriod[]>([]);
   const [lineage, setLineage] = useState<ReV2EntityLineageResponse | null>(null);
   const [lineageOpen, setLineageOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Accounting tab data (lazy loaded)
+  const [trialBalance, setTrialBalance] = useState<ReV2TrialBalanceRow[]>([]);
+  const [pnl, setPnl] = useState<ReV2PnlRow[]>([]);
+  const [transactions, setTransactions] = useState<ReV2TransactionRow[]>([]);
+  const [acctLoading, setAcctLoading] = useState(false);
+  const [acctLoaded, setAcctLoaded] = useState(false);
+
+  // Report generation
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportType, setReportType] = useState("snapshot");
+  const [reportQuarter, setReportQuarter] = useState(quarter);
+  const [reportGenerating, setReportGenerating] = useState(false);
+  const [reportResult, setReportResult] = useState<string | null>(null);
+
+  // Load core data
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -82,18 +200,20 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
 
     (async () => {
       try {
-        const assetDetail = await getRepeAsset(params.assetId);
-        const [dealRow, ownershipRow, finState] = await Promise.all([
-          getRepeDeal(assetDetail.asset.deal_id).catch(() => null),
-          getRepeAssetOwnership(assetDetail.asset.asset_id).catch(() => null),
-          getReV2AssetQuarterState(assetDetail.asset.asset_id, quarter).catch(() => null),
-        ]);
+        const assetDetail = await getReV2AssetDetail(params.assetId);
         if (cancelled) return;
         setDetail(assetDetail);
-        setDeal(dealRow);
-        setOwnership(ownershipRow);
-        setFinancialState(finState);
-        setLineage(await getReV2AssetLineage(assetDetail.asset.asset_id, quarter).catch(() => null));
+
+        const [finState, periodsData, lin] = await Promise.allSettled([
+          getReV2AssetQuarterState(params.assetId, quarter),
+          getReV2AssetPeriods(params.assetId),
+          getReV2AssetLineage(params.assetId, quarter),
+        ]);
+
+        if (cancelled) return;
+        setFinancialState(finState.status === "fulfilled" ? finState.value : null);
+        setPeriods(periodsData.status === "fulfilled" ? periodsData.value : []);
+        setLineage(lin.status === "fulfilled" ? lin.value : null);
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : "Failed to load asset");
@@ -102,61 +222,115 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
       }
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [params.assetId, quarter]);
 
+  // Lazy load accounting data
+  useEffect(() => {
+    if (tab !== "Accounting" || acctLoaded) return;
+    let cancelled = false;
+    setAcctLoading(true);
+
+    (async () => {
+      const [tb, pl, tx] = await Promise.allSettled([
+        getReV2AssetTrialBalance(params.assetId, quarter),
+        getReV2AssetPnl(params.assetId, quarter),
+        getReV2AssetTransactions(params.assetId, quarter),
+      ]);
+      if (cancelled) return;
+      setTrialBalance(tb.status === "fulfilled" ? tb.value : []);
+      setPnl(pl.status === "fulfilled" ? pl.value : []);
+      setTransactions(tx.status === "fulfilled" ? tx.value : []);
+      setAcctLoaded(true);
+      setAcctLoading(false);
+    })();
+
+    return () => { cancelled = true; };
+  }, [tab, acctLoaded, params.assetId, quarter]);
+
+  // Report generation handler
+  async function handleGenerateReport() {
+    setReportGenerating(true);
+    setReportResult(null);
+    try {
+      const result = await generateReV2AssetReport(params.assetId, {
+        report_type: reportType,
+        quarter: reportQuarter,
+        format: "json",
+      });
+      const blob = new Blob([JSON.stringify(result, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${detail?.asset.name || "asset"}_${reportType}_${reportQuarter}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setReportResult("Report generated and downloaded.");
+      setReportModalOpen(false);
+    } catch (err) {
+      setReportResult(err instanceof Error ? err.message : "Failed to generate report");
+    } finally {
+      setReportGenerating(false);
+    }
+  }
+
   if (loading) {
-    return (
-      <div className="rounded-xl border border-bm-border/70 p-6 text-sm text-bm-muted2">
-        Loading asset...
-      </div>
-    );
+    return <div className="rounded-xl border border-bm-border/70 p-6 text-sm text-bm-muted2">Loading asset...</div>;
   }
 
   if (error || !detail) {
     return (
-      <div className="rounded-xl border border-bm-border/70 p-6 text-sm text-red-400">
+      <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">
         {error || "Asset not found"}
       </div>
     );
   }
 
-  const asset = detail.asset;
-  const assetType = asset.asset_type.toUpperCase();
+  const { asset, property, investment, fund, env } = detail;
+  const base = basePath || `/lab/env/${env.env_id}/re`;
 
   return (
     <section className="space-y-4" data-testid="re-asset-homepage">
+      {/* Header + Breadcrumb */}
       <div className="rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Asset</p>
-            <h1 className="mt-1 text-2xl font-semibold">{asset.name}</h1>
+            <div className="flex items-center gap-2 text-xs text-bm-muted2">
+              <Link href={`${base}/funds/${fund.fund_id}`} className="hover:text-bm-accent hover:underline">
+                {fund.name}
+              </Link>
+              <span>/</span>
+              <Link href={`${base}/investments/${investment.investment_id}`} className="hover:text-bm-accent hover:underline">
+                {investment.name}
+              </Link>
+              <span>/</span>
+              <span className="text-bm-text">{asset.name}</span>
+            </div>
+            <h1 className="mt-2 text-2xl font-bold tracking-tight">{asset.name}</h1>
             <p className="mt-1 text-sm text-bm-muted2">
-              {assetType}
-              {deal?.name ? ` · ${deal.name}` : ""}
+              {asset.asset_type.toUpperCase()}
+              {property.property_type ? ` · ${property.property_type}` : ""}
+              {property.city ? ` · ${property.city}, ${property.state}` : property.market ? ` · ${property.market}` : ""}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
+              onClick={() => setReportModalOpen(true)}
+              className="rounded-lg bg-bm-accent px-3 py-2 text-sm text-white hover:bg-bm-accent/80"
+            >
+              Generate Report
+            </button>
+            <button
+              type="button"
               onClick={() => setLineageOpen(true)}
-              className="inline-flex items-center rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
+              className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
             >
               Lineage
             </button>
-            {deal ? (
-              <Link
-                href={`${basePath}/deals/${deal.deal_id}`}
-                className="inline-flex items-center rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
-              >
-                Open Investment
-              </Link>
-            ) : null}
             <Link
-              href={`${basePath}/assets`}
-              className="inline-flex items-center rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
+              href={`${base}/assets`}
+              className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
             >
               Back to Assets
             </Link>
@@ -164,185 +338,243 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
         </div>
       </div>
 
+      {/* Metric Cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {[
+          { label: "NOI", value: fmtMoney(financialState?.noi) },
+          { label: "Occupancy", value: fmtPct(financialState?.occupancy ?? property.occupancy) },
+          { label: "Value", value: fmtMoney(financialState?.asset_value) },
+          { label: "Cap Rate", value: financialState?.asset_value && financialState?.noi
+            ? fmtPct((Number(financialState.noi) * 4) / Number(financialState.asset_value))
+            : "—" },
+          { label: "NAV", value: fmtMoney(financialState?.nav) },
+          { label: "Debt Balance", value: fmtMoney(financialState?.debt_balance) },
+        ].map((m) => (
+          <div key={m.label} className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3">
+            <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">{m.label}</p>
+            <p className="mt-1 text-lg font-bold">{m.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Tab Bar */}
       <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-2">
         <div className="flex flex-wrap gap-2">
-          {MODULES.map((label) => {
-            const active = moduleTab === label;
-            return (
-              <button
-                key={label}
-                type="button"
-                onClick={() => setModuleTab(label)}
-                className={`rounded-lg border px-3 py-1.5 text-sm transition ${
-                  active
-                    ? "border-bm-accent/60 bg-bm-accent/10"
-                    : "border-bm-border/70 hover:bg-bm-surface/40"
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
+          {TABS.map((label) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => setTab(label)}
+              className={`rounded-lg border px-3 py-1.5 text-sm transition ${
+                tab === label
+                  ? "border-bm-accent/60 bg-bm-accent/10"
+                  : "border-bm-border/70 hover:bg-bm-surface/40"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {moduleTab === "Overview" ? (
+      {/* ── OVERVIEW TAB ── */}
+      {tab === "Overview" ? (
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Summary</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Property Details</h2>
             <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <dt className="text-xs text-bm-muted2">Asset Type</dt>
-                <dd className="font-medium">{assetType}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">Deal</dt>
-                <dd className="font-medium">{deal?.name || "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">Property Type</dt>
-                <dd className="font-medium">{asText(detail.details.property_type)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">Market</dt>
-                <dd className="font-medium">{asText(detail.details.market)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">Units</dt>
-                <dd className="font-medium">{asText(detail.details.units)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">Rating</dt>
-                <dd className="font-medium">{asText(detail.details.rating)}</dd>
-              </div>
+              <div><dt className="text-xs text-bm-muted2">Property Type</dt><dd className="font-medium">{fmtText(property.property_type)}</dd></div>
+              <div><dt className="text-xs text-bm-muted2">Market</dt><dd className="font-medium">{fmtText(property.market)}</dd></div>
+              <div><dt className="text-xs text-bm-muted2">City / State</dt><dd className="font-medium">{property.city ? `${property.city}, ${property.state}` : "—"}</dd></div>
+              <div><dt className="text-xs text-bm-muted2">MSA</dt><dd className="font-medium">{fmtText(property.msa)}</dd></div>
+              <div><dt className="text-xs text-bm-muted2">Address</dt><dd className="font-medium">{fmtText(property.address)}</dd></div>
+              <div><dt className="text-xs text-bm-muted2">Units</dt><dd className="font-medium">{fmtText(property.units)}</dd></div>
+              <div><dt className="text-xs text-bm-muted2">Square Feet</dt><dd className="font-medium">{property.square_feet ? `${(Number(property.square_feet) / 1000).toFixed(0)}K SF` : "—"}</dd></div>
+              <div><dt className="text-xs text-bm-muted2">Year Built</dt><dd className="font-medium">{fmtText(property.year_built)}</dd></div>
+              <div><dt className="text-xs text-bm-muted2">Cost Basis</dt><dd className="font-medium">{fmtMoney(asset.cost_basis)}</dd></div>
+              <div><dt className="text-xs text-bm-muted2">Status</dt><dd className="font-medium">{asset.status}</dd></div>
             </dl>
           </div>
+
           <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Latest Quarter · {quarter}</h2>
-            <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-lg border border-bm-border/60 p-3">
-                <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">NOI</p>
-                <p className="mt-1 font-medium">{asCurrency(financialState?.noi)}</p>
+            <OccupancyNoiTrend periods={periods} />
+          </div>
+
+          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 lg:col-span-2">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2 mb-3">
+              This Quarter P&L Summary · {quarter}
+            </h2>
+            {financialState ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: "Revenue", value: fmtMoney(financialState.revenue) },
+                  { label: "OpEx", value: fmtMoney(financialState.opex) },
+                  { label: "NOI", value: fmtMoney(financialState.noi) },
+                  { label: "CapEx", value: fmtMoney(financialState.capex) },
+                ].map((m) => (
+                  <div key={m.label} className="rounded-lg border border-bm-border/60 p-3">
+                    <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">{m.label}</p>
+                    <p className="mt-1 font-medium">{m.value}</p>
+                  </div>
+                ))}
               </div>
-              <div className="rounded-lg border border-bm-border/60 p-3">
-                <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Implied Value</p>
-                <p className="mt-1 font-medium">{asCurrency(financialState?.asset_value)}</p>
-              </div>
-              <div className="rounded-lg border border-bm-border/60 p-3">
-                <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">LTV</p>
-                <p className="mt-1 font-medium">{asPct(financialState?.ltv)}</p>
-              </div>
-              <div className="rounded-lg border border-bm-border/60 p-3">
-                <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">DSCR</p>
-                <p className="mt-1 font-medium">{asText(financialState?.dscr)}</p>
-              </div>
-            </div>
+            ) : (
+              <p className="text-sm text-bm-muted2">No quarter state data for {quarter}.</p>
+            )}
           </div>
         </div>
       ) : null}
 
-      {moduleTab === "Performance" ? (
+      {/* ── FINANCIALS TAB ── */}
+      {tab === "Financials" ? (
         <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Performance</h2>
-          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { label: "NOI", value: asCurrency(financialState?.noi) },
-              { label: "Occupancy", value: asPct(financialState?.occupancy ?? detail.details.occupancy) },
-              { label: "Debt Yield", value: asPct(financialState?.debt_yield) },
-              { label: "NAV Equity", value: asCurrency(financialState?.implied_equity_value ?? financialState?.nav) },
-            ].map((item) => (
-              <div key={item.label} className="rounded-lg border border-bm-border/60 p-3">
-                <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">{item.label}</p>
-                <p className="mt-1 text-sm font-medium">{item.value}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {moduleTab === "Debt" ? (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Debt</h2>
-          <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <dt className="text-xs text-bm-muted2">Loan Balance</dt>
-              <dd className="font-medium">{asCurrency(financialState?.debt_balance)}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-bm-muted2">Debt Service</dt>
-              <dd className="font-medium">{asCurrency(financialState?.debt_service)}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-bm-muted2">LTV</dt>
-              <dd className="font-medium">{asPct(financialState?.ltv)}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-bm-muted2">DSCR</dt>
-              <dd className="font-medium">{asText(financialState?.dscr)}</dd>
-            </div>
-          </dl>
-        </div>
-      ) : null}
-
-      {moduleTab === "CapEx" ? (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 text-sm text-bm-muted2">
-          CapEx tracking will populate here as project budgets and actuals are entered.
-        </div>
-      ) : null}
-
-      {moduleTab === "Valuation" ? (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Valuation</h2>
-          {financialState ? (
-            <dl className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-              <div>
-                <dt className="text-xs text-bm-muted2">Quarter</dt>
-                <dd className="font-medium">{financialState.quarter}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">Snapshot</dt>
-                <dd className="font-medium truncate">{financialState.inputs_hash}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">Gross Value</dt>
-                <dd className="font-medium">{asCurrency(financialState.asset_value)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">Equity Value</dt>
-                <dd className="font-medium">{asCurrency(financialState.implied_equity_value)}</dd>
-              </div>
-            </dl>
+          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2 mb-3">Quarterly Financials</h2>
+          {periods.length === 0 ? (
+            <p className="text-sm text-bm-muted2">No quarterly data available.</p>
           ) : (
-            <p className="mt-2 text-sm text-bm-muted2">
-              No valuation snapshot for {quarter} yet.
-            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-bm-border/50 text-xs uppercase tracking-[0.1em] text-bm-muted2">
+                    <th className="px-3 py-2 text-left font-medium">Quarter</th>
+                    <th className="px-3 py-2 text-right font-medium">Revenue</th>
+                    <th className="px-3 py-2 text-right font-medium">OpEx</th>
+                    <th className="px-3 py-2 text-right font-medium">NOI</th>
+                    <th className="px-3 py-2 text-right font-medium">Margin</th>
+                    <th className="px-3 py-2 text-right font-medium">CapEx</th>
+                    <th className="px-3 py-2 text-right font-medium">Value</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-bm-border/40">
+                  {periods.map((p) => {
+                    const margin = Number(p.revenue) > 0
+                      ? Number(p.noi ?? 0) / Number(p.revenue)
+                      : 0;
+                    return (
+                      <tr key={p.quarter} className="hover:bg-bm-surface/20">
+                        <td className="px-3 py-2 font-medium">
+                          <button
+                            type="button"
+                            onClick={() => { setTab("Accounting"); }}
+                            className="text-bm-accent hover:underline"
+                          >
+                            {p.quarter}
+                          </button>
+                        </td>
+                        <td className="px-3 py-2 text-right">{fmtMoney(p.revenue)}</td>
+                        <td className="px-3 py-2 text-right">{fmtMoney(p.opex)}</td>
+                        <td className="px-3 py-2 text-right font-medium">{fmtMoney(p.noi)}</td>
+                        <td className="px-3 py-2 text-right">{fmtPct(margin)}</td>
+                        <td className="px-3 py-2 text-right">{fmtMoney(p.capex)}</td>
+                        <td className="px-3 py-2 text-right">{fmtMoney(p.asset_value)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       ) : null}
 
-      {moduleTab === "Scenarios" ? (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 text-sm text-bm-muted2">
-          Scenario drafts and override workflows are available after the first valuation run.
+      {/* ── OCCUPANCY TAB ── */}
+      {tab === "Occupancy" ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2 mb-3">Occupancy Trend</h2>
+            <MiniBarChart
+              data={periods as unknown as Record<string, unknown>[]}
+              valueKey="occupancy"
+              labelKey="quarter"
+              color="bg-green-500"
+              formatValue={(v) => {
+                const n = Number(v);
+                return n <= 1 ? `${(n * 100).toFixed(1)}%` : `${n.toFixed(1)}%`;
+              }}
+            />
+          </div>
+          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2 mb-3">Current Property Data</h2>
+            <dl className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <dt className="text-xs text-bm-muted2">Static Occupancy</dt>
+                <dd className="font-medium">{fmtPct(property.occupancy)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-bm-muted2">Units</dt>
+                <dd className="font-medium">{fmtText(property.units)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-bm-muted2">Current NOI</dt>
+                <dd className="font-medium">{fmtMoney(property.current_noi)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-bm-muted2">Square Feet</dt>
+                <dd className="font-medium">{property.square_feet ? `${(Number(property.square_feet) / 1000).toFixed(0)}K SF` : "—"}</dd>
+              </div>
+            </dl>
+          </div>
         </div>
       ) : null}
 
-      {moduleTab === "Audit" ? (
+      {/* ── DEBT TAB ── */}
+      {tab === "Debt" ? (
         <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Audit</h2>
-          <ul className="mt-3 space-y-2 text-sm">
-            <li className="rounded-lg border border-bm-border/60 px-3 py-2">
-              <p className="font-medium">asset.created</p>
-              <p className="text-xs text-bm-muted2">{asset.created_at?.slice(0, 19).replace("T", " ") || "—"}</p>
-            </li>
-            <li className="rounded-lg border border-bm-border/60 px-3 py-2">
-              <p className="font-medium">ownership.links</p>
-              <p className="text-xs text-bm-muted2">{ownership?.links?.length || 0} records</p>
-            </li>
-          </ul>
+          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Debt</h2>
+          <dl className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            <div>
+              <dt className="text-xs text-bm-muted2">Debt Balance</dt>
+              <dd className="font-medium">{fmtMoney(financialState?.debt_balance)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-bm-muted2">Debt Service</dt>
+              <dd className="font-medium">{fmtMoney(financialState?.debt_service)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-bm-muted2">LTV</dt>
+              <dd className="font-medium">{fmtPct(financialState?.ltv)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-bm-muted2">DSCR</dt>
+              <dd className="font-medium">{fmtX(financialState?.dscr)}</dd>
+            </div>
+          </dl>
+          <div className="mt-4 rounded-lg border border-bm-border/40 bg-bm-surface/10 p-3 text-sm text-bm-muted2">
+            Loan-level details will populate here from the debt surveillance module.
+          </div>
         </div>
       ) : null}
 
-      {moduleTab === "Attachments" ? (
+      {/* ── VALUATION TAB ── */}
+      {tab === "Valuation" ? (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Valuation</h2>
+          {financialState ? (
+            <>
+              <dl className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <div><dt className="text-xs text-bm-muted2">Quarter</dt><dd className="font-medium">{financialState.quarter}</dd></div>
+                <div><dt className="text-xs text-bm-muted2">Gross Value</dt><dd className="font-medium">{fmtMoney(financialState.asset_value)}</dd></div>
+                <div><dt className="text-xs text-bm-muted2">Equity Value</dt><dd className="font-medium">{fmtMoney(financialState.implied_equity_value)}</dd></div>
+                <div><dt className="text-xs text-bm-muted2">Valuation Method</dt><dd className="font-medium">{fmtText(financialState.valuation_method)}</dd></div>
+              </dl>
+              <div className="mt-4">
+                <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2 mb-2">Value Trend</h3>
+                <MiniBarChart
+                  data={periods as unknown as Record<string, unknown>[]}
+                  valueKey="asset_value"
+                  labelKey="quarter"
+                  color="bg-purple-500"
+                />
+              </div>
+            </>
+          ) : (
+            <p className="mt-2 text-sm text-bm-muted2">No valuation snapshot for {quarter}.</p>
+          )}
+        </div>
+      ) : null}
+
+      {/* ── DOCUMENTS TAB ── */}
+      {tab === "Documents" ? (
         businessId && environmentId ? (
           <RepeEntityDocuments
             businessId={businessId}
@@ -352,10 +584,196 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
           />
         ) : (
           <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 text-sm text-bm-muted2">
-            Environment context is required to load attachments.
+            Environment context is required to load documents.
           </div>
         )
       ) : null}
+
+      {/* ── ACCOUNTING TAB ── */}
+      {tab === "Accounting" ? (
+        <div className="space-y-4">
+          {acctLoading ? (
+            <div className="rounded-xl border border-bm-border/70 p-6 text-sm text-bm-muted2">
+              Loading accounting data for {quarter}...
+            </div>
+          ) : (
+            <>
+              {/* Trial Balance */}
+              <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+                <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2 mb-3">
+                  Trial Balance · {quarter}
+                </h2>
+                {trialBalance.length === 0 ? (
+                  <p className="text-sm text-bm-muted2">No trial balance data for this period.</p>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-bm-border/50 text-xs uppercase tracking-[0.1em] text-bm-muted2">
+                        <th className="px-3 py-2 text-left font-medium">Account</th>
+                        <th className="px-3 py-2 text-left font-medium">Name</th>
+                        <th className="px-3 py-2 text-left font-medium">Category</th>
+                        <th className="px-3 py-2 text-right font-medium">Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-bm-border/40">
+                      {trialBalance.map((row, i) => (
+                        <tr key={i} className="hover:bg-bm-surface/20">
+                          <td className="px-3 py-2 font-mono text-xs">{row.account_code}</td>
+                          <td className="px-3 py-2">{row.account_name}</td>
+                          <td className="px-3 py-2 text-bm-muted2">{row.category}</td>
+                          <td className="px-3 py-2 text-right font-medium">{fmtMoney(row.balance)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {/* P&L */}
+              <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+                <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2 mb-3">
+                  P&L by Category · {quarter}
+                </h2>
+                {pnl.length === 0 ? (
+                  <p className="text-sm text-bm-muted2">No P&L data for this period.</p>
+                ) : (
+                  <MiniBarChart
+                    data={pnl as unknown as Record<string, unknown>[]}
+                    valueKey="amount"
+                    labelKey="line_code"
+                    color="bg-emerald-500"
+                  />
+                )}
+              </div>
+
+              {/* Transactions */}
+              <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+                <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2 mb-3">
+                  Transactions · {quarter}
+                </h2>
+                {transactions.length === 0 ? (
+                  <p className="text-sm text-bm-muted2">No transactions for this period.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-bm-border/50 text-xs uppercase tracking-[0.1em] text-bm-muted2">
+                          <th className="px-3 py-2 text-left font-medium">Period</th>
+                          <th className="px-3 py-2 text-left font-medium">Account</th>
+                          <th className="px-3 py-2 text-left font-medium">Name</th>
+                          <th className="px-3 py-2 text-left font-medium">Category</th>
+                          <th className="px-3 py-2 text-right font-medium">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-bm-border/40">
+                        {transactions.map((tx, i) => (
+                          <tr key={i} className="hover:bg-bm-surface/20">
+                            <td className="px-3 py-2 text-bm-muted2">{String(tx.period_month).slice(0, 10)}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{tx.gl_account}</td>
+                            <td className="px-3 py-2">{tx.name}</td>
+                            <td className="px-3 py-2 text-bm-muted2">{tx.category}</td>
+                            <td className="px-3 py-2 text-right font-medium">{fmtMoney(tx.amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      ) : null}
+
+      {/* ── RUNS / AUDIT TAB ── */}
+      {tab === "Runs / Audit" ? (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Runs & Audit Trail</h2>
+          <div className="mt-3 space-y-3">
+            <div className="rounded-lg border border-bm-border/60 p-3 text-sm">
+              <p className="font-medium">Asset Created</p>
+              <p className="text-xs text-bm-muted2">{asset.created_at?.slice(0, 19).replace("T", " ") || "—"}</p>
+            </div>
+            {financialState ? (
+              <>
+                <div className="rounded-lg border border-bm-border/60 p-3 text-sm">
+                  <p className="font-medium">Latest Quarter State</p>
+                  <p className="text-xs text-bm-muted2">Quarter: {financialState.quarter} · Run: {financialState.run_id?.slice(0, 8) || "—"}</p>
+                  <p className="text-xs text-bm-muted2">Inputs Hash: {financialState.inputs_hash || "—"}</p>
+                </div>
+                <div className="rounded-lg border border-bm-border/60 p-3 text-sm">
+                  <p className="font-medium">Quarter State Count</p>
+                  <p className="text-xs text-bm-muted2">{periods.length} quarters with data</p>
+                </div>
+              </>
+            ) : null}
+            <div className="rounded-lg border border-bm-border/60 p-3 text-sm">
+              <p className="font-medium">Accounting Records</p>
+              <p className="text-xs text-bm-muted2">
+                Trial Balance: {trialBalance.length} accounts · P&L: {pnl.length} line codes · Transactions: {transactions.length} entries
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── REPORT GENERATION MODAL ── */}
+      {reportModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-2xl border border-bm-border bg-bm-surface p-6 shadow-xl">
+            <h2 className="text-lg font-semibold">Generate Asset Report</h2>
+            <p className="mt-1 text-sm text-bm-muted2">{asset.name}</p>
+
+            <div className="mt-4 space-y-3">
+              <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+                Report Type
+                <select
+                  className="mt-1 block w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
+                  value={reportType}
+                  onChange={(e) => setReportType(e.target.value)}
+                >
+                  {REPORT_TYPES.map((rt) => (
+                    <option key={rt.value} value={rt.value}>{rt.label}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+                Quarter
+                <input
+                  className="mt-1 block w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
+                  value={reportQuarter}
+                  onChange={(e) => setReportQuarter(e.target.value)}
+                  placeholder="2026Q1"
+                />
+              </label>
+            </div>
+
+            {reportResult ? (
+              <p className="mt-3 text-sm text-bm-muted2">{reportResult}</p>
+            ) : null}
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setReportModalOpen(false)}
+                className="rounded-lg border border-bm-border px-4 py-2 text-sm hover:bg-bm-surface/40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerateReport}
+                disabled={reportGenerating}
+                className="rounded-lg bg-bm-accent px-4 py-2 text-sm text-white hover:bg-bm-accent/80 disabled:opacity-50"
+              >
+                {reportGenerating ? "Generating..." : "Generate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <EntityLineagePanel
         open={lineageOpen}
         onOpenChange={setLineageOpen}

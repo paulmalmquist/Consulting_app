@@ -4,6 +4,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from app.db import get_cursor
+from app.services import re_integrity
 
 
 def _q(v: Decimal | None) -> Decimal | None:
@@ -11,6 +12,7 @@ def _q(v: Decimal | None) -> Decimal | None:
 
 
 def list_investments(*, fund_id: UUID) -> list[dict]:
+    re_integrity.backfill_missing_investment_assets(fund_id=fund_id)
     with get_cursor() as cur:
         cur.execute(
             """
@@ -43,6 +45,11 @@ def get_investment(*, investment_id: UUID) -> dict:
         row = cur.fetchone()
         if not row:
             raise LookupError(f"Investment {investment_id} not found")
+        re_integrity.ensure_investment_has_asset(
+            deal_id=UUID(str(row["investment_id"])),
+            deal_name=row["name"],
+            asset_type="cmbs" if row["investment_type"] == "debt" else "property",
+        )
         return row
 
 
@@ -79,7 +86,13 @@ def create_investment(*, fund_id: UUID, payload: dict) -> dict:
                 _q(payload.get("realized_distributions")),
             ),
         )
-        return cur.fetchone()
+        row = cur.fetchone()
+        re_integrity.ensure_investment_has_asset(
+            deal_id=UUID(str(row["investment_id"])),
+            deal_name=row["name"],
+            asset_type="cmbs" if row["investment_type"] == "debt" else "property",
+        )
+        return row
 
 
 def update_investment(*, investment_id: UUID, payload: dict) -> dict:

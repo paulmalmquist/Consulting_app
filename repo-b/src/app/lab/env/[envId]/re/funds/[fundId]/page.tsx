@@ -361,15 +361,20 @@ function InvestmentRow({
   const [open, setOpen] = useState(false);
   const [assets, setAssets] = useState<ReV2InvestmentAsset[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const handleToggle = () => {
     const next = !open;
     setOpen(next);
     if (next && assets === null) {
       setLoading(true);
+      setLoadError(null);
       getReV2InvestmentAssets(inv.investment_id, quarter)
         .then(setAssets)
-        .catch(() => setAssets([]))
+        .catch(() => {
+          setAssets([]);
+          setLoadError("Asset lookup unavailable. Check /api/re/v2/health/integrity.");
+        })
         .finally(() => setLoading(false));
     }
   };
@@ -414,6 +419,8 @@ function InvestmentRow({
           <td colSpan={6} className="px-0 py-0 bg-bm-surface/10">
             {loading ? (
               <div className="px-8 py-3 text-xs text-bm-muted2">Loading assets...</div>
+            ) : loadError ? (
+              <div className="px-12 py-3 text-xs text-amber-300">{loadError}</div>
             ) : assets && assets.length > 0 ? (
               <table className="w-full text-sm">
                 <tbody className="divide-y divide-bm-border/30">
@@ -439,7 +446,9 @@ function InvestmentRow({
                 </tbody>
               </table>
             ) : (
-              <div className="px-12 py-3 text-xs text-bm-muted2">No assets linked to this investment.</div>
+              <div className="px-12 py-3 text-xs text-amber-300">
+                No assets linked to this investment. Run the integrity repair endpoint to backfill the invariant.
+              </div>
             )}
           </td>
         </tr>

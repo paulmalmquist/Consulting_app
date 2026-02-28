@@ -127,6 +127,9 @@ def list_investment_assets(
 ) -> list[dict]:
     clause, extra = _quarter_state_clause(scenario_id, "s")
     with get_cursor() as cur:
+        cur.execute("SELECT 1 FROM repe_deal WHERE deal_id = %s", (str(investment_id),))
+        if not cur.fetchone():
+            raise LookupError(f"Investment {investment_id} not found")
         cur.execute(
             f"""
             SELECT
@@ -170,6 +173,9 @@ def list_jv_assets(
 ) -> list[dict]:
     clause, extra = _quarter_state_clause(scenario_id, "s")
     with get_cursor() as cur:
+        cur.execute("SELECT 1 FROM re_jv WHERE jv_id = %s", (str(jv_id),))
+        if not cur.fetchone():
+            raise LookupError(f"JV {jv_id} not found")
         cur.execute(
             f"""
             SELECT
