@@ -135,7 +135,7 @@ export default function ReFundListPage() {
                       {fund.name}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-bm-muted2">{fund.strategy.toUpperCase()}</td>
+                  <td className="px-4 py-3 text-bm-muted2">{fund.strategy?.toUpperCase() ?? "—"}</td>
                   <td className="px-4 py-3 text-bm-muted2">{fund.vintage_year}</td>
                   <td className="px-4 py-3 text-right">{fmtMoney(fund.state?.total_committed)}</td>
                   <td className="px-4 py-3 text-right font-medium">{fmtMoney(fund.state?.portfolio_nav)}</td>
