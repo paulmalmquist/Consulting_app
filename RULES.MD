@@ -1359,14 +1359,20 @@ Last updated: 2026-02-28 — Asset Platform v2 launch.
 
 ## RE / PRODUCTION 404/502 DIAGNOSTIC RULES
 
-### Root Cause
+### Production Deployment
 
-The Python backend (`backend/`) is **NOT deployed** to production. Two API client patterns exist in `bos-api.ts`:
-- **`directFetch`** — hits same-origin Next.js API routes (`/api/*`). Works in production if a matching route handler exists.
-- **`bosFetch`** — proxies through `/bos/*` catch-all to the Python backend. Always returns **502** in production.
+The Python backend is deployed to **Railway** and the frontend proxies to it:
+- **Frontend**: Vercel (`paulmalmquist.com` / `consulting-app.vercel.app`)
+- **Backend**: Railway (`authentic-sparkle-production-7f37.up.railway.app`)
+- **Proxy**: Vercel env var `BOS_API_ORIGIN` → Railway URL. Frontend `/bos/*` requests forward to backend.
+- **DB**: Supabase transaction pooler (`aws-1-us-east-1.pooler.supabase.com:6543`) — **must use pooler**, direct connection is IPv6-only.
+
+Two API client patterns exist in `bos-api.ts`:
+- **`directFetch`** — hits same-origin Next.js API routes (`/api/*`). Fastest path for simple reads.
+- **`bosFetch`** — proxies through `/bos/*` catch-all to the Python backend on Railway. Required for compute endpoints (waterfall, quarter-close, etc.).
 
 A `directFetch` call with **no matching route handler** returns **404**.
-A `bosFetch` call returns **502** in production (Python backend not deployed).
+A `bosFetch` call fails only if Railway backend is down or `BOS_API_ORIGIN` is not set.
 
 ### Converted Functions (directFetch — production-safe)
 
@@ -1395,9 +1401,9 @@ All fund/investment page GET functions now use `directFetch` with direct PG rout
 | `getFiWatchlist` | `/api/re/v2/funds/[fundId]/watchlist` | `re_loan_watchlist_event` |
 | `getLpSummary` | `/api/re/v2/funds/[fundId]/lp_summary` | `re_partner`, `re_commitment`, `re_partner_quarter_metrics`, `re_fund_quarter_state`, `re_waterfall_result` |
 
-### Still Using bosFetch (will NOT work until backend deployed)
+### Using bosFetch (routed to Railway backend)
 
-These POST/compute endpoints require Python backend logic and cannot be trivially replaced with direct PG reads:
+These POST/compute endpoints require Python backend logic and are served by the Railway-deployed backend:
 
 | Function | Why it needs backend |
 |----------|---------------------|
