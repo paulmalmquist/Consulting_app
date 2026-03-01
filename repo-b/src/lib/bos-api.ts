@@ -2613,7 +2613,7 @@ export function listReV2Overrides(scenarioId: string): Promise<ReV2Override[]> {
 
 // Provenance
 export function listReV2Runs(fundId: string, quarter?: string): Promise<ReV2RunProvenance[]> {
-  return bosFetch(`/api/re/v2/funds/${fundId}/runs`, { params: { quarter } });
+  return directFetch(`/api/re/v2/funds/${fundId}/runs`, { params: { quarter } });
 }
 
 export function getReV2FundLineage(
@@ -3139,7 +3139,7 @@ export function getFiFundMetrics(params: {
   fund_id: string;
   quarter: string;
 }): Promise<FiFundMetricsResult> {
-  return bosFetch(`/api/re/v2/funds/${params.fund_id}/metrics-detail`, {
+  return directFetch(`/api/re/v2/funds/${params.fund_id}/metrics-detail`, {
     params: {
       env_id: params.env_id,
       business_id: params.business_id,
@@ -3153,13 +3153,13 @@ export function getFiLoans(params: {
   business_id: string;
   fund_id: string;
 }): Promise<FiLoan[]> {
-  return bosFetch(`/api/re/v2/funds/${params.fund_id}/loans`, {
+  return directFetch(`/api/re/v2/funds/${params.fund_id}/loans`, {
     params: { env_id: params.env_id, business_id: params.business_id },
   });
 }
 
 export function getFiCovenantResults(loanId: string, quarter?: string): Promise<FiCovenantResult[]> {
-  return bosFetch(`/api/re/v2/loans/${loanId}/covenant_results`, { params: { quarter } });
+  return directFetch(`/api/re/v2/loans/${loanId}/covenant_results`, { params: { quarter } });
 }
 
 export function getFiWatchlist(params: {
@@ -3168,7 +3168,7 @@ export function getFiWatchlist(params: {
   fund_id: string;
   quarter?: string;
 }): Promise<FiWatchlistEvent[]> {
-  return bosFetch(`/api/re/v2/funds/${params.fund_id}/watchlist`, {
+  return directFetch(`/api/re/v2/funds/${params.fund_id}/watchlist`, {
     params: {
       env_id: params.env_id,
       business_id: params.business_id,
@@ -3561,7 +3561,7 @@ export function getLpSummary(params: {
   business_id: string;
   quarter: string;
 }): Promise<LpSummary> {
-  return bosFetch(`/api/re/v2/funds/${params.fund_id}/lp_summary`, {
+  return directFetch(`/api/re/v2/funds/${params.fund_id}/lp_summary`, {
     params: {
       env_id: params.env_id,
       business_id: params.business_id,

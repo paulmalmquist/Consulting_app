@@ -1354,3 +1354,67 @@ Last updated: 2026-02-28 — Asset Platform v2 launch.
 - Integrity endpoint must return `passed: true` for the Meridian env.
 - Variance endpoint must return non-empty `items[]` for at least one fund + quarter combo.
 - Variance tab on fund detail page must show actual vs budget rows (not empty state).
+
+---
+
+## RE / PRODUCTION 404/502 DIAGNOSTIC RULES
+
+### Root Cause
+
+The Python backend (`backend/`) is **NOT deployed** to production. Two API client patterns exist in `bos-api.ts`:
+- **`directFetch`** — hits same-origin Next.js API routes (`/api/*`). Works in production if a matching route handler exists.
+- **`bosFetch`** — proxies through `/bos/*` catch-all to the Python backend. Always returns **502** in production.
+
+A `directFetch` call with **no matching route handler** returns **404**.
+A `bosFetch` call returns **502** in production (Python backend not deployed).
+
+### Converted Functions (directFetch — production-safe)
+
+All fund/investment page GET functions now use `directFetch` with direct PG route handlers:
+
+| Function | Route | Source Table(s) |
+|----------|-------|-----------------|
+| `getRepeFund` | `/api/repe/funds/[fundId]` | `repe_fund` |
+| `listReV2Investments` | `/api/re/v2/funds/[fundId]/investments` | `repe_deal` |
+| `getReV2FundQuarterState` | `/api/re/v2/funds/[fundId]/quarter-state/[quarter]` | `re_fund_quarter_state` |
+| `getReV2FundMetrics` | `/api/re/v2/funds/[fundId]/metrics/[quarter]` | `re_fund_quarter_metrics` |
+| `getReV2FundInvestmentRollup` | `/api/re/v2/funds/[fundId]/investment-rollup/[quarter]` | `re_investment_quarter_state` + fallback `re_asset_quarter_state` |
+| `getReV2FundLineage` | `/api/re/v2/funds/[fundId]/lineage/[quarter]` | `repe_deal`, `repe_asset`, `re_asset_quarter_state`, `re_fund_quarter_state` |
+| `getReV2EnvironmentPortfolioKpis` | `/api/re/v2/environments/[envId]/portfolio-kpis` | `repe_fund`, `re_fund_quarter_state`, `repe_asset` |
+| `getReV2Investment` | `/api/re/v2/investments/[investmentId]` | `repe_deal` + `re_investment_quarter_state` |
+| `getReV2InvestmentQuarterState` | `/api/re/v2/investments/[investmentId]/quarter-state/[quarter]` | `re_investment_quarter_state` + fallback `re_asset_quarter_state` |
+| `getReV2InvestmentAssets` | `/api/re/v2/investments/[investmentId]/assets/[quarter]` | `repe_asset`, `repe_property_asset`, `re_asset_quarter_state` |
+| `getReV2InvestmentLineage` | `/api/re/v2/investments/[investmentId]/lineage/[quarter]` | `repe_asset`, `re_asset_quarter_state` |
+| `listReV2Scenarios` | `/api/re/v2/funds/[fundId]/scenarios` | `re_scenario` |
+| `listReV2Runs` | `/api/re/v2/funds/[fundId]/runs` | `re_run` |
+| `getFiNOIVariance` | `/api/re/v2/variance/noi` | `re_asset_variance_qtr` + fallback actuals/budget join |
+| `listFiUwVersions` | `/api/re/v2/budget/uw_versions` | `uw_version` |
+| `getFiFundMetrics` | `/api/re/v2/funds/[fundId]/metrics-detail` | `re_fund_metrics_qtr` + `re_gross_net_bridge_qtr` |
+| `getFiLoans` | `/api/re/v2/funds/[fundId]/loans` | `re_loan` |
+| `getFiCovenantResults` | `/api/re/v2/loans/[loanId]/covenant_results` | `re_loan_covenant_result_qtr` |
+| `getFiWatchlist` | `/api/re/v2/funds/[fundId]/watchlist` | `re_loan_watchlist_event` |
+| `getLpSummary` | `/api/re/v2/funds/[fundId]/lp_summary` | `re_partner`, `re_commitment`, `re_partner_quarter_metrics`, `re_fund_quarter_state`, `re_waterfall_result` |
+
+### Still Using bosFetch (will NOT work until backend deployed)
+
+These POST/compute endpoints require Python backend logic and cannot be trivially replaced with direct PG reads:
+
+| Function | Why it needs backend |
+|----------|---------------------|
+| `runReV2QuarterClose` | Multi-step orchestration: computes asset→investment→fund state + variance + metrics |
+| `runReV2Waterfall` | Waterfall engine with tier logic, promote calculations, clawback |
+| `runFiCovenantTests` | Computes DSCR/LTV/debt-yield from live asset data |
+| `runFiQuarterClose` | FI quarter-close with variance + fee accrual + metrics computation |
+| `runFiWaterfallShadow` | Shadow carry calculation |
+| `createReV2Investment` | Creates `repe_deal` + downstream scaffolding |
+| `createReV2Jv` | Creates JV with membership interest validation |
+| `createReV2Scenario` | Creates scenario with baseline snapshot |
+| `getReV2PartnerMetrics` | Reads pre-computed partner metrics (could be converted) |
+
+### Rule: Adding New RE API Functions
+
+1. **Default to `directFetch`** with a direct PG route handler in `repo-b/src/app/api/`.
+2. Only use `bosFetch` for POST endpoints that require Python business logic (waterfall, quarter-close, scenario computation).
+3. Every `directFetch` function MUST have a corresponding Next.js API route handler — otherwise it 404s in production.
+4. Route handlers must import `getPool` from `@/lib/server/db` and include `export const runtime = "nodejs"`.
+5. All numeric columns must be cast to `::float8` or `::text` to avoid Postgres NUMERIC string issues.
