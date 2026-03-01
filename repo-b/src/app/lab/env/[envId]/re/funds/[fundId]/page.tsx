@@ -42,6 +42,8 @@ import {
   FiUwVersion,
   type LpSummary,
   seedReV2Data,
+  getFundValuationRollup,
+  type FundValuationRollup,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import SaleScenarioPanel from "@/components/repe/SaleScenarioPanel";
@@ -218,6 +220,12 @@ export default function FundDetailPage({
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href={`/lab/env/${params.envId}/re/sustainability?section=portfolio-footprint&fundId=${params.fundId}`}
+              className="inline-flex items-center rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
+            >
+              Sustainability
+            </Link>
             <button
               type="button"
               onClick={() => setLineageOpen(true)}
@@ -468,6 +476,15 @@ function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, en
 }) {
   const rollupById = new Map(investmentRollup.map((row) => [row.investment_id, row]));
   const nonBaseScenarioCount = scenarios.filter((scenario) => !scenario.is_base).length;
+
+  // Valuation rollup
+  const [rollup, setRollup] = useState<FundValuationRollup | null>(null);
+  useEffect(() => {
+    if (!fund?.fund_id) return;
+    getFundValuationRollup(fund.fund_id, quarter)
+      .then(setRollup)
+      .catch(() => {});
+  }, [fund?.fund_id, quarter]);
   const displayInvestments = investments.length > 0
     ? investments
     : investmentRollup.map((row) => ({
@@ -516,6 +533,34 @@ function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, en
           </table>
         </div>
       )}
+
+      {/* Valuation Rollup Card */}
+      {rollup && rollup.summary.asset_count > 0 ? (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="valuation-rollup">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2 mb-3">
+            Portfolio Valuation · {quarter}
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            <div className="rounded-lg border border-bm-border/60 p-3">
+              <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Portfolio Value</p>
+              <p className="mt-1 text-lg font-bold">{fmtMoney(rollup.summary.total_portfolio_value)}</p>
+            </div>
+            <div className="rounded-lg border border-bm-border/60 p-3">
+              <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Total Equity</p>
+              <p className="mt-1 text-lg font-bold">{fmtMoney(rollup.summary.total_equity)}</p>
+            </div>
+            <div className="rounded-lg border border-bm-border/60 p-3">
+              <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Wtd Avg Cap Rate</p>
+              <p className="mt-1 text-lg font-bold">{rollup.summary.weighted_avg_cap_rate != null ? `${(rollup.summary.weighted_avg_cap_rate * 100).toFixed(2)}%` : "—"}</p>
+            </div>
+            <div className="rounded-lg border border-bm-border/60 p-3">
+              <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Wtd Avg LTV</p>
+              <p className="mt-1 text-lg font-bold">{rollup.summary.weighted_avg_ltv != null ? `${(rollup.summary.weighted_avg_ltv * 100).toFixed(1)}%` : "—"}</p>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-bm-muted2">{rollup.summary.asset_count} assets · Total NOI: {fmtMoney(rollup.summary.total_noi)}</p>
+        </div>
+      ) : null}
     </div>
   );
 }

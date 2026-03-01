@@ -1551,7 +1551,7 @@ export function listReV1Funds(params: {
   env_id?: string;
   business_id?: string;
 }): Promise<RepeFund[]> {
-  return bosFetch("/api/re/v1/funds", {
+  return directFetch("/api/re/v1/funds", {
     params: {
       env_id: params.env_id,
       business_id: params.business_id,
@@ -2656,6 +2656,160 @@ export function getReV2AssetLineage(
   });
 }
 
+// Sustainability
+export function getReV2SustainabilityOverview(params: {
+  env_id: string;
+  business_id: string;
+  quarter: string;
+  scenario_id?: string;
+}): Promise<SusOverviewResponse> {
+  return bosFetch("/api/re/v2/sustainability/overview", { params });
+}
+
+export function getReV2FundPortfolioFootprint(
+  fundId: string,
+  params: { year: string; scenario_id?: string }
+): Promise<SusPortfolioFootprintResponse> {
+  return bosFetch(`/api/re/v2/sustainability/funds/${fundId}/portfolio-footprint`, { params });
+}
+
+export function getReV2InvestmentFootprint(
+  investmentId: string,
+  params: { year: string; scenario_id?: string }
+): Promise<SusPortfolioFootprintResponse> {
+  return bosFetch(`/api/re/v2/sustainability/investments/${investmentId}/footprint`, { params });
+}
+
+export function getReV2AssetSustainabilityDashboard(
+  assetId: string,
+  params: { year?: string; scenario_id?: string } = {}
+): Promise<SusAssetDashboardResponse> {
+  return bosFetch(`/api/re/v2/sustainability/assets/${assetId}/dashboard`, { params });
+}
+
+export function getReV2AssetSustainabilityProfile(assetId: string): Promise<SusAssetProfile> {
+  return bosFetch(`/api/re/v2/sustainability/assets/${assetId}/profile`);
+}
+
+export function updateReV2AssetSustainabilityProfile(
+  assetId: string,
+  body: SusAssetProfileInput
+): Promise<SusAssetProfile> {
+  return bosFetch(`/api/re/v2/sustainability/assets/${assetId}/profile`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listReV2AssetUtilityAccounts(assetId: string): Promise<SusUtilityAccount[]> {
+  return bosFetch(`/api/re/v2/sustainability/assets/${assetId}/utility-accounts`);
+}
+
+export function createReV2AssetUtilityAccount(
+  assetId: string,
+  body: SusUtilityAccountInput
+): Promise<SusUtilityAccount> {
+  return bosFetch(`/api/re/v2/sustainability/assets/${assetId}/utility-accounts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listReV2AssetUtilityMonthly(assetId: string): Promise<SusUtilityMonthlyRow[]> {
+  return bosFetch(`/api/re/v2/sustainability/assets/${assetId}/utility-monthly`);
+}
+
+export function createReV2AssetUtilityMonthly(
+  assetId: string,
+  body: SusUtilityMonthlyInput
+): Promise<SusUtilityMonthlyRow> {
+  return bosFetch(`/api/re/v2/sustainability/assets/${assetId}/utility-monthly`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function importReV2UtilityMonthly(
+  body: SusUtilityImportRequest
+): Promise<SusUtilityImportResult> {
+  return bosFetch("/api/re/v2/sustainability/utility-monthly/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listReV2AssetCertifications(assetId: string): Promise<SusCertification[]> {
+  return bosFetch(`/api/re/v2/sustainability/assets/${assetId}/certifications`);
+}
+
+export function createReV2AssetCertification(
+  assetId: string,
+  body: SusCertificationInput
+): Promise<SusCertification> {
+  return bosFetch(`/api/re/v2/sustainability/assets/${assetId}/certifications`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listReV2AssetRegulatoryExposure(assetId: string): Promise<SusRegulatoryExposure[]> {
+  return bosFetch(`/api/re/v2/sustainability/assets/${assetId}/regulatory-exposure`);
+}
+
+export function createReV2AssetRegulatoryExposure(
+  assetId: string,
+  body: SusRegulatoryExposureInput
+): Promise<SusRegulatoryExposure> {
+  return bosFetch(`/api/re/v2/sustainability/assets/${assetId}/regulatory-exposure`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listReV2SustainabilityEmissionFactorSets(): Promise<SusEmissionFactorSet[]> {
+  return bosFetch("/api/re/v2/sustainability/emission-factor-sets");
+}
+
+export function createReV2SustainabilityEmissionFactorSet(
+  body: SusEmissionFactorSetInput
+): Promise<SusEmissionFactorSet> {
+  return bosFetch("/api/re/v2/sustainability/emission-factor-sets", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function runReV2SustainabilityScenario(
+  body: SusScenarioRunRequest
+): Promise<SusScenarioRunResponse> {
+  return bosFetch("/api/re/v2/sustainability/scenarios/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function getReV2SustainabilityProjection(
+  projectionRunId: string
+): Promise<SusProjectionResponse> {
+  return bosFetch(`/api/re/v2/sustainability/scenarios/${projectionRunId}`);
+}
+
+export function getReV2SustainabilityReport(
+  fundId: string,
+  reportKey: string,
+  params: { scenario_id?: string } = {}
+): Promise<SusReportPayload> {
+  return bosFetch(`/api/re/v2/sustainability/funds/${fundId}/reports/${reportKey}`, { params });
+}
+
 // ── RE V2 Types ──────────────────────────────────────────────────────────────
 
 export type ReV2Investment = {
@@ -2988,6 +3142,225 @@ export type ReV2EntityLineageResponse = {
   issues: ReV2EntityLineageIssue[];
 };
 
+// ── Sustainability Types ─────────────────────────────────────────────────────
+
+export type SusAssetProfileInput = {
+  env_id: string;
+  business_id: string;
+  property_type?: string | null;
+  square_feet?: number | null;
+  year_built?: number | null;
+  last_renovation_year?: number | null;
+  hvac_type?: string | null;
+  primary_heating_fuel?: string | null;
+  primary_cooling_type?: string | null;
+  lighting_type?: string | null;
+  roof_type?: string | null;
+  onsite_generation?: boolean;
+  solar_kw_installed?: number | null;
+  battery_storage_kwh?: number | null;
+  ev_chargers_count?: number | null;
+  building_certification?: string | null;
+  energy_star_score?: number | null;
+  leed_level?: string | null;
+  wired_score?: number | null;
+  fitwel_score?: number | null;
+  last_audit_date?: string | null;
+};
+
+export type SusAssetProfile = SusAssetProfileInput & {
+  asset_id: string;
+  data_quality_status: "complete" | "review" | "blocked";
+  last_calculated_at?: string | null;
+  created_at: string;
+};
+
+export type SusUtilityAccountInput = {
+  env_id: string;
+  business_id: string;
+  utility_type: "electric" | "gas" | "water" | "steam" | "district";
+  provider_name: string;
+  account_number: string;
+  meter_id?: string | null;
+  billing_frequency?: string | null;
+  rate_structure?: string | null;
+  demand_charge_applicable?: boolean;
+  is_active?: boolean;
+};
+
+export type SusUtilityAccount = SusUtilityAccountInput & {
+  utility_account_id: string;
+  asset_id: string;
+  created_at: string;
+};
+
+export type SusUtilityMonthlyInput = {
+  env_id: string;
+  business_id: string;
+  utility_type: "electric" | "gas" | "water" | "steam" | "district";
+  year: number;
+  month: number;
+  utility_account_id?: string | null;
+  usage_kwh?: number | null;
+  usage_therms?: number | null;
+  usage_gallons?: number | null;
+  peak_kw?: number | null;
+  cost_total?: number | null;
+  demand_charges?: number | null;
+  supply_charges?: number | null;
+  taxes_fees?: number | null;
+  scope_1_emissions_tons?: number | null;
+  scope_2_emissions_tons?: number | null;
+  market_based_emissions?: number | null;
+  location_based_emissions?: number | null;
+  emission_factor_used?: number | null;
+  emission_factor_id?: string | null;
+  data_source?: "manual" | "energy_star_api" | "utility_api" | "csv";
+  renewable_pct?: number | null;
+};
+
+export type SusUtilityMonthlyRow = SusUtilityMonthlyInput & {
+  utility_monthly_id: string;
+  asset_id: string;
+  ingestion_run_id?: string | null;
+  usage_kwh_equiv?: number | null;
+  quality_status: "complete" | "review" | "blocked";
+  created_at: string;
+};
+
+export type SusUtilityImportRequest = {
+  env_id: string;
+  business_id: string;
+  filename: string;
+  csv_text: string;
+  import_mode?: "manual" | "mock" | "live";
+  created_by?: string;
+};
+
+export type SusUtilityImportResult = {
+  ingestion_run_id: string;
+  filename: string;
+  rows_read: number;
+  rows_written: number;
+  rows_blocked: number;
+  issue_count: number;
+  sha256: string;
+  status: string;
+};
+
+export type SusCertificationInput = {
+  env_id: string;
+  business_id: string;
+  certification_type: string;
+  level?: string | null;
+  score?: number | null;
+  issued_on?: string | null;
+  expires_on?: string | null;
+  status?: "active" | "expired" | "pending" | "revoked";
+  evidence_document_id?: string | null;
+};
+
+export type SusCertification = SusCertificationInput & {
+  asset_certification_id: string;
+  asset_id: string;
+  created_at: string;
+};
+
+export type SusRegulatoryExposureInput = {
+  env_id: string;
+  business_id: string;
+  regulation_id?: string | null;
+  regulation_name: string;
+  compliance_status: "compliant" | "monitor" | "at_risk" | "non_compliant" | "not_applicable";
+  target_year?: number | null;
+  estimated_penalty?: number | null;
+  estimated_upgrade_cost?: number | null;
+  assessed_at?: string | null;
+  methodology_note?: string | null;
+};
+
+export type SusRegulatoryExposure = SusRegulatoryExposureInput & {
+  regulatory_exposure_id: string;
+  asset_id: string;
+  created_at: string;
+};
+
+export type SusEmissionFactorSetInput = {
+  source_name: string;
+  version_label: string;
+  methodology?: string | null;
+  published_at?: string | null;
+  effective_from?: string | null;
+  effective_to?: string | null;
+};
+
+export type SusEmissionFactorSet = SusEmissionFactorSetInput & {
+  factor_set_id: string;
+  created_at: string;
+};
+
+export type SusOverviewResponse = {
+  quarter: string;
+  year: number;
+  top_cards: Record<string, unknown>;
+  audit_timestamp?: string | null;
+  open_issues: number;
+  context: Record<string, unknown>;
+};
+
+export type SusPortfolioFootprintResponse = {
+  scope: "fund" | "investment";
+  summary: Record<string, unknown>;
+  investment_rows: Array<Record<string, unknown>>;
+  asset_rows: Array<Record<string, unknown>>;
+  issues: Array<Record<string, unknown>>;
+};
+
+export type SusAssetDashboardResponse = {
+  asset_id: string;
+  not_applicable: boolean;
+  reason?: string | null;
+  cards: Record<string, unknown>;
+  trends: Record<string, unknown>;
+  utility_rows: Array<Record<string, unknown>>;
+  issues: Array<Record<string, unknown>>;
+  profile: Record<string, unknown>;
+  audit_timestamp?: string | null;
+};
+
+export type SusScenarioRunRequest = {
+  fund_id: string;
+  scenario_id: string;
+  base_quarter: string;
+  horizon_years?: number;
+  projection_mode?: "base" | "carbon_tax" | "utility_shock" | "retrofit" | "solar" | "custom";
+};
+
+export type SusScenarioRunResponse = {
+  projection_run_id: string;
+  fund_id: string;
+  scenario_id: string;
+  status: string;
+  summary: Record<string, unknown>;
+  created_at: string;
+};
+
+export type SusProjectionResponse = {
+  run: Record<string, unknown>;
+  asset_rows: Array<Record<string, unknown>>;
+  investment_rows: Array<Record<string, unknown>>;
+  fund_rows: Array<Record<string, unknown>>;
+};
+
+export type SusReportPayload = {
+  report_key: string;
+  report_title: string;
+  generated_at: string;
+  context: Record<string, unknown>;
+  sections: Array<Record<string, unknown>>;
+  appendix_rows: Array<Record<string, unknown>>;
+};
+
 // ── Financial Intelligence Types ──────────────────────────────────────────────
 
 export type FiVarianceItem = {
@@ -3299,6 +3672,30 @@ export type ReV2AssetDetail = {
     year_built?: number;
     current_noi?: number;
     occupancy?: number;
+    // Multifamily
+    avg_rent_per_unit?: number | null;
+    unit_mix_json?: Record<string, unknown> | null;
+    // Senior Housing
+    beds?: number | null;
+    licensed_beds?: number | null;
+    care_mix_json?: Record<string, unknown> | null;
+    revenue_per_occupied_bed?: number | null;
+    // Student Housing
+    beds_student?: number | null;
+    preleased_pct?: number | null;
+    university_name?: string | null;
+    // MOB
+    leasable_sf?: number | null;
+    leased_sf?: number | null;
+    walt_years?: number | null;
+    anchor_tenant?: string | null;
+    health_system_affiliation?: string | null;
+    // Industrial
+    clear_height_ft?: number | null;
+    dock_doors?: number | null;
+    rail_served?: boolean | null;
+    warehouse_sf?: number | null;
+    office_sf?: number | null;
   };
   investment: {
     investment_id: string;
@@ -3434,6 +3831,167 @@ export function generateReV2AssetReport(
   return directFetch(`/api/re/v2/assets/${assetId}/reports`, {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+// ── Asset Valuation ────────────────────────────────────────────────────────
+
+export type ValuationInputs = {
+  cap_rate: number;
+  exit_cap_rate?: number;
+  discount_rate?: number;
+  rent_growth?: number;
+  expense_growth?: number;
+  vacancy?: number;
+  weight_direct_cap?: number;
+  weight_dcf?: number;
+  forward_noi_override?: number;
+  hold_years?: number;
+  quarter?: string;
+  scenario_id?: string;
+};
+
+export type CapRateSensitivityRow = {
+  cap_rate_delta_bps: number;
+  cap_rate: number;
+  implied_value: number;
+  equity_value: number;
+  ltv: number;
+};
+
+export type ValuationResult = {
+  forward_noi: number;
+  value_direct_cap: number;
+  value_dcf: number | null;
+  value_blended: number;
+  equity_value: number;
+  ltv: number | null;
+  dscr: number | null;
+  debt_yield: number | null;
+  sensitivity: CapRateSensitivityRow[];
+  valuation_method: string;
+};
+
+export type ValuationComputeResponse = {
+  asset_id: string;
+  quarter: string;
+  scenario_id: string | null;
+  inputs: ValuationInputs;
+  result: ValuationResult;
+  current_state: {
+    noi: number;
+    debt_balance: number;
+    debt_service: number;
+    asset_value: number;
+  } | null;
+};
+
+export type ValuationSaveResponse = {
+  asset_id: string;
+  quarter: string;
+  scenario_id: string | null;
+  saved: { id: string; run_id: string; created_at: string };
+  result: ValuationResult;
+};
+
+export function computeAssetValuation(
+  assetId: string,
+  body: ValuationInputs
+): Promise<ValuationComputeResponse> {
+  return directFetch(`/api/re/v2/assets/${assetId}/valuation/compute`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function saveAssetValuation(
+  assetId: string,
+  body: ValuationInputs
+): Promise<ValuationSaveResponse> {
+  return directFetch(`/api/re/v2/assets/${assetId}/valuation/save`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+// ── Valuation Overrides ────────────────────────────────────────────────────
+
+export type ValuationOverride = {
+  id: string;
+  assumption_set_id: string;
+  scope_node_type: string;
+  scope_node_id: string;
+  field_name: string;
+  override_value: string;
+  notes: string | null;
+  created_at: string;
+};
+
+export function getAssetValuationOverrides(
+  assetId: string,
+  scenarioId: string
+): Promise<ValuationOverride[]> {
+  return directFetch(`/api/re/v2/assets/${assetId}/valuation/overrides`, {
+    params: { scenario_id: scenarioId },
+  });
+}
+
+export function upsertAssetValuationOverride(
+  assetId: string,
+  body: { scenario_id: string; field_name: string; override_value: string; notes?: string }
+): Promise<ValuationOverride> {
+  return directFetch(`/api/re/v2/assets/${assetId}/valuation/overrides`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteAssetValuationOverride(
+  assetId: string,
+  body: { scenario_id: string; field_name: string }
+): Promise<{ deleted: boolean }> {
+  return directFetch(`/api/re/v2/assets/${assetId}/valuation/overrides`, {
+    method: "DELETE",
+    body: JSON.stringify(body),
+  });
+}
+
+// ── Fund Valuation Rollup ─────────────────────────────────────────────────
+
+export type FundValuationRollup = {
+  fund_id: string;
+  quarter: string;
+  scenario_id: string | null;
+  summary: {
+    asset_count: number;
+    total_portfolio_value: number;
+    total_equity: number;
+    total_debt: number;
+    total_noi: number;
+    weighted_avg_cap_rate: number | null;
+    weighted_avg_ltv: number | null;
+    weighted_avg_occupancy: number | null;
+  };
+  assets: Array<{
+    asset_id: string;
+    asset_name: string;
+    property_type: string;
+    noi: number;
+    asset_value: number;
+    nav: number;
+    debt_balance: number;
+    occupancy: number;
+    valuation_method: string;
+  }>;
+};
+
+export function getFundValuationRollup(
+  fundId: string,
+  quarter: string,
+  scenarioId?: string
+): Promise<FundValuationRollup> {
+  return directFetch(`/api/re/v2/funds/${fundId}/valuation/rollup`, {
+    params: { quarter, scenario_id: scenarioId },
   });
 }
 

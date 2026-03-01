@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   listReV2Assets,
+  listReV1Funds,
   ReV2AssetListItem,
+  RepeFund,
 } from "@/lib/bos-api";
 import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
 
@@ -58,14 +60,22 @@ function AssetsIndexContent() {
   const [assets, setAssets] = useState<ReV2AssetListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [funds, setFunds] = useState<RepeFund[]>([]);
 
   // Filters
+  const [fundFilter, setFundFilter] = useState("");
   const [sectorFilter, setSectorFilter] = useState("All");
   const [stateFilter, setStateFilter] = useState("All");
   const [msaFilter, setMsaFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [investmentFilter, setInvestmentFilter] = useState("");
+
+  // Load funds for filter dropdown
+  useEffect(() => {
+    if (!environmentId) return;
+    listReV1Funds({ env_id: environmentId }).then(setFunds).catch(() => {});
+  }, [environmentId]);
 
   // Derive available MSAs from loaded assets
   const availableMsas = useMemo(() => {
@@ -84,6 +94,7 @@ function AssetsIndexContent() {
       const params: Record<string, string | undefined> = {
         env_id: environmentId,
       };
+      if (fundFilter) params.fund_id = fundFilter;
       if (sectorFilter !== "All") params.sector = sectorFilter.toLowerCase();
       if (stateFilter !== "All") params.state = stateFilter;
       if (msaFilter) params.msa = msaFilter;
@@ -98,7 +109,7 @@ function AssetsIndexContent() {
     } finally {
       setLoading(false);
     }
-  }, [environmentId, sectorFilter, stateFilter, msaFilter, statusFilter, searchQuery, investmentFilter]);
+  }, [environmentId, fundFilter, sectorFilter, stateFilter, msaFilter, statusFilter, searchQuery, investmentFilter]);
 
   useEffect(() => {
     fetchAssets();
@@ -113,6 +124,7 @@ function AssetsIndexContent() {
     : 0;
 
   const clearFilters = () => {
+    setFundFilter("");
     setSectorFilter("All");
     setStateFilter("All");
     setMsaFilter("");
@@ -122,6 +134,7 @@ function AssetsIndexContent() {
   };
 
   const hasActiveFilters =
+    fundFilter !== "" ||
     sectorFilter !== "All" ||
     stateFilter !== "All" ||
     msaFilter !== "" ||
@@ -172,6 +185,21 @@ function AssetsIndexContent() {
       {/* Filter Row */}
       <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3">
         <div className="flex flex-wrap items-end gap-3">
+          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+            Fund
+            <select
+              className="mt-1 block w-48 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
+              value={fundFilter}
+              onChange={(e) => setFundFilter(e.target.value)}
+              data-testid="filter-fund"
+            >
+              <option value="">All Funds</option>
+              {funds.map((f) => (
+                <option key={f.fund_id} value={f.fund_id}>{f.name}</option>
+              ))}
+            </select>
+          </label>
+
           <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
             Sector
             <select

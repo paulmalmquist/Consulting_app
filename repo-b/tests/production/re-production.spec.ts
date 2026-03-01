@@ -651,3 +651,126 @@ test.describe("Deep — Page Health", () => {
     ).toHaveLength(0);
   });
 });
+
+// ═════════════════════════════════════════════════════════════════════════════
+// DEEP SUITE — Asset Flows
+// ═════════════════════════════════════════════════════════════════════════════
+
+const ASSETS_URL = `/lab/env/${ENV_ID}/re/assets`;
+
+test.describe("Deep — Asset Flows", () => {
+  test.beforeEach(async ({ context, baseURL }) => {
+    await seedAuth(context, baseURL);
+  });
+
+  test("assets list: fund filter dropdown visible", async ({ page }) => {
+    const assertNoErrors = attachPageErrorTrap(page);
+    await page.goto(ASSETS_URL, { waitUntil: "domcontentloaded", timeout: 45_000 });
+    await page.waitForSelector("[data-testid='re-assets-index']", { timeout: 20_000 });
+
+    // Fund filter dropdown should be present
+    const fundFilter = page.locator("[data-testid='filter-fund']");
+    await expect(fundFilter).toBeVisible({ timeout: 10_000 });
+
+    assertNoErrors();
+  });
+
+  test("assets list: renders asset rows", async ({ page }) => {
+    const assertNoErrors = attachPageErrorTrap(page);
+    await page.goto(ASSETS_URL, { waitUntil: "domcontentloaded", timeout: 45_000 });
+    await page.waitForSelector("[data-testid='re-assets-index']", { timeout: 20_000 });
+
+    // Should have at least one asset row or show "No assets found"
+    const table = page.locator("[data-testid='re-assets-index'] table");
+    await expect(table).toBeVisible({ timeout: 10_000 });
+
+    assertNoErrors();
+  });
+
+  test("asset detail: quarter-state API returns 200 or 404", async ({ page, request }) => {
+    // Use a seed asset if available, otherwise any asset
+    const assetId = "a1b2c3d4-9001-0001-0001-000000000001"; // Parkview Residences
+    const res = await request.get(`/api/re/v2/assets/${assetId}/quarter-state/${QUARTER}`);
+    expect([200, 404]).toContain(res.status());
+
+    if (res.status() === 200) {
+      const body = await res.json();
+      // Should have quarter state fields
+      expect(body).toHaveProperty("quarter");
+      expect(body).toHaveProperty("asset_id");
+    }
+  });
+
+  test("asset detail: lineage API returns valid widget structure", async ({ page, request }) => {
+    const assetId = "a1b2c3d4-9001-0001-0001-000000000001";
+    const res = await request.get(`/api/re/v2/assets/${assetId}/lineage/${QUARTER}`);
+    // Returns 200 even if asset not found (with error widget)
+    expect(res.status()).toBeLessThanOrEqual(404);
+
+    if (res.status() === 200) {
+      const body = await res.json();
+      expect(body).toHaveProperty("entity_type", "asset");
+      expect(body).toHaveProperty("widgets");
+      expect(body).toHaveProperty("issues");
+      expect(Array.isArray(body.widgets)).toBe(true);
+    }
+  });
+
+  test("asset detail: valuation compute API accepts POST", async ({ page, request }) => {
+    const assetId = "a1b2c3d4-9001-0001-0001-000000000001";
+    const res = await request.post(`/api/re/v2/assets/${assetId}/valuation/compute`, {
+      data: {
+        cap_rate: 0.055,
+        quarter: QUARTER,
+      },
+    });
+
+    // Should return 200 with compute result (even if no quarter state — uses defaults)
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveProperty("result");
+    expect(body.result).toHaveProperty("value_direct_cap");
+    expect(body.result).toHaveProperty("sensitivity");
+    expect(Array.isArray(body.result.sensitivity)).toBe(true);
+  });
+
+  test("fund valuation rollup API returns aggregated data", async ({ page, request }) => {
+    const res = await request.get(`/api/re/v2/funds/${FUND_ID}/valuation/rollup?quarter=${QUARTER}`);
+    expect(res.status()).toBe(200);
+
+    const body = await res.json();
+    expect(body).toHaveProperty("fund_id", FUND_ID);
+    expect(body).toHaveProperty("summary");
+    expect(body.summary).toHaveProperty("asset_count");
+    expect(body.summary).toHaveProperty("total_portfolio_value");
+    expect(typeof body.summary.asset_count).toBe("number");
+  });
+
+  test("asset detail page: no workspace error on load", async ({ page }) => {
+    const assertNoErrors = attachPageErrorTrap(page);
+
+    // Navigate to assets page first
+    await page.goto(ASSETS_URL, { waitUntil: "domcontentloaded", timeout: 45_000 });
+    await page.waitForSelector("[data-testid='re-assets-index']", { timeout: 20_000 });
+
+    // Try to click first asset link
+    const firstAssetLink = page.locator("[data-testid='re-assets-index'] table a").first();
+    if (await firstAssetLink.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await firstAssetLink.click();
+      await page.waitForTimeout(3_000);
+
+      // Asset detail should render — workspace error must NOT appear
+      await expect(page.locator(SEL.workspaceError)).not.toBeVisible();
+
+      // Should have the asset homepage testid
+      const assetPage = page.locator("[data-testid='re-asset-homepage']");
+      const errorPage = page.locator("text=not found");
+      // One of these should be visible
+      const isAssetPage = await assetPage.isVisible({ timeout: 5_000 }).catch(() => false);
+      const isError = await errorPage.isVisible({ timeout: 2_000 }).catch(() => false);
+      expect(isAssetPage || isError).toBe(true);
+    }
+
+    assertNoErrors();
+  });
+});

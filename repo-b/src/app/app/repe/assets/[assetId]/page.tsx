@@ -11,6 +11,7 @@ import {
   getReV2AssetPnl,
   getReV2AssetTransactions,
   generateReV2AssetReport,
+  listReV2Scenarios,
   ReV2AssetDetail,
   ReV2AssetQuarterState,
   ReV2AssetPeriod,
@@ -18,10 +19,12 @@ import {
   ReV2TrialBalanceRow,
   ReV2PnlRow,
   ReV2TransactionRow,
+  ReV2Scenario,
 } from "@/lib/bos-api";
 import { useRepeBasePath, useRepeContext } from "@/lib/repe-context";
 import { EntityLineagePanel } from "@/components/repe/EntityLineagePanel";
 import RepeEntityDocuments from "@/components/repe/RepeEntityDocuments";
+import ValuationLeverPanel from "@/components/repe/ValuationLeverPanel";
 
 const TABS = [
   "Overview",
@@ -29,6 +32,7 @@ const TABS = [
   "Occupancy",
   "Debt",
   "Valuation",
+  "Sustainability",
   "Documents",
   "Accounting",
   "Runs / Audit",
@@ -175,6 +179,7 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
   const [periods, setPeriods] = useState<ReV2AssetPeriod[]>([]);
   const [lineage, setLineage] = useState<ReV2EntityLineageResponse | null>(null);
   const [lineageOpen, setLineageOpen] = useState(false);
+  const [scenarios, setScenarios] = useState<ReV2Scenario[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -204,16 +209,18 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
         if (cancelled) return;
         setDetail(assetDetail);
 
-        const [finState, periodsData, lin] = await Promise.allSettled([
+        const [finState, periodsData, lin, scenariosData] = await Promise.allSettled([
           getReV2AssetQuarterState(params.assetId, quarter),
           getReV2AssetPeriods(params.assetId),
           getReV2AssetLineage(params.assetId, quarter),
+          listReV2Scenarios(assetDetail.fund.fund_id),
         ]);
 
         if (cancelled) return;
         setFinancialState(finState.status === "fulfilled" ? finState.value : null);
         setPeriods(periodsData.status === "fulfilled" ? periodsData.value : []);
         setLineage(lin.status === "fulfilled" ? lin.value : null);
+        setScenarios(scenariosData.status === "fulfilled" ? scenariosData.value : []);
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : "Failed to load asset");
@@ -288,6 +295,8 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
 
   const { asset, property, investment, fund, env } = detail;
   const base = basePath || `/lab/env/${env.env_id}/re`;
+  const isPropertyAsset = String(asset.asset_type || "").toLowerCase() === "property";
+  const sustainabilityHref = `${base}/sustainability?section=${isPropertyAsset ? "asset-sustainability" : "overview"}&fundId=${fund.fund_id}&investmentId=${investment.investment_id}&assetId=${asset.asset_id}`;
 
   return (
     <section className="space-y-4" data-testid="re-asset-homepage">
@@ -314,6 +323,12 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Link
+              href={sustainabilityHref}
+              className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
+            >
+              Sustainability
+            </Link>
             <button
               type="button"
               onClick={() => setReportModalOpen(true)}
@@ -396,8 +411,57 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
             </dl>
           </div>
 
+          {/* Sector Capacity Card */}
           <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-            <OccupancyNoiTrend periods={periods} />
+            {property.property_type ? (
+              <>
+                <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">
+                  {property.property_type} Capacity
+                </h2>
+                <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  {(property.property_type.toLowerCase() === "multifamily") ? (
+                    <>
+                      <div><dt className="text-xs text-bm-muted2">Units</dt><dd className="font-medium">{fmtText(property.units)}</dd></div>
+                      <div><dt className="text-xs text-bm-muted2">Avg Rent / Unit</dt><dd className="font-medium">{property.avg_rent_per_unit != null ? fmtMoney(property.avg_rent_per_unit) : "—"}</dd></div>
+                    </>
+                  ) : null}
+                  {(property.property_type.toLowerCase() === "senior_housing" || property.property_type.toLowerCase() === "senior housing") ? (
+                    <>
+                      <div><dt className="text-xs text-bm-muted2">Beds</dt><dd className="font-medium">{fmtText(property.beds)}</dd></div>
+                      <div><dt className="text-xs text-bm-muted2">Licensed Beds</dt><dd className="font-medium">{fmtText(property.licensed_beds)}</dd></div>
+                      <div><dt className="text-xs text-bm-muted2">Rev / Occupied Bed</dt><dd className="font-medium">{property.revenue_per_occupied_bed != null ? fmtMoney(property.revenue_per_occupied_bed) : "—"}</dd></div>
+                    </>
+                  ) : null}
+                  {(property.property_type.toLowerCase() === "student_housing" || property.property_type.toLowerCase() === "student housing") ? (
+                    <>
+                      <div><dt className="text-xs text-bm-muted2">Beds</dt><dd className="font-medium">{fmtText(property.beds_student)}</dd></div>
+                      <div><dt className="text-xs text-bm-muted2">Pre-Leased</dt><dd className="font-medium">{property.preleased_pct != null ? fmtPct(property.preleased_pct) : "—"}</dd></div>
+                      <div><dt className="text-xs text-bm-muted2">University</dt><dd className="font-medium">{fmtText(property.university_name)}</dd></div>
+                    </>
+                  ) : null}
+                  {(property.property_type.toLowerCase() === "medical_office" || property.property_type.toLowerCase() === "medical office" || property.property_type.toLowerCase() === "mob") ? (
+                    <>
+                      <div><dt className="text-xs text-bm-muted2">Leasable SF</dt><dd className="font-medium">{property.leasable_sf != null ? `${(Number(property.leasable_sf) / 1000).toFixed(0)}K` : "—"}</dd></div>
+                      <div><dt className="text-xs text-bm-muted2">Leased SF</dt><dd className="font-medium">{property.leased_sf != null ? `${(Number(property.leased_sf) / 1000).toFixed(0)}K` : "—"}</dd></div>
+                      <div><dt className="text-xs text-bm-muted2">WALT (yrs)</dt><dd className="font-medium">{property.walt_years != null ? `${Number(property.walt_years).toFixed(1)}` : "—"}</dd></div>
+                      <div><dt className="text-xs text-bm-muted2">Anchor Tenant</dt><dd className="font-medium">{fmtText(property.anchor_tenant)}</dd></div>
+                      <div><dt className="text-xs text-bm-muted2">Health System</dt><dd className="font-medium">{fmtText(property.health_system_affiliation)}</dd></div>
+                    </>
+                  ) : null}
+                  {(property.property_type.toLowerCase() === "industrial") ? (
+                    <>
+                      <div><dt className="text-xs text-bm-muted2">Warehouse SF</dt><dd className="font-medium">{property.warehouse_sf != null ? `${(Number(property.warehouse_sf) / 1000).toFixed(0)}K` : "—"}</dd></div>
+                      <div><dt className="text-xs text-bm-muted2">Office SF</dt><dd className="font-medium">{property.office_sf != null ? `${(Number(property.office_sf) / 1000).toFixed(0)}K` : "—"}</dd></div>
+                      <div><dt className="text-xs text-bm-muted2">Clear Height</dt><dd className="font-medium">{property.clear_height_ft != null ? `${Number(property.clear_height_ft).toFixed(0)} ft` : "—"}</dd></div>
+                      <div><dt className="text-xs text-bm-muted2">Dock Doors</dt><dd className="font-medium">{fmtText(property.dock_doors)}</dd></div>
+                      <div><dt className="text-xs text-bm-muted2">Rail Served</dt><dd className="font-medium">{property.rail_served != null ? (property.rail_served ? "Yes" : "No") : "—"}</dd></div>
+                    </>
+                  ) : null}
+                </dl>
+              </>
+            ) : (
+              <OccupancyNoiTrend periods={periods} />
+            )}
           </div>
 
           <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 lg:col-span-2">
@@ -547,29 +611,96 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
 
       {/* ── VALUATION TAB ── */}
       {tab === "Valuation" ? (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Valuation</h2>
+        <div className="space-y-4">
+          {/* Current snapshot summary */}
           {financialState ? (
-            <>
-              <dl className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                <div><dt className="text-xs text-bm-muted2">Quarter</dt><dd className="font-medium">{financialState.quarter}</dd></div>
+            <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2 mb-3">
+                Current Snapshot · {financialState.quarter}
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                 <div><dt className="text-xs text-bm-muted2">Gross Value</dt><dd className="font-medium">{fmtMoney(financialState.asset_value)}</dd></div>
-                <div><dt className="text-xs text-bm-muted2">Equity Value</dt><dd className="font-medium">{fmtMoney(financialState.implied_equity_value)}</dd></div>
-                <div><dt className="text-xs text-bm-muted2">Valuation Method</dt><dd className="font-medium">{fmtText(financialState.valuation_method)}</dd></div>
-              </dl>
-              <div className="mt-4">
-                <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2 mb-2">Value Trend</h3>
-                <MiniBarChart
-                  data={periods as unknown as Record<string, unknown>[]}
-                  valueKey="asset_value"
-                  labelKey="quarter"
-                  color="bg-purple-500"
-                />
+                <div><dt className="text-xs text-bm-muted2">NAV</dt><dd className="font-medium">{fmtMoney(financialState.nav)}</dd></div>
+                <div><dt className="text-xs text-bm-muted2">Method</dt><dd className="font-medium">{fmtText(financialState.valuation_method)}</dd></div>
+                <div><dt className="text-xs text-bm-muted2">NOI (Qtr)</dt><dd className="font-medium">{fmtMoney(financialState.noi)}</dd></div>
               </div>
-            </>
-          ) : (
-            <p className="mt-2 text-sm text-bm-muted2">No valuation snapshot for {quarter}.</p>
-          )}
+            </div>
+          ) : null}
+
+          {/* Value Trend */}
+          {periods.length > 0 ? (
+            <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+              <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2 mb-2">Value Trend</h3>
+              <MiniBarChart
+                data={periods as unknown as Record<string, unknown>[]}
+                valueKey="asset_value"
+                labelKey="quarter"
+                color="bg-purple-500"
+              />
+            </div>
+          ) : null}
+
+          {/* Interactive lever panel */}
+          <ValuationLeverPanel
+            assetId={asset.asset_id}
+            quarter={quarter}
+            propertyType={property.property_type}
+            scenarios={scenarios.map((s) => ({ id: s.scenario_id, name: s.name }))}
+          />
+        </div>
+      ) : null}
+
+      {tab === "Sustainability" ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Sustainability Module</h2>
+            {isPropertyAsset ? (
+              <>
+                <p className="mt-2 text-sm text-bm-muted2">
+                  This property is eligible for asset-level utility, emissions, certification, and regulatory analytics inside the shared sustainability workspace.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Link
+                    href={sustainabilityHref}
+                    className="rounded-lg bg-bm-accent px-4 py-2 text-sm text-white hover:bg-bm-accent/90"
+                  >
+                    Open Asset Sustainability
+                  </Link>
+                  <Link
+                    href={`${base}/sustainability?section=regulatory-risk&fundId=${fund.fund_id}&investmentId=${investment.investment_id}&assetId=${asset.asset_id}`}
+                    className="rounded-lg border border-bm-border px-4 py-2 text-sm hover:bg-bm-surface/40"
+                  >
+                    Review Regulatory Risk
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-bm-muted2">
+                Not applicable. Debt and CMBS assets do not participate in property-level sustainability calculations.
+              </p>
+            )}
+          </div>
+          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Current Context</h2>
+            <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <dt className="text-xs text-bm-muted2">Asset Type</dt>
+                <dd className="font-medium">{asset.asset_type}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-bm-muted2">Property Type</dt>
+                <dd className="font-medium">{fmtText(property.property_type)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-bm-muted2">Square Feet</dt>
+                <dd className="font-medium">{property.square_feet ? `${Number(property.square_feet).toLocaleString()} SF` : "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-bm-muted2">Quarter</dt>
+                <dd className="font-medium">{quarter}</dd>
+              </div>
+            </dl>
+          </div>
         </div>
       ) : null}
 
