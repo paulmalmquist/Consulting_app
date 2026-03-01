@@ -127,7 +127,7 @@ export function computeCapRateSensitivity(
     if (shockedCap <= 0) continue;
     const val = calculateValueDirectCap(forwardNoi, shockedCap);
     const eq = calculateEquityValue(val, loanBalance);
-    const ltv = calculateLtv(loanBalance, val);
+    const ltv = val > 0 ? calculateLtv(loanBalance, val) : 0;
     rows.push({
       cap_rate_delta_bps: deltaBps,
       cap_rate: shockedCap,
