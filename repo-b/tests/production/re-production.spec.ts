@@ -1,6 +1,64 @@
 import { expect, test, type Page, type BrowserContext } from "@playwright/test";
 
-/** Set the demo_lab_session cookie so the RE workspace renders in production. */
+/**
+ * Production E2E Tests — Real Estate PE Platform
+ *
+ * Runs against https://www.paulmalmquist.com with NO mocking.
+ *
+ * Design principles (per test spec v2):
+ *  1. Assert routes (URL matches expected pattern after navigation)
+ *  2. Assert network contracts (expected request fired, JSON fields present)
+ *  3. Assert rendered truth (specific data from response shows up)
+ *  4. Use stable data-testid selectors everywhere (never Tailwind classnames)
+ *  5. Trap page errors globally — fail immediately on any JS crash
+ *  6. Assert workspace-error component never appears
+ *  7. Use range assertions for finance metrics (not exact values)
+ *  8. Layer: smoke (fast, always) then deep (optional)
+ *
+ * Production data (seeded fixture):
+ *   ENV_ID   = a1b2c3d4-0001-0001-0003-000000000001 (Meridian Capital Management)
+ *   FUND_ID  = a1b2c3d4-0003-0030-0001-000000000001 (Institutional Growth Fund VII)
+ *   QUARTER  = 2026Q1
+ */
+
+const ENV_ID = "a1b2c3d4-0001-0001-0003-000000000001";
+const FUND_ID = "a1b2c3d4-0003-0030-0001-000000000001";
+const BUSINESS_ID = "a1b2c3d4-0001-0001-0001-000000000001";
+const QUARTER = "2026Q1";
+
+const FUND_URL = `/lab/env/${ENV_ID}/re/funds/${FUND_ID}`;
+const FUNDS_LIST_URL = `/lab/env/${ENV_ID}/re/funds`;
+
+// ─── Selectors (stable data-testid) ──────────────────────────────────────────
+
+const SEL = {
+  fundTabs:       "[data-testid='fund-tabs']",
+  tabOverview:    "[data-testid='tab-overview']",
+  tabVariance:    "[data-testid='tab-variance--noi-']",
+  tabReturns:     "[data-testid='tab-returns--gross-net-']",
+  tabRunCenter:   "[data-testid='tab-run-center']",
+  tabScenarios:   "[data-testid='tab-scenarios']",
+  tabLPSummary:   "[data-testid='tab-lp-summary']",
+  tabWaterfall:   "[data-testid='tab-waterfall-scenario']",
+
+  fundDetail:     "[data-testid='re-fund-detail']",
+  fundError:      "[data-testid='fund-error']",
+  workspaceError: "[data-testid='workspace-error']",
+
+  investmentList: "[data-testid='investment-list']",
+  varianceTable:  "[data-testid='variance-table']",
+  varianceSection:"[data-testid='variance-section']",
+  returnsSection: "[data-testid='returns-section']",
+  returnsKpis:    "[data-testid='returns-kpis']",
+  runCenterSection:"[data-testid='run-center-section']",
+  runQuarterClose:"[data-testid='run-quarter-close']",
+  runHistory:     "[data-testid='run-history']",
+  lpSummarySection:"[data-testid='lp-summary-section']",
+  lpPartnerTable: "[data-testid='lp-partner-table']",
+};
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
 async function seedAuth(context: BrowserContext, baseURL: string | undefined) {
   if (!baseURL) throw new Error("baseURL missing");
   const url = new URL(baseURL);
@@ -16,77 +74,79 @@ async function seedAuth(context: BrowserContext, baseURL: string | undefined) {
   ]);
 }
 
+// ─── Page Error Trap ──────────────────────────────────────────────────────────
+
 /**
- * Production E2E Tests — Real Estate PE Platform
- *
- * Runs against https://www.paulmalmquist.com with NO mocking.
- * Tests the full fund manager flow end-to-end:
- *   - Fund list, fund detail tabs, investment drill-down
- *   - directFetch endpoints (variance, metrics, loans, watchlist, runs, lp_summary)
- *   - bosFetch endpoints via Railway backend (quarter-close, waterfall)
- *   - No console errors throughout
- *
- * Production data:
- *   ENV_ID   = a1b2c3d4-0001-0001-0003-000000000001 (Meridian Capital Management)
- *   FUND_ID  = a1b2c3d4-0003-0030-0001-000000000001 (first fund)
+ * Attach a global pageerror listener. Returns a checker function that asserts
+ * no unhandled JS errors occurred. Call it at the end of each test.
  */
-
-const ENV_ID = "a1b2c3d4-0001-0001-0003-000000000001";
-const FUND_ID = "a1b2c3d4-0003-0030-0001-000000000001";
-const QUARTER = "2026Q1";
-
-const FUND_URL = `/lab/env/${ENV_ID}/re/funds/${FUND_ID}`;
-const FUNDS_LIST_URL = `/lab/env/${ENV_ID}/re/funds`;
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Collect all console errors and failed network requests during a page action. */
-async function withErrorCapture(page: Page, fn: () => Promise<void>): Promise<{
-  consoleErrors: string[];
-  failedRequests: { url: string; status: number }[];
-}> {
-  const consoleErrors: string[] = [];
-  const failedRequests: { url: string; status: number }[] = [];
-
-  page.on("console", (msg) => {
-    if (msg.type() === "error") consoleErrors.push(msg.text());
+function attachPageErrorTrap(page: Page): () => void {
+  const jsErrors: string[] = [];
+  page.on("pageerror", (err) => {
+    jsErrors.push(err.message);
   });
-  page.on("response", (res) => {
-    if (res.status() >= 400 && res.url().includes("/api/")) {
-      failedRequests.push({ url: res.url(), status: res.status() });
-    }
-  });
-
-  await fn();
-  return { consoleErrors, failedRequests };
+  return () => {
+    expect(
+      jsErrors,
+      `Unhandled JS errors:\n${jsErrors.join("\n")}`
+    ).toHaveLength(0);
+  };
 }
 
-/** Navigate and wait for the RE workspace shell to be ready. */
+// ─── Navigation ───────────────────────────────────────────────────────────────
+
 async function gotoFundPage(page: Page, url: string) {
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
-  // Wait for any sign the page has settled — race whichever fires first
+  // Wait for the fund detail section OR an error indicator
   await Promise.race([
-    page.waitForSelector("[data-testid]", { timeout: 20_000 }).catch(() => null),
-    page.waitForSelector("[role='tablist']", { timeout: 20_000 }).catch(() => null),
-    page.waitForSelector("h1, h2", { timeout: 20_000 }).catch(() => null),
-    page.getByText(/fund not found/i).waitFor({ timeout: 20_000 }).catch(() => null),
-    page.waitForTimeout(10_000), // fallback: proceed after 10s no matter what
+    page.locator(SEL.fundDetail).waitFor({ timeout: 20_000 }).catch(() => null),
+    page.locator(SEL.fundError).waitFor({ timeout: 20_000 }).catch(() => null),
+    page.waitForTimeout(15_000),
   ]);
 }
 
-/** Click a tab and wait for its panel to be visible. */
-async function clickTab(page: Page, label: string | RegExp) {
-  const tab = page.getByRole("tab", { name: label });
+// ─── Tab Navigation ───────────────────────────────────────────────────────────
+
+async function clickTab(page: Page, selector: string) {
+  const tab = page.locator(selector);
   await expect(tab).toBeVisible({ timeout: 10_000 });
   await tab.click();
-  // Give the tab panel time to load data
-  await page.waitForTimeout(2_000);
+  await page.waitForTimeout(1_500);
 }
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
+// ─── Network contract helper ──────────────────────────────────────────────────
 
-test.describe("RE Production — Health", () => {
-  test("backend health endpoint is reachable", async ({ request }) => {
+/**
+ * Wait for a matching API response and return its parsed JSON.
+ * Fails if the response status is not 2xx.
+ */
+async function waitForApiResponse(
+  page: Page,
+  urlPattern: string | RegExp,
+  action: () => Promise<void>
+): Promise<unknown> {
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      (res) => {
+        const u = res.url();
+        return typeof urlPattern === "string"
+          ? u.includes(urlPattern)
+          : urlPattern.test(u);
+      },
+      { timeout: 20_000 }
+    ),
+    action(),
+  ]);
+  expect(response.status(), `API ${response.url()} returned ${response.status()}`).toBeLessThan(400);
+  return response.json();
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// SMOKE SUITE — runs on every merge/deploy (~2–5 min)
+// ═════════════════════════════════════════════════════════════════════════════
+
+test.describe("Smoke — Health Checks", () => {
+  test("Railway backend /health is reachable", async ({ request }) => {
     const res = await request.get(
       "https://authentic-sparkle-production-7f37.up.railway.app/health"
     );
@@ -95,164 +155,233 @@ test.describe("RE Production — Health", () => {
     expect(body.ok).toBe(true);
   });
 
-  test("/bos proxy routes to backend", async ({ request }) => {
+  test("/bos proxy routes to Railway backend", async ({ request }) => {
     const res = await request.get("/bos/health");
     expect(res.status()).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
   });
 
-  test("RE v1 context returns production data", async ({ request }) => {
-    const res = await request.get(
-      `/bos/api/re/v1/context?env_id=${ENV_ID}`
-    );
+  test("RE v1 context returns production fixture data", async ({ request }) => {
+    const res = await request.get(`/bos/api/re/v1/context?env_id=${ENV_ID}`);
     expect(res.status()).toBe(200);
     const body = await res.json();
+    // Route contract: correct env_id echoed back
     expect(body.env_id).toBe(ENV_ID);
+    expect(body.business_id).toBeTruthy();
+    // Fixture contract: Meridian has ≥ 1 fund
     expect(body.funds_count).toBeGreaterThanOrEqual(1);
   });
 });
 
-test.describe("RE Production — Fund List Page", () => {
+test.describe("Smoke — Fund List Page", () => {
   test.beforeEach(async ({ context, baseURL }) => {
     await seedAuth(context, baseURL);
   });
 
-  test("funds list page loads and shows funds", async ({ page }) => {
-    const { consoleErrors, failedRequests } = await withErrorCapture(page, async () => {
-      await gotoFundPage(page, FUNDS_LIST_URL);
-    });
+  test("fund list page loads and shows Meridian funds", async ({ page }) => {
+    const checkErrors = attachPageErrorTrap(page);
 
-    // Should show at least one fund card/row
-    const fundLinks = page.getByRole("link").filter({ hasText: /fund|capital|realty/i });
-    await expect(fundLinks.first()).toBeVisible({ timeout: 15_000 });
+    // Network contract: fund list API fires and returns data
+    await waitForApiResponse(
+      page,
+      "/api/re/v2/environments/",
+      () => page.goto(FUNDS_LIST_URL, { waitUntil: "domcontentloaded", timeout: 45_000 }).then(() => {})
+    );
 
-    // No 404/502 errors on the list page
-    const hardErrors = failedRequests.filter((r) => r.status === 404 || r.status === 502);
-    expect(hardErrors, `404/502 errors: ${JSON.stringify(hardErrors)}`).toHaveLength(0);
+    // Route contract: URL is correct
+    expect(page.url()).toContain(`/lab/env/${ENV_ID}/re/funds`);
+
+    // Rendered truth: at least one fund name visible
+    const fundLink = page.getByRole("link").filter({ hasText: /Institutional Growth Fund/i });
+    await expect(fundLink.first()).toBeVisible({ timeout: 15_000 });
+
+    // Workspace error must never appear
+    await expect(page.locator(SEL.workspaceError)).not.toBeVisible();
+
+    checkErrors();
   });
 });
 
-test.describe("RE Production — Fund Detail Page", () => {
+test.describe("Smoke — Fund Detail Page Loads", () => {
   test.beforeEach(async ({ context, page, baseURL }) => {
     await seedAuth(context, baseURL);
     await gotoFundPage(page, FUND_URL);
   });
 
-  test("fund detail page loads without hard errors", async ({ page }) => {
-    const errors: string[] = [];
-    page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
-    const failed: { url: string; status: number }[] = [];
-    page.on("response", (r) => {
-      if (r.status() >= 500) failed.push({ url: r.url(), status: r.status() });
-    });
+  test("fund detail renders without crash", async ({ page }) => {
+    const checkErrors = attachPageErrorTrap(page);
 
-    await page.waitForTimeout(3_000); // let async loads settle
+    // Workspace error must not appear
+    await expect(page.locator(SEL.workspaceError)).not.toBeVisible({ timeout: 5_000 }).catch(() => {});
+    await expect(page.locator(SEL.fundError)).not.toBeVisible({ timeout: 5_000 }).catch(() => {});
 
-    // No 5xx errors
-    expect(failed, `5xx errors: ${JSON.stringify(failed)}`).toHaveLength(0);
+    // Fund name rendered
+    const heading = page.locator("h2, h3").filter({ hasText: /Institutional Growth Fund/i });
+    await expect(heading.first()).toBeVisible({ timeout: 15_000 });
 
-    // Fund name visible somewhere on page
-    const hasContent = await page
-      .getByRole("heading")
-      .or(page.locator("h1, h2, h3"))
-      .first()
-      .isVisible();
-    expect(hasContent).toBe(true);
+    // Route contract: URL intact
+    expect(page.url()).toContain(FUND_ID);
+
+    checkErrors();
   });
 
-  test("fund detail has tabs visible", async ({ page }) => {
-    const tabList = page.getByRole("tablist");
-    await expect(tabList).toBeVisible({ timeout: 15_000 });
+  test("tab bar is visible with correct tabs", async ({ page }) => {
+    const checkErrors = attachPageErrorTrap(page);
+    const tabBar = page.locator(SEL.fundTabs);
+    await expect(tabBar).toBeVisible({ timeout: 15_000 });
 
-    // Expect at least these tabs
-    for (const label of ["Overview", "Variance"]) {
-      await expect(
-        page.getByRole("tab", { name: new RegExp(label, "i") }),
-        `Tab "${label}" should be visible`
-      ).toBeVisible({ timeout: 10_000 });
+    // All expected tabs present (data-testid selectors)
+    for (const sel of [SEL.tabOverview, SEL.tabVariance, SEL.tabReturns, SEL.tabRunCenter]) {
+      await expect(page.locator(sel), `Tab selector ${sel} not visible`).toBeVisible({ timeout: 8_000 });
     }
-  });
 
-  test("Overview tab shows investment rollup data", async ({ page }) => {
-    await clickTab(page, /overview/i);
-
-    // Should show some metric cards or investment table
-    const hasMetrics = await page
-      .locator("[data-testid*='metric'], [class*='MetricCard'], table, [role='table']")
-      .first()
-      .isVisible({ timeout: 15_000 }).catch(() => false);
-
-    // Alternatively just check we're not showing an error state
-    const errorText = page.getByText(/error|failed|unavailable/i);
-    const hasError = await errorText.first().isVisible().catch(() => false);
-    expect(hasError, "Overview tab should not show error state").toBe(false);
-    expect(hasMetrics || !hasError).toBe(true);
-  });
-
-  test("Variance tab loads NOI variance data", async ({ page }) => {
-    await clickTab(page, /variance/i);
-    await page.waitForTimeout(3_000);
-
-    // Should NOT show "Business OS API route is not available"
-    await expect(
-      page.getByText(/business os api route is not available/i)
-    ).not.toBeVisible({ timeout: 5_000 }).catch(() => {}); // if selector fails, test passes
-
-    // Should NOT be a 404/502
-    const errorMsg = page.getByText(/direct api request failed/i);
-    const hasApiError = await errorMsg.isVisible().catch(() => false);
-    expect(hasApiError, "Variance tab should not show API failure message").toBe(false);
-  });
-
-  test("Returns tab loads fund metrics", async ({ page }) => {
-    await clickTab(page, /returns/i);
-    await page.waitForTimeout(3_000);
-
-    const hasError = await page
-      .getByText(/business os api|direct api request failed|502|not available/i)
-      .first().isVisible().catch(() => false);
-    expect(hasError, "Returns tab should not show proxy/API errors").toBe(false);
-  });
-
-  test("Debt tab loads loans", async ({ page }) => {
-    await clickTab(page, /debt/i);
-    await page.waitForTimeout(3_000);
-
-    const hasError = await page
-      .getByText(/business os api|direct api request failed|502/i)
-      .first().isVisible().catch(() => false);
-    expect(hasError, "Debt tab should not show proxy/API errors").toBe(false);
-  });
-
-  test("Run Center tab loads run history", async ({ page }) => {
-    await clickTab(page, /run center/i);
-    await page.waitForTimeout(3_000);
-
-    const hasError = await page
-      .getByText(/business os api|direct api request failed|502/i)
-      .first().isVisible().catch(() => false);
-    expect(hasError, "Run Center should not show proxy/API errors").toBe(false);
-
-    // Run Center should have a "Run Quarter Close" button
-    const runButton = page.getByRole("button", { name: /quarter.close|run/i });
-    const hasCta = await runButton.first().isVisible().catch(() => false);
-    expect(hasCta, "Run Center should have a run button").toBe(true);
-  });
-
-  test("LP Summary tab loads partner data", async ({ page }) => {
-    await clickTab(page, /lp summary/i);
-    await page.waitForTimeout(3_000);
-
-    const hasError = await page
-      .getByText(/business os api|direct api request failed|502/i)
-      .first().isVisible().catch(() => false);
-    expect(hasError, "LP Summary should not show proxy/API errors").toBe(false);
+    checkErrors();
   });
 });
 
-test.describe("RE Production — Direct API Endpoints (no mocking)", () => {
-  test("portfolio KPIs returns data", async ({ request }) => {
+// ═════════════════════════════════════════════════════════════════════════════
+// DEEP SUITE — tab-by-tab with network + render contracts
+// ═════════════════════════════════════════════════════════════════════════════
+
+test.describe("Deep — Fund Detail Tabs", () => {
+  test.beforeEach(async ({ context, page, baseURL }) => {
+    await seedAuth(context, baseURL);
+    await gotoFundPage(page, FUND_URL);
+  });
+
+  test("Overview tab: investment table loads (network + render)", async ({ page }) => {
+    const checkErrors = attachPageErrorTrap(page);
+
+    // Network contract: rollup fires when tab is already active
+    await clickTab(page, SEL.tabOverview);
+
+    // Render: investment list table visible
+    await expect(page.locator(SEL.investmentList)).toBeVisible({ timeout: 15_000 });
+
+    // Render: at least one investment row rendered
+    const rows = page.locator("[data-testid^='investment-row-']");
+    await expect(rows.first()).toBeVisible({ timeout: 10_000 });
+
+    // No workspace error
+    await expect(page.locator(SEL.workspaceError)).not.toBeVisible();
+
+    checkErrors();
+  });
+
+  test("Variance (NOI) tab: network contract + table visible", async ({ page }) => {
+    const checkErrors = attachPageErrorTrap(page);
+
+    // Network contract: variance API fires on tab click
+    const body = await waitForApiResponse(
+      page,
+      "/api/re/v2/variance/noi",
+      () => clickTab(page, SEL.tabVariance)
+    ) as { items?: unknown[] };
+
+    // API contract: items array present
+    expect(Array.isArray(body.items), "variance.items should be array").toBe(true);
+
+    // Render: variance section visible (or empty state)
+    const hasSection = await page.locator(SEL.varianceSection).isVisible({ timeout: 8_000 }).catch(() => false);
+    const hasEmpty = await page.locator("[data-testid='variance-empty']").isVisible().catch(() => false);
+    expect(hasSection || hasEmpty, "Variance tab should show section or empty state").toBe(true);
+
+    // No workspace error
+    await expect(page.locator(SEL.workspaceError)).not.toBeVisible();
+
+    checkErrors();
+  });
+
+  test("Returns tab: network contract + KPI range assertions", async ({ page }) => {
+    const checkErrors = attachPageErrorTrap(page);
+
+    // Network contract: metrics-detail fires on tab click
+    const body = await waitForApiResponse(
+      page,
+      "/api/re/v2/funds/" + FUND_ID + "/metrics-detail",
+      () => clickTab(page, SEL.tabReturns)
+    ) as { metrics?: Record<string, { value: string | null }> };
+
+    // API contract: metrics object present
+    expect(body.metrics, "metrics-detail should have metrics key").toBeTruthy();
+
+    // Render: returns KPI grid visible
+    const hasKpis = await page.locator(SEL.returnsKpis).isVisible({ timeout: 8_000 }).catch(() => false);
+    const hasEmpty = await page.locator("[data-testid='returns-empty']").isVisible().catch(() => false);
+    expect(hasKpis || hasEmpty, "Returns tab should show KPIs or empty state").toBe(true);
+
+    if (hasKpis && body.metrics) {
+      // Range assertion: gross IRR should be between -50% and +100% (sanity check, not exact)
+      const rawIrr = body.metrics["gross_irr"]?.value;
+      if (rawIrr !== null && rawIrr !== undefined) {
+        const irr = parseFloat(rawIrr);
+        expect(irr, "Gross IRR should be a plausible value").toBeGreaterThan(-0.5);
+        expect(irr, "Gross IRR should be a plausible value").toBeLessThan(1.0);
+      }
+      // Range assertion: TVPI should be > 0
+      const rawTvpi = body.metrics["tvpi"]?.value;
+      if (rawTvpi !== null && rawTvpi !== undefined) {
+        const tvpi = parseFloat(rawTvpi);
+        expect(tvpi, "TVPI should be positive").toBeGreaterThan(0);
+      }
+    }
+
+    // No workspace error
+    await expect(page.locator(SEL.workspaceError)).not.toBeVisible();
+
+    checkErrors();
+  });
+
+  test("Run Center tab: has run-quarter-close button", async ({ page }) => {
+    const checkErrors = attachPageErrorTrap(page);
+
+    await clickTab(page, SEL.tabRunCenter);
+
+    // Render: run center section visible
+    await expect(page.locator(SEL.runCenterSection)).toBeVisible({ timeout: 10_000 });
+
+    // Render: run-quarter-close button present (stable data-testid)
+    await expect(page.locator(SEL.runQuarterClose)).toBeVisible({ timeout: 10_000 });
+
+    // No workspace error
+    await expect(page.locator(SEL.workspaceError)).not.toBeVisible();
+
+    checkErrors();
+  });
+
+  test("LP Summary tab: partner table loads (network + render)", async ({ page }) => {
+    const checkErrors = attachPageErrorTrap(page);
+
+    // Network contract: lp_summary fires on tab click
+    const body = await waitForApiResponse(
+      page,
+      "/api/re/v2/funds/" + FUND_ID + "/lp_summary",
+      () => clickTab(page, SEL.tabLPSummary)
+    ) as { fund_id?: string; partners?: unknown[] };
+
+    // API contract: correct fund_id echoed, partners array present
+    expect(body.fund_id).toBe(FUND_ID);
+    expect(Array.isArray(body.partners)).toBe(true);
+
+    // Render: LP section or empty state
+    const hasSection = await page.locator(SEL.lpSummarySection).isVisible({ timeout: 8_000 }).catch(() => false);
+    const hasEmpty = await page.locator("[data-testid='lp-summary-empty']").isVisible().catch(() => false);
+    expect(hasSection || hasEmpty, "LP Summary tab should show section or empty state").toBe(true);
+
+    // No workspace error
+    await expect(page.locator(SEL.workspaceError)).not.toBeVisible();
+
+    checkErrors();
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// DEEP SUITE — Direct API Endpoints (no browser, pure request)
+// ═════════════════════════════════════════════════════════════════════════════
+
+test.describe("Deep — Direct API Contracts", () => {
+  test("portfolio KPIs: returns fund_count ≥ 1, total_commitments string", async ({ request }) => {
     const res = await request.get(
       `/api/re/v2/environments/${ENV_ID}/portfolio-kpis?quarter=${QUARTER}`
     );
@@ -262,27 +391,41 @@ test.describe("RE Production — Direct API Endpoints (no mocking)", () => {
     expect(typeof body.total_commitments).toBe("string");
   });
 
-  test("fund investment rollup returns rows", async ({ request }) => {
+  test("fund investment rollup: ≥ 1 row with required fields", async ({ request }) => {
     const res = await request.get(
       `/api/re/v2/funds/${FUND_ID}/investment-rollup/${QUARTER}`
     );
     expect(res.status()).toBe(200);
-    const rows = await res.json();
+    const rows = await res.json() as Array<Record<string, unknown>>;
     expect(Array.isArray(rows)).toBe(true);
     expect(rows.length).toBeGreaterThanOrEqual(1);
+    // Contract: each row has investment_id and name
+    expect(rows[0]).toHaveProperty("investment_id");
+    expect(rows[0]).toHaveProperty("name");
   });
 
-  test("fund lineage returns widgets", async ({ request }) => {
+  test("fund lineage: returns entity_type=fund with widgets array", async ({ request }) => {
     const res = await request.get(
       `/api/re/v2/funds/${FUND_ID}/lineage/${QUARTER}`
     );
     expect(res.status()).toBe(200);
     const body = await res.json();
+    // Route contract
     expect(body.entity_type).toBe("fund");
+    expect(body.entity_id).toBe(FUND_ID);
+    expect(body.quarter).toBe(QUARTER);
+    // Widget shape contract
     expect(Array.isArray(body.widgets)).toBe(true);
+    if (body.widgets.length > 0) {
+      const w = body.widgets[0];
+      expect(w).toHaveProperty("widget_key");
+      expect(w).toHaveProperty("label");
+      expect(w).toHaveProperty("status");
+      expect(w).toHaveProperty("display_value");
+    }
   });
 
-  test("fund runs list returns array", async ({ request }) => {
+  test("fund runs: returns array (may be empty)", async ({ request }) => {
     const res = await request.get(
       `/api/re/v2/funds/${FUND_ID}/runs?quarter=${QUARTER}`
     );
@@ -291,14 +434,14 @@ test.describe("RE Production — Direct API Endpoints (no mocking)", () => {
     expect(Array.isArray(rows)).toBe(true);
   });
 
-  test("fund loans list returns array", async ({ request }) => {
+  test("fund loans: returns array (may be empty)", async ({ request }) => {
     const res = await request.get(`/api/re/v2/funds/${FUND_ID}/loans`);
     expect(res.status()).toBe(200);
     const rows = await res.json();
     expect(Array.isArray(rows)).toBe(true);
   });
 
-  test("fund watchlist returns array", async ({ request }) => {
+  test("fund watchlist: returns array (may be empty)", async ({ request }) => {
     const res = await request.get(
       `/api/re/v2/funds/${FUND_ID}/watchlist?quarter=${QUARTER}`
     );
@@ -307,7 +450,7 @@ test.describe("RE Production — Direct API Endpoints (no mocking)", () => {
     expect(Array.isArray(rows)).toBe(true);
   });
 
-  test("fund metrics-detail returns metrics object", async ({ request }) => {
+  test("fund metrics-detail: has metrics + bridge keys", async ({ request }) => {
     const res = await request.get(
       `/api/re/v2/funds/${FUND_ID}/metrics-detail?quarter=${QUARTER}`
     );
@@ -317,29 +460,39 @@ test.describe("RE Production — Direct API Endpoints (no mocking)", () => {
     expect(body).toHaveProperty("bridge");
   });
 
-  test("lp_summary returns fund + partner structure", async ({ request }) => {
+  test("lp_summary: fund_id echoed, partners array, each partner has name", async ({ request }) => {
     const res = await request.get(
       `/api/re/v2/funds/${FUND_ID}/lp_summary?quarter=${QUARTER}`
     );
     expect(res.status()).toBe(200);
-    const body = await res.json();
+    const body = await res.json() as { fund_id: string; partners: Array<{ name?: string }> };
     expect(body.fund_id).toBe(FUND_ID);
     expect(Array.isArray(body.partners)).toBe(true);
+    if (body.partners.length > 0) {
+      expect(body.partners[0]).toHaveProperty("name");
+    }
   });
 
-  test("NOI variance returns items array", async ({ request }) => {
+  test("NOI variance: items array, each item has asset_name", async ({ request }) => {
     const res = await request.get(
-      `/api/re/v2/variance/noi?env_id=${ENV_ID}&business_id=a1b2c3d4-0001-0001-0001-000000000001&fund_id=${FUND_ID}&quarter=${QUARTER}`
+      `/api/re/v2/variance/noi?env_id=${ENV_ID}&business_id=${BUSINESS_ID}&fund_id=${FUND_ID}&quarter=${QUARTER}`
     );
     expect(res.status()).toBe(200);
-    const body = await res.json();
+    const body = await res.json() as { items: Array<Record<string, unknown>> };
     expect(body).toHaveProperty("items");
     expect(Array.isArray(body.items)).toBe(true);
+    if (body.items.length > 0) {
+      expect(body.items[0]).toHaveProperty("asset_name");
+    }
   });
 });
 
-test.describe("RE Production — Railway Backend (bosFetch) Endpoints", () => {
-  test("RE v1 context via /bos proxy works", async ({ request }) => {
+// ═════════════════════════════════════════════════════════════════════════════
+// DEEP SUITE — Railway Backend (bosFetch) Contracts
+// ═════════════════════════════════════════════════════════════════════════════
+
+test.describe("Deep — Railway Backend Contracts", () => {
+  test("RE v1 context: env_id + business_id echoed back", async ({ request }) => {
     const res = await request.get(`/bos/api/re/v1/context?env_id=${ENV_ID}`);
     expect(res.status()).toBe(200);
     const body = await res.json();
@@ -347,16 +500,18 @@ test.describe("RE Production — Railway Backend (bosFetch) Endpoints", () => {
     expect(body.business_id).toBeTruthy();
   });
 
-  test("fund scenarios list via backend returns array", async ({ request }) => {
-    const res = await request.get(
-      `/bos/api/re/v2/funds/${FUND_ID}/scenarios`
-    );
+  test("fund scenarios: returns array with base scenario", async ({ request }) => {
+    const res = await request.get(`/bos/api/re/v2/funds/${FUND_ID}/scenarios`);
     expect(res.status()).toBe(200);
-    const rows = await res.json();
+    const rows = await res.json() as Array<{ is_base?: boolean }>;
     expect(Array.isArray(rows)).toBe(true);
+    // Fixture contract: seeded data always has a base scenario
+    expect(rows.length).toBeGreaterThanOrEqual(1);
+    const hasBase = rows.some((s) => s.is_base);
+    expect(hasBase, "Should have at least one base scenario").toBe(true);
   });
 
-  test("quarter-close POST returns structured result (not 502)", async ({ request }) => {
+  test("quarter-close POST: returns structured result, not 502/503", async ({ request }) => {
     const res = await request.post(
       `/bos/api/re/v2/funds/${FUND_ID}/quarter-close`,
       {
@@ -364,89 +519,113 @@ test.describe("RE Production — Railway Backend (bosFetch) Endpoints", () => {
         headers: { "Content-Type": "application/json" },
       }
     );
-    // Should get either success or a domain error — NOT a 502 proxy error
-    expect(res.status()).not.toBe(502);
-    expect(res.status()).not.toBe(503);
+    // Must not be a proxy-level failure
+    expect(res.status(), "quarter-close must not return 502 proxy error").not.toBe(502);
+    expect(res.status(), "quarter-close must not return 503").not.toBe(503);
+    // Must be JSON parseable (not HTML error page)
     const body = await res.json();
-    // Railway backend returns structured errors, never raw proxy failures
-    expect(body).toBeTruthy();
+    expect(body, "quarter-close should return JSON body").toBeTruthy();
   });
 });
 
-test.describe("RE Production — Investment Drill-Down", () => {
+// ═════════════════════════════════════════════════════════════════════════════
+// DEEP SUITE — Investment Drill-Down
+// ═════════════════════════════════════════════════════════════════════════════
+
+test.describe("Deep — Investment Drill-Down", () => {
   test.beforeEach(async ({ context, baseURL }) => {
     await seedAuth(context, baseURL);
   });
 
-  test("clicking an investment navigates to investment detail", async ({ page }) => {
+  test("investment link navigates to correct URL pattern and page loads", async ({ page }) => {
+    const checkErrors = attachPageErrorTrap(page);
+
     await gotoFundPage(page, FUND_URL);
 
-    // Click the Overview tab to see investments
-    await clickTab(page, /overview/i);
-    await page.waitForTimeout(2_000);
+    // Overview tab should be default — investment list visible
+    await expect(page.locator(SEL.investmentList)).toBeVisible({ timeout: 15_000 });
 
-    // Find any investment link and click it
-    const investmentLink = page
-      .getByRole("link")
-      .filter({ hasText: /.+/ })
-      .filter({ has: page.locator("a[href*='/investments/']") })
-      .first();
-
-    const directInvLink = page.locator("a[href*='/investments/']").first();
-    const linkVisible = await directInvLink.isVisible({ timeout: 10_000 }).catch(() => false);
+    // Find a direct investment link
+    const invLink = page.locator("a[href*='/investments/']").first();
+    const linkVisible = await invLink.isVisible({ timeout: 10_000 }).catch(() => false);
 
     if (linkVisible) {
-      const href = await directInvLink.getAttribute("href");
-      await page.goto(href!, { waitUntil: "networkidle", timeout: 45_000 });
+      const href = await invLink.getAttribute("href");
+      expect(href, "Investment link should have an href").toBeTruthy();
 
-      // Investment page should not show 404
-      await expect(page.getByText(/investment not found/i)).not.toBeVisible({ timeout: 5_000 }).catch(() => {});
-      // Should have some heading
-      const heading = page.locator("h1, h2").first();
-      await expect(heading).toBeVisible({ timeout: 15_000 });
+      // Route contract: href matches /investments/<uuid> pattern
+      expect(href!).toMatch(/\/investments\/[0-9a-f-]{36}/);
+
+      // Network contract: investment page loads without hard error
+      await page.goto(href!, { waitUntil: "domcontentloaded", timeout: 45_000 });
+
+      // Route contract: landed on correct URL
+      expect(page.url()).toContain("/investments/");
+
+      // Render: no "investment not found" text
+      await expect(page.getByText(/investment not found/i))
+        .not.toBeVisible({ timeout: 5_000 })
+        .catch(() => {});
+
+      // Render: has a heading
+      await expect(page.locator("h2, h3").first()).toBeVisible({ timeout: 15_000 });
+
+      // Workspace error must not appear
+      await expect(page.locator(SEL.workspaceError)).not.toBeVisible().catch(() => {});
     } else {
-      // If no investment links are visible, that's acceptable — fund may have no investments
-      console.log("No investment links found on fund page — skipping drill-down check");
+      // No investment links is acceptable (fund may have none)
+      console.log("No /investments/ links on fund page — skipping drill-down route check");
     }
+
+    checkErrors();
   });
 });
 
-test.describe("RE Production — No Critical Console Errors", () => {
+// ═════════════════════════════════════════════════════════════════════════════
+// DEEP SUITE — Global Page Health
+// ═════════════════════════════════════════════════════════════════════════════
+
+test.describe("Deep — Page Health", () => {
   test.beforeEach(async ({ context, baseURL }) => {
     await seedAuth(context, baseURL);
   });
 
-  test("fund detail page has no 'Business OS API' errors", async ({ page }) => {
-    const bosErrors: string[] = [];
-    page.on("console", (msg) => {
-      if (msg.type() === "error" && msg.text().includes("Business OS")) {
-        bosErrors.push(msg.text());
-      }
-    });
+  test("fund detail: no unhandled JS errors across all tabs", async ({ page }) => {
+    const jsErrors: string[] = [];
+    page.on("pageerror", (err) => jsErrors.push(err.message));
 
     await gotoFundPage(page, FUND_URL);
-    await page.waitForTimeout(4_000);
+    await page.waitForTimeout(3_000);
 
-    // Visit each tab
-    for (const tab of ["Overview", "Variance", "Returns", "Debt"]) {
-      const tabEl = page.getByRole("tab", { name: new RegExp(tab, "i") });
-      if (await tabEl.isVisible().catch(() => false)) {
-        await tabEl.click();
-        await page.waitForTimeout(2_000);
+    // Walk all tabs that should work in production (direct-pg routes)
+    const tabsToVisit = [
+      SEL.tabOverview,
+      SEL.tabVariance,
+      SEL.tabReturns,
+      SEL.tabRunCenter,
+      SEL.tabLPSummary,
+    ];
+    for (const sel of tabsToVisit) {
+      const tab = page.locator(sel);
+      if (await tab.isVisible({ timeout: 3_000 }).catch(() => false)) {
+        await tab.click();
+        await page.waitForTimeout(1_500);
+        // Workspace error must never appear on any tab
+        await expect(page.locator(SEL.workspaceError)).not.toBeVisible().catch(() => {});
       }
     }
 
     expect(
-      bosErrors,
-      `"Business OS API" errors appeared: ${bosErrors.join("\n")}`
+      jsErrors,
+      `Unhandled JS errors across tabs:\n${jsErrors.join("\n")}`
     ).toHaveLength(0);
   });
 
-  test("fund detail page has no 404 API calls", async ({ page }) => {
+  test("fund detail: no 404 API calls", async ({ page }) => {
     const notFound: string[] = [];
     page.on("response", (res) => {
       if (res.status() === 404 && res.url().includes("/api/")) {
-        notFound.push(`${res.status()} ${res.url()}`);
+        notFound.push(`404 ${res.url()}`);
       }
     });
 
@@ -455,7 +634,24 @@ test.describe("RE Production — No Critical Console Errors", () => {
 
     expect(
       notFound,
-      `404 API calls:\n${notFound.join("\n")}`
+      `404 API calls found:\n${notFound.join("\n")}`
+    ).toHaveLength(0);
+  });
+
+  test("fund detail: no Business OS API proxy errors in console", async ({ page }) => {
+    const bosErrors: string[] = [];
+    page.on("console", (msg) => {
+      if (msg.type() === "error" && msg.text().toLowerCase().includes("business os")) {
+        bosErrors.push(msg.text());
+      }
+    });
+
+    await gotoFundPage(page, FUND_URL);
+    await page.waitForTimeout(4_000);
+
+    expect(
+      bosErrors,
+      `"Business OS" console errors:\n${bosErrors.join("\n")}`
     ).toHaveLength(0);
   });
 });

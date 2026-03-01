@@ -15,7 +15,7 @@ export default function ReError({
   }, [error]);
 
   return (
-    <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-6 space-y-4">
+    <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-6 space-y-4" data-testid="workspace-error">
       <h2 className="text-lg font-semibold text-red-300">Real Estate workspace error</h2>
       <p className="text-sm text-bm-muted2 font-mono break-all">{error.message || "Unknown error"}</p>
       {error.digest && (
