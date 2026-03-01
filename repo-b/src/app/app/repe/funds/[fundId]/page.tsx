@@ -160,6 +160,12 @@ export default function RepeFundDetailPage({ params }: { params: { fundId: strin
             </p>
           </div>
           <div className="flex gap-2">
+            <Link
+              href={`${basePath}/sustainability?section=portfolio-footprint&fundId=${params.fundId}`}
+              className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
+            >
+              Sustainability
+            </Link>
             <button
               onClick={handleQuarterClose}
               disabled={closing}

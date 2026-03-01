@@ -12,6 +12,7 @@ from app.services import re_rollup
 from app.services import re_metrics
 from app.services import re_capital_ledger
 from app.services import re_scenario
+from app.services import re_sustainability
 from app.services import re_waterfall_runtime
 
 
@@ -405,6 +406,23 @@ def _compute_asset_state(
     if noi_stress_pct:
         noi = (noi * (Decimal("1") - (_d(noi_stress_pct) / Decimal("100")))).quantize(Decimal("0.01"))
 
+    sustainability = re_sustainability.compute_asset_adjustments(
+        asset_id=asset_id,
+        quarter=quarter,
+        scenario_id=scenario_id,
+    )
+    opex = (
+        opex
+        + _d(sustainability.get("utility_opex_delta"))
+        + _d(sustainability.get("carbon_penalty_delta"))
+        + _d(sustainability.get("regulatory_penalty_delta"))
+    ).quantize(Decimal("0.01"))
+    capex = (capex + _d(sustainability.get("project_capex_delta"))).quantize(Decimal("0.01"))
+    noi = (effective_revenue - opex + _d(sustainability.get("stabilized_noi_delta"))).quantize(Decimal("0.01"))
+    cap_rate_delta_bps = (_d(cap_rate_delta_bps) + _d(sustainability.get("exit_cap_rate_delta_bps"))).quantize(Decimal("0.01"))
+    if sustainability.get("sustainability_inputs_hash"):
+        value_source = "scenario_override_sustainability" if assumptions else "sustainability_adjusted"
+
     if loan:
         debt_balance = _d(loan.get("current_balance"))
         if debt_service <= 0 and loan.get("coupon"):
@@ -458,6 +476,7 @@ def _compute_asset_state(
         "asset_value": str(asset_value),
         "valuation_method": valuation_method,
         "value_source": value_source,
+        "sustainability_inputs_hash": sustainability.get("sustainability_inputs_hash"),
     })
 
     cur.execute(

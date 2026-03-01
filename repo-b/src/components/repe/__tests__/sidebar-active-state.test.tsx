@@ -22,6 +22,7 @@ describe("Sidebar active state", () => {
     { href: `${base}/assets`, label: "Assets", isBase: false },
     { href: `${base}/scenarios`, label: "Scenarios", isBase: false },
     { href: `${base}/runs/quarter-close`, label: "Run Center", isBase: false },
+    { href: `${base}/sustainability`, label: "Sustainability", isBase: false },
   ];
 
   function getActiveLabel(pathname: string): string | null {
@@ -65,6 +66,11 @@ describe("Sidebar active state", () => {
     expect(active).toEqual(["Run Center"]);
   });
 
+  it("Sustainability route highlights Sustainability only", () => {
+    const active = getActiveLabels(`${base}/sustainability`);
+    expect(active).toEqual(["Sustainability"]);
+  });
+
   it("Base route highlights Funds", () => {
     const active = getActiveLabels(base);
     expect(active).toEqual(["Funds"]);
@@ -79,5 +85,10 @@ describe("Sidebar active state", () => {
     const active = getActiveLabels(`${base}/funds/some-uuid`);
     expect(active).not.toContain("Investments");
     expect(active).not.toContain("Assets");
+  });
+
+  it("Sustainability route does NOT highlight Funds", () => {
+    const active = getActiveLabels(`${base}/sustainability`);
+    expect(active).not.toContain("Funds");
   });
 });

@@ -20,7 +20,7 @@ import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import { EntityLineagePanel } from "@/components/repe/EntityLineagePanel";
 import RepeEntityDocuments from "@/components/repe/RepeEntityDocuments";
 
-const TABS = ["Overview", "Assets", "Performance", "Cash Flows", "Documents"] as const;
+const TABS = ["Overview", "Assets", "Performance", "Cash Flows", "Sustainability", "Documents"] as const;
 type TabKey = (typeof TABS)[number];
 
 function pickQ(): string {
@@ -150,6 +150,15 @@ export default function InvestmentHomePage({
     if (!nav || !invested) return null;
     return nav / invested;
   }, [state?.nav, inv?.invested_capital]);
+  const propertyAssets = useMemo(
+    () => assets.filter((asset) => String(asset.asset_type || "").toLowerCase() === "property"),
+    [assets]
+  );
+  const sustainabilityAsset = propertyAssets[0] || null;
+  const sustainabilityHref =
+    inv == null
+      ? `${base}/sustainability`
+      : `${base}/sustainability?section=${sustainabilityAsset ? "asset-sustainability" : "portfolio-footprint"}&fundId=${inv.fund_id}&investmentId=${inv.investment_id}${sustainabilityAsset ? `&assetId=${sustainabilityAsset.asset_id}` : ""}`;
 
   if (loading) return <div className="p-6 text-sm text-bm-muted2">Loading investment...</div>;
   if (error || !inv) {
@@ -176,6 +185,12 @@ export default function InvestmentHomePage({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Link
+              href={sustainabilityHref}
+              className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
+            >
+              Sustainability
+            </Link>
             <button
               type="button"
               onClick={() => setLineageOpen(true)}
@@ -423,6 +438,59 @@ export default function InvestmentHomePage({
               Exit scenarios are derived from asset-level assumptions and surface through the quarter-state lineage.
               Use the Lineage panel to trace current NAV back to asset cash flow and valuation inputs.
             </p>
+          </div>
+        </div>
+      ) : null}
+
+      {tab === "Sustainability" ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Sustainability Module</h2>
+            {propertyAssets.length > 0 ? (
+              <>
+                <p className="mt-2 text-sm text-bm-muted2">
+                  This investment has {propertyAssets.length} property asset{propertyAssets.length === 1 ? "" : "s"} eligible for footprint, utility, and decarbonization analysis.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Link
+                    href={sustainabilityHref}
+                    className="rounded-lg bg-bm-accent px-4 py-2 text-sm text-white hover:bg-bm-accent/90"
+                  >
+                    Open Sustainability Workspace
+                  </Link>
+                  <Link
+                    href={`${base}/sustainability?section=portfolio-footprint&fundId=${inv.fund_id}&investmentId=${inv.investment_id}`}
+                    className="rounded-lg border border-bm-border px-4 py-2 text-sm hover:bg-bm-surface/40"
+                  >
+                    View Investment Footprint
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-bm-muted2">
+                Not applicable. This investment currently has no physical property assets, so sustainability analytics are excluded from portfolio footprint denominators.
+              </p>
+            )}
+          </div>
+          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Eligible Assets</h2>
+            <div className="mt-3 space-y-2">
+              {propertyAssets.length === 0 ? (
+                <p className="text-sm text-bm-muted2">No physical property assets are linked to this investment.</p>
+              ) : (
+                propertyAssets.map((asset) => (
+                  <div key={asset.asset_id} className="flex items-center justify-between rounded-lg border border-bm-border/60 px-3 py-2 text-sm">
+                    <span className="font-medium">{asset.name}</span>
+                    <Link
+                      href={`${base}/sustainability?section=asset-sustainability&fundId=${inv.fund_id}&investmentId=${inv.investment_id}&assetId=${asset.asset_id}`}
+                      className="text-bm-accent hover:underline"
+                    >
+                      Open
+                    </Link>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       ) : null}

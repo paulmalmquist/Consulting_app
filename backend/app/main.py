@@ -36,6 +36,7 @@ from app.routes import (
     re_v1_funds,
     re_v2,
     re_financial_intelligence,
+    re_sustainability,
     pds,
     credit,
     legal_ops,
@@ -122,6 +123,7 @@ app.include_router(re_v1_context.router)
 app.include_router(re_v1_funds.router)
 app.include_router(re_v2.router)
 app.include_router(re_financial_intelligence.router)
+app.include_router(re_sustainability.router)
 app.include_router(pds.router)
 app.include_router(credit.router)
 app.include_router(legal_ops.router)

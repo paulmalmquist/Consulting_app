@@ -15,6 +15,8 @@
     "test:repe:full": "npm run test:unit && npm run test:repe:e2e",
     "test:qa-reports": "playwright test tests/reports-qa.spec.ts --config=playwright.local.config.ts",
     "qa:loop": "node scripts/qa_loop.mjs",
+    "test:prod": "playwright test tests/production/re-production.spec.ts --config=playwright.production.config.ts --project=chromium",
+    "prod:loop": "node scripts/production-loop.mjs",
     "db:dry": "node db/schema/apply.js --dry-run",
     "db:apply": "NODE_TLS_REJECT_UNAUTHORIZED=0 node db/schema/apply.js",
     "db:verify": "NODE_TLS_REJECT_UNAUTHORIZED=0 node db/schema/verify.js",

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Building2, Landmark, PlusCircle } from "lucide-react";
 import {
@@ -39,6 +39,7 @@ function parsePathId(pathname: string, segment: string): string | null {
 export default function RepeWorkspaceShell({ children, envId, isAdmin = false }: { children: React.ReactNode; envId?: string; isAdmin?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { environment, businessId, loading, error, errorCode, requestId, retry } = useReEnv();
 
   const base = envId ? `/lab/env/${envId}/re` : "/app/repe";
@@ -50,6 +51,7 @@ export default function RepeWorkspaceShell({ children, envId, isAdmin = false }:
       { href: `${base}/assets`, label: "Assets", isBase: false },
       { href: `${base}/scenarios`, label: "Scenarios", isBase: false },
       { href: `${base}/runs/quarter-close`, label: "Run Center", isBase: false },
+      { href: `${base}/sustainability`, label: "Sustainability", isBase: false },
     ],
     [base]
   );
@@ -72,6 +74,34 @@ export default function RepeWorkspaceShell({ children, envId, isAdmin = false }:
   const activeDealId = pathDealId || selectorDealId;
   const activeJvId = pathJvId || selectorJvId;
   const activeAssetId = pathAssetId || selectorAssetId;
+  const inSustainability = pathname.startsWith(`${base}/sustainability`);
+
+  function pushSustainabilityWith(next: {
+    fundId?: string;
+    investmentId?: string;
+    jvId?: string;
+    assetId?: string;
+  }) {
+    const params = new URLSearchParams(searchParams?.toString() || "");
+    if (next.fundId !== undefined) {
+      if (next.fundId) params.set("fundId", next.fundId);
+      else params.delete("fundId");
+    }
+    if (next.investmentId !== undefined) {
+      if (next.investmentId) params.set("investmentId", next.investmentId);
+      else params.delete("investmentId");
+    }
+    if (next.jvId !== undefined) {
+      if (next.jvId) params.set("jvId", next.jvId);
+      else params.delete("jvId");
+    }
+    if (next.assetId !== undefined) {
+      if (next.assetId) params.set("assetId", next.assetId);
+      else params.delete("assetId");
+    }
+    const query = params.toString();
+    router.push(query ? `${base}/sustainability?${query}` : `${base}/sustainability`);
+  }
 
   // Load funds
   useEffect(() => {
@@ -197,7 +227,15 @@ export default function RepeWorkspaceShell({ children, envId, isAdmin = false }:
           <label className="text-xs text-bm-muted2 uppercase tracking-[0.1em]">
             Fund
             <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm"
-              value={activeFundId || ""} onChange={(e) => { setSelectorFundId(e.target.value); if (e.target.value) router.push(`${base}/funds/${e.target.value}`); }}>
+              value={activeFundId || ""} onChange={(e) => {
+                setSelectorFundId(e.target.value);
+                if (!e.target.value) return;
+                if (inSustainability) {
+                  pushSustainabilityWith({ fundId: e.target.value, investmentId: "", jvId: "", assetId: "" });
+                  return;
+                }
+                router.push(`${base}/funds/${e.target.value}`);
+              }}>
               <option value="">Select fund</option>
               {funds.map((f) => <option key={f.fund_id} value={f.fund_id}>{f.name}</option>)}
             </select>
@@ -206,7 +244,15 @@ export default function RepeWorkspaceShell({ children, envId, isAdmin = false }:
           <label className="text-xs text-bm-muted2 uppercase tracking-[0.1em]">
             Investment
             <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm"
-              value={activeDealId || ""} onChange={(e) => { setSelectorDealId(e.target.value); if (e.target.value) router.push(`${base}/investments/${e.target.value}`); }}>
+              value={activeDealId || ""} onChange={(e) => {
+                setSelectorDealId(e.target.value);
+                if (!e.target.value) return;
+                if (inSustainability) {
+                  pushSustainabilityWith({ investmentId: e.target.value, jvId: "", assetId: "" });
+                  return;
+                }
+                router.push(`${base}/investments/${e.target.value}`);
+              }}>
               <option value="">Select investment</option>
               {deals.map((d) => <option key={d.deal_id} value={d.deal_id}>{d.name}</option>)}
             </select>
@@ -215,7 +261,15 @@ export default function RepeWorkspaceShell({ children, envId, isAdmin = false }:
           <label className="text-xs text-bm-muted2 uppercase tracking-[0.1em]">
             JV Entity
             <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm"
-              value={activeJvId || ""} onChange={(e) => { setSelectorJvId(e.target.value); if (e.target.value) router.push(`${base}/jv/${e.target.value}`); }}>
+              value={activeJvId || ""} onChange={(e) => {
+                setSelectorJvId(e.target.value);
+                if (!e.target.value) return;
+                if (inSustainability) {
+                  pushSustainabilityWith({ jvId: e.target.value });
+                  return;
+                }
+                router.push(`${base}/jv/${e.target.value}`);
+              }}>
               <option value="">Select JV</option>
               {jvs.map((j) => <option key={j.jv_id} value={j.jv_id}>{j.legal_name}</option>)}
             </select>
@@ -224,7 +278,15 @@ export default function RepeWorkspaceShell({ children, envId, isAdmin = false }:
           <label className="text-xs text-bm-muted2 uppercase tracking-[0.1em]">
             Asset
             <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm"
-              value={activeAssetId || ""} onChange={(e) => { setSelectorAssetId(e.target.value); if (e.target.value) router.push(`${base}/assets/${e.target.value}`); }}>
+              value={activeAssetId || ""} onChange={(e) => {
+                setSelectorAssetId(e.target.value);
+                if (!e.target.value) return;
+                if (inSustainability) {
+                  pushSustainabilityWith({ assetId: e.target.value });
+                  return;
+                }
+                router.push(`${base}/assets/${e.target.value}`);
+              }}>
               <option value="">Select asset</option>
               {assets.map((a) => <option key={a.asset_id} value={a.asset_id}>{a.name}</option>)}
             </select>

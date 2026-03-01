@@ -21,6 +21,7 @@ const navItems = [
   { href: `${BASE}/assets`, label: "Assets", isBase: false },
   { href: `${BASE}/scenarios`, label: "Scenarios", isBase: false },
   { href: `${BASE}/runs/quarter-close`, label: "Run Center", isBase: false },
+  { href: `${BASE}/sustainability`, label: "Sustainability", isBase: false },
 ];
 
 function activeLabels(pathname: string): string[] {
@@ -54,6 +55,11 @@ describe("RE nav highlight logic", () => {
     expect(activeLabels(`${BASE}/runs/quarter-close`)).toEqual(["Run Center"]);
   });
 
+  test("Sustainability highlights only Sustainability", () => {
+    expect(activeLabels(`${BASE}/sustainability`)).toEqual(["Sustainability"]);
+    expect(activeLabels(`${BASE}/sustainability?section=overview`.split("?")[0])).toEqual(["Sustainability"]);
+  });
+
   test("Fund detail page highlights Funds", () => {
     expect(activeLabels(`${BASE}/funds/a1b2c3d4-0001-0010-0001-000000000001`)).toEqual(["Funds"]);
   });
@@ -73,6 +79,11 @@ describe("RE nav highlight logic", () => {
 
   test("JV detail does NOT highlight Funds", () => {
     const active = activeLabels(`${BASE}/jv/some-jv-id-here`);
+    expect(active).not.toContain("Funds");
+  });
+
+  test("Sustainability route does NOT highlight Funds", () => {
+    const active = activeLabels(`${BASE}/sustainability`);
     expect(active).not.toContain("Funds");
   });
 });
