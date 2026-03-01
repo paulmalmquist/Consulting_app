@@ -26,7 +26,7 @@ export async function GET(
       quarter: params.quarter,
       generated_at: new Date().toISOString(),
       widgets: [],
-      issues: [{ severity: "warning", message: "Database not available" }],
+      issues: [{ severity: "error", code: "DB_UNAVAILABLE", message: "Database not available", widget_keys: [] }],
     });
   }
 
@@ -75,57 +75,85 @@ export async function GET(
       [params.fundId, params.quarter]
     );
 
-    const issues: Array<{ severity: string; message: string }> = [];
+    const issues: Array<{ severity: string; code: string; message: string; widget_keys: string[] }> = [];
     const widgets: Array<Record<string, unknown>> = [];
 
     // Check for missing data
     const totalAssets = invRes.rows.reduce((s: number, r: Record<string, unknown>) => s + (Number(r.asset_count) || 0), 0);
     const assetsWithState = invRes.rows.reduce((s: number, r: Record<string, unknown>) => s + (Number(r.assets_with_state) || 0), 0);
+    const fqs = fqsRes.rows[0];
+
     if (totalAssets > assetsWithState) {
       issues.push({
-        severity: "warning",
+        severity: "warn",
+        code: "MISSING_ASSET_STATE",
         message: `${totalAssets - assetsWithState} of ${totalAssets} assets missing quarter state for ${params.quarter}`,
+        widget_keys: ["fund_portfolio_nav"],
       });
     }
 
-    if (!fqsRes.rows[0]) {
+    if (!fqs) {
       issues.push({
         severity: "info",
+        code: "NO_FUND_QUARTER_STATE",
         message: `No fund quarter state for ${params.quarter}. Run a quarter close to compute portfolio metrics.`,
+        widget_keys: ["fund_portfolio_nav", "fund_irr", "fund_tvpi"],
       });
     }
 
-    // Summary widget
+    // Summary widget — properly shaped for EntityLineagePanel
     const totalNav = invRes.rows.reduce((s: number, r: Record<string, unknown>) => s + (Number(r.total_nav) || 0), 0);
+    const hasQuarterState = !!fqs;
     widgets.push({
-      type: "summary",
-      title: "Fund NAV Lineage",
-      data: {
-        fund_name: fund.name,
-        strategy: fund.strategy,
-        quarter: params.quarter,
-        total_investments: invRes.rows.length,
-        total_assets: totalAssets,
-        assets_with_state: assetsWithState,
-        bottom_up_nav: totalNav,
-        fund_quarter_state_nav: fqsRes.rows[0]?.portfolio_nav || null,
-      },
+      widget_key: "fund_portfolio_nav",
+      label: "Portfolio NAV",
+      status: hasQuarterState ? "ok" : "missing_data",
+      display_value: fqs?.portfolio_nav ?? totalNav,
+      endpoint: `/api/re/v2/funds/${params.fundId}/quarter-state/${params.quarter}`,
+      source_table: "re_fund_quarter_state",
+      source_column: "portfolio_nav",
+      source_row_ref: params.fundId,
+      run_id: null,
+      inputs_hash: null,
+      computed_from: ["re_investment_quarter_state.nav"],
+      propagates_to: ["re_fund_quarter_state.portfolio_nav"],
+      notes: [
+        `Fund: ${fund.name} (${fund.strategy})`,
+        `Investments: ${invRes.rows.length}, Assets: ${totalAssets} (${assetsWithState} with state)`,
+        `Bottom-up NAV: ${totalNav}, Quarter state NAV: ${fqs?.portfolio_nav ?? "not computed"}`,
+      ],
     });
 
-    // Investment breakdown widget
     widgets.push({
-      type: "table",
-      title: "Investment Contributions",
-      columns: ["Investment", "Stage", "Assets", "NOI", "Value", "NAV"],
-      rows: invRes.rows.map((r: Record<string, unknown>) => ({
-        investment_id: r.investment_id,
-        name: r.name,
-        stage: r.stage,
-        asset_count: r.asset_count,
-        total_noi: r.total_noi,
-        total_value: r.total_value,
-        total_nav: r.total_nav,
-      })),
+      widget_key: "fund_irr",
+      label: "Fund IRR (Gross)",
+      status: hasQuarterState ? "ok" : "missing_data",
+      display_value: fqs?.gross_irr ?? null,
+      endpoint: `/api/re/v2/funds/${params.fundId}/metrics-detail`,
+      source_table: "re_fund_quarter_state",
+      source_column: "gross_irr",
+      source_row_ref: params.fundId,
+      run_id: null,
+      inputs_hash: null,
+      computed_from: ["re_capital_ledger.amount", "re_fund_quarter_state.portfolio_nav"],
+      propagates_to: [],
+      notes: [],
+    });
+
+    widgets.push({
+      widget_key: "fund_tvpi",
+      label: "TVPI",
+      status: hasQuarterState ? "ok" : "missing_data",
+      display_value: fqs?.tvpi ?? null,
+      endpoint: `/api/re/v2/funds/${params.fundId}/metrics-detail`,
+      source_table: "re_fund_quarter_state",
+      source_column: "tvpi",
+      source_row_ref: params.fundId,
+      run_id: null,
+      inputs_hash: null,
+      computed_from: ["re_fund_quarter_state.portfolio_nav", "re_fund_quarter_state.total_called"],
+      propagates_to: [],
+      notes: [],
     });
 
     return Response.json({

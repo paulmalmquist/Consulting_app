@@ -26,7 +26,7 @@ export async function GET(
       quarter: params.quarter,
       generated_at: new Date().toISOString(),
       widgets: [],
-      issues: [{ severity: "warning", message: "Database not available" }],
+      issues: [{ severity: "error", code: "DB_UNAVAILABLE", message: "Database not available", widget_keys: [] }],
     });
   }
 
@@ -59,47 +59,63 @@ export async function GET(
       [params.investmentId, params.quarter]
     );
 
-    const issues: Array<{ severity: string; message: string }> = [];
+    const issues: Array<{ severity: string; code: string; message: string; widget_keys: string[] }> = [];
     const widgets: Array<Record<string, unknown>> = [];
 
     // Check for missing quarter states
     const missingQs = assetsRes.rows.filter((r: Record<string, unknown>) => !r.quarter);
     if (missingQs.length > 0) {
       issues.push({
-        severity: "warning",
+        severity: "warn",
+        code: "MISSING_ASSET_STATE",
         message: `${missingQs.length} asset(s) missing quarter state for ${params.quarter}: ${missingQs.map((r: Record<string, unknown>) => r.name).join(", ")}`,
+        widget_keys: ["investment_nav"],
       });
     }
 
-    // NAV summary widget
+    // NAV summary widget — properly shaped for EntityLineagePanel
     const totalNav = assetsRes.rows.reduce(
       (sum: number, r: Record<string, unknown>) => sum + (Number(r.nav) || 0), 0
     );
+    const assetsWithState = assetsRes.rows.filter((r: Record<string, unknown>) => r.quarter).length;
+    const hasState = assetsWithState > 0;
     widgets.push({
-      type: "summary",
-      title: "Investment NAV Lineage",
-      data: {
-        investment_name: inv.name,
-        quarter: params.quarter,
-        total_assets: assetsRes.rows.length,
-        assets_with_state: assetsRes.rows.filter((r: Record<string, unknown>) => r.quarter).length,
-        total_nav: totalNav,
-      },
+      widget_key: "investment_nav",
+      label: "Investment NAV",
+      status: hasState ? (missingQs.length > 0 ? "fallback" : "ok") : "missing_data",
+      display_value: totalNav,
+      endpoint: `/api/re/v2/investments/${params.investmentId}/quarter-state/${params.quarter}`,
+      source_table: "re_asset_quarter_state",
+      source_column: "nav",
+      source_row_ref: params.investmentId,
+      run_id: assetsRes.rows.find((r: Record<string, unknown>) => r.run_id)?.run_id ?? null,
+      inputs_hash: null,
+      computed_from: ["re_asset_quarter_state.nav"],
+      propagates_to: ["re_investment_quarter_state.nav", "re_fund_quarter_state.portfolio_nav"],
+      notes: [
+        `Investment: ${inv.name}`,
+        `Assets: ${assetsRes.rows.length} total, ${assetsWithState} with quarter state`,
+      ],
     });
 
-    // Asset breakdown widget
-    widgets.push({
-      type: "table",
-      title: "Asset Contributions",
-      columns: ["Asset", "NOI", "Value", "NAV"],
-      rows: assetsRes.rows.map((r: Record<string, unknown>) => ({
-        asset_id: r.asset_id,
-        name: r.name,
-        noi: r.noi,
-        asset_value: r.asset_value,
-        nav: r.nav,
-      })),
-    });
+    // Per-asset widgets
+    for (const r of assetsRes.rows as Record<string, unknown>[]) {
+      widgets.push({
+        widget_key: `asset_nav_${r.asset_id}`,
+        label: `${r.name} · NAV`,
+        status: r.quarter ? "ok" : "missing_data",
+        display_value: r.nav ?? null,
+        endpoint: `/api/re/v2/assets/${r.asset_id}/quarter-state/${params.quarter}`,
+        source_table: "re_asset_quarter_state",
+        source_column: "nav",
+        source_row_ref: String(r.asset_id),
+        run_id: r.run_id ?? null,
+        inputs_hash: null,
+        computed_from: ["repe_asset.asset_id"],
+        propagates_to: [`investment_nav`],
+        notes: r.quarter ? [] : [`No quarter state for ${params.quarter}`],
+      });
+    }
 
     return Response.json({
       entity_type: "investment",

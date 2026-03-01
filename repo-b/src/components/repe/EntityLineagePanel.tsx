@@ -84,8 +84,8 @@ export function EntityLineagePanel({
                     <p className="text-sm font-medium">{widget.label}</p>
                     <p className="text-xs text-bm-muted2">{widget.widget_key}</p>
                   </div>
-                  <span className={`rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-[0.08em] ${tone(widget.status)}`}>
-                    {widget.status.replace("_", " ")}
+                  <span className={`rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-[0.08em] ${tone(widget.status ?? "")}`}>
+                    {widget.status?.replace("_", " ") ?? "unknown"}
                   </span>
                 </div>
                 <div className="mt-3 grid gap-2 text-xs text-bm-muted2 sm:grid-cols-2">
