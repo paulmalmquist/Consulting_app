@@ -1,8 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { Suspense, useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { getReV2EnvironmentPortfolioKpis, ReV2EnvironmentPortfolioKpis, listReV1Funds, RepeFund } from "@/lib/bos-api";
 import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
 import { StateCard } from "@/components/ui/StateCard";
@@ -26,13 +26,34 @@ function fmtMoney(v: string | number | null | undefined): string {
   return `$${n.toFixed(0)}`;
 }
 
-export default function RepeFundsPage() {
+const STATUS_OPTIONS = ["All", "investing", "closed", "fundraising"] as const;
+
+function RepeFundsPageContent() {
   const { businessId, environmentId, loading, contextError, initializeWorkspace } = useRepeContext();
   const basePath = useRepeBasePath();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [funds, setFunds] = useState<RepeFund[]>([]);
   const [portfolioKpis, setPortfolioKpis] = useState<ReV2EnvironmentPortfolioKpis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const quarter = pickCurrentQuarter();
+
+  // Filters from URL params
+  const strategyFilter = searchParams.get("strategy") || "All";
+  const vintageFilter = searchParams.get("vintage") || "All";
+  const statusFilter = searchParams.get("status") || "All";
+  const searchQuery = searchParams.get("q") || "";
+
+  const setFilter = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === "All" || value === "") {
+      params.delete(key);
+    } else {
+      params.set(key, value);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `?${qs}` : "?", { scroll: false });
+  };
 
   useEffect(() => {
     if (!businessId && !environmentId) return;
@@ -53,6 +74,40 @@ export default function RepeFundsPage() {
       .then(setPortfolioKpis)
       .catch(() => setPortfolioKpis(null));
   }, [environmentId, quarter]);
+
+  // Derive filter options from loaded data
+  const strategies = useMemo(() => {
+    const set = new Set<string>();
+    funds.forEach((f) => { if (f.strategy) set.add(f.strategy); });
+    return Array.from(set).sort();
+  }, [funds]);
+
+  const vintageYears = useMemo(() => {
+    const set = new Set<string>();
+    funds.forEach((f) => { if (f.vintage_year) set.add(String(f.vintage_year)); });
+    return Array.from(set).sort().reverse();
+  }, [funds]);
+
+  // Apply client-side filters
+  const filteredFunds = useMemo(() => {
+    return funds.filter((f) => {
+      if (strategyFilter !== "All" && f.strategy !== strategyFilter) return false;
+      if (vintageFilter !== "All" && String(f.vintage_year) !== vintageFilter) return false;
+      if (statusFilter !== "All" && f.status !== statusFilter) return false;
+      if (searchQuery && !f.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      return true;
+    });
+  }, [funds, strategyFilter, vintageFilter, statusFilter, searchQuery]);
+
+  const hasActiveFilters =
+    strategyFilter !== "All" ||
+    vintageFilter !== "All" ||
+    statusFilter !== "All" ||
+    searchQuery !== "";
+
+  const clearFilters = () => {
+    router.replace("?", { scroll: false });
+  };
 
   if (!businessId) {
     if (loading) {
@@ -83,33 +138,116 @@ export default function RepeFundsPage() {
 
       {/* Portfolio KPI Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        <MetricCard label="Funds" value={portfolioKpis ? String(portfolioKpis.fund_count) : "—"} size="compact" />
+        <MetricCard label="Funds" value={String(filteredFunds.length)} size="compact" />
         <MetricCard label="Total Commitments" value={fmtMoney(portfolioKpis?.total_commitments)} size="compact" />
         <MetricCard label="Portfolio NAV" value={fmtMoney(portfolioKpis?.portfolio_nav)} size="compact" />
         <MetricCard label="Active Assets" value={portfolioKpis ? String(portfolioKpis.active_assets) : "—"} size="compact" />
+      </div>
+
+      {/* Filter Row */}
+      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+            Strategy
+            <select
+              className="mt-1 block w-40 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
+              value={strategyFilter}
+              onChange={(e) => setFilter("strategy", e.target.value)}
+              data-testid="filter-strategy"
+            >
+              <option value="All">All Strategies</option>
+              {strategies.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+            Vintage
+            <select
+              className="mt-1 block w-28 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
+              value={vintageFilter}
+              onChange={(e) => setFilter("vintage", e.target.value)}
+              data-testid="filter-vintage"
+            >
+              <option value="All">All Years</option>
+              {vintageYears.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+            Status
+            <select
+              className="mt-1 block w-32 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
+              value={statusFilter}
+              onChange={(e) => setFilter("status", e.target.value)}
+              data-testid="filter-status"
+            >
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s === "All" ? "All Statuses" : s.charAt(0).toUpperCase() + s.slice(1)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+            Search
+            <input
+              className="mt-1 block w-48 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
+              value={searchQuery}
+              onChange={(e) => setFilter("q", e.target.value)}
+              placeholder="Fund name..."
+              data-testid="filter-search"
+            />
+          </label>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="rounded-lg border border-bm-border px-3 py-1.5 text-xs hover:bg-bm-surface/40"
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
         <StateCard state="error" title="Failed to load funds" message={error} />
       )}
 
-      {funds.length === 0 && !error ? (
-        <StateCard
-          state="empty"
-          title="No funds yet"
-          description="Create your first fund to get started with the portfolio."
-          cta={{ label: "Create First Fund", onClick: () => { window.location.href = `${basePath}/funds/new`; } }}
-        />
+      {filteredFunds.length === 0 && !error ? (
+        hasActiveFilters ? (
+          <div className="rounded-xl border border-bm-border/70 p-6 text-sm text-bm-muted2 text-center">
+            No funds match the current filters.
+          </div>
+        ) : (
+          <StateCard
+            state="empty"
+            title="No funds yet"
+            description="Create your first fund to get started with the portfolio."
+            cta={{ label: "Create First Fund", onClick: () => { window.location.href = `${basePath}/funds/new`; } }}
+          />
+        )
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {funds.map((fund) => (
+          {filteredFunds.map((fund) => (
             <div
               key={fund.fund_id}
+              data-testid={`fund-row-${fund.fund_id}`}
               className="group rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 transition-[transform,box-shadow] duration-[120ms] hover:-translate-y-[2px] hover:shadow-bm-card"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h3 className="text-base font-display font-semibold truncate">{fund.name}</h3>
+                  <h3 className="text-base font-display font-semibold truncate">
+                    <Link href={`${basePath}/funds/${fund.fund_id}`} className="hover:text-bm-accent">
+                      {fund.name}
+                    </Link>
+                  </h3>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="inline-flex items-center rounded-full border border-bm-border/70 px-2 py-0.5 text-[11px] uppercase tracking-[0.08em] text-bm-muted2 capitalize">
                       {fund.strategy}
@@ -149,5 +287,19 @@ export default function RepeFundsPage() {
         </div>
       )}
     </section>
+  );
+}
+
+export default function RepeFundsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="rounded-xl border border-bm-border/70 p-4 text-sm text-bm-muted2">
+          Loading funds...
+        </div>
+      }
+    >
+      <RepeFundsPageContent />
+    </Suspense>
   );
 }

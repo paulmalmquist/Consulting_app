@@ -41,6 +41,11 @@ from app.schemas.re_institutional import (
     ReRunProvenanceOut,
     ReScenarioCreateRequest,
     ReScenarioOut,
+    ReModelCreateRequest,
+    ReModelPatchRequest,
+    ReModelOut,
+    ReScenarioVersionCreateRequest,
+    ReScenarioVersionOut,
     ReWaterfallRunOut,
     ReWaterfallRunRequest,
 )
@@ -52,6 +57,7 @@ from app.services import (
     re_cashflow_ledger,
     re_env_portfolio,
     re_scenario,
+    re_model,
     re_provenance,
     re_quarter_close,
     re_integrity,
@@ -651,6 +657,85 @@ def set_override(scenario_id: UUID, body: ReAssumptionOverrideInput):
 def list_overrides(scenario_id: UUID):
     try:
         return re_scenario.list_overrides(scenario_id=scenario_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Models ────────────────────────────────────────────────────────────────────
+
+@router.get("/funds/{fund_id}/models", response_model=list[ReModelOut])
+def list_models(fund_id: UUID):
+    try:
+        return re_model.list_models(fund_id=fund_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/funds/{fund_id}/models", response_model=ReModelOut, status_code=201)
+def create_model(fund_id: UUID, body: ReModelCreateRequest):
+    try:
+        row = re_model.create_model(fund_id=fund_id, name=body.name, description=body.description)
+        _log("re.model.created", f"Model '{body.name}' created for fund {fund_id}")
+        return row
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/models/{model_id}", response_model=ReModelOut)
+def get_model(model_id: UUID):
+    try:
+        return re_model.get_model(model_id=model_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch("/models/{model_id}", response_model=ReModelOut)
+def patch_model(model_id: UUID, body: ReModelPatchRequest):
+    try:
+        if body.status == "approved":
+            row = re_model.approve_model(model_id=model_id)
+            _log("re.model.approved", f"Model {model_id} approved")
+        elif body.status == "archived":
+            row = re_model.archive_model(model_id=model_id)
+            _log("re.model.archived", f"Model {model_id} archived")
+        else:
+            raise ValueError(f"Invalid status transition: {body.status}")
+        return row
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Scenario Versions ────────────────────────────────────────────────────────
+
+@router.get("/scenarios/{scenario_id}/versions", response_model=list[ReScenarioVersionOut])
+def list_versions(scenario_id: UUID):
+    try:
+        return re_model.list_versions(scenario_id=scenario_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/scenarios/{scenario_id}/versions", response_model=ReScenarioVersionOut, status_code=201)
+def create_version(scenario_id: UUID, body: ReScenarioVersionCreateRequest):
+    try:
+        row = re_model.create_version(
+            scenario_id=scenario_id,
+            model_id=body.model_id,
+            label=body.label,
+            assumption_set_id=body.assumption_set_id,
+        )
+        _log("re.version.created", f"Version created for scenario {scenario_id}")
+        return row
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/scenario-versions/{version_id}/lock", response_model=ReScenarioVersionOut)
+def lock_version(version_id: UUID):
+    try:
+        row = re_model.lock_version(version_id=version_id)
+        _log("re.version.locked", f"Version {version_id} locked")
+        return row
     except Exception as exc:
         raise _to_http(exc)
 

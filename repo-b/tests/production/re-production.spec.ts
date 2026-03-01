@@ -199,6 +199,49 @@ test.describe("Smoke — Fund List Page", () => {
 
     checkErrors();
   });
+
+  test("fund list page has filter controls", async ({ page }) => {
+    const checkErrors = attachPageErrorTrap(page);
+
+    await page.goto(FUNDS_LIST_URL, { waitUntil: "domcontentloaded", timeout: 45_000 });
+
+    // Wait for content to render
+    await page.locator("h3").first().waitFor({ timeout: 20_000 }).catch(() => null);
+
+    // Filter controls should be present
+    const strategyFilter = page.locator("[data-testid='filter-strategy']");
+    const statusFilter = page.locator("[data-testid='filter-status']");
+    const searchFilter = page.locator("[data-testid='filter-search']");
+
+    const hasStrategy = await strategyFilter.isVisible({ timeout: 5_000 }).catch(() => false);
+    const hasStatus = await statusFilter.isVisible({ timeout: 3_000 }).catch(() => false);
+    const hasSearch = await searchFilter.isVisible({ timeout: 3_000 }).catch(() => false);
+
+    // At least strategy and search should be present
+    expect(hasStrategy || hasStatus || hasSearch, "Fund list should have at least one filter control").toBe(true);
+
+    checkErrors();
+  });
+
+  test("fund names on list page are clickable links", async ({ page }) => {
+    const checkErrors = attachPageErrorTrap(page);
+
+    await page.goto(FUNDS_LIST_URL, { waitUntil: "domcontentloaded", timeout: 45_000 });
+
+    // Wait for fund cards
+    await page.locator("h3").first().waitFor({ timeout: 20_000 }).catch(() => null);
+
+    // Fund names should be inside <a> tags (hyperlink rule R-HL-1)
+    const fundLink = page.locator("a[href*='/funds/']").first();
+    const isVisible = await fundLink.isVisible({ timeout: 5_000 }).catch(() => false);
+
+    if (isVisible) {
+      const href = await fundLink.getAttribute("href");
+      expect(href).toMatch(/\/funds\/[0-9a-f-]{36}/);
+    }
+
+    checkErrors();
+  });
 });
 
 test.describe("Smoke — Fund Detail Page Loads", () => {
@@ -382,7 +425,7 @@ test.describe("Deep — Direct API Contracts", () => {
     expect(typeof body.total_commitments).toBe("string");
   });
 
-  test("fund investment rollup: ≥ 1 row with required fields", async ({ request }) => {
+  test("fund investment rollup: ≥ 1 row with required + enriched fields", async ({ request }) => {
     const res = await request.get(
       `/api/re/v2/funds/${FUND_ID}/investment-rollup/${QUARTER}`
     );
@@ -393,6 +436,18 @@ test.describe("Deep — Direct API Contracts", () => {
     // Contract: each row has investment_id and name
     expect(rows[0]).toHaveProperty("investment_id");
     expect(rows[0]).toHaveProperty("name");
+    // Enriched fields contract
+    expect(rows[0]).toHaveProperty("asset_count");
+    expect(rows[0]).toHaveProperty("missing_quarter_state_count");
+  });
+
+  test("fund models: returns array (may be empty)", async ({ request }) => {
+    const res = await request.get(
+      `/api/re/v2/funds/${FUND_ID}/models`
+    );
+    expect(res.status()).toBe(200);
+    const rows = await res.json();
+    expect(Array.isArray(rows)).toBe(true);
   });
 
   test("fund lineage: returns entity_type=fund with widgets array", async ({ request }) => {

@@ -487,6 +487,47 @@ class ReScenarioOut(BaseModel):
     created_at: datetime
 
 
+class ReModelCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = None
+
+
+class ReModelPatchRequest(BaseModel):
+    status: str | None = None
+
+
+class ReModelOut(BaseModel):
+    model_id: UUID
+    fund_id: UUID
+    name: str
+    description: str | None = None
+    status: str
+    created_by: str | None = None
+    approved_at: datetime | None = None
+    approved_by: str | None = None
+    created_at: datetime
+
+
+class ReScenarioVersionCreateRequest(BaseModel):
+    model_id: UUID
+    label: str | None = None
+    assumption_set_id: UUID | None = None
+
+
+class ReScenarioVersionOut(BaseModel):
+    version_id: UUID
+    scenario_id: UUID
+    model_id: UUID
+    version_number: int
+    label: str | None = None
+    assumption_set_id: UUID | None = None
+    is_locked: bool
+    locked_at: datetime | None = None
+    locked_by: str | None = None
+    notes: str | None = None
+    created_at: datetime
+
+
 class ReAssumptionSetCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     notes: str | None = None

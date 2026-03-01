@@ -1357,6 +1357,69 @@ Last updated: 2026-02-28 — Asset Platform v2 launch.
 
 ---
 
+## RE / FILTER AUTHORITY & INSTITUTIONAL UI RULES
+
+Last updated: 2026-03-01 — Institutionalization pass.
+
+### Filter Authority (R-FA)
+
+1. **R-FA-1**: Every filter control (dropdown, search, checkbox) on a list page MUST deterministically
+   scope the visible data set. A filter that renders but does not affect the query/display is a
+   defect. No inert selectors.
+
+2. **R-FA-2**: Filters MUST persist as URL search params (`useSearchParams()` + `router.replace()`).
+   Reloading the page with the same URL must reproduce the same filtered view. Deep links to
+   filtered views must work.
+
+3. **R-FA-3**: When filters are applied, KPI strips / summary rows above the table MUST reflect
+   the filtered subset, not the full unfiltered data.
+
+4. **R-FA-4**: Filter values SHOULD be derived from the loaded data set (dynamic options) rather
+   than hardcoded, unless the domain is known-finite (e.g., status enum). This prevents stale
+   dropdown options.
+
+5. **R-FA-5**: Every list page in the RE module (Funds, Investments, Assets) MUST have at minimum:
+   a text search filter and at least two categorical filters relevant to its domain.
+
+### No Inert UI (R-IU)
+
+6. **R-IU-1**: Every interactive control must be functional. Buttons that do nothing, dropdowns
+   that don't filter, toggles that don't toggle — all are defects. If a control cannot be
+   connected to behavior yet, it must not be rendered.
+
+7. **R-IU-2**: CTA buttons must match the page context. An "Investments" page must NOT show a
+   "+ New Fund" button. The primary CTA must create the entity type displayed on the page.
+
+8. **R-IU-3**: Create flows for entities (investments, assets, scenarios) MUST use modals, not
+   inline forms that displace the list view. The list remains visible behind the modal overlay.
+
+### Hyperlinks (R-HL)
+
+9. **R-HL-1**: Entity names in list/table views MUST be hyperlinks (`<a>` or Next.js `<Link>`)
+   to the entity detail page. Plain-text entity names in tables are a defect.
+
+10. **R-HL-2**: Hyperlinks in the Investments table link to
+    `{basePath}/investments/{investment_id}`. Asset hyperlinks link to
+    `{basePath}/assets/{asset_id}`. Fund hyperlinks link to `{basePath}/funds/{fund_id}`.
+
+11. **R-HL-3**: When navigating from a filtered list to a detail page and back, the list page
+    MUST restore the previous filter state (via URL params).
+
+### Data Health (R-DH)
+
+12. **R-DH-1**: Investment rollup rows MUST include `missing_quarter_state_count`. If any assets
+    under an investment lack a quarter state for the displayed quarter, the row must show a
+    data-health indicator (traffic light: green = 0 missing, yellow = 1-2, red = 3+).
+
+13. **R-DH-2**: The cross-fund investments list endpoint (`GET /api/re/v2/investments`) MUST
+    return enriched fields: `asset_count`, `total_noi`, `weighted_occupancy`, `computed_ltv`,
+    `computed_dscr`, `sector_mix`, `primary_market`, `missing_quarter_state_count`.
+
+14. **R-DH-3**: Aggregate metrics (weighted occupancy, LTV, DSCR) must be value-weighted. Simple
+    averages across assets of different sizes are prohibited for institutional-facing metrics.
+
+---
+
 ## RE / PRODUCTION 404/502 DIAGNOSTIC RULES
 
 ### Production Deployment

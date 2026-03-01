@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   listReV2Assets,
   listReV1Funds,
@@ -55,6 +55,7 @@ function fmtPct(v: number | string | null | undefined): string {
 function AssetsIndexContent() {
   const { environmentId } = useRepeContext();
   const basePath = useRepeBasePath();
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [assets, setAssets] = useState<ReV2AssetListItem[]>([]);
@@ -62,14 +63,25 @@ function AssetsIndexContent() {
   const [error, setError] = useState<string | null>(null);
   const [funds, setFunds] = useState<RepeFund[]>([]);
 
-  // Filters
-  const [fundFilter, setFundFilter] = useState("");
-  const [sectorFilter, setSectorFilter] = useState("All");
-  const [stateFilter, setStateFilter] = useState("All");
-  const [msaFilter, setMsaFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [investmentFilter, setInvestmentFilter] = useState("");
+  // Filters from URL params
+  const fundFilter = searchParams.get("fund") || "";
+  const sectorFilter = searchParams.get("sector") || "All";
+  const stateFilter = searchParams.get("state") || "All";
+  const msaFilter = searchParams.get("msa") || "";
+  const statusFilter = searchParams.get("status") || "All";
+  const searchQuery = searchParams.get("q") || "";
+  const investmentFilter = searchParams.get("investment") || "";
+
+  const setFilter = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === "All" || value === "") {
+      params.delete(key);
+    } else {
+      params.set(key, value);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `?${qs}` : "?", { scroll: false });
+  };
 
   // Load funds for filter dropdown
   useEffect(() => {
@@ -84,6 +96,17 @@ function AssetsIndexContent() {
       if (a.msa) msas.add(a.msa);
     });
     return Array.from(msas).sort();
+  }, [assets]);
+
+  // Derive available investments from loaded assets
+  const availableInvestments = useMemo(() => {
+    const map = new Map<string, string>();
+    assets.forEach((a) => {
+      if (a.investment_id && a.investment_name) {
+        map.set(a.investment_id, a.investment_name);
+      }
+    });
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
   }, [assets]);
 
   const fetchAssets = useCallback(async () => {
@@ -124,13 +147,7 @@ function AssetsIndexContent() {
     : 0;
 
   const clearFilters = () => {
-    setFundFilter("");
-    setSectorFilter("All");
-    setStateFilter("All");
-    setMsaFilter("");
-    setStatusFilter("All");
-    setSearchQuery("");
-    setInvestmentFilter("");
+    router.replace("?", { scroll: false });
   };
 
   const hasActiveFilters =
@@ -190,7 +207,7 @@ function AssetsIndexContent() {
             <select
               className="mt-1 block w-48 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
               value={fundFilter}
-              onChange={(e) => setFundFilter(e.target.value)}
+              onChange={(e) => setFilter("fund", e.target.value)}
               data-testid="filter-fund"
             >
               <option value="">All Funds</option>
@@ -201,11 +218,27 @@ function AssetsIndexContent() {
           </label>
 
           <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+            Investment
+            <select
+              className="mt-1 block w-48 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
+              value={investmentFilter}
+              onChange={(e) => setFilter("investment", e.target.value)}
+              data-testid="filter-investment"
+            >
+              <option value="">All Investments</option>
+              {availableInvestments.map(([id, name]) => (
+                <option key={id} value={id}>{name}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
             Sector
             <select
               className="mt-1 block w-36 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
               value={sectorFilter}
-              onChange={(e) => setSectorFilter(e.target.value)}
+              onChange={(e) => setFilter("sector", e.target.value)}
+              data-testid="filter-sector"
             >
               {SECTORS.map((s) => (
                 <option key={s} value={s}>{s}</option>
@@ -218,7 +251,8 @@ function AssetsIndexContent() {
             <select
               className="mt-1 block w-24 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
               value={stateFilter}
-              onChange={(e) => setStateFilter(e.target.value)}
+              onChange={(e) => setFilter("state", e.target.value)}
+              data-testid="filter-state"
             >
               {US_STATES.map((s) => (
                 <option key={s} value={s}>{s}</option>
@@ -231,7 +265,8 @@ function AssetsIndexContent() {
             <select
               className="mt-1 block w-48 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
               value={msaFilter}
-              onChange={(e) => setMsaFilter(e.target.value)}
+              onChange={(e) => setFilter("msa", e.target.value)}
+              data-testid="filter-msa"
             >
               <option value="">All</option>
               {availableMsas.map((m) => (
@@ -245,7 +280,8 @@ function AssetsIndexContent() {
             <select
               className="mt-1 block w-28 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => setFilter("status", e.target.value)}
+              data-testid="filter-status"
             >
               {STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s}>{s === "All" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}</option>
@@ -258,8 +294,9 @@ function AssetsIndexContent() {
             <input
               className="mt-1 block w-48 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => setFilter("q", e.target.value)}
               placeholder="Name, city, address..."
+              data-testid="filter-search"
             />
           </label>
 
@@ -344,7 +381,7 @@ function AssetsIndexContent() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-bm-muted2 text-xs">
-                      {asset.investment_name}
+                      {asset.investment_name || "—"}
                     </td>
                   </tr>
                 ))

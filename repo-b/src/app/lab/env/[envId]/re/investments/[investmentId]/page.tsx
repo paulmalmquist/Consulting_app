@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   getReV2Investment,
   listReV2Jvs,
@@ -9,19 +10,27 @@ import {
   getReV2InvestmentAssets,
   getReV2InvestmentLineage,
   getRepeFund,
+  listReV2Models,
+  listReV2Scenarios,
+  listReV2ScenarioVersions,
   ReV2Investment,
   ReV2Jv,
   ReV2InvestmentQuarterState,
   ReV2InvestmentAsset,
   ReV2EntityLineageResponse,
   RepeFundDetail,
+  ReV2Model,
+  ReV2Scenario,
+  ReV2ScenarioVersion,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import { EntityLineagePanel } from "@/components/repe/EntityLineagePanel";
 import RepeEntityDocuments from "@/components/repe/RepeEntityDocuments";
+import KpiCard from "@/components/repe/asset-cockpit/KpiCard";
+import { QuarterlyBarChart } from "@/components/charts";
+import { CHART_COLORS } from "@/components/charts/chart-theme";
 
-const TABS = ["Overview", "Assets", "Performance", "Cash Flows", "Sustainability", "Documents"] as const;
-type TabKey = (typeof TABS)[number];
+/* ── helpers ── */
 
 function pickQ(): string {
   const d = new Date();
@@ -29,13 +38,21 @@ function pickQ(): string {
 }
 
 function fmtMoney(v: number | string | null | undefined): string {
-  if (v == null) return "$0";
+  if (v == null) return "—";
   const n = Number(v);
-  if (!n) return "$0";
+  if (Number.isNaN(n) || !n) return "—";
   if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
   if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
   if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
   return `$${n.toFixed(0)}`;
+}
+
+function fmtPct(v: number | string | null | undefined): string {
+  if (v == null) return "—";
+  const n = Number(v);
+  if (Number.isNaN(n)) return "—";
+  if (n <= 1 && n >= 0) return `${(n * 100).toFixed(1)}%`;
+  return `${n.toFixed(1)}%`;
 }
 
 function fmtX(v: number | string | null | undefined): string {
@@ -43,13 +60,6 @@ function fmtX(v: number | string | null | undefined): string {
   const n = Number(v);
   if (Number.isNaN(n)) return "—";
   return `${n.toFixed(2)}x`;
-}
-
-function fmtPct(v: number | string | null | undefined): string {
-  if (v == null) return "—";
-  const n = Number(v);
-  if (Number.isNaN(n)) return "—";
-  return `${(n * 100).toFixed(1)}%`;
 }
 
 function fmtDate(v: string | undefined): string {
@@ -78,26 +88,62 @@ function holdPeriodLabel(acquisitionDate?: string): string {
   return `${(months / 12).toFixed(1)} yrs`;
 }
 
-export default function InvestmentHomePage({
+/* ── cockpit component ── */
+
+function InvestmentCockpit({
   params,
 }: {
   params: { envId: string; investmentId: string };
 }) {
   const { businessId } = useReEnv();
-  const [tab, setTab] = useState<TabKey>("Overview");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Spine context from URL
+  const selectedModelId = searchParams.get("modelId") || "";
+  const selectedScenarioId = searchParams.get("scenarioId") || "";
+  const selectedVersionId = searchParams.get("versionId") || "";
+
+  // Core state
   const [inv, setInv] = useState<ReV2Investment | null>(null);
-  const [jvs, setJvs] = useState<ReV2Jv[]>([]);
-  const [state, setState] = useState<ReV2InvestmentQuarterState | null>(null);
   const [fundDetail, setFundDetail] = useState<RepeFundDetail | null>(null);
+  const [state, setState] = useState<ReV2InvestmentQuarterState | null>(null);
   const [assets, setAssets] = useState<ReV2InvestmentAsset[]>([]);
+  const [jvs, setJvs] = useState<ReV2Jv[]>([]);
   const [lineage, setLineage] = useState<ReV2EntityLineageResponse | null>(null);
   const [lineageOpen, setLineageOpen] = useState(false);
+  const [docsOpen, setDocsOpen] = useState(false);
+
+  // Spine state
+  const [models, setModels] = useState<ReV2Model[]>([]);
+  const [scenarios, setScenarios] = useState<ReV2Scenario[]>([]);
+  const [versions, setVersions] = useState<ReV2ScenarioVersion[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const quarter = pickQ();
   const base = `/lab/env/${params.envId}/re`;
 
+  // URL param helper — cascade-clears children when a parent selector changes
+  const setSpineParam = useCallback(
+    (key: string, value: string) => {
+      const p = new URLSearchParams(searchParams.toString());
+      if (value) p.set(key, value);
+      else p.delete(key);
+      if (key === "modelId") {
+        p.delete("scenarioId");
+        p.delete("versionId");
+      }
+      if (key === "scenarioId") {
+        p.delete("versionId");
+      }
+      router.replace(`?${p.toString()}`, { scroll: false });
+    },
+    [searchParams, router],
+  );
+
+  // ── data load ──
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -112,9 +158,15 @@ export default function InvestmentHomePage({
         const results = await Promise.allSettled([
           listReV2Jvs(params.investmentId),
           getReV2InvestmentQuarterState(params.investmentId, quarter),
-          getReV2InvestmentAssets(params.investmentId, quarter),
+          getReV2InvestmentAssets(
+            params.investmentId,
+            quarter,
+            selectedScenarioId || undefined,
+          ),
           getReV2InvestmentLineage(params.investmentId, quarter),
           getRepeFund(investment.fund_id),
+          listReV2Models(investment.fund_id),
+          listReV2Scenarios(investment.fund_id),
         ]);
         if (cancelled) return;
 
@@ -122,10 +174,18 @@ export default function InvestmentHomePage({
         setState(results[1].status === "fulfilled" ? results[1].value : null);
         setAssets(results[2].status === "fulfilled" ? results[2].value : []);
         setLineage(results[3].status === "fulfilled" ? results[3].value : null);
-        setFundDetail(results[4].status === "fulfilled" ? results[4].value : null);
+        setFundDetail(
+          results[4].status === "fulfilled" ? results[4].value : null,
+        );
+        setModels(results[5].status === "fulfilled" ? results[5].value : []);
+        setScenarios(
+          results[6].status === "fulfilled" ? results[6].value : [],
+        );
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Failed to load investment");
+        setError(
+          err instanceof Error ? err.message : "Failed to load investment",
+        );
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -134,33 +194,97 @@ export default function InvestmentHomePage({
     return () => {
       cancelled = true;
     };
-  }, [params.investmentId, quarter]);
+  }, [params.investmentId, quarter, selectedScenarioId]);
 
-  const directAssets = useMemo(() => assets.filter((asset) => !asset.jv_id), [assets]);
-  const jvBackedAssets = useMemo(() => assets.filter((asset) => asset.jv_id), [assets]);
-  const impliedGainLoss = useMemo(() => {
-    const grossValue = Number(state?.gross_asset_value ?? 0);
-    const invested = Number(inv?.invested_capital ?? 0);
-    if (!grossValue && !invested) return null;
-    return grossValue - invested;
-  }, [state?.gross_asset_value, inv?.invested_capital]);
-  const rvpi = useMemo(() => {
-    const nav = Number(state?.nav ?? 0);
-    const invested = Number(inv?.invested_capital ?? 0);
-    if (!nav || !invested) return null;
-    return nav / invested;
-  }, [state?.nav, inv?.invested_capital]);
-  const propertyAssets = useMemo(
-    () => assets.filter((asset) => String(asset.asset_type || "").toLowerCase() === "property"),
-    [assets]
+  // Load versions when a scenario is selected
+  useEffect(() => {
+    if (!selectedScenarioId) {
+      setVersions([]);
+      return;
+    }
+    listReV2ScenarioVersions(selectedScenarioId)
+      .then(setVersions)
+      .catch(() => setVersions([]));
+  }, [selectedScenarioId]);
+
+  // Scenarios filtered by selected model
+  const filteredScenarios = useMemo(() => {
+    if (!selectedModelId) return scenarios;
+    return scenarios.filter((s) => s.model_id === selectedModelId);
+  }, [scenarios, selectedModelId]);
+
+  // ── computed metrics ──
+  const totalNoi = useMemo(
+    () => assets.reduce((sum, a) => sum + Number(a.noi ?? 0), 0),
+    [assets],
   );
-  const sustainabilityAsset = propertyAssets[0] || null;
-  const sustainabilityHref =
-    inv == null
-      ? `${base}/sustainability`
-      : `${base}/sustainability?section=${sustainabilityAsset ? "asset-sustainability" : "portfolio-footprint"}&fundId=${inv.fund_id}&investmentId=${inv.investment_id}${sustainabilityAsset ? `&assetId=${sustainabilityAsset.asset_id}` : ""}`;
+  const totalAssetValue = useMemo(
+    () => assets.reduce((sum, a) => sum + Number(a.asset_value ?? 0), 0),
+    [assets],
+  );
+  const totalDebt = useMemo(
+    () => assets.reduce((sum, a) => sum + Number(a.debt_balance ?? 0), 0),
+    [assets],
+  );
+  const computedLtv = totalAssetValue ? totalDebt / totalAssetValue : null;
+  const capRate =
+    totalAssetValue && totalNoi ? (totalNoi * 4) / totalAssetValue : null;
 
-  if (loading) return <div className="p-6 text-sm text-bm-muted2">Loading investment...</div>;
+  // Sector exposure (% of value by property_type)
+  const sectorData = useMemo(() => {
+    if (!assets.length) return [];
+    const byType: Record<string, number> = {};
+    let total = 0;
+    for (const a of assets) {
+      const type = a.property_type || a.asset_type || "Other";
+      const val = Number(a.asset_value ?? 0);
+      byType[type] = (byType[type] ?? 0) + val;
+      total += val;
+    }
+    if (!total) return [];
+    return Object.entries(byType)
+      .map(([type, val]) => ({ type, value: val, pct: val / total }))
+      .sort((a, b) => b.value - a.value);
+  }, [assets]);
+
+  // Asset NOI bar-chart data (top 10 by NOI)
+  const assetNoiData = useMemo(
+    () =>
+      assets
+        .filter((a) => Number(a.noi ?? 0) > 0)
+        .sort((a, b) => Number(b.noi ?? 0) - Number(a.noi ?? 0))
+        .slice(0, 10)
+        .map((a) => ({
+          quarter:
+            a.name.length > 18 ? a.name.slice(0, 18) + "\u2026" : a.name,
+          noi: Number(a.noi ?? 0),
+        })),
+    [assets],
+  );
+
+  // Sustainability link
+  const propertyAssets = useMemo(
+    () =>
+      assets.filter(
+        (asset) =>
+          String(asset.asset_type || "").toLowerCase() === "property",
+      ),
+    [assets],
+  );
+  const sustainabilityHref = inv
+    ? `${base}/sustainability?section=${propertyAssets[0] ? "asset-sustainability" : "portfolio-footprint"}&fundId=${inv.fund_id}&investmentId=${inv.investment_id}${propertyAssets[0] ? `&assetId=${propertyAssets[0].asset_id}` : ""}`
+    : `${base}/sustainability`;
+
+  // Build scenario-preserving query string for asset drill-through links
+  const assetQs = selectedScenarioId
+    ? `?scenarioId=${selectedScenarioId}`
+    : "";
+
+  // ── render ──
+  if (loading)
+    return (
+      <div className="p-6 text-sm text-bm-muted2">Loading investment...</div>
+    );
   if (error || !inv) {
     return (
       <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">
@@ -170,18 +294,25 @@ export default function InvestmentHomePage({
   }
 
   return (
-    <section className="space-y-5" data-testid="re-investment-homepage">
+    <section className="space-y-5" data-testid="re-investment-cockpit">
+      {/* ── Band A: Identity + Model/Scenario/Version ── */}
       <div className="rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Investment</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight">{inv.name}</h1>
+            <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">
+              Investment
+            </p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight">
+              {inv.name}
+            </h1>
             <p className="mt-1 text-sm text-bm-muted2">
-              {inv.investment_type?.toUpperCase()} · {STAGE_LABELS[inv.stage] || inv.stage}
-              {fundDetail?.fund?.name ? ` · ${fundDetail.fund.name}` : ""}
+              {inv.investment_type?.toUpperCase()} &middot;{" "}
+              {STAGE_LABELS[inv.stage] || inv.stage}
+              {fundDetail?.fund?.name ? ` \u00B7 ${fundDetail.fund.name}` : ""}
             </p>
             <p className="mt-1 text-xs text-bm-muted2">
-              Acquisition Date: {fmtDate(inv.target_close_date)} · Hold Period: {holdPeriodLabel(inv.target_close_date)}
+              Acquisition: {fmtDate(inv.target_close_date)} &middot; Hold:{" "}
+              {holdPeriodLabel(inv.target_close_date)} &middot; As of {quarter}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -206,317 +337,366 @@ export default function InvestmentHomePage({
             </Link>
           </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {[
-          { label: "Committed Capital", value: fmtMoney(inv.committed_capital) },
-          { label: "Current NAV", value: fmtMoney(state?.nav) },
-          { label: "Gross Value", value: fmtMoney(state?.gross_asset_value) },
-          { label: "IRR", value: fmtPct(state?.net_irr ?? state?.gross_irr) },
-          { label: "MOIC", value: fmtX(state?.equity_multiple) },
-          { label: "Assets", value: String(assets.length) },
-        ].map((item) => (
-          <div key={item.label} className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3">
-            <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">{item.label}</p>
-            <p className="mt-1 text-lg font-bold">{item.value}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-2">
-        <div className="flex flex-wrap gap-2">
-          {TABS.map((label) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => setTab(label)}
-              className={`rounded-lg border px-3 py-1.5 text-sm ${
-                tab === label
-                  ? "border-bm-accent/60 bg-bm-accent/10"
-                  : "border-bm-border/70 hover:bg-bm-surface/40"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {tab === "Overview" ? (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Overview</h2>
-            <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <dt className="text-xs text-bm-muted2">Status</dt>
-                <dd className="font-medium">{STAGE_LABELS[inv.stage] || inv.stage}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">Fund</dt>
-                <dd className="font-medium">{fundDetail?.fund?.name || "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">Acquisition Date</dt>
-                <dd className="font-medium">{fmtDate(inv.target_close_date)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">Invested Capital</dt>
-                <dd className="font-medium">{fmtMoney(inv.invested_capital)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">Current Valuation</dt>
-                <dd className="font-medium">{fmtMoney(state?.gross_asset_value)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">Gain / Loss</dt>
-                <dd className={`font-medium ${impliedGainLoss && impliedGainLoss < 0 ? "text-red-300" : "text-bm-text"}`}>
-                  {impliedGainLoss == null ? "—" : fmtMoney(impliedGainLoss)}
-                </dd>
-              </div>
-            </dl>
-          </div>
-          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Structure</h2>
-            <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-lg border border-bm-border/60 p-3">
-                <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">JV Entities</p>
-                <p className="mt-1 font-medium">{jvs.length}</p>
-              </div>
-              <div className="rounded-lg border border-bm-border/60 p-3">
-                <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Direct Assets</p>
-                <p className="mt-1 font-medium">{directAssets.length}</p>
-              </div>
-              <div className="rounded-lg border border-bm-border/60 p-3">
-                <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">JV-Backed Assets</p>
-                <p className="mt-1 font-medium">{jvBackedAssets.length}</p>
-              </div>
-              <div className="rounded-lg border border-bm-border/60 p-3">
-                <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Fund NAV Contribution</p>
-                <p className="mt-1 font-medium">{fmtMoney(state?.fund_nav_contribution ?? state?.nav)}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {tab === "Assets" ? (
-        <div className="space-y-4">
-          {assets.length === 0 ? (
-            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
-              No assets are linked to this investment. This violates the REPE invariant.
-              Use <span className="font-medium">`/api/re/v2/health/integrity?repair=true`</span> to backfill missing placeholder assets.
-            </div>
-          ) : (
-            <div className="rounded-xl border border-bm-border/70 overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-bm-border/50 bg-bm-surface/30 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
-                    <th className="px-4 py-3 font-medium">Asset</th>
-                    <th className="px-4 py-3 font-medium">Type</th>
-                    <th className="px-4 py-3 font-medium">Linkage</th>
-                    <th className="px-4 py-3 font-medium text-right">NOI</th>
-                    <th className="px-4 py-3 font-medium text-right">Value</th>
-                    <th className="px-4 py-3 font-medium text-right">NAV</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-bm-border/40">
-                  {assets.map((asset) => (
-                    <tr key={asset.asset_id} data-testid={`investment-asset-row-${asset.asset_id}`} className="hover:bg-bm-surface/20">
-                      <td className="px-4 py-3 font-medium">
-                        <Link href={`${base}/assets/${asset.asset_id}`} className="text-bm-accent hover:underline">
-                          {asset.name}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-bm-muted2">{asset.property_type || asset.asset_type}</td>
-                      <td className="px-4 py-3 text-bm-muted2">{asset.jv_id ? "JV-backed" : "Direct"}</td>
-                      <td className="px-4 py-3 text-right">{fmtMoney(asset.noi)}</td>
-                      <td className="px-4 py-3 text-right">{fmtMoney(asset.asset_value)}</td>
-                      <td className="px-4 py-3 text-right">{fmtMoney(asset.nav)}</td>
-                    </tr>
+        {/* Model / Scenario / Version selectors */}
+        {(models.length > 0 || scenarios.length > 0) && (
+          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-bm-border/40 pt-4">
+            {models.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+                  Model
+                </label>
+                <select
+                  value={selectedModelId}
+                  onChange={(e) => setSpineParam("modelId", e.target.value)}
+                  className="rounded-lg border border-bm-border/70 bg-bm-surface/30 px-3 py-1.5 text-sm"
+                  data-testid="selector-model"
+                >
+                  <option value="">All Models</option>
+                  {models.map((m) => (
+                    <option key={m.model_id} value={m.model_id}>
+                      {m.name}
+                    </option>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {jvs.length > 0 ? (
-            <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-              <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">JV Entities</h3>
-              <div className="mt-3 space-y-2">
-                {jvs.map((jv) => (
-                  <div key={jv.jv_id} className="flex items-center justify-between rounded-lg border border-bm-border/60 px-3 py-2 text-sm">
-                    <Link href={`${base}/jv/${jv.jv_id}`} className="font-medium text-bm-accent hover:underline">
-                      {jv.legal_name}
-                    </Link>
-                    <span className="text-bm-muted2">{fmtPct(jv.ownership_percent)}</span>
-                  </div>
-                ))}
+                </select>
               </div>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      {tab === "Performance" ? (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Quarterly Performance</h2>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <div className="rounded-lg border border-bm-border/60 p-3">
-                <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Quarterly NOI</p>
-                <p className="mt-1 font-medium">{fmtMoney(assets.reduce((sum, asset) => sum + Number(asset.noi || 0), 0))}</p>
+            )}
+            {scenarios.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+                  Scenario
+                </label>
+                <select
+                  value={selectedScenarioId}
+                  onChange={(e) =>
+                    setSpineParam("scenarioId", e.target.value)
+                  }
+                  className="rounded-lg border border-bm-border/70 bg-bm-surface/30 px-3 py-1.5 text-sm"
+                  data-testid="selector-scenario"
+                >
+                  <option value="">Default</option>
+                  {filteredScenarios.map((s) => (
+                    <option key={s.scenario_id} value={s.scenario_id}>
+                      {s.name}
+                      {s.is_base ? " (Base)" : ""}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="rounded-lg border border-bm-border/60 p-3">
-                <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Cap Rate Proxy</p>
-                <p className="mt-1 font-medium">
-                  {state?.gross_asset_value && assets.length
-                    ? fmtPct((assets.reduce((sum, asset) => sum + Number(asset.noi || 0), 0) * 4) / Number(state.gross_asset_value))
-                    : "—"}
-                </p>
+            )}
+            {versions.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+                  Version
+                </label>
+                <select
+                  value={selectedVersionId}
+                  onChange={(e) =>
+                    setSpineParam("versionId", e.target.value)
+                  }
+                  className="rounded-lg border border-bm-border/70 bg-bm-surface/30 px-3 py-1.5 text-sm"
+                  data-testid="selector-version"
+                >
+                  <option value="">Latest</option>
+                  {versions.map((v) => (
+                    <option key={v.version_id} value={v.version_id}>
+                      v{v.version_number}
+                      {v.label ? ` — ${v.label}` : ""}
+                      {v.is_locked ? " (locked)" : ""}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="rounded-lg border border-bm-border/60 p-3">
-                <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Gross Value</p>
-                <p className="mt-1 font-medium">{fmtMoney(state?.gross_asset_value)}</p>
-              </div>
-              <div className="rounded-lg border border-bm-border/60 p-3">
-                <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Net Debt</p>
-                <p className="mt-1 font-medium">{fmtMoney(state?.debt_balance)}</p>
-              </div>
-            </div>
-          </div>
-          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Return Metrics</h2>
-            <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <dt className="text-xs text-bm-muted2">Net IRR</dt>
-                <dd className="font-medium">{fmtPct(state?.net_irr)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">Gross IRR</dt>
-                <dd className="font-medium">{fmtPct(state?.gross_irr)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">MOIC</dt>
-                <dd className="font-medium">{fmtX(state?.equity_multiple)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">RVPI</dt>
-                <dd className="font-medium">{fmtX(rvpi)}</dd>
-              </div>
-            </dl>
-          </div>
-        </div>
-      ) : null}
-
-      {tab === "Cash Flows" ? (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Capital Flows</h2>
-            <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <dt className="text-xs text-bm-muted2">Committed</dt>
-                <dd className="font-medium">{fmtMoney(inv.committed_capital)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">Invested</dt>
-                <dd className="font-medium">{fmtMoney(inv.invested_capital)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">Realized Distributions</dt>
-                <dd className="font-medium">{fmtMoney(inv.realized_distributions)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-bm-muted2">Fund NAV Contribution</dt>
-                <dd className="font-medium">{fmtMoney(state?.fund_nav_contribution ?? state?.nav)}</dd>
-              </div>
-            </dl>
-          </div>
-          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Exit Assumptions</h2>
-            <p className="mt-2 text-sm text-bm-muted2">
-              Exit scenarios are derived from asset-level assumptions and surface through the quarter-state lineage.
-              Use the Lineage panel to trace current NAV back to asset cash flow and valuation inputs.
-            </p>
-          </div>
-        </div>
-      ) : null}
-
-      {tab === "Sustainability" ? (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Sustainability Module</h2>
-            {propertyAssets.length > 0 ? (
-              <>
-                <p className="mt-2 text-sm text-bm-muted2">
-                  This investment has {propertyAssets.length} property asset{propertyAssets.length === 1 ? "" : "s"} eligible for footprint, utility, and decarbonization analysis.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Link
-                    href={sustainabilityHref}
-                    className="rounded-lg bg-bm-accent px-4 py-2 text-sm text-white hover:bg-bm-accent/90"
-                  >
-                    Open Sustainability Workspace
-                  </Link>
-                  <Link
-                    href={`${base}/sustainability?section=portfolio-footprint&fundId=${inv.fund_id}&investmentId=${inv.investment_id}`}
-                    className="rounded-lg border border-bm-border px-4 py-2 text-sm hover:bg-bm-surface/40"
-                  >
-                    View Investment Footprint
-                  </Link>
-                </div>
-              </>
-            ) : (
-              <p className="mt-2 text-sm text-bm-muted2">
-                Not applicable. This investment currently has no physical property assets, so sustainability analytics are excluded from portfolio footprint denominators.
-              </p>
             )}
           </div>
-          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Eligible Assets</h2>
-            <div className="mt-3 space-y-2">
-              {propertyAssets.length === 0 ? (
-                <p className="text-sm text-bm-muted2">No physical property assets are linked to this investment.</p>
-              ) : (
-                propertyAssets.map((asset) => (
-                  <div key={asset.asset_id} className="flex items-center justify-between rounded-lg border border-bm-border/60 px-3 py-2 text-sm">
-                    <span className="font-medium">{asset.name}</span>
-                    <Link
-                      href={`${base}/sustainability?section=asset-sustainability&fundId=${inv.fund_id}&investmentId=${inv.investment_id}&assetId=${asset.asset_id}`}
-                      className="text-bm-accent hover:underline"
-                    >
-                      Open
-                    </Link>
-                  </div>
-                ))
-              )}
-            </div>
+        )}
+      </div>
+
+      {/* ── Band B: KPI Cards ── */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+        <KpiCard label="NAV" value={fmtMoney(state?.nav)} polarity="up_good" />
+        <KpiCard
+          label="NOI"
+          value={fmtMoney(totalNoi || null)}
+          polarity="up_good"
+        />
+        <KpiCard
+          label="Gross Value"
+          value={fmtMoney(state?.gross_asset_value)}
+          polarity="up_good"
+        />
+        <KpiCard
+          label="Debt"
+          value={fmtMoney(state?.debt_balance ?? (totalDebt || null))}
+          polarity="down_good"
+        />
+        <KpiCard
+          label="LTV"
+          value={fmtPct(computedLtv)}
+          polarity="down_good"
+        />
+        <KpiCard
+          label="IRR"
+          value={fmtPct(state?.net_irr ?? state?.gross_irr)}
+          polarity="up_good"
+        />
+        <KpiCard
+          label="MOIC"
+          value={fmtX(state?.equity_multiple)}
+          polarity="up_good"
+        />
+        <KpiCard
+          label="Assets"
+          value={String(assets.length)}
+          polarity="up_good"
+        />
+      </div>
+
+      {/* ── Band C: Charts + Capital ── */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Asset NOI Breakdown */}
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+          <h3 className="mb-3 text-xs uppercase tracking-[0.12em] text-bm-muted2">
+            Asset NOI Breakdown
+          </h3>
+          {assetNoiData.length > 0 ? (
+            <QuarterlyBarChart
+              data={assetNoiData}
+              bars={[{ key: "noi", label: "NOI", color: CHART_COLORS.noi }]}
+              height={260}
+              showLegend={false}
+            />
+          ) : (
+            <p className="text-sm text-bm-muted2">No NOI data available.</p>
+          )}
+        </div>
+
+        {/* Capital & Returns */}
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+          <h3 className="mb-3 text-xs uppercase tracking-[0.12em] text-bm-muted2">
+            Capital &amp; Returns
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              {
+                label: "Committed",
+                value: fmtMoney(inv.committed_capital),
+              },
+              {
+                label: "Invested",
+                value: fmtMoney(inv.invested_capital),
+              },
+              {
+                label: "Distributions",
+                value: fmtMoney(inv.realized_distributions),
+              },
+              {
+                label: "Fund NAV Contrib.",
+                value: fmtMoney(state?.fund_nav_contribution ?? state?.nav),
+              },
+              { label: "Gross IRR", value: fmtPct(state?.gross_irr) },
+              { label: "Net IRR", value: fmtPct(state?.net_irr) },
+              { label: "MOIC", value: fmtX(state?.equity_multiple) },
+              {
+                label: "Cap Rate",
+                value: capRate ? `${(capRate * 100).toFixed(2)}%` : "—",
+              },
+            ].map((d) => (
+              <div
+                key={d.label}
+                className="rounded-lg border border-bm-border/60 p-3"
+              >
+                <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">
+                  {d.label}
+                </p>
+                <p className="mt-1 font-medium">{d.value}</p>
+              </div>
+            ))}
           </div>
         </div>
-      ) : null}
+      </div>
 
-      {tab === "Documents" ? (
-        businessId ? (
-          <RepeEntityDocuments
-            businessId={businessId}
-            envId={params.envId}
-            entityType="investment"
-            entityId={inv.investment_id}
-            title="Investment Documents"
-          />
-        ) : (
-          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 text-sm text-bm-muted2">
-            Environment context is required to load documents.
+      {/* ── Band D: Sector Exposure ── */}
+      {sectorData.length > 0 && (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+          <h3 className="mb-3 text-xs uppercase tracking-[0.12em] text-bm-muted2">
+            Sector Exposure
+          </h3>
+          <div className="space-y-2">
+            {sectorData.map((s) => (
+              <div key={s.type} className="flex items-center gap-3">
+                <span className="w-28 truncate text-sm">{s.type}</span>
+                <div className="h-5 flex-1 overflow-hidden rounded-full bg-bm-surface/30">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${(s.pct * 100).toFixed(1)}%`,
+                      backgroundColor: CHART_COLORS.noi,
+                    }}
+                  />
+                </div>
+                <span className="w-16 text-right text-sm text-bm-muted2">
+                  {(s.pct * 100).toFixed(1)}%
+                </span>
+                <span className="w-20 text-right text-sm">
+                  {fmtMoney(s.value)}
+                </span>
+              </div>
+            ))}
           </div>
-        )
-      ) : null}
+        </div>
+      )}
 
+      {/* ── Band E: Asset List with Contribution % ── */}
+      <div className="overflow-hidden rounded-xl border border-bm-border/70">
+        <div className="border-b border-bm-border/50 bg-bm-surface/30 px-4 py-3">
+          <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">
+            Assets ({assets.length})
+          </h3>
+        </div>
+        {assets.length === 0 ? (
+          <div className="bg-amber-500/10 p-4 text-sm text-amber-200">
+            No assets linked to this investment.
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-bm-border/50 bg-bm-surface/20 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
+                <th className="px-4 py-3 font-medium">Asset</th>
+                <th className="px-4 py-3 font-medium">Type</th>
+                <th className="px-4 py-3 font-medium">Structure</th>
+                <th className="px-4 py-3 font-medium text-right">NOI</th>
+                <th className="px-4 py-3 font-medium text-right">Value</th>
+                <th className="px-4 py-3 font-medium text-right">NAV</th>
+                <th className="px-4 py-3 font-medium text-right">% of NAV</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-bm-border/40">
+              {assets.map((asset) => {
+                const navTotal = Number(state?.nav ?? 0);
+                const assetNav = Number(asset.nav ?? 0);
+                const pctOfNav = navTotal ? assetNav / navTotal : 0;
+                return (
+                  <tr
+                    key={asset.asset_id}
+                    data-testid={`investment-asset-row-${asset.asset_id}`}
+                    className="hover:bg-bm-surface/20"
+                  >
+                    <td className="px-4 py-3 font-medium">
+                      <Link
+                        href={`${base}/assets/${asset.asset_id}${assetQs}`}
+                        className="text-bm-accent hover:underline"
+                      >
+                        {asset.name}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-bm-muted2">
+                      {asset.property_type || asset.asset_type}
+                    </td>
+                    <td className="px-4 py-3 text-bm-muted2">
+                      {asset.jv_id ? "JV" : "Direct"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {fmtMoney(asset.noi)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {fmtMoney(asset.asset_value)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {fmtMoney(asset.nav)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {pctOfNav
+                        ? `${(pctOfNav * 100).toFixed(1)}%`
+                        : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* ── JV Entities ── */}
+      {jvs.length > 0 && (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+          <h3 className="mb-3 text-xs uppercase tracking-[0.12em] text-bm-muted2">
+            JV Entities
+          </h3>
+          <div className="space-y-2">
+            {jvs.map((jv) => (
+              <div
+                key={jv.jv_id}
+                className="flex items-center justify-between rounded-lg border border-bm-border/60 px-3 py-2 text-sm"
+              >
+                <Link
+                  href={`${base}/jv/${jv.jv_id}`}
+                  className="font-medium text-bm-accent hover:underline"
+                >
+                  {jv.legal_name}
+                </Link>
+                <span className="text-bm-muted2">
+                  {fmtPct(jv.ownership_percent)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Documents (collapsible) ── */}
+      {businessId && (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20">
+          <button
+            type="button"
+            onClick={() => setDocsOpen(!docsOpen)}
+            className="flex w-full items-center justify-between p-4"
+          >
+            <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">
+              Documents
+            </h3>
+            <span className="text-bm-muted2">{docsOpen ? "▲" : "▼"}</span>
+          </button>
+          {docsOpen && (
+            <div className="border-t border-bm-border/40 p-4">
+              <RepeEntityDocuments
+                businessId={businessId}
+                envId={params.envId}
+                entityType="investment"
+                entityId={inv.investment_id}
+                title="Investment Documents"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Lineage Panel ── */}
       <EntityLineagePanel
         open={lineageOpen}
         onOpenChange={setLineageOpen}
-        title={`Investment Lineage · ${quarter}`}
+        title={`Investment Lineage \u00B7 ${quarter}`}
         lineage={lineage}
       />
     </section>
+  );
+}
+
+export default function InvestmentHomePage({
+  params,
+}: {
+  params: { envId: string; investmentId: string };
+}) {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-6 text-sm text-bm-muted2">
+          Loading investment...
+        </div>
+      }
+    >
+      <InvestmentCockpit params={params} />
+    </Suspense>
   );
 }

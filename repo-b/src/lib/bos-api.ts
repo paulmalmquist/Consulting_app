@@ -2403,6 +2403,24 @@ export function createReV2Investment(fundId: string, body: {
   });
 }
 
+export function listReV2InvestmentsFiltered(params: {
+  env_id?: string;
+  fund_id?: string;
+  stage?: string;
+  type?: string;
+  sponsor?: string;
+  q?: string;
+  quarter?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<ReV2FundInvestmentRollupRow[]> {
+  const p: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined) p[k] = String(v);
+  }
+  return directFetch("/api/re/v2/investments", { params: p });
+}
+
 // JVs
 export function listReV2Jvs(investmentId: string): Promise<ReV2Jv[]> {
   return directFetch(`/api/re/v2/investments/${investmentId}/jvs`);
@@ -2591,6 +2609,53 @@ export function createReV2Scenario(fundId: string, body: {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+  });
+}
+
+// Models
+export function listReV2Models(fundId: string): Promise<ReV2Model[]> {
+  return directFetch(`/api/re/v2/funds/${fundId}/models`);
+}
+
+export function createReV2Model(fundId: string, body: {
+  name: string;
+  description?: string;
+}): Promise<ReV2Model> {
+  return bosFetch(`/api/re/v2/funds/${fundId}/models`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function approveReV2Model(modelId: string): Promise<ReV2Model> {
+  return bosFetch(`/api/re/v2/models/${modelId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status: "approved" }),
+  });
+}
+
+// Scenario Versions
+export function listReV2ScenarioVersions(scenarioId: string): Promise<ReV2ScenarioVersion[]> {
+  return directFetch(`/api/re/v2/scenarios/${scenarioId}/versions`);
+}
+
+export function createReV2ScenarioVersion(scenarioId: string, body: {
+  model_id: string;
+  label?: string;
+  assumption_set_id?: string;
+}): Promise<ReV2ScenarioVersion> {
+  return bosFetch(`/api/re/v2/scenarios/${scenarioId}/versions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function lockReV2ScenarioVersion(versionId: string): Promise<ReV2ScenarioVersion> {
+  return bosFetch(`/api/re/v2/scenario-versions/${versionId}/lock`, {
+    method: "POST",
   });
 }
 
@@ -2982,6 +3047,7 @@ export type ReV2FundInvestmentRollupRow = {
   name: string;
   deal_type?: string;
   stage?: string;
+  sponsor?: string;
   quarter_state_id?: string;
   run_id?: string;
   nav?: number;
@@ -2992,6 +3058,26 @@ export type ReV2FundInvestmentRollupRow = {
   fund_nav_contribution?: number;
   inputs_hash?: string;
   created_at?: string;
+  // Enriched rollup fields
+  fund_id?: string;
+  fund_name?: string;
+  asset_count?: number;
+  total_noi?: number;
+  total_revenue?: number;
+  total_asset_value?: number;
+  total_debt?: number;
+  weighted_occupancy?: number;
+  computed_ltv?: number;
+  computed_dscr?: number;
+  gross_irr?: number;
+  net_irr?: number;
+  equity_multiple?: number;
+  sector_mix?: Record<string, number> | null;
+  primary_market?: string | null;
+  missing_quarter_state_count?: number;
+  committed_capital?: number;
+  invested_capital?: number;
+  target_close_date?: string;
 };
 
 export type ReV2InvestmentAsset = {
@@ -3077,12 +3163,39 @@ export type ReV2WaterfallResult = {
 export type ReV2Scenario = {
   scenario_id: string;
   fund_id: string;
+  model_id?: string;
   name: string;
   description?: string;
   scenario_type: string;
   is_base: boolean;
   parent_scenario_id?: string;
   status: string;
+  created_at: string;
+};
+
+export type ReV2Model = {
+  model_id: string;
+  fund_id: string;
+  name: string;
+  description?: string;
+  status: string;
+  created_by?: string;
+  approved_at?: string;
+  approved_by?: string;
+  created_at: string;
+};
+
+export type ReV2ScenarioVersion = {
+  version_id: string;
+  scenario_id: string;
+  model_id: string;
+  version_number: number;
+  label?: string;
+  assumption_set_id?: string;
+  is_locked: boolean;
+  locked_at?: string;
+  locked_by?: string;
+  notes?: string;
   created_at: string;
 };
 
