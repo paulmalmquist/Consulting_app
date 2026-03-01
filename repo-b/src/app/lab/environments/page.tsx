@@ -7,7 +7,11 @@ import { apiFetch } from "@/lib/api";
 import { CreateEnvironmentPanel } from "@/components/lab/environments/CreateEnvironmentPanel";
 import { EnvironmentList } from "@/components/lab/environments/EnvironmentList";
 import { EnvironmentSettingsModal } from "@/components/lab/environments/EnvironmentSettingsModal";
-import { resolveEnvironmentOpenPath, type Industry } from "@/components/lab/environments/constants";
+import {
+  MERIDIAN_INSTITUTIONAL_DEMO_ENV_ID,
+  resolveEnvironmentOpenPath,
+  type Industry,
+} from "@/components/lab/environments/constants";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 
@@ -91,8 +95,40 @@ export default function EnvironmentsPage() {
     router.push(`/lab/env/${payload.env.env_id}/ecc`);
   };
 
+  const provisionInstitutionalDemo = async () => {
+    const response = await fetch("/api/winston-demo/create_env_meridian", {
+      method: "POST",
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(
+        typeof payload?.message === "string"
+          ? payload.message
+          : "Failed to provision the Meridian institutional demo."
+      );
+    }
+    const payload = (await response.json()) as { env: { env_id: string } };
+    await refresh();
+    selectEnv(payload.env.env_id || MERIDIAN_INSTITUTIONAL_DEMO_ENV_ID);
+    router.push(`/lab/env/${payload.env.env_id || MERIDIAN_INSTITUTIONAL_DEMO_ENV_ID}/demo`);
+  };
+
   return (
     <div className="space-y-6">
+      <Card>
+        <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-bm-text">Winston Institutional Governance Demo</p>
+            <p className="text-xs text-bm-muted">
+              Provision Meridian Capital Management with governed documents, definitions, query plans, scenarios, and audit trails.
+            </p>
+          </div>
+          <Button type="button" onClick={provisionInstitutionalDemo}>
+            Open Institutional Demo
+          </Button>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>

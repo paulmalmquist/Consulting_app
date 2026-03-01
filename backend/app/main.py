@@ -41,6 +41,8 @@ from app.routes import (
     credit,
     legal_ops,
     medoffice,
+    winston_demo,
+    query_engine,
 )
 from app.routes.ai import router as ai_router
 from app.routes import website_content, website_rankings, website_analytics
@@ -128,6 +130,8 @@ app.include_router(pds.router)
 app.include_router(credit.router)
 app.include_router(legal_ops.router)
 app.include_router(medoffice.router)
+app.include_router(winston_demo.router)
+app.include_router(query_engine.router)
 app.include_router(website_content.router)
 app.include_router(website_rankings.router)
 app.include_router(website_analytics.router)

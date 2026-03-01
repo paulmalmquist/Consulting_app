@@ -82,7 +82,7 @@ function getRunIdForRequest(): string | null {
   }
 }
 
-async function bosFetch<T>(path: string, options: RequestInit & { params?: Record<string, string | undefined> } = {}): Promise<T> {
+export async function bosFetch<T>(path: string, options: RequestInit & { params?: Record<string, string | undefined> } = {}): Promise<T> {
   const requestId = makeRequestId();
   const runId = getRunIdForRequest();
   const startedAt = Date.now();
@@ -111,8 +111,10 @@ async function bosFetch<T>(path: string, options: RequestInit & { params?: Recor
     payload_size: payloadSize,
   });
 
+  const isFormData =
+    typeof FormData !== "undefined" && options.body instanceof FormData;
   const reqHeaders: HeadersInit = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     "X-Request-Id": requestId,
     ...(runId ? { "X-Run-Id": runId } : {}),
     ...(options.headers || {}),

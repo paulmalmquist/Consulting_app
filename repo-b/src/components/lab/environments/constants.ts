@@ -25,6 +25,8 @@ export const statusLabel: Record<EnvironmentStatus, string> = {
   archived: "Archived",
 };
 
+export const MERIDIAN_INSTITUTIONAL_DEMO_ENV_ID = "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f101";
+
 const INDUSTRY_DISPLAY_MAP: Record<string, string> = {
   ecc: "Executive Command Center",
   repe: "Real Estate Private Equity",
@@ -106,6 +108,7 @@ export function isConsultingEnvironment(industry?: string | null): boolean {
 }
 
 export function resolveEnvironmentOpenPath(args: { envId: string; industry?: string | null }): string {
+  if (args.envId === MERIDIAN_INSTITUTIONAL_DEMO_ENV_ID) return `/lab/env/${args.envId}/demo`;
   if (isEccEnvironment(args.industry)) return `/lab/env/${args.envId}/ecc`;
   if (isRepeEnvironment(args.industry)) return `/lab/env/${args.envId}/re`;
   if (isConsultingEnvironment(args.industry)) return `/lab/env/${args.envId}/consulting`;
