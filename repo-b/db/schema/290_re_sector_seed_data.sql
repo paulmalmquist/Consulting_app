@@ -1,14 +1,12 @@
--- 290: Seed 5 sector-specific assets with capacity fields and quarter state data.
--- These attach to existing investments under the first available fund.
+-- 290: Seed 5 sector-specific assets under Institutional Growth Fund VII.
+-- Attaches to the first available deal under fund_id = a1b2c3d4-0003-0030-0001-000000000001.
+-- Falls back to any deal if IGF-VII has none.
 -- Safe to re-run: uses ON CONFLICT DO NOTHING and deterministic UUIDs.
-
--- Deterministic UUIDs for the 5 seed assets (generated from namespace)
--- These are stable across reruns so ON CONFLICT works correctly.
 
 DO $$
 DECLARE
   v_deal_id uuid;
-  v_fund_id uuid;
+  v_fund_id uuid := 'a1b2c3d4-0003-0030-0001-000000000001'::uuid;
   v_asset_ids uuid[] := ARRAY[
     'a1b2c3d4-9001-0001-0001-000000000001'::uuid, -- Parkview Residences (multifamily)
     'a1b2c3d4-9001-0001-0002-000000000001'::uuid, -- Heritage Senior Living
@@ -43,11 +41,19 @@ DECLARE
   v_sq_ft numeric[] := ARRAY[NULL, 68000, 195000, 85000, 380000];
   i int;
 BEGIN
-  -- Find first deal to attach to
-  SELECT d.deal_id, d.fund_id INTO v_deal_id, v_fund_id
+  -- Find a deal under IGF-VII first, then fall back to any deal
+  SELECT d.deal_id INTO v_deal_id
   FROM repe_deal d
+  WHERE d.fund_id = v_fund_id
   ORDER BY d.created_at ASC
   LIMIT 1;
+
+  IF v_deal_id IS NULL THEN
+    SELECT d.deal_id INTO v_deal_id
+    FROM repe_deal d
+    ORDER BY d.created_at ASC
+    LIMIT 1;
+  END IF;
 
   IF v_deal_id IS NULL THEN
     RAISE NOTICE 'No deals found — skipping sector seed data';
@@ -55,10 +61,12 @@ BEGIN
   END IF;
 
   FOR i IN 1..5 LOOP
-    -- Insert asset
+    -- Insert asset (skip if already exists)
     INSERT INTO repe_asset (asset_id, deal_id, asset_type, name, asset_status)
     VALUES (v_asset_ids[i], v_deal_id, 'property', v_names[i], 'active')
-    ON CONFLICT (asset_id) DO NOTHING;
+    ON CONFLICT (asset_id) DO UPDATE SET
+      deal_id = EXCLUDED.deal_id,
+      name = EXCLUDED.name;
 
     -- Insert property details
     INSERT INTO repe_property_asset (
@@ -82,7 +90,9 @@ BEGIN
       property_type = EXCLUDED.property_type,
       city = EXCLUDED.city,
       state = EXCLUDED.state,
-      msa = EXCLUDED.msa;
+      msa = EXCLUDED.msa,
+      current_noi = EXCLUDED.current_noi,
+      occupancy = EXCLUDED.occupancy;
   END LOOP;
 
   -- === Sector-specific capacity fields ===
@@ -127,36 +137,41 @@ BEGIN
   WHERE asset_id = v_asset_ids[5];
 
   -- === Quarter state data (4 quarters: 2025Q2 through 2026Q1) ===
-  -- Each asset gets NOI, revenue, opex, occupancy, value, debt
+  -- NOI values are quarterly (annualized = NOI * 4).
+  -- asset_value = annualized NOI / cap_rate.
+  -- Uses INSERT ... ON CONFLICT (asset_id, quarter, scenario_id) DO UPDATE to be idempotent.
 
   INSERT INTO re_asset_quarter_state (
-    asset_id, quarter, scenario_id,
+    id, asset_id, quarter, scenario_id,
     noi, revenue, opex, occupancy,
     asset_value, nav, debt_balance, debt_service,
-    valuation_method, run_id, created_at
+    valuation_method, inputs_hash, run_id, created_at
   )
   SELECT
+    gen_random_uuid(),
     a.asset_id,
     q.quarter,
     NULL,  -- base scenario
     a.base_noi * q.growth_factor,
-    a.base_noi * q.growth_factor * 1.6,  -- revenue ~ 1.6x NOI (60% margin)
-    a.base_noi * q.growth_factor * 0.6,  -- opex ~ 0.6x NOI
-    a.base_occ + (q.occ_delta),
-    a.base_noi * q.growth_factor / a.cap_rate,  -- value = annualized NOI / cap
-    a.base_noi * q.growth_factor / a.cap_rate - a.debt,  -- nav = value - debt
+    a.base_noi * q.growth_factor * 1.6,
+    a.base_noi * q.growth_factor * 0.6,
+    a.base_occ + q.occ_delta,
+    -- annualized NOI / cap_rate for asset_value
+    (a.base_noi * q.growth_factor * 4) / a.cap_rate,
+    (a.base_noi * q.growth_factor * 4) / a.cap_rate - a.debt,
     a.debt,
-    a.debt * 0.015,  -- quarterly debt service ~ 6% annual / 4
+    a.debt * 0.015,
     a.val_method,
+    'seed:' || a.asset_id::text || ':' || q.quarter,  -- deterministic hash for seed data
     gen_random_uuid(),
     NOW() - (4 - q.idx) * INTERVAL '90 days'
   FROM (
     VALUES
-      (v_asset_ids[1], 700000::numeric, 0.93::numeric, 0.050::numeric, 22000000::numeric, 'cap_rate'::text),
-      (v_asset_ids[2], 900000::numeric, 0.88::numeric, 0.065::numeric, 18000000::numeric, 'blended'::text),
-      (v_asset_ids[3], 500000::numeric, 0.94::numeric, 0.050::numeric, 15000000::numeric, 'cap_rate'::text),
-      (v_asset_ids[4], 850000::numeric, 0.92::numeric, 0.060::numeric, 20000000::numeric, 'blended'::text),
-      (v_asset_ids[5], 1200000::numeric, 0.96::numeric, 0.045::numeric, 30000000::numeric, 'dcf'::text)
+      ('a1b2c3d4-9001-0001-0001-000000000001'::uuid, 700000::numeric, 0.93::numeric, 0.050::numeric, 22000000::numeric, 'cap_rate'::text),
+      ('a1b2c3d4-9001-0001-0002-000000000001'::uuid, 900000::numeric, 0.88::numeric, 0.065::numeric, 18000000::numeric, 'blended'::text),
+      ('a1b2c3d4-9001-0001-0003-000000000001'::uuid, 500000::numeric, 0.94::numeric, 0.050::numeric, 15000000::numeric, 'cap_rate'::text),
+      ('a1b2c3d4-9001-0001-0004-000000000001'::uuid, 850000::numeric, 0.92::numeric, 0.060::numeric, 20000000::numeric, 'blended'::text),
+      ('a1b2c3d4-9001-0001-0005-000000000001'::uuid, 1200000::numeric, 0.96::numeric, 0.045::numeric, 30000000::numeric, 'dcf'::text)
   ) AS a(asset_id, base_noi, base_occ, cap_rate, debt, val_method)
   CROSS JOIN (
     VALUES
@@ -167,5 +182,5 @@ BEGIN
   ) AS q(quarter, idx, growth_factor, occ_delta)
   ON CONFLICT DO NOTHING;
 
-  RAISE NOTICE 'Seeded 5 sector assets with 4 quarters of data each under deal %', v_deal_id;
+  RAISE NOTICE 'Seeded 5 sector assets with 4 quarters of data each under deal % (fund %)', v_deal_id, v_fund_id;
 END $$;

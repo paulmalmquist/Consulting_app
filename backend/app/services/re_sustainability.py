@@ -8,7 +8,7 @@ from uuid import UUID
 
 from app.db import get_cursor
 from app.finance.irr_engine import xirr
-from app.services import re_metrics, re_scenario
+from app.services import re_scenario
 from app.services import re_sustainability_connectors as connectors
 from app.services import re_sustainability_validation as validation
 
@@ -369,7 +369,6 @@ def upsert_asset_profile(*, asset_id: UUID, payload: dict) -> dict:
             )
         }
         assignments = ", ".join(f"{key} = %s" for key in fields.keys())
-        values = list(fields.values()) + [str(asset_id)]
         cur.execute(
             f"""
             UPDATE sus_asset_profile
