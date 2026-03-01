@@ -2132,7 +2132,7 @@ def apply_scenario(
 ) -> dict:
     quarter = quarter or load_demo_fixture()["fund"]["quarter"]
     with get_cursor() as cur:
-        env = _ensure_environment_row(cur, env_id)
+        _ensure_environment_row(cur, env_id)
         cur.execute("SELECT scenario_id FROM re_scenario WHERE fund_id = %s AND name = %s", (str(fund_id), "Downside Cap Rate +75bps"))
         row = cur.fetchone()
         if row:
