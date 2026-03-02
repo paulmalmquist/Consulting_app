@@ -4021,6 +4021,25 @@ export function listReV2Assets(params: {
   return directFetch("/api/re/v2/assets", { params });
 }
 
+export function createReV2Asset(body: {
+  investment_id: string;
+  name: string;
+  asset_type?: string;
+  property_type?: string;
+  city?: string;
+  state?: string;
+  msa?: string;
+  address?: string;
+  units?: number;
+  square_feet?: number;
+}): Promise<ReV2AssetListItem> {
+  return directFetch("/api/re/v2/assets", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
 export function getReV2AssetDetail(assetId: string): Promise<ReV2AssetDetail> {
   return directFetch(`/api/re/v2/assets/${assetId}`);
 }

@@ -165,6 +165,134 @@ export async function POST(request: Request) {
     );
     results.push(`Upserted fund quarter metrics for ${quarter}`);
 
+    // 7. Seed accounting data for assets under this fund
+    const assetsResult = await pool.query(
+      `SELECT a.asset_id::text
+       FROM repe_asset a
+       JOIN repe_deal d ON d.deal_id = a.deal_id
+       WHERE d.fund_id = $1::uuid`,
+      [fund_id]
+    );
+    const assetIds: string[] = assetsResult.rows.map(
+      (r: { asset_id: string }) => r.asset_id
+    );
+
+    if (assetIds.length > 0) {
+      // Ensure chart of accounts entries exist
+      await pool.query(`
+        INSERT INTO acct_chart_of_accounts (gl_account, name, category, is_balance_sheet)
+        VALUES
+          ('4000', 'Rental Revenue',        'Revenue',            false),
+          ('4100', 'Other Income',          'Revenue',            false),
+          ('5000', 'Payroll',               'Operating Expenses', false),
+          ('5100', 'Repairs & Maintenance', 'Operating Expenses', false),
+          ('5200', 'Utilities',             'Operating Expenses', false),
+          ('5300', 'Property Taxes',        'Operating Expenses', false),
+          ('5400', 'Insurance',             'Operating Expenses', false),
+          ('5500', 'Management Fees',       'Operating Expenses', false),
+          ('6000', 'Capital Expenditures',  'CapEx',              false),
+          ('1000', 'Cash & Equivalents',    'Assets',             true),
+          ('2000', 'Mortgage Payable',      'Liabilities',        true)
+        ON CONFLICT (gl_account) DO NOTHING
+      `);
+
+      const months = ["2026-01-01", "2026-02-01", "2026-03-01"];
+      const glAccounts = [
+        { gl: "4000", min: 200000, max: 400000 },
+        { gl: "4100", min: 10000,  max: 30000 },
+        { gl: "5000", min: -40000, max: -20000 },
+        { gl: "5100", min: -20000, max: -8000 },
+        { gl: "5200", min: -15000, max: -5000 },
+        { gl: "5300", min: -25000, max: -10000 },
+        { gl: "5400", min: -10000, max: -4000 },
+        { gl: "5500", min: -15000, max: -5000 },
+      ];
+      const noiLines = [
+        { code: "RENT",          min: 200000, max: 400000 },
+        { code: "OTHER_INCOME",  min: 10000,  max: 30000 },
+        { code: "PAYROLL",       min: -40000, max: -20000 },
+        { code: "REPAIRS_MAINT", min: -20000, max: -8000 },
+        { code: "UTILITIES",     min: -15000, max: -5000 },
+        { code: "TAXES",         min: -25000, max: -10000 },
+        { code: "INSURANCE",     min: -10000, max: -4000 },
+        { code: "MGMT_FEES",     min: -15000, max: -5000 },
+      ];
+
+      let acctSeeded = 0;
+      for (const assetId of assetIds) {
+        const existing = await pool.query(
+          `SELECT 1 FROM acct_gl_balance_monthly
+           WHERE asset_id = $1::uuid AND period_month >= '2026-01-01' LIMIT 1`,
+          [assetId]
+        );
+        if (existing.rows.length > 0) continue;
+
+        for (const month of months) {
+          for (const acct of glAccounts) {
+            const amount = acct.min + Math.random() * (acct.max - acct.min);
+            await pool.query(
+              `INSERT INTO acct_gl_balance_monthly
+                 (asset_id, period_month, gl_account, amount, source_id)
+               VALUES ($1::uuid, $2::date, $3, $4, 'seed')
+               ON CONFLICT DO NOTHING`,
+              [assetId, month, acct.gl, Math.round(amount * 100) / 100]
+            );
+          }
+          for (const line of noiLines) {
+            const amount = line.min + Math.random() * (line.max - line.min);
+            await pool.query(
+              `INSERT INTO acct_normalized_noi_monthly
+                 (asset_id, period_month, line_code, amount)
+               VALUES ($1::uuid, $2::date, $3, $4)
+               ON CONFLICT DO NOTHING`,
+              [assetId, month, line.code, Math.round(amount * 100) / 100]
+            );
+          }
+        }
+        acctSeeded++;
+      }
+      results.push(`Seeded accounting data for ${acctSeeded} assets`);
+
+      // 8. Seed asset quarter state for assets missing metric data
+      let qsSeeded = 0;
+      for (const assetId of assetIds) {
+        const existing = await pool.query(
+          `SELECT 1 FROM re_asset_quarter_state
+           WHERE asset_id = $1::uuid AND quarter = $2 AND scenario_id IS NULL LIMIT 1`,
+          [assetId, quarter]
+        );
+        if (existing.rows.length > 0) continue;
+
+        const seedNoi = 500000 + Math.random() * 2000000;
+        const seedRevenue = seedNoi * (1.3 + Math.random() * 0.4);
+        const seedOpex = seedRevenue - seedNoi;
+        const seedOcc = 0.82 + Math.random() * 0.15;
+        const seedValue = seedNoi / (0.045 + Math.random() * 0.025);
+
+        await pool.query(
+          `INSERT INTO re_asset_quarter_state (
+             id, asset_id, quarter, run_id, accounting_basis,
+             noi, revenue, opex, occupancy, asset_value, nav,
+             valuation_method, inputs_hash, created_at
+           ) VALUES (
+             $1::uuid, $2::uuid, $3, $4::uuid, 'accrual',
+             $5, $6, $7, $8, $9, $10,
+             'cap_rate', 'seed', NOW()
+           )
+           ON CONFLICT DO NOTHING`,
+          [
+            randomUUID(), assetId, quarter, runId,
+            Math.round(seedNoi), Math.round(seedRevenue), Math.round(seedOpex),
+            Math.round(seedOcc * 10000) / 10000,
+            Math.round(seedValue),
+            Math.round(seedValue * 0.7),
+          ]
+        );
+        qsSeeded++;
+      }
+      results.push(`Seeded quarter state for ${qsSeeded} assets`);
+    }
+
     return Response.json({
       status: "success",
       quarter,

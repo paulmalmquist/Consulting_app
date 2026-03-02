@@ -13,6 +13,7 @@ import {
   getReV2SustainabilityProjection,
   getReV2SustainabilityReport,
   importReV2UtilityMonthly,
+  listReV1Funds,
   listReV2AssetCertifications,
   listReV2AssetRegulatoryExposure,
   listReV2AssetUtilityAccounts,
@@ -146,6 +147,7 @@ export default function SustainabilityWorkspace() {
   const [projection, setProjection] = useState<SusProjectionResponse | null>(null);
   const [report, setReport] = useState<SusReportPayload | null>(null);
   const [reportKey, setReportKey] = useState<string>("gresb");
+  const [funds, setFunds] = useState<{ fund_id: string; name: string }[]>([]);
 
   const [utilityForm, setUtilityForm] = useState({
     provider_name: "Utility Demo",
@@ -185,6 +187,19 @@ export default function SustainabilityWorkspace() {
     });
     router.push(`${basePath}/sustainability?${params.toString()}`);
   }
+
+  // Load available funds and auto-select the first if none is chosen
+  useEffect(() => {
+    if (!environmentId) return;
+    listReV1Funds({ env_id: environmentId }).then((rows) => {
+      const mapped = rows.map((f: { fund_id: string; name: string }) => ({ fund_id: f.fund_id, name: f.name }));
+      setFunds(mapped);
+      if (!fundId && mapped.length > 0) {
+        setQuery({ fundId: mapped[0].fund_id });
+      }
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [environmentId]);
 
   useEffect(() => {
     if (!environmentId || !businessId) return;
@@ -898,6 +913,10 @@ export default function SustainabilityWorkspace() {
               <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
                 <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Institutional Reporting</h2>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <select className="rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm" value={fundId} onChange={(e) => setQuery({ fundId: e.target.value })}>
+                    <option value="">Select a fund…</option>
+                    {funds.map((f) => <option key={f.fund_id} value={f.fund_id}>{f.name}</option>)}
+                  </select>
                   <select className="rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm" value={reportKey} onChange={(e) => setReportKey(e.target.value)}>
                     {REPORT_KEYS.map((row) => <option key={row.key} value={row.key}>{row.label}</option>)}
                   </select>

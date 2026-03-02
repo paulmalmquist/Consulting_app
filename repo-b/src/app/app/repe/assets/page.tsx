@@ -6,6 +6,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import {
   listReV2Assets,
   listReV1Funds,
+  listReV2InvestmentsFiltered,
+  createReV2Asset,
   ReV2AssetListItem,
   RepeFund,
 } from "@/lib/bos-api";
@@ -52,6 +54,142 @@ function fmtPct(v: number | string | null | undefined): string {
   return `${n.toFixed(1)}%`;
 }
 
+/* ── Asset Creation Modal ─────────────────────────────────────── */
+function AssetCreateModal({
+  open,
+  onClose,
+  funds,
+  onCreated,
+  environmentId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  funds: RepeFund[];
+  onCreated: () => void;
+  environmentId: string;
+}) {
+  const [investments, setInvestments] = useState<{ investment_id: string; name: string }[]>([]);
+  const [fundId, setFundId] = useState(funds[0]?.fund_id || "");
+  const [investmentId, setInvestmentId] = useState("");
+  const [form, setForm] = useState({
+    name: "",
+    property_type: "Multifamily",
+    city: "",
+    state: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load investments when fund changes
+  useEffect(() => {
+    if (!fundId || !environmentId) return;
+    listReV2InvestmentsFiltered({ env_id: environmentId, fund_id: fundId })
+      .then((rows) => {
+        const mapped = rows.map((r) => ({
+          investment_id: (r as { investment_id?: string }).investment_id || "",
+          name: (r as { name?: string }).name || "",
+        }));
+        setInvestments(mapped);
+        if (mapped.length > 0) setInvestmentId(mapped[0].investment_id);
+        else setInvestmentId("");
+      })
+      .catch(() => {});
+  }, [fundId, environmentId]);
+
+  useEffect(() => {
+    if (open && funds.length > 0 && !fundId) {
+      setFundId(funds[0].fund_id);
+    }
+  }, [open, funds, fundId]);
+
+  if (!open) return null;
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!investmentId) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await createReV2Asset({
+        investment_id: investmentId,
+        name: form.name,
+        property_type: form.property_type,
+        city: form.city || undefined,
+        state: form.state || undefined,
+      });
+      setForm({ name: "", property_type: "Multifamily", city: "", state: "" });
+      onCreated();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create asset");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-2xl border border-bm-border bg-bm-bg p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">New Asset</h3>
+          <button type="button" onClick={onClose} className="text-xl text-bm-muted2 hover:text-bm-text">&times;</button>
+        </div>
+        <form onSubmit={onSubmit} className="space-y-3">
+          <label className="block text-xs uppercase tracking-[0.1em] text-bm-muted2">
+            Fund
+            <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
+              value={fundId} onChange={(e) => setFundId(e.target.value)} required>
+              {funds.map((f) => <option key={f.fund_id} value={f.fund_id}>{f.name}</option>)}
+            </select>
+          </label>
+          <label className="block text-xs uppercase tracking-[0.1em] text-bm-muted2">
+            Investment
+            <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
+              value={investmentId} onChange={(e) => setInvestmentId(e.target.value)} required>
+              {investments.length === 0 && <option value="">No investments in this fund</option>}
+              {investments.map((inv) => <option key={inv.investment_id} value={inv.investment_id}>{inv.name}</option>)}
+            </select>
+          </label>
+          <label className="block text-xs uppercase tracking-[0.1em] text-bm-muted2">
+            Asset Name
+            <input className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
+              value={form.name} onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))}
+              placeholder="123 Main Street" required />
+          </label>
+          <div className="grid grid-cols-3 gap-3">
+            <label className="block text-xs uppercase tracking-[0.1em] text-bm-muted2">
+              Sector
+              <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
+                value={form.property_type} onChange={(e) => setForm((v) => ({ ...v, property_type: e.target.value }))}>
+                {["Multifamily","Office","Industrial","Retail","Senior Housing","Medical Office","Hospitality","Data Center","Student Housing"]
+                  .map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </label>
+            <label className="block text-xs uppercase tracking-[0.1em] text-bm-muted2">
+              City
+              <input className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
+                value={form.city} onChange={(e) => setForm((v) => ({ ...v, city: e.target.value }))} placeholder="Chicago" />
+            </label>
+            <label className="block text-xs uppercase tracking-[0.1em] text-bm-muted2">
+              State
+              <input className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
+                value={form.state} onChange={(e) => setForm((v) => ({ ...v, state: e.target.value }))} placeholder="IL" maxLength={2} />
+            </label>
+          </div>
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="rounded-lg border border-bm-border px-4 py-2 text-sm hover:bg-bm-surface/40">Cancel</button>
+            <button type="submit" disabled={saving || !investmentId}
+              className="rounded-lg bg-bm-accent px-4 py-2 text-sm text-white disabled:opacity-50">
+              {saving ? "Creating..." : "Create Asset"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function AssetsIndexContent() {
   const { environmentId } = useRepeContext();
   const basePath = useRepeBasePath();
@@ -62,6 +200,7 @@ function AssetsIndexContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [funds, setFunds] = useState<RepeFund[]>([]);
+  const [modalOpen, setModalOpen] = useState(false);
 
   // Filters from URL params
   const fundFilter = searchParams.get("fund") || "";
@@ -88,6 +227,17 @@ function AssetsIndexContent() {
     if (!environmentId) return;
     listReV1Funds({ env_id: environmentId }).then(setFunds).catch(() => {});
   }, [environmentId]);
+
+  // Auto-open create modal when ?create=1 is in URL (from + Asset nav button)
+  useEffect(() => {
+    if (searchParams.get("create") === "1") {
+      setModalOpen(true);
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("create");
+      const qs = params.toString();
+      router.replace(qs ? `?${qs}` : "?", { scroll: false });
+    }
+  }, [searchParams, router]);
 
   // Derive available MSAs from loaded assets
   const availableMsas = useMemo(() => {
@@ -178,6 +328,14 @@ function AssetsIndexContent() {
               All properties across funds and investments.
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="rounded-lg bg-bm-accent px-4 py-2 text-sm text-white hover:bg-bm-accent/90"
+            data-testid="btn-new-asset"
+          >
+            + New Asset
+          </button>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-lg border border-bm-border/60 p-3">
@@ -390,6 +548,14 @@ function AssetsIndexContent() {
           </table>
         </div>
       )}
+
+      <AssetCreateModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        funds={funds}
+        onCreated={fetchAssets}
+        environmentId={environmentId}
+      />
     </section>
   );
 }

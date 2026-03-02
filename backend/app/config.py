@@ -36,7 +36,7 @@ def _expand_localhost_origins(origins_csv: str) -> list[str]:
 
 
 ALLOWED_ORIGINS: list[str] = _expand_localhost_origins(
-    os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+    os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,https://www.paulmalmquist.com,https://paulmalmquist.com")
 )
 
 # ── MCP / Work system feature flags ─────────────────────────────────
