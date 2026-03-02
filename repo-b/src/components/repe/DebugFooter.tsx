@@ -34,8 +34,14 @@ function DebugFooterInner({
     window.fetch = async (...args) => {
       try {
         const res = await origFetch(...args);
-        const url = typeof args[0] === "string" ? args[0] : (args[0] as Request).url;
-        if (url.includes("/api/") || url.includes("/bos/")) {
+        const raw = args[0];
+        const url =
+          typeof raw === "string"
+            ? raw
+            : raw instanceof URL
+              ? raw.href
+              : (raw as Request)?.url;
+        if (url?.includes("/api/") || url?.includes("/bos/")) {
           setLastApiStatus(`${res.status} ${url.split("?")[0].split("/").slice(-3).join("/")}`);
         }
         return res;

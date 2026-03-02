@@ -70,35 +70,86 @@ export async function POST(request: Request) {
       results.push("Created upside scenario");
     }
 
-    // 4. Compute aggregate KPIs from repe_deal data
-    const dealAgg = await pool.query(
-      `SELECT
-         COALESCE(SUM(committed_capital), 0) AS total_committed,
-         COALESCE(SUM(invested_capital), 0) AS total_called,
-         COALESCE(SUM(realized_distributions), 0) AS total_distributed,
-         COUNT(*) AS deal_count
-       FROM repe_deal
-       WHERE fund_id = $1::uuid`,
-      [fund_id]
+    // 4. Seed LP partners and capital data
+    const partnerDefs = [
+      { name: "Winston Capital",     type: "gp", committed: 10_000_000 },
+      { name: "State Pension Fund",  type: "lp", committed: 200_000_000 },
+      { name: "University Endowment", type: "lp", committed: 150_000_000 },
+      { name: "Sovereign Wealth",    type: "lp", committed: 140_000_000 },
+    ];
+    const totalCommitted = 500_000_000;
+    const totalCalled = 425_000_000;
+    const totalDistributed = 34_000_000;
+    const calledPct = totalCalled / totalCommitted;
+    const distPct = totalDistributed / totalCommitted;
+
+    const partnerCheck = await pool.query(
+      `SELECT partner_id::text FROM re_partner
+       WHERE business_id = $1::uuid LIMIT 1`,
+      [business_id]
     );
-    const agg = dealAgg.rows[0];
-    const totalCommitted = parseFloat(agg.total_committed) || 0;
-    const totalCalled = parseFloat(agg.total_called) || 0;
-    const totalDistributed = parseFloat(agg.total_distributed) || 0;
+    if (partnerCheck.rows.length === 0) {
+      for (const pDef of partnerDefs) {
+        const partnerId = randomUUID();
+        await pool.query(
+          `INSERT INTO re_partner (partner_id, business_id, name, partner_type)
+           VALUES ($1::uuid, $2::uuid, $3, $4)
+           ON CONFLICT DO NOTHING`,
+          [partnerId, business_id, pDef.name, pDef.type]
+        );
+        await pool.query(
+          `INSERT INTO re_partner_commitment (partner_id, fund_id, committed_amount, commitment_date, status)
+           VALUES ($1::uuid, $2::uuid, $3, '2021-01-15', 'active')
+           ON CONFLICT (partner_id, fund_id) DO NOTHING`,
+          [partnerId, fund_id, pDef.committed]
+        );
+        const pCalled = Math.round(pDef.committed * calledPct);
+        const pDistributed = Math.round(pDef.committed * distPct);
+        // Contribution entry
+        await pool.query(
+          `INSERT INTO re_capital_ledger_entry
+             (fund_id, partner_id, entry_type, amount, amount_base, effective_date, quarter, memo, source)
+           VALUES ($1::uuid, $2::uuid, 'contribution', $3, $3, '2026-01-15', '2026Q1', 'Seed contribution', 'generated')
+           ON CONFLICT DO NOTHING`,
+          [fund_id, partnerId, pCalled]
+        );
+        // Distribution entry
+        await pool.query(
+          `INSERT INTO re_capital_ledger_entry
+             (fund_id, partner_id, entry_type, amount, amount_base, effective_date, quarter, memo, source)
+           VALUES ($1::uuid, $2::uuid, 'distribution', $3, $3, '2026-02-15', '2026Q1', 'Seed distribution', 'generated')
+           ON CONFLICT DO NOTHING`,
+          [fund_id, partnerId, pDistributed]
+        );
+        // Partner quarter metrics
+        const pNav = Math.round(pCalled * 1.05 - pDistributed);
+        await pool.query(
+          `INSERT INTO re_partner_quarter_metrics
+             (partner_id, fund_id, quarter, run_id, contributed_to_date, distributed_to_date, nav, dpi, tvpi, irr)
+           VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, $6, $7, $8, $9, $10)
+           ON CONFLICT DO NOTHING`,
+          [partnerId, fund_id, quarter, runId,
+            pCalled, pDistributed, pNav,
+            pDistributed / pCalled,
+            (pNav + pDistributed) / pCalled,
+            pDef.type === "gp" ? 0.18 : 0.12 + Math.random() * 0.03]
+        );
+      }
+      results.push("Seeded 4 partners with commitments, capital ledger, and metrics");
+    } else {
+      results.push("Partners already exist");
+    }
 
     // Get fund target_size for NAV estimate
     const fundRow = await pool.query(
       `SELECT target_size FROM repe_fund WHERE fund_id = $1::uuid`,
       [fund_id]
     );
-    const targetSize = parseFloat(fundRow.rows[0]?.target_size) || totalCommitted || 500000000;
+    const targetSize = parseFloat(fundRow.rows[0]?.target_size) || totalCommitted;
 
-    // Estimate NAV
-    const portfolioNav = totalCalled > 0 ? totalCalled * 1.25 - totalDistributed : targetSize * 0.85;
-
-    // Compute basic multiples
-    const dpi = totalCalled > 0 ? totalDistributed / totalCalled : 0.14;
-    const rvpi = totalCalled > 0 ? portfolioNav / totalCalled : 1.07;
+    const portfolioNav = targetSize * 0.85;
+    const dpi = totalDistributed / totalCalled;
+    const rvpi = portfolioNav / totalCalled;
     const tvpi = dpi + rvpi;
     const grossIrr = 0.1245;
     const netIrr = 0.0987;
@@ -291,7 +342,125 @@ export async function POST(request: Request) {
         qsSeeded++;
       }
       results.push(`Seeded quarter state for ${qsSeeded} assets`);
+
+      // 9. Seed investment quarter state for deals
+      const dealsResult = await pool.query(
+        `SELECT deal_id::text, name FROM repe_deal WHERE fund_id = $1::uuid`,
+        [fund_id]
+      );
+      const dealRows: { deal_id: string; name: string }[] = dealsResult.rows;
+      const dealCount = dealRows.length || 1;
+      const navPerDeal = portfolioNav / dealCount;
+      const committedPerDeal = totalCommitted / dealCount;
+      const calledPerDeal = totalCalled / dealCount;
+      const distPerDeal = totalDistributed / dealCount;
+
+      let iqsSeeded = 0;
+      for (const deal of dealRows) {
+        // Update deal-level committed/invested on repe_deal
+        await pool.query(
+          `UPDATE repe_deal
+           SET committed_capital = $2, invested_capital = $3
+           WHERE deal_id = $1::uuid`,
+          [deal.deal_id, Math.round(committedPerDeal), Math.round(calledPerDeal)]
+        );
+
+        const existing = await pool.query(
+          `SELECT 1 FROM re_investment_quarter_state
+           WHERE investment_id = $1::uuid AND quarter = $2 AND scenario_id IS NULL LIMIT 1`,
+          [deal.deal_id, quarter]
+        );
+        if (existing.rows.length > 0) continue;
+
+        const irrVal = 0.08 + Math.random() * 0.10;
+        await pool.query(
+          `INSERT INTO re_investment_quarter_state (
+             id, investment_id, quarter, run_id,
+             nav, committed_capital, invested_capital, realized_distributions,
+             unrealized_value, gross_irr, net_irr, equity_multiple,
+             inputs_hash, created_at
+           ) VALUES (
+             $1::uuid, $2::uuid, $3, $4::uuid,
+             $5, $6, $7, $8,
+             $9, $10, $11, $12,
+             'seed', NOW()
+           )
+           ON CONFLICT DO NOTHING`,
+          [
+            randomUUID(), deal.deal_id, quarter, runId,
+            Math.round(navPerDeal), Math.round(committedPerDeal),
+            Math.round(calledPerDeal), Math.round(distPerDeal),
+            Math.round(navPerDeal), irrVal, irrVal * 0.82,
+            (navPerDeal + distPerDeal) / calledPerDeal,
+          ]
+        );
+        iqsSeeded++;
+      }
+      results.push(`Seeded investment quarter state for ${iqsSeeded} deals`);
+
+      // 10. Seed property asset details (units, market, cost_basis)
+      const propertyMarkets = [
+        "Downtown Chicago", "Midtown Manhattan", "Buckhead Atlanta",
+        "South Beach Miami", "Downtown Denver", "Seattle CBD",
+        "San Jose", "Austin CBD", "Nashville", "Raleigh-Durham",
+        "Charlotte Uptown", "Tampa Bay",
+      ];
+      let propSeeded = 0;
+      for (let i = 0; i < assetIds.length; i++) {
+        const assetId = assetIds[i];
+        const market = propertyMarkets[i % propertyMarkets.length];
+        const units = 50000 + Math.floor(Math.random() * 300000);
+        const costBasis = Math.round(20_000_000 + Math.random() * 60_000_000);
+        const noi = Math.round(costBasis * (0.05 + Math.random() * 0.03));
+        const occ = 0.85 + Math.random() * 0.12;
+        await pool.query(
+          `INSERT INTO repe_property_asset (asset_id, property_type, units, market, current_noi, occupancy)
+           VALUES ($1::uuid, 'Office', $2, $3, $4, $5)
+           ON CONFLICT (asset_id) DO UPDATE SET
+             units = COALESCE(NULLIF(repe_property_asset.units, 0), EXCLUDED.units),
+             market = COALESCE(NULLIF(repe_property_asset.market, ''), EXCLUDED.market),
+             current_noi = COALESCE(repe_property_asset.current_noi, EXCLUDED.current_noi),
+             occupancy = COALESCE(repe_property_asset.occupancy, EXCLUDED.occupancy)`,
+          [assetId, units, market, noi, Math.round(occ * 10000) / 10000]
+        );
+        propSeeded++;
+      }
+      results.push(`Seeded property asset details for ${propSeeded} assets`);
     }
+
+    // 11. Seed run provenance for quarter close
+    const runCheck = await pool.query(
+      `SELECT 1 FROM re_run_provenance
+       WHERE fund_id = $1::uuid AND quarter = $2 AND run_type = 'quarter_close' AND status = 'success' LIMIT 1`,
+      [fund_id, quarter]
+    );
+    if (runCheck.rows.length === 0) {
+      await pool.query(
+        `INSERT INTO re_run_provenance (
+           run_id, run_type, fund_id, quarter,
+           effective_assumptions_hash, status, triggered_by,
+           started_at, completed_at
+         ) VALUES (
+           $1::uuid, 'quarter_close', $2::uuid, $3,
+           'seed', 'success', 'seed-script',
+           NOW() - interval '5 minutes', NOW()
+         )
+         ON CONFLICT DO NOTHING`,
+        [runId, fund_id, quarter]
+      );
+      results.push("Created quarter close run provenance for 2026Q1");
+    } else {
+      results.push("Quarter close run already exists");
+    }
+
+    // 12. Update fund quarter state with correct committed/called/distributed
+    await pool.query(
+      `UPDATE re_fund_quarter_state
+       SET total_committed = $3, total_called = $4, total_distributed = $5
+       WHERE fund_id = $1::uuid AND quarter = $2 AND scenario_id IS NULL`,
+      [fund_id, quarter, totalCommitted, totalCalled, totalDistributed]
+    );
+    results.push("Updated fund quarter state with committed/called/distributed");
 
     return Response.json({
       status: "success",

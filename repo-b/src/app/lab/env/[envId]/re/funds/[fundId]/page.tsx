@@ -44,6 +44,7 @@ import {
   seedReV2Data,
   getFundValuationRollup,
   type FundValuationRollup,
+  createReV2Scenario,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import SaleScenarioPanel from "@/components/repe/SaleScenarioPanel";
@@ -322,6 +323,7 @@ export default function FundDetailPage({
           quarter={quarter}
           deals={deals}
           scenarios={scenarios}
+          onScenariosChange={setScenarios}
         />
       )}
       {tab === "LP Summary" && envId && businessId && (
@@ -444,7 +446,11 @@ function InvestmentRow({
                         {asset.property_type || asset.asset_type}
                       </td>
                       <td className="px-4 py-2 text-xs text-bm-muted2">
-                        {asset.jv_id ? "JV-backed" : "Direct"}
+                        {asset.units ? `${asset.units.toLocaleString()} sf` : "—"}
+                        {asset.market ? ` · ${asset.market}` : ""}
+                      </td>
+                      <td className="px-4 py-2 text-xs text-bm-muted2 text-right">
+                        {asset.asset_value ? fmtMoney(asset.asset_value) : "—"}
                       </td>
                       <td className="px-4 py-2 text-xs text-bm-muted2 text-right">
                         {asset.nav ? fmtMoney(asset.nav) : "—"}
@@ -1037,18 +1043,64 @@ function RunCenterTab({ envId, businessId, fundId, quarter, isDebtFund, onCanoni
 
 // ── Scenarios Tab ──────────────────────────────────────────────────────────
 
-function ScenariosTab({ envId, businessId, fundId, quarter, deals, scenarios }: {
+function ScenariosTab({ envId, businessId, fundId, quarter, deals, scenarios, onScenariosChange }: {
   envId: string; businessId: string; fundId: string; quarter: string;
   deals: RepeDeal[]; scenarios: ReV2Scenario[];
+  onScenariosChange: (s: ReV2Scenario[]) => void;
 }) {
   const [selectedScenarioId, setSelectedScenarioId] = useState(
     scenarios.find((s) => !s.is_base)?.scenario_id || ""
   );
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const nonBaseScenarios = scenarios.filter((s) => !s.is_base);
 
+  async function handleNewScenario() {
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const created = await createReV2Scenario(fundId, {
+        name: `Sale Scenario ${nonBaseScenarios.length + 1}`,
+        scenario_type: "custom",
+      });
+      const updated = await listReV2Scenarios(fundId);
+      onScenariosChange(updated);
+      setSelectedScenarioId(created.scenario_id);
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Failed to create scenario");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <div className="space-y-4" data-testid="scenarios-section">
+      {/* Header with New Scenario button */}
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h3 className="text-lg font-display font-semibold tracking-tight">Scenarios</h3>
+          <p className="text-sm text-bm-muted2 mt-1">
+            Model hypothetical exits and compare impact on fund returns.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleNewScenario}
+          disabled={creating}
+          className="rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-bm-accentContrast transition-[transform,box-shadow] duration-[120ms] hover:-translate-y-[1px] disabled:opacity-50"
+          data-testid="new-sale-scenario-btn"
+        >
+          {creating ? "Creating..." : "+ New Sale Scenario"}
+        </button>
+      </div>
+
+      {createError && (
+        <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {createError}
+        </div>
+      )}
+
       {/* Scenario selector */}
       <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
         <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
@@ -1068,7 +1120,7 @@ function ScenariosTab({ envId, businessId, fundId, quarter, deals, scenarios }: 
         </label>
         {nonBaseScenarios.length === 0 && (
           <p className="mt-2 text-sm text-bm-muted2">
-            No scenarios created yet. Create a scenario via the API to start modeling.
+            No scenarios yet. Click &ldquo;+ New Sale Scenario&rdquo; above to start modeling.
           </p>
         )}
       </div>

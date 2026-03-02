@@ -37,6 +37,8 @@ export async function GET(
          a.asset_type,
          a.name,
          pa.property_type,
+         pa.units,
+         pa.market,
          qs.id::text AS quarter_state_id,
          qs.run_id::text,
          qs.noi::float8,

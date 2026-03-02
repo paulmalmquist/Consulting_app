@@ -3218,6 +3218,8 @@ export type ReV2InvestmentAsset = {
   asset_type: string;
   name: string;
   property_type?: string;
+  units?: number;
+  market?: string;
   quarter_state_id?: string;
   run_id?: string;
   noi?: number;

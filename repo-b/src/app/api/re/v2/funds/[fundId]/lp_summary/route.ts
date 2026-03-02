@@ -37,8 +37,8 @@ export async function GET(
          p.partner_id::text,
          p.name,
          p.partner_type,
-         c.commitment_amount::float8,
-         c.ownership_pct::float8,
+         c.committed_amount::float8 AS commitment_amount,
+         (c.committed_amount / NULLIF(SUM(c.committed_amount) OVER (), 0))::float8 AS ownership_pct,
          pm.contributed_to_date::float8,
          pm.distributed_to_date::float8,
          pm.nav::float8,
@@ -46,7 +46,7 @@ export async function GET(
          pm.tvpi::float8,
          pm.irr::float8
        FROM re_partner p
-       JOIN re_commitment c ON c.partner_id = p.partner_id AND c.fund_id = $1::uuid
+       JOIN re_partner_commitment c ON c.partner_id = p.partner_id AND c.fund_id = $1::uuid
        LEFT JOIN re_partner_quarter_metrics pm
          ON pm.partner_id = p.partner_id
          AND pm.fund_id = $1::uuid
