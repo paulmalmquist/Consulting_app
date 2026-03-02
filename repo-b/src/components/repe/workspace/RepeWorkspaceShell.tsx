@@ -39,6 +39,7 @@ export default function RepeWorkspaceShell({ children, envId, isAdmin = false }:
     [base]
   );
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const envLabel = environment?.client_name || envId || "Real Estate";
 
   if (loading) {
@@ -74,8 +75,6 @@ export default function RepeWorkspaceShell({ children, envId, isAdmin = false }:
       </div>
     );
   }
-
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const navList = (
     <nav className="space-y-1.5" data-testid="repe-left-nav">
