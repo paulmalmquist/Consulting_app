@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 from uuid import UUID, uuid4
 
 from app.db import get_cursor
@@ -25,16 +26,102 @@ def _next_version(cur, table: str, id_col: str, target_id: str) -> int:
     return int(row["next_version"])
 
 
-def list_projects(*, env_id: UUID, business_id: UUID) -> list[dict]:
+def _normalize_limit(value: int | None, default: int = 50, maximum: int = 200) -> int:
+    if value is None:
+        return default
+    return max(1, min(int(value), maximum))
+
+
+def _normalize_offset(value: int | None) -> int:
+    if value is None:
+        return 0
+    return max(0, int(value))
+
+
+def _merge_metadata(existing: Any, incoming: dict[str, Any] | None) -> str:
+    base: dict[str, Any]
+    if isinstance(existing, dict):
+        base = dict(existing)
+    else:
+        base = {}
+    if incoming:
+        base.update(incoming)
+    return json.dumps(base)
+
+
+def _list_project_rows(*, table: str, env_id: UUID, business_id: UUID, project_id: UUID, order_by: str = "created_at DESC") -> list[dict]:
     with get_cursor() as cur:
         cur.execute(
-            """
+            f"""
+            SELECT *
+            FROM {table}
+            WHERE env_id = %s::uuid
+              AND business_id = %s::uuid
+              AND project_id = %s::uuid
+            ORDER BY {order_by}
+            """,
+            (str(env_id), str(business_id), str(project_id)),
+        )
+        return cur.fetchall()
+
+
+def _next_reference_number(*, cur, table: str, project_id: UUID, column: str, prefix: str) -> str:
+    cur.execute(
+        f"""
+        SELECT COALESCE(
+          MAX(
+            NULLIF(
+              regexp_replace({column}, '[^0-9]', '', 'g'),
+              ''
+            )::int
+          ),
+          0
+        ) + 1 AS next_seq
+        FROM {table}
+        WHERE project_id = %s::uuid
+        """,
+        (str(project_id),),
+    )
+    row = cur.fetchone() or {}
+    return f"{prefix}-{int(row.get('next_seq') or 1):04d}"
+
+
+def list_projects(
+    *,
+    env_id: UUID,
+    business_id: UUID,
+    stage: str | None = None,
+    status: str | None = None,
+    project_manager: str | None = None,
+    offset: int | None = None,
+    limit: int | None = None,
+) -> list[dict]:
+    with get_cursor() as cur:
+        where = [
+            "env_id = %s::uuid",
+            "business_id = %s::uuid",
+        ]
+        params: list[Any] = [str(env_id), str(business_id)]
+        if stage:
+            where.append("stage = %s")
+            params.append(stage)
+        if status:
+            where.append("status = %s")
+            params.append(status)
+        if project_manager:
+            where.append("project_manager = %s")
+            params.append(project_manager)
+        params.extend([_normalize_offset(offset), _normalize_limit(limit)])
+        cur.execute(
+            f"""
             SELECT *
             FROM pds_projects
-            WHERE env_id = %s::uuid AND business_id = %s::uuid
+            WHERE {' AND '.join(where)}
             ORDER BY created_at DESC
+            OFFSET %s
+            LIMIT %s
             """,
-            (str(env_id), str(business_id)),
+            tuple(params),
         )
         return cur.fetchall()
 
@@ -62,19 +149,27 @@ def create_project(*, env_id: UUID, business_id: UUID, payload: dict) -> dict:
         cur.execute(
             """
             INSERT INTO pds_projects
-            (env_id, business_id, program_id, name, stage, project_manager, approved_budget, contingency_budget,
+            (env_id, business_id, program_id, project_code, name, description, sector, project_type, stage, status,
+             project_manager, start_date, target_end_date, approved_budget, contingency_budget,
              contingency_remaining, next_milestone_date, currency_code, created_by, updated_by)
             VALUES
-            (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING *
             """,
             (
                 str(env_id),
                 str(business_id),
                 str(payload["program_id"]) if payload.get("program_id") else None,
+                payload.get("project_code"),
                 payload["name"],
+                payload.get("description"),
+                payload.get("sector"),
+                payload.get("project_type"),
                 payload.get("stage") or "planning",
+                payload.get("status") or "active",
                 payload.get("project_manager"),
+                payload.get("start_date"),
+                payload.get("target_end_date"),
                 _q(payload.get("approved_budget")),
                 _q(payload.get("contingency_budget")),
                 _q(payload.get("contingency_budget")),
@@ -192,16 +287,40 @@ def create_budget_revision(*, env_id: UUID, business_id: UUID, project_id: UUID,
 
 def create_contract(*, env_id: UUID, business_id: UUID, project_id: UUID, payload: dict) -> dict:
     with get_cursor() as cur:
+        vendor_id = str(payload["vendor_id"]) if payload.get("vendor_id") else None
+        vendor_name = payload.get("vendor_name")
+        if vendor_id and not vendor_name:
+            cur.execute(
+                """
+                SELECT vendor_name
+                FROM pds_vendors
+                WHERE env_id = %s::uuid AND business_id = %s::uuid AND vendor_id = %s::uuid
+                """,
+                (str(env_id), str(business_id), vendor_id),
+            )
+            vendor = cur.fetchone()
+            vendor_name = vendor["vendor_name"] if vendor else None
         cur.execute(
             """
             INSERT INTO pds_contracts
-            (env_id, business_id, project_id, contract_number, vendor_name, contract_value, status, created_by, updated_by)
-            VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s)
+            (env_id, business_id, project_id, contract_number, vendor_id, vendor_name, scope_description, contract_value,
+             executed_date, status, created_by, updated_by)
+            VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s::uuid, %s, %s, %s, %s, %s, %s, %s)
             RETURNING *
             """,
             (
-                str(env_id), str(business_id), str(project_id), payload["contract_number"], payload.get("vendor_name"),
-                _q(payload.get("contract_value")), payload.get("status") or "active", payload.get("created_by"), payload.get("created_by")
+                str(env_id),
+                str(business_id),
+                str(project_id),
+                payload["contract_number"],
+                vendor_id,
+                vendor_name,
+                payload.get("scope_description"),
+                _q(payload.get("contract_value")),
+                payload.get("executed_date"),
+                payload.get("status") or "active",
+                payload.get("created_by"),
+                payload.get("created_by"),
             ),
         )
         return cur.fetchone()
@@ -392,6 +511,562 @@ def create_forecast(*, env_id: UUID, business_id: UUID, project_id: UUID, payloa
         return row
 
 
+def update_project(*, env_id: UUID, business_id: UUID, project_id: UUID, payload: dict) -> dict:
+    existing = get_project(env_id=env_id, business_id=business_id, project_id=project_id)
+    allowed_fields = {
+        "project_code": payload.get("project_code"),
+        "name": payload.get("name"),
+        "description": payload.get("description"),
+        "sector": payload.get("sector"),
+        "project_type": payload.get("project_type"),
+        "stage": payload.get("stage"),
+        "status": payload.get("status"),
+        "project_manager": payload.get("project_manager"),
+        "start_date": payload.get("start_date"),
+        "target_end_date": payload.get("target_end_date"),
+        "next_milestone_date": payload.get("next_milestone_date"),
+    }
+    updates = {key: value for key, value in allowed_fields.items() if value is not None}
+
+    if payload.get("approved_budget") is not None:
+        updates["approved_budget"] = _q(payload.get("approved_budget"))
+
+    if payload.get("contingency_budget") is not None:
+        updates["contingency_budget"] = _q(payload.get("contingency_budget"))
+        if payload.get("approved_budget") is None:
+            delta = _q(payload.get("contingency_budget")) - _q(existing.get("contingency_budget"))
+            updates["contingency_remaining"] = _q(existing.get("contingency_remaining")) + delta
+
+    if payload.get("currency_code") is not None:
+        updates["currency_code"] = str(payload.get("currency_code")).upper()
+
+    if not updates:
+        return existing
+
+    assignments = []
+    params: list[Any] = []
+    for key, value in updates.items():
+        assignments.append(f"{key} = %s")
+        params.append(value)
+    assignments.extend(["updated_by = %s", "updated_at = now()"])
+    params.extend([payload.get("updated_by"), str(project_id)])
+
+    with get_cursor() as cur:
+        cur.execute(
+            f"""
+            UPDATE pds_projects
+            SET {', '.join(assignments)}
+            WHERE project_id = %s::uuid
+            RETURNING *
+            """,
+            tuple(params),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise LookupError("Project not found")
+        return row
+
+
+def list_project_change_orders(*, env_id: UUID, business_id: UUID, project_id: UUID) -> list[dict]:
+    return _list_project_rows(table="pds_change_orders", env_id=env_id, business_id=business_id, project_id=project_id)
+
+
+def list_project_commitments(*, env_id: UUID, business_id: UUID, project_id: UUID) -> list[dict]:
+    return _list_project_rows(table="pds_commitment_lines", env_id=env_id, business_id=business_id, project_id=project_id)
+
+
+def list_project_forecasts(*, env_id: UUID, business_id: UUID, project_id: UUID) -> list[dict]:
+    return _list_project_rows(table="pds_forecast_versions", env_id=env_id, business_id=business_id, project_id=project_id, order_by="version_no DESC, created_at DESC")
+
+
+def list_project_site_reports(*, env_id: UUID, business_id: UUID, project_id: UUID) -> list[dict]:
+    return _list_project_rows(table="pds_site_reports", env_id=env_id, business_id=business_id, project_id=project_id, order_by="report_date DESC, created_at DESC")
+
+
+def create_site_report(*, env_id: UUID, business_id: UUID, project_id: UUID, payload: dict) -> dict:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO pds_site_reports
+            (env_id, business_id, project_id, report_date, summary, blockers, weather, temperature_high,
+             temperature_low, workers_on_site, work_performed, delays, safety_incidents, created_by, updated_by)
+            VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING *
+            """,
+            (
+                str(env_id),
+                str(business_id),
+                str(project_id),
+                payload["report_date"],
+                payload.get("summary"),
+                payload.get("blockers"),
+                payload.get("weather"),
+                payload.get("temperature_high"),
+                payload.get("temperature_low"),
+                int(payload.get("workers_on_site") or 0),
+                payload.get("work_performed"),
+                payload.get("delays"),
+                payload.get("safety_incidents"),
+                payload.get("created_by"),
+                payload.get("created_by"),
+            ),
+        )
+        return cur.fetchone()
+
+
+def list_project_contracts(*, env_id: UUID, business_id: UUID, project_id: UUID) -> list[dict]:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+              c.*,
+              COALESCE(v.vendor_name, c.vendor_name) AS resolved_vendor_name,
+              v.trade,
+              v.contact_name,
+              v.contact_email,
+              v.insurance_expiry
+            FROM pds_contracts c
+            LEFT JOIN pds_vendors v ON v.vendor_id = c.vendor_id
+            WHERE c.env_id = %s::uuid
+              AND c.business_id = %s::uuid
+              AND c.project_id = %s::uuid
+            ORDER BY c.created_at DESC
+            """,
+            (str(env_id), str(business_id), str(project_id)),
+        )
+        return cur.fetchall()
+
+
+def get_project_budget(*, env_id: UUID, business_id: UUID, project_id: UUID) -> dict:
+    project = get_project(env_id=env_id, business_id=business_id, project_id=project_id)
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT *
+            FROM pds_budget_versions
+            WHERE env_id = %s::uuid AND business_id = %s::uuid AND project_id = %s::uuid
+            ORDER BY version_no DESC, created_at DESC
+            """,
+            (str(env_id), str(business_id), str(project_id)),
+        )
+        versions = cur.fetchall()
+        latest_version = versions[0] if versions else None
+
+        lines: list[dict] = []
+        if latest_version:
+            cur.execute(
+                """
+                SELECT *
+                FROM pds_budget_lines
+                WHERE budget_version_id = %s::uuid
+                ORDER BY cost_code ASC
+                """,
+                (str(latest_version["budget_version_id"]),),
+            )
+            lines = cur.fetchall()
+
+        revisions = _list_project_rows(
+            table="pds_budget_revisions",
+            env_id=env_id,
+            business_id=business_id,
+            project_id=project_id,
+        )
+        commitments = list_project_commitments(env_id=env_id, business_id=business_id, project_id=project_id)
+        forecasts = list_project_forecasts(env_id=env_id, business_id=business_id, project_id=project_id)
+        change_orders = list_project_change_orders(env_id=env_id, business_id=business_id, project_id=project_id)
+
+        cur.execute(
+            """
+            SELECT *
+            FROM pds_invoices
+            WHERE env_id = %s::uuid AND business_id = %s::uuid AND project_id = %s::uuid
+            ORDER BY created_at DESC
+            """,
+            (str(env_id), str(business_id), str(project_id)),
+        )
+        invoices = cur.fetchall()
+
+        cur.execute(
+            """
+            SELECT *
+            FROM pds_payments
+            WHERE env_id = %s::uuid AND business_id = %s::uuid AND project_id = %s::uuid
+            ORDER BY created_at DESC
+            """,
+            (str(env_id), str(business_id), str(project_id)),
+        )
+        payments = cur.fetchall()
+
+    approved_budget = _q(project.get("approved_budget"))
+    spent_amount = _q(project.get("spent_amount"))
+    forecast_at_completion = _q(project.get("forecast_at_completion"))
+
+    return {
+        "project_id": str(project_id),
+        "currency_code": project.get("currency_code"),
+        "totals": {
+            "approved_budget": approved_budget,
+            "committed_amount": _q(project.get("committed_amount")),
+            "spent_amount": spent_amount,
+            "forecast_at_completion": forecast_at_completion,
+            "contingency_budget": _q(project.get("contingency_budget")),
+            "contingency_remaining": _q(project.get("contingency_remaining")),
+            "pending_change_order_amount": _q(project.get("pending_change_order_amount")),
+            "variance": approved_budget - forecast_at_completion,
+            "budget_used_ratio": (spent_amount / approved_budget) if approved_budget else Decimal("0"),
+        },
+        "versions": versions,
+        "lines": lines,
+        "revisions": revisions,
+        "commitments": commitments,
+        "invoices": invoices,
+        "payments": payments,
+        "forecasts": forecasts,
+        "change_orders": change_orders,
+    }
+
+
+def list_vendors(*, env_id: UUID, business_id: UUID, status: str | None = None) -> list[dict]:
+    with get_cursor() as cur:
+        params: list[Any] = [str(env_id), str(business_id)]
+        where = ["env_id = %s::uuid", "business_id = %s::uuid"]
+        if status:
+            where.append("status = %s")
+            params.append(status)
+        cur.execute(
+            f"""
+            SELECT *
+            FROM pds_vendors
+            WHERE {' AND '.join(where)}
+            ORDER BY vendor_name ASC
+            """,
+            tuple(params),
+        )
+        return cur.fetchall()
+
+
+def get_vendor(*, env_id: UUID, business_id: UUID, vendor_id: UUID) -> dict:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT *
+            FROM pds_vendors
+            WHERE env_id = %s::uuid AND business_id = %s::uuid AND vendor_id = %s::uuid
+            """,
+            (str(env_id), str(business_id), str(vendor_id)),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise LookupError("Vendor not found")
+        return row
+
+
+def create_vendor(*, env_id: UUID, business_id: UUID, payload: dict) -> dict:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO pds_vendors
+            (env_id, business_id, vendor_name, trade, license_number, insurance_expiry, contact_name,
+             contact_email, status, metadata_json, created_by, updated_by)
+            VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)
+            RETURNING *
+            """,
+            (
+                str(env_id),
+                str(business_id),
+                payload["vendor_name"],
+                payload.get("trade"),
+                payload.get("license_number"),
+                payload.get("insurance_expiry"),
+                payload.get("contact_name"),
+                payload.get("contact_email"),
+                payload.get("status") or "active",
+                json.dumps(payload.get("metadata_json") or {}),
+                payload.get("created_by"),
+                payload.get("created_by"),
+            ),
+        )
+        return cur.fetchone()
+
+
+def update_vendor(*, env_id: UUID, business_id: UUID, vendor_id: UUID, payload: dict) -> dict:
+    existing = get_vendor(env_id=env_id, business_id=business_id, vendor_id=vendor_id)
+    updates = {
+        "vendor_name": payload.get("vendor_name"),
+        "trade": payload.get("trade"),
+        "license_number": payload.get("license_number"),
+        "insurance_expiry": payload.get("insurance_expiry"),
+        "contact_name": payload.get("contact_name"),
+        "contact_email": payload.get("contact_email"),
+        "status": payload.get("status"),
+    }
+    filtered = {key: value for key, value in updates.items() if value is not None}
+    if payload.get("metadata_json") is not None:
+        filtered["metadata_json"] = _merge_metadata(existing.get("metadata_json"), payload.get("metadata_json"))
+    if not filtered:
+        return existing
+
+    assignments = []
+    params: list[Any] = []
+    for key, value in filtered.items():
+        assignments.append(f"{key} = %s" if key != "metadata_json" else "metadata_json = %s::jsonb")
+        params.append(value)
+    assignments.extend(["updated_by = %s", "updated_at = now()"])
+    params.extend([payload.get("updated_by"), str(vendor_id)])
+
+    with get_cursor() as cur:
+        cur.execute(
+            f"""
+            UPDATE pds_vendors
+            SET {', '.join(assignments)}
+            WHERE vendor_id = %s::uuid
+            RETURNING *
+            """,
+            tuple(params),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise LookupError("Vendor not found")
+        return row
+
+
+def list_rfis(*, env_id: UUID, business_id: UUID, project_id: UUID, status: str | None = None) -> list[dict]:
+    with get_cursor() as cur:
+        params: list[Any] = [str(env_id), str(business_id), str(project_id)]
+        where = [
+            "env_id = %s::uuid",
+            "business_id = %s::uuid",
+            "project_id = %s::uuid",
+        ]
+        if status:
+            where.append("status = %s")
+            params.append(status)
+        cur.execute(
+            f"""
+            SELECT *
+            FROM pds_rfis
+            WHERE {' AND '.join(where)}
+            ORDER BY created_at DESC
+            """,
+            tuple(params),
+        )
+        return cur.fetchall()
+
+
+def get_rfi(*, env_id: UUID, business_id: UUID, project_id: UUID, rfi_id: UUID) -> dict:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT *
+            FROM pds_rfis
+            WHERE env_id = %s::uuid
+              AND business_id = %s::uuid
+              AND project_id = %s::uuid
+              AND rfi_id = %s::uuid
+            """,
+            (str(env_id), str(business_id), str(project_id), str(rfi_id)),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise LookupError("RFI not found")
+        return row
+
+
+def create_rfi(*, env_id: UUID, business_id: UUID, project_id: UUID, payload: dict) -> dict:
+    with get_cursor() as cur:
+        rfi_number = payload.get("rfi_number") or _next_reference_number(
+            cur=cur,
+            table="pds_rfis",
+            project_id=project_id,
+            column="rfi_number",
+            prefix="RFI",
+        )
+        cur.execute(
+            """
+            INSERT INTO pds_rfis
+            (env_id, business_id, project_id, rfi_number, subject, description, assigned_to, due_date, priority,
+             metadata_json, created_by, updated_by)
+            VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)
+            RETURNING *
+            """,
+            (
+                str(env_id),
+                str(business_id),
+                str(project_id),
+                rfi_number,
+                payload["subject"],
+                payload.get("description"),
+                payload.get("assigned_to"),
+                payload.get("due_date"),
+                payload.get("priority") or "normal",
+                json.dumps(payload.get("metadata_json") or {}),
+                payload.get("created_by"),
+                payload.get("created_by"),
+            ),
+        )
+        return cur.fetchone()
+
+
+def update_rfi(*, env_id: UUID, business_id: UUID, project_id: UUID, rfi_id: UUID, payload: dict) -> dict:
+    existing = get_rfi(env_id=env_id, business_id=business_id, project_id=project_id, rfi_id=rfi_id)
+    updates = {
+        "subject": payload.get("subject"),
+        "description": payload.get("description"),
+        "assigned_to": payload.get("assigned_to"),
+        "due_date": payload.get("due_date"),
+        "priority": payload.get("priority"),
+        "status": payload.get("status"),
+    }
+    filtered = {key: value for key, value in updates.items() if value is not None}
+    if payload.get("response_text") is not None:
+        filtered["response_text"] = payload.get("response_text")
+        filtered["responded_at"] = datetime.utcnow()
+        if "status" not in filtered:
+            filtered["status"] = "responded"
+    if payload.get("metadata_json") is not None:
+        filtered["metadata_json"] = _merge_metadata(existing.get("metadata_json"), payload.get("metadata_json"))
+    if not filtered:
+        return existing
+
+    assignments = []
+    params: list[Any] = []
+    for key, value in filtered.items():
+        assignments.append(f"{key} = %s" if key != "metadata_json" else "metadata_json = %s::jsonb")
+        params.append(value)
+    assignments.extend(["updated_by = %s", "updated_at = now()"])
+    params.extend([payload.get("updated_by"), str(rfi_id)])
+
+    with get_cursor() as cur:
+        cur.execute(
+            f"""
+            UPDATE pds_rfis
+            SET {', '.join(assignments)}
+            WHERE rfi_id = %s::uuid
+            RETURNING *
+            """,
+            tuple(params),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise LookupError("RFI not found")
+        return row
+
+
+def list_submittals(*, env_id: UUID, business_id: UUID, project_id: UUID, status: str | None = None) -> list[dict]:
+    with get_cursor() as cur:
+        params: list[Any] = [str(env_id), str(business_id), str(project_id)]
+        where = [
+            "s.env_id = %s::uuid",
+            "s.business_id = %s::uuid",
+            "s.project_id = %s::uuid",
+        ]
+        if status:
+            where.append("s.status = %s")
+            params.append(status)
+        cur.execute(
+            f"""
+            SELECT
+              s.*,
+              v.vendor_name
+            FROM pds_submittals s
+            LEFT JOIN pds_vendors v ON v.vendor_id = s.vendor_id
+            WHERE {' AND '.join(where)}
+            ORDER BY s.created_at DESC
+            """,
+            tuple(params),
+        )
+        return cur.fetchall()
+
+
+def create_submittal(*, env_id: UUID, business_id: UUID, project_id: UUID, payload: dict) -> dict:
+    with get_cursor() as cur:
+        submittal_number = payload.get("submittal_number") or _next_reference_number(
+            cur=cur,
+            table="pds_submittals",
+            project_id=project_id,
+            column="submittal_number",
+            prefix="SUB",
+        )
+        cur.execute(
+            """
+            INSERT INTO pds_submittals
+            (env_id, business_id, project_id, vendor_id, submittal_number, description, spec_section, required_date,
+             submitted_date, reviewed_date, review_notes, status, metadata_json, created_by, updated_by)
+            VALUES (%s::uuid, %s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)
+            RETURNING *
+            """,
+            (
+                str(env_id),
+                str(business_id),
+                str(project_id),
+                str(payload["vendor_id"]) if payload.get("vendor_id") else None,
+                submittal_number,
+                payload.get("description"),
+                payload.get("spec_section"),
+                payload.get("required_date"),
+                payload.get("submitted_date"),
+                payload.get("reviewed_date"),
+                payload.get("review_notes"),
+                payload.get("status") or "pending",
+                json.dumps(payload.get("metadata_json") or {}),
+                payload.get("created_by"),
+                payload.get("created_by"),
+            ),
+        )
+        return cur.fetchone()
+
+
+def list_documents(*, env_id: UUID, business_id: UUID, project_id: UUID, document_type: str | None = None) -> list[dict]:
+    with get_cursor() as cur:
+        params: list[Any] = [str(env_id), str(business_id), str(project_id)]
+        where = [
+            "env_id = %s::uuid",
+            "business_id = %s::uuid",
+            "project_id = %s::uuid",
+        ]
+        if document_type:
+            where.append("document_type = %s")
+            params.append(document_type)
+        cur.execute(
+            f"""
+            SELECT *
+            FROM pds_documents
+            WHERE {' AND '.join(where)}
+            ORDER BY created_at DESC
+            """,
+            tuple(params),
+        )
+        return cur.fetchall()
+
+
+def create_document(*, env_id: UUID, business_id: UUID, project_id: UUID, payload: dict) -> dict:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO pds_documents
+            (env_id, business_id, project_id, rfi_id, submittal_id, title, document_type, version_label,
+             storage_key, metadata_json, created_by, updated_by)
+            VALUES (%s::uuid, %s::uuid, %s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s::jsonb, %s, %s)
+            RETURNING *
+            """,
+            (
+                str(env_id),
+                str(business_id),
+                str(project_id),
+                str(payload["rfi_id"]) if payload.get("rfi_id") else None,
+                str(payload["submittal_id"]) if payload.get("submittal_id") else None,
+                payload["title"],
+                payload.get("document_type") or "general",
+                payload.get("version_label"),
+                payload.get("storage_key"),
+                json.dumps(payload.get("metadata_json") or {}),
+                payload.get("created_by"),
+                payload.get("created_by"),
+            ),
+        )
+        return cur.fetchone()
+
+
 def _upsert_milestones(*, cur, env_id: UUID, business_id: UUID, project_id: UUID, milestones: list[dict], created_by: str | None):
     for row in milestones:
         cur.execute(
@@ -431,6 +1106,47 @@ def create_schedule_baseline(*, env_id: UUID, business_id: UUID, project_id: UUI
 
 def create_schedule_update(*, env_id: UUID, business_id: UUID, project_id: UUID, payload: dict) -> list[dict]:
     return create_schedule_baseline(env_id=env_id, business_id=business_id, project_id=project_id, payload=payload)
+
+
+def get_project_schedule(*, env_id: UUID, business_id: UUID, project_id: UUID) -> dict:
+    milestones = _list_project_rows(
+        table="pds_milestones",
+        env_id=env_id,
+        business_id=business_id,
+        project_id=project_id,
+        order_by="COALESCE(current_date, baseline_date) ASC NULLS LAST, created_at ASC",
+    )
+    total_slip_days = 0
+    critical_flags = 0
+    next_milestone_date = None
+
+    for milestone in milestones:
+        baseline = milestone.get("baseline_date")
+        current = milestone.get("current_date")
+        actual = milestone.get("actual_date")
+        anchor = actual or current or baseline
+        if anchor is not None and next_milestone_date is None:
+            next_milestone_date = anchor
+        if baseline and current and current > baseline:
+            total_slip_days += (current - baseline).days
+        if milestone.get("is_critical"):
+            critical_flags += 1
+
+    if total_slip_days <= 7:
+        health = "on_track"
+    elif total_slip_days <= 21:
+        health = "watch"
+    else:
+        health = "at_risk"
+
+    return {
+        "project_id": str(project_id),
+        "schedule_health": health,
+        "total_slip_days": total_slip_days,
+        "critical_flags": critical_flags,
+        "next_milestone_date": next_milestone_date,
+        "items": milestones,
+    }
 
 
 def list_risks(*, env_id: UUID, business_id: UUID, project_id: UUID) -> list[dict]:
@@ -497,6 +1213,113 @@ def create_survey_response(*, env_id: UUID, business_id: UUID, project_id: UUID,
             ),
         )
         return cur.fetchone()
+
+
+def get_project_overview(*, env_id: UUID, business_id: UUID, project_id: UUID) -> dict:
+    project = get_project(env_id=env_id, business_id=business_id, project_id=project_id)
+    budget = get_project_budget(env_id=env_id, business_id=business_id, project_id=project_id)
+    schedule = get_project_schedule(env_id=env_id, business_id=business_id, project_id=project_id)
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+              COALESCE(COUNT(*) FILTER (WHERE status IN ('open', 'mitigating')), 0) AS open_risks,
+              COALESCE(COUNT(*) FILTER (WHERE impact_amount >= 100000 OR impact_days >= 14), 0) AS high_risks
+            FROM pds_risks
+            WHERE env_id = %s::uuid AND business_id = %s::uuid AND project_id = %s::uuid
+            """,
+            (str(env_id), str(business_id), str(project_id)),
+        )
+        risk_counts = cur.fetchone() or {}
+
+        cur.execute(
+            """
+            SELECT
+              COALESCE(COUNT(*) FILTER (WHERE status IN ('pending', 'approved')), 0) AS open_change_orders,
+              COALESCE(COUNT(*) FILTER (WHERE status = 'pending'), 0) AS pending_change_orders
+            FROM pds_change_orders
+            WHERE env_id = %s::uuid AND business_id = %s::uuid AND project_id = %s::uuid
+            """,
+            (str(env_id), str(business_id), str(project_id)),
+        )
+        co_counts = cur.fetchone() or {}
+
+        cur.execute(
+            """
+            SELECT
+              COALESCE(COUNT(*) FILTER (WHERE status IN ('open', 'responded', 'in_review')), 0) AS open_rfis,
+              COALESCE(COUNT(*) FILTER (WHERE due_date IS NOT NULL AND due_date < CURRENT_DATE AND status <> 'closed'), 0) AS overdue_rfis
+            FROM pds_rfis
+            WHERE env_id = %s::uuid AND business_id = %s::uuid AND project_id = %s::uuid
+            """,
+            (str(env_id), str(business_id), str(project_id)),
+        )
+        rfi_counts = cur.fetchone() or {}
+
+        cur.execute(
+            """
+            SELECT COALESCE(COUNT(*), 0) AS site_report_count
+            FROM pds_site_reports
+            WHERE env_id = %s::uuid AND business_id = %s::uuid AND project_id = %s::uuid
+            """,
+            (str(env_id), str(business_id), str(project_id)),
+        )
+        report_count = cur.fetchone() or {}
+
+    recent_activity = []
+    for row in list_project_change_orders(env_id=env_id, business_id=business_id, project_id=project_id)[:4]:
+        recent_activity.append(
+            {
+                "type": "change_order",
+                "label": row.get("change_order_ref"),
+                "status": row.get("status"),
+                "created_at": row.get("created_at"),
+            }
+        )
+    for row in list_rfis(env_id=env_id, business_id=business_id, project_id=project_id)[:4]:
+        recent_activity.append(
+            {
+                "type": "rfi",
+                "label": row.get("rfi_number"),
+                "status": row.get("status"),
+                "created_at": row.get("created_at"),
+            }
+        )
+    for row in list_project_site_reports(env_id=env_id, business_id=business_id, project_id=project_id)[:4]:
+        recent_activity.append(
+            {
+                "type": "site_report",
+                "label": row.get("report_date"),
+                "status": "logged",
+                "created_at": row.get("created_at"),
+            }
+        )
+    recent_activity.sort(key=lambda item: item.get("created_at") or datetime.min, reverse=True)
+
+    team_size = 1 if project.get("project_manager") else 0
+
+    return {
+        "project": project,
+        "budget": budget["totals"],
+        "schedule": {
+            "schedule_health": schedule["schedule_health"],
+            "total_slip_days": schedule["total_slip_days"],
+            "critical_flags": schedule["critical_flags"],
+            "next_milestone_date": schedule["next_milestone_date"],
+            "items": schedule["items"][:8],
+        },
+        "counts": {
+            "open_risks": int(risk_counts.get("open_risks") or 0),
+            "high_risks": int(risk_counts.get("high_risks") or 0),
+            "open_change_orders": int(co_counts.get("open_change_orders") or 0),
+            "pending_change_orders": int(co_counts.get("pending_change_orders") or 0),
+            "open_rfis": int(rfi_counts.get("open_rfis") or 0),
+            "overdue_rfis": int(rfi_counts.get("overdue_rfis") or 0),
+            "site_report_count": int(report_count.get("site_report_count") or 0),
+            "team_size": team_size,
+        },
+        "recent_activity": recent_activity[:8],
+    }
 
 
 def _fetch_period_inputs(cur, *, env_id: UUID, business_id: UUID, project_id: UUID, period: str) -> dict:
@@ -1072,6 +1895,100 @@ def get_portfolio_kpis(*, env_id: UUID, business_id: UUID, period: str) -> dict:
             "pending_approval_count": int(cos.get("pending_approval_count") or 0),
             "top_risk_count": int(risks.get("top_risk_count") or 0),
         }
+
+
+def get_portfolio_dashboard(*, env_id: UUID, business_id: UUID, period: str) -> dict:
+    kpis = get_portfolio_kpis(env_id=env_id, business_id=business_id, period=period)
+    projects = list_projects(env_id=env_id, business_id=business_id, limit=100)
+
+    project_cards: list[dict] = []
+    alerts: list[dict] = []
+    recent_activity: list[dict] = []
+
+    for project in projects:
+        project_id = UUID(str(project["project_id"]))
+        schedule = get_project_schedule(env_id=env_id, business_id=business_id, project_id=project_id)
+        overview = get_project_overview(env_id=env_id, business_id=business_id, project_id=project_id)
+
+        approved_budget = _q(project.get("approved_budget"))
+        eac = _q(project.get("forecast_at_completion"))
+        spent = _q(project.get("spent_amount"))
+        budget_used_ratio = (spent / approved_budget) if approved_budget else Decimal("0")
+        budget_variance = approved_budget - eac
+
+        card = {
+            "project_id": str(project_id),
+            "name": project.get("name"),
+            "project_code": project.get("project_code"),
+            "sector": project.get("sector"),
+            "stage": project.get("stage"),
+            "status": project.get("status"),
+            "project_manager": project.get("project_manager"),
+            "schedule_health": schedule["schedule_health"],
+            "total_slip_days": schedule["total_slip_days"],
+            "budget_variance": budget_variance,
+            "budget_used_ratio": budget_used_ratio,
+            "open_rfis": overview["counts"]["open_rfis"],
+            "open_risks": overview["counts"]["open_risks"],
+            "pending_change_orders": overview["counts"]["pending_change_orders"],
+            "next_milestone_date": schedule["next_milestone_date"],
+        }
+        project_cards.append(card)
+
+        if budget_variance < 0:
+            alerts.append(
+                {
+                    "project_id": str(project_id),
+                    "type": "budget",
+                    "severity": "high",
+                    "message": f"{project.get('name')} is forecast over budget.",
+                }
+            )
+        if schedule["schedule_health"] == "at_risk":
+            alerts.append(
+                {
+                    "project_id": str(project_id),
+                    "type": "schedule",
+                    "severity": "medium",
+                    "message": f"{project.get('name')} is behind schedule.",
+                }
+            )
+        if overview["counts"]["overdue_rfis"] > 0:
+            alerts.append(
+                {
+                    "project_id": str(project_id),
+                    "type": "rfi",
+                    "severity": "medium",
+                    "message": f"{project.get('name')} has overdue RFIs.",
+                }
+            )
+
+        for item in overview["recent_activity"][:2]:
+            activity = dict(item)
+            activity["project_id"] = str(project_id)
+            activity["project_name"] = project.get("name")
+            recent_activity.append(activity)
+
+    recent_activity.sort(key=lambda item: item.get("created_at") or datetime.min, reverse=True)
+
+    approved_budget = _q(kpis.get("approved_budget"))
+    on_budget_count = sum(1 for card in project_cards if card["budget_variance"] >= 0)
+    on_schedule_count = sum(1 for card in project_cards if card["schedule_health"] == "on_track")
+
+    return {
+        "period": period,
+        "kpis": {
+            **kpis,
+            "active_project_count": len([project for project in projects if project.get("status") == "active"]),
+            "project_count": len(projects),
+            "projects_on_budget_pct": (Decimal(on_budget_count) / Decimal(len(project_cards))) if project_cards else Decimal("0"),
+            "projects_on_schedule_pct": (Decimal(on_schedule_count) / Decimal(len(project_cards))) if project_cards else Decimal("0"),
+            "budget_used_ratio": (_q(kpis.get("spent")) / approved_budget) if approved_budget else Decimal("0"),
+        },
+        "projects": project_cards,
+        "alerts": alerts[:12],
+        "recent_activity": recent_activity[:12],
+    }
 
 
 def seed_demo_workspace(*, env_id: UUID, business_id: UUID, actor: str = "system") -> dict:

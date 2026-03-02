@@ -21,12 +21,21 @@ class PdsProjectCreateRequest(BaseModel):
     business_id: UUID | None = None
     program_id: UUID | None = None
     name: str = Field(min_length=2, max_length=240)
+    project_code: str | None = Field(default=None, min_length=1, max_length=80)
+    description: str | None = Field(default=None, max_length=4000)
+    sector: str | None = Field(default=None, min_length=1, max_length=120)
+    project_type: str | None = Field(default=None, min_length=1, max_length=120)
     stage: str = "planning"
+    status: str = "active"
     project_manager: str | None = None
+    start_date: date | None = None
+    target_end_date: date | None = None
     approved_budget: Decimal = Field(default=Decimal("0"), ge=0)
     contingency_budget: Decimal = Field(default=Decimal("0"), ge=0)
     next_milestone_date: date | None = None
     currency_code: str = Field(default="USD", min_length=3, max_length=8)
+    baseline_period: str | None = Field(default=None, min_length=5, max_length=20)
+    baseline_lines: list["PdsBudgetLineIn"] = Field(default_factory=list)
     created_by: str | None = None
 
 
@@ -36,7 +45,13 @@ class PdsProjectOut(BaseModel):
     business_id: UUID
     program_id: UUID | None = None
     name: str
+    project_code: str | None = None
+    description: str | None = None
+    sector: str | None = None
+    project_type: str | None = None
     stage: str
+    start_date: date | None = None
+    target_end_date: date | None = None
     project_manager: str | None = None
     approved_budget: Decimal
     committed_amount: Decimal
@@ -51,6 +66,24 @@ class PdsProjectOut(BaseModel):
     status: str
     created_at: datetime
     updated_at: datetime
+
+
+class PdsProjectUpdateRequest(BaseModel):
+    project_code: str | None = Field(default=None, min_length=1, max_length=80)
+    name: str | None = Field(default=None, min_length=2, max_length=240)
+    description: str | None = Field(default=None, max_length=4000)
+    sector: str | None = Field(default=None, min_length=1, max_length=120)
+    project_type: str | None = Field(default=None, min_length=1, max_length=120)
+    stage: str | None = None
+    status: str | None = None
+    project_manager: str | None = None
+    start_date: date | None = None
+    target_end_date: date | None = None
+    approved_budget: Decimal | None = Field(default=None, ge=0)
+    contingency_budget: Decimal | None = Field(default=None, ge=0)
+    next_milestone_date: date | None = None
+    currency_code: str | None = Field(default=None, min_length=3, max_length=8)
+    updated_by: str | None = None
 
 
 class PdsBudgetLineIn(BaseModel):
@@ -77,8 +110,11 @@ class PdsBudgetRevisionRequest(BaseModel):
 
 class PdsContractCreateRequest(BaseModel):
     contract_number: str = Field(min_length=1, max_length=120)
+    vendor_id: UUID | None = None
     vendor_name: str | None = None
+    scope_description: str | None = None
     contract_value: Decimal = Field(default=Decimal("0"), ge=0)
+    executed_date: date | None = None
     status: str = "active"
     created_by: str | None = None
 
@@ -225,3 +261,91 @@ class PdsPortfolioOut(BaseModel):
     pending_approval_count: int
     top_risk_count: int
 
+
+class PdsSiteReportCreateRequest(BaseModel):
+    report_date: date
+    summary: str | None = None
+    blockers: str | None = None
+    weather: str | None = None
+    temperature_high: int | None = None
+    temperature_low: int | None = None
+    workers_on_site: int = Field(default=0, ge=0)
+    work_performed: str | None = None
+    delays: str | None = None
+    safety_incidents: str | None = None
+    created_by: str | None = None
+
+
+class PdsRfiCreateRequest(BaseModel):
+    rfi_number: str | None = Field(default=None, min_length=1, max_length=80)
+    subject: str = Field(min_length=1, max_length=240)
+    description: str | None = None
+    assigned_to: str | None = None
+    due_date: date | None = None
+    priority: str = "normal"
+    metadata_json: dict[str, Any] = Field(default_factory=dict)
+    created_by: str | None = None
+
+
+class PdsRfiUpdateRequest(BaseModel):
+    subject: str | None = Field(default=None, min_length=1, max_length=240)
+    description: str | None = None
+    assigned_to: str | None = None
+    due_date: date | None = None
+    priority: str | None = None
+    response_text: str | None = None
+    status: str | None = None
+    metadata_json: dict[str, Any] | None = None
+    updated_by: str | None = None
+
+
+class PdsSubmittalCreateRequest(BaseModel):
+    vendor_id: UUID | None = None
+    submittal_number: str | None = Field(default=None, min_length=1, max_length=80)
+    description: str | None = None
+    spec_section: str | None = None
+    required_date: date | None = None
+    submitted_date: date | None = None
+    reviewed_date: date | None = None
+    review_notes: str | None = None
+    status: str = "pending"
+    metadata_json: dict[str, Any] = Field(default_factory=dict)
+    created_by: str | None = None
+
+
+class PdsDocumentCreateRequest(BaseModel):
+    rfi_id: UUID | None = None
+    submittal_id: UUID | None = None
+    title: str = Field(min_length=1, max_length=240)
+    document_type: str = Field(default="general", min_length=1, max_length=120)
+    version_label: str | None = Field(default=None, max_length=80)
+    storage_key: str | None = None
+    metadata_json: dict[str, Any] = Field(default_factory=dict)
+    created_by: str | None = None
+
+
+class PdsVendorCreateRequest(BaseModel):
+    vendor_name: str = Field(min_length=1, max_length=240)
+    trade: str | None = None
+    license_number: str | None = None
+    insurance_expiry: date | None = None
+    contact_name: str | None = None
+    contact_email: str | None = None
+    status: str = "active"
+    metadata_json: dict[str, Any] = Field(default_factory=dict)
+    created_by: str | None = None
+
+
+class PdsVendorUpdateRequest(BaseModel):
+    vendor_name: str | None = Field(default=None, min_length=1, max_length=240)
+    trade: str | None = None
+    license_number: str | None = None
+    insurance_expiry: date | None = None
+    contact_name: str | None = None
+    contact_email: str | None = None
+    status: str | None = None
+    metadata_json: dict[str, Any] | None = None
+    updated_by: str | None = None
+
+
+PdsProjectCreateRequest.model_rebuild()

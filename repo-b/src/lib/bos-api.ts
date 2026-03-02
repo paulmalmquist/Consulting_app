@@ -10,6 +10,23 @@
  * at http://localhost:8000 for simpler debugging.
  */
 import { logError, logInfo } from "@/lib/logging/logger";
+import type {
+  PdsBudgetLine,
+  PdsBudgetSummary,
+  PdsChangeOrder,
+  PdsDocument,
+  PdsPortfolioDashboard,
+  PdsPortfolioKpis,
+  PdsProject,
+  PdsProjectOverview,
+  PdsReportPackRun,
+  PdsRfi,
+  PdsScheduleItem,
+  PdsSiteReport,
+  PdsSnapshotRun,
+  PdsSubmittal,
+  PdsVendor,
+} from "@/types/pds";
 
 /**
  * Resolve the BOS API base origin and whether to use the /bos proxy prefix.
@@ -628,69 +645,23 @@ export interface DomainContext {
   diagnostics: Record<string, unknown>;
 }
 
-export interface PdsProject {
-  project_id: string;
-  env_id: string;
-  business_id: string;
-  program_id: string | null;
-  name: string;
-  stage: string;
-  project_manager: string | null;
-  approved_budget: string;
-  committed_amount: string;
-  spent_amount: string;
-  forecast_at_completion: string;
-  contingency_budget: string;
-  contingency_remaining: string;
-  pending_change_order_amount: string;
-  next_milestone_date: string | null;
-  risk_score: string;
-  currency_code: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface PdsPortfolioKpis {
-  env_id: string;
-  business_id: string;
-  period: string;
-  approved_budget: string;
-  committed: string;
-  spent: string;
-  eac: string;
-  variance: string;
-  contingency_remaining: string;
-  open_change_order_count: number;
-  pending_approval_count: number;
-  top_risk_count: number;
-}
-
-export interface PdsSnapshotRun {
-  run_id: string;
-  env_id: string;
-  business_id: string;
-  period: string;
-  project_id: string | null;
-  snapshot_hash: string;
-  portfolio_snapshot_id: string;
-  schedule_snapshot_id: string;
-  risk_snapshot_id: string;
-  vendor_snapshot_ids: string[];
-}
-
-export interface PdsReportPackRun {
-  report_run_id: string;
-  env_id: string;
-  business_id: string;
-  period: string;
-  run_id: string;
-  snapshot_hash: string | null;
-  narrative_text: string | null;
-  artifact_refs_json: Array<Record<string, unknown>>;
-  deterministic_deltas_json: Record<string, unknown>;
-  created_at: string;
-}
+export type {
+  PdsBudgetLine,
+  PdsBudgetSummary,
+  PdsChangeOrder,
+  PdsDocument,
+  PdsPortfolioDashboard,
+  PdsPortfolioKpis,
+  PdsProject,
+  PdsProjectOverview,
+  PdsReportPackRun,
+  PdsRfi,
+  PdsScheduleItem,
+  PdsSiteReport,
+  PdsSnapshotRun,
+  PdsSubmittal,
+  PdsVendor,
+};
 
 export function getPdsContext(envId: string, businessId?: string): Promise<DomainContext> {
   return bosFetch("/api/pds/v1/context", {
@@ -698,21 +669,48 @@ export function getPdsContext(envId: string, businessId?: string): Promise<Domai
   });
 }
 
-export function listPdsProjects(envId: string, businessId?: string): Promise<PdsProject[]> {
+export function listPdsProjects(
+  envId: string,
+  businessId?: string,
+  filters?: {
+    stage?: string;
+    status?: string;
+    project_manager?: string;
+    offset?: number;
+    limit?: number;
+  },
+): Promise<PdsProject[]> {
   return bosFetch("/api/pds/v1/projects", {
-    params: { env_id: envId, business_id: businessId },
+    params: {
+      env_id: envId,
+      business_id: businessId,
+      stage: filters?.stage,
+      status: filters?.status,
+      project_manager: filters?.project_manager,
+      offset: filters?.offset?.toString(),
+      limit: filters?.limit?.toString(),
+    },
   });
 }
 
 export function createPdsProject(body: {
   env_id: string;
   business_id?: string;
+  project_code?: string;
   name: string;
+  description?: string;
+  sector?: string;
+  project_type?: string;
   stage?: string;
+  status?: string;
   project_manager?: string;
+  start_date?: string;
+  target_end_date?: string;
   approved_budget?: string | number;
   contingency_budget?: string | number;
   currency_code?: string;
+  baseline_period?: string;
+  baseline_lines?: Array<{ cost_code: string; line_label: string; approved_amount?: string | number }>;
   next_milestone_date?: string;
   created_by?: string;
 }): Promise<PdsProject> {
@@ -725,6 +723,139 @@ export function createPdsProject(body: {
 export function getPdsPortfolio(envId: string, period?: string, businessId?: string): Promise<PdsPortfolioKpis> {
   return bosFetch("/api/pds/v1/portfolio", {
     params: { env_id: envId, period, business_id: businessId },
+  });
+}
+
+export function getPdsPortfolioDashboard(envId: string, period?: string, businessId?: string): Promise<PdsPortfolioDashboard> {
+  return bosFetch("/api/pds/v1/portfolio/dashboard", {
+    params: { env_id: envId, period, business_id: businessId },
+  });
+}
+
+export function getPdsProject(projectId: string, envId: string, businessId?: string): Promise<PdsProject> {
+  return bosFetch(`/api/pds/v1/projects/${projectId}`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function updatePdsProject(
+  projectId: string,
+  body: Record<string, unknown>,
+  envId: string,
+  businessId?: string,
+): Promise<PdsProject> {
+  return bosFetch(`/api/pds/v1/projects/${projectId}`, {
+    method: "PATCH",
+    params: { env_id: envId, business_id: businessId },
+    body: JSON.stringify(body),
+  });
+}
+
+export function getPdsProjectOverview(projectId: string, envId: string, businessId?: string): Promise<PdsProjectOverview> {
+  return bosFetch(`/api/pds/v1/projects/${projectId}/overview`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getPdsProjectBudget(
+  projectId: string,
+  envId: string,
+  businessId?: string,
+): Promise<{
+  project_id: string;
+  currency_code: string;
+  totals: PdsBudgetSummary;
+  versions: Array<Record<string, unknown>>;
+  lines: PdsBudgetLine[];
+  revisions: Array<Record<string, unknown>>;
+  commitments: Array<Record<string, unknown>>;
+  invoices: Array<Record<string, unknown>>;
+  payments: Array<Record<string, unknown>>;
+  forecasts: Array<Record<string, unknown>>;
+  change_orders: PdsChangeOrder[];
+}> {
+  return bosFetch(`/api/pds/v1/projects/${projectId}/budget`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getPdsProjectSchedule(
+  projectId: string,
+  envId: string,
+  businessId?: string,
+): Promise<{
+  project_id: string;
+  schedule_health: string;
+  total_slip_days: number;
+  critical_flags: number;
+  next_milestone_date: string | null;
+  items: PdsScheduleItem[];
+}> {
+  return bosFetch(`/api/pds/v1/projects/${projectId}/schedule`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listPdsProjectContracts(projectId: string, envId: string, businessId?: string): Promise<Array<Record<string, unknown>>> {
+  return bosFetch(`/api/pds/v1/projects/${projectId}/contracts`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listPdsProjectChangeOrders(projectId: string, envId: string, businessId?: string): Promise<PdsChangeOrder[]> {
+  return bosFetch(`/api/pds/v1/projects/${projectId}/change-orders`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listPdsProjectSiteReports(projectId: string, envId: string, businessId?: string): Promise<PdsSiteReport[]> {
+  return bosFetch(`/api/pds/v1/projects/${projectId}/site-reports`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function createPdsProjectSiteReport(
+  projectId: string,
+  body: Record<string, unknown>,
+  envId: string,
+  businessId?: string,
+): Promise<PdsSiteReport> {
+  return bosFetch(`/api/pds/v1/projects/${projectId}/site-reports`, {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listPdsProjectRfis(projectId: string, envId: string, businessId?: string, status?: string): Promise<PdsRfi[]> {
+  return bosFetch(`/api/pds/v1/projects/${projectId}/rfis`, {
+    params: { env_id: envId, business_id: businessId, status },
+  });
+}
+
+export function listPdsProjectSubmittals(projectId: string, envId: string, businessId?: string, status?: string): Promise<PdsSubmittal[]> {
+  return bosFetch(`/api/pds/v1/projects/${projectId}/submittals`, {
+    params: { env_id: envId, business_id: businessId, status },
+  });
+}
+
+export function listPdsProjectDocuments(projectId: string, envId: string, businessId?: string, document_type?: string): Promise<PdsDocument[]> {
+  return bosFetch(`/api/pds/v1/projects/${projectId}/documents`, {
+    params: { env_id: envId, business_id: businessId, document_type },
+  });
+}
+
+export function listPdsVendors(envId: string, businessId?: string, status?: string): Promise<PdsVendor[]> {
+  return bosFetch("/api/pds/v1/vendors", {
+    params: { env_id: envId, business_id: businessId, status },
+  });
+}
+
+export function createPdsVendor(body: Record<string, unknown>, envId: string, businessId?: string): Promise<PdsVendor> {
+  return bosFetch("/api/pds/v1/vendors", {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId },
+    body: JSON.stringify(body),
   });
 }
 

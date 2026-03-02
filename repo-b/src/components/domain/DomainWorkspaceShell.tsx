@@ -21,8 +21,12 @@ const DOMAIN_LABELS: Record<DomainSlug, string> = {
 function navItems(domain: DomainSlug, base: string): NavItem[] {
   if (domain === "pds") {
     return [
-      { href: base, label: "Home" },
+      { href: base, label: "Command Center" },
       { href: `${base}/projects`, label: "Projects" },
+      { href: `${base}/subcontractors`, label: "Subcontractors" },
+      { href: `${base}/schedule`, label: "Schedule" },
+      { href: `${base}/financials`, label: "Financials" },
+      { href: `${base}/reports`, label: "Reports" },
     ];
   }
   if (domain === "credit") {

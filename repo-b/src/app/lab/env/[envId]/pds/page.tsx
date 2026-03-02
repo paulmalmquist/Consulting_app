@@ -1,16 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import {
-  createPdsProject,
-  getPdsPortfolio,
-  listPdsProjects,
-  runPdsReportPack,
-  runPdsSnapshot,
-  PdsPortfolioKpis,
-  PdsProject,
-} from "@/lib/bos-api";
+import { useEffect, useState } from "react";
+import { getPdsPortfolioDashboard, runPdsReportPack, runPdsSnapshot } from "@/lib/bos-api";
+import type { PdsPortfolioDashboard } from "@/lib/bos-api";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 
 function currentPeriod(): string {
@@ -18,45 +11,38 @@ function currentPeriod(): string {
   return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-function fmtMoney(value?: string | number | null): string {
-  if (value === null || value === undefined) return "$0";
-  const n = Number(value);
-  if (Number.isNaN(n)) return "$0";
-  if (Math.abs(n) >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(2)}B`;
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
+function formatMoney(value?: string | number | null): string {
+  const amount = Number(value ?? 0);
+  if (Number.isNaN(amount)) return "$0";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function formatPercent(value?: string | number | null): string {
+  const amount = Number(value ?? 0);
+  if (Number.isNaN(amount)) return "0%";
+  return `${Math.round(amount * 100)}%`;
 }
 
 export default function PdsHomePage() {
   const { envId, businessId } = useDomainEnv();
   const [period, setPeriod] = useState(currentPeriod());
-  const [projects, setProjects] = useState<PdsProject[]>([]);
-  const [portfolio, setPortfolio] = useState<PdsPortfolioKpis | null>(null);
+  const [dashboard, setDashboard] = useState<PdsPortfolioDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const [form, setForm] = useState({
-    name: "",
-    project_manager: "",
-    stage: "planning",
-    approved_budget: "",
-    contingency_budget: "",
-  });
 
   async function refresh() {
     setLoading(true);
     setError(null);
     try {
-      const [projectRows, portfolioRow] = await Promise.all([
-        listPdsProjects(envId, businessId || undefined),
-        getPdsPortfolio(envId, period, businessId || undefined).catch(() => null),
-      ]);
-      setProjects(projectRows);
-      setPortfolio(portfolioRow);
+      const data = await getPdsPortfolioDashboard(envId, period, businessId || undefined);
+      setDashboard(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load PDS workspace");
+      setError(err instanceof Error ? err.message : "Failed to load command center");
     } finally {
       setLoading(false);
     }
@@ -64,42 +50,18 @@ export default function PdsHomePage() {
 
   useEffect(() => {
     void refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [envId, businessId, period]);
-
-  async function onCreateProject(event: FormEvent) {
-    event.preventDefault();
-    setStatus("Creating project...");
-    setError(null);
-    try {
-      await createPdsProject({
-        env_id: envId,
-        business_id: businessId || undefined,
-        name: form.name,
-        stage: form.stage,
-        project_manager: form.project_manager || undefined,
-        approved_budget: form.approved_budget || "0",
-        contingency_budget: form.contingency_budget || "0",
-      });
-      setForm({ name: "", project_manager: "", stage: "planning", approved_budget: "", contingency_budget: "" });
-      await refresh();
-      setStatus("Project created.");
-    } catch (err) {
-      setStatus(null);
-      setError(err instanceof Error ? err.message : "Failed to create project");
-    }
-  }
+  }, [businessId, envId, period]);
 
   async function onRunSnapshot() {
     setStatus("Running snapshot...");
     setError(null);
     try {
-      await runPdsSnapshot({ env_id: envId, business_id: businessId || undefined, period });
+      const run = await runPdsSnapshot({ env_id: envId, business_id: businessId || undefined, period });
+      setStatus(`Snapshot complete · run ${run.run_id}`);
       await refresh();
-      setStatus("Snapshot completed.");
     } catch (err) {
       setStatus(null);
-      setError(err instanceof Error ? err.message : "Failed to run snapshot");
+      setError(err instanceof Error ? err.message : "Snapshot failed");
     }
   }
 
@@ -107,37 +69,25 @@ export default function PdsHomePage() {
     setStatus("Assembling report pack...");
     setError(null);
     try {
-      const report = await runPdsReportPack({ env_id: envId, business_id: businessId || undefined, period });
-      setStatus(`Report run complete: ${report.run_id}`);
+      const run = await runPdsReportPack({ env_id: envId, business_id: businessId || undefined, period });
+      setStatus(`Report run complete · ${run.run_id}`);
     } catch (err) {
       setStatus(null);
-      setError(err instanceof Error ? err.message : "Failed to run report pack");
+      setError(err instanceof Error ? err.message : "Report pack failed");
     }
   }
 
-  const kpis = useMemo(() => {
-    const p = portfolio;
-    return [
-      { label: "Approved Budget", value: fmtMoney(p?.approved_budget) },
-      { label: "Committed", value: fmtMoney(p?.committed) },
-      { label: "Spent", value: fmtMoney(p?.spent) },
-      { label: "EAC", value: fmtMoney(p?.eac) },
-      { label: "Variance", value: fmtMoney(p?.variance) },
-      { label: "Contingency Remaining", value: fmtMoney(p?.contingency_remaining) },
-      { label: "Open COs", value: p?.open_change_order_count ?? 0 },
-      { label: "Pending Approvals", value: p?.pending_approval_count ?? 0 },
-      { label: "Top Risks", value: p?.top_risk_count ?? 0 },
-    ];
-  }, [portfolio]);
+  const kpis = dashboard?.kpis;
 
   return (
     <section className="space-y-5" data-testid="pds-command-center">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
+          <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">PDS Delivery</p>
           <h2 className="text-2xl font-semibold">Portfolio Command Center</h2>
           <p className="text-sm text-bm-muted2">Period {period}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             value={period}
             onChange={(e) => setPeriod(e.target.value)}
@@ -158,111 +108,135 @@ export default function PdsHomePage() {
           >
             Run Report Pack
           </button>
+          <Link
+            href={`/lab/env/${envId}/pds/projects/new`}
+            className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
+          >
+            New Project
+          </Link>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
-        {kpis.map((kpi) => (
-          <div key={kpi.label} className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-            <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">{kpi.label}</p>
-            <p className="mt-1 text-xl font-semibold">{kpi.value}</p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+          <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Active Projects</p>
+          <p className="mt-1 text-xl font-semibold">{kpis?.active_project_count ?? 0}</p>
+        </div>
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+          <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Budget Under Mgmt</p>
+          <p className="mt-1 text-xl font-semibold">{formatMoney(kpis?.approved_budget)}</p>
+        </div>
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+          <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Projects On Schedule</p>
+          <p className="mt-1 text-xl font-semibold">{formatPercent(kpis?.projects_on_schedule_pct)}</p>
+        </div>
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+          <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Projects On Budget</p>
+          <p className="mt-1 text-xl font-semibold">{formatPercent(kpis?.projects_on_budget_pct)}</p>
+        </div>
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+          <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Pending COs</p>
+          <p className="mt-1 text-xl font-semibold">{kpis?.pending_approval_count ?? 0}</p>
+        </div>
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+          <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Top Risks</p>
+          <p className="mt-1 text-xl font-semibold">{kpis?.top_risk_count ?? 0}</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1.1fr,0.9fr]">
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold">Project Health Grid</h3>
+            <Link href={`/lab/env/${envId}/pds/projects`} className="text-xs text-bm-muted2 hover:underline">
+              View all projects
+            </Link>
           </div>
-        ))}
-      </div>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {loading ? (
+              <p className="text-sm text-bm-muted2">Loading dashboard...</p>
+            ) : dashboard?.projects.length ? (
+              dashboard.projects.map((project) => (
+                <Link
+                  key={project.project_id}
+                  href={`/lab/env/${envId}/pds/projects/${project.project_id}`}
+                  className="rounded-lg border border-bm-border/60 bg-bm-surface/20 p-3 hover:bg-bm-surface/30"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-medium">{project.name}</div>
+                      <div className="text-xs text-bm-muted2">
+                        {project.project_code || "No code"}
+                        {project.sector ? ` · ${project.sector}` : ""}
+                      </div>
+                    </div>
+                    <span className="text-xs text-bm-muted2">{project.schedule_health.replace(/_/g, " ")}</span>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    <div>
+                      <div className="mb-1 flex items-center justify-between text-xs text-bm-muted2">
+                        <span>Budget</span>
+                        <span>{formatPercent(project.budget_used_ratio)}</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-bm-surface">
+                        <div className="h-full bg-bm-accent" style={{ width: formatPercent(project.budget_used_ratio) }} />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-bm-muted2">
+                      <span>Open RFIs {project.open_rfis}</span>
+                      <span>Open Risks {project.open_risks}</span>
+                    </div>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <p className="text-sm text-bm-muted2">No projects yet. Create the first project to populate the command center.</p>
+            )}
+          </div>
+        </div>
 
-      <div className="grid lg:grid-cols-[1fr,360px] gap-4">
-        <div className="rounded-xl border border-bm-border/70 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-bm-surface/30 border-b border-bm-border/50 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
-                <th className="px-4 py-3 font-medium">Project</th>
-                <th className="px-4 py-3 font-medium">Stage</th>
-                <th className="px-4 py-3 font-medium">PM</th>
-                <th className="px-4 py-3 font-medium">Approved</th>
-                <th className="px-4 py-3 font-medium">EAC</th>
-                <th className="px-4 py-3 font-medium">Variance</th>
-                <th className="px-4 py-3 font-medium">Open CO $</th>
-                <th className="px-4 py-3 font-medium">Risk</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-bm-border/40">
+        <div className="space-y-4">
+          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+            <h3 className="text-sm font-semibold">Alert Panel</h3>
+            <div className="mt-3 space-y-2">
               {loading ? (
-                <tr>
-                  <td className="px-4 py-6 text-bm-muted2" colSpan={8}>Loading projects...</td>
-                </tr>
-              ) : projects.length === 0 ? (
-                <tr>
-                  <td className="px-4 py-6 text-bm-muted2" colSpan={8}>No projects yet. Create one to initialize the command center.</td>
-                </tr>
-              ) : (
-                projects.map((project) => (
-                  <tr key={project.project_id} className="hover:bg-bm-surface/20">
-                    <td className="px-4 py-3 font-medium">
-                      <Link href={`/lab/env/${envId}/pds/projects/${project.project_id}`} className="hover:underline">
-                        {project.name}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 capitalize">{project.stage.replace(/_/g, " ")}</td>
-                    <td className="px-4 py-3 text-bm-muted2">{project.project_manager || "—"}</td>
-                    <td className="px-4 py-3">{fmtMoney(project.approved_budget)}</td>
-                    <td className="px-4 py-3">{fmtMoney(project.forecast_at_completion)}</td>
-                    <td className="px-4 py-3">{fmtMoney(Number(project.approved_budget) - Number(project.forecast_at_completion))}</td>
-                    <td className="px-4 py-3">{fmtMoney(project.pending_change_order_amount)}</td>
-                    <td className="px-4 py-3">{fmtMoney(project.risk_score)}</td>
-                  </tr>
+                <p className="text-sm text-bm-muted2">Loading alerts...</p>
+              ) : dashboard?.alerts.length ? (
+                dashboard.alerts.map((alert, index) => (
+                  <div key={`${alert.project_id}-${index}`} className="rounded-lg border border-bm-border/50 px-3 py-2 text-sm">
+                    {alert.message}
+                  </div>
                 ))
+              ) : (
+                <p className="text-sm text-bm-muted2">No active alerts.</p>
               )}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </div>
 
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 space-y-3">
-          <h3 className="text-sm font-semibold">Create Project</h3>
-          <form className="space-y-2" onSubmit={onCreateProject}>
-            <input
-              required
-              value={form.name}
-              onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-              placeholder="Project name"
-              className="w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
-            />
-            <input
-              value={form.project_manager}
-              onChange={(e) => setForm((prev) => ({ ...prev, project_manager: e.target.value }))}
-              placeholder="Project manager"
-              className="w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
-            />
-            <select
-              value={form.stage}
-              onChange={(e) => setForm((prev) => ({ ...prev, stage: e.target.value }))}
-              className="w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
-            >
-              <option value="planning">Planning</option>
-              <option value="preconstruction">Preconstruction</option>
-              <option value="procurement">Procurement</option>
-              <option value="construction">Construction</option>
-              <option value="closeout">Closeout</option>
-            </select>
-            <input
-              value={form.approved_budget}
-              onChange={(e) => setForm((prev) => ({ ...prev, approved_budget: e.target.value }))}
-              placeholder="Approved budget"
-              className="w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
-            />
-            <input
-              value={form.contingency_budget}
-              onChange={(e) => setForm((prev) => ({ ...prev, contingency_budget: e.target.value }))}
-              placeholder="Contingency"
-              className="w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
-            />
-            <button type="submit" className="w-full rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
-              Add Project
-            </button>
-          </form>
-          {status ? <p className="text-xs text-bm-muted2">{status}</p> : null}
-          {error ? <p className="text-xs text-red-400">{error}</p> : null}
+          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+            <h3 className="text-sm font-semibold">Recent Activity</h3>
+            <div className="mt-3 space-y-2">
+              {loading ? (
+                <p className="text-sm text-bm-muted2">Loading activity...</p>
+              ) : dashboard?.recent_activity.length ? (
+                dashboard.recent_activity.map((item, index) => (
+                  <div key={`${item.project_id}-${index}`} className="rounded-lg border border-bm-border/50 px-3 py-2">
+                    <div className="text-sm font-medium">{item.project_name}</div>
+                    <div className="text-xs text-bm-muted2">
+                      {item.type.replace(/_/g, " ")} · {item.label || "Activity"} · {item.status || "active"}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-bm-muted2">No recent activity yet.</p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
+
+      {status ? <p className="text-xs text-bm-muted2">{status}</p> : null}
+      {error ? <p className="text-xs text-red-400">{error}</p> : null}
     </section>
   );
 }
