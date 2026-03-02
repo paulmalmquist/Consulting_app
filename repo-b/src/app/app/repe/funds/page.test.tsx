@@ -5,6 +5,12 @@ import RepeFundsPage from "@/app/app/repe/funds/page";
 const mockUseRepeContext = vi.fn();
 const mockListReV1Funds = vi.fn();
 const mockGetReV2EnvironmentPortfolioKpis = vi.fn();
+const mockRouterReplace = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: mockRouterReplace }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 vi.mock("@/lib/repe-context", () => ({
   useRepeContext: (...args: unknown[]) => mockUseRepeContext(...args),
