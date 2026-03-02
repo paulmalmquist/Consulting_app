@@ -446,7 +446,10 @@ function InvestmentRow({
                         {asset.property_type || asset.asset_type}
                       </td>
                       <td className="px-4 py-2 text-xs text-bm-muted2">
-                        {asset.units ? `${asset.units.toLocaleString()} sf` : "—"}
+                        {asset.cost_basis ? fmtMoney(asset.cost_basis) : "—"}
+                      </td>
+                      <td className="px-4 py-2 text-xs text-bm-muted2">
+                        {asset.units ? `${Number(asset.units).toLocaleString()} sf` : "—"}
                         {asset.market ? ` · ${asset.market}` : ""}
                       </td>
                       <td className="px-4 py-2 text-xs text-bm-muted2 text-right">

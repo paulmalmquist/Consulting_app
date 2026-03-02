@@ -47,9 +47,29 @@ export default function SaleScenarioPanel({ fundId, scenarioId, deals, envId, bu
   const [result, setResult] = useState<ScenarioComputeResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{
+    investment?: string;
+    salePrice?: string;
+    saleDate?: string;
+  }>({});
+  const [computeError, setComputeError] = useState<string | null>(null);
 
   async function handleAddSale() {
-    if (!selectedDealId || !salePrice || !saleDate) return;
+    const newErrors: typeof fieldErrors = {};
+    if (!selectedDealId) {
+      newErrors.investment = "Please select an investment";
+    }
+    if (!salePrice || parseFloat(salePrice) <= 0) {
+      newErrors.salePrice = "Sale price must be greater than $0";
+    }
+    if (!saleDate) {
+      newErrors.saleDate = "Sale date is required";
+    }
+    if (Object.keys(newErrors).length > 0) {
+      setFieldErrors(newErrors);
+      return;
+    }
+    setFieldErrors({});
     setError(null);
     try {
       await createSaleAssumption(fundId, {
@@ -82,6 +102,11 @@ export default function SaleScenarioPanel({ fundId, scenarioId, deals, envId, bu
   }
 
   async function handleCompute() {
+    if (assumptions.length === 0) {
+      setComputeError("Please add at least one sale assumption before computing.");
+      return;
+    }
+    setComputeError(null);
     setLoading(true);
     setError(null);
     try {
@@ -133,6 +158,9 @@ export default function SaleScenarioPanel({ fundId, scenarioId, deals, envId, bu
                 <option key={d.deal_id} value={d.deal_id}>{d.name}</option>
               ))}
             </select>
+            {fieldErrors.investment && (
+              <p className="text-sm text-red-600 mt-1">{fieldErrors.investment}</p>
+            )}
           </label>
 
           <label className="text-xs text-bm-muted2">
@@ -144,6 +172,9 @@ export default function SaleScenarioPanel({ fundId, scenarioId, deals, envId, bu
               onChange={(e) => setSalePrice(e.target.value)}
               placeholder="45000000"
             />
+            {fieldErrors.salePrice && (
+              <p className="text-sm text-red-600 mt-1">{fieldErrors.salePrice}</p>
+            )}
           </label>
 
           <label className="text-xs text-bm-muted2">
@@ -154,6 +185,9 @@ export default function SaleScenarioPanel({ fundId, scenarioId, deals, envId, bu
               value={saleDate}
               onChange={(e) => setSaleDate(e.target.value)}
             />
+            {fieldErrors.saleDate && (
+              <p className="text-sm text-red-600 mt-1">{fieldErrors.saleDate}</p>
+            )}
           </label>
 
           <label className="text-xs text-bm-muted2">
@@ -191,7 +225,7 @@ export default function SaleScenarioPanel({ fundId, scenarioId, deals, envId, bu
           </label>
         </div>
 
-        <Button onClick={handleAddSale} disabled={!selectedDealId || !salePrice || !saleDate}>
+        <Button onClick={handleAddSale}>
           Add Sale Assumption
         </Button>
       </div>
@@ -230,6 +264,7 @@ export default function SaleScenarioPanel({ fundId, scenarioId, deals, envId, bu
       )}
 
       {/* Error */}
+      {computeError && <StateCard state="error" title="Scenario Error" message={computeError} />}
       {error && <StateCard state="error" title="Scenario Error" message={error} />}
 
       {/* Results */}

@@ -3217,6 +3217,7 @@ export type ReV2InvestmentAsset = {
   jv_id?: string;
   asset_type: string;
   name: string;
+  cost_basis?: number;
   property_type?: string;
   units?: number;
   market?: string;
