@@ -3,6 +3,7 @@
 
 ---
 
+
 ## PART 1: STRATEGIC DIRECTION
 
 ### Philosophy (overriding the PDF's "cut" recommendations)
