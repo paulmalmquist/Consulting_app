@@ -127,10 +127,10 @@ class TestWaterfallScenarioRun:
         # ── Run phase ──
         # Create run record
         fake_cursor.push_result([{"id": RUN_ID, "run_type": "WATERFALL_SCENARIO", "status": "running"}])
-        # Load scenario overrides
+        # Load scenario overrides (service reads key, value_type, value_decimal, etc.)
         fake_cursor.push_result([
-            {"key": "exit_cap_rate_delta_bps", "value": "75"},
-            {"key": "noi_stress_pct", "value": "5"},
+            {"key": "exit_cap_rate_delta_bps", "value_type": "decimal", "value_decimal": "75", "value_int": None, "value_text": None, "value_json": None},
+            {"key": "noi_stress_pct", "value_type": "decimal", "value_decimal": "5", "value_int": None, "value_text": None, "value_json": None},
         ])
         # Load base fund state
         fake_cursor.push_result([{

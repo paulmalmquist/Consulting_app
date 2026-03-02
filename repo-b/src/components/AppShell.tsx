@@ -170,7 +170,7 @@ export default function AppShell({
               {isAdmin
                 ? "Admin session"
                 : selectedEnv
-                  ? `${selectedEnv.client_name} · ${selectedEnv.industry_type || selectedEnv.industry}`
+                  ? selectedEnv.client_name
                   : "No environment selected"}
             </span>
           </div>

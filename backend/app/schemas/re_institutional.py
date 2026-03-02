@@ -487,13 +487,22 @@ class ReScenarioOut(BaseModel):
     created_at: datetime
 
 
+ModelType = Literal["underwriting_io", "forecast", "scenario", "downside", "upside"]
+
+
 class ReModelCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str | None = None
+    strategy_type: Literal["equity", "credit", "cmbs", "mixed"] | None = None
+    model_type: ModelType = "scenario"
 
 
 class ReModelPatchRequest(BaseModel):
     status: str | None = None
+    name: str | None = None
+    description: str | None = None
+    strategy_type: str | None = None
+    model_type: ModelType | None = None
 
 
 class ReModelOut(BaseModel):
@@ -502,9 +511,99 @@ class ReModelOut(BaseModel):
     name: str
     description: str | None = None
     status: str
+    model_type: str | None = None
+    locked_at: datetime | None = None
+    strategy_type: str | None = None
+    base_snapshot_id: UUID | None = None
     created_by: str | None = None
     approved_at: datetime | None = None
     approved_by: str | None = None
+    created_at: datetime
+    updated_at: datetime | None = None
+
+
+# ── Model Scope ──────────────────────────────────────────────────────────────
+
+class ReModelScopeInput(BaseModel):
+    scope_type: ScopeNodeType
+    scope_node_id: UUID
+
+
+class ReModelScopeOut(BaseModel):
+    id: UUID
+    model_id: UUID
+    scope_type: str
+    scope_node_id: UUID
+    include: bool
+    created_at: datetime
+
+
+# ── Model Override ───────────────────────────────────────────────────────────
+
+class ReModelOverrideInput(BaseModel):
+    scope_node_type: ScopeNodeType
+    scope_node_id: UUID
+    key: str = Field(min_length=1, max_length=100)
+    value_type: ValueType = "decimal"
+    value_decimal: Decimal | None = None
+    value_int: int | None = None
+    value_text: str | None = None
+    value_json: Any | None = None
+    reason: str | None = None
+
+
+class ReModelOverrideOut(BaseModel):
+    id: UUID
+    model_id: UUID
+    scope_node_type: str
+    scope_node_id: UUID
+    key: str
+    value_type: str
+    value_decimal: Decimal | None = None
+    value_int: int | None = None
+    value_text: str | None = None
+    value_json: Any | None = None
+    reason: str | None = None
+    is_active: bool
+    created_at: datetime
+
+
+# ── Model Monte Carlo ────────────────────────────────────────────────────────
+
+class ReModelMcRunRequest(BaseModel):
+    quarter: str = Field(pattern=r"^\d{4}Q[1-4]$")
+    n_sims: int = Field(default=1000, ge=100, le=100000)
+    seed: int = 42
+    distribution_params: dict | None = None
+
+
+class ReModelMcRunOut(BaseModel):
+    id: UUID
+    model_id: UUID
+    fund_id: UUID
+    quarter: str
+    n_sims: int
+    seed: int
+    status: str
+    error_message: str | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    created_at: datetime
+
+
+class ReModelMcResultOut(BaseModel):
+    id: UUID
+    mc_run_id: UUID
+    result_level: str
+    entity_id: UUID | None = None
+    mean_irr: Decimal | None = None
+    median_irr: Decimal | None = None
+    std_irr: Decimal | None = None
+    impairment_probability: Decimal | None = None
+    var_95: Decimal | None = None
+    expected_moic: Decimal | None = None
+    promote_trigger_probability: Decimal | None = None
+    percentile_buckets_json: dict | None = None
     created_at: datetime
 
 
@@ -624,3 +723,66 @@ class ReQuarterCloseOut(BaseModel):
     jvs_processed: int = 0
     investments_processed: int = 0
     status: str = "success"
+
+
+# ── Underwriting Links ───────────────────────────────────────────────────────
+
+class ReUwLinkRequest(BaseModel):
+    model_id: UUID
+
+
+class ReUwLinkOut(BaseModel):
+    id: UUID
+    investment_id: UUID
+    model_id: UUID
+    linked_at: datetime
+    linked_by: str | None = None
+
+
+# ── UW vs Actual Report ──────────────────────────────────────────────────────
+
+class ReUwVsActualRow(BaseModel):
+    investment_id: UUID
+    investment_name: str
+    baseline_type: str
+    uw_irr: Decimal | None = None
+    actual_irr: Decimal | None = None
+    delta_irr: Decimal | None = None
+    uw_moic: Decimal | None = None
+    actual_moic: Decimal | None = None
+    delta_moic: Decimal | None = None
+    uw_nav: Decimal | None = None
+    actual_nav: Decimal | None = None
+    delta_nav: Decimal | None = None
+    uw_tvpi: Decimal | None = None
+    actual_tvpi: Decimal | None = None
+    delta_tvpi: Decimal | None = None
+
+
+class ReUwVsActualPortfolioOut(BaseModel):
+    fund_id: UUID
+    quarter: str
+    baseline: str
+    level: str
+    rows: list[ReUwVsActualRow]
+    summary: dict = {}
+
+
+class ReAttributionDriver(BaseModel):
+    driver: str
+    uw_value: Decimal | None = None
+    actual_value: Decimal | None = None
+    delta: Decimal | None = None
+    irr_impact_bps: Decimal | None = None
+    notes: str | None = None
+
+
+class ReAttributionBridgeOut(BaseModel):
+    level: str
+    entity_id: UUID
+    quarter: str
+    baseline: str
+    drivers: list[ReAttributionDriver]
+    total_explained_bps: Decimal | None = None
+    residual_bps: Decimal | None = None
+    lineage: dict = {}

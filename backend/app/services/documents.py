@@ -21,6 +21,9 @@ _ENTITY_TYPE_TO_PATH_PARTS = {
     "legal_matter": ("legalops", "matter"),
     "medical_property": ("medoffice", "property"),
     "medical_tenant": ("medoffice", "tenant"),
+    "pipeline_deal": ("re", "pipeline_deal"),
+    "pipeline_property": ("re", "pipeline_property"),
+    "pipeline_tranche": ("re", "pipeline_tranche"),
 }
 _PATH_PARTS_TO_ENTITY_TYPE = {
     (domain, segment): entity_type

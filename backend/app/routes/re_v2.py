@@ -44,6 +44,12 @@ from app.schemas.re_institutional import (
     ReModelCreateRequest,
     ReModelPatchRequest,
     ReModelOut,
+    ReModelScopeInput,
+    ReModelScopeOut,
+    ReModelOverrideInput,
+    ReModelOverrideOut,
+    ReModelMcRunRequest,
+    ReModelMcRunOut,
     ReScenarioVersionCreateRequest,
     ReScenarioVersionOut,
     ReWaterfallRunOut,
@@ -674,7 +680,12 @@ def list_models(fund_id: UUID):
 @router.post("/funds/{fund_id}/models", response_model=ReModelOut, status_code=201)
 def create_model(fund_id: UUID, body: ReModelCreateRequest):
     try:
-        row = re_model.create_model(fund_id=fund_id, name=body.name, description=body.description)
+        row = re_model.create_model(
+            fund_id=fund_id,
+            name=body.name,
+            description=body.description,
+            strategy_type=body.strategy_type,
+        )
         _log("re.model.created", f"Model '{body.name}' created for fund {fund_id}")
         return row
     except Exception as exc:
@@ -698,9 +709,114 @@ def patch_model(model_id: UUID, body: ReModelPatchRequest):
         elif body.status == "archived":
             row = re_model.archive_model(model_id=model_id)
             _log("re.model.archived", f"Model {model_id} archived")
+        elif body.name or body.description or body.strategy_type:
+            row = re_model.update_model(model_id=model_id, payload=body.model_dump(exclude_none=True))
+            _log("re.model.updated", f"Model {model_id} updated")
         else:
-            raise ValueError(f"Invalid status transition: {body.status}")
+            raise ValueError(f"Invalid patch: {body.model_dump()}")
         return row
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Model Scope ──────────────────────────────────────────────────────────────
+
+@router.get("/models/{model_id}/scope", response_model=list[ReModelScopeOut])
+def list_model_scope(model_id: UUID):
+    try:
+        return re_model.list_model_scope(model_id=model_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/models/{model_id}/scope", response_model=ReModelScopeOut, status_code=201)
+def add_model_scope(model_id: UUID, body: ReModelScopeInput):
+    try:
+        row = re_model.add_model_scope(
+            model_id=model_id,
+            scope_type=body.scope_type,
+            scope_node_id=body.scope_node_id,
+        )
+        _log("re.model.scope.added", f"Scope added to model {model_id}")
+        return row
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.delete("/models/{model_id}/scope/{scope_type}/{scope_node_id}", status_code=204)
+def remove_model_scope(model_id: UUID, scope_type: str, scope_node_id: UUID):
+    try:
+        re_model.remove_model_scope(
+            model_id=model_id,
+            scope_type=scope_type,
+            scope_node_id=scope_node_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Model Overrides ──────────────────────────────────────────────────────────
+
+@router.get("/models/{model_id}/overrides", response_model=list[ReModelOverrideOut])
+def list_model_overrides(model_id: UUID):
+    try:
+        return re_model.list_model_overrides(model_id=model_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/models/{model_id}/overrides", response_model=ReModelOverrideOut, status_code=201)
+def set_model_override(model_id: UUID, body: ReModelOverrideInput):
+    try:
+        row = re_model.set_model_override(model_id=model_id, payload=body.model_dump())
+        _log("re.model.override.set", f"Override set for model {model_id}: {body.key}")
+        return row
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Model Run (quarter close in model context) ──────────────────────────────
+
+@router.post("/models/{model_id}/run")
+def run_model(model_id: UUID, body: ReQuarterCloseRequest):
+    try:
+        from app.services import re_model_run
+        result = re_model_run.run_model(
+            model_id=model_id,
+            quarter=body.quarter,
+            run_waterfall=body.run_waterfall,
+            triggered_by="model_run",
+        )
+        _log("re.model.run", f"Model {model_id} run for quarter {body.quarter}")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Model Monte Carlo ────────────────────────────────────────────────────────
+
+@router.post("/models/{model_id}/montecarlo/run", response_model=ReModelMcRunOut, status_code=201)
+def run_model_mc(model_id: UUID, body: ReModelMcRunRequest):
+    try:
+        from app.services import re_model_monte_carlo
+        result = re_model_monte_carlo.start_run(
+            model_id=model_id,
+            quarter=body.quarter,
+            n_sims=body.n_sims,
+            seed=body.seed,
+            distribution_params=body.distribution_params,
+        )
+        _log("re.model.mc.started", f"MC started for model {model_id}: {body.n_sims} sims")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/models/{model_id}/montecarlo/{run_id}")
+def get_model_mc_result(model_id: UUID, run_id: UUID):
+    try:
+        from app.services import re_model_monte_carlo
+        return re_model_monte_carlo.get_run(run_id=run_id)
     except Exception as exc:
         raise _to_http(exc)
 

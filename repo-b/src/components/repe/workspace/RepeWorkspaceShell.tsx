@@ -1,25 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useMemo } from "react";
 import { Building2, Landmark, PlusCircle } from "lucide-react";
-import {
-  listReV1Funds,
-  listRepeAssets,
-  listRepeDeals,
-  listReV2Jvs,
-  RepeAsset,
-  RepeDeal,
-  RepeFund,
-  ReV2Jv,
-} from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 
 function isActive(pathname: string, href: string, isBase: boolean): boolean {
   if (isBase) {
     // Base "Funds" item: only highlight on exact match, /funds sub-paths, or /portfolio.
-    // Must NOT match /deals, /assets, /scenarios, /runs paths.
+    // Must NOT match /deals, /assets, /models, /runs paths.
     if (pathname === href) return true;
     if (pathname.startsWith(`${href}/funds`)) return true;
     if (pathname.startsWith(`${href}/portfolio`)) return true;
@@ -29,17 +19,8 @@ function isActive(pathname: string, href: string, isBase: boolean): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function parsePathId(pathname: string, segment: string): string | null {
-  const match = pathname.match(
-    new RegExp(`/re/${segment}/([0-9a-fA-F-]{36})(?:/|$)`)
-  );
-  return match?.[1] || null;
-}
-
 export default function RepeWorkspaceShell({ children, envId, isAdmin = false }: { children: React.ReactNode; envId?: string; isAdmin?: boolean }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { environment, businessId, loading, error, errorCode, requestId, retry } = useReEnv();
 
   const base = envId ? `/lab/env/${envId}/re` : "/app/repe";
@@ -49,119 +30,16 @@ export default function RepeWorkspaceShell({ children, envId, isAdmin = false }:
       { href: `${base}`, label: "Funds", isBase: true },
       { href: `${base}/deals`, label: "Investments", isBase: false },
       { href: `${base}/assets`, label: "Assets", isBase: false },
-      { href: `${base}/scenarios`, label: "Scenarios", isBase: false },
+      { href: `${base}/pipeline`, label: "Pipeline", isBase: false },
+      { href: `${base}/models`, label: "Models", isBase: false },
+      { href: `${base}/reports`, label: "Reports", isBase: false },
       { href: `${base}/runs/quarter-close`, label: "Run Center", isBase: false },
       { href: `${base}/sustainability`, label: "Sustainability", isBase: false },
     ],
     [base]
   );
 
-  const [funds, setFunds] = useState<RepeFund[]>([]);
-  const [deals, setDeals] = useState<RepeDeal[]>([]);
-  const [assets, setAssets] = useState<RepeAsset[]>([]);
-  const [jvs, setJvs] = useState<ReV2Jv[]>([]);
-  const [selectorFundId, setSelectorFundId] = useState("");
-  const [selectorDealId, setSelectorDealId] = useState("");
-  const [selectorJvId, setSelectorJvId] = useState("");
-  const [selectorAssetId, setSelectorAssetId] = useState("");
-
-  const pathFundId = parsePathId(pathname, "funds");
-  const pathDealId = parsePathId(pathname, "deals") || parsePathId(pathname, "investments");
-  const pathJvId = parsePathId(pathname, "jv");
-  const pathAssetId = parsePathId(pathname, "assets");
-
-  const activeFundId = pathFundId || selectorFundId;
-  const activeDealId = pathDealId || selectorDealId;
-  const activeJvId = pathJvId || selectorJvId;
-  const activeAssetId = pathAssetId || selectorAssetId;
-  const inSustainability = pathname.startsWith(`${base}/sustainability`);
-
-  function pushSustainabilityWith(next: {
-    fundId?: string;
-    investmentId?: string;
-    jvId?: string;
-    assetId?: string;
-  }) {
-    const params = new URLSearchParams(searchParams?.toString() || "");
-    if (next.fundId !== undefined) {
-      if (next.fundId) params.set("fundId", next.fundId);
-      else params.delete("fundId");
-    }
-    if (next.investmentId !== undefined) {
-      if (next.investmentId) params.set("investmentId", next.investmentId);
-      else params.delete("investmentId");
-    }
-    if (next.jvId !== undefined) {
-      if (next.jvId) params.set("jvId", next.jvId);
-      else params.delete("jvId");
-    }
-    if (next.assetId !== undefined) {
-      if (next.assetId) params.set("assetId", next.assetId);
-      else params.delete("assetId");
-    }
-    const query = params.toString();
-    router.push(query ? `${base}/sustainability?${query}` : `${base}/sustainability`);
-  }
-
-  // Load funds
-  useEffect(() => {
-    if (!businessId && !envId) return;
-    let cancelled = false;
-    listReV1Funds({ env_id: envId || undefined, business_id: businessId || undefined })
-      .then((rows) => {
-        if (cancelled) return;
-        setFunds(rows);
-        if (!pathFundId && rows[0]?.fund_id) setSelectorFundId(rows[0].fund_id);
-      })
-      .catch(() => { if (!cancelled) setFunds([]); });
-    return () => { cancelled = true; };
-  }, [businessId, envId, pathFundId]);
-
-  // Load deals for selected fund
-  useEffect(() => {
-    if (!activeFundId) { setDeals([]); return; }
-    let cancelled = false;
-    listRepeDeals(activeFundId)
-      .then((rows) => {
-        if (cancelled) return;
-        setDeals(rows);
-        if (!pathDealId && rows[0]?.deal_id) setSelectorDealId(rows[0].deal_id);
-      })
-      .catch(() => { if (!cancelled) setDeals([]); });
-    return () => { cancelled = true; };
-  }, [activeFundId, pathDealId]);
-
-  // Load JVs for selected deal
-  useEffect(() => {
-    if (!activeDealId) { setJvs([]); return; }
-    let cancelled = false;
-    listReV2Jvs(activeDealId)
-      .then((rows) => {
-        if (cancelled) return;
-        setJvs(rows);
-        if (!pathJvId && rows[0]?.jv_id) setSelectorJvId(rows[0].jv_id);
-      })
-      .catch(() => { if (!cancelled) setJvs([]); });
-    return () => { cancelled = true; };
-  }, [activeDealId, pathJvId]);
-
-  // Load assets for selected deal
-  useEffect(() => {
-    if (!activeDealId) { setAssets([]); return; }
-    let cancelled = false;
-    listRepeAssets(activeDealId)
-      .then((rows) => {
-        if (cancelled) return;
-        setAssets(rows);
-        if (!pathAssetId && rows[0]?.asset_id) setSelectorAssetId(rows[0].asset_id);
-      })
-      .catch(() => { if (!cancelled) setAssets([]); });
-    return () => { cancelled = true; };
-  }, [activeDealId, pathAssetId]);
-
-
   const envLabel = environment?.client_name || envId || "Real Estate";
-  const envSchema = environment?.schema_name || envId || "n/a";
 
   if (loading) {
     return <div className="rounded-xl border border-bm-border/70 p-5 text-sm text-bm-muted2">Resolving environment context...</div>;
@@ -202,17 +80,12 @@ export default function RepeWorkspaceShell({ children, envId, isAdmin = false }:
       {/* Environment Header */}
       <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Building2 size={18} className="text-bm-muted2" />
-              <h1 className="text-xl font-display font-semibold tracking-tight">{envLabel}</h1>
-              <span className="inline-flex items-center gap-1 rounded-full border border-bm-border/70 px-2.5 py-1 text-xs text-bm-muted2">
-                <Landmark size={12} /> Real Estate
-              </span>
-            </div>
-            <p className="text-xs text-bm-muted2">
-              {envSchema}{businessId ? ` · ${businessId.slice(0, 8)}` : ""}
-            </p>
+          <div className="flex items-center gap-2">
+            <Building2 size={18} className="text-bm-muted2" />
+            <h1 className="text-xl font-display font-semibold tracking-tight">{envLabel}</h1>
+            <span className="inline-flex items-center gap-1 rounded-full border border-bm-border/70 px-2.5 py-1 text-xs text-bm-muted2">
+              <Landmark size={12} /> Real Estate
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link href={homeHref} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40" data-testid="global-home-button">Home</Link>
@@ -220,77 +93,6 @@ export default function RepeWorkspaceShell({ children, envId, isAdmin = false }:
             <Link href={`${base}/deals`} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"><PlusCircle size={14} /> Investment</Link>
             <Link href={`${base}/assets`} className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"><PlusCircle size={14} /> Asset</Link>
           </div>
-        </div>
-
-        {/* Selectors: Fund → Investment → JV → Asset */}
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-          <label className="text-xs text-bm-muted2 uppercase tracking-[0.1em]">
-            Fund
-            <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm"
-              value={activeFundId || ""} onChange={(e) => {
-                setSelectorFundId(e.target.value);
-                if (!e.target.value) return;
-                if (inSustainability) {
-                  pushSustainabilityWith({ fundId: e.target.value, investmentId: "", jvId: "", assetId: "" });
-                  return;
-                }
-                router.push(`${base}/funds/${e.target.value}`);
-              }}>
-              <option value="">Select fund</option>
-              {funds.map((f) => <option key={f.fund_id} value={f.fund_id}>{f.name}</option>)}
-            </select>
-          </label>
-
-          <label className="text-xs text-bm-muted2 uppercase tracking-[0.1em]">
-            Investment
-            <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm"
-              value={activeDealId || ""} onChange={(e) => {
-                setSelectorDealId(e.target.value);
-                if (!e.target.value) return;
-                if (inSustainability) {
-                  pushSustainabilityWith({ investmentId: e.target.value, jvId: "", assetId: "" });
-                  return;
-                }
-                router.push(`${base}/investments/${e.target.value}`);
-              }}>
-              <option value="">Select investment</option>
-              {deals.map((d) => <option key={d.deal_id} value={d.deal_id}>{d.name}</option>)}
-            </select>
-          </label>
-
-          <label className="text-xs text-bm-muted2 uppercase tracking-[0.1em]">
-            JV Entity
-            <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm"
-              value={activeJvId || ""} onChange={(e) => {
-                setSelectorJvId(e.target.value);
-                if (!e.target.value) return;
-                if (inSustainability) {
-                  pushSustainabilityWith({ jvId: e.target.value });
-                  return;
-                }
-                router.push(`${base}/jv/${e.target.value}`);
-              }}>
-              <option value="">Select JV</option>
-              {jvs.map((j) => <option key={j.jv_id} value={j.jv_id}>{j.legal_name}</option>)}
-            </select>
-          </label>
-
-          <label className="text-xs text-bm-muted2 uppercase tracking-[0.1em]">
-            Asset
-            <select className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1.5 text-sm"
-              value={activeAssetId || ""} onChange={(e) => {
-                setSelectorAssetId(e.target.value);
-                if (!e.target.value) return;
-                if (inSustainability) {
-                  pushSustainabilityWith({ assetId: e.target.value });
-                  return;
-                }
-                router.push(`${base}/assets/${e.target.value}`);
-              }}>
-              <option value="">Select asset</option>
-              {assets.map((a) => <option key={a.asset_id} value={a.asset_id}>{a.name}</option>)}
-            </select>
-          </label>
         </div>
       </section>
 

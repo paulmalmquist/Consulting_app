@@ -85,13 +85,13 @@ def test_get_amortization_returns_stored(client, fake_cursor: FakeCursor):
 def test_waterfall_breakdown_returns_tiers(client, fake_cursor: FakeCursor):
     """GET /funds/{id}/waterfall-breakdown returns tier allocations."""
     run_id = str(uuid.uuid4())
-    # 1. Waterfall run lookup
-    fake_cursor.push_result([{"id": run_id}])
-    # 2. Waterfall run results
+    # 1. Waterfall run lookup (route reads run["run_id"])
+    fake_cursor.push_result([{"run_id": run_id}])
+    # 2. Waterfall run results (route SELECTs tier_code, amount, partner_name, partner_type)
     fake_cursor.push_result([
-        {"tier_name": "T1_ROC", "amount": Decimal("100000"), "partner_name": "Winston", "partner_type": "gp"},
-        {"tier_name": "T2_PREF", "amount": Decimal("50000"), "partner_name": "State Pension", "partner_type": "lp"},
-        {"tier_name": "T4_CARRY", "amount": Decimal("20000"), "partner_name": "Winston", "partner_type": "gp"},
+        {"tier_code": "T1_ROC", "amount": Decimal("100000"), "partner_name": "Winston", "partner_type": "gp"},
+        {"tier_code": "T2_PREF", "amount": Decimal("50000"), "partner_name": "State Pension", "partner_type": "lp"},
+        {"tier_code": "T4_CARRY", "amount": Decimal("20000"), "partner_name": "Winston", "partner_type": "gp"},
     ])
 
     resp = client.get(f"/api/re/v2/funds/{FUND_ID}/waterfall-breakdown?quarter=2025Q3")
@@ -99,7 +99,7 @@ def test_waterfall_breakdown_returns_tiers(client, fake_cursor: FakeCursor):
     data = resp.json()
     assert data["fund_id"] == FUND_ID
     assert len(data["allocations"]) == 3
-    assert data["allocations"][0]["tier_name"] == "T1_ROC"
+    assert data["allocations"][0]["tier_code"] == "T1_ROC"
 
 
 def test_comps_crud(client, fake_cursor: FakeCursor):
@@ -143,12 +143,12 @@ def test_comps_crud(client, fake_cursor: FakeCursor):
 
 def test_capital_snapshots_compute(client, fake_cursor: FakeCursor):
     """POST /funds/{id}/capital-snapshots/compute stores per-partner snapshots."""
-    # 1. Fund metrics (NAV)
-    fake_cursor.push_result([{"nav": Decimal("425000000")}])
-    # 2. Partners
+    # 1. Fund quarter state (service reads portfolio_nav)
+    fake_cursor.push_result([{"portfolio_nav": Decimal("425000000")}])
+    # 2. Partners (service reads partner_id, name, partner_type, committed_amount, nav, dpi, tvpi)
     fake_cursor.push_result([
-        {"id": PARTNER_ID_1, "partner_name": "Winston Capital", "partner_type": "gp", "commitment": Decimal("10000000")},
-        {"id": PARTNER_ID_2, "partner_name": "State Pension", "partner_type": "lp", "commitment": Decimal("200000000")},
+        {"partner_id": PARTNER_ID_1, "name": "Winston Capital", "partner_type": "gp", "committed_amount": Decimal("10000000"), "nav": None, "dpi": None, "tvpi": None},
+        {"partner_id": PARTNER_ID_2, "name": "State Pension", "partner_type": "lp", "committed_amount": Decimal("200000000"), "nav": None, "dpi": None, "tvpi": None},
     ])
     # 3. Waterfall run lookup
     fake_cursor.push_result([])

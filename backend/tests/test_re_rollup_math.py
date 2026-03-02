@@ -22,13 +22,14 @@ def _make_asset_state(asset_id: str, *, nav: str, noi: str, debt: str, cash: str
     }
 
 
-def _make_jv_state(jv_id: str, *, nav: str) -> dict:
+def _make_jv_state(jv_id: str, *, nav: str, ownership: str = "1.0") -> dict:
     return {
         "jv_id": jv_id,
         "nav": nav,
         "noi": "0",
         "debt_balance": "0",
         "cash_balance": "0",
+        "ownership_percent": ownership,
         "inputs_hash": f"hash_{jv_id[:8]}",
     }
 
@@ -37,6 +38,7 @@ def _make_inv_state(inv_id: str, *, nav: str) -> dict:
     return {
         "investment_id": inv_id,
         "nav": nav,
+        "effective_nav": nav,
         "inputs_hash": f"hash_{inv_id[:8]}",
     }
 
@@ -113,18 +115,20 @@ class TestRollupInvestment:
         jv2 = str(uuid4())
         quarter = "2026Q1"
 
-        # fetchall: JV states
+        # fetchall 1: JV states (with ownership_percent)
         fake_cursor.push_result([
             _make_jv_state(jv1, nav="10000000"),
             _make_jv_state(jv2, nav="15000000"),
         ])
-        # fetchone: investment capital figures from repe_deal
+        # fetchall 2: direct (non-JV) asset states — none
+        fake_cursor.push_result([])
+        # fetchone 3: investment capital figures from repe_deal
         fake_cursor.push_result([{
             "committed_capital": "30000000",
             "invested_capital": "20000000",
             "realized_distributions": "5000000",
         }])
-        # fetchone: INSERT RETURNING
+        # fetchone 4: INSERT RETURNING
         equity_multiple = (Decimal("5000000") + Decimal("25000000")) / Decimal("20000000")
         fake_cursor.push_result([{
             "investment_id": str(inv_id), "quarter": quarter, "scenario_id": None,
@@ -145,12 +149,13 @@ class TestRollupInvestment:
         quarter = "2026Q1"
 
         fake_cursor.push_result([])  # No JV states
-        fake_cursor.push_result([{
+        fake_cursor.push_result([])  # No direct asset states
+        fake_cursor.push_result([{   # Investment capital
             "committed_capital": "10000000",
             "invested_capital": "0",
             "realized_distributions": "0",
         }])
-        fake_cursor.push_result([{
+        fake_cursor.push_result([{   # INSERT RETURNING
             "investment_id": str(inv_id), "quarter": quarter, "scenario_id": None,
             "run_id": str(uuid4()), "nav": "0",
             "committed_capital": "10000000", "invested_capital": "0",
@@ -171,14 +176,13 @@ class TestRollupFund:
         inv1 = str(uuid4())
         quarter = "2026Q1"
 
-        # fetchall: investment states
+        # fetchall 1: investment states (with effective_nav)
         fake_cursor.push_result([
             _make_inv_state(inv1, nav="50000000"),
         ])
-        # fetchone: INSERT RETURNING
-        # DPI = 10M / 30M = 0.333...
-        # RVPI = 50M / 30M = 1.666...
-        # TVPI = 60M / 30M = 2.0
+        # fetchall 2: asset states for weighted LTV/DSCR — empty
+        fake_cursor.push_result([])
+        # fetchone 3: INSERT RETURNING
         fake_cursor.push_result([{
             "fund_id": str(fund_id), "quarter": quarter, "scenario_id": None,
             "run_id": str(uuid4()), "portfolio_nav": "50000000",
@@ -204,7 +208,8 @@ class TestRollupFund:
         quarter = "2026Q1"
 
         fake_cursor.push_result([])  # No investment states
-        fake_cursor.push_result([{
+        fake_cursor.push_result([])  # No asset states
+        fake_cursor.push_result([{   # INSERT RETURNING
             "fund_id": str(fund_id), "quarter": quarter, "scenario_id": None,
             "run_id": str(uuid4()), "portfolio_nav": "0",
             "total_committed": "0", "total_called": "0",

@@ -47,6 +47,7 @@ from app.routes import (
 from app.routes.ai import router as ai_router
 from app.routes import website_content, website_rankings, website_analytics
 from app.routes import consulting
+from app.routes import re_uw_reports, re_uw_links, re_pipeline
 
 app = FastAPI(title="Business OS API", version="0.1.0")
 
@@ -126,6 +127,9 @@ app.include_router(re_v1_funds.router)
 app.include_router(re_v2.router)
 app.include_router(re_financial_intelligence.router)
 app.include_router(re_sustainability.router)
+app.include_router(re_uw_reports.router)
+app.include_router(re_uw_links.router)
+app.include_router(re_pipeline.router)
 app.include_router(pds.router)
 app.include_router(credit.router)
 app.include_router(legal_ops.router)
