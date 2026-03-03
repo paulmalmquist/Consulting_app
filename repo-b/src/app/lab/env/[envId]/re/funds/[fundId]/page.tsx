@@ -67,7 +67,7 @@ function fmtMoney(v: string | number | null | undefined): string {
   const n = Number(v);
   if (Number.isNaN(n) || n === 0) return "$0";
   if (Math.abs(n) >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(2)}B`;
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(0)}M`;
   if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
   return `$${n.toFixed(0)}`;
 }
@@ -84,13 +84,13 @@ function fmtPercent(v: string | number | null | undefined): string {
 
 const TABS = [
   "Overview",
-  "Variance (NOI)",
-  "Returns (Gross/Net)",
+  "Performance",
+  "Asset Variance",
   "Debt Surveillance",
-  "Run Center",
   "Scenarios",
-  "LP Summary",
   "Waterfall Scenario",
+  "LP Summary",
+  "Run Center",
 ] as const;
 type TabKey = (typeof TABS)[number];
 
@@ -112,6 +112,7 @@ export default function FundDetailPage({
   const [lineageOpen, setLineageOpen] = useState(false);
   const [lineageLoading, setLineageLoading] = useState(false);
   const [lineageError, setLineageError] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
   const [covenantAlerts, setCovenantAlerts] = useState<FiWatchlistEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -218,58 +219,106 @@ export default function FundDetailPage({
     <section className="space-y-5" data-testid="re-fund-detail">
       {/* Fund Header */}
       <div className="rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        {/* Title row */}
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Fund</p>
             <h1 className="mt-1 text-2xl font-display font-bold tracking-tight">{fund?.name || "—"}</h1>
-            <p className="mt-1 text-sm text-bm-muted2">
-              {fund?.strategy?.toUpperCase()}{fund?.sub_strategy ? ` · ${fund.sub_strategy}` : ""}
-              {fund?.vintage_year ? ` · Vintage ${fund.vintage_year}` : ""}
-            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/lab/env/${params.envId}/re/sustainability?section=portfolio-footprint&fundId=${params.fundId}`}
-              className="inline-flex items-center rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
-            >
-              Sustainability
-            </Link>
+          {/* Top-right: Export dropdown only */}
+          <div className="relative">
             <button
               type="button"
-              onClick={() => setLineageOpen(true)}
-              className="inline-flex items-center rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
+              onClick={() => setExportOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
             >
-              Lineage
+              Export
+              <span className="text-bm-muted2 text-xs">▾</span>
             </button>
-            {envId && businessId && (
-              <ExcelExportButton
-                fundId={params.fundId}
-                envId={envId}
-                businessId={businessId}
-                quarter={quarter}
-              />
+            {exportOpen && (
+              <div
+                className="absolute right-0 top-full mt-1 z-50 min-w-[180px] rounded-xl border border-bm-border/70 bg-bm-surface shadow-xl"
+                onBlur={() => setExportOpen(false)}
+              >
+                <div className="p-1 space-y-0.5">
+                  {envId && businessId && (
+                    <div className="rounded-lg" onClick={() => setExportOpen(false)}>
+                      <ExcelExportButton
+                        fundId={params.fundId}
+                        envId={envId}
+                        businessId={businessId}
+                        quarter={quarter}
+                      />
+                    </div>
+                  )}
+                  <button type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-bm-surface/40 text-bm-muted2">
+                    Download LP Report (PDF)
+                  </button>
+                  <button type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-bm-surface/40 text-bm-muted2">
+                    Download Waterfall (.xlsx)
+                  </button>
+                </div>
+              </div>
             )}
           </div>
-          {latestTerms && (
-            <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-              <div><dt className="text-xs text-bm-muted2">Pref Return</dt><dd className="font-medium">{fmtPercent(latestTerms.preferred_return_rate)}</dd></div>
-              <div><dt className="text-xs text-bm-muted2">Carry</dt><dd className="font-medium">{fmtPercent(latestTerms.carry_rate)}</dd></div>
-              <div><dt className="text-xs text-bm-muted2">Waterfall</dt><dd className="font-medium capitalize">{latestTerms.waterfall_style || "—"}</dd></div>
-              {fund?.target_size ? <div><dt className="text-xs text-bm-muted2">Target Size</dt><dd className="font-medium">{fmtMoney(fund.target_size)}</dd></div> : null}
-            </dl>
-          )}
         </div>
+
+        {/* Secondary info bar: metadata + Lineage + Sustainability icon buttons */}
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-bm-muted2">
+          {fund?.strategy && (
+            <span className="uppercase tracking-[0.08em] text-xs font-medium">{fund.strategy}{fund.sub_strategy ? ` · ${fund.sub_strategy}` : ""}</span>
+          )}
+          {fund?.vintage_year && <span>Vintage {fund.vintage_year}</span>}
+          {fund?.target_size && <span>Target {fmtMoney(fund.target_size)}</span>}
+          <span className="flex-1" />
+          <button
+            type="button"
+            onClick={() => setLineageOpen(true)}
+            title="View entity lineage"
+            className="inline-flex items-center gap-1 rounded-md border border-bm-border/60 px-2 py-1 text-xs hover:bg-bm-surface/40"
+          >
+            🔗 Lineage
+          </button>
+          <Link
+            href={`/lab/env/${params.envId}/re/sustainability?section=portfolio-footprint&fundId=${params.fundId}`}
+            title="Sustainability dashboard"
+            className="inline-flex items-center gap-1 rounded-md border border-bm-border/60 px-2 py-1 text-xs hover:bg-bm-surface/40"
+          >
+            🌿 Sustainability
+          </Link>
+        </div>
+
+        {/* Fund terms strip */}
+        {latestTerms && (
+          <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm border-t border-bm-border/40 pt-3">
+            <div><dt className="text-xs text-bm-muted2">Pref Return</dt><dd className="font-semibold">{fmtPercent(latestTerms.preferred_return_rate)}</dd></div>
+            <div><dt className="text-xs text-bm-muted2">Carry</dt><dd className="font-semibold">{fmtPercent(latestTerms.carry_rate)}</dd></div>
+            <div><dt className="text-xs text-bm-muted2">Waterfall</dt><dd className="font-semibold capitalize">{latestTerms.waterfall_style || "—"}</dd></div>
+          </dl>
+        )}
       </div>
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-        <MetricCard label="NAV" value={fmtMoney(fundState?.portfolio_nav)} size="large" />
-        <MetricCard label="Committed" value={fmtMoney(fundState?.total_committed)} size="large" />
-        <MetricCard label="Called" value={fmtMoney(fundState?.total_called)} size="large" />
-        <MetricCard label="Distributed" value={fmtMoney(fundState?.total_distributed)} size="compact" />
-        <MetricCard label="DPI" value={fmtMultiple(fundState?.dpi)} size="compact" />
-        <MetricCard label="TVPI" value={fmtMultiple(fundState?.tvpi)} size="compact" />
-        <MetricCard label="IRR" value={fmtPercent(fundMetrics?.irr)} size="compact" />
+      {/* KPI Row — two labeled groups */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Capital Activity */}
+        <div className="rounded-xl border border-bm-border/60 bg-bm-surface/20 p-4">
+          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2">Capital Activity</p>
+          <div className="grid grid-cols-2 gap-3">
+            <MetricCard label="Committed" value={fmtMoney(fundState?.total_committed)} size="large" />
+            <MetricCard label="Called" value={fmtMoney(fundState?.total_called)} size="large" />
+            <MetricCard label="Distributed" value={fmtMoney(fundState?.total_distributed)} size="large" />
+            <MetricCard label="NAV" value={fmtMoney(fundState?.portfolio_nav)} size="large" />
+          </div>
+        </div>
+        {/* Performance */}
+        <div className="rounded-xl border border-bm-border/60 bg-bm-surface/20 p-4">
+          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2">Performance</p>
+          <div className="grid grid-cols-3 gap-3">
+            <MetricCard label="DPI" value={fmtMultiple(fundState?.dpi)} size="large" />
+            <MetricCard label="TVPI" value={fmtMultiple(fundState?.tvpi)} size="large" />
+            <MetricCard label="Net IRR" value={fmtPercent(fundMetrics?.irr)} size="large" />
+          </div>
+        </div>
       </div>
 
       {/* Covenant Alert Banner */}
@@ -329,11 +378,17 @@ export default function FundDetailPage({
           quarter={quarter}
         />
       )}
-      {tab === "Variance (NOI)" && envId && businessId && (
+      {tab === "Asset Variance" && envId && businessId && (
         <VarianceTab envId={envId} businessId={businessId} fundId={params.fundId} quarter={quarter} />
       )}
-      {tab === "Returns (Gross/Net)" && envId && businessId && (
-        <ReturnsTab envId={envId} businessId={businessId} fundId={params.fundId} quarter={quarter} />
+      {tab === "Performance" && envId && businessId && (
+        <ReturnsTab
+          envId={envId}
+          businessId={businessId}
+          fundId={params.fundId}
+          quarter={quarter}
+          onNavigateToRunCenter={() => setTab("Run Center")}
+        />
       )}
       {tab === "Debt Surveillance" && isDebtFund && envId && businessId && (
         <DebtSurveillanceTab envId={envId} businessId={businessId} fundId={params.fundId} quarter={quarter} />
@@ -685,8 +740,9 @@ function VarianceTab({ envId, businessId, fundId, quarter }: {
 
 // ── Returns Tab ─────────────────────────────────────────────────────────────
 
-function ReturnsTab({ envId, businessId, fundId, quarter }: {
+function ReturnsTab({ envId, businessId, fundId, quarter, onNavigateToRunCenter }: {
   envId: string; businessId: string; fundId: string; quarter: string;
+  onNavigateToRunCenter?: () => void;
 }) {
   const [data, setData] = useState<FiFundMetricsResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -702,8 +758,23 @@ function ReturnsTab({ envId, businessId, fundId, quarter }: {
   if (loading) return <div className="p-4 text-sm text-bm-muted2">Loading return metrics...</div>;
   if (!data?.metrics) {
     return (
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-6 text-center text-sm text-bm-muted2" data-testid="returns-empty">
-        No return metrics available. Run a Quarter Close first.
+      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-8 text-center space-y-4" data-testid="returns-empty">
+        <div className="text-3xl">📊</div>
+        <div>
+          <p className="text-sm font-medium">No return metrics available yet</p>
+          <p className="text-xs text-bm-muted2 mt-1">Fund performance requires a Quarter Close calculation.</p>
+          <p className="text-xs text-bm-muted2">Last Close: Never</p>
+        </div>
+        {onNavigateToRunCenter && (
+          <button
+            type="button"
+            onClick={onNavigateToRunCenter}
+            className="inline-flex items-center gap-2 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90"
+            data-testid="returns-run-quarter-close-cta"
+          >
+            Run Quarter Close
+          </button>
+        )}
       </div>
     );
   }
