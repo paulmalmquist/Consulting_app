@@ -34,6 +34,7 @@ export default function ConsultingWorkspaceShell({
       { href: `${base}/strategic-outreach`, label: "Strategic Outreach", isBase: false },
       { href: `${base}/proposals`, label: "Proposals", isBase: false },
       { href: `${base}/clients`, label: "Clients", isBase: false },
+      { href: `${base}/loops`, label: "Loop Intelligence", isBase: false },
       { href: `${base}/authority`, label: "Authority", isBase: false },
       { href: `${base}/revenue`, label: "Revenue", isBase: false },
     ],

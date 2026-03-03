@@ -1264,6 +1264,26 @@ Delete restricted to Admin only.
   - Ogletree Deakins
   - Live Oak Bank
 
+## Loop Intelligence
+
+- Loop Intelligence must live inside the existing Consulting Revenue OS as an additive sub-module, not as a standalone workspace.
+- The Loop Intelligence UI route is `/lab/env/[envId]/consulting/loops`.
+- Loop Intelligence API routes must remain under `/api/consulting/loops*`.
+- Loop Intelligence data is stored in `nv_loop`, `nv_loop_role`, and `nv_loop_intervention`.
+- All Loop Intelligence reads and writes must be scoped by both `env_id` and `business_id`.
+- V1 loop cost math is deterministic and server-side only:
+  - `role_cost = (active_minutes / 60) * loaded_hourly_rate`
+  - `loop_cost_per_run = sum(role_costs) * (1 + rework_rate_percent / 100)`
+  - `annual_estimated_cost = loop_cost_per_run * frequency_per_year`
+- `avg_wait_time_minutes` is informational in v1 and must not be monetized.
+- `automation_readiness_score` is operator-entered in v1 and must not be auto-inferred.
+- Every intervention record must persist an immutable `before_snapshot`.
+- V1 scope excludes:
+  - loop auto-detection
+  - process mining
+  - connectors
+  - LLM-based loop finding or scoring
+
 ## Deployment Lint Gate
 
 - Before merge or deploy, run backend Ruff on the actual backend paths: `python -m ruff check backend/app backend/tests`.

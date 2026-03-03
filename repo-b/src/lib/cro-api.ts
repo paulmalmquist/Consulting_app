@@ -172,6 +172,73 @@ export type Client = {
   created_at: string;
 };
 
+export type LoopRole = {
+  id: string;
+  loop_id: string;
+  role_name: string;
+  loaded_hourly_rate: number;
+  active_minutes: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type LoopMetrics = {
+  role_count: number;
+  loop_cost_per_run: number;
+  annual_estimated_cost: number;
+};
+
+export type LoopIntervention = {
+  id: string;
+  loop_id: string;
+  intervention_type: string;
+  notes: string | null;
+  before_snapshot: Record<string, unknown>;
+  after_snapshot: Record<string, unknown> | null;
+  observed_delta_percent: number | null;
+  created_at: string;
+  updated_at: string;
+  loop_metrics?: LoopMetrics | null;
+};
+
+export type LoopRecord = LoopMetrics & {
+  id: string;
+  env_id: string;
+  business_id: string;
+  client_id: string | null;
+  name: string;
+  process_domain: string;
+  description: string | null;
+  trigger_type: string;
+  frequency_type: string;
+  frequency_per_year: number;
+  status: string;
+  control_maturity_stage: number;
+  automation_readiness_score: number;
+  avg_wait_time_minutes: number;
+  rework_rate_percent: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type LoopDetail = LoopRecord & {
+  roles: LoopRole[];
+  interventions: LoopIntervention[];
+};
+
+export type LoopSummary = {
+  total_annual_cost: number;
+  loop_count: number;
+  avg_maturity_stage: number;
+  top_5_by_cost: Array<{
+    id: string;
+    name: string;
+    annual_estimated_cost: number;
+  }>;
+  status_counts: Record<string, number>;
+};
+
 export type SeedResult = {
   pipeline_stages_seeded: number;
   leads_seeded: number;
@@ -182,6 +249,7 @@ export type SeedResult = {
   clients_seeded: number;
   engagements_seeded: number;
   revenue_entries_seeded: number;
+  loops_seeded: number;
 };
 
 // ── Pipeline ─────────────────────────────────────────────────────────────────
@@ -360,6 +428,122 @@ export function convertToClient(body: {
   start_date?: string;
 }) {
   return apiFetch<Client>(`${CRO_BASE}/clients/convert`, { method: "POST", body: JSON.stringify(body) });
+}
+
+// ── Loop Intelligence ───────────────────────────────────────────────────────
+
+export function fetchLoops(
+  envId: string,
+  businessId: string,
+  opts?: { client_id?: string; status?: string; domain?: string; min_cost?: number },
+) {
+  let url = `${CRO_BASE}/loops?env_id=${envId}&business_id=${businessId}`;
+  if (opts?.client_id) url += `&client_id=${opts.client_id}`;
+  if (opts?.status) url += `&status=${opts.status}`;
+  if (opts?.domain) url += `&domain=${encodeURIComponent(opts.domain)}`;
+  if (opts?.min_cost !== undefined) url += `&min_cost=${opts.min_cost}`;
+  return apiFetch<LoopRecord[]>(url);
+}
+
+export function fetchLoopSummary(
+  envId: string,
+  businessId: string,
+  opts?: { client_id?: string; status?: string; domain?: string; min_cost?: number },
+) {
+  let url = `${CRO_BASE}/loops/summary?env_id=${envId}&business_id=${businessId}`;
+  if (opts?.client_id) url += `&client_id=${opts.client_id}`;
+  if (opts?.status) url += `&status=${opts.status}`;
+  if (opts?.domain) url += `&domain=${encodeURIComponent(opts.domain)}`;
+  if (opts?.min_cost !== undefined) url += `&min_cost=${opts.min_cost}`;
+  return apiFetch<LoopSummary>(url);
+}
+
+export function fetchLoop(loopId: string, envId: string, businessId: string) {
+  return apiFetch<LoopDetail>(
+    `${CRO_BASE}/loops/${loopId}?env_id=${envId}&business_id=${businessId}`,
+  );
+}
+
+export function createLoop(body: {
+  env_id: string;
+  business_id: string;
+  client_id?: string;
+  name: string;
+  process_domain: string;
+  description?: string;
+  trigger_type: string;
+  frequency_type: string;
+  frequency_per_year: number;
+  status: string;
+  control_maturity_stage: number;
+  automation_readiness_score: number;
+  avg_wait_time_minutes: number;
+  rework_rate_percent: number;
+  roles: Array<{
+    role_name: string;
+    loaded_hourly_rate: number;
+    active_minutes: number;
+    notes?: string;
+  }>;
+}) {
+  return apiFetch<LoopDetail>(`${CRO_BASE}/loops`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateLoop(
+  loopId: string,
+  envId: string,
+  businessId: string,
+  body: {
+    client_id?: string;
+    name: string;
+    process_domain: string;
+    description?: string;
+    trigger_type: string;
+    frequency_type: string;
+    frequency_per_year: number;
+    status: string;
+    control_maturity_stage: number;
+    automation_readiness_score: number;
+    avg_wait_time_minutes: number;
+    rework_rate_percent: number;
+    roles?: Array<{
+      role_name: string;
+      loaded_hourly_rate: number;
+      active_minutes: number;
+      notes?: string;
+    }>;
+  },
+) {
+  return apiFetch<LoopDetail>(
+    `${CRO_BASE}/loops/${loopId}?env_id=${envId}&business_id=${businessId}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function createLoopIntervention(
+  loopId: string,
+  envId: string,
+  businessId: string,
+  body: {
+    intervention_type: string;
+    notes?: string;
+    after_snapshot?: Record<string, unknown>;
+    observed_delta_percent?: number;
+  },
+) {
+  return apiFetch<LoopIntervention>(
+    `${CRO_BASE}/loops/${loopId}/interventions?env_id=${envId}&business_id=${businessId}`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
 }
 
 // ── Metrics / Seed ───────────────────────────────────────────────────────────

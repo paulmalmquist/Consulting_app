@@ -5,6 +5,7 @@ client lifecycle, engagements, revenue scheduling, and metrics.
 """
 from __future__ import annotations
 
+from decimal import Decimal
 from uuid import UUID
 
 import psycopg
@@ -38,6 +39,13 @@ from app.schemas.consulting import (
     RevenueSummaryOut,
     SeedRequest,
     SeedResult,
+    LoopCreateRequest,
+    LoopDetailOut,
+    LoopInterventionCreateRequest,
+    LoopInterventionOut,
+    LoopOut,
+    LoopSummaryOut,
+    LoopUpdateRequest,
     DeliverableCreateRequest,
     DeliverableOut,
     DiagnosticSessionCreateRequest,
@@ -67,6 +75,7 @@ from app.services import (
     cro_proposals,
     cro_revenue,
     cro_seed,
+    cro_loops,
     cro_strategic_outreach,
 )
 
@@ -346,6 +355,141 @@ def create_proposal_version(proposal_id: UUID):
     try:
         result = cro_proposals.create_new_version(proposal_id=proposal_id)
         _log("cro.proposal.versioned", f"Proposal {proposal_id} new version created")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Loop Intelligence ────────────────────────────────────────────────────────
+
+@router.get("/loops", response_model=list[LoopOut])
+def list_loops(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    client_id: UUID | None = Query(None),
+    status: str | None = Query(None),
+    domain: str | None = Query(None),
+    min_cost: Decimal | None = Query(None, ge=0),
+):
+    try:
+        return cro_loops.list_loops(
+            env_id=env_id,
+            business_id=business_id,
+            client_id=client_id,
+            status=status,
+            domain=domain,
+            min_cost=min_cost,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/loops", response_model=LoopDetailOut, status_code=201)
+def create_loop(body: LoopCreateRequest):
+    try:
+        result = cro_loops.create_loop(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            client_id=body.client_id,
+            name=body.name,
+            process_domain=body.process_domain,
+            description=body.description,
+            trigger_type=body.trigger_type,
+            frequency_type=body.frequency_type,
+            frequency_per_year=body.frequency_per_year,
+            status=body.status,
+            control_maturity_stage=body.control_maturity_stage,
+            automation_readiness_score=body.automation_readiness_score,
+            avg_wait_time_minutes=body.avg_wait_time_minutes,
+            rework_rate_percent=body.rework_rate_percent,
+            roles=[role.model_dump() for role in body.roles],
+        )
+        _log("cro.loop.created", f"Loop created: {body.name}")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/loops/summary", response_model=LoopSummaryOut)
+def get_loop_summary(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    client_id: UUID | None = Query(None),
+    status: str | None = Query(None),
+    domain: str | None = Query(None),
+    min_cost: Decimal | None = Query(None, ge=0),
+):
+    try:
+        return cro_loops.get_loop_summary(
+            env_id=env_id,
+            business_id=business_id,
+            client_id=client_id,
+            status=status,
+            domain=domain,
+            min_cost=min_cost,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/loops/{loop_id}", response_model=LoopDetailOut)
+def get_loop(loop_id: UUID, env_id: str = Query(...), business_id: UUID = Query(...)):
+    try:
+        return cro_loops.get_loop_detail(loop_id=loop_id, env_id=env_id, business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.put("/loops/{loop_id}", response_model=LoopDetailOut)
+def update_loop(
+    loop_id: UUID,
+    body: LoopUpdateRequest,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        result = cro_loops.update_loop(
+            loop_id=loop_id,
+            env_id=env_id,
+            business_id=business_id,
+            client_id=body.client_id,
+            name=body.name,
+            process_domain=body.process_domain,
+            description=body.description,
+            trigger_type=body.trigger_type,
+            frequency_type=body.frequency_type,
+            frequency_per_year=body.frequency_per_year,
+            status=body.status,
+            control_maturity_stage=body.control_maturity_stage,
+            automation_readiness_score=body.automation_readiness_score,
+            avg_wait_time_minutes=body.avg_wait_time_minutes,
+            rework_rate_percent=body.rework_rate_percent,
+            roles=[role.model_dump() for role in body.roles] if body.roles is not None else None,
+        )
+        _log("cro.loop.updated", f"Loop updated: {loop_id}")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/loops/{loop_id}/interventions", response_model=LoopInterventionOut, status_code=201)
+def create_loop_intervention(
+    loop_id: UUID,
+    body: LoopInterventionCreateRequest,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        result = cro_loops.create_intervention(
+            loop_id=loop_id,
+            env_id=env_id,
+            business_id=business_id,
+            intervention_type=body.intervention_type,
+            notes=body.notes,
+            after_snapshot=body.after_snapshot,
+            observed_delta_percent=body.observed_delta_percent,
+        )
+        _log("cro.loop.intervention_created", f"Loop intervention created: {loop_id}")
         return result
     except Exception as exc:
         raise _to_http(exc)

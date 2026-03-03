@@ -158,6 +158,7 @@ async function enrichWithAssetMetrics(
        CASE WHEN SUM(qs.debt_service) > 0
          THEN (SUM(qs.noi) / SUM(qs.debt_service))::float8
          ELSE NULL END AS computed_dscr,
+       SUM(qs.nav)::float8 AS fund_nav_contribution,
        (COUNT(DISTINCT a.asset_id) - COUNT(DISTINCT qs.asset_id))::int AS missing_quarter_state_count
      FROM repe_deal d
      LEFT JOIN repe_asset a ON a.deal_id = d.deal_id
@@ -177,7 +178,12 @@ async function enrichWithAssetMetrics(
     pool,
     rows.map((row) => {
       const enrich = enrichMap.get(row.investment_id as string);
-      return { ...row, ...(enrich || {}) };
+      const merged = { ...row, ...(enrich || {}) };
+      // Ensure fund_nav_contribution is set: prefer enriched value, fall back to row.nav
+      if (merged.fund_nav_contribution == null && row.nav != null) {
+        merged.fund_nav_contribution = row.nav;
+      }
+      return merged;
     })
   );
   return enrichedRows;

@@ -516,6 +516,81 @@ function InvestmentCockpit({
         </div>
       </div>
 
+      {/* ── Band C2: Debt & Capital Stack ── */}
+      {(totalDebt > 0 || computedLtv) && (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="capital-stack">
+          <h3 className="mb-3 text-xs uppercase tracking-[0.12em] text-bm-muted2">
+            Debt &amp; Capital Stack
+          </h3>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Visual capital stack bar */}
+            <div className="space-y-2">
+              <div className="text-xs text-bm-muted2 uppercase tracking-wide">Capital Stack</div>
+              <div className="h-8 w-full rounded-lg overflow-hidden flex" title={`Debt: ${fmtMoney(totalDebt)} | Equity: ${fmtMoney(totalAssetValue - totalDebt)}`}>
+                {computedLtv != null && computedLtv > 0 && (
+                  <div
+                    className={`h-full flex items-center justify-center text-xs font-medium text-white ${
+                      computedLtv > 0.70 ? "bg-red-500" : computedLtv > 0.60 ? "bg-amber-500" : "bg-blue-500"
+                    }`}
+                    style={{ width: `${Math.min(computedLtv * 100, 100)}%` }}
+                  >
+                    Debt {(computedLtv * 100).toFixed(0)}%
+                  </div>
+                )}
+                <div
+                  className="h-full flex items-center justify-center text-xs font-medium text-white bg-green-600"
+                  style={{ width: `${Math.max(100 - (computedLtv || 0) * 100, 0)}%` }}
+                >
+                  Equity {((1 - (computedLtv || 0)) * 100).toFixed(0)}%
+                </div>
+              </div>
+              {/* LTV Gauge */}
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-xs text-bm-muted2">LTV</span>
+                <div className="flex-1 h-3 rounded-full bg-bm-surface/30 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${
+                      (computedLtv || 0) > 0.70 ? "bg-red-500" : (computedLtv || 0) > 0.60 ? "bg-amber-500" : "bg-green-500"
+                    }`}
+                    style={{ width: `${Math.min((computedLtv || 0) * 100, 100)}%` }}
+                  />
+                </div>
+                <span className={`text-sm font-medium ${
+                  (computedLtv || 0) > 0.70 ? "text-red-400" : (computedLtv || 0) > 0.60 ? "text-amber-400" : "text-green-400"
+                }`}>
+                  {computedLtv != null ? `${(computedLtv * 100).toFixed(1)}%` : "—"}
+                </span>
+              </div>
+            </div>
+            {/* Debt metrics */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg border border-bm-border/60 p-3">
+                <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Total Debt</p>
+                <p className="mt-1 font-medium">{fmtMoney(totalDebt || null)}</p>
+              </div>
+              <div className="rounded-lg border border-bm-border/60 p-3">
+                <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Equity Value</p>
+                <p className="mt-1 font-medium">{fmtMoney(totalAssetValue - totalDebt || null)}</p>
+              </div>
+              <div className="rounded-lg border border-bm-border/60 p-3">
+                <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">DSCR</p>
+                <p className={`mt-1 font-medium ${
+                  totalNoi && totalDebt ? ((totalNoi * 4) / (totalDebt * 0.05) < 1.25 ? "text-red-400" : "text-green-400") : ""
+                }`}>
+                  {totalNoi && totalDebt ? `${((totalNoi * 4) / (totalDebt * 0.05)).toFixed(2)}x` : "—"}
+                </p>
+              </div>
+              <div className="rounded-lg border border-bm-border/60 p-3">
+                <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Debt Yield</p>
+                <p className="mt-1 font-medium">
+                  {totalNoi && totalDebt ? `${((totalNoi * 4 / totalDebt) * 100).toFixed(1)}%` : "—"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Band D: Sector Exposure ── */}
       {sectorData.length > 0 && (
         <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">

@@ -238,3 +238,84 @@ export function computeFullValuation(
     valuation_method: valuationMethod,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Multi-variable sensitivity matrix
+// ---------------------------------------------------------------------------
+
+export type SensitivityVariable = "cap_rate" | "exit_cap_rate" | "rent_growth" | "discount_rate" | "vacancy";
+
+export type SensitivityMatrixCell = {
+  row_value: number;
+  col_value: number;
+  value_blended: number;
+  equity_value: number;
+  ltv: number | null;
+  irr_approx: number;
+};
+
+export type SensitivityMatrixResult = {
+  row_variable: SensitivityVariable;
+  col_variable: SensitivityVariable;
+  cells: SensitivityMatrixCell[];
+  row_values: number[];
+  col_values: number[];
+};
+
+/**
+ * Computes a 2D sensitivity matrix by varying two inputs independently.
+ * Each cell contains the full valuation result at that (row, col) pair.
+ * The IRR approximation uses a simplified (value / cost)^(1/years) - 1 formula.
+ */
+export function computeSensitivityMatrix(
+  baseInputs: ValuationInputs,
+  currentNoi: number,
+  debtBalance: number,
+  debtService: number,
+  rowVariable: SensitivityVariable,
+  colVariable: SensitivityVariable,
+  rowValues: number[],
+  colValues: number[],
+  acquisitionCost: number,
+  holdYears = 5,
+): SensitivityMatrixResult {
+  const cells: SensitivityMatrixCell[] = [];
+
+  for (const rv of rowValues) {
+    for (const cv of colValues) {
+      const inputs = { ...baseInputs };
+      // Apply row variable
+      applyVariable(inputs, rowVariable, rv);
+      // Apply col variable
+      applyVariable(inputs, colVariable, cv);
+
+      const result = computeFullValuation(inputs, currentNoi, debtBalance, debtService);
+
+      // Approximate IRR from value change
+      const totalProceeds = result.value_blended;
+      const moic = acquisitionCost > 0 ? totalProceeds / acquisitionCost : 1;
+      const irrApprox = moic > 0 ? Math.pow(moic, 1 / holdYears) - 1 : 0;
+
+      cells.push({
+        row_value: rv,
+        col_value: cv,
+        value_blended: result.value_blended,
+        equity_value: result.equity_value,
+        ltv: result.ltv,
+        irr_approx: irrApprox,
+      });
+    }
+  }
+
+  return { row_variable: rowVariable, col_variable: colVariable, cells, row_values: rowValues, col_values: colValues };
+}
+
+function applyVariable(inputs: ValuationInputs, variable: SensitivityVariable, value: number): void {
+  switch (variable) {
+    case "cap_rate": inputs.cap_rate = value; break;
+    case "exit_cap_rate": inputs.exit_cap_rate = value; break;
+    case "rent_growth": inputs.rent_growth = value; break;
+    case "discount_rate": inputs.discount_rate = value; break;
+    case "vacancy": inputs.vacancy = value; break;
+  }
+}

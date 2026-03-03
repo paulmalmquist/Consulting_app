@@ -320,14 +320,18 @@ export async function POST(request: Request) {
         const seedOcc = 0.82 + Math.random() * 0.15;
         const seedValue = seedNoi / (0.045 + Math.random() * 0.025);
 
+        const seedDebt = Math.round(seedValue * (0.40 + Math.random() * 0.20)); // 40-60% LTV
+        const seedDebtService = Math.round(seedNoi * (0.25 + Math.random() * 0.15)); // 25-40% of NOI
         await pool.query(
           `INSERT INTO re_asset_quarter_state (
              id, asset_id, quarter, run_id, accounting_basis,
              noi, revenue, opex, occupancy, asset_value, nav,
+             debt_balance, debt_service,
              valuation_method, inputs_hash, created_at
            ) VALUES (
              $1::uuid, $2::uuid, $3, $4::uuid, 'accrual',
              $5, $6, $7, $8, $9, $10,
+             $11, $12,
              'cap_rate', 'seed', NOW()
            )
            ON CONFLICT DO NOTHING`,
@@ -337,6 +341,7 @@ export async function POST(request: Request) {
             Math.round(seedOcc * 10000) / 10000,
             Math.round(seedValue),
             Math.round(seedValue * 0.7),
+            seedDebt, seedDebtService,
           ]
         );
         qsSeeded++;
@@ -355,14 +360,24 @@ export async function POST(request: Request) {
       const calledPerDeal = totalCalled / dealCount;
       const distPerDeal = totalDistributed / dealCount;
 
+      // Assign realistic acquisition dates (2019-2023 spread)
+      const acquisitionDates = [
+        "2019-06-15", "2019-11-01", "2020-03-20", "2020-09-10",
+        "2021-01-15", "2021-06-30", "2021-12-01", "2022-04-15",
+        "2022-08-22", "2023-01-10", "2023-05-18", "2023-10-01",
+      ];
+
       let iqsSeeded = 0;
-      for (const deal of dealRows) {
-        // Update deal-level committed/invested on repe_deal
+      for (let di = 0; di < dealRows.length; di++) {
+        const deal = dealRows[di];
+        const acqDate = acquisitionDates[di % acquisitionDates.length];
+        // Update deal-level committed/invested + acquisition date on repe_deal
         await pool.query(
           `UPDATE repe_deal
-           SET committed_capital = $2, invested_capital = $3
+           SET committed_capital = $2, invested_capital = $3,
+               target_close_date = COALESCE(target_close_date, $4::date)
            WHERE deal_id = $1::uuid`,
-          [deal.deal_id, Math.round(committedPerDeal), Math.round(calledPerDeal)]
+          [deal.deal_id, Math.round(committedPerDeal), Math.round(calledPerDeal), acqDate]
         );
 
         const existing = await pool.query(
@@ -426,6 +441,127 @@ export async function POST(request: Request) {
         propSeeded++;
       }
       results.push(`Seeded property asset details for ${propSeeded} assets`);
+    }
+
+    // 10b. Seed loan details for assets
+    if (assetIds.length > 0) {
+      const lenders = ["JPMorgan Chase", "Wells Fargo", "Bank of America", "Goldman Sachs", "Morgan Stanley", "Citi"];
+      let loanSeeded = 0;
+      for (let li = 0; li < assetIds.length; li++) {
+        const assetId = assetIds[li];
+        const loanCheck = await pool.query(
+          `SELECT 1 FROM re_loan_detail WHERE asset_id = $1::uuid LIMIT 1`,
+          [assetId]
+        );
+        if (loanCheck.rows.length > 0) continue;
+
+        // Get asset value to compute realistic loan amounts
+        const assetState = await pool.query(
+          `SELECT asset_value::float8, noi::float8 FROM re_asset_quarter_state
+           WHERE asset_id = $1::uuid AND quarter = $2 AND scenario_id IS NULL LIMIT 1`,
+          [assetId, quarter]
+        );
+        const av = assetState.rows[0]?.asset_value || 30_000_000;
+        const noi = assetState.rows[0]?.noi || av * 0.06;
+
+        const ltvTarget = 0.40 + Math.random() * 0.20; // 40-60% LTV
+        const loanBal = Math.round(av * ltvTarget);
+        const coupon = 0.04 + Math.random() * 0.025; // 4.0-6.5%
+        const debtService = loanBal * coupon; // interest-only
+        const dscr = debtService > 0 ? (noi * 4) / debtService : 0; // annualized NOI / annual debt service
+        const matYears = 3 + Math.floor(Math.random() * 5); // 3-7 years from now
+        const matDate = `${2026 + matYears}-${String(1 + Math.floor(Math.random() * 12)).padStart(2, "0")}-15`;
+
+        // Intentionally make one asset have a covenant-breaching DSCR (< 1.25x)
+        const actualDscr = li === 0 ? 1.18 : dscr; // First asset in breach for testing
+
+        await pool.query(
+          `INSERT INTO re_loan_detail (asset_id, original_balance, current_balance, coupon, maturity_date, ltv, dscr)
+           VALUES ($1::uuid, $2, $3, $4, $5::date, $6, $7)
+           ON CONFLICT (asset_id) DO UPDATE SET
+             current_balance = EXCLUDED.current_balance,
+             coupon = EXCLUDED.coupon,
+             ltv = EXCLUDED.ltv,
+             dscr = EXCLUDED.dscr`,
+          [assetId, loanBal, loanBal, coupon, matDate, ltvTarget, actualDscr]
+        );
+        loanSeeded++;
+      }
+      results.push(`Seeded loan details for ${loanSeeded} assets`);
+    }
+
+    // 10c. Seed default waterfall definition if missing
+    const wfCheck = await pool.query(
+      `SELECT definition_id::text FROM re_waterfall_definition WHERE fund_id = $1::uuid AND is_active = true LIMIT 1`,
+      [fund_id]
+    );
+    if (!wfCheck.rows[0]) {
+      const wfDefId = randomUUID();
+      await pool.query(
+        `INSERT INTO re_waterfall_definition (definition_id, fund_id, name, waterfall_type, version, is_active)
+         VALUES ($1::uuid, $2::uuid, 'Default', 'european', 1, true)
+         ON CONFLICT (fund_id, name, version) DO NOTHING`,
+        [wfDefId, fund_id]
+      );
+      const wfTiers = [
+        { order: 1, type: "return_of_capital", hurdle: null, splitGp: 0, splitLp: 1.0, catchUp: null },
+        { order: 2, type: "preferred_return", hurdle: 0.08, splitGp: 0, splitLp: 1.0, catchUp: null },
+        { order: 3, type: "catch_up", hurdle: null, splitGp: 1.0, splitLp: 0, catchUp: 1.0 },
+        { order: 4, type: "split", hurdle: null, splitGp: 0.20, splitLp: 0.80, catchUp: null },
+      ];
+      for (const t of wfTiers) {
+        await pool.query(
+          `INSERT INTO re_waterfall_tier (tier_id, definition_id, tier_order, tier_type, hurdle_rate, split_gp, split_lp, catch_up_percent)
+           VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8)
+           ON CONFLICT (definition_id, tier_order) DO NOTHING`,
+          [randomUUID(), wfDefId, t.order, t.type, t.hurdle, t.splitGp, t.splitLp, t.catchUp]
+        );
+      }
+      results.push("Seeded default waterfall definition with 4 tiers");
+    } else {
+      results.push("Waterfall definition already exists");
+    }
+
+    // 10c. Create and seed benchmark table (NCREIF ODCE)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS re_benchmark (
+        id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        benchmark_name  text NOT NULL,
+        quarter         text NOT NULL,
+        total_return    numeric(18,12),
+        income_return   numeric(18,12),
+        appreciation    numeric(18,12),
+        source          text NOT NULL DEFAULT 'manual',
+        created_at      timestamptz NOT NULL DEFAULT now(),
+        UNIQUE (benchmark_name, quarter)
+      )
+    `);
+    const bmCheck = await pool.query(
+      `SELECT 1 FROM re_benchmark WHERE benchmark_name = 'NCREIF_ODCE' LIMIT 1`
+    );
+    if (bmCheck.rows.length === 0) {
+      const ncreifData = [
+        { q: "2024Q1", total: 0.0052, income: 0.0098, appr: -0.0046 },
+        { q: "2024Q2", total: 0.0071, income: 0.0097, appr: -0.0026 },
+        { q: "2024Q3", total: 0.0089, income: 0.0096, appr: -0.0007 },
+        { q: "2024Q4", total: 0.0102, income: 0.0095, appr: 0.0007 },
+        { q: "2025Q1", total: 0.0095, income: 0.0094, appr: 0.0001 },
+        { q: "2025Q2", total: 0.0114, income: 0.0093, appr: 0.0021 },
+        { q: "2025Q3", total: 0.0128, income: 0.0092, appr: 0.0036 },
+        { q: "2025Q4", total: 0.0145, income: 0.0091, appr: 0.0054 },
+        { q: "2026Q1", total: 0.0118, income: 0.0090, appr: 0.0028 },
+      ];
+      for (const d of ncreifData) {
+        await pool.query(
+          `INSERT INTO re_benchmark (benchmark_name, quarter, total_return, income_return, appreciation)
+           VALUES ('NCREIF_ODCE', $1, $2, $3, $4)
+           ON CONFLICT (benchmark_name, quarter) DO NOTHING`,
+          [d.q, d.total, d.income, d.appr]
+        );
+      }
+      results.push("Seeded NCREIF ODCE benchmark data (9 quarters)");
+    } else {
+      results.push("Benchmark data already exists");
     }
 
     // 11. Seed run provenance for quarter close

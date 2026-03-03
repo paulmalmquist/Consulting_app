@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import type {
   ReV2AssetQuarterState,
   ReV2AssetPeriod,
@@ -7,6 +8,8 @@ import type {
 import { TrendLineChart, SensitivityBarChart } from "@/components/charts";
 import type { SensitivityRow } from "@/components/charts/SensitivityBarChart";
 import { CHART_COLORS } from "@/components/charts/chart-theme";
+import { SensitivityHeatMap } from "@/components/charts/SensitivityHeatMap";
+import type { HeatMapCell } from "@/components/charts/SensitivityHeatMap";
 import ScenarioComparePanel from "./ScenarioComparePanel";
 
 function fmtMoney(v: number | string | null | undefined): string {
@@ -39,6 +42,50 @@ export default function ValuationReturnsSection({
   periods,
   fundId,
 }: Props) {
+  // --- 2-D Sensitivity Heat Map state ---
+  const [heatMapCells, setHeatMapCells] = useState<HeatMapCell[]>([]);
+  const [heatMapRows, setHeatMapRows] = useState<number[]>([]);
+  const [heatMapCols, setHeatMapCols] = useState<number[]>([]);
+  const [heatMapLoading, setHeatMapLoading] = useState(false);
+
+  const fetchHeatMap = useCallback(async () => {
+    if (!financialState) return;
+    setHeatMapLoading(true);
+    try {
+      const res = await fetch(`/api/re/v2/assets/${assetId}/valuation/sensitivity-matrix`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          row_variable: "cap_rate",
+          col_variable: "exit_cap_rate",
+          row_min: -0.015,
+          row_max: 0.015,
+          row_step: 0.005,
+          col_min: -0.015,
+          col_max: 0.015,
+          col_step: 0.005,
+          quarter,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.cells) {
+          setHeatMapCells(data.cells);
+          setHeatMapRows(data.row_values);
+          setHeatMapCols(data.col_values);
+        }
+      }
+    } catch {
+      // Silently fail — heat map is supplementary
+    } finally {
+      setHeatMapLoading(false);
+    }
+  }, [assetId, quarter, financialState]);
+
+  useEffect(() => {
+    fetchHeatMap();
+  }, [fetchHeatMap]);
+
   // Value trend data
   const valueTrendData = periods.map((p) => ({
     quarter: p.quarter,
@@ -126,6 +173,30 @@ export default function ValuationReturnsSection({
           </div>
         )}
       </div>
+
+      {/* 2-D Sensitivity Heat Map (Cap Rate × Exit Cap Rate → IRR) */}
+      {heatMapCells.length > 0 && (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+          <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2 mb-3">
+            Sensitivity Matrix · Cap Rate × Exit Cap Rate → IRR
+          </h3>
+          <SensitivityHeatMap
+            cells={heatMapCells}
+            rowValues={heatMapRows}
+            colValues={heatMapCols}
+            rowLabel="Cap Rate"
+            colLabel="Exit Cap Rate"
+            valueLabel="IRR"
+            baseRowValue={currentCapRate}
+            baseColValue={currentCapRate}
+          />
+        </div>
+      )}
+      {heatMapLoading && (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 text-center text-xs text-bm-muted2">
+          Computing sensitivity matrix…
+        </div>
+      )}
 
       {/* Scenario Compare */}
       <ScenarioComparePanel

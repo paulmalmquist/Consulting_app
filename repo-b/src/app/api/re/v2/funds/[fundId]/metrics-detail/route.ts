@@ -49,12 +49,39 @@ export async function GET(
       [params.fundId, quarter]
     );
 
+    // Benchmark comparison (NCREIF ODCE for this quarter)
+    let benchmark = null;
+    try {
+      const bmRes = await pool.query(
+        `SELECT benchmark_name, quarter, total_return::float8, income_return::float8, appreciation::float8
+         FROM re_benchmark
+         WHERE benchmark_name = 'NCREIF_ODCE' AND quarter = $1`,
+        [quarter]
+      );
+      if (bmRes.rows[0]) {
+        const bm = bmRes.rows[0];
+        const m = metricsRes.rows[0];
+        const fundNetReturn = m?.net_irr ?? null;
+        const alpha = fundNetReturn != null && bm.total_return != null
+          ? fundNetReturn - bm.total_return
+          : null;
+        benchmark = {
+          ...bm,
+          fund_net_return: fundNetReturn,
+          alpha,
+        };
+      }
+    } catch {
+      // Benchmark table may not exist yet
+    }
+
     return Response.json({
       metrics: metricsRes.rows[0] || null,
       bridge: bridgeRes.rows[0] || null,
+      benchmark,
     });
   } catch (err) {
     console.error("[re/v2/funds/[id]/metrics-detail] DB error", err);
-    return Response.json({ metrics: null, bridge: null });
+    return Response.json({ metrics: null, bridge: null, benchmark: null });
   }
 }

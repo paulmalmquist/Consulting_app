@@ -53,7 +53,23 @@ export async function GET(
     );
 
     if (direct.rows[0]) {
-      return Response.json(direct.rows[0]);
+      // Enrich with asset-level aggregates (gross_asset_value, debt, NOI)
+      const enrichAgg = await pool.query(
+        `SELECT
+           SUM(qs.asset_value)::float8 AS gross_asset_value,
+           SUM(qs.debt_balance)::float8 AS debt_balance,
+           SUM(qs.noi)::float8 AS noi,
+           SUM(qs.debt_service)::float8 AS debt_service,
+           SUM(qs.cash_balance)::float8 AS cash_balance,
+           SUM(qs.nav)::float8 AS fund_nav_contribution
+         FROM repe_asset a
+         JOIN re_asset_quarter_state qs
+           ON qs.asset_id = a.asset_id AND qs.quarter = $2 AND qs.scenario_id IS NULL
+         WHERE a.deal_id = $1::uuid`,
+        [params.investmentId, params.quarter]
+      );
+      const enrich = enrichAgg.rows[0] || {};
+      return Response.json({ ...direct.rows[0], ...enrich });
     }
 
     // Fallback: aggregate from asset quarter states

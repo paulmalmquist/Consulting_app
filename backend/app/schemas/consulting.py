@@ -353,6 +353,130 @@ class MetricsSnapshotOut(BaseModel):
     created_at: datetime
 
 
+# ── Loop Intelligence ─────────────────────────────────────────────────────────
+
+class LoopRoleInput(BaseModel):
+    role_name: str
+    loaded_hourly_rate: Decimal = Field(ge=0)
+    active_minutes: Decimal = Field(ge=0)
+    notes: str | None = None
+
+
+class LoopRoleOut(BaseModel):
+    id: UUID
+    loop_id: UUID
+    role_name: str
+    loaded_hourly_rate: Decimal
+    active_minutes: Decimal
+    notes: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class LoopMetricsOut(BaseModel):
+    role_count: int
+    loop_cost_per_run: Decimal
+    annual_estimated_cost: Decimal
+
+
+class LoopInterventionCreateRequest(BaseModel):
+    intervention_type: str = Field(
+        pattern=r"^(remove_step|consolidate_role|automate_step|policy_rewrite|data_standardize|other)$"
+    )
+    notes: str | None = None
+    after_snapshot: dict[str, object] | None = None
+    observed_delta_percent: Decimal | None = None
+
+
+class LoopInterventionOut(BaseModel):
+    id: UUID
+    loop_id: UUID
+    intervention_type: str
+    notes: str | None = None
+    before_snapshot: dict[str, object]
+    after_snapshot: dict[str, object] | None = None
+    observed_delta_percent: Decimal | None = None
+    created_at: datetime
+    updated_at: datetime
+    loop_metrics: LoopMetricsOut | None = None
+
+
+class LoopOut(BaseModel):
+    id: UUID
+    env_id: str
+    business_id: UUID
+    client_id: UUID | None = None
+    name: str
+    process_domain: str
+    description: str | None = None
+    trigger_type: str = Field(pattern=r"^(scheduled|event|manual)$")
+    frequency_type: str = Field(pattern=r"^(daily|weekly|monthly|quarterly|ad_hoc)$")
+    frequency_per_year: Decimal = Field(ge=0)
+    status: str = Field(pattern=r"^(observed|simplifying|automating|stabilized)$")
+    control_maturity_stage: int = Field(ge=1, le=5)
+    automation_readiness_score: int = Field(ge=0, le=100)
+    avg_wait_time_minutes: Decimal = Field(ge=0)
+    rework_rate_percent: Decimal = Field(ge=0, le=100)
+    role_count: int
+    loop_cost_per_run: Decimal
+    annual_estimated_cost: Decimal
+    created_at: datetime
+    updated_at: datetime
+
+
+class LoopDetailOut(LoopOut):
+    roles: list[LoopRoleOut]
+    interventions: list[LoopInterventionOut]
+
+
+class LoopCreateRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    client_id: UUID | None = None
+    name: str
+    process_domain: str
+    description: str | None = None
+    trigger_type: str = Field(pattern=r"^(scheduled|event|manual)$")
+    frequency_type: str = Field(pattern=r"^(daily|weekly|monthly|quarterly|ad_hoc)$")
+    frequency_per_year: Decimal = Field(ge=0)
+    status: str = Field(pattern=r"^(observed|simplifying|automating|stabilized)$")
+    control_maturity_stage: int = Field(ge=1, le=5)
+    automation_readiness_score: int = Field(ge=0, le=100)
+    avg_wait_time_minutes: Decimal = Field(ge=0)
+    rework_rate_percent: Decimal = Field(ge=0, le=100)
+    roles: list[LoopRoleInput] = Field(min_length=1)
+
+
+class LoopUpdateRequest(BaseModel):
+    client_id: UUID | None = None
+    name: str
+    process_domain: str
+    description: str | None = None
+    trigger_type: str = Field(pattern=r"^(scheduled|event|manual)$")
+    frequency_type: str = Field(pattern=r"^(daily|weekly|monthly|quarterly|ad_hoc)$")
+    frequency_per_year: Decimal = Field(ge=0)
+    status: str = Field(pattern=r"^(observed|simplifying|automating|stabilized)$")
+    control_maturity_stage: int = Field(ge=1, le=5)
+    automation_readiness_score: int = Field(ge=0, le=100)
+    avg_wait_time_minutes: Decimal = Field(ge=0)
+    rework_rate_percent: Decimal = Field(ge=0, le=100)
+    roles: list[LoopRoleInput] | None = Field(default=None, min_length=1)
+
+
+class LoopTopCostDriverOut(BaseModel):
+    id: UUID
+    name: str
+    annual_estimated_cost: Decimal
+
+
+class LoopSummaryOut(BaseModel):
+    total_annual_cost: Decimal
+    loop_count: int
+    avg_maturity_stage: Decimal
+    top_5_by_cost: list[LoopTopCostDriverOut]
+    status_counts: dict[str, int]
+
+
 # ── Seed ────────────────────────────────────────────────────────────────────────
 
 class SeedRequest(BaseModel):
@@ -371,6 +495,7 @@ class SeedResult(BaseModel):
     clients_seeded: int
     engagements_seeded: int
     revenue_entries_seeded: int
+    loops_seeded: int = 0
 
 
 # ── Strategic Outreach ───────────────────────────────────────────────────────

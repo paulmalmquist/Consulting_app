@@ -82,6 +82,9 @@ async function main() {
     await tableCheck('object');
     await tableCheck('object_version');
     await tableCheck('module');
+    await tableCheck('nv_loop');
+    await tableCheck('nv_loop_role');
+    await tableCheck('nv_loop_intervention');
 
     // ── 2. Insert tenant + business + actor ──
     console.log('\n2. Tenant, business, actor:');
@@ -226,6 +229,78 @@ async function main() {
       [biz.business_id]
     );
     assert(missingDeps.deps.length === 0, 'accounting dependencies satisfied');
+
+    // ── 5b. Loop Intelligence cascade integrity ──
+    console.log('\n5b. Loop Intelligence cascade:');
+    const crmAccount = await q1(
+      `INSERT INTO crm_account (tenant_id, business_id, external_key, name, account_type)
+       VALUES ($1, $2, 'test-loop-client', 'Loop Test Client', 'customer')
+       RETURNING crm_account_id`,
+      [tenant.tenant_id, biz.business_id]
+    );
+    assert(!!crmAccount.crm_account_id, 'crm_account created for loop test');
+
+    const croClient = await q1(
+      `INSERT INTO cro_client (env_id, business_id, crm_account_id, start_date)
+       VALUES ('test-loop-env', $1, $2, CURRENT_DATE)
+       RETURNING id`,
+      [biz.business_id, crmAccount.crm_account_id]
+    );
+    assert(!!croClient.id, 'cro_client created for loop test');
+
+    const loop = await q1(
+      `INSERT INTO nv_loop (
+         env_id, business_id, client_id, name, process_domain, description,
+         trigger_type, frequency_type, frequency_per_year, status,
+         control_maturity_stage, automation_readiness_score,
+         avg_wait_time_minutes, rework_rate_percent
+       )
+       VALUES (
+         'test-loop-env', $1, $2, 'Monthly Reporting Loop', 'reporting', 'Schema test loop',
+         'scheduled', 'monthly', 12, 'observed',
+         2, 45,
+         30, 10
+       )
+       RETURNING id`,
+      [biz.business_id, croClient.id]
+    );
+    assert(!!loop.id, 'nv_loop created');
+
+    const loopRole = await q1(
+      `INSERT INTO nv_loop_role (loop_id, role_name, loaded_hourly_rate, active_minutes, notes)
+       VALUES ($1, 'Analyst', 85, 120, 'Primary operator')
+       RETURNING id`,
+      [loop.id]
+    );
+    assert(!!loopRole.id, 'nv_loop_role created');
+
+    const loopIntervention = await q1(
+      `INSERT INTO nv_loop_intervention (
+         loop_id, intervention_type, before_snapshot, observed_delta_percent
+       )
+       VALUES (
+         $1, 'data_standardize',
+         '{"schema_version":1,"loop":{"name":"Monthly Reporting Loop"}}'::jsonb,
+         12.5
+       )
+       RETURNING id`,
+      [loop.id]
+    );
+    assert(!!loopIntervention.id, 'nv_loop_intervention created');
+
+    await q("DELETE FROM nv_loop WHERE id = $1", [loop.id]);
+
+    const remainingRoles = await q1(
+      "SELECT count(*)::int AS c FROM nv_loop_role WHERE loop_id = $1",
+      [loop.id]
+    );
+    assert(remainingRoles.c === 0, 'nv_loop_role rows cascade deleted');
+
+    const remainingInterventions = await q1(
+      "SELECT count(*)::int AS c FROM nv_loop_intervention WHERE loop_id = $1",
+      [loop.id]
+    );
+    assert(remainingInterventions.c === 0, 'nv_loop_intervention rows cascade deleted');
 
     // ── 6. Accounting: account + journal entry + lines ──
     console.log('\n6. Accounting module:');

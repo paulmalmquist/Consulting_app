@@ -17,6 +17,7 @@ from uuid import UUID
 
 from app.db import get_cursor
 from app.observability.logger import emit_log
+from app.services import cro_loops
 from app.services.reporting_common import normalize_key, resolve_tenant_id
 
 
@@ -60,6 +61,7 @@ def seed_consulting_environment(*, env_id: str, business_id: UUID) -> dict:
         "clients_seeded": 0,
         "engagements_seeded": 0,
         "revenue_entries_seeded": 0,
+        "loops_seeded": 0,
     }
 
     with get_cursor() as cur:
@@ -325,6 +327,8 @@ def seed_consulting_environment(*, env_id: str, business_id: UUID) -> dict:
                             ),
                         )
                         counts["revenue_entries_seeded"] += 1
+
+    counts["loops_seeded"] = cro_loops.seed_default_loops(env_id=env_id, business_id=business_id)
 
     emit_log(
         level="info",

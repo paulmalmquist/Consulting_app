@@ -112,6 +112,7 @@ export default function FundDetailPage({
   const [lineageOpen, setLineageOpen] = useState(false);
   const [lineageLoading, setLineageLoading] = useState(false);
   const [lineageError, setLineageError] = useState<string | null>(null);
+  const [covenantAlerts, setCovenantAlerts] = useState<FiWatchlistEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const quarter = pickCurrentQuarter();
@@ -134,6 +135,12 @@ export default function FundDetailPage({
       setScenarios(sc);
       setInvestmentRollup(rollup);
       setLineage(lineageData);
+      // Fetch covenant alerts for banner
+      if (envId && businessId) {
+        getFiWatchlist({ env_id: envId, business_id: businessId, fund_id: params.fundId, quarter })
+          .then((wl) => setCovenantAlerts(wl.filter((e: FiWatchlistEvent) => e.severity === "HIGH" || e.severity === "CRITICAL")))
+          .catch(() => setCovenantAlerts([]));
+      }
     } catch (err) {
       setLineageError(err instanceof Error ? err.message : "Failed to load lineage");
     } finally {
@@ -264,6 +271,32 @@ export default function FundDetailPage({
         <MetricCard label="TVPI" value={fmtMultiple(fundState?.tvpi)} size="compact" />
         <MetricCard label="IRR" value={fmtPercent(fundMetrics?.irr)} size="compact" />
       </div>
+
+      {/* Covenant Alert Banner */}
+      {covenantAlerts.length > 0 && (
+        <div
+          className="rounded-xl border border-amber-500/60 bg-amber-500/10 px-5 py-3 flex items-center gap-3"
+          data-testid="covenant-alert-banner"
+        >
+          <span className="text-amber-400 text-lg">&#9888;</span>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-300">
+              {covenantAlerts.length} investment{covenantAlerts.length > 1 ? "s" : ""} approaching covenant breach
+            </p>
+            <p className="text-xs text-amber-400/80 mt-0.5">
+              {covenantAlerts.map((a) => (a as Record<string, unknown>).investment_name as string || a.reason || "Investment").join(", ")}
+              {" — review Debt Surveillance tab"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setTab("Debt Surveillance")}
+            className="rounded-lg border border-amber-500/40 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-500/20"
+          >
+            Review
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-2 flex flex-wrap gap-2" data-testid="fund-tabs">
@@ -677,6 +710,7 @@ function ReturnsTab({ envId, businessId, fundId, quarter }: {
 
   const m = data.metrics;
   const b = data.bridge;
+  const bm = (data as Record<string, unknown>).benchmark as { benchmark_name: string; quarter: string; total_return: number; alpha: number } | null;
 
   return (
     <div className="space-y-4" data-testid="returns-section">
@@ -695,6 +729,34 @@ function ReturnsTab({ envId, businessId, fundId, quarter }: {
         <MetricCard label="DPI" value={fmtMultiple(m.dpi)} size="compact" />
         <MetricCard label="RVPI" value={fmtMultiple(m.rvpi)} size="compact" />
       </div>
+
+      {/* Benchmark Comparison */}
+      {bm && (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 space-y-3" data-testid="benchmark-comparison">
+          <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">vs Benchmark — {bm.benchmark_name?.replace("_", " ")}</h3>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-xs text-bm-muted2 uppercase tracking-wide">Fund Net Return</div>
+              <div className="text-lg font-semibold mt-1">{fmtPercent(m.net_irr)}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-bm-muted2 uppercase tracking-wide">{bm.benchmark_name?.replace("_", " ")}</div>
+              <div className="text-lg font-semibold mt-1">{fmtPercent(bm.total_return)}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-bm-muted2 uppercase tracking-wide">Alpha</div>
+              <div className={`text-lg font-bold mt-1 ${bm.alpha >= 0 ? "text-green-400" : "text-red-400"}`}>
+                {bm.alpha != null ? `${bm.alpha >= 0 ? "+" : ""}${(bm.alpha * 10000).toFixed(0)}bps` : "—"}
+              </div>
+            </div>
+          </div>
+          {bm.alpha != null && (
+            <div className={`text-sm text-center ${bm.alpha >= 0 ? "text-green-400" : "text-red-400"}`}>
+              Winston {bm.alpha >= 0 ? "outperforms" : "underperforms"} {bm.benchmark_name?.replace("_", " ")} by {Math.abs(Math.round(bm.alpha * 10000))}bps on a net basis
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Gross→Net Bridge */}
       {b && (

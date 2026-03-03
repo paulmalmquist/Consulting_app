@@ -141,6 +141,7 @@ _GET_CURSOR_TARGETS = [
     "app.services.cro_revenue.get_cursor",
     "app.services.cro_metrics_engine.get_cursor",
     "app.services.cro_seed.get_cursor",
+    "app.services.cro_loops.get_cursor",
     "app.services.re_uw_vs_actual.get_cursor",
     "app.services.re_pipeline.get_cursor",
     "app.services.re_census.get_cursor",

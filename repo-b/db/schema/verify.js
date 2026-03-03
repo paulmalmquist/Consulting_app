@@ -52,6 +52,7 @@ const GLOBAL_TABLES = [
   'metric_version', 'report_version', 'dashboard_version',
   'dataset_version', 'rule_version', 'run_output',
   'invoice_line_ar', 'bill_line_ap',
+  'nv_loop', 'nv_loop_role', 'nv_loop_intervention',
   'business_module',
 ];
 
