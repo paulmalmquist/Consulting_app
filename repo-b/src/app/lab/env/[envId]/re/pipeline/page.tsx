@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { Plus, Building2, Loader2 } from "lucide-react";
+import { Plus, Building2, Loader2, Map } from "lucide-react";
 
 import { bosFetch } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
@@ -151,6 +151,13 @@ function PipelinePageInner() {
             onStatusChange={setStatus}
             onStrategyChange={setStrategy}
           />
+          <Link
+            href={`/lab/env/${envId}/re/pipeline/map`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-bm-border px-3 py-1.5 text-sm font-medium text-bm-text hover:bg-bm-surface"
+          >
+            <Map className="h-4 w-4" />
+            Market Map
+          </Link>
           <Link
             href={`/lab/env/${envId}/re/pipeline/new`}
             className="inline-flex items-center gap-1.5 rounded-lg bg-bm-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"

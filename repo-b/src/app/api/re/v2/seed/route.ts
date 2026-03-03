@@ -70,6 +70,26 @@ export async function POST(request: Request) {
       results.push("Created upside scenario");
     }
 
+    // 3b. Ensure business row exists (required for re_partner FK)
+    const bizCheck = await pool.query(
+      `SELECT business_id FROM business WHERE business_id = $1::uuid`,
+      [business_id]
+    );
+    if (bizCheck.rows.length === 0) {
+      const tenantRes = await pool.query(`SELECT tenant_id FROM tenant LIMIT 1`);
+      const tenantId = tenantRes.rows[0]?.tenant_id;
+      if (!tenantId) {
+        return Response.json({ error: "No tenant found — run backbone migrations first" }, { status: 500 });
+      }
+      await pool.query(
+        `INSERT INTO business (business_id, tenant_id, name, slug)
+         VALUES ($1::uuid, $2::uuid, 'Winston Capital', 'winston-capital')
+         ON CONFLICT (business_id) DO NOTHING`,
+        [business_id, tenantId]
+      );
+      results.push("Created business row for FK constraint");
+    }
+
     // 4. Seed LP partners and capital data
     const partnerDefs = [
       { name: "Winston Capital",     type: "gp", committed: 10_000_000 },

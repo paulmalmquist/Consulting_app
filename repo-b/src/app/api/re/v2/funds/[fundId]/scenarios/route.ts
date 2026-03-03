@@ -19,7 +19,6 @@ export async function GET(
       `SELECT
          scenario_id::text,
          fund_id::text,
-         model_id::text,
          name,
          description,
          scenario_type,
@@ -61,7 +60,6 @@ export async function POST(
        RETURNING
          scenario_id::text,
          fund_id::text,
-         model_id::text,
          name,
          description,
          scenario_type,

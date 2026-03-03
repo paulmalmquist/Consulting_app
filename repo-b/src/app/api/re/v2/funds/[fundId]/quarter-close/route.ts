@@ -360,6 +360,11 @@ export async function POST(
     const cashOnCash = totalCalled > 0 ? totalDistributed / totalCalled : 0;
     const grossNetSpread = fundGrossIrr - fundNetIrr;
 
+    // Delete stale rows so re-runs always write fresh metrics
+    await pool.query(
+      `DELETE FROM re_fund_metrics_qtr WHERE fund_id = $1::uuid AND quarter = $2`,
+      [fundId, quarter]
+    );
     await pool.query(
       `INSERT INTO re_fund_metrics_qtr (
          id, run_id, env_id, business_id, fund_id, quarter,
@@ -369,8 +374,7 @@ export async function POST(
          $1::uuid, $2::uuid, $3, $4::uuid, $5::uuid, $6,
          $7, $8, $9, $10,
          $11, $12, $13, $14
-       )
-       ON CONFLICT DO NOTHING`,
+       )`,
       [
         randomUUID(), runId, resolvedEnvId, businessId, fundId, quarter,
         fundGrossIrr, fundNetIrr, grossTvpi, netTvpi,
@@ -379,14 +383,17 @@ export async function POST(
     );
 
     await pool.query(
+      `DELETE FROM re_gross_net_bridge_qtr WHERE fund_id = $1::uuid AND quarter = $2`,
+      [fundId, quarter]
+    );
+    await pool.query(
       `INSERT INTO re_gross_net_bridge_qtr (
          id, run_id, env_id, business_id, fund_id, quarter,
          gross_return, mgmt_fees, fund_expenses, carry_shadow, net_return
        ) VALUES (
          $1::uuid, $2::uuid, $3, $4::uuid, $5::uuid, $6,
          $7, $8, $9, $10, $11
-       )
-       ON CONFLICT DO NOTHING`,
+       )`,
       [
         randomUUID(), runId, resolvedEnvId, businessId, fundId, quarter,
         Math.round(grossReturn), Math.round(mgmtFees),

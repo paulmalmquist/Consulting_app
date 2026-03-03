@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
 import { Card, CardContent, CardTitle } from "@/components/ui/Card";
 import {
@@ -35,14 +36,15 @@ export default function ConsultingLoopsPage({
   params: { envId: string };
 }) {
   const { businessId, error: contextError, loading: contextLoading, ready } = useConsultingEnv();
+  const searchParams = useSearchParams();
   const [loops, setLoops] = useState<LoopRecord[]>([]);
   const [summary, setSummary] = useState<LoopSummary | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
-  const [clientFilter, setClientFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [domainFilter, setDomainFilter] = useState("");
+  const [clientFilter, setClientFilter] = useState(searchParams.get("client_id") ?? "");
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") ?? "");
+  const [domainFilter, setDomainFilter] = useState(searchParams.get("domain") ?? "");
 
   useEffect(() => {
     if (!ready) return;
@@ -91,7 +93,10 @@ export default function ConsultingLoopsPage({
     };
   }, [businessId, clientFilter, domainFilter, params.envId, ready, statusFilter]);
 
-  const bannerMessage = contextError || dataError;
+  // Only show banner for real errors (5xx / config), not 404 / empty data
+  const is5xxError = dataError && (dataError.includes("500") || dataError.includes("503") || dataError.includes("unavailable"));
+  const bannerMessage = contextError || (is5xxError ? dataError : null);
+  const isEmptyEnv = !dataError && loops.length === 0 && !loading;
   const topDriver = summary?.top_5_by_cost?.[0] ?? null;
   const isLoading = contextLoading || (ready && loading);
 
@@ -209,7 +214,20 @@ export default function ConsultingLoopsPage({
             </label>
           </div>
 
-          {loops.length === 0 ? (
+          {loops.length === 0 && isEmptyEnv && !clientFilter && !statusFilter && !domainFilter ? (
+            <div className="rounded-lg border border-bm-border/70 px-6 py-12 text-center">
+              <h3 className="text-lg font-medium text-bm-text">No loops recorded yet</h3>
+              <p className="mt-2 text-sm text-bm-muted2">
+                Add your first operational loop to start tracking recurring workflow costs.
+              </p>
+              <Link
+                href={`/lab/env/${params.envId}/consulting/loops/new`}
+                className="mt-4 inline-flex items-center rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90"
+              >
+                Add Your First Loop
+              </Link>
+            </div>
+          ) : loops.length === 0 ? (
             <div className="rounded-lg border border-bm-border/70 px-4 py-6 text-center text-sm text-bm-muted2">
               No loops match the current filters.
             </div>
