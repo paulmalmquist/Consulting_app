@@ -108,7 +108,7 @@ def update_deal(*, deal_id: UUID, payload: dict) -> dict:
 
 # ── Property CRUD ────────────────────────────────────────────────────────────
 
-_PROP_COLS = """property_id, deal_id, property_name, address, city, state, zip,
+_PROP_COLS = """property_id, deal_id, canonical_property_id, property_name, address, city, state, zip,
                lat, lon, property_type, units, sqft, year_built,
                occupancy, noi, asking_cap_rate, census_tract_geoid, created_at"""
 
@@ -331,7 +331,7 @@ def get_map_markers(
     with get_cursor() as cur:
         cur.execute(
             f"""
-            SELECT d.deal_id, d.deal_name, d.status, p.lat, p.lon,
+            SELECT d.deal_id, p.canonical_property_id, d.deal_name, d.status, p.lat, p.lon,
                    p.property_name, p.property_type, d.headline_price
             FROM re_pipeline_property p
             JOIN re_pipeline_deal d ON d.deal_id = p.deal_id

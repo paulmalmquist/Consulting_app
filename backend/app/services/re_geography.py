@@ -1,9 +1,6 @@
 """Service layer for Geography + Market Data queries."""
 from __future__ import annotations
 
-import json
-from uuid import UUID
-
 from app.db import get_cursor
 
 

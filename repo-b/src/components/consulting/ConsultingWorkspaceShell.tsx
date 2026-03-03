@@ -36,7 +36,6 @@ export default function ConsultingWorkspaceShell({
       { href: `${base}/clients`, label: "Clients", isBase: false },
       { href: `${base}/loops`, label: "Loop Intelligence", isBase: false },
       { href: `${base}/authority`, label: "Authority", isBase: false },
-      { href: `${base}/revenue`, label: "Revenue", isBase: false },
     ],
     [base],
   );
@@ -92,8 +91,7 @@ export default function ConsultingWorkspaceShell({
               </span>
             </div>
             <p className="text-xs text-bm-muted2">
-              {environment?.schema_name || envId}
-              {businessId ? ` · ${businessId.slice(0, 8)}` : ""}
+              {environment?.schema_name || environment?.client_name || "Consulting Workspace"}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -105,13 +103,13 @@ export default function ConsultingWorkspaceShell({
               Home
             </Link>
             <Link
-              href={`${base}/outreach`}
+              href={`${base}/outreach/new`}
               className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
             >
               + Lead
             </Link>
             <Link
-              href={`${base}/proposals`}
+              href={`${base}/proposals/new`}
               className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
             >
               + Proposal

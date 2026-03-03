@@ -64,6 +64,7 @@ function fmtMoney(v: number | string | null | undefined): string {
 /* ------------------------------------------------------------------ */
 type MapMarker = {
   deal_id: string;
+  canonical_property_id?: string | null;
   deal_name: string;
   status: string;
   lat: number;
@@ -90,7 +91,7 @@ type PipelineMapProps = {
   markers: MapMarker[];
   overlayFeatures?: GeographyFeature[];
   overlayMetricLabel?: string;
-  onMarkerClick?: (dealId: string) => void;
+  onMarkerClick?: (marker: MapMarker) => void;
 };
 
 /* ------------------------------------------------------------------ */
@@ -163,7 +164,7 @@ export default function PipelineMap({
           position={[m.lat, m.lon]}
           icon={makeIcon(m.status)}
           eventHandlers={{
-            click: () => onMarkerClick?.(m.deal_id),
+            click: () => onMarkerClick?.(m),
           }}
         >
           <Popup>

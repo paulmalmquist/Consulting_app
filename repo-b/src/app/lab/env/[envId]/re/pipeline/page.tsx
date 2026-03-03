@@ -37,6 +37,7 @@ type Deal = {
 
 type MapMarker = {
   deal_id: string;
+  canonical_property_id?: string | null;
   deal_name: string;
   status: string;
   lat: number;
@@ -180,8 +181,12 @@ function PipelinePageInner() {
   }, [fetchDeals, fetchMarkers, fetchOverlay]);
 
   /* ---- Navigate to deal detail on marker click ---- */
-  function handleMarkerClick(dealId: string) {
-    router.push(`/lab/env/${envId}/re/pipeline/${dealId}`);
+  function handleMarkerClick(marker: MapMarker) {
+    if (marker.canonical_property_id) {
+      router.push(`/lab/env/${envId}/re/intelligence/properties/${marker.canonical_property_id}`);
+      return;
+    }
+    router.push(`/lab/env/${envId}/re/pipeline/${marker.deal_id}`);
   }
 
   return (

@@ -6,7 +6,8 @@ import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider"
 import { Card, CardContent } from "@/components/ui/Card";
 import { fetchProposals, type Proposal } from "@/lib/cro-api";
 
-function fmtCurrency(n: number): string {
+function fmtCurrency(n: number | null | undefined): string {
+  if (n == null || isNaN(n)) return "—";
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
   return `$${n.toFixed(0)}`;
@@ -62,6 +63,17 @@ export default function ProposalsPage({
 
   return (
     <div className="space-y-4">
+      {/* Page header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold text-bm-text">Proposals</h1>
+        <Link
+          href={`${base}/proposals/new`}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-bm-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
+        >
+          + New Proposal
+        </Link>
+      </div>
+
       {/* Filter bar */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-bm-muted2 uppercase tracking-[0.1em]">Status:</span>

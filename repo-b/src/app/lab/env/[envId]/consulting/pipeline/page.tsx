@@ -11,7 +11,8 @@ import {
   type PipelineKanbanColumn,
 } from "@/lib/cro-api";
 
-function fmtCurrency(n: number): string {
+function fmtCurrency(n: number | null | undefined): string {
+  if (n == null || isNaN(n)) return "—";
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
   return `$${n.toFixed(0)}`;

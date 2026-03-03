@@ -180,6 +180,7 @@ class TestMapMarkers:
         env_id = str(uuid4())
         fake_cursor.push_result([{
             "deal_id": str(uuid4()),
+            "canonical_property_id": str(uuid4()),
             "deal_name": "Test Deal",
             "status": "sourced",
             "lat": 39.7392,
@@ -192,6 +193,7 @@ class TestMapMarkers:
         result = re_pipeline.get_map_markers(env_id=env_id)
         assert len(result) == 1
         assert result[0]["deal_name"] == "Test Deal"
+        assert result[0]["canonical_property_id"] is not None
 
     def test_markers_with_bbox(self, fake_cursor):
         from app.services import re_pipeline

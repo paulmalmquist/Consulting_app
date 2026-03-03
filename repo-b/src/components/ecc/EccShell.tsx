@@ -15,8 +15,8 @@ export default function EccShell({
   const nav = [
     { label: "Queue", href: `/lab/env/${envId}/ecc` },
     { label: "Brief", href: `/lab/env/${envId}/ecc/brief` },
-    { label: "Search", href: `/lab/env/${envId}/ecc/vips` },
-    { label: "Settings", href: `/lab/env/${envId}/ecc/admin` },
+    { label: "Contacts", href: `/lab/env/${envId}/ecc/vips` },
+    { label: "Admin", href: `/lab/env/${envId}/ecc/admin` },
   ];
 
   return (

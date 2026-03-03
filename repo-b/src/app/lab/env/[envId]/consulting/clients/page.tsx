@@ -5,7 +5,8 @@ import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider"
 import { Card, CardContent } from "@/components/ui/Card";
 import { fetchClients, type Client } from "@/lib/cro-api";
 
-function fmtCurrency(n: number): string {
+function fmtCurrency(n: number | null | undefined): string {
+  if (n == null || isNaN(n)) return "—";
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
   return `$${n.toFixed(0)}`;
@@ -55,6 +56,9 @@ export default function ClientsPage({
 
   return (
     <div className="space-y-4">
+      {/* Page header */}
+      <h1 className="text-lg font-semibold text-bm-text">Clients</h1>
+
       {/* Summary stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, DragEvent } from "react";
 import {
   completeUpload,
   computeSha256,
@@ -33,6 +33,7 @@ export default function RepeEntityDocuments({
   const [rows, setRows] = useState<DocumentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
@@ -62,8 +63,7 @@ export default function RepeEntityDocuments({
     void refresh();
   }, [refresh]);
 
-  const onUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const uploadFile = async (file: File) => {
     if (!file) return;
     setUploading(true);
     setError(null);
@@ -106,6 +106,18 @@ export default function RepeEntityDocuments({
     }
   };
 
+  const onInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) void uploadFile(file);
+  };
+
+  const onDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragOver(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file) void uploadFile(file);
+  };
+
   return (
     <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 space-y-3" data-testid={`re-attachments-${entityType}`}>
       <div className="flex items-center justify-between gap-2">
@@ -113,15 +125,32 @@ export default function RepeEntityDocuments({
         <span className="text-xs text-bm-muted2">{rows.length} files</span>
       </div>
 
-      <input
-        ref={fileRef}
-        type="file"
-        onChange={onUpload}
-        disabled={uploading}
-        className="w-full text-sm text-bm-muted file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-bm-border/70 file:bg-bm-surface/60 file:text-bm-text"
-      />
+      {/* Styled drop zone — hides the native file input */}
+      <div
+        role="button"
+        aria-label="Upload file"
+        tabIndex={0}
+        onClick={() => fileRef.current?.click()}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileRef.current?.click(); }}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={onDrop}
+        className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed px-4 py-5 text-center transition-colors ${
+          dragOver
+            ? "border-bm-accent bg-bm-accent/10"
+            : "border-bm-border/70 hover:border-bm-accent/50 hover:bg-bm-surface/40"
+        } ${uploading ? "pointer-events-none opacity-50" : ""}`}
+      >
+        <svg className="h-5 w-5 text-bm-muted2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+        </svg>
+        <p className="text-xs text-bm-muted">
+          {uploading ? "Uploading…" : "Drag & drop or click to upload"}
+        </p>
+        <p className="text-[10px] text-bm-muted2">PDF, DOCX, XLSX, PNG — any format</p>
+      </div>
+      <input ref={fileRef} type="file" onChange={onInputChange} disabled={uploading} className="sr-only" tabIndex={-1} />
 
-      {uploading ? <p className="text-xs text-bm-accent">Uploading...</p> : null}
       {status ? <p className="text-xs text-bm-success">{status}</p> : null}
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
 

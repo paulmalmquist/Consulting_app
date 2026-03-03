@@ -95,6 +95,7 @@ class RePipelinePropertyCreateRequest(BaseModel):
 class RePipelinePropertyOut(BaseModel):
     property_id: UUID
     deal_id: UUID
+    canonical_property_id: UUID | None = None
     property_name: str
     address: str | None = None
     city: str | None = None
@@ -183,6 +184,7 @@ class RePipelineActivityOut(BaseModel):
 
 class ReMapMarkerOut(BaseModel):
     deal_id: UUID
+    canonical_property_id: UUID | None = None
     deal_name: str
     status: str
     lat: Decimal

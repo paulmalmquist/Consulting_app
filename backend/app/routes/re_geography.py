@@ -1,8 +1,6 @@
 """Geography + Market Data API endpoints for Pipeline Map."""
 from __future__ import annotations
 
-from uuid import UUID
-
 from fastapi import APIRouter, HTTPException, Query
 
 from app.observability.logger import emit_log
