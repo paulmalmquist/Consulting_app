@@ -4684,3 +4684,361 @@ export function exportFundExcelUrl(params: {
   }).toString();
   return `/bos/api/re/v2/funds/${params.fund_id}/export?${qs}`;
 }
+
+// ── CRE Intelligence ────────────────────────────────────────────────────────
+
+export type CreGeographyFeature = {
+  type: "Feature";
+  geometry: Record<string, unknown> | null;
+  properties: {
+    geography_id: string;
+    geography_type: string;
+    geoid: string;
+    name: string;
+    state_code?: string | null;
+    cbsa_code?: string | null;
+    vintage: number;
+    metric_key?: string | null;
+    metric_value?: number | null;
+    units?: string | null;
+    source?: string | null;
+    value_vintage?: string | null;
+    pulled_at?: string | null;
+  };
+};
+
+export type CreGeographyFeatureCollection = {
+  type: "FeatureCollection";
+  features: CreGeographyFeature[];
+};
+
+export type CreIngestRun = {
+  run_id: string;
+  source_key: string;
+  scope_json: Record<string, unknown>;
+  status: string;
+  rows_read: number;
+  rows_written: number;
+  error_count: number;
+  duration_ms?: number | null;
+  token_cost?: number | null;
+  raw_artifact_path?: string | null;
+  error_summary?: string | null;
+  started_at: string;
+  finished_at?: string | null;
+};
+
+export type CrePropertySummary = {
+  property_id: string;
+  env_id: string;
+  business_id: string;
+  property_name: string;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  land_use?: string | null;
+  size_sqft?: number | null;
+  year_built?: number | null;
+  resolution_confidence: number;
+  latest_forecast_id?: string | null;
+  latest_forecast_target?: string | null;
+  latest_prediction?: number | null;
+  latest_prediction_low?: number | null;
+  latest_prediction_high?: number | null;
+  latest_prediction_at?: string | null;
+};
+
+export type CreLinkedGeography = {
+  geography_id: string;
+  geography_type: string;
+  geoid: string;
+  name: string;
+  state_code?: string | null;
+  cbsa_code?: string | null;
+  confidence: number;
+  match_method: string;
+};
+
+export type CreLinkedEntity = {
+  entity_id: string;
+  entity_type: string;
+  name: string;
+  role: string;
+  confidence: number;
+  identifiers: Record<string, unknown>;
+};
+
+export type CreForecast = {
+  forecast_id: string;
+  env_id: string;
+  business_id: string;
+  scope: string;
+  entity_id: string;
+  target: string;
+  horizon: string;
+  model_version: string;
+  prediction: number;
+  lower_bound?: number | null;
+  upper_bound?: number | null;
+  baseline_prediction?: number | null;
+  status: string;
+  intervals: Record<string, unknown>;
+  explanation_ptr?: string | null;
+  explanation_json: Record<string, any>;
+  source_vintages: Array<Record<string, unknown>>;
+  generated_at: string;
+};
+
+export type CrePropertyDetail = {
+  property: CrePropertySummary;
+  source_provenance: Record<string, unknown>;
+  parcels: Array<Record<string, unknown>>;
+  buildings: Array<Record<string, unknown>>;
+  linked_geographies: CreLinkedGeography[];
+  linked_entities: CreLinkedEntity[];
+  latest_forecasts: CreForecast[];
+};
+
+export type CreMetricValue = {
+  metric_key: string;
+  label: string;
+  value: number;
+  units?: string | null;
+  source: string;
+  vintage?: string | null;
+  pulled_at?: string | null;
+  provenance: Record<string, unknown>;
+};
+
+export type CreExternalitiesBundle = {
+  property_id: string;
+  period: string;
+  macro: CreMetricValue[];
+  housing: CreMetricValue[];
+  hazard: CreMetricValue[];
+  policy: CreMetricValue[];
+};
+
+export type CreFeatureValue = {
+  feature_id: string;
+  entity_scope: string;
+  entity_id: string;
+  period: string;
+  feature_key: string;
+  value: number;
+  version: string;
+  lineage_json: Record<string, unknown>;
+  created_at: string;
+};
+
+export type CreForecastQuestion = {
+  question_id: string;
+  env_id: string;
+  business_id: string;
+  text: string;
+  scope: string;
+  entity_id?: string | null;
+  event_date: string;
+  resolution_criteria: string;
+  resolution_source: string;
+  probability: number;
+  method: string;
+  status: string;
+  brier_score?: number | null;
+  last_moved_at: string;
+  created_at: string;
+};
+
+export type CreForecastSignal = {
+  signal_source: string;
+  signal_type: string;
+  probability: number;
+  weight?: number | null;
+  observed_at: string;
+  source_ref?: string | null;
+  metadata_json: Record<string, unknown>;
+};
+
+export type CreForecastSignalsBundle = {
+  question: CreForecastQuestion;
+  signals: CreForecastSignal[];
+  aggregate_probability: number;
+  weights: Record<string, number>;
+  reason_codes: string[];
+};
+
+export type CreEntityResolutionCandidate = {
+  candidate_id: string;
+  env_id: string;
+  business_id: string;
+  property_id?: string | null;
+  entity_type: string;
+  candidate_type: string;
+  source_record: Record<string, unknown>;
+  proposed_match: Record<string, unknown>;
+  confidence: number;
+  evidence: Record<string, unknown>;
+  status: string;
+  created_at: string;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+};
+
+export async function createCreIngestRun(body: {
+  source_key: string;
+  scope: "national" | "state" | "metro";
+  filters?: Record<string, unknown>;
+  force_refresh?: boolean;
+}): Promise<CreIngestRun> {
+  return bosFetch("/api/re/v2/intelligence/ingest/runs", {
+    method: "POST",
+    body: JSON.stringify({
+      source_key: body.source_key,
+      scope: body.scope,
+      filters: body.filters || {},
+      force_refresh: body.force_refresh ?? false,
+    }),
+  });
+}
+
+export async function listCreIntelligenceGeographies(params: {
+  bbox?: string;
+  layer?: string;
+  metric_key?: string;
+  period?: string;
+}): Promise<CreGeographyFeatureCollection> {
+  return bosFetch("/api/re/v2/intelligence/geographies", {
+    params: {
+      bbox: params.bbox,
+      layer: params.layer,
+      metric_key: params.metric_key,
+      period: params.period,
+    },
+  });
+}
+
+export async function listCreIntelligenceProperties(params: {
+  env_id: string;
+  bbox?: string;
+  property_type?: string;
+  search?: string;
+  risk_band?: string;
+}): Promise<CrePropertySummary[]> {
+  return bosFetch("/api/re/v2/intelligence/properties", {
+    params: {
+      env_id: params.env_id,
+      bbox: params.bbox,
+      property_type: params.property_type,
+      search: params.search,
+      risk_band: params.risk_band,
+    },
+  });
+}
+
+export async function getCreIntelligenceProperty(propertyId: string): Promise<CrePropertyDetail> {
+  return bosFetch(`/api/re/v2/intelligence/properties/${propertyId}`);
+}
+
+export async function getCreIntelligenceExternalities(params: {
+  property_id: string;
+  period?: string;
+}): Promise<CreExternalitiesBundle> {
+  return bosFetch(`/api/re/v2/intelligence/properties/${params.property_id}/externalities`, {
+    params: {
+      period: params.period,
+    },
+  });
+}
+
+export async function getCreIntelligenceFeatures(params: {
+  property_id: string;
+  period?: string;
+  version?: string;
+}): Promise<CreFeatureValue[]> {
+  return bosFetch(`/api/re/v2/intelligence/properties/${params.property_id}/features`, {
+    params: {
+      period: params.period,
+      version: params.version,
+    },
+  });
+}
+
+export async function materializeCreForecasts(body: {
+  scope: string;
+  entity_ids: string[];
+  targets: string[];
+  horizon?: string;
+  feature_version?: string;
+}): Promise<CreForecast[]> {
+  return bosFetch("/api/re/v2/intelligence/forecasts/materialize", {
+    method: "POST",
+    body: JSON.stringify({
+      scope: body.scope,
+      entity_ids: body.entity_ids,
+      targets: body.targets,
+      horizon: body.horizon || "12m",
+      feature_version: body.feature_version || "miami_mvp_v1",
+    }),
+  });
+}
+
+export async function listCreForecastQuestions(params: {
+  env_id?: string;
+  business_id?: string;
+  scope?: string;
+  status?: string;
+}): Promise<CreForecastQuestion[]> {
+  return bosFetch("/api/re/v2/intelligence/questions", {
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+      scope: params.scope,
+      status: params.status,
+    },
+  });
+}
+
+export async function createCreForecastQuestion(body: {
+  env_id: string;
+  business_id: string;
+  text: string;
+  scope: string;
+  event_date: string;
+  resolution_criteria: string;
+  resolution_source: string;
+  entity_id?: string;
+}): Promise<CreForecastQuestion> {
+  return bosFetch("/api/re/v2/intelligence/questions", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function getCreForecastSignals(questionId: string): Promise<CreForecastSignalsBundle> {
+  return bosFetch(`/api/re/v2/intelligence/questions/${questionId}/signals`);
+}
+
+export async function refreshCreForecastSignals(questionId: string): Promise<CreForecastSignalsBundle> {
+  return bosFetch(`/api/re/v2/intelligence/questions/${questionId}/signals/refresh`, {
+    method: "POST",
+  });
+}
+
+export async function listCreResolutionCandidates(params: {
+  env_id?: string;
+  business_id?: string;
+  status?: string;
+  entity_type?: string;
+}): Promise<CreEntityResolutionCandidate[]> {
+  return bosFetch("/api/re/v2/intelligence/entity-resolution/candidates", {
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+      status: params.status,
+      entity_type: params.entity_type,
+    },
+  });
+}

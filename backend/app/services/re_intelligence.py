@@ -3,8 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import date, datetime, timezone
-from decimal import Decimal
 from uuid import UUID, uuid4
+
+from jsonschema import validate
 
 from app.connectors.cre import get_connector
 from app.connectors.cre.base import ConnectorContext
@@ -235,33 +236,10 @@ def list_properties(
     if search:
         conditions.append("(p.property_name ILIKE %s OR COALESCE(p.address, '') ILIKE %s)")
         params.extend([f"%{search}%", f"%{search}%"])
-    with get_cursor() as cur:
-        cur.execute(
-            f"""
-            SELECT p.property_id, p.env_id, p.business_id, p.property_name, p.address, p.city, p.state,
-                   p.postal_code, p.lat, p.lon, p.land_use, p.size_sqft, p.year_built,
-                   p.resolution_confidence,
-                   fr.forecast_id AS latest_forecast_id,
-                   fr.target AS latest_forecast_target,
-                   fr.prediction AS latest_prediction,
-                   fr.lower_bound AS latest_prediction_low,
-                   fr.upper_bound AS latest_prediction_high,
-                   fr.generated_at AS latest_prediction_at
-            FROM dim_property p
-            LEFT JOIN LATERAL (
-              SELECT forecast_id, target, prediction, lower_bound, upper_bound, generated_at
-              FROM forecast_registry
-              WHERE scope = 'property'
-                AND entity_id = p.property_id
-              ORDER BY generated_at DESC
-              LIMIT 1
-            ) fr ON true
-            WHERE {' AND '.join(conditions)}
-            ORDER BY p.property_name
-            """,
-            params,
-        )
-        rows = cur.fetchall()
+    rows = _query_property_rows(conditions=conditions, params=params)
+    if not rows:
+        _bootstrap_properties_from_pipeline(env_id=env_id)
+        rows = _query_property_rows(conditions=conditions, params=params)
     out: list[dict] = []
     for row in rows:
         prediction = row.get("latest_prediction")
@@ -604,14 +582,11 @@ def get_question_signals(*, question_id: UUID) -> dict:
 def refresh_question_signals(*, question_id: UUID) -> dict:
     question = _get_question(question_id)
     internal_probability = _internal_probability_for_question(question)
-    kalshi_row = get_connector("kalshi_markets").run(
-        ConnectorContext(
-            run_id=str(uuid4()),
-            source_key="kalshi_markets",
-            scope="national",
-            filters={"question_text": question["text"], "event_date": str(question["event_date"])},
-            force_refresh=True,
-        )
+    kalshi_run = create_ingest_run(
+        source_key="kalshi_markets",
+        scope="national",
+        filters={"question_text": question["text"], "event_date": str(question["event_date"])},
+        force_refresh=True,
     )
     kalshi_probability = _kalshi_probability(question["text"])
     analyst_probability = _latest_probability(question_id, "analyst")
@@ -639,7 +614,7 @@ def refresh_question_signals(*, question_id: UUID) -> dict:
             signal_type="market",
             probability=kalshi_probability,
             weight=weights["kalshi_markets"],
-            source_ref=kalshi_row.raw_artifact_path,
+            source_ref=kalshi_run.get("raw_artifact_path"),
             metadata={"provider": "Kalshi", "read_only": True},
         )
         if analyst_probability is not None:
@@ -794,8 +769,8 @@ def create_document_extraction(
     entity_id: UUID | None = None,
 ) -> dict:
     if profile_key not in _CRE_DOC_PROFILES:
-        # Also allow existing strict schemas if available, but the CRE index only persists supported profiles.
-        get_profile_schema(profile_key)
+        raise ValueError(f"Unsupported CRE extraction profile: {profile_key}")
+    schema = get_profile_schema(profile_key)
     with get_cursor() as cur:
         cur.execute(
             """
@@ -817,6 +792,10 @@ def create_document_extraction(
         citations = extraction.pop("citations")
         if not citations:
             raise ValueError("Extraction payload requires citations")
+        try:
+            validate(instance=extraction["extracted_json"], schema=schema)
+        except Exception as exc:
+            raise ValueError(f"Extraction payload failed schema validation: {exc}") from exc
         review_status = "review_required" if extraction["confidence_score"] < 0.8 else "approved"
         cur.execute(
             """
@@ -892,6 +871,187 @@ def _serialize_property_summary(row: dict) -> dict:
         "latest_prediction_high": float(row["latest_prediction_high"]) if row.get("latest_prediction_high") is not None else None,
         "latest_prediction_at": row.get("latest_prediction_at"),
     }
+
+
+def _query_property_rows(*, conditions: list[str], params: list) -> list[dict]:
+    with get_cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT p.property_id, p.env_id, p.business_id, p.property_name, p.address, p.city, p.state,
+                   p.postal_code, p.lat, p.lon, p.land_use, p.size_sqft, p.year_built,
+                   p.resolution_confidence,
+                   fr.forecast_id AS latest_forecast_id,
+                   fr.target AS latest_forecast_target,
+                   fr.prediction AS latest_prediction,
+                   fr.lower_bound AS latest_prediction_low,
+                   fr.upper_bound AS latest_prediction_high,
+                   fr.generated_at AS latest_prediction_at
+            FROM dim_property p
+            LEFT JOIN LATERAL (
+              SELECT forecast_id, target, prediction, lower_bound, upper_bound, generated_at
+              FROM forecast_registry
+              WHERE scope = 'property'
+                AND entity_id = p.property_id
+              ORDER BY generated_at DESC
+              LIMIT 1
+            ) fr ON true
+            WHERE {' AND '.join(conditions)}
+            ORDER BY p.property_name
+            """,
+            params,
+        )
+        return cur.fetchall()
+
+
+def _bootstrap_properties_from_pipeline(*, env_id: UUID) -> None:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT eb.business_id
+            FROM app.env_business_bindings eb
+            WHERE eb.env_id = %s
+            LIMIT 1
+            """,
+            (str(env_id),),
+        )
+        binding = cur.fetchone()
+        if not binding:
+            return
+        cur.execute(
+            """
+            SELECT d.deal_id, p.property_id AS pipeline_property_id, p.property_name, p.address, p.city, p.state,
+                   p.zip, p.lat, p.lon, p.property_type, p.sqft, p.year_built
+            FROM re_pipeline_property p
+            JOIN re_pipeline_deal d ON d.deal_id = p.deal_id
+            WHERE d.env_id = %s
+            ORDER BY p.created_at ASC
+            LIMIT 25
+            """,
+            (str(env_id),),
+        )
+        rows = cur.fetchall()
+        if not rows:
+            return
+        cur.execute(
+            """
+            SELECT geography_id, geography_type
+            FROM dim_geography
+            WHERE (geography_type = 'tract' AND geoid = '12086000100')
+               OR (geography_type = 'county' AND geoid = '12086')
+               OR (geography_type = 'cbsa' AND geoid = '33100')
+            """
+        )
+        geographies = cur.fetchall()
+        for row in rows:
+            cur.execute(
+                """
+                SELECT property_id
+                FROM dim_property
+                WHERE env_id = %s
+                  AND business_id = %s
+                  AND property_name = %s
+                LIMIT 1
+                """,
+                (str(env_id), str(binding["business_id"]), row["property_name"]),
+            )
+            existing = cur.fetchone()
+            if existing:
+                inserted = existing
+                cur.execute(
+                    """
+                    UPDATE re_pipeline_property
+                    SET canonical_property_id = %s
+                    WHERE property_id = %s
+                    """,
+                    (str(inserted["property_id"]), str(row["pipeline_property_id"])),
+                )
+                for geography in geographies:
+                    cur.execute(
+                        """
+                        INSERT INTO bridge_property_geography (
+                          env_id, business_id, property_id, geography_id, geography_type, match_method, confidence
+                        )
+                        VALUES (%s, %s, %s, %s, %s, 'seed_bootstrap', 0.72)
+                        ON CONFLICT (property_id, geography_id) DO NOTHING
+                        """,
+                        (
+                            str(env_id),
+                            str(binding["business_id"]),
+                            str(inserted["property_id"]),
+                            str(geography["geography_id"]),
+                            geography["geography_type"],
+                        ),
+                    )
+                continue
+            if row.get("lat") is None or row.get("lon") is None:
+                geom_sql = "NULL"
+                geom_params: list = []
+            else:
+                geom_sql = "ST_SetSRID(ST_MakePoint(%s, %s), 4326)"
+                geom_params = [row["lon"], row["lat"]]
+            insert_sql = f"""
+                INSERT INTO dim_property (
+                  env_id, business_id, property_name, address, city, state, postal_code,
+                  lat, lon, geom, land_use, size_sqft, year_built, source_provenance, resolution_confidence
+                )
+                VALUES (
+                  %s, %s, %s, %s, %s, %s, %s,
+                  %s, %s, {geom_sql}, %s, %s, %s, %s::jsonb, %s
+                )
+                RETURNING property_id
+            """
+            params = [
+                str(env_id),
+                str(binding["business_id"]),
+                row["property_name"],
+                row.get("address"),
+                row.get("city"),
+                row.get("state"),
+                row.get("zip"),
+                row.get("lat"),
+                row.get("lon"),
+                *geom_params,
+                row.get("property_type"),
+                row.get("sqft"),
+                row.get("year_built"),
+                json.dumps(
+                    {
+                        "source": "re_pipeline_property",
+                        "deal_id": str(row["deal_id"]),
+                        "pipeline_property_id": str(row["pipeline_property_id"]),
+                    }
+                ),
+                0.78,
+            ]
+            cur.execute(insert_sql, params)
+            inserted = cur.fetchone()
+            if not inserted:
+                continue
+            cur.execute(
+                """
+                UPDATE re_pipeline_property
+                SET canonical_property_id = %s
+                WHERE property_id = %s
+                """,
+                (str(inserted["property_id"]), str(row["pipeline_property_id"])),
+            )
+            for geography in geographies:
+                cur.execute(
+                    """
+                    INSERT INTO bridge_property_geography (
+                      env_id, business_id, property_id, geography_id, geography_type, match_method, confidence
+                    )
+                    VALUES (%s, %s, %s, %s, %s, 'seed_bootstrap', 0.72)
+                    ON CONFLICT (property_id, geography_id) DO NOTHING
+                    """,
+                    (
+                        str(env_id),
+                        str(binding["business_id"]),
+                        str(inserted["property_id"]),
+                        str(geography["geography_id"]),
+                        geography["geography_type"],
+                    ),
+                )
 
 
 def _serialize_forecast(row: dict) -> dict:
@@ -1161,21 +1321,16 @@ def _resolve_env_for_document(*, cur, document_id: UUID, property_id: UUID | Non
 def _build_extraction_payload(*, profile_key: str, title: str) -> dict:
     profile = _CRE_DOC_PROFILES.get(profile_key)
     if not profile:
-        return {
-            "extracted_json": {"document_title": title, "profile": profile_key},
-            "extraction_version": "legacy_bridge_v1",
-            "citations": [{"page": 1, "snippet": title, "field": "document_title"}],
-            "confidence_score": 0.8,
-        }
+        raise ValueError(f"Unsupported CRE extraction profile: {profile_key}")
     summary = {field: f"{field.replace('_', ' ').title()} from {title}" for field in profile["summary_fields"]}
     citations = [
         {"page": 1, "snippet": f"{title} :: {field}", "field": field}
         for field in profile["summary_fields"]
     ]
+    evidence = {field: [{"page": 1, "snippet": f"{title} :: {field}"}] for field in profile["summary_fields"]}
     return {
-        "extracted_json": {"document_title": title, "summary": summary},
+        "extracted_json": {"document_title": title, "summary": summary, "evidence": evidence},
         "extraction_version": f"{profile_key}_v1",
         "citations": citations,
         "confidence_score": profile["confidence"],
     }
-

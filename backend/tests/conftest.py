@@ -148,6 +148,7 @@ _GET_CURSOR_TARGETS = [
     "app.services.re_pipeline_vector.get_cursor",
     "app.services.re_model.get_cursor",
     "app.services.re_model_run.get_cursor",
+    "app.services.re_intelligence.get_cursor",
 ]
 
 

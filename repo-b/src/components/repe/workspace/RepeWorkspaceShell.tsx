@@ -31,6 +31,7 @@ export default function RepeWorkspaceShell({ children, envId, isAdmin = false }:
       { href: `${base}/deals`, label: "Investments", isBase: false },
       { href: `${base}/assets`, label: "Assets", isBase: false },
       { href: `${base}/pipeline`, label: "Pipeline", isBase: false },
+      { href: `${base}/intelligence`, label: "Intelligence", isBase: false },
       { href: `${base}/models`, label: "Models", isBase: false },
       { href: `${base}/reports`, label: "Reports", isBase: false },
       { href: `${base}/runs/quarter-close`, label: "Run Center", isBase: false },

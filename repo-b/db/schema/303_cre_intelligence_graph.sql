@@ -128,8 +128,7 @@ CREATE TABLE IF NOT EXISTS fact_property_timeseries (
   source                  text NOT NULL,
   vintage                 text,
   pulled_at               timestamptz NOT NULL DEFAULT now(),
-  provenance              jsonb NOT NULL DEFAULT '{}'::jsonb,
-  UNIQUE (property_id, period, metric_key, source, COALESCE(vintage, ''))
+  provenance              jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 
 CREATE TABLE IF NOT EXISTS fact_market_timeseries (
@@ -142,8 +141,7 @@ CREATE TABLE IF NOT EXISTS fact_market_timeseries (
   source                  text NOT NULL,
   vintage                 text,
   pulled_at               timestamptz NOT NULL DEFAULT now(),
-  provenance              jsonb NOT NULL DEFAULT '{}'::jsonb,
-  UNIQUE (geography_id, period, metric_key, source, COALESCE(vintage, ''))
+  provenance              jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 
 CREATE TABLE IF NOT EXISTS doc_store_index (
@@ -359,6 +357,10 @@ CREATE INDEX IF NOT EXISTS idx_dim_geography_geom ON dim_geography USING gist (g
 CREATE INDEX IF NOT EXISTS idx_bridge_property_geography_property ON bridge_property_geography (property_id, geography_type);
 CREATE INDEX IF NOT EXISTS idx_fact_market_ts_lookup ON fact_market_timeseries (geography_id, metric_key, period DESC);
 CREATE INDEX IF NOT EXISTS idx_fact_property_ts_lookup ON fact_property_timeseries (property_id, metric_key, period DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_fact_property_ts_dedupe
+  ON fact_property_timeseries (property_id, period, metric_key, source, COALESCE(vintage, ''));
+CREATE UNIQUE INDEX IF NOT EXISTS idx_fact_market_ts_dedupe
+  ON fact_market_timeseries (geography_id, period, metric_key, source, COALESCE(vintage, ''));
 CREATE INDEX IF NOT EXISTS idx_feature_store_lookup ON feature_store (entity_scope, entity_id, version, period DESC);
 CREATE INDEX IF NOT EXISTS idx_forecast_registry_lookup ON forecast_registry (scope, entity_id, target, generated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_forecast_questions_env_business ON forecast_questions (env_id, business_id, status, event_date);
@@ -369,4 +371,3 @@ CREATE INDEX IF NOT EXISTS idx_doc_store_index_scope ON doc_store_index (env_id,
 
 ALTER TABLE IF EXISTS re_pipeline_property
   ADD COLUMN IF NOT EXISTS canonical_property_id uuid REFERENCES dim_property(property_id);
-

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, GeoJSON } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -73,15 +73,45 @@ type MapMarker = {
   headline_price?: number | string | null;
 };
 
+type GeographyFeature = {
+  type: "Feature";
+  geometry: Record<string, unknown> | null;
+  properties: {
+    geography_id: string;
+    name: string;
+    geography_type: string;
+    metric_key?: string | null;
+    metric_value?: number | null;
+    units?: string | null;
+  };
+};
+
 type PipelineMapProps = {
   markers: MapMarker[];
+  overlayFeatures?: GeographyFeature[];
+  overlayMetricLabel?: string;
   onMarkerClick?: (dealId: string) => void;
 };
 
 /* ------------------------------------------------------------------ */
 /* Component                                                            */
 /* ------------------------------------------------------------------ */
-export default function PipelineMap({ markers, onMarkerClick }: PipelineMapProps) {
+function fillColorForValue(v: number | null | undefined): string {
+  if (v == null) return "#cbd5e1";
+  if (v < 0.05) return "#d8f3dc";
+  if (v < 0.2) return "#95d5b2";
+  if (v < 1) return "#52b788";
+  if (v < 1000) return "#2d6a4f";
+  if (v < 5000) return "#7f5539";
+  return "#9c6644";
+}
+
+export default function PipelineMap({
+  markers,
+  overlayFeatures = [],
+  overlayMetricLabel,
+  onMarkerClick,
+}: PipelineMapProps) {
   // Ensure Leaflet container renders correctly after mount
   useEffect(() => {
     window.dispatchEvent(new Event("resize"));
@@ -99,6 +129,33 @@ export default function PipelineMap({ markers, onMarkerClick }: PipelineMapProps
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+
+      {overlayFeatures.length > 0 ? (
+        <GeoJSON
+          data={{ type: "FeatureCollection", features: overlayFeatures } as any}
+          style={(feature) => {
+            const rawValue = (feature?.properties as any)?.metric_value;
+            const value = typeof rawValue === "number" ? rawValue : Number(rawValue ?? NaN);
+            return {
+              color: "#334155",
+              weight: 1,
+              fillOpacity: 0.25,
+              fillColor: fillColorForValue(Number.isNaN(value) ? null : value),
+            };
+          }}
+          onEachFeature={(feature, layer) => {
+            const props = (feature?.properties || {}) as Record<string, unknown>;
+            const label = overlayMetricLabel || String(props.metric_key || "Metric");
+            const metricValue =
+              props.metric_value == null
+                ? "—"
+                : `${String(props.metric_value)}${props.units ? ` ${String(props.units)}` : ""}`;
+            layer.bindPopup(
+              `<div style="min-width:180px"><strong>${String(props.name || "Geography")}</strong><br/>${label}: ${metricValue}</div>`
+            );
+          }}
+        />
+      ) : null}
 
       {markers.map((m) => (
         <Marker

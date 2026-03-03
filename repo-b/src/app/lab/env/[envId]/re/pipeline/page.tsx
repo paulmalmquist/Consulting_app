@@ -46,6 +46,33 @@ type MapMarker = {
   headline_price?: number | string | null;
 };
 
+type OverlayFeature = {
+  type: "Feature";
+  geometry: Record<string, unknown> | null;
+  properties: {
+    geography_id: string;
+    geography_type: string;
+    geoid: string;
+    name: string;
+    metric_key?: string | null;
+    metric_value?: number | null;
+    units?: string | null;
+  };
+};
+
+type OverlayCollection = {
+  type: "FeatureCollection";
+  features: OverlayFeature[];
+};
+
+const METRIC_OPTIONS: Array<{ key: string; label: string }> = [
+  { key: "median_income", label: "Median Income" },
+  { key: "population", label: "Population" },
+  { key: "rent_burden_proxy", label: "Rent Burden Proxy" },
+  { key: "unemployment_rate", label: "Unemployment Rate" },
+  { key: "fair_market_rent", label: "Fair Market Rent" },
+];
+
 /* ------------------------------------------------------------------ */
 /* Format helpers                                                       */
 /* ------------------------------------------------------------------ */
@@ -78,6 +105,8 @@ function PipelinePageInner() {
 
   const [deals, setDeals] = useState<Deal[]>([]);
   const [markers, setMarkers] = useState<MapMarker[]>([]);
+  const [overlayMetric, setOverlayMetric] = useState<string>("median_income");
+  const [overlayFeatures, setOverlayFeatures] = useState<OverlayFeature[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -124,10 +153,31 @@ function PipelinePageInner() {
     }
   }, [envId]);
 
+  const fetchOverlay = useCallback(async () => {
+    try {
+      const layer =
+        overlayMetric === "unemployment_rate" || overlayMetric === "fair_market_rent"
+          ? "cbsa"
+          : "tract";
+      const data = await bosFetch<OverlayCollection>("/api/re/v2/intelligence/geographies", {
+        params: {
+          bbox: "-80.90,25.10,-79.75,26.45",
+          layer,
+          metric_key: overlayMetric,
+          period: "2025-12-31",
+        },
+      });
+      setOverlayFeatures(data.features || []);
+    } catch {
+      setOverlayFeatures([]);
+    }
+  }, [overlayMetric]);
+
   useEffect(() => {
     fetchDeals();
     fetchMarkers();
-  }, [fetchDeals, fetchMarkers]);
+    fetchOverlay();
+  }, [fetchDeals, fetchMarkers, fetchOverlay]);
 
   /* ---- Navigate to deal detail on marker click ---- */
   function handleMarkerClick(dealId: string) {
@@ -151,12 +201,27 @@ function PipelinePageInner() {
             onStatusChange={setStatus}
             onStrategyChange={setStrategy}
           />
+          <label className="hidden items-center gap-2 rounded-lg border border-bm-border px-3 py-1.5 text-xs text-bm-muted lg:flex">
+            <Map className="h-3.5 w-3.5" />
+            <span>Overlay</span>
+            <select
+              value={overlayMetric}
+              onChange={(event) => setOverlayMetric(event.target.value)}
+              className="bg-transparent text-bm-text outline-none"
+            >
+              {METRIC_OPTIONS.map((option) => (
+                <option key={option.key} value={option.key} className="bg-bm-bg text-bm-text">
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <Link
-            href={`/lab/env/${envId}/re/pipeline/map`}
+            href={`/lab/env/${envId}/re/intelligence`}
             className="inline-flex items-center gap-1.5 rounded-lg border border-bm-border px-3 py-1.5 text-sm font-medium text-bm-text hover:bg-bm-surface"
           >
             <Map className="h-4 w-4" />
-            Market Map
+            Intelligence
           </Link>
           <Link
             href={`/lab/env/${envId}/re/pipeline/new`}
@@ -221,7 +286,12 @@ function PipelinePageInner() {
 
         {/* Right: map (60%) */}
         <div className="w-3/5 bg-bm-bg">
-          <PipelineMap markers={markers} onMarkerClick={handleMarkerClick} />
+          <PipelineMap
+            markers={markers}
+            overlayFeatures={overlayFeatures}
+            overlayMetricLabel={METRIC_OPTIONS.find((option) => option.key === overlayMetric)?.label}
+            onMarkerClick={handleMarkerClick}
+          />
         </div>
       </div>
     </div>
