@@ -27,7 +27,7 @@ import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import { EntityLineagePanel } from "@/components/repe/EntityLineagePanel";
 import RepeEntityDocuments from "@/components/repe/RepeEntityDocuments";
 import KpiCard from "@/components/repe/asset-cockpit/KpiCard";
-import { QuarterlyBarChart } from "@/components/charts";
+import NoiComparisonPanel from "@/components/repe/asset-cockpit/NoiComparisonPanel";
 import { CHART_COLORS } from "@/components/charts/chart-theme";
 
 /* ── helpers ── */
@@ -247,21 +247,6 @@ function InvestmentCockpit({
       .sort((a, b) => b.value - a.value);
   }, [assets]);
 
-  // Asset NOI bar-chart data (top 10 by NOI)
-  const assetNoiData = useMemo(
-    () =>
-      assets
-        .filter((a) => Number(a.noi ?? 0) > 0)
-        .sort((a, b) => Number(b.noi ?? 0) - Number(a.noi ?? 0))
-        .slice(0, 10)
-        .map((a) => ({
-          quarter:
-            a.name.length > 18 ? a.name.slice(0, 18) + "\u2026" : a.name,
-          noi: Number(a.noi ?? 0),
-        })),
-    [assets],
-  );
-
   // Sustainability link
   const propertyAssets = useMemo(
     () =>
@@ -279,6 +264,10 @@ function InvestmentCockpit({
   const assetQs = selectedScenarioId
     ? `?scenarioId=${selectedScenarioId}`
     : "";
+
+  const selectedScenarioName =
+    scenarios.find((scenario) => scenario.scenario_id === selectedScenarioId)?.name ||
+    undefined;
 
   // ── render ──
   if (loading)
@@ -454,22 +443,16 @@ function InvestmentCockpit({
 
       {/* ── Band C: Charts + Capital ── */}
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Asset NOI Breakdown */}
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-          <h3 className="mb-3 text-xs uppercase tracking-[0.12em] text-bm-muted2">
-            Asset NOI Breakdown
-          </h3>
-          {assetNoiData.length > 0 ? (
-            <QuarterlyBarChart
-              data={assetNoiData}
-              bars={[{ key: "noi", label: "NOI", color: CHART_COLORS.noi }]}
-              height={260}
-              showLegend={false}
-            />
-          ) : (
-            <p className="text-sm text-bm-muted2">No NOI data available.</p>
-          )}
-        </div>
+        <NoiComparisonPanel
+          entityType="investment"
+          entityId={inv.investment_id}
+          entityName={inv.name}
+          actualNoiAnnual={Math.max(totalNoi * 4, Number(state?.nav ?? inv.invested_capital ?? 0) * 0.04)}
+          assetValue={Math.max(totalAssetValue, Number(state?.gross_asset_value ?? 0), Number(state?.nav ?? 0))}
+          loanBalance={Math.max(totalDebt, Number(state?.debt_balance ?? 0))}
+          startDate={inv.target_close_date}
+          selectedScenarioLabel={selectedScenarioName}
+        />
 
         {/* Capital & Returns */}
         <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
