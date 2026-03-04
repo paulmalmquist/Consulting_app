@@ -155,20 +155,30 @@ export async function GET(request: Request) {
   }
 }
 
-function buildResponse(items: Array<Record<string, unknown>>) {
-  let totalActual = 0;
-  let totalPlan = 0;
-
-  for (const item of items) {
-    totalActual += Number(item.actual_amount) || 0;
-    totalPlan += Number(item.plan_amount) || 0;
+function buildResponse(rawItems: Array<Record<string, unknown>>) {
+  // Aggregate by line_code across all assets to eliminate duplicates
+  const byCode: Record<string, { actual: number; plan: number }> = {};
+  for (const item of rawItems) {
+    const code = String(item.line_code);
+    if (!byCode[code]) byCode[code] = { actual: 0, plan: 0 };
+    byCode[code].actual += Number(item.actual_amount) || 0;
+    byCode[code].plan += Number(item.plan_amount) || 0;
   }
 
+  const items = Object.entries(byCode).map(([line_code, v]) => ({
+    id: line_code,
+    line_code,
+    actual_amount: v.actual,
+    plan_amount: v.plan,
+    variance_amount: v.actual - v.plan,
+    variance_pct: v.plan !== 0
+      ? ((v.actual - v.plan) / Math.abs(v.plan))
+      : null,
+  }));
+
+  const totalActual = items.reduce((s, i) => s + i.actual_amount, 0);
+  const totalPlan = items.reduce((s, i) => s + i.plan_amount, 0);
   const totalVariance = totalActual - totalPlan;
-  const totalVariancePct =
-    totalPlan !== 0
-      ? ((totalActual - totalPlan) / Math.abs(totalPlan)).toFixed(4)
-      : null;
 
   return Response.json({
     items,
@@ -176,7 +186,9 @@ function buildResponse(items: Array<Record<string, unknown>>) {
       total_actual: totalActual.toFixed(2),
       total_plan: totalPlan.toFixed(2),
       total_variance: totalVariance.toFixed(2),
-      total_variance_pct: totalVariancePct,
+      total_variance_pct: totalPlan !== 0
+        ? ((totalActual - totalPlan) / Math.abs(totalPlan)).toFixed(4)
+        : null,
     },
   });
 }
