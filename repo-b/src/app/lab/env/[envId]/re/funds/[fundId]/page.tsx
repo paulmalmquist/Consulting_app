@@ -45,6 +45,15 @@ import {
   getFundValuationRollup,
   type FundValuationRollup,
   createReV2Scenario,
+  getIrrTimeline,
+  getCapitalTimeline,
+  getIrrContribution,
+  computeModelPreview,
+  type IrrTimelinePoint,
+  type CapitalTimelinePoint,
+  type IrrContributionItem,
+  type ModelPreviewResult,
+  type ModelPreviewAssumption,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import SaleScenarioPanel from "@/components/repe/SaleScenarioPanel";
@@ -375,6 +384,8 @@ export default function FundDetailPage({
           scenarios={scenarios}
           fund={fund}
           envId={params.envId}
+          businessId={businessId ?? undefined}
+          fundId={params.fundId}
           quarter={quarter}
         />
       )}
@@ -562,13 +573,15 @@ function InvestmentRow({
   );
 }
 
-function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, envId, quarter }: {
+function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, envId, businessId, fundId, quarter }: {
   investments: ReV2Investment[];
   investmentRollup: ReV2FundInvestmentRollupRow[];
   deals: RepeDeal[];
   scenarios: ReV2Scenario[];
   fund: RepeFundDetail["fund"] | undefined;
   envId: string;
+  businessId: string | undefined;
+  fundId: string;
   quarter: string;
 }) {
   const rollupById = new Map(investmentRollup.map((row) => [row.investment_id, row]));
@@ -576,12 +589,23 @@ function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, en
 
   // Valuation rollup
   const [rollup, setRollup] = useState<FundValuationRollup | null>(null);
+  // IRR timeline (NAV sparkline)
+  const [irrTimeline, setIrrTimeline] = useState<IrrTimelinePoint[]>([]);
+  // Capital timeline
+  const [capitalTimeline, setCapitalTimeline] = useState<CapitalTimelinePoint[]>([]);
+  // IRR contribution
+  const [irrContrib, setIrrContrib] = useState<IrrContributionItem[]>([]);
+
   useEffect(() => {
     if (!fund?.fund_id) return;
-    getFundValuationRollup(fund.fund_id, quarter)
-      .then(setRollup)
-      .catch(() => {});
-  }, [fund?.fund_id, quarter]);
+    getFundValuationRollup(fund.fund_id, quarter).then(setRollup).catch(() => {});
+    if (businessId) {
+      getIrrTimeline({ fund_id: fundId, env_id: envId, business_id: businessId }).then(setIrrTimeline).catch(() => []);
+      getCapitalTimeline({ fund_id: fundId, env_id: envId, business_id: businessId }).then(setCapitalTimeline).catch(() => []);
+      getIrrContribution({ fund_id: fundId, env_id: envId, business_id: businessId, quarter }).then(setIrrContrib).catch(() => []);
+    }
+  }, [fund?.fund_id, quarter, businessId, envId, fundId]);
+
   const displayInvestments = investments.length > 0
     ? investments
     : investmentRollup.map((row) => ({
@@ -593,8 +617,145 @@ function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, en
         created_at: row.created_at || "",
       } as ReV2Investment));
 
+  // Compute sparkline bar heights for NAV timeline
+  const navValues = irrTimeline.map((p) => Number(p.portfolio_nav || 0));
+  const maxNav = Math.max(...navValues, 1);
+
+  // Top 3 performers by IRR contribution
+  const topPerformers = [...irrContrib]
+    .sort((a, b) => Number(b.irr_contribution || b.fund_nav_contribution || 0) - Number(a.irr_contribution || a.fund_nav_contribution || 0))
+    .slice(0, 3);
+
   return (
     <div className="space-y-4">
+      {/* Fund Value Chart — NAV sparkline */}
+      {irrTimeline.length > 1 && (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="nav-sparkline">
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2 mb-3">Fund NAV Over Time</h3>
+          <div className="flex items-end gap-1 h-20">
+            {irrTimeline.map((point, i) => {
+              const val = Number(point.portfolio_nav || 0);
+              const pct = maxNav > 0 ? (val / maxNav) * 100 : 0;
+              return (
+                <div key={point.quarter} className="flex-1 flex flex-col items-center gap-1" title={`${point.quarter}: ${fmtMoney(val)}`}>
+                  <div className="w-full rounded-t bg-bm-accent/70 transition-all" style={{ height: `${Math.max(pct, 2)}%` }} />
+                  {(i === 0 || i === irrTimeline.length - 1 || i === Math.floor(irrTimeline.length / 2)) && (
+                    <span className="text-[9px] text-bm-muted2">{point.quarter}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-2 flex justify-between text-xs text-bm-muted2">
+            <span>{irrTimeline[0]?.quarter}: {fmtMoney(navValues[0])}</span>
+            <span>{irrTimeline[irrTimeline.length - 1]?.quarter}: {fmtMoney(navValues[navValues.length - 1])}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Two-column: Top Performers + Capital Activity Timeline */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Top Performers */}
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="top-performers">
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2 mb-3">
+            Top Performers by IRR Contribution
+          </h3>
+          {topPerformers.length > 0 ? (
+            <div className="space-y-3">
+              {topPerformers.map((item, idx) => {
+                const contrib = Number(item.irr_contribution || item.fund_nav_contribution || 0);
+                const maxContrib = Math.max(...topPerformers.map((t) => Math.abs(Number(t.irr_contribution || t.fund_nav_contribution || 0))), 1);
+                const pct = (Math.abs(contrib) / maxContrib) * 100;
+                return (
+                  <div key={item.investment_id} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium">{idx + 1}. {item.investment_name}</span>
+                      <span className={`font-semibold ${contrib >= 0 ? "text-green-400" : "text-red-400"}`}>
+                        {item.investment_irr ? fmtPercent(item.investment_irr) : fmtMoney(contrib)}
+                      </span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-bm-surface/40 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${contrib >= 0 ? "bg-green-500/60" : "bg-red-500/60"}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-bm-muted2">No contribution data available yet.</p>
+          )}
+        </div>
+
+        {/* Capital Activity Timeline */}
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="capital-timeline">
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2 mb-3">
+            Capital Activity Timeline
+          </h3>
+          {capitalTimeline.length > 0 ? (
+            <div className="space-y-2">
+              {capitalTimeline.map((point) => (
+                <div key={point.quarter} className="flex items-center gap-3 text-sm">
+                  <span className="w-16 text-xs text-bm-muted2 shrink-0">{point.quarter}</span>
+                  <div className="flex-1 flex items-center gap-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] uppercase text-bm-muted2 w-12">Called</span>
+                        <div className="flex-1 h-3 rounded-full bg-bm-surface/40 overflow-hidden">
+                          <div className="h-full rounded-full bg-bm-accent/60" style={{ width: `${Math.min(100, (Number(point.total_called) / Math.max(Number(capitalTimeline[capitalTimeline.length - 1]?.total_called || 1), 1)) * 100)}%` }} />
+                        </div>
+                        <span className="text-xs font-medium w-16 text-right">{fmtMoney(point.total_called)}</span>
+                      </div>
+                      <div className="flex items-center gap-1 mt-1">
+                        <span className="text-[10px] uppercase text-bm-muted2 w-12">Dist</span>
+                        <div className="flex-1 h-3 rounded-full bg-bm-surface/40 overflow-hidden">
+                          <div className="h-full rounded-full bg-green-500/60" style={{ width: `${Math.min(100, (Number(point.total_distributed) / Math.max(Number(capitalTimeline[capitalTimeline.length - 1]?.total_called || 1), 1)) * 100)}%` }} />
+                        </div>
+                        <span className="text-xs font-medium w-16 text-right">{fmtMoney(point.total_distributed)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-bm-muted2">No capital activity data available.</p>
+          )}
+        </div>
+      </div>
+
+      {/* IRR Contribution Bar Chart (all investments) */}
+      {irrContrib.length > 0 && (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="irr-contribution-chart">
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2 mb-3">
+            Contribution to Fund IRR
+          </h3>
+          <div className="space-y-2">
+            {irrContrib.map((item) => {
+              const contrib = Number(item.irr_contribution || item.fund_nav_contribution || 0);
+              const maxContrib = Math.max(...irrContrib.map((t) => Math.abs(Number(t.irr_contribution || t.fund_nav_contribution || 0))), 1);
+              const pct = (Math.abs(contrib) / maxContrib) * 100;
+              return (
+                <div key={item.investment_id} className="flex items-center gap-3">
+                  <span className="w-32 text-xs truncate text-bm-muted2">{item.investment_name}</span>
+                  <div className="flex-1 h-4 rounded-full bg-bm-surface/40 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${contrib >= 0 ? "bg-green-500/60" : "bg-red-500/60"}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className={`text-xs font-semibold w-16 text-right ${contrib >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    {fmtMoney(contrib)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Summary metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <MetricCard label="Investments" value={String(investmentRollup.length || investments.length || deals.length)} size="large" />
