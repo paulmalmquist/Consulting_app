@@ -338,10 +338,11 @@ export default function FundDetailPage({
         {/* Performance */}
         <div className="rounded-xl border border-bm-border/60 bg-bm-surface/20 p-4">
           <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2">Performance</p>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <MetricCard label="DPI" value={fmtMultiple(fundState?.dpi)} size="large" />
             <MetricCard label="TVPI" value={fmtMultiple(fundState?.tvpi)} size="large" />
-            <MetricCard label="Net IRR" value={fmtPercent(fundMetrics?.irr)} size="large" />
+            <MetricCard label="Gross IRR" value={fmtPercent(fundState?.gross_irr)} size="large" />
+            <MetricCard label="Net IRR" value={fmtPercent(fundState?.net_irr)} size="large" />
           </div>
         </div>
       </div>
