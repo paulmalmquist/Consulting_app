@@ -546,7 +546,7 @@ function InvestmentRow({
           {inv.committed_capital ? fmtMoney(inv.committed_capital) : "—"}
         </td>
         <td className="px-4 py-3 text-right text-sm">
-          {rollup?.fund_nav_contribution ? fmtMoney(rollup.fund_nav_contribution) : "—"}
+          {(rollup?.fund_nav_contribution || (inv as Record<string, unknown>)?.nav) ? fmtMoney((rollup?.fund_nav_contribution as string | number) || ((inv as Record<string, unknown>)?.nav as string | number)) : "—"}
         </td>
         <td className="px-4 py-3 text-center">
           <Link
