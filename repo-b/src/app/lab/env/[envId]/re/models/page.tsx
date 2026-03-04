@@ -6,7 +6,8 @@ import {
   RepeFund,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
-import { PlusCircle, Archive, CheckCircle2, FileEdit } from "lucide-react";
+import { PlusCircle, Archive, CheckCircle2, FileEdit, Copy, MoreVertical } from "lucide-react";
+import Link from "next/link";
 
 /* ── Types ─────────────────────────────────────────────────────── */
 
@@ -42,6 +43,19 @@ async function createModel(fundId: string, body: { name: string; description?: s
   return res.json();
 }
 
+async function cloneModel(modelId: string): Promise<ReModel> {
+  const res = await fetch(`/api/re/v2/models/${modelId}/clone`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 /* ── Component ─────────────────────────────────────────────────── */
 
 export default function ReModelsPage() {
@@ -55,6 +69,8 @@ export default function ReModelsPage() {
   const [newDesc, setNewDesc] = useState("");
   const [newStrategy, setNewStrategy] = useState<string>("equity");
   const [error, setError] = useState<string | null>(null);
+  const [cloningId, setCloningId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   // Load funds
   useEffect(() => {
@@ -78,6 +94,16 @@ export default function ReModelsPage() {
 
   const handleCreate = async () => {
     if (!selectedFundId || !newName.trim()) return;
+
+    // Check for duplicate model name
+    const duplicate = models.find(
+      (m) => m.name.toLowerCase().trim() === newName.toLowerCase().trim()
+    );
+    if (duplicate) {
+      setError(`A model named "${newName}" already exists. Choose a different name.`);
+      return;
+    }
+
     setCreating(true);
     setError(null);
     try {
@@ -96,6 +122,22 @@ export default function ReModelsPage() {
     }
   };
 
+  const handleCloneModel = async (modelId: string) => {
+    setCloningId(modelId);
+    setError(null);
+    try {
+      const cloned = await cloneModel(modelId);
+      setModels((prev) => [cloned, ...prev]);
+      setOpenMenuId(null);
+      // Navigate to the cloned model
+      window.location.href = `${window.location.pathname}/${cloned.model_id}`;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to clone model");
+    } finally {
+      setCloningId(null);
+    }
+  };
+
   const draftCount = models.filter((m) => m.status === "draft").length;
   const approvedCount = models.filter((m) => m.status === "approved").length;
 
@@ -109,7 +151,7 @@ export default function ReModelsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Models</h1>
           <p className="mt-1 text-sm text-bm-muted2">
-            Create and manage analytical models for fund-level scenario analysis
+            Create and manage cross-fund scenario models for PE and real estate analysis
           </p>
         </div>
       </div>
@@ -165,15 +207,16 @@ export default function ReModelsPage() {
                     <th className="px-4 py-2 font-medium">Strategy</th>
                     <th className="px-4 py-2 font-medium">Status</th>
                     <th className="px-4 py-2 font-medium">Created</th>
+                    <th className="px-4 py-2 font-medium w-10"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-bm-border/40">
                   {models.map((m) => (
-                    <tr key={m.model_id} className="hover:bg-bm-surface/30 cursor-pointer" data-testid={`model-row-${m.model_id}`}>
+                    <tr key={m.model_id} className="hover:bg-bm-surface/30" data-testid={`model-row-${m.model_id}`}>
                       <td className="px-4 py-2.5">
                         <a
                           href={`${window.location.pathname}/../models/${m.model_id}`}
-                          className="font-medium hover:text-bm-accent transition-colors"
+                          className="font-medium hover:text-bm-accent transition-colors cursor-pointer"
                         >
                           {m.name}
                         </a>
@@ -200,6 +243,29 @@ export default function ReModelsPage() {
                       </td>
                       <td className="px-4 py-2.5 text-xs text-bm-muted2">
                         {new Date(m.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-2.5 relative">
+                        <button
+                          type="button"
+                          onClick={() => setOpenMenuId(openMenuId === m.model_id ? null : m.model_id)}
+                          className="p-1 hover:bg-bm-surface/40 rounded"
+                          data-testid={`model-menu-${m.model_id}`}
+                        >
+                          <MoreVertical size={14} />
+                        </button>
+                        {openMenuId === m.model_id && (
+                          <div className="absolute right-0 top-full mt-1 w-32 bg-bm-surface border border-bm-border/70 rounded-lg shadow-lg z-10 overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => handleCloneModel(m.model_id)}
+                              disabled={cloningId === m.model_id}
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-bm-surface/50 flex items-center gap-2 disabled:opacity-50"
+                              data-testid={`clone-model-${m.model_id}`}
+                            >
+                              <Copy size={12} /> Clone
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}

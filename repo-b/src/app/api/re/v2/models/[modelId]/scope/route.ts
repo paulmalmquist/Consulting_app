@@ -3,7 +3,7 @@ import { getPool } from "@/lib/server/db";
 export const runtime = "nodejs";
 
 export async function OPTIONS() {
-  return new Response(null, { status: 200, headers: { Allow: "GET, POST, OPTIONS" } });
+  return new Response(null, { status: 200, headers: { Allow: "GET, POST, DELETE, OPTIONS" } });
 }
 
 /**
@@ -65,6 +65,45 @@ export async function POST(
     return Response.json(res.rows[0], { status: 201 });
   } catch (err) {
     console.error("[re/v2/models/[modelId]/scope POST] DB error", err);
+    return Response.json({ error: "Internal error" }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/re/v2/models/[modelId]/scope/[entityId]
+ * Remove an entity from model scope.
+ */
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { modelId: string } }
+) {
+  const pool = getPool();
+  if (!pool) return Response.json({ error: "No pool" }, { status: 500 });
+
+  try {
+    // Extract entityId from URL path
+    const url = new URL(_request.url);
+    const pathParts = url.pathname.split("/");
+    const entityId = pathParts[pathParts.length - 1];
+
+    if (!entityId) {
+      return Response.json({ error: "Entity ID required" }, { status: 400 });
+    }
+
+    const res = await pool.query(
+      `DELETE FROM re_model_scope
+       WHERE model_id = $1::uuid AND scope_node_id = $2::uuid
+       RETURNING id::text`,
+      [params.modelId, entityId]
+    );
+
+    if (res.rowCount === 0) {
+      return Response.json({ error: "Not found" }, { status: 404 });
+    }
+
+    return Response.json({ success: true }, { status: 200 });
+  } catch (err) {
+    console.error("[re/v2/models/[modelId]/scope DELETE] DB error", err);
     return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }

@@ -100,6 +100,112 @@ async function setModelOverride(modelId: string, body: Record<string, unknown>):
   });
 }
 
+/* ── Types & Components ────────────────────────────────────────── */
+
+interface Asset {
+  asset_id: string;
+  asset_name: string;
+  property_type?: string;
+  state?: string;
+  fund_id?: string;
+}
+
+function ScopeTab({
+  modelId,
+  scope,
+  onScopeChange,
+}: {
+  modelId: string;
+  scope: ReModelScope[];
+  onScopeChange: (scope: ReModelScope[]) => void;
+}) {
+  const { envId } = useReEnv();
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loadingAssets, setLoadingAssets] = useState(false);
+
+  useEffect(() => {
+    if (!envId) return;
+    setLoadingAssets(true);
+    fetch(`/api/re/v2/assets?env_id=${envId}&limit=500`)
+      .then((res) => res.json())
+      .then((data) => {
+        setAssets(Array.isArray(data) ? data : []);
+      })
+      .catch(() => setAssets([]))
+      .finally(() => setLoadingAssets(false));
+  }, [envId]);
+
+  const handleToggleEntity = async (entityId: string) => {
+    const isScoped = scope.some((e) => e.scope_node_id === entityId);
+    try {
+      if (isScoped) {
+        // Remove from scope
+        await fetch(
+          `/api/re/v2/models/${modelId}/scope/${entityId}`,
+          { method: "DELETE" }
+        );
+        onScopeChange(scope.filter((e) => e.scope_node_id !== entityId));
+      } else {
+        // Add to scope
+        const result = await addModelScope(modelId, {
+          scope_type: "asset",
+          scope_node_id: entityId,
+        });
+        onScopeChange([...scope, result]);
+      }
+    } catch (err) {
+      console.error("Failed to toggle entity:", err);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Entity Scope</h2>
+          <p className="text-sm text-bm-muted2 mt-1">
+            {scope.length} entities in scope
+          </p>
+        </div>
+      </div>
+
+      {loadingAssets ? (
+        <p className="text-sm text-bm-muted2">Loading assets...</p>
+      ) : assets.length === 0 ? (
+        <p className="text-sm text-bm-muted2">No assets available in this environment.</p>
+      ) : (
+        <div className="space-y-2 max-h-96 overflow-y-auto">
+          {assets.map((asset) => {
+            const isSelected = scope.some((e) => e.scope_node_id === asset.asset_id);
+            return (
+              <div
+                key={asset.asset_id}
+                className="flex items-center gap-3 rounded-lg border border-bm-border/50 bg-bm-surface/10 p-3 hover:bg-bm-surface/20 transition"
+              >
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => handleToggleEntity(asset.asset_id)}
+                  className="rounded border-bm-border"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-bm-text truncate">
+                    {asset.asset_name}
+                  </p>
+                  <p className="text-xs text-bm-muted2 mt-0.5">
+                    {asset.property_type && `${asset.property_type}`}
+                    {asset.state && ` · ${asset.state}`}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Tabs ──────────────────────────────────────────────────────── */
 
 const TABS = [
@@ -176,6 +282,29 @@ export default function ModelWorkspacePage() {
       setOvReason("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add override");
+    }
+  };
+
+  const handleRunModel = async () => {
+    if (!modelId) return;
+    if (scope.length === 0) {
+      setError(
+        "Cannot run model: Add at least one asset or investment to scope before running. Use the Scope tab to add entities."
+      );
+      return;
+    }
+    try {
+      setError(null);
+      const res = await fetch(`/api/re/v2/models/${modelId}/run`, { method: "POST" });
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: "Unknown error" }));
+        setError(error || "Failed to run model");
+        return;
+      }
+      // On success, refresh data or show completion message
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to run model");
     }
   };
 
@@ -277,7 +406,10 @@ export default function ModelWorkspacePage() {
 
           <div className="flex gap-3">
             <button
-              className="inline-flex items-center gap-1.5 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90"
+              onClick={handleRunModel}
+              disabled={scope.length === 0}
+              title={scope.length === 0 ? "Add entities to scope before running" : ""}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
               data-testid="run-model-btn"
             >
               <Play size={14} /> Run Model
@@ -293,37 +425,7 @@ export default function ModelWorkspacePage() {
       )}
 
       {activeTab === "scope" && (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 space-y-3">
-          <h2 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Entity Scope</h2>
-          <p className="text-sm text-bm-muted2">
-            Select which assets, investments, and JVs are included in this model.
-            Only in-scope entities will be editable in the Assumptions tab.
-          </p>
-          {scope.length === 0 ? (
-            <p className="text-sm text-bm-muted2">No entities in scope. Use the API to add entities.</p>
-          ) : (
-            <div className="rounded-xl border border-bm-border/70 overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-bm-border/50 bg-bm-surface/30 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
-                    <th className="px-4 py-2 font-medium">Type</th>
-                    <th className="px-4 py-2 font-medium">Entity ID</th>
-                    <th className="px-4 py-2 font-medium">Included</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-bm-border/40">
-                  {scope.map((s) => (
-                    <tr key={s.id}>
-                      <td className="px-4 py-2 text-xs">{s.scope_type}</td>
-                      <td className="px-4 py-2 font-mono text-xs">{s.scope_node_id.slice(0, 8)}...</td>
-                      <td className="px-4 py-2 text-xs">{s.include ? "Yes" : "No"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <ScopeTab modelId={modelId} scope={scope} onScopeChange={setScope} />
       )}
 
       {activeTab === "assumptions" && (
@@ -355,46 +457,75 @@ export default function ModelWorkspacePage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
-            <input
-              className="rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
-              placeholder="Key (e.g. exit_cap_rate)"
-              value={ovKey}
-              onChange={(e) => setOvKey(e.target.value)}
-              data-testid="override-key-input"
-            />
-            <input
-              className="rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
-              placeholder="Value"
-              value={ovValue}
-              onChange={(e) => setOvValue(e.target.value)}
-              data-testid="override-value-input"
-            />
-            <select
-              className="rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
-              value={ovScope}
-              onChange={(e) => setOvScope(e.target.value)}
-            >
-              <option value="fund">Fund</option>
-              <option value="investment">Investment</option>
-              <option value="jv">JV</option>
-              <option value="asset">Asset</option>
-            </select>
-            <input
-              className="rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
-              placeholder="Reason (optional)"
-              value={ovReason}
-              onChange={(e) => setOvReason(e.target.value)}
-            />
-            <button
-              type="button"
-              onClick={handleAddOverride}
-              disabled={!ovKey.trim() || !ovValue.trim()}
-              className="rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90 disabled:opacity-50"
-              data-testid="add-override-btn"
-            >
-              Add Override
-            </button>
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+              <input
+                className="rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
+                placeholder="Key (e.g. exit_cap_rate)"
+                value={ovKey}
+                onChange={(e) => setOvKey(e.target.value)}
+                data-testid="override-key-input"
+              />
+              <div className="relative">
+                <input
+                  className="rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm w-full"
+                  placeholder="Value"
+                  value={ovValue}
+                  onChange={(e) => setOvValue(e.target.value)}
+                  data-testid="override-value-input"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">
+                  decimal
+                </span>
+              </div>
+              <select
+                className="rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
+                value={ovScope}
+                onChange={(e) => setOvScope(e.target.value)}
+              >
+                <option value="fund">Fund</option>
+                <option value="investment">Investment</option>
+                <option value="jv">JV</option>
+                <option value="asset">Asset</option>
+              </select>
+              <input
+                className="rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
+                placeholder="Reason (optional)"
+                value={ovReason}
+                onChange={(e) => setOvReason(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={handleAddOverride}
+                disabled={!ovKey.trim() || !ovValue.trim() || (ovScope === "asset" && !ovNodeId)}
+                className="rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90 disabled:opacity-50"
+                data-testid="add-override-btn"
+              >
+                Add Override
+              </button>
+            </div>
+
+            {ovScope === "asset" && (
+              <div>
+                <label className="text-xs uppercase tracking-[0.12em] text-bm-muted2 block mb-2">
+                  Select Asset
+                </label>
+                <select
+                  className="w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
+                  value={ovNodeId}
+                  onChange={(e) => setOvNodeId(e.target.value)}
+                >
+                  <option value="">Choose an asset...</option>
+                  {scope.map((s) => (
+                    s.scope_type === "asset" && (
+                      <option key={s.scope_node_id} value={s.scope_node_id}>
+                        {s.scope_node_id.slice(0, 8)}... ({s.scope_type})
+                      </option>
+                    )
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -407,7 +538,10 @@ export default function ModelWorkspacePage() {
             Run the model to see side-by-side comparison of Base vs Model results.
           </p>
           <button
-            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90"
+            onClick={handleRunModel}
+            disabled={scope.length === 0}
+            title={scope.length === 0 ? "Add entities to scope before running" : ""}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="run-model-impact-btn"
           >
             <Play size={14} /> Run Model
