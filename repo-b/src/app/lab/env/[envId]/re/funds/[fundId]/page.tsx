@@ -1523,6 +1523,15 @@ function RunCenterTab({ envId, businessId, fundId, quarter, isDebtFund, onCanoni
 
 // ── Scenarios Tab ──────────────────────────────────────────────────────────
 
+type ModelAssumptionRow = {
+  investment_id: string;
+  investment_name: string;
+  cap_rate: string;
+  rent_growth: string;
+  hold_years: string;
+  exit_value: string;
+};
+
 function ScenariosTab({ envId, businessId, fundId, quarter, deals, scenarios, onScenariosChange }: {
   envId: string; businessId: string; fundId: string; quarter: string;
   deals: RepeDeal[]; scenarios: ReV2Scenario[];
@@ -1533,8 +1542,67 @@ function ScenariosTab({ envId, businessId, fundId, quarter, deals, scenarios, on
   );
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [assumptions, setAssumptions] = useState<ModelAssumptionRow[]>([]);
+  const [preview, setPreview] = useState<ModelPreviewResult | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   const nonBaseScenarios = scenarios.filter((s) => !s.is_base);
+
+  // Initialize assumptions from deals
+  useEffect(() => {
+    if (deals.length > 0 && assumptions.length === 0) {
+      setAssumptions(
+        deals.map((d) => ({
+          investment_id: d.deal_id,
+          investment_name: d.name || d.deal_id.slice(0, 8),
+          cap_rate: "5.50",
+          rent_growth: "3.0",
+          hold_years: "5",
+          exit_value: "",
+        }))
+      );
+    }
+  }, [deals, assumptions.length]);
+
+  // Ripple effects: debounce model preview
+  const triggerPreview = (rows: ModelAssumptionRow[]) => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    const timer = setTimeout(() => {
+      const validAssumptions: ModelPreviewAssumption[] = rows
+        .filter((r) => r.exit_value && Number(r.exit_value) > 0)
+        .map((r) => ({
+          investment_id: r.investment_id,
+          cap_rate: r.cap_rate ? Number(r.cap_rate) / 100 : null,
+          rent_growth: r.rent_growth ? Number(r.rent_growth) / 100 : null,
+          hold_years: r.hold_years ? Number(r.hold_years) : null,
+          exit_value: Number(r.exit_value),
+        }));
+      if (validAssumptions.length > 0) {
+        setPreviewLoading(true);
+        computeModelPreview({
+          fund_id: fundId,
+          env_id: envId,
+          business_id: businessId,
+          quarter,
+          assumptions: validAssumptions,
+        })
+          .then(setPreview)
+          .catch(() => setPreview(null))
+          .finally(() => setPreviewLoading(false));
+      } else {
+        setPreview(null);
+      }
+    }, 500);
+    setDebounceTimer(timer);
+  };
+
+  const updateAssumption = (idx: number, field: keyof ModelAssumptionRow, value: string) => {
+    const updated = [...assumptions];
+    updated[idx] = { ...updated[idx], [field]: value };
+    setAssumptions(updated);
+    triggerPreview(updated);
+  };
 
   async function handleNewScenario() {
     setCreating(true);
@@ -1556,56 +1624,172 @@ function ScenariosTab({ envId, businessId, fundId, quarter, deals, scenarios, on
 
   return (
     <div className="space-y-4" data-testid="scenarios-section">
-      {/* Header with New Scenario button */}
+      {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h3 className="text-lg font-display font-semibold tracking-tight">Scenarios</h3>
+          <h3 className="text-lg font-display font-semibold tracking-tight">Model Workspace</h3>
           <p className="text-sm text-bm-muted2 mt-1">
-            Model hypothetical exits and compare impact on fund returns.
+            Edit operating assumptions per investment. Ripple effects update projected metrics in real-time.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleNewScenario}
-          disabled={creating}
-          className="rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-bm-accentContrast transition-[transform,box-shadow] duration-[120ms] hover:-translate-y-[1px] disabled:opacity-50"
-          data-testid="new-sale-scenario-btn"
-        >
-          {creating ? "Creating..." : "+ New Sale Scenario"}
-        </button>
       </div>
 
       {createError && (
-        <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
           {createError}
         </div>
       )}
 
-      {/* Scenario selector */}
+      {/* Model Selector + Quarter */}
       <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-        <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
-          Active Scenario
-          <select
-            className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
-            value={selectedScenarioId}
-            onChange={(e) => setSelectedScenarioId(e.target.value)}
-          >
-            <option value="">Select a scenario</option>
-            {nonBaseScenarios.map((s) => (
-              <option key={s.scenario_id} value={s.scenario_id}>
-                {s.name} ({s.scenario_type})
-              </option>
-            ))}
-          </select>
-        </label>
-        {nonBaseScenarios.length === 0 && (
-          <p className="mt-2 text-sm text-bm-muted2">
-            No scenarios yet. Click &ldquo;+ New Sale Scenario&rdquo; above to start modeling.
-          </p>
-        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+            Model
+            <select
+              className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
+              value={selectedScenarioId}
+              onChange={(e) => setSelectedScenarioId(e.target.value)}
+            >
+              <option value="">Base Case</option>
+              {nonBaseScenarios.map((s) => (
+                <option key={s.scenario_id} value={s.scenario_id}>
+                  {s.name} ({s.scenario_type})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+            Quarter
+            <input className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm" value={quarter} readOnly />
+          </label>
+        </div>
       </div>
 
-      {/* Sale Scenario Panel */}
+      {/* Asset-by-asset assumption grid */}
+      <div className="rounded-xl border border-bm-border/70 overflow-hidden" data-testid="assumption-grid">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-bm-border/50 bg-bm-surface/30 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
+              <th className="px-4 py-3 font-medium">Investment</th>
+              <th className="px-4 py-3 font-medium text-right">Cap Rate (%)</th>
+              <th className="px-4 py-3 font-medium text-right">Rent Growth (%)</th>
+              <th className="px-4 py-3 font-medium text-right">Hold (Yrs)</th>
+              <th className="px-4 py-3 font-medium text-right">Exit Value ($)</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-bm-border/40">
+            {assumptions.map((row, idx) => (
+              <tr key={row.investment_id} className="hover:bg-bm-surface/20">
+                <td className="px-4 py-2 font-medium">{row.investment_name}</td>
+                <td className="px-4 py-2 text-right">
+                  <input
+                    type="number"
+                    step="0.25"
+                    value={row.cap_rate}
+                    onChange={(e) => updateAssumption(idx, "cap_rate", e.target.value)}
+                    className="w-20 rounded border border-bm-border bg-bm-surface px-2 py-1 text-right text-sm"
+                  />
+                </td>
+                <td className="px-4 py-2 text-right">
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={row.rent_growth}
+                    onChange={(e) => updateAssumption(idx, "rent_growth", e.target.value)}
+                    className="w-20 rounded border border-bm-border bg-bm-surface px-2 py-1 text-right text-sm"
+                  />
+                </td>
+                <td className="px-4 py-2 text-right">
+                  <input
+                    type="number"
+                    step="1"
+                    min="1"
+                    max="20"
+                    value={row.hold_years}
+                    onChange={(e) => updateAssumption(idx, "hold_years", e.target.value)}
+                    className="w-16 rounded border border-bm-border bg-bm-surface px-2 py-1 text-right text-sm"
+                  />
+                </td>
+                <td className="px-4 py-2 text-right">
+                  <input
+                    type="number"
+                    step="100000"
+                    value={row.exit_value}
+                    onChange={(e) => updateAssumption(idx, "exit_value", e.target.value)}
+                    placeholder="0"
+                    className="w-28 rounded border border-bm-border bg-bm-surface px-2 py-1 text-right text-sm"
+                  />
+                </td>
+              </tr>
+            ))}
+            {assumptions.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-bm-muted2">No investments to model. Add deals to this fund first.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Ripple Effects Panel */}
+      {(preview || previewLoading) && (
+        <div className="rounded-xl border border-bm-accent/40 bg-bm-accent/5 p-4" data-testid="ripple-effects">
+          <h3 className="text-xs uppercase tracking-[0.12em] text-bm-accent mb-3">
+            Projected Impact {previewLoading && <span className="text-bm-muted2">(computing...)</span>}
+          </h3>
+          {preview && (
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div className="text-center">
+                <div className="text-xs text-bm-muted2">NAV</div>
+                <div className="text-lg font-semibold">{fmtMoney(preview.projected_nav)}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-bm-muted2">IRR</div>
+                <div className="text-lg font-semibold">{preview.projected_gross_irr ? fmtPercent(preview.projected_gross_irr) : "—"}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-bm-muted2">DPI</div>
+                <div className="text-lg font-semibold">{preview.projected_dpi ? fmtMultiple(preview.projected_dpi) : "—"}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-bm-muted2">TVPI</div>
+                <div className="text-lg font-semibold">{preview.projected_tvpi ? fmtMultiple(preview.projected_tvpi) : "—"}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-bm-muted2">Carry</div>
+                <div className="text-lg font-semibold">{fmtMoney(preview.carry_estimate)}</div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Sticky Footer */}
+      <div className="sticky bottom-0 z-10 rounded-xl border border-bm-border/70 bg-bm-surface p-3 flex items-center justify-end gap-3 shadow-xl" data-testid="model-footer">
+        <button
+          type="button"
+          onClick={handleNewScenario}
+          disabled={creating}
+          className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40 disabled:opacity-50"
+        >
+          + New Model
+        </button>
+        <button
+          type="button"
+          className="rounded-lg border border-bm-accent/60 px-4 py-2 text-sm font-medium text-bm-accent hover:bg-bm-accent/10"
+        >
+          Save Model
+        </button>
+        <button
+          type="button"
+          onClick={() => triggerPreview(assumptions)}
+          className="rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90"
+        >
+          Run Scenario
+        </button>
+      </div>
+
+      {/* Sale Scenario Panel (existing) */}
       {selectedScenarioId && (
         <SaleScenarioPanel
           fundId={fundId}
