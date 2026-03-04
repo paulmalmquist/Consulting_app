@@ -564,7 +564,7 @@ export default function ModelWorkspacePage() {
                     const asset = assets.find((a) => a.asset_id === s.scope_node_id);
                     return (
                       <option key={s.scope_node_id} value={s.scope_node_id}>
-                        {asset?.asset_name || s.scope_node_id.slice(0, 8)}...{" "}
+                        {asset?.name || s.scope_node_id.slice(0, 8)}...{" "}
                         {asset?.state && `(${asset.state})`}
                       </option>
                     );
