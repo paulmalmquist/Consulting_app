@@ -55,14 +55,21 @@ interface ReModelOverride {
 
 /* ── API helpers ───────────────────────────────────────────────── */
 
+async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(path, options);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 async function getModel(modelId: string): Promise<ReModel> {
-  const { bosFetch } = await import("@/lib/bos-api");
-  return bosFetch(`/api/re/v2/models/${modelId}`);
+  return apiFetch(`/api/re/v2/models/${modelId}`);
 }
 
 async function patchModel(modelId: string, body: { status?: string }): Promise<ReModel> {
-  const { bosFetch } = await import("@/lib/bos-api");
-  return bosFetch(`/api/re/v2/models/${modelId}`, {
+  return apiFetch(`/api/re/v2/models/${modelId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -70,13 +77,11 @@ async function patchModel(modelId: string, body: { status?: string }): Promise<R
 }
 
 async function listModelScope(modelId: string): Promise<ReModelScope[]> {
-  const { bosFetch } = await import("@/lib/bos-api");
-  return bosFetch(`/api/re/v2/models/${modelId}/scope`);
+  return apiFetch(`/api/re/v2/models/${modelId}/scope`);
 }
 
 async function addModelScope(modelId: string, body: { scope_type: string; scope_node_id: string }): Promise<ReModelScope> {
-  const { bosFetch } = await import("@/lib/bos-api");
-  return bosFetch(`/api/re/v2/models/${modelId}/scope`, {
+  return apiFetch(`/api/re/v2/models/${modelId}/scope`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -84,13 +89,11 @@ async function addModelScope(modelId: string, body: { scope_type: string; scope_
 }
 
 async function listModelOverrides(modelId: string): Promise<ReModelOverride[]> {
-  const { bosFetch } = await import("@/lib/bos-api");
-  return bosFetch(`/api/re/v2/models/${modelId}/overrides`);
+  return apiFetch(`/api/re/v2/models/${modelId}/overrides`);
 }
 
 async function setModelOverride(modelId: string, body: Record<string, unknown>): Promise<ReModelOverride> {
-  const { bosFetch } = await import("@/lib/bos-api");
-  return bosFetch(`/api/re/v2/models/${modelId}/overrides`, {
+  return apiFetch(`/api/re/v2/models/${modelId}/overrides`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
