@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
@@ -47,6 +47,53 @@ def _merge_metadata(existing: Any, incoming: dict[str, Any] | None) -> str:
     if incoming:
         base.update(incoming)
     return json.dumps(base)
+
+
+def _coerce_date(value: Any) -> date | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text[:10])
+    except ValueError:
+        return None
+
+
+def _format_currency_label(value: Decimal, *, prefix_plus: bool = False) -> str:
+    amount = _q(value)
+    rounded = amount.quantize(Decimal("1"))
+    rendered = f"${abs(rounded):,.0f}"
+    if rounded < 0:
+        return f"-{rendered}"
+    if prefix_plus and rounded > 0:
+        return f"+{rendered}"
+    return rendered
+
+
+def _format_day_label(days: int) -> str:
+    unit = "day" if abs(days) == 1 else "days"
+    return f"{days} {unit}"
+
+
+def _metric_state(value: int, *, yellow_threshold: int, red_threshold: int) -> str:
+    if value >= red_threshold:
+        return "red"
+    if value >= yellow_threshold:
+        return "yellow"
+    return "green"
+
+
+def _project_href(*, env_id: UUID, project_id: UUID, section: str | None = None) -> str:
+    base = f"/lab/env/{env_id}/pds/projects/{project_id}"
+    if section:
+        return f"{base}?section={section}"
+    return base
 
 
 def _list_project_rows(*, table: str, env_id: UUID, business_id: UUID, project_id: UUID, order_by: str = "created_at DESC") -> list[dict]:
@@ -1067,6 +1114,130 @@ def create_document(*, env_id: UUID, business_id: UUID, project_id: UUID, payloa
         return cur.fetchone()
 
 
+def list_project_permits(*, env_id: UUID, business_id: UUID, project_id: UUID, status: str | None = None) -> list[dict]:
+    with get_cursor() as cur:
+        params: list[Any] = [str(env_id), str(business_id), str(project_id)]
+        where = [
+            "env_id = %s::uuid",
+            "business_id = %s::uuid",
+            "project_id = %s::uuid",
+        ]
+        if status:
+            where.append("status = %s")
+            params.append(status)
+        cur.execute(
+            f"""
+            SELECT *
+            FROM pds_permits
+            WHERE {' AND '.join(where)}
+            ORDER BY COALESCE(required_by_date, expiration_date) ASC NULLS LAST, created_at DESC
+            """,
+            tuple(params),
+        )
+        return cur.fetchall()
+
+
+def create_permit(*, env_id: UUID, business_id: UUID, project_id: UUID, payload: dict) -> dict:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO pds_permits
+            (env_id, business_id, project_id, permit_type, authority_name, status, required_by_date, expiration_date,
+             owner_name, blocking_flag, submitted_at, approved_at, notes, metadata_json, created_by, updated_by)
+            VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)
+            RETURNING *
+            """,
+            (
+                str(env_id),
+                str(business_id),
+                str(project_id),
+                payload["permit_type"],
+                payload.get("authority_name"),
+                payload.get("status") or "pending",
+                payload.get("required_by_date"),
+                payload.get("expiration_date"),
+                payload.get("owner_name"),
+                bool(payload.get("blocking_flag")),
+                payload.get("submitted_at"),
+                payload.get("approved_at"),
+                payload.get("notes"),
+                json.dumps(payload.get("metadata_json") or {}),
+                payload.get("created_by"),
+                payload.get("created_by"),
+            ),
+        )
+        return cur.fetchone()
+
+
+def list_project_contractor_claims(*, env_id: UUID, business_id: UUID, project_id: UUID, status: str | None = None) -> list[dict]:
+    with get_cursor() as cur:
+        params: list[Any] = [str(env_id), str(business_id), str(project_id)]
+        where = [
+            "c.env_id = %s::uuid",
+            "c.business_id = %s::uuid",
+            "c.project_id = %s::uuid",
+        ]
+        if status:
+            where.append("c.status = %s")
+            params.append(status)
+        cur.execute(
+            f"""
+            SELECT
+              c.*,
+              COALESCE(v.vendor_name, c.vendor_name) AS resolved_vendor_name
+            FROM pds_contractor_claims c
+            LEFT JOIN pds_vendors v ON v.vendor_id = c.vendor_id
+            WHERE {' AND '.join(where)}
+            ORDER BY c.response_due_at ASC NULLS LAST, c.created_at DESC
+            """,
+            tuple(params),
+        )
+        return cur.fetchall()
+
+
+def create_contractor_claim(*, env_id: UUID, business_id: UUID, project_id: UUID, payload: dict) -> dict:
+    with get_cursor() as cur:
+        claim_ref = payload.get("claim_ref") or _next_reference_number(
+            cur=cur,
+            table="pds_contractor_claims",
+            project_id=project_id,
+            column="claim_ref",
+            prefix="CLM",
+        )
+        cur.execute(
+            """
+            INSERT INTO pds_contractor_claims
+            (env_id, business_id, project_id, contract_id, vendor_id, vendor_name, claim_ref, claim_type, status,
+             claimed_amount, exposure_amount, received_at, response_due_at, owner_name, summary, metadata_json,
+             created_by, updated_by)
+            VALUES (%s::uuid, %s::uuid, %s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s::jsonb, %s, %s)
+            RETURNING *
+            """,
+            (
+                str(env_id),
+                str(business_id),
+                str(project_id),
+                str(payload["contract_id"]) if payload.get("contract_id") else None,
+                str(payload["vendor_id"]) if payload.get("vendor_id") else None,
+                payload.get("vendor_name"),
+                claim_ref,
+                payload.get("claim_type") or "change",
+                payload.get("status") or "open",
+                _q(payload.get("claimed_amount")),
+                _q(payload.get("exposure_amount")) if payload.get("exposure_amount") is not None else _q(payload.get("claimed_amount")),
+                payload.get("received_at"),
+                payload.get("response_due_at"),
+                payload.get("owner_name"),
+                payload.get("summary"),
+                json.dumps(payload.get("metadata_json") or {}),
+                payload.get("created_by"),
+                payload.get("created_by"),
+            ),
+        )
+        return cur.fetchone()
+
+
 def _upsert_milestones(*, cur, env_id: UUID, business_id: UUID, project_id: UUID, milestones: list[dict], created_by: str | None):
     for row in milestones:
         cur.execute(
@@ -1897,6 +2068,770 @@ def get_portfolio_kpis(*, env_id: UUID, business_id: UUID, period: str) -> dict:
         }
 
 
+def get_portfolio_health(
+    *,
+    env_id: UUID,
+    business_id: UUID,
+    period: str,
+    lookahead_days: int = 7,
+    milestone_window_days: int = 14,
+) -> dict:
+    today = date.today()
+    lookahead_end = today + timedelta(days=lookahead_days)
+    milestone_window_end = today + timedelta(days=milestone_window_days)
+    spend_window_end = today + timedelta(days=30)
+
+    kpis = get_portfolio_kpis(env_id=env_id, business_id=business_id, period=period)
+    projects = list_projects(env_id=env_id, business_id=business_id, limit=200)
+    active_projects = [row for row in projects if row.get("status") == "active"]
+    active_project_ids = {str(row["project_id"]) for row in active_projects}
+    project_name_by_id = {str(row["project_id"]): row.get("name") for row in active_projects}
+
+    milestones_by_project: dict[str, list[dict[str, Any]]] = {}
+    change_orders_by_project: dict[str, list[dict[str, Any]]] = {}
+    risks_by_project: dict[str, list[dict[str, Any]]] = {}
+    rfis_by_project: dict[str, list[dict[str, Any]]] = {}
+    punch_by_project: dict[str, list[dict[str, Any]]] = {}
+    inspections_by_project: dict[str, list[dict[str, Any]]] = {}
+    submittals_by_project: dict[str, list[dict[str, Any]]] = {}
+    permits_by_project: dict[str, list[dict[str, Any]]] = {}
+    claims_by_project: dict[str, list[dict[str, Any]]] = {}
+    incidents_by_project: dict[str, list[dict[str, Any]]] = {}
+
+    upcoming_milestones: list[dict[str, Any]] = []
+    upcoming_milestones_7d_count = 0
+    upcoming_spend_30d = Decimal("0")
+
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT *
+            FROM pds_milestones
+            WHERE env_id = %s::uuid AND business_id = %s::uuid
+            ORDER BY COALESCE(current_date, baseline_date) ASC NULLS LAST, created_at ASC
+            """,
+            (str(env_id), str(business_id)),
+        )
+        for row in cur.fetchall():
+            project_key = str(row["project_id"])
+            if project_key not in active_project_ids:
+                continue
+            milestones_by_project.setdefault(project_key, []).append(row)
+
+            target_date = _coerce_date(row.get("current_date") or row.get("baseline_date"))
+            actual_date = _coerce_date(row.get("actual_date"))
+            if actual_date is not None or target_date is None or target_date < today:
+                continue
+
+            if target_date <= lookahead_end:
+                upcoming_milestones_7d_count += 1
+
+            if target_date > milestone_window_end:
+                continue
+
+            metadata = row.get("metadata_json") if isinstance(row.get("metadata_json"), dict) else {}
+            baseline_date = _coerce_date(row.get("baseline_date"))
+            milestone_status = "slipping" if baseline_date and target_date > baseline_date else "due_soon"
+            upcoming_milestones.append(
+                {
+                    "project_id": row["project_id"],
+                    "project_name": project_name_by_id.get(project_key) or "Untitled Project",
+                    "milestone_id": row["milestone_id"],
+                    "milestone_name": row.get("milestone_name"),
+                    "date": target_date,
+                    "owner": row.get("owner_name") or metadata.get("owner_name") or metadata.get("owner") or row.get("updated_by"),
+                    "status": milestone_status,
+                    "href": _project_href(env_id=env_id, project_id=row["project_id"], section="schedule"),
+                }
+            )
+
+        cur.execute(
+            """
+            SELECT *
+            FROM pds_change_orders
+            WHERE env_id = %s::uuid
+              AND business_id = %s::uuid
+              AND status IN ('pending', 'approved')
+            ORDER BY created_at DESC
+            """,
+            (str(env_id), str(business_id)),
+        )
+        for row in cur.fetchall():
+            project_key = str(row["project_id"])
+            if project_key in active_project_ids:
+                change_orders_by_project.setdefault(project_key, []).append(row)
+
+        cur.execute(
+            """
+            SELECT *
+            FROM pds_risks
+            WHERE env_id = %s::uuid
+              AND business_id = %s::uuid
+              AND status IN ('open', 'mitigating')
+            ORDER BY created_at DESC
+            """,
+            (str(env_id), str(business_id)),
+        )
+        for row in cur.fetchall():
+            project_key = str(row["project_id"])
+            if project_key in active_project_ids:
+                risks_by_project.setdefault(project_key, []).append(row)
+
+        cur.execute(
+            """
+            SELECT *
+            FROM pds_rfis
+            WHERE env_id = %s::uuid
+              AND business_id = %s::uuid
+              AND status NOT IN ('closed', 'resolved')
+            ORDER BY due_date ASC NULLS LAST, created_at DESC
+            """,
+            (str(env_id), str(business_id)),
+        )
+        for row in cur.fetchall():
+            project_key = str(row["project_id"])
+            if project_key in active_project_ids:
+                rfis_by_project.setdefault(project_key, []).append(row)
+
+        cur.execute(
+            """
+            SELECT *
+            FROM pds_punch_items
+            WHERE env_id = %s::uuid
+              AND business_id = %s::uuid
+              AND status NOT IN ('closed', 'complete', 'resolved')
+            ORDER BY due_date ASC NULLS LAST, created_at DESC
+            """,
+            (str(env_id), str(business_id)),
+        )
+        for row in cur.fetchall():
+            project_key = str(row["project_id"])
+            if project_key in active_project_ids:
+                punch_by_project.setdefault(project_key, []).append(row)
+
+        cur.execute(
+            """
+            SELECT *
+            FROM pds_inspections
+            WHERE env_id = %s::uuid
+              AND business_id = %s::uuid
+              AND status NOT IN ('closed', 'completed', 'approved')
+            ORDER BY inspection_date ASC NULLS LAST, created_at DESC
+            """,
+            (str(env_id), str(business_id)),
+        )
+        for row in cur.fetchall():
+            project_key = str(row["project_id"])
+            if project_key in active_project_ids:
+                inspections_by_project.setdefault(project_key, []).append(row)
+
+        cur.execute(
+            """
+            SELECT *
+            FROM pds_submittals
+            WHERE env_id = %s::uuid
+              AND business_id = %s::uuid
+              AND status NOT IN ('approved', 'closed')
+            ORDER BY required_date ASC NULLS LAST, created_at DESC
+            """,
+            (str(env_id), str(business_id)),
+        )
+        for row in cur.fetchall():
+            project_key = str(row["project_id"])
+            if project_key in active_project_ids:
+                submittals_by_project.setdefault(project_key, []).append(row)
+
+        cur.execute(
+            """
+            SELECT *
+            FROM pds_permits
+            WHERE env_id = %s::uuid
+              AND business_id = %s::uuid
+              AND status NOT IN ('closed', 'cancelled')
+            ORDER BY COALESCE(required_by_date, expiration_date) ASC NULLS LAST, created_at DESC
+            """,
+            (str(env_id), str(business_id)),
+        )
+        for row in cur.fetchall():
+            project_key = str(row["project_id"])
+            if project_key in active_project_ids:
+                permits_by_project.setdefault(project_key, []).append(row)
+
+        cur.execute(
+            """
+            SELECT
+              c.*,
+              COALESCE(v.vendor_name, c.vendor_name) AS resolved_vendor_name
+            FROM pds_contractor_claims c
+            LEFT JOIN pds_vendors v ON v.vendor_id = c.vendor_id
+            WHERE c.env_id = %s::uuid
+              AND c.business_id = %s::uuid
+              AND c.status NOT IN ('closed', 'resolved', 'withdrawn')
+            ORDER BY c.response_due_at ASC NULLS LAST, c.created_at DESC
+            """,
+            (str(env_id), str(business_id)),
+        )
+        for row in cur.fetchall():
+            project_key = str(row["project_id"])
+            if project_key in active_project_ids:
+                claims_by_project.setdefault(project_key, []).append(row)
+
+        cur.execute(
+            """
+            SELECT *
+            FROM pds_incidents
+            WHERE env_id = %s::uuid
+              AND business_id = %s::uuid
+              AND status NOT IN ('closed', 'resolved')
+            ORDER BY created_at DESC
+            """,
+            (str(env_id), str(business_id)),
+        )
+        for row in cur.fetchall():
+            project_key = str(row["project_id"])
+            if project_key in active_project_ids:
+                incidents_by_project.setdefault(project_key, []).append(row)
+
+        cur.execute(
+            """
+            SELECT COALESCE(SUM(amount), 0) AS upcoming_spend_30d
+            FROM pds_payments
+            WHERE env_id = %s::uuid
+              AND business_id = %s::uuid
+              AND payment_date BETWEEN %s AND %s
+              AND status <> 'cancelled'
+            """,
+            (str(env_id), str(business_id), today, spend_window_end),
+        )
+        spend_row = cur.fetchone() or {}
+        upcoming_spend_30d = _q(spend_row.get("upcoming_spend_30d"))
+
+    upcoming_milestones.sort(key=lambda row: (row["date"], row["project_name"] or ""))
+
+    attention_rows: list[tuple[int, dict[str, Any]]] = []
+    queue_rows: list[tuple[int, dict[str, Any]]] = []
+    projects_at_risk_count = 0
+    behind_schedule_count = 0
+    over_budget_count = 0
+    pending_change_order_count = 0
+    pending_change_order_value_total = Decimal("0")
+
+    for project in active_projects:
+        project_id = project["project_id"]
+        project_key = str(project_id)
+        project_name = project.get("name") or "Untitled Project"
+
+        approved_budget = _q(project.get("approved_budget"))
+        forecast_at_completion = _q(project.get("forecast_at_completion"))
+        budget_overrun = max(forecast_at_completion - approved_budget, Decimal("0"))
+        budget_variance_pct = (
+            (budget_overrun / approved_budget) if approved_budget else Decimal("0")
+        )
+
+        project_milestones = milestones_by_project.get(project_key, [])
+        schedule_slippage_days = 0
+        critical_slippage_days = 0
+        next_milestone_date = _coerce_date(project.get("next_milestone_date"))
+        for milestone in project_milestones:
+            baseline = _coerce_date(milestone.get("baseline_date"))
+            actual = _coerce_date(milestone.get("actual_date"))
+            current = _coerce_date(milestone.get("current_date") or milestone.get("baseline_date"))
+            target = actual or current or baseline
+
+            if actual is None and current and current >= today:
+                if next_milestone_date is None or current < next_milestone_date:
+                    next_milestone_date = current
+
+            if baseline and target and target > baseline:
+                slip_days = (target - baseline).days
+                schedule_slippage_days += slip_days
+                if milestone.get("is_critical"):
+                    critical_slippage_days += slip_days
+
+        effective_schedule_slip = critical_slippage_days or schedule_slippage_days
+
+        project_change_orders = change_orders_by_project.get(project_key, [])
+        pending_change_orders = [row for row in project_change_orders if row.get("status") == "pending"]
+        pending_change_order_count += len(pending_change_orders)
+        pending_change_order_value = sum((_q(row.get("amount_impact")) for row in pending_change_orders), Decimal("0"))
+        pending_change_order_value_total += pending_change_order_value
+        max_pending_change_order = max((_q(row.get("amount_impact")) for row in pending_change_orders), default=Decimal("0"))
+        pending_change_order_pct = (
+            (pending_change_order_value / approved_budget) if approved_budget else Decimal("0")
+        )
+
+        open_risks = risks_by_project.get(project_key, [])
+        high_risk_count = sum(
+            1
+            for row in open_risks
+            if _q(row.get("impact_amount")) >= Decimal("100000") or int(row.get("impact_days") or 0) >= 14
+        )
+
+        open_rfis = rfis_by_project.get(project_key, [])
+        overdue_rfi_count = sum(
+            1 for row in open_rfis if (_coerce_date(row.get("due_date")) or lookahead_end) < today
+        )
+
+        open_punch = punch_by_project.get(project_key, [])
+        overdue_punch_count = sum(
+            1 for row in open_punch if (_coerce_date(row.get("due_date")) or lookahead_end) < today
+        )
+
+        project_inspections = inspections_by_project.get(project_key, [])
+        imminent_inspection_count = sum(
+            1
+            for row in project_inspections
+            if today <= (_coerce_date(row.get("inspection_date")) or spend_window_end) <= lookahead_end
+        )
+
+        project_submittals = submittals_by_project.get(project_key, [])
+        overdue_submittal_count = sum(
+            1 for row in project_submittals if (_coerce_date(row.get("required_date")) or lookahead_end) < today
+        )
+
+        project_incidents = incidents_by_project.get(project_key, [])
+        open_issue_count = sum(1 for row in project_incidents if row.get("status") not in {"closed", "resolved"})
+        severe_issue_count = sum(
+            1 for row in project_incidents if str(row.get("severity") or "").lower() in {"high", "critical"}
+        )
+
+        permit_rows = permits_by_project.get(project_key, [])
+        permit_days: list[int] = []
+        for permit in permit_rows:
+            permit_status = str(permit.get("status") or "").lower()
+            target_date = (
+                _coerce_date(permit.get("expiration_date"))
+                if permit_status in {"approved", "issued"}
+                else _coerce_date(permit.get("required_by_date")) or _coerce_date(permit.get("expiration_date"))
+            )
+            if target_date:
+                permit_days.append((target_date - today).days)
+        permit_expired_count = sum(1 for days in permit_days if days < 0)
+        permit_expiring_count = sum(1 for days in permit_days if 0 <= days <= 14)
+        nearest_permit_days = min(permit_days) if permit_days else None
+
+        project_claims = claims_by_project.get(project_key, [])
+        open_claim_count = len(project_claims)
+        claim_exposure = sum(
+            (
+                _q(row.get("exposure_amount"))
+                if row.get("exposure_amount") is not None
+                else _q(row.get("claimed_amount"))
+                for row in project_claims
+            ),
+            Decimal("0"),
+        )
+        severe_claim_count = sum(
+            1
+            for row in project_claims
+            if (
+                (_q(row.get("exposure_amount")) if row.get("exposure_amount") is not None else _q(row.get("claimed_amount")))
+                >= Decimal("250000")
+            )
+        )
+
+        candidates: list[dict[str, Any]] = []
+
+        def add_candidate(
+            *,
+            reason_code: str,
+            issue_type: str,
+            severity: str,
+            impact_label: str,
+            action_label: str,
+            section: str | None,
+            priority: int,
+        ) -> None:
+            candidates.append(
+                {
+                    "reason_code": reason_code,
+                    "issue_type": issue_type,
+                    "severity": severity,
+                    "impact_label": impact_label,
+                    "action_label": action_label,
+                    "section": section,
+                    "priority": priority,
+                }
+            )
+
+        if approved_budget and budget_overrun > 0:
+            if budget_variance_pct >= Decimal("0.05") or budget_overrun >= Decimal("500000"):
+                over_budget_count += 1
+                add_candidate(
+                    reason_code="BUDGET_OVERRUN",
+                    issue_type="Budget Overrun",
+                    severity="red",
+                    impact_label=_format_currency_label(budget_overrun, prefix_plus=True),
+                    action_label="Review Budget",
+                    section="financials",
+                    priority=100,
+                )
+            elif budget_variance_pct >= Decimal("0.02"):
+                over_budget_count += 1
+                add_candidate(
+                    reason_code="BUDGET_OVERRUN",
+                    issue_type="Budget Overrun",
+                    severity="yellow",
+                    impact_label=_format_currency_label(budget_overrun, prefix_plus=True),
+                    action_label="Review Budget",
+                    section="financials",
+                    priority=90,
+                )
+
+        if effective_schedule_slip >= 14:
+            behind_schedule_count += 1
+            add_candidate(
+                reason_code="SCHEDULE_SLIP",
+                issue_type="Schedule Delay",
+                severity="red",
+                impact_label=_format_day_label(effective_schedule_slip),
+                action_label="View Timeline",
+                section="schedule",
+                priority=95,
+            )
+        elif effective_schedule_slip >= 7:
+            behind_schedule_count += 1
+            add_candidate(
+                reason_code="SCHEDULE_SLIP",
+                issue_type="Schedule Delay",
+                severity="yellow",
+                impact_label=_format_day_label(effective_schedule_slip),
+                action_label="View Timeline",
+                section="schedule",
+                priority=85,
+            )
+
+        if pending_change_orders:
+            if pending_change_order_pct >= Decimal("0.03") or max_pending_change_order >= Decimal("250000"):
+                add_candidate(
+                    reason_code="CHANGE_ORDER_EXPOSURE",
+                    issue_type="Change Order Exposure",
+                    severity="red",
+                    impact_label=_format_currency_label(pending_change_order_value),
+                    action_label="Approve COs",
+                    section=None,
+                    priority=80,
+                )
+            elif pending_change_order_pct >= Decimal("0.015") or len(pending_change_orders) >= 2:
+                add_candidate(
+                    reason_code="CHANGE_ORDER_EXPOSURE",
+                    issue_type="Change Order Exposure",
+                    severity="yellow",
+                    impact_label=_format_currency_label(pending_change_order_value),
+                    action_label="Approve COs",
+                    section=None,
+                    priority=75,
+                )
+
+        if open_claim_count > 0:
+            add_candidate(
+                reason_code="CONTRACTOR_CLAIM",
+                issue_type="Contractor Claim",
+                severity="red" if severe_claim_count > 0 or claim_exposure >= Decimal("500000") else "yellow",
+                impact_label=(
+                    _format_currency_label(claim_exposure)
+                    if claim_exposure > 0
+                    else f"{open_claim_count} open claim{'s' if open_claim_count != 1 else ''}"
+                ),
+                action_label="Review Claim",
+                section=None,
+                priority=78,
+            )
+
+        if permit_expired_count > 0:
+            add_candidate(
+                reason_code="PERMIT_RISK",
+                issue_type="Permit Delay",
+                severity="red",
+                impact_label="Expired",
+                action_label="Review Permit",
+                section=None,
+                priority=82,
+            )
+        elif permit_expiring_count > 0 and nearest_permit_days is not None:
+            add_candidate(
+                reason_code="PERMIT_RISK",
+                issue_type="Permit Delay",
+                severity="yellow" if nearest_permit_days > 7 else "red",
+                impact_label=_format_day_label(max(nearest_permit_days, 0)),
+                action_label="Review Permit",
+                section=None,
+                priority=77,
+            )
+
+        if high_risk_count >= 2:
+            add_candidate(
+                reason_code="RISK_ESCALATION",
+                issue_type="Risk Escalation",
+                severity="red",
+                impact_label=f"{high_risk_count} high risks",
+                action_label="Open Issue",
+                section=None,
+                priority=74,
+            )
+        elif high_risk_count == 1:
+            add_candidate(
+                reason_code="RISK_ESCALATION",
+                issue_type="Risk Escalation",
+                severity="yellow",
+                impact_label="1 high risk",
+                action_label="Open Issue",
+                section=None,
+                priority=70,
+            )
+
+        overdue_workflow_count = overdue_rfi_count + overdue_punch_count + overdue_submittal_count + severe_issue_count
+        if overdue_workflow_count >= 4:
+            add_candidate(
+                reason_code="OVERDUE_WORKFLOW",
+                issue_type="Resolve Issues",
+                severity="red",
+                impact_label=f"{overdue_workflow_count} blocked items",
+                action_label="Open Issue",
+                section=None,
+                priority=72,
+            )
+        elif overdue_workflow_count >= 2 or open_issue_count > 0:
+            add_candidate(
+                reason_code="OVERDUE_WORKFLOW",
+                issue_type="Resolve Issues",
+                severity="yellow",
+                impact_label=f"{max(overdue_workflow_count, open_issue_count)} active items",
+                action_label="Open Issue",
+                section=None,
+                priority=68,
+            )
+
+        if imminent_inspection_count > 0:
+            add_candidate(
+                reason_code="UPCOMING_INSPECTION",
+                issue_type="Upcoming Inspection",
+                severity="yellow",
+                impact_label=f"{imminent_inspection_count} scheduled",
+                action_label="View Timeline",
+                section="schedule",
+                priority=60,
+            )
+
+        if candidates:
+            projects_at_risk_count += 1
+            candidates.sort(
+                key=lambda item: (
+                    2 if item["severity"] == "red" else 1,
+                    item["priority"],
+                ),
+                reverse=True,
+            )
+            primary = candidates[0]
+            attention_rows.append(
+                (
+                    (2 if primary["severity"] == "red" else 1) * 100 + primary["priority"],
+                    {
+                        "project_id": project_id,
+                        "project_name": project_name,
+                        "project_code": project.get("project_code"),
+                        "issue_type": primary["issue_type"],
+                        "severity": primary["severity"],
+                        "impact_label": primary["impact_label"],
+                        "reason_codes": [item["reason_code"] for item in candidates],
+                        "recommended_action": {
+                            "label": primary["action_label"],
+                            "href": _project_href(env_id=env_id, project_id=project_id, section=primary["section"]),
+                        },
+                        "project_manager": project.get("project_manager"),
+                        "next_milestone_date": next_milestone_date,
+                        "last_updated_at": project.get("updated_at"),
+                    },
+                )
+            )
+
+        if pending_change_orders:
+            earliest_due = min(
+                (
+                    _coerce_date(row.get("approval_due_at"))
+                    or _coerce_date(
+                        (row.get("metadata_json") or {}).get("approval_due_at")
+                        if isinstance(row.get("metadata_json"), dict)
+                        else None
+                    )
+                    or lookahead_end
+                    for row in pending_change_orders
+                ),
+                default=None,
+            )
+            queue_rows.append(
+                (
+                    90,
+                    {
+                        "queue_item_type": "approve_change_orders",
+                        "priority": "high" if pending_change_order_value >= Decimal("250000") else "medium",
+                        "title": f"Approve {len(pending_change_orders)} change order{'s' if len(pending_change_orders) != 1 else ''}",
+                        "project_id": project_id,
+                        "project_name": project_name,
+                        "due_date": earliest_due if earliest_due != lookahead_end else None,
+                        "why_it_matters": f"{_format_currency_label(pending_change_order_value)} waiting for approval",
+                        "href": _project_href(env_id=env_id, project_id=project_id),
+                    },
+                )
+            )
+
+        if open_claim_count > 0:
+            earliest_claim_due = min(
+                (
+                    _coerce_date(row.get("response_due_at")) or spend_window_end
+                    for row in project_claims
+                ),
+                default=None,
+            )
+            queue_rows.append(
+                (
+                    75,
+                    {
+                        "queue_item_type": "review_contractor_claim",
+                        "priority": "high" if claim_exposure >= Decimal("500000") or severe_claim_count > 0 else "medium",
+                        "title": f"Review {open_claim_count} contractor claim{'s' if open_claim_count != 1 else ''}",
+                        "project_id": project_id,
+                        "project_name": project_name,
+                        "due_date": earliest_claim_due if earliest_claim_due != spend_window_end else None,
+                        "why_it_matters": (
+                            f"{_format_currency_label(claim_exposure)} of claim exposure"
+                            if claim_exposure > 0
+                            else "Open contractor claim needs response"
+                        ),
+                        "href": _project_href(env_id=env_id, project_id=project_id),
+                    },
+                )
+            )
+
+        if budget_overrun > 0 and budget_variance_pct >= Decimal("0.02"):
+            queue_rows.append(
+                (
+                    80,
+                    {
+                        "queue_item_type": "review_budget_variance",
+                        "priority": "high" if budget_overrun >= Decimal("500000") else "medium",
+                        "title": "Review budget variance",
+                        "project_id": project_id,
+                        "project_name": project_name,
+                        "due_date": None,
+                        "why_it_matters": f"Forecast is {_format_currency_label(budget_overrun, prefix_plus=True)} over plan",
+                        "href": _project_href(env_id=env_id, project_id=project_id, section="financials"),
+                    },
+                )
+            )
+
+        if overdue_workflow_count > 0:
+            queue_rows.append(
+                (
+                    70,
+                    {
+                        "queue_item_type": "resolve_issues",
+                        "priority": "high" if overdue_workflow_count >= 4 else "medium",
+                        "title": "Resolve field issues",
+                        "project_id": project_id,
+                        "project_name": project_name,
+                        "due_date": None,
+                        "why_it_matters": f"{overdue_workflow_count} overdue workflow item{'s' if overdue_workflow_count != 1 else ''}",
+                        "href": _project_href(env_id=env_id, project_id=project_id),
+                    },
+                )
+            )
+
+        if permit_expired_count > 0 or permit_expiring_count > 0:
+            queue_rows.append(
+                (
+                    65,
+                    {
+                        "queue_item_type": "review_permits",
+                        "priority": "high" if permit_expired_count > 0 else "medium",
+                        "title": "Review permit status",
+                        "project_id": project_id,
+                        "project_name": project_name,
+                        "due_date": None if nearest_permit_days is None else today + timedelta(days=max(nearest_permit_days, 0)),
+                        "why_it_matters": (
+                            "One or more permits have expired"
+                            if permit_expired_count > 0
+                            else f"{permit_expiring_count} permit{'s' if permit_expiring_count != 1 else ''} nearing deadline"
+                        ),
+                        "href": _project_href(env_id=env_id, project_id=project_id),
+                    },
+                )
+            )
+
+        if imminent_inspection_count > 0:
+            next_inspection = min(
+                (
+                    _coerce_date(row.get("inspection_date"))
+                    for row in project_inspections
+                    if _coerce_date(row.get("inspection_date")) is not None
+                ),
+                default=None,
+            )
+            queue_rows.append(
+                (
+                    60,
+                    {
+                        "queue_item_type": "upcoming_inspection",
+                        "priority": "medium",
+                        "title": "Prepare upcoming inspection",
+                        "project_id": project_id,
+                        "project_name": project_name,
+                        "due_date": next_inspection,
+                        "why_it_matters": f"{imminent_inspection_count} inspection{'s' if imminent_inspection_count != 1 else ''} scheduled soon",
+                        "href": _project_href(env_id=env_id, project_id=project_id, section="schedule"),
+                    },
+                )
+            )
+
+    attention_rows.sort(key=lambda item: item[0], reverse=True)
+    queue_rows.sort(key=lambda item: item[0], reverse=True)
+
+    summary = {
+        "active_projects": {
+            "value": len(active_projects),
+            "state": "green" if active_projects else "yellow",
+        },
+        "projects_at_risk": {
+            "value": projects_at_risk_count,
+            "state": _metric_state(projects_at_risk_count, yellow_threshold=1, red_threshold=3),
+        },
+        "behind_schedule": {
+            "value": behind_schedule_count,
+            "state": _metric_state(behind_schedule_count, yellow_threshold=1, red_threshold=3),
+        },
+        "over_budget": {
+            "value": over_budget_count,
+            "state": _metric_state(over_budget_count, yellow_threshold=1, red_threshold=2),
+        },
+        "pending_change_orders": {
+            "value": pending_change_order_count,
+            "state": _metric_state(pending_change_order_count, yellow_threshold=1, red_threshold=5),
+        },
+        "upcoming_milestones_7d": {
+            "value": upcoming_milestones_7d_count,
+            "state": _metric_state(upcoming_milestones_7d_count, yellow_threshold=4, red_threshold=8),
+        },
+    }
+
+    return {
+        "generated_at": datetime.utcnow(),
+        "period": period,
+        "summary": summary,
+        "projects_requiring_attention": [row for _, row in attention_rows[:12]],
+        "upcoming_milestones": upcoming_milestones[:12],
+        "financial_health": {
+            "approved_budget": _q(kpis.get("approved_budget")),
+            "committed": _q(kpis.get("committed")),
+            "spent": _q(kpis.get("spent")),
+            "eac_forecast": _q(kpis.get("eac")),
+            "variance": _q(kpis.get("variance")),
+            "upcoming_spend_30d": upcoming_spend_30d,
+            "pending_change_order_value": pending_change_order_value_total,
+        },
+        "user_action_queue": [row for _, row in queue_rows[:12]],
+    }
+
+
 def get_portfolio_dashboard(*, env_id: UUID, business_id: UUID, period: str) -> dict:
     kpis = get_portfolio_kpis(env_id=env_id, business_id=business_id, period=period)
     projects = list_projects(env_id=env_id, business_id=business_id, limit=100)
@@ -1991,15 +2926,68 @@ def get_portfolio_dashboard(*, env_id: UUID, business_id: UUID, period: str) -> 
     }
 
 
+def _ensure_phase2_demo_records(*, env_id: UUID, business_id: UUID, project_ids: list[UUID], actor: str) -> None:
+    for index, project_id in enumerate(project_ids):
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                  COALESCE((SELECT COUNT(*) FROM pds_permits WHERE project_id = %s::uuid), 0) AS permit_count,
+                  COALESCE((SELECT COUNT(*) FROM pds_contractor_claims WHERE project_id = %s::uuid), 0) AS claim_count
+                """,
+                (str(project_id), str(project_id)),
+            )
+            counts = cur.fetchone() or {}
+
+        if int(counts.get("permit_count") or 0) == 0:
+            create_permit(
+                env_id=env_id,
+                business_id=business_id,
+                project_id=project_id,
+                payload={
+                    "permit_type": "Building Permit" if index == 0 else "Fire Marshal Signoff",
+                    "authority_name": "City Building Department" if index == 0 else "County Fire Marshal",
+                    "status": "pending" if index == 0 else "under_review",
+                    "required_by_date": date.today() + timedelta(days=5 + (index * 4)),
+                    "expiration_date": date.today() + timedelta(days=18 + (index * 7)),
+                    "owner_name": "Permitting Lead",
+                    "blocking_flag": index == 0,
+                    "notes": "Seeded mission control permit",
+                    "created_by": actor,
+                },
+            )
+
+        if int(counts.get("claim_count") or 0) == 0:
+            create_contractor_claim(
+                env_id=env_id,
+                business_id=business_id,
+                project_id=project_id,
+                payload={
+                    "vendor_name": "Prime Build Co" if index == 0 else "Atlas Mechanical",
+                    "claim_type": "delay" if index == 0 else "scope",
+                    "status": "open",
+                    "claimed_amount": Decimal("480000") if index == 0 else Decimal("185000"),
+                    "exposure_amount": Decimal("325000") if index == 0 else Decimal("125000"),
+                    "received_at": datetime.utcnow(),
+                    "response_due_at": date.today() + timedelta(days=3 + (index * 2)),
+                    "owner_name": "Project Executive",
+                    "summary": "Seeded contractor claim for mission control alerting",
+                    "created_by": actor,
+                },
+            )
+
+
 def seed_demo_workspace(*, env_id: UUID, business_id: UUID, actor: str = "system") -> dict:
     with get_cursor() as cur:
         cur.execute(
-            "SELECT project_id FROM pds_projects WHERE env_id = %s::uuid AND business_id = %s::uuid LIMIT 1",
+            "SELECT project_id FROM pds_projects WHERE env_id = %s::uuid AND business_id = %s::uuid ORDER BY created_at ASC",
             (str(env_id), str(business_id)),
         )
-        existing = cur.fetchone()
+        existing = cur.fetchall()
         if existing:
-            return {"seeded": False, "project_ids": [str(existing["project_id"])]}
+            existing_ids = [UUID(str(row["project_id"])) for row in existing]
+            _ensure_phase2_demo_records(env_id=env_id, business_id=business_id, project_ids=existing_ids[:2], actor=actor)
+            return {"seeded": False, "project_ids": [str(project_id) for project_id in existing_ids], "phase2_backfilled": True}
 
     project_a = create_project(
         env_id=env_id,
@@ -2084,5 +3072,12 @@ def seed_demo_workspace(*, env_id: UUID, business_id: UUID, actor: str = "system
                 "created_by": actor,
             },
         )
+
+    _ensure_phase2_demo_records(
+        env_id=env_id,
+        business_id=business_id,
+        project_ids=[UUID(str(project_a["project_id"])), UUID(str(project_b["project_id"]))],
+        actor=actor,
+    )
 
     return {"seeded": True, "project_ids": [str(project_a["project_id"]), str(project_b["project_id"])]}

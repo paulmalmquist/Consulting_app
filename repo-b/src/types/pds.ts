@@ -146,6 +146,43 @@ export interface PdsDocument {
   created_at: string;
 }
 
+export interface PdsPermit {
+  permit_id: string;
+  project_id: string;
+  permit_type: string;
+  authority_name: string | null;
+  status: string;
+  required_by_date: string | null;
+  expiration_date: string | null;
+  owner_name: string | null;
+  blocking_flag: boolean;
+  submitted_at: string | null;
+  approved_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PdsContractorClaim {
+  contractor_claim_id: string;
+  project_id: string;
+  contract_id: string | null;
+  vendor_id: string | null;
+  vendor_name: string | null;
+  resolved_vendor_name?: string | null;
+  claim_ref: string;
+  claim_type: string;
+  status: string;
+  claimed_amount: string;
+  exposure_amount: string;
+  received_at: string | null;
+  response_due_at: string | null;
+  owner_name: string | null;
+  summary: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface PdsVendor {
   vendor_id: string;
   env_id: string;
@@ -257,6 +294,81 @@ export interface PdsPortfolioDashboard {
     status: string | null;
     created_at: string | null;
   }>;
+}
+
+export interface PdsStatusMetric {
+  value: number;
+  state: "green" | "yellow" | "red";
+}
+
+export interface PdsPortfolioSummary {
+  active_projects: PdsStatusMetric;
+  projects_at_risk: PdsStatusMetric;
+  behind_schedule: PdsStatusMetric;
+  over_budget: PdsStatusMetric;
+  pending_change_orders: PdsStatusMetric;
+  upcoming_milestones_7d: PdsStatusMetric;
+}
+
+export interface PdsAttentionAction {
+  label: string;
+  href: string;
+}
+
+export interface PdsAttentionProject {
+  project_id: string;
+  project_name: string;
+  project_code: string | null;
+  issue_type: string;
+  severity: "yellow" | "red";
+  impact_label: string;
+  reason_codes: string[];
+  recommended_action: PdsAttentionAction;
+  project_manager: string | null;
+  next_milestone_date: string | null;
+  last_updated_at: string | null;
+}
+
+export interface PdsUpcomingMilestone {
+  project_id: string;
+  project_name: string;
+  milestone_id: string;
+  milestone_name: string;
+  date: string;
+  owner: string | null;
+  status: string;
+  href: string;
+}
+
+export interface PdsFinancialHealth {
+  approved_budget: string;
+  committed: string;
+  spent: string;
+  eac_forecast: string;
+  variance: string;
+  upcoming_spend_30d: string;
+  pending_change_order_value: string;
+}
+
+export interface PdsUserActionQueueItem {
+  queue_item_type: string;
+  priority: string;
+  title: string;
+  project_id: string;
+  project_name: string;
+  due_date: string | null;
+  why_it_matters: string | null;
+  href: string;
+}
+
+export interface PdsPortfolioHealth {
+  generated_at: string;
+  period: string;
+  summary: PdsPortfolioSummary;
+  projects_requiring_attention: PdsAttentionProject[];
+  upcoming_milestones: PdsUpcomingMilestone[];
+  financial_health: PdsFinancialHealth;
+  user_action_queue: PdsUserActionQueueItem[];
 }
 
 export interface PdsSnapshotRun {

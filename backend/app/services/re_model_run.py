@@ -36,7 +36,7 @@ def run_model(
     4. Optionally run waterfall
     """
     model = re_model.get_model(model_id=model_id)
-    fund_id = UUID(str(model["fund_id"]))
+    fund_id = UUID(str(model["primary_fund_id"]))
 
     # 1. Ensure a scenario linked to this model
     scenario_id = _ensure_model_scenario(model_id, fund_id)

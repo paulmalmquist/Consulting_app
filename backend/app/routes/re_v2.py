@@ -54,6 +54,18 @@ from app.schemas.re_institutional import (
     ReScenarioVersionOut,
     ReWaterfallRunOut,
     ReWaterfallRunRequest,
+    ReModelScenarioCreateRequest,
+    ReModelScenarioOut,
+    ReScenarioCloneRequest,
+    ReScenarioAssetInput,
+    ReScenarioAssetOut,
+    ReAvailableAssetOut,
+    ReScenarioOverrideInput,
+    ReScenarioOverrideOut,
+    ReScenarioRunOut,
+    ReModelRunDetailOut,
+    ReScenarioCompareRequest,
+    ReScenarioCompareOut,
 )
 from app.services import (
     re_investment,
@@ -64,6 +76,7 @@ from app.services import (
     re_env_portfolio,
     re_scenario,
     re_model,
+    re_model_scenario,
     re_provenance,
     re_quarter_close,
     re_integrity,
@@ -678,7 +691,7 @@ def list_models(fund_id: UUID):
 
 
 @router.post("/funds/{fund_id}/models", response_model=ReModelOut, status_code=201)
-def create_model(fund_id: UUID, body: ReModelCreateRequest):
+def create_model_for_fund(fund_id: UUID, body: ReModelCreateRequest):
     try:
         row = re_model.create_model(
             fund_id=fund_id,
@@ -687,6 +700,31 @@ def create_model(fund_id: UUID, body: ReModelCreateRequest):
             strategy_type=body.strategy_type,
         )
         _log("re.model.created", f"Model '{body.name}' created for fund {fund_id}")
+        return row
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/models", response_model=list[ReModelOut])
+def list_all_models(env_id: UUID | None = Query(None)):
+    try:
+        return re_model.list_models(env_id=env_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/models", response_model=ReModelOut, status_code=201)
+def create_model_cross_fund(body: ReModelCreateRequest):
+    try:
+        row = re_model.create_model(
+            fund_id=body.primary_fund_id,
+            env_id=body.env_id,
+            name=body.name,
+            description=body.description,
+            strategy_type=body.strategy_type,
+            model_type=body.model_type,
+        )
+        _log("re.model.created", f"Model '{body.name}' created (cross-fund)")
         return row
     except Exception as exc:
         raise _to_http(exc)
@@ -1195,5 +1233,172 @@ def get_asset_lineage(
 ):
     try:
         return re_lineage.asset_lineage(asset_id=asset_id, quarter=quarter, scenario_id=scenario_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Cross-Fund Model Scenarios
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.get("/models/{model_id}/scenarios", response_model=list[ReModelScenarioOut])
+def list_model_scenarios(model_id: UUID):
+    try:
+        return re_model_scenario.list_scenarios(model_id=model_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/models/{model_id}/scenarios", response_model=ReModelScenarioOut, status_code=201)
+def create_model_scenario(model_id: UUID, body: ReModelScenarioCreateRequest):
+    try:
+        row = re_model_scenario.create_scenario(
+            model_id=model_id,
+            name=body.name,
+            description=body.description,
+            is_base=body.is_base,
+        )
+        _log("re.model_scenario.created", f"Scenario '{body.name}' created for model {model_id}")
+        return row
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/model-scenarios/{scenario_id}", response_model=ReModelScenarioOut)
+def get_model_scenario(scenario_id: UUID):
+    try:
+        return re_model_scenario.get_scenario(scenario_id=scenario_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/model-scenarios/{scenario_id}/clone", response_model=ReModelScenarioOut, status_code=201)
+def clone_model_scenario(scenario_id: UUID, body: ReScenarioCloneRequest):
+    try:
+        row = re_model_scenario.clone_scenario(scenario_id=scenario_id, new_name=body.new_name)
+        _log("re.model_scenario.cloned", f"Scenario {scenario_id} cloned as '{body.new_name}'")
+        return row
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.delete("/model-scenarios/{scenario_id}", status_code=204)
+def delete_model_scenario(scenario_id: UUID):
+    try:
+        re_model_scenario.delete_scenario(scenario_id=scenario_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Scenario Asset Scope ─────────────────────────────────────────────────────
+
+@router.get("/model-scenarios/{scenario_id}/assets", response_model=list[ReScenarioAssetOut])
+def list_scenario_assets(scenario_id: UUID):
+    try:
+        return re_model_scenario.list_scenario_assets(scenario_id=scenario_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/model-scenarios/{scenario_id}/assets", response_model=ReScenarioAssetOut, status_code=201)
+def add_scenario_asset(scenario_id: UUID, body: ReScenarioAssetInput):
+    try:
+        row = re_model_scenario.add_scenario_asset(
+            scenario_id=scenario_id,
+            asset_id=body.asset_id,
+            source_fund_id=body.source_fund_id,
+            source_investment_id=body.source_investment_id,
+        )
+        _log("re.model_scenario.asset_added", f"Asset {body.asset_id} added to scenario {scenario_id}")
+        return row
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.delete("/model-scenarios/{scenario_id}/assets/{asset_id}", status_code=204)
+def remove_scenario_asset(scenario_id: UUID, asset_id: UUID):
+    try:
+        re_model_scenario.remove_scenario_asset(scenario_id=scenario_id, asset_id=asset_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/model-scenarios/{scenario_id}/available-assets", response_model=list[ReAvailableAssetOut])
+def list_available_assets(scenario_id: UUID, env_id: UUID | None = Query(None)):
+    try:
+        return re_model_scenario.list_available_assets(env_id=env_id, scenario_id=scenario_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Scenario Overrides ───────────────────────────────────────────────────────
+
+@router.get("/model-scenarios/{scenario_id}/overrides", response_model=list[ReScenarioOverrideOut])
+def list_scenario_overrides(scenario_id: UUID):
+    try:
+        return re_model_scenario.list_scenario_overrides(scenario_id=scenario_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/model-scenarios/{scenario_id}/overrides", response_model=ReScenarioOverrideOut, status_code=201)
+def set_scenario_override(scenario_id: UUID, body: ReScenarioOverrideInput):
+    try:
+        row = re_model_scenario.set_scenario_override(
+            scenario_id=scenario_id,
+            scope_type=body.scope_type,
+            scope_id=body.scope_id,
+            key=body.key,
+            value_json=body.value_json,
+        )
+        _log("re.model_scenario.override_set", f"Override '{body.key}' set for scenario {scenario_id}")
+        return row
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.delete("/scenario-overrides/{override_id}", status_code=204)
+def delete_scenario_override(override_id: UUID):
+    try:
+        re_model_scenario.delete_scenario_override(override_id=override_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/model-scenarios/{scenario_id}/reset-overrides", status_code=204)
+def reset_scenario_overrides(scenario_id: UUID):
+    try:
+        re_model_scenario.reset_scenario_overrides(scenario_id=scenario_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Scenario Run ─────────────────────────────────────────────────────────────
+
+@router.post("/model-scenarios/{scenario_id}/run", response_model=ReScenarioRunOut)
+def run_model_scenario(scenario_id: UUID):
+    try:
+        from app.services import re_scenario_engine
+        result = re_scenario_engine.run_scenario(scenario_id=scenario_id)
+        _log("re.model_scenario.run", f"Scenario {scenario_id} run completed")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/model-runs/{run_id}", response_model=ReModelRunDetailOut)
+def get_model_run(run_id: UUID):
+    try:
+        from app.services import re_scenario_engine
+        return re_scenario_engine.get_run(run_id=run_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/models/{model_id}/compare", response_model=ReScenarioCompareOut)
+def compare_model_scenarios(model_id: UUID, body: ReScenarioCompareRequest):
+    try:
+        from app.services import re_scenario_engine
+        return re_scenario_engine.compare_scenarios(scenario_ids=body.scenario_ids)
     except Exception as exc:
         raise _to_http(exc)

@@ -495,6 +495,8 @@ class ReModelCreateRequest(BaseModel):
     description: str | None = None
     strategy_type: Literal["equity", "credit", "cmbs", "mixed"] | None = None
     model_type: ModelType = "scenario"
+    env_id: UUID | None = None
+    primary_fund_id: UUID | None = None
 
 
 class ReModelPatchRequest(BaseModel):
@@ -507,7 +509,8 @@ class ReModelPatchRequest(BaseModel):
 
 class ReModelOut(BaseModel):
     model_id: UUID
-    fund_id: UUID
+    primary_fund_id: UUID | None = None
+    env_id: UUID | None = None
     name: str
     description: str | None = None
     status: str
@@ -786,3 +789,108 @@ class ReAttributionBridgeOut(BaseModel):
     total_explained_bps: Decimal | None = None
     residual_bps: Decimal | None = None
     lineage: dict = {}
+
+
+# ── Cross-Fund Model Scenarios ───────────────────────────────────────────────
+
+class ReModelScenarioCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = None
+    is_base: bool = False
+
+
+class ReModelScenarioOut(BaseModel):
+    id: UUID
+    model_id: UUID
+    name: str
+    description: str | None = None
+    is_base: bool
+    created_at: datetime
+    updated_at: datetime | None = None
+
+
+class ReScenarioCloneRequest(BaseModel):
+    new_name: str = Field(min_length=1, max_length=200)
+
+
+# ── Scenario Asset Scope ─────────────────────────────────────────────────────
+
+class ReScenarioAssetInput(BaseModel):
+    asset_id: UUID
+    source_fund_id: UUID | None = None
+    source_investment_id: UUID | None = None
+
+
+class ReScenarioAssetOut(BaseModel):
+    id: UUID
+    scenario_id: UUID
+    asset_id: UUID
+    source_fund_id: UUID | None = None
+    source_investment_id: UUID | None = None
+    added_at: datetime
+    asset_name: str | None = None
+    asset_type: str | None = None
+    fund_name: str | None = None
+
+
+class ReAvailableAssetOut(BaseModel):
+    asset_id: UUID
+    asset_name: str | None = None
+    asset_type: str | None = None
+    source_fund_id: UUID | None = None
+    source_investment_id: UUID | None = None
+    fund_name: str | None = None
+
+
+# ── Scenario Overrides ───────────────────────────────────────────────────────
+
+class ReScenarioOverrideInput(BaseModel):
+    scope_type: Literal["asset", "investment", "fund"]
+    scope_id: UUID
+    key: str = Field(min_length=1, max_length=100)
+    value_json: Any
+
+
+class ReScenarioOverrideOut(BaseModel):
+    id: UUID
+    scenario_id: UUID
+    scope_type: str
+    scope_id: UUID
+    key: str
+    value_json: Any
+    created_at: datetime
+    updated_at: datetime | None = None
+
+
+# ── Scenario Runs ────────────────────────────────────────────────────────────
+
+class ReScenarioRunOut(BaseModel):
+    run_id: str
+    scenario_id: str
+    model_id: str
+    status: str
+    assets_processed: int = 0
+    summary: dict | None = None
+
+
+class ReModelRunDetailOut(BaseModel):
+    id: UUID
+    model_version_id: UUID | None = None
+    scenario_id: UUID
+    status: str
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    inputs_hash: str | None = None
+    engine_version: str | None = None
+    outputs_json: Any | None = None
+    summary_json: Any | None = None
+    created_at: datetime
+
+
+class ReScenarioCompareRequest(BaseModel):
+    scenario_ids: list[UUID] = Field(min_length=2)
+
+
+class ReScenarioCompareOut(BaseModel):
+    scenarios: list[dict]
+    comparison: list[dict] | None = None

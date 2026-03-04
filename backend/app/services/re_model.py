@@ -45,24 +45,33 @@ def _extract_value(row: dict):
 
 # ── Model CRUD ───────────────────────────────────────────────────────────────
 
-_MODEL_COLS = """model_id, fund_id, name, description, status,
+_MODEL_COLS = """model_id, primary_fund_id, env_id, name, description, status,
                    model_type, locked_at,
                    strategy_type, base_snapshot_id,
                    created_by, approved_at, approved_by, created_at, updated_at"""
 
 
-def list_models(*, fund_id: UUID) -> list[dict]:
+def list_models(*, fund_id: UUID | None = None, env_id: UUID | None = None) -> list[dict]:
     with get_cursor() as cur:
-        cur.execute(
-            f"SELECT {_MODEL_COLS} FROM re_model WHERE fund_id = %s ORDER BY created_at DESC",
-            (str(fund_id),),
-        )
+        if env_id:
+            cur.execute(
+                f"SELECT {_MODEL_COLS} FROM re_model WHERE env_id = %s ORDER BY created_at DESC",
+                (str(env_id),),
+            )
+        elif fund_id:
+            cur.execute(
+                f"SELECT {_MODEL_COLS} FROM re_model WHERE primary_fund_id = %s ORDER BY created_at DESC",
+                (str(fund_id),),
+            )
+        else:
+            cur.execute(f"SELECT {_MODEL_COLS} FROM re_model ORDER BY created_at DESC")
         return cur.fetchall()
 
 
 def create_model(
     *,
-    fund_id: UUID,
+    fund_id: UUID | None = None,
+    env_id: UUID | None = None,
     name: str,
     description: str | None = None,
     strategy_type: str | None = None,
@@ -72,13 +81,14 @@ def create_model(
     with get_cursor() as cur:
         cur.execute(
             f"""
-            INSERT INTO re_model (fund_id, name, description, status, strategy_type,
-                                  base_snapshot_id, model_type)
-            VALUES (%s, %s, %s, 'draft', %s, %s, %s)
+            INSERT INTO re_model (primary_fund_id, env_id, name, description, status,
+                                  strategy_type, base_snapshot_id, model_type)
+            VALUES (%s, %s, %s, %s, 'draft', %s, %s, %s)
             RETURNING {_MODEL_COLS}
             """,
             (
-                str(fund_id),
+                str(fund_id) if fund_id else None,
+                str(env_id) if env_id else None,
                 name,
                 description,
                 strategy_type,
@@ -86,7 +96,19 @@ def create_model(
                 model_type,
             ),
         )
-        return cur.fetchone()
+        model = cur.fetchone()
+
+        # Auto-create Base scenario
+        cur.execute(
+            """
+            INSERT INTO re_model_scenarios (model_id, name, description, is_base)
+            VALUES (%s, 'Base', 'Default base scenario', true)
+            ON CONFLICT (model_id, name) DO NOTHING
+            """,
+            (str(model["model_id"]),),
+        )
+
+        return model
 
 
 def get_model(*, model_id: UUID) -> dict:

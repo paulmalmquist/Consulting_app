@@ -82,6 +82,94 @@ def test_pds_namespace_contract(client, monkeypatch, repe_log_context):
     assert body[0]["project_id"] == project_id
 
 
+def test_pds_portfolio_health_contract(client, monkeypatch, repe_log_context):
+    env_id = str(uuid4())
+    business_id = str(uuid4())
+    project_id = str(uuid4())
+    milestone_id = str(uuid4())
+
+    monkeypatch.setattr(pds_routes, "_resolve_context", _resolver(env_id, business_id))
+    monkeypatch.setattr(
+        pds_routes.pds_svc,
+        "get_portfolio_health",
+        lambda **_: {
+            "generated_at": datetime.utcnow().isoformat(),
+            "period": "2026-03",
+            "summary": {
+                "active_projects": {"value": 4, "state": "green"},
+                "projects_at_risk": {"value": 2, "state": "yellow"},
+                "behind_schedule": {"value": 1, "state": "yellow"},
+                "over_budget": {"value": 1, "state": "red"},
+                "pending_change_orders": {"value": 3, "state": "yellow"},
+                "upcoming_milestones_7d": {"value": 5, "state": "yellow"},
+            },
+            "projects_requiring_attention": [
+                {
+                    "project_id": project_id,
+                    "project_name": "Downtown Tower Renovation",
+                    "project_code": "DT-01",
+                    "issue_type": "Budget Overrun",
+                    "severity": "red",
+                    "impact_label": "+$625,000",
+                    "reason_codes": ["BUDGET_OVERRUN", "CHANGE_ORDER_EXPOSURE"],
+                    "recommended_action": {
+                        "label": "Review Budget",
+                        "href": f"/lab/env/{env_id}/pds/projects/{project_id}?section=financials",
+                    },
+                    "project_manager": "A. Thompson",
+                    "next_milestone_date": "2026-03-18",
+                    "last_updated_at": datetime.utcnow().isoformat(),
+                }
+            ],
+            "upcoming_milestones": [
+                {
+                    "project_id": project_id,
+                    "project_name": "Downtown Tower Renovation",
+                    "milestone_id": milestone_id,
+                    "milestone_name": "Permit Approval",
+                    "date": "2026-03-10",
+                    "owner": "Permitting Lead",
+                    "status": "due_soon",
+                    "href": f"/lab/env/{env_id}/pds/projects/{project_id}?section=schedule",
+                }
+            ],
+            "financial_health": {
+                "approved_budget": "24500000",
+                "committed": "11250000",
+                "spent": "8250000",
+                "eac_forecast": "25150000",
+                "variance": "-650000",
+                "upcoming_spend_30d": "1800000",
+                "pending_change_order_value": "375000",
+            },
+            "user_action_queue": [
+                {
+                    "queue_item_type": "review_contractor_claim",
+                    "priority": "high",
+                    "title": "Review 1 contractor claim",
+                    "project_id": project_id,
+                    "project_name": "Downtown Tower Renovation",
+                    "due_date": "2026-03-08",
+                    "why_it_matters": "$325,000 of claim exposure",
+                    "href": f"/lab/env/{env_id}/pds/projects/{project_id}",
+                }
+            ],
+        },
+    )
+
+    resp = client.get(
+        f"/api/pds/v1/portfolio/health?env_id={env_id}&business_id={business_id}",
+        headers=repe_log_context["headers"],
+    )
+
+    _assert_req_headers(resp, repe_log_context)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["summary"]["projects_at_risk"]["value"] == 2
+    assert body["projects_requiring_attention"][0]["project_id"] == project_id
+    assert body["financial_health"]["pending_change_order_value"] == "375000"
+
+
 def test_credit_namespace_contract(client, monkeypatch, repe_log_context):
     env_id = str(uuid4())
     business_id = str(uuid4())

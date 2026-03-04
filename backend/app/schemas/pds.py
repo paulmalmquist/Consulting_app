@@ -262,6 +262,81 @@ class PdsPortfolioOut(BaseModel):
     top_risk_count: int
 
 
+class PdsStatusMetricOut(BaseModel):
+    value: int
+    state: str
+
+
+class PdsPortfolioSummaryOut(BaseModel):
+    active_projects: PdsStatusMetricOut
+    projects_at_risk: PdsStatusMetricOut
+    behind_schedule: PdsStatusMetricOut
+    over_budget: PdsStatusMetricOut
+    pending_change_orders: PdsStatusMetricOut
+    upcoming_milestones_7d: PdsStatusMetricOut
+
+
+class PdsAttentionActionOut(BaseModel):
+    label: str
+    href: str
+
+
+class PdsAttentionProjectOut(BaseModel):
+    project_id: UUID
+    project_name: str
+    project_code: str | None = None
+    issue_type: str
+    severity: str
+    impact_label: str
+    reason_codes: list[str] = Field(default_factory=list)
+    recommended_action: PdsAttentionActionOut
+    project_manager: str | None = None
+    next_milestone_date: date | None = None
+    last_updated_at: datetime | None = None
+
+
+class PdsUpcomingMilestoneOut(BaseModel):
+    project_id: UUID
+    project_name: str
+    milestone_id: UUID
+    milestone_name: str
+    date: date
+    owner: str | None = None
+    status: str
+    href: str
+
+
+class PdsFinancialHealthOut(BaseModel):
+    approved_budget: Decimal
+    committed: Decimal
+    spent: Decimal
+    eac_forecast: Decimal
+    variance: Decimal
+    upcoming_spend_30d: Decimal
+    pending_change_order_value: Decimal
+
+
+class PdsUserActionQueueItemOut(BaseModel):
+    queue_item_type: str
+    priority: str
+    title: str
+    project_id: UUID
+    project_name: str
+    due_date: date | None = None
+    why_it_matters: str | None = None
+    href: str
+
+
+class PdsPortfolioHealthOut(BaseModel):
+    generated_at: datetime
+    period: str
+    summary: PdsPortfolioSummaryOut
+    projects_requiring_attention: list[PdsAttentionProjectOut] = Field(default_factory=list)
+    upcoming_milestones: list[PdsUpcomingMilestoneOut] = Field(default_factory=list)
+    financial_health: PdsFinancialHealthOut
+    user_action_queue: list[PdsUserActionQueueItemOut] = Field(default_factory=list)
+
+
 class PdsSiteReportCreateRequest(BaseModel):
     report_date: date
     summary: str | None = None
@@ -320,6 +395,38 @@ class PdsDocumentCreateRequest(BaseModel):
     document_type: str = Field(default="general", min_length=1, max_length=120)
     version_label: str | None = Field(default=None, max_length=80)
     storage_key: str | None = None
+    metadata_json: dict[str, Any] = Field(default_factory=dict)
+    created_by: str | None = None
+
+
+class PdsPermitCreateRequest(BaseModel):
+    permit_type: str = Field(min_length=1, max_length=120)
+    authority_name: str | None = None
+    status: str = "pending"
+    required_by_date: date | None = None
+    expiration_date: date | None = None
+    owner_name: str | None = None
+    blocking_flag: bool = False
+    submitted_at: datetime | None = None
+    approved_at: datetime | None = None
+    notes: str | None = None
+    metadata_json: dict[str, Any] = Field(default_factory=dict)
+    created_by: str | None = None
+
+
+class PdsContractorClaimCreateRequest(BaseModel):
+    claim_ref: str | None = Field(default=None, min_length=1, max_length=120)
+    contract_id: UUID | None = None
+    vendor_id: UUID | None = None
+    vendor_name: str | None = None
+    claim_type: str = Field(default="change", min_length=1, max_length=120)
+    status: str = "open"
+    claimed_amount: Decimal = Field(default=Decimal("0"))
+    exposure_amount: Decimal | None = None
+    received_at: datetime | None = None
+    response_due_at: date | None = None
+    owner_name: str | None = None
+    summary: str | None = None
     metadata_json: dict[str, Any] = Field(default_factory=dict)
     created_by: str | None = None
 

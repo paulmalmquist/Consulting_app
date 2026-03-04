@@ -16,9 +16,12 @@ from app.schemas.pds import (
     PdsCommitmentCreateRequest,
     PdsContextOut,
     PdsContractCreateRequest,
+    PdsContractorClaimCreateRequest,
     PdsForecastCreateRequest,
     PdsInvoiceCreateRequest,
     PdsDocumentCreateRequest,
+    PdsPermitCreateRequest,
+    PdsPortfolioHealthOut,
     PdsPortfolioOut,
     PdsPaymentCreateRequest,
     PdsProjectCreateRequest,
@@ -742,6 +745,86 @@ def create_document(project_id: UUID, req: PdsDocumentCreateRequest, request: Re
         return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="pds.document.create_failed")
 
 
+@router.get("/projects/{project_id}/permits")
+def list_permits(project_id: UUID, request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None), status_filter: str | None = Query(default=None, alias="status")):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return pds_svc.list_project_permits(
+            env_id=resolved_env_id,
+            business_id=resolved_business_id,
+            project_id=project_id,
+            status=status_filter,
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="pds.permit.list_failed")
+
+
+@router.post("/projects/{project_id}/permits")
+def create_permit(project_id: UUID, req: PdsPermitCreateRequest, request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None)):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        row = pds_svc.create_permit(
+            env_id=resolved_env_id,
+            business_id=resolved_business_id,
+            project_id=project_id,
+            payload=req.model_dump(),
+        )
+        emit_log(
+            level="info",
+            service="backend",
+            action="pds.permit.create",
+            message="PDS permit created",
+            context={"request_id": get_request_id(request), "project_id": str(project_id), "permit_id": str(row["permit_id"])},
+        )
+        return row
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="pds.permit.create_failed")
+
+
+@router.get("/projects/{project_id}/contractor-claims")
+def list_contractor_claims(project_id: UUID, request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None), status_filter: str | None = Query(default=None, alias="status")):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return pds_svc.list_project_contractor_claims(
+            env_id=resolved_env_id,
+            business_id=resolved_business_id,
+            project_id=project_id,
+            status=status_filter,
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="pds.contractor_claim.list_failed")
+
+
+@router.post("/projects/{project_id}/contractor-claims")
+def create_contractor_claim(project_id: UUID, req: PdsContractorClaimCreateRequest, request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None)):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        row = pds_svc.create_contractor_claim(
+            env_id=resolved_env_id,
+            business_id=resolved_business_id,
+            project_id=project_id,
+            payload=req.model_dump(),
+        )
+        emit_log(
+            level="info",
+            service="backend",
+            action="pds.contractor_claim.create",
+            message="PDS contractor claim created",
+            context={
+                "request_id": get_request_id(request),
+                "project_id": str(project_id),
+                "contractor_claim_id": str(row["contractor_claim_id"]),
+            },
+        )
+        return row
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="pds.contractor_claim.create_failed")
+
+
 @router.get("/vendors")
 @router.get("/subcontractors")
 def list_vendors(request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None), status_filter: str | None = Query(default=None, alias="status")):
@@ -833,6 +916,37 @@ def get_portfolio_kpis(request: Request, env_id: str = Query(...), business_id: 
     except Exception as exc:
         status, code = classify_domain_error(exc)
         return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="pds.portfolio.get_failed")
+
+
+@router.get("/portfolio/health", response_model=PdsPortfolioHealthOut)
+def get_portfolio_health(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+    period: str | None = Query(default=None),
+    lookahead_days: int = Query(default=7, ge=1, le=30),
+    milestone_window_days: int = Query(default=14, ge=1, le=45),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        use_period = period or f"{date.today().year}-{date.today().month:02d}"
+        row = pds_svc.get_portfolio_health(
+            env_id=resolved_env_id,
+            business_id=resolved_business_id,
+            period=use_period,
+            lookahead_days=lookahead_days,
+            milestone_window_days=milestone_window_days,
+        )
+        return PdsPortfolioHealthOut(**row)
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="pds.portfolio.health_failed",
+        )
 
 
 @router.get("/portfolio/dashboard")

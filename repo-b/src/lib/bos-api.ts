@@ -11,12 +11,19 @@
  */
 import { logError, logInfo } from "@/lib/logging/logger";
 import type {
+  PdsAttentionAction,
+  PdsAttentionProject,
   PdsBudgetLine,
   PdsBudgetSummary,
   PdsChangeOrder,
+  PdsContractorClaim,
   PdsDocument,
+  PdsFinancialHealth,
+  PdsPermit,
   PdsPortfolioDashboard,
+  PdsPortfolioHealth,
   PdsPortfolioKpis,
+  PdsPortfolioSummary,
   PdsProject,
   PdsProjectOverview,
   PdsReportPackRun,
@@ -24,7 +31,10 @@ import type {
   PdsScheduleItem,
   PdsSiteReport,
   PdsSnapshotRun,
+  PdsStatusMetric,
   PdsSubmittal,
+  PdsUpcomingMilestone,
+  PdsUserActionQueueItem,
   PdsVendor,
 } from "@/types/pds";
 
@@ -646,12 +656,19 @@ export interface DomainContext {
 }
 
 export type {
+  PdsAttentionAction,
+  PdsAttentionProject,
   PdsBudgetLine,
   PdsBudgetSummary,
   PdsChangeOrder,
+  PdsContractorClaim,
   PdsDocument,
+  PdsFinancialHealth,
+  PdsPermit,
   PdsPortfolioDashboard,
+  PdsPortfolioHealth,
   PdsPortfolioKpis,
+  PdsPortfolioSummary,
   PdsProject,
   PdsProjectOverview,
   PdsReportPackRun,
@@ -659,7 +676,10 @@ export type {
   PdsScheduleItem,
   PdsSiteReport,
   PdsSnapshotRun,
+  PdsStatusMetric,
   PdsSubmittal,
+  PdsUpcomingMilestone,
+  PdsUserActionQueueItem,
   PdsVendor,
 };
 
@@ -729,6 +749,24 @@ export function getPdsPortfolio(envId: string, period?: string, businessId?: str
 export function getPdsPortfolioDashboard(envId: string, period?: string, businessId?: string): Promise<PdsPortfolioDashboard> {
   return bosFetch("/api/pds/v1/portfolio/dashboard", {
     params: { env_id: envId, period, business_id: businessId },
+  });
+}
+
+export function getPdsPortfolioHealth(
+  envId: string,
+  period?: string,
+  businessId?: string,
+  lookaheadDays = 7,
+  milestoneWindowDays = 14,
+): Promise<PdsPortfolioHealth> {
+  return bosFetch("/api/pds/v1/portfolio/health", {
+    params: {
+      env_id: envId,
+      period,
+      business_id: businessId,
+      lookahead_days: String(lookaheadDays),
+      milestone_window_days: String(milestoneWindowDays),
+    },
   });
 }
 
@@ -842,6 +880,49 @@ export function listPdsProjectSubmittals(projectId: string, envId: string, busin
 export function listPdsProjectDocuments(projectId: string, envId: string, businessId?: string, document_type?: string): Promise<PdsDocument[]> {
   return bosFetch(`/api/pds/v1/projects/${projectId}/documents`, {
     params: { env_id: envId, business_id: businessId, document_type },
+  });
+}
+
+export function listPdsProjectPermits(projectId: string, envId: string, businessId?: string, status?: string): Promise<PdsPermit[]> {
+  return bosFetch(`/api/pds/v1/projects/${projectId}/permits`, {
+    params: { env_id: envId, business_id: businessId, status },
+  });
+}
+
+export function createPdsProjectPermit(
+  projectId: string,
+  body: Record<string, unknown>,
+  envId: string,
+  businessId?: string,
+): Promise<PdsPermit> {
+  return bosFetch(`/api/pds/v1/projects/${projectId}/permits`, {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listPdsProjectContractorClaims(
+  projectId: string,
+  envId: string,
+  businessId?: string,
+  status?: string,
+): Promise<PdsContractorClaim[]> {
+  return bosFetch(`/api/pds/v1/projects/${projectId}/contractor-claims`, {
+    params: { env_id: envId, business_id: businessId, status },
+  });
+}
+
+export function createPdsProjectContractorClaim(
+  projectId: string,
+  body: Record<string, unknown>,
+  envId: string,
+  businessId?: string,
+): Promise<PdsContractorClaim> {
+  return bosFetch(`/api/pds/v1/projects/${projectId}/contractor-claims`, {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId },
+    body: JSON.stringify(body),
   });
 }
 
@@ -2767,6 +2848,131 @@ export function approveReV2Model(modelId: string): Promise<ReV2Model> {
   });
 }
 
+// Cross-Fund Models
+export function listAllModels(envId?: string): Promise<ReV2Model[]> {
+  return directFetch(`/api/re/v2/models`, { params: { env_id: envId } });
+}
+
+export function createCrossFundModel(body: {
+  name: string;
+  description?: string;
+  strategy_type?: string;
+  model_type?: string;
+  env_id?: string;
+  primary_fund_id?: string;
+}): Promise<ReV2Model> {
+  return bosFetch(`/api/re/v2/models`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function getModel(modelId: string): Promise<ReV2Model> {
+  return directFetch(`/api/re/v2/models/${modelId}`);
+}
+
+// Model Scenarios
+export function listModelScenarios(modelId: string): Promise<ModelScenario[]> {
+  return directFetch(`/api/re/v2/models/${modelId}/scenarios`);
+}
+
+export function createModelScenario(modelId: string, body: {
+  name: string;
+  description?: string;
+  is_base?: boolean;
+}): Promise<ModelScenario> {
+  return bosFetch(`/api/re/v2/models/${modelId}/scenarios`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function getModelScenario(scenarioId: string): Promise<ModelScenario> {
+  return directFetch(`/api/re/v2/model-scenarios/${scenarioId}`);
+}
+
+export function cloneModelScenario(scenarioId: string, newName: string): Promise<ModelScenario> {
+  return bosFetch(`/api/re/v2/model-scenarios/${scenarioId}/clone`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ new_name: newName }),
+  });
+}
+
+export function deleteModelScenario(scenarioId: string): Promise<void> {
+  return bosFetch(`/api/re/v2/model-scenarios/${scenarioId}`, { method: "DELETE" });
+}
+
+// Scenario Asset Scope
+export function listScenarioAssets(scenarioId: string): Promise<ScenarioAsset[]> {
+  return directFetch(`/api/re/v2/model-scenarios/${scenarioId}/assets`);
+}
+
+export function addScenarioAsset(scenarioId: string, body: {
+  asset_id: string;
+  source_fund_id?: string;
+  source_investment_id?: string;
+}): Promise<ScenarioAsset> {
+  return bosFetch(`/api/re/v2/model-scenarios/${scenarioId}/assets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function removeScenarioAsset(scenarioId: string, assetId: string): Promise<void> {
+  return bosFetch(`/api/re/v2/model-scenarios/${scenarioId}/assets/${assetId}`, { method: "DELETE" });
+}
+
+export function listAvailableAssets(scenarioId: string, envId?: string): Promise<AvailableAsset[]> {
+  return directFetch(`/api/re/v2/model-scenarios/${scenarioId}/available-assets`, { params: { env_id: envId } });
+}
+
+// Scenario Overrides
+export function listScenarioOverrides(scenarioId: string): Promise<ScenarioOverride[]> {
+  return directFetch(`/api/re/v2/model-scenarios/${scenarioId}/overrides`);
+}
+
+export function setScenarioOverride(scenarioId: string, body: {
+  scope_type: string;
+  scope_id: string;
+  key: string;
+  value_json: unknown;
+}): Promise<ScenarioOverride> {
+  return bosFetch(`/api/re/v2/model-scenarios/${scenarioId}/overrides`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteScenarioOverride(overrideId: string): Promise<void> {
+  return bosFetch(`/api/re/v2/scenario-overrides/${overrideId}`, { method: "DELETE" });
+}
+
+export function resetScenarioOverrides(scenarioId: string): Promise<void> {
+  return bosFetch(`/api/re/v2/model-scenarios/${scenarioId}/reset-overrides`, { method: "POST" });
+}
+
+// Scenario Run
+export function runScenario(scenarioId: string): Promise<ScenarioRunResult> {
+  return bosFetch(`/api/re/v2/model-scenarios/${scenarioId}/run`, { method: "POST" });
+}
+
+export function getModelRun(runId: string): Promise<ModelRunDetail> {
+  return directFetch(`/api/re/v2/model-runs/${runId}`);
+}
+
+export function compareScenarios(modelId: string, scenarioIds: string[]): Promise<ScenarioCompareResult> {
+  return bosFetch(`/api/re/v2/models/${modelId}/compare`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ scenario_ids: scenarioIds }),
+  });
+}
+
 // Scenario Versions
 export function listReV2ScenarioVersions(scenarioId: string): Promise<ReV2ScenarioVersion[]> {
   return directFetch(`/api/re/v2/scenarios/${scenarioId}/versions`);
@@ -3309,14 +3515,88 @@ export type ReV2Scenario = {
 
 export type ReV2Model = {
   model_id: string;
-  fund_id: string;
+  primary_fund_id?: string | null;
+  env_id?: string | null;
   name: string;
   description?: string;
   status: string;
+  model_type?: string;
+  strategy_type?: string;
   created_by?: string;
   approved_at?: string;
   approved_by?: string;
   created_at: string;
+  updated_at?: string;
+};
+
+export type ModelScenario = {
+  id: string;
+  model_id: string;
+  name: string;
+  description?: string;
+  is_base: boolean;
+  created_at: string;
+  updated_at?: string;
+};
+
+export type ScenarioAsset = {
+  id: string;
+  scenario_id: string;
+  asset_id: string;
+  source_fund_id?: string | null;
+  source_investment_id?: string | null;
+  added_at: string;
+  asset_name?: string;
+  asset_type?: string;
+  fund_name?: string;
+};
+
+export type AvailableAsset = {
+  asset_id: string;
+  asset_name?: string;
+  asset_type?: string;
+  source_fund_id?: string | null;
+  source_investment_id?: string | null;
+  fund_name?: string;
+};
+
+export type ScenarioOverride = {
+  id: string;
+  scenario_id: string;
+  scope_type: string;
+  scope_id: string;
+  key: string;
+  value_json: unknown;
+  created_at: string;
+  updated_at?: string;
+};
+
+export type ScenarioRunResult = {
+  run_id: string;
+  scenario_id: string;
+  model_id: string;
+  status: string;
+  assets_processed: number;
+  summary?: Record<string, unknown>;
+};
+
+export type ModelRunDetail = {
+  id: string;
+  model_version_id?: string | null;
+  scenario_id: string;
+  status: string;
+  started_at?: string;
+  finished_at?: string;
+  inputs_hash?: string;
+  engine_version?: string;
+  outputs_json?: unknown;
+  summary_json?: unknown;
+  created_at: string;
+};
+
+export type ScenarioCompareResult = {
+  scenarios: Array<Record<string, unknown>>;
+  comparison?: Array<Record<string, unknown>> | null;
 };
 
 export type ReV2ScenarioVersion = {

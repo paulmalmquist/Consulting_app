@@ -32,7 +32,7 @@ def start_run(
     this should be dispatched to a background task.
     """
     model = re_model.get_model(model_id=model_id)
-    fund_id = UUID(str(model["fund_id"]))
+    fund_id = UUID(str(model["primary_fund_id"]))
 
     params = _default_params()
     if distribution_params:
