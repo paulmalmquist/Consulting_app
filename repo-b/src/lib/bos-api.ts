@@ -4700,7 +4700,7 @@ export type WaterfallScenarioValidation = {
   missing: MissingIngredient[];
 };
 
-export function runWaterfallScenario(params: {
+export async function runWaterfallScenario(params: {
   fund_id: string;
   env_id: string;
   business_id: string;
@@ -4708,8 +4708,10 @@ export function runWaterfallScenario(params: {
   quarter: string;
   mode?: string;
 }): Promise<WaterfallScenarioRunResult> {
-  return bosFetch(`/api/re/v2/funds/${params.fund_id}/waterfall-scenarios/run`, {
+  // Use Next.js proxy endpoint for waterfall scenarios
+  const res = await fetch(`/api/re/v2/funds/${params.fund_id}/waterfall-scenarios/run`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       env_id: params.env_id,
       business_id: params.business_id,
@@ -4718,6 +4720,8 @@ export function runWaterfallScenario(params: {
       mode: params.mode || "shadow",
     }),
   });
+  if (!res.ok) throw new Error("Waterfall scenario run failed");
+  return res.json();
 }
 
 export function listWaterfallScenarioRuns(params: {
