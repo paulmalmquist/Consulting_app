@@ -62,6 +62,6 @@ export async function POST(
     return Response.json(res.rows[0], { status: 201 });
   } catch (err) {
     console.error("[re/v2/funds/[fundId]/models POST]", err);
-    return Response.json({ error: "Internal error" }, { status: 500 });
+    return Response.json({ error: (err instanceof Error ? err.message : String(err)) || "Unknown error" }, { status: 500 });
   }
 }

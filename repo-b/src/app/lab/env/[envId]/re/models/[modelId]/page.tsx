@@ -104,8 +104,8 @@ async function setModelOverride(modelId: string, body: Record<string, unknown>):
 
 interface Asset {
   asset_id: string;
-  asset_name: string;
-  property_type?: string;
+  name: string;
+  sector?: string;
   state?: string;
   fund_id?: string;
 }
@@ -190,10 +190,10 @@ function ScopeTab({
                 />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-bm-text truncate">
-                    {asset.asset_name}
+                    {asset.name}
                   </p>
                   <p className="text-xs text-bm-muted2 mt-0.5">
-                    {asset.property_type && `${asset.property_type}`}
+                    {asset.sector && `${asset.sector}`}
                     {asset.state && ` · ${asset.state}`}
                   </p>
                 </div>
@@ -239,6 +239,12 @@ export default function ModelWorkspacePage() {
   const [ovScope, setOvScope] = useState("fund");
   const [ovNodeId, setOvNodeId] = useState("");
   const [ovReason, setOvReason] = useState("");
+
+  // Monte Carlo state
+  const [mcSims, setMcSims] = useState(1000);
+  const [mcSeed, setMcSeed] = useState(42);
+  const [mcRunning, setMcRunning] = useState(false);
+  const [mcResult, setMcResult] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     if (!modelId || !envId) return;
@@ -311,6 +317,34 @@ export default function ModelWorkspacePage() {
     }
   };
 
+  const handleRunMonteCarlo = async () => {
+    if (!modelId) return;
+    if (scope.length === 0) {
+      setError("Cannot run Monte Carlo: Add at least one entity to scope first.");
+      return;
+    }
+    try {
+      setMcRunning(true);
+      setError(null);
+      const res = await fetch(`/api/re/v2/models/${modelId}/monte-carlo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ simulations: mcSims, seed: mcSeed }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: "Unknown error" }));
+        setError(data.error || "Monte Carlo simulation failed");
+        return;
+      }
+      const result = await res.json();
+      setMcResult(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Monte Carlo simulation failed");
+    } finally {
+      setMcRunning(false);
+    }
+  };
+
   if (loading) {
     return <div className="p-6 text-sm text-bm-muted2">Loading model...</div>;
   }
@@ -370,7 +404,7 @@ export default function ModelWorkspacePage() {
           return (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => { setError(null); setActiveTab(tab.key); }}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition ${
                 activeTab === tab.key
                   ? "bg-bm-surface/50 text-bm-text font-medium"
@@ -411,17 +445,23 @@ export default function ModelWorkspacePage() {
             <button
               onClick={handleRunModel}
               disabled={scope.length === 0}
-              title={scope.length === 0 ? "Add entities to scope before running" : ""}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-disabled={scope.length === 0}
+              title={scope.length === 0 ? "Add at least one entity in the Scope tab before running" : "Run the model against all scoped entities"}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90 disabled:opacity-40 disabled:cursor-not-allowed"
               data-testid="run-model-btn"
             >
               <Play size={14} /> Run Model
             </button>
             <button
-              className="inline-flex items-center gap-1.5 rounded-lg border border-bm-border px-4 py-2 text-sm hover:bg-bm-surface/40"
+              type="button"
+              onClick={handleRunMonteCarlo}
+              disabled={scope.length === 0 || mcRunning}
+              aria-disabled={scope.length === 0 || mcRunning}
+              title={scope.length === 0 ? "Add entities to scope before running Monte Carlo" : "Run Monte Carlo risk simulation"}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-bm-border px-4 py-2 text-sm hover:bg-bm-surface/40 disabled:opacity-40 disabled:cursor-not-allowed"
               data-testid="run-mc-btn"
             >
-              <Activity size={14} /> Run Monte Carlo
+              <Activity size={14} /> {mcRunning ? "Running..." : "Run Monte Carlo"}
             </button>
           </div>
         </div>
@@ -546,8 +586,9 @@ export default function ModelWorkspacePage() {
           <button
             onClick={handleRunModel}
             disabled={scope.length === 0}
-            title={scope.length === 0 ? "Add entities to scope before running" : ""}
-            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-disabled={scope.length === 0}
+            title={scope.length === 0 ? "Add at least one entity in the Scope tab before running" : "Run the model against all scoped entities"}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90 disabled:opacity-40 disabled:cursor-not-allowed"
             data-testid="run-model-impact-btn"
           >
             <Play size={14} /> Run Model
@@ -567,7 +608,8 @@ export default function ModelWorkspacePage() {
               Simulations
               <input
                 type="number"
-                defaultValue={1000}
+                value={mcSims}
+                onChange={(e) => setMcSims(parseInt(e.target.value) || 1000)}
                 min={100}
                 max={10000}
                 className="ml-2 w-24 rounded-lg border border-bm-border bg-bm-surface px-2 py-1 text-sm"
@@ -578,18 +620,30 @@ export default function ModelWorkspacePage() {
               Seed
               <input
                 type="number"
-                defaultValue={42}
+                value={mcSeed}
+                onChange={(e) => setMcSeed(parseInt(e.target.value) || 42)}
                 className="ml-2 w-20 rounded-lg border border-bm-border bg-bm-surface px-2 py-1 text-sm"
                 data-testid="mc-seed-input"
               />
             </label>
             <button
-              className="inline-flex items-center gap-1.5 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90"
+              type="button"
+              onClick={handleRunMonteCarlo}
+              disabled={scope.length === 0 || mcRunning}
+              aria-disabled={scope.length === 0 || mcRunning}
+              title={scope.length === 0 ? "Add entities to scope before running" : "Run Monte Carlo risk simulation"}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90 disabled:opacity-40 disabled:cursor-not-allowed"
               data-testid="run-mc-btn"
             >
-              <Play size={14} /> Run Monte Carlo
+              <Play size={14} /> {mcRunning ? "Running..." : "Run Monte Carlo"}
             </button>
           </div>
+          {mcResult && (
+            <div className="mt-4 rounded-xl border border-bm-border/70 bg-bm-surface/30 p-4 text-left">
+              <h4 className="text-xs uppercase tracking-[0.12em] text-bm-muted2 mb-2">Simulation Results</h4>
+              <pre className="text-xs text-bm-text overflow-x-auto">{JSON.stringify(mcResult, null, 2)}</pre>
+            </div>
+          )}
         </div>
       )}
 

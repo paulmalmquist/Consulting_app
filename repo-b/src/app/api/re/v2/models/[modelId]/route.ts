@@ -31,7 +31,7 @@ export async function GET(
     return Response.json(res.rows[0]);
   } catch (err) {
     console.error("[re/v2/models/[modelId]] DB error", err);
-    return Response.json({ error: "Internal error" }, { status: 500 });
+    return Response.json({ error: (err instanceof Error ? err.message : String(err)) || "Unknown error" }, { status: 500 });
   }
 }
 
@@ -66,6 +66,6 @@ export async function PATCH(
     return Response.json(res.rows[0]);
   } catch (err) {
     console.error("[re/v2/models/[modelId] PATCH] DB error", err);
-    return Response.json({ error: "Internal error" }, { status: 500 });
+    return Response.json({ error: (err instanceof Error ? err.message : String(err)) || "Unknown error" }, { status: 500 });
   }
 }

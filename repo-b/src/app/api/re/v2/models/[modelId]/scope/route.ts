@@ -27,8 +27,9 @@ export async function GET(
     );
     return Response.json(res.rows);
   } catch (err) {
-    console.error("[re/v2/models/[modelId]/scope GET] DB error", err);
-    return Response.json({ error: "Internal error" }, { status: 500 });
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("[re/v2/models/[modelId]/scope GET] DB error", { error: errorMessage, code: (err as any)?.code });
+    return Response.json({ error: errorMessage || "Failed to load scope" }, { status: 500 });
   }
 }
 
@@ -64,8 +65,9 @@ export async function POST(
     );
     return Response.json(res.rows[0], { status: 201 });
   } catch (err) {
-    console.error("[re/v2/models/[modelId]/scope POST] DB error", err);
-    return Response.json({ error: "Internal error" }, { status: 500 });
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("[re/v2/models/[modelId]/scope POST] DB error", { error: errorMessage, code: (err as any)?.code });
+    return Response.json({ error: errorMessage || "Failed to update scope" }, { status: 500 });
   }
 }
 
@@ -103,7 +105,8 @@ export async function DELETE(
 
     return Response.json({ success: true }, { status: 200 });
   } catch (err) {
-    console.error("[re/v2/models/[modelId]/scope DELETE] DB error", err);
-    return Response.json({ error: "Internal error" }, { status: 500 });
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("[re/v2/models/[modelId]/scope DELETE] DB error", { error: errorMessage, code: (err as any)?.code });
+    return Response.json({ error: errorMessage || "Failed to remove from scope" }, { status: 500 });
   }
 }

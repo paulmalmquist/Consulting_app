@@ -56,7 +56,7 @@ export async function GET(
     return Response.json(res.rows);
   } catch (err) {
     console.error("[re/v2/funds/[fundId]/capital-snapshots GET]", err);
-    return Response.json({ error: "Internal error" }, { status: 500 });
+    return Response.json({ error: (err instanceof Error ? err.message : String(err)) || "Unknown error" }, { status: 500 });
   }
 }
 
@@ -108,6 +108,6 @@ export async function POST(
     return Response.json(res.rows, { status: 201 });
   } catch (err) {
     console.error("[re/v2/funds/[fundId]/capital-snapshots POST]", err);
-    return Response.json({ error: "Internal error" }, { status: 500 });
+    return Response.json({ error: (err instanceof Error ? err.message : String(err)) || "Unknown error" }, { status: 500 });
   }
 }

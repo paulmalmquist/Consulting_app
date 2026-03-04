@@ -30,8 +30,9 @@ export async function GET(
     );
     return Response.json(res.rows);
   } catch (err) {
-    console.error("[re/v2/models/[modelId]/overrides GET] DB error", err);
-    return Response.json({ error: "Internal error" }, { status: 500 });
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("[re/v2/models/[modelId]/overrides GET] DB error", { error: errorMessage, code: (err as any)?.code });
+    return Response.json({ error: errorMessage || "Failed to load overrides" }, { status: 500 });
   }
 }
 

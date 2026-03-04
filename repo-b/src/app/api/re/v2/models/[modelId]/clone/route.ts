@@ -24,9 +24,9 @@ export async function POST(
 
     // Get the source model
     const sourceRes = await client.query(
-      `SELECT id, fund_id, name, description, status, strategy_type, created_by, created_at
+      `SELECT model_id, fund_id, name, description, status, strategy_type, created_by, created_at
        FROM re_model
-       WHERE id = $1::uuid
+       WHERE model_id = $1::uuid
        LIMIT 1`,
       [params.modelId]
     );
@@ -37,7 +37,7 @@ export async function POST(
     }
 
     const source = sourceRes.rows[0] as {
-      id: string;
+      model_id: string;
       fund_id: string;
       name: string;
       description: string | null;
