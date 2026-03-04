@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS app.env_business_bindings (
   binding_id   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id       uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id  uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id  uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   created_at   timestamptz NOT NULL DEFAULT now(),
   updated_at   timestamptz NOT NULL DEFAULT now(),
   UNIQUE (env_id)

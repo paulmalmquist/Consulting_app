@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS credit_cases (
   case_id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id               uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id          uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id          uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   case_number          text NOT NULL,
   borrower_name        text NOT NULL,
   facility_type        text,
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS credit_cases (
 CREATE TABLE IF NOT EXISTS credit_underwriting_versions (
   underwriting_version_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                  uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id             uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id             uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   case_id                 uuid NOT NULL REFERENCES credit_cases(case_id) ON DELETE CASCADE,
   version_no              int NOT NULL,
   pd                      numeric(18,12),
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS credit_underwriting_versions (
 CREATE TABLE IF NOT EXISTS credit_committee_decisions (
   committee_decision_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id           uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id           uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   case_id               uuid NOT NULL REFERENCES credit_cases(case_id) ON DELETE CASCADE,
   decision_status       text NOT NULL DEFAULT 'pending',
   decision_date         date,
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS credit_committee_decisions (
 CREATE TABLE IF NOT EXISTS credit_facilities (
   facility_id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id           uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id           uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   case_id               uuid NOT NULL REFERENCES credit_cases(case_id) ON DELETE CASCADE,
   facility_ref          text NOT NULL,
   principal_amount      numeric(28,12) NOT NULL DEFAULT 0,
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS credit_facilities (
 CREATE TABLE IF NOT EXISTS credit_covenants (
   covenant_id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id           uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id           uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   case_id               uuid NOT NULL REFERENCES credit_cases(case_id) ON DELETE CASCADE,
   covenant_name         text NOT NULL,
   threshold_value       numeric(28,12),
@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS credit_covenants (
 CREATE TABLE IF NOT EXISTS credit_monitoring_events (
   monitoring_event_id   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id           uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id           uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   case_id               uuid NOT NULL REFERENCES credit_cases(case_id) ON DELETE CASCADE,
   event_date            date NOT NULL,
   event_type            text NOT NULL,
@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS credit_monitoring_events (
 CREATE TABLE IF NOT EXISTS credit_watchlist_cases (
   watchlist_id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id           uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id           uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   case_id               uuid NOT NULL REFERENCES credit_cases(case_id) ON DELETE CASCADE,
   watch_reason          text,
   opened_at             timestamptz NOT NULL DEFAULT now(),
@@ -138,7 +138,7 @@ CREATE TABLE IF NOT EXISTS credit_watchlist_cases (
 CREATE TABLE IF NOT EXISTS credit_workout_cases (
   workout_id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id           uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id           uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   case_id               uuid NOT NULL REFERENCES credit_cases(case_id) ON DELETE CASCADE,
   strategy              text,
   recovery_estimate     numeric(28,12) NOT NULL DEFAULT 0,

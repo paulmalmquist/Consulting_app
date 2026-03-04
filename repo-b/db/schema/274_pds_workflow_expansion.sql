@@ -17,7 +17,7 @@ ALTER TABLE IF EXISTS pds_contracts
 CREATE TABLE IF NOT EXISTS pds_vendors (
   vendor_id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id              uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id         uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id         uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   vendor_name         text NOT NULL,
   trade               text,
   license_number      text,
@@ -45,7 +45,7 @@ ALTER TABLE IF EXISTS pds_contracts
 CREATE TABLE IF NOT EXISTS pds_rfis (
   rfi_id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id              uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id         uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id         uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   project_id          uuid NOT NULL REFERENCES pds_projects(project_id) ON DELETE CASCADE,
   rfi_number          text NOT NULL,
   subject             text NOT NULL,
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS pds_rfis (
 CREATE TABLE IF NOT EXISTS pds_submittals (
   submittal_id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id              uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id         uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id         uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   project_id          uuid NOT NULL REFERENCES pds_projects(project_id) ON DELETE CASCADE,
   vendor_id           uuid REFERENCES pds_vendors(vendor_id) ON DELETE SET NULL,
   submittal_number    text NOT NULL,
@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS pds_submittals (
 CREATE TABLE IF NOT EXISTS pds_documents (
   pds_document_id     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id              uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id         uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id         uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   project_id          uuid NOT NULL REFERENCES pds_projects(project_id) ON DELETE CASCADE,
   rfi_id              uuid REFERENCES pds_rfis(rfi_id) ON DELETE SET NULL,
   submittal_id        uuid REFERENCES pds_submittals(submittal_id) ON DELETE SET NULL,

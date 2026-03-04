@@ -2,7 +2,7 @@
 -- Support tables for reporting lineage against app-provisioning state.
 
 CREATE TABLE IF NOT EXISTS app.business_template_snapshot (
-  business_id         uuid PRIMARY KEY REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id         uuid PRIMARY KEY REFERENCES business(business_id) ON DELETE CASCADE,
   template_key        text NOT NULL,
   expected_departments text[] NOT NULL DEFAULT '{}',
   expected_capabilities text[] NOT NULL DEFAULT '{}',

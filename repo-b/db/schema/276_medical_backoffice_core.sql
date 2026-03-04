@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS medoffice_properties (
   property_id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                 uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id            uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id            uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   property_name          text NOT NULL,
   market                 text,
   status                 text NOT NULL DEFAULT 'active',
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS medoffice_properties (
 CREATE TABLE IF NOT EXISTS medoffice_tenants (
   tenant_id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                 uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id            uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id            uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   property_id            uuid NOT NULL REFERENCES medoffice_properties(property_id) ON DELETE CASCADE,
   legal_name             text NOT NULL,
   specialty              text,
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS medoffice_tenants (
 CREATE TABLE IF NOT EXISTS medoffice_leases (
   lease_id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                 uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id            uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id            uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   property_id            uuid NOT NULL REFERENCES medoffice_properties(property_id) ON DELETE CASCADE,
   tenant_id              uuid NOT NULL REFERENCES medoffice_tenants(tenant_id) ON DELETE CASCADE,
   lease_number           text NOT NULL,
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS medoffice_leases (
 CREATE TABLE IF NOT EXISTS medoffice_ar_entries (
   ar_entry_id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                 uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id            uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id            uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   tenant_id              uuid NOT NULL REFERENCES medoffice_tenants(tenant_id) ON DELETE CASCADE,
   period                 text NOT NULL,
   invoice_amount         numeric(28,12) NOT NULL DEFAULT 0,
@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS medoffice_ar_entries (
 CREATE TABLE IF NOT EXISTS medoffice_compliance_items (
   compliance_item_id     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                 uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id            uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id            uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   property_id            uuid NOT NULL REFERENCES medoffice_properties(property_id) ON DELETE CASCADE,
   compliance_type        text NOT NULL,
   due_date               date,
@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS medoffice_compliance_items (
 CREATE TABLE IF NOT EXISTS medoffice_work_orders (
   work_order_id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                 uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id            uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id            uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   property_id            uuid NOT NULL REFERENCES medoffice_properties(property_id) ON DELETE CASCADE,
   tenant_id              uuid REFERENCES medoffice_tenants(tenant_id) ON DELETE SET NULL,
   title                  text NOT NULL,
@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS medoffice_work_orders (
 CREATE TABLE IF NOT EXISTS medoffice_vendor_contracts (
   vendor_contract_id     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                 uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id            uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id            uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   property_id            uuid NOT NULL REFERENCES medoffice_properties(property_id) ON DELETE CASCADE,
   vendor_name            text NOT NULL,
   service_type           text,
@@ -138,7 +138,7 @@ CREATE TABLE IF NOT EXISTS medoffice_vendor_contracts (
 CREATE TABLE IF NOT EXISTS medoffice_capex_plans (
   capex_plan_id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                 uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id            uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id            uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   property_id            uuid NOT NULL REFERENCES medoffice_properties(property_id) ON DELETE CASCADE,
   plan_name              text NOT NULL,
   horizon_years          int NOT NULL DEFAULT 5,

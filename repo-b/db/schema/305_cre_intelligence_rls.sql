@@ -28,7 +28,7 @@ BEGIN
            USING (
              EXISTS (
                SELECT 1
-               FROM app.businesses b
+               FROM business b
                WHERE b.business_id = %I.business_id
                  AND b.tenant_id = current_tenant_id()
              )
@@ -36,7 +36,7 @@ BEGIN
            WITH CHECK (
              EXISTS (
                SELECT 1
-               FROM app.businesses b
+               FROM business b
                WHERE b.business_id = %I.business_id
                  AND b.tenant_id = current_tenant_id()
              )
@@ -63,7 +63,7 @@ BEGIN
     EXISTS (
       SELECT 1
       FROM forecast_questions fq
-      JOIN app.businesses b ON b.business_id = fq.business_id
+      JOIN business b ON b.business_id = fq.business_id
       WHERE fq.question_id = forecast_signal_observation.question_id
         AND b.tenant_id = current_tenant_id()
     )
@@ -72,7 +72,7 @@ BEGIN
     EXISTS (
       SELECT 1
       FROM forecast_questions fq
-      JOIN app.businesses b ON b.business_id = fq.business_id
+      JOIN business b ON b.business_id = fq.business_id
       WHERE fq.question_id = forecast_signal_observation.question_id
         AND b.tenant_id = current_tenant_id()
     )
@@ -109,4 +109,3 @@ BEGIN
     END;
   END LOOP;
 END $$;
-

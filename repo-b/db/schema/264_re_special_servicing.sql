@@ -122,7 +122,7 @@ $$;
 
 CREATE TABLE IF NOT EXISTS app.re_trusts (
   trust_id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  business_id      uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id      uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   name             text NOT NULL,
   external_ids     jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_by       text,
@@ -132,7 +132,7 @@ CREATE TABLE IF NOT EXISTS app.re_trusts (
 CREATE TABLE IF NOT EXISTS app.re_loans (
   loan_id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   trust_id               uuid NOT NULL REFERENCES app.re_trusts(trust_id) ON DELETE CASCADE,
-  business_id            uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id            uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   loan_identifier        text NOT NULL,
   external_ids           jsonb NOT NULL DEFAULT '{}'::jsonb,
   original_balance_cents bigint NOT NULL DEFAULT 0,
@@ -149,7 +149,7 @@ CREATE TABLE IF NOT EXISTS app.re_loans (
 CREATE TABLE IF NOT EXISTS app.re_properties (
   property_id       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   loan_id           uuid NOT NULL REFERENCES app.re_loans(loan_id) ON DELETE CASCADE,
-  business_id       uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id       uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   address_line1     text,
   address_line2     text,
   city              text,
@@ -167,7 +167,7 @@ CREATE TABLE IF NOT EXISTS app.re_properties (
 CREATE TABLE IF NOT EXISTS app.re_borrowers (
   borrower_id       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   loan_id           uuid NOT NULL REFERENCES app.re_loans(loan_id) ON DELETE CASCADE,
-  business_id       uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id       uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   name              text NOT NULL,
   sponsor           text,
   contacts_json     jsonb NOT NULL DEFAULT '[]'::jsonb,
@@ -178,7 +178,7 @@ CREATE TABLE IF NOT EXISTS app.re_borrowers (
 CREATE TABLE IF NOT EXISTS app.re_surveillance_periods (
   surveillance_id    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   loan_id            uuid NOT NULL REFERENCES app.re_loans(loan_id) ON DELETE CASCADE,
-  business_id        uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id        uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   period_end_date    date NOT NULL,
   metrics_json       jsonb NOT NULL DEFAULT '{}'::jsonb,
   dscr               numeric(12,6),
@@ -193,7 +193,7 @@ CREATE TABLE IF NOT EXISTS app.re_surveillance_periods (
 CREATE TABLE IF NOT EXISTS app.re_covenants (
   covenant_id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   loan_id             uuid NOT NULL REFERENCES app.re_loans(loan_id) ON DELETE CASCADE,
-  business_id         uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id         uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   covenant_type       text NOT NULL,
   threshold_json      jsonb NOT NULL DEFAULT '{}'::jsonb,
   measurement_method  text,
@@ -206,7 +206,7 @@ CREATE TABLE IF NOT EXISTS app.re_covenants (
 CREATE TABLE IF NOT EXISTS app.re_events (
   event_id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   loan_id             uuid NOT NULL REFERENCES app.re_loans(loan_id) ON DELETE CASCADE,
-  business_id         uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id         uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   event_type          app.re_event_type NOT NULL,
   event_date          date NOT NULL,
   severity            app.re_event_severity NOT NULL DEFAULT 'low',
@@ -219,7 +219,7 @@ CREATE TABLE IF NOT EXISTS app.re_events (
 CREATE TABLE IF NOT EXISTS app.re_workout_cases (
   case_id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   loan_id             uuid NOT NULL REFERENCES app.re_loans(loan_id) ON DELETE CASCADE,
-  business_id         uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id         uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   case_status         app.re_workout_case_status NOT NULL DEFAULT 'open',
   opened_at           timestamptz NOT NULL DEFAULT now(),
   closed_at           timestamptz,
@@ -232,7 +232,7 @@ CREATE TABLE IF NOT EXISTS app.re_workout_cases (
 CREATE TABLE IF NOT EXISTS app.re_workout_actions (
   action_id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   case_id              uuid NOT NULL REFERENCES app.re_workout_cases(case_id) ON DELETE CASCADE,
-  business_id          uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id          uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   action_type          app.re_workout_action_type NOT NULL,
   status               app.re_workout_action_status NOT NULL DEFAULT 'open',
   due_date             date,
@@ -247,7 +247,7 @@ CREATE TABLE IF NOT EXISTS app.re_workout_actions (
 CREATE TABLE IF NOT EXISTS app.re_underwrite_runs (
   underwrite_run_id     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   loan_id               uuid NOT NULL REFERENCES app.re_loans(loan_id) ON DELETE CASCADE,
-  business_id           uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id           uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   execution_id          uuid REFERENCES app.executions(execution_id) ON DELETE SET NULL,
   run_at                timestamptz NOT NULL DEFAULT now(),
   inputs_json           jsonb NOT NULL DEFAULT '{}'::jsonb,

@@ -7,7 +7,7 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE TABLE IF NOT EXISTS dim_property (
   property_id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                  uuid NOT NULL,
-  business_id             uuid NOT NULL REFERENCES app.businesses(business_id),
+  business_id             uuid NOT NULL REFERENCES business(business_id),
   property_name           text NOT NULL,
   address                 text,
   city                    text,
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS dim_building (
 CREATE TABLE IF NOT EXISTS dim_entity (
   entity_id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                  uuid NOT NULL,
-  business_id             uuid NOT NULL REFERENCES app.businesses(business_id),
+  business_id             uuid NOT NULL REFERENCES business(business_id),
   entity_type             text NOT NULL
                           CHECK (entity_type IN ('owner','borrower','lender','manager','tenant','broker','analyst','insurer','servicer','other')),
   name                    text NOT NULL,
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS dim_entity (
 CREATE TABLE IF NOT EXISTS bridge_property_entity (
   bridge_id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                  uuid NOT NULL,
-  business_id             uuid NOT NULL REFERENCES app.businesses(business_id),
+  business_id             uuid NOT NULL REFERENCES business(business_id),
   property_id             uuid NOT NULL REFERENCES dim_property(property_id) ON DELETE CASCADE,
   entity_id               uuid NOT NULL REFERENCES dim_entity(entity_id) ON DELETE CASCADE,
   role                    text NOT NULL,
@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS cre_geography_alias (
 CREATE TABLE IF NOT EXISTS bridge_property_geography (
   bridge_id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                  uuid NOT NULL,
-  business_id             uuid NOT NULL REFERENCES app.businesses(business_id),
+  business_id             uuid NOT NULL REFERENCES business(business_id),
   property_id             uuid NOT NULL REFERENCES dim_property(property_id) ON DELETE CASCADE,
   geography_id            uuid NOT NULL REFERENCES dim_geography(geography_id) ON DELETE CASCADE,
   geography_type          text NOT NULL,
@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS bridge_property_geography (
 CREATE TABLE IF NOT EXISTS fact_property_timeseries (
   fact_id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                  uuid NOT NULL,
-  business_id             uuid NOT NULL REFERENCES app.businesses(business_id),
+  business_id             uuid NOT NULL REFERENCES business(business_id),
   property_id             uuid NOT NULL REFERENCES dim_property(property_id) ON DELETE CASCADE,
   period                  date NOT NULL,
   metric_key              text NOT NULL,
@@ -147,7 +147,7 @@ CREATE TABLE IF NOT EXISTS fact_market_timeseries (
 CREATE TABLE IF NOT EXISTS doc_store_index (
   doc_id                  uuid PRIMARY KEY,
   env_id                  uuid NOT NULL,
-  business_id             uuid NOT NULL REFERENCES app.businesses(business_id),
+  business_id             uuid NOT NULL REFERENCES business(business_id),
   property_id             uuid REFERENCES dim_property(property_id) ON DELETE SET NULL,
   entity_id               uuid REFERENCES dim_entity(entity_id) ON DELETE SET NULL,
   type                    text NOT NULL,
@@ -165,7 +165,7 @@ CREATE TABLE IF NOT EXISTS doc_store_index (
 CREATE TABLE IF NOT EXISTS feature_store (
   feature_id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                  uuid NOT NULL,
-  business_id             uuid NOT NULL REFERENCES app.businesses(business_id),
+  business_id             uuid NOT NULL REFERENCES business(business_id),
   entity_scope            text NOT NULL,
   entity_id               uuid NOT NULL,
   period                  date NOT NULL,
@@ -180,7 +180,7 @@ CREATE TABLE IF NOT EXISTS feature_store (
 CREATE TABLE IF NOT EXISTS forecast_registry (
   forecast_id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                  uuid NOT NULL,
-  business_id             uuid NOT NULL REFERENCES app.businesses(business_id),
+  business_id             uuid NOT NULL REFERENCES business(business_id),
   scope                   text NOT NULL,
   entity_id               uuid NOT NULL,
   target                  text NOT NULL,
@@ -201,7 +201,7 @@ CREATE TABLE IF NOT EXISTS forecast_registry (
 CREATE TABLE IF NOT EXISTS forecast_questions (
   question_id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                  uuid NOT NULL,
-  business_id             uuid NOT NULL REFERENCES app.businesses(business_id),
+  business_id             uuid NOT NULL REFERENCES business(business_id),
   text                    text NOT NULL,
   scope                   text NOT NULL,
   entity_id               uuid,
@@ -291,7 +291,7 @@ CREATE TABLE IF NOT EXISTS cre_ingest_run (
 CREATE TABLE IF NOT EXISTS cre_entity_resolution_candidate (
   candidate_id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                  uuid NOT NULL,
-  business_id             uuid NOT NULL REFERENCES app.businesses(business_id),
+  business_id             uuid NOT NULL REFERENCES business(business_id),
   property_id             uuid REFERENCES dim_property(property_id) ON DELETE CASCADE,
   entity_type             text NOT NULL,
   candidate_type          text NOT NULL
@@ -311,7 +311,7 @@ CREATE TABLE IF NOT EXISTS cre_entity_resolution_decision (
   decision_id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   candidate_id            uuid NOT NULL REFERENCES cre_entity_resolution_candidate(candidate_id) ON DELETE CASCADE,
   env_id                  uuid NOT NULL,
-  business_id             uuid NOT NULL REFERENCES app.businesses(business_id),
+  business_id             uuid NOT NULL REFERENCES business(business_id),
   property_id             uuid REFERENCES dim_property(property_id) ON DELETE SET NULL,
   action                  text NOT NULL,
   approved_by             text NOT NULL,
@@ -336,7 +336,7 @@ CREATE TABLE IF NOT EXISTS forecast_signal_observation (
 CREATE TABLE IF NOT EXISTS forecast_backtest_result (
   backtest_id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                  uuid NOT NULL,
-  business_id             uuid NOT NULL REFERENCES app.businesses(business_id),
+  business_id             uuid NOT NULL REFERENCES business(business_id),
   scope                   text NOT NULL,
   entity_id               uuid NOT NULL,
   target                  text NOT NULL,

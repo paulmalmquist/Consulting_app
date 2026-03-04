@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS legal_matters (
   matter_id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id           uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id           uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   matter_number         text NOT NULL,
   title                 text NOT NULL,
   matter_type           text NOT NULL,
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS legal_matters (
 CREATE TABLE IF NOT EXISTS legal_counterparties (
   legal_counterparty_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id           uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id           uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   legal_name            text NOT NULL,
   entity_type           text,
   jurisdiction          text,
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS legal_counterparties (
 CREATE TABLE IF NOT EXISTS legal_contracts (
   legal_contract_id      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                 uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id            uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id            uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   matter_id              uuid REFERENCES legal_matters(matter_id) ON DELETE SET NULL,
   contract_ref           text NOT NULL,
   contract_type          text NOT NULL,
@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS legal_contracts (
 CREATE TABLE IF NOT EXISTS legal_contract_obligations (
   obligation_id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                 uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id            uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id            uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   legal_contract_id      uuid NOT NULL REFERENCES legal_contracts(legal_contract_id) ON DELETE CASCADE,
   obligation_text        text NOT NULL,
   owner                  text,
@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS legal_contract_obligations (
 CREATE TABLE IF NOT EXISTS legal_deadlines (
   deadline_id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                 uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id            uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id            uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   matter_id              uuid NOT NULL REFERENCES legal_matters(matter_id) ON DELETE CASCADE,
   deadline_type          text NOT NULL,
   due_date               date NOT NULL,
@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS legal_deadlines (
 CREATE TABLE IF NOT EXISTS legal_approvals (
   legal_approval_id      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                 uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id            uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id            uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   matter_id              uuid NOT NULL REFERENCES legal_matters(matter_id) ON DELETE CASCADE,
   approval_type          text NOT NULL,
   approver               text,
@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS legal_approvals (
 CREATE TABLE IF NOT EXISTS legal_spend_entries (
   legal_spend_entry_id   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                 uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id            uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id            uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   matter_id              uuid NOT NULL REFERENCES legal_matters(matter_id) ON DELETE CASCADE,
   outside_counsel        text,
   invoice_ref            text,
@@ -142,7 +142,7 @@ CREATE TABLE IF NOT EXISTS legal_spend_entries (
 CREATE TABLE IF NOT EXISTS legal_litigation_cases (
   litigation_case_id     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   env_id                 uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
-  business_id            uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
+  business_id            uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
   matter_id              uuid NOT NULL REFERENCES legal_matters(matter_id) ON DELETE CASCADE,
   jurisdiction           text,
   claims                 text,
