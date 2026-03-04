@@ -1194,7 +1194,7 @@ function ReturnsTab({ envId, businessId, fundId, quarter, onNavigateToRunCenter 
           <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Gross → Net Bridge</h3>
           <div className="space-y-2">
             {[
-              { label: "Gross Return", value: fmtMoney(b.gross_return), color: "text-green-400" },
+              { label: "Gross IRR", value: fmtPercent(b.gross_return), color: "text-green-400" },
               { label: "− Management Fees", value: `(${fmtMoney(b.mgmt_fees)})`, color: "text-red-400" },
               { label: "− Fund Expenses", value: `(${fmtMoney(b.fund_expenses)})`, color: "text-red-400" },
               { label: "− Carry (Shadow)", value: `(${fmtMoney(b.carry_shadow)})`, color: "text-red-400" },
@@ -1205,9 +1205,9 @@ function ReturnsTab({ envId, businessId, fundId, quarter, onNavigateToRunCenter 
               </div>
             ))}
             <div className="flex items-center justify-between border-t-2 border-bm-border/60 pt-2">
-              <span className="text-sm font-semibold">= Net Return</span>
+              <span className="text-sm font-semibold">= Net IRR</span>
               <span className={`text-lg font-bold ${Number(b.net_return) >= 0 ? "text-green-400" : "text-red-400"}`}>
-                {fmtMoney(b.net_return)}
+                {fmtPercent(b.net_return)}
               </span>
             </div>
           </div>
@@ -1960,7 +1960,7 @@ function LpSummaryTab({ envId, businessId, fundId, quarter }: {
           <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Gross → Net Bridge</h3>
           <div className="space-y-2">
             {[
-              { label: "Gross Return", value: fmtMoney(gnb.gross_return), color: "text-green-400" },
+              { label: "Gross IRR", value: fmtPercent(gnb.gross_return), color: "text-green-400" },
               { label: "− Management Fees", value: `(${fmtMoney(gnb.mgmt_fees)})`, color: "text-red-400" },
               { label: "− Fund Expenses", value: `(${fmtMoney(gnb.fund_expenses)})`, color: "text-red-400" },
               { label: "− Carry", value: `(${fmtMoney(gnb.carry)})`, color: "text-red-400" },
@@ -1971,9 +1971,9 @@ function LpSummaryTab({ envId, businessId, fundId, quarter }: {
               </div>
             ))}
             <div className="flex items-center justify-between border-t-2 border-bm-border/60 pt-2">
-              <span className="text-sm font-semibold">= Net Return</span>
+              <span className="text-sm font-semibold">= Net IRR</span>
               <span className={`text-lg font-bold ${Number(gnb.net_return) >= 0 ? "text-green-400" : "text-red-400"}`}>
-                {fmtMoney(gnb.net_return)}
+                {fmtPercent(gnb.net_return)}
               </span>
             </div>
           </div>
