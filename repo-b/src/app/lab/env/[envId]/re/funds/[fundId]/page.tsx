@@ -123,6 +123,7 @@ export default function FundDetailPage({
   const [lineageError, setLineageError] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [covenantAlerts, setCovenantAlerts] = useState<FiWatchlistEvent[]>([]);
+  const [lastCloseQuarter, setLastCloseQuarter] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const quarter = pickCurrentQuarter();
@@ -151,6 +152,15 @@ export default function FundDetailPage({
           .then((wl) => setCovenantAlerts(wl.filter((e: FiWatchlistEvent) => e.severity === "HIGH" || e.severity === "CRITICAL")))
           .catch(() => setCovenantAlerts([]));
       }
+      // Derive last close quarter from most recent successful QUARTER_CLOSE run
+      listReV2Runs(params.fundId)
+        .then((allRuns) => {
+          const closes = allRuns
+            .filter((r) => r.run_type === "quarter_close" && r.status === "success")
+            .sort((a, b) => b.quarter.localeCompare(a.quarter));
+          setLastCloseQuarter(closes.length > 0 ? closes[0].quarter : null);
+        })
+        .catch(() => setLastCloseQuarter(null));
     } catch (err) {
       setLineageError(err instanceof Error ? err.message : "Failed to load lineage");
     } finally {
@@ -279,6 +289,11 @@ export default function FundDetailPage({
           )}
           {fund?.vintage_year && <span>Vintage {fund.vintage_year}</span>}
           {fund?.target_size && <span>Target {fmtMoney(fund.target_size)}</span>}
+          {lastCloseQuarter && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-green-500/10 border border-green-500/30 px-2 py-0.5 text-xs font-medium text-green-400">
+              Last Close: {lastCloseQuarter}
+            </span>
+          )}
           <span className="flex-1" />
           <button
             type="button"
