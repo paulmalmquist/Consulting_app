@@ -76,12 +76,12 @@ export async function GET(
          d.sponsor,
          NULL::text AS quarter_state_id,
          NULL::text AS run_id,
-         SUM(qs.nav)::float8 AS nav,
+         COALESCE(SUM(qs.nav), SUM(qs.asset_value))::float8 AS nav,
          SUM(qs.asset_value)::float8 AS gross_asset_value,
          SUM(qs.debt_balance)::float8 AS debt_balance,
          SUM(qs.cash_balance)::float8 AS cash_balance,
          NULL::float8 AS effective_ownership_percent,
-         SUM(qs.nav)::float8 AS fund_nav_contribution,
+         COALESCE(SUM(qs.nav), SUM(qs.asset_value))::float8 AS fund_nav_contribution,
          NULL::text AS inputs_hash,
          d.created_at::text,
          -- Enriched fields
@@ -158,7 +158,7 @@ async function enrichWithAssetMetrics(
        CASE WHEN SUM(qs.debt_service) > 0
          THEN (SUM(qs.noi) / SUM(qs.debt_service))::float8
          ELSE NULL END AS computed_dscr,
-       SUM(qs.nav)::float8 AS fund_nav_contribution,
+       COALESCE(SUM(qs.nav), SUM(qs.asset_value))::float8 AS fund_nav_contribution,
        (COUNT(DISTINCT a.asset_id) - COUNT(DISTINCT qs.asset_id))::int AS missing_quarter_state_count
      FROM repe_deal d
      LEFT JOIN repe_asset a ON a.deal_id = d.deal_id
