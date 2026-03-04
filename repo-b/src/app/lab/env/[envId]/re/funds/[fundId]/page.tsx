@@ -92,6 +92,24 @@ function fmtPercent(v: string | number | null | undefined): string {
   return `${(Number(v) * 100).toFixed(1)}%`;
 }
 
+const NOI_LINE_LABELS: Record<string, string> = {
+  RENT: "Rental Income",
+  OTHER_INCOME: "Other Income",
+  VACANCY: "Vacancy & Credit Loss",
+  EGI: "Effective Gross Income",
+  MGMT_FEE_PROP: "Property Mgmt Fee",
+  ADMIN: "Administrative",
+  INSURANCE: "Insurance",
+  TAXES: "Real Estate Taxes",
+  UTILITIES: "Utilities",
+  REPAIRS: "Repairs & Maintenance",
+  NOI: "Net Operating Income",
+};
+
+function fmtLineCode(code: string): string {
+  return NOI_LINE_LABELS[code] || code.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 const TABS = [
   "Overview",
   "Performance",
@@ -911,7 +929,7 @@ function VarianceTab({ envId, businessId, fundId, quarter }: {
             return (
               <div key={item.id} className="space-y-0.5">
                 <div className="flex justify-between text-xs">
-                  <span className="text-bm-muted2 truncate max-w-[150px]">{item.line_code}</span>
+                  <span className="text-bm-muted2 truncate max-w-[150px]">{fmtLineCode(item.line_code)}</span>
                   <span className={Number(item.variance_amount) >= 0 ? "text-green-400" : "text-red-400"}>
                     {fmtMoney(item.variance_amount)}
                   </span>
@@ -940,7 +958,7 @@ function VarianceTab({ envId, businessId, fundId, quarter }: {
               <div className="space-y-2">
                 {overBudget.map((item) => (
                   <div key={item.id} className="flex justify-between text-sm">
-                    <span className="text-bm-muted2">{item.line_code}</span>
+                    <span className="text-bm-muted2">{fmtLineCode(item.line_code)}</span>
                     <span className="text-green-400 font-medium">+{fmtMoney(item.variance_amount)}</span>
                   </div>
                 ))}
@@ -956,7 +974,7 @@ function VarianceTab({ envId, businessId, fundId, quarter }: {
               <div className="space-y-2">
                 {underBudget.map((item) => (
                   <div key={item.id} className="flex justify-between text-sm">
-                    <span className="text-bm-muted2">{item.line_code}</span>
+                    <span className="text-bm-muted2">{fmtLineCode(item.line_code)}</span>
                     <span className="text-red-400 font-medium">{fmtMoney(item.variance_amount)}</span>
                   </div>
                 ))}
@@ -983,7 +1001,7 @@ function VarianceTab({ envId, businessId, fundId, quarter }: {
           <tbody className="divide-y divide-bm-border/40">
             {data.items.map((item) => (
               <tr key={item.id} className="hover:bg-bm-surface/20">
-                <td className="px-4 py-3 font-medium">{item.line_code}</td>
+                <td className="px-4 py-3 font-medium">{fmtLineCode(item.line_code)}</td>
                 <td className="px-4 py-3 text-right">{fmtMoney(item.actual_amount)}</td>
                 <td className="px-4 py-3 text-right">{fmtMoney(item.plan_amount)}</td>
                 <td className={`px-4 py-3 text-right ${Number(item.variance_amount) >= 0 ? "text-green-400" : "text-red-400"}`}>
