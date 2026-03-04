@@ -4575,23 +4575,26 @@ export type CapitalAccountSnapshot = {
   created_at: string;
 };
 
-export function getCapitalSnapshots(params: {
+export async function getCapitalSnapshots(params: {
   fund_id: string;
   quarter: string;
 }): Promise<CapitalAccountSnapshot[]> {
-  return bosFetch(`/api/re/v2/funds/${params.fund_id}/capital-snapshots`, {
-    params: { quarter: params.quarter },
-  });
+  const res = await fetch(`/api/re/v2/funds/${params.fund_id}/capital-snapshots?quarter=${encodeURIComponent(params.quarter)}`);
+  if (!res.ok) return [];
+  return res.json();
 }
 
-export function computeCapitalSnapshots(
+export async function computeCapitalSnapshots(
   fundId: string,
   quarter: string,
 ): Promise<CapitalAccountSnapshot[]> {
-  return bosFetch(`/api/re/v2/funds/${fundId}/capital-snapshots/compute`, {
+  const res = await fetch(`/api/re/v2/funds/${fundId}/capital-snapshots`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ quarter }),
   });
+  if (!res.ok) return [];
+  return res.json();
 }
 
 // ── Waterfall Breakdown ─────────────────────────────────────────────────────
