@@ -24,17 +24,22 @@ interface ReModel {
 /* ── API helpers (inline until bos-api.ts is extended) ─────────── */
 
 async function listModels(fundId: string): Promise<ReModel[]> {
-  const { bosFetch } = await import("@/lib/bos-api");
-  return bosFetch(`/api/re/v2/funds/${fundId}/models`);
+  const res = await fetch(`/api/re/v2/funds/${fundId}/models`);
+  if (!res.ok) return [];
+  return res.json();
 }
 
 async function createModel(fundId: string, body: { name: string; description?: string; strategy_type?: string }): Promise<ReModel> {
-  const { bosFetch } = await import("@/lib/bos-api");
-  return bosFetch(`/api/re/v2/funds/${fundId}/models`, {
+  const res = await fetch(`/api/re/v2/funds/${fundId}/models`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
 /* ── Component ─────────────────────────────────────────────────── */
