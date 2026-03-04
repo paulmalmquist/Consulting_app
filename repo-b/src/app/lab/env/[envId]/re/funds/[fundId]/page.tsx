@@ -1832,6 +1832,14 @@ function LpSummaryTab({ envId, businessId, fundId, quarter }: {
   const fm = data.fund_metrics;
   const gnb = data.gross_net_bridge;
 
+  // Sort partners: GP first, then LPs alphabetically
+  const sortedPartners = [...data.partners].sort((a, b) => {
+    const aIsGp = a.partner_type?.toLowerCase() === "gp" ? 0 : 1;
+    const bIsGp = b.partner_type?.toLowerCase() === "gp" ? 0 : 1;
+    if (aIsGp !== bIsGp) return aIsGp - bIsGp;
+    return a.name.localeCompare(b.name);
+  });
+
   return (
     <div className="space-y-4" data-testid="lp-summary-section">
       {/* Fund-level KPIs */}
@@ -1842,6 +1850,32 @@ function LpSummaryTab({ envId, businessId, fundId, quarter }: {
         <MetricCard label="DPI" value={fm.dpi ? fmtMultiple(fm.dpi) : "—"} size="large" />
         <MetricCard label="Fund NAV" value={fmtMoney(data.fund_nav)} size="large" />
         <MetricCard label="Total Committed" value={fmtMoney(data.total_committed)} size="large" />
+      </div>
+
+      {/* Export Button */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => {
+            const csvRows = [
+              ["Partner", "Type", "Committed", "Contributed", "Distributed", "NAV Share", "DPI", "TVPI", "IRR"].join(","),
+              ...sortedPartners.map((p) =>
+                [p.name, p.partner_type, p.committed, p.contributed, p.distributed, p.nav_share || "", p.dpi || "", p.tvpi || "", p.irr || ""].join(",")
+              ),
+            ].join("\n");
+            const blob = new Blob([csvRows], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `lp_report_${quarter}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          className="rounded-lg border border-bm-accent/60 px-4 py-2 text-sm font-medium text-bm-accent hover:bg-bm-accent/10"
+          data-testid="lp-export-btn"
+        >
+          Download LP Report (CSV)
+        </button>
       </div>
 
       {/* Partner Table */}
@@ -1857,10 +1891,11 @@ function LpSummaryTab({ envId, businessId, fundId, quarter }: {
               <th className="px-4 py-3 font-medium text-right">NAV Share</th>
               <th className="px-4 py-3 font-medium text-right">DPI</th>
               <th className="px-4 py-3 font-medium text-right">TVPI</th>
+              <th className="px-4 py-3 font-medium text-right">IRR</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-bm-border/40">
-            {data.partners.map((p) => (
+            {sortedPartners.map((p) => (
               <tr key={p.partner_id} className="hover:bg-bm-surface/20">
                 <td className="px-4 py-3 font-medium">{p.name}</td>
                 <td className="px-4 py-3">
@@ -1874,6 +1909,7 @@ function LpSummaryTab({ envId, businessId, fundId, quarter }: {
                 <td className="px-4 py-3 text-right">{p.nav_share ? fmtMoney(p.nav_share) : "—"}</td>
                 <td className="px-4 py-3 text-right">{p.dpi ? fmtMultiple(p.dpi) : "—"}</td>
                 <td className="px-4 py-3 text-right">{p.tvpi ? fmtMultiple(p.tvpi) : "—"}</td>
+                <td className="px-4 py-3 text-right">{p.irr ? fmtPercent(p.irr) : "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -1884,7 +1920,7 @@ function LpSummaryTab({ envId, businessId, fundId, quarter }: {
               <td className="px-4 py-3 text-right">{fmtMoney(data.total_contributed)}</td>
               <td className="px-4 py-3 text-right">{fmtMoney(data.total_distributed)}</td>
               <td className="px-4 py-3 text-right">{fmtMoney(data.fund_nav)}</td>
-              <td className="px-4 py-3 text-right" colSpan={2} />
+              <td className="px-4 py-3 text-right" colSpan={3} />
             </tr>
           </tfoot>
         </table>

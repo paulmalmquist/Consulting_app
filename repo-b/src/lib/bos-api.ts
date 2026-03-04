@@ -4413,6 +4413,7 @@ export type LpPartnerSummary = {
   nav_share?: string;
   dpi?: string;
   tvpi?: string;
+  irr?: string;
   waterfall_allocation?: WaterfallAllocation;
 };
 
