@@ -12,6 +12,7 @@ import {
   listWaterfallScenarioRuns,
   listReV2Scenarios,
 } from "@/lib/bos-api";
+import { label, WATERFALL_TIER_LABELS, PAYOUT_TYPE_LABELS, STATUS_LABELS } from "@/lib/labels";
 
 function fmt(val: string | null | undefined, suffix = ""): string {
   if (!val) return "—";
@@ -419,7 +420,7 @@ export default function WaterfallScenarioPanel({
                     (a: WaterfallScenarioTierAllocation, i: number) => (
                       <tr key={i}>
                         <td className="px-4 py-1.5 text-xs font-mono">
-                          {a.tier_code.replace(/_/g, " ")}
+                          {label(WATERFALL_TIER_LABELS, a.tier_code)}
                         </td>
                         <td className="px-4 py-1.5">{a.partner_name}</td>
                         <td className="px-4 py-1.5 text-xs">
@@ -433,7 +434,7 @@ export default function WaterfallScenarioPanel({
                             {a.partner_type.toUpperCase()}
                           </span>
                         </td>
-                        <td className="px-4 py-1.5 text-xs">{a.payout_type}</td>
+                        <td className="px-4 py-1.5 text-xs">{label(PAYOUT_TYPE_LABELS, a.payout_type)}</td>
                         <td className="px-4 py-1.5 text-right font-mono">
                           {fmt(a.amount, "$")}
                         </td>
@@ -487,7 +488,7 @@ export default function WaterfallScenarioPanel({
                           : "bg-yellow-100 text-yellow-700"
                       }`}
                     >
-                      {r.status}
+                      {label(STATUS_LABELS, r.status)}
                     </span>
                   </td>
                   <td className="px-4 py-1.5 text-xs text-gray-500">
