@@ -396,3 +396,85 @@ export interface PdsReportPackRun {
   deterministic_deltas_json: Record<string, unknown>;
   created_at: string;
 }
+
+export interface PdsExecutiveOverview {
+  env_id: string;
+  business_id: string;
+  decisions_total: number;
+  open_queue: number;
+  critical_queue: number;
+  high_queue: number;
+  open_signals: number;
+  high_signals: number;
+  latest_kpi: Record<string, unknown> | null;
+}
+
+export interface PdsExecutiveQueueItem {
+  queue_item_id: string;
+  env_id: string;
+  business_id: string;
+  decision_code: string;
+  title: string;
+  summary: string | null;
+  priority: "low" | "medium" | "high" | "critical";
+  status: string;
+  project_id: string | null;
+  signal_event_id: string | null;
+  recommended_action: string | null;
+  recommended_owner: string | null;
+  due_at: string | null;
+  risk_score: string | number | null;
+  context_json: Record<string, unknown>;
+  ai_analysis_json: Record<string, unknown>;
+  input_snapshot_json: Record<string, unknown>;
+  outcome_json: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PdsExecutiveQueueActionResult {
+  queue_item: Record<string, unknown>;
+  action: Record<string, unknown>;
+}
+
+export interface PdsExecutiveConnectorRun {
+  connector_run_id: string;
+  connector_key: string;
+  status: string;
+  rows_read: number;
+  rows_written: number;
+  comm_items_written: number;
+  metadata: Record<string, unknown>;
+}
+
+export interface PdsExecutiveMemory {
+  items: Array<Record<string, unknown>>;
+}
+
+export interface PdsExecutiveNarrativeDraft {
+  draft_id: string;
+  env_id?: string;
+  business_id?: string;
+  draft_type: string;
+  title?: string | null;
+  body_text?: string | null;
+  status: string;
+  fallback_used?: boolean;
+  guardrail_flags_json?: string[] | Record<string, unknown>;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  created_at?: string;
+}
+
+export interface PdsExecutiveBriefingPack {
+  briefing_pack_id: string;
+  env_id?: string;
+  business_id?: string;
+  briefing_type: "board" | "investor";
+  period: string;
+  title?: string | null;
+  summary_text?: string | null;
+  sections_json?: Array<Record<string, unknown>>;
+  status?: string;
+  created_at?: string;
+}

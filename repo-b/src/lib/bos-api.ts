@@ -19,6 +19,13 @@ import type {
   PdsContractorClaim,
   PdsDocument,
   PdsFinancialHealth,
+  PdsExecutiveBriefingPack,
+  PdsExecutiveConnectorRun,
+  PdsExecutiveMemory,
+  PdsExecutiveNarrativeDraft,
+  PdsExecutiveOverview,
+  PdsExecutiveQueueActionResult,
+  PdsExecutiveQueueItem,
   PdsPermit,
   PdsPortfolioDashboard,
   PdsPortfolioHealth,
@@ -663,6 +670,13 @@ export type {
   PdsChangeOrder,
   PdsContractorClaim,
   PdsDocument,
+  PdsExecutiveBriefingPack,
+  PdsExecutiveConnectorRun,
+  PdsExecutiveMemory,
+  PdsExecutiveNarrativeDraft,
+  PdsExecutiveOverview,
+  PdsExecutiveQueueActionResult,
+  PdsExecutiveQueueItem,
   PdsFinancialHealth,
   PdsPermit,
   PdsPortfolioDashboard,
@@ -970,6 +984,171 @@ export function runPdsReportPack(body: {
 export function seedPdsWorkspace(envId: string, businessId?: string): Promise<{ ok: boolean; seeded: boolean }> {
   return bosFetch("/api/pds/v1/seed", {
     method: "POST",
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+// ── PDS Executive ────────────────────────────────────────────────────
+
+export function getPdsExecutiveOverview(envId: string, businessId?: string): Promise<PdsExecutiveOverview> {
+  return bosFetch("/api/pds/v1/executive/overview", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listPdsExecutiveQueue(
+  envId: string,
+  businessId?: string,
+  filters?: { status?: string; limit?: number },
+): Promise<PdsExecutiveQueueItem[]> {
+  return bosFetch("/api/pds/v1/executive/queue", {
+    params: {
+      env_id: envId,
+      business_id: businessId,
+      status: filters?.status,
+      limit: filters?.limit?.toString(),
+    },
+  });
+}
+
+export function actOnPdsExecutiveQueueItem(
+  queueItemId: string,
+  body: {
+    action_type: "approve" | "delegate" | "escalate" | "defer" | "reject" | "close";
+    actor?: string;
+    rationale?: string;
+    delegate_to?: string;
+    action_payload_json?: Record<string, unknown>;
+  },
+  envId: string,
+  businessId?: string,
+): Promise<PdsExecutiveQueueActionResult> {
+  return bosFetch(`/api/pds/v1/executive/queue/${queueItemId}/actions`, {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId },
+    body: JSON.stringify(body),
+  });
+}
+
+export function getPdsExecutiveMemory(envId: string, businessId?: string, limit = 100): Promise<PdsExecutiveMemory> {
+  return bosFetch("/api/pds/v1/executive/memory", {
+    params: { env_id: envId, business_id: businessId, limit: String(limit) },
+  });
+}
+
+export function runPdsExecutiveConnectors(body: {
+  env_id: string;
+  business_id?: string;
+  connector_keys?: string[];
+  run_mode?: "live" | "mock" | "manual";
+  force_refresh?: boolean;
+  actor?: string;
+}): Promise<{ runs: PdsExecutiveConnectorRun[]; connector_keys: string[] }> {
+  return bosFetch("/api/pds/v1/executive/runs/connectors", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listPdsExecutiveConnectorRuns(
+  envId: string,
+  businessId?: string,
+  filters?: { connector_key?: string; limit?: number },
+): Promise<Array<Record<string, unknown>>> {
+  return bosFetch("/api/pds/v1/executive/runs/connectors", {
+    params: {
+      env_id: envId,
+      business_id: businessId,
+      connector_key: filters?.connector_key,
+      limit: filters?.limit?.toString(),
+    },
+  });
+}
+
+export function runPdsExecutiveDecisionEngine(body: {
+  env_id: string;
+  business_id?: string;
+  include_non_triggered?: boolean;
+  actor?: string;
+}): Promise<Record<string, unknown>> {
+  return bosFetch("/api/pds/v1/executive/runs/decision-engine", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function runPdsExecutiveFull(body: {
+  env_id: string;
+  business_id?: string;
+  connector_keys?: string[];
+  force_refresh?: boolean;
+  actor?: string;
+}): Promise<Record<string, unknown>> {
+  return bosFetch("/api/pds/v1/executive/runs/full", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function generatePdsExecutiveMessaging(body: {
+  env_id: string;
+  business_id?: string;
+  draft_types?: string[];
+  actor?: string;
+  source_run_id?: string;
+}): Promise<PdsExecutiveNarrativeDraft[]> {
+  return bosFetch("/api/pds/v1/executive/messaging/generate", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listPdsExecutiveDrafts(
+  envId: string,
+  businessId?: string,
+  filters?: { draft_type?: string; status?: string; limit?: number },
+): Promise<PdsExecutiveNarrativeDraft[]> {
+  return bosFetch("/api/pds/v1/executive/messaging/drafts", {
+    params: {
+      env_id: envId,
+      business_id: businessId,
+      draft_type: filters?.draft_type,
+      status: filters?.status,
+      limit: filters?.limit?.toString(),
+    },
+  });
+}
+
+export function approvePdsExecutiveDraft(
+  draftId: string,
+  body: { env_id?: string; business_id?: string; actor?: string; edited_body_text?: string },
+): Promise<PdsExecutiveNarrativeDraft> {
+  return bosFetch(`/api/pds/v1/executive/messaging/${draftId}/approve`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function generatePdsExecutiveBriefing(body: {
+  env_id: string;
+  business_id?: string;
+  briefing_type: "board" | "investor";
+  period?: string;
+  actor?: string;
+  source_run_id?: string;
+}): Promise<PdsExecutiveBriefingPack> {
+  return bosFetch("/api/pds/v1/executive/briefings/generate", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getPdsExecutiveBriefing(
+  briefingPackId: string,
+  envId: string,
+  businessId?: string,
+): Promise<PdsExecutiveBriefingPack> {
+  return bosFetch(`/api/pds/v1/executive/briefings/${briefingPackId}`, {
     params: { env_id: envId, business_id: businessId },
   });
 }

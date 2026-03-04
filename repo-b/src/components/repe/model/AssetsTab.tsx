@@ -34,6 +34,7 @@ export function AssetsTab({
   const [search, setSearch] = useState("");
   const [filterSector, setFilterSector] = useState("");
   const [filterState, setFilterState] = useState("");
+  const [filterFund, setFilterFund] = useState("");
 
   const scopedAssetIds = useMemo(
     () => new Set(scope.filter((s) => s.scope_type === "asset").map((s) => s.scope_node_id)),
@@ -58,8 +59,9 @@ export function AssetsTab({
     }
     if (filterSector) pool = pool.filter((a) => a.sector === filterSector);
     if (filterState) pool = pool.filter((a) => a.state === filterState);
+    if (filterFund) pool = pool.filter((a) => a.fund_name === filterFund);
     return pool;
-  }, [assets, scopedAssetIds, search, filterSector, filterState]);
+  }, [assets, scopedAssetIds, search, filterSector, filterState, filterFund]);
 
   const sectors = useMemo(
     () => [...new Set(assets.map((a) => a.sector).filter(Boolean))].sort(),
@@ -67,6 +69,10 @@ export function AssetsTab({
   );
   const states = useMemo(
     () => [...new Set(assets.map((a) => a.state).filter(Boolean))].sort(),
+    [assets],
+  );
+  const funds = useMemo(
+    () => [...new Set(assets.map((a) => a.fund_name).filter(Boolean))].sort() as string[],
     [assets],
   );
 
@@ -117,6 +123,7 @@ export function AssetsTab({
                   <th className="px-4 py-2 font-medium">Asset</th>
                   <th className="px-4 py-2 font-medium">Sector</th>
                   <th className="px-4 py-2 font-medium">Fund</th>
+                  <th className="px-4 py-2 font-medium">Location</th>
                   <th className="px-4 py-2 text-right font-medium">NOI</th>
                   <th className="px-4 py-2 text-right font-medium">Occupancy</th>
                   <th className="px-4 py-2 text-right font-medium">Value</th>
@@ -140,6 +147,9 @@ export function AssetsTab({
                       )}
                     </td>
                     <td className="px-4 py-2 text-xs text-bm-muted2">{asset.fund_name || "—"}</td>
+                    <td className="px-4 py-2 text-xs text-bm-muted2">
+                      {asset.city && asset.state ? `${asset.city}, ${asset.state}` : asset.state || "—"}
+                    </td>
                     <td className="px-4 py-2 text-right">{fmtMoney(asset.latest_noi)}</td>
                     <td className="px-4 py-2 text-right">{fmtPct(asset.latest_occupancy)}</td>
                     <td className="px-4 py-2 text-right">{fmtMoney(asset.latest_value)}</td>
@@ -206,6 +216,18 @@ export function AssetsTab({
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
+          {funds.length > 1 && (
+            <select
+              className="rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
+              value={filterFund}
+              onChange={(e) => setFilterFund(e.target.value)}
+            >
+              <option value="">All Funds</option>
+              {funds.map((f) => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         {availableAssets.length === 0 ? (
