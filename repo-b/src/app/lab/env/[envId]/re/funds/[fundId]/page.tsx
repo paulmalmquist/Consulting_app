@@ -907,11 +907,19 @@ function ReturnsTab({ envId, businessId, fundId, quarter, onNavigateToRunCenter 
 }) {
   const [data, setData] = useState<FiFundMetricsResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const [irrTimeline, setIrrTimeline] = useState<IrrTimelinePoint[]>([]);
+  const [spreadTooltipOpen, setSpreadTooltipOpen] = useState(false);
 
   useEffect(() => {
     setLoading(true);
-    getFiFundMetrics({ env_id: envId, business_id: businessId, fund_id: fundId, quarter })
-      .then(setData)
+    Promise.all([
+      getFiFundMetrics({ env_id: envId, business_id: businessId, fund_id: fundId, quarter }),
+      getIrrTimeline({ fund_id: fundId, env_id: envId, business_id: businessId }).catch(() => []),
+    ])
+      .then(([metrics, timeline]) => {
+        setData(metrics);
+        setIrrTimeline(timeline);
+      })
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, [envId, businessId, fundId, quarter]);
@@ -944,6 +952,11 @@ function ReturnsTab({ envId, businessId, fundId, quarter, onNavigateToRunCenter 
   const b = data.bridge;
   const bm = (data as Record<string, unknown>).benchmark as { benchmark_name: string; quarter: string; total_return: number; alpha: number } | null;
 
+  // Gross vs Net IRR data for column chart
+  const grossIrr = Number(m.gross_irr || 0);
+  const netIrr = Number(m.net_irr || 0);
+  const maxIrr = Math.max(Math.abs(grossIrr), Math.abs(netIrr), 0.01);
+
   return (
     <div className="space-y-4" data-testid="returns-section">
       {/* KPI Cards */}
@@ -953,7 +966,23 @@ function ReturnsTab({ envId, businessId, fundId, quarter, onNavigateToRunCenter 
         <MetricCard label="Net IRR" value={fmtPercent(m.net_irr)} size="large" />
         <MetricCard label="Gross TVPI" value={fmtMultiple(m.gross_tvpi)} size="large" />
         <MetricCard label="Net TVPI" value={fmtMultiple(m.net_tvpi)} size="large" />
-        <MetricCard label="Spread" value={m.gross_net_spread ? `${(Number(m.gross_net_spread) * 100).toFixed(0)}bps` : "—"} size="large" />
+        <div className="relative">
+          <div
+            onMouseEnter={() => setSpreadTooltipOpen(true)}
+            onMouseLeave={() => setSpreadTooltipOpen(false)}
+          >
+            <MetricCard
+              label="G→N Spread"
+              value={m.gross_net_spread ? `${Math.round(Number(m.gross_net_spread) * 10000)}bps` : "—"}
+              size="large"
+            />
+          </div>
+          {spreadTooltipOpen && (
+            <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 rounded-lg border border-bm-border/70 bg-bm-surface px-3 py-2 text-xs text-bm-muted2 shadow-xl whitespace-nowrap">
+              Gross IRR minus Net IRR ({fmtPercent(m.gross_irr)} − {fmtPercent(m.net_irr)})
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Additional metrics */}
@@ -961,6 +990,75 @@ function ReturnsTab({ envId, businessId, fundId, quarter, onNavigateToRunCenter 
         <MetricCard label="DPI" value={fmtMultiple(m.dpi)} size="compact" />
         <MetricCard label="RVPI" value={fmtMultiple(m.rvpi)} size="compact" />
       </div>
+
+      {/* Quarterly IRR Timeline Chart */}
+      {irrTimeline.length > 1 && (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 space-y-3" data-testid="irr-timeline-chart">
+          <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Quarterly Net IRR Over Time</h3>
+          <div className="flex items-end gap-1 h-24">
+            {irrTimeline.map((point, i) => {
+              const val = Number(point.net_irr || 0);
+              const maxVal = Math.max(...irrTimeline.map((p) => Math.abs(Number(p.net_irr || 0))), 0.01);
+              const pct = (Math.abs(val) / maxVal) * 100;
+              return (
+                <div key={point.quarter} className="flex-1 flex flex-col items-center gap-1" title={`${point.quarter}: ${fmtPercent(val)}`}>
+                  <div
+                    className={`w-full rounded-t transition-all ${val >= 0 ? "bg-green-500/60" : "bg-red-500/60"}`}
+                    style={{ height: `${Math.max(pct, 4)}%` }}
+                  />
+                  {(i % Math.max(1, Math.floor(irrTimeline.length / 6)) === 0 || i === irrTimeline.length - 1) && (
+                    <span className="text-[9px] text-bm-muted2">{point.quarter}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Gross vs Net Side-by-Side Column Chart */}
+      {(m.gross_irr != null || m.net_irr != null) && (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 space-y-3" data-testid="gross-net-comparison">
+          <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Gross vs Net Comparison</h3>
+          <div className="grid grid-cols-2 gap-6">
+            {[
+              { label: "Gross IRR", value: grossIrr, display: fmtPercent(m.gross_irr) },
+              { label: "Net IRR", value: netIrr, display: fmtPercent(m.net_irr) },
+            ].map((item) => (
+              <div key={item.label} className="flex flex-col items-center">
+                <div className="w-full h-28 flex items-end justify-center">
+                  <div
+                    className={`w-16 rounded-t ${item.label.includes("Gross") ? "bg-bm-accent/60" : "bg-green-500/60"}`}
+                    style={{ height: `${maxIrr > 0 ? (Math.abs(item.value) / maxIrr) * 100 : 0}%` }}
+                  />
+                </div>
+                <span className="text-lg font-semibold mt-2">{item.display}</span>
+                <span className="text-xs text-bm-muted2">{item.label}</span>
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-6 mt-2">
+            {[
+              { label: "Gross TVPI", value: Number(m.gross_tvpi || 0), display: fmtMultiple(m.gross_tvpi) },
+              { label: "Net TVPI", value: Number(m.net_tvpi || 0), display: fmtMultiple(m.net_tvpi) },
+            ].map((item) => {
+              const maxTvpi = Math.max(Number(m.gross_tvpi || 0), Number(m.net_tvpi || 0), 0.01);
+              return (
+                <div key={item.label} className="flex flex-col items-center">
+                  <div className="w-full h-16 flex items-end justify-center">
+                    <div
+                      className={`w-16 rounded-t ${item.label.includes("Gross") ? "bg-bm-accent/40" : "bg-green-500/40"}`}
+                      style={{ height: `${maxTvpi > 0 ? (item.value / maxTvpi) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <span className="text-sm font-semibold mt-1">{item.display}</span>
+                  <span className="text-xs text-bm-muted2">{item.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Benchmark Comparison */}
       {bm && (
