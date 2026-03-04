@@ -842,11 +842,29 @@ function VarianceTab({ envId, businessId, fundId, quarter }: {
   if (loading) return <div className="p-4 text-sm text-bm-muted2">Loading variance data...</div>;
   if (!data || data.items.length === 0) {
     return (
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-6 text-center text-sm text-bm-muted2" data-testid="variance-empty">
-        No variance data available. Run a Quarter Close with accounting data and a budget baseline first.
+      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-8 text-center space-y-4" data-testid="variance-empty">
+        <div className="text-3xl">📋</div>
+        <div>
+          <p className="text-sm font-medium">No budget baseline available</p>
+          <p className="text-xs text-bm-muted2 mt-1">Upload a budget baseline in UW Versions to see variance analysis.</p>
+        </div>
+        <Link
+          href={`/lab/env/${envId}/re/underwriting`}
+          className="inline-flex items-center gap-2 rounded-lg border border-bm-accent/60 px-4 py-2 text-sm font-medium text-bm-accent hover:bg-bm-accent/10"
+        >
+          Go to UW Versions
+        </Link>
       </div>
     );
   }
+
+  // Compute variance drivers: top 3 over-budget and top 3 under-budget
+  const sortedByVariance = [...data.items].sort((a, b) => Number(b.variance_amount) - Number(a.variance_amount));
+  const overBudget = sortedByVariance.filter((i) => Number(i.variance_amount) > 0).slice(0, 3);
+  const underBudget = sortedByVariance.filter((i) => Number(i.variance_amount) < 0).slice(-3).reverse();
+
+  // Stacked bar data: aggregate actual vs plan per line item
+  const maxAmount = Math.max(...data.items.map((i) => Math.max(Math.abs(Number(i.actual_amount)), Math.abs(Number(i.plan_amount)))), 1);
 
   return (
     <div className="space-y-4" data-testid="variance-section">
@@ -865,6 +883,73 @@ function VarianceTab({ envId, businessId, fundId, quarter }: {
           } : undefined}
         />
       </div>
+
+      {/* Stacked Bar Chart: Actual vs Plan */}
+      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 space-y-3" data-testid="variance-bar-chart">
+        <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Actual vs Budget by Line Item</h3>
+        <div className="space-y-2">
+          {data.items.slice(0, 10).map((item) => {
+            const actual = Math.abs(Number(item.actual_amount));
+            const plan = Math.abs(Number(item.plan_amount));
+            return (
+              <div key={item.id} className="space-y-0.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-bm-muted2 truncate max-w-[150px]">{item.line_code}</span>
+                  <span className={Number(item.variance_amount) >= 0 ? "text-green-400" : "text-red-400"}>
+                    {fmtMoney(item.variance_amount)}
+                  </span>
+                </div>
+                <div className="flex gap-1 h-3">
+                  <div className="rounded bg-bm-accent/50" style={{ width: `${(actual / maxAmount) * 100}%` }} title={`Actual: ${fmtMoney(item.actual_amount)}`} />
+                  <div className="rounded bg-bm-muted2/30" style={{ width: `${(plan / maxAmount) * 100}%` }} title={`Plan: ${fmtMoney(item.plan_amount)}`} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex gap-4 text-[10px] text-bm-muted2 mt-2">
+          <span className="flex items-center gap-1"><span className="w-3 h-2 rounded bg-bm-accent/50" /> Actual</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-2 rounded bg-bm-muted2/30" /> Plan</span>
+        </div>
+      </div>
+
+      {/* Variance Drivers */}
+      {(overBudget.length > 0 || underBudget.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4" data-testid="variance-drivers">
+          {/* Over Budget */}
+          <div className="rounded-xl border border-green-500/40 bg-green-500/5 p-4">
+            <h3 className="text-xs uppercase tracking-[0.12em] text-green-400 mb-3">Over Budget (Favorable)</h3>
+            {overBudget.length > 0 ? (
+              <div className="space-y-2">
+                {overBudget.map((item) => (
+                  <div key={item.id} className="flex justify-between text-sm">
+                    <span className="text-bm-muted2">{item.line_code}</span>
+                    <span className="text-green-400 font-medium">+{fmtMoney(item.variance_amount)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-bm-muted2">No favorable variances.</p>
+            )}
+          </div>
+          {/* Under Budget */}
+          <div className="rounded-xl border border-red-500/40 bg-red-500/5 p-4">
+            <h3 className="text-xs uppercase tracking-[0.12em] text-red-400 mb-3">Under Budget (Unfavorable)</h3>
+            {underBudget.length > 0 ? (
+              <div className="space-y-2">
+                {underBudget.map((item) => (
+                  <div key={item.id} className="flex justify-between text-sm">
+                    <span className="text-bm-muted2">{item.line_code}</span>
+                    <span className="text-red-400 font-medium">{fmtMoney(item.variance_amount)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-bm-muted2">No unfavorable variances.</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Variance Table */}
       <div className="rounded-xl border border-bm-border/70 overflow-hidden" data-testid="variance-table">
