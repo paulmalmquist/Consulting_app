@@ -142,6 +142,7 @@ export async function GET(request: Request) {
            ELSE NULL END AS computed_dscr,
          (COUNT(DISTINCT a.asset_id) - COUNT(DISTINCT qs.asset_id))::int AS missing_quarter_state_count,
          -- Investment quarter state fields (if available)
+         iqs.nav::float8 AS fund_nav_contribution,
          iqs.gross_irr::float8,
          iqs.net_irr::float8,
          iqs.equity_multiple::float8
@@ -156,7 +157,7 @@ export async function GET(request: Request) {
        GROUP BY d.deal_id, d.name, d.deal_type, d.stage, d.sponsor,
                 d.fund_id, f.name, d.target_close_date,
                 d.committed_capital, d.invested_capital, d.created_at,
-                iqs.gross_irr, iqs.net_irr, iqs.equity_multiple
+                iqs.nav, iqs.gross_irr, iqs.net_irr, iqs.equity_multiple
        ORDER BY d.name
        LIMIT ${limitParam} OFFSET ${offsetParam}`,
       values
