@@ -11,22 +11,41 @@ export async function OPTIONS() {
  * List all assumption overrides for a model.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { modelId: string } }
 ) {
   const pool = getPool();
   if (!pool) return Response.json({ error: "No pool" }, { status: 500 });
 
   try {
+    const { searchParams } = new URL(request.url);
+    const keyPrefix = searchParams.get("key_prefix");
+    const scopeNodeId = searchParams.get("scope_node_id");
+
+    const conditions = ["model_id = $1::uuid", "is_active = true"];
+    const values: (string | number)[] = [params.modelId];
+    let idx = 2;
+
+    if (keyPrefix) {
+      conditions.push(`key LIKE $${idx}`);
+      values.push(`${keyPrefix}%`);
+      idx++;
+    }
+    if (scopeNodeId) {
+      conditions.push(`scope_node_id = $${idx}::uuid`);
+      values.push(scopeNodeId);
+      idx++;
+    }
+
     const res = await pool.query(
       `SELECT id::text, model_id::text, scope_node_type, scope_node_id::text,
               key, value_type,
               value_decimal::float8, value_int, value_text,
               reason, is_active, created_at::text
        FROM re_model_override
-       WHERE model_id = $1::uuid AND is_active = true
+       WHERE ${conditions.join(" AND ")}
        ORDER BY created_at`,
-      [params.modelId]
+      values
     );
     return Response.json(res.rows);
   } catch (err) {
