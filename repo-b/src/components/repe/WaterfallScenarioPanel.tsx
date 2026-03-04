@@ -299,6 +299,101 @@ export default function WaterfallScenarioPanel({
               <h4 className="text-sm font-semibold text-gray-900 px-4 pt-3 pb-2">
                 Waterfall Tier Allocations (Scenario)
               </h4>
+
+              {/* Tier-Fill Timeline Chart */}
+              {(() => {
+                // Aggregate amounts by tier_code
+                const tierTotals: Record<string, number> = {};
+                result.tier_allocations.forEach((a) => {
+                  const code = a.tier_code;
+                  tierTotals[code] = (tierTotals[code] || 0) + parseFloat(a.amount || "0");
+                });
+                const tiers = Object.entries(tierTotals).sort(
+                  ([, a], [, b]) => b - a
+                );
+                const tierColors = [
+                  "bg-indigo-500",
+                  "bg-blue-500",
+                  "bg-emerald-500",
+                  "bg-amber-500",
+                  "bg-rose-500",
+                  "bg-purple-500",
+                ];
+                const cumulative: { tier: string; amount: number; cumAmt: number }[] = [];
+                let cumSum = 0;
+                // Build cumulative waterfall: each tier stacks on the previous
+                for (const [tier, amount] of tiers) {
+                  cumulative.push({ tier, amount, cumAmt: cumSum + amount });
+                  cumSum += amount;
+                }
+                const totalWaterfall = cumSum;
+
+                return (
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <p className="text-xs font-medium text-gray-500 mb-2">
+                      Tier-Fill Waterfall
+                    </p>
+                    {/* Stacked horizontal bar */}
+                    <div className="flex h-8 rounded overflow-hidden bg-gray-100 mb-2">
+                      {cumulative.map((t, i) => {
+                        const pct =
+                          totalWaterfall > 0
+                            ? (t.amount / totalWaterfall) * 100
+                            : 0;
+                        return (
+                          <div
+                            key={t.tier}
+                            className={`${tierColors[i % tierColors.length]} relative group`}
+                            style={{ width: `${pct}%`, minWidth: pct > 0 ? "2px" : "0" }}
+                            title={`${t.tier.replace(/_/g, " ")}: ${fmt(String(t.amount), "$")}`}
+                          >
+                            {pct > 10 && (
+                              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-white truncate px-1">
+                                {t.tier.replace(/_/g, " ")}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Legend */}
+                    <div className="flex flex-wrap gap-3">
+                      {cumulative.map((t, i) => (
+                        <div key={t.tier} className="flex items-center gap-1.5">
+                          <span
+                            className={`w-2.5 h-2.5 rounded-sm ${tierColors[i % tierColors.length]}`}
+                          />
+                          <span className="text-[10px] text-gray-600">
+                            {t.tier.replace(/_/g, " ")}: {fmt(String(t.amount), "$")}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Cumulative fill bars */}
+                    <div className="mt-3 space-y-1">
+                      {cumulative.map((t, i) => (
+                        <div key={t.tier} className="flex items-center gap-2">
+                          <span className="text-[10px] text-gray-500 w-24 truncate text-right">
+                            {t.tier.replace(/_/g, " ")}
+                          </span>
+                          <div className="flex-1 h-3 bg-gray-100 rounded overflow-hidden">
+                            <div
+                              className={`h-full ${tierColors[i % tierColors.length]} rounded transition-all`}
+                              style={{
+                                width: `${totalWaterfall > 0 ? (t.cumAmt / totalWaterfall) * 100 : 0}%`,
+                              }}
+                            />
+                          </div>
+                          <span className="text-[10px] font-mono text-gray-600 w-16 text-right">
+                            {fmt(String(t.cumAmt), "$")}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-gray-50">
