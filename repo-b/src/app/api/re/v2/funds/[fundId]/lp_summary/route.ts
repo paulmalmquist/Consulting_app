@@ -141,9 +141,9 @@ export async function GET(
     const partners = partnersRes.rows.map((p) => {
       const wf = waterfallByPartner[p.partner_id as string];
       const allocation = wf ? {
-        return_of_capital: wf.return_of_capital || "0",
-        preferred_return: wf.preferred_return || "0",
-        carry: wf.catch_up || wf.split || "0",
+        return_of_capital: wf.tier_1_return_of_capital || wf.return_of_capital || "0",
+        preferred_return: wf.tier_2_preferred_return || wf.preferred_return || "0",
+        carry: wf.tier_3_catch_up || wf.tier_4_carried_interest || wf.catch_up || wf.split || "0",
         total: String(
           Object.values(wf).reduce((sum, v) => sum + parseFloat(v || "0"), 0)
         ),
