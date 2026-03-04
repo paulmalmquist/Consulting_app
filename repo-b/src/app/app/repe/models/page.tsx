@@ -33,7 +33,7 @@ function ModelCreateModal({
   open: boolean;
   onClose: () => void;
   onCreated: (m: ReV2Model) => void;
-  envId?: string;
+  envId?: string | null;
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -56,7 +56,7 @@ function ModelCreateModal({
         name: name.trim(),
         description: description.trim() || undefined,
         strategy_type: strategy || undefined,
-        env_id: envId,
+        env_id: envId || undefined,
       });
       onCreated(model);
       setName("");

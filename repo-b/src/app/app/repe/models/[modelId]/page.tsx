@@ -48,13 +48,25 @@ const OVERRIDE_KEYS = [
   { key: "amort_delta_pct", label: "Amortization Delta (%)", min: -50, max: 50, step: 0.5 },
 ] as const;
 
+type ScenarioSummaryValue = string | number | null | undefined;
+type ScenarioSummaryByFundEntry = Record<string, ScenarioSummaryValue>;
+type ScenarioSummary = Record<string, unknown> & {
+  asset_count?: ScenarioSummaryValue;
+  total_noi_cash?: ScenarioSummaryValue;
+  total_noi_gaap?: ScenarioSummaryValue;
+  avg_noi_cash_per_asset?: ScenarioSummaryValue;
+  avg_noi_gaap_per_asset?: ScenarioSummaryValue;
+  total_revenue?: ScenarioSummaryValue;
+  by_fund?: Record<string, ScenarioSummaryByFundEntry>;
+};
+
 /* ── Scope Tab ─────────────────────────────────────────────── */
 function ScopeTab({
   scenarioId,
   envId,
 }: {
   scenarioId: string;
-  envId?: string;
+  envId?: string | null;
 }) {
   const [inScope, setInScope] = useState<ScenarioAsset[]>([]);
   const [available, setAvailable] = useState<AvailableAsset[]>([]);
@@ -66,7 +78,7 @@ function ScopeTab({
     setLoading(true);
     Promise.all([
       listScenarioAssets(scenarioId),
-      listAvailableAssets(scenarioId, envId),
+      listAvailableAssets(scenarioId, envId || undefined),
     ])
       .then(([scope, avail]) => {
         setInScope(scope);
@@ -467,7 +479,8 @@ function ResultsTab({ scenarioId }: { scenarioId: string }) {
     );
   }
 
-  const summary = runResult;
+  const summary = runResult as ScenarioSummary;
+  const byFund = summary.by_fund;
 
   return (
     <div className="space-y-6">
@@ -524,7 +537,7 @@ function ResultsTab({ scenarioId }: { scenarioId: string }) {
       </div>
 
       {/* By Fund Breakdown */}
-      {summary.by_fund && typeof summary.by_fund === "object" && (
+      {byFund ? (
         <div>
           <h4 className="mb-2 text-sm font-semibold uppercase tracking-wider text-bm-muted2">
             By Fund
@@ -540,11 +553,11 @@ function ResultsTab({ scenarioId }: { scenarioId: string }) {
                 </tr>
               </thead>
               <tbody>
-                {Object.entries(summary.by_fund as Record<string, Record<string, unknown>>).map(
+                {Object.entries(byFund).map(
                   ([fundId, data]) => (
                     <tr key={fundId} className="border-b border-bm-border/30">
                       <td className="px-4 py-2 font-medium">
-                        {(data.fund_name as string) || fundId}
+                        {typeof data.fund_name === "string" ? data.fund_name : fundId}
                       </td>
                       <td className="px-4 py-2 text-right">{String(data.asset_count ?? 0)}</td>
                       <td className="px-4 py-2 text-right">
@@ -560,7 +573,7 @@ function ResultsTab({ scenarioId }: { scenarioId: string }) {
             </table>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from decimal import Decimal
 from uuid import UUID
 
 from app.db import get_cursor
@@ -112,7 +111,7 @@ def run_scenario(*, scenario_id: UUID) -> dict:
             "summary": summary,
         }
 
-    except Exception as exc:
+    except Exception:
         with get_cursor() as cur:
             cur.execute(
                 "UPDATE re_model_runs SET status = 'failed', finished_at = now() WHERE id = %s",

@@ -18,6 +18,7 @@ export type RepeEnvironment = {
 type UseRepeContextResult = {
   ready: boolean;
   loading: boolean;
+  envId: string | null;
   environmentId: string | null;
   environment: RepeEnvironment | null;
   businesses: BusinessItem[];
@@ -203,6 +204,7 @@ export function useRepeContext(envIdOverride?: string | null): UseRepeContextRes
     return {
       ready: reEnv.ready,
       loading: reEnv.loading,
+      envId: reEnv.envId,
       environmentId: reEnv.envId,
       environment: reEnv.environment,
       businesses: [],
@@ -217,6 +219,7 @@ export function useRepeContext(envIdOverride?: string | null): UseRepeContextRes
   return {
     ready,
     loading,
+    envId: environmentId,
     environmentId,
     environment,
     businesses,
