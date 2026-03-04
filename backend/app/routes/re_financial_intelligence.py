@@ -19,9 +19,14 @@ from app.schemas.re_financial_intelligence import (
     AmortizationScheduleRow,
     CapitalAccountSnapshotOut,
     CapitalSnapshotComputeRequest,
+    CapitalTimelinePoint,
     CovenantDefinitionOut,
+    IrrContributionItem,
+    IrrTimelinePoint,
     LoanOut,
     LpSummaryResult,
+    ModelPreviewRequest,
+    ModelPreviewResult,
     NoiBudgetMonthlyRequest,
     PropertyCompLoadRequest,
     PropertyCompOut,
@@ -52,6 +57,7 @@ from app.services import (
     re_fi_seed,
     re_fi_seed_v2,
     re_fund_metrics,
+    re_irr_timeline,
     re_property_comps,
     re_run_engine,
     re_sale_scenario,
@@ -704,6 +710,82 @@ def seed_waterfall_scenarios(
             business_id=business_id,
             fund_id=fund_id,
             quarter=quarter,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── IRR Timeline ──────────────────────────────────────────────────────────
+
+@router.get("/funds/{fund_id}/irr-timeline", response_model=list[IrrTimelinePoint])
+def get_irr_timeline(
+    fund_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    """Return quarterly gross/net IRR from re_fund_quarter_state."""
+    try:
+        return re_irr_timeline.get_irr_timeline(
+            fund_id=fund_id,
+            env_id=env_id,
+            business_id=business_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Capital Timeline ─────────────────────────────────────────────────────
+
+@router.get("/funds/{fund_id}/capital-timeline", response_model=list[CapitalTimelinePoint])
+def get_capital_timeline(
+    fund_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    """Return quarterly called/distributed from re_partner_quarter_metrics."""
+    try:
+        return re_irr_timeline.get_capital_timeline(
+            fund_id=fund_id,
+            env_id=env_id,
+            business_id=business_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── IRR Contribution ─────────────────────────────────────────────────────
+
+@router.get("/funds/{fund_id}/irr-contribution", response_model=list[IrrContributionItem])
+def get_irr_contribution(
+    fund_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    quarter: str = Query(...),
+):
+    """Return per-investment IRR contribution for a given quarter."""
+    try:
+        return re_irr_timeline.get_irr_contribution(
+            fund_id=fund_id,
+            env_id=env_id,
+            business_id=business_id,
+            quarter=quarter,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Model Preview ────────────────────────────────────────────────────────
+
+@router.post("/funds/{fund_id}/model-preview", response_model=ModelPreviewResult)
+def compute_model_preview(fund_id: UUID, body: ModelPreviewRequest):
+    """Given hypothetical assumptions, return projected IRR/NAV/DPI/TVPI/carry."""
+    try:
+        return re_irr_timeline.compute_model_preview(
+            fund_id=fund_id,
+            env_id=body.env_id,
+            business_id=body.business_id,
+            quarter=body.quarter,
+            assumptions=[a.model_dump() for a in body.assumptions],
         )
     except Exception as exc:
         raise _to_http(exc)

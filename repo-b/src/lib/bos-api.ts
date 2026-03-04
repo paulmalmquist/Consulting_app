@@ -3872,6 +3872,102 @@ export function seedReV2Data(params: {
   });
 }
 
+// ── IRR Timeline / Capital Timeline / IRR Contribution / Model Preview ────
+
+export type IrrTimelinePoint = {
+  quarter: string;
+  gross_irr: string | null;
+  net_irr: string | null;
+  portfolio_nav: string | null;
+  dpi: string | null;
+  tvpi: string | null;
+};
+
+export type CapitalTimelinePoint = {
+  quarter: string;
+  total_called: string;
+  total_distributed: string;
+};
+
+export type IrrContributionItem = {
+  investment_id: string;
+  investment_name: string;
+  investment_irr: string | null;
+  investment_tvpi: string | null;
+  fund_nav_contribution: string | null;
+  irr_contribution: string | null;
+};
+
+export type ModelPreviewAssumption = {
+  investment_id: string;
+  cap_rate?: number | null;
+  rent_growth?: number | null;
+  hold_years?: number | null;
+  exit_value?: number | null;
+};
+
+export type ModelPreviewResult = {
+  fund_id: string;
+  quarter: string;
+  baseline_nav: string | null;
+  projected_nav: string | null;
+  projected_dpi: string | null;
+  projected_tvpi: string | null;
+  projected_gross_irr: string | null;
+  projected_net_irr: string | null;
+  carry_estimate: string | null;
+  assumption_count: number;
+};
+
+export function getIrrTimeline(params: {
+  fund_id: string;
+  env_id: string;
+  business_id: string;
+}): Promise<IrrTimelinePoint[]> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/irr-timeline`, {
+    params: { env_id: params.env_id, business_id: params.business_id },
+  });
+}
+
+export function getCapitalTimeline(params: {
+  fund_id: string;
+  env_id: string;
+  business_id: string;
+}): Promise<CapitalTimelinePoint[]> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/capital-timeline`, {
+    params: { env_id: params.env_id, business_id: params.business_id },
+  });
+}
+
+export function getIrrContribution(params: {
+  fund_id: string;
+  env_id: string;
+  business_id: string;
+  quarter: string;
+}): Promise<IrrContributionItem[]> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/irr-contribution`, {
+    params: { env_id: params.env_id, business_id: params.business_id, quarter: params.quarter },
+  });
+}
+
+export function computeModelPreview(params: {
+  fund_id: string;
+  env_id: string;
+  business_id: string;
+  quarter: string;
+  assumptions: ModelPreviewAssumption[];
+}): Promise<ModelPreviewResult> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/model-preview`, {
+    method: "POST",
+    body: JSON.stringify({
+      env_id: params.env_id,
+      business_id: params.business_id,
+      quarter: params.quarter,
+      assumptions: params.assumptions,
+    }),
+  });
+}
+
 // ── Asset Platform v2 ─────────────────────────────────────────────────────
 
 export type ReV2AssetListItem = {

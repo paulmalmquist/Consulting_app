@@ -459,6 +459,66 @@ class WaterfallBreakdownResult(BaseModel):
 
 # ── Waterfall Scenario Run ─────────────────────────────────────────────────
 
+# ── IRR Timeline ──────────────────────────────────────────────────────────
+
+class IrrTimelinePoint(BaseModel):
+    quarter: str
+    gross_irr: str | None = None
+    net_irr: str | None = None
+    portfolio_nav: str | None = None
+    dpi: str | None = None
+    tvpi: str | None = None
+
+
+# ── Capital Timeline ──────────────────────────────────────────────────────
+
+class CapitalTimelinePoint(BaseModel):
+    quarter: str
+    total_called: str
+    total_distributed: str
+
+
+# ── IRR Contribution ─────────────────────────────────────────────────────
+
+class IrrContributionItem(BaseModel):
+    investment_id: str
+    investment_name: str
+    investment_irr: str | None = None
+    investment_tvpi: str | None = None
+    fund_nav_contribution: str | None = None
+    irr_contribution: str | None = None
+
+
+# ── Model Preview ────────────────────────────────────────────────────────
+
+class ModelPreviewAssumption(BaseModel):
+    investment_id: UUID
+    cap_rate: Decimal | None = None
+    rent_growth: Decimal | None = None
+    hold_years: int | None = None
+    exit_value: Decimal | None = None
+
+
+class ModelPreviewRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    quarter: str = Field(pattern=r"^\d{4}Q[1-4]$")
+    assumptions: list[ModelPreviewAssumption]
+
+
+class ModelPreviewResult(BaseModel):
+    fund_id: str
+    quarter: str
+    baseline_nav: str | None = None
+    projected_nav: str | None = None
+    projected_dpi: str | None = None
+    projected_tvpi: str | None = None
+    projected_gross_irr: str | None = None
+    projected_net_irr: str | None = None
+    carry_estimate: str | None = None
+    assumption_count: int = 0
+
+
 class WaterfallScenarioRunRequest(BaseModel):
     env_id: str
     business_id: UUID
