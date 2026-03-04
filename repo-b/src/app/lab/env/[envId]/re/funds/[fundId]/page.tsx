@@ -1493,11 +1493,22 @@ function RunCenterTab({ envId, businessId, fundId, quarter, isDebtFund, onCanoni
                   <th className="px-4 py-2 font-medium">Type</th>
                   <th className="px-4 py-2 font-medium">Quarter</th>
                   <th className="px-4 py-2 font-medium">Status</th>
+                  <th className="px-4 py-2 font-medium">Duration</th>
                   <th className="px-4 py-2 font-medium">Created</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-bm-border/40">
-                {runs.map((r) => (
+                {runs.map((r) => {
+                  let duration = "—";
+                  if (r.started_at && r.completed_at) {
+                    const ms = new Date(r.completed_at).getTime() - new Date(r.started_at).getTime();
+                    if (ms < 1000) duration = `${ms}ms`;
+                    else if (ms < 60_000) duration = `${(ms / 1000).toFixed(1)}s`;
+                    else duration = `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
+                  } else if (r.started_at && r.status !== "success" && r.status !== "failed") {
+                    duration = "running...";
+                  }
+                  return (
                   <tr key={r.run_id} className="hover:bg-bm-surface/20">
                     <td className="px-4 py-2 font-mono text-xs">{r.run_id.slice(0, 8)}</td>
                     <td className="px-4 py-2 text-xs">{r.run_type}</td>
@@ -1509,9 +1520,11 @@ function RunCenterTab({ envId, businessId, fundId, quarter, isDebtFund, onCanoni
                         "bg-yellow-500/20 text-yellow-300"
                       }`}>{r.status}</span>
                     </td>
+                    <td className="px-4 py-2 text-xs font-mono text-bm-muted2">{duration}</td>
                     <td className="px-4 py-2 text-xs text-bm-muted2">{r.started_at?.slice(0, 19).replace("T", " ")}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
