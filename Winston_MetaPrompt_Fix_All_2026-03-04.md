@@ -18,6 +18,160 @@ The platform uses:
 
 ---
 
+## DEBUGGING FRAMEWORK — How to Approach Every Bug Fix
+
+> You are a senior staff engineer brought in to debug recurring issues. Your goal is **NOT** to "make it work once," but to **eliminate repeat offenses**.
+
+### Operating Rules
+
+1. **Don't jump to fix.** Understand the failure first. A patch without a model is just rescheduled debt.
+2. **Produce a falsifiable hypothesis list** before touching any code. Every hypothesis must have a "how to disprove this" test.
+3. **Identify (a) failure mode, (b) trigger, (c) propagation path, (d) missing guardrail** — all four, for every bug.
+4. **Prefer instrumentation + tests over speculative edits.** Adding a log statement or assertion is often more valuable than changing a line.
+5. **Treat every bug as a system problem**, not a line problem. Ask: what condition in the architecture allowed this class of bug to exist silently?
+
+---
+
+### Required Output Format — Use for Every Bug (8 Sections in Order)
+
+#### 1. REPHRASE THE PROBLEM AS A CONTRACT
+
+State the bug as a formal behavioral contract:
+
+```
+Given:  [preconditions — what state must be true]
+When:   [trigger — the exact action or event]
+Then:   [expected outcome — what should happen]
+Never:  [the observed failure — what MUST NOT happen]
+
+Invariants:
+  - [system property that should always hold, e.g. "scope count ≥ 0"]
+  - [...]
+
+Minimum Reproducible Scenario (MRS):
+  - [smallest sequence of steps to trigger the bug, no extraneous setup]
+```
+
+---
+
+#### 2. TRIAGE AND CLASSIFY
+
+| Dimension    | Value                                                       |
+|-------------|-------------------------------------------------------------|
+| Severity     | P0 (data loss / security) / P1 (blocking) / P2 (degraded) / P3 (cosmetic) |
+| Surface      | DB / API / Frontend / Auth / Infra / Data integrity         |
+| Temporal     | Regression (was working) / Latent (never worked) / Flaky    |
+| Suspected class | Missing migration / Swallowed error / Race condition / Schema mismatch / Missing null guard / Missing validation / Missing boundary |
+
+---
+
+#### 3. HYPOTHESES (RANKED) + DISPROOF TESTS
+
+List 5–10 hypotheses, ranked most-likely first. For each:
+
+```
+H1: [one-sentence hypothesis]
+  → WHY: [why this is plausible given what we know]
+  → CONFIRM: [exact step or log that proves this is the root cause]
+  → RULE OUT: [exact step or log that eliminates this hypothesis]
+  → PROBE: [lowest-cost way to gather evidence — grep, db query, curl, console.log]
+```
+
+Do not skip hypotheses you believe are unlikely. Documenting eliminations prevents future regression debugging from re-litigating already-proven-false theories.
+
+---
+
+#### 4. INSTRUMENTATION FIRST
+
+Before writing any fix, add the following instrumentation to confirm the hypothesis:
+
+- **Correlation IDs** on every API request/response so a frontend error can be traced to a specific DB query
+- **Structured logging** at the entry and exit of every relevant function: `console.log('[scope][POST] entering handler', { modelId, envId, body })`
+- **Explicit error surfaces**: replace all `catch (e) { return { error: "Internal error" } }` with `catch (e) { console.error('[scope][POST] unhandled', e); return res.status(500).json({ error: e.message, code: e.code }) }`
+- **Guardrail assertions**: add runtime assertions where invariants should hold
+
+Only move to Section 5 after logs confirm which hypothesis is correct.
+
+---
+
+#### 5. ISOLATE THE ROOT CAUSE
+
+Document precisely:
+
+```
+RELIABLE REPRO:
+  [Exact steps to trigger 100% of the time]
+
+SMALLEST DIFF:
+  [The narrowest code change that toggles the bug on/off]
+
+FIRST INCORRECT STATE:
+  [The exact line/moment where the system state diverges from expected]
+  Example: "The `scopeEntities` array is empty at line 47 of scope.handler.ts
+            because the DB query filters by `model_id` but the column name is `modelId`."
+```
+
+---
+
+#### 6. FIX DESIGN (NOT JUST A PATCH)
+
+Design the fix to address the root cause, not the symptom. Consider each:
+
+| Concern           | What to check / fix                                                          |
+|------------------|-------------------------------------------------------------------------------|
+| State model       | Is state derived correctly? Are side effects isolated?                       |
+| Null handling     | All nullable fields guarded; no implicit coercions                           |
+| Idempotency       | POST endpoints safe to retry; no duplicate inserts on network retry          |
+| Caching           | Is stale data being served? Does cache get invalidated on write?             |
+| Schema alignment  | Column names, types, and constraints match ORM definitions                   |
+| API contract      | Request/response shapes match frontend expectations; OpenAPI if applicable   |
+| UI guard          | Disable / warn / block UI actions when preconditions not met                 |
+| Migration safety  | `ADD COLUMN IF NOT EXISTS`; backward-compatible; no column drops without alias |
+
+Write the fix. Then explain in one sentence why this fix **removes the class of bug**, not just this instance.
+
+---
+
+#### 7. REGRESSION PROOF
+
+Every fix must ship with tests that would have caught this bug before it hit production:
+
+```
+UNIT TEST:   [function-level — test the handler/service in isolation]
+INTEGRATION: [test the full API route end-to-end with a real DB in a test transaction]
+E2E:         [Playwright/Cypress: "user clicks X, sees Y, network request returns Z"]
+PROPERTY:    [if applicable — fuzz/property test over edge inputs: empty arrays, nulls, zero, max int]
+CANARY:      [a runtime metric or alert that fires if this error recurs in production]
+```
+
+Do not mark a bug as fixed without at least a unit test and an integration test.
+
+---
+
+#### 8. POSTMORTEM NOTES
+
+```
+WHAT ALLOWED IT:
+  [architectural or process gap that let this bug exist and go undetected]
+
+MISSED SIGNALS:
+  [log lines, errors, or metrics that existed but were not surfaced or acted on]
+
+CLASS-OF-BUG PREVENTION:
+  [one or two systemic changes — linting rule, shared error handler, schema validation layer,
+   required field in PR template — that would prevent the entire class from recurring]
+```
+
+---
+
+### Debugging Constraints
+
+- **Prefer deterministic solutions over try/catch suppression.** A caught error is a hidden failure.
+- **Avoid adding complexity** unless the complexity removes an entire *class* of failures (e.g., a shared error serializer eliminates all swallowed errors across all routes).
+- **When two fixes are equally correct, choose the one that improves observability** — better logs, clearer error messages, or more testable code.
+
+---
+
 ## SECTION 1 — CRITICAL DATABASE FIX (Do this first)
 
 ### BUG-001: Missing `industry_type` column causes full PDS crash
@@ -115,6 +269,40 @@ All of the following bugs are in the RE module of the `Meridian Capital Manageme
 
 ---
 
+### BUG-006 + BUG-007: Scope GET/POST return 500
+
+**Symptom (new — found in v2 QA):**
+- `GET /api/re/v2/models/:id/scope` → 500
+- `POST /api/re/v2/models/:id/scope` → 500 (confirmed ×6 in network log — checkboxes ARE wired, React props are correct, API calls fire, but server returns 500 every time)
+
+**Impact:** Scope tab entity picker is rendered and interactive but non-functional. All 33 portfolio assets appear as checkboxes with blank labels. No scope saves. `entityCount` stays 0. "Run Model" button is disabled as a downstream consequence.
+
+**Investigation steps:**
+1. Find the scope route handler at `GET /api/re/v2/models/[id]/scope` and `POST /api/re/v2/models/[id]/scope`.
+2. Apply the instrumentation from the Debugging Framework Section 4 — add structured logs at handler entry.
+3. Check for: missing table (`model_scope_entities`), wrong column name (`model_id` vs `modelId`), missing env_id join, type coercion errors on UUID params.
+
+**Fix — entity label blank (UX-001 sub-issue):**
+The scope picker loads 33 checkboxes but renders blank labels or only state abbreviations (e.g., "·TX"). The entity name is not being returned from the GET endpoint or not being mapped to the label in the component. Ensure:
+```typescript
+// The scope GET should return entity names, not just IDs:
+SELECT se.entity_id, a.name, a.state, a.type
+FROM model_scope_entities se
+JOIN assets a ON a.id = se.entity_id
+WHERE se.model_id = $1
+```
+And in the component:
+```tsx
+<label>{entity.name || entity.state || entity.entity_id}</label>
+```
+
+**Verify fix:**
+- `GET /api/re/v2/models/:id/scope` → 200, returns array of entities with names
+- `POST /api/re/v2/models/:id/scope` → 200/201 on checkbox toggle
+- Scope tab shows named entities; selecting 5 → count shows "5 entities in scope"
+
+---
+
 ### BUG-004 + BUG-005: Run Model fails silently or with generic error
 
 **Symptom A:** On a model with 0 entities in scope, clicking "Run Model" returns a generic pink "Internal error" banner with no useful detail.
@@ -161,6 +349,52 @@ Optionally, disable the "Run Model" button with a tooltip when `entityCount === 
 **Verify fix:**
 - Model with 0 entities: clicking "Run Model" shows a clear blocking toast (no API call made).
 - Model with entities: run proceeds and either shows results or a meaningful error.
+
+---
+
+### BUG-008: Clone model API returns "Failed to clone model"
+
+**Symptom (new — found in v2 QA):** The Clone option now appears in the kebab menu (FEAT-001 partially deployed), but clicking Clone returns "Failed to clone model" error. The clone API endpoint exists but is broken server-side.
+
+**Investigation steps:**
+1. Find `POST /api/re/v2/models/:id/clone` (or equivalent).
+2. Add instrumentation — log entry, source model fetch result, clone insert attempt, error.
+3. Common causes: deep copy of scope/overrides failing due to FK constraint order, missing `env_id` on the cloned row, UUID generation issue.
+
+**Fix:**
+```typescript
+// API route: POST /api/models/:id/clone
+export async function cloneModel(sourceId: string) {
+  const source = await db.model.findUnique({
+    where: { id: sourceId },
+    include: { scopeEntities: true, assumptionOverrides: true }
+  });
+
+  if (!source) return res.status(404).json({ error: "Source model not found" });
+
+  const clone = await db.model.create({
+    data: {
+      name: `${source.name} (Copy)`,
+      description: source.description,
+      strategy: source.strategy,
+      envId: source.envId,       // ← critical: must carry over env_id
+      status: 'draft',
+      scopeEntities: {
+        create: source.scopeEntities.map(e => ({ entityId: e.entityId, entityType: e.entityType }))
+      },
+      assumptionOverrides: {
+        create: source.assumptionOverrides.map(a => ({
+          key: a.key, value: a.value, fundId: a.fundId, entityId: a.entityId, reason: a.reason
+        }))
+      }
+    }
+  });
+
+  return res.status(201).json(clone);
+}
+```
+
+**Verify fix:** Click "..." on a model row → Clone → new model appears in list with "(Copy)" suffix → opening it shows identical scope and assumptions, status is "draft".
 
 ---
 
@@ -265,95 +499,15 @@ ALTER TABLE model_assumption_overrides
 
 ---
 
-### FEAT-001: Clone model feature
+### FEAT-001: Clone model feature (API fix — UI partially deployed)
 
-**Current state:** No clone functionality exists anywhere — no button on list rows, no action in model detail.
-
-**Required behavior:**
-1. On the model list, each row should have a "..." (kebab) menu with: **Clone**, **Archive**
-2. Clone creates a new draft model with:
-   - Name: `"{original name} (Copy)"`
-   - Same strategy, description
-   - Same entities in scope (deep copy of scope relationships)
-   - Same assumption overrides (deep copy)
-   - Status: `draft`
-   - No run results
-3. After clone, navigate to the new model's detail page
-
-**Implementation:**
-
-```tsx
-// Model list row — add kebab menu
-<TableRow key={model.id}>
-  <td>{model.name}</td>
-  <td>{model.strategy}</td>
-  <td><StatusBadge status={model.status} /></td>
-  <td>{model.createdAt}</td>
-  <td>
-    <DropdownMenu>
-      <DropdownItem onClick={() => handleClone(model.id)}>Clone</DropdownItem>
-      <DropdownItem onClick={() => handleArchive(model.id)}>Archive</DropdownItem>
-    </DropdownMenu>
-  </td>
-</TableRow>
-```
-
-```typescript
-// API route: POST /api/models/:id/clone
-export async function cloneModel(sourceId: string) {
-  const source = await db.model.findUnique({
-    where: { id: sourceId },
-    include: { scopeEntities: true, assumptionOverrides: true }
-  });
-
-  const clone = await db.model.create({
-    data: {
-      name: `${source.name} (Copy)`,
-      description: source.description,
-      strategy: source.strategy,
-      envId: source.envId,
-      status: 'draft',
-      scopeEntities: {
-        create: source.scopeEntities.map(e => ({ entityId: e.entityId, entityType: e.entityType }))
-      },
-      assumptionOverrides: {
-        create: source.assumptionOverrides.map(a => ({
-          key: a.key, value: a.value, fundId: a.fundId, entityId: a.entityId, reason: a.reason
-        }))
-      }
-    }
-  });
-
-  return clone;
-}
-```
-
-**Verify fix:** On the models list, hover a model row, click "...", select Clone. New model appears in list with "(Copy)" suffix. Opening it shows identical scope and assumptions.
+**Current state (v2):** Clone option appears in kebab menu but API returns "Failed to clone model." See BUG-008 above for the full fix. After BUG-008 is resolved, the feature is complete.
 
 ---
 
-### UX-002: Duplicate model name validation
+### UX-002: Duplicate model name validation ✅ FIXED in v2
 
-**Current state:** Submitting a model name that already exists in the environment creates a duplicate with no warning.
-
-**Fix:**
-```typescript
-// Client-side: check before submit
-const handleCreateModel = async () => {
-  const duplicate = models.find(
-    m => m.name.toLowerCase().trim() === name.toLowerCase().trim()
-  );
-  if (duplicate) {
-    setNameError(`A model named "${name}" already exists. Choose a different name.`);
-    return;
-  }
-  // proceed...
-};
-
-// Server-side: add unique constraint
-ALTER TABLE models ADD CONSTRAINT models_env_name_unique UNIQUE (env_id, name);
-// Then catch the unique violation (code '23505') and return 409 with a clear message
-```
+**Status:** Confirmed fixed in v2 deployment. Attempting to create a model with a name that already exists now shows a validation message and blocks creation. No further action needed.
 
 ---
 
@@ -504,29 +658,43 @@ After completing all fixes and seeding, verify the following user journey works 
 ### Journey B — Full Cross-Fund Modeling (Meridian Capital Management)
 - [ ] `/re/models` loads with the 3 existing models listed
 - [ ] Opening "Morgan QA Downside" shows: **8 entities in scope**, **5 overrides**, **1 completed run**
-- [ ] Scope tab shows entities with checkboxes; user can add/remove; count updates on Overview
+- [ ] Scope tab shows named entities with checkboxes; user can add/remove; count updates on Overview
+- [ ] `GET /api/re/v2/models/:id/scope` → 200 (not 500)
+- [ ] `POST /api/re/v2/models/:id/scope` → 200/201 on checkbox toggle (not 500)
 - [ ] Assumptions tab shows the 5 pre-seeded overrides; adding a new one (`hold_period_years = 6`) succeeds without error
 - [ ] Fund Impact tab shows the Base vs Model comparison chart for the completed run
 - [ ] Monte Carlo tab: clicking "Run Monte Carlo" with valid inputs either runs or shows a meaningful in-progress state
-- [ ] Click "..." on a model row → Clone option appears → clicking Clone creates a `(Copy)` model → navigates to new model detail
-- [ ] Try to create a model named "Morgan QA Downside" → validation message fires, model is NOT created
+- [ ] Click "..." on a model row → Clone option appears → clicking Clone creates a `(Copy)` model (no "Failed to clone model" error) → navigates to new model detail
+- [ ] Try to create a model named "Morgan QA Downside" → validation message fires, model is NOT created ✅ (already fixed)
 - [ ] Try "Run Model" on a model with 0 entities → blocked with a clear message (no API call)
 
 ---
 
 ## IMPORTANT NOTES FOR THE AI ASSISTANT
 
-1. **Adjust table/column names** to match the actual schema — the column names used in this prompt are inferred from error messages and observed behavior. Use `grep`, `find`, or schema inspection to verify exact names before running migrations.
+1. **Apply the Debugging Framework** (the section above) to every bug before writing any code. Produce the 8-section output for each bug. This takes more time upfront but prevents recurring failures.
 
-2. **Do not break existing seed data** — the Meridian Capital Management RE fund data ($2.0B, 33 assets, 3 funds) is already present and should not be overwritten. Scope and run result seeds are additive.
+2. **Adjust table/column names** to match the actual schema — the column names used in this prompt are inferred from error messages and observed behavior. Use `grep`, `find`, or schema inspection to verify exact names before running migrations.
 
-3. **Run each section's verify step** before moving to the next section. Later fixes depend on earlier ones being stable.
+3. **Do not break existing seed data** — the Meridian Capital Management RE fund data ($2.0B, 33 assets, 3 funds) is already present and should not be overwritten. Scope and run result seeds are additive.
 
-4. **If the run model feature requires a background job or queue**, the seeded run results (Section 4.3) bypass the queue by inserting directly into the results table. Ensure the results reader does not require a specific job completion flag that would hide these records.
+4. **Run each section's verify step** before moving to the next section. Later fixes depend on earlier ones being stable.
 
-5. **Duplicate model cleanup** — there are currently two models named "Morgan QA Downside" in the Meridian Capital Management environment as a result of QA testing. Clean up the duplicate (the one without the original UUID `0903b5a8-a420-433c-af5b-2aaecb9d05fc`) after adding the unique constraint.
+5. **If the run model feature requires a background job or queue**, the seeded run results (Section 4.3) bypass the queue by inserting directly into the results table. Ensure the results reader does not require a specific job completion flag that would hide these records.
+
+6. **Duplicate model cleanup** — there are currently two models named "Morgan QA Downside" in the Meridian Capital Management environment as a result of QA testing. Clean up the duplicate (the one without the original UUID `0903b5a8-a420-433c-af5b-2aaecb9d05fc`) after adding the unique constraint.
+
+7. **Bug priority order for this deployment cycle:**
+   - P0: BUG-001 (PDS crash — blocks entire product surface)
+   - P1: BUG-006/BUG-007 (Scope 500s — blocks modeling workflow end-to-end)
+   - P1: BUG-008 (Clone API broken — feature shipped but non-functional)
+   - P1: BUG-003 (Assumptions save — core PE workflow broken)
+   - P2: UX-001 (Entity labels blank in scope picker)
+   - P2: BUG-002 (Nav freeze — recovery UX broken)
+   - P3: UX-003, UX-004, UX-005 (polish)
 
 ---
 
-*Generated from Morgan Ruiz QA Audit Report — Winston Platform — March 4, 2026*
-*Full audit findings: Winston_QA_Audit_Morgan_Ruiz_2026-03-04.docx*
+*Generated from Morgan Ruiz QA Audit Reports (v1 + v2) — Winston Platform — March 4, 2026*
+*QA Audit v1: Winston_QA_Audit_Morgan_Ruiz_2026-03-04.docx*
+*QA Audit v2 (post-redeployment): Winston_QA_Audit_v2_Morgan_Ruiz_2026-03-04.docx*

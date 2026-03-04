@@ -94,8 +94,18 @@ export async function POST(
     );
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("[re/v2/models/[modelId]/clone POST] Error:", err);
-    return Response.json({ error: "Failed to clone model" }, { status: 500 });
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("[re/v2/models/[modelId]/clone POST] Error:", { error: errorMessage, code: (err as any)?.code });
+
+    // Map PostgreSQL error codes to user-friendly messages
+    if ((err as any)?.code === '23505') {
+      return Response.json({ error: "A model with this name already exists" }, { status: 400 });
+    }
+    if ((err as any)?.code === '23503') {
+      return Response.json({ error: "Invalid model reference or fund" }, { status: 400 });
+    }
+
+    return Response.json({ error: errorMessage || "Failed to clone model" }, { status: 500 });
   } finally {
     client.release();
   }

@@ -231,6 +231,7 @@ export default function ModelWorkspacePage() {
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [assets, setAssets] = useState<Asset[]>([]);
 
   // Override form state
   const [ovKey, setOvKey] = useState("");
@@ -240,20 +241,22 @@ export default function ModelWorkspacePage() {
   const [ovReason, setOvReason] = useState("");
 
   useEffect(() => {
-    if (!modelId) return;
+    if (!modelId || !envId) return;
     setLoading(true);
     Promise.allSettled([
       getModel(modelId),
       listModelScope(modelId).catch(() => []),
       listModelOverrides(modelId).catch(() => []),
-    ]).then(([modelRes, scopeRes, overridesRes]) => {
+      fetch(`/api/re/v2/assets?env_id=${envId}&limit=500`).then(r => r.json()).catch(() => []),
+    ]).then(([modelRes, scopeRes, overridesRes, assetsRes]) => {
       if (modelRes.status === "fulfilled") setModel(modelRes.value);
       else setError("Failed to load model");
       if (scopeRes.status === "fulfilled") setScope(scopeRes.value as ReModelScope[]);
       if (overridesRes.status === "fulfilled") setOverrides(overridesRes.value as ReModelOverride[]);
+      if (assetsRes.status === "fulfilled") setAssets(Array.isArray(assetsRes.value) ? assetsRes.value : []);
       setLoading(false);
     });
-  }, [modelId]);
+  }, [modelId, envId]);
 
   const handleStatusChange = async (newStatus: string) => {
     if (!modelId) return;
@@ -468,14 +471,14 @@ export default function ModelWorkspacePage() {
               />
               <div className="relative">
                 <input
-                  className="rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm w-full"
-                  placeholder="Value"
+                  className="rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm w-full pr-24"
+                  placeholder="e.g. 0.065"
                   value={ovValue}
                   onChange={(e) => setOvValue(e.target.value)}
                   data-testid="override-value-input"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">
-                  decimal
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none whitespace-nowrap">
+                  decimal (0.065 = 6.5%)
                 </span>
               </div>
               <select
@@ -515,14 +518,17 @@ export default function ModelWorkspacePage() {
                   value={ovNodeId}
                   onChange={(e) => setOvNodeId(e.target.value)}
                 >
-                  <option value="">Choose an asset...</option>
-                  {scope.map((s) => (
-                    s.scope_type === "asset" && (
+                  <option value="">Choose an asset from scope...</option>
+                  {scope.map((s) => {
+                    if (s.scope_type !== "asset") return null;
+                    const asset = assets.find((a) => a.asset_id === s.scope_node_id);
+                    return (
                       <option key={s.scope_node_id} value={s.scope_node_id}>
-                        {s.scope_node_id.slice(0, 8)}... ({s.scope_type})
+                        {asset?.asset_name || s.scope_node_id.slice(0, 8)}...{" "}
+                        {asset?.state && `(${asset.state})`}
                       </option>
-                    )
-                  ))}
+                    );
+                  })}
                 </select>
               </div>
             )}

@@ -91,7 +91,17 @@ export async function POST(
     );
     return Response.json(res.rows[0], { status: 201 });
   } catch (err) {
-    console.error("[re/v2/models/[modelId]/overrides POST] DB error", err);
-    return Response.json({ error: "Internal error" }, { status: 500 });
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("[re/v2/models/[modelId]/overrides POST] DB error", { error: errorMessage, code: (err as any)?.code });
+
+    // Map PostgreSQL error codes to user-friendly messages
+    if ((err as any)?.code === '23503') {
+      return Response.json({ error: "Invalid fund or entity reference" }, { status: 400 });
+    }
+    if ((err as any)?.code === '22P02') {
+      return Response.json({ error: "Value must be a valid number (e.g., 0.065 for 6.5%)" }, { status: 400 });
+    }
+
+    return Response.json({ error: errorMessage || "Failed to save override" }, { status: 500 });
   }
 }
