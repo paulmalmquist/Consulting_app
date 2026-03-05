@@ -60,6 +60,22 @@ def _table_exists(cur, fq_name: str) -> bool:
     return bool(cur.fetchone())
 
 
+def _column_exists(cur, fq_table: str, column_name: str) -> bool:
+    if "." in fq_table:
+        schema_name, table_name = fq_table.split(".", 1)
+    else:
+        schema_name, table_name = "public", fq_table
+    cur.execute(
+        """
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = %s AND table_name = %s AND column_name = %s
+        """,
+        (schema_name, table_name, column_name),
+    )
+    return bool(cur.fetchone())
+
+
 def resolve_env_business_context(
     *,
     request: Request | None = None,
@@ -115,9 +131,13 @@ def resolve_env_business_context(
         if not _table_exists(cur, "app.env_business_bindings"):
             raise EnvContextError("Binding table is missing (app.env_business_bindings).")
 
+        has_industry_type = _column_exists(cur, "app.environments", "industry_type")
+        has_business_id_col = _column_exists(cur, "app.environments", "business_id")
+        industry_type_expr = "industry_type" if has_industry_type else "industry AS industry_type"
+        business_id_expr = "business_id::text AS business_id" if has_business_id_col else "NULL::text AS business_id"
         cur.execute(
-            """
-            SELECT env_id::text, client_name, industry, industry_type, schema_name, business_id::text AS business_id
+            f"""
+            SELECT env_id::text, client_name, industry, {industry_type_expr}, schema_name, {business_id_expr}
             FROM app.environments
             WHERE env_id = %s::uuid
             """,
