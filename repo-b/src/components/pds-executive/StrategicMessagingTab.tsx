@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import type { PdsExecutiveNarrativeDraft } from "@/lib/bos-api";
 
 type Props = {

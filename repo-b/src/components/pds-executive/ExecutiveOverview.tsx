@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import type { PdsExecutiveOverview } from "@/lib/bos-api";
 
 type Props = {

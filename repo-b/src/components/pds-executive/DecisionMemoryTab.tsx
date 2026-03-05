@@ -1,5 +1,7 @@
 "use client";
 
+import React from "react";
+
 type Props = {
   items: Array<Record<string, unknown>>;
   loading: boolean;
