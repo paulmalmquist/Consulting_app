@@ -5,6 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
+from psycopg.errors import UndefinedTable
 
 from app.observability.logger import emit_log
 from app.routes.domain_common import classify_domain_error, domain_error_response, get_request_id
@@ -105,6 +106,8 @@ def list_projects(
             limit=limit,
         )
         return [PdsProjectOut(**row) for row in rows]
+    except UndefinedTable:
+        return []
     except Exception as exc:
         status, code = classify_domain_error(exc)
         return domain_error_response(

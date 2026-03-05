@@ -5,9 +5,10 @@ import React from "react";
 type Props = {
   items: Array<Record<string, unknown>>;
   loading: boolean;
+  hasError?: boolean;
 };
 
-export default function DecisionMemoryTab({ items, loading }: Props) {
+export default function DecisionMemoryTab({ items, loading, hasError }: Props) {
   return (
     <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="pds-executive-memory">
       <div>
@@ -28,6 +29,14 @@ export default function DecisionMemoryTab({ items, loading }: Props) {
           <tbody>
             {loading ? (
               <tr><td colSpan={4} className="py-4 text-bm-muted2">Loading memory...</td></tr>
+            ) : hasError ? (
+              <tr>
+                <td colSpan={4} className="py-4">
+                  <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-700">
+                    Could not load decision memory — service may be unavailable. Try running the full cycle or check back shortly.
+                  </div>
+                </td>
+              </tr>
             ) : items.length ? (
               items.map((item) => (
                 <tr key={String(item.queue_item_id || Math.random())} className="border-b border-bm-border/40 last:border-0">

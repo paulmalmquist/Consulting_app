@@ -178,7 +178,17 @@ def list_available_assets(
 ) -> list[dict]:
     """List assets NOT already in the scenario, with fund/sector info."""
     with get_cursor() as cur:
+        business_id_filter: str | None = None
+        if env_id:
+            cur.execute(
+                "SELECT business_id FROM env_business_bindings WHERE env_id = %s LIMIT 1",
+                (str(env_id),),
+            )
+            row = cur.fetchone()
+            business_id_filter = str(row["business_id"]) if row else None
+
         exclude_clause = ""
+        tenant_clause = ""
         params: list = []
 
         if scenario_id:
@@ -189,6 +199,10 @@ def list_available_assets(
             """
             params.append(str(scenario_id))
 
+        if business_id_filter:
+            tenant_clause = "AND f.business_id = %s"
+            params.append(business_id_filter)
+
         cur.execute(
             f"""
             SELECT a.asset_id, a.asset_name, a.asset_type,
@@ -198,7 +212,7 @@ def list_available_assets(
             FROM repe_asset a
             LEFT JOIN repe_deal d ON d.deal_id = a.deal_id
             LEFT JOIN repe_fund f ON f.fund_id = d.fund_id
-            WHERE 1=1 {exclude_clause}
+            WHERE 1=1 {exclude_clause} {tenant_clause}
             ORDER BY f.name, a.asset_name
             """,
             params,

@@ -824,6 +824,7 @@ def run_model(model_id: UUID, body: ReQuarterCloseRequest):
             quarter=body.quarter,
             run_waterfall=body.run_waterfall,
             triggered_by="model_run",
+            model_run_id=body.run_id,
         )
         _log("re.model.run", f"Model {model_id} run for quarter {body.quarter}")
         return result

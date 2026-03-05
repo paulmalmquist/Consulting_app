@@ -11,6 +11,15 @@ type Props = {
   onRunFull: () => Promise<void>;
 };
 
+function Spinner() {
+  return (
+    <span
+      className="inline-block h-3 w-3 animate-spin rounded-full border border-current border-t-transparent"
+      aria-hidden="true"
+    />
+  );
+}
+
 function metricCard(label: string, value: number, tone: "neutral" | "warn" | "danger") {
   const toneClass =
     tone === "danger"
@@ -40,17 +49,19 @@ export default function ExecutiveOverview({ overview, loading, running, onRunCon
             type="button"
             onClick={() => void onRunConnectors()}
             disabled={running}
-            className="rounded-lg border border-bm-border px-3 py-2 text-xs font-medium hover:bg-bm-surface/40 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-bm-border px-3 py-2 text-xs font-medium hover:bg-bm-surface/40 disabled:opacity-60"
           >
-            Run Connectors
+            {running && <Spinner />}
+            {running ? "Running..." : "Run Connectors"}
           </button>
           <button
             type="button"
             onClick={() => void onRunFull()}
             disabled={running}
-            className="rounded-lg border border-bm-accent/60 bg-bm-accent/15 px-3 py-2 text-xs font-medium hover:bg-bm-accent/25 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-bm-accent/60 bg-bm-accent/15 px-3 py-2 text-xs font-medium hover:bg-bm-accent/25 disabled:opacity-60"
           >
-            Run Full Cycle
+            {running && <Spinner />}
+            {running ? "Running..." : "Run Full Cycle"}
           </button>
         </div>
       </div>

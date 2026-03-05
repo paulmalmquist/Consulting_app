@@ -6,6 +6,7 @@ import type { PdsExecutiveQueueItem } from "@/lib/bos-api";
 type Props = {
   items: PdsExecutiveQueueItem[];
   loading: boolean;
+  hasError?: boolean;
   onSelect: (item: PdsExecutiveQueueItem) => void;
   onAction: (item: PdsExecutiveQueueItem, action: "approve" | "delegate" | "escalate" | "defer" | "reject") => Promise<void>;
 };
@@ -17,7 +18,7 @@ function priorityTone(priority: string): string {
   return "bg-bm-surface/40 text-bm-muted2";
 }
 
-export default function DecisionQueue({ items, loading, onSelect, onAction }: Props) {
+export default function DecisionQueue({ items, loading, hasError, onSelect, onAction }: Props) {
   return (
     <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="pds-executive-queue">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -31,6 +32,10 @@ export default function DecisionQueue({ items, loading, onSelect, onAction }: Pr
       <div className="mt-4 space-y-3">
         {loading ? (
           <p className="text-sm text-bm-muted2">Loading executive queue...</p>
+        ) : hasError ? (
+          <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-700">
+            Could not load queue items — service may be unavailable. Try running the full cycle or check back shortly.
+          </div>
         ) : items.length ? (
           items.map((item) => (
             <div key={item.queue_item_id} className="rounded-xl border border-bm-border/60 bg-bm-surface/20 p-3">

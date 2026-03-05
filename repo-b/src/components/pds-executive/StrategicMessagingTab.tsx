@@ -7,11 +7,21 @@ type Props = {
   drafts: PdsExecutiveNarrativeDraft[];
   loading: boolean;
   generating: boolean;
+  hasError?: boolean;
   onGenerate: () => Promise<void>;
   onApprove: (draft: PdsExecutiveNarrativeDraft) => Promise<void>;
 };
 
-export default function StrategicMessagingTab({ drafts, loading, generating, onGenerate, onApprove }: Props) {
+function Spinner() {
+  return (
+    <span
+      className="inline-block h-3 w-3 animate-spin rounded-full border border-current border-t-transparent"
+      aria-hidden="true"
+    />
+  );
+}
+
+export default function StrategicMessagingTab({ drafts, loading, generating, hasError, onGenerate, onApprove }: Props) {
   return (
     <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="pds-executive-messaging">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -23,15 +33,20 @@ export default function StrategicMessagingTab({ drafts, loading, generating, onG
           type="button"
           onClick={() => void onGenerate()}
           disabled={generating}
-          className="rounded-lg border border-bm-accent/60 bg-bm-accent/15 px-3 py-2 text-xs font-medium hover:bg-bm-accent/25 disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-bm-accent/60 bg-bm-accent/15 px-3 py-2 text-xs font-medium hover:bg-bm-accent/25 disabled:opacity-60"
         >
-          Generate Drafts
+          {generating && <Spinner />}
+          {generating ? "Generating..." : "Generate Drafts"}
         </button>
       </div>
 
       <div className="mt-4 space-y-3">
         {loading ? (
           <p className="text-sm text-bm-muted2">Loading drafts...</p>
+        ) : hasError ? (
+          <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-700">
+            Could not load messaging drafts — service may be temporarily unavailable.
+          </div>
         ) : drafts.length ? (
           drafts.map((draft) => (
             <article key={draft.draft_id} className="rounded-xl border border-bm-border/60 bg-bm-surface/20 p-3">

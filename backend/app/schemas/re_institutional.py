@@ -708,6 +708,7 @@ class ReRunProvenanceOut(BaseModel):
 
 class ReQuarterCloseRequest(BaseModel):
     quarter: str = Field(pattern=r"^\d{4}Q[1-4]$")
+    run_id: UUID | None = None
     scenario_id: UUID | None = None
     accounting_basis: AccountingBasis = "accrual"
     valuation_method: ValuationMethod = "cap_rate"

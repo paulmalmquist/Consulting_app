@@ -6,10 +6,12 @@ Reuses re_quarter_close._compute_asset_state and re_rollup for aggregation.
 
 from __future__ import annotations
 
+import json
 from uuid import UUID
 
 from app.db import get_cursor
 from app.services import re_model
+from app.services import re_metrics
 from app.services import re_provenance
 from app.services import re_rollup
 from app.services import re_scenario
@@ -25,6 +27,7 @@ def run_model(
     valuation_method: str = "cap_rate",
     run_waterfall: bool = True,
     triggered_by: str = "model_run",
+    model_run_id: UUID | None = None,
 ) -> dict:
     """Execute a full model run: compute quarter state for scoped entities,
     rollup to fund level, optionally run waterfall.
@@ -36,28 +39,33 @@ def run_model(
     4. Optionally run waterfall
     """
     model = re_model.get_model(model_id=model_id)
-    fund_id = UUID(str(model["primary_fund_id"]))
-
-    # 1. Ensure a scenario linked to this model
-    scenario_id = _ensure_model_scenario(model_id, fund_id)
-
-    # 2. Sync model overrides into the scenario
-    _sync_model_overrides_to_scenario(model_id, scenario_id)
-
-    # 3. Get scoped entities
-    scoped_asset_ids = set(re_model.get_scoped_asset_ids(model_id=model_id))
-
-    # 4. Start provenance run
-    run_id_str = re_provenance.start_run(
-        run_type="quarter_close",
-        fund_id=fund_id,
-        quarter=quarter,
-        scenario_id=scenario_id,
-        triggered_by=triggered_by,
-    )
-    run_id = UUID(run_id_str)
+    run_id_str: str | None = None
 
     try:
+        if model_run_id:
+            _mark_model_run_started(model_run_id=model_run_id)
+
+        fund_id = _resolve_model_fund_id(model_id=model_id, model=model)
+
+        # 1. Ensure a scenario linked to this model
+        scenario_id = _ensure_model_scenario(model_id, fund_id)
+
+        # 2. Sync model overrides into the scenario
+        _sync_model_overrides_to_scenario(model_id, scenario_id)
+
+        # 3. Get scoped entities
+        scoped_asset_ids = set(re_model.get_scoped_asset_ids(model_id=model_id))
+
+        # 4. Start provenance run
+        run_id_str = re_provenance.start_run(
+            run_type="quarter_close",
+            fund_id=fund_id,
+            quarter=quarter,
+            scenario_id=scenario_id,
+            triggered_by=triggered_by,
+        )
+        run_id = UUID(run_id_str)
+
         result = _execute_model_quarter_close(
             fund_id=fund_id,
             quarter=quarter,
@@ -89,14 +97,123 @@ def run_model(
             run_id=run_id,
         )
 
+        if model_run_id:
+            _persist_model_run_results(
+                model_run_id=model_run_id,
+                fund_id=fund_id,
+                quarter=quarter,
+                scenario_id=scenario_id,
+            )
+            _complete_model_run_record(
+                model_run_id=model_run_id,
+                fund_id=fund_id,
+                quarter=quarter,
+                scenario_id=scenario_id,
+                provenance_run_id=run_id_str,
+                result=result,
+            )
+
         result["run_id"] = run_id_str
         result["model_id"] = str(model_id)
         result["status"] = "success"
         return result
 
     except Exception as exc:
-        re_provenance.fail_run(run_id=run_id_str, error_message=str(exc))
+        if run_id_str:
+            re_provenance.fail_run(run_id=run_id_str, error_message=str(exc))
+        if model_run_id:
+            _fail_model_run_record(model_run_id=model_run_id, error_message=str(exc))
         raise
+
+
+def _resolve_model_fund_id(*, model_id: UUID, model: dict) -> UUID:
+    raw_fund_id = model.get("primary_fund_id")
+    if raw_fund_id:
+        return UUID(str(raw_fund_id))
+
+    scoped_ids = re_model.get_scoped_asset_ids(model_id=model_id)
+    if not scoped_ids:
+        raise ValueError("Model has no scoped assets and no primary_fund_id - cannot run")
+
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT d.fund_id
+            FROM repe_asset a
+            JOIN repe_deal d ON d.deal_id = a.deal_id
+            WHERE a.asset_id = %s
+            LIMIT 1
+            """,
+            (str(scoped_ids[0]),),
+        )
+        row = cur.fetchone()
+
+    if not row or not row.get("fund_id"):
+        raise ValueError("Cannot determine fund_id for model run")
+
+    return UUID(str(row["fund_id"]))
+
+
+def _mark_model_run_started(*, model_run_id: UUID) -> None:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            UPDATE re_model_run
+            SET status = 'in_progress',
+                started_at = COALESCE(started_at, now()),
+                completed_at = NULL,
+                error_message = NULL
+            WHERE id = %s::uuid
+            """,
+            (str(model_run_id),),
+        )
+
+
+def _complete_model_run_record(
+    *,
+    model_run_id: UUID,
+    fund_id: UUID,
+    quarter: str,
+    scenario_id: UUID,
+    provenance_run_id: str,
+    result: dict,
+) -> None:
+    summary = {
+        "fund_id": str(fund_id),
+        "quarter": quarter,
+        "scenario_id": str(scenario_id),
+        "provenance_run_id": provenance_run_id,
+        "assets_processed": result.get("assets_processed", 0),
+        "jvs_processed": result.get("jvs_processed", 0),
+        "investments_processed": result.get("investments_processed", 0),
+    }
+
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            UPDATE re_model_run
+            SET status = 'completed',
+                completed_at = now(),
+                error_message = NULL,
+                result_summary = %s::jsonb
+            WHERE id = %s::uuid
+            """,
+            (json.dumps(summary), str(model_run_id)),
+        )
+
+
+def _fail_model_run_record(*, model_run_id: UUID, error_message: str) -> None:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            UPDATE re_model_run
+            SET status = 'failed',
+                completed_at = now(),
+                error_message = %s
+            WHERE id = %s::uuid
+            """,
+            (error_message, str(model_run_id)),
+        )
 
 
 def _ensure_model_scenario(model_id: UUID, fund_id: UUID) -> UUID:
@@ -249,6 +366,14 @@ def _execute_model_quarter_close(
             run_id=run_id,
         )
 
+    re_metrics.compute_fund_metrics(
+        fund_id=fund_id,
+        quarter=quarter,
+        scenario_id=scenario_id,
+        run_id=run_id,
+        as_of_date=re_quarter_close._quarter_end_date(quarter),
+    )
+
     # Waterfall
     waterfall_result = None
     if do_waterfall:
@@ -313,3 +438,94 @@ def _persist_investment_results(
             )
         except Exception:
             pass  # Non-critical; don't fail the run
+
+
+def _persist_model_run_results(
+    *,
+    model_run_id: UUID,
+    fund_id: UUID,
+    quarter: str,
+    scenario_id: UUID,
+) -> None:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT fs.dpi AS dpi,
+                   fs.tvpi AS tvpi,
+                   fs.gross_irr AS gross_irr,
+                   fm.irr AS irr
+            FROM re_fund_quarter_state fs
+            LEFT JOIN re_fund_quarter_metrics fm
+              ON fm.fund_id = fs.fund_id
+             AND fm.quarter = fs.quarter
+             AND COALESCE(fm.scenario_id, '00000000-0000-0000-0000-000000000000'::uuid)
+                 = COALESCE(fs.scenario_id, '00000000-0000-0000-0000-000000000000'::uuid)
+            WHERE fs.fund_id = %s
+              AND fs.quarter = %s
+              AND fs.scenario_id = %s
+            ORDER BY fs.created_at DESC
+            LIMIT 1
+            """,
+            (str(fund_id), quarter, str(scenario_id)),
+        )
+        model_row = cur.fetchone() or {}
+
+        cur.execute(
+            """
+            SELECT fs.dpi AS dpi,
+                   fs.tvpi AS tvpi,
+                   fs.gross_irr AS gross_irr,
+                   fm.irr AS irr
+            FROM re_fund_quarter_state fs
+            LEFT JOIN re_fund_quarter_metrics fm
+              ON fm.fund_id = fs.fund_id
+             AND fm.quarter = fs.quarter
+             AND fm.scenario_id IS NULL
+            WHERE fs.fund_id = %s
+              AND fs.quarter = %s
+              AND fs.scenario_id IS NULL
+            ORDER BY fs.created_at DESC
+            LIMIT 1
+            """,
+            (str(fund_id), quarter),
+        )
+        base_row = cur.fetchone() or {}
+
+        metrics = [
+            ("irr", base_row.get("irr"), model_row.get("irr")),
+            ("gross_irr", base_row.get("gross_irr"), model_row.get("gross_irr")),
+            ("tvpi", base_row.get("tvpi"), model_row.get("tvpi")),
+            ("dpi", base_row.get("dpi"), model_row.get("dpi")),
+        ]
+
+        for metric, base_value, model_value in metrics:
+            if base_value is None and model_value is None:
+                continue
+
+            variance = (
+                model_value - base_value
+                if model_value is not None and base_value is not None
+                else None
+            )
+
+            cur.execute(
+                """
+                INSERT INTO re_model_run_result (
+                    run_id, fund_id, metric, base_value, model_value, variance
+                )
+                VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s)
+                ON CONFLICT (run_id, fund_id, metric)
+                DO UPDATE SET
+                    base_value = EXCLUDED.base_value,
+                    model_value = EXCLUDED.model_value,
+                    variance = EXCLUDED.variance
+                """,
+                (
+                    str(model_run_id),
+                    str(fund_id),
+                    metric,
+                    base_value,
+                    model_value,
+                    variance,
+                ),
+            )

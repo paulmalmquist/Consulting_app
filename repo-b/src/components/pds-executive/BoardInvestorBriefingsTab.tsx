@@ -7,10 +7,20 @@ type Props = {
   briefings: PdsExecutiveBriefingPack[];
   loading: boolean;
   generating: boolean;
+  hasError?: boolean;
   onGenerate: (briefingType: "board" | "investor") => Promise<void>;
 };
 
-export default function BoardInvestorBriefingsTab({ briefings, loading, generating, onGenerate }: Props) {
+function Spinner() {
+  return (
+    <span
+      className="inline-block h-3 w-3 animate-spin rounded-full border border-current border-t-transparent"
+      aria-hidden="true"
+    />
+  );
+}
+
+export default function BoardInvestorBriefingsTab({ briefings, loading, generating, hasError, onGenerate }: Props) {
   return (
     <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="pds-executive-briefings">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -23,17 +33,19 @@ export default function BoardInvestorBriefingsTab({ briefings, loading, generati
             type="button"
             onClick={() => void onGenerate("board")}
             disabled={generating}
-            className="rounded-lg border border-bm-border px-3 py-2 text-xs hover:bg-bm-surface/40 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-bm-border px-3 py-2 text-xs hover:bg-bm-surface/40 disabled:opacity-60"
           >
-            Generate Board Pack
+            {generating && <Spinner />}
+            {generating ? "Generating..." : "Generate Board Pack"}
           </button>
           <button
             type="button"
             onClick={() => void onGenerate("investor")}
             disabled={generating}
-            className="rounded-lg border border-bm-border px-3 py-2 text-xs hover:bg-bm-surface/40 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-bm-border px-3 py-2 text-xs hover:bg-bm-surface/40 disabled:opacity-60"
           >
-            Generate Investor Pack
+            {generating && <Spinner />}
+            {generating ? "Generating..." : "Generate Investor Pack"}
           </button>
         </div>
       </div>
@@ -41,6 +53,10 @@ export default function BoardInvestorBriefingsTab({ briefings, loading, generati
       <div className="mt-4 space-y-3">
         {loading ? (
           <p className="text-sm text-bm-muted2">Loading briefing packs...</p>
+        ) : hasError ? (
+          <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-700">
+            Could not load briefing packs — service may be temporarily unavailable.
+          </div>
         ) : briefings.length ? (
           briefings.map((pack) => (
             <article key={pack.briefing_pack_id} className="rounded-xl border border-bm-border/60 bg-bm-surface/20 p-3">

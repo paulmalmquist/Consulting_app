@@ -45,26 +45,68 @@ export default function PdsExecutivePage() {
   const [running, setRunning] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [, setOverviewError] = useState(false);
+  const [queueError, setQueueError] = useState(false);
+  const [draftsError, setDraftsError] = useState(false);
+  const [briefingsError, setBriefingsError] = useState(false);
+  const [memoryError, setMemoryError] = useState(false);
   const actor = "pds_exec_user";
 
+  function friendlyApiError(err: unknown, fallback: string): string {
+    const msg = err instanceof Error ? err.message : String(err);
+    const normalized = msg.toLowerCase();
+
+    if (msg.includes("404") || normalized.includes("not found")) {
+      return "Executive service is temporarily unavailable. Please try again shortly.";
+    }
+    if (msg.includes("500") || normalized.includes("internal server error")) {
+      return "A server error occurred. Please try again or contact support.";
+    }
+    return fallback;
+  }
+
   async function loadOverview() {
-    const data = await getPdsExecutiveOverview(envId, businessId || undefined);
-    setOverview(data);
+    try {
+      const data = await getPdsExecutiveOverview(envId, businessId || undefined);
+      setOverview(data);
+      setOverviewError(false);
+    } catch (err) {
+      setOverviewError(true);
+      throw err;
+    }
   }
 
   async function loadQueue() {
-    const data = await listPdsExecutiveQueue(envId, businessId || undefined, { limit: 100 });
-    setQueue(data);
+    try {
+      const data = await listPdsExecutiveQueue(envId, businessId || undefined, { limit: 100 });
+      setQueue(data);
+      setQueueError(false);
+    } catch (err) {
+      setQueueError(true);
+      throw err;
+    }
   }
 
   async function loadDrafts() {
-    const data = await listPdsExecutiveDrafts(envId, businessId || undefined, { limit: 100 });
-    setDrafts(data);
+    try {
+      const data = await listPdsExecutiveDrafts(envId, businessId || undefined, { limit: 100 });
+      setDrafts(data);
+      setDraftsError(false);
+    } catch (err) {
+      setDraftsError(true);
+      throw err;
+    }
   }
 
   async function loadMemory() {
-    const data = await getPdsExecutiveMemory(envId, businessId || undefined, 100);
-    setMemoryItems(data.items || []);
+    try {
+      const data = await getPdsExecutiveMemory(envId, businessId || undefined, 100);
+      setMemoryItems(data.items || []);
+      setMemoryError(false);
+    } catch (err) {
+      setMemoryError(true);
+      throw err;
+    }
   }
 
   async function refreshAll() {
@@ -73,7 +115,7 @@ export default function PdsExecutivePage() {
     try {
       await Promise.all([loadOverview(), loadQueue(), loadDrafts(), loadMemory()]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load executive workspace");
+      setError(friendlyApiError(err, "Failed to load executive workspace"));
     } finally {
       setLoading(false);
     }
@@ -95,7 +137,7 @@ export default function PdsExecutivePage() {
       });
       await refreshAll();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to run connectors");
+      setError(friendlyApiError(err, "Failed to run connectors"));
     } finally {
       setRunning(false);
     }
@@ -112,7 +154,7 @@ export default function PdsExecutivePage() {
       });
       await refreshAll();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to run full cycle");
+      setError(friendlyApiError(err, "Failed to run full cycle"));
     } finally {
       setRunning(false);
     }
@@ -133,7 +175,7 @@ export default function PdsExecutivePage() {
       );
       await Promise.all([loadOverview(), loadQueue(), loadMemory()]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed queue action");
+      setError(friendlyApiError(err, "Failed queue action"));
     }
   }
 
@@ -157,7 +199,7 @@ export default function PdsExecutivePage() {
       setSelectedItem(null);
       await Promise.all([loadOverview(), loadQueue(), loadMemory()]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed queue action");
+      setError(friendlyApiError(err, "Failed queue action"));
     }
   }
 
@@ -173,7 +215,7 @@ export default function PdsExecutivePage() {
       });
       await loadDrafts();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate messaging");
+      setError(friendlyApiError(err, "Failed to generate messaging"));
     } finally {
       setGenerating(false);
     }
@@ -189,13 +231,14 @@ export default function PdsExecutivePage() {
       });
       await loadDrafts();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to approve draft");
+      setError(friendlyApiError(err, "Failed to approve draft"));
     }
   }
 
   async function handleGenerateBriefing(briefingType: "board" | "investor") {
     setGenerating(true);
     setError(null);
+    setBriefingsError(false);
     try {
       const pack = await generatePdsExecutiveBriefing({
         env_id: envId,
@@ -203,9 +246,11 @@ export default function PdsExecutivePage() {
         briefing_type: briefingType,
         actor,
       });
+      setBriefingsError(false);
       setBriefings((prev) => [pack, ...prev]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate briefing");
+      setBriefingsError(true);
+      setError(friendlyApiError(err, "Failed to generate briefing"));
     } finally {
       setGenerating(false);
     }
@@ -251,7 +296,7 @@ export default function PdsExecutivePage() {
       </section>
 
       {error ? (
-        <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-100" data-testid="pds-executive-error">
+        <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700" data-testid="pds-executive-error">
           {error}
         </div>
       ) : null}
@@ -260,6 +305,7 @@ export default function PdsExecutivePage() {
         <DecisionQueue
           items={queue}
           loading={loading}
+          hasError={queueError}
           onSelect={setSelectedItem}
           onAction={handleQueueAction}
         />
@@ -270,6 +316,7 @@ export default function PdsExecutivePage() {
           drafts={drafts}
           loading={loading}
           generating={generating}
+          hasError={draftsError}
           onGenerate={handleGenerateMessaging}
           onApprove={handleApproveDraft}
         />
@@ -280,12 +327,13 @@ export default function PdsExecutivePage() {
           briefings={briefings}
           loading={loading}
           generating={generating}
+          hasError={briefingsError}
           onGenerate={handleGenerateBriefing}
         />
       ) : null}
 
       {activeTab === "memory" ? (
-        <DecisionMemoryTab items={memoryItems} loading={loading} />
+        <DecisionMemoryTab items={memoryItems} loading={loading} hasError={memoryError} />
       ) : null}
 
       <DecisionDetailDrawer

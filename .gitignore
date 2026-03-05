@@ -34,6 +34,7 @@ yarn-error.log*
 godaddy.txt
 godaddy2.txt
 verceltoken.txt
+openaikey.txt
 *token*.txt
 
 # Python virtualenvs and local env files (all subdirectories)
