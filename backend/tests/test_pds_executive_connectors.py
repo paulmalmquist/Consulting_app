@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from datetime import datetime
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from app.connectors.pds.base import ConnectorContext, ConnectorResult
 from app.connectors.pds.pds_internal_portfolio import PdsInternalPortfolioConnector

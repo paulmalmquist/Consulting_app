@@ -242,7 +242,6 @@ def evaluate_decisions(*, env_id: UUID, business_id: UUID) -> list[DecisionEvalu
 
     projects = metrics["projects"]
     change_orders_pending = metrics["change_orders_pending"]
-    risks_open = metrics["risks_open"]
     claims_open = metrics["claims_open"]
     survey_low = metrics["survey_low"]
     crm_open = metrics["crm_open"]
@@ -260,7 +259,6 @@ def evaluate_decisions(*, env_id: UUID, business_id: UUID) -> list[DecisionEvalu
     # PM load proxy: active projects per manager / 4.
     pm_load: dict[str, int] = {}
     pm_high_risk: dict[str, int] = {}
-    project_by_id = {str(row["project_id"]): row for row in projects if row.get("project_id")}
     for row in projects:
         pm = (row.get("project_manager") or "Unassigned").strip() or "Unassigned"
         pm_load[pm] = pm_load.get(pm, 0) + 1
