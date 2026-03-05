@@ -3,7 +3,7 @@ import type { CommandContext, ContextSnapshot } from "@/lib/commandbar/types";
 import { buildExecutionPlan, toPlanResponse } from "@/lib/server/commandOrchestrator";
 import { appendAuditEvent, storePlan } from "@/lib/server/commandOrchestratorStore";
 import { resolveRequestId, traceLog, withRequestId } from "@/lib/server/requestTrace";
-import { hasDemoSession } from "@/lib/server/sessionAuth";
+import { hasSession } from "@/lib/server/sessionAuth";
 
 export const runtime = "nodejs";
 
@@ -24,7 +24,7 @@ function normalizeContext(input: CommandContext | undefined): CommandContext {
 
 export async function POST(request: Request) {
   const requestId = resolveRequestId(request);
-  if (!hasDemoSession(request)) {
+  if (!hasSession(request)) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401, ...withRequestId(requestId) });
   }
   const payload = (await request.json().catch(() => ({}))) as PlanRequest;

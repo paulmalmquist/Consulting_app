@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { buildContextSnapshot } from "@/lib/server/mcpContext";
 import { resolveRequestId, traceLog, withRequestId } from "@/lib/server/requestTrace";
-import { hasDemoSession } from "@/lib/server/sessionAuth";
+import { hasSession } from "@/lib/server/sessionAuth";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   const requestId = resolveRequestId(request);
-  if (!hasDemoSession(request)) {
+  if (!hasSession(request)) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401, ...withRequestId(requestId) });
   }
   const url = new URL(request.url);

@@ -51,25 +51,16 @@ export async function POST(request: Request) {
     return response;
   }
 
-  // ── Legacy fallback (backward compat with DEMO_INVITE_CODE) ─────
-  const expected = process.env.DEMO_INVITE_CODE || "";
+  // ── Fallback: invite code without loginType ─────────────────────
+  const expected = process.env.DEMO_INVITE_CODE || process.env.ENV_INVITE_CODE || "";
   if (!inviteCode || inviteCode !== expected) {
     return NextResponse.json({ message: "Invalid invite code" }, { status: 401 });
   }
 
   const response = NextResponse.json({ ok: true, redirectTo: "/lab/environments" });
-  // Write new session cookie (structured) and keep legacy cookie for backward compat
   response.cookies.set({
     name: "bos_session",
     value: JSON.stringify({ role: "env_user" }),
-    httpOnly: true,
-    sameSite: "lax",
-    secure: isSecure,
-    path: "/",
-  });
-  response.cookies.set({
-    name: "demo_lab_session",
-    value: "active",
     httpOnly: true,
     sameSite: "lax",
     secure: isSecure,

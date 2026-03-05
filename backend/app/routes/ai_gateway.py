@@ -55,7 +55,7 @@ async def gateway_ask(payload: GatewayAskRequest, request: Request) -> Streaming
     if not AI_GATEWAY_ENABLED:
         raise HTTPException(status_code=501, detail="AI Gateway disabled: set OPENAI_API_KEY")
 
-    actor = request.headers.get("x-bm-actor", "demo_user")
+    actor = request.headers.get("x-bm-actor", "anonymous")
 
     async def event_stream() -> AsyncGenerator[bytes, None]:
         async for sse_line in run_gateway_stream(

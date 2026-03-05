@@ -93,7 +93,7 @@ async def run_gateway_stream(
     business_id: uuid.UUID | None = None,
     entity_type: str | None = None,
     entity_id: uuid.UUID | None = None,
-    actor: str = "demo_user",
+    actor: str = "anonymous",
 ) -> AsyncGenerator[str, None]:
     """Main streaming generator. Yields SSE-formatted strings.
 

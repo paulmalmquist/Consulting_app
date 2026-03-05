@@ -76,7 +76,7 @@ export default function WinstonDefinitionsPage({ params }: { params: { envId: st
       await createWinstonChangeRequest(envId, detail.definition_id, {
         proposed_definition_text: draftDefinition,
         proposed_formula_text: draftFormula,
-        created_by: "winston_demo_user",
+        created_by: "winston_user",
       });
       await loadDetail(detail.definition_id);
       await refreshDefinitions();

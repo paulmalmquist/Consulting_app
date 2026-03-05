@@ -6,7 +6,7 @@ import {
   getPlanForRun,
 } from "@/lib/server/commandOrchestratorStore";
 import { resolveRequestId, traceLog, withRequestId } from "@/lib/server/requestTrace";
-import { hasDemoSession } from "@/lib/server/sessionAuth";
+import { hasSession } from "@/lib/server/sessionAuth";
 
 export const runtime = "nodejs";
 
@@ -15,7 +15,7 @@ export async function POST(
   { params }: { params: { runId: string } }
 ) {
   const requestId = resolveRequestId(request);
-  if (!hasDemoSession(request)) {
+  if (!hasSession(request)) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401, ...withRequestId(requestId) });
   }
   const { runId } = params;

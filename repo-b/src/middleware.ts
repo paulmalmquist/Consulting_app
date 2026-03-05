@@ -65,7 +65,7 @@ export function middleware(request: NextRequest) {
   }
 
   // ── Private API routes ─────────────────────────────────────────
-  const privateApiPrefixes = ["/api/commands", "/api/mcp", "/api/ai/codex"];
+  const privateApiPrefixes = ["/api/commands", "/api/mcp", "/api/ai/gateway"];
   const isPrivateApi = privateApiPrefixes.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
@@ -82,7 +82,7 @@ export const config = {
     "/admin/:path*",
     "/api/commands/:path*",
     "/api/mcp/:path*",
-    "/api/ai/codex/:path*",
+    "/api/ai/gateway/:path*",
     "/api/public/:path*",
     "/api/auth/login",
     "/lab",

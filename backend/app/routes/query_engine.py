@@ -20,7 +20,7 @@ def run_query(payload: dict = Body(...)):
             filters=payload.get("filters"),
             sort=payload.get("sort"),
             limit=int(payload.get("limit") or 25),
-            actor=str(payload.get("actor") or "winston_demo_user"),
+            actor=str(payload.get("actor") or "anonymous"),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
