@@ -608,24 +608,9 @@ export async function checkCodexHealth(signal?: AbortSignal) {
       raw: response.raw,
     };
   } catch (error) {
-    return {
-      health: {
-        ok: false,
-        mode: "unavailable",
-        message: error instanceof Error ? error.message : "Gateway health check failed",
-      },
-      latencyMs: Date.now() - started,
-      trace: {
-        requestId: nextRequestId(),
-        endpoint,
-        method: "GET" as const,
-        startedAt: started,
-        durationMs: Date.now() - started,
-        status: 0,
-        ok: false,
-      },
-      raw: {},
-    };
+    // Re-throw so callers (diagnostics, tests) can distinguish
+    // between "gateway disabled" (resolved) and "gateway unreachable" (rejected)
+    throw error;
   }
 }
 
