@@ -57,9 +57,28 @@ function LeverInput({
       : format === "money"
         ? value.toFixed(0)
         : value.toFixed(2);
+
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = Number(e.target.value);
+    if (isNaN(raw)) return; // reject non-numeric input
+    const converted = format === "pct" ? raw / 100 : raw;
+    // clamp to valid range
+    const clamped = Math.min(max, Math.max(min, converted));
+    onChange(clamped);
+  };
+
+  // Display actual valid range for the user
+  const rangeHint =
+    format === "pct"
+      ? `${(min * 100).toFixed(0)}% – ${(max * 100).toFixed(0)}%`
+      : format === "money"
+        ? `${min.toLocaleString()} – ${max.toLocaleString()}`
+        : `${min} – ${max}`;
+
   return (
     <label className="block text-xs">
       <span className="text-bm-muted2 uppercase tracking-[0.08em]">{label}</span>
+      <span className="text-bm-muted2/60 ml-2 text-[10px] normal-case">{rangeHint}</span>
       <div className="mt-1 flex items-center gap-2">
         <input
           type="range"
@@ -73,11 +92,10 @@ function LeverInput({
         <input
           type="number"
           value={displayValue}
-          onChange={(e) => {
-            const raw = Number(e.target.value);
-            onChange(format === "pct" ? raw / 100 : raw);
-          }}
+          onChange={handleNumberChange}
           step={format === "pct" ? 0.1 : step}
+          min={format === "pct" ? min * 100 : min}
+          max={format === "pct" ? max * 100 : max}
           className="w-20 rounded border border-bm-border bg-bm-surface px-2 py-1 text-right text-sm"
         />
         {format === "pct" ? <span className="text-bm-muted2 text-xs">%</span> : null}
@@ -169,6 +187,7 @@ export function AssetSurgeryDrawer({
   asset,
   overrides,
   onOverrideChange,
+  readOnly = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -176,6 +195,7 @@ export function AssetSurgeryDrawer({
   asset: Asset | null;
   overrides: ReModelOverride[];
   onOverrideChange: (overrides: ReModelOverride[]) => void;
+  readOnly?: boolean;
 }) {
   const [innerTab, setInnerTab] = useState<InnerTabKey>("overview");
   const [periods, setPeriods] = useState<AssetPeriod[]>([]);
@@ -281,13 +301,17 @@ export function AssetSurgeryDrawer({
       subtitle={subtitle}
       width="max-w-4xl"
       footer={
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90 disabled:opacity-50"
-        >
-          {saving ? "Saving..." : "Save Assumptions"}
-        </button>
+        !readOnly ? (
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90 disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Save Assumptions"}
+          </button>
+        ) : (
+          <span className="text-xs text-bm-muted2">Read-only (archived model)</span>
+        )
       }
     >
       <div className="flex gap-6">

@@ -24,12 +24,14 @@ export function AssetsTab({
   assets,
   onScopeChange,
   onOpenSurgery,
+  readOnly = false,
 }: {
   modelId: string;
   scope: ReModelScope[];
   assets: Asset[];
   onScopeChange: (scope: ReModelScope[]) => void;
   onOpenSurgery: (assetId: string) => void;
+  readOnly?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [filterSector, setFilterSector] = useState("");
@@ -162,6 +164,7 @@ export function AssetsTab({
                         >
                           <Wrench size={12} /> Surgery
                         </button>
+                        {!readOnly && (
                         <button
                           onClick={() => handleRemove(asset.asset_id)}
                           className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs text-red-400 hover:bg-red-500/10 transition"
@@ -169,6 +172,7 @@ export function AssetsTab({
                         >
                           <X size={12} /> Remove
                         </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -260,8 +264,9 @@ export function AssetsTab({
                     <td className="px-4 py-2">
                       <button
                         onClick={() => handleAdd(asset.asset_id)}
-                        className="inline-flex items-center gap-1 rounded-lg bg-bm-accent px-2.5 py-1.5 text-xs font-medium text-white hover:bg-bm-accent/90 transition"
-                        title="Add to model"
+                        disabled={readOnly}
+                        className="inline-flex items-center gap-1 rounded-lg bg-bm-accent px-2.5 py-1.5 text-xs font-medium text-white hover:bg-bm-accent/90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={readOnly ? "Model is archived" : "Add to model"}
                       >
                         <Plus size={12} /> Add
                       </button>

@@ -38,6 +38,28 @@ export function FundImpactTab({
 }) {
   const [latestRun, setLatestRun] = useState<ModelRun | null>(null);
   const [polling, setPolling] = useState(false);
+  const [runTriggered, setRunTriggered] = useState(false);
+
+  const handleRun = () => {
+    setRunTriggered(true);
+    setPolling(true);
+    onRunModel();
+    // Start polling for results after trigger
+    setTimeout(() => {
+      apiFetch<ModelRun>(`/api/re/v2/models/${modelId}/runs/latest`)
+        .then((run) => {
+          setLatestRun(run);
+          if (run.status !== "in_progress") {
+            setPolling(false);
+            setRunTriggered(false);
+          }
+        })
+        .catch(() => {
+          setPolling(false);
+          setRunTriggered(false);
+        });
+    }, 1000);
+  };
 
   // Fetch latest run on mount
   useEffect(() => {
@@ -49,7 +71,7 @@ export function FundImpactTab({
   // Poll while in_progress
   useEffect(() => {
     if (!latestRun || latestRun.status !== "in_progress") {
-      setPolling(false);
+      if (!runTriggered) setPolling(false);
       return;
     }
     setPolling(true);
@@ -57,12 +79,15 @@ export function FundImpactTab({
       apiFetch<ModelRun>(`/api/re/v2/models/${modelId}/runs/latest`)
         .then((run) => {
           setLatestRun(run);
-          if (run.status !== "in_progress") setPolling(false);
+          if (run.status !== "in_progress") {
+            setPolling(false);
+            setRunTriggered(false);
+          }
         })
         .catch(() => {});
     }, 3000);
     return () => clearInterval(interval);
-  }, [latestRun?.status, modelId]);
+  }, [latestRun?.status, modelId, runTriggered]);
 
   const hasResults = latestRun?.results && latestRun.results.length > 0;
 
@@ -77,7 +102,7 @@ export function FundImpactTab({
             : "Run the model to see side-by-side comparison of Base vs Model results."}
         </p>
         <button
-          onClick={onRunModel}
+          onClick={handleRun}
           disabled={scopeCount === 0 || polling}
           aria-disabled={scopeCount === 0 || polling}
           className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -138,7 +163,7 @@ export function FundImpactTab({
 
       <div className="flex gap-3">
         <button
-          onClick={onRunModel}
+          onClick={handleRun}
           disabled={scopeCount === 0 || polling}
           className="inline-flex items-center gap-1.5 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90 disabled:opacity-40 disabled:cursor-not-allowed"
         >

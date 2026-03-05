@@ -112,6 +112,7 @@ export default function ModelWorkspacePage() {
   }, []);
 
   const surgeryAsset = surgeryAssetId ? assets.find((a) => a.asset_id === surgeryAssetId) ?? null : null;
+  const isArchived = model?.status === "archived";
 
   if (loading) {
     return <div className="p-6 text-sm text-bm-muted2">Loading model...</div>;
@@ -126,6 +127,12 @@ export default function ModelWorkspacePage() {
       <ModelHeader model={model} onStatusChange={handleStatusChange} />
 
       <ModelTabBar activeTab={activeTab} onChange={handleTabChange} />
+
+      {isArchived && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+          This model is archived and read-only. No changes can be made to scope, assumptions, or surgery overrides.
+        </div>
+      )}
 
       {activeTab === "overview" && (
         <ModelOverviewTab
@@ -145,6 +152,7 @@ export default function ModelWorkspacePage() {
           assets={assets}
           onScopeChange={setScope}
           onOpenSurgery={handleOpenSurgery}
+          readOnly={isArchived}
         />
       )}
 
@@ -180,6 +188,7 @@ export default function ModelWorkspacePage() {
         asset={surgeryAsset}
         overrides={overrides}
         onOverrideChange={setOverrides}
+        readOnly={isArchived}
       />
 
       {error && (
