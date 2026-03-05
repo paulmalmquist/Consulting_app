@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { PROPERTY_TYPE_LABELS, label as labelFn } from "@/lib/labels";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -332,7 +333,7 @@ function OverviewTab({ deal }: { deal: Deal }) {
         <dl className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
           <DetailRow label="Status" value={<DealStatusBadge status={deal.status} />} />
           <DetailRow label="Strategy" value={STRATEGY_LABELS[deal.strategy ?? ""] ?? deal.strategy ?? "--"} />
-          <DetailRow label="Property Type" value={deal.property_type ?? "--"} />
+          <DetailRow label="Property Type" value={deal.property_type ? labelFn(PROPERTY_TYPE_LABELS, deal.property_type) : "--"} />
           <DetailRow label="Source" value={deal.source ?? "--"} />
           <DetailRow label="Target Close" value={fmtDate(deal.target_close_date)} />
           <DetailRow label="Created" value={fmtDate(deal.created_at)} />

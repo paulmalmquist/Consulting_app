@@ -46,11 +46,11 @@ export default function ReIntelligencePage() {
           const created = await createCreForecastQuestion({
             env_id: envId,
             business_id: businessId,
-            text: "Will Miami metro unemployment exceed 5.0% by 2026-12-31?",
+            text: "Will Denver metro multifamily vacancy exceed 8.0% by 2026-12-31?",
             scope: "macro",
             event_date: "2026-12-31",
-            resolution_criteria: "Resolved using BLS metro unemployment data for CBSA 33100.",
-            resolution_source: "BLS",
+            resolution_criteria: "Resolved using CoStar metro vacancy data for Denver-Aurora-Lakewood CBSA 19740.",
+            resolution_source: "CoStar",
           });
           setQuestions([created]);
           setActiveSignals(await refreshCreForecastSignals(created.question_id));
@@ -87,9 +87,9 @@ export default function ReIntelligencePage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.14em] text-bm-muted2">CRE Intelligence Graph</p>
-            <h2 className="mt-1 text-xl font-semibold text-bm-text">Miami Forecast Cockpit</h2>
+            <h2 className="mt-1 text-xl font-semibold text-bm-text">Denver MSA Forecast Cockpit</h2>
             <p className="mt-2 max-w-3xl text-sm text-bm-muted">
-              Provenance-forward property intelligence, market overlays, and superforecaster signals for the Miami MSA launch slice.
+              Provenance-forward property intelligence, market overlays, and superforecaster signals for the Denver MSA.
             </p>
           </div>
           <Link
@@ -123,7 +123,7 @@ export default function ReIntelligencePage() {
 
           {!loading && properties.length === 0 ? (
             <div className="rounded-xl border border-dashed border-bm-border px-4 py-6 text-sm text-bm-muted">
-              No canonical properties yet. Run the CRE backfill to seed the Miami slice.
+              No canonical properties yet. Run the CRE backfill to seed the Denver MSA slice.
             </div>
           ) : null}
 

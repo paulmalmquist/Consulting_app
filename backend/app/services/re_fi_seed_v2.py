@@ -85,8 +85,8 @@ PROPERTY_PROFILES = [
     # ── Investment 2: Cascade Multifamily (primary) ────────────────────
     {
         "inv_idx": 2, "name": "Cascade Multifamily", "is_new": False,
-        "address": "3200 Peachtree Road NE", "city": "Atlanta", "state": "GA",
-        "submarket": "Buckhead", "property_type": "multifamily",
+        "address": "14200 E Alameda Ave", "city": "Aurora", "state": "CO",
+        "submarket": "Denver Southeast", "property_type": "multifamily",
         "size_sf": None, "units": 280, "year_built": 2016,
         "purchase_price": 52_000_000, "noi_monthly": 390_000,
         "occupancy": 0.92, "cap_rate": 0.045,
@@ -97,8 +97,8 @@ PROPERTY_PROFILES = [
     # ── Investment 2: Cascade Village Phase II (NEW secondary) ─────────
     {
         "inv_idx": 2, "name": "Cascade Village Phase II", "is_new": True,
-        "address": "3400 Piedmont Road NE", "city": "Atlanta", "state": "GA",
-        "submarket": "Buckhead", "property_type": "multifamily",
+        "address": "14500 E Colfax Ave", "city": "Aurora", "state": "CO",
+        "submarket": "Denver Southeast", "property_type": "multifamily",
         "size_sf": None, "units": 196, "year_built": 2021,
         "purchase_price": 34_000_000, "noi_monthly": 255_000,
         "occupancy": 0.89, "cap_rate": 0.046,
@@ -597,18 +597,20 @@ def seed_institutional_v2_patch(
             if not aid:
                 continue
             for qi, (qtr, mult) in enumerate(zip(_V2_QUARTERS, _V2_APPRECIATION)):
-                nav = round(p["purchase_price"] * mult)
+                asset_val = round(p["purchase_price"] * mult)
                 noi = round(p["noi_monthly"] * 3 * mult)
                 occ = p["occupancy"]
+                debt = round(p["purchase_price"] * 0.60)  # 60% LTV at acquisition
+                nav_val = asset_val - debt
                 cur.execute(
                     """
                     INSERT INTO re_asset_quarter_state
                         (asset_id, quarter, run_id, inputs_hash, noi,
-                         asset_value, occupancy)
-                    VALUES (%s, %s, %s, 'seed_v2', %s, %s, %s)
+                         asset_value, occupancy, debt_balance, nav)
+                    VALUES (%s, %s, %s, 'seed_v2', %s, %s, %s, %s, %s)
                     ON CONFLICT DO NOTHING
                     """,
-                    (str(aid), qtr, str(v2_run_id), noi, nav, occ),
+                    (str(aid), qtr, str(v2_run_id), noi, asset_val, occ, debt, nav_val),
                 )
                 aq_count += 1
         result["new_asset_quarter_states"] = aq_count

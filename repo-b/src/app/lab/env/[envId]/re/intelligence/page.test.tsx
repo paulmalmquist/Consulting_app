@@ -100,7 +100,7 @@ describe("RE intelligence cockpit page", () => {
       expect(mockListProperties).toHaveBeenCalledWith({ env_id: "env-1" })
     );
 
-    expect(await screen.findByText("Miami Forecast Cockpit")).toBeInTheDocument();
+    expect(await screen.findByText("Denver MSA Forecast Cockpit")).toBeInTheDocument();
     expect(await screen.findByText("Miami Office Tower")).toBeInTheDocument();
     expect(await screen.findByText("Will Miami metro unemployment exceed 5.0% by 2026-12-31?")).toBeInTheDocument();
     expect(await screen.findByText("Aggregate Probability")).toBeInTheDocument();

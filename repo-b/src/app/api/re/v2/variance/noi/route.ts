@@ -155,6 +155,18 @@ export async function GET(request: Request) {
   }
 }
 
+// Expense line codes where actual and plan may have inconsistent signs
+const EXPENSE_CODES = new Set([
+  "administrative", "insurance", "management_fee", "property_mgmt_fee",
+  "repairs_maintenance", "utilities", "marketing", "taxes", "real_estate_tax",
+  "payroll", "general_admin", "opex", "capex",
+]);
+
+function isExpenseCode(code: string): boolean {
+  const lower = code.toLowerCase().replace(/[\s-]/g, "_");
+  return EXPENSE_CODES.has(lower) || lower.startsWith("opex") || lower.startsWith("expense");
+}
+
 function buildResponse(rawItems: Array<Record<string, unknown>>) {
   // Aggregate by line_code across all assets to eliminate duplicates
   const byCode: Record<string, { actual: number; plan: number }> = {};
@@ -165,16 +177,24 @@ function buildResponse(rawItems: Array<Record<string, unknown>>) {
     byCode[code].plan += Number(item.plan_amount) || 0;
   }
 
-  const items = Object.entries(byCode).map(([line_code, v]) => ({
-    id: line_code,
-    line_code,
-    actual_amount: v.actual,
-    plan_amount: v.plan,
-    variance_amount: v.actual - v.plan,
-    variance_pct: v.plan !== 0
-      ? ((v.actual - v.plan) / Math.abs(v.plan))
-      : null,
-  }));
+  const items = Object.entries(byCode).map(([line_code, v]) => {
+    // Normalize expense line items: use absolute values so variance =
+    // "how much more/less did we spend vs plan" regardless of GL sign convention
+    const expense = isExpenseCode(line_code);
+    const actual = expense ? Math.abs(v.actual) : v.actual;
+    const plan = expense ? Math.abs(v.plan) : v.plan;
+
+    return {
+      id: line_code,
+      line_code,
+      actual_amount: actual,
+      plan_amount: plan,
+      variance_amount: actual - plan,
+      variance_pct: plan !== 0
+        ? ((actual - plan) / Math.abs(plan))
+        : null,
+    };
+  });
 
   const totalActual = items.reduce((s, i) => s + i.actual_amount, 0);
   const totalPlan = items.reduce((s, i) => s + i.plan_amount, 0);

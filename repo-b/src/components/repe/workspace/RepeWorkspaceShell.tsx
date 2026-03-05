@@ -24,7 +24,7 @@ export default function RepeWorkspaceShell({ children, envId, isAdmin = false }:
   const { environment, businessId, loading, error, errorCode, requestId, retry } = useReEnv();
 
   const base = envId ? `/lab/env/${envId}/re` : "/app/repe";
-  const homeHref = isAdmin ? "/admin" : (envId ? `/lab/env/${envId}` : "/lab/environments");
+  const homeHref = envId ? `/lab/env/${envId}` : "/lab/environments";
   const navItems = useMemo(
     () => [
       { href: `${base}`, label: "Funds", isBase: true },

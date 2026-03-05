@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ReV2AssetDetail, ReV2AssetQuarterState, ReV2Scenario } from "@/lib/bos-api";
 import ValuationLeverPanel from "@/components/repe/ValuationLeverPanel";
+import { PROPERTY_TYPE_LABELS, label } from "@/lib/labels";
 
 function fmtMoney(v: number | string | null | undefined): string {
   if (v == null) return "—";
@@ -87,7 +88,7 @@ function SectorCapacityCard({ property }: { property: ReV2AssetDetail["property"
   return (
     <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
       <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">
-        {property.property_type} Capacity
+        {label(PROPERTY_TYPE_LABELS, property.property_type ?? "")} Capacity
       </h3>
       <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
         {rows.map((r) => (
@@ -131,7 +132,7 @@ export default function ModelInputsSection({
               Property Details
             </h3>
             <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-              <div><dt className="text-xs text-bm-muted2">Property Type</dt><dd className="font-medium">{fmtText(property.property_type)}</dd></div>
+              <div><dt className="text-xs text-bm-muted2">Property Type</dt><dd className="font-medium">{label(PROPERTY_TYPE_LABELS, property.property_type ?? "")}</dd></div>
               <div><dt className="text-xs text-bm-muted2">Market</dt><dd className="font-medium">{fmtText(property.market)}</dd></div>
               <div><dt className="text-xs text-bm-muted2">City / State</dt><dd className="font-medium">{property.city ? `${property.city}, ${property.state}` : "—"}</dd></div>
               <div><dt className="text-xs text-bm-muted2">MSA</dt><dd className="font-medium">{fmtText(property.msa)}</dd></div>

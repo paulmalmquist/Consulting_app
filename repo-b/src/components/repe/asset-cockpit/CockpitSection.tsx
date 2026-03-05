@@ -138,6 +138,37 @@ export default function CockpitSection({
         />
       </div>
 
+      {/* Loan Health Strip */}
+      {financialState && (financialState.dscr || financialState.ltv || financialState.debt_yield) && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-bm-border/70 bg-bm-surface/20 px-4 py-2.5">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2 mr-2">Loan Health</span>
+          {financialState.dscr && (
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+              Number(financialState.dscr) >= 1.25 ? "bg-green-500/10 text-green-400" : Number(financialState.dscr) >= 1.0 ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"
+            }`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${Number(financialState.dscr) >= 1.25 ? "bg-green-400" : Number(financialState.dscr) >= 1.0 ? "bg-amber-400" : "bg-red-400"}`} />
+              DSCR {fmtX(financialState.dscr)}
+            </span>
+          )}
+          {financialState.ltv && (
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+              Number(financialState.ltv) <= 0.65 ? "bg-green-500/10 text-green-400" : Number(financialState.ltv) <= 0.75 ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"
+            }`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${Number(financialState.ltv) <= 0.65 ? "bg-green-400" : Number(financialState.ltv) <= 0.75 ? "bg-amber-400" : "bg-red-400"}`} />
+              LTV {fmtPct(financialState.ltv)}
+            </span>
+          )}
+          {financialState.debt_yield && (
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+              Number(financialState.debt_yield) >= 0.10 ? "bg-green-500/10 text-green-400" : Number(financialState.debt_yield) >= 0.08 ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"
+            }`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${Number(financialState.debt_yield) >= 0.10 ? "bg-green-400" : Number(financialState.debt_yield) >= 0.08 ? "bg-amber-400" : "bg-red-400"}`} />
+              Debt Yield {financialState.debt_yield ? `${(Number(financialState.debt_yield) * 100).toFixed(1)}%` : "—"}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Charts Row */}
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Revenue / OpEx / NOI grouped bar chart */}
@@ -198,43 +229,6 @@ export default function CockpitSection({
         </div>
       )}
 
-      {/* Key Drivers */}
-      {financialState && (
-        <div className="flex flex-wrap gap-3">
-          {[
-            {
-              label: "DSCR",
-              value: fmtX(financialState.dscr),
-              color: financialState.dscr && Number(financialState.dscr) >= 1.25
-                ? "border-green-500/40 text-green-400"
-                : "border-red-500/40 text-red-400",
-            },
-            {
-              label: "LTV",
-              value: fmtPct(financialState.ltv),
-              color: financialState.ltv && Number(financialState.ltv) <= 0.65
-                ? "border-green-500/40 text-green-400"
-                : "border-amber-500/40 text-amber-400",
-            },
-            {
-              label: "Debt Yield",
-              value: financialState.debt_yield
-                ? `${(Number(financialState.debt_yield) * 100).toFixed(2)}%`
-                : "—",
-              color: financialState.debt_yield && Number(financialState.debt_yield) >= 0.10
-                ? "border-green-500/40 text-green-400"
-                : "border-amber-500/40 text-amber-400",
-            },
-          ].map((d) => (
-            <div
-              key={d.label}
-              className={`rounded-lg border px-3 py-2 text-sm font-medium ${d.color}`}
-            >
-              {d.label}: {d.value}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

@@ -47,6 +47,20 @@ export const PAYOUT_TYPE_LABELS: Record<string, string> = {
   fund_expense: "Fund Expense",
 };
 
+export const PROPERTY_TYPE_LABELS: Record<string, string> = {
+  multifamily: "Value-Add Multifamily",
+  senior_housing: "Senior Housing",
+  "senior housing": "Senior Housing",
+  student_housing: "Student Housing",
+  "student housing": "Student Housing",
+  medical_office: "Medical Office",
+  "medical office": "Medical Office",
+  mob: "Medical Office Building",
+  industrial: "Industrial",
+  office: "Office",
+  retail: "Retail",
+};
+
 export const SCENARIO_TYPE_LABELS: Record<string, string> = {
   base: "Base Case",
   sale: "Sale Scenario",

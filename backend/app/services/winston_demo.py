@@ -795,10 +795,10 @@ def _insert_base_re_data(cur, *, env_id: UUID, business_id: UUID) -> dict:
                 asset["asset_id"],
                 fund["quarter"],
                 run_id,
-                asset["noi"],
-                round(float(asset["noi"]) * 1.68, 2),
-                round(float(asset["noi"]) * 0.68, 2),
-                debt_service,
+                round(float(asset["noi"]) / 4, 2),  # quarterly NOI (fixture stores annual)
+                round(float(asset["noi"]) / 4 * 1.68, 2),  # quarterly revenue
+                round(float(asset["noi"]) / 4 * 0.68, 2),  # quarterly opex
+                round(debt_service / 4, 2),  # quarterly debt service
                 asset["debt_balance"],
                 asset["asset_value"],
                 nav,

@@ -16,6 +16,7 @@ import {
   ReV2Scenario,
 } from "@/lib/bos-api";
 import { useRepeBasePath, useRepeContext } from "@/lib/repe-context";
+import { PROPERTY_TYPE_LABELS, label as labelFn } from "@/lib/labels";
 import CockpitSection from "@/components/repe/asset-cockpit/CockpitSection";
 import ModelInputsSection from "@/components/repe/asset-cockpit/ModelInputsSection";
 import ValuationReturnsSection from "@/components/repe/asset-cockpit/ValuationReturnsSection";
@@ -156,10 +157,24 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
               <span>/</span>
               <span className="text-bm-text">{asset.name}</span>
             </div>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight">{asset.name}</h1>
+            <div className="mt-2 flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight">{asset.name}</h1>
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                asset.status === "active"
+                  ? "bg-green-500/15 text-green-400 border border-green-500/30"
+                  : asset.status === "archived"
+                    ? "bg-red-500/15 text-red-400 border border-red-500/30"
+                    : "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+              }`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${
+                  asset.status === "active" ? "bg-green-400" : asset.status === "archived" ? "bg-red-400" : "bg-amber-400"
+                }`} />
+                {asset.status}
+              </span>
+            </div>
             <p className="mt-1 text-sm text-bm-muted2">
               {asset.asset_type.toUpperCase()}
-              {property.property_type ? ` · ${property.property_type}` : ""}
+              {property.property_type ? ` · ${labelFn(PROPERTY_TYPE_LABELS, property.property_type)}` : ""}
               {property.city ? ` · ${property.city}, ${property.state}` : property.market ? ` · ${property.market}` : ""}
             </p>
           </div>

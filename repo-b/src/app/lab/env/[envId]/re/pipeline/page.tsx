@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import { Plus, Building2, Loader2, Map } from "lucide-react";
 
 import { bosFetch } from "@/lib/bos-api";
+import { PROPERTY_TYPE_LABELS, label as labelFn } from "@/lib/labels";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import DealStatusBadge from "@/components/repe/pipeline/DealStatusBadge";
 import DealFilterBar from "@/components/repe/pipeline/DealFilterBar";
@@ -282,7 +283,7 @@ function PipelinePageInner() {
                     </span>
                   )}
                   {deal.property_type && (
-                    <span className="text-xs text-bm-muted">{deal.property_type}</span>
+                    <span className="text-xs text-bm-muted">{labelFn(PROPERTY_TYPE_LABELS, deal.property_type)}</span>
                   )}
                 </div>
               </Link>

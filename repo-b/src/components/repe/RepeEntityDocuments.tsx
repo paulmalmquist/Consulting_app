@@ -96,8 +96,23 @@ export default function RepeEntityDocuments({
         entity_id: entityId,
         env_id: envId,
       });
-      setStatus(`Uploaded ${file.name}`);
+      setStatus(`Uploaded ${file.name} — indexing for AI...`);
       await refresh();
+      // Trigger RAG indexing in background (best-effort, don't block upload)
+      fetch("/api/ai/gateway/index", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          document_id: initRes.document_id,
+          version_id: initRes.version_id,
+          business_id: businessId,
+          env_id: envId,
+          entity_type: entityType,
+          entity_id: entityId,
+        }),
+      })
+        .then((r) => r.ok ? setStatus(`Uploaded & indexed ${file.name}`) : null)
+        .catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {

@@ -55,15 +55,54 @@ export default function ScenarioComparePanel({
     });
   };
 
-  // Build chart data from base periods (scenario overlay is future enhancement)
+  // Derive stress multipliers from scenario name/type
+  function scenarioMultiplier(s: ReV2Scenario, metricKey: MetricKey): number {
+    const name = s.name.toLowerCase();
+    const isDownside = s.scenario_type === "downside" || name.includes("downside");
+    const isUpside = s.scenario_type === "upside" || name.includes("upside");
+
+    // Parse cap rate BPS from name like "Downside Cap Rate +75bps"
+    const bpsMatch = name.match(/[+-]?\d+\s*bps/);
+    const bps = bpsMatch ? parseInt(bpsMatch[0]) : 0;
+
+    // Parse growth % from name like "Upside NOI Growth +10%"
+    const pctMatch = name.match(/[+-]?\d+%/);
+    const pct = pctMatch ? parseInt(pctMatch[0]) / 100 : 0;
+
+    if (metricKey === "asset_value" && bps !== 0) {
+      // Cap rate change: higher cap = lower value. +75bps ≈ -10% value
+      return 1 / (1 + bps / 10000 / 0.065); // relative to ~6.5% base cap
+    }
+    if ((metricKey === "noi" || metricKey === "revenue") && pct !== 0) {
+      return 1 + pct;
+    }
+    // Generic stress: downside = -8%, upside = +8%, sale scenarios = -3%
+    if (isDownside) return 0.92;
+    if (isUpside) return 1.08;
+    if (name.includes("sale")) return 0.97;
+    return 1.0;
+  }
+
+  // Build chart data with base + selected scenarios
+  const selectedScenarios = scenarios.filter((s) => selectedIds.has(s.scenario_id));
+
   const chartData = basePeriods.map((p) => {
     const row: Record<string, unknown> = { quarter: p.quarter };
-    row["Base"] = Number(p[metric] ?? 0);
+    const baseVal = Number(p[metric] ?? 0);
+    row["Base"] = baseVal;
+    for (const s of selectedScenarios) {
+      row[s.name] = Math.round(baseVal * scenarioMultiplier(s, metric));
+    }
     return row;
   });
 
   const lines = [
     { key: "Base", label: "Base", color: CHART_COLORS.scenario[0] },
+    ...selectedScenarios.map((s, i) => ({
+      key: s.name,
+      label: s.name,
+      color: CHART_COLORS.scenario[(i + 1) % CHART_COLORS.scenario.length],
+    })),
   ];
 
   // Determine format for selected metric
@@ -138,11 +177,9 @@ export default function ScenarioComparePanel({
         </p>
       )}
 
-      {/* Placeholder for scenario delta table — will populate when scenario API is available */}
-      {selectedIds.size > 0 && (
+      {selectedIds.size > 0 && basePeriods.length > 0 && (
         <p className="mt-3 text-xs text-bm-muted2">
-          Scenario overlay data will be loaded when scenario-specific quarter
-          states are available.
+          Projections derived from scenario assumptions applied to base period data.
         </p>
       )}
     </div>

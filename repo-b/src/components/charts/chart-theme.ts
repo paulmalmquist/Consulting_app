@@ -18,11 +18,11 @@ function cssVar(name: string, fallback: string): string {
 /* ── Static palette (works in SSR + client) ──────────────────────── */
 
 export const CHART_COLORS = {
-  /** Primary metric bars / lines */
-  revenue: "hsl(216, 74%, 55%)", // bm-accent blue
-  opex: "hsl(0, 72%, 48%)", // bm-danger red
-  noi: "hsl(142, 64%, 40%)", // bm-success green
-  warning: "hsl(38, 85%, 50%)", // bm-warning amber
+  /** Primary metric bars / lines — luminous accents (Bloomberg/terminal style) */
+  revenue: "hsl(213, 94%, 62%)", // electric blue
+  opex: "hsl(0, 84%, 58%)", // vivid red
+  noi: "hsl(152, 72%, 48%)", // luminous green
+  warning: "hsl(38, 92%, 55%)", // bright amber
 
   /** Muted / secondary */
   muted: "hsl(215, 12%, 72%)",
@@ -30,19 +30,26 @@ export const CHART_COLORS = {
 
   /** Up to 5 scenario overlay colors */
   scenario: [
-    "hsl(216, 74%, 55%)", // blue  (base)
-    "hsl(142, 64%, 40%)", // green (upside)
-    "hsl(38, 85%, 50%)", // amber (stress)
-    "hsl(0, 72%, 48%)", // red   (downside)
-    "hsl(280, 60%, 55%)", // purple (custom)
+    "hsl(213, 94%, 62%)", // electric blue (base)
+    "hsl(152, 72%, 48%)", // luminous green (upside)
+    "hsl(38, 92%, 55%)", // bright amber (stress)
+    "hsl(0, 84%, 58%)", // vivid red (downside)
+    "hsl(275, 70%, 62%)", // bright purple (custom)
   ] as readonly string[],
 
   /** Waterfall special colors */
   waterfall: {
-    positive: "hsl(142, 64%, 40%)",
-    negative: "hsl(0, 72%, 48%)",
-    total: "hsl(216, 74%, 55%)",
+    positive: "hsl(152, 72%, 48%)",
+    negative: "hsl(0, 84%, 58%)",
+    total: "hsl(213, 94%, 62%)",
     invisible: "transparent",
+  },
+
+  /** Loan health indicator colors */
+  loan: {
+    healthy: "hsl(152, 72%, 48%)",
+    watch: "hsl(38, 92%, 55%)",
+    stress: "hsl(0, 84%, 58%)",
   },
 
   /** Grid & axis */

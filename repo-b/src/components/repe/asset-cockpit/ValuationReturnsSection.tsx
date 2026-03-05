@@ -90,7 +90,7 @@ export default function ValuationReturnsSection({
   const valueTrendData = periods.map((p) => ({
     quarter: p.quarter,
     value: Number(p.asset_value ?? 0),
-    nav: Number(p.nav ?? 0),
+    nav: Number(p.nav ?? 0) || (Number(p.asset_value ?? 0) - Number(p.debt_balance ?? 0)),
   }));
 
   // Build sensitivity data from current cap rate
@@ -137,7 +137,7 @@ export default function ValuationReturnsSection({
               <dd className="font-medium">{fmtText(financialState.valuation_method)}</dd>
             </div>
             <div>
-              <dt className="text-xs text-bm-muted2">NOI (Qtr)</dt>
+              <dt className="text-xs text-bm-muted2">NOI</dt>
               <dd className="font-medium">{fmtMoney(financialState.noi)}</dd>
             </div>
           </div>

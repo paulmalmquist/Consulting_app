@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { label, RUN_TYPE_LABELS, STATUS_LABELS } from "@/lib/labels";
+import { label as labelFn, RUN_TYPE_LABELS, STATUS_LABELS, PROPERTY_TYPE_LABELS } from "@/lib/labels";
 import { MetricCard } from "@/components/ui/MetricCard";
 import {
   getRepeFund,
@@ -576,8 +576,8 @@ function InvestmentRow({
                           {asset.name}
                         </Link>
                       </td>
-                      <td className="px-4 py-2 text-xs text-bm-muted2 capitalize">
-                        {asset.property_type || asset.asset_type}
+                      <td className="px-4 py-2 text-xs text-bm-muted2">
+                        {labelFn(PROPERTY_TYPE_LABELS, asset.property_type || asset.asset_type || "")}
                       </td>
                       <td className="px-4 py-2 text-xs text-bm-muted2">
                         {asset.cost_basis ? fmtMoney(asset.cost_basis) : "—"}
@@ -720,7 +720,10 @@ function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, en
               })}
             </div>
           ) : (
-            <p className="text-sm text-bm-muted2">No contribution data available yet.</p>
+            <div className="rounded-xl border border-dashed border-bm-border px-4 py-6 text-center">
+              <p className="text-sm text-bm-muted2">Contribution data populates after capital calls are recorded.</p>
+              <p className="text-xs text-bm-muted2 mt-1">Run a quarter-close or seed capital ledger entries to see LP contributions.</p>
+            </div>
           )}
         </div>
 
@@ -756,7 +759,10 @@ function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, en
               ))}
             </div>
           ) : (
-            <p className="text-sm text-bm-muted2">No capital activity data available.</p>
+            <div className="rounded-xl border border-dashed border-bm-border px-4 py-6 text-center">
+              <p className="text-sm text-bm-muted2">Capital activity timeline populates after quarter-close runs.</p>
+              <p className="text-xs text-bm-muted2 mt-1">Each closed quarter adds called capital and distribution totals.</p>
+            </div>
           )}
         </div>
       </div>
@@ -1546,14 +1552,14 @@ function RunCenterTab({ envId, businessId, fundId, quarter, isDebtFund, onCanoni
                   return (
                   <tr key={r.run_id} className="hover:bg-bm-surface/20">
                     <td className="px-4 py-2 font-mono text-xs">{r.run_id.slice(0, 8)}</td>
-                    <td className="px-4 py-2 text-xs">{label(RUN_TYPE_LABELS, r.run_type)}</td>
+                    <td className="px-4 py-2 text-xs">{labelFn(RUN_TYPE_LABELS, r.run_type)}</td>
                     <td className="px-4 py-2 text-xs">{r.quarter}</td>
                     <td className="px-4 py-2">
                       <span className={`rounded-full px-2 py-0.5 text-xs ${
                         r.status === "success" ? "bg-green-500/20 text-green-300" :
                         r.status === "failed" ? "bg-red-500/20 text-red-300" :
                         "bg-yellow-500/20 text-yellow-300"
-                      }`}>{label(STATUS_LABELS, r.status)}</span>
+                      }`}>{labelFn(STATUS_LABELS, r.status)}</span>
                     </td>
                     <td className="px-4 py-2 text-xs font-mono text-bm-muted2">{duration}</td>
                     <td className="px-4 py-2 text-xs text-bm-muted2">{r.started_at?.slice(0, 19).replace("T", " ")}</td>
@@ -1657,7 +1663,7 @@ function ScenariosTab({ envId, businessId, fundId, quarter, deals, scenarios, on
     setCreateError(null);
     try {
       const created = await createReV2Scenario(fundId, {
-        name: `Sale Scenario ${nonBaseScenarios.length + 1}`,
+        name: `Exit Analysis ${nonBaseScenarios.length + 1}`,
         scenario_type: "custom",
       });
       const updated = await listReV2Scenarios(fundId);
