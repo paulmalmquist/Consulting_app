@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import json
-import os
 from datetime import datetime
 from uuid import UUID
 
-from app.ai.sidecar_client import SidecarClient
 from app.db import get_cursor
 
 DRAFT_TYPES = {
@@ -26,14 +24,6 @@ BLACKLIST_TERMS = [
     "fine-tuning",
     "rag",
 ]
-
-
-def _ai_mode() -> str:
-    return os.getenv("AI_MODE", "off").strip().lower()
-
-
-def _sidecar_url() -> str:
-    return os.getenv("AI_SIDECAR_URL", "http://127.0.0.1:7337").strip()
 
 
 def _render_fallback(*, draft_type: str, metrics: dict) -> str:
@@ -143,19 +133,29 @@ def _get_metrics(*, env_id: UUID, business_id: UUID) -> dict:
     }
 
 
-def _maybe_generate_with_sidecar(prompt: str) -> tuple[str | None, str | None]:
-    if _ai_mode() != "local":
-        return None, "AI_MODE is not local"
+def _maybe_generate_with_gateway(prompt: str) -> tuple[str | None, str | None]:
+    """Try to generate text via OpenAI API. Falls back gracefully."""
+    from app.config import OPENAI_API_KEY, OPENAI_CHAT_MODEL
 
-    client = SidecarClient(_sidecar_url(), timeout_ms=45_000)
-    ok, msg = client.health(timeout_ms=1200)
-    if not ok:
-        return None, msg
+    if not OPENAI_API_KEY:
+        return None, "OPENAI_API_KEY not configured"
 
     try:
-        result = client.ask(prompt)
-        return result.text, None
-    except Exception as exc:  # noqa: BLE001
+        import openai
+
+        client = openai.OpenAI(api_key=OPENAI_API_KEY)
+        response = client.chat.completions.create(
+            model=OPENAI_CHAT_MODEL,
+            messages=[
+                {"role": "system", "content": "Write executive communications in non-technical language."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+            max_tokens=500,
+        )
+        text = response.choices[0].message.content or ""
+        return text.strip() or None, None
+    except Exception as exc:
         return None, str(exc)
 
 
@@ -178,7 +178,7 @@ def generate_drafts(
     with get_cursor() as cur:
         for draft_type in types:
             prompt = _build_prompt(draft_type=draft_type, metrics=metrics)
-            llm_text, llm_error = _maybe_generate_with_sidecar(prompt)
+            llm_text, llm_error = _maybe_generate_with_gateway(prompt)
             fallback_used = False
             body = (llm_text or "").strip()
             if not body:
@@ -189,7 +189,7 @@ def generate_drafts(
             metadata_json = {
                 "metrics": metrics,
                 "llm_error": llm_error,
-                "generated_with": "sidecar" if llm_text else "fallback",
+                "generated_with": "gateway" if llm_text else "fallback",
             }
 
             cur.execute(
@@ -212,7 +212,7 @@ def generate_drafts(
                     body,
                     json.dumps(flags),
                     source_run_id,
-                    "local_sidecar" if llm_text else "deterministic_template",
+                    "openai_gateway" if llm_text else "deterministic_template",
                     fallback_used,
                     json.dumps(metadata_json),
                     actor,

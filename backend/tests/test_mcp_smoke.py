@@ -102,19 +102,18 @@ def test_api_tools_registered():
     assert tool.permission == "read"
 
 
-def test_codex_tools_registered():
-    """Test that Codex tools are registered."""
+def test_rag_tools_registered():
+    """Test that RAG tools are registered."""
     from app.mcp.registry import registry
-    from app.mcp.tools.codex_tools import register_codex_tools
+    from app.mcp.tools.rag_tools import register_rag_tools
 
-    register_codex_tools()
+    register_rag_tools()
 
-    # Check codex.task
-    tool = registry.get("codex.task")
+    tool = registry.get("rag.search")
     assert tool is not None
-    assert tool.name == "codex.task"
-    assert tool.module == "codex"
-    assert tool.permission == "write"
+    assert tool.name == "rag.search"
+    assert tool.module == "rag"
+    assert tool.permission == "read"
 
 
 def test_db_tools_registered():

@@ -62,6 +62,16 @@ MCP_DENY_GLOBS: list[str] = [
 ]
 
 
+# ── AI Gateway ──────────────────────────────────────────────────────
+OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+OPENAI_CHAT_MODEL: str = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
+OPENAI_EMBEDDING_MODEL: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+AI_GATEWAY_ENABLED: bool = OPENAI_API_KEY != ""
+AI_MAX_TOOL_ROUNDS: int = int(os.getenv("AI_MAX_TOOL_ROUNDS", "5"))
+RAG_TOP_K: int = int(os.getenv("RAG_TOP_K", "5"))
+RAG_CHUNK_TOKENS: int = int(os.getenv("RAG_CHUNK_TOKENS", "400"))
+RAG_CHUNK_OVERLAP: int = int(os.getenv("RAG_CHUNK_OVERLAP", "50"))
+
 _db_validated = False
 
 

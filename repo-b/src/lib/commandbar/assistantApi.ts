@@ -583,44 +583,50 @@ export async function cancelRun(runId: string, signal?: AbortSignal) {
 }
 
 export async function checkCodexHealth(signal?: AbortSignal) {
-  const endpoint = "/api/ai/codex/health";
+  // Use the AI Gateway health endpoint instead of the old Codex sidecar
+  const endpoint = "/api/ai/gateway/health";
   const started = Date.now();
 
-  if (!USE_CODEX_SERVER) {
+  try {
+    const response = await requestJson<{
+      enabled: boolean;
+      model: string;
+      embedding_model: string;
+      rag_available: boolean;
+      message: string | null;
+    }>({ endpoint, method: "GET", signal, timeoutMs: 10_000 });
+
+    const data = response.data;
     return {
-      health: { ok: false, mode: "disabled", message: "Codex server checks disabled by feature flag." },
+      health: {
+        ok: data.enabled,
+        mode: data.enabled ? "gateway" : "disabled",
+        message: data.message || `Model: ${data.model}, RAG: ${data.rag_available ? "available" : "unavailable"}`,
+      },
+      latencyMs: Date.now() - started,
+      trace: response.trace,
+      raw: response.raw,
+    };
+  } catch (error) {
+    return {
+      health: {
+        ok: false,
+        mode: "unavailable",
+        message: error instanceof Error ? error.message : "Gateway health check failed",
+      },
       latencyMs: Date.now() - started,
       trace: {
         requestId: nextRequestId(),
         endpoint,
         method: "GET" as const,
-        startedAt: Date.now(),
+        startedAt: started,
         durationMs: Date.now() - started,
-        status: 200,
-        ok: true,
+        status: 0,
+        ok: false,
       },
       raw: {},
     };
   }
-
-  const response = await requestJson<unknown>({ endpoint, method: "GET", signal, timeoutMs: 10_000 });
-  const parsed = codexHealthSchema.safeParse(response.data);
-  if (!parsed.success) {
-    throw new AssistantApiError({
-      message: `Codex health validation failed: ${parsed.error.message}`,
-      endpoint,
-      status: response.trace.status,
-      requestId: response.trace.requestId,
-      rawPayload: response.data,
-    });
-  }
-
-  return {
-    health: parsed.data,
-    latencyMs: Date.now() - started,
-    trace: response.trace,
-    raw: response.raw,
-  };
 }
 
 export async function runDiagnostics(input: {
@@ -634,7 +640,7 @@ export async function runDiagnostics(input: {
     const healthRes = await checkCodexHealth();
     checks.push({
       id: "health",
-      label: "Codex bridge health",
+      label: "AI Gateway health",
       ok: healthRes.health.ok,
       status: healthRes.health.ok ? "ok" : "warning",
       latencyMs: Date.now() - healthStarted,
@@ -643,7 +649,7 @@ export async function runDiagnostics(input: {
 
     checks.push({
       id: "version",
-      label: "Bridge mode / version",
+      label: "Gateway mode",
       ok: true,
       status: "ok",
       latencyMs: Date.now() - healthStarted,
@@ -652,7 +658,7 @@ export async function runDiagnostics(input: {
   } catch (error) {
     checks.push({
       id: "health",
-      label: "Codex bridge health",
+      label: "AI Gateway health",
       ok: false,
       status: "error",
       latencyMs: Date.now() - healthStarted,
@@ -660,7 +666,7 @@ export async function runDiagnostics(input: {
     });
     checks.push({
       id: "version",
-      label: "Bridge mode / version",
+      label: "Gateway mode",
       ok: false,
       status: "error",
       latencyMs: Date.now() - healthStarted,

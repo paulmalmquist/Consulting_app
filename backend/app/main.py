@@ -46,6 +46,7 @@ from app.routes import (
     query_engine,
 )
 from app.routes.ai import router as ai_router
+from app.routes.ai_gateway import router as ai_gateway_router
 from app.routes import website_content, website_rankings, website_analytics
 from app.routes import consulting
 from app.routes import re_uw_reports, re_uw_links, re_pipeline, re_geography, re_intelligence
@@ -110,6 +111,7 @@ app.include_router(work.router)
 app.include_router(audit.router)
 app.include_router(lab.router)
 app.include_router(ai_router)
+app.include_router(ai_gateway_router)
 app.include_router(extraction.router)
 app.include_router(compliance.router)
 app.include_router(admin_tools.router)

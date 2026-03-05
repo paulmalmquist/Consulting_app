@@ -17,3 +17,9 @@ openpyxl==3.1.5
 python-docx==1.1.2
 reportlab==4.2.5
 python-multipart==0.0.20
+
+# AI Gateway + RAG
+openai>=1.30
+tiktoken>=0.7
+numpy>=1.26
+pgvector>=0.3

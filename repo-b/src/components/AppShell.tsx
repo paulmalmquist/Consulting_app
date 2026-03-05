@@ -28,7 +28,6 @@ export default function AppShell({
 }) {
   const pathname = usePathname();
   const { selectedEnv } = useEnv();
-  const aiMode = process.env.NEXT_PUBLIC_AI_MODE || "off";
   const isDomainRoute = /^\/lab\/env\/[^/]+\/(re|pds|credit|legal|medical|consulting)(\/|$)/.test(pathname);
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -49,11 +48,11 @@ export default function AppShell({
       { id: "chat", href: "/lab/chat", label: "Chat", navKey: "chat", group: "intelligence" },
       { id: "metrics", href: "/lab/metrics", label: "Metrics", navKey: "metrics", group: "intelligence" },
       { id: "audit", href: "/lab/audit", label: "Audit", navKey: "audit", group: "system" },
+      { id: "ai", href: "/lab/ai", label: "AI", navKey: "ai", group: "intelligence" },
+      { id: "ai-audit", href: "/lab/ai-audit", label: "AI Audit", navKey: "ai-audit", group: "system" },
     ];
-    return aiMode === "local"
-      ? [...base, { id: "ai", href: "/lab/ai", label: "AI", navKey: "ai", group: "intelligence" } as NavItem]
-      : base;
-  }, [homeHref, aiMode]);
+    return base;
+  }, [homeHref]);
 
   const groupedItems = useMemo(() => {
     const groups: Record<NavItem["group"], NavItem[]> = {

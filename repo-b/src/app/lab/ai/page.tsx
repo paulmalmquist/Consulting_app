@@ -1,62 +1,94 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { Badge } from "@/components/ui/Badge";
 
-type Health = {
+type GatewayHealth = {
   enabled: boolean;
-  sidecar_ok: boolean;
-  mode: string;
+  model: string;
+  embedding_model: string;
+  rag_available: boolean;
   message?: string | null;
 };
 
-type Citation = { path: string; start_line: number; end_line: number };
-
-type AskResponse = {
-  answer: string;
-  citations: Citation[];
-  diagnostics: { used_files: number; elapsed_ms: number };
-};
-
-export default function LocalAiPage() {
-  const aiMode = process.env.NEXT_PUBLIC_AI_MODE || "off";
-  const enabled = aiMode === "local";
-
-  const [health, setHealth] = useState<Health | null>(null);
+export default function AiGatewayPage() {
+  const [health, setHealth] = useState<GatewayHealth | null>(null);
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<AskResponse | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+  const [toolCalls, setToolCalls] = useState<string[]>([]);
+  const [stats, setStats] = useState<{ elapsed_ms?: number; prompt_tokens?: number; completion_tokens?: number } | null>(null);
 
   useEffect(() => {
-    if (!enabled) return;
-    fetch("/api/ai/health")
+    fetch("/api/ai/gateway/health", { credentials: "include" })
       .then((r) => r.json())
       .then(setHealth)
-      .catch(() => setHealth({ enabled: false, sidecar_ok: false, mode: aiMode, message: "Failed to check AI health." }));
-  }, [enabled, aiMode]);
-
-  const canAsk = useMemo(() => enabled && health?.enabled && health?.sidecar_ok, [enabled, health]);
+      .catch(() =>
+        setHealth({ enabled: false, model: "unknown", embedding_model: "unknown", rag_available: false, message: "Backend unreachable" })
+      );
+  }, []);
 
   const ask = async () => {
     setError(null);
     setResult(null);
+    setToolCalls([]);
+    setStats(null);
     setLoading(true);
+
     try {
-      const r = await fetch("/api/ai/ask", {
+      const res = await fetch("/api/ai/gateway/ask", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ message: prompt }),
       });
-      if (!r.ok) {
-        const payload = await r.json().catch(() => ({}));
-        throw new Error(payload.detail || payload.message || "Request failed");
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Gateway error ${res.status}: ${text.slice(0, 200)}`);
       }
-      const data = (await r.json()) as AskResponse;
-      setResult(data);
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let text = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        let currentEvent = "";
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            currentEvent = line.slice(7).trim();
+          } else if (line.startsWith("data: ") && currentEvent) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (currentEvent === "token") {
+                text += data.text;
+                setResult(text);
+              } else if (currentEvent === "tool_call") {
+                setToolCalls((prev) => [...prev, `${data.tool_name}: ${data.result_preview?.slice(0, 80) ?? ""}`]);
+              } else if (currentEvent === "done") {
+                setStats({ elapsed_ms: data.elapsed_ms, prompt_tokens: data.prompt_tokens, completion_tokens: data.completion_tokens });
+              } else if (currentEvent === "error") {
+                throw new Error(data.message || "Gateway error");
+              }
+            } catch (e) {
+              if (e instanceof Error && e.message.startsWith("Gateway")) throw e;
+            }
+            currentEvent = "";
+          }
+        }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed");
     } finally {
@@ -64,93 +96,75 @@ export default function LocalAiPage() {
     }
   };
 
-  if (!enabled) {
-    return (
-      <div className="max-w-2xl">
-        <h1 className="text-xl font-semibold">Local AI</h1>
-        <p className="mt-2 text-sm text-bm-muted">
-          AI is disabled. Set <span className="font-mono">NEXT_PUBLIC_AI_MODE=local</span> to enable the local sidecar.
-        </p>
-      </div>
-    );
-  }
-
-  const statusText =
-    !health ? "Checking sidecar..." : health.sidecar_ok ? "Sidecar ready." : `AI unavailable: ${health.message || "sidecar not running"}`;
+  const statusText = !health
+    ? "Checking gateway..."
+    : health.enabled
+      ? `Model: ${health.model} | RAG: ${health.rag_available ? "available" : "unavailable"}`
+      : `Gateway disabled: ${health.message || "unknown"}`;
 
   return (
     <div className="max-w-3xl space-y-6">
       <header className="space-y-2">
-        <h1 className="text-xl font-semibold">Local AI (Codex Sidecar)</h1>
+        <h1 className="text-xl font-semibold">AI Gateway</h1>
         <p className="text-sm text-bm-muted">
-          Developer/operator-only helper. The UI talks to the backend, which talks to a localhost sidecar.
+          Production AI endpoint with OpenAI Chat Completions, RAG retrieval, and MCP tool calling.
         </p>
-        <p className={`text-sm ${health?.sidecar_ok ? "text-bm-success" : "text-bm-warning"}`}>{statusText}</p>
+        <p className={`text-sm ${health?.enabled ? "text-bm-success" : "text-bm-warning"}`}>{statusText}</p>
       </header>
 
       <Card>
         <CardContent className="space-y-3">
-        <label className="text-sm text-bm-muted">Prompt</label>
-        <Textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          rows={6}
-          placeholder="Ask about the repo (e.g., 'Where is environment creation implemented?')"
-          className="rounded-xl"
-        />
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Button
-            onClick={ask}
-            disabled={!canAsk || loading || prompt.trim().length === 0}
-          >
-            {loading ? "Asking..." : "Ask"}
-          </Button>
-          <div className="text-xs text-bm-muted2 flex items-center">
-            Runs lightweight repo retrieval and sends context to the local sidecar.
+          <label className="text-sm text-bm-muted">Prompt</label>
+          <Textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            rows={4}
+            placeholder="Ask about funds, assets, documents, or portfolio metrics..."
+            className="rounded-xl"
+          />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button
+              onClick={ask}
+              disabled={!health?.enabled || loading || prompt.trim().length === 0}
+            >
+              {loading ? "Thinking..." : "Ask"}
+            </Button>
+            <div className="text-xs text-bm-muted2 flex items-center">
+              Streams via OpenAI Chat Completions with MCP tool dispatch.
+            </div>
           </div>
-        </div>
-        {error ? <p className="text-sm text-bm-danger">{error}</p> : null}
+          {error ? <p className="text-sm text-bm-danger">{error}</p> : null}
         </CardContent>
       </Card>
 
       {result ? (
         <Card>
           <CardContent className="space-y-4">
-          <div>
-            <CardTitle>Answer</CardTitle>
-            <pre className="mt-2 whitespace-pre-wrap text-sm text-bm-text">{result.answer}</pre>
-          </div>
+            <div>
+              <CardTitle>Response</CardTitle>
+              <pre className="mt-2 whitespace-pre-wrap text-sm text-bm-text">{result}</pre>
+            </div>
 
-          <div className="flex flex-wrap gap-3 text-xs">
-            <Badge>
-              elapsed: {result.diagnostics.elapsed_ms}ms
-            </Badge>
-            <Badge>
-              files: {result.diagnostics.used_files}
-            </Badge>
-          </div>
+            {toolCalls.length > 0 ? (
+              <div>
+                <CardTitle>Tool Calls</CardTitle>
+                <ul className="mt-2 space-y-1">
+                  {toolCalls.map((tc, i) => (
+                    <li key={i} className="text-xs font-mono px-2 py-1 bg-bm-accent/10 rounded">
+                      {tc}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
-          <div>
-            <CardTitle>Citations</CardTitle>
-            {result.citations.length === 0 ? (
-              <p className="mt-2 text-sm text-bm-muted2">No citations.</p>
-            ) : (
-              <ul className="mt-2 space-y-2">
-                {result.citations.map((c, idx) => (
-                  <li key={`${c.path}:${idx}`} className="text-sm">
-                    <a
-                      className="text-bm-accent hover:text-bm-accent2"
-                      href={`https://github.com/paulmalmquist/Consulting_app/blob/main/${c.path}#L${c.start_line}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {c.path}:{c.start_line}-{c.end_line}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+            {stats ? (
+              <div className="flex flex-wrap gap-3 text-xs">
+                {stats.elapsed_ms ? <Badge>elapsed: {stats.elapsed_ms}ms</Badge> : null}
+                {stats.prompt_tokens ? <Badge>prompt: {stats.prompt_tokens} tokens</Badge> : null}
+                {stats.completion_tokens ? <Badge>completion: {stats.completion_tokens} tokens</Badge> : null}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       ) : null}
