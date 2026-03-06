@@ -4,6 +4,8 @@ Provides:
   - GET  /api/ai/gateway/health  — gateway status + pgvector availability
   - POST /api/ai/gateway/ask     — streaming SSE chat with tool calling + RAG
   - POST /api/ai/gateway/index   — trigger RAG indexing for a document
+
+Requires OPENAI_API_KEY env var. AI_GATEWAY_ENABLED is set automatically when the key is present.
 """
 from __future__ import annotations
 
