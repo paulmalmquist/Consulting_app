@@ -606,7 +606,7 @@ function RuntimeTab({
       </div>
 
       {/* Timings breakdown */}
-      {winstonTrace?.timings && Object.keys(winstonTrace.timings).length > 0 && (
+      {winstonTrace?.timings != null && Object.keys(winstonTrace.timings).length > 0 && (
         <div className="rounded-md bg-bm-surface/20 px-2 py-1.5">
           <p className="text-[10px] text-bm-muted2 uppercase tracking-wider mb-1">Timings</p>
           {(() => {
@@ -630,7 +630,7 @@ function RuntimeTab({
       )}
 
       {/* RAG Quality */}
-      {(winstonTrace as Record<string, unknown>)?.rag_quality && (() => {
+      {(winstonTrace as Record<string, unknown>)?.rag_quality != null && (() => {
         const rq = (winstonTrace as Record<string, unknown>).rag_quality as Record<string, unknown>;
         return (
           <div className="rounded-md bg-bm-surface/20 px-2 py-1.5">
@@ -648,7 +648,7 @@ function RuntimeTab({
       })()}
 
       {/* Cost */}
-      {(winstonTrace as Record<string, unknown>)?.cost && (() => {
+      {(winstonTrace as Record<string, unknown>)?.cost != null && (() => {
         const c = (winstonTrace as Record<string, unknown>).cost as Record<string, number>;
         return (
           <div className="rounded-md bg-bm-surface/20 px-2 py-1.5">
