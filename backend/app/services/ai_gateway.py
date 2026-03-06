@@ -39,6 +39,12 @@ def _is_reasoning_model(model: str) -> bool:
     return m.startswith(_REASONING_PREFIXES) or any(kw in m for kw in _REASONING_KEYWORDS)
 
 
+def _uses_max_completion_tokens(model: str) -> bool:
+    """GPT-5 and o1/o3 models require max_completion_tokens instead of max_tokens."""
+    m = model.lower()
+    return m.startswith(("o1", "o3", "gpt-5"))
+
+
 # ── RAG result cache (60s TTL) ────────────────────────────────────────
 _rag_cache: dict[str, tuple[float, list[RetrievedChunk]]] = {}
 
@@ -528,12 +534,14 @@ async def run_gateway_stream(
             "stream": True,
             "stream_options": {"include_usage": True},
         }
-        # o1/o3 legacy reasoning models: no temperature, no system role, use max_completion_tokens
-        if _is_reasoning_model(effective_model):
+        # GPT-5 and o1/o3 models require max_completion_tokens instead of max_tokens
+        if _uses_max_completion_tokens(effective_model):
             stream_kwargs["max_completion_tokens"] = route.max_tokens
         else:
-            stream_kwargs["temperature"] = route.temperature
             stream_kwargs["max_tokens"] = route.max_tokens
+        # o1/o3 reasoning models don't support temperature; GPT-5 and others do
+        if not _is_reasoning_model(effective_model):
+            stream_kwargs["temperature"] = route.temperature
         # GPT-5 family supports reasoning_effort as an additive parameter
         if route.reasoning_effort:
             stream_kwargs["reasoning_effort"] = route.reasoning_effort
@@ -544,7 +552,17 @@ async def run_gateway_stream(
         collected_content = ""
         collected_tool_calls: dict[int, dict[str, Any]] = {}
 
-        async for chunk in await client.chat.completions.create(**stream_kwargs):
+        try:
+            stream = await client.chat.completions.create(**stream_kwargs)
+        except Exception as model_err:
+            err_msg = str(model_err)[:300]
+            emit_log(level="error", service="backend", action="ai.gateway.model_error",
+                     message=f"OpenAI API error: {err_msg}", context={"model": effective_model})
+            yield _sse("error", {"message": f"Model error ({effective_model}): {err_msg}"})
+            warnings.append(f"Model error: {err_msg}")
+            break
+
+        async for chunk in stream:
             if not chunk.choices and chunk.usage:
                 total_prompt_tokens += chunk.usage.prompt_tokens or 0
                 total_completion_tokens += chunk.usage.completion_tokens or 0
