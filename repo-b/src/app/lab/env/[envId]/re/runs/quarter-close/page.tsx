@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   listReV1Funds,
   listReV2Scenarios,
@@ -26,6 +27,7 @@ type RunAction = "quarter_close" | "waterfall" | "covenant_test";
 
 export default function ReRunCenterPage() {
   const { envId, businessId } = useReEnv();
+  const searchParams = useSearchParams();
   const [funds, setFunds] = useState<RepeFund[]>([]);
   const [selectedFundId, setSelectedFundId] = useState("");
   const [scenarios, setScenarios] = useState<ReV2Scenario[]>([]);
@@ -42,14 +44,19 @@ export default function ReRunCenterPage() {
 
   useEffect(() => {
     if (!businessId && !envId) return;
+    const preferredFundId = searchParams.get("fundId");
     listReV1Funds({ env_id: envId, business_id: businessId || undefined })
       .then((rows) => {
         setFunds(rows);
-        if (rows[0]) setSelectedFundId(rows[0].fund_id);
+        if (!rows.length) return;
+        const preferred = preferredFundId
+          ? rows.find((row) => row.fund_id === preferredFundId)
+          : null;
+        setSelectedFundId((preferred || rows[0]).fund_id);
       })
       .catch(() => setFunds([]))
       .finally(() => setLoading(false));
-  }, [businessId, envId]);
+  }, [businessId, envId, searchParams]);
 
   useEffect(() => {
     if (!selectedFundId) return;

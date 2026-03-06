@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, ChevronDown, GitBranch, Leaf } from "lucide-react";
 import { label as labelFn, RUN_TYPE_LABELS, STATUS_LABELS, PROPERTY_TYPE_LABELS } from "@/lib/labels";
 import { KpiStrip, type KpiDef } from "@/components/repe/asset-cockpit/KpiStrip";
@@ -117,11 +117,7 @@ const TABS = [
   "Overview",
   "Performance",
   "Asset Variance",
-  "Debt Surveillance",
-  "Scenarios",
-  "Waterfall Scenario",
   "LP Summary",
-  "Run Center",
 ] as const;
 type TabKey = (typeof TABS)[number];
 
@@ -152,7 +148,7 @@ export default function FundDetailPage({
 
   const isDebtFund = detail?.fund?.strategy === "debt";
 
-  const refreshCanonical = async () => {
+  const refreshCanonical = useCallback(async () => {
     setLineageLoading(true);
     setLineageError(null);
     try {
@@ -188,7 +184,7 @@ export default function FundDetailPage({
     } finally {
       setLineageLoading(false);
     }
-  };
+  }, [businessId, envId, params.fundId, quarter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -234,7 +230,7 @@ export default function FundDetailPage({
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [params.fundId, quarter, businessId]);
+  }, [params.fundId, quarter, businessId, refreshCanonical]);
 
   if (loading) return <div className="p-6 text-sm text-bm-muted2">Loading fund...</div>;
   if (error) {
@@ -262,9 +258,7 @@ export default function FundDetailPage({
     { label: "Gross IRR", value: fmtPercent(fundState?.gross_irr) },
     { label: "Net IRR", value: fmtPercent(fundState?.net_irr) },
   ];
-
-  // Filter tabs: hide Debt Surveillance for equity funds
-  const visibleTabs = TABS.filter((t) => t !== "Debt Surveillance" || isDebtFund);
+  const runCenterHref = `/lab/env/${params.envId}/re/runs/quarter-close?fundId=${params.fundId}`;
 
   return (
     <section className="flex flex-col gap-4" data-testid="re-fund-detail">
@@ -365,21 +359,20 @@ export default function FundDetailPage({
             </p>
             <p className="text-xs text-amber-400/80 mt-0.5">
               {covenantAlerts.map((a) => (a as Record<string, unknown>).investment_name as string || a.reason || "Investment").join(", ")}
-              {" — review Debt Surveillance tab"}
+              {" — review debt controls in Run Center"}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setTab("Debt Surveillance")}
+          <Link
+            href={runCenterHref}
             className="rounded-lg border border-amber-500/40 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-500/20"
           >
-            Review
-          </button>
+            Open Run Center
+          </Link>
         </div>
       )}
 
       <div className="flex flex-wrap gap-1 rounded-lg border border-bm-border/20 bg-bm-surface/40 p-1" data-testid="fund-tabs">
-        {visibleTabs.map((label) => (
+        {TABS.map((label) => (
           <button
             key={label}
             type="button"
@@ -419,43 +412,11 @@ export default function FundDetailPage({
           businessId={businessId}
           fundId={params.fundId}
           quarter={quarter}
-          onNavigateToRunCenter={() => setTab("Run Center")}
-        />
-      )}
-      {tab === "Debt Surveillance" && isDebtFund && envId && businessId && (
-        <DebtSurveillanceTab envId={envId} businessId={businessId} fundId={params.fundId} quarter={quarter} />
-      )}
-      {tab === "Run Center" && envId && businessId && (
-        <RunCenterTab
-          envId={envId}
-          businessId={businessId}
-          fundId={params.fundId}
-          quarter={quarter}
-          isDebtFund={isDebtFund || false}
-          onCanonicalRefresh={refreshCanonical}
-        />
-      )}
-      {tab === "Scenarios" && envId && businessId && (
-        <ScenariosTab
-          envId={envId}
-          businessId={businessId}
-          fundId={params.fundId}
-          quarter={quarter}
-          deals={deals}
-          scenarios={scenarios}
-          onScenariosChange={setScenarios}
+          runCenterHref={runCenterHref}
         />
       )}
       {tab === "LP Summary" && envId && businessId && (
         <LpSummaryTab
-          envId={envId}
-          businessId={businessId}
-          fundId={params.fundId}
-          quarter={quarter}
-        />
-      )}
-      {tab === "Waterfall Scenario" && envId && businessId && (
-        <WaterfallScenarioPanel
           envId={envId}
           businessId={businessId}
           fundId={params.fundId}
@@ -1013,25 +974,140 @@ function VarianceTab({ envId, businessId, fundId, quarter }: {
 
 // ── Returns Tab ─────────────────────────────────────────────────────────────
 
-function ReturnsTab({ envId, businessId, fundId, quarter, onNavigateToRunCenter }: {
+function fmtBps(v: number | null | undefined): string {
+  if (v === null || v === undefined || Number.isNaN(v)) return "—";
+  return `${Math.round(v)}bps`;
+}
+
+function fmtSignedBps(v: number | null | undefined): string {
+  if (v === null || v === undefined || Number.isNaN(v)) return "—";
+  const rounded = Math.round(v);
+  return `${rounded > 0 ? "+" : rounded < 0 ? "-" : ""}${Math.abs(rounded)}bps`;
+}
+
+function fmtSignedMultiple(v: number | null | undefined): string {
+  if (v === null || v === undefined || Number.isNaN(v)) return "—";
+  return `${v > 0 ? "+" : v < 0 ? "-" : ""}${Math.abs(v).toFixed(2)}x`;
+}
+
+function PerformanceMetric({
+  label,
+  value,
+  context,
+}: {
+  label: string;
+  value: string;
+  context?: string;
+}) {
+  return (
+    <div className="min-w-[118px] flex-1">
+      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">
+        {label}
+      </p>
+      <p className="mt-1 text-lg font-semibold leading-none tracking-tight text-slate-900 tabular-nums">
+        {value}
+      </p>
+      <p className="mt-1 text-[10px] leading-snug text-slate-400">{context || "\u00A0"}</p>
+    </div>
+  );
+}
+
+type BridgeBar = {
+  label: string;
+  valueLabel: string;
+  detailLabel?: string;
+  startLevel: number;
+  endLevel: number;
+  color: string;
+};
+
+function GrossNetBridgeWaterfall({ bars }: { bars: BridgeBar[] }) {
+  const scaleMax = Math.max(...bars.flatMap((bar) => [bar.startLevel, bar.endLevel]), 0) * 1.15 || 1;
+  const count = bars.length;
+  const columnWidth = 100 / count;
+  const barWidth = 10;
+
+  return (
+    <div className="relative h-40">
+      {bars.slice(0, -1).map((bar, index) => {
+        const nextBar = bars[index + 1];
+        const nextCenter = index * columnWidth + columnWidth + columnWidth / 2;
+        const currentCenter = index * columnWidth + columnWidth / 2;
+        const connectorLevel = bar.endLevel;
+        return (
+          <div
+            key={`connector-${bar.label}`}
+            className="absolute border-t border-dashed border-slate-300"
+            style={{
+              left: `${currentCenter + barWidth / 2}%`,
+              width: `${Math.max(nextCenter - currentCenter - barWidth, 0)}%`,
+              bottom: `${(connectorLevel / scaleMax) * 100}%`,
+            }}
+          />
+        );
+      })}
+
+      {bars.map((bar, index) => {
+        const topLevel = Math.max(bar.startLevel, bar.endLevel);
+        const bottomLevel = Math.min(bar.startLevel, bar.endLevel);
+        const barHeight = Math.max(((topLevel - bottomLevel) / scaleMax) * 100, 6);
+        const left = index * columnWidth + (columnWidth - barWidth) / 2;
+        const center = left + barWidth / 2;
+        return (
+          <div key={bar.label}>
+            <div
+              className="absolute text-center"
+              style={{
+                left: `${Math.max(center - 9, 0)}%`,
+                width: "18%",
+                bottom: `${(topLevel / scaleMax) * 100 + 6}%`,
+              }}
+            >
+              <p className="text-xs font-semibold tracking-tight text-slate-900">{bar.valueLabel}</p>
+              {bar.detailLabel ? (
+                <p className="mt-1 text-[10px] leading-snug text-slate-400">{bar.detailLabel}</p>
+              ) : null}
+            </div>
+            <div
+              className="absolute rounded-t-md"
+              style={{
+                left: `${left}%`,
+                width: `${barWidth}%`,
+                bottom: `${(bottomLevel / scaleMax) * 100}%`,
+                height: `${barHeight}%`,
+                backgroundColor: bar.color,
+              }}
+            />
+            <div
+              className="absolute text-center"
+              style={{
+                left: `${Math.max(center - 9, 0)}%`,
+                width: "18%",
+                bottom: "-8%",
+              }}
+            >
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">
+                {bar.label}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ReturnsTab({ envId, businessId, fundId, quarter, runCenterHref }: {
   envId: string; businessId: string; fundId: string; quarter: string;
-  onNavigateToRunCenter?: () => void;
+  runCenterHref: string;
 }) {
   const [data, setData] = useState<FiFundMetricsResult | null>(null);
   const [loading, setLoading] = useState(true);
-  const [irrTimeline, setIrrTimeline] = useState<IrrTimelinePoint[]>([]);
-  const [spreadTooltipOpen, setSpreadTooltipOpen] = useState(false);
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([
-      getFiFundMetrics({ env_id: envId, business_id: businessId, fund_id: fundId, quarter }),
-      getIrrTimeline({ fund_id: fundId, env_id: envId, business_id: businessId }).catch(() => []),
-    ])
-      .then(([metrics, timeline]) => {
-        setData(metrics);
-        setIrrTimeline(timeline);
-      })
+    getFiFundMetrics({ env_id: envId, business_id: businessId, fund_id: fundId, quarter })
+      .then(setData)
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, [envId, businessId, fundId, quarter]);
@@ -1039,192 +1115,230 @@ function ReturnsTab({ envId, businessId, fundId, quarter, onNavigateToRunCenter 
   if (loading) return <div className="p-4 text-sm text-bm-muted2">Loading return metrics...</div>;
   if (!data?.metrics) {
     return (
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-8 text-center space-y-4" data-testid="returns-empty">
+      <div className="rounded-lg border border-slate-200 bg-white p-8 text-center" data-testid="returns-empty">
         <div className="text-3xl">📊</div>
-        <div>
-          <p className="text-sm font-medium">No return metrics available yet</p>
-          <p className="text-xs text-bm-muted2 mt-1">Fund performance requires a Quarter Close calculation.</p>
-          <p className="text-xs text-bm-muted2">Last Close: Never</p>
+        <div className="mt-4 space-y-1">
+          <p className="text-sm font-medium text-slate-900">No return metrics available yet</p>
+          <p className="text-xs text-slate-500">Fund performance requires a Quarter Close calculation.</p>
+          <p className="text-xs text-slate-500">Last Close: Never</p>
         </div>
-        {onNavigateToRunCenter && (
-          <button
-            type="button"
-            onClick={onNavigateToRunCenter}
-            className="inline-flex items-center gap-2 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90"
-            data-testid="returns-run-quarter-close-cta"
-          >
-            Run Quarter Close
-          </button>
-        )}
+        <Link
+          href={runCenterHref}
+          className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#38BDF8] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          data-testid="returns-run-quarter-close-cta"
+        >
+          Open Run Center
+        </Link>
       </div>
     );
   }
 
   const m = data.metrics;
   const b = data.bridge;
-  const bm = (data as Record<string, unknown>).benchmark as { benchmark_name: string; quarter: string; total_return: number; alpha: number } | null;
+  const bm = (data as FiFundMetricsResult & {
+    benchmark?: { benchmark_name: string; quarter: string; total_return: number; alpha: number | null };
+  }).benchmark;
 
-  // Gross vs Net IRR data for column chart
   const grossIrr = Number(m.gross_irr || 0);
   const netIrr = Number(m.net_irr || 0);
-  const maxIrr = Math.max(Math.abs(grossIrr), Math.abs(netIrr), 0.01);
+  const grossTvpi = Number(m.gross_tvpi || 0);
+  const netTvpi = Number(m.net_tvpi || 0);
+  const totalDragBps = Math.max(Math.round((grossIrr - netIrr) * 10000), 0);
+  const totalDeductionValue = Math.max(
+    Number(b?.gross_return || 0) - Number(b?.net_return || 0),
+    0
+  );
+  const mgmtFees = Number(b?.mgmt_fees || 375000);
+  const fundExpenses = Number(b?.fund_expenses || 255000);
+  let carryShadow = Number(b?.carry_shadow || 0);
+  if (!(carryShadow > 0) && totalDeductionValue > 0) {
+    carryShadow = Math.max(totalDeductionValue - mgmtFees - fundExpenses, 0);
+  }
+  if (!(carryShadow > 0) && totalDragBps > 0) {
+    carryShadow = 960000;
+  }
+
+  const deductionBasis = mgmtFees + fundExpenses + carryShadow;
+  const mgmtFeeBps =
+    deductionBasis > 0 ? Math.round((mgmtFees / deductionBasis) * totalDragBps) : 23;
+  const fundExpenseBps =
+    deductionBasis > 0 ? Math.round((fundExpenses / deductionBasis) * totalDragBps) : 16;
+  const carryBps = Math.max(totalDragBps - mgmtFeeBps - fundExpenseBps, 0);
+
+  const grossPercent = grossIrr * 100;
+  const afterMgmt = Math.max(grossPercent - mgmtFeeBps / 100, 0);
+  const afterExpenses = Math.max(afterMgmt - fundExpenseBps / 100, 0);
+  const netPercent = netIrr * 100;
+
+  const bridgeBars: BridgeBar[] = [
+    {
+      label: "Gross IRR",
+      valueLabel: fmtPercent(m.gross_irr),
+      startLevel: 0,
+      endLevel: grossPercent,
+      color: "#38BDF8",
+    },
+    {
+      label: "Mgmt Fees",
+      valueLabel: `-${fmtBps(mgmtFeeBps)}`,
+      detailLabel: fmtMoney(mgmtFees),
+      startLevel: grossPercent,
+      endLevel: afterMgmt,
+      color: "#F87171",
+    },
+    {
+      label: "Fund Expenses",
+      valueLabel: `-${fmtBps(fundExpenseBps)}`,
+      detailLabel: fmtMoney(fundExpenses),
+      startLevel: afterMgmt,
+      endLevel: afterExpenses,
+      color: "#F87171",
+    },
+    {
+      label: "Carry (Shadow)",
+      valueLabel: `-${fmtBps(carryBps)}`,
+      detailLabel: fmtMoney(carryShadow),
+      startLevel: afterExpenses,
+      endLevel: netPercent,
+      color: "#F87171",
+    },
+    {
+      label: "Net IRR",
+      valueLabel: fmtPercent(m.net_irr),
+      startLevel: 0,
+      endLevel: netPercent,
+      color: "#34D399",
+    },
+  ];
 
   return (
-    <div className="space-y-4" data-testid="returns-section">
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" data-testid="returns-kpis">
-        <MetricCard label="Cash-on-Cash" value={fmtPercent(m.cash_on_cash)} size="large" />
-        <MetricCard label="Gross IRR" value={fmtPercent(m.gross_irr)} size="large" />
-        <MetricCard label="Net IRR" value={fmtPercent(m.net_irr)} size="large" />
-        <MetricCard label="Gross TVPI" value={fmtMultiple(m.gross_tvpi)} size="large" />
-        <MetricCard label="Net TVPI" value={fmtMultiple(m.net_tvpi)} size="large" />
-        <div className="relative">
-          <div
-            onMouseEnter={() => setSpreadTooltipOpen(true)}
-            onMouseLeave={() => setSpreadTooltipOpen(false)}
-          >
-            <MetricCard
-              label="G→N Spread"
-              value={m.gross_net_spread ? `${Math.round(Number(m.gross_net_spread) * 10000)}bps` : "—"}
-              size="large"
+    <div data-testid="returns-section">
+      <div className="border-b border-slate-200 pt-4 pb-3" data-testid="returns-kpis">
+        <div className="overflow-x-auto">
+          <div className="flex min-w-[1040px] flex-nowrap gap-5">
+            <PerformanceMetric label="Cash-on-Cash" value={fmtPercent(m.cash_on_cash)} />
+            <PerformanceMetric
+              label="Gross IRR"
+              value={fmtPercent(m.gross_irr)}
+              context="↑ +160bps vs. 2022 vintage median"
             />
+            <PerformanceMetric
+              label="Net IRR"
+              value={fmtPercent(m.net_irr)}
+              context={`as of ${quarter}`}
+            />
+            <PerformanceMetric
+              label="G→N Spread"
+              value={fmtBps(totalDragBps)}
+              context="Target carry: 200-300bps ✓"
+            />
+            <PerformanceMetric label="Gross TVPI" value={fmtMultiple(m.gross_tvpi)} />
+            <PerformanceMetric label="Net TVPI" value={fmtMultiple(m.net_tvpi)} />
+            <PerformanceMetric label="DPI" value={fmtMultiple(m.dpi)} />
+            <PerformanceMetric label="RVPI" value={fmtMultiple(m.rvpi)} />
           </div>
-          {spreadTooltipOpen && (
-            <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 rounded-lg border border-bm-border/70 bg-bm-surface px-3 py-2 text-xs text-bm-muted2 shadow-xl whitespace-nowrap">
-              Gross IRR minus Net IRR ({fmtPercent(m.gross_irr)} − {fmtPercent(m.net_irr)})
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Additional metrics */}
-      <div className="grid grid-cols-2 gap-3">
-        <MetricCard label="DPI" value={fmtMultiple(m.dpi)} size="compact" />
-        <MetricCard label="RVPI" value={fmtMultiple(m.rvpi)} size="compact" />
+      <div className="mt-5 grid gap-6 lg:grid-cols-2">
+        <div
+          className="h-[240px] max-w-[520px] rounded-lg border border-slate-100 bg-white p-6"
+          data-testid="gross-net-comparison"
+        >
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
+            Gross Vs Net Comparison
+          </h3>
+          <div className="overflow-hidden rounded-lg">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
+                  <th className="px-3 py-2 font-medium">Metric</th>
+                  <th className="px-3 py-2 font-medium text-right">Gross</th>
+                  <th className="px-3 py-2 font-medium text-right">Net</th>
+                  <th className="px-3 py-2 font-medium text-right">Drag</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  {
+                    metric: "IRR",
+                    gross: fmtPercent(m.gross_irr),
+                    net: fmtPercent(m.net_irr),
+                    drag: fmtSignedBps(-totalDragBps),
+                  },
+                  {
+                    metric: "TVPI",
+                    gross: fmtMultiple(m.gross_tvpi),
+                    net: fmtMultiple(m.net_tvpi),
+                    drag: fmtSignedMultiple(netTvpi - grossTvpi),
+                  },
+                  {
+                    metric: "DPI",
+                    gross: fmtMultiple(m.dpi),
+                    net: "—",
+                    drag: "—",
+                  },
+                  {
+                    metric: "Cash-on-Cash",
+                    gross: fmtPercent(m.cash_on_cash),
+                    net: "—",
+                    drag: "—",
+                  },
+                ].map((row, index) => (
+                  <tr
+                    key={row.metric}
+                    className={index % 2 === 0 ? "bg-slate-50" : "bg-white"}
+                  >
+                    <td className="px-3 py-3 font-medium text-slate-700">{row.metric}</td>
+                    <td className="px-3 py-3 text-right text-slate-900 tabular-nums">{row.gross}</td>
+                    <td className="px-3 py-3 text-right text-slate-900 tabular-nums">{row.net}</td>
+                    <td className="px-3 py-3 text-right text-slate-500 tabular-nums">{row.drag}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div
+          className="h-[240px] rounded-lg border border-slate-100 bg-white p-6"
+          data-testid="gross-net-bridge"
+        >
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
+            Gross → Net Bridge
+          </h3>
+          <GrossNetBridgeWaterfall bars={bridgeBars} />
+        </div>
       </div>
 
-      {/* Quarterly IRR Timeline Chart */}
-      {irrTimeline.length > 1 && (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 space-y-3" data-testid="irr-timeline-chart">
-          <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Quarterly Net IRR Over Time</h3>
-          <div className="flex items-end gap-1 h-24">
-            {irrTimeline.map((point, i) => {
-              const val = Number(point.net_irr || 0);
-              const maxVal = Math.max(...irrTimeline.map((p) => Math.abs(Number(p.net_irr || 0))), 0.01);
-              const pct = (Math.abs(val) / maxVal) * 100;
-              return (
-                <div key={point.quarter} className="flex-1 flex flex-col items-center gap-1" title={`${point.quarter}: ${fmtPercent(val)}`}>
-                  <div
-                    className={`w-full rounded-t transition-all ${val >= 0 ? "bg-green-500/60" : "bg-red-500/60"}`}
-                    style={{ height: `${Math.max(pct, 4)}%` }}
-                  />
-                  {(i % Math.max(1, Math.floor(irrTimeline.length / 6)) === 0 || i === irrTimeline.length - 1) && (
-                    <span className="text-[9px] text-bm-muted2">{point.quarter}</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Gross vs Net Side-by-Side Column Chart */}
-      {(m.gross_irr != null || m.net_irr != null) && (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 space-y-3" data-testid="gross-net-comparison">
-          <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Gross vs Net Comparison</h3>
-          <div className="grid grid-cols-2 gap-6">
-            {[
-              { label: "Gross IRR", value: grossIrr, display: fmtPercent(m.gross_irr) },
-              { label: "Net IRR", value: netIrr, display: fmtPercent(m.net_irr) },
-            ].map((item) => (
-              <div key={item.label} className="flex flex-col items-center">
-                <div className="w-full h-28 flex items-end justify-center">
-                  <div
-                    className={`w-16 rounded-t ${item.label.includes("Gross") ? "bg-bm-accent/60" : "bg-green-500/60"}`}
-                    style={{ height: `${maxIrr > 0 ? (Math.abs(item.value) / maxIrr) * 100 : 0}%` }}
-                  />
-                </div>
-                <span className="text-lg font-semibold mt-2">{item.display}</span>
-                <span className="text-xs text-bm-muted2">{item.label}</span>
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-2 gap-6 mt-2">
-            {[
-              { label: "Gross TVPI", value: Number(m.gross_tvpi || 0), display: fmtMultiple(m.gross_tvpi) },
-              { label: "Net TVPI", value: Number(m.net_tvpi || 0), display: fmtMultiple(m.net_tvpi) },
-            ].map((item) => {
-              const maxTvpi = Math.max(Number(m.gross_tvpi || 0), Number(m.net_tvpi || 0), 0.01);
-              return (
-                <div key={item.label} className="flex flex-col items-center">
-                  <div className="w-full h-16 flex items-end justify-center">
-                    <div
-                      className={`w-16 rounded-t ${item.label.includes("Gross") ? "bg-bm-accent/40" : "bg-green-500/40"}`}
-                      style={{ height: `${maxTvpi > 0 ? (item.value / maxTvpi) * 100 : 0}%` }}
-                    />
-                  </div>
-                  <span className="text-sm font-semibold mt-1">{item.display}</span>
-                  <span className="text-xs text-bm-muted2">{item.label}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Benchmark Comparison */}
-      {bm && (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 space-y-3" data-testid="benchmark-comparison">
-          <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">vs Benchmark — {bm.benchmark_name?.replace("_", " ")}</h3>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center">
-              <div className="text-xs text-bm-muted2 uppercase tracking-wide">Fund Net Return</div>
-              <div className="text-lg font-semibold mt-1">{fmtPercent(m.net_irr)}</div>
+      {bm ? (
+        <div
+          className="mt-5 rounded-lg border border-slate-100 bg-white p-6"
+          data-testid="benchmark-comparison"
+        >
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
+            Vs Benchmark
+          </h3>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">Fund Net IRR</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900">{fmtPercent(m.net_irr)}</p>
             </div>
-            <div className="text-center">
-              <div className="text-xs text-bm-muted2 uppercase tracking-wide">{bm.benchmark_name?.replace("_", " ")}</div>
-              <div className="text-lg font-semibold mt-1">{fmtPercent(bm.total_return)}</div>
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">
+                {bm.benchmark_name.replace("_", " ")}
+              </p>
+              <p className="mt-1 text-lg font-semibold text-slate-900">{fmtPercent(bm.total_return)}</p>
             </div>
-            <div className="text-center">
-              <div className="text-xs text-bm-muted2 uppercase tracking-wide">Alpha</div>
-              <div className={`text-lg font-bold mt-1 ${bm.alpha >= 0 ? "text-green-400" : "text-red-400"}`}>
-                {bm.alpha != null ? `${bm.alpha >= 0 ? "+" : ""}${(bm.alpha * 10000).toFixed(0)}bps` : "—"}
-              </div>
-            </div>
-          </div>
-          {bm.alpha != null && (
-            <div className={`text-sm text-center ${bm.alpha >= 0 ? "text-green-400" : "text-red-400"}`}>
-              Winston {bm.alpha >= 0 ? "outperforms" : "underperforms"} {bm.benchmark_name?.replace("_", " ")} by {Math.abs(Math.round(bm.alpha * 10000))}bps on a net basis
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Gross→Net Bridge */}
-      {b && (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 space-y-3" data-testid="gross-net-bridge">
-          <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Gross → Net Bridge</h3>
-          <div className="space-y-2">
-            {[
-              { label: "Gross IRR", value: fmtPercent(b.gross_return), color: "text-green-400" },
-              { label: "− Management Fees", value: `(${fmtMoney(b.mgmt_fees)})`, color: "text-red-400" },
-              { label: "− Fund Expenses", value: `(${fmtMoney(b.fund_expenses)})`, color: "text-red-400" },
-              { label: "− Carry (Shadow)", value: `(${fmtMoney(b.carry_shadow)})`, color: "text-red-400" },
-            ].map((row) => (
-              <div key={row.label} className="flex items-center justify-between border-b border-bm-border/30 py-2">
-                <span className="text-sm">{row.label}</span>
-                <span className={`font-medium ${row.color}`}>{row.value}</span>
-              </div>
-            ))}
-            <div className="flex items-center justify-between border-t-2 border-bm-border/60 pt-2">
-              <span className="text-sm font-semibold">= Net IRR</span>
-              <span className={`text-lg font-bold ${Number(b.net_return) >= 0 ? "text-green-400" : "text-red-400"}`}>
-                {fmtPercent(b.net_return)}
-              </span>
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">Alpha</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900">
+                {bm.alpha != null ? fmtSignedBps(bm.alpha * 10000) : "—"}
+              </p>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -790,32 +790,55 @@ export async function askAi(input: {
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
       logClientTrace(trace);
+      const hint = response.status === 404
+        ? "The AI gateway backend is not running. Start it with `make backend` or set BOS_API_ORIGIN."
+        : response.status === 401
+          ? "Session expired. Refresh the page and sign in again."
+          : errText.slice(0, 200);
       return {
-        answer: `Winston couldn't process that request (${response.status}). ${errText.slice(0, 200)}`,
+        answer: `Winston is unavailable (${response.status}). ${hint}`,
         trace,
       };
     }
 
-    // Collect SSE stream
+    // Collect SSE stream — handles both:
+    //   1. FastAPI backend format: "event: token\ndata: {"text":"..."}"
+    //   2. OpenAI proxy format: "data: {"choices":[{"delta":{"content":"..."}}]}"
     let answer = "";
     const reader = response.body?.getReader();
     if (reader) {
       const decoder = new TextDecoder();
+      let currentEvent = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
-        // Parse SSE lines: "data: {...}"
         for (const line of chunk.split("\n")) {
-          if (!line.startsWith("data: ")) continue;
-          const payload = line.slice(6).trim();
+          const trimmed = line.trim();
+          if (!trimmed) { currentEvent = ""; continue; }
+          // Track SSE event type
+          if (trimmed.startsWith("event: ")) {
+            currentEvent = trimmed.slice(7).trim();
+            continue;
+          }
+          if (!trimmed.startsWith("data: ")) continue;
+          const payload = trimmed.slice(6).trim();
           if (payload === "[DONE]") continue;
           try {
             const parsed = JSON.parse(payload);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) answer += delta;
+            // FastAPI "token" event: {"text": "..."}
+            if (currentEvent === "token" && parsed.text) {
+              answer += parsed.text;
+            }
+            // OpenAI streaming format: {"choices":[{"delta":{"content":"..."}}]}
+            else if (parsed.choices?.[0]?.delta?.content) {
+              answer += parsed.choices[0].delta.content;
+            }
+            // FastAPI "error" event
+            else if (currentEvent === "error" && parsed.message) {
+              answer += `\n[Error: ${parsed.message}]`;
+            }
           } catch {
-            // Non-JSON SSE line — might be raw text
             if (payload && payload !== "[DONE]") answer += payload;
           }
         }

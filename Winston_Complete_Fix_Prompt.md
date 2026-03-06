@@ -206,242 +206,27 @@ On all line charts: set `dot={false}` on `<Line>` components. Reduce grid line o
 
 ---
 
-## Section E: AI Features
+## Section E: Seed Data Completeness
 
-This section is the most strategic part of the build. The target architecture mirrors what a Lead AI & Data Engineering role at a serious institutional RE firm would own: RAG pipelines, entity intelligence, investment Q&A grounded in documents, semantic search, anomaly detection, and a full LLM audit layer. Every sub-section below maps to that capability set.
-
-**Current AI status (verified in live testing, March 5 2026):**
-- Winston Command Center Plan → Confirm → Execute pipeline: ✅ Live and functional for structural operations
-- Route context injection (asset UUID in workspace route): ✅ Working — route updates when Winston opened from asset page
-- Quick Action adaptation by page context: ✅ Partially working — asset-page Quick Actions correctly change to RE-specific prompts ("Summarize key risks", "Compare to underwriting", "Draft LP update", "Identify covenant risk", "Cap rate impact on NAV")
-- Business entity name in workspace context ("Business: none"): ❌ Not passing asset name/entity
-- Analytical Q&A (portfolio data questions): ❌ "No implemented operation matches this request" for all analytical queries
-- Document-grounded Q&A (RAG): ❌ Not built — "Recent Documents" also returns no implemented operation
-- Generate Report API: ❌ 200 response but no visible output
-
----
-
-### E1. RAG Pipeline — Document Ingestion, Chunking, Embedding, and Retrieval
-
-Build the core Retrieval-Augmented Generation pipeline that powers all document-grounded AI features in the platform.
-
-**Ingestion:**
-When a document is uploaded to any asset's Attachments panel, trigger an ingestion pipeline that:
-1. Extracts full text from the document (PDF, DOCX, XLSX)
-2. Chunks the text into overlapping segments of ~400 tokens with 50-token overlap
-3. Attaches metadata to each chunk: `{ assetId, investmentId, fundId, docName, docType, quarter, pageNumber, chunkIndex }`
-4. Generates an embedding for each chunk using the configured embedding model (OpenAI `text-embedding-3-small` or equivalent)
-5. Stores chunks + embeddings in the vector store (Pinecone or Cosmos DB vector workload), keyed by the metadata above
-
-**Retrieval:**
-When a user submits a query in the Winston Command Center or asset Q&A panel:
-1. Embed the query using the same model
-2. Run a vector similarity search against the store, filtered to the current `assetId` and/or `fundId` scope
-3. Apply a reranking pass (cross-encoder or LLM-based relevance scoring) on the top-20 retrieved chunks
-4. Pass the top-5 reranked chunks as grounding context to the LLM, alongside the user's query and the current asset KPIs
-
-**Chunking strategy by document type:**
-- Rent rolls: chunk by unit block (10-15 rows per chunk), preserve column headers in every chunk
-- Financial statements: chunk by section (Income Statement, Balance Sheet, NOI Bridge) — do not split across sections
-- Appraisal reports: chunk by section (Executive Summary, Market Analysis, Valuation Approaches, Concluded Value)
-- OM / IC memos: chunk by paragraph, preserve section headings as prefix metadata
-
-Store the full pipeline as an auditable record: for each query, log which documents were retrieved, which chunks were used, the relevance scores, and the final LLM response.
-
----
-
-### E2. Investment Q&A — Document-Grounded Chat
-
-Add a persistent Q&A chat panel to the asset cockpit (alongside or within the Winston Command Center) that answers questions grounded in the asset's uploaded documents and live KPI data.
-
-**Behavior:**
-- User asks: "What is the current occupancy trend and how does it compare to the appraiser's assumption?"
-- System retrieves relevant chunks from the appraisal report and the most recent rent roll
-- System injects the current KPIs (Occupancy: 92.0%, Revenue: $6.3M) alongside the retrieved context
-- LLM generates a response that cites the specific document and section: *"Per the Q3 2024 appraisal (p. 14), the appraiser assumed 94% stabilized occupancy. Current trailing occupancy is 92.0% based on the most recent rent roll, suggesting a 200bps underperformance vs. assumption."*
-
-**Citation rendering:**
-Every LLM response that references a document must include an inline citation chip showing the document name, page number, and a link to the source document in the Attachments panel. Do not generate responses that assert document-sourced facts without a citation. If no relevant document context is found, the response must say so explicitly rather than hallucinating.
-
-**Scope control:**
-The chat scope should be selectable: Asset (documents for this asset only), Investment (all assets in the investment), Fund (all assets across the fund). Show the active scope in the panel header.
-
-**Suggested queries to surface as pills:**
-- "Summarize this asset's rent roll as of last quarter"
-- "What are the key risks identified in the most recent appraisal?"
-- "How does actual NOI compare to the underwriting model?"
-- "Are there any lease expirations in the next 12 months?"
-- "Draft an LP update paragraph for this asset"
-- "What would a 50bps cap rate expansion do to NAV at current NOI?"
-- "Flag any covenant conditions referenced in the loan documents"
-
----
-
-### E3. Semantic Search — Across Assets, Documents, and Entities
-
-Add a platform-level semantic search bar (accessible from the global header or via a keyboard shortcut such as Cmd+K) that searches across:
-
-1. **Assets** — by name, location, sector, fund, or any KPI range ("show me assets with occupancy below 90%")
-2. **Documents** — full-text and semantic search across all uploaded attachments across all assets the user has access to ("find all documents mentioning covenant")
-3. **Funds** — by strategy, vintage, or metric ("funds with DPI below 0.1x")
-4. **Investments** — by name, stage, or geographic market
-
-Results should be grouped by type (Assets, Documents, Funds) and ranked by semantic relevance. Document results should show the matching chunk and its source document with a link.
-
-The search index is the same vector store used by the RAG pipeline — no separate indexing required.
-
----
-
-### E4. Entity Intelligence Layer — Graph-Style Relationships
-
-Build an entity intelligence model that captures relationships across the platform's core objects (Fund → Investment → Asset → Document → Quarter → Scenario) and exposes them to the AI layer for relationship-aware reasoning.
-
-**Relationships to model:**
-- Fund owns Investment, Investment owns Asset(s)
-- Asset has Documents (by type: appraisal, rent roll, loan agreement, IC memo, operating statement)
-- Asset has QuarterlySnapshots (NOI, Revenue, Occupancy, NAV by quarter)
-- Asset has Scenarios (Base, Upside, Downside — each with its own assumption set and projected outputs)
-- Investment has Covenants (LTV threshold, DSCR threshold, occupancy floor)
-
-**Expose to AI:**
-When a user asks "Which assets in this fund are at risk of breaching their LTV covenant?", the system should:
-1. Retrieve each asset's current LTV and its covenant threshold from the entity graph
-2. Compute headroom for each
-3. Rank assets by covenant proximity
-4. Return a structured list with asset name, current LTV, covenant threshold, and headroom in bps
-
-This does not require a literal graph database — a well-structured relational schema with the above relationships, exposed as typed context to the LLM, achieves the same reasoning capability.
-
----
-
-### E5. Anomaly Detection — Flag Unusual Metric Movements
-
-Run a lightweight anomaly detection pass on asset and fund metrics each time a quarter-close run completes. Flag anomalies in the UI with a warning indicator.
-
-**Metrics to monitor:**
-- NOI quarter-over-quarter change > ±20%
-- Occupancy drop > 5 percentage points in a single quarter
-- Cap rate movement > ±75bps quarter-over-quarter
-- Revenue growth diverging > 500bps from the modeled rent growth assumption
-- Fund NAV change > ±10% in a quarter with no corresponding capital event
-
-**Display:**
-- Show a small warning badge (⚠) on the affected KPI in the cockpit
-- On hover, show: "NOI dropped 28% QoQ — outside the normal ±20% range. Last occurrence: Q2 2023."
-- In the Ops & Audit tab, add an "Anomaly Log" sub-section listing all flagged events with timestamps and severity
-
----
-
-### E6. Asset-Context Injection Into Winston Command Center
-
-**Current state:** Route context IS passing — when Winston is opened from an asset page, the workspace panel correctly shows the asset UUID in the Route field. However, `Business: none` persists — the asset name, KPIs, covenants, and attachment count are not being injected into the workspace payload.
-
-**Required fix:** When the Winston Command Center is opened from an asset detail page, inject the current asset's context into the workspace payload and surface it in the panel:
-
-```json
-{
-  "assetId": "<current asset id>",
-  "assetName": "Cascade Multifamily",
-  "currentKpis": {
-    "noi": 4700000,
-    "nav": 39000000,
-    "grossValue": 59800000,
-    "capRate": 0.0786,
-    "irr": 0.125,
-    "occupancy": 0.92,
-    "ltv": 0.619
-  },
-  "attachmentCount": 20,
-  "fund": "Institutional Growth Fund VII",
-  "activeScenario": "Base Case",
-  "covenants": {
-    "ltvThreshold": 0.70,
-    "dscrFloor": 1.25,
-    "occupancyFloor": 0.85
-  }
-}
-```
-
-Replace "Business: none" in the workspace panel with "Asset: Cascade Multifamily · Fund: Institutional Growth Fund VII". Include covenant status (In Compliance / At Risk / Breached) as a visible inline indicator.
-
----
-
-### E7. LLM Audit Trail and Retrieval Governance
-
-Every AI-generated response in the platform must be logged and auditable. This is a non-negotiable requirement for institutional use.
-
-**Log per query:**
-- Timestamp and user ID
-- Query text
-- Scope (assetId, fundId, envId)
-- Retrieved document chunks (chunk IDs, relevance scores, source document names)
-- Final prompt sent to the LLM (truncated for PII but complete enough to audit)
-- LLM response
-- Response latency
-- Model used and token counts (prompt + completion)
-
-**Display in UI:**
-- Add an "AI Activity" sub-tab inside the Ops & Audit tab for each asset
-- Show a chronological log of all AI queries and responses for this asset, with the retrieved citations visible inline
-- Add a "View Reasoning" expand control on each response that shows which chunks were retrieved and their scores
-
-**Retrieval quality:**
-- Track retrieval hit rate: what % of queries returned at least one chunk with relevance score > 0.75
-- Track citation coverage: what % of LLM responses included at least one inline citation
-- Expose these as admin-level metrics in the Control Tower environment detail view
-
----
-
-### E8. Upload Demo Documents to Attachments
-
-The Ops & Audit → Attachments panel shows "0 files — no attachments yet." The 20 demo documents built for Cascade Ridge Apartments should be uploaded and associated with this asset. Ensure:
-- The attachment system accepts PDF and DOCX
-- Each uploaded document triggers the RAG ingestion pipeline (E1)
-- The file count, names, document type tags, and upload dates appear in the Attachments section
-- Documents are categorized by type: Appraisal, Rent Roll, Operating Statement, Loan Agreement, IC Memo, Market Report
-
----
-
-### E9. Contextual Quick-Action Prompts — Wire to Backend
-
-**Current state:** The Quick Actions ARE context-aware at the UI level. When Winston is opened from an asset page, the quick actions correctly change from generic admin actions to asset-specific RE prompts:
-- "Summarize key risks" → fires query: "Summarize this asset's key risks based on current KPIs, debt metrics, and market position."
-- "Compare to underwriting" → fires query about UW comparison
-- "Draft LP update" → fires LP update query
-- "Identify covenant risk" → fires covenant analysis query
-- "Cap rate impact on NAV" → fires sensitivity query
-
-**The UI layer is complete. The backend execution layer needs to be built.** All of the above queries currently return "No implemented operation matches this request." Build the operation handlers that fulfill these analytical queries by:
-1. Fetching the current asset KPIs from the database for the active assetId
-2. (Once E1 is built) Retrieving relevant document chunks from the vector store
-3. Composing a structured LLM prompt combining KPI data + document context
-4. Returning a well-formed analytical response with citations
-
-Do not change the Quick Action labels or query text — these are well-written. Build the backend to fulfill them.
-
----
-
-## Section F: Seed Data Completeness
-
-### F1. Populate Fund Overview Empty States
+### E1. Populate Fund Overview Empty States
 
 Fund detail → Overview tab has two empty-state cards:
 - **Top Performers by IRR Contribution:** Should show the top 3–5 investments ranked by IRR contribution to the fund. Compute IRR contribution as: (investment IRR × investment NAV weight). Seed or calculate this and render as a ranked list with investment name, IRR, and contribution in basis points.
 - **Capital Activity Timeline:** Should show a timeline of capital events (calls and distributions) by quarter. Seed at least 4–6 capital call events and 2 distribution events for 2024–2025 and render as a timeline or bar chart.
 
-### F2. Avg Rent/Unit — Populate in Property Details
+### E2. Avg Rent/Unit — Populate in Property Details
 
 Model Inputs → Property Details → Avg Rent/Unit shows "—". For Cascade Multifamily with 240 units and annual revenue of approximately $6.3M, the average rent per unit ≈ $2,187/month ($6,300,000 / 240 / 12). Seed this value.
 
-### F3. Rename Duplicate Model in Seed
+### E3. Rename Duplicate Model in Seed
 
 The Models list shows "Morgan QA Downside" appearing twice (the client-side duplicate guard now prevents new duplicates, but the two existing ones remain). Rename one in the seed script to "Morgan QA Downside v2". Add a uniqueness constraint at the database level to prevent future collisions.
 
 ---
 
-## Section G: UX Polish
+## Section F: UX Polish
 
-### G1. Asset Header — Add Location and Type Chips
+### F1. Asset Header — Add Location and Type Chips
 
 The asset cockpit header currently shows the property name and a "● active" status badge. Add:
 - Property type chip: "Value-Add Multifamily"
@@ -451,10 +236,10 @@ The asset cockpit header currently shows the property name and a "● active" st
 
 Render these as small inline chips below the asset name, before the tab row.
 
-### G2. Sidebar Duplicate-Name Guard for Models ✅ FIXED
+### F2. Sidebar Duplicate-Name Guard for Models ✅ FIXED
 *(Client-side validation confirmed working — inline warning shown and Create button disabled for duplicate names.)*
 
-### G3. Stray "0" Label on Investment Detail Page (NEW)
+### F3. Stray "0" Label on Investment Detail Page (NEW)
 
 A floating "0" label appears between the NOI Over Time chart and the Sector Exposure section on the Investment detail page. This appears to be an unrendered data value being leaked into the DOM — likely a chart label, a defaulted numeric field, or a conditional render with a falsy check returning `0` instead of `null`. Find the source and suppress it. The fix is likely changing `value && <Label>` to `value != null && value !== 0 && <Label>` or similar.
 
@@ -478,16 +263,9 @@ After these fixes are applied, the following should be true:
 12. All cockpit chart lines use the accent palette — not default Recharts blue
 13. NOI Bridge is a waterfall — not three side-by-side bars
 14. Scenario assumptions differ by asset type and no asset has Exit Value = $0
-15. Uploading a document to Attachments triggers the RAG ingestion pipeline — chunks, embeds, and indexes it
-16. The Winston Q&A panel answers document-grounded questions with inline citations (document name + page number) — no uncited assertions
-17. The Cmd+K semantic search returns results across assets, documents, and funds
-18. Winston Command Center shows current asset name and KPIs (not "Business: none") when opened from an asset page
-19. Every AI response is logged in the Ops & Audit → AI Activity tab with retrieved chunks and relevance scores visible
-20. Anomaly detection flags a ⚠ badge on any KPI that moved outside threshold between quarters
-21. Cascade Multifamily has 20 demo documents in its Attachments panel, each tagged by type (Appraisal, Rent Roll, etc.)
-22. Fund overview Top Performers and Capital Activity Timeline are populated — not empty states
-23. No duplicate model names in any fund's model list
-24. Portfolio-level AVG OCCUPANCY reflects only assets with non-null occupancy data — not dragged down by zero-data assets
-25. Investment detail shows one consistent NAV figure — KPI strip and Fund NAV Contrib are reconciled
-26. Cascade Multifamily has a seeded debt record with realistic LTV (~62%), DSCR (~1.8x), debt balance (~$37M)
-27. No stray "0" labels floating between page sections
+15. Fund overview Top Performers and Capital Activity Timeline are populated — not empty states
+16. No duplicate model names in any fund's model list
+17. Portfolio-level AVG OCCUPANCY reflects only assets with non-null occupancy data — not dragged down by zero-data assets
+18. Investment detail shows one consistent NAV figure — KPI strip and Fund NAV Contrib are reconciled
+19. Cascade Multifamily has a seeded debt record with realistic LTV (~62%), DSCR (~1.8x), debt balance (~$37M)
+20. No stray "0" labels floating between page sections
