@@ -94,6 +94,15 @@ export type WinstonTrace = {
   resolved_scope: Record<string, unknown> | null;
   repe: WinstonRepeMetadata | null;
   visible_context_shortcut: boolean;
+  timings?: {
+    context_resolution_ms?: number;
+    rag_search_ms?: number;
+    prompt_construction_ms?: number;
+    ttft_ms?: number;
+    model_ms?: number;
+    total_ms?: number;
+    [key: string]: number | undefined;
+  };
 };
 
 export type AskAiDebug = {
