@@ -48,7 +48,10 @@ def get_environment_snapshot(
         raise ValueError("env_id and business_id are required")
 
     quarter_value = quarter or _current_quarter()
-    funds = repe.list_funds(business_id=business_uuid)
+    try:
+        funds = repe.list_funds(business_id=business_uuid)
+    except Exception:
+        funds = []
 
     investments: list[dict] = []
     assets: list[dict] = []
@@ -56,30 +59,44 @@ def get_environment_snapshot(
     asset_total = 0
 
     for fund in funds:
-        if investment_total < max_items or asset_total < max_items:
-            fund_investments = re_investment.list_investments(fund_id=UUID(str(fund["fund_id"])))
-            investment_total += len(fund_investments)
-            if len(investments) < max_items:
-                remaining = max_items - len(investments)
-                investments.extend(fund_investments[:remaining])
+        try:
+            if investment_total < max_items or asset_total < max_items:
+                fund_investments = re_investment.list_investments(fund_id=UUID(str(fund["fund_id"])))
+                investment_total += len(fund_investments)
+                if len(investments) < max_items:
+                    remaining = max_items - len(investments)
+                    investments.extend(fund_investments[:remaining])
 
-            if len(assets) < max_items or asset_total < max_items:
-                for investment in fund_investments:
-                    investment_assets = repe.list_assets(deal_id=UUID(str(investment["investment_id"])))
-                    asset_total += len(investment_assets)
-                    if len(assets) < max_items:
-                        remaining_assets = max_items - len(assets)
-                        assets.extend(investment_assets[:remaining_assets])
-                    if len(assets) >= max_items and asset_total >= max_items:
-                        break
+                if len(assets) < max_items or asset_total < max_items:
+                    for investment in fund_investments:
+                        investment_assets = repe.list_assets(deal_id=UUID(str(investment["investment_id"])))
+                        asset_total += len(investment_assets)
+                        if len(assets) < max_items:
+                            remaining_assets = max_items - len(assets)
+                            assets.extend(investment_assets[:remaining_assets])
+                        if len(assets) >= max_items and asset_total >= max_items:
+                            break
+        except Exception:
+            continue
 
-    pipeline_items = re_pipeline.list_deals(env_id=str(env_uuid))
-    models = re_model.list_models(env_id=env_uuid)
-    key_metrics = re_env_portfolio.get_portfolio_kpis(
-        env_id=env_uuid,
-        business_id=business_uuid,
-        quarter=quarter_value,
-    )
+    try:
+        pipeline_items = re_pipeline.list_deals(env_id=str(env_uuid))
+    except Exception:
+        pipeline_items = []
+
+    try:
+        models = re_model.list_models(env_id=env_uuid)
+    except Exception:
+        models = []
+
+    try:
+        key_metrics = re_env_portfolio.get_portfolio_kpis(
+            env_id=env_uuid,
+            business_id=business_uuid,
+            quarter=quarter_value,
+        )
+    except Exception:
+        key_metrics = {}
 
     return {
         "environment_id": str(env_uuid),

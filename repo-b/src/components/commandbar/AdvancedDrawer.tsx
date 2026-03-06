@@ -7,6 +7,7 @@ import type {
   AssistantApiTrace,
   AskAiDebug,
   DiagnosticsCheck,
+  SSEEvent,
   WinstonTrace,
   WinstonToolTimeline,
   WinstonDataSource,
@@ -119,12 +120,13 @@ function KV({ label, value, mono }: { label: string; value: string | number | nu
 
 // ── Tab definitions ──────────────────────────────────────────────────────────
 
-type DebugTab = "overview" | "context" | "trace" | "data" | "runtime" | "raw";
+type DebugTab = "overview" | "context" | "trace" | "events" | "data" | "runtime" | "raw";
 
 const TABS: { id: DebugTab; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "context", label: "Context" },
   { id: "trace", label: "Trace" },
+  { id: "events", label: "Events" },
   { id: "data", label: "Data" },
   { id: "runtime", label: "Runtime" },
   { id: "raw", label: "Raw" },
@@ -478,6 +480,98 @@ function DataTab({
   );
 }
 
+function eventBadgeColor(eventType: string) {
+  switch (eventType) {
+    case "context": return "bg-indigo-500/20 text-indigo-300 border-indigo-500/30";
+    case "status": return "bg-sky-500/20 text-sky-300 border-sky-500/30";
+    case "token": case "openai_token": return "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
+    case "tool_call": return "bg-blue-500/20 text-blue-300 border-blue-500/30";
+    case "tool_result": return "bg-teal-500/20 text-teal-300 border-teal-500/30";
+    case "confirmation_required": return "bg-yellow-500/20 text-yellow-300 border-yellow-500/30";
+    case "citation": return "bg-purple-500/20 text-purple-300 border-purple-500/30";
+    case "done": return "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
+    case "error": return "bg-red-500/20 text-red-300 border-red-500/30";
+    case "parse_error": return "bg-red-500/20 text-red-300 border-red-500/30";
+    default: return "bg-gray-500/20 text-gray-300 border-gray-500/30";
+  }
+}
+
+function EventsTab({ debug }: { debug: AskAiDebug | null }) {
+  const events: SSEEvent[] = debug?.eventLog || [];
+  const [expandedSeq, setExpandedSeq] = useState<number | null>(null);
+
+  if (events.length === 0) {
+    return <p className="text-[10px] text-bm-muted2">No SSE events captured. Send a message to see the event stream.</p>;
+  }
+
+  // Summary stats
+  const eventCounts: Record<string, number> = {};
+  for (const evt of events) {
+    eventCounts[evt.eventType] = (eventCounts[evt.eventType] || 0) + 1;
+  }
+  const totalMs = events.length > 0 ? events[events.length - 1].elapsedMs : 0;
+
+  return (
+    <div className="space-y-2">
+      {/* Stats bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10px] text-bm-muted2">{events.length} events</span>
+        <span className="text-[10px] text-bm-muted2">{totalMs}ms total</span>
+        {Object.entries(eventCounts).map(([type, count]) => (
+          <span
+            key={type}
+            className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-medium ${eventBadgeColor(type)}`}
+          >
+            {type} ({count})
+          </span>
+        ))}
+      </div>
+
+      {/* Event timeline */}
+      <div className="space-y-0.5">
+        {events.map((evt) => (
+          <div key={evt.seq} className="group">
+            <button
+              type="button"
+              onClick={() => setExpandedSeq(expandedSeq === evt.seq ? null : evt.seq)}
+              className="flex w-full items-center gap-1.5 px-1 py-0.5 rounded hover:bg-bm-surface/20 text-left"
+            >
+              {/* Sequence number */}
+              <span className="text-[9px] font-mono text-bm-muted2 w-5 text-right flex-shrink-0">
+                {evt.seq}
+              </span>
+              {/* Elapsed time */}
+              <span className="text-[9px] font-mono text-bm-muted2 w-12 text-right flex-shrink-0">
+                +{evt.elapsedMs}ms
+              </span>
+              {/* Event type badge */}
+              <span className={`inline-flex items-center rounded border px-1 py-0 text-[8px] font-medium flex-shrink-0 ${eventBadgeColor(evt.eventType)}`}>
+                {evt.eventType}
+              </span>
+              {/* Summary */}
+              <span className="text-[10px] text-bm-text/70 truncate flex-1">
+                {evt.summary}
+              </span>
+            </button>
+            {/* Expanded payload */}
+            {expandedSeq === evt.seq && (
+              <div className="ml-[72px] mb-1">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-[9px] text-bm-muted2">Payload</span>
+                  <CopyButton text={JSON.stringify(evt.payload, null, 2)} label="Copy" />
+                </div>
+                <pre className="max-h-32 overflow-auto rounded bg-bm-bg/80 p-1.5 text-[9px] text-bm-muted2 font-mono whitespace-pre-wrap">
+                  {JSON.stringify(evt.payload, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function RuntimeTab({
   winstonTrace,
   debug,
@@ -622,6 +716,11 @@ export default function AdvancedDrawer({
                 {winstonTrace.tool_call_count}
               </span>
             )}
+            {tab.id === "events" && debug && debug.eventLog.length > 0 && (
+              <span className="ml-1 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-cyan-500/20 px-1 text-[8px] text-cyan-300">
+                {debug.eventLog.length}
+              </span>
+            )}
             {tab.id === "data" && winstonTrace && winstonTrace.data_sources.length > 0 && (
               <span className="ml-1 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-purple-500/20 px-1 text-[8px] text-purple-300">
                 {winstonTrace.data_sources.length}
@@ -662,6 +761,9 @@ export default function AdvancedDrawer({
         )}
         {activeTab === "trace" && (
           <TraceTab winstonTrace={winstonTrace} debug={debug} traces={traces} />
+        )}
+        {activeTab === "events" && (
+          <EventsTab debug={debug} />
         )}
         {activeTab === "data" && (
           <DataTab winstonTrace={winstonTrace} debug={debug} />

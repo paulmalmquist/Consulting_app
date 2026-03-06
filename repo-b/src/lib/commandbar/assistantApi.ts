@@ -107,6 +107,15 @@ export type WinstonTrace = {
   };
 };
 
+export type SSEEvent = {
+  seq: number;
+  timestamp: number;
+  elapsedMs: number;
+  eventType: string;
+  payload: unknown;
+  summary: string;
+};
+
 export type AskAiDebug = {
   contextEnvelope?: AssistantContextEnvelope;
   resolvedScope?: ResolvedAssistantScope | null;
@@ -115,6 +124,7 @@ export type AskAiDebug = {
   citations: unknown[];
   done?: unknown;
   trace?: WinstonTrace | null;
+  eventLog: SSEEvent[];
 };
 
 export class AssistantApiError extends Error {
@@ -852,6 +862,7 @@ export async function askAi(input: {
         toolResults: [],
         citations: [],
         trace: null,
+        eventLog: [],
       },
     };
   }
@@ -901,6 +912,7 @@ export async function askAi(input: {
           toolResults: [],
           citations: [],
           trace: null,
+          eventLog: [],
         },
       };
     }
@@ -916,12 +928,37 @@ export async function askAi(input: {
       toolResults: [],
       citations: [],
       trace: null,
+      eventLog: [],
     };
+    let sseSeq = 0;
+    const sseStartMs = Date.now();
+
+    const logSSE = (eventType: string, parsed: unknown, summary: string) => {
+      const now = Date.now();
+      const evt: SSEEvent = {
+        seq: sseSeq++,
+        timestamp: now,
+        elapsedMs: now - sseStartMs,
+        eventType,
+        payload: parsed,
+        summary,
+      };
+      debug.eventLog.push(evt);
+      console.log(
+        `%c[Winston SSE #${evt.seq}] %c${eventType} %c+${evt.elapsedMs}ms %c${summary}`,
+        "color: #888", "color: #4fc3f7; font-weight: bold", "color: #aaa", "color: #e0e0e0",
+      );
+    };
+
     const reader = response.body?.getReader();
     if (reader) {
+      console.group(`[Winston] SSE stream for request ${requestId}`);
+      console.log(`[Winston] Message: "${input.message.slice(0, 80)}${input.message.length > 80 ? "..." : ""}"`);
+      console.log(`[Winston] business_id=${input.business_id || "none"} env_id=${input.env_id || "none"} conversation_id=${input.conversation_id || "none"}`);
       const decoder = new TextDecoder();
       let currentEvent = "";
       let lineBuffer = ""; // accumulates partial lines across chunk boundaries
+      let tokenCount = 0;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -939,28 +976,46 @@ export async function askAi(input: {
           }
           if (!trimmed.startsWith("data: ")) continue;
           const payload = trimmed.slice(6).trim();
-          if (payload === "[DONE]") continue;
+          if (payload === "[DONE]") {
+            logSSE("stream_end", null, "Stream [DONE] signal received");
+            continue;
+          }
           try {
             const parsed = JSON.parse(payload);
             if (currentEvent === "context") {
               debug.contextEnvelope = parsed.context_envelope || debug.contextEnvelope;
               debug.resolvedScope = parsed.resolved_scope || null;
+              logSSE("context", parsed, `scope=${parsed.resolved_scope?.resolved_scope_type || "none"} env=${parsed.resolved_scope?.environment_id || "none"}`);
             }
             // Status event — show lane/scope immediately
             else if (currentEvent === "status" && parsed.message) {
+              logSSE("status", parsed, parsed.message);
               input.onStatus?.(parsed.message);
               continue;
             }
             // FastAPI "token" event: {"text": "..."}
             else if (currentEvent === "token" && parsed.text) {
+              tokenCount++;
               answer += parsed.text;
+              // Log first token and then every 20th to avoid spam
+              if (tokenCount === 1) {
+                logSSE("token", { text: parsed.text.slice(0, 50) }, `First token: "${parsed.text.slice(0, 40)}..."`);
+              } else if (tokenCount % 20 === 0) {
+                logSSE("token", { count: tokenCount }, `${tokenCount} tokens received, answer length=${answer.length}`);
+              }
             }
             // OpenAI streaming format: {"choices":[{"delta":{"content":"..."}}]}
             else if (parsed.choices?.[0]?.delta?.content) {
+              tokenCount++;
               answer += parsed.choices[0].delta.content;
+              if (tokenCount === 1) {
+                logSSE("openai_token", { text: parsed.choices[0].delta.content.slice(0, 50) }, `First OpenAI token (fallback path)`);
+              }
             }
             // FastAPI "error" event
             else if (currentEvent === "error" && parsed.message) {
+              logSSE("error", parsed, `ERROR: ${parsed.message}`);
+              console.error(`[Winston SSE] Error event: ${parsed.message}`, parsed);
               answer += `\n[Error: ${parsed.message}]`;
             }
             // FastAPI tool_call event — surface as status
@@ -975,6 +1030,8 @@ export async function askAi(input: {
                 is_write: parsed.is_write,
                 pending_confirmation: parsed.pending_confirmation,
               });
+              const successStr = parsed.success ? "OK" : `FAIL${parsed.error ? `: ${parsed.error}` : ""}`;
+              logSSE("tool_call", parsed, `${parsed.tool_name} → ${successStr} (${parsed.duration_ms || 0}ms, ${parsed.row_count ?? "?"} rows)`);
               const label = parsed.tool_name.replace(/^repe\./, "").replace(/_/g, " ");
               input.onStatus?.(`Looking up ${label}...`);
               continue;
@@ -985,16 +1042,19 @@ export async function askAi(input: {
                 args: parsed.args,
                 result: parsed.result,
               });
+              logSSE("tool_result", { tool_name: parsed.tool_name }, `Result for ${parsed.tool_name}`);
               continue;
             }
             // Write tool confirmation required — surface as status
             else if (currentEvent === "confirmation_required" && parsed.action) {
+              logSSE("confirmation_required", parsed, `Action: ${parsed.action} — ${parsed.summary || "awaiting user confirmation"}`);
               input.onStatus?.(`Awaiting confirmation: ${parsed.action}`);
               continue;
             }
-            // FastAPI citation/done events — silently consume
+            // FastAPI citation/done events
             else if (currentEvent === "citation") {
               debug.citations.push(parsed);
+              logSSE("citation", parsed, `chunk=${parsed.chunk_id || parsed.doc_id || "unknown"} score=${parsed.score || "?"}`);
               continue;
             }
             else if (currentEvent === "done") {
@@ -1003,16 +1063,29 @@ export async function askAi(input: {
               if (parsed.trace) {
                 debug.trace = parsed.trace as WinstonTrace;
               }
+              const t = parsed.trace;
+              logSSE("done", { lane: t?.lane, path: t?.execution_path, tools: t?.tool_call_count, elapsed: t?.elapsed_ms, tokens: t?.total_tokens },
+                `Lane ${t?.lane || "?"} | ${t?.execution_path || "?"} | ${t?.tool_call_count || 0} tools | ${t?.elapsed_ms || 0}ms | ${t?.total_tokens || 0} tokens`);
               continue;
+            }
+            else {
+              // Unknown event type — log for debugging
+              logSSE(currentEvent || "unknown", parsed, `Unhandled event: ${currentEvent || "no-type"}`);
             }
           } catch {
             // JSON parse failed — only append plain text, never JSON blobs
             if (payload && payload !== "[DONE]" && !payload.startsWith("{") && !payload.startsWith("[")) {
               answer += payload;
+              logSSE("text_fallback", { text: payload.slice(0, 80) }, `Plain text: "${payload.slice(0, 60)}"`);
+            } else {
+              logSSE("parse_error", { raw: payload.slice(0, 100) }, `Failed to parse: ${payload.slice(0, 60)}`);
             }
           }
         }
       }
+      // Final summary log
+      console.log(`[Winston] Stream complete: ${tokenCount} tokens, ${answer.length} chars, ${debug.toolCalls.length} tool calls, ${debug.eventLog.length} SSE events, ${Date.now() - sseStartMs}ms`);
+      console.groupEnd();
     } else {
       // Non-streaming fallback
       const json = await response.json().catch(() => null);
@@ -1046,6 +1119,7 @@ export async function askAi(input: {
         toolResults: [],
         citations: [],
         trace: null,
+        eventLog: [],
       },
     };
   } finally {
