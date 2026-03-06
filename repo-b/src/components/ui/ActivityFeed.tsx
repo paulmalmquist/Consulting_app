@@ -44,8 +44,8 @@ export function ActivityFeed({
   const visible = maxItems ? items.slice(0, maxItems) : items;
 
   return (
-    <div className={cn("space-y-3", className)}>
-      <p className="bm-section-label">{title}</p>
+    <div className={cn("space-y-2", className)}>
+      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">{title}</p>
       {visible.length === 0 ? (
         <p className="text-sm text-bm-muted2">No recent activity.</p>
       ) : (
@@ -53,7 +53,7 @@ export function ActivityFeed({
           {visible.map((item) => (
             <div
               key={item.id}
-              className="flex items-start gap-3 py-2.5 border-b border-bm-border/30 last:border-b-0"
+              className="flex items-start gap-3 border-b border-bm-border/20 py-2.5 last:border-b-0"
             >
               <AvatarCircle avatar={item.avatar} />
               <div className="min-w-0 flex-1">
@@ -61,7 +61,7 @@ export function ActivityFeed({
                 {item.entityLink && (
                   <Link
                     href={item.entityLink.href}
-                    className="text-xs text-bm-accent hover:underline mt-0.5 inline-block"
+                    className="mt-0.5 inline-block font-mono text-[11px] text-bm-accent hover:underline"
                   >
                     {item.entityLink.label}
                   </Link>

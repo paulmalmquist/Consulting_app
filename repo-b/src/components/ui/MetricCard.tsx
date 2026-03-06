@@ -47,19 +47,18 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        "rounded-xl border border-bm-border/70 bg-bm-surface/20 transition-[transform,box-shadow] duration-[120ms]",
-        isLarge ? "p-5" : "p-3 hover:-translate-y-[2px] hover:shadow-bm-card",
+        "min-w-0",
         className
       )}
     >
-      <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-bm-muted2">
+      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
         {label}
       </p>
       <div className="mt-1 flex items-baseline gap-2">
         <p
           className={cn(
-            "font-display font-bold tracking-tight",
-            isLarge ? "text-[32px] leading-none" : "text-lg"
+            "font-display font-semibold tracking-tight text-bm-text tabular-nums",
+            isLarge ? "text-xl leading-none" : "text-lg"
           )}
         >
           {value}
@@ -67,7 +66,7 @@ export function MetricCard({
         {delta && (
           <span
             className={cn(
-              "inline-flex items-center gap-0.5 text-xs font-medium",
+              "inline-flex items-center gap-0.5 font-mono text-xs",
               deltaColor[delta.direction]
             )}
           >

@@ -75,7 +75,7 @@ describe("EnvironmentList", () => {
     expect(screen.getByTestId("env-sort")).toHaveValue("name");
   });
 
-  test("uses the delayed 3-column breakpoint and still renders multiple cards", async () => {
+  test("renders a single-column row list with column headers", async () => {
     render(
       <EnvironmentList
         environments={[envA, envB]}
@@ -89,7 +89,8 @@ describe("EnvironmentList", () => {
 
     const cards = await screen.findAllByTestId(/env-card-/);
     expect(cards).toHaveLength(2);
-    expect(screen.getByTestId("env-list")).toHaveClass("2xl:grid-cols-3");
-    expect(screen.getByTestId("env-list")).not.toHaveClass("xl:grid-cols-3");
+    expect(screen.getByTestId("env-list")).toHaveClass("flex");
+    expect(screen.getByText("STATUS")).toBeInTheDocument();
+    expect(screen.getByText("ENVIRONMENT")).toBeInTheDocument();
   });
 });

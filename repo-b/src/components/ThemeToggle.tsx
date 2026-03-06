@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Moon, Sun } from "lucide-react";
 import {
   applyThemeMode,
   getStoredThemeMode,
@@ -15,25 +16,9 @@ type ThemeToggleProps = {
 
 function ModeIcon({ mode }: { mode: ThemeMode }) {
   if (mode === "light") {
-    return (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
-        <circle cx="12" cy="12" r="4" />
-        <path d="M12 2v2" />
-        <path d="M12 20v2" />
-        <path d="m4.9 4.9 1.4 1.4" />
-        <path d="m17.7 17.7 1.4 1.4" />
-        <path d="M2 12h2" />
-        <path d="M20 12h2" />
-        <path d="m4.9 19.1 1.4-1.4" />
-        <path d="m17.7 6.3 1.4-1.4" />
-      </svg>
-    );
+    return <Sun className="h-4 w-4" strokeWidth={1.5} />;
   }
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
-      <path d="M21 12.79A9 9 0 1 1 11.21 3c0 0 0 0 0 0A7 7 0 0 0 21 12.79Z" />
-    </svg>
-  );
+  return <Moon className="h-4 w-4" strokeWidth={1.5} />;
 }
 
 export default function ThemeToggle({ className }: ThemeToggleProps) {
@@ -60,14 +45,14 @@ export default function ThemeToggle({ className }: ThemeToggleProps) {
         aria-label="Toggle appearance"
         aria-expanded={open}
         onClick={() => setOpen((previous) => !previous)}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-bm-border/70 bg-bm-surface/85 text-bm-muted transition-[transform,box-shadow] duration-[120ms] hover:-translate-y-[1px] hover:text-bm-text"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-bm-border/40 bg-bm-surface/40 text-bm-muted transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text"
       >
         <ModeIcon mode={mode} />
       </button>
 
       <div
         className={cn(
-          "pointer-events-none absolute right-0 top-12 z-50 w-48 translate-x-3 rounded-lg border border-bm-border/70 bg-bm-surface/95 p-4 opacity-0 shadow-bm-card backdrop-blur-sm transition-[transform,opacity] duration-[120ms]",
+          "pointer-events-none absolute right-0 top-10 z-50 w-48 translate-x-2 rounded-lg border border-bm-border/20 bg-bm-surface/95 p-3 opacity-0 backdrop-blur-sm transition-[transform,opacity] duration-100",
           open && "pointer-events-auto translate-x-0 opacity-100"
         )}
         role="dialog"
@@ -79,10 +64,10 @@ export default function ThemeToggle({ className }: ThemeToggleProps) {
             type="button"
             onClick={() => setThemeMode("dark")}
             className={cn(
-              "rounded-md border px-3 py-2 text-xs font-medium transition-[box-shadow] duration-[120ms]",
+              "rounded-md border px-3 py-2 text-xs font-medium transition-colors duration-100",
               mode === "dark"
-                ? "border-bm-accent/55 bg-bm-accent/12 shadow-bm-glow"
-                : "border-bm-border/80 hover:bg-bm-surface/40"
+                ? "border-bm-accent/55 bg-bm-accent/12 text-bm-text"
+                : "border-bm-border/30 text-bm-muted hover:bg-bm-surface/20 hover:text-bm-text"
             )}
           >
             Dark
@@ -91,10 +76,10 @@ export default function ThemeToggle({ className }: ThemeToggleProps) {
             type="button"
             onClick={() => setThemeMode("light")}
             className={cn(
-              "rounded-md border px-3 py-2 text-xs font-medium transition-[box-shadow] duration-[120ms]",
+              "rounded-md border px-3 py-2 text-xs font-medium transition-colors duration-100",
               mode === "light"
-                ? "border-bm-accent/55 bg-bm-accent/12 shadow-bm-glow"
-                : "border-bm-border/80 hover:bg-bm-surface/40"
+                ? "border-bm-accent/55 bg-bm-accent/12 text-bm-text"
+                : "border-bm-border/30 text-bm-muted hover:bg-bm-surface/20 hover:text-bm-text"
             )}
           >
             Light

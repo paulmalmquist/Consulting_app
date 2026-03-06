@@ -1,18 +1,31 @@
 "use client";
 
 import Link from "next/link";
+import {
+  Cpu,
+  DollarSign,
+  Folder,
+  LayoutDashboard,
+  Megaphone,
+  Menu,
+  Settings,
+  Shield,
+  TrendingUp,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { useBusinessContext } from "@/lib/business-context";
 import ThemeToggle from "@/components/ThemeToggle";
 
-const ICON_MAP: Record<string, string> = {
-  "dollar-sign": "$",
-  settings: "⚙",
-  users: "👤",
-  "trending-up": "📈",
-  shield: "🛡",
-  cpu: "💻",
-  megaphone: "📣",
-  folder: "📁",
+const ICON_MAP: Record<string, LucideIcon> = {
+  "dollar-sign": DollarSign,
+  settings: Settings,
+  users: Users,
+  "trending-up": TrendingUp,
+  shield: Shield,
+  cpu: Cpu,
+  megaphone: Megaphone,
+  folder: Folder,
 };
 
 export default function TopBar({
@@ -25,49 +38,47 @@ export default function TopBar({
   const { departments, loadingDepartments } = useBusinessContext();
 
   return (
-    <header className="sticky top-0 z-30 border-b border-bm-border/70 bg-bm-surface/95 backdrop-blur-sm shadow-[0_10px_18px_-18px_rgba(4,8,12,0.72)]">
-      <div className="flex items-center h-12 px-2 sm:px-4">
-        {/* Mobile hamburger */}
+    <header className="sticky top-0 z-30 border-b border-bm-border/20 bg-bm-bg/95 backdrop-blur-sm">
+      <div className="flex h-10 items-center px-2 sm:px-4">
         <button
           onClick={onHamburgerClick}
-          className="lg:hidden flex-shrink-0 p-2 mr-1 rounded-md hover:bg-bm-surface/40"
+          className="mr-1 flex-shrink-0 rounded-md p-1.5 text-bm-muted transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text lg:hidden"
           aria-label="Open sidebar"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
+          <Menu className="h-4 w-4" strokeWidth={1.5} />
         </button>
 
-        {/* Brand */}
-        <Link href="/app" className="flex-shrink-0 text-sm font-medium mr-3 hidden sm:block">
+        <Link
+          href="/app"
+          className="mr-3 hidden flex-shrink-0 font-display text-sm font-semibold text-bm-text sm:block"
+        >
           Winston
         </Link>
 
-        {/* Departments - horizontal scrollable */}
         <nav className="flex-1 overflow-x-auto scrollbar-hide">
-          <div className="flex items-center gap-1 min-w-max px-1">
+          <div className="flex min-w-max items-center gap-1 px-1">
             {loadingDepartments && (
               <>
-                <div className="h-8 w-20 bg-bm-surface/60 border border-bm-border/60 rounded-md" />
-                <div className="h-8 w-24 bg-bm-surface/60 border border-bm-border/60 rounded-md" />
-                <div className="h-8 w-20 bg-bm-surface/60 border border-bm-border/60 rounded-md" />
+                <div className="h-7 w-20 rounded bg-bm-surface/40" />
+                <div className="h-7 w-24 rounded bg-bm-surface/40" />
+                <div className="h-7 w-20 rounded bg-bm-surface/40" />
               </>
             )}
             {departments.map((dept) => {
               const isActive = activeDeptKey === dept.key;
-              const icon = ICON_MAP[dept.icon] || "📁";
+              const Icon = ICON_MAP[dept.icon] ?? LayoutDashboard;
               return (
                 <Link
                   key={dept.key}
                   href={`/app/${dept.key}`}
                   data-testid={`dept-tab-${dept.key}`}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm whitespace-nowrap transition-[transform,box-shadow] duration-[120ms] flex-shrink-0 border ${
+                  className={`flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded px-3 py-1.5 text-xs font-medium transition-colors duration-100 ${
                     isActive
-                      ? "bg-bm-surface/30 text-bm-text border-b-2 border-b-bm-accent border-transparent font-medium"
-                      : "text-bm-muted border-transparent hover:bg-bm-surface/40 hover:text-bm-text"
+                      ? "border-b-2 border-b-bm-accent bg-bm-surface/30 text-bm-text"
+                      : "text-bm-muted hover:bg-bm-surface/20 hover:text-bm-text"
                   }`}
                 >
-                  <span>{icon}</span>
+                  <Icon className="h-3.5 w-3.5 shrink-0 text-bm-muted" strokeWidth={1.5} />
                   <span>{dept.label}</span>
                 </Link>
               );
@@ -75,12 +86,11 @@ export default function TopBar({
           </div>
         </nav>
 
-        {/* Global links */}
-        <div className="flex-shrink-0 flex items-center gap-1 ml-2">
+        <div className="ml-2 flex flex-shrink-0 items-center gap-1">
           <ThemeToggle />
           <Link
             href="/documents"
-            className="text-xs text-bm-muted hover:text-bm-text px-2 py-1.5 rounded-md hover:bg-bm-surface/40 hidden sm:block"
+            className="hidden rounded px-2 py-1 text-xs text-bm-muted transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text sm:block"
           >
             Docs
           </Link>

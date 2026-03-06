@@ -8,7 +8,7 @@ import { CreateEnvironmentPanel } from "@/components/lab/environments/CreateEnvi
 import { EnvironmentList } from "@/components/lab/environments/EnvironmentList";
 import { EnvironmentSettingsModal } from "@/components/lab/environments/EnvironmentSettingsModal";
 import { type Industry } from "@/components/lab/environments/constants";
-import { MetricCard } from "@/components/ui/MetricCard";
+import { KpiStrip, type KpiDef } from "@/components/repe/asset-cockpit/KpiStrip";
 import { ActivityFeed, type ActivityItem } from "@/components/ui/ActivityFeed";
 import { InsightRail, type InsightSection } from "@/components/ui/InsightRail";
 import { Dialog } from "@/components/ui/Dialog";
@@ -41,6 +41,24 @@ export default function AdminPage() {
   // Compute KPI values from environments
   const activeCount = environments.filter((e) => e.is_active).length;
   const archivedCount = environments.filter((e) => !e.is_active).length;
+  const industryCount = new Set(environments.map((e) => e.industry_type || e.industry)).size;
+  const recentCount = environments.filter(
+    (e) => e.created_at && (Date.now() - new Date(e.created_at).getTime()) / 86_400_000 < 7
+  ).length;
+  const kpis = useMemo<KpiDef[]>(
+    () => [
+      {
+        label: "Total Envs",
+        value: String(environments.length),
+        delta: recentCount > 0 ? { value: `+${recentCount} / 7d`, tone: "positive" } : undefined,
+      },
+      { label: "Active", value: String(activeCount) },
+      { label: "Archived", value: String(archivedCount) },
+      { label: "Industries", value: String(industryCount) },
+      { label: "Recent 7D", value: String(recentCount) },
+    ],
+    [activeCount, archivedCount, environments.length, industryCount, recentCount]
+  );
 
   // Activity feed from environment creation dates
   const activityItems = useMemo<ActivityItem[]>(() => {
@@ -154,30 +172,26 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between gap-4">
+    <div className="flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[28px] font-display font-bold tracking-tight">Control Tower</h1>
-          <p className="text-sm text-bm-muted2 mt-1">
+          <h1 className="font-display text-xl font-semibold text-bm-text">Control Tower</h1>
+          <p className="mt-1 text-sm text-bm-muted2">
             Operational readiness across all business environments.
           </p>
         </div>
-        <Button onClick={() => setShowProvision(true)}>+ Provision</Button>
+        <Button
+          onClick={() => setShowProvision(true)}
+          className="h-auto rounded-md px-3 py-1.5 text-sm shadow-none transition-colors duration-100 hover:translate-y-0 hover:shadow-none"
+        >
+          + Provision
+        </Button>
       </div>
 
-      {/* KPI Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <MetricCard label="Active Environments" value={String(activeCount)} size="compact" status={activeCount > 0 ? "success" : "neutral"} />
-        <MetricCard label="Archived" value={String(archivedCount)} size="compact" status={archivedCount > 0 ? "warning" : "neutral"} />
-        <MetricCard label="Total" value={String(environments.length)} size="compact" />
-        <MetricCard label="Industries" value={String(new Set(environments.map((e) => e.industry_type || e.industry)).size)} size="compact" />
-        <MetricCard label="Recent (7d)" value={String(environments.filter((e) => e.created_at && (Date.now() - new Date(e.created_at).getTime()) / 86_400_000 < 7).length)} size="compact" />
-      </div>
+      <KpiStrip kpis={kpis} />
 
-      {/* Main Content: Grid + Insight Rail */}
-      <div className="grid 2xl:grid-cols-[minmax(0,1fr),320px] gap-6">
-        <div className="space-y-6">
+      <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr),280px]">
+        <div className="flex flex-col gap-4">
           <EnvironmentList
             environments={environments}
             onOpen={openEnvironment}
@@ -185,13 +199,11 @@ export default function AdminPage() {
             onDelete={deleteEnvironment}
           />
 
-          {/* Activity Feed */}
-          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5">
+          <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-3">
             <ActivityFeed items={activityItems} maxItems={6} title="Recent Provisioning" />
           </div>
         </div>
 
-        {/* Insight Rail */}
         <div className="hidden 2xl:block">
           <div className="sticky top-20">
             <InsightRail sections={insightSections} />

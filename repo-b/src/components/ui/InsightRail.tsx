@@ -36,21 +36,23 @@ export type InsightRailProps = {
 
 export function InsightRail({ sections, className }: InsightRailProps) {
   return (
-    <aside className={cn("space-y-5", className)}>
+    <aside className={cn("space-y-3", className)}>
       {sections.map((section) => (
-        <div key={section.title} className="space-y-2">
-          <p className="bm-section-label">{section.title}</p>
+        <div key={section.title} className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-3">
+          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
+            {section.title}
+          </p>
           {section.items.length === 0 ? (
-            <p className="text-xs text-bm-muted2">No items.</p>
+            <p className="mt-2 text-xs text-bm-muted2">No items.</p>
           ) : (
-            <div className="space-y-1.5">
+            <div className="mt-2 space-y-1.5">
               {section.items.map((item) => {
                 const sev = item.severity || "info";
                 return (
                   <div
                     key={item.id}
                     className={cn(
-                      "rounded-lg border border-bm-border/50 border-l-2 bg-bm-surface/20 px-3 py-2",
+                      "rounded-lg border border-bm-border/20 border-l-2 bg-transparent px-3 py-2.5 transition-colors duration-100 hover:bg-bm-surface/20",
                       severityBorder[sev]
                     )}
                   >
@@ -66,7 +68,7 @@ export function InsightRail({ sections, className }: InsightRailProps) {
                     {item.action && (
                       <Link
                         href={item.action.href}
-                        className="mt-1.5 inline-block text-xs text-bm-accent hover:underline"
+                        className="mt-1.5 inline-block font-mono text-[11px] text-bm-accent hover:underline"
                       >
                         {item.action.label}
                       </Link>

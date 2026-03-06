@@ -1,9 +1,9 @@
 import {
+  BarChart3,
   Building2,
   HardHat,
   HeartPulse,
   Layers,
-  PiggyBank,
   Scale,
   type LucideIcon,
 } from "lucide-react";
@@ -33,7 +33,7 @@ export function getIndustryIcon(industry?: string | null): IndustryVisual {
     return { icon: HardHat, label: "PDS Command", testId: "industry-icon-pds_command" };
   }
   if (key === "credit_risk_hub" || key === "credit") {
-    return { icon: PiggyBank, label: "Credit Risk Hub", testId: "industry-icon-credit_risk_hub" };
+    return { icon: BarChart3, label: "Credit Risk Hub", testId: "industry-icon-credit_risk_hub" };
   }
   if (key === "legal_ops_command" || key === "legal_ops") {
     return { icon: Scale, label: "Legal Ops Command", testId: "industry-icon-legal_ops_command" };
@@ -41,7 +41,7 @@ export function getIndustryIcon(industry?: string | null): IndustryVisual {
   if (key === "medical_office_backoffice" || key === "medical") {
     return { icon: HeartPulse, label: "Medical Office Backoffice", testId: "industry-icon-medical_office_backoffice" };
   }
-  if (key === "real_estate" || key === "real_estate_pe") {
+  if (key === "real_estate" || key === "real_estate_pe" || key === "repe") {
     return { icon: Building2, label: "Real Estate", testId: "industry-icon-real_estate" };
   }
   if (key === "healthcare") {
@@ -52,9 +52,6 @@ export function getIndustryIcon(industry?: string | null): IndustryVisual {
   }
   if (key === "construction") {
     return { icon: HardHat, label: "Construction", testId: "industry-icon-construction" };
-  }
-  if (key === "finance") {
-    return { icon: PiggyBank, label: "Finance", testId: "industry-icon-finance" };
   }
   return {
     icon: Layers,

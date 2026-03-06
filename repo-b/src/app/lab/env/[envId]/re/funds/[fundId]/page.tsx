@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { AlertTriangle, ChevronDown, GitBranch, Leaf } from "lucide-react";
 import { label as labelFn, RUN_TYPE_LABELS, STATUS_LABELS, PROPERTY_TYPE_LABELS } from "@/lib/labels";
+import { KpiStrip, type KpiDef } from "@/components/repe/asset-cockpit/KpiStrip";
 import { MetricCard } from "@/components/ui/MetricCard";
 import {
   getRepeFund,
@@ -249,38 +251,45 @@ export default function FundDetailPage({
   const fund = detail?.fund;
   const terms = detail?.terms ?? [];
   const latestTerms = terms[0];
+  const headerKpis: KpiDef[] = [
+    { label: "Committed", value: fmtMoney(fundState?.total_committed) },
+    { label: "Called", value: fmtMoney(fundState?.total_called) },
+    { label: "Distributed", value: fmtMoney(fundState?.total_distributed) },
+    { label: "NAV", value: fmtMoney(fundState?.portfolio_nav) },
+    { label: "DPI", value: fmtMultiple(fundState?.dpi) },
+    { label: "TVPI", value: fmtMultiple(fundState?.tvpi) },
+    { label: "Gross IRR", value: fmtPercent(fundState?.gross_irr) },
+    { label: "Net IRR", value: fmtPercent(fundState?.net_irr) },
+  ];
 
   // Filter tabs: hide Debt Surveillance for equity funds
   const visibleTabs = TABS.filter((t) => t !== "Debt Surveillance" || isDebtFund);
 
   return (
-    <section className="space-y-5" data-testid="re-fund-detail">
-      {/* Fund Header */}
-      <div className="rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-5">
-        {/* Title row */}
+    <section className="flex flex-col gap-4" data-testid="re-fund-detail">
+      <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Fund</p>
-            <h1 className="mt-1 text-2xl font-display font-bold tracking-tight">{fund?.name || "—"}</h1>
+            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Fund</p>
+            <h1 className="mt-1 font-display text-xl font-semibold text-bm-text">{fund?.name || "—"}</h1>
           </div>
-          {/* Top-right: Export dropdown only */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setExportOpen((o) => !o)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
+              className="inline-flex items-center gap-1.5 rounded-md border border-bm-border/30 px-3 py-1.5 text-sm transition-colors duration-100 hover:bg-bm-surface/20"
             >
               Export
-              <span className="text-bm-muted2 text-xs">▾</span>
+              <ChevronDown className="h-3.5 w-3.5 text-bm-muted" strokeWidth={1.5} />
             </button>
             {exportOpen && (
               <div
-                className="absolute right-0 top-full mt-1 z-50 min-w-[180px] rounded-xl border border-bm-border/70 bg-bm-surface shadow-xl"
+                className="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-lg border border-bm-border/20 bg-bm-surface/95"
                 onBlur={() => setExportOpen(false)}
               >
-                <div className="p-1 space-y-0.5">
+                <div className="space-y-0.5 p-1">
                   {envId && businessId && (
-                    <div className="rounded-lg" onClick={() => setExportOpen(false)}>
+                    <div className="rounded-md" onClick={() => setExportOpen(false)}>
                       <ExcelExportButton
                         fundId={params.fundId}
                         envId={envId}
@@ -289,10 +298,10 @@ export default function FundDetailPage({
                       />
                     </div>
                   )}
-                  <button type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-bm-surface/40 text-bm-muted2">
+                  <button type="button" className="w-full rounded-md px-3 py-1.5 text-left text-sm text-bm-muted transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text">
                     Download LP Report (PDF)
                   </button>
-                  <button type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-bm-surface/40 text-bm-muted2">
+                  <button type="button" className="w-full rounded-md px-3 py-1.5 text-left text-sm text-bm-muted transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text">
                     Download Waterfall (.xlsx)
                   </button>
                 </div>
@@ -301,15 +310,14 @@ export default function FundDetailPage({
           </div>
         </div>
 
-        {/* Secondary info bar: metadata + Lineage + Sustainability icon buttons */}
-        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-bm-muted2">
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 font-mono text-xs text-bm-muted">
           {fund?.strategy && (
-            <span className="uppercase tracking-[0.08em] text-xs font-medium">{fund.strategy}{fund.sub_strategy ? ` · ${fund.sub_strategy}` : ""}</span>
+            <span className="uppercase tracking-[0.08em]">{fund.strategy}{fund.sub_strategy ? ` · ${fund.sub_strategy}` : ""}</span>
           )}
           {fund?.vintage_year && <span>Vintage {fund.vintage_year}</span>}
           {fund?.target_size && <span>Target {fmtMoney(fund.target_size)}</span>}
           {lastCloseQuarter && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-green-500/10 border border-green-500/30 px-2 py-0.5 text-xs font-medium text-green-400">
+            <span className="inline-flex items-center gap-1 rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-0.5 text-[11px] text-green-400">
               Last Close: {lastCloseQuarter}
             </span>
           )}
@@ -318,60 +326,38 @@ export default function FundDetailPage({
             type="button"
             onClick={() => setLineageOpen(true)}
             title="View entity lineage"
-            className="inline-flex items-center gap-1 rounded-md border border-bm-border/60 px-2 py-1 text-xs hover:bg-bm-surface/40"
+            className="inline-flex items-center gap-1 rounded-md border border-bm-border/30 px-2.5 py-1 text-xs transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text"
           >
-            🔗 Lineage
+            <GitBranch className="h-3.5 w-3.5 text-bm-muted" strokeWidth={1.5} />
+            Lineage
           </button>
           <Link
             href={`/lab/env/${params.envId}/re/sustainability?section=portfolio-footprint&fundId=${params.fundId}`}
             title="Sustainability dashboard"
-            className="inline-flex items-center gap-1 rounded-md border border-bm-border/60 px-2 py-1 text-xs hover:bg-bm-surface/40"
+            className="inline-flex items-center gap-1 rounded-md border border-bm-border/30 px-2.5 py-1 text-xs transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text"
           >
-            🌿 Sustainability
+            <Leaf className="h-3.5 w-3.5 text-bm-muted" strokeWidth={1.5} />
+            Sustainability
           </Link>
         </div>
 
-        {/* Fund terms strip */}
         {latestTerms && (
-          <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm border-t border-bm-border/40 pt-3">
-            <div><dt className="text-xs text-bm-muted2">Pref Return</dt><dd className="font-semibold">{fmtPercent(latestTerms.preferred_return_rate)}</dd></div>
-            <div><dt className="text-xs text-bm-muted2">Carry</dt><dd className="font-semibold">{fmtPercent(latestTerms.carry_rate)}</dd></div>
-            <div><dt className="text-xs text-bm-muted2">Waterfall</dt><dd className="font-semibold capitalize">{latestTerms.waterfall_style || "—"}</dd></div>
+          <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-bm-border/20 pt-3 text-sm">
+            <div><dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Pref Return</dt><dd className="font-semibold tabular-nums">{fmtPercent(latestTerms.preferred_return_rate)}</dd></div>
+            <div><dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Carry</dt><dd className="font-semibold tabular-nums">{fmtPercent(latestTerms.carry_rate)}</dd></div>
+            <div><dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Waterfall</dt><dd className="font-semibold capitalize">{latestTerms.waterfall_style || "—"}</dd></div>
           </dl>
         )}
       </div>
 
-      {/* KPI Row — two labeled groups */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Capital Activity */}
-        <div className="rounded-xl border border-bm-border/60 bg-bm-surface/20 p-4">
-          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2">Capital Activity</p>
-          <div className="grid grid-cols-2 gap-3">
-            <MetricCard label="Committed" value={fmtMoney(fundState?.total_committed)} size="large" />
-            <MetricCard label="Called" value={fmtMoney(fundState?.total_called)} size="large" />
-            <MetricCard label="Distributed" value={fmtMoney(fundState?.total_distributed)} size="large" />
-            <MetricCard label="NAV" value={fmtMoney(fundState?.portfolio_nav)} size="large" />
-          </div>
-        </div>
-        {/* Performance */}
-        <div className="rounded-xl border border-bm-border/60 bg-bm-surface/20 p-4">
-          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2">Performance</p>
-          <div className="grid grid-cols-4 gap-3">
-            <MetricCard label="DPI" value={fmtMultiple(fundState?.dpi)} size="large" />
-            <MetricCard label="TVPI" value={fmtMultiple(fundState?.tvpi)} size="large" />
-            <MetricCard label="Gross IRR" value={fmtPercent(fundState?.gross_irr)} size="large" />
-            <MetricCard label="Net IRR" value={fmtPercent(fundState?.net_irr)} size="large" />
-          </div>
-        </div>
-      </div>
+      <KpiStrip kpis={headerKpis} />
 
-      {/* Covenant Alert Banner */}
       {covenantAlerts.length > 0 && (
         <div
-          className="rounded-xl border border-amber-500/60 bg-amber-500/10 px-5 py-3 flex items-center gap-3"
+          className="flex items-center gap-3 rounded-lg border border-amber-500/60 bg-amber-500/10 px-5 py-3"
           data-testid="covenant-alert-banner"
         >
-          <span className="text-amber-400 text-lg">&#9888;</span>
+          <AlertTriangle className="h-4 w-4 text-amber-400" strokeWidth={1.5} />
           <div className="flex-1">
             <p className="text-sm font-medium text-amber-300">
               {covenantAlerts.length} investment{covenantAlerts.length > 1 ? "s" : ""} approaching covenant breach
@@ -391,17 +377,16 @@ export default function FundDetailPage({
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-2 flex flex-wrap gap-2" data-testid="fund-tabs">
+      <div className="flex flex-wrap gap-1 rounded-lg border border-bm-border/20 bg-bm-surface/40 p-1" data-testid="fund-tabs">
         {visibleTabs.map((label) => (
           <button
             key={label}
             type="button"
             onClick={() => setTab(label)}
-            className={`rounded-lg border px-3 py-1.5 text-sm transition-[transform,box-shadow] duration-[120ms] ${
+            className={`rounded-md px-2.5 py-1.5 font-mono text-xs transition-colors duration-100 ${
               tab === label
-                ? "border-transparent border-b-2 border-b-bm-accent bg-bm-surface/30 text-bm-text font-medium"
-                : "border-transparent text-bm-muted hover:bg-bm-surface/30 hover:text-bm-text"
+                ? "bg-bm-surface/30 text-bm-text"
+                : "text-bm-muted hover:bg-bm-surface/20 hover:text-bm-text"
             }`}
             data-testid={`tab-${label.toLowerCase().replace(/[^a-z]/g, "-")}`}
           >

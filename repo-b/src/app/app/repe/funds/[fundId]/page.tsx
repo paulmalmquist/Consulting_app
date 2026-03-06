@@ -18,6 +18,7 @@ import {
   ReV2QuarterCloseResult,
 } from "@/lib/bos-api";
 import RepeEntityDocuments from "@/components/repe/RepeEntityDocuments";
+import { KpiStrip, type KpiDef } from "@/components/repe/asset-cockpit/KpiStrip";
 import { useRepeBasePath, useRepeContext } from "@/lib/repe-context";
 
 function pickCurrentQuarter(): string {
@@ -144,16 +145,24 @@ export default function RepeFundDetailPage({ params }: { params: { fundId: strin
   const terms = detail?.terms ?? [];
   const latestTerms = terms[0];
   const totalAssets = Object.values(assetCounts).reduce((s, n) => s + n, 0);
+  const kpis: KpiDef[] = [
+    { label: "NAV", value: fmtMoney(fundState?.portfolio_nav) },
+    { label: "Committed", value: fmtMoney(fundState?.total_committed) },
+    { label: "Called", value: fmtMoney(fundState?.total_called) },
+    { label: "Distributed", value: fmtMoney(fundState?.total_distributed) },
+    { label: "DPI", value: fmtMultiple(fundState?.dpi) },
+    { label: "TVPI", value: fmtMultiple(fundState?.tvpi) },
+    { label: "IRR", value: fmtPercent(fundMetrics?.irr) },
+  ];
 
   return (
-    <section className="space-y-5" data-testid="re-fund-homepage">
-      {/* Fund Header */}
-      <div className="rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-5">
+    <section className="flex flex-col gap-4" data-testid="re-fund-homepage">
+      <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Fund</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight">{fund?.name || "—"}</h1>
-            <p className="mt-1 text-sm text-bm-muted2">
+            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Fund</p>
+            <h1 className="mt-1 font-display text-xl font-semibold text-bm-text">{fund?.name || "—"}</h1>
+            <p className="mt-1 font-mono text-xs text-bm-muted">
               {fund?.strategy?.toUpperCase()}{fund?.sub_strategy ? ` · ${fund.sub_strategy}` : ""}
               {fund?.vintage_year ? ` · Vintage ${fund.vintage_year}` : ""}
               {fund?.status ? ` · ${fund.status.charAt(0).toUpperCase() + fund.status.slice(1)}` : ""}
@@ -162,18 +171,21 @@ export default function RepeFundDetailPage({ params }: { params: { fundId: strin
           <div className="flex gap-2">
             <Link
               href={`${basePath}/sustainability?section=portfolio-footprint&fundId=${params.fundId}`}
-              className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
+              className="rounded-md border border-bm-border/30 px-3 py-1.5 text-sm transition-colors duration-100 hover:bg-bm-surface/20"
             >
               Sustainability
             </Link>
             <button
               onClick={handleQuarterClose}
               disabled={closing}
-              className="rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90 disabled:opacity-50"
+              className="rounded-md bg-bm-accent px-3 py-1.5 text-sm font-medium text-white transition-colors duration-100 hover:bg-bm-accent/90 disabled:opacity-50"
             >
               {closing ? "Closing..." : `Close ${quarter}`}
             </button>
-            <Link href={`${basePath}/deals?fund=${params.fundId}`} className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40">
+            <Link
+              href={`${basePath}/deals?fund=${params.fundId}`}
+              className="rounded-md border border-bm-border/30 px-3 py-1.5 text-sm transition-colors duration-100 hover:bg-bm-surface/20"
+            >
               + Investment
             </Link>
           </div>
@@ -181,35 +193,18 @@ export default function RepeFundDetailPage({ params }: { params: { fundId: strin
 
         {latestTerms && (
           <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-            <div><dt className="text-xs text-bm-muted2">Pref Return</dt><dd className="font-medium">{fmtPercent(latestTerms.preferred_return_rate)}</dd></div>
-            <div><dt className="text-xs text-bm-muted2">Carry</dt><dd className="font-medium">{fmtPercent(latestTerms.carry_rate)}</dd></div>
-            <div><dt className="text-xs text-bm-muted2">Waterfall</dt><dd className="font-medium capitalize">{latestTerms.waterfall_style || "—"}</dd></div>
-            {fund?.target_size ? <div><dt className="text-xs text-bm-muted2">Target Size</dt><dd className="font-medium">{fmtMoney(fund.target_size)}</dd></div> : null}
+            <div><dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Pref Return</dt><dd className="font-semibold tabular-nums">{fmtPercent(latestTerms.preferred_return_rate)}</dd></div>
+            <div><dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Carry</dt><dd className="font-semibold tabular-nums">{fmtPercent(latestTerms.carry_rate)}</dd></div>
+            <div><dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Waterfall</dt><dd className="font-semibold capitalize">{latestTerms.waterfall_style || "—"}</dd></div>
+            {fund?.target_size ? <div><dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Target Size</dt><dd className="font-semibold tabular-nums">{fmtMoney(fund.target_size)}</dd></div> : null}
           </dl>
         )}
       </div>
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-        {[
-          { label: "NAV", value: fmtMoney(fundState?.portfolio_nav) },
-          { label: "Committed", value: fmtMoney(fundState?.total_committed) },
-          { label: "Called", value: fmtMoney(fundState?.total_called) },
-          { label: "Distributed", value: fmtMoney(fundState?.total_distributed) },
-          { label: "DPI", value: fmtMultiple(fundState?.dpi) },
-          { label: "TVPI", value: fmtMultiple(fundState?.tvpi) },
-          { label: "IRR", value: fmtPercent(fundMetrics?.irr) },
-        ].map((kpi) => (
-          <div key={kpi.label} className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3">
-            <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">{kpi.label}</p>
-            <p className="mt-1 text-lg font-bold">{kpi.value}</p>
-          </div>
-        ))}
-      </div>
+      <KpiStrip kpis={kpis} />
 
-      {/* Quarter Close Result */}
       {closeResult && (
-        <div className={`rounded-xl border p-4 text-sm ${closeResult.status === "success" ? "border-green-500/50 bg-green-500/10" : "border-red-500/50 bg-red-500/10"}`}>
+        <div className={`rounded-lg border p-4 text-sm ${closeResult.status === "success" ? "border-green-500/50 bg-green-500/10" : "border-red-500/50 bg-red-500/10"}`}>
           <p className="font-medium">Quarter Close: {closeResult.status}</p>
           {closeResult.status === "success" && (
             <p className="mt-1 text-bm-muted2">
@@ -219,31 +214,37 @@ export default function RepeFundDetailPage({ params }: { params: { fundId: strin
         </div>
       )}
 
-      {/* Module Tabs */}
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-2 flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1 rounded-lg border border-bm-border/20 bg-bm-surface/40 p-1">
         {MODULES.map((label) => (
-          <button key={label} type="button" onClick={() => setModuleTab(label)}
-            className={`rounded-lg border px-3 py-1.5 text-sm transition ${moduleTab === label ? "border-bm-accent/60 bg-bm-accent/10" : "border-bm-border/70 hover:bg-bm-surface/40"}`}>
+          <button
+            key={label}
+            type="button"
+            onClick={() => setModuleTab(label)}
+            className={`rounded-md px-2.5 py-1.5 font-mono text-xs transition-colors duration-100 ${
+              moduleTab === label
+                ? "bg-bm-surface/30 text-bm-text"
+                : "text-bm-muted hover:bg-bm-surface/20 hover:text-bm-text"
+            }`}
+          >
             {label}
           </button>
         ))}
       </div>
 
-      {/* Dashboard */}
       {moduleTab === "Dashboard" && (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-              <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Investments</p>
-              <p className="mt-1 text-2xl font-bold">{deals.length}</p>
+            <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-4">
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Investments</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums">{deals.length}</p>
             </div>
-            <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-              <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Assets</p>
-              <p className="mt-1 text-2xl font-bold">{totalAssets}</p>
+            <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-4">
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Assets</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums">{totalAssets}</p>
             </div>
-            <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-              <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Scenarios</p>
-              <p className="mt-1 text-2xl font-bold">{scenarios.length}</p>
+            <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-4">
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Scenarios</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums">{scenarios.length}</p>
             </div>
           </div>
         </div>
