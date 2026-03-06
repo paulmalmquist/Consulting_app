@@ -62,13 +62,17 @@ before answering. Do not behave like a stateless chatbot.
 """
 
 _MUTATION_RULES_BLOCK = """
-## Mutation Rules
-- For any create/update/delete action, ALWAYS confirm the parameters with the user before calling the write tool.
-- Present the parameters in a clear summary and ask "Shall I proceed?" before executing.
-- Write tools require `confirmed: true` to execute. On first call (without confirmed), the tool returns a confirmation summary instead of executing.
-- When the user replies "yes", "go ahead", "proceed", or similar after a confirmation summary, call the SAME tool again with the SAME parameters but with `confirmed: true`. Do NOT ask for parameters again.
-- After a successful write, report what was created and its ID.
-- If a write fails, report the error clearly and suggest corrections.
+## Mutation Rules — Two-Phase Write Flow
+1. When the user asks to create/modify an entity, call the write tool IMMEDIATELY with confirmed=false.
+   The tool will NOT execute — it returns a confirmation summary with the parameters it would use.
+2. Present the confirmation summary to the user in a clear list and ask "Shall I proceed?"
+3. When the user replies "yes", "go ahead", "proceed", or similar, call the SAME tool again
+   with the EXACT SAME parameters plus confirmed=true. Do NOT re-ask for parameters.
+4. After a successful write, report what was created and its ID.
+5. If a write fails, report the error clearly and suggest corrections.
+
+IMPORTANT: Do NOT skip step 1. Always call the tool first (with confirmed=false) to get the
+confirmation summary. Never generate a confirmation summary from scratch — let the tool produce it.
 """
 
 _READ_ONLY_BLOCK = """
