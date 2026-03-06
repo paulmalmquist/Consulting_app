@@ -36,6 +36,7 @@ export default function AssistantShell({
   onToggleAdvanced,
   leftPane,
   rightPane,
+  showRightPane = true,
 }: {
   open: boolean;
   onClose: () => void;
@@ -50,6 +51,7 @@ export default function AssistantShell({
   onToggleAdvanced: () => void;
   leftPane: React.ReactNode;
   rightPane: React.ReactNode;
+  showRightPane?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const lastActiveElementRef = useRef<HTMLElement | null>(null);
@@ -58,8 +60,14 @@ export default function AssistantShell({
     if (!open) return;
 
     lastActiveElementRef.current = document.activeElement as HTMLElement;
-    const focusables = focusableElements(panelRef.current);
-    focusables[0]?.focus();
+    // Focus the textarea (command input) if available, otherwise first focusable
+    const textarea = panelRef.current?.querySelector<HTMLTextAreaElement>('textarea[data-testid="global-commandbar-input"]');
+    if (textarea) {
+      textarea.focus();
+    } else {
+      const focusables = focusableElements(panelRef.current);
+      focusables[0]?.focus();
+    }
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -109,19 +117,24 @@ export default function AssistantShell({
       >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_10%,hsl(var(--bm-accent)/0.16),transparent_38%),radial-gradient(circle_at_20%_80%,hsl(var(--bm-accent)/0.08),transparent_32%)]" />
         <div className="relative z-10 flex h-full flex-col">
-          <header className="border-b border-bm-border/60 px-4 py-3 md:px-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="bm-section-label">Winston Assistant</p>
-                <h2 className="mt-1 text-lg font-semibold">Command Center</h2>
-                <p className="mt-1 text-xs text-bm-muted">
-                  {authenticated === false
-                    ? "Sign in to run operations. Plans remain view-only until authentication is restored."
-                    : "Plan, confirm, and execute with a full audit trail."}
-                </p>
+          <header className="border-b border-bm-border/60 px-4 py-2.5 md:px-5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full border border-bm-accent/30 bg-bm-accent/10">
+                  <svg className="h-3.5 w-3.5 text-bm-accent" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.414 1.414M11.536 11.536l1.414 1.414M3.05 12.95l1.414-1.414M11.536 4.464l1.414-1.414"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </div>
+                <h2 className="text-base font-semibold">Winston</h2>
+                {showRightPane && <Badge variant={statusVariant(stage)}>{stageCopy(stage)}</Badge>}
+                <span className="text-xs text-bm-muted truncate max-w-[300px]">{workspace.env}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant={statusVariant(stage)}>{stageCopy(stage)}</Badge>
+              <div className="flex items-center gap-1.5">
                 <Button
                   type="button"
                   size="sm"
@@ -143,28 +156,16 @@ export default function AssistantShell({
                 </Button>
               </div>
             </div>
-
-            <div className="mt-3 grid grid-cols-1 gap-2 text-xs md:grid-cols-2">
-              <div className="rounded-lg border border-bm-border/65 bg-bm-surface/35 px-3 py-2">
-                <p className="bm-section-label">Security</p>
-                <p className="mt-1 text-bm-muted">
-                  Every action requires an explicit confirmation before execution.
-                </p>
-              </div>
-              <div className="rounded-lg border border-bm-border/65 bg-bm-surface/35 px-3 py-2">
-                <p className="bm-section-label">Workspace</p>
-                <p className="mt-1 text-bm-muted">
-                  Env: <span className="text-bm-text">{workspace.env}</span> · Business:{" "}
-                  <span className="text-bm-text">{workspace.business}</span> · Route:{" "}
-                  <span className="text-bm-text">{workspace.route}</span>
-                </p>
-              </div>
-            </div>
           </header>
 
-          <main className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden p-3 md:grid-cols-[1.25fr_1fr] md:p-4">
+          <main className={cn(
+            "grid min-h-0 flex-1 gap-3 overflow-hidden p-3 md:p-4",
+            showRightPane ? "grid-cols-1 md:grid-cols-[1.25fr_1fr]" : "grid-cols-1 md:max-w-2xl md:mx-auto"
+          )}>
             <section className={cn("min-h-0 overflow-hidden rounded-xl border border-bm-border/60 bg-bm-surface/25")}>{leftPane}</section>
-            <section className={cn("min-h-0 overflow-hidden rounded-xl border border-bm-border/60 bg-bm-surface/25")}>{rightPane}</section>
+            {showRightPane && (
+              <section className={cn("min-h-0 overflow-hidden rounded-xl border border-bm-border/60 bg-bm-surface/25")}>{rightPane}</section>
+            )}
           </main>
         </div>
       </div>

@@ -9,13 +9,13 @@ import ConversationPane from "@/components/commandbar/ConversationPane";
 import ExecutePanel from "@/components/commandbar/ExecutePanel";
 import PlanPanel from "@/components/commandbar/PlanPanel";
 import QuickActions, { type QuickAction } from "@/components/commandbar/QuickActions";
-import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { useToast } from "@/components/ui/Toast";
 import {
   type AssistantApiError,
   type AssistantApiTrace,
   type DiagnosticsCheck,
+  askAi,
   buildExecutionSummary,
   cancelRun,
   confirmPlan,
@@ -420,7 +420,18 @@ export default function GlobalCommandBar() {
     appendMessage("user", next);
     setPrompt("");
     setRun(null);
-    void requestPlan(next);
+    setPlanning(true);
+
+    try {
+      const result = await askAi({ message: next, workspace: workspace as Record<string, string> });
+      appendTrace(result.trace);
+      appendMessage("assistant", result.answer);
+    } catch (error) {
+      const friendly = toFriendlyError(error);
+      appendMessage("system", friendly);
+    } finally {
+      setPlanning(false);
+    }
   };
 
   const onConfirmExecute = async () => {
@@ -539,7 +550,7 @@ export default function GlobalCommandBar() {
     }
   };
 
-  const canSend = authenticated && !planning && !(run && run.status === "running");
+  const hasMutations = activePlan && activePlan.mutations.length > 0;
 
   return (
     <>
@@ -547,10 +558,18 @@ export default function GlobalCommandBar() {
         type="button"
         data-testid="global-commandbar-toggle"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="fixed bottom-5 right-5 z-[55] inline-flex h-11 items-center justify-center rounded-full border border-bm-border/70 bg-bm-surface/85 px-4 text-sm font-medium text-bm-text shadow-bm-card backdrop-blur-md hover:bg-bm-surface"
+        className="fixed bottom-5 right-5 z-[55] inline-flex h-10 items-center justify-center gap-2 rounded-full border border-bm-border/50 bg-bm-surface/90 pl-3 pr-4 text-sm font-medium text-bm-text shadow-bm-card backdrop-blur-md transition-all duration-150 hover:border-bm-accent/40 hover:shadow-bm-glow"
         aria-label="Open Winston command center"
-        title="Winston Commands"
+        title="Winston (Cmd+K)"
       >
+        <svg className="h-4 w-4 text-bm-accent" viewBox="0 0 16 16" fill="none">
+          <path
+            d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.414 1.414M11.536 11.536l1.414 1.414M3.05 12.95l1.414-1.414M11.536 4.464l1.414-1.414"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+        </svg>
         Winston
       </button>
 
@@ -562,21 +581,14 @@ export default function GlobalCommandBar() {
         workspace={workspace}
         advancedOpen={advancedOpen}
         onToggleAdvanced={() => setAdvancedOpen((prev) => !prev)}
+        showRightPane={Boolean(hasMutations) || advancedOpen}
         leftPane={
           <div className="flex h-full min-h-0 flex-col">
-            <div className="border-b border-bm-border/60 p-3">
-              {authenticated ? null : (
-                <div className="mb-3 rounded-lg border border-bm-warning/40 bg-bm-warning/10 p-2 text-xs text-bm-text">
-                  Authentication required to run commands. Sign in, then reopen this panel.
-                </div>
-              )}
+            <div className="border-b border-bm-border/60 p-2.5">
               <QuickActions
                 actions={quickActions}
-                disabled={!authenticated}
-                onSelect={(action) => {
-                  appendMessage("user", action.prompt);
-                  void requestPlan(action.prompt);
-                }}
+                disabled={false}
+                onSelect={(action) => void onSend(action.prompt)}
               />
             </div>
 
@@ -586,39 +598,55 @@ export default function GlobalCommandBar() {
                 messages={messages}
                 examples={EMPTY_EXAMPLES}
                 recentRuns={recentRuns}
+                thinking={planning}
               />
             </div>
 
-            <div className="border-t border-bm-border/60 p-3">
-              <Textarea
-                data-testid="global-commandbar-input"
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                rows={3}
-                placeholder="Tell Winston what you want to do..."
-                aria-label="Command input"
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    void onSend();
-                  }
-                }}
-                disabled={!canSend}
-              />
-              <div className="mt-2 flex items-center justify-between gap-2">
-                <Button type="button" size="sm" variant="secondary" onClick={clearHistory}>
-                  Clear
-                </Button>
-                <Button
-                  type="button"
-                  data-testid="global-commandbar-send"
-                  size="sm"
-                  disabled={!canSend || !prompt.trim()}
-                  onClick={() => void onSend()}
-                >
-                  Plan Command
-                </Button>
+            <div className="border-t border-bm-border/40 p-3">
+              <div className="flex items-end gap-2 rounded-lg border border-bm-border/50 bg-bm-bg/60 px-3 py-2 transition-colors focus-within:border-bm-accent/40 focus-within:shadow-[0_0_0_1px_hsl(var(--bm-accent)/0.15)]">
+                <Textarea
+                  data-testid="global-commandbar-input"
+                  value={prompt}
+                  onChange={(event) => setPrompt(event.target.value)}
+                  rows={1}
+                  placeholder="Ask Winston anything..."
+                  aria-label="Command input"
+                  className="!border-0 !bg-transparent !shadow-none !ring-0 resize-none text-sm !p-0 !min-h-[24px] placeholder:text-bm-muted2"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      void onSend();
+                    }
+                  }}
+                />
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {messages.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={clearHistory}
+                      className="rounded p-1 text-bm-muted2 transition-colors hover:text-bm-text"
+                      title="Clear conversation"
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none">
+                        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    data-testid="global-commandbar-send"
+                    disabled={!prompt.trim() || planning}
+                    onClick={() => void onSend()}
+                    className="flex h-7 w-7 items-center justify-center rounded-md bg-bm-accent text-bm-accentContrast transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:brightness-110"
+                    title="Send (Enter)"
+                  >
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none">
+                      <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </div>
               </div>
+              <p className="mt-1.5 text-[10px] text-bm-muted2 text-center">Enter to send, Shift+Enter for new line</p>
             </div>
           </div>
         }

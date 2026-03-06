@@ -7,11 +7,26 @@ Apply every item below in one pass. Each section is self-contained and can be ta
 
 ---
 
+## Status: Confirmed Fixed in Prior Deploys
+
+The following items from the original review have been verified fixed in production:
+
+| Item | Fix | Verified |
+|------|-----|----------|
+| A4 | Year Built "2,016" comma format → "2016" | ✅ |
+| A6 | % of NAV totaling 146.6% → now 100% (60.5% + 39.5%) | ✅ |
+| A10 | Valuation Method raw enum "cap_rate" → "Direct Cap" | ✅ |
+| G2 | Duplicate model name guard — inline warning + disabled button | ✅ |
+
+Everything else in this document is **still outstanding** and requires a fix.
+
+---
+
 ## Section A: Data Bugs — Fix All of These
 
 ### A1. Cap Rate Annualization (CRITICAL)
 
-The displayed cap rate is 31.30% everywhere it appears. The correct range for multifamily in the Denver MSA is 4.5–6.5%. The formula is dividing a non-annualized NOI figure by the gross value. Fix the calculation so that cap rate = (annualized NOI) / gross value. Annualized NOI = the most recently stored quarterly NOI × 4, or the sum of the last 4 quarters of NOI. Apply this fix everywhere cap rate is computed or displayed: the asset cockpit KPI cards, the Valuation & Returns snapshot, and the Cap Rate Sensitivity tornado chart. The delta and basis-point change labels should recalculate automatically once the underlying figure is correct.
+The displayed cap rate is 31.30% everywhere it appears. The correct range for multifamily in the Denver MSA is 4.5–6.5%. The formula is dividing a non-annualized NOI figure by the gross value. Fix the calculation so that cap rate = (annualized NOI) / gross value. Annualized NOI = the most recently stored quarterly NOI × 4, or the sum of the last 4 quarters of NOI. Apply this fix everywhere cap rate is computed or displayed: the asset cockpit KPI cards, the Valuation & Returns snapshot, the Cap Rate Sensitivity tornado chart, and the fund-level "WTD Avg Cap Rate" portfolio metric (currently showing 23.95% — equally wrong). The delta and basis-point change labels should recalculate automatically once the underlying figure is correct.
 
 ### A2. Asset Location — Aurora, CO Not Atlanta, GA
 
@@ -19,23 +34,23 @@ Cascade Multifamily shows "Atlanta, GA" as its market/location in the asset cock
 - City/State: Aurora, CO
 - Market / MSA: Denver-Aurora, CO MSA
 
-Update the seed data record for this asset and ensure both the display label and the stored Market field reflect Aurora, CO.
+Update the seed data record for this asset and ensure both the display label and the stored Market field reflect Aurora, CO. This bug also propagates into the fund overview investments expansion rows, which show "280 sf · Atlanta, GA" — fix the location there as well.
 
-### A3. Unit Count — 240 Not 280
+### A3. Unit Count and Unit Type Label — 240 Units, Not 280 sf
 
-Model Inputs → Property Details → Units shows 280. The correct unit count for Cascade Multifamily is 240. Update the seed record.
+Two separate errors:
+1. **Count:** Model Inputs → Property Details → Units shows 280. The correct unit count for Cascade Multifamily is 240. Update the seed record.
+2. **Type label:** The fund overview investments expansion rows display "280 sf" — labeling the unit count in square feet instead of "units." This should read "240 units." Fix the label formatter to use the property type's appropriate unit descriptor (multifamily → "units", office/industrial → "SF").
 
-### A4. Year Built Formatting
-
-Year Built displays as "2,016" with a thousands separator. Year values should never be formatted as numbers. Display as the plain integer string "2016" with no comma. Fix the formatter or the data type for this field globally — any field named `year_built`, `yearBuilt`, or similar should use a plain integer display, not `toLocaleString()` or equivalent.
+### A4. Year Built Formatting ✅ FIXED
+*(Confirmed fixed — "2016" displays correctly with no comma.)*
 
 ### A5. Fund NAV Column — Populate for All Investments
 
 The Fund detail → Overview tab → Investments table shows "—" in the Fund NAV column for all 12 investments. This is the most important single metric in a fund context — each investment's contribution to the fund's net asset value. Compute or retrieve this value from the same source used by the LP Summary page (which correctly shows fund-level NAV = $425.0M). Wire the Fund NAV per investment into the investments table.
 
-### A6. % of NAV Rollup — Fix the Denominator
-
-The Investment detail → Assets table shows Cascade Multifamily at 88.6% of NAV and Cascade Village Phase II at 58.0%, totaling 146.6%. This must sum to approximately 100%. The denominator is wrong — it is likely using the individual asset NAV as the denominator instead of the total investment NAV, or double-counting. Fix the calculation so each asset's % of NAV = that asset's NAV / total investment NAV, and the column sums correctly.
+### A6. % of NAV Rollup ✅ FIXED
+*(Confirmed fixed — now shows 60.5% + 39.5% = 100.0%.)*
 
 ### A7. P&L Tooltip — Revenue and OpEx Must Be Populated
 
@@ -47,17 +62,10 @@ Valuation & Returns → Scenario Compare chart: the legend correctly lists all 5
 
 ### A9. NAV Plunge in 2026Q1 — Investigate and Fix
 
-The Value & NAV Trend chart on the Valuation & Returns tab shows a sharp drop in NAV in the most recent quarter (2026Q1). Investigate whether this is a data ingestion error, a missing snapshot record, or a calculation artifact from the quarter-close run. If the drop is not supported by actual underwriting assumptions, correct the seed data so the NAV trend is smooth and directionally consistent with the model inputs (cap rate 5.00%, rent growth 3.00%).
+The Value & NAV Trend chart on the Valuation & Returns tab shows a sharp drop in NAV in the most recent quarter (2026Q1) — from roughly $53M to $38.5M — while Asset Value continues rising to ~$60M. This divergence is unexplained by the model inputs. Investigate whether this is a data ingestion error, a missing snapshot record, or a calculation artifact from the quarter-close run. If the drop is not supported by actual underwriting assumptions, correct the seed data so the NAV trend is smooth and directionally consistent with the model inputs (cap rate 5.00%, rent growth 3.00%).
 
-### A10. Valuation Method — Human-Readable Label
-
-The Valuation & Returns → Current Snapshot → Method field displays the raw enum string "cap_rate". Replace all raw enum displays with human-readable labels:
-- `cap_rate` → "Direct Cap"
-- `dcf` → "Discounted Cash Flow"
-- `sales_comp` → "Sales Comparable"
-- `cost` → "Cost Approach"
-
-Apply this mapping wherever valuation method enums are rendered in the UI.
+### A10. Valuation Method — Human-Readable Label ✅ FIXED
+*(Confirmed fixed — "Direct Cap" displays correctly.)*
 
 ### A11. Scenario Assumptions — Differentiate by Asset Type and Seed Exit Values
 
@@ -71,6 +79,39 @@ Seed the "Downside CapRate +75bps" scenario with realistic per-asset assumptions
 - Student housing: Cap Rate 6.00%, Rent Growth 2.0%, Hold 6 yrs, Exit Value = NOI / 0.06
 
 Exit Value must never be $0. Compute it from NOI ÷ exit cap rate if no override is stored.
+
+### A12. Occupancy Rate Inconsistency Across Pages (NEW)
+
+Two different occupancy figures appear for the same portfolio:
+- Assets page header KPI strip: **AVG OCCUPANCY = 58.3%**
+- Investments page detail panel for Cascade Multifamily: **91.8%**
+
+The 58.3% figure at the portfolio level is almost certainly wrong — a 58% average occupancy across a 33-asset portfolio of active, stabilized assets is implausible. Investigate the denominator used for the portfolio-level average: it may be including assets with no occupancy data (counting them as 0%) rather than excluding them from the average. Fix so that portfolio-level avg occupancy only averages assets with a non-null occupancy value.
+
+### A13. Dual NAV Figures on Investment Detail Page (NEW)
+
+The Investment detail page shows two different NAV values for Cascade Multifamily:
+- **KPI strip (top of page):** NAV = $44.0M
+- **Capital & Returns panel:** Fund NAV Contrib = $64.5M
+
+A single investment cannot have two different NAVs. Identify which source is correct and reconcile the two values to show the same figure. If they represent different concepts (e.g., gross asset NAV vs. fund-level NAV contribution after leverage), label them clearly and distinctly so the difference is self-evident.
+
+### A14. Debt Summary — All Dashes (NEW)
+
+The Asset cockpit / Investment detail Debt Summary section shows all dashes: Debt Balance —, Debt Service —, LTV —, DSCR —. No debt data is seeded for Cascade Multifamily. For a value-add multifamily asset with $59.8M gross value, seed a realistic debt structure:
+- Debt Balance: ~$37M (approximately 62% LTV — typical for value-add)
+- Interest Rate: 5.75% (fixed, consistent with 2022 vintage)
+- Loan Maturity: 2027-06-01
+- Debt Service (annual): ~$2.6M (estimated at ~7% of balance)
+- DSCR: NOI ($4.7M annualized) / Debt Service ($2.6M) ≈ 1.81x
+- LTV: $37M / $59.8M ≈ 61.9%
+- Covenant: LTV ≤ 70%, DSCR ≥ 1.20x
+
+This also resolves the WTD Avg LTV showing 10.5% at the portfolio level (a weighted average driven by zero-debt assets dominating the calculation).
+
+### A15. NOI Delta +263.6% — Suspicious (NEW)
+
+The asset cockpit KPI strip shows NOI = $4.7M with a delta of +263.6%. A 263% year-over-year NOI increase is implausible for a stabilized multifamily asset and is likely a calculation artifact related to the cap rate bug (non-annualized vs. annualized figures). Once A1 (cap rate annualization) is fixed, verify that the NOI delta recalculates to a reasonable figure (≤ ±20% for a stable asset). If it does not self-correct, investigate the prior-period NOI comparison baseline.
 
 ---
 
@@ -168,6 +209,15 @@ On all line charts: set `dot={false}` on `<Line>` components. Reduce grid line o
 ## Section E: AI Features
 
 This section is the most strategic part of the build. The target architecture mirrors what a Lead AI & Data Engineering role at a serious institutional RE firm would own: RAG pipelines, entity intelligence, investment Q&A grounded in documents, semantic search, anomaly detection, and a full LLM audit layer. Every sub-section below maps to that capability set.
+
+**Current AI status (verified in live testing, March 5 2026):**
+- Winston Command Center Plan → Confirm → Execute pipeline: ✅ Live and functional for structural operations
+- Route context injection (asset UUID in workspace route): ✅ Working — route updates when Winston opened from asset page
+- Quick Action adaptation by page context: ✅ Partially working — asset-page Quick Actions correctly change to RE-specific prompts ("Summarize key risks", "Compare to underwriting", "Draft LP update", "Identify covenant risk", "Cap rate impact on NAV")
+- Business entity name in workspace context ("Business: none"): ❌ Not passing asset name/entity
+- Analytical Q&A (portfolio data questions): ❌ "No implemented operation matches this request" for all analytical queries
+- Document-grounded Q&A (RAG): ❌ Not built — "Recent Documents" also returns no implemented operation
+- Generate Report API: ❌ 200 response but no visible output
 
 ---
 
@@ -284,7 +334,10 @@ Run a lightweight anomaly detection pass on asset and fund metrics each time a q
 
 ### E6. Asset-Context Injection Into Winston Command Center
 
-When the Winston Command Center is opened from an asset detail page, inject the current asset's context into the workspace payload:
+**Current state:** Route context IS passing — when Winston is opened from an asset page, the workspace panel correctly shows the asset UUID in the Route field. However, `Business: none` persists — the asset name, KPIs, covenants, and attachment count are not being injected into the workspace payload.
+
+**Required fix:** When the Winston Command Center is opened from an asset detail page, inject the current asset's context into the workspace payload and surface it in the panel:
+
 ```json
 {
   "assetId": "<current asset id>",
@@ -296,7 +349,7 @@ When the Winston Command Center is opened from an asset detail page, inject the 
     "capRate": 0.0786,
     "irr": 0.125,
     "occupancy": 0.92,
-    "ltv": 0.0
+    "ltv": 0.619
   },
   "attachmentCount": 20,
   "fund": "Institutional Growth Fund VII",
@@ -308,7 +361,8 @@ When the Winston Command Center is opened from an asset detail page, inject the 
   }
 }
 ```
-Surface this context in the "Workspace" section of the Command Center panel. Include the covenant status (in compliance / at risk / breached) as a visible indicator.
+
+Replace "Business: none" in the workspace panel with "Asset: Cascade Multifamily · Fund: Institutional Growth Fund VII". Include covenant status (In Compliance / At Risk / Breached) as a visible inline indicator.
 
 ---
 
@@ -348,18 +402,22 @@ The Ops & Audit → Attachments panel shows "0 files — no attachments yet." Th
 
 ---
 
-### E9. Contextual Quick-Action Prompts
+### E9. Contextual Quick-Action Prompts — Wire to Backend
 
-Replace the generic Quick Actions (Current Env Snapshot, List Environments, Workspace Health) with context-aware prompts based on the current page scope. When inside an asset page:
+**Current state:** The Quick Actions ARE context-aware at the UI level. When Winston is opened from an asset page, the quick actions correctly change from generic admin actions to asset-specific RE prompts:
+- "Summarize key risks" → fires query: "Summarize this asset's key risks based on current KPIs, debt metrics, and market position."
+- "Compare to underwriting" → fires query about UW comparison
+- "Draft LP update" → fires LP update query
+- "Identify covenant risk" → fires covenant analysis query
+- "Cap rate impact on NAV" → fires sensitivity query
 
-- "Summarize this asset's key risks from uploaded documents"
-- "Compare actual NOI to underwriting assumptions"
-- "Flag any covenant proximity issues"
-- "Draft a Q4 LP update paragraph for this asset"
-- "What does the most recent appraisal say about market rent growth?"
-- "Identify the top 3 lease expiration risks in the next 12 months"
+**The UI layer is complete. The backend execution layer needs to be built.** All of the above queries currently return "No implemented operation matches this request." Build the operation handlers that fulfill these analytical queries by:
+1. Fetching the current asset KPIs from the database for the active assetId
+2. (Once E1 is built) Retrieving relevant document chunks from the vector store
+3. Composing a structured LLM prompt combining KPI data + document context
+4. Returning a well-formed analytical response with citations
 
-Show these as pill buttons above the chat input. Clicking a pill populates the input field and triggers the RAG retrieval pipeline automatically.
+Do not change the Quick Action labels or query text — these are well-written. Build the backend to fulfill them.
 
 ---
 
@@ -371,13 +429,13 @@ Fund detail → Overview tab has two empty-state cards:
 - **Top Performers by IRR Contribution:** Should show the top 3–5 investments ranked by IRR contribution to the fund. Compute IRR contribution as: (investment IRR × investment NAV weight). Seed or calculate this and render as a ranked list with investment name, IRR, and contribution in basis points.
 - **Capital Activity Timeline:** Should show a timeline of capital events (calls and distributions) by quarter. Seed at least 4–6 capital call events and 2 distribution events for 2024–2025 and render as a timeline or bar chart.
 
-### F2. Deduplicate Model Names
-
-The Models list shows "Morgan QA Downside" appearing twice. Add a uniqueness constraint or at minimum a guard on the create flow that warns if a model with the same name already exists in the fund scope. Rename one of the duplicates in the seed data.
-
-### F3. Avg Rent/Unit — Populate in Property Details
+### F2. Avg Rent/Unit — Populate in Property Details
 
 Model Inputs → Property Details → Avg Rent/Unit shows "—". For Cascade Multifamily with 240 units and annual revenue of approximately $6.3M, the average rent per unit ≈ $2,187/month ($6,300,000 / 240 / 12). Seed this value.
+
+### F3. Rename Duplicate Model in Seed
+
+The Models list shows "Morgan QA Downside" appearing twice (the client-side duplicate guard now prevents new duplicates, but the two existing ones remain). Rename one in the seed script to "Morgan QA Downside v2". Add a uniqueness constraint at the database level to prevent future collisions.
 
 ---
 
@@ -393,13 +451,12 @@ The asset cockpit header currently shows the property name and a "● active" st
 
 Render these as small inline chips below the asset name, before the tab row.
 
-### G2. Sidebar Duplicate-Name Guard for Models
+### G2. Sidebar Duplicate-Name Guard for Models ✅ FIXED
+*(Client-side validation confirmed working — inline warning shown and Create button disabled for duplicate names.)*
 
-Add client-side validation on the Create Model form: if the user enters a name that already exists in the current fund scope, show an inline warning ("A model with this name already exists") and disable the Create button until the name is changed.
+### G3. Stray "0" Label on Investment Detail Page (NEW)
 
-### G3. Duplicate Model Name in Seed
-
-Rename one "Morgan QA Downside" to "Morgan QA Downside v2" in the seed script to eliminate the duplicate immediately.
+A floating "0" label appears between the NOI Over Time chart and the Sector Exposure section on the Investment detail page. This appears to be an unrendered data value being leaked into the DOM — likely a chart label, a defaulted numeric field, or a conditional render with a falsy check returning `0` instead of `null`. Find the source and suppress it. The fix is likely changing `value && <Label>` to `value != null && value !== 0 && <Label>` or similar.
 
 ---
 
@@ -409,10 +466,10 @@ After these fixes are applied, the following should be true:
 
 1. Cap rate on Cascade Multifamily is between 4.5% and 8.5% — not 31.30%
 2. Asset location displays "Aurora, CO" everywhere — not Atlanta
-3. Unit count is 240 everywhere — not 280
-4. Year Built displays "2016" — no comma
+3. Unit count is 240 everywhere — not 280; unit type label shows "units" not "sf"
+4. Year Built displays "2016" — no comma ✅ DONE
 5. Fund NAV column is populated for all 12 investments in the fund overview
-6. % of NAV sums to approximately 100% in the investment detail assets table
+6. % of NAV sums to approximately 100% in the investment detail assets table ✅ DONE
 7. P&L tooltips show non-zero Revenue and OpEx for all quarters with non-zero NOI
 8. Scenario Compare chart renders all 5 scenario lines simultaneously
 9. Intelligence, UW vs Actual, and Sustainability pages either load correctly or are hidden — no pink "Not Found" banners visible
@@ -424,9 +481,13 @@ After these fixes are applied, the following should be true:
 15. Uploading a document to Attachments triggers the RAG ingestion pipeline — chunks, embeds, and indexes it
 16. The Winston Q&A panel answers document-grounded questions with inline citations (document name + page number) — no uncited assertions
 17. The Cmd+K semantic search returns results across assets, documents, and funds
-18. Winston Command Center shows current asset context (KPIs, covenants, active scenario) when opened from an asset page
+18. Winston Command Center shows current asset name and KPIs (not "Business: none") when opened from an asset page
 19. Every AI response is logged in the Ops & Audit → AI Activity tab with retrieved chunks and relevance scores visible
 20. Anomaly detection flags a ⚠ badge on any KPI that moved outside threshold between quarters
 21. Cascade Multifamily has 20 demo documents in its Attachments panel, each tagged by type (Appraisal, Rent Roll, etc.)
 22. Fund overview Top Performers and Capital Activity Timeline are populated — not empty states
 23. No duplicate model names in any fund's model list
+24. Portfolio-level AVG OCCUPANCY reflects only assets with non-null occupancy data — not dragged down by zero-data assets
+25. Investment detail shows one consistent NAV figure — KPI strip and Fund NAV Contrib are reconciled
+26. Cascade Multifamily has a seeded debt record with realistic LTV (~62%), DSCR (~1.8x), debt balance (~$37M)
+27. No stray "0" labels floating between page sections

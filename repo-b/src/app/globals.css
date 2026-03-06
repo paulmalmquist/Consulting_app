@@ -183,6 +183,18 @@
   }
 }
 
+/* Tame Leaflet z-indexes so maps stay below modals (z-60+) */
+.leaflet-pane {
+  z-index: auto !important;
+}
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 10 !important;
+}
+.leaflet-control {
+  z-index: 10 !important;
+}
+
 /* Hide scrollbar for horizontal scroll areas */
 .scrollbar-hide {
   -ms-overflow-style: none;

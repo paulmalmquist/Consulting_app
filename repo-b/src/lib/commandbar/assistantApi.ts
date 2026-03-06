@@ -734,3 +734,117 @@ export function buildExecutionSummary(plan: ExecutionPlan | AssistantPlan | null
     ...(run.logs.length ? ["Logs:", ...run.logs.map((line) => `- ${line}`)] : []),
   ].join("\n");
 }
+
+/**
+ * Ask Winston AI a freeform question via the AI gateway.
+ * Collects SSE stream into a single text response.
+ */
+export async function askAi(input: {
+  message: string;
+  workspace?: Record<string, string>;
+  signal?: AbortSignal;
+}): Promise<{ answer: string; trace: AssistantApiTrace }> {
+  const requestId = nextRequestId();
+  const startedAt = Date.now();
+  const endpoint = "/api/ai/gateway/ask";
+
+  if (USE_MOCKS) {
+    return {
+      answer: `[Mock] Winston would analyze: "${input.message}". In production this calls the AI gateway.`,
+      trace: { requestId, endpoint, method: "POST", startedAt, durationMs: 10, status: 200, ok: true },
+    };
+  }
+
+  const systemPrompt = [
+    "You are Winston, an AI assistant for real estate private equity portfolio managers.",
+    "You help analyze assets, funds, and investments. Be concise and data-driven.",
+    input.workspace ? `Context: ${JSON.stringify(input.workspace)}` : "",
+  ].filter(Boolean).join(" ");
+
+  const { signal, cancel } = withTimeout(input.signal, 30_000);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-bm-request-id": requestId },
+      body: JSON.stringify({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: input.message },
+        ],
+        stream: true,
+      }),
+      signal,
+    });
+
+    const trace: AssistantApiTrace = {
+      requestId,
+      endpoint,
+      method: "POST",
+      startedAt,
+      durationMs: Date.now() - startedAt,
+      status: response.status,
+      ok: response.ok,
+    };
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => "");
+      logClientTrace(trace);
+      return {
+        answer: `Winston couldn't process that request (${response.status}). ${errText.slice(0, 200)}`,
+        trace,
+      };
+    }
+
+    // Collect SSE stream
+    let answer = "";
+    const reader = response.body?.getReader();
+    if (reader) {
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        // Parse SSE lines: "data: {...}"
+        for (const line of chunk.split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6).trim();
+          if (payload === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(payload);
+            const delta = parsed.choices?.[0]?.delta?.content;
+            if (delta) answer += delta;
+          } catch {
+            // Non-JSON SSE line — might be raw text
+            if (payload && payload !== "[DONE]") answer += payload;
+          }
+        }
+      }
+    } else {
+      // Non-streaming fallback
+      const json = await response.json().catch(() => null);
+      answer = (json as { choices?: Array<{ message?: { content?: string } }> })?.choices?.[0]?.message?.content || JSON.stringify(json);
+    }
+
+    trace.durationMs = Date.now() - startedAt;
+    logClientTrace(trace);
+    return { answer: answer.trim() || "No response from Winston.", trace };
+  } catch (error) {
+    const trace: AssistantApiTrace = {
+      requestId,
+      endpoint,
+      method: "POST",
+      startedAt,
+      durationMs: Date.now() - startedAt,
+      status: 0,
+      ok: false,
+    };
+    logClientTrace(trace);
+    return {
+      answer: error instanceof Error ? `Winston error: ${error.message}` : "Winston encountered an error.",
+      trace,
+    };
+  } finally {
+    cancel();
+  }
+}

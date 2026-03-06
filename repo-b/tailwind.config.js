@@ -48,6 +48,32 @@ module.exports = {
         fast: "120ms",
         panel: "200ms",
       },
+      keyframes: {
+        "winston-spin": {
+          "0%": { transform: "rotate(0deg)" },
+          "100%": { transform: "rotate(360deg)" },
+        },
+        "winston-glow": {
+          "0%, 100%": { opacity: "0.4" },
+          "50%": { opacity: "1" },
+        },
+        "winston-fade-in": {
+          "0%": { opacity: "0", transform: "translateY(4px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "winston-dot-pulse": {
+          "0%, 80%, 100%": { opacity: "0.3", transform: "scale(0.8)" },
+          "40%": { opacity: "1", transform: "scale(1)" },
+        },
+      },
+      animation: {
+        "winston-spin": "winston-spin 2s linear infinite",
+        "winston-glow": "winston-glow 2.4s ease-in-out infinite",
+        "winston-fade-in": "winston-fade-in 0.2s ease-out",
+        "winston-dot-1": "winston-dot-pulse 1.4s ease-in-out infinite 0s",
+        "winston-dot-2": "winston-dot-pulse 1.4s ease-in-out infinite 0.2s",
+        "winston-dot-3": "winston-dot-pulse 1.4s ease-in-out infinite 0.4s",
+      },
     }
   },
   plugins: []
