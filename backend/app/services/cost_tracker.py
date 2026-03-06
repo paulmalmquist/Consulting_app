@@ -8,6 +8,12 @@ _PRICING: dict[str, dict[str, float]] = {
     "o1-mini": {"input": 3.00, "output": 12.00},
     "o1": {"input": 15.00, "output": 60.00},
     "o3-mini": {"input": 1.10, "output": 4.40},
+    # GPT-5 family (update when official pricing published)
+    "gpt-5-mini": {"input": 0.30, "output": 1.20},
+    "gpt-5.4": {"input": 5.00, "output": 20.00},
+    "gpt-5.3-codex": {"input": 3.00, "output": 12.00},
+    "gpt-5.1": {"input": 3.00, "output": 12.00},
+    "gpt-5": {"input": 5.00, "output": 20.00},
 }
 
 # Embedding pricing per 1M tokens

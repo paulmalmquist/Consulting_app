@@ -64,7 +64,7 @@ MCP_DENY_GLOBS: list[str] = [
 
 # ── AI Gateway ──────────────────────────────────────────────────────
 OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-OPENAI_CHAT_MODEL: str = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
+OPENAI_CHAT_MODEL: str = os.getenv("OPENAI_CHAT_MODEL", "gpt-5-mini")
 OPENAI_EMBEDDING_MODEL: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 AI_GATEWAY_ENABLED: bool = OPENAI_API_KEY != ""
 AI_MAX_TOOL_ROUNDS: int = int(os.getenv("AI_MAX_TOOL_ROUNDS", "5"))
@@ -73,10 +73,22 @@ RAG_CHUNK_TOKENS: int = int(os.getenv("RAG_CHUNK_TOKENS", "400"))
 RAG_CHUNK_OVERLAP: int = int(os.getenv("RAG_CHUNK_OVERLAP", "50"))
 
 # ── Multi-model dispatch ──────────────────────────────────────────
-OPENAI_CHAT_MODEL_FAST: str = os.getenv("OPENAI_CHAT_MODEL_FAST", "gpt-4o-mini")
-OPENAI_CHAT_MODEL_STANDARD: str = os.getenv("OPENAI_CHAT_MODEL_STANDARD", "gpt-4o")
-OPENAI_CHAT_MODEL_REASONING: str = os.getenv("OPENAI_CHAT_MODEL_REASONING", "o1-mini")
-OPENAI_CHAT_MODEL_CODING: str = os.getenv("OPENAI_CHAT_MODEL_CODING", "gpt-4o")
+OPENAI_CHAT_MODEL_FAST: str = os.getenv("OPENAI_CHAT_MODEL_FAST", "gpt-5-mini")
+OPENAI_CHAT_MODEL_STANDARD: str = os.getenv("OPENAI_CHAT_MODEL_STANDARD", "gpt-5")
+OPENAI_CHAT_MODEL_REASONING: str = os.getenv("OPENAI_CHAT_MODEL_REASONING", "gpt-5")
+OPENAI_CHAT_MODEL_CODING: str = os.getenv("OPENAI_CHAT_MODEL_CODING", "gpt-5")
+OPENAI_CHAT_MODEL_AGENTIC: str = os.getenv("OPENAI_CHAT_MODEL_AGENTIC", "gpt-5")
+OPENAI_CHAT_MODEL_VERIFY: str = os.getenv("OPENAI_CHAT_MODEL_VERIFY", "gpt-5-mini")
+OPENAI_CHAT_MODEL_FALLBACK: str = os.getenv("OPENAI_CHAT_MODEL_FALLBACK", "gpt-5-mini")
+
+# ── Pipeline feature flags (all default off for safe rollout) ────
+ENABLE_QUERY_EXPANSION: bool = os.getenv("ENABLE_QUERY_EXPANSION", "false").lower() == "true"
+ENABLE_STRUCTURED_RAG: bool = os.getenv("ENABLE_STRUCTURED_RAG", "false").lower() == "true"
+ENABLE_ANSWER_VERIFICATION: bool = os.getenv("ENABLE_ANSWER_VERIFICATION", "false").lower() == "true"
+ENABLE_CONTEXT_COMPRESSION: bool = os.getenv("ENABLE_CONTEXT_COMPRESSION", "false").lower() == "true"
+ENABLE_SEMANTIC_CACHE: bool = os.getenv("ENABLE_SEMANTIC_CACHE", "false").lower() == "true"
+ENABLE_ADAPTIVE_RETRIEVAL: bool = os.getenv("ENABLE_ADAPTIVE_RETRIEVAL", "false").lower() == "true"
+ENABLE_AGENTIC_EXECUTOR: bool = os.getenv("ENABLE_AGENTIC_EXECUTOR", "false").lower() == "true"
 
 # ── RAG quality controls ─────────────────────────────────────────
 RAG_MIN_SCORE: float = float(os.getenv("RAG_MIN_SCORE", "0.30"))

@@ -590,6 +590,7 @@ function RuntimeTab({
       <div className="rounded-md bg-bm-surface/20 px-2 py-1.5">
         <p className="text-[10px] text-bm-muted2 uppercase tracking-wider mb-1">Model</p>
         <KV label="Model" value={winstonTrace?.model} mono />
+        {winstonTrace?.reasoning_effort && <KV label="Reasoning effort" value={winstonTrace.reasoning_effort} />}
         <KV label="Prompt tokens" value={winstonTrace?.prompt_tokens} />
         <KV label="Completion tokens" value={winstonTrace?.completion_tokens} />
         <KV label="Total tokens" value={winstonTrace?.total_tokens} />

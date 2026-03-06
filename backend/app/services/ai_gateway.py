@@ -28,6 +28,17 @@ from app.services.rag_indexer import RetrievedChunk, semantic_search
 from app.services.rag_reranker import rerank_chunks
 from app.services.request_router import classify_request
 
+# ── Reasoning model detection ────────────────────────────────────────
+_REASONING_PREFIXES = ("o1", "o3")
+_REASONING_KEYWORDS = ("reasoning",)
+
+
+def _is_reasoning_model(model: str) -> bool:
+    """Check if a model requires reasoning-model parameters (no temperature, developer role)."""
+    m = model.lower()
+    return m.startswith(_REASONING_PREFIXES) or any(kw in m for kw in _REASONING_KEYWORDS)
+
+
 # ── RAG result cache (60s TTL) ────────────────────────────────────────
 _rag_cache: dict[str, tuple[float, list[RetrievedChunk]]] = {}
 
@@ -424,8 +435,8 @@ async def run_gateway_stream(
     )
     system_prompt = _build_system_prompt()
     effective_model = route.model or OPENAI_CHAT_MODEL
-    # Reasoning models (o1/o3) use "developer" role instead of "system"
-    system_role = "developer" if effective_model.startswith(("o1", "o3")) else "system"
+    # Reasoning models use "developer" role instead of "system"
+    system_role = "developer" if _is_reasoning_model(effective_model) else "system"
     messages: list[dict[str, Any]] = [
         {"role": system_role, "content": system_prompt + "\n\n" + context_block + rag_context},
     ]
@@ -517,13 +528,15 @@ async def run_gateway_stream(
             "stream": True,
             "stream_options": {"include_usage": True},
         }
-        # Reasoning models (o1*, o3*) use different parameters
-        if effective_model.startswith(("o1", "o3")):
+        # o1/o3 legacy reasoning models: no temperature, no system role, use max_completion_tokens
+        if _is_reasoning_model(effective_model):
             stream_kwargs["max_completion_tokens"] = route.max_tokens
-            # o1/o3 don't support temperature or system role
         else:
             stream_kwargs["temperature"] = route.temperature
             stream_kwargs["max_tokens"] = route.max_tokens
+        # GPT-5 family supports reasoning_effort as an additive parameter
+        if route.reasoning_effort:
+            stream_kwargs["reasoning_effort"] = route.reasoning_effort
         if openai_tools:
             stream_kwargs["tools"] = openai_tools
             stream_kwargs["tool_choice"] = "auto"
@@ -906,6 +919,7 @@ async def run_gateway_stream(
                 "execution_path": execution_path,
                 "lane": route.lane,
                 "model": route.model or OPENAI_CHAT_MODEL,
+                "reasoning_effort": route.reasoning_effort,
                 "prompt_tokens": total_prompt_tokens,
                 "completion_tokens": total_completion_tokens,
                 "total_tokens": total_prompt_tokens + total_completion_tokens,

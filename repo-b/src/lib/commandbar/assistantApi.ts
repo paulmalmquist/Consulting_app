@@ -96,6 +96,12 @@ export type WinstonTrace = {
   resolved_scope: Record<string, unknown> | null;
   repe: WinstonRepeMetadata | null;
   visible_context_shortcut: boolean;
+  reasoning_effort?: string | null;
+  // Pipeline stage results (populated by later phases)
+  verification?: { enabled: boolean; status: string; ms: number } | null;
+  query_expansion?: { enabled: boolean; subqueries: number; ms: number } | null;
+  structured_retrieval?: { enabled: boolean; sources: string[] } | null;
+  cache?: { embedding_hit: boolean; rag_hit: boolean; semantic_hit: boolean } | null;
   timings?: {
     context_resolution_ms?: number;
     rag_search_ms?: number;

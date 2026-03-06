@@ -38,12 +38,11 @@ def execute_tool(
     if tool.permission == "write":
         if not ENABLE_MCP_WRITES:
             raise WriteNotEnabled(
-                f"Write tool '{tool.name}' blocked: ENABLE_MCP_WRITES is not true"
+                f"Write operations are disabled in this environment. "
+                f"Tool '{tool.name}' requires ENABLE_MCP_WRITES=true."
             )
-        if not raw_input.get("confirm"):
-            raise ConfirmRequired(
-                f"Write tool '{tool.name}' requires confirm=true in input",
-            )
+        # Confirmation is handled by the tool handler's two-phase flow
+        # (confirmed=false → pending_confirmation, confirmed=true → execute)
 
     # ── Validate input ──────────────────────────────────────────────
     validated = tool.input_model.model_validate(raw_input)

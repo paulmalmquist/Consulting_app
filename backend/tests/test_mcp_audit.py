@@ -102,16 +102,20 @@ def test_write_blocked_without_flag():
             execute_tool(tool, ctx, {"confirm": True})
 
 
-def test_write_blocked_without_confirm():
-    """Write tools should be blocked when confirm != true."""
-    from app.mcp.audit import execute_tool, ConfirmRequired
+def test_write_reaches_handler_when_enabled():
+    """Write tools reach the handler when ENABLE_MCP_WRITES is true.
+
+    Confirmation gating is the handler's responsibility (two-phase flow),
+    not the audit wrapper's.
+    """
+    from app.mcp.audit import execute_tool
     from app.mcp.auth import McpContext
     from app.mcp.registry import ToolDef
     from pydantic import BaseModel
 
     class _WriteInput(BaseModel):
         model_config = {"extra": "forbid"}
-        confirm: bool = False
+        confirmed: bool = False
 
     tool = ToolDef(
         name="test.write_noconfirm",
@@ -119,10 +123,12 @@ def test_write_blocked_without_confirm():
         module="test",
         permission="write",
         input_model=_WriteInput,
-        handler=lambda ctx, inp: {"ok": True},
+        handler=lambda ctx, inp: {"ok": True, "confirmed": inp.confirmed},
     )
     ctx = McpContext(actor="test", token_valid=True)
 
-    with patch("app.mcp.audit.ENABLE_MCP_WRITES", True):
-        with pytest.raises(ConfirmRequired):
-            execute_tool(tool, ctx, {"confirm": False})
+    with patch("app.mcp.audit.ENABLE_MCP_WRITES", True), \
+         patch("app.services.audit.record_event"):
+        result = execute_tool(tool, ctx, {"confirmed": False})
+        assert result["ok"] is True
+        assert result["confirmed"] is False

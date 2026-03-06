@@ -7,7 +7,7 @@ import logging
 import time
 from typing import Any
 
-from app.config import COHERE_API_KEY, OPENAI_API_KEY, RAG_RERANK_METHOD
+from app.config import COHERE_API_KEY, OPENAI_API_KEY, OPENAI_CHAT_MODEL_FAST, RAG_RERANK_METHOD
 from app.services.rag_indexer import RetrievedChunk
 
 logger = logging.getLogger(__name__)
@@ -126,7 +126,7 @@ Passages:
 Return ONLY a JSON array of objects with "id" (int) and "score" (float 0-10), sorted by score descending. No other text."""
 
     response = await client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=OPENAI_CHAT_MODEL_FAST,
         messages=[{"role": "user", "content": prompt}],
         temperature=0,
         max_tokens=512,

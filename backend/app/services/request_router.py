@@ -13,6 +13,7 @@ from app.config import (
     OPENAI_CHAT_MODEL_FAST,
     OPENAI_CHAT_MODEL_STANDARD,
     OPENAI_CHAT_MODEL_REASONING,
+    OPENAI_CHAT_MODEL_AGENTIC,
 )
 from app.schemas.ai_gateway import AssistantContextEnvelope, ResolvedAssistantScope
 
@@ -32,6 +33,12 @@ class RouteDecision:
     history_max_tokens: int = 2000
     use_rerank: bool = False
     use_hybrid: bool = False
+    # GPT-5 era fields
+    reasoning_effort: str | None = None  # "low" | "medium" | "high"
+    needs_verification: bool = False
+    needs_query_expansion: bool = False
+    needs_structured_retrieval: bool = False
+    needs_agentic_executor: bool = False
 
 
 # ── Pattern matchers ─────────────────────────────────────────────────────────
@@ -73,6 +80,23 @@ _WRITE_EXCLUDE_RE = re.compile(
     r"\b(compare|analyze|show|list|what|how|tell me|describe|explain|summarize)\b",
     re.IGNORECASE,
 )
+# Financial metrics → structured retrieval
+_FINANCIAL_METRICS_RE = re.compile(
+    r"\b(irr|tvpi|dpi|dscr|cap\s*rate|noi|occupancy|yield|leverage|ltv|debt\s*service)\b",
+    re.IGNORECASE,
+)
+# Vague/broad queries → query expansion
+_VAGUE_QUERY_RE = re.compile(
+    r"\b(how are we doing|what changed|what.s (new|happening)|pressure points|what.s hurting|"
+    r"give me an? (update|overview|summary)|status update|key (issues|risks|concerns))\b",
+    re.IGNORECASE,
+)
+# Agentic tasks → agentic executor
+_AGENTIC_RE = re.compile(
+    r"\b(debug|inspect|implement|patch|fix the code|edit the|refactor|plan and execute|"
+    r"step.by.step|multi.step|chain together)\b",
+    re.IGNORECASE,
+)
 
 
 def classify_request(
@@ -83,6 +107,11 @@ def classify_request(
     visible_context_shortcut: bool,
 ) -> RouteDecision:
     """Classify a request into a latency lane."""
+
+    # Pre-compute task-shape signals
+    has_financial_metrics = bool(_FINANCIAL_METRICS_RE.search(message))
+    is_vague = bool(_VAGUE_QUERY_RE.search(message))
+    is_agentic = bool(_AGENTIC_RE.search(message))
 
     # If visible-context policy already said tools are disabled, it's Lane A
     if visible_context_shortcut:
@@ -151,6 +180,23 @@ def classify_request(
             history_max_tokens=1500,
         )
 
+    # Agentic tasks → Lane D with agentic model
+    if is_agentic:
+        return RouteDecision(
+            lane="D",
+            skip_rag=True,
+            skip_tools=False,
+            max_tool_rounds=8,
+            max_tokens=2048,
+            temperature=0.2,
+            model=OPENAI_CHAT_MODEL_AGENTIC,
+            rag_top_k=5,
+            rag_max_tokens=2000,
+            history_max_tokens=4000,
+            reasoning_effort="high",
+            needs_agentic_executor=True,
+        )
+
     # Deep reasoning
     if _DEEP_RE.search(message):
         needs_rag = bool(_RAG_HINT_RE.search(message))
@@ -167,6 +213,10 @@ def classify_request(
             history_max_tokens=4000,
             use_rerank=True,
             use_hybrid=True,
+            reasoning_effort="high",
+            needs_verification=True,
+            needs_query_expansion=is_vague,
+            needs_structured_retrieval=has_financial_metrics,
         )
 
     # Analytical
@@ -185,6 +235,10 @@ def classify_request(
             history_max_tokens=3000,
             use_rerank=True,
             use_hybrid=True,
+            reasoning_effort="medium",
+            needs_verification=True,
+            needs_query_expansion=is_vague,
+            needs_structured_retrieval=has_financial_metrics,
         )
 
     # Simple list with visible data already present → Lane A
@@ -241,6 +295,9 @@ def classify_request(
             history_max_tokens=3000,
             use_rerank=True,
             use_hybrid=True,
+            reasoning_effort="medium",
+            needs_verification=True,
+            needs_query_expansion=is_vague,
         )
 
     # Short messages (< 60 chars) without analytical keywords → Lane B
@@ -272,4 +329,8 @@ def classify_request(
         history_max_tokens=3000,
         use_rerank=True,
         use_hybrid=True,
+        reasoning_effort="medium",
+        needs_verification=True,
+        needs_query_expansion=is_vague,
+        needs_structured_retrieval=has_financial_metrics,
     )
