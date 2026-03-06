@@ -459,7 +459,7 @@ function DataTab({
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-mono text-bm-text/80">{String(c.chunk_id || c.doc_id || `citation-${i}`)}</span>
                   <span className="flex items-center gap-1">
-                    {c.retrieval_method && (
+                    {c.retrieval_method != null && (
                       <span className="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">{String(c.retrieval_method)}</span>
                     )}
                     {c.score != null && <span className="text-[10px] text-bm-muted2">{Number(c.score).toFixed(3)}</span>}
