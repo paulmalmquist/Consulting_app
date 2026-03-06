@@ -53,6 +53,11 @@ from app.routes import re_uw_reports, re_uw_links, re_pipeline, re_geography, re
 
 app = FastAPI(title="Business OS API", version="0.1.0")
 
+# Register all MCP tools so the AI gateway can expose them to OpenAI tool-calling.
+# Without this, _build_openai_tools() returns an empty list and Winston has zero tools.
+from app.mcp.server import _register_all_tools
+_register_all_tools()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,

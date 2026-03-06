@@ -747,3 +747,52 @@ curl -sL -X POST "https://www.paulmalmquist.com/api/ai/gateway/ask" \
 ```
 
 Expected: streaming SSE response with non-empty `content` tokens. A 503 means `OPENAI_API_KEY` is missing. A 501 means the backend gateway is disabled. A 404 means the route is missing or the backend hasn't redeployed yet.
+
+---
+
+## 15. Winston AI Gateway Architecture
+
+### Payload contract
+
+Frontend sends to `/api/ai/gateway/ask`:
+```json
+{"message": "...", "business_id": "uuid-or-null", "env_id": "uuid-or-null", "session_id": "..."}
+```
+
+Next.js proxy (`repo-b/src/app/api/ai/gateway/ask/route.ts`) forwards to FastAPI backend with the same shape matching `GatewayAskRequest`. If FastAPI is unreachable, falls back to direct OpenAI (no tools, no RAG).
+
+### SSE event types (FastAPI backend)
+
+| Event | Data shape | Purpose |
+|---|---|---|
+| `token` | `{"text": "..."}` | Streamed text content |
+| `citation` | `{"chunk_id", "doc_id", "score", "snippet"}` | RAG document references |
+| `tool_call` | `{"tool_name", "args", "result_preview"}` | MCP tool execution |
+| `done` | `{"session_id", "prompt_tokens", "completion_tokens", "tool_calls", "elapsed_ms"}` | Stream complete |
+| `error` | `{"message": "..."}` | Error during processing |
+
+### Tool registration
+
+`_register_all_tools()` in `backend/app/mcp/server.py` MUST be called from `backend/app/main.py` at startup. Without this, `_build_openai_tools()` returns an empty list and Winston has zero tools.
+
+### REPE data tools
+
+| Tool | Input | Purpose |
+|---|---|---|
+| `repe.list_funds` | `business_id` | List all funds for the business |
+| `repe.get_fund` | `fund_id` | Fund details + terms |
+| `repe.list_deals` | `fund_id` | Deals/investments in a fund |
+| `repe.list_assets` | `deal_id` | Assets under a deal |
+| `repe.get_asset` | `asset_id` | Asset details (NOI, occupancy, cap rate) |
+
+### System prompt
+
+Portfolio snapshot (fund list with IDs) is injected into the system prompt dynamically when `business_id` is provided. RAG context from `semantic_search()` is also appended. The prompt includes a "NEVER ask for data you can look up" directive.
+
+### Railway deployment
+
+Railway does NOT auto-deploy from git pushes for this project. Deploy manually:
+```bash
+cd backend && railway up --service authentic-sparkle --detach
+```
+Must run from `backend/` directory (where Dockerfile lives), not repo root.

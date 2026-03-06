@@ -742,6 +742,8 @@ export function buildExecutionSummary(plan: ExecutionPlan | AssistantPlan | null
 export async function askAi(input: {
   message: string;
   workspace?: Record<string, string>;
+  business_id?: string;
+  env_id?: string;
   signal?: AbortSignal;
 }): Promise<{ answer: string; trace: AssistantApiTrace }> {
   const requestId = nextRequestId();
@@ -755,12 +757,6 @@ export async function askAi(input: {
     };
   }
 
-  const systemPrompt = [
-    "You are Winston, an AI assistant for real estate private equity portfolio managers.",
-    "You help analyze assets, funds, and investments. Be concise and data-driven.",
-    input.workspace ? `Context: ${JSON.stringify(input.workspace)}` : "",
-  ].filter(Boolean).join(" ");
-
   const { signal, cancel } = withTimeout(input.signal, 30_000);
 
   try {
@@ -768,11 +764,10 @@ export async function askAi(input: {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-bm-request-id": requestId },
       body: JSON.stringify({
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: input.message },
-        ],
-        stream: true,
+        message: input.message,
+        business_id: input.business_id || null,
+        env_id: input.env_id || null,
+        session_id: requestId,
       }),
       signal,
     });
@@ -837,6 +832,10 @@ export async function askAi(input: {
             // FastAPI "error" event
             else if (currentEvent === "error" && parsed.message) {
               answer += `\n[Error: ${parsed.message}]`;
+            }
+            // FastAPI tool_call/citation/done events — silently consume
+            else if (currentEvent === "tool_call" || currentEvent === "citation" || currentEvent === "done") {
+              continue;
             }
           } catch {
             if (payload && payload !== "[DONE]") answer += payload;

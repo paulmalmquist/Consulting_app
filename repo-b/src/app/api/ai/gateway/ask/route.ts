@@ -31,7 +31,34 @@ export async function POST(req: NextRequest) {
   }
 
   const actor = getSessionActor(req);
-  const body = await req.text();
+  const raw = await req.text();
+
+  // Parse the frontend payload: {message, business_id?, env_id?, session_id?}
+  let parsed: { message?: string; business_id?: string; env_id?: string; session_id?: string };
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const message = parsed.message || "";
+  if (!message) {
+    return new Response(JSON.stringify({ error: "message is required" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Build the payload matching FastAPI GatewayAskRequest
+  const gatewayBody = JSON.stringify({
+    message,
+    business_id: parsed.business_id || null,
+    env_id: parsed.env_id || null,
+    session_id: parsed.session_id || null,
+  });
 
   // Try FastAPI backend first
   try {
@@ -42,7 +69,7 @@ export async function POST(req: NextRequest) {
         "x-bm-actor": actor,
         "x-bm-request-id": req.headers.get("x-bm-request-id") || crypto.randomUUID(),
       },
-      body,
+      body: gatewayBody,
       signal: AbortSignal.timeout(10_000),
     });
 
@@ -61,7 +88,7 @@ export async function POST(req: NextRequest) {
     // Backend unreachable — fall through to direct OpenAI
   }
 
-  // Fallback: call OpenAI directly
+  // Fallback: call OpenAI directly (no tools, no RAG — just basic chat)
   if (!OPENAI_API_KEY) {
     return new Response(
       JSON.stringify({ error: "AI backend unavailable and no OPENAI_API_KEY configured." }),
@@ -69,16 +96,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const parsed = JSON.parse(body) as {
-    messages?: Array<{ role: string; content: string }>;
-    stream?: boolean;
-  };
-
-  const messages = parsed.messages || [];
-  // Prepend system prompt if not already present
-  if (!messages.some((m) => m.role === "system")) {
-    messages.unshift({ role: "system", content: SYSTEM_PROMPT });
-  }
+  const messages = [
+    { role: "system", content: SYSTEM_PROMPT },
+    { role: "user", content: message },
+  ];
 
   const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",

@@ -423,7 +423,12 @@ export default function GlobalCommandBar() {
     setPlanning(true);
 
     try {
-      const result = await askAi({ message: next, workspace: workspace as Record<string, string> });
+      const result = await askAi({
+        message: next,
+        workspace: workspace as Record<string, string>,
+        business_id: context.currentBusinessId || undefined,
+        env_id: context.currentEnvId || undefined,
+      });
       appendTrace(result.trace);
       appendMessage("assistant", result.answer);
     } catch (error) {

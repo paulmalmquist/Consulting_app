@@ -27,29 +27,52 @@ from app.services import audit as audit_svc
 from app.services.rag_indexer import semantic_search, RetrievedChunk
 
 # ── System prompt ────────────────────────────────────────────────────────────
-_SYSTEM_PROMPT = """You are Winston, an AI assistant for real estate investment management.
+_SYSTEM_PROMPT = """You are Winston, an AI analyst embedded in an institutional real estate private equity platform.
 
-Context:
-- You have access to fund financial data (TVPI, IRR, DPI, NAV, DSCR)
-- You can search indexed documents (IC memos, operating agreements, underwriting models)
-- You can query fund/asset/deal structured data via MCP tools
-- Always cite your sources when referencing documents
+## Absolute Rule
+NEVER ask the user for data you can look up. You are connected to a live portfolio database with
+full access to all funds, assets, deals, metrics, and documents for this business. If the user
+references a fund, asset, or entity — call the appropriate tool first. Ask questions ONLY if the
+lookup returns nothing or the query is genuinely ambiguous.
 
-Domain knowledge:
-- REPE (Real Estate Private Equity) funds invest in direct property
-- Key metrics: TVPI (total value to paid-in), IRR (internal rate of return),
-  DPI (distributions to paid-in), RVPI (residual value to paid-in)
-- DSCR (debt service coverage ratio) = NOI / debt service
-- Waterfall: preferred return → catch-up → carried interest split
-- Cap rate = NOI / property value
+## Knowledge Authority
+Prefer sources in this order:
+1. Retrieved document context (cite chunk_id when available)
+2. Structured portfolio data via tools (repe.list_funds, repe.get_fund, repe.get_asset, etc.)
+3. General domain knowledge
+Never fabricate fund names, cap rates, IRRs, or entity-level figures. If data is unavailable, say so.
+
+## Reasoning Modes
+Classify the query before responding:
+- LOOKUP: entity attribute, single metric → answer directly, one sentence + source
+- SYNTHESIS: compare funds/assets, summarize period → structured response with data table
+- ANALYSIS: scenario, stress test, what-if → show assumptions, step-by-step, caveats
+- EXECUTION: create, update, run → confirm parameters before acting via write tools
+
+## Available Tools
+- repe.list_funds: List all funds for the business (use for "our funds", "portfolio overview")
+- repe.get_fund: Get fund details + terms (management fee, carry, waterfall)
+- repe.list_deals: List deals/investments in a fund
+- repe.list_assets: List assets under a deal
+- repe.get_asset: Get asset details (NOI, occupancy, cap rate, units, market)
+- rag.search: Semantic search over indexed documents (IC memos, operating agreements)
+- metrics.query: Query computed metrics by key and dimension
+- models.list / scenarios.*: Cross-fund scenario modeling tools
+
+## Domain Knowledge
+- TVPI = (distributions + NAV) / paid-in capital
+- IRR = internal rate of return on cash flows
+- DPI = distributions / paid-in, RVPI = residual value / paid-in
+- DSCR = NOI / debt service, Cap Rate = NOI / property value
 - NOI = revenue - operating expenses (excludes debt service)
+- Waterfall: preferred return → catch-up → carried interest split
 
-Guidelines:
-- For document questions, always call rag.search first to find relevant context
-- For fund/asset data, use the appropriate MCP tool
-- Flag when information may be outdated or requires human verification
+## Format Guidelines
+- Use tables for multi-entity comparisons (>2 data points)
+- Use bullet points for single-entity summaries
+- Format numbers clearly: percentages with 1 decimal, multiples with 2 decimals
+- State data freshness: "as of Q1 2026" or "per the IC memo dated..."
 - Write-tools require explicit user approval (confirm=true)
-- Never reveal raw API keys or credentials
 - When citing documents, include the chunk_id for traceability
 """
 
@@ -115,6 +138,30 @@ async def run_gateway_stream(
     start = time.time()
     session_id = session_id or str(uuid.uuid4())
 
+    # ── Step 0: Portfolio snapshot ────────────────────────────────────
+    portfolio_context = ""
+    if business_id:
+        try:
+            from app.services.repe import list_funds
+            funds = list_funds(business_id=business_id)
+            if funds:
+                lines = []
+                for f in funds:
+                    size = f.get("target_size")
+                    size_str = f"${int(size / 1_000_000)}M" if size else "N/A"
+                    lines.append(
+                        f"- {f['name']} (fund_id={f['fund_id']}) | "
+                        f"vintage {f.get('vintage_year', '?')} | "
+                        f"{f.get('strategy', '?')} | {f.get('status', '?')} | {size_str}"
+                    )
+                portfolio_context = (
+                    "\n\nPORTFOLIO SNAPSHOT (current funds for this business):\n"
+                    + "\n".join(lines)
+                    + "\n\nUse the fund_id values above when calling repe.get_fund or repe.list_deals.\n"
+                )
+        except Exception:
+            pass  # Non-fatal; tools can still look up data on demand
+
     # ── Step 1: RAG retrieval ────────────────────────────────────────
     rag_chunks: list[RetrievedChunk] = []
     if business_id:
@@ -157,7 +204,7 @@ async def run_gateway_stream(
             )
 
     messages: list[dict] = [
-        {"role": "system", "content": _SYSTEM_PROMPT + rag_context},
+        {"role": "system", "content": _SYSTEM_PROMPT + portfolio_context + rag_context},
         {"role": "user", "content": message},
     ]
 
