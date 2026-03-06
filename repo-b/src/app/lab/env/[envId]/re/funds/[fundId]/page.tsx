@@ -9,6 +9,7 @@ import { MetricCard } from "@/components/ui/MetricCard";
 import {
   getRepeFund,
   listRepeDeals,
+  listRepeAssets,
   listReV2Investments,
   RepeFundDetail,
   RepeDeal,
@@ -531,7 +532,7 @@ function InvestmentRow({
           {inv.committed_capital ? fmtMoney(inv.committed_capital) : "—"}
         </td>
         <td className="px-4 py-3 text-right text-sm">
-          {rollup?.fund_nav_contribution ? fmtMoney(rollup.fund_nav_contribution) : "—"}
+          {rollup?.fund_nav_contribution ? fmtMoney(rollup.fund_nav_contribution) : rollup?.nav ? fmtMoney(rollup.nav) : "—"}
         </td>
         <td className="px-4 py-3 text-center">
           <Link
@@ -1565,11 +1566,38 @@ function RunCenterTab({ envId, businessId, fundId, quarter, isDebtFund, onCanoni
 type ModelAssumptionRow = {
   investment_id: string;
   investment_name: string;
+  property_type: string;
   cap_rate: string;
   rent_growth: string;
   hold_years: string;
   exit_value: string;
+  noi: number | null;
 };
+
+/** Return differentiated assumptions based on property type */
+function assumptionDefaultsForType(pt: string): { cap_rate: string; rent_growth: string; hold_years: string } {
+  const key = (pt || "").toLowerCase().replace(/[\s_-]+/g, "_");
+  if (key === "multifamily" || key === "value_add_multifamily")
+    return { cap_rate: "5.75", rent_growth: "1.5", hold_years: "7" };
+  if (key === "office" || key === "medical_office" || key === "mob")
+    return { cap_rate: "7.00", rent_growth: "0.5", hold_years: "5" };
+  if (key === "retail")
+    return { cap_rate: "7.50", rent_growth: "0.0", hold_years: "5" };
+  if (key === "hotel" || key === "mixed_use" || key === "mixed use" || key === "hospitality")
+    return { cap_rate: "8.00", rent_growth: "1.0", hold_years: "5" };
+  if (key === "student_housing" || key === "student housing")
+    return { cap_rate: "6.00", rent_growth: "2.0", hold_years: "6" };
+  // Default
+  return { cap_rate: "5.50", rent_growth: "3.0", hold_years: "5" };
+}
+
+/** Compute exit value = NOI / (exit_cap_rate / 100) when exit_value is empty or zero */
+function computeExitValue(noi: number | null | undefined, capRatePercent: string): string {
+  if (!noi || noi <= 0) return "";
+  const cr = Number(capRatePercent);
+  if (!cr || cr <= 0) return "";
+  return Math.round(noi / (cr / 100)).toString();
+}
 
 function ScenariosTab({ envId, businessId, fundId, quarter, deals, scenarios, onScenariosChange }: {
   envId: string; businessId: string; fundId: string; quarter: string;
@@ -1588,19 +1616,35 @@ function ScenariosTab({ envId, businessId, fundId, quarter, deals, scenarios, on
 
   const nonBaseScenarios = scenarios.filter((s) => !s.is_base);
 
-  // Initialize assumptions from deals
+  // Initialize assumptions from deals, fetching asset data for property-type differentiation
   useEffect(() => {
     if (deals.length > 0 && assumptions.length === 0) {
-      setAssumptions(
-        deals.map((d) => ({
-          investment_id: d.deal_id,
-          investment_name: d.name || d.deal_id.slice(0, 8),
-          cap_rate: "5.50",
-          rent_growth: "3.0",
-          hold_years: "5",
-          exit_value: "",
-        }))
-      );
+      // Fetch first asset per deal to resolve property_type and NOI
+      Promise.all(
+        deals.map((d) =>
+          listRepeAssets(d.deal_id)
+            .then((assets) => assets[0] || null)
+            .catch(() => null)
+        )
+      ).then((firstAssets) => {
+        setAssumptions(
+          deals.map((d, i) => {
+            const asset = firstAssets[i];
+            const pt = asset?.property_type || "";
+            const defaults = assumptionDefaultsForType(pt);
+            const noi = asset?.cost_basis ? Number(asset.cost_basis) * 0.06 : null; // rough NOI proxy from cost_basis
+            const exitVal = computeExitValue(noi, defaults.cap_rate);
+            return {
+              investment_id: d.deal_id,
+              investment_name: d.name || d.deal_id.slice(0, 8),
+              property_type: pt,
+              ...defaults,
+              exit_value: exitVal,
+              noi,
+            };
+          })
+        );
+      });
     }
   }, [deals, assumptions.length]);
 
@@ -1609,14 +1653,19 @@ function ScenariosTab({ envId, businessId, fundId, quarter, deals, scenarios, on
     if (debounceTimer) clearTimeout(debounceTimer);
     const timer = setTimeout(() => {
       const validAssumptions: ModelPreviewAssumption[] = rows
-        .filter((r) => r.exit_value && Number(r.exit_value) > 0)
-        .map((r) => ({
-          investment_id: r.investment_id,
-          cap_rate: r.cap_rate ? Number(r.cap_rate) / 100 : null,
-          rent_growth: r.rent_growth ? Number(r.rent_growth) / 100 : null,
-          hold_years: r.hold_years ? Number(r.hold_years) : null,
-          exit_value: Number(r.exit_value),
-        }));
+        .map((r) => {
+          const ev = (r.exit_value && Number(r.exit_value) > 0)
+            ? Number(r.exit_value)
+            : Number(computeExitValue(r.noi, r.cap_rate) || "0");
+          return {
+            investment_id: r.investment_id,
+            cap_rate: r.cap_rate ? Number(r.cap_rate) / 100 : null,
+            rent_growth: r.rent_growth ? Number(r.rent_growth) / 100 : null,
+            hold_years: r.hold_years ? Number(r.hold_years) : null,
+            exit_value: ev,
+          };
+        })
+        .filter((a) => a.exit_value > 0);
       if (validAssumptions.length > 0) {
         setPreviewLoading(true);
         computeModelPreview({
@@ -1710,6 +1759,7 @@ function ScenariosTab({ envId, businessId, fundId, quarter, deals, scenarios, on
           <thead>
             <tr className="border-b border-bm-border/50 bg-bm-surface/30 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
               <th className="px-4 py-3 font-medium">Investment</th>
+              <th className="px-4 py-3 font-medium">Type</th>
               <th className="px-4 py-3 font-medium text-right">Cap Rate (%)</th>
               <th className="px-4 py-3 font-medium text-right">Rent Growth (%)</th>
               <th className="px-4 py-3 font-medium text-right">Hold (Yrs)</th>
@@ -1717,9 +1767,15 @@ function ScenariosTab({ envId, businessId, fundId, quarter, deals, scenarios, on
             </tr>
           </thead>
           <tbody className="divide-y divide-bm-border/40">
-            {assumptions.map((row, idx) => (
+            {assumptions.map((row, idx) => {
+              // Compute exit_value fallback: NOI / exit_cap_rate when exit_value is empty or $0
+              const displayExitValue = (row.exit_value && Number(row.exit_value) > 0)
+                ? row.exit_value
+                : computeExitValue(row.noi, row.cap_rate);
+              return (
               <tr key={row.investment_id} className="hover:bg-bm-surface/20">
                 <td className="px-4 py-2 font-medium">{row.investment_name}</td>
+                <td className="px-4 py-2 text-xs text-bm-muted2 capitalize">{labelFn(PROPERTY_TYPE_LABELS, row.property_type) || "—"}</td>
                 <td className="px-4 py-2 text-right">
                   <input
                     type="number"
@@ -1753,17 +1809,18 @@ function ScenariosTab({ envId, businessId, fundId, quarter, deals, scenarios, on
                   <input
                     type="number"
                     step="100000"
-                    value={row.exit_value}
+                    value={row.exit_value || displayExitValue}
                     onChange={(e) => updateAssumption(idx, "exit_value", e.target.value)}
-                    placeholder="0"
-                    className="w-28 rounded border border-bm-border bg-bm-surface px-2 py-1 text-right text-sm"
+                    placeholder={displayExitValue ? `~${fmtMoney(displayExitValue)}` : "0"}
+                    className={`w-28 rounded border border-bm-border bg-bm-surface px-2 py-1 text-right text-sm${!row.exit_value && displayExitValue ? " text-bm-muted2 italic" : ""}`}
                   />
                 </td>
               </tr>
-            ))}
+              );
+            })}
             {assumptions.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-bm-muted2">No investments to model. Add deals to this fund first.</td>
+                <td colSpan={6} className="px-4 py-6 text-center text-bm-muted2">No investments to model. Add deals to this fund first.</td>
               </tr>
             )}
           </tbody>

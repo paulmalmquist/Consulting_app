@@ -12,6 +12,7 @@ import {
   listReV1Funds,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
+import { KpiStrip } from "@/components/repe/asset-cockpit/KpiStrip";
 
 function pickCurrentQuarter(): string {
   const now = new Date();
@@ -108,24 +109,14 @@ export default function ReFundListPage() {
       </div>
 
       {/* Summary KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-          <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Funds</p>
-          <p className="mt-1 text-2xl font-bold">{portfolioKpis ? portfolioKpis.fund_count : "—"}</p>
-        </div>
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-          <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Total Commitments</p>
-          <p className="mt-1 text-2xl font-bold">{fmtMoneyOrDash(portfolioKpis?.total_commitments)}</p>
-        </div>
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-          <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Portfolio NAV</p>
-          <p className="mt-1 text-2xl font-bold">{fmtMoneyOrDash(portfolioKpis?.portfolio_nav)}</p>
-        </div>
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-          <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Active Assets</p>
-          <p className="mt-1 text-2xl font-bold">{portfolioKpis ? portfolioKpis.active_assets : "—"}</p>
-        </div>
-      </div>
+      <KpiStrip
+        kpis={[
+          { label: "Funds", value: portfolioKpis ? portfolioKpis.fund_count : "—" },
+          { label: "Total Commitments", value: fmtMoneyOrDash(portfolioKpis?.total_commitments) },
+          { label: "Portfolio NAV", value: fmtMoneyOrDash(portfolioKpis?.portfolio_nav) },
+          { label: "Active Assets", value: portfolioKpis ? portfolioKpis.active_assets : "—" },
+        ]}
+      />
 
       {/* Fund Table */}
       {loading ? (

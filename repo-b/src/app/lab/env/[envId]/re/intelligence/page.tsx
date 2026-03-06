@@ -102,8 +102,18 @@ export default function ReIntelligencePage() {
       </section>
 
       {error ? (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {error}
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-8 text-center">
+          <h3 className="text-lg font-semibold text-bm-text">Intelligence Module</h3>
+          <p className="mt-2 text-sm text-bm-muted2">
+            The CRE Intelligence module is being configured for this environment.
+            Property graph and superforecaster data will appear here once the backend is provisioned.
+          </p>
+          <Link
+            href={`/lab/env/${envId}/re`}
+            className="mt-4 inline-block rounded-lg border border-bm-border px-4 py-2 text-sm hover:bg-bm-surface/40"
+          >
+            Back to Fund Portfolio
+          </Link>
         </div>
       ) : null}
 

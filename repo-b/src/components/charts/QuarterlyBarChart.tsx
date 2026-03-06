@@ -36,6 +36,8 @@ interface Props {
   valuePrefix?: string;
   /** Show legend. Default true. */
   showLegend?: boolean;
+  /** Recharts syncId for crosshair syncing across charts. */
+  syncId?: string;
 }
 
 const DEFAULT_COLORS: Record<string, string> = {
@@ -50,10 +52,11 @@ export default function QuarterlyBarChart({
   height = 300,
   valuePrefix = "$",
   showLegend = true,
+  syncId,
 }: Props) {
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 0 }}>
+      <BarChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 0 }} syncId={syncId}>
         <CartesianGrid vertical={false} {...GRID_STYLE} />
         <XAxis
           dataKey="quarter"

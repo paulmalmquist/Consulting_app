@@ -236,6 +236,68 @@ export async function POST(request: Request) {
     );
     results.push(`Upserted fund quarter metrics for ${quarter}`);
 
+    // 6b. Backfill historical fund quarter states (2024Q1–2025Q4) with smooth NAV growth (A9 fix)
+    {
+      const histFundQuarters = [
+        "2024Q1", "2024Q2", "2024Q3", "2024Q4",
+        "2025Q1", "2025Q2", "2025Q3", "2025Q4",
+      ];
+      let histFqsSeeded = 0;
+      for (let qi = 0; qi < histFundQuarters.length; qi++) {
+        const hq = histFundQuarters[qi];
+        const growthFactor = 0.80 + (qi / histFundQuarters.length) * 0.17;
+        const hNav = Math.round(portfolioNav * growthFactor);
+        const hCalled = Math.round(totalCalled * growthFactor);
+        const hDistributed = Math.round(totalDistributed * (qi / histFundQuarters.length));
+        const hDpi = hCalled > 0 ? hDistributed / hCalled : 0;
+        const hRvpi = hCalled > 0 ? hNav / hCalled : 0;
+        const hTvpi = hDpi + hRvpi;
+
+        await pool.query(
+          `INSERT INTO re_fund_quarter_state (
+             id, fund_id, quarter, run_id,
+             portfolio_nav, total_committed, total_called, total_distributed,
+             dpi, rvpi, tvpi, gross_irr, net_irr,
+             inputs_hash, created_at
+           ) VALUES (
+             $1::uuid, $2::uuid, $3, $4::uuid,
+             $5, $6, $7, $8,
+             $9, $10, $11, $12, $13,
+             'seed-historical', NOW()
+           )
+           ON CONFLICT (fund_id, quarter, COALESCE(scenario_id, '00000000-0000-0000-0000-000000000000'::uuid))
+           DO NOTHING`,
+          [
+            randomUUID(), fund_id, hq, runId,
+            hNav, totalCommitted, hCalled, hDistributed,
+            hDpi, hRvpi, hTvpi,
+            grossIrr * growthFactor, netIrr * growthFactor,
+          ]
+        );
+
+        await pool.query(
+          `INSERT INTO re_fund_quarter_metrics (
+             id, fund_id, quarter, run_id,
+             contributed_to_date, distributed_to_date, nav,
+             dpi, tvpi, irr, created_at
+           ) VALUES (
+             $1::uuid, $2::uuid, $3, $4::uuid,
+             $5, $6, $7,
+             $8, $9, $10, NOW()
+           )
+           ON CONFLICT (fund_id, quarter, COALESCE(scenario_id, '00000000-0000-0000-0000-000000000000'::uuid))
+           DO NOTHING`,
+          [
+            randomUUID(), fund_id, hq, runId,
+            hCalled, hDistributed, hNav,
+            hDpi, hTvpi, grossIrr * growthFactor,
+          ]
+        );
+        histFqsSeeded++;
+      }
+      results.push(`Backfilled ${histFqsSeeded} historical fund quarter states (2024Q1–2025Q4)`);
+    }
+
     // 7. Seed accounting data for assets under this fund
     const assetsResult = await pool.query(
       `SELECT a.asset_id::text
@@ -368,6 +430,65 @@ export async function POST(request: Request) {
       }
       results.push(`Seeded quarter state for ${qsSeeded} assets`);
 
+      // 8b. Backfill historical asset quarter states (2024Q1–2025Q4) with smooth NAV growth
+      const historicalQuarters = [
+        "2024Q1", "2024Q2", "2024Q3", "2024Q4",
+        "2025Q1", "2025Q2", "2025Q3", "2025Q4",
+      ];
+      let histSeeded = 0;
+      for (const assetId of assetIds) {
+        // Grab the 2026Q1 values as the "current" anchor
+        const currentRow = await pool.query(
+          `SELECT noi::float8, revenue::float8, opex::float8, occupancy::float8,
+                  asset_value::float8, nav::float8, debt_balance::float8, debt_service::float8
+           FROM re_asset_quarter_state
+           WHERE asset_id = $1::uuid AND quarter = '2026Q1' AND scenario_id IS NULL LIMIT 1`,
+          [assetId]
+        );
+        if (!currentRow.rows[0]) continue;
+        const cur = currentRow.rows[0];
+
+        for (let qi = 0; qi < historicalQuarters.length; qi++) {
+          const hq = historicalQuarters[qi];
+          // Growth factor: qi=0 is earliest (smallest), qi=7 is most recent
+          // Smooth ramp from ~80% to ~97% of current values
+          const growthFactor = 0.80 + (qi / historicalQuarters.length) * 0.17;
+          const hNoi = Math.round(cur.noi * growthFactor);
+          const hRevenue = Math.round(cur.revenue * growthFactor);
+          const hOpex = hRevenue - hNoi;
+          const hOcc = Math.min(0.99, cur.occupancy * (0.92 + qi * 0.01));
+          const hValue = Math.round(cur.asset_value * growthFactor);
+          // NAV grows smoothly — no sudden plunge in 2026Q1 (A9 fix)
+          const hNav = Math.round(cur.nav * growthFactor);
+          const hDebt = Math.round(cur.debt_balance * (1.02 - qi * 0.002)); // debt slowly decreasing
+          const hDs = Math.round(cur.debt_service * growthFactor);
+
+          await pool.query(
+            `INSERT INTO re_asset_quarter_state (
+               id, asset_id, quarter, run_id, accounting_basis,
+               noi, revenue, opex, occupancy, asset_value, nav,
+               debt_balance, debt_service,
+               valuation_method, inputs_hash, created_at
+             ) VALUES (
+               $1::uuid, $2::uuid, $3, $4::uuid, 'accrual',
+               $5, $6, $7, $8, $9, $10,
+               $11, $12,
+               'cap_rate', 'seed-historical', NOW()
+             )
+             ON CONFLICT DO NOTHING`,
+            [
+              randomUUID(), assetId, hq, runId,
+              hNoi, hRevenue, Math.round(hOpex),
+              Math.round(hOcc * 10000) / 10000,
+              hValue, hNav,
+              hDebt, hDs,
+            ]
+          );
+          histSeeded++;
+        }
+      }
+      results.push(`Backfilled ${histSeeded} historical asset quarter states (2024Q1–2025Q4)`);
+
       // 9. Seed investment quarter state for deals
       const dealsResult = await pool.query(
         `SELECT deal_id::text, name FROM repe_deal WHERE fund_id = $1::uuid`,
@@ -461,6 +582,15 @@ export async function POST(request: Request) {
         propSeeded++;
       }
       results.push(`Seeded property asset details for ${propSeeded} assets`);
+
+      // 10a. Override Cascade Multifamily with accurate property data
+      await pool.query(`
+        UPDATE repe_property_asset SET
+          city = 'Aurora', state = 'CO', market = 'Denver-Aurora, CO MSA', msa = 'Denver-Aurora, CO MSA',
+          units = 240, year_built = 2016, property_type = 'multifamily', avg_rent_per_unit = 2187
+        WHERE asset_id = (SELECT asset_id FROM repe_asset WHERE LOWER(name) LIKE '%cascade multifamily%' LIMIT 1)
+      `);
+      results.push("Applied Cascade Multifamily property overrides");
     }
 
     // 10b. Seed loan details for assets
@@ -609,6 +739,53 @@ export async function POST(request: Request) {
       results.push("Quarter close run already exists");
     }
 
+    // 11b. Seed historical capital activity timeline (capital calls & distributions across 2024-2025)
+    const capitalEvents = [
+      { type: "contribution", date: "2024-02-15", quarter: "2024Q1", amount: 62_500_000, memo: "Capital Call #7 – Q1 2024" },
+      { type: "contribution", date: "2024-05-10", quarter: "2024Q2", amount: 45_000_000, memo: "Capital Call #8 – Q2 2024" },
+      { type: "distribution", date: "2024-06-30", quarter: "2024Q2", amount: 8_500_000, memo: "Q2 2024 Income Distribution" },
+      { type: "contribution", date: "2024-10-01", quarter: "2024Q4", amount: 37_500_000, memo: "Capital Call #9 – Q4 2024" },
+      { type: "contribution", date: "2025-03-15", quarter: "2025Q1", amount: 30_000_000, memo: "Capital Call #10 – Q1 2025" },
+      { type: "distribution", date: "2025-06-30", quarter: "2025Q2", amount: 12_000_000, memo: "Q2 2025 Income Distribution" },
+    ];
+    let capitalEventsSeeded = 0;
+    // Get first partner to attribute fund-level capital events
+    const firstPartner = await pool.query(
+      `SELECT partner_id::text FROM re_partner WHERE business_id = $1::uuid LIMIT 1`,
+      [business_id]
+    );
+    const capitalPartnerId = firstPartner.rows[0]?.partner_id;
+    if (capitalPartnerId) {
+      for (const evt of capitalEvents) {
+        const existCheck = await pool.query(
+          `SELECT 1 FROM re_capital_ledger_entry
+           WHERE fund_id = $1::uuid AND entry_type = $2 AND effective_date = $3::date AND memo = $4 LIMIT 1`,
+          [fund_id, evt.type, evt.date, evt.memo]
+        );
+        if (existCheck.rows.length === 0) {
+          await pool.query(
+            `INSERT INTO re_capital_ledger_entry
+               (fund_id, partner_id, entry_type, amount, amount_base, effective_date, quarter, memo, source)
+             VALUES ($1::uuid, $2::uuid, $3, $4, $4, $5::date, $6, $7, 'seed-historical')
+             ON CONFLICT DO NOTHING`,
+            [fund_id, capitalPartnerId, evt.type, evt.amount, evt.date, evt.quarter, evt.memo]
+          );
+          capitalEventsSeeded++;
+        }
+      }
+    }
+    results.push(`Seeded ${capitalEventsSeeded} historical capital activity events`);
+
+    // 11c. Rename duplicate "Morgan QA Downside" model if any
+    await pool.query(`
+      UPDATE re_model SET name = 'Morgan QA Downside v2'
+      WHERE model_id = (
+        SELECT model_id FROM re_model WHERE name = 'Morgan QA Downside'
+        ORDER BY created_at DESC LIMIT 1
+      ) AND (SELECT COUNT(*) FROM re_model WHERE name = 'Morgan QA Downside') > 1
+    `);
+    results.push("Checked/renamed duplicate Morgan QA Downside model");
+
     // 12. Update fund quarter state with correct committed/called/distributed
     await pool.query(
       `UPDATE re_fund_quarter_state
@@ -617,6 +794,55 @@ export async function POST(request: Request) {
       [fund_id, quarter, totalCommitted, totalCalled, totalDistributed]
     );
     results.push("Updated fund quarter state with committed/called/distributed");
+
+    // 13. Seed demo documents for Cascade Multifamily (E3)
+    try {
+      const cascadeAssetRes = await pool.query(
+        `SELECT asset_id::text FROM repe_asset WHERE LOWER(name) LIKE '%cascade multifamily%' LIMIT 1`
+      );
+      const cascadeAssetId = cascadeAssetRes.rows[0]?.asset_id;
+      if (cascadeAssetId) {
+        // Look up tenant_id from business
+        const tenantRes = await pool.query(
+          `SELECT tenant_id::text FROM app.businesses WHERE business_id = $1::uuid`,
+          [business_id]
+        );
+        const tenantId = tenantRes.rows[0]?.tenant_id;
+        if (tenantId) {
+          const demoDocs = [
+            { title: "Cascade Multifamily – Rent Roll (2026Q1)", classification: "evidence", domain: "real-estate" },
+            { title: "Cascade Multifamily – Operating Statement (2026Q1)", classification: "evidence", domain: "real-estate" },
+            { title: "Cascade Multifamily – Appraisal Summary", classification: "evidence", domain: "real-estate" },
+            { title: "Cascade Multifamily – Capital Improvement Plan", classification: "other", domain: "real-estate" },
+            { title: "Cascade Multifamily – Environmental Phase I", classification: "evidence", domain: "real-estate" },
+          ];
+          let docsSeeded = 0;
+          for (const doc of demoDocs) {
+            const docId = randomUUID();
+            await pool.query(
+              `INSERT INTO app.documents (document_id, tenant_id, domain, classification, title, status, created_at)
+               VALUES ($1::uuid, $2::uuid, $3, $4::app.document_classification, $5, 'approved'::app.document_status, NOW())
+               ON CONFLICT DO NOTHING`,
+              [docId, tenantId, doc.domain, doc.classification, doc.title]
+            );
+            await pool.query(
+              `INSERT INTO app.document_links (tenant_id, document_id, link_type, entity_type, entity_id, created_at)
+               VALUES ($1::uuid, $2::uuid, 'reference'::app.document_link_type, 'asset', $3::uuid, NOW())
+               ON CONFLICT DO NOTHING`,
+              [tenantId, docId, cascadeAssetId]
+            );
+            docsSeeded++;
+          }
+          results.push(`Seeded ${docsSeeded} demo documents for Cascade Multifamily`);
+        } else {
+          results.push("Skipped demo documents: tenant_id not found");
+        }
+      } else {
+        results.push("Skipped demo documents: Cascade Multifamily asset not found");
+      }
+    } catch (docErr) {
+      results.push(`Skipped demo documents: ${String(docErr).slice(0, 100)}`);
+    }
 
     return Response.json({
       status: "success",

@@ -4,7 +4,7 @@ import type {
   ReV2AssetQuarterState,
   ReV2AssetPeriod,
 } from "@/lib/bos-api";
-import KpiCard from "./KpiCard";
+import { KpiStrip, type KpiDef } from "./KpiStrip";
 import { QuarterlyBarChart, TrendLineChart } from "@/components/charts";
 import { CHART_COLORS } from "@/components/charts/chart-theme";
 
@@ -85,58 +85,44 @@ export default function CockpitSection({
 
   return (
     <div className="space-y-4" data-testid="asset-cockpit-section">
-      {/* KPI Cards Row */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <KpiCard
-          label="NOI"
-          value={fmtMoney(financialState?.noi)}
-          currentValue={financialState?.noi ? Number(financialState.noi) : null}
-          priorValue={prior?.noi ? Number(prior.noi) : null}
-          sparkValues={noiValues}
-          polarity="up_good"
-        />
-        <KpiCard
-          label="Revenue"
-          value={fmtMoney(financialState?.revenue)}
-          currentValue={financialState?.revenue ? Number(financialState.revenue) : null}
-          priorValue={prior?.revenue ? Number(prior.revenue) : null}
-          sparkValues={revenueValues}
-          polarity="up_good"
-        />
-        <KpiCard
-          label="Occupancy"
-          value={fmtPct(financialState?.occupancy ?? occupancy)}
-          currentValue={financialState?.occupancy ? Number(financialState.occupancy) : null}
-          priorValue={prior?.occupancy ? Number(prior.occupancy) : null}
-          sparkValues={occValues}
-          polarity="up_good"
-          formatDelta={(d) => `${(d * 100).toFixed(1)}pp`}
-        />
-        <KpiCard
-          label="Value"
-          value={fmtMoney(financialState?.asset_value)}
-          currentValue={financialState?.asset_value ? Number(financialState.asset_value) : null}
-          priorValue={prior?.asset_value ? Number(prior.asset_value) : null}
-          sparkValues={valueValues}
-          polarity="up_good"
-        />
-        <KpiCard
-          label="Cap Rate"
-          value={capRate != null ? `${(capRate * 100).toFixed(2)}%` : "—"}
-          currentValue={capRate}
-          priorValue={priorCapRate}
-          polarity="down_good"
-          formatDelta={(d) => `${(d * 10000).toFixed(0)} bps`}
-        />
-        <KpiCard
-          label="NAV"
-          value={fmtMoney(financialState?.nav)}
-          currentValue={financialState?.nav ? Number(financialState.nav) : null}
-          priorValue={prior?.nav ? Number(prior.nav) : null}
-          sparkValues={periods.map((p) => Number(p.nav ?? 0))}
-          polarity="up_good"
-        />
-      </div>
+      {/* KPI Strip */}
+      <KpiStrip
+        kpis={[
+          {
+            label: "NOI",
+            value: fmtMoney(financialState?.noi),
+            ...(prior?.noi && financialState?.noi ? {
+              delta: {
+                value: `${((Number(financialState.noi) - Number(prior.noi)) / Number(prior.noi) * 100).toFixed(1)}%`,
+                tone: Number(financialState.noi) >= Number(prior.noi) ? "positive" as const : "negative" as const,
+              },
+            } : {}),
+          },
+          {
+            label: "Revenue",
+            value: fmtMoney(financialState?.revenue),
+            ...(prior?.revenue && financialState?.revenue ? {
+              delta: {
+                value: `${((Number(financialState.revenue) - Number(prior.revenue)) / Number(prior.revenue) * 100).toFixed(1)}%`,
+                tone: Number(financialState.revenue) >= Number(prior.revenue) ? "positive" as const : "negative" as const,
+              },
+            } : {}),
+          },
+          { label: "Occupancy", value: fmtPct(financialState?.occupancy ?? occupancy) },
+          { label: "Value", value: fmtMoney(financialState?.asset_value) },
+          {
+            label: "Cap Rate",
+            value: capRate != null ? `${(capRate * 100).toFixed(2)}%` : "—",
+            ...(priorCapRate != null && capRate != null ? {
+              delta: {
+                value: `${((capRate - priorCapRate) * 10000).toFixed(0)} bps`,
+                tone: capRate <= priorCapRate ? "positive" as const : "negative" as const,
+              },
+            } : {}),
+          },
+          { label: "NAV", value: fmtMoney(financialState?.nav) },
+        ]}
+      />
 
       {/* Loan Health Strip */}
       {financialState && (financialState.dscr || financialState.ltv || financialState.debt_yield) && (
@@ -185,6 +171,7 @@ export default function CockpitSection({
                 { key: "noi", label: "NOI", color: CHART_COLORS.noi },
               ]}
               height={260}
+              syncId="cockpit-sync"
             />
           ) : (
             <p className="text-sm text-bm-muted2">No quarterly data.</p>
@@ -206,6 +193,7 @@ export default function CockpitSection({
               format="percent"
               height={260}
               showLegend={false}
+              syncId="cockpit-sync"
             />
           ) : (
             <p className="text-sm text-bm-muted2">No occupancy data.</p>
@@ -225,6 +213,7 @@ export default function CockpitSection({
             format="dollar"
             height={220}
             showLegend={false}
+            syncId="cockpit-sync"
           />
         </div>
       )}

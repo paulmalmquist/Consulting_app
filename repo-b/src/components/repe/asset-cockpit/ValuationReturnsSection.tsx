@@ -22,9 +22,17 @@ function fmtMoney(v: number | string | null | undefined): string {
   return `$${n.toFixed(0)}`;
 }
 
+const VALUATION_METHOD_LABELS: Record<string, string> = {
+  cap_rate: "Direct Cap",
+  dcf: "Discounted Cash Flow",
+  sales_comp: "Sales Comparable",
+  cost: "Cost Approach",
+};
+
 function fmtText(v: unknown): string {
   if (v === null || v === undefined || v === "") return "—";
-  return String(v);
+  const s = String(v);
+  return VALUATION_METHOD_LABELS[s] ?? s;
 }
 
 interface Props {

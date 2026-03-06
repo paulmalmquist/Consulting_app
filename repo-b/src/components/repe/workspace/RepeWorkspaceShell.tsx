@@ -25,19 +25,21 @@ export default function RepeWorkspaceShell({ children, envId, isAdmin = false }:
 
   const base = envId ? `/lab/env/${envId}/re` : "/app/repe";
   const homeHref = envId ? `/lab/env/${envId}` : "/lab/environments";
+  const showIntelligence = process.env.NEXT_PUBLIC_SHOW_INTELLIGENCE_MODULE === "true";
+  const showSustainability = process.env.NEXT_PUBLIC_SHOW_SUSTAINABILITY_MODULE === "true";
   const navItems = useMemo(
     () => [
       { href: `${base}`, label: "Funds", isBase: true },
       { href: `${base}/deals`, label: "Investments", isBase: false },
       { href: `${base}/assets`, label: "Assets", isBase: false },
       { href: `${base}/pipeline`, label: "Pipeline", isBase: false },
-      { href: `${base}/intelligence`, label: "Intelligence", isBase: false },
+      ...(showIntelligence ? [{ href: `${base}/intelligence`, label: "Intelligence", isBase: false }] : []),
       { href: `${base}/models`, label: "Models", isBase: false },
       { href: `${base}/reports`, label: "Reports", isBase: false },
       { href: `${base}/runs/quarter-close`, label: "Run Center", isBase: false },
-      { href: `${base}/sustainability`, label: "Sustainability", isBase: false },
+      ...(showSustainability ? [{ href: `${base}/sustainability`, label: "Sustainability", isBase: false }] : []),
     ],
-    [base]
+    [base, showIntelligence, showSustainability]
   );
 
   const [sidebarOpen, setSidebarOpen] = useState(false);

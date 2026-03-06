@@ -68,6 +68,13 @@ export const SCENARIO_TYPE_LABELS: Record<string, string> = {
   stress: "Stress Test",
 };
 
+export const VALUATION_METHOD_LABELS: Record<string, string> = {
+  cap_rate: "Direct Cap",
+  dcf: "Discounted Cash Flow",
+  sales_comp: "Sales Comparable",
+  cost: "Cost Approach",
+};
+
 /**
  * Helper function to get a label from a mapping, with fallback to humanized enum value.
  * @param map The label mapping record

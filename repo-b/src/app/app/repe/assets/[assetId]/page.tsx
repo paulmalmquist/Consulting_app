@@ -115,6 +115,7 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
       a.click();
       URL.revokeObjectURL(url);
       setReportResult("Report generated and downloaded.");
+      setTimeout(() => setReportResult(null), 5000);
       setReportModalOpen(false);
     } catch (err) {
       setReportResult(err instanceof Error ? err.message : "Failed to generate report");
@@ -172,11 +173,26 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
                 {asset.status}
               </span>
             </div>
-            <p className="mt-1 text-sm text-bm-muted2">
-              {asset.asset_type.toUpperCase()}
-              {property.property_type ? ` · ${labelFn(PROPERTY_TYPE_LABELS, property.property_type)}` : ""}
-              {property.city ? ` · ${property.city}, ${property.state}` : property.market ? ` · ${property.market}` : ""}
-            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {property.property_type && (
+                <span className="rounded-full border border-bm-border/50 bg-bm-surface/30 px-2.5 py-0.5 text-xs text-bm-muted2">
+                  {labelFn(PROPERTY_TYPE_LABELS, property.property_type)}
+                </span>
+              )}
+              {property.city && (
+                <span className="rounded-full border border-bm-border/50 bg-bm-surface/30 px-2.5 py-0.5 text-xs text-bm-muted2">
+                  {property.city}, {property.state}
+                </span>
+              )}
+              {property.msa && (
+                <span className="rounded-full border border-bm-border/50 bg-bm-surface/30 px-2.5 py-0.5 text-xs text-bm-muted2">
+                  {property.msa}
+                </span>
+              )}
+              <span className="rounded-full border border-bm-border/50 bg-bm-surface/30 px-2.5 py-0.5 text-xs text-bm-muted2">
+                {fund.name}
+              </span>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -259,6 +275,13 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
           environmentId={environmentId ?? undefined}
           assetCreatedAt={asset.created_at}
         />
+      )}
+
+      {/* ── REPORT TOAST ── */}
+      {reportResult && !reportModalOpen && (
+        <div className="fixed bottom-6 right-6 z-50 rounded-xl border border-green-500/30 bg-green-500/10 px-5 py-3 shadow-lg backdrop-blur">
+          <p className="text-sm font-medium text-green-300">{reportResult}</p>
+        </div>
       )}
 
       {/* ── REPORT GENERATION MODAL ── */}

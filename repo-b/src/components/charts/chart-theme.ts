@@ -18,11 +18,11 @@ function cssVar(name: string, fallback: string): string {
 /* ── Static palette (works in SSR + client) ──────────────────────── */
 
 export const CHART_COLORS = {
-  /** Primary metric bars / lines — luminous accents (Bloomberg/terminal style) */
-  revenue: "hsl(213, 94%, 62%)", // electric blue
-  opex: "hsl(0, 84%, 58%)", // vivid red
-  noi: "hsl(152, 72%, 48%)", // luminous green
-  warning: "hsl(38, 92%, 55%)", // bright amber
+  /** Primary metric bars / lines — accent palette */
+  revenue: "#38BDF8", // sky-400
+  opex: "#F87171", // red-400
+  noi: "#34D399", // emerald-400
+  warning: "#FBBF24", // amber-400
 
   /** Muted / secondary */
   muted: "hsl(215, 12%, 72%)",
@@ -30,26 +30,26 @@ export const CHART_COLORS = {
 
   /** Up to 5 scenario overlay colors */
   scenario: [
-    "hsl(213, 94%, 62%)", // electric blue (base)
-    "hsl(152, 72%, 48%)", // luminous green (upside)
-    "hsl(38, 92%, 55%)", // bright amber (stress)
-    "hsl(0, 84%, 58%)", // vivid red (downside)
-    "hsl(275, 70%, 62%)", // bright purple (custom)
+    "#38BDF8", // sky-400 — primary / base
+    "#34D399", // emerald-400 — upside
+    "#F87171", // red-400 — downside
+    "#FBBF24", // amber-400 — neutral
+    "#A78BFA", // violet-400 — scenario 5
   ] as readonly string[],
 
   /** Waterfall special colors */
   waterfall: {
-    positive: "hsl(152, 72%, 48%)",
-    negative: "hsl(0, 84%, 58%)",
-    total: "hsl(213, 94%, 62%)",
+    positive: "#34D399", // emerald-400
+    negative: "#F87171", // red-400
+    total: "#38BDF8", // sky-400
     invisible: "transparent",
   },
 
   /** Loan health indicator colors */
   loan: {
-    healthy: "hsl(152, 72%, 48%)",
-    watch: "hsl(38, 92%, 55%)",
-    stress: "hsl(0, 84%, 58%)",
+    healthy: "#34D399",
+    watch: "#FBBF24",
+    stress: "#F87171",
   },
 
   /** Grid & axis */
@@ -74,8 +74,9 @@ export const AXIS_TICK_STYLE = {
 } as const;
 
 export const GRID_STYLE = {
-  stroke: "hsl(215, 10%, 20%)",
+  stroke: "rgba(255,255,255,0.08)",
   strokeDasharray: "3 3",
+  strokeOpacity: 0.15,
 } as const;
 
 /* ── Number formatting helpers ───────────────────────────────────── */

@@ -2,6 +2,7 @@
 
 import { Play, Activity } from "lucide-react";
 import type { ReModel, ReModelScope, ReModelOverride } from "./types";
+import { KpiStrip } from "@/components/repe/asset-cockpit/KpiStrip";
 
 export function ModelOverviewTab({
   model,
@@ -20,24 +21,14 @@ export function ModelOverviewTab({
 }) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3">
-          <p className="text-xs text-bm-muted2 uppercase tracking-wider">Strategy</p>
-          <p className="text-lg font-semibold mt-1">{model.strategy_type || "equity"}</p>
-        </div>
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3">
-          <p className="text-xs text-bm-muted2 uppercase tracking-wider">In Scope</p>
-          <p className="text-lg font-semibold mt-1">{scope.filter(s => s.scope_type === "asset").length} assets</p>
-        </div>
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3">
-          <p className="text-xs text-bm-muted2 uppercase tracking-wider">Overrides</p>
-          <p className="text-lg font-semibold mt-1">{overrides.length}</p>
-        </div>
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3">
-          <p className="text-xs text-bm-muted2 uppercase tracking-wider">Created</p>
-          <p className="text-lg font-semibold mt-1">{new Date(model.created_at).toLocaleDateString()}</p>
-        </div>
-      </div>
+      <KpiStrip
+        kpis={[
+          { label: "Strategy", value: model.strategy_type || "equity" },
+          { label: "In Scope", value: `${scope.filter(s => s.scope_type === "asset").length} assets` },
+          { label: "Overrides", value: overrides.length },
+          { label: "Created", value: new Date(model.created_at).toLocaleDateString() },
+        ]}
+      />
 
       <div className="flex gap-3">
         <button

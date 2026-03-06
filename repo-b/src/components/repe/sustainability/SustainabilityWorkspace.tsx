@@ -463,8 +463,12 @@ export default function SustainabilityWorkspace() {
 
         <div className="space-y-4">
           {error ? (
-            <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">
-              {error}
+            <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-8 text-center">
+              <h3 className="text-lg font-semibold text-bm-text">Sustainability Module</h3>
+              <p className="mt-2 text-sm text-bm-muted2">
+                The Sustainability module is being configured for this environment.
+                Portfolio footprint, utility tracking, and ESG reporting will appear here once provisioned.
+              </p>
             </div>
           ) : null}
 

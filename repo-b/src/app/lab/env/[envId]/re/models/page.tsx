@@ -8,6 +8,7 @@ import {
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import { PlusCircle, Archive, CheckCircle2, FileEdit, Copy, MoreVertical } from "lucide-react";
 import Link from "next/link";
+import { KpiStrip } from "@/components/repe/asset-cockpit/KpiStrip";
 
 /* ── Types ─────────────────────────────────────────────────────── */
 
@@ -138,6 +139,10 @@ export default function ReModelsPage() {
     }
   };
 
+  const isDuplicateName = newName.trim().length > 0 && models.some(
+    (m) => m.name.toLowerCase().trim() === newName.toLowerCase().trim()
+  );
+
   const draftCount = models.filter((m) => m.status === "draft").length;
   const approvedCount = models.filter((m) => m.status === "approved").length;
 
@@ -176,20 +181,13 @@ export default function ReModelsPage() {
 
       {/* KPI Row */}
       {selectedFundId && (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3 text-center">
-            <p className="text-2xl font-semibold">{models.length}</p>
-            <p className="text-xs text-bm-muted2 uppercase tracking-wider">Total Models</p>
-          </div>
-          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3 text-center">
-            <p className="text-2xl font-semibold">{draftCount}</p>
-            <p className="text-xs text-bm-muted2 uppercase tracking-wider">Draft</p>
-          </div>
-          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3 text-center">
-            <p className="text-2xl font-semibold">{approvedCount}</p>
-            <p className="text-xs text-bm-muted2 uppercase tracking-wider">Approved</p>
-          </div>
-        </div>
+        <KpiStrip
+          kpis={[
+            { label: "Total Models", value: models.length },
+            { label: "Draft", value: draftCount },
+            { label: "Approved", value: approvedCount },
+          ]}
+        />
       )}
 
       {/* Models List */}
@@ -309,7 +307,7 @@ export default function ReModelsPage() {
             <button
               type="button"
               onClick={handleCreate}
-              disabled={creating || !newName.trim()}
+              disabled={creating || !newName.trim() || isDuplicateName}
               className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90 disabled:opacity-50"
               data-testid="create-model-btn"
             >
@@ -317,6 +315,9 @@ export default function ReModelsPage() {
               {creating ? "Creating..." : "Create Model"}
             </button>
           </div>
+          {isDuplicateName && (
+            <p className="text-xs text-amber-400">A model with this name already exists. Choose a different name.</p>
+          )}
         </div>
       )}
 

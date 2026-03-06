@@ -79,11 +79,26 @@ function overridesFromPlan(plan: AssistantPlan): PlanOverrides {
 }
 
 function workspaceFromContext(snapshot: ContextSnapshot | null, fallback: CommandContext) {
-  return {
+  const base: { env: string; business: string; route: string; [key: string]: string } = {
     env: snapshot?.selectedEnv?.client_name || fallback.currentEnvId || "none",
     business: snapshot?.business?.name || fallback.currentBusinessId || "none",
     route: snapshot?.route || fallback.route || "/",
   };
+
+  // Inject asset-level context when on an asset page
+  const route = fallback.route || "";
+  const assetMatch = route.match(/\/re\/assets\/([^/]+)/);
+  if (assetMatch) {
+    base.assetId = assetMatch[1];
+    base.context = "asset";
+  }
+  const fundMatch = route.match(/\/re\/funds\/([^/]+)/);
+  if (fundMatch && !route.includes("/new")) {
+    base.fundId = fundMatch[1];
+    base.context = base.context || "fund";
+  }
+
+  return base;
 }
 
 function toFriendlyError(error: unknown): string {
@@ -95,6 +110,31 @@ function toFriendlyError(error: unknown): string {
 }
 
 function deriveQuickActions(pathname: string, context: ContextSnapshot | null): QuickAction[] {
+  // Context-aware prompts for asset/fund pages
+  const isAssetPage = /\/re\/assets\/[^/]+/.test(pathname);
+  const isFundPage = /\/re\/funds\/[^/]+/.test(pathname) && !pathname.includes("/new");
+  const isInvestmentPage = /\/re\/investments\/[^/]+/.test(pathname);
+
+  if (isAssetPage) {
+    return [
+      { id: "asset-risk", label: "Summarize key risks", prompt: "Summarize this asset's key risks based on current KPIs, debt metrics, and market position.", description: "Asset risk analysis" },
+      { id: "asset-uw-compare", label: "Compare to underwriting", prompt: "Compare this asset's actual performance to the original underwriting assumptions.", description: "UW vs Actual comparison" },
+      { id: "asset-lp-update", label: "Draft LP update", prompt: "Draft an LP update paragraph for this asset for the current quarter.", description: "LP reporting helper" },
+      { id: "asset-covenant", label: "Identify covenant risk", prompt: "Identify any covenant risk for this investment based on current DSCR, LTV, and debt yield metrics.", description: "Covenant risk check" },
+      { id: "asset-cap-rate", label: "Cap rate impact on NAV", prompt: "What would a 50bps cap rate expansion do to this asset's NAV?", description: "Sensitivity scenario" },
+    ];
+  }
+
+  if (isFundPage) {
+    return [
+      { id: "fund-summary", label: "Fund performance summary", prompt: "Summarize this fund's current performance, NAV, IRR, and DPI metrics.", description: "Fund KPI overview" },
+      { id: "fund-lp-update", label: "Draft LP update", prompt: "Draft an LP update for this quarter covering fund-level performance and key portfolio changes.", description: "LP update draft" },
+      { id: "fund-risk", label: "Portfolio risk assessment", prompt: "Assess portfolio-level risks across all investments in this fund.", description: "Portfolio risk review" },
+      { id: "fund-covenant", label: "Covenant status", prompt: "Review debt covenant compliance across all investments in this fund.", description: "Covenant compliance" },
+      { id: "fund-scenario", label: "Downside scenario impact", prompt: "Model a 75bps cap rate expansion across all assets and show the impact on fund NAV.", description: "Stress scenario" },
+    ];
+  }
+
   const defaults: QuickAction[] = [
     {
       id: "list-environments",

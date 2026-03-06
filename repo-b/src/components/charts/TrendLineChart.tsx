@@ -46,6 +46,8 @@ interface Props {
   format?: "dollar" | "percent" | "number";
   /** Show legend. Default true. */
   showLegend?: boolean;
+  /** Recharts syncId for crosshair syncing across charts. */
+  syncId?: string;
 }
 
 function tickFmt(format: Props["format"]) {
@@ -77,12 +79,14 @@ export default function TrendLineChart({
   height = 280,
   format = "dollar",
   showLegend = true,
+  syncId,
 }: Props) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart
         data={data}
         margin={{ top: 8, right: 12, left: 4, bottom: 0 }}
+        syncId={syncId}
       >
         <CartesianGrid vertical={false} {...GRID_STYLE} />
         <XAxis
@@ -137,8 +141,8 @@ export default function TrendLineChart({
             }
             strokeWidth={2}
             strokeDasharray={l.dashed ? "6 3" : undefined}
-            dot={{ r: 3, strokeWidth: 1 }}
-            activeDot={{ r: 5 }}
+            dot={false}
+            activeDot={{ r: 4 }}
           />
         ))}
       </LineChart>

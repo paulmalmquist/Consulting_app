@@ -29,6 +29,13 @@ function fmtText(v: unknown): string {
   return String(v);
 }
 
+function fmtYear(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "—";
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "—";
+  return String(Math.round(n));
+}
+
 function fmtX(v: number | string | null | undefined): string {
   if (v == null) return "—";
   const n = Number(v);
@@ -137,7 +144,7 @@ export default function ModelInputsSection({
               <div><dt className="text-xs text-bm-muted2">City / State</dt><dd className="font-medium">{property.city ? `${property.city}, ${property.state}` : "—"}</dd></div>
               <div><dt className="text-xs text-bm-muted2">MSA</dt><dd className="font-medium">{fmtText(property.msa)}</dd></div>
               <div><dt className="text-xs text-bm-muted2">Square Feet</dt><dd className="font-medium">{property.square_feet ? `${(Number(property.square_feet) / 1000).toFixed(0)}K SF` : "—"}</dd></div>
-              <div><dt className="text-xs text-bm-muted2">Year Built</dt><dd className="font-medium">{fmtText(property.year_built)}</dd></div>
+              <div><dt className="text-xs text-bm-muted2">Year Built</dt><dd className="font-medium">{fmtYear(property.year_built)}</dd></div>
               <div><dt className="text-xs text-bm-muted2">Cost Basis</dt><dd className="font-medium">{fmtMoney(asset.cost_basis)}</dd></div>
               <div><dt className="text-xs text-bm-muted2">Status</dt><dd className="font-medium">{asset.status}</dd></div>
             </dl>

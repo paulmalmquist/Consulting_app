@@ -26,7 +26,7 @@ import {
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import { EntityLineagePanel } from "@/components/repe/EntityLineagePanel";
 import RepeEntityDocuments from "@/components/repe/RepeEntityDocuments";
-import KpiCard from "@/components/repe/asset-cockpit/KpiCard";
+import { KpiStrip, type KpiDef } from "@/components/repe/asset-cockpit/KpiStrip";
 import NoiComparisonPanel from "@/components/repe/asset-cockpit/NoiComparisonPanel";
 import { CHART_COLORS } from "@/components/charts/chart-theme";
 
@@ -226,6 +226,10 @@ function InvestmentCockpit({
     () => assets.reduce((sum, a) => sum + Number(a.debt_balance ?? 0), 0),
     [assets],
   );
+  const totalInvestmentNav = useMemo(
+    () => assets.reduce((sum, a) => sum + Number(a.nav ?? 0), 0),
+    [assets],
+  );
   const computedLtv = totalAssetValue ? totalDebt / totalAssetValue : null;
   const capRate =
     totalAssetValue && totalNoi ? (totalNoi * 4) / totalAssetValue : null;
@@ -401,45 +405,19 @@ function InvestmentCockpit({
         )}
       </div>
 
-      {/* ── Band B: KPI Cards ── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
-        <KpiCard label="NAV" value={fmtMoney(state?.nav)} polarity="up_good" />
-        <KpiCard
-          label="NOI"
-          value={fmtMoney(totalNoi || null)}
-          polarity="up_good"
-        />
-        <KpiCard
-          label="Gross Value"
-          value={fmtMoney(state?.gross_asset_value)}
-          polarity="up_good"
-        />
-        <KpiCard
-          label="Debt"
-          value={fmtMoney(state?.debt_balance ?? (totalDebt || null))}
-          polarity="down_good"
-        />
-        <KpiCard
-          label="LTV"
-          value={fmtPct(computedLtv)}
-          polarity="down_good"
-        />
-        <KpiCard
-          label="IRR"
-          value={fmtPct(state?.net_irr ?? state?.gross_irr)}
-          polarity="up_good"
-        />
-        <KpiCard
-          label="MOIC"
-          value={fmtX(state?.equity_multiple)}
-          polarity="up_good"
-        />
-        <KpiCard
-          label="Assets"
-          value={String(assets.length)}
-          polarity="up_good"
-        />
-      </div>
+      {/* ── Band B: KPI Strip ── */}
+      <KpiStrip
+        kpis={[
+          { label: "NAV", value: fmtMoney(state?.nav) },
+          { label: "NOI", value: fmtMoney(totalNoi || null) },
+          { label: "Gross Value", value: fmtMoney(state?.gross_asset_value) },
+          { label: "Debt", value: fmtMoney(state?.debt_balance ?? (totalDebt || null)) },
+          { label: "LTV", value: fmtPct(computedLtv) },
+          { label: "IRR", value: fmtPct(state?.net_irr ?? state?.gross_irr) },
+          { label: "MOIC", value: fmtX(state?.equity_multiple) },
+          { label: "Assets", value: String(assets.length) },
+        ]}
+      />
 
       {/* ── Band C: Charts + Capital ── */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -631,9 +609,8 @@ function InvestmentCockpit({
             </thead>
             <tbody className="divide-y divide-bm-border/40">
               {assets.map((asset) => {
-                const navTotal = Number(state?.nav ?? 0);
                 const assetNav = Number(asset.nav ?? 0);
-                const pctOfNav = navTotal ? assetNav / navTotal : 0;
+                const pctOfNav = totalInvestmentNav ? assetNav / totalInvestmentNav : 0;
                 return (
                   <tr
                     key={asset.asset_id}
