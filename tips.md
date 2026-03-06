@@ -772,12 +772,43 @@ If the gateway route is involved:
 curl -s https://authentic-sparkle-production-7f37.up.railway.app/api/ai/gateway/health
 ```
 
+**Confirming Railway deployment lineage (new code, not old container):**
+
+A healthy `/health` response alone does NOT prove the new code is running — the old container also returned 200 before the new one came up. Confirm lineage explicitly:
+
+```bash
+# List deployments — the most recent one must show SUCCESS, not REMOVED/BUILDING
+railway deployment list --service authentic-sparkle
+```
+
+The top entry must be:
+- `SUCCESS` — the new build is live
+- Timestamped at or after your `railway up` invocation
+- The previous entry must show `REMOVED` (replaced by new)
+
+If the top entry is still `BUILDING` or `DEPLOYING`, wait and re-poll. If it shows `FAILED`, check build logs via the URL printed by `railway up --detach`.
+
 #### Vercel (frontend)
 Use `mcp__claude_ai_Vercel__get_deployment` with the deployment ID from the latest push. State must be `READY` before testing any Next.js routes or pages.
 
 The production domain aliases:
 - `https://www.paulmalmquist.com` (canonical)
 - `https://paulmalmquist.com` (redirects to www)
+
+**Confirming Vercel deployment lineage (new code, not previous build):**
+
+A `READY` state alone does not prove it is the new build. Confirm lineage by checking the `meta.githubCommitSha` in the deployment response matches your commit SHA:
+
+```bash
+# Get the deployment and verify the commit SHA
+# mcp__claude_ai_Vercel__get_deployment idOrUrl=<deployment_id>
+# Check: deployment.meta.githubCommitSha == git rev-parse HEAD
+# Check: deployment.alias includes "www.paulmalmquist.com" (proves it is production)
+```
+
+Both conditions must be true:
+1. `meta.githubCommitSha` == the SHA of the commit you pushed
+2. `alias` array includes `www.paulmalmquist.com` (confirms it was promoted to production, not just a preview)
 
 #### GitHub Actions CI
 ```bash
