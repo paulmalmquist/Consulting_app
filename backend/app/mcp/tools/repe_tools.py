@@ -14,11 +14,18 @@ from app.services import repe
 
 
 def _serialize(obj):
-    """Convert non-serializable types (UUID, date, Decimal) to strings."""
+    """Convert non-serializable types (UUID, date, Decimal) to JSON-safe values."""
+    from decimal import Decimal
     if isinstance(obj, list):
         return [_serialize(item) for item in obj]
     if isinstance(obj, dict):
-        return {k: str(v) if hasattr(v, "isoformat") or hasattr(v, "hex") else v for k, v in obj.items()}
+        return {k: _serialize(v) for k, v in obj.items()}
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if hasattr(obj, "isoformat"):
+        return str(obj)
+    if hasattr(obj, "hex"):
+        return str(obj)
     return obj
 
 
