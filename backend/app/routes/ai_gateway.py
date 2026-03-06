@@ -22,7 +22,6 @@ from app.schemas.ai_gateway import (
     GatewayIndexRequest,
     GatewayIndexResponse,
     ConversationCreateRequest,
-    ConversationListResponse,
     ConversationDetailResponse,
     MessageAppendRequest,
     MessageResponse,

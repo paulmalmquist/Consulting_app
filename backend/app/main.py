@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import ALLOWED_ORIGINS
 from app.middleware import RequestLoggingMiddleware
+from app.mcp.server import _register_all_tools
 from app.observability.logger import emit_log
 from app.routes import (
     metrics,
@@ -55,7 +56,6 @@ app = FastAPI(title="Business OS API", version="0.1.0")
 
 # Register all MCP tools so the AI gateway can expose them to OpenAI tool-calling.
 # Without this, _build_openai_tools() returns an empty list and Winston has zero tools.
-from app.mcp.server import _register_all_tools
 _register_all_tools()
 
 app.add_middleware(

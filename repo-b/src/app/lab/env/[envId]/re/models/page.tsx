@@ -6,6 +6,7 @@ import {
   RepeFund,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
+import { useRepeBasePath } from "@/lib/repe-context";
 import { PlusCircle, Archive, CheckCircle2, FileEdit, Copy, MoreVertical } from "lucide-react";
 import { KpiStrip } from "@/components/repe/asset-cockpit/KpiStrip";
 import {
@@ -73,6 +74,7 @@ async function cloneModel(modelId: string): Promise<ReModel> {
 
 export default function ReModelsPage() {
   const { envId, businessId } = useReEnv();
+  const basePath = useRepeBasePath();
   const [funds, setFunds] = useState<RepeFund[]>([]);
   const [selectedFundId, setSelectedFundId] = useState("");
   const [models, setModels] = useState<ReModel[]>([]);
@@ -143,7 +145,7 @@ export default function ReModelsPage() {
       setModels((prev) => [cloned, ...prev]);
       setOpenMenuId(null);
       // Navigate to the cloned model
-      window.location.href = `${window.location.pathname}/${cloned.model_id}`;
+      window.location.assign(`${basePath}/models/${cloned.model_id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to clone model");
     } finally {
@@ -221,7 +223,7 @@ export default function ReModelsPage() {
                     <tr key={m.model_id} className={reIndexTableRowClass} data-testid={`model-row-${m.model_id}`}>
                       <td className="px-4 py-4 align-middle">
                         <a
-                          href={`${window.location.pathname}/../models/${m.model_id}`}
+                          href={`${basePath}/models/${m.model_id}`}
                           className={`${reIndexPrimaryCellClass} cursor-pointer`}
                         >
                           {m.name}
