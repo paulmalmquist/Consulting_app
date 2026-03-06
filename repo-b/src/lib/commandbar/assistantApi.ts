@@ -744,6 +744,8 @@ export async function askAi(input: {
   workspace?: Record<string, string>;
   business_id?: string;
   env_id?: string;
+  conversation_id?: string;
+  onStatus?: (status: string) => void;
   signal?: AbortSignal;
 }): Promise<{ answer: string; trace: AssistantApiTrace }> {
   const requestId = nextRequestId();
@@ -757,7 +759,7 @@ export async function askAi(input: {
     };
   }
 
-  const { signal, cancel } = withTimeout(input.signal, 30_000);
+  const { signal, cancel } = withTimeout(input.signal, 90_000);
 
   try {
     const response = await fetch(endpoint, {
@@ -767,6 +769,7 @@ export async function askAi(input: {
         message: input.message,
         business_id: input.business_id || null,
         env_id: input.env_id || null,
+        conversation_id: input.conversation_id || null,
         session_id: requestId,
       }),
       signal,
@@ -833,8 +836,14 @@ export async function askAi(input: {
             else if (currentEvent === "error" && parsed.message) {
               answer += `\n[Error: ${parsed.message}]`;
             }
-            // FastAPI tool_call/citation/done events — silently consume
-            else if (currentEvent === "tool_call" || currentEvent === "citation" || currentEvent === "done") {
+            // FastAPI tool_call event — surface as status
+            else if (currentEvent === "tool_call" && parsed.tool_name) {
+              const label = parsed.tool_name.replace(/^repe\./, "").replace(/_/g, " ");
+              input.onStatus?.(`Looking up ${label}...`);
+              continue;
+            }
+            // FastAPI citation/done events — silently consume
+            else if (currentEvent === "citation" || currentEvent === "done") {
               continue;
             }
           } catch {
@@ -872,4 +881,67 @@ export async function askAi(input: {
   } finally {
     cancel();
   }
+}
+
+// ── Conversation management ─────────────────────────────────────────────────
+
+export type ConversationSummary = {
+  conversation_id: string;
+  title: string | null;
+  message_count: number;
+  updated_at: string | null;
+  archived: boolean;
+};
+
+export type ConversationDetail = {
+  conversation_id: string;
+  business_id: string;
+  title: string | null;
+  messages: Array<{
+    message_id: string;
+    role: string;
+    content: string;
+    created_at: string | null;
+  }>;
+};
+
+export async function createConversation(input: {
+  business_id: string;
+  env_id?: string;
+}): Promise<ConversationDetail> {
+  const res = await fetch("/api/ai/gateway/conversations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      business_id: input.business_id,
+      env_id: input.env_id || null,
+    }),
+  });
+  if (!res.ok) throw new Error(`Failed to create conversation: ${res.status}`);
+  return res.json();
+}
+
+export async function listConversations(
+  businessId: string,
+): Promise<ConversationSummary[]> {
+  const res = await fetch(
+    `/api/ai/gateway/conversations?business_id=${encodeURIComponent(businessId)}`,
+  );
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.conversations || [];
+}
+
+export async function getConversation(
+  conversationId: string,
+): Promise<ConversationDetail | null> {
+  const res = await fetch(`/api/ai/gateway/conversations/${conversationId}`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function archiveConversation(conversationId: string): Promise<void> {
+  await fetch(`/api/ai/gateway/conversations/${conversationId}`, {
+    method: "DELETE",
+  });
 }

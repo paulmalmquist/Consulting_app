@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { CommandMessage } from "@/lib/commandbar/store";
 
-function ThinkingIndicator() {
+function ThinkingIndicator({ status }: { status?: string }) {
   return (
     <div className="flex items-start gap-3 animate-winston-fade-in">
       {/* Rotating thinking icon */}
@@ -22,13 +22,17 @@ function ThinkingIndicator() {
           />
         </svg>
       </div>
-      <div className="flex items-center gap-1 pt-0.5">
-        <span className="text-sm text-bm-muted animate-winston-glow">Thinking</span>
-        <span className="inline-flex gap-0.5 ml-0.5">
-          <span className="h-1 w-1 rounded-full bg-bm-accent animate-winston-dot-1" />
-          <span className="h-1 w-1 rounded-full bg-bm-accent animate-winston-dot-2" />
-          <span className="h-1 w-1 rounded-full bg-bm-accent animate-winston-dot-3" />
-        </span>
+      <div className="flex flex-col gap-0.5 pt-0.5">
+        <div className="flex items-center gap-1">
+          <span className="text-sm text-bm-muted animate-winston-glow">
+            {status || "Thinking"}
+          </span>
+          <span className="inline-flex gap-0.5 ml-0.5">
+            <span className="h-1 w-1 rounded-full bg-bm-accent animate-winston-dot-1" />
+            <span className="h-1 w-1 rounded-full bg-bm-accent animate-winston-dot-2" />
+            <span className="h-1 w-1 rounded-full bg-bm-accent animate-winston-dot-3" />
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -58,12 +62,14 @@ function MessageBubble({ message }: { message: CommandMessage }) {
 export default function ConversationPane({
   messages,
   thinking,
+  thinkingStatus,
 }: {
   contextKey?: string;
   messages: CommandMessage[];
   examples?: string[];
   recentRuns?: unknown[];
   thinking?: boolean;
+  thinkingStatus?: string;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -93,7 +99,7 @@ export default function ConversationPane({
             {messages.map((msg) => (
               <MessageBubble key={msg.id} message={msg} />
             ))}
-            {thinking && <ThinkingIndicator />}
+            {thinking && <ThinkingIndicator status={thinkingStatus} />}
             <div ref={endRef} />
           </div>
         )}

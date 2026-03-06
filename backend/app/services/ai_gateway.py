@@ -121,6 +121,7 @@ async def run_gateway_stream(
     *,
     message: str,
     session_id: str | None = None,
+    conversation_id: uuid.UUID | None = None,
     env_id: uuid.UUID | None = None,
     business_id: uuid.UUID | None = None,
     entity_type: str | None = None,
@@ -214,8 +215,20 @@ async def run_gateway_stream(
 
     messages: list[dict] = [
         {"role": "system", "content": _SYSTEM_PROMPT + portfolio_context + rag_context},
-        {"role": "user", "content": message},
     ]
+
+    # ── Load conversation history for multi-turn context ────────────
+    if conversation_id:
+        try:
+            from app.services import ai_conversations as convo_svc
+            history = convo_svc.get_messages(conversation_id=conversation_id)
+            for msg in history:
+                if msg["role"] in ("user", "assistant"):
+                    messages.append({"role": msg["role"], "content": msg["content"]})
+        except Exception:
+            pass  # Non-fatal; proceed without history
+
+    messages.append({"role": "user", "content": message})
 
     openai_tools, tool_name_map = _build_openai_tools()
     ctx = McpContext(actor=actor, token_valid=True)
@@ -345,7 +358,26 @@ async def run_gateway_stream(
                 }
             )
 
-    # ── Step 4: Persist audit record ────────────────────────────────
+    # ── Step 4: Persist conversation messages ────────────────────────
+    if conversation_id and collected_content:
+        try:
+            from app.services import ai_conversations as convo_svc
+            convo_svc.append_message(
+                conversation_id=conversation_id,
+                role="user",
+                content=message,
+            )
+            convo_svc.append_message(
+                conversation_id=conversation_id,
+                role="assistant",
+                content=collected_content,
+                tool_calls=tool_calls_log or None,
+                token_count=total_completion_tokens or None,
+            )
+        except Exception:
+            pass  # Conversation persistence failure should not fail the response
+
+    # ── Step 5: Persist audit record ────────────────────────────────
     elapsed_ms = int((time.time() - start) * 1000)
     try:
         audit_svc.record_event(

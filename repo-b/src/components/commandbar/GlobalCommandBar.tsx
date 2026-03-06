@@ -14,16 +14,19 @@ import { useToast } from "@/components/ui/Toast";
 import {
   type AssistantApiError,
   type AssistantApiTrace,
+  type ConversationSummary,
   type DiagnosticsCheck,
   askAi,
   buildExecutionSummary,
   cancelRun,
   confirmPlan,
+  createConversation,
   createPlan,
   fetchContextSnapshot,
   getAssistantFeatureFlags,
   getRunStatus,
   executePlan,
+  listConversations,
   runDiagnostics,
 } from "@/lib/commandbar/assistantApi";
 import {
@@ -192,10 +195,14 @@ export default function GlobalCommandBar() {
   const [stage, setStage] = useState<AssistantStage>("plan");
   const [contextKey, setContextKey] = useState<CommandContextKey>("global");
   const [messages, setMessages] = useState<CommandMessage[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [showConversationList, setShowConversationList] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [contextSnapshot, setContextSnapshot] = useState<ContextSnapshot | null>(null);
   const [authState, setAuthState] = useState<"unknown" | "authenticated" | "unauthenticated">("unknown");
   const [planning, setPlanning] = useState(false);
+  const [thinkingStatus, setThinkingStatus] = useState<string | undefined>();
   const [confirming, setConfirming] = useState(false);
   const [activePlan, setActivePlan] = useState<AssistantPlan | null>(null);
   const [run, setRun] = useState<CommandRun | null>(null);
@@ -305,6 +312,25 @@ export default function GlobalCommandBar() {
     };
   }, [isOpen, context]);
 
+  // Load conversation list and ensure active conversation when command bar opens
+  useEffect(() => {
+    if (!isOpen || !context.currentBusinessId) return;
+
+    let cancelled = false;
+    const loadConversations = async () => {
+      try {
+        const list = await listConversations(context.currentBusinessId!);
+        if (cancelled) return;
+        setConversations(list);
+      } catch {
+        // Non-fatal
+      }
+    };
+
+    void loadConversations();
+    return () => { cancelled = true; };
+  }, [isOpen, context.currentBusinessId]);
+
   useEffect(() => {
     if (!run?.runId) return;
     if (!["running", "pending"].includes(run.status)) return;
@@ -352,7 +378,7 @@ export default function GlobalCommandBar() {
     };
   }, [run?.runId, run?.status]);
 
-  const clearHistory = () => {
+  const startNewConversation = () => {
     setMessages([]);
     persistHistory(contextKey, []);
     setActivePlan(null);
@@ -360,7 +386,11 @@ export default function GlobalCommandBar() {
     setPrompt("");
     setRaw({});
     setStage("plan");
+    setConversationId(null);
+    setShowConversationList(false);
   };
+
+  const clearHistory = startNewConversation;
 
   const ensureContextSnapshot = async () => {
     if (contextSnapshot) return contextSnapshot;
@@ -421,13 +451,31 @@ export default function GlobalCommandBar() {
     setPrompt("");
     setRun(null);
     setPlanning(true);
+    setThinkingStatus(undefined);
 
     try {
+      // Auto-create conversation on first message if we have a business_id
+      let activeConvoId = conversationId;
+      if (!activeConvoId && context.currentBusinessId) {
+        try {
+          const convo = await createConversation({
+            business_id: context.currentBusinessId,
+            env_id: context.currentEnvId || undefined,
+          });
+          activeConvoId = convo.conversation_id;
+          setConversationId(activeConvoId);
+        } catch {
+          // Non-fatal — proceed without conversation persistence
+        }
+      }
+
       const result = await askAi({
         message: next,
         workspace: workspace as Record<string, string>,
         business_id: context.currentBusinessId || undefined,
         env_id: context.currentEnvId || undefined,
+        conversation_id: activeConvoId || undefined,
+        onStatus: setThinkingStatus,
       });
       appendTrace(result.trace);
       appendMessage("assistant", result.answer);
@@ -436,6 +484,7 @@ export default function GlobalCommandBar() {
       appendMessage("system", friendly);
     } finally {
       setPlanning(false);
+      setThinkingStatus(undefined);
     }
   };
 
@@ -597,6 +646,63 @@ export default function GlobalCommandBar() {
               />
             </div>
 
+            {/* Conversation header */}
+            <div className="flex items-center justify-between border-b border-bm-border/30 px-3 py-1.5">
+              <button
+                type="button"
+                onClick={() => setShowConversationList((prev) => !prev)}
+                className="text-[11px] text-bm-muted2 hover:text-bm-text transition-colors"
+                title="Show conversation history"
+              >
+                {conversationId ? (conversations.find((c) => c.conversation_id === conversationId)?.title || "Current conversation") : "New conversation"}
+              </button>
+              <button
+                type="button"
+                onClick={startNewConversation}
+                className="text-[11px] text-bm-accent hover:text-bm-text transition-colors"
+                title="Start new conversation"
+              >
+                + New
+              </button>
+            </div>
+
+            {/* Conversation list dropdown */}
+            {showConversationList && conversations.length > 0 && (
+              <div className="border-b border-bm-border/30 max-h-40 overflow-y-auto">
+                {conversations.map((c) => (
+                  <button
+                    key={c.conversation_id}
+                    type="button"
+                    onClick={async () => {
+                      setConversationId(c.conversation_id);
+                      setShowConversationList(false);
+                      // Load messages from server
+                      try {
+                        const { getConversation: getConvo } = await import("@/lib/commandbar/assistantApi");
+                        const detail = await getConvo(c.conversation_id);
+                        if (detail?.messages) {
+                          setMessages(
+                            detail.messages
+                              .filter((m: { role: string }) => m.role === "user" || m.role === "assistant")
+                              .map((m: { message_id: string; role: string; content: string; created_at: string | null }) =>
+                                makeMessage(m.role as "user" | "assistant", m.content, m.message_id),
+                              ),
+                          );
+                        }
+                      } catch {
+                        // Fall through — conversation loads empty
+                      }
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-bm-surface/60 transition-colors truncate ${
+                      c.conversation_id === conversationId ? "text-bm-accent" : "text-bm-muted"
+                    }`}
+                  >
+                    {c.title || "Untitled"} <span className="text-bm-muted2">({c.message_count})</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="min-h-0 flex-1 overflow-hidden">
               <ConversationPane
                 contextKey={contextKey}
@@ -604,6 +710,7 @@ export default function GlobalCommandBar() {
                 examples={EMPTY_EXAMPLES}
                 recentRuns={recentRuns}
                 thinking={planning}
+                thinkingStatus={thinkingStatus}
               />
             </div>
 

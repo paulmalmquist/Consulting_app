@@ -33,8 +33,14 @@ export async function POST(req: NextRequest) {
   const actor = getSessionActor(req);
   const raw = await req.text();
 
-  // Parse the frontend payload: {message, business_id?, env_id?, session_id?}
-  let parsed: { message?: string; business_id?: string; env_id?: string; session_id?: string };
+  // Parse the frontend payload
+  let parsed: {
+    message?: string;
+    business_id?: string;
+    env_id?: string;
+    session_id?: string;
+    conversation_id?: string;
+  };
   try {
     parsed = JSON.parse(raw);
   } catch {
@@ -58,6 +64,7 @@ export async function POST(req: NextRequest) {
     business_id: parsed.business_id || null,
     env_id: parsed.env_id || null,
     session_id: parsed.session_id || null,
+    conversation_id: parsed.conversation_id || null,
   });
 
   // Try FastAPI backend first (60s timeout — tool-calling workflows take 15-20s)
