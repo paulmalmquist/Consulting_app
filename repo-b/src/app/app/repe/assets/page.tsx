@@ -12,6 +12,21 @@ import {
   RepeFund,
 } from "@/lib/bos-api";
 import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
+import { KpiStrip } from "@/components/repe/asset-cockpit/KpiStrip";
+import {
+  RepeIndexScaffold,
+  reIndexActionClass,
+  reIndexControlLabelClass,
+  reIndexInputClass,
+  reIndexNumericCellClass,
+  reIndexPrimaryCellClass,
+  reIndexSecondaryCellClass,
+  reIndexTableBodyClass,
+  reIndexTableClass,
+  reIndexTableHeadRowClass,
+  reIndexTableRowClass,
+  reIndexTableShellClass,
+} from "@/components/repe/RepeIndexScaffold";
 
 const SECTORS = [
   "All",
@@ -318,52 +333,36 @@ function AssetsIndexContent() {
   }
 
   return (
-    <section className="space-y-4" data-testid="re-assets-index">
-      {/* Header + Quick Stats */}
-      <div className="rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Assets</h1>
-            <p className="mt-1 text-sm text-bm-muted2">
-              All properties across funds and investments.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            className="rounded-lg bg-bm-accent px-4 py-2 text-sm text-white hover:bg-bm-accent/90"
-            data-testid="btn-new-asset"
-          >
-            + New Asset
-          </button>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-lg border border-bm-border/60 p-3">
-            <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Total Assets</p>
-            <p className="mt-1 text-lg font-bold">{totalAssets}</p>
-          </div>
-          <div className="rounded-lg border border-bm-border/60 p-3">
-            <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Active</p>
-            <p className="mt-1 text-lg font-bold">{activeAssets}</p>
-          </div>
-          <div className="rounded-lg border border-bm-border/60 p-3">
-            <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Total NOI (Latest Qtr)</p>
-            <p className="mt-1 text-lg font-bold">{fmtMoney(totalNoi)}</p>
-          </div>
-          <div className="rounded-lg border border-bm-border/60 p-3">
-            <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Avg Occupancy</p>
-            <p className="mt-1 text-lg font-bold">{fmtPct(avgOccupancy)}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Filter Row */}
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3">
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+    <RepeIndexScaffold
+      title="Assets"
+      subtitle="All properties across funds and investments."
+      action={
+        <button
+          type="button"
+          onClick={() => setModalOpen(true)}
+          className={reIndexActionClass}
+          data-testid="btn-new-asset"
+        >
+          + New Asset
+        </button>
+      }
+      metrics={
+        <KpiStrip
+          variant="band"
+          kpis={[
+            { label: "Total Assets", value: totalAssets },
+            { label: "Active", value: activeAssets },
+            { label: "Total NOI", value: fmtMoney(totalNoi) },
+            { label: "Avg Occupancy", value: fmtPct(avgOccupancy) },
+          ]}
+        />
+      }
+      controls={
+        <div className="flex flex-wrap items-end gap-x-3 gap-y-3 border-b border-bm-border/20 pb-5">
+          <label className={reIndexControlLabelClass}>
             Fund
             <select
-              className="mt-1 block w-48 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
+              className={`${reIndexInputClass} w-48`}
               value={fundFilter}
               onChange={(e) => setFilter("fund", e.target.value)}
               data-testid="filter-fund"
@@ -375,10 +374,10 @@ function AssetsIndexContent() {
             </select>
           </label>
 
-          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+          <label className={reIndexControlLabelClass}>
             Investment
             <select
-              className="mt-1 block w-48 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
+              className={`${reIndexInputClass} w-48`}
               value={investmentFilter}
               onChange={(e) => setFilter("investment", e.target.value)}
               data-testid="filter-investment"
@@ -390,10 +389,10 @@ function AssetsIndexContent() {
             </select>
           </label>
 
-          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+          <label className={reIndexControlLabelClass}>
             Sector
             <select
-              className="mt-1 block w-36 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
+              className={`${reIndexInputClass} w-36`}
               value={sectorFilter}
               onChange={(e) => setFilter("sector", e.target.value)}
               data-testid="filter-sector"
@@ -404,10 +403,10 @@ function AssetsIndexContent() {
             </select>
           </label>
 
-          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+          <label className={reIndexControlLabelClass}>
             State
             <select
-              className="mt-1 block w-24 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
+              className={`${reIndexInputClass} w-24`}
               value={stateFilter}
               onChange={(e) => setFilter("state", e.target.value)}
               data-testid="filter-state"
@@ -418,10 +417,10 @@ function AssetsIndexContent() {
             </select>
           </label>
 
-          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+          <label className={reIndexControlLabelClass}>
             MSA
             <select
-              className="mt-1 block w-48 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
+              className={`${reIndexInputClass} w-48`}
               value={msaFilter}
               onChange={(e) => setFilter("msa", e.target.value)}
               data-testid="filter-msa"
@@ -433,10 +432,10 @@ function AssetsIndexContent() {
             </select>
           </label>
 
-          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+          <label className={reIndexControlLabelClass}>
             Status
             <select
-              className="mt-1 block w-28 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
+              className={`${reIndexInputClass} w-28`}
               value={statusFilter}
               onChange={(e) => setFilter("status", e.target.value)}
               data-testid="filter-status"
@@ -447,10 +446,10 @@ function AssetsIndexContent() {
             </select>
           </label>
 
-          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+          <label className={reIndexControlLabelClass}>
             Search
             <input
-              className="mt-1 block w-48 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
+              className={`${reIndexInputClass} w-48`}
               value={searchQuery}
               onChange={(e) => setFilter("q", e.target.value)}
               placeholder="Name, city, address..."
@@ -462,101 +461,111 @@ function AssetsIndexContent() {
             <button
               type="button"
               onClick={clearFilters}
-              className="rounded-lg border border-bm-border px-3 py-1.5 text-xs hover:bg-bm-surface/40"
+              className="inline-flex h-10 items-center rounded-md border border-bm-border/70 px-3 text-[11px] uppercase tracking-[0.12em] text-bm-muted2 transition-colors duration-100 hover:bg-bm-surface/25 hover:text-bm-text"
             >
               Clear Filters
             </button>
           ) : null}
         </div>
-      </div>
-
-      {/* Error State */}
-      {error ? (
-        <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">
-          {error}
-        </div>
-      ) : null}
-
-      {/* Loading State */}
-      {loading ? (
-        <div className="rounded-xl border border-bm-border/70 p-6 text-sm text-bm-muted2">
-          Loading assets...
-        </div>
-      ) : (
-        /* Asset Table */
-        <div className="rounded-xl border border-bm-border/70 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-bm-border/50 bg-bm-surface/30 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
-                <th className="px-4 py-3 font-medium">Asset</th>
-                <th className="px-4 py-3 font-medium">Sector</th>
-                <th className="px-4 py-3 font-medium">City</th>
-                <th className="px-4 py-3 font-medium">State</th>
-                <th className="px-4 py-3 font-medium">Units/SF</th>
-                <th className="px-4 py-3 font-medium text-right">NOI</th>
-                <th className="px-4 py-3 font-medium text-right">Occupancy</th>
-                <th className="px-4 py-3 font-medium text-right">Value</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Investment</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-bm-border/40">
-              {assets.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-bm-muted2">
-                    {hasActiveFilters
-                      ? "No assets match the current filters."
-                      : "No assets found."}
-                  </td>
+      }
+      className="w-full"
+    >
+      <section data-testid="re-assets-index">
+        {error ? (
+          <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">
+            {error}
+          </div>
+        ) : loading ? (
+          <div className="rounded-xl border border-bm-border/70 p-6 text-sm text-bm-muted2">
+            Loading assets...
+          </div>
+        ) : (
+          <div className={reIndexTableShellClass}>
+            <table className={`${reIndexTableClass} min-w-[1080px]`}>
+              <thead>
+                <tr className={reIndexTableHeadRowClass}>
+                  <th className="px-4 py-3 font-medium">Asset</th>
+                  <th className="px-4 py-3 font-medium">Sector</th>
+                  <th className="px-4 py-3 font-medium">City</th>
+                  <th className="px-4 py-3 font-medium">State</th>
+                  <th className="px-4 py-3 font-medium">Units/SF</th>
+                  <th className="px-4 py-3 text-right font-medium">NOI</th>
+                  <th className="px-4 py-3 text-right font-medium">Occupancy</th>
+                  <th className="px-4 py-3 text-right font-medium">Value</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Investment</th>
                 </tr>
-              ) : (
-                assets.map((asset) => (
-                  <tr key={asset.asset_id} data-testid={`asset-row-${asset.asset_id}`} className="hover:bg-bm-surface/20">
-                    <td className="px-4 py-3 font-medium">
-                      <Link
-                        href={`${basePath}/assets/${asset.asset_id}`}
-                        className="text-bm-accent hover:underline"
-                      >
-                        {asset.name}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-bm-muted2">{asset.sector || "—"}</td>
-                    <td className="px-4 py-3 text-bm-muted2">{asset.city || "—"}</td>
-                    <td className="px-4 py-3 text-bm-muted2">{asset.state || "—"}</td>
-                    <td className="px-4 py-3 text-bm-muted2">
-                      {asset.units ? `${asset.units} units` : asset.square_feet ? `${(asset.square_feet / 1000).toFixed(0)}K SF` : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right">{fmtMoney(asset.latest_noi)}</td>
-                    <td className="px-4 py-3 text-right">{fmtPct(asset.latest_occupancy)}</td>
-                    <td className="px-4 py-3 text-right">{fmtMoney(asset.latest_value)}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs ${
-                        asset.status === "active"
-                          ? "bg-green-500/20 text-green-300"
-                          : "bg-gray-500/20 text-gray-300"
-                      }`}>
-                        {asset.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-bm-muted2 text-xs">
-                      {asset.investment_name || "—"}
+              </thead>
+              <tbody className={reIndexTableBodyClass}>
+                {assets.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="px-4 py-8 text-center text-sm text-bm-muted2">
+                      {hasActiveFilters
+                        ? "No assets match the current filters."
+                        : "No assets found."}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+                ) : (
+                  assets.map((asset) => (
+                    <tr
+                      key={asset.asset_id}
+                      data-testid={`asset-row-${asset.asset_id}`}
+                      className={reIndexTableRowClass}
+                    >
+                      <td className="px-4 py-4 align-middle">
+                        <Link
+                          href={`${basePath}/assets/${asset.asset_id}`}
+                          className={reIndexPrimaryCellClass}
+                        >
+                          {asset.name}
+                        </Link>
+                      </td>
+                      <td className={`px-4 py-4 align-middle ${reIndexSecondaryCellClass}`}>
+                        {asset.sector || "—"}
+                      </td>
+                      <td className={`px-4 py-4 align-middle ${reIndexSecondaryCellClass}`}>
+                        {asset.city || "—"}
+                      </td>
+                      <td className={`px-4 py-4 align-middle ${reIndexSecondaryCellClass}`}>
+                        {asset.state || "—"}
+                      </td>
+                      <td className={`px-4 py-4 align-middle ${reIndexSecondaryCellClass}`}>
+                        {asset.units ? `${asset.units} units` : asset.square_feet ? `${(asset.square_feet / 1000).toFixed(0)}K SF` : "—"}
+                      </td>
+                      <td className={`px-4 py-4 align-middle ${reIndexNumericCellClass}`}>
+                        {fmtMoney(asset.latest_noi)}
+                      </td>
+                      <td className={`px-4 py-4 align-middle ${reIndexNumericCellClass}`}>
+                        {fmtPct(asset.latest_occupancy)}
+                      </td>
+                      <td className={`px-4 py-4 align-middle ${reIndexNumericCellClass}`}>
+                        {fmtMoney(asset.latest_value)}
+                      </td>
+                      <td className="px-4 py-4 align-middle">
+                        <span className="inline-flex rounded-full border border-bm-border/60 bg-bm-surface/18 px-2.5 py-1 text-[11px] capitalize text-bm-muted2">
+                          {asset.status}
+                        </span>
+                      </td>
+                      <td className={`px-4 py-4 align-middle ${reIndexSecondaryCellClass}`}>
+                        {asset.investment_name || "—"}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-      <AssetCreateModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        funds={funds}
-        onCreated={fetchAssets}
-        environmentId={environmentId}
-      />
-    </section>
+        <AssetCreateModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          funds={funds}
+          onCreated={fetchAssets}
+          environmentId={environmentId}
+        />
+      </section>
+    </RepeIndexScaffold>
   );
 }
 

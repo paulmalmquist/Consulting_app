@@ -11,6 +11,21 @@ import {
   ReV2FundInvestmentRollupRow,
 } from "@/lib/bos-api";
 import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
+import { KpiStrip } from "@/components/repe/asset-cockpit/KpiStrip";
+import {
+  RepeIndexScaffold,
+  reIndexActionClass,
+  reIndexControlLabelClass,
+  reIndexInputClass,
+  reIndexNumericCellClass,
+  reIndexPrimaryCellClass,
+  reIndexSecondaryCellClass,
+  reIndexTableBodyClass,
+  reIndexTableClass,
+  reIndexTableHeadRowClass,
+  reIndexTableRowClass,
+  reIndexTableShellClass,
+} from "@/components/repe/RepeIndexScaffold";
 
 const STAGE_OPTIONS = [
   "sourcing",
@@ -320,54 +335,36 @@ function RepeInvestmentsPageContent() {
   }
 
   return (
-    <section className="space-y-4" data-testid="re-investments-list">
-      {/* Header */}
-      <div className="rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Investments</h1>
-            <p className="mt-1 text-sm text-bm-muted2">
-              Portfolio investments across all funds · As of {quarter}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            className="rounded-lg bg-bm-accent px-4 py-2 text-sm text-white hover:bg-bm-accent/90"
-            data-testid="btn-new-investment"
-          >
-            + New Investment
-          </button>
-        </div>
-
-        {/* KPI Strip */}
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-lg border border-bm-border/60 p-3">
-            <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Total Investments</p>
-            <p className="mt-1 text-lg font-bold">{totalInvestments}</p>
-          </div>
-          <div className="rounded-lg border border-bm-border/60 p-3">
-            <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Aggregate NAV</p>
-            <p className="mt-1 text-lg font-bold">{fmtMoney(aggregateNav)}</p>
-          </div>
-          <div className="rounded-lg border border-bm-border/60 p-3">
-            <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Aggregate NOI</p>
-            <p className="mt-1 text-lg font-bold">{fmtMoney(aggregateNoi)}</p>
-          </div>
-          <div className="rounded-lg border border-bm-border/60 p-3">
-            <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Avg Occupancy</p>
-            <p className="mt-1 text-lg font-bold">{fmtPct(avgWeightedOccupancy)}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Filter Row */}
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3">
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+    <RepeIndexScaffold
+      title="Investments"
+      subtitle={`Portfolio investments across all funds · As of ${quarter}`}
+      action={
+        <button
+          type="button"
+          onClick={() => setModalOpen(true)}
+          className={reIndexActionClass}
+          data-testid="btn-new-investment"
+        >
+          + New Investment
+        </button>
+      }
+      metrics={
+        <KpiStrip
+          variant="band"
+          kpis={[
+            { label: "Total Investments", value: totalInvestments },
+            { label: "Aggregate NAV", value: fmtMoney(aggregateNav) },
+            { label: "Aggregate NOI", value: fmtMoney(aggregateNoi) },
+            { label: "Avg Occupancy", value: fmtPct(avgWeightedOccupancy) },
+          ]}
+        />
+      }
+      controls={
+        <div className="flex flex-wrap items-end gap-x-3 gap-y-3 border-b border-bm-border/20 pb-5">
+          <label className={reIndexControlLabelClass}>
             Fund
             <select
-              className="mt-1 block w-44 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
+              className={`${reIndexInputClass} w-44`}
               value={fundFilter}
               onChange={(e) => setFilter("fund", e.target.value)}
               data-testid="filter-fund"
@@ -379,10 +376,10 @@ function RepeInvestmentsPageContent() {
             </select>
           </label>
 
-          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+          <label className={reIndexControlLabelClass}>
             Stage
             <select
-              className="mt-1 block w-32 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
+              className={`${reIndexInputClass} w-32`}
               value={stageFilter}
               onChange={(e) => setFilter("stage", e.target.value)}
               data-testid="filter-stage"
@@ -394,10 +391,10 @@ function RepeInvestmentsPageContent() {
             </select>
           </label>
 
-          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+          <label className={reIndexControlLabelClass}>
             Type
             <select
-              className="mt-1 block w-28 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
+              className={`${reIndexInputClass} w-28`}
               value={typeFilter}
               onChange={(e) => setFilter("type", e.target.value)}
               data-testid="filter-type"
@@ -409,10 +406,10 @@ function RepeInvestmentsPageContent() {
             </select>
           </label>
 
-          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+          <label className={reIndexControlLabelClass}>
             Sponsor
             <select
-              className="mt-1 block w-40 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
+              className={`${reIndexInputClass} w-40`}
               value={sponsorFilter}
               onChange={(e) => setFilter("sponsor", e.target.value)}
               data-testid="filter-sponsor"
@@ -424,10 +421,10 @@ function RepeInvestmentsPageContent() {
             </select>
           </label>
 
-          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+          <label className={reIndexControlLabelClass}>
             Search
             <input
-              className="mt-1 block w-48 rounded-lg border border-bm-border bg-bm-surface px-2 py-1.5 text-sm"
+              className={`${reIndexInputClass} w-48`}
               value={searchQuery}
               onChange={(e) => setFilter("q", e.target.value)}
               placeholder="Name, sponsor..."
@@ -435,113 +432,128 @@ function RepeInvestmentsPageContent() {
             />
           </label>
 
-          {hasActiveFilters && (
+          {hasActiveFilters ? (
             <button
               type="button"
               onClick={clearFilters}
-              className="rounded-lg border border-bm-border px-3 py-1.5 text-xs hover:bg-bm-surface/40"
+              className="inline-flex h-10 items-center rounded-md border border-bm-border/70 px-3 text-[11px] uppercase tracking-[0.12em] text-bm-muted2 transition-colors duration-100 hover:bg-bm-surface/25 hover:text-bm-text"
             >
               Clear Filters
             </button>
-          )}
+          ) : null}
         </div>
-      </div>
-
-      {/* Error State */}
-      {error && (
-        <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">
-          {error}
-        </div>
-      )}
-
-      {/* Loading State */}
-      {loading ? (
-        <div className="rounded-xl border border-bm-border/70 p-6 text-sm text-bm-muted2">
-          Loading investments...
-        </div>
-      ) : (
-        /* Investment Table */
-        <div className="rounded-xl border border-bm-border/70 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-bm-border/50 bg-bm-surface/30 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
-                <th className="px-3 py-3 font-medium">Name</th>
-                <th className="px-3 py-3 font-medium">Fund</th>
-                <th className="px-3 py-3 font-medium">Type</th>
-                <th className="px-3 py-3 font-medium">Stage</th>
-                <th className="px-3 py-3 font-medium text-right">Assets</th>
-                <th className="px-3 py-3 font-medium">Market</th>
-                <th className="px-3 py-3 font-medium text-right">NAV</th>
-                <th className="px-3 py-3 font-medium text-right">NOI</th>
-                <th className="px-3 py-3 font-medium text-right">Occ</th>
-                <th className="px-3 py-3 font-medium text-right">LTV</th>
-                <th className="px-3 py-3 font-medium text-right">DSCR</th>
-                <th className="px-3 py-3 font-medium text-right">Value</th>
-                <th className="px-3 py-3 font-medium text-center">Health</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-bm-border/40">
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={13} className="px-4 py-8 text-center text-bm-muted2">
-                    {hasActiveFilters
-                      ? "No investments match the current filters."
-                      : "No investments yet."}
-                  </td>
+      }
+      className="w-full"
+    >
+      <section data-testid="re-investments-list">
+        {error ? (
+          <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">
+            {error}
+          </div>
+        ) : loading ? (
+          <div className="rounded-xl border border-bm-border/70 p-6 text-sm text-bm-muted2">
+            Loading investments...
+          </div>
+        ) : (
+          <div className={reIndexTableShellClass}>
+            <table className={`${reIndexTableClass} min-w-[1240px]`}>
+              <thead>
+                <tr className={reIndexTableHeadRowClass}>
+                  <th className="px-3 py-3 font-medium">Name</th>
+                  <th className="px-3 py-3 font-medium">Fund</th>
+                  <th className="px-3 py-3 font-medium">Type</th>
+                  <th className="px-3 py-3 font-medium">Stage</th>
+                  <th className="px-3 py-3 text-right font-medium">Assets</th>
+                  <th className="px-3 py-3 font-medium">Market</th>
+                  <th className="px-3 py-3 text-right font-medium">NAV</th>
+                  <th className="px-3 py-3 text-right font-medium">NOI</th>
+                  <th className="px-3 py-3 text-right font-medium">Occ</th>
+                  <th className="px-3 py-3 text-right font-medium">LTV</th>
+                  <th className="px-3 py-3 text-right font-medium">DSCR</th>
+                  <th className="px-3 py-3 text-right font-medium">Value</th>
+                  <th className="px-3 py-3 text-center font-medium">Health</th>
                 </tr>
-              ) : (
-                rows.map((row) => (
-                  <tr
-                    key={row.investment_id}
-                    data-testid={`investment-row-${row.investment_id}`}
-                    className="hover:bg-bm-surface/20"
-                  >
-                    <td className="px-3 py-3 font-medium">
-                      <Link
-                        href={`${basePath}/investments/${row.investment_id}`}
-                        className="text-bm-accent hover:underline"
-                      >
-                        {row.name}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-3 text-bm-muted2 text-xs">{row.fund_name || "—"}</td>
-                    <td className="px-3 py-3 text-bm-muted2 capitalize">{row.deal_type || "—"}</td>
-                    <td className="px-3 py-3">
-                      {row.stage ? (
-                        <span className="rounded-full border border-bm-border/70 px-2 py-0.5 text-xs">
-                          {STAGE_LABELS[row.stage] || row.stage}
-                        </span>
-                      ) : "—"}
-                    </td>
-                    <td className="px-3 py-3 text-right">{row.asset_count ?? "—"}</td>
-                    <td className="px-3 py-3 text-bm-muted2 text-xs">{row.primary_market || "—"}</td>
-                    <td className="px-3 py-3 text-right font-medium">{fmtMoney(row.nav)}</td>
-                    <td className="px-3 py-3 text-right">{fmtMoney(row.total_noi)}</td>
-                    <td className="px-3 py-3 text-right">{fmtPct(row.weighted_occupancy)}</td>
-                    <td className="px-3 py-3 text-right">{fmtPct(row.computed_ltv)}</td>
-                    <td className="px-3 py-3 text-right">
-                      {row.computed_dscr != null ? `${Number(row.computed_dscr).toFixed(2)}x` : "—"}
-                    </td>
-                    <td className="px-3 py-3 text-right">{fmtMoney(row.total_asset_value)}</td>
-                    <td className="px-3 py-3 text-center">
-                      <DataHealthDot missing={row.missing_quarter_state_count} />
+              </thead>
+              <tbody className={reIndexTableBodyClass}>
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={13} className="px-4 py-8 text-center text-sm text-bm-muted2">
+                      {hasActiveFilters
+                        ? "No investments match the current filters."
+                        : "No investments yet."}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+                ) : (
+                  rows.map((row) => (
+                    <tr
+                      key={row.investment_id}
+                      data-testid={`investment-row-${row.investment_id}`}
+                      className={reIndexTableRowClass}
+                    >
+                      <td className="px-3 py-4 align-middle">
+                        <Link
+                          href={`${basePath}/investments/${row.investment_id}`}
+                          className={reIndexPrimaryCellClass}
+                        >
+                          {row.name}
+                        </Link>
+                      </td>
+                      <td className={`px-3 py-4 align-middle ${reIndexSecondaryCellClass}`}>
+                        {row.fund_name || "—"}
+                      </td>
+                      <td className="px-3 py-4 align-middle text-[12px] uppercase tracking-[0.04em] text-bm-muted2">
+                        {row.deal_type || "—"}
+                      </td>
+                      <td className="px-3 py-4 align-middle">
+                        {row.stage ? (
+                          <span className="inline-flex rounded-full border border-bm-border/60 bg-bm-surface/18 px-2.5 py-1 text-[11px] text-bm-muted2">
+                            {STAGE_LABELS[row.stage] || row.stage}
+                          </span>
+                        ) : "—"}
+                      </td>
+                      <td className="px-3 py-4 text-right align-middle text-[14px] tabular-nums text-bm-text">
+                        {row.asset_count ?? "—"}
+                      </td>
+                      <td className={`px-3 py-4 align-middle ${reIndexSecondaryCellClass}`}>
+                        {row.primary_market || "—"}
+                      </td>
+                      <td className={`px-3 py-4 align-middle ${reIndexNumericCellClass}`}>
+                        {fmtMoney(row.nav)}
+                      </td>
+                      <td className={`px-3 py-4 align-middle ${reIndexNumericCellClass}`}>
+                        {fmtMoney(row.total_noi)}
+                      </td>
+                      <td className={`px-3 py-4 align-middle ${reIndexNumericCellClass}`}>
+                        {fmtPct(row.weighted_occupancy)}
+                      </td>
+                      <td className={`px-3 py-4 align-middle ${reIndexNumericCellClass}`}>
+                        {fmtPct(row.computed_ltv)}
+                      </td>
+                      <td className={`px-3 py-4 align-middle ${reIndexNumericCellClass}`}>
+                        {row.computed_dscr != null ? `${Number(row.computed_dscr).toFixed(2)}x` : "—"}
+                      </td>
+                      <td className={`px-3 py-4 align-middle ${reIndexNumericCellClass}`}>
+                        {fmtMoney(row.total_asset_value)}
+                      </td>
+                      <td className="px-3 py-4 text-center align-middle">
+                        <DataHealthDot missing={row.missing_quarter_state_count} />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-      {/* Create Modal */}
-      <InvestmentCreateModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        funds={funds}
-        onCreated={fetchInvestments}
-      />
-    </section>
+        <InvestmentCreateModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          funds={funds}
+          onCreated={fetchInvestments}
+        />
+      </section>
+    </RepeIndexScaffold>
   );
 }
 

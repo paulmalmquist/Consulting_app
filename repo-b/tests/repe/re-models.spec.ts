@@ -120,6 +120,19 @@ test.describe("RE Models Workspace", () => {
     expect(pageText).not.toContain(TEST_BUSINESS_ID.slice(0, 8));
   });
 
+  test("desktop utility nav shows lightweight shortcut links", async ({ page, context }) => {
+    await installMocks(context);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`/lab/env/${TEST_ENV_ID}/re`);
+    await page.waitForSelector("[data-testid='repe-utility-nav']");
+
+    const utilityNav = page.getByTestId("repe-utility-nav");
+    await expect(utilityNav.getByRole("link", { name: "Home" })).toBeVisible();
+    await expect(utilityNav.getByRole("link", { name: "Funds" })).toBeVisible();
+    await expect(utilityNav.getByRole("link", { name: "Investments" })).toBeVisible();
+    await expect(utilityNav.getByRole("link", { name: "Assets" })).toBeVisible();
+  });
+
   test("/scenarios redirects to /models", async ({ page, context }) => {
     await installMocks(context);
     await page.goto(`/lab/env/${TEST_ENV_ID}/re/scenarios`);
