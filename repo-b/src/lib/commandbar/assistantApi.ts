@@ -849,6 +849,9 @@ export async function askAi(input: {
     }
 
     trace.durationMs = Date.now() - startedAt;
+    if (!answer.trim()) {
+      console.warn(`[askAi] Empty response for ${requestId} after ${trace.durationMs}ms (status=${response.status})`);
+    }
     logClientTrace(trace);
     return { answer: answer.trim() || "No response from Winston.", trace };
   } catch (error) {

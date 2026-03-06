@@ -60,17 +60,18 @@ export async function POST(req: NextRequest) {
     session_id: parsed.session_id || null,
   });
 
-  // Try FastAPI backend first
+  // Try FastAPI backend first (60s timeout — tool-calling workflows take 15-20s)
+  const requestId = req.headers.get("x-bm-request-id") || crypto.randomUUID();
   try {
     const upstream = await fetch(`${FASTAPI_BASE}/api/ai/gateway/ask`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-bm-actor": actor,
-        "x-bm-request-id": req.headers.get("x-bm-request-id") || crypto.randomUUID(),
+        "x-bm-request-id": requestId,
       },
       body: gatewayBody,
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(60_000),
     });
 
     if (upstream.ok) {
@@ -83,9 +84,9 @@ export async function POST(req: NextRequest) {
         },
       });
     }
-    // Backend returned error — fall through to direct OpenAI
-  } catch {
-    // Backend unreachable — fall through to direct OpenAI
+    console.warn(`[ai-gateway] Backend returned ${upstream.status} for ${requestId}; falling back to OpenAI`);
+  } catch (err) {
+    console.warn(`[ai-gateway] Backend unreachable for ${requestId}: ${err instanceof Error ? err.message : err}; falling back to OpenAI`);
   }
 
   // Fallback: call OpenAI directly (no tools, no RAG — just basic chat)
