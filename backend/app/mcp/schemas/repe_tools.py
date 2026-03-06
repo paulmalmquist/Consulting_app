@@ -77,6 +77,7 @@ class GetEnvironmentSnapshotInput(BaseModel):
 class CreateFundInput(BaseModel):
     model_config = {"extra": "forbid"}
 
+    confirmed: bool = Field(default=False, description="Must be true to execute. If false, returns a confirmation summary instead.")
     name: str = Field(description="Fund name")
     vintage_year: int = Field(description="Vintage year (e.g. 2024)")
     fund_type: str = Field(description="Fund type: open-end, closed-end, co-invest, fund-of-funds")
@@ -94,6 +95,7 @@ class CreateFundInput(BaseModel):
 class CreateDealInput(BaseModel):
     model_config = {"extra": "forbid"}
 
+    confirmed: bool = Field(default=False, description="Must be true to execute. If false, returns a confirmation summary instead.")
     name: str = Field(description="Deal/investment name")
     deal_type: str = Field(description="Deal type: equity, debt, preferred, mezzanine")
     stage: str = Field(default="screening", description="Stage: screening, due-diligence, closed, exited")
@@ -107,6 +109,7 @@ class CreateDealInput(BaseModel):
 class CreateAssetInput(BaseModel):
     model_config = {"extra": "forbid"}
 
+    confirmed: bool = Field(default=False, description="Must be true to execute. If false, returns a confirmation summary instead.")
     name: str = Field(description="Asset name")
     asset_type: str = Field(default="property", description="Asset type: property or cmbs")
     property_type: str | None = Field(default=None, description="Property type: multifamily, office, industrial, retail, etc.")

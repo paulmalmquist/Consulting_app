@@ -364,7 +364,19 @@ function TraceTab({
           {debug.toolCalls.map((tc, i) => (
             <div key={i} className="mb-2">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono text-bm-text/80">{tc.tool_name}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-mono text-bm-text/80">{tc.tool_name}</span>
+                  {tc.is_write && (
+                    <span className="inline-flex items-center rounded px-1 py-0 text-[8px] font-medium bg-orange-500/20 text-orange-300 border border-orange-500/30">
+                      WRITE
+                    </span>
+                  )}
+                  {tc.pending_confirmation && (
+                    <span className="inline-flex items-center rounded px-1 py-0 text-[8px] font-medium bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
+                      PENDING
+                    </span>
+                  )}
+                </div>
                 <CopyButton text={JSON.stringify({ args: tc.args, result_preview: tc.result_preview }, null, 2)} label="Copy" />
               </div>
               <pre className="mt-0.5 max-h-24 overflow-auto text-[10px] text-bm-muted2 font-mono whitespace-pre-wrap">

@@ -190,6 +190,16 @@ def _get_environment_snapshot(ctx: McpContext, inp: GetEnvironmentSnapshotInput)
     return _serialize(snapshot)
 
 
+def _confirmation_summary(action: str, params: dict) -> dict:
+    """Return a pending_confirmation response — the tool refuses to execute without confirmed=true."""
+    return {
+        "pending_confirmation": True,
+        "action": action,
+        "summary": {k: v for k, v in params.items() if v is not None},
+        "message": f"Ready to {action}. Call this tool again with confirmed=true to execute.",
+    }
+
+
 def _create_fund(ctx: McpContext, inp: CreateFundInput) -> dict:
     business_id = _resolve_business_id(inp, ctx)
     payload = {
@@ -203,6 +213,8 @@ def _create_fund(ctx: McpContext, inp: CreateFundInput) -> dict:
         "term_years": inp.term_years,
         "base_currency": inp.base_currency,
     }
+    if not inp.confirmed:
+        return _confirmation_summary("create fund", payload)
     fund = repe.create_fund(business_id=business_id, payload=payload)
     return {"fund": _serialize(fund), "created": True}
 
@@ -216,6 +228,8 @@ def _create_deal(ctx: McpContext, inp: CreateDealInput) -> dict:
         "sponsor": inp.sponsor,
         "target_close_date": inp.target_close_date,
     }
+    if not inp.confirmed:
+        return _confirmation_summary("create deal", payload)
     deal = repe.create_deal(fund_id=fund_id, payload=payload)
     return {"deal": _serialize(deal), "created": True}
 
@@ -233,6 +247,8 @@ def _create_asset(ctx: McpContext, inp: CreateAssetInput) -> dict:
         "current_noi": inp.current_noi,
         "occupancy": inp.occupancy,
     }
+    if not inp.confirmed:
+        return _confirmation_summary("create asset", payload)
     asset = repe.create_asset(deal_id=deal_id, payload=payload)
     return {"asset": _serialize(asset), "created": True}
 

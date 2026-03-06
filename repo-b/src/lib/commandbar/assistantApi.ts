@@ -44,6 +44,8 @@ export type AssistantToolEvent = {
   duration_ms?: number;
   success?: boolean;
   row_count?: number | null;
+  is_write?: boolean;
+  pending_confirmation?: boolean;
 };
 
 export type WinstonToolTimeline = {
@@ -970,6 +972,8 @@ export async function askAi(input: {
                 duration_ms: parsed.duration_ms,
                 success: parsed.success,
                 row_count: parsed.row_count,
+                is_write: parsed.is_write,
+                pending_confirmation: parsed.pending_confirmation,
               });
               const label = parsed.tool_name.replace(/^repe\./, "").replace(/_/g, " ");
               input.onStatus?.(`Looking up ${label}...`);
@@ -981,6 +985,11 @@ export async function askAi(input: {
                 args: parsed.args,
                 result: parsed.result,
               });
+              continue;
+            }
+            // Write tool confirmation required — surface as status
+            else if (currentEvent === "confirmation_required" && parsed.action) {
+              input.onStatus?.(`Awaiting confirmation: ${parsed.action}`);
               continue;
             }
             // FastAPI citation/done events — silently consume

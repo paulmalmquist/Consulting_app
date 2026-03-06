@@ -24,7 +24,7 @@ from app.services.assistant_scope import (
 from app.services.rag_indexer import RetrievedChunk, semantic_search
 from app.services.request_router import RouteDecision, classify_request
 
-_SYSTEM_PROMPT = """You are Winston, an in-app copilot embedded in an institutional real estate private equity platform.
+_SYSTEM_PROMPT_BASE = """You are Winston, an in-app copilot embedded in an institutional real estate private equity platform.
 
 ## Primary Operating Rule
 Treat the application UI as the first source of truth. Resolve the current page, environment, and selected entity
@@ -43,17 +43,16 @@ before answering. Do not behave like a stateless chatbot.
 - Prefer structured tool data over general knowledge.
 - If visible UI data already answers the question, do not contradict it with a stale assumption.
 
+## Tool Failure Recovery
+- If a tool call returns an error, surface the error plainly: "I tried to [action] but got: [error]."
+- NEVER invent or fabricate a result when a tool call fails or returns nothing. Silence from a tool is NOT success.
+- If you attempted a tool call that returned an "Unknown tool" error, tell the user: "That operation is not available in the current configuration."
+
 ## Data Model
 - In this platform, "deals" and "investments" are the SAME entity (stored in repe_deal table).
 - The hierarchy is: Business → Environment → Fund → Deal/Investment → Asset.
 - When the user says "investments", use repe.list_deals. When they say "deals", use the same tool.
 - Do NOT confuse deals/investments with funds or assets.
-
-## Mutation Rules
-- For any create/update/delete action, ALWAYS confirm the parameters with the user before calling the write tool.
-- Present the parameters in a clear summary and ask "Shall I proceed?" before executing.
-- After a successful write, report what was created and its ID.
-- If a write fails, report the error clearly and suggest corrections.
 
 ## Response Style
 - Be concise, data-driven, and explicit about freshness.
@@ -61,6 +60,36 @@ before answering. Do not behave like a stateless chatbot.
 - Never fabricate fund names, cap rates, IRRs, or entity-level figures.
 - Cite retrieved chunk_id values when using document context.
 """
+
+_MUTATION_RULES_BLOCK = """
+## Mutation Rules
+- For any create/update/delete action, ALWAYS confirm the parameters with the user before calling the write tool.
+- Present the parameters in a clear summary and ask "Shall I proceed?" before executing.
+- Write tools require `confirmed: true` to execute. On first call (without confirmed), the tool returns a confirmation summary instead of executing.
+- After a successful write, report what was created and its ID.
+- If a write fails, report the error clearly and suggest corrections.
+"""
+
+_READ_ONLY_BLOCK = """
+## Operating Mode: Read-Only
+- You operate in read-only mode. You can look up, analyze, and report on data, but you cannot create, modify, or delete records.
+- If the user asks you to create, add, or modify something, explain that write operations are not available and suggest they use the platform UI directly.
+"""
+
+
+def _has_write_tools() -> bool:
+    """Check if any write-permission tools are registered."""
+    for tool_def in registry.list_all():
+        if tool_def.permission == "write" and tool_def.handler is not None:
+            return True
+    return False
+
+
+def _build_system_prompt() -> str:
+    """Build system prompt dynamically based on registered tool capabilities."""
+    if _has_write_tools():
+        return _SYSTEM_PROMPT_BASE + _MUTATION_RULES_BLOCK
+    return _SYSTEM_PROMPT_BASE + _READ_ONLY_BLOCK
 
 
 def _sanitize_tool_name(name: str) -> str:
@@ -244,6 +273,25 @@ async def run_gateway_stream(
         context={"lane": route.lane, "skip_rag": route.skip_rag, "skip_tools": route.skip_tools, "max_tool_rounds": route.max_tool_rounds},
     )
 
+    # ── Graceful degradation: write request but no write tools ────────
+    if route.is_write and not _has_write_tools():
+        yield _sse("token", {"text": "Write operations (creating funds, deals, or assets) are not available in the current configuration. I can read and analyze your portfolio data — for creating records, please use the platform UI directly."})
+        timings["total_ms"] = int((time.time() - start) * 1000)
+        yield _sse("done", {
+            "session_id": session_id,
+            "trace": {
+                "execution_path": "chat", "lane": route.lane, "model": "none",
+                "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
+                "tool_call_count": 0, "tool_timeline": [], "data_sources": [],
+                "citations": [], "rag_chunks_used": 0, "warnings": ["Write tools not registered"],
+                "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+                "repe": None, "visible_context_shortcut": False, "timings": timings,
+            },
+            "prompt_tokens": 0, "completion_tokens": 0, "tool_calls": 0,
+            "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+        })
+        return
+
     # ── RAG (conditional — skipped for Lane A/B when not needed) ────
     rag_chunks: list[RetrievedChunk] = []
     rag_business_id = resolved_scope.business_id or (str(business_id) if business_id else None)
@@ -294,8 +342,9 @@ async def run_gateway_stream(
         resolved_scope=resolved_scope,
         additional_instructions=visible_context_policy["instructions"],
     )
+    system_prompt = _build_system_prompt()
     messages: list[dict[str, Any]] = [
-        {"role": "system", "content": _SYSTEM_PROMPT + "\n\n" + context_block + rag_context},
+        {"role": "system", "content": system_prompt + "\n\n" + context_block + rag_context},
     ]
 
     # ── Conversation history (limited to last 10 turns for speed) ───
@@ -553,6 +602,12 @@ async def run_gateway_stream(
                 context={"tool_name": tool_name, "result_preview": _preview(tool_result, max_chars=1000), "duration_ms": tool_duration_ms},
             )
 
+            # Detect pending_confirmation from write tools
+            is_pending_confirmation = (
+                isinstance(tool_result, dict) and tool_result.get("pending_confirmation") is True
+            )
+            is_write_tool = tool_def and tool_def.permission == "write" if tool_def else False
+
             yield _sse(
                 "tool_call",
                 {
@@ -562,8 +617,20 @@ async def run_gateway_stream(
                     "duration_ms": tool_duration_ms,
                     "success": tool_success,
                     "row_count": row_count,
+                    "is_write": is_write_tool,
+                    "pending_confirmation": is_pending_confirmation,
                 },
             )
+            if is_pending_confirmation:
+                yield _sse(
+                    "confirmation_required",
+                    {
+                        "tool_name": tool_name,
+                        "action": tool_result.get("action", tool_name),
+                        "summary": tool_result.get("summary", {}),
+                        "message": tool_result.get("message", "Confirm to proceed."),
+                    },
+                )
             yield _sse(
                 "tool_result",
                 {"tool_name": tool_name, "args": raw_args, "result": _json_safe(tool_result)},

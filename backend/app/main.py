@@ -58,6 +58,16 @@ app = FastAPI(title="Business OS API", version="0.1.0")
 # Without this, _build_openai_tools() returns an empty list and Winston has zero tools.
 _register_all_tools()
 
+# Validate prompt/registry coherence at startup
+from app.mcp.registry import registry as _tool_registry
+_write_tools = [t.name for t in _tool_registry.list_all() if t.permission == "write" and t.handler is not None]
+if _write_tools:
+    emit_log(level="info", service="backend", action="startup.write_tools_registered",
+             message=f"Write tools registered: {_write_tools}", context={"tools": _write_tools})
+else:
+    emit_log(level="warn", service="backend", action="startup.no_write_tools",
+             message="No write tools registered — Winston operates in read-only mode", context={})
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,

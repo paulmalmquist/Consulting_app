@@ -22,6 +22,7 @@ class RouteDecision:
     max_tool_rounds: int
     max_tokens: int
     temperature: float
+    is_write: bool = False
 
 
 # ── Pattern matchers ─────────────────────────────────────────────────────────
@@ -55,7 +56,12 @@ _RAG_HINT_RE = re.compile(
     re.IGNORECASE,
 )
 _WRITE_RE = re.compile(
-    r"\b(create|add|new|set up|register|insert)\b.*\b(fund|deal|investment|asset|property)\b",
+    r"\b(create|add a new|set up a|register a|insert a)\b[\s\w]{0,40}\b(fund|deal|investment|asset|property)\b",
+    re.IGNORECASE,
+)
+# Exclude analytical/navigational queries that happen to contain write-like keywords
+_WRITE_EXCLUDE_RE = re.compile(
+    r"\b(compare|analyze|show|list|what|how|tell me|describe|explain|summarize)\b",
     re.IGNORECASE,
 )
 
@@ -109,7 +115,7 @@ def classify_request(
             )
 
     # Write/mutation requests → Lane C (multi-tool for confirmation flow)
-    if _WRITE_RE.search(message):
+    if _WRITE_RE.search(message) and not _WRITE_EXCLUDE_RE.search(message):
         return RouteDecision(
             lane="C",
             skip_rag=True,
@@ -117,6 +123,7 @@ def classify_request(
             max_tool_rounds=3,
             max_tokens=1024,
             temperature=0.2,
+            is_write=True,
         )
 
     # Deep reasoning
