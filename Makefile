@@ -1,5 +1,6 @@
 # ── Consulting App Makefile ────────────────────────────────────────
 .PHONY: dev dev-bos dev-demo test test-backend test-demo test-frontend test-e2e test-repe-backend test-repe-unit test-repe-e2e test-repe \
+        test-live \
         lint lint-strict typecheck quality fmt db\:migrate db\:seed db\:dry db\:verify install \
         bmctl smoke mcp-smoke command-regression public-walloff-smoke \
         orchestration\:install-hooks orchestration\:validate orchestration\:verify-logs \
@@ -52,6 +53,14 @@ test-repe-e2e: ## Run REPE Playwright flows
 	cd repo-b && npm run test:repe:e2e
 
 test-repe: test-repe-backend test-repe-unit test-repe-e2e ## Run full REPE verification suite
+
+test-live:  ## Run live integration smoke tests against a real DB (requires DATABASE_URL)
+	@if [ -z "$$DATABASE_URL" ]; then \
+	  echo "ERROR: DATABASE_URL is not set. Example:"; \
+	  echo "  DATABASE_URL=postgresql://user:pass@host:5432/db make test-live"; \
+	  exit 1; \
+	fi
+	cd backend && DATABASE_URL="$$DATABASE_URL" .venv/bin/python -m pytest tests/test_re_live.py -v
 
 # ── Lint / Format ─────────────────────────────────────────────────
 lint:  ## Lint all code
