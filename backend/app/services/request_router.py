@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any
-
 from app.schemas.ai_gateway import AssistantContextEnvelope, ResolvedAssistantScope
 
 

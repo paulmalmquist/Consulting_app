@@ -22,7 +22,7 @@ from app.services.assistant_scope import (
     resolve_visible_context_policy,
 )
 from app.services.rag_indexer import RetrievedChunk, semantic_search
-from app.services.request_router import RouteDecision, classify_request
+from app.services.request_router import classify_request
 
 _SYSTEM_PROMPT_BASE = """You are Winston, an in-app copilot embedded in an institutional real estate private equity platform.
 
@@ -66,6 +66,7 @@ _MUTATION_RULES_BLOCK = """
 - For any create/update/delete action, ALWAYS confirm the parameters with the user before calling the write tool.
 - Present the parameters in a clear summary and ask "Shall I proceed?" before executing.
 - Write tools require `confirmed: true` to execute. On first call (without confirmed), the tool returns a confirmation summary instead of executing.
+- When the user replies "yes", "go ahead", "proceed", or similar after a confirmation summary, call the SAME tool again with the SAME parameters but with `confirmed: true`. Do NOT ask for parameters again.
 - After a successful write, report what was created and its ID.
 - If a write fails, report the error clearly and suggest corrections.
 """
@@ -357,7 +358,24 @@ async def run_gateway_stream(
             max_history = 6 if route.lane in ("A", "B") else 10
             recent = [m for m in history if m["role"] in ("user", "assistant")][-max_history:]
             for msg in recent:
-                messages.append({"role": msg["role"], "content": msg["content"]})
+                content = msg["content"] or ""
+                # Reconstruct tool call context from stored tool_calls JSON
+                # so the LLM understands what happened in prior turns
+                if msg["role"] == "assistant" and msg.get("tool_calls"):
+                    stored_tcs = msg["tool_calls"]
+                    if isinstance(stored_tcs, str):
+                        try:
+                            stored_tcs = json.loads(stored_tcs)
+                        except Exception:
+                            stored_tcs = None
+                    if stored_tcs and "[SYSTEM NOTE:" not in content:
+                        # Only add if enriched content wasn't already persisted
+                        tc_parts = []
+                        for tc in stored_tcs:
+                            args = tc.get("args", {})
+                            tc_parts.append(f"{tc['name']}({json.dumps(args, default=str)})")
+                        content += f"\n\n[Prior tool calls: {'; '.join(tc_parts)}]"
+                messages.append({"role": msg["role"], "content": content})
         except Exception:
             pass
 
@@ -644,7 +662,7 @@ async def run_gateway_stream(
                 }
             )
 
-    if conversation_id and collected_content:
+    if conversation_id:
         try:
             from app.services import ai_conversations as convo_svc
 
@@ -653,14 +671,42 @@ async def run_gateway_stream(
                 role="user",
                 content=message,
             )
-            convo_svc.append_message(
-                conversation_id=conversation_id,
-                role="assistant",
-                content=collected_content,
-                tool_calls=tool_calls_log or None,
-                citations=citations_log or None,
-                token_count=total_completion_tokens or None,
-            )
+            # Build enriched content that includes tool call context so
+            # the next turn's history gives the LLM full awareness of
+            # what happened (especially pending confirmations).
+            enriched_content = collected_content or ""
+            if tool_calls_log:
+                tool_summary_parts: list[str] = []
+                for tc in tool_calls_log:
+                    tc_line = f"  - {tc['name']}(confirmed={tc.get('args', {}).get('confirmed', 'N/A')})"
+                    if tc.get("success"):
+                        tc_line += " → success"
+                    else:
+                        tc_line += f" → error: {tc.get('error', 'unknown')}"
+                    tool_summary_parts.append(tc_line)
+                # Check for any pending confirmations
+                pending_tools = [
+                    tc for tc in tool_calls_log
+                    if tc.get("success") and tc.get("args", {}).get("confirmed") is False
+                ]
+                if pending_tools:
+                    pending_names = [tc["name"] for tc in pending_tools]
+                    enriched_content += (
+                        "\n\n[SYSTEM NOTE: Tool calls this turn: "
+                        + "; ".join(tool_summary_parts)
+                        + ". PENDING CONFIRMATION for: " + ", ".join(pending_names) + ". "
+                        + "If the user confirms, call the same tool again with confirmed=true "
+                        + "using the same parameters.]"
+                    )
+            if enriched_content:
+                convo_svc.append_message(
+                    conversation_id=conversation_id,
+                    role="assistant",
+                    content=enriched_content,
+                    tool_calls=tool_calls_log or None,
+                    citations=citations_log or None,
+                    token_count=total_completion_tokens or None,
+                )
         except Exception:
             pass
 

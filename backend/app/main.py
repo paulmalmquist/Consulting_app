@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import ALLOWED_ORIGINS
 from app.middleware import RequestLoggingMiddleware
+from app.mcp.registry import registry as _tool_registry
 from app.mcp.server import _register_all_tools
 from app.observability.logger import emit_log
 from app.routes import (
@@ -59,7 +60,6 @@ app = FastAPI(title="Business OS API", version="0.1.0")
 _register_all_tools()
 
 # Validate prompt/registry coherence at startup
-from app.mcp.registry import registry as _tool_registry
 _write_tools = [t.name for t in _tool_registry.list_all() if t.permission == "write" and t.handler is not None]
 if _write_tools:
     emit_log(level="info", service="backend", action="startup.write_tools_registered",
