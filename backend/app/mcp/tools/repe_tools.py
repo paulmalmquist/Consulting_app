@@ -201,6 +201,19 @@ def _confirmation_summary(action: str, params: dict) -> dict:
 
 
 def _create_fund(ctx: McpContext, inp: CreateFundInput) -> dict:
+    if not inp.name and not inp.confirmed:
+        return {
+            "pending_confirmation": True,
+            "needs_input": True,
+            "missing_fields": ["name"],
+            "provided": {k: v for k, v in {
+                "vintage_year": inp.vintage_year,
+                "fund_type": inp.fund_type,
+                "strategy": inp.strategy,
+                "status": inp.status,
+            }.items() if v is not None},
+            "message": "Fund name is required. What would you like to call this fund?",
+        }
     business_id = _resolve_business_id(inp, ctx)
     payload = {
         "name": inp.name,
@@ -215,11 +228,26 @@ def _create_fund(ctx: McpContext, inp: CreateFundInput) -> dict:
     }
     if not inp.confirmed:
         return _confirmation_summary("create fund", payload)
+    if not inp.name:
+        raise ValueError("Fund name is required to execute creation")
     fund = repe.create_fund(business_id=business_id, payload=payload)
     return {"fund": _serialize(fund), "created": True}
 
 
 def _create_deal(ctx: McpContext, inp: CreateDealInput) -> dict:
+    if not inp.name and not inp.confirmed:
+        return {
+            "pending_confirmation": True,
+            "needs_input": True,
+            "missing_fields": ["name"],
+            "provided": {k: v for k, v in {
+                "deal_type": inp.deal_type,
+                "stage": inp.stage,
+                "sponsor": inp.sponsor,
+                "target_close_date": inp.target_close_date,
+            }.items() if v is not None},
+            "message": "Deal name is required. What would you like to call this deal?",
+        }
     fund_id = _resolve_fund_id(inp, ctx)
     payload = {
         "name": inp.name,
@@ -230,11 +258,28 @@ def _create_deal(ctx: McpContext, inp: CreateDealInput) -> dict:
     }
     if not inp.confirmed:
         return _confirmation_summary("create deal", payload)
+    if not inp.name:
+        raise ValueError("Deal name is required to execute creation")
     deal = repe.create_deal(fund_id=fund_id, payload=payload)
     return {"deal": _serialize(deal), "created": True}
 
 
 def _create_asset(ctx: McpContext, inp: CreateAssetInput) -> dict:
+    if not inp.name and not inp.confirmed:
+        return {
+            "pending_confirmation": True,
+            "needs_input": True,
+            "missing_fields": ["name"],
+            "provided": {k: v for k, v in {
+                "asset_type": inp.asset_type,
+                "property_type": inp.property_type,
+                "units": inp.units,
+                "market": inp.market,
+                "current_noi": inp.current_noi,
+                "occupancy": inp.occupancy,
+            }.items() if v is not None},
+            "message": "Asset name is required. What would you like to call this asset?",
+        }
     deal_id = _resolve_deal_id(inp, ctx)
     if deal_id is None:
         raise ValueError("deal_id is required to create an asset")
@@ -249,6 +294,8 @@ def _create_asset(ctx: McpContext, inp: CreateAssetInput) -> dict:
     }
     if not inp.confirmed:
         return _confirmation_summary("create asset", payload)
+    if not inp.name:
+        raise ValueError("Asset name is required to execute creation")
     asset = repe.create_asset(deal_id=deal_id, payload=payload)
     return {"asset": _serialize(asset), "created": True}
 

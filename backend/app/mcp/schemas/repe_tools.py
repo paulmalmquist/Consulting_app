@@ -78,7 +78,7 @@ class CreateFundInput(BaseModel):
     model_config = {"extra": "forbid"}
 
     confirmed: bool = Field(default=False, description="Must be true to execute. If false, returns a confirmation summary instead.")
-    name: str = Field(description="Fund name")
+    name: str | None = Field(default=None, description="Fund name (required — tool will ask if omitted)")
     vintage_year: int = Field(description="Vintage year (e.g. 2024)")
     fund_type: str = Field(description="Fund type: open-end, closed-end, co-invest, fund-of-funds")
     strategy: str = Field(description="Strategy: core, core-plus, value-add, opportunistic")
@@ -96,7 +96,7 @@ class CreateDealInput(BaseModel):
     model_config = {"extra": "forbid"}
 
     confirmed: bool = Field(default=False, description="Must be true to execute. If false, returns a confirmation summary instead.")
-    name: str = Field(description="Deal/investment name")
+    name: str | None = Field(default=None, description="Deal/investment name (required — tool will ask if omitted)")
     deal_type: str = Field(description="Deal type: equity, debt, preferred, mezzanine")
     stage: str = Field(default="screening", description="Stage: screening, due-diligence, closed, exited")
     sponsor: str | None = Field(default=None, description="Deal sponsor name")
@@ -110,7 +110,7 @@ class CreateAssetInput(BaseModel):
     model_config = {"extra": "forbid"}
 
     confirmed: bool = Field(default=False, description="Must be true to execute. If false, returns a confirmation summary instead.")
-    name: str = Field(description="Asset name")
+    name: str | None = Field(default=None, description="Asset name (required — tool will ask if omitted)")
     asset_type: str = Field(default="property", description="Asset type: property or cmbs")
     property_type: str | None = Field(default=None, description="Property type: multifamily, office, industrial, retail, etc.")
     units: int | None = Field(default=None, description="Number of units (for property)")

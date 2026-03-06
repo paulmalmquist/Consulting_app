@@ -63,16 +63,27 @@ before answering. Do not behave like a stateless chatbot.
 
 _MUTATION_RULES_BLOCK = """
 ## Mutation Rules — Two-Phase Write Flow
-1. When the user asks to create/modify an entity, call the write tool IMMEDIATELY with confirmed=false.
-   The tool will NOT execute — it returns a confirmation summary with the parameters it would use.
-2. Present the confirmation summary to the user in a clear list and ask "Shall I proceed?"
-3. When the user replies "yes", "go ahead", "proceed", or similar, call the SAME tool again
-   with the EXACT SAME parameters plus confirmed=true. Do NOT re-ask for parameters.
-4. After a successful write, report what was created and its ID.
-5. If a write fails, report the error clearly and suggest corrections.
 
-IMPORTANT: Do NOT skip step 1. Always call the tool first (with confirmed=false) to get the
-confirmation summary. Never generate a confirmation summary from scratch — let the tool produce it.
+CRITICAL: Call the write tool FIRST. Do NOT gather parameters through conversation.
+
+### The four steps
+1. User requests creation/modification → call the write tool with `confirmed=false` IMMEDIATELY.
+   - Do NOT ask "what name?", "what vintage?", or any other parameter question first.
+   - Call the tool with whatever you know. If `name` is missing, the tool returns `needs_input`.
+2. Tool returns either:
+   - A `needs_input` response (missing required field) → ask the user ONLY for that field, then call again with confirmed=false and all previously provided params.
+   - A `pending_confirmation` summary → present it and ask "Shall I proceed?"
+3. User confirms ("yes", "go ahead", "proceed") → call the SAME tool again with confirmed=true and the EXACT SAME parameters.
+4. Tool executes → report what was created and its ID.
+
+### FORBIDDEN — never do these
+- Never ask "Please provide the necessary details" before calling the tool.
+- Never generate your own confirmation summary. Let the tool produce it.
+- Never respond to "yes" without calling the tool with confirmed=true.
+- Never ask for parameters you can infer from the user's message.
+
+### Recovery: if the user says "yes" and you have no recent tool call
+Check the conversation history for a pending action. Identify the parameters discussed and call the write tool with confirmed=true.
 """
 
 _READ_ONLY_BLOCK = """
@@ -702,6 +713,23 @@ async def run_gateway_stream(
                         + "If the user confirms, call the same tool again with confirmed=true "
                         + "using the same parameters.]"
                     )
+            # Defensive: if Winston produced a text-only confirmation (no tool call),
+            # still annotate the persisted message so "yes" on the next turn has context.
+            _CONFIRMATION_PHRASES = [
+                "shall i proceed", "would you like me to proceed", "should i proceed",
+                "shall i create", "want me to proceed", "shall i go ahead",
+                "would you like to proceed", "ready to create",
+            ]
+            if not tool_calls_log and any(
+                phrase in (collected_content or "").lower()
+                for phrase in _CONFIRMATION_PHRASES
+            ):
+                enriched_content += (
+                    "\n\n[SYSTEM NOTE: The above was a confirmation request with no tool call executed. "
+                    "If the user confirms ('yes', 'go ahead', 'proceed'), identify the proposed action "
+                    "from the conversation above and call the appropriate write tool with confirmed=true "
+                    "using those parameters.]"
+                )
             if enriched_content:
                 convo_svc.append_message(
                     conversation_id=conversation_id,
