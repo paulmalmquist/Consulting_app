@@ -77,12 +77,19 @@ Classify the query before responding:
 """
 
 
-def _build_openai_tools() -> list[dict]:
+def _sanitize_tool_name(name: str) -> str:
+    """OpenAI requires tool names matching ^[a-zA-Z0-9_-]+$. Replace dots."""
+    return name.replace(".", "__")
+
+
+def _build_openai_tools() -> tuple[list[dict], dict[str, str]]:
     """Convert MCP ToolDef registry → OpenAI function tool schemas.
 
+    Returns (tools_list, name_map) where name_map maps sanitized→original names.
     Skips codex tools (being removed) and tools without handlers.
     """
     tools = []
+    name_map: dict[str, str] = {}  # sanitized_name → original_name
     for tool_def in registry.list_all():
         if tool_def.name.startswith("codex."):
             continue
@@ -95,17 +102,19 @@ def _build_openai_tools() -> list[dict]:
             for k, v in schema.items()
             if k not in ("$schema", "title")
         }
+        safe_name = _sanitize_tool_name(tool_def.name)
+        name_map[safe_name] = tool_def.name
         tools.append(
             {
                 "type": "function",
                 "function": {
-                    "name": tool_def.name,
+                    "name": safe_name,
                     "description": tool_def.description,
                     "parameters": clean_schema,
                 },
             }
         )
-    return tools
+    return tools, name_map
 
 
 async def run_gateway_stream(
@@ -208,7 +217,7 @@ async def run_gateway_stream(
         {"role": "user", "content": message},
     ]
 
-    openai_tools = _build_openai_tools()
+    openai_tools, tool_name_map = _build_openai_tools()
     ctx = McpContext(actor=actor, token_valid=True)
 
     # ── Step 3: Tool-calling loop ────────────────────────────────────
@@ -295,7 +304,8 @@ async def run_gateway_stream(
 
         # ── Execute each tool call ───────────────────────────────────
         for tc in collected_tool_calls.values():
-            tool_name = tc["name"]
+            sanitized_name = tc["name"]
+            tool_name = tool_name_map.get(sanitized_name, sanitized_name)
             tool_def = registry.get(tool_name)
 
             if not tool_def:
