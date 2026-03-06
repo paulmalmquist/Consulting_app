@@ -909,11 +909,15 @@ export async function askAi(input: {
     if (reader) {
       const decoder = new TextDecoder();
       let currentEvent = "";
+      let lineBuffer = ""; // accumulates partial lines across chunk boundaries
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        for (const line of chunk.split("\n")) {
+        lineBuffer += decoder.decode(value, { stream: true });
+        const lines = lineBuffer.split("\n");
+        // Last element may be an incomplete line — keep it in the buffer
+        lineBuffer = lines.pop() ?? "";
+        for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed) { currentEvent = ""; continue; }
           // Track SSE event type
@@ -978,7 +982,10 @@ export async function askAi(input: {
               continue;
             }
           } catch {
-            if (payload && payload !== "[DONE]") answer += payload;
+            // JSON parse failed — only append plain text, never JSON blobs
+            if (payload && payload !== "[DONE]" && !payload.startsWith("{") && !payload.startsWith("[")) {
+              answer += payload;
+            }
           }
         }
       }
