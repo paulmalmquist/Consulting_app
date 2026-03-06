@@ -27,11 +27,123 @@ export type RunStatus =
   | "needs_clarification"
   | "blocked";
 
+export type AssistantEntityType =
+  | "environment"
+  | "business"
+  | "fund"
+  | "investment"
+  | "deal"
+  | "asset"
+  | "model"
+  | "pipeline_deal"
+  | "pipeline_property"
+  | "document"
+  | "unknown";
+
+export type AssistantScopeType =
+  | "environment"
+  | "business"
+  | "fund"
+  | "investment"
+  | "deal"
+  | "asset"
+  | "model"
+  | "global"
+  | "unknown";
+
+export type AssistantSelectedEntity = {
+  entity_type: AssistantEntityType | string;
+  entity_id: string;
+  name?: string | null;
+  source?: "page" | "selection" | "visible_data" | "thread" | "route";
+  parent_entity_type?: AssistantEntityType | string | null;
+  parent_entity_id?: string | null;
+  metadata?: Record<string, unknown>;
+};
+
+export type AssistantVisibleRecord = {
+  entity_type: AssistantEntityType | string;
+  entity_id: string;
+  name: string;
+  parent_entity_type?: AssistantEntityType | string | null;
+  parent_entity_id?: string | null;
+  status?: string | null;
+  metadata?: Record<string, unknown>;
+};
+
+export type AssistantVisibleData = {
+  funds?: AssistantVisibleRecord[];
+  investments?: AssistantVisibleRecord[];
+  assets?: AssistantVisibleRecord[];
+  models?: AssistantVisibleRecord[];
+  pipeline_items?: AssistantVisibleRecord[];
+  metrics?: Record<string, string | number | null>;
+  notes?: string[];
+};
+
+export type AssistantSessionContext = {
+  user_id?: string | null;
+  org_id?: string | null;
+  actor?: string | null;
+  roles: string[];
+  session_env_id?: string | null;
+};
+
+export type AssistantUiContext = {
+  route: string | null;
+  surface: string | null;
+  active_module?: string | null;
+  active_environment_id?: string | null;
+  active_environment_name?: string | null;
+  active_business_id?: string | null;
+  active_business_name?: string | null;
+  schema_name?: string | null;
+  industry?: string | null;
+  page_entity_type?: AssistantEntityType | string | null;
+  page_entity_id?: string | null;
+  page_entity_name?: string | null;
+  selected_entities: AssistantSelectedEntity[];
+  visible_data?: AssistantVisibleData | null;
+};
+
+export type AssistantThreadContext = {
+  thread_id?: string | null;
+  assistant_mode: string;
+  scope_type: AssistantScopeType | string;
+  scope_id?: string | null;
+  launch_source: string;
+};
+
+export type AssistantContextEnvelope = {
+  session: AssistantSessionContext;
+  ui: AssistantUiContext;
+  thread: AssistantThreadContext;
+};
+
+export type ResolvedAssistantScope = {
+  resolved_scope_type: AssistantScopeType | string;
+  environment_id?: string | null;
+  business_id?: string | null;
+  schema_name?: string | null;
+  industry?: string | null;
+  entity_type?: AssistantEntityType | string | null;
+  entity_id?: string | null;
+  entity_name?: string | null;
+  confidence: number;
+  source: string;
+};
+
 export type CommandContext = {
   currentEnvId?: string | null;
   currentBusinessId?: string | null;
   route?: string | null;
   selection?: string | null;
+  surface?: string | null;
+  activeModule?: string | null;
+  schemaName?: string | null;
+  industry?: string | null;
+  pageEntityType?: AssistantEntityType | string | null;
+  pageEntityId?: string | null;
 };
 
 export type ContextSnapshot = {
@@ -41,12 +153,16 @@ export type ContextSnapshot = {
     client_name: string;
     industry?: string;
     industry_type?: string;
+    schema_name?: string;
+    business_id?: string | null;
   }>;
   selectedEnv: {
     env_id: string;
     client_name: string;
     industry?: string;
     industry_type?: string;
+    schema_name?: string;
+    business_id?: string | null;
   } | null;
   business: {
     business_id: string;
@@ -176,3 +292,5 @@ export type PlanResponse = {
   requires_double_confirmation: boolean;
   double_confirmation_phrase?: string | null;
 };
+
+export type CommandContextKey = `env:${string}` | `biz:${string}` | "global";

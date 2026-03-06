@@ -11,6 +11,7 @@ import {
   RepeFund,
 } from "@/lib/bos-api";
 import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
+import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 import { KpiStrip, type KpiDef } from "@/components/repe/asset-cockpit/KpiStrip";
 import { StateCard } from "@/components/ui/StateCard";
 import { Button } from "@/components/ui/Button";
@@ -122,6 +123,39 @@ function RepeFundsPageContent() {
     ],
     [filteredFunds.length, portfolioKpis]
   );
+
+  useEffect(() => {
+    publishAssistantPageContext({
+      route: environmentId ? `/lab/env/${environmentId}/re/funds` : basePath + "/funds",
+      surface: "fund_portfolio",
+      active_module: "re",
+      page_entity_type: "environment",
+      page_entity_id: environmentId || null,
+      page_entity_name: null,
+      selected_entities: [],
+      visible_data: {
+        funds: filteredFunds.map((fund) => ({
+          entity_type: "fund",
+          entity_id: fund.fund_id,
+          name: fund.name,
+          status: fund.status || null,
+          metadata: {
+            strategy: fund.strategy || null,
+            vintage_year: fund.vintage_year ?? null,
+          },
+        })),
+        metrics: {
+          fund_count: filteredFunds.length,
+          portfolio_nav: portfolioKpis?.portfolio_nav ?? null,
+          total_commitments: portfolioKpis?.total_commitments ?? null,
+          active_assets: portfolioKpis?.active_assets ?? null,
+        },
+        notes: [`Funds page as of ${quarter}`],
+      },
+    });
+
+    return () => resetAssistantPageContext();
+  }, [basePath, environmentId, filteredFunds, portfolioKpis, quarter]);
 
   const clearFilters = () => {
     router.replace("?", { scroll: false });

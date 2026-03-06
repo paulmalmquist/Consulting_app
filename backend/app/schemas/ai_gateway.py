@@ -1,8 +1,107 @@
 """Pydantic schemas for the AI Gateway endpoint."""
 from __future__ import annotations
 
+from typing import Any
 from pydantic import BaseModel, Field
 from uuid import UUID
+
+
+class AssistantSelectedEntity(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    entity_type: str
+    entity_id: str
+    name: str | None = None
+    source: str | None = None
+    parent_entity_type: str | None = None
+    parent_entity_id: str | None = None
+    metadata: dict[str, Any] | None = None
+
+
+class AssistantVisibleRecord(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    entity_type: str
+    entity_id: str
+    name: str
+    parent_entity_type: str | None = None
+    parent_entity_id: str | None = None
+    status: str | None = None
+    metadata: dict[str, Any] | None = None
+
+
+class AssistantVisibleData(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    funds: list[AssistantVisibleRecord] = Field(default_factory=list)
+    investments: list[AssistantVisibleRecord] = Field(default_factory=list)
+    assets: list[AssistantVisibleRecord] = Field(default_factory=list)
+    models: list[AssistantVisibleRecord] = Field(default_factory=list)
+    pipeline_items: list[AssistantVisibleRecord] = Field(default_factory=list)
+    metrics: dict[str, Any] | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
+class AssistantSessionContext(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    user_id: str | None = None
+    org_id: str | None = None
+    actor: str | None = None
+    roles: list[str] = Field(default_factory=list)
+    session_env_id: str | None = None
+
+
+class AssistantUiContext(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    route: str | None = None
+    surface: str | None = None
+    active_module: str | None = None
+    active_environment_id: str | None = None
+    active_environment_name: str | None = None
+    active_business_id: str | None = None
+    active_business_name: str | None = None
+    schema_name: str | None = None
+    industry: str | None = None
+    page_entity_type: str | None = None
+    page_entity_id: str | None = None
+    page_entity_name: str | None = None
+    selected_entities: list[AssistantSelectedEntity] = Field(default_factory=list)
+    visible_data: AssistantVisibleData | None = None
+
+
+class AssistantThreadContext(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    thread_id: str | None = None
+    assistant_mode: str = "environment_copilot"
+    scope_type: str = "environment"
+    scope_id: str | None = None
+    launch_source: str = "winston_commandbar"
+
+
+class AssistantContextEnvelope(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    session: AssistantSessionContext = Field(default_factory=AssistantSessionContext)
+    ui: AssistantUiContext = Field(default_factory=AssistantUiContext)
+    thread: AssistantThreadContext = Field(default_factory=AssistantThreadContext)
+
+
+class ResolvedAssistantScope(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    resolved_scope_type: str
+    environment_id: str | None = None
+    business_id: str | None = None
+    schema_name: str | None = None
+    industry: str | None = None
+    entity_type: str | None = None
+    entity_id: str | None = None
+    entity_name: str | None = None
+    confidence: float = Field(ge=0, le=1)
+    source: str
 
 
 class GatewayAskRequest(BaseModel):
@@ -13,6 +112,7 @@ class GatewayAskRequest(BaseModel):
     business_id: UUID | None = None
     entity_type: str | None = None
     entity_id: UUID | None = None
+    context_envelope: AssistantContextEnvelope | None = None
 
 
 class GatewayIndexRequest(BaseModel):

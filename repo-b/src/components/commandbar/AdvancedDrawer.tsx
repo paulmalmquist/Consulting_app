@@ -32,6 +32,7 @@ export default function AdvancedDrawer({
     confirm?: unknown;
     execute?: unknown;
     run?: unknown;
+    assistant?: unknown;
     error?: unknown;
   };
   flags: {
@@ -41,6 +42,13 @@ export default function AdvancedDrawer({
   onRunDiagnostics: () => void;
 }) {
   if (!open) return null;
+
+  const assistantDebug = (raw.assistant || {}) as {
+    contextEnvelope?: unknown;
+    resolvedScope?: unknown;
+    toolCalls?: unknown[];
+    toolResults?: unknown[];
+  };
 
   return (
     <section
@@ -106,6 +114,36 @@ export default function AdvancedDrawer({
             <li>No client traces captured yet.</li>
           )}
         </ul>
+      </div>
+
+      <div className="mt-2 grid grid-cols-1 gap-2 text-xs md:grid-cols-2">
+        <div className="rounded-lg border border-bm-border/60 bg-bm-surface/20 p-2">
+          <p className="bm-section-label">Context Envelope</p>
+          <pre className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap text-[11px] text-bm-muted">
+            {JSON.stringify(assistantDebug.contextEnvelope || null, null, 2)}
+          </pre>
+        </div>
+
+        <div className="rounded-lg border border-bm-border/60 bg-bm-surface/20 p-2">
+          <p className="bm-section-label">Resolved Scope</p>
+          <pre className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap text-[11px] text-bm-muted">
+            {JSON.stringify(assistantDebug.resolvedScope || null, null, 2)}
+          </pre>
+        </div>
+
+        <div className="rounded-lg border border-bm-border/60 bg-bm-surface/20 p-2">
+          <p className="bm-section-label">Tool Activity</p>
+          <pre className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap text-[11px] text-bm-muted">
+            {JSON.stringify(
+              {
+                toolCalls: assistantDebug.toolCalls || [],
+                toolResults: assistantDebug.toolResults || [],
+              },
+              null,
+              2,
+            )}
+          </pre>
+        </div>
       </div>
 
       <div className="mt-2 rounded-lg border border-bm-border/60 bg-bm-surface/20 p-2">

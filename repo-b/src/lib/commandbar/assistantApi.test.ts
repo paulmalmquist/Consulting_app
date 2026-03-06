@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { AssistantContextEnvelope } from "@/lib/commandbar/types";
 import {
   AssistantApiError,
+  askAi,
   checkCodexHealth,
   createPlan,
   fetchContextSnapshot,
@@ -94,5 +96,92 @@ describe("assistantApi contract behavior", () => {
     );
 
     await expect(checkCodexHealth()).rejects.toBeInstanceOf(AssistantApiError);
+  });
+
+  it("posts the context envelope and captures debug SSE events", async () => {
+    const contextEnvelope: AssistantContextEnvelope = {
+      session: {
+        roles: ["env_user"],
+        org_id: "biz_123",
+        session_env_id: "env_123",
+      },
+      ui: {
+        route: "/lab/env/env_123/re/funds",
+        surface: "fund_portfolio",
+        active_environment_id: "env_123",
+        active_business_id: "biz_123",
+        page_entity_type: "environment",
+        page_entity_id: "env_123",
+        selected_entities: [],
+        visible_data: {
+          funds: [{ entity_type: "fund", entity_id: "fund_1", name: "IGF VII" }],
+        },
+      },
+      thread: {
+        assistant_mode: "environment_copilot",
+        scope_type: "environment",
+        scope_id: "env_123",
+        launch_source: "winston_modal",
+      },
+    };
+
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(`event: context\ndata: ${JSON.stringify({
+          context_envelope: contextEnvelope,
+          resolved_scope: {
+            resolved_scope_type: "environment",
+            environment_id: "env_123",
+            business_id: "biz_123",
+            confidence: 0.98,
+            source: "ui_context",
+          },
+        })}\n\n`));
+        controller.enqueue(encoder.encode(`event: tool_call\ndata: ${JSON.stringify({
+          tool_name: "repe.get_environment_snapshot",
+          args: {},
+          result_preview: "{\"fund_count\":1}",
+        })}\n\n`));
+        controller.enqueue(encoder.encode(`event: tool_result\ndata: ${JSON.stringify({
+          tool_name: "repe.get_environment_snapshot",
+          args: {},
+          result: { fund_count: 1 },
+        })}\n\n`));
+        controller.enqueue(encoder.encode(`event: token\ndata: ${JSON.stringify({ text: "IGF VII" })}\n\n`));
+        controller.enqueue(encoder.encode(`event: done\ndata: ${JSON.stringify({ tool_calls: 1 })}\n\n`));
+        controller.close();
+      },
+    });
+
+    const fetchMock = vi.fn(async () =>
+      new Response(stream, {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await askAi({
+      message: "which funds do we have?",
+      business_id: "biz_123",
+      env_id: "env_123",
+      context_envelope: contextEnvelope,
+    });
+
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body || "{}"));
+    expect(requestBody.context_envelope.ui.route).toBe("/lab/env/env_123/re/funds");
+    expect(result.answer).toBe("IGF VII");
+    expect(result.debug.resolvedScope).toMatchObject({
+      environment_id: "env_123",
+      business_id: "biz_123",
+    });
+    expect(result.debug.toolCalls[0]).toMatchObject({
+      tool_name: "repe.get_environment_snapshot",
+    });
+    expect(result.debug.toolResults[0]).toMatchObject({
+      tool_name: "repe.get_environment_snapshot",
+      result: { fund_count: 1 },
+    });
   });
 });

@@ -60,6 +60,7 @@ import {
   type ModelPreviewAssumption,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
+import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 import SaleScenarioPanel from "@/components/repe/SaleScenarioPanel";
 import { AmortizationViewer } from "@/components/repe/AmortizationViewer";
 import { WaterfallTierTable } from "@/components/repe/WaterfallTierTable";
@@ -232,19 +233,6 @@ export default function FundDetailPage({
     return () => { cancelled = true; };
   }, [params.fundId, quarter, businessId, refreshCanonical]);
 
-  if (loading) return <div className="p-6 text-sm text-bm-muted2">Loading fund...</div>;
-  if (error) {
-    return (
-      <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-6" data-testid="fund-error">
-        <h2 className="text-lg font-semibold">Fund Not Found</h2>
-        <p className="mt-2 text-sm text-red-300">{error}</p>
-        <Link href={`/lab/env/${params.envId}/re`} className="mt-3 inline-block rounded-lg bg-bm-accent px-4 py-2 text-sm text-white">
-          Back to Funds
-        </Link>
-      </div>
-    );
-  }
-
   const fund = detail?.fund;
   const terms = detail?.terms ?? [];
   const latestTerms = terms[0];
@@ -259,6 +247,66 @@ export default function FundDetailPage({
     { label: "Net IRR", value: fmtPercent(fundState?.net_irr) },
   ];
   const runCenterHref = `/lab/env/${params.envId}/re/runs/quarter-close?fundId=${params.fundId}`;
+
+  useEffect(() => {
+    publishAssistantPageContext({
+      route: `/lab/env/${params.envId}/re/funds/${params.fundId}`,
+      surface: "fund_detail",
+      active_module: "re",
+      page_entity_type: "fund",
+      page_entity_id: params.fundId,
+      page_entity_name: fund?.name || null,
+      selected_entities: fund ? [{ entity_type: "fund", entity_id: params.fundId, name: fund.name, source: "page" }] : [],
+      visible_data: {
+        funds: fund ? [{
+          entity_type: "fund",
+          entity_id: params.fundId,
+          name: fund.name,
+          status: fund.status || null,
+          metadata: {
+            strategy: fund.strategy || null,
+            sub_strategy: fund.sub_strategy || null,
+            vintage_year: fund.vintage_year ?? null,
+          },
+        }] : [],
+        investments: investments.map((investment) => ({
+          entity_type: "investment",
+          entity_id: investment.investment_id,
+          name: investment.name,
+          parent_entity_type: "fund",
+          parent_entity_id: params.fundId,
+          status: investment.stage || null,
+          metadata: {
+            investment_type: investment.investment_type || null,
+            sponsor: investment.sponsor || null,
+          },
+        })),
+        metrics: {
+          nav: fundState?.portfolio_nav ?? null,
+          tvpi: fundState?.tvpi ?? null,
+          dpi: fundState?.dpi ?? null,
+          gross_irr: fundState?.gross_irr ?? null,
+          net_irr: fundState?.net_irr ?? null,
+        },
+        notes: [`Fund detail page for ${fund?.name || params.fundId} as of ${quarter}`],
+      },
+    });
+
+    return () => resetAssistantPageContext();
+  }, [fund, fundState, investments, params.envId, params.fundId, quarter]);
+
+  if (loading) return <div className="p-6 text-sm text-bm-muted2">Loading fund...</div>;
+  if (error) {
+    return (
+      <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-6" data-testid="fund-error">
+        <h2 className="text-lg font-semibold">Fund Not Found</h2>
+        <p className="mt-2 text-sm text-red-300">{error}</p>
+        <Link href={`/lab/env/${params.envId}/re`} className="mt-3 inline-block rounded-lg bg-bm-accent px-4 py-2 text-sm text-white">
+          Back to Funds
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <section className="flex flex-col gap-4" data-testid="re-fund-detail">

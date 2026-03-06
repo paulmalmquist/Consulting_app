@@ -193,6 +193,8 @@ export const contextSnapshotSchema = z.object({
       client_name: z.string(),
       industry: z.string().optional(),
       industry_type: z.string().optional(),
+      schema_name: z.string().optional(),
+      business_id: z.string().nullable().optional(),
     })
   ),
   selectedEnv: z
@@ -201,6 +203,8 @@ export const contextSnapshotSchema = z.object({
       client_name: z.string(),
       industry: z.string().optional(),
       industry_type: z.string().optional(),
+      schema_name: z.string().optional(),
+      business_id: z.string().nullable().optional(),
     })
     .nullable(),
   business: z

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from app.config import MCP_API_TOKEN, MCP_ACTOR_NAME
 
@@ -11,6 +12,8 @@ from app.config import MCP_API_TOKEN, MCP_ACTOR_NAME
 class McpContext:
     actor: str
     token_valid: bool
+    resolved_scope: dict[str, Any] | None = None
+    context_envelope: dict[str, Any] | None = None
 
 
 def validate_token(token: str | None) -> McpContext:

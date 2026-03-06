@@ -29,6 +29,7 @@ import {
   listConversations,
   runDiagnostics,
 } from "@/lib/commandbar/assistantApi";
+import { buildAssistantContextEnvelope } from "@/lib/commandbar/contextEnvelope";
 import {
   type CommandContextKey,
   type CommandMessage,
@@ -225,6 +226,7 @@ export default function GlobalCommandBar() {
     confirm?: unknown;
     execute?: unknown;
     run?: unknown;
+    assistant?: unknown;
     error?: unknown;
   }>({});
 
@@ -454,13 +456,24 @@ export default function GlobalCommandBar() {
     setThinkingStatus(undefined);
 
     try {
+      const snapshot = await ensureContextSnapshot();
+      const derivedBusinessId =
+        context.currentBusinessId ||
+        snapshot.business?.business_id ||
+        snapshot.selectedEnv?.business_id ||
+        null;
+      const derivedEnvId =
+        context.currentEnvId ||
+        snapshot.selectedEnv?.env_id ||
+        null;
+
       // Auto-create conversation on first message if we have a business_id
       let activeConvoId = conversationId;
-      if (!activeConvoId && context.currentBusinessId) {
+      if (!activeConvoId && derivedBusinessId) {
         try {
           const convo = await createConversation({
-            business_id: context.currentBusinessId,
-            env_id: context.currentEnvId || undefined,
+            business_id: derivedBusinessId,
+            env_id: derivedEnvId || undefined,
           });
           activeConvoId = convo.conversation_id;
           setConversationId(activeConvoId);
@@ -469,15 +482,47 @@ export default function GlobalCommandBar() {
         }
       }
 
+      const contextEnvelope = buildAssistantContextEnvelope({
+        context: {
+          ...context,
+          currentBusinessId: derivedBusinessId,
+          currentEnvId: derivedEnvId,
+        },
+        snapshot,
+        conversationId: activeConvoId,
+        launchSource: "winston_modal",
+      });
+      const effectiveBusinessId =
+        contextEnvelope.ui.active_business_id ||
+        contextEnvelope.session.org_id ||
+        derivedBusinessId ||
+        undefined;
+      const effectiveEnvId =
+        contextEnvelope.ui.active_environment_id ||
+        contextEnvelope.session.session_env_id ||
+        derivedEnvId ||
+        undefined;
+      setRaw((prev) => ({
+        ...prev,
+        assistant: {
+          contextEnvelope,
+          resolvedScope: null,
+          toolCalls: [],
+          toolResults: [],
+        },
+      }));
+
       const result = await askAi({
         message: next,
         workspace: workspace as Record<string, string>,
-        business_id: context.currentBusinessId || undefined,
-        env_id: context.currentEnvId || undefined,
+        business_id: effectiveBusinessId,
+        env_id: effectiveEnvId,
         conversation_id: activeConvoId || undefined,
+        context_envelope: contextEnvelope,
         onStatus: setThinkingStatus,
       });
       appendTrace(result.trace);
+      setRaw((prev) => ({ ...prev, assistant: result.debug }));
       appendMessage("assistant", result.answer);
     } catch (error) {
       const friendly = toFriendlyError(error);

@@ -355,41 +355,104 @@ This repo is a multi-surface monorepo where `repo-b` is the UI, `backend` is the
 
 ---
 
-## 12. Deploy → Test Readiness
+## 12. Deploy -> Test Readiness
 
 ### The core rule
 
-There are three independent deployment actions in this repo. Each has its own timing and none of them triggers the others automatically.
+There are five separate post-change steps in this repo, and assistants should not compress them into one generic deploy:
 
-| Action | How to trigger | When it's live |
+1. GitHub push / merge
+2. GitHub Actions CI
+3. Vercel frontend deploy for `repo-b`
+4. Railway backend deploy for `backend`
+5. Manual DB migration if schema changed
+
+GitHub Actions CI is not the deploy mechanism here. The current CI workflow runs lint, typecheck, and unit checks. It does not deploy Vercel or Railway.
+
+Vercel and Railway are independent. One does not trigger the other.
+
+| Action | How to trigger | When live |
 |---|---|---|
-| Frontend deploy | Push to Railway (or Vercel) | ~2–4 min after push (Next build) |
-| Backend deploy | Push to Railway | ~2–4 min after push (Docker build + healthcheck) |
+| GitHub CI | Push to `main` / PR update | When workflow jobs finish |
+| Frontend deploy | Vercel deploy for `repo-b` | After Vercel build + rollout completes |
+| Backend deploy | Railway deploy/redeploy for `backend` | After Railway build + `/health` passes |
 | DB schema changes | `make db:migrate` run manually | Immediately after the command completes |
 
-**Do not start testing until all three relevant actions for your change have completed.**
+**Do not start production testing until every relevant step for the changed surface has completed.**
+
+---
+
+### Actual production routing
+
+Current production wiring:
+
+- Frontend: Vercel
+- BOS backend: Railway
+- Frontend proxy: Vercel `BOS_API_ORIGIN` -> Railway backend URL
+
+The BOS request path in production is:
+
+1. Browser -> Vercel frontend
+2. Vercel `/bos/*` proxy
+3. Railway backend
+
+It is not `GitHub -> Vercel -> Railway`.
 
 ---
 
 ### Railway deploy timing in detail
 
-The backend runs as a Docker container on Railway using the `Dockerfile` in `backend/`. Railway detects a git push, builds the image, waits for `GET /health` to return 200, then cuts traffic over.
+The BOS backend runs as a Docker container on Railway using `backend/Dockerfile`. Railway only serves the new backend after the deployment reaches `SUCCESS` and `/health` returns 200.
 
 Typical timings:
 
-- **`requirements.txt` unchanged** — Docker layer cache hits, pip step skipped. Build + startup ≈ 1–2 min.
-- **`requirements.txt` changed** — Full pip install. Build ≈ 3–5 min.
-- **Frontend (`repo-b`) Next.js build** — Similar range, 2–5 min depending on page count and whether the build cache is warm.
+- `requirements.txt` unchanged -> often ~1-2 min
+- `requirements.txt` changed -> often ~3-5 min
+- simple `railway redeploy --yes` with warm cache -> often ~1-3 min
 
-Railway switches traffic **all at once** when the health check passes — there is no gradual rollout. The moment `/health` returns 200, the new container is live.
+Most reliable checks:
 
-**How to confirm the backend is on the new code:** hit `https://<your-backend-url>/health` and check the `version` or `deployed_at` field if one is present, or watch Railway's deploy log for the "Deploy succeeded" event.
+```bash
+cd backend && railway service status
+cd backend && railway deployment list --json
+curl -sS https://authentic-sparkle-production-7f37.up.railway.app/health
+```
+
+Observed in this repo:
+
+- A newer GitHub commit does not guarantee Railway has already deployed it.
+- Running `railway redeploy --yes` in `backend/` created a new deployment and progressed `BUILDING -> DEPLOYING -> SUCCESS`.
+- After `SUCCESS`, `GET /health` returned `{"ok": true}` from the live Railway backend.
+
+If backend code changed and Railway does not appear to be picking it up, the smallest corrective action is:
+
+```bash
+cd backend && railway redeploy --yes
+```
+
+There is also a helper script that encodes this polling-based deploy loop:
+
+- `repo-b/scripts/production-loop.mjs`
+
+That script detects changed files, redeploys Railway for backend changes, waits for Railway health, and can also deploy Vercel for frontend changes.
 
 ---
 
-### SQL / schema changes — the most common missed step
+### Vercel deploy timing in detail
 
-Railway does **not** run migrations automatically. There is no `CMD` or entrypoint hook in `backend/Dockerfile` that calls `apply.js`.
+`repo-b` is deployed to Vercel, not Railway.
+
+Typical timing:
+
+- Next.js build + rollout is often ~2-5 min depending on cache warmth and page count
+
+For frontend-affecting changes, a healthy Railway backend is not enough. UI code, Next route handlers in `repo-b/src/app/api/*`, and proxy behavior in `repo-b/src/app/bos/[...path]/route.ts` depend on the Vercel deployment being current.
+
+---
+
+### SQL / schema changes - the most common missed step
+
+Railway does not run migrations automatically. There is no startup hook in `backend/Dockerfile` that applies the SQL bundle.
 
 If your change involved any of the following, you must run `make db:migrate` separately before testing:
 
@@ -400,11 +463,11 @@ If your change involved any of the following, you must run `make db:migrate` sep
 - Any change to a file in `repo-b/db/schema/*.sql`
 
 ```bash
-make db:migrate        # applies all numbered .sql files in repo-b/db/schema/
-make db:verify         # confirms schema matches expected state
+make db:migrate
+make db:verify
 ```
 
-If you skip this step, the backend will deploy cleanly but queries against the new schema will 500 or return empty results, and the cause will not be obvious from the UI.
+If you skip this step, the backend may deploy cleanly while production queries still fail or return empty results.
 
 ---
 
@@ -412,60 +475,88 @@ If you skip this step, the backend will deploy cleanly but queries against the n
 
 The `rag_chunks` table has a `vector(1536)` column and an HNSW index. Both require the `pgvector` extension to be enabled on the Postgres instance.
 
-The schema SQL (`316_rag_vector_chunks.sql`) does a conditional enable:
-
-```sql
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'vector') THEN
-    CREATE EXTENSION IF NOT EXISTS vector;
-  END IF;
-END;
-$$;
-```
-
-If pgvector is not installed on the server, this silently skips it and the system falls back to full-text search (`tsvector`) — **with no error or warning**. If RAG semantic search is behaving like keyword search, this is the first thing to check.
-
-**Verify in Supabase:** Dashboard → Database → Extensions → search "vector" → confirm it shows as enabled.
+The schema SQL (`316_rag_vector_chunks.sql`) conditionally enables the extension. If `vector` is unavailable on the server, semantic search silently degrades toward full-text behavior. If RAG search feels like keyword search, check the extension first.
 
 ---
 
 ### Testing readiness checklist
 
-Before running any manual or automated tests after a deploy:
+Before running manual or automated production tests:
 
-1. **Railway deploy log shows "Deploy succeeded"** for every service you changed (frontend and/or backend).
-2. **`GET /health` on the backend returns 200** with no cached/stale timestamp from a previous deploy.
-3. **`make db:migrate` has been run** if any `.sql` file was changed or added.
-4. **`make db:verify` passes** — confirms the live schema matches the expected state.
-5. **pgvector extension is active** if the change touches anything in `rag_chunks`, embeddings, or AI gateway indexing.
-6. **Hard refresh the browser** (`Cmd+Shift+R`) before testing UI changes — Next.js caches aggressively and a soft refresh may serve stale JS bundles.
-7. **Check Railway env vars** if a feature was working locally but fails in production — the most common culprits are `OPENAI_API_KEY`, `DATABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `ALLOWED_ORIGINS`.
+1. GitHub CI has finished if you are waiting on lint/typecheck/unit confirmation.
+2. Railway shows `SUCCESS` for `backend/` changes.
+3. Vercel deploy is complete for `repo-b/` changes.
+4. `GET /health` on the Railway backend returns 200.
+5. `GET /bos/health` through the production frontend returns 200 if the flow uses the Vercel proxy.
+6. `make db:migrate` has been run if any `.sql` file changed.
+7. `make db:verify` passes if schema changed.
+8. pgvector is active if the change touches `rag_chunks`, embeddings, or AI gateway indexing.
+9. Hard refresh the browser before UI verification because stale JS bundles can mask a fresh deploy.
+10. Check platform env vars if the feature worked locally but fails in production.
+
+Most common production env culprits:
+
+- Railway backend: `OPENAI_API_KEY`, `DATABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ALLOWED_ORIGINS`
+- Vercel frontend: `BOS_API_ORIGIN`, `NEXT_PUBLIC_BOS_API_BASE_URL`, `NEXT_PUBLIC_DEMO_API_BASE_URL`
 
 ---
 
-### Change type → what to wait for
+### Change type -> required waits
 
-| Change type | Wait for frontend deploy | Wait for backend deploy | Run `db:migrate` |
-|---|:---:|:---:|:---:|
-| UI-only (component, styling, layout) | ✅ | — | — |
-| New Next.js API route (`repo-b/src/app/api/*`) | ✅ | — | Maybe |
-| Backend route/service (`backend/app/routes/*`) | — | ✅ | Maybe |
-| SQL schema (new table, column, index) | — | — | ✅ |
-| Seed data (new `.sql` seed file) | — | — | ✅ |
-| RAG / vector changes | — | ✅ | ✅ (+ verify pgvector) |
-| Env var change on Railway | — | ✅ (redeploy to pick up) | — |
-| Both UI and backend changed | ✅ | ✅ | Maybe |
+| Change type | Wait for GitHub CI | Wait for Vercel deploy | Wait for Railway deploy | Run `db:migrate` |
+|---|:---:|:---:|:---:|:---:|
+| UI-only (`repo-b` component/style/layout) | Recommended | ✅ | — | — |
+| Next route handler in `repo-b/src/app/api/*` | Recommended | ✅ | — | Maybe |
+| Backend route/service in `backend/app/*` | Recommended | — | ✅ | Maybe |
+| SQL schema in `repo-b/db/schema/*.sql` | Recommended | — | — | ✅ |
+| Seed data in SQL bundle | Recommended | — | — | ✅ |
+| RAG/indexing/backend AI change | Recommended | — | ✅ | Maybe / often |
+| RAG schema/index change | Recommended | — | ✅ | ✅ |
+| Vercel env var change | — | ✅ | — | — |
+| Railway env var change | — | — | ✅ | — |
+| Full-stack feature touching `repo-b` + `backend` | Recommended | ✅ | ✅ | Maybe |
+
+---
+
+### Recommended test order
+
+Use this order unless there is a strong reason not to:
+
+1. Run the smallest local test(s) for the changed surface.
+2. If schema changed, run `make db:migrate` then `make db:verify`.
+3. Deploy the changed runtime(s): Vercel for `repo-b`, Railway for `backend`.
+4. Poll health/status endpoints instead of waiting blind.
+5. Run production smoke checks only after health is confirmed.
+
+Useful local commands:
+
+```bash
+make test-backend
+make test-demo
+make test-frontend
+make db:verify
+```
+
+Useful production checks:
+
+```bash
+cd backend && railway service status
+cd backend && railway deployment list --json
+curl -sS https://authentic-sparkle-production-7f37.up.railway.app/health
+curl -sS https://www.paulmalmquist.com/bos/health
+```
 
 ---
 
 ### Important conclusion
 
-The most common reason a fix "isn't working in prod" is one of three things:
+The most common reasons a prod fix appears not live are:
 
-1. The Railway deploy hasn't finished yet (check the deploy log, not just the push timestamp).
-2. `make db:migrate` was not run after a schema change.
-3. An env var is missing or wrong on the Railway service that has the change.
+1. GitHub CI is running, but no deploy has happened yet.
+2. Railway backend has not redeployed yet and needs `railway redeploy --yes`.
+3. Vercel frontend is still serving the previous build.
+4. Schema changed but `make db:migrate` was not run.
+5. The wrong runtime was checked: the issue may be in `repo-b` when the assistant only looked at `backend`, or vice versa.
 
 ---
 
@@ -796,3 +887,13 @@ Railway does NOT auto-deploy from git pushes for this project. Deploy manually:
 cd backend && railway up --service authentic-sparkle --detach
 ```
 Must run from `backend/` directory (where Dockerfile lives), not repo root.
+
+### Winston production smoke
+
+When smoke-testing `https://www.paulmalmquist.com/api/ai/gateway/ask`, send a valid `context_envelope` that matches `GatewayAskRequest` exactly:
+
+- `conversation_id` must be a UUID if present
+- `ui.visible_data.*` records must use `entity_type` / `entity_id` fields, not ad-hoc keys like `id`
+- `ui.selected_entities` must match `AssistantSelectedEntity` and may not include extra keys such as `status`
+
+If the backend rejects the payload with `422`, the Next.js route will fall back to direct OpenAI and the result will look like a generic chatbot response instead of Winston's SSE `context` / `tool_call` / `done` events.

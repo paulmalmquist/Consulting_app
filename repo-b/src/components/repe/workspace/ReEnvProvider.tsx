@@ -17,6 +17,7 @@ import {
   ReV1Context,
 } from "@/lib/bos-api";
 import { useBusinessContext } from "@/lib/business-context";
+import { publishAssistantEnvironmentContext } from "@/lib/commandbar/appContextBridge";
 
 type ReEnvironment = {
   env_id: string;
@@ -187,6 +188,24 @@ export function ReEnvProvider({ envId, children }: { envId: string; children: Re
   useEffect(() => {
     void resolve(false);
   }, [resolve]);
+
+  useEffect(() => {
+    publishAssistantEnvironmentContext({
+      active_environment_id: envId,
+      active_environment_name: environment?.client_name || null,
+      active_business_id: businessId,
+      active_business_name: null,
+      schema_name: environment?.schema_name || null,
+      industry: environment?.industry || environment?.industry_type || null,
+    });
+  }, [
+    envId,
+    businessId,
+    environment?.client_name,
+    environment?.industry,
+    environment?.industry_type,
+    environment?.schema_name,
+  ]);
 
   const retry = useCallback(async () => {
     hasAutoRetried.current = false;

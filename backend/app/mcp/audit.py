@@ -50,6 +50,11 @@ def execute_tool(
 
     # ── Extract business_id for audit scoping ───────────────────────
     business_id = getattr(validated, "business_id", None)
+    if business_id is None:
+        nested_scope = getattr(validated, "resolved_scope", None) or getattr(validated, "scope", None)
+        business_id = getattr(nested_scope, "business_id", None)
+    if business_id is None and ctx.resolved_scope:
+        business_id = ctx.resolved_scope.get("business_id")
 
     # ── Call handler ────────────────────────────────────────────────
     error_message = None

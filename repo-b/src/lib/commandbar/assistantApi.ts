@@ -1,4 +1,11 @@
-import type { CommandContext, ContextSnapshot, ExecutionPlan, RunStatus } from "@/lib/commandbar/types";
+import type {
+  AssistantContextEnvelope,
+  CommandContext,
+  ContextSnapshot,
+  ExecutionPlan,
+  ResolvedAssistantScope,
+  RunStatus,
+} from "@/lib/commandbar/types";
 import {
   type AssistantPlan,
   codexHealthSchema,
@@ -27,6 +34,22 @@ export type DiagnosticsCheck = {
   status: "ok" | "warning" | "error";
   latencyMs: number;
   detail: string;
+};
+
+export type AssistantToolEvent = {
+  tool_name: string;
+  args?: unknown;
+  result_preview?: string;
+  result?: unknown;
+};
+
+export type AskAiDebug = {
+  contextEnvelope?: AssistantContextEnvelope;
+  resolvedScope?: ResolvedAssistantScope | null;
+  toolCalls: AssistantToolEvent[];
+  toolResults: AssistantToolEvent[];
+  citations: unknown[];
+  done?: unknown;
 };
 
 export class AssistantApiError extends Error {
@@ -745,9 +768,10 @@ export async function askAi(input: {
   business_id?: string;
   env_id?: string;
   conversation_id?: string;
+  context_envelope?: AssistantContextEnvelope;
   onStatus?: (status: string) => void;
   signal?: AbortSignal;
-}): Promise<{ answer: string; trace: AssistantApiTrace }> {
+}): Promise<{ answer: string; trace: AssistantApiTrace; debug: AskAiDebug }> {
   const requestId = nextRequestId();
   const startedAt = Date.now();
   const endpoint = "/api/ai/gateway/ask";
@@ -756,6 +780,13 @@ export async function askAi(input: {
     return {
       answer: `[Mock] Winston would analyze: "${input.message}". In production this calls the AI gateway.`,
       trace: { requestId, endpoint, method: "POST", startedAt, durationMs: 10, status: 200, ok: true },
+      debug: {
+        contextEnvelope: input.context_envelope,
+        resolvedScope: null,
+        toolCalls: [],
+        toolResults: [],
+        citations: [],
+      },
     };
   }
 
@@ -764,12 +795,13 @@ export async function askAi(input: {
   try {
     const response = await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-bm-request-id": requestId },
+      headers: { "Content-Type": "application/json", "x-bm-request-id": requestId, "x-request-id": requestId },
       body: JSON.stringify({
         message: input.message,
         business_id: input.business_id || null,
         env_id: input.env_id || null,
         conversation_id: input.conversation_id || null,
+        context_envelope: input.context_envelope || null,
         session_id: requestId,
       }),
       signal,
@@ -796,6 +828,13 @@ export async function askAi(input: {
       return {
         answer: `Winston is unavailable (${response.status}). ${hint}`,
         trace,
+        debug: {
+          contextEnvelope: input.context_envelope,
+          resolvedScope: null,
+          toolCalls: [],
+          toolResults: [],
+          citations: [],
+        },
       };
     }
 
@@ -803,6 +842,13 @@ export async function askAi(input: {
     //   1. FastAPI backend format: "event: token\ndata: {"text":"..."}"
     //   2. OpenAI proxy format: "data: {"choices":[{"delta":{"content":"..."}}]}"
     let answer = "";
+    const debug: AskAiDebug = {
+      contextEnvelope: input.context_envelope,
+      resolvedScope: null,
+      toolCalls: [],
+      toolResults: [],
+      citations: [],
+    };
     const reader = response.body?.getReader();
     if (reader) {
       const decoder = new TextDecoder();
@@ -824,8 +870,12 @@ export async function askAi(input: {
           if (payload === "[DONE]") continue;
           try {
             const parsed = JSON.parse(payload);
+            if (currentEvent === "context") {
+              debug.contextEnvelope = parsed.context_envelope || debug.contextEnvelope;
+              debug.resolvedScope = parsed.resolved_scope || null;
+            }
             // FastAPI "token" event: {"text": "..."}
-            if (currentEvent === "token" && parsed.text) {
+            else if (currentEvent === "token" && parsed.text) {
               answer += parsed.text;
             }
             // OpenAI streaming format: {"choices":[{"delta":{"content":"..."}}]}
@@ -838,12 +888,30 @@ export async function askAi(input: {
             }
             // FastAPI tool_call event — surface as status
             else if (currentEvent === "tool_call" && parsed.tool_name) {
+              debug.toolCalls.push({
+                tool_name: parsed.tool_name,
+                args: parsed.args,
+                result_preview: parsed.result_preview,
+              });
               const label = parsed.tool_name.replace(/^repe\./, "").replace(/_/g, " ");
               input.onStatus?.(`Looking up ${label}...`);
               continue;
             }
+            else if (currentEvent === "tool_result" && parsed.tool_name) {
+              debug.toolResults.push({
+                tool_name: parsed.tool_name,
+                args: parsed.args,
+                result: parsed.result,
+              });
+              continue;
+            }
             // FastAPI citation/done events — silently consume
-            else if (currentEvent === "citation" || currentEvent === "done") {
+            else if (currentEvent === "citation") {
+              debug.citations.push(parsed);
+              continue;
+            }
+            else if (currentEvent === "done") {
+              debug.done = parsed;
               continue;
             }
           } catch {
@@ -862,7 +930,7 @@ export async function askAi(input: {
       console.warn(`[askAi] Empty response for ${requestId} after ${trace.durationMs}ms (status=${response.status})`);
     }
     logClientTrace(trace);
-    return { answer: answer.trim() || "No response from Winston.", trace };
+    return { answer: answer.trim() || "No response from Winston.", trace, debug };
   } catch (error) {
     const trace: AssistantApiTrace = {
       requestId,
@@ -877,6 +945,13 @@ export async function askAi(input: {
     return {
       answer: error instanceof Error ? `Winston error: ${error.message}` : "Winston encountered an error.",
       trace,
+      debug: {
+        contextEnvelope: input.context_envelope,
+        resolvedScope: null,
+        toolCalls: [],
+        toolResults: [],
+        citations: [],
+      },
     };
   } finally {
     cancel();
