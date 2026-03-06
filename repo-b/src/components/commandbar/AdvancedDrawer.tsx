@@ -30,6 +30,29 @@ function pathBadgeColor(path: string) {
   }
 }
 
+function laneBadgeColor(lane: string) {
+  switch (lane) {
+    case "A": return "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
+    case "B": return "bg-sky-500/20 text-sky-300 border-sky-500/30";
+    case "C": return "bg-amber-500/20 text-amber-300 border-amber-500/30";
+    case "D": return "bg-red-500/20 text-red-300 border-red-500/30";
+    default: return "bg-gray-500/20 text-gray-300 border-gray-500/30";
+  }
+}
+
+function TimingBar({ label, ms, maxMs }: { label: string; ms: number; maxMs: number }) {
+  const pct = maxMs > 0 ? Math.min((ms / maxMs) * 100, 100) : 0;
+  return (
+    <div className="flex items-center gap-2 py-0.5">
+      <span className="text-[10px] text-bm-muted2 w-20 flex-shrink-0 text-right">{label}</span>
+      <div className="flex-1 h-2 rounded-full bg-bm-surface/30 overflow-hidden">
+        <div className="h-full rounded-full bg-bm-accent/60 transition-all" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-[10px] font-mono text-bm-muted2 w-12 text-right">{ms}ms</span>
+    </div>
+  );
+}
+
 function CopyButton({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -131,6 +154,11 @@ function OverviewTab({
             <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${pathBadgeColor(winstonTrace.execution_path)}`}>
               {winstonTrace.execution_path.toUpperCase()}
             </span>
+            {winstonTrace.lane && (
+              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${laneBadgeColor(winstonTrace.lane)}`}>
+                Lane {winstonTrace.lane}
+              </span>
+            )}
             <span className="text-[10px] text-bm-muted2">
               {winstonTrace.tool_call_count} tool{winstonTrace.tool_call_count !== 1 ? "s" : ""}
             </span>
@@ -459,10 +487,35 @@ function RuntimeTab({
       <div className="rounded-md bg-bm-surface/20 px-2 py-1.5">
         <p className="text-[10px] text-bm-muted2 uppercase tracking-wider mb-1">Execution</p>
         <KV label="Path" value={winstonTrace?.execution_path} />
+        <KV label="Lane" value={winstonTrace?.lane ? `Lane ${winstonTrace.lane}` : undefined} />
         <KV label="Tool calls" value={winstonTrace?.tool_call_count} />
         <KV label="RAG chunks" value={winstonTrace?.rag_chunks_used} />
         <KV label="Citations" value={winstonTrace?.citations?.length} />
       </div>
+
+      {/* Timings breakdown */}
+      {winstonTrace?.timings && Object.keys(winstonTrace.timings).length > 0 && (
+        <div className="rounded-md bg-bm-surface/20 px-2 py-1.5">
+          <p className="text-[10px] text-bm-muted2 uppercase tracking-wider mb-1">Timings</p>
+          {(() => {
+            const t = winstonTrace.timings!;
+            const maxMs = t.total_ms || Math.max(...Object.values(t).filter((v): v is number => typeof v === "number"));
+            const order: [string, string][] = [
+              ["context_resolution_ms", "Context"],
+              ["rag_search_ms", "RAG"],
+              ["prompt_construction_ms", "Prompt"],
+              ["ttft_ms", "TTFT"],
+              ["model_ms", "Model"],
+              ["total_ms", "Total"],
+            ];
+            return order
+              .filter(([key]) => t[key] != null)
+              .map(([key, label]) => (
+                <TimingBar key={key} label={label} ms={t[key]!} maxMs={maxMs} />
+              ));
+          })()}
+        </div>
+      )}
 
       {/* Resolved scope IDs */}
       {debug?.resolvedScope && (
@@ -568,6 +621,11 @@ export default function AdvancedDrawer({
         {/* Execution path badge */}
         {winstonTrace && (
           <div className="ml-auto flex items-center gap-2 px-2">
+            {winstonTrace.lane && (
+              <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-medium ${laneBadgeColor(winstonTrace.lane)}`}>
+                {winstonTrace.lane}
+              </span>
+            )}
             <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-medium ${pathBadgeColor(winstonTrace.execution_path)}`}>
               {winstonTrace.execution_path.toUpperCase()}
             </span>

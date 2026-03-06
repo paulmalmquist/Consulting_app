@@ -54,6 +54,10 @@ _RAG_HINT_RE = re.compile(
     r"\b(document|memo|report|filing|agreement|lease|lpa|ppm|prospectus|search|find.*in)\b",
     re.IGNORECASE,
 )
+_WRITE_RE = re.compile(
+    r"\b(create|add|new|set up|register|insert)\b.*\b(fund|deal|investment|asset|property)\b",
+    re.IGNORECASE,
+)
 
 
 def classify_request(
@@ -103,6 +107,17 @@ def classify_request(
                 max_tokens=256,
                 temperature=0.1,
             )
+
+    # Write/mutation requests → Lane C (multi-tool for confirmation flow)
+    if _WRITE_RE.search(message):
+        return RouteDecision(
+            lane="C",
+            skip_rag=True,
+            skip_tools=False,
+            max_tool_rounds=3,
+            max_tokens=1024,
+            temperature=0.2,
+        )
 
     # Deep reasoning
     if _DEEP_RE.search(message):

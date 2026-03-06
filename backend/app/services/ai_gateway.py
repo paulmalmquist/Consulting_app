@@ -49,6 +49,12 @@ before answering. Do not behave like a stateless chatbot.
 - When the user says "investments", use repe.list_deals. When they say "deals", use the same tool.
 - Do NOT confuse deals/investments with funds or assets.
 
+## Mutation Rules
+- For any create/update/delete action, ALWAYS confirm the parameters with the user before calling the write tool.
+- Present the parameters in a clear summary and ask "Shall I proceed?" before executing.
+- After a successful write, report what was created and its ID.
+- If a write fails, report the error clearly and suggest corrections.
+
 ## Response Style
 - Be concise, data-driven, and explicit about freshness.
 - Use tables for multi-entity comparisons and bullets for simple summaries.
@@ -62,6 +68,11 @@ def _sanitize_tool_name(name: str) -> str:
 
 
 _cached_tools: tuple[list[dict], dict[str, str]] | None = None
+
+
+def _reset_tool_cache() -> None:
+    global _cached_tools
+    _cached_tools = None
 
 
 def _build_openai_tools() -> tuple[list[dict], dict[str, str]]:
@@ -433,6 +444,10 @@ async def run_gateway_stream(
                 "tool_def": t_def,
                 "raw_args": raw_args,
             })
+
+        # Emit status for tool execution
+        tool_names = [t["tool_name"] for t in tool_tasks]
+        yield _sse("status", {"message": f"Looking up {', '.join(t.replace('repe.', '').replace('_', ' ') for t in tool_names)}..."})
 
         # Execute all tool calls concurrently
         async def _run_tool(task: dict[str, Any]) -> dict[str, Any]:

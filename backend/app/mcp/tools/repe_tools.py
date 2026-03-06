@@ -6,6 +6,9 @@ from uuid import UUID
 from app.mcp.auth import McpContext
 from app.mcp.registry import AuditPolicy, ToolDef, registry
 from app.mcp.schemas.repe_tools import (
+    CreateAssetInput,
+    CreateDealInput,
+    CreateFundInput,
     GetAssetInput,
     GetEnvironmentSnapshotInput,
     GetFundInput,
@@ -187,6 +190,53 @@ def _get_environment_snapshot(ctx: McpContext, inp: GetEnvironmentSnapshotInput)
     return _serialize(snapshot)
 
 
+def _create_fund(ctx: McpContext, inp: CreateFundInput) -> dict:
+    business_id = _resolve_business_id(inp, ctx)
+    payload = {
+        "name": inp.name,
+        "vintage_year": inp.vintage_year,
+        "fund_type": inp.fund_type,
+        "strategy": inp.strategy,
+        "status": inp.status,
+        "sub_strategy": inp.sub_strategy,
+        "target_size": inp.target_size,
+        "term_years": inp.term_years,
+        "base_currency": inp.base_currency,
+    }
+    fund = repe.create_fund(business_id=business_id, payload=payload)
+    return {"fund": _serialize(fund), "created": True}
+
+
+def _create_deal(ctx: McpContext, inp: CreateDealInput) -> dict:
+    fund_id = _resolve_fund_id(inp, ctx)
+    payload = {
+        "name": inp.name,
+        "deal_type": inp.deal_type,
+        "stage": inp.stage,
+        "sponsor": inp.sponsor,
+        "target_close_date": inp.target_close_date,
+    }
+    deal = repe.create_deal(fund_id=fund_id, payload=payload)
+    return {"deal": _serialize(deal), "created": True}
+
+
+def _create_asset(ctx: McpContext, inp: CreateAssetInput) -> dict:
+    deal_id = _resolve_deal_id(inp, ctx)
+    if deal_id is None:
+        raise ValueError("deal_id is required to create an asset")
+    payload = {
+        "name": inp.name,
+        "asset_type": inp.asset_type,
+        "property_type": inp.property_type,
+        "units": inp.units,
+        "market": inp.market,
+        "current_noi": inp.current_noi,
+        "occupancy": inp.occupancy,
+    }
+    asset = repe.create_asset(deal_id=deal_id, payload=payload)
+    return {"asset": _serialize(asset), "created": True}
+
+
 def register_repe_tools() -> None:
     policy = AuditPolicy(redact_keys=[], max_input_bytes_to_log=5000, max_output_bytes_to_log=10000)
 
@@ -273,5 +323,51 @@ def register_repe_tools() -> None:
             input_model=GetEnvironmentSnapshotInput,
             audit_policy=policy,
             handler=_get_environment_snapshot,
+        )
+    )
+
+    # ── Write tools ───────────────────────────────────────────────────────
+    write_policy = AuditPolicy(redact_keys=[], max_input_bytes_to_log=5000, max_output_bytes_to_log=5000)
+
+    registry.register(
+        ToolDef(
+            name="repe.create_fund",
+            description=(
+                "Create a new fund in the current business. Requires name, vintage_year, fund_type, "
+                "strategy, and status. Always confirm parameters with the user before calling."
+            ),
+            module="repe",
+            permission="write",
+            input_model=CreateFundInput,
+            audit_policy=write_policy,
+            handler=_create_fund,
+        )
+    )
+    registry.register(
+        ToolDef(
+            name="repe.create_deal",
+            description=(
+                "Create a new deal/investment in a fund. Requires name, deal_type, and stage. "
+                "fund_id is auto-resolved from scope. Always confirm parameters with the user before calling."
+            ),
+            module="repe",
+            permission="write",
+            input_model=CreateDealInput,
+            audit_policy=write_policy,
+            handler=_create_deal,
+        )
+    )
+    registry.register(
+        ToolDef(
+            name="repe.create_asset",
+            description=(
+                "Create a new asset under a deal/investment. Requires name and asset_type. "
+                "deal_id is auto-resolved from scope. Always confirm parameters with the user before calling."
+            ),
+            module="repe",
+            permission="write",
+            input_model=CreateAssetInput,
+            audit_policy=write_policy,
+            handler=_create_asset,
         )
     )
