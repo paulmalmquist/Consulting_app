@@ -72,6 +72,22 @@ RAG_TOP_K: int = int(os.getenv("RAG_TOP_K", "5"))
 RAG_CHUNK_TOKENS: int = int(os.getenv("RAG_CHUNK_TOKENS", "400"))
 RAG_CHUNK_OVERLAP: int = int(os.getenv("RAG_CHUNK_OVERLAP", "50"))
 
+# ── Multi-model dispatch ──────────────────────────────────────────
+OPENAI_CHAT_MODEL_FAST: str = os.getenv("OPENAI_CHAT_MODEL_FAST", "gpt-4o-mini")
+OPENAI_CHAT_MODEL_STANDARD: str = os.getenv("OPENAI_CHAT_MODEL_STANDARD", "gpt-4o")
+OPENAI_CHAT_MODEL_REASONING: str = os.getenv("OPENAI_CHAT_MODEL_REASONING", "o1-mini")
+OPENAI_CHAT_MODEL_CODING: str = os.getenv("OPENAI_CHAT_MODEL_CODING", "gpt-4o")
+
+# ── RAG quality controls ─────────────────────────────────────────
+RAG_MIN_SCORE: float = float(os.getenv("RAG_MIN_SCORE", "0.30"))
+RAG_RRF_K: int = int(os.getenv("RAG_RRF_K", "60"))
+RAG_EMBEDDING_CACHE_SIZE: int = int(os.getenv("RAG_EMBEDDING_CACHE_SIZE", "512"))
+RAG_CACHE_TTL_SECONDS: int = int(os.getenv("RAG_CACHE_TTL_SECONDS", "60"))
+
+# ── Re-ranking ───────────────────────────────────────────────────
+COHERE_API_KEY: str = os.getenv("COHERE_API_KEY", "")
+RAG_RERANK_METHOD: str = os.getenv("RAG_RERANK_METHOD", "cohere" if os.getenv("COHERE_API_KEY", "") else "llm")
+
 _db_validated = False
 
 

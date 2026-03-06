@@ -9,6 +9,11 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from app.config import (
+    OPENAI_CHAT_MODEL_FAST,
+    OPENAI_CHAT_MODEL_STANDARD,
+    OPENAI_CHAT_MODEL_REASONING,
+)
 from app.schemas.ai_gateway import AssistantContextEnvelope, ResolvedAssistantScope
 
 
@@ -21,6 +26,12 @@ class RouteDecision:
     max_tokens: int
     temperature: float
     is_write: bool = False
+    model: str = ""
+    rag_top_k: int = 5
+    rag_max_tokens: int = 2400
+    history_max_tokens: int = 2000
+    use_rerank: bool = False
+    use_hybrid: bool = False
 
 
 # ── Pattern matchers ─────────────────────────────────────────────────────────
@@ -82,6 +93,10 @@ def classify_request(
             max_tool_rounds=0,
             max_tokens=512,
             temperature=0.1,
+            model=OPENAI_CHAT_MODEL_FAST,
+            rag_top_k=0,
+            rag_max_tokens=0,
+            history_max_tokens=800,
         )
 
     # Identity queries
@@ -93,6 +108,10 @@ def classify_request(
             max_tool_rounds=0,
             max_tokens=256,
             temperature=0.1,
+            model=OPENAI_CHAT_MODEL_FAST,
+            rag_top_k=0,
+            rag_max_tokens=0,
+            history_max_tokens=800,
         )
 
     # Count queries with visible data
@@ -110,6 +129,10 @@ def classify_request(
                 max_tool_rounds=0,
                 max_tokens=256,
                 temperature=0.1,
+                model=OPENAI_CHAT_MODEL_FAST,
+                rag_top_k=0,
+                rag_max_tokens=0,
+                history_max_tokens=800,
             )
 
     # Write/mutation requests → Lane C (multi-tool for confirmation flow)
@@ -122,6 +145,10 @@ def classify_request(
             max_tokens=1024,
             temperature=0.2,
             is_write=True,
+            model=OPENAI_CHAT_MODEL_FAST,
+            rag_top_k=0,
+            rag_max_tokens=0,
+            history_max_tokens=1500,
         )
 
     # Deep reasoning
@@ -134,6 +161,12 @@ def classify_request(
             max_tool_rounds=5,
             max_tokens=2048,
             temperature=0.3,
+            model=OPENAI_CHAT_MODEL_REASONING,
+            rag_top_k=8,
+            rag_max_tokens=3000,
+            history_max_tokens=4000,
+            use_rerank=True,
+            use_hybrid=True,
         )
 
     # Analytical
@@ -146,6 +179,12 @@ def classify_request(
             max_tool_rounds=3,
             max_tokens=2048,
             temperature=0.2,
+            model=OPENAI_CHAT_MODEL_STANDARD,
+            rag_top_k=5,
+            rag_max_tokens=2000,
+            history_max_tokens=3000,
+            use_rerank=True,
+            use_hybrid=True,
         )
 
     # Simple list with visible data already present → Lane A
@@ -166,6 +205,10 @@ def classify_request(
                     max_tool_rounds=0,
                     max_tokens=512,
                     temperature=0.1,
+                    model=OPENAI_CHAT_MODEL_FAST,
+                    rag_top_k=0,
+                    rag_max_tokens=0,
+                    history_max_tokens=800,
                 )
 
     # Simple lookup → Lane B (1 tool round, no RAG)
@@ -177,6 +220,10 @@ def classify_request(
             max_tool_rounds=1,
             max_tokens=1024,
             temperature=0.2,
+            model=OPENAI_CHAT_MODEL_FAST,
+            rag_top_k=3,
+            rag_max_tokens=800,
+            history_max_tokens=1500,
         )
 
     # Document/RAG hints → Lane C with RAG
@@ -188,6 +235,12 @@ def classify_request(
             max_tool_rounds=3,
             max_tokens=2048,
             temperature=0.2,
+            model=OPENAI_CHAT_MODEL_STANDARD,
+            rag_top_k=5,
+            rag_max_tokens=2000,
+            history_max_tokens=3000,
+            use_rerank=True,
+            use_hybrid=True,
         )
 
     # Short messages (< 60 chars) without analytical keywords → Lane B
@@ -199,6 +252,10 @@ def classify_request(
             max_tool_rounds=2,
             max_tokens=1024,
             temperature=0.2,
+            model=OPENAI_CHAT_MODEL_FAST,
+            rag_top_k=3,
+            rag_max_tokens=800,
+            history_max_tokens=1500,
         )
 
     # Default → Lane C
@@ -209,4 +266,10 @@ def classify_request(
         max_tool_rounds=3,
         max_tokens=2048,
         temperature=0.2,
+        model=OPENAI_CHAT_MODEL_STANDARD,
+        rag_top_k=5,
+        rag_max_tokens=2000,
+        history_max_tokens=3000,
+        use_rerank=True,
+        use_hybrid=True,
     )

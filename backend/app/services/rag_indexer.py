@@ -1,22 +1,11 @@
-"""RAG indexer — chunk, embed, and store documents in pgvector.
 
-Demonstrates:
-  - Parent-child chunking (broad parent context, granular child search)
-  - OpenAI Embeddings API integration (batch processing)
-  - pgvector HNSW cosine similarity search with full-text fallback
-  - Multi-tenant isolation (business_id scoping)
-  - Idempotent re-indexing
-  - Section heading extraction for citation traceability
-
-Parent-child retrieval pattern:
-  - Parent chunks are large (800+ tokens) for complete context
-  - Child chunks are smaller (400 tokens) for precise search
-  - Search matches children → return parent text to avoid truncation
-"""
 from __future__ import annotations
 
+import functools
+import logging
 import re
 import uuid
+from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Generator
 
@@ -25,8 +14,12 @@ from app.config import (
     OPENAI_EMBEDDING_MODEL,
     RAG_CHUNK_TOKENS,
     RAG_CHUNK_OVERLAP,
+    RAG_EMBEDDING_CACHE_SIZE,
+    RAG_RRF_K,
 )
 from app.db import get_cursor
+
+logger = logging.getLogger(__name__)
 
 # Parent chunks are 2x child chunk size for broader context
 PARENT_CHUNK_TOKENS = RAG_CHUNK_TOKENS * 2
@@ -60,6 +53,11 @@ class RetrievedChunk:
     section_heading: str | None = None
     section_path: str | None = None
     parent_chunk_text: str | None = None
+    source_filename: str | None = None
+    retrieval_method: str = "cosine"  # "cosine", "fts", "hybrid"
+    entity_type: str | None = None
+    entity_id: str | None = None
+    env_id: str | None = None
 
 
 # ── Section heading detection ───────────────────────────────────────────
@@ -206,6 +204,14 @@ def _embed_texts(texts: list[str]) -> list[list[float]]:
         )
         all_embeddings.extend([item.embedding for item in response.data])
     return all_embeddings
+
+
+@functools.lru_cache(maxsize=RAG_EMBEDDING_CACHE_SIZE)
+def _embed_query_cached(query: str) -> tuple[float, ...]:
+    """LRU-cached single-query embedding. Returns tuple for hashability."""
+    result = _embed_texts([query])[0]
+    logger.debug("Embedded query (%d dims, cache miss)", len(result))
+    return tuple(result)
 
 
 # ── Indexing ────────────────────────────────────────────────────────────
@@ -365,32 +371,17 @@ def index_document(
     return total_stored
 
 
-# ── Retrieval ───────────────────────────────────────────────────────────
+# ── Retrieval helpers ──────────────────────────────────────────────────
 
-def semantic_search(
-    query: str,
-    *,
+def _build_scope_where(
     business_id: uuid.UUID,
     env_id: uuid.UUID | None = None,
     entity_type: str | None = None,
     entity_id: uuid.UUID | None = None,
-    top_k: int = 5,
-) -> list[RetrievedChunk]:
-    """Semantic similarity search with parent-child context expansion.
-
-    Strategy: Search child chunks (granular, precise matches) then return
-    the parent chunk text for each match. This avoids the common RAG pitfall
-    of returning truncated snippets that lack context.
-
-    Falls back to full-text search if pgvector is unavailable.
-    Always scoped by business_id for multi-tenant isolation.
-    """
-    query_embedding = _embed_texts([query])[0]
-
-    # Build WHERE clause for scope filtering — only search child chunks
+) -> tuple[str, list]:
+    """Build WHERE clause for business/env/entity scope filtering."""
     conditions = ["child.business_id = %s::uuid", "child.chunk_type = 'child'"]
     params: list = [str(business_id)]
-
     if env_id:
         conditions.append("child.env_id = %s::uuid")
         params.append(str(env_id))
@@ -400,75 +391,257 @@ def semantic_search(
     if entity_id:
         conditions.append("child.entity_id = %s::uuid")
         params.append(str(entity_id))
+    return " AND ".join(conditions), params
 
-    where = " AND ".join(conditions)
 
-    with get_cursor() as cur:
-        # Check if pgvector is available
-        cur.execute(
-            "SELECT typname FROM pg_type WHERE typname = 'vector' LIMIT 1"
-        )
-        has_vector = cur.fetchone() is not None
-
-        if has_vector:
-            embedding_str = str(query_embedding)
-            cur.execute(
-                f"""
-                SELECT
-                  child.chunk_id::text,
-                  child.document_id::text,
-                  child.chunk_text       AS child_text,
-                  child.chunk_index,
-                  child.section_heading,
-                  child.section_path,
-                  parent.chunk_text      AS parent_text,
-                  1 - (child.embedding <=> %s::vector) AS score
-                FROM rag_chunks child
-                LEFT JOIN rag_chunks parent
-                  ON parent.chunk_id = child.parent_chunk_id
-                WHERE {where}
-                ORDER BY child.embedding <=> %s::vector
-                LIMIT %s
-                """,
-                [embedding_str] + params + [embedding_str, top_k],
-            )
-        else:
-            # Full-text search fallback with parent join
-            cur.execute(
-                f"""
-                SELECT
-                  child.chunk_id::text,
-                  child.document_id::text,
-                  child.chunk_text       AS child_text,
-                  child.chunk_index,
-                  child.section_heading,
-                  child.section_path,
-                  parent.chunk_text      AS parent_text,
-                  ts_rank(child.search_tsv, plainto_tsquery('english', %s)) AS score
-                FROM rag_chunks child
-                LEFT JOIN rag_chunks parent
-                  ON parent.chunk_id = child.parent_chunk_id
-                WHERE {where}
-                  AND child.search_tsv @@ plainto_tsquery('english', %s)
-                ORDER BY score DESC
-                LIMIT %s
-                """,
-                params + [query, query, top_k],
-            )
-
-        rows = cur.fetchall()
-
+def _rows_to_chunks(rows: list, method: str = "cosine") -> list[RetrievedChunk]:
+    """Convert DB rows to RetrievedChunk list."""
     return [
         RetrievedChunk(
             chunk_id=r["chunk_id"],
             document_id=r["document_id"],
-            # Return parent text when available (broader context), fall back to child
             chunk_text=r["parent_text"] or r["child_text"],
             score=float(r["score"]),
             chunk_index=r["chunk_index"],
             section_heading=r.get("section_heading"),
             section_path=r.get("section_path"),
             parent_chunk_text=r["parent_text"],
+            source_filename=r.get("source_filename"),
+            retrieval_method=method,
+            entity_type=r.get("entity_type"),
+            entity_id=r.get("entity_id"),
+            env_id=r.get("env_id"),
         )
         for r in rows
     ]
+
+
+def _cosine_search(
+    query_embedding: list[float] | tuple[float, ...],
+    where: str,
+    params: list,
+    top_k: int,
+) -> list[RetrievedChunk]:
+    """pgvector cosine similarity search."""
+    embedding_str = str(list(query_embedding))
+    with get_cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT
+              child.chunk_id::text,
+              child.document_id::text,
+              child.chunk_text       AS child_text,
+              child.chunk_index,
+              child.section_heading,
+              child.section_path,
+              child.source_filename,
+              child.entity_type,
+              child.entity_id::text,
+              child.env_id::text,
+              parent.chunk_text      AS parent_text,
+              1 - (child.embedding <=> %s::vector) AS score
+            FROM rag_chunks child
+            LEFT JOIN rag_chunks parent
+              ON parent.chunk_id = child.parent_chunk_id
+            WHERE {where}
+            ORDER BY child.embedding <=> %s::vector
+            LIMIT %s
+            """,
+            [embedding_str] + params + [embedding_str, top_k],
+        )
+        return _rows_to_chunks(cur.fetchall(), method="cosine")
+
+
+def _fts_search(
+    query: str,
+    where: str,
+    params: list,
+    top_k: int,
+) -> list[RetrievedChunk]:
+    """Full-text search with parent join."""
+    with get_cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT
+              child.chunk_id::text,
+              child.document_id::text,
+              child.chunk_text       AS child_text,
+              child.chunk_index,
+              child.section_heading,
+              child.section_path,
+              child.source_filename,
+              child.entity_type,
+              child.entity_id::text,
+              child.env_id::text,
+              parent.chunk_text      AS parent_text,
+              ts_rank(child.search_tsv, plainto_tsquery('english', %s)) AS score
+            FROM rag_chunks child
+            LEFT JOIN rag_chunks parent
+              ON parent.chunk_id = child.parent_chunk_id
+            WHERE {where}
+              AND child.search_tsv @@ plainto_tsquery('english', %s)
+            ORDER BY score DESC
+            LIMIT %s
+            """,
+            params + [query, query, top_k],
+        )
+        return _rows_to_chunks(cur.fetchall(), method="fts")
+
+
+def _reciprocal_rank_fusion(
+    *result_lists: list[RetrievedChunk],
+    k: int = RAG_RRF_K,
+) -> list[RetrievedChunk]:
+    """Merge multiple ranked lists using Reciprocal Rank Fusion.
+
+    RRF score = Σ(1 / (k + rank_i)) across all lists for each chunk.
+    """
+    rrf_scores: dict[str, float] = defaultdict(float)
+    chunk_map: dict[str, RetrievedChunk] = {}
+
+    for results in result_lists:
+        for rank, chunk in enumerate(results):
+            rrf_scores[chunk.chunk_id] += 1.0 / (k + rank + 1)
+            if chunk.chunk_id not in chunk_map or chunk.score > chunk_map[chunk.chunk_id].score:
+                chunk_map[chunk.chunk_id] = chunk
+
+    # Sort by RRF score, update chunk scores
+    merged = []
+    for chunk_id, rrf_score in sorted(rrf_scores.items(), key=lambda x: -x[1]):
+        chunk = chunk_map[chunk_id]
+        chunk = RetrievedChunk(
+            chunk_id=chunk.chunk_id,
+            document_id=chunk.document_id,
+            chunk_text=chunk.chunk_text,
+            score=rrf_score,
+            chunk_index=chunk.chunk_index,
+            section_heading=chunk.section_heading,
+            section_path=chunk.section_path,
+            parent_chunk_text=chunk.parent_chunk_text,
+            source_filename=chunk.source_filename,
+            retrieval_method="hybrid",
+            entity_type=chunk.entity_type,
+            entity_id=chunk.entity_id,
+            env_id=chunk.env_id,
+        )
+        merged.append(chunk)
+    return merged
+
+
+def _apply_metadata_boost(
+    chunks: list[RetrievedChunk],
+    *,
+    scope_entity_type: str | None = None,
+    scope_entity_id: str | None = None,
+    scope_env_id: str | None = None,
+) -> list[RetrievedChunk]:
+    """Boost scores for chunks matching the current entity/env scope."""
+    boosted = []
+    for chunk in chunks:
+        boost = 0.0
+        if scope_entity_id and chunk.entity_id and chunk.entity_id == scope_entity_id:
+            boost += 0.12
+        if scope_entity_type and chunk.entity_type and chunk.entity_type == scope_entity_type:
+            boost += 0.05
+        if scope_env_id and chunk.env_id and chunk.env_id == scope_env_id:
+            boost += 0.03
+        boosted.append(RetrievedChunk(
+            chunk_id=chunk.chunk_id,
+            document_id=chunk.document_id,
+            chunk_text=chunk.chunk_text,
+            score=chunk.score + boost,
+            chunk_index=chunk.chunk_index,
+            section_heading=chunk.section_heading,
+            section_path=chunk.section_path,
+            parent_chunk_text=chunk.parent_chunk_text,
+            source_filename=chunk.source_filename,
+            retrieval_method=chunk.retrieval_method,
+            entity_type=chunk.entity_type,
+            entity_id=chunk.entity_id,
+            env_id=chunk.env_id,
+        ))
+    return sorted(boosted, key=lambda c: -c.score)
+
+
+def _dedup_by_section(chunks: list[RetrievedChunk]) -> list[RetrievedChunk]:
+    """Remove redundant chunks from the same document section.
+
+    Keeps the highest-scoring chunk per (document_id, section_path) pair.
+    Backfills with chunks from other sections to maintain count.
+    """
+    seen: set[tuple[str, str | None]] = set()
+    deduped: list[RetrievedChunk] = []
+    for chunk in chunks:
+        key = (chunk.document_id, chunk.section_path)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(chunk)
+    return deduped
+
+
+# ── Main retrieval function ───────────────────────────────────────────
+
+def semantic_search(
+    query: str,
+    *,
+    business_id: uuid.UUID,
+    env_id: uuid.UUID | None = None,
+    entity_type: str | None = None,
+    entity_id: uuid.UUID | None = None,
+    top_k: int = 5,
+    use_hybrid: bool = False,
+    scope_entity_type: str | None = None,
+    scope_entity_id: str | None = None,
+    scope_env_id: str | None = None,
+) -> list[RetrievedChunk]:
+    """Semantic similarity search with parent-child context expansion.
+
+    Strategy: Search child chunks (granular, precise matches) then return
+    the parent chunk text for each match. This avoids the common RAG pitfall
+    of returning truncated snippets that lack context.
+
+    When use_hybrid=True, runs both cosine and FTS, merges via RRF.
+    Applies metadata boosting and diversity dedup.
+    Always scoped by business_id for multi-tenant isolation.
+    """
+    query_embedding = _embed_query_cached(query)
+    where, params = _build_scope_where(business_id, env_id, entity_type, entity_id)
+
+    with get_cursor() as cur:
+        cur.execute("SELECT typname FROM pg_type WHERE typname = 'vector' LIMIT 1")
+        has_vector = cur.fetchone() is not None
+
+    # Over-fetch for hybrid/rerank pipeline
+    fetch_k = top_k * 3 if use_hybrid else top_k
+
+    if has_vector:
+        cosine_results = _cosine_search(query_embedding, where, params, fetch_k)
+    else:
+        cosine_results = []
+
+    if use_hybrid or not has_vector:
+        fts_results = _fts_search(query, where, params, fetch_k)
+    else:
+        fts_results = []
+
+    # Merge results
+    if use_hybrid and cosine_results and fts_results:
+        candidates = _reciprocal_rank_fusion(cosine_results, fts_results)
+    elif cosine_results:
+        candidates = cosine_results
+    else:
+        candidates = fts_results
+
+    # Metadata boosting
+    candidates = _apply_metadata_boost(
+        candidates,
+        scope_entity_type=scope_entity_type or entity_type,
+        scope_entity_id=str(scope_entity_id) if scope_entity_id else (str(entity_id) if entity_id else None),
+        scope_env_id=str(scope_env_id) if scope_env_id else (str(env_id) if env_id else None),
+    )
+
+    # Diversity dedup
+    candidates = _dedup_by_section(candidates)
+
+    return candidates[:top_k]

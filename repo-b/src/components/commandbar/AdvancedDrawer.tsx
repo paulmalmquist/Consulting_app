@@ -458,8 +458,14 @@ function DataTab({
               <div key={i} className="py-0.5 border-b border-bm-border/20 last:border-0">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-mono text-bm-text/80">{String(c.chunk_id || c.doc_id || `citation-${i}`)}</span>
-                  {c.score != null && <span className="text-[10px] text-bm-muted2">{Number(c.score).toFixed(3)}</span>}
+                  <span className="flex items-center gap-1">
+                    {c.retrieval_method && (
+                      <span className="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">{String(c.retrieval_method)}</span>
+                    )}
+                    {c.score != null && <span className="text-[10px] text-bm-muted2">{Number(c.score).toFixed(3)}</span>}
+                  </span>
                 </div>
+                {c.source_filename ? <p className="text-[10px] text-bm-muted2">{String(c.source_filename)}</p> : null}
                 {c.section_heading ? <p className="text-[10px] text-bm-muted2">{String(c.section_heading)}</p> : null}
                 {c.snippet ? <p className="text-[10px] text-bm-muted2 line-clamp-2">{String(c.snippet)}</p> : null}
               </div>
@@ -622,6 +628,38 @@ function RuntimeTab({
           })()}
         </div>
       )}
+
+      {/* RAG Quality */}
+      {(winstonTrace as Record<string, unknown>)?.rag_quality && (() => {
+        const rq = (winstonTrace as Record<string, unknown>).rag_quality as Record<string, unknown>;
+        return (
+          <div className="rounded-md bg-bm-surface/20 px-2 py-1.5">
+            <p className="text-[10px] text-bm-muted2 uppercase tracking-wider mb-1">RAG Quality</p>
+            <KV label="Retrieved" value={rq.chunks_retrieved as number} />
+            <KV label="After threshold" value={rq.chunks_after_threshold as number} />
+            <KV label="After rerank" value={rq.chunks_after_rerank as number} />
+            <KV label="Rerank method" value={rq.rerank_method as string} />
+            <KV label="Hybrid" value={rq.hybrid_used ? "Yes" : "No"} />
+            {Array.isArray(rq.scores) && rq.scores.length > 0 && (
+              <KV label="Score range" value={`${Math.min(...(rq.scores as number[])).toFixed(3)} – ${Math.max(...(rq.scores as number[])).toFixed(3)}`} />
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Cost */}
+      {(winstonTrace as Record<string, unknown>)?.cost && (() => {
+        const c = (winstonTrace as Record<string, unknown>).cost as Record<string, number>;
+        return (
+          <div className="rounded-md bg-bm-surface/20 px-2 py-1.5">
+            <p className="text-[10px] text-bm-muted2 uppercase tracking-wider mb-1">Cost</p>
+            <KV label="Model" value={`$${c.model_cost?.toFixed(5) ?? '0'}`} />
+            <KV label="Embedding" value={`$${c.embedding_cost?.toFixed(5) ?? '0'}`} />
+            <KV label="Rerank" value={`$${c.rerank_cost?.toFixed(5) ?? '0'}`} />
+            <KV label="Total" value={`$${c.total_cost?.toFixed(5) ?? '0'}`} />
+          </div>
+        );
+      })()}
 
       {/* Resolved scope IDs */}
       {debug?.resolvedScope && (

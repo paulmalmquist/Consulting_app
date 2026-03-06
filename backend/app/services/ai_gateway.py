@@ -7,7 +7,9 @@ import time
 import uuid
 from typing import Any, AsyncGenerator
 
-from app.config import AI_MAX_TOOL_ROUNDS, OPENAI_API_KEY, OPENAI_CHAT_MODEL, RAG_TOP_K
+import hashlib
+
+from app.config import AI_MAX_TOOL_ROUNDS, OPENAI_API_KEY, OPENAI_CHAT_MODEL, RAG_CACHE_TTL_SECONDS, RAG_MIN_SCORE, RAG_RERANK_METHOD, RAG_TOP_K
 from app.mcp.audit import execute_tool
 from app.mcp.auth import McpContext
 from app.mcp.registry import registry
@@ -21,8 +23,38 @@ from app.services.assistant_scope import (
     resolve_assistant_scope,
     resolve_visible_context_policy,
 )
+from app.services.cost_tracker import estimate_cost
 from app.services.rag_indexer import RetrievedChunk, semantic_search
+from app.services.rag_reranker import rerank_chunks
 from app.services.request_router import classify_request
+
+# ── RAG result cache (60s TTL) ────────────────────────────────────────
+_rag_cache: dict[str, tuple[float, list[RetrievedChunk]]] = {}
+
+
+def _rag_cache_key(query: str, business_id: str, env_id: str | None, entity_id: str | None) -> str:
+    raw = f"{query}:{business_id}:{env_id}:{entity_id}"
+    return hashlib.md5(raw.encode()).hexdigest()
+
+
+def _rag_cache_get(key: str) -> list[RetrievedChunk] | None:
+    entry = _rag_cache.get(key)
+    if entry is None:
+        return None
+    ts, chunks = entry
+    if time.time() - ts > RAG_CACHE_TTL_SECONDS:
+        del _rag_cache[key]
+        return None
+    return chunks
+
+
+def _rag_cache_set(key: str, chunks: list[RetrievedChunk]) -> None:
+    _rag_cache[key] = (time.time(), chunks)
+    # Evict old entries if cache grows too large
+    if len(_rag_cache) > 200:
+        oldest_key = min(_rag_cache, key=lambda k: _rag_cache[k][0])
+        del _rag_cache[oldest_key]
+
 
 _SYSTEM_PROMPT_BASE = """You are Winston, an in-app copilot embedded in an institutional real estate private equity platform.
 
@@ -314,16 +346,37 @@ async def run_gateway_stream(
     rag_env_id = resolved_scope.environment_id or (str(env_id) if env_id else None)
     rag_entity_type = resolved_scope.entity_type or entity_type
     rag_entity_id = resolved_scope.entity_id or (str(entity_id) if entity_id else None)
+    rag_chunks_raw: list[RetrievedChunk] = []
     if not route.skip_rag and rag_business_id:
+        effective_top_k = route.rag_top_k if route.rag_top_k > 0 else RAG_TOP_K
+        cache_key = _rag_cache_key(message, str(rag_business_id), rag_env_id, rag_entity_id)
+        cached = _rag_cache_get(cache_key)
         try:
-            rag_chunks = semantic_search(
-                query=message,
-                business_id=uuid.UUID(str(rag_business_id)),
-                env_id=uuid.UUID(str(rag_env_id)) if rag_env_id else None,
-                entity_type=rag_entity_type,
-                entity_id=uuid.UUID(str(rag_entity_id)) if rag_entity_id else None,
-                top_k=RAG_TOP_K,
-            )
+            if cached is not None:
+                rag_chunks_raw = cached
+            else:
+                rag_chunks_raw = semantic_search(
+                    query=message,
+                    business_id=uuid.UUID(str(rag_business_id)),
+                    env_id=uuid.UUID(str(rag_env_id)) if rag_env_id else None,
+                    entity_type=rag_entity_type,
+                    entity_id=uuid.UUID(str(rag_entity_id)) if rag_entity_id else None,
+                    top_k=effective_top_k,
+                    use_hybrid=route.use_hybrid,
+                    scope_entity_type=resolved_scope.entity_type,
+                    scope_entity_id=resolved_scope.entity_id,
+                    scope_env_id=resolved_scope.environment_id,
+                )
+                _rag_cache_set(cache_key, rag_chunks_raw)
+            # Score threshold filter — drop low-relevance chunks
+            rag_chunks = [c for c in rag_chunks_raw if c.score >= RAG_MIN_SCORE]
+            # Cross-encoder re-ranking (Lane C/D only)
+            if route.use_rerank and len(rag_chunks) > 1:
+                rag_chunks = await rerank_chunks(
+                    query=message,
+                    chunks=rag_chunks,
+                    top_k=effective_top_k,
+                )
             for chunk in rag_chunks:
                 yield _sse(
                     "citation",
@@ -334,9 +387,12 @@ async def run_gateway_stream(
                         "snippet": chunk.chunk_text[:300],
                         "section_heading": chunk.section_heading,
                         "section_path": chunk.section_path,
+                        "source_filename": chunk.source_filename,
+                        "retrieval_method": chunk.retrieval_method,
                     },
                 )
         except Exception as rag_err:
+            rag_chunks = []
             yield _sse(
                 "citation",
                 {"message": f"RAG unavailable: {str(rag_err)[:100]}"},
@@ -345,11 +401,19 @@ async def run_gateway_stream(
     rag_context = ""
     if rag_chunks:
         rag_context = "\n\nRELEVANT DOCUMENT CONTEXT:\n"
+        rag_token_budget = route.rag_max_tokens if route.rag_max_tokens > 0 else 9999
+        rag_tokens_used = 0
         for idx, chunk in enumerate(rag_chunks, 1):
-            heading = f", section={chunk.section_heading}" if chunk.section_heading else ""
+            # Approximate token count: ~4 chars per token
+            chunk_text = chunk.chunk_text[:800]
+            chunk_tokens = len(chunk_text) // 4
+            if rag_tokens_used + chunk_tokens > rag_token_budget:
+                break
+            rag_tokens_used += chunk_tokens
+            heading = f" | section={chunk.section_heading}" if chunk.section_heading else ""
             rag_context += (
-                f"\n[Doc {idx}, chunk_id={chunk.chunk_id}, score={chunk.score:.3f}{heading}]\n"
-                f"{chunk.chunk_text[:800]}\n"
+                f"\n[Doc {idx} | score={chunk.score:.3f}{heading}]\n"
+                f"{chunk_text}\n"
             )
 
     timings["rag_search_ms"] = int((time.time() - start) * 1000) - timings["context_resolution_ms"]
@@ -359,23 +423,27 @@ async def run_gateway_stream(
         additional_instructions=visible_context_policy["instructions"],
     )
     system_prompt = _build_system_prompt()
+    effective_model = route.model or OPENAI_CHAT_MODEL
+    # Reasoning models (o1/o3) use "developer" role instead of "system"
+    system_role = "developer" if effective_model.startswith(("o1", "o3")) else "system"
     messages: list[dict[str, Any]] = [
-        {"role": "system", "content": system_prompt + "\n\n" + context_block + rag_context},
+        {"role": system_role, "content": system_prompt + "\n\n" + context_block + rag_context},
     ]
 
-    # ── Conversation history (limited to last 10 turns for speed) ───
+    # ── Conversation history (token-budgeted per lane) ────────────
     if conversation_id:
         try:
             from app.services import ai_conversations as convo_svc
 
             history = convo_svc.get_messages(conversation_id=conversation_id)
-            # Sliding window: keep last N messages to avoid token bloat
             max_history = 6 if route.lane in ("A", "B") else 10
             recent = [m for m in history if m["role"] in ("user", "assistant")][-max_history:]
-            for msg in recent:
+            history_token_budget = route.history_max_tokens
+            history_tokens_used = 0
+            # Walk backwards (most recent first) to prioritize recent context
+            history_msgs: list[dict[str, str]] = []
+            for msg in reversed(recent):
                 content = msg["content"] or ""
-                # Reconstruct tool call context from stored tool_calls JSON
-                # so the LLM understands what happened in prior turns
                 if msg["role"] == "assistant" and msg.get("tool_calls"):
                     stored_tcs = msg["tool_calls"]
                     if isinstance(stored_tcs, str):
@@ -384,13 +452,19 @@ async def run_gateway_stream(
                         except Exception:
                             stored_tcs = None
                     if stored_tcs and "[SYSTEM NOTE:" not in content:
-                        # Only add if enriched content wasn't already persisted
                         tc_parts = []
                         for tc in stored_tcs:
                             args = tc.get("args", {})
                             tc_parts.append(f"{tc['name']}({json.dumps(args, default=str)})")
                         content += f"\n\n[Prior tool calls: {'; '.join(tc_parts)}]"
-                messages.append({"role": msg["role"], "content": content})
+                msg_tokens = len(content) // 4  # ~4 chars per token approximation
+                if history_tokens_used + msg_tokens > history_token_budget:
+                    break
+                history_tokens_used += msg_tokens
+                history_msgs.append({"role": msg["role"], "content": content})
+            # Reverse back to chronological order
+            for msg in reversed(history_msgs):
+                messages.append(msg)
         except Exception:
             pass
 
@@ -436,14 +510,20 @@ async def run_gateway_stream(
 
     effective_max_rounds = min(route.max_tool_rounds, AI_MAX_TOOL_ROUNDS)
     for round_num in range(effective_max_rounds + 1):
+        effective_model = route.model or OPENAI_CHAT_MODEL
         stream_kwargs: dict[str, Any] = {
-            "model": OPENAI_CHAT_MODEL,
+            "model": effective_model,
             "messages": messages,
             "stream": True,
             "stream_options": {"include_usage": True},
-            "temperature": route.temperature,
-            "max_tokens": route.max_tokens,
         }
+        # Reasoning models (o1*, o3*) use different parameters
+        if effective_model.startswith(("o1", "o3")):
+            stream_kwargs["max_completion_tokens"] = route.max_tokens
+            # o1/o3 don't support temperature or system role
+        else:
+            stream_kwargs["temperature"] = route.temperature
+            stream_kwargs["max_tokens"] = route.max_tokens
         if openai_tools:
             stream_kwargs["tools"] = openai_tools
             stream_kwargs["tool_choice"] = "auto"
@@ -802,6 +882,22 @@ async def run_gateway_stream(
             repe_metadata["rollup_level"] = "portfolio"
         repe_metadata["schema_name"] = resolved_scope.schema_name
 
+    # Build RAG quality and cost metrics for trace
+    rag_quality = {
+        "chunks_retrieved": len(rag_chunks_raw),
+        "chunks_after_threshold": len([c for c in rag_chunks_raw if c.score >= RAG_MIN_SCORE]) if rag_chunks_raw else 0,
+        "chunks_after_rerank": len(rag_chunks),
+        "rerank_method": RAG_RERANK_METHOD if route.use_rerank else "none",
+        "hybrid_used": route.use_hybrid,
+        "scores": [round(c.score, 4) for c in rag_chunks],
+    }
+    cost_info = estimate_cost(
+        model=route.model or OPENAI_CHAT_MODEL,
+        prompt_tokens=total_prompt_tokens,
+        completion_tokens=total_completion_tokens,
+        rerank_method=RAG_RERANK_METHOD if route.use_rerank else None,
+    )
+
     yield _sse(
         "done",
         {
@@ -809,7 +905,7 @@ async def run_gateway_stream(
             "trace": {
                 "execution_path": execution_path,
                 "lane": route.lane,
-                "model": OPENAI_CHAT_MODEL,
+                "model": route.model or OPENAI_CHAT_MODEL,
                 "prompt_tokens": total_prompt_tokens,
                 "completion_tokens": total_completion_tokens,
                 "total_tokens": total_prompt_tokens + total_completion_tokens,
@@ -824,6 +920,8 @@ async def run_gateway_stream(
                 "repe": repe_metadata or None,
                 "visible_context_shortcut": visible_context_policy.get("disable_tools", False),
                 "timings": timings,
+                "rag_quality": rag_quality,
+                "cost": cost_info,
             },
             # Keep flat fields for backward compat
             "prompt_tokens": total_prompt_tokens,
