@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from typing import Any, Iterable
 
 from app.schemas.ai_gateway import (
@@ -13,9 +14,34 @@ from app.schemas.ai_gateway import (
 )
 from app.services.env_context import EnvContextError, resolve_env_business_context
 
+# ── Environment context cache (5-minute TTL) ────────────────────────
+_env_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+_ENV_CACHE_TTL = 300  # seconds
+
+def _cached_resolve_env(env_id: str | None, business_id: str | None) -> dict[str, Any] | None:
+    key = f"{env_id}:{business_id}"
+    now = time.time()
+    cached = _env_cache.get(key)
+    if cached and now - cached[0] < _ENV_CACHE_TTL:
+        return cached[1]
+    return None
+
+def _set_env_cache(env_id: str | None, business_id: str | None, data: dict[str, Any]) -> None:
+    key = f"{env_id}:{business_id}"
+    _env_cache[key] = (time.time(), data)
+    # Evict old entries if cache grows too large
+    if len(_env_cache) > 100:
+        cutoff = time.time() - _ENV_CACHE_TTL
+        stale = [k for k, (ts, _) in _env_cache.items() if ts < cutoff]
+        for k in stale:
+            _env_cache.pop(k, None)
+
 _SPACE_RE = re.compile(r"[^a-z0-9]+")
 _DEICTIC_RE = re.compile(r"\b(this|current|selected|that|these|it|here)\b")
-_LIST_QUERY_RE = re.compile(r"\b(which|what|list|show)\b.*\b(funds|fund|assets|asset|investments|investment|models|model)\b")
+_LIST_QUERY_RE = re.compile(r"\b(which|what|list|show|give|tell)\b.*\b(funds?|assets?|investments?|deals?|models?|pipeline)\b")
+_COUNT_QUERY_RE = re.compile(r"\b(how many|count|number of|total)\b.*\b(funds?|assets?|investments?|deals?|models?|pipeline|entities)\b")
+_IDENTITY_QUERY_RE = re.compile(r"\b(what|which)\b.*\b(environment|env|page|workspace|module|schema|industry)\b")
+_SIMPLE_META_KEYWORDS = ("strategy", "vintage", "status", "type", "name", "stage", "target_size", "committed")
 _ENTITY_KEYWORDS: dict[str, tuple[str, ...]] = {
     "fund": ("fund", "vehicle"),
     "asset": ("asset", "property"),
@@ -183,25 +209,42 @@ def _context_base(
     schema_name = envelope.ui.schema_name
     industry = envelope.ui.industry
     if env_id or business_id:
-        try:
-            ctx = resolve_env_business_context(
-                env_id=str(env_id) if env_id else None,
-                business_id=str(business_id) if business_id else None,
-                allow_create=False,
-            )
-            env_id = _pick_first(ctx.env_id, env_id)
-            business_id = _pick_first(ctx.business_id, business_id)
-            if ctx.environment:
-                schema_name = _pick_first(ctx.environment.get("schema_name"), schema_name)
-                industry = _pick_first(
-                    ctx.environment.get("industry_type"),
-                    ctx.environment.get("industry"),
-                    industry,
+        # Check cache first to avoid DB round-trip
+        cached = _cached_resolve_env(str(env_id) if env_id else None, str(business_id) if business_id else None)
+        if cached:
+            env_id = _pick_first(cached.get("env_id"), env_id)
+            business_id = _pick_first(cached.get("business_id"), business_id)
+            schema_name = _pick_first(cached.get("schema_name"), schema_name)
+            industry = _pick_first(cached.get("industry"), industry)
+        else:
+            try:
+                ctx = resolve_env_business_context(
+                    env_id=str(env_id) if env_id else None,
+                    business_id=str(business_id) if business_id else None,
+                    allow_create=False,
                 )
-        except EnvContextError:
-            pass
-        except Exception:
-            pass
+                env_id = _pick_first(ctx.env_id, env_id)
+                business_id = _pick_first(ctx.business_id, business_id)
+                resolved_schema = schema_name
+                resolved_industry = industry
+                if ctx.environment:
+                    resolved_schema = _pick_first(ctx.environment.get("schema_name"), schema_name)
+                    resolved_industry = _pick_first(
+                        ctx.environment.get("industry_type"),
+                        ctx.environment.get("industry"),
+                        industry,
+                    )
+                schema_name = resolved_schema
+                industry = resolved_industry
+                _set_env_cache(
+                    str(env_id) if env_id else None,
+                    str(business_id) if business_id else None,
+                    {"env_id": env_id, "business_id": business_id, "schema_name": schema_name, "industry": industry},
+                )
+            except EnvContextError:
+                pass
+            except Exception:
+                pass
 
     return {
         "environment_id": str(env_id) if env_id else None,
@@ -377,19 +420,6 @@ def build_context_block(
         for entity in context_envelope.ui.selected_entities[:6]
     ) or "none"
     visible_lines = _summarize_visible_data(context_envelope.ui.visible_data)
-    envelope_json = json.dumps(
-        {
-            "session": context_envelope.session.model_dump(),
-            "ui": {
-                **context_envelope.ui.model_dump(),
-                "visible_data": _prompt_visible_data(context_envelope.ui.visible_data),
-            },
-            "thread": context_envelope.thread.model_dump(),
-            "resolved_scope": resolved_scope.model_dump(),
-        },
-        default=str,
-        ensure_ascii=True,
-    )
 
     lines = [
         "CURRENT APPLICATION CONTEXT",
@@ -414,7 +444,8 @@ def build_context_block(
     for instruction in additional_instructions or []:
         lines.append(f"- {instruction}")
     lines.extend(visible_lines)
-    lines.append(f"Context envelope JSON: {envelope_json}")
+    # NOTE: Full envelope JSON removed to reduce prompt tokens (~30-50% savings).
+    # The structured fields above contain the same information in compact form.
     return "\n".join(lines)
 
 
@@ -428,23 +459,79 @@ def resolve_visible_context_policy(
     instructions: list[str] = []
     disable_tools = False
 
-    if visible_data and visible_data.funds and _LIST_QUERY_RE.search(normalized_message) and "fund" in normalized_message:
-        instructions.append("The visible funds list already answers the question. Do not call repe.list_funds.")
-        disable_tools = True
-
-    explicit_entity = _match_explicit_entity(message=user_message, envelope=context_envelope)
-    if explicit_entity and explicit_entity.entity_type == "fund" and "strategy" in normalized_message:
-        visible_fund = _find_visible_record(
-            visible_data,
-            entity_type="fund",
-            entity_id=explicit_entity.entity_id,
-            entity_name=explicit_entity.name,
-        )
-        if visible_fund and (visible_fund.metadata or {}).get("strategy") is not None:
-            instructions.append(
-                f"Visible metadata already includes the strategy for {visible_fund.name}. Answer from visible data."
-            )
+    # ── Identity queries: "what environment", "which page", "what module" ──
+    if _IDENTITY_QUERY_RE.search(normalized_message):
+        env_name = context_envelope.ui.active_environment_name or context_envelope.ui.active_environment_id
+        route = context_envelope.ui.route
+        module = context_envelope.ui.active_module
+        if env_name or route:
+            parts = []
+            if env_name:
+                parts.append(f"Environment: {env_name}")
+            if route:
+                parts.append(f"Route: {route}")
+            if module:
+                parts.append(f"Module: {module}")
+            if context_envelope.ui.schema_name:
+                parts.append(f"Schema: {context_envelope.ui.schema_name}")
+            if context_envelope.ui.industry:
+                parts.append(f"Industry: {context_envelope.ui.industry}")
+            instructions.append(f"Answer from UI context: {'; '.join(parts)}. No tools needed.")
             disable_tools = True
+
+    # ── Count queries: "how many funds", "total assets" ──
+    if not disable_tools and visible_data and _COUNT_QUERY_RE.search(normalized_message):
+        counts = []
+        if visible_data.funds and any(w in normalized_message for w in ("fund", "funds", "vehicle")):
+            counts.append(f"{len(visible_data.funds)} fund(s)")
+        if visible_data.assets and any(w in normalized_message for w in ("asset", "assets", "property", "properties")):
+            counts.append(f"{len(visible_data.assets)} asset(s)")
+        if visible_data.investments and any(w in normalized_message for w in ("investment", "investments", "deal", "deals")):
+            counts.append(f"{len(visible_data.investments)} investment(s)/deal(s)")
+        if visible_data.models and any(w in normalized_message for w in ("model", "models", "scenario")):
+            counts.append(f"{len(visible_data.models)} model(s)")
+        if visible_data.pipeline_items and "pipeline" in normalized_message:
+            counts.append(f"{len(visible_data.pipeline_items)} pipeline item(s)")
+        if counts:
+            instructions.append(f"Visible data shows: {', '.join(counts)}. Answer from visible data.")
+            disable_tools = True
+
+    # ── List queries: "which funds", "show assets", "list investments" ──
+    if not disable_tools and visible_data and _LIST_QUERY_RE.search(normalized_message):
+        for entity_word, records in [
+            ("fund", visible_data.funds),
+            ("asset", visible_data.assets),
+            ("investment", visible_data.investments),
+            ("deal", visible_data.investments),  # deals = investments in REPE
+            ("model", visible_data.models),
+            ("pipeline", visible_data.pipeline_items),
+        ]:
+            if records and entity_word in normalized_message:
+                names = ", ".join(r.name for r in records[:8])
+                instructions.append(f"Visible {entity_word} list: {names}. Answer from visible data, do not call tools.")
+                disable_tools = True
+                break
+
+    # ── Simple metadata lookup on an explicit entity ──
+    if not disable_tools:
+        explicit_entity = _match_explicit_entity(message=user_message, envelope=context_envelope)
+        if explicit_entity:
+            visible_record = _find_visible_record(
+                visible_data,
+                entity_type=explicit_entity.entity_type,
+                entity_id=explicit_entity.entity_id,
+                entity_name=explicit_entity.name,
+            )
+            if visible_record and visible_record.metadata:
+                matched_keys = [k for k in _SIMPLE_META_KEYWORDS if k in normalized_message]
+                if matched_keys:
+                    available = {k: v for k, v in (visible_record.metadata or {}).items() if k in matched_keys and v is not None}
+                    if available:
+                        meta_str = ", ".join(f"{k}={v}" for k, v in available.items())
+                        instructions.append(
+                            f"Visible metadata for {visible_record.name}: {meta_str}. Answer from visible data."
+                        )
+                        disable_tools = True
 
     return {
         "disable_tools": disable_tools,

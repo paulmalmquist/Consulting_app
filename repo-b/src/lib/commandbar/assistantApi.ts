@@ -79,6 +79,7 @@ export type WinstonRepeMetadata = {
 
 export type WinstonTrace = {
   execution_path: "chat" | "tool" | "rag" | "hybrid";
+  lane?: "A" | "B" | "C" | "D";
   model: string;
   prompt_tokens: number;
   completion_tokens: number;
@@ -933,6 +934,11 @@ export async function askAi(input: {
             if (currentEvent === "context") {
               debug.contextEnvelope = parsed.context_envelope || debug.contextEnvelope;
               debug.resolvedScope = parsed.resolved_scope || null;
+            }
+            // Status event — show lane/scope immediately
+            else if (currentEvent === "status" && parsed.message) {
+              input.onStatus?.(parsed.message);
+              continue;
             }
             // FastAPI "token" event: {"text": "..."}
             else if (currentEvent === "token" && parsed.text) {

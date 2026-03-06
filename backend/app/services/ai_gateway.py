@@ -1,6 +1,7 @@
 """AI Gateway service — OpenAI Chat Completions with streaming tool calls + RAG."""
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 import uuid
@@ -21,6 +22,7 @@ from app.services.assistant_scope import (
     resolve_visible_context_policy,
 )
 from app.services.rag_indexer import RetrievedChunk, semantic_search
+from app.services.request_router import RouteDecision, classify_request
 
 _SYSTEM_PROMPT = """You are Winston, an in-app copilot embedded in an institutional real estate private equity platform.
 
@@ -41,6 +43,12 @@ before answering. Do not behave like a stateless chatbot.
 - Prefer structured tool data over general knowledge.
 - If visible UI data already answers the question, do not contradict it with a stale assumption.
 
+## Data Model
+- In this platform, "deals" and "investments" are the SAME entity (stored in repe_deal table).
+- The hierarchy is: Business → Environment → Fund → Deal/Investment → Asset.
+- When the user says "investments", use repe.list_deals. When they say "deals", use the same tool.
+- Do NOT confuse deals/investments with funds or assets.
+
 ## Response Style
 - Be concise, data-driven, and explicit about freshness.
 - Use tables for multi-entity comparisons and bullets for simple summaries.
@@ -53,7 +61,14 @@ def _sanitize_tool_name(name: str) -> str:
     return name.replace(".", "__")
 
 
+_cached_tools: tuple[list[dict], dict[str, str]] | None = None
+
+
 def _build_openai_tools() -> tuple[list[dict], dict[str, str]]:
+    global _cached_tools
+    if _cached_tools is not None:
+        return _cached_tools
+
     tools = []
     name_map: dict[str, str] = {}
     for tool_def in registry.list_all():
@@ -78,7 +93,8 @@ def _build_openai_tools() -> tuple[list[dict], dict[str, str]]:
                 },
             }
         )
-    return tools, name_map
+    _cached_tools = (tools, name_map)
+    return _cached_tools
 
 
 def _json_safe(value: Any) -> Any:
@@ -138,6 +154,7 @@ async def run_gateway_stream(
 
     client = openai.AsyncOpenAI(api_key=OPENAI_API_KEY)
     start = time.time()
+    timings: dict[str, int] = {}
     session_id = session_id or str(uuid.uuid4())
 
     normalized_envelope = ensure_context_envelope(
@@ -164,6 +181,7 @@ async def run_gateway_stream(
         user=current_request_ctx.user,
     )
 
+    timings["context_resolution_ms"] = int((time.time() - start) * 1000)
     envelope_dump = normalized_envelope.model_dump()
     scope_dump = resolved_scope.model_dump()
 
@@ -185,12 +203,43 @@ async def run_gateway_stream(
         },
     )
 
+    # ── Visible context policy + request routing ──────────────────────
+    visible_context_policy = resolve_visible_context_policy(
+        context_envelope=normalized_envelope,
+        user_message=message,
+    )
+    route = classify_request(
+        message=message,
+        context_envelope=normalized_envelope,
+        resolved_scope=resolved_scope,
+        visible_context_shortcut=visible_context_policy["disable_tools"],
+    )
+
+    # Emit status immediately so frontend shows processing started
+    yield _sse(
+        "status",
+        {
+            "message": f"Processing ({route.lane}): {resolved_scope.entity_name or resolved_scope.environment_id or 'global'}",
+            "lane": route.lane,
+            "scope": resolved_scope.entity_name or resolved_scope.entity_id or resolved_scope.environment_id,
+        },
+    )
+
+    emit_log(
+        level="info",
+        service="backend",
+        action="ai.gateway.route_classified",
+        message=f"Request routed to Lane {route.lane}",
+        context={"lane": route.lane, "skip_rag": route.skip_rag, "skip_tools": route.skip_tools, "max_tool_rounds": route.max_tool_rounds},
+    )
+
+    # ── RAG (conditional — skipped for Lane A/B when not needed) ────
     rag_chunks: list[RetrievedChunk] = []
     rag_business_id = resolved_scope.business_id or (str(business_id) if business_id else None)
     rag_env_id = resolved_scope.environment_id or (str(env_id) if env_id else None)
     rag_entity_type = resolved_scope.entity_type or entity_type
     rag_entity_id = resolved_scope.entity_id or (str(entity_id) if entity_id else None)
-    if rag_business_id:
+    if not route.skip_rag and rag_business_id:
         try:
             rag_chunks = semantic_search(
                 query=message,
@@ -228,10 +277,7 @@ async def run_gateway_stream(
                 f"{chunk.chunk_text[:800]}\n"
             )
 
-    visible_context_policy = resolve_visible_context_policy(
-        context_envelope=normalized_envelope,
-        user_message=message,
-    )
+    timings["rag_search_ms"] = int((time.time() - start) * 1000) - timings["context_resolution_ms"]
     context_block = build_context_block(
         context_envelope=normalized_envelope,
         resolved_scope=resolved_scope,
@@ -241,26 +287,29 @@ async def run_gateway_stream(
         {"role": "system", "content": _SYSTEM_PROMPT + "\n\n" + context_block + rag_context},
     ]
 
+    # ── Conversation history (limited to last 10 turns for speed) ───
     if conversation_id:
         try:
             from app.services import ai_conversations as convo_svc
 
             history = convo_svc.get_messages(conversation_id=conversation_id)
-            for msg in history:
-                if msg["role"] in ("user", "assistant"):
-                    messages.append({"role": msg["role"], "content": msg["content"]})
+            # Sliding window: keep last N messages to avoid token bloat
+            max_history = 6 if route.lane in ("A", "B") else 10
+            recent = [m for m in history if m["role"] in ("user", "assistant")][-max_history:]
+            for msg in recent:
+                messages.append({"role": msg["role"], "content": msg["content"]})
         except Exception:
             pass
 
     messages.append({"role": "user", "content": message})
 
     openai_tools, tool_name_map = _build_openai_tools()
-    if visible_context_policy["disable_tools"]:
+    if route.skip_tools:
         emit_log(
             level="info",
             service="backend",
             action="ai.gateway.visible_context_shortcut",
-            message="Visible UI data is sufficient for this turn; disabling tool access",
+            message=f"Lane {route.lane}: tools disabled",
             context={"instructions": visible_context_policy["instructions"]},
         )
         openai_tools = []
@@ -288,15 +337,19 @@ async def run_gateway_stream(
         for chunk in rag_chunks
     ]
     collected_content = ""
+    timings["prompt_construction_ms"] = int((time.time() - start) * 1000) - timings.get("rag_search_ms", 0) - timings["context_resolution_ms"]
+    model_start = time.time()
+    first_token_time: float | None = None
 
-    for round_num in range(AI_MAX_TOOL_ROUNDS + 1):
+    effective_max_rounds = min(route.max_tool_rounds, AI_MAX_TOOL_ROUNDS)
+    for round_num in range(effective_max_rounds + 1):
         stream_kwargs: dict[str, Any] = {
             "model": OPENAI_CHAT_MODEL,
             "messages": messages,
             "stream": True,
             "stream_options": {"include_usage": True},
-            "temperature": 0.2,
-            "max_tokens": 2048,
+            "temperature": route.temperature,
+            "max_tokens": route.max_tokens,
         }
         if openai_tools:
             stream_kwargs["tools"] = openai_tools
@@ -316,6 +369,8 @@ async def run_gateway_stream(
 
             delta = chunk.choices[0].delta
             if delta.content:
+                if first_token_time is None:
+                    first_token_time = time.time()
                 collected_content += delta.content
                 yield _sse("token", {"text": delta.content})
 
@@ -362,51 +417,82 @@ async def run_gateway_stream(
         )
 
         execution_path = "tool"
+
+        # Prepare all tool calls for parallel execution
+        tool_tasks: list[dict[str, Any]] = []
         for tool_call in collected_tool_calls.values():
             sanitized_name = tool_call["name"]
-            tool_name = tool_name_map.get(sanitized_name, sanitized_name)
-            tool_def = registry.get(tool_name)
-
+            t_name = tool_name_map.get(sanitized_name, sanitized_name)
+            t_def = registry.get(t_name)
             raw_args = json.loads(tool_call["args"]) if tool_call["args"] else {}
-            if tool_def is not None:
-                raw_args = _maybe_attach_scope(tool_def, raw_args, scope_dump)
+            if t_def is not None:
+                raw_args = _maybe_attach_scope(t_def, raw_args, scope_dump)
+            tool_tasks.append({
+                "call": tool_call,
+                "tool_name": t_name,
+                "tool_def": t_def,
+                "raw_args": raw_args,
+            })
 
+        # Execute all tool calls concurrently
+        async def _run_tool(task: dict[str, Any]) -> dict[str, Any]:
+            t_name = task["tool_name"]
+            t_def = task["tool_def"]
+            raw_args = task["raw_args"]
             emit_log(
                 level="info",
                 service="backend",
                 action="ai.gateway.tool_call",
                 message="Executing Winston tool",
-                context={
-                    "tool_name": tool_name,
-                    "tool_args": raw_args,
-                },
+                context={"tool_name": t_name, "tool_args": raw_args},
             )
-
             tool_start = time.time()
-            tool_success = False
-            tool_error_msg: str | None = None
-            if not tool_def:
-                tool_result = {"error": f"Unknown tool: {tool_name}"}
-                tool_calls_log.append({"name": tool_name, "success": False, "error": tool_result["error"]})
-                tool_error_msg = tool_result["error"]
+            t_success = False
+            t_error_msg: str | None = None
+            if not t_def:
+                t_result = {"error": f"Unknown tool: {t_name}"}
+                t_error_msg = t_result["error"]
             else:
                 try:
-                    tool_result = execute_tool(tool_def, ctx, raw_args)
-                    tool_call_count += 1
-                    tool_success = True
-                    tool_calls_log.append({"name": tool_name, "success": True, "args": raw_args})
+                    loop = asyncio.get_event_loop()
+                    t_result = await loop.run_in_executor(None, execute_tool, t_def, ctx, raw_args)
+                    t_success = True
                 except Exception as tool_err:
-                    tool_result = {"error": str(tool_err)[:500]}
-                    tool_error_msg = str(tool_err)[:200]
-                    tool_calls_log.append(
-                        {
-                            "name": tool_name,
-                            "success": False,
-                            "args": raw_args,
-                            "error": tool_error_msg,
-                        }
-                    )
-            tool_duration_ms = int((time.time() - tool_start) * 1000)
+                    t_result = {"error": str(tool_err)[:500]}
+                    t_error_msg = str(tool_err)[:200]
+            t_duration_ms = int((time.time() - tool_start) * 1000)
+            return {
+                "tool_name": t_name,
+                "tool_def": t_def,
+                "raw_args": raw_args,
+                "result": t_result,
+                "success": t_success,
+                "error_msg": t_error_msg,
+                "duration_ms": t_duration_ms,
+                "call": task["call"],
+            }
+
+        results = await asyncio.gather(*[_run_tool(t) for t in tool_tasks], return_exceptions=True)
+
+        # Process results in order (preserves message sequence for OpenAI)
+        for res in results:
+            if isinstance(res, Exception):
+                warnings.append(f"Tool execution exception: {str(res)[:200]}")
+                continue
+
+            tool_name = res["tool_name"]
+            tool_def = res["tool_def"]
+            raw_args = res["raw_args"]
+            tool_result = res["result"]
+            tool_success = res["success"]
+            tool_error_msg = res["error_msg"]
+            tool_duration_ms = res["duration_ms"]
+
+            if tool_success:
+                tool_call_count += 1
+                tool_calls_log.append({"name": tool_name, "success": True, "args": raw_args})
+            else:
+                tool_calls_log.append({"name": tool_name, "success": False, "args": raw_args, "error": tool_error_msg})
 
             # Build timeline entry
             result_summary = _preview(tool_result, max_chars=200)
@@ -416,7 +502,6 @@ async def run_gateway_stream(
                     if count_key in tool_result:
                         row_count = tool_result[count_key]
                         break
-                # Detect list-based results
                 for list_key in ("funds", "deals", "assets", "investments", "items", "rows"):
                     if isinstance(tool_result.get(list_key), list):
                         row_count = len(tool_result[list_key])
@@ -435,7 +520,6 @@ async def run_gateway_stream(
                 timeline_entry["error"] = tool_error_msg
             tool_timeline.append(timeline_entry)
 
-            # Track data provenance
             if tool_success and tool_def:
                 source_entry: dict[str, Any] = {
                     "source_type": "database",
@@ -451,11 +535,7 @@ async def run_gateway_stream(
                 service="backend",
                 action="ai.gateway.tool_result",
                 message="Winston tool finished",
-                context={
-                    "tool_name": tool_name,
-                    "result_preview": _preview(tool_result, max_chars=1000),
-                    "duration_ms": tool_duration_ms,
-                },
+                context={"tool_name": tool_name, "result_preview": _preview(tool_result, max_chars=1000), "duration_ms": tool_duration_ms},
             )
 
             yield _sse(
@@ -471,17 +551,13 @@ async def run_gateway_stream(
             )
             yield _sse(
                 "tool_result",
-                {
-                    "tool_name": tool_name,
-                    "args": raw_args,
-                    "result": _json_safe(tool_result),
-                },
+                {"tool_name": tool_name, "args": raw_args, "result": _json_safe(tool_result)},
             )
 
             messages.append(
                 {
                     "role": "tool",
-                    "tool_call_id": tool_call["id"],
+                    "tool_call_id": res["call"]["id"],
                     "content": json.dumps(_json_safe(tool_result), ensure_ascii=True),
                 }
             )
@@ -507,6 +583,10 @@ async def run_gateway_stream(
             pass
 
     elapsed_ms = int((time.time() - start) * 1000)
+    timings["model_ms"] = int((time.time() - model_start) * 1000)
+    if first_token_time is not None:
+        timings["ttft_ms"] = int((first_token_time - model_start) * 1000)
+    timings["total_ms"] = elapsed_ms
     try:
         audit_svc.record_event(
             actor=actor,
@@ -568,6 +648,7 @@ async def run_gateway_stream(
             "session_id": session_id,
             "trace": {
                 "execution_path": execution_path,
+                "lane": route.lane,
                 "model": OPENAI_CHAT_MODEL,
                 "prompt_tokens": total_prompt_tokens,
                 "completion_tokens": total_completion_tokens,
@@ -582,6 +663,7 @@ async def run_gateway_stream(
                 "resolved_scope": scope_dump,
                 "repe": repe_metadata or None,
                 "visible_context_shortcut": visible_context_policy.get("disable_tools", False),
+                "timings": timings,
             },
             # Keep flat fields for backward compat
             "prompt_tokens": total_prompt_tokens,

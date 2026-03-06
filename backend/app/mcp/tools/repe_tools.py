@@ -223,7 +223,8 @@ def register_repe_tools() -> None:
         ToolDef(
             name="repe.list_deals",
             description=(
-                "List all deals or investments in a fund. If fund_id is omitted, uses the current resolved fund scope."
+                "List all deals (also called investments) in a fund. In this platform, 'deal' and 'investment' "
+                "are the same entity — use this tool for either term. If fund_id is omitted, uses the current resolved fund scope."
             ),
             module="repe",
             permission="read",

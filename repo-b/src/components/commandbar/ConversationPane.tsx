@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { CommandMessage } from "@/lib/commandbar/store";
 
 function ThinkingIndicator({ status }: { status?: string }) {
@@ -132,14 +132,26 @@ export default function ConversationPane({
   thinkingStatus?: string;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const userScrolledUp = useRef(false);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    // If user is within 80px of the bottom, consider them "at bottom"
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    userScrolledUp.current = !atBottom;
+  }, []);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!userScrolledUp.current) {
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, thinking]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 scrollbar-hide">
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto px-4 py-3 scrollbar-hide">
         {messages.length === 0 && !thinking ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
             <div className="flex h-10 w-10 items-center justify-center rounded-full border border-bm-border/40 bg-bm-surface/40">
