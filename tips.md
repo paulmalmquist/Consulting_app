@@ -632,3 +632,118 @@ All of these should return non-null values with no 404 or 500 before you declare
 ### Important conclusion
 
 The `make test-backend` suite does not catch missing seed data or wrong prod env vars — it runs entirely against mocked DB responses. After any deploy that touches seed data, SQL schema, or env vars, run the curl smoke pass above (or a pytest integration suite against the live URL) before calling the deploy done.
+
+---
+
+## 14. Autonomous Deploy-and-Test Workflow
+
+### The contract
+
+When you give a large task, the assistant must complete the **full cycle** without prompting:
+
+1. Make all code and schema changes
+2. Run relevant unit/lint checks locally before committing
+3. Commit and push to `main` (triggers Railway backend redeploy + Vercel frontend redeploy automatically)
+4. Poll all three deployment targets until each one reaches a healthy state — **never declare done until all services confirm healthy**
+5. Run live smoke tests against production endpoints (not localhost, not demo cookies, not mock data)
+6. Report the actual production answer or confirm test pass
+
+You should not need to ask for permission between steps or wait for human confirmation mid-task. The only time to pause is if a deploy fails or a smoke test returns an unexpected error — surface that immediately with the actual error and a diagnosis.
+
+---
+
+### No demo/mock anything in the test phase
+
+All connections during testing must be live and real:
+
+- **Auth:** use `bos_session` cookie with a real session, not `demo_lab_session=active` (which is a legacy fallback that bypasses real auth). If the prod endpoint requires a real session, test via a URL that doesn't require it or set up a proper session token.
+- **Data:** test against seeded production data, not hardcoded fixture values
+- **Backend:** always test against `https://authentic-sparkle-production-7f37.up.railway.app` (BOS backend) and `https://www.paulmalmquist.com` (frontend/Next API routes) — never `localhost` unless the task was explicitly local-only
+- **DB:** if schema changed, `make db:migrate` must have run and `make db:verify` must pass before any smoke test
+
+---
+
+### Deployment polling procedure
+
+#### Railway (backend)
+```bash
+# Poll every 30s until SUCCESS
+/opt/homebrew/bin/railway service status --all
+```
+State sequence: `BUILDING → DEPLOYING → SUCCESS`. Do not proceed until `SUCCESS`.
+
+Confirm the new code is live (not a cached old container):
+```bash
+curl -s https://authentic-sparkle-production-7f37.up.railway.app/health
+```
+If the gateway route is involved:
+```bash
+curl -s https://authentic-sparkle-production-7f37.up.railway.app/api/ai/gateway/health
+```
+
+#### Vercel (frontend)
+Use `mcp__claude_ai_Vercel__get_deployment` with the deployment ID from the latest push. State must be `READY` before testing any Next.js routes or pages.
+
+The production domain aliases:
+- `https://www.paulmalmquist.com` (canonical)
+- `https://paulmalmquist.com` (redirects to www)
+
+#### GitHub Actions CI
+```bash
+gh run list --repo paulmalmquist/Consulting_app --limit 1
+gh run view <run_id>
+```
+CI must show `completed / success` before treating a merge as stable. If CI fails, fix before deploying.
+
+---
+
+### Env var checklist — things that silently break prod
+
+Before testing, confirm these are set on the right service:
+
+| Var | Service | Required for |
+|-----|---------|-------------|
+| `OPENAI_API_KEY` | Railway backend + Vercel | AI gateway, Winston answers |
+| `DATABASE_URL` / `PG_POOLER_URL` | Railway backend + Vercel | Any DB query |
+| `SUPABASE_SERVICE_ROLE_KEY` | Railway backend | Document storage, RAG indexing |
+| `SUPABASE_URL` | Railway backend | Supabase Storage |
+| `ALLOWED_ORIGINS` | Railway backend | CORS — must include `https://www.paulmalmquist.com` |
+| `BOS_API_ORIGIN` | Vercel | Next.js proxy to BOS backend |
+
+Set on Railway: `railway variables set KEY=VALUE --service authentic-sparkle`
+Set on Vercel: `echo "value" | npx vercel env add KEY production` then redeploy
+
+---
+
+### Correct test order for a full-stack change
+
+```
+1. local unit tests pass (make test-backend, make test-frontend)
+2. git commit + push
+3. wait: GitHub Actions CI → completed/success
+4. wait: Railway backend → SUCCESS + /health 200
+5. wait: Vercel → READY
+6. if schema changed: make db:migrate && make db:verify
+7. curl smoke pass against live backend URL (Section 13 above)
+8. curl smoke pass against Vercel Next.js API routes if those changed
+9. if AI gateway changed: test Winston question → confirm real answer, not 503/501
+10. declare done, report results
+```
+
+Steps 3–5 can be polled in parallel. Steps 6–9 must come after all deploys are healthy.
+
+---
+
+### Winston AI gateway smoke test
+
+After any change touching the AI gateway, run this against production:
+
+```bash
+curl -sL -X POST "https://www.paulmalmquist.com/api/ai/gateway/ask" \
+  -H "Content-Type: application/json" \
+  -H "Cookie: bos_session=..." \
+  -d '{"message":"How much capital is committed across all funds?"}' \
+  --max-time 30
+```
+
+Expected: streaming SSE response with non-empty `content` tokens. A 503 means `OPENAI_API_KEY` is missing. A 501 means the backend gateway is disabled. A 404 means the route is missing or the backend hasn't redeployed yet.
