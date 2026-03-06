@@ -12,6 +12,7 @@ import QuickActions, { type QuickAction } from "@/components/commandbar/QuickAct
 import { Textarea } from "@/components/ui/Textarea";
 import { useToast } from "@/components/ui/Toast";
 import {
+  type AskAiDebug,
   type AssistantApiError,
   type AssistantApiTrace,
   type ConversationSummary,
@@ -216,6 +217,7 @@ export default function GlobalCommandBar() {
   });
   const [confirmText, setConfirmText] = useState("");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [assistantDebug, setAssistantDebug] = useState<AskAiDebug | null>(null);
   const [diagnostics, setDiagnostics] = useState<DiagnosticsCheck[]>([]);
   const [runningDiagnostics, setRunningDiagnostics] = useState(false);
   const [traces, setTraces] = useState<AssistantApiTrace[]>([]);
@@ -387,6 +389,7 @@ export default function GlobalCommandBar() {
     setRun(null);
     setPrompt("");
     setRaw({});
+    setAssistantDebug(null);
     setStage("plan");
     setConversationId(null);
     setShowConversationList(false);
@@ -523,6 +526,7 @@ export default function GlobalCommandBar() {
       });
       appendTrace(result.trace);
       setRaw((prev) => ({ ...prev, assistant: result.debug }));
+      setAssistantDebug(result.debug);
       appendMessage("assistant", result.answer);
     } catch (error) {
       const friendly = toFriendlyError(error);
@@ -859,6 +863,7 @@ export default function GlobalCommandBar() {
               runningDiagnostics={runningDiagnostics}
               raw={raw}
               flags={FEATURE_FLAGS}
+              assistantDebug={assistantDebug}
               onRunDiagnostics={() => void onRunDiagnostics()}
             />
           </div>

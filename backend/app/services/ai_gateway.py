@@ -275,6 +275,10 @@ async def run_gateway_stream(
     total_completion_tokens = 0
     tool_call_count = 0
     tool_calls_log: list[dict[str, Any]] = []
+    tool_timeline: list[dict[str, Any]] = []
+    data_sources: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    execution_path: str = "chat"
     citations_log: list[dict[str, Any]] = [
         {
             "chunk_id": chunk.chunk_id,
@@ -357,6 +361,7 @@ async def run_gateway_stream(
             }
         )
 
+        execution_path = "tool"
         for tool_call in collected_tool_calls.values():
             sanitized_name = tool_call["name"]
             tool_name = tool_name_map.get(sanitized_name, sanitized_name)
@@ -377,24 +382,69 @@ async def run_gateway_stream(
                 },
             )
 
+            tool_start = time.time()
+            tool_success = False
+            tool_error_msg: str | None = None
             if not tool_def:
                 tool_result = {"error": f"Unknown tool: {tool_name}"}
                 tool_calls_log.append({"name": tool_name, "success": False, "error": tool_result["error"]})
+                tool_error_msg = tool_result["error"]
             else:
                 try:
                     tool_result = execute_tool(tool_def, ctx, raw_args)
                     tool_call_count += 1
+                    tool_success = True
                     tool_calls_log.append({"name": tool_name, "success": True, "args": raw_args})
                 except Exception as tool_err:
                     tool_result = {"error": str(tool_err)[:500]}
+                    tool_error_msg = str(tool_err)[:200]
                     tool_calls_log.append(
                         {
                             "name": tool_name,
                             "success": False,
                             "args": raw_args,
-                            "error": str(tool_err)[:200],
+                            "error": tool_error_msg,
                         }
                     )
+            tool_duration_ms = int((time.time() - tool_start) * 1000)
+
+            # Build timeline entry
+            result_summary = _preview(tool_result, max_chars=200)
+            row_count = None
+            if isinstance(tool_result, dict):
+                for count_key in ("total", "count", "row_count"):
+                    if count_key in tool_result:
+                        row_count = tool_result[count_key]
+                        break
+                # Detect list-based results
+                for list_key in ("funds", "deals", "assets", "investments", "items", "rows"):
+                    if isinstance(tool_result.get(list_key), list):
+                        row_count = len(tool_result[list_key])
+                        break
+
+            timeline_entry: dict[str, Any] = {
+                "step": len(tool_timeline) + 1,
+                "tool_name": tool_name,
+                "purpose": tool_def.description[:120] if tool_def and tool_def.description else tool_name,
+                "success": tool_success,
+                "duration_ms": tool_duration_ms,
+                "result_summary": result_summary,
+                "row_count": row_count,
+            }
+            if tool_error_msg:
+                timeline_entry["error"] = tool_error_msg
+            tool_timeline.append(timeline_entry)
+
+            # Track data provenance
+            if tool_success and tool_def:
+                source_entry: dict[str, Any] = {
+                    "source_type": "database",
+                    "tool_name": tool_name,
+                    "module": tool_def.module if hasattr(tool_def, "module") else None,
+                }
+                if row_count is not None:
+                    source_entry["row_count"] = row_count
+                data_sources.append(source_entry)
 
             emit_log(
                 level="info",
@@ -404,6 +454,7 @@ async def run_gateway_stream(
                 context={
                     "tool_name": tool_name,
                     "result_preview": _preview(tool_result, max_chars=1000),
+                    "duration_ms": tool_duration_ms,
                 },
             )
 
@@ -413,6 +464,9 @@ async def run_gateway_stream(
                     "tool_name": tool_name,
                     "args": raw_args,
                     "result_preview": _preview(tool_result, max_chars=400),
+                    "duration_ms": tool_duration_ms,
+                    "success": tool_success,
+                    "row_count": row_count,
                 },
             )
             yield _sse(
@@ -479,10 +533,57 @@ async def run_gateway_stream(
     except Exception:
         pass
 
+    # Track RAG as data source
+    if rag_chunks:
+        execution_path = "hybrid" if tool_call_count > 0 else "rag"
+        for chunk in rag_chunks:
+            data_sources.append({
+                "source_type": "document",
+                "doc_id": chunk.document_id,
+                "chunk_id": chunk.chunk_id,
+                "score": round(chunk.score, 4),
+                "section_heading": chunk.section_heading,
+            })
+
+    # Detect REPE-specific metadata from scope
+    repe_metadata: dict[str, Any] = {}
+    if resolved_scope.industry == "real_estate":
+        repe_metadata["industry"] = "real_estate"
+        if resolved_scope.entity_type == "fund":
+            repe_metadata["rollup_level"] = "fund"
+            repe_metadata["fund_id"] = resolved_scope.entity_id
+        elif resolved_scope.entity_type == "asset":
+            repe_metadata["rollup_level"] = "asset"
+            repe_metadata["asset_id"] = resolved_scope.entity_id
+        elif resolved_scope.entity_type in ("investment", "deal"):
+            repe_metadata["rollup_level"] = "investment"
+            repe_metadata["deal_id"] = resolved_scope.entity_id
+        else:
+            repe_metadata["rollup_level"] = "portfolio"
+        repe_metadata["schema_name"] = resolved_scope.schema_name
+
     yield _sse(
         "done",
         {
             "session_id": session_id,
+            "trace": {
+                "execution_path": execution_path,
+                "model": OPENAI_CHAT_MODEL,
+                "prompt_tokens": total_prompt_tokens,
+                "completion_tokens": total_completion_tokens,
+                "total_tokens": total_prompt_tokens + total_completion_tokens,
+                "tool_call_count": tool_call_count,
+                "tool_timeline": tool_timeline,
+                "data_sources": data_sources,
+                "citations": citations_log,
+                "rag_chunks_used": len(rag_chunks),
+                "warnings": warnings,
+                "elapsed_ms": elapsed_ms,
+                "resolved_scope": scope_dump,
+                "repe": repe_metadata or None,
+                "visible_context_shortcut": visible_context_policy.get("disable_tools", False),
+            },
+            # Keep flat fields for backward compat
             "prompt_tokens": total_prompt_tokens,
             "completion_tokens": total_completion_tokens,
             "tool_calls": tool_call_count,

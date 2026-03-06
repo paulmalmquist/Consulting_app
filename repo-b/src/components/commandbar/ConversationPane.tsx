@@ -38,9 +38,63 @@ function ThinkingIndicator({ status }: { status?: string }) {
   );
 }
 
+/**
+ * Strip raw tool payloads and JSON blobs from the visible answer.
+ * These get leaked when the model emits tool_call info as text content.
+ */
+function cleanAssistantContent(raw: string): string {
+  let text = raw;
+  // Remove leading JSON blocks like {"tool_name":"repe.list_funds","args":{...}}
+  text = text.replace(/^\s*\{["']tool_name["'][\s\S]*?\}\s*/g, "");
+  // Remove any {"resolved_scope":...} blocks that precede the answer
+  text = text.replace(/^\s*\{["']resolved_scope["'][\s\S]*?\}\s*/g, "");
+  // Remove stray `event: tool_call` / `data: {…}` SSE leaks
+  text = text.replace(/^(event:\s*\w+\n?data:\s*\{[^}]*\}\n?)+/gm, "");
+  return text.trim();
+}
+
+function formatAssistantContent(content: string): React.ReactNode {
+  const lines = content.split("\n");
+  const elements: React.ReactNode[] = [];
+  let inTable = false;
+  let tableLines: string[] = [];
+
+  const flushTable = () => {
+    if (tableLines.length > 0) {
+      elements.push(
+        <div key={`table-${elements.length}`} className="overflow-x-auto my-2">
+          <pre className="whitespace-pre font-mono text-[12px] text-bm-text/90">{tableLines.join("\n")}</pre>
+        </div>,
+      );
+      tableLines = [];
+    }
+    inTable = false;
+  };
+
+  for (const line of lines) {
+    const isTableRow = /^\s*\|/.test(line) || /^[-|:]+$/.test(line.trim());
+    if (isTableRow) {
+      if (!inTable) inTable = true;
+      tableLines.push(line);
+    } else {
+      if (inTable) flushTable();
+      elements.push(
+        <span key={`line-${elements.length}`}>
+          {elements.length > 0 && !inTable ? "\n" : ""}
+          {line}
+        </span>,
+      );
+    }
+  }
+  if (inTable) flushTable();
+
+  return <>{elements}</>;
+}
+
 function MessageBubble({ message }: { message: CommandMessage }) {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
+  const displayContent = isUser || isSystem ? message.content : cleanAssistantContent(message.content);
 
   return (
     <div className={`animate-winston-fade-in ${isUser ? "flex justify-end" : ""}`}>
@@ -53,7 +107,13 @@ function MessageBubble({ message }: { message: CommandMessage }) {
               : "text-bm-text"
         }`}
       >
-        <pre className="whitespace-pre-wrap break-words font-sans">{message.content}</pre>
+        {isUser || isSystem ? (
+          <pre className="whitespace-pre-wrap break-words font-sans">{displayContent}</pre>
+        ) : (
+          <div className="whitespace-pre-wrap break-words font-sans">
+            {formatAssistantContent(displayContent)}
+          </div>
+        )}
       </div>
     </div>
   );

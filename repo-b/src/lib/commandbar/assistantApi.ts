@@ -41,6 +41,58 @@ export type AssistantToolEvent = {
   args?: unknown;
   result_preview?: string;
   result?: unknown;
+  duration_ms?: number;
+  success?: boolean;
+  row_count?: number | null;
+};
+
+export type WinstonToolTimeline = {
+  step: number;
+  tool_name: string;
+  purpose: string;
+  success: boolean;
+  duration_ms: number;
+  result_summary: string;
+  row_count?: number | null;
+  error?: string;
+};
+
+export type WinstonDataSource = {
+  source_type: "database" | "document" | "cache" | "ui_visible";
+  tool_name?: string;
+  module?: string | null;
+  doc_id?: string;
+  chunk_id?: string;
+  score?: number;
+  section_heading?: string | null;
+  row_count?: number;
+};
+
+export type WinstonRepeMetadata = {
+  industry: string;
+  rollup_level: string;
+  fund_id?: string | null;
+  asset_id?: string | null;
+  deal_id?: string | null;
+  schema_name?: string | null;
+};
+
+export type WinstonTrace = {
+  execution_path: "chat" | "tool" | "rag" | "hybrid";
+  model: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  tool_call_count: number;
+  tool_timeline: WinstonToolTimeline[];
+  data_sources: WinstonDataSource[];
+  citations: unknown[];
+  rag_chunks_used: number;
+  warnings: string[];
+  elapsed_ms: number;
+  resolved_scope: Record<string, unknown> | null;
+  repe: WinstonRepeMetadata | null;
+  visible_context_shortcut: boolean;
 };
 
 export type AskAiDebug = {
@@ -50,6 +102,7 @@ export type AskAiDebug = {
   toolResults: AssistantToolEvent[];
   citations: unknown[];
   done?: unknown;
+  trace?: WinstonTrace | null;
 };
 
 export class AssistantApiError extends Error {
@@ -786,6 +839,7 @@ export async function askAi(input: {
         toolCalls: [],
         toolResults: [],
         citations: [],
+        trace: null,
       },
     };
   }
@@ -834,6 +888,7 @@ export async function askAi(input: {
           toolCalls: [],
           toolResults: [],
           citations: [],
+          trace: null,
         },
       };
     }
@@ -848,6 +903,7 @@ export async function askAi(input: {
       toolCalls: [],
       toolResults: [],
       citations: [],
+      trace: null,
     };
     const reader = response.body?.getReader();
     if (reader) {
@@ -892,6 +948,9 @@ export async function askAi(input: {
                 tool_name: parsed.tool_name,
                 args: parsed.args,
                 result_preview: parsed.result_preview,
+                duration_ms: parsed.duration_ms,
+                success: parsed.success,
+                row_count: parsed.row_count,
               });
               const label = parsed.tool_name.replace(/^repe\./, "").replace(/_/g, " ");
               input.onStatus?.(`Looking up ${label}...`);
@@ -912,6 +971,10 @@ export async function askAi(input: {
             }
             else if (currentEvent === "done") {
               debug.done = parsed;
+              // Extract structured trace from done event
+              if (parsed.trace) {
+                debug.trace = parsed.trace as WinstonTrace;
+              }
               continue;
             }
           } catch {
@@ -951,6 +1014,7 @@ export async function askAi(input: {
         toolCalls: [],
         toolResults: [],
         citations: [],
+        trace: null,
       },
     };
   } finally {
