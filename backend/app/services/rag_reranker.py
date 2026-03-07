@@ -5,7 +5,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.config import COHERE_API_KEY, OPENAI_API_KEY, OPENAI_CHAT_MODEL_FAST, RAG_RERANK_METHOD
 from app.services.rag_indexer import RetrievedChunk
@@ -21,6 +21,7 @@ async def rerank_chunks(
     chunks: list[RetrievedChunk],
     top_k: int = 5,
     method: str | None = None,
+    trace: Any = None,
 ) -> list[RetrievedChunk]:
     """Re-rank chunks using cross-encoder scoring.
 
@@ -53,6 +54,15 @@ async def rerank_chunks(
 
         elapsed_ms = int((time.time() - start) * 1000)
         logger.debug("Rerank (%s): %d -> %d chunks in %dms", effective_method, len(chunks), len(result), elapsed_ms)
+        if trace is not None:
+            try:
+                trace.span(
+                    name="rerank",
+                    input={"query": query[:200], "method": effective_method, "input_count": len(chunks)},
+                    output={"output_count": len(result), "elapsed_ms": elapsed_ms},
+                ).end()
+            except Exception:
+                pass
         return result
 
     except asyncio.TimeoutError:

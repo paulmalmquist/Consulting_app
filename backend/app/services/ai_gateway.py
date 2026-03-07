@@ -9,11 +9,12 @@ from typing import Any, AsyncGenerator
 
 import hashlib
 
-from app.config import AI_MAX_TOOL_ROUNDS, OPENAI_API_KEY, OPENAI_CHAT_MODEL, RAG_CACHE_TTL_SECONDS, RAG_MIN_SCORE, RAG_RERANK_METHOD, RAG_TOP_K
+from app.config import AI_MAX_TOOL_ROUNDS, ENABLE_QUERY_EXPANSION, OPENAI_API_KEY, OPENAI_CHAT_MODEL, RAG_CACHE_TTL_SECONDS, RAG_MIN_SCORE, RAG_OVERFETCH, RAG_RERANK_METHOD, RAG_TOP_K
 from app.mcp.audit import execute_tool
 from app.mcp.auth import McpContext
 from app.mcp.registry import registry
 from app.observability.logger import emit_log
+from app.services import langfuse_client
 from app.observability.request_context import get_request_context, set_request_context
 from app.schemas.ai_gateway import AssistantContextEnvelope
 from app.services import audit as audit_svc
@@ -262,6 +263,14 @@ async def run_gateway_stream(
     timings: dict[str, int] = {}
     session_id = session_id or str(uuid.uuid4())
 
+    # ── Langfuse trace (no-op if not configured) ─────────────────────
+    trace = langfuse_client.create_trace(
+        name="gateway_stream",
+        session_id=session_id,
+        user_id=actor,
+        input=message,
+    )
+
     normalized_envelope = ensure_context_envelope(
         context_envelope=context_envelope,
         env_id=str(env_id) if env_id else None,
@@ -337,6 +346,12 @@ async def run_gateway_stream(
         message=f"Request routed to Lane {route.lane}",
         context={"lane": route.lane, "skip_rag": route.skip_rag, "skip_tools": route.skip_tools, "max_tool_rounds": route.max_tool_rounds},
     )
+    trace.update(metadata={
+        "lane": route.lane,
+        "model": route.model or OPENAI_CHAT_MODEL,
+        "env_id": resolved_scope.environment_id,
+        "scope": scope_dump,
+    }, tags=[f"lane:{route.lane}"])
 
     # ── Graceful degradation: write request but no write tools ────────
     if route.is_write and not _has_write_tools():
@@ -372,8 +387,7 @@ async def run_gateway_stream(
             if cached is not None:
                 rag_chunks_raw = cached
             else:
-                rag_chunks_raw = semantic_search(
-                    query=message,
+                _search_kwargs = dict(
                     business_id=uuid.UUID(str(rag_business_id)),
                     env_id=uuid.UUID(str(rag_env_id)) if rag_env_id else None,
                     entity_type=rag_entity_type,
@@ -383,17 +397,38 @@ async def run_gateway_stream(
                     scope_entity_type=resolved_scope.entity_type,
                     scope_entity_id=resolved_scope.entity_id,
                     scope_env_id=resolved_scope.environment_id,
+                    overfetch=RAG_OVERFETCH if route.use_rerank else None,
+                    return_all=route.use_rerank,
+                    trace=trace,
                 )
+                # T-2.3: Query expansion (multi-query retrieval)
+                if getattr(route, "needs_query_expansion", False) and ENABLE_QUERY_EXPANSION:
+                    from app.services.query_rewriter import expand_query
+                    queries = await expand_query(message, trace=trace)
+                    all_chunks: list[RetrievedChunk] = []
+                    for q in queries:
+                        all_chunks.extend(semantic_search(query=q, **_search_kwargs))
+                    # Deduplicate by chunk_id, keep highest score
+                    seen: dict[str, RetrievedChunk] = {}
+                    for c in all_chunks:
+                        if c.chunk_id not in seen or c.score > seen[c.chunk_id].score:
+                            seen[c.chunk_id] = c
+                    rag_chunks_raw = list(seen.values())
+                else:
+                    rag_chunks_raw = semantic_search(query=message, **_search_kwargs)
                 _rag_cache_set(cache_key, rag_chunks_raw)
-            # Score threshold filter — drop low-relevance chunks
-            rag_chunks = [c for c in rag_chunks_raw if c.score >= RAG_MIN_SCORE]
-            # Cross-encoder re-ranking (Lane C/D only)
-            if route.use_rerank and len(rag_chunks) > 1:
+            # Cross-encoder re-ranking FIRST (before threshold) — T-2.1
+            if route.use_rerank and len(rag_chunks_raw) > 1:
                 rag_chunks = await rerank_chunks(
                     query=message,
-                    chunks=rag_chunks,
+                    chunks=rag_chunks_raw,
                     top_k=effective_top_k,
+                    trace=trace,
                 )
+            else:
+                rag_chunks = list(rag_chunks_raw)
+            # Score threshold filter AFTER rerank
+            rag_chunks = [c for c in rag_chunks if c.score >= RAG_MIN_SCORE]
             for chunk in rag_chunks:
                 yield _sse(
                     "citation",
@@ -414,6 +449,18 @@ async def run_gateway_stream(
                 "citation",
                 {"message": f"RAG unavailable: {str(rag_err)[:100]}"},
             )
+
+        # Langfuse RAG span
+        rag_elapsed_ms = int((time.time() - start) * 1000) - timings.get("context_resolution_ms", 0)
+        trace.span(
+            name="rag_retrieval",
+            input={"query": message, "use_hybrid": route.use_hybrid, "use_rerank": route.use_rerank},
+            output={
+                "chunks_raw": len(rag_chunks_raw),
+                "chunks_final": len(rag_chunks),
+                "scores": [round(c.score, 4) for c in rag_chunks[:10]],
+            },
+        ).end(metadata={"elapsed_ms": rag_elapsed_ms})
 
     rag_context = ""
     if rag_chunks:
@@ -506,6 +553,7 @@ async def run_gateway_stream(
 
     total_prompt_tokens = 0
     total_completion_tokens = 0
+    total_cached_tokens = 0
     tool_call_count = 0
     tool_calls_log: list[dict[str, Any]] = []
     tool_timeline: list[dict[str, Any]] = []
@@ -551,6 +599,11 @@ async def run_gateway_stream(
 
         collected_content = ""
         collected_tool_calls: dict[int, dict[str, Any]] = {}
+        llm_span = trace.generation(
+            name=f"llm_round_{round_num}",
+            model=effective_model,
+            input={"message_count": len(messages)},
+        )
 
         try:
             stream = await client.chat.completions.create(**stream_kwargs)
@@ -566,6 +619,10 @@ async def run_gateway_stream(
             if not chunk.choices and chunk.usage:
                 total_prompt_tokens += chunk.usage.prompt_tokens or 0
                 total_completion_tokens += chunk.usage.completion_tokens or 0
+                # T-1.2: Track prompt cache hits
+                details = getattr(chunk.usage, "prompt_tokens_details", None)
+                if details:
+                    total_cached_tokens += getattr(details, "cached_tokens", 0) or 0
                 continue
 
             if not chunk.choices:
@@ -594,6 +651,12 @@ async def run_gateway_stream(
                             collected_tool_calls[idx]["name"] = tool_call.function.name
                         if tool_call.function.arguments:
                             collected_tool_calls[idx]["args"] += tool_call.function.arguments
+
+        llm_span.update(
+            output=collected_content[:500] if collected_content else None,
+            usage={"input": total_prompt_tokens, "output": total_completion_tokens},
+        )
+        llm_span.end()
 
         if not collected_tool_calls:
             break
@@ -929,6 +992,23 @@ async def run_gateway_stream(
         rerank_method=RAG_RERANK_METHOD if route.use_rerank else None,
     )
 
+    # ── Langfuse finalize ────────────────────────────────────────────
+    trace.update(
+        output=collected_content[:1000] if collected_content else None,
+        metadata={
+            "lane": route.lane,
+            "model": route.model or OPENAI_CHAT_MODEL,
+            "prompt_tokens": total_prompt_tokens,
+            "completion_tokens": total_completion_tokens,
+            "cached_tokens": total_cached_tokens,
+            "tool_call_count": tool_call_count,
+            "rag_chunks_used": len(rag_chunks),
+            "elapsed_ms": elapsed_ms,
+            "cost": cost_info,
+        },
+    )
+    langfuse_client.flush()
+
     yield _sse(
         "done",
         {
@@ -940,6 +1020,7 @@ async def run_gateway_stream(
                 "reasoning_effort": route.reasoning_effort,
                 "prompt_tokens": total_prompt_tokens,
                 "completion_tokens": total_completion_tokens,
+                "cached_tokens": total_cached_tokens,
                 "total_tokens": total_prompt_tokens + total_completion_tokens,
                 "tool_call_count": tool_call_count,
                 "tool_timeline": tool_timeline,

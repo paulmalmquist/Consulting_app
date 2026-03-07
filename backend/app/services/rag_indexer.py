@@ -7,7 +7,7 @@ import re
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Generator
+from typing import Any, Generator
 
 from app.config import (
     OPENAI_API_KEY,
@@ -594,6 +594,9 @@ def semantic_search(
     scope_entity_type: str | None = None,
     scope_entity_id: str | None = None,
     scope_env_id: str | None = None,
+    overfetch: int | None = None,
+    return_all: bool = False,
+    trace: Any = None,
 ) -> list[RetrievedChunk]:
     """Semantic similarity search with parent-child context expansion.
 
@@ -613,7 +616,7 @@ def semantic_search(
         has_vector = cur.fetchone() is not None
 
     # Over-fetch for hybrid/rerank pipeline
-    fetch_k = top_k * 3 if use_hybrid else top_k
+    fetch_k = overfetch or (top_k * 3 if use_hybrid else top_k)
 
     if has_vector:
         cosine_results = _cosine_search(query_embedding, where, params, fetch_k)
@@ -644,4 +647,15 @@ def semantic_search(
     # Diversity dedup
     candidates = _dedup_by_section(candidates)
 
-    return candidates[:top_k]
+    # Langfuse span
+    if trace is not None:
+        try:
+            trace.span(
+                name="semantic_search",
+                input={"query": query[:200], "top_k": top_k, "use_hybrid": use_hybrid, "overfetch": fetch_k},
+                output={"candidates": len(candidates), "returned": len(candidates) if return_all else min(top_k, len(candidates))},
+            ).end()
+        except Exception:
+            pass
+
+    return candidates if return_all else candidates[:top_k]

@@ -24,3 +24,4 @@ tiktoken>=0.7
 numpy>=1.26
 pgvector>=0.3
 cohere>=5.0
+langfuse>=2.0

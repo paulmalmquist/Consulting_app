@@ -99,6 +99,12 @@ RAG_CACHE_TTL_SECONDS: int = int(os.getenv("RAG_CACHE_TTL_SECONDS", "60"))
 # ── Re-ranking ───────────────────────────────────────────────────
 COHERE_API_KEY: str = os.getenv("COHERE_API_KEY", "")
 RAG_RERANK_METHOD: str = os.getenv("RAG_RERANK_METHOD", "cohere" if os.getenv("COHERE_API_KEY", "") else "llm")
+RAG_OVERFETCH: int = int(os.getenv("RAG_OVERFETCH", "75"))
+
+# ── Langfuse observability ─────────────────────────────────────────
+LANGFUSE_PUBLIC_KEY: str = os.getenv("LANGFUSE_PUBLIC_KEY", "")
+LANGFUSE_SECRET_KEY: str = os.getenv("LANGFUSE_SECRET_KEY", "")
+LANGFUSE_HOST: str = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
 
 _db_validated = False
 
