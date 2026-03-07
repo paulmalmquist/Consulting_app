@@ -5,7 +5,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from app.config import COHERE_API_KEY, OPENAI_API_KEY, OPENAI_CHAT_MODEL_FAST, RAG_RERANK_METHOD
 from app.services.rag_indexer import RetrievedChunk
