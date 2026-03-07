@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
+import re
 import time
 import uuid
 from typing import Any, AsyncGenerator
-
-import hashlib
 
 from app.config import AI_MAX_TOOL_ROUNDS, ENABLE_QUERY_EXPANSION, OPENAI_API_KEY, OPENAI_CHAT_MODEL, OPENAI_CHAT_MODEL_FALLBACK, RAG_CACHE_TTL_SECONDS, RAG_MIN_SCORE, RAG_OVERFETCH, RAG_RERANK_METHOD, RAG_TOP_K
 from app.mcp.audit import execute_tool
@@ -28,7 +28,100 @@ from app.services.cost_tracker import estimate_cost
 from app.services.rag_indexer import RetrievedChunk, semantic_search
 from app.services.rag_reranker import rerank_chunks
 from app.services.model_registry import get_caps, map_openai_error, sanitize_params
-from app.services.request_router import classify_request
+from app.services.request_router import RouteDecision, classify_request
+
+
+# ── Workflow-aware routing override ──────────────────────────────────
+# Confirmation keywords that indicate the user is responding to a pending action
+_CONFIRM_KEYWORDS = re.compile(
+    r"^(yes|yep|yeah|yup|sure|ok|okay|go ahead|proceed|do it|confirmed?|"
+    r"that'?s? (?:right|correct)|looks? good|sounds? good|approve|let'?s? go|execute|make it so)[\.\!\s]*$",
+    re.IGNORECASE,
+)
+_CANCEL_KEYWORDS = re.compile(
+    r"^(no|nope|cancel|never ?mind|stop|don'?t|abort|scratch that)[\.\!\s]*$",
+    re.IGNORECASE,
+)
+
+
+def _check_pending_workflow(conversation_id: str | None) -> dict | None:
+    """Check if conversation has a pending confirmation or slot-fill workflow.
+
+    Returns dict with workflow context if active, None otherwise.
+    Lightweight: only reads the last 4 messages.
+    """
+    if not conversation_id:
+        return None
+    try:
+        from app.services import ai_conversations as convo_svc
+        history = convo_svc.get_messages(conversation_id=conversation_id)
+        # Check last few assistant messages for pending workflow signals
+        recent_assistant = [m for m in history if m["role"] == "assistant"][-3:]
+        for msg in reversed(recent_assistant):
+            content = msg.get("content") or ""
+            tool_calls = msg.get("tool_calls")
+            # Check for explicit PENDING CONFIRMATION annotation
+            if "PENDING CONFIRMATION" in content:
+                return {"type": "pending_confirmation", "content": content, "tool_calls": tool_calls}
+            # Check for text-only confirmation request
+            if "confirmation request with no tool call" in content:
+                return {"type": "text_confirmation", "content": content}
+            # Check tool_calls for confirmed=false (needs_input / pending)
+            if tool_calls:
+                tcs = tool_calls if isinstance(tool_calls, list) else json.loads(tool_calls) if isinstance(tool_calls, str) else None
+                if tcs:
+                    for tc in tcs:
+                        args = tc.get("args", {})
+                        if args.get("confirmed") is False and tc.get("success"):
+                            return {"type": "pending_confirmation", "content": content, "tool_calls": tcs}
+        return None
+    except Exception:
+        return None
+
+
+def _override_route_for_workflow(
+    route: RouteDecision,
+    workflow: dict | None,
+    message: str,
+) -> RouteDecision:
+    """Override route to preserve tool access during active workflows.
+
+    If a workflow is active and the current route would strip tools (Lane A),
+    upgrade to a route that has tools enabled.
+    """
+    if not workflow:
+        return route
+
+    # If route already has tools, just expand history window for workflow context
+    if not route.skip_tools:
+        if route.history_max_tokens < 2000:
+            return RouteDecision(
+                lane=route.lane, skip_rag=route.skip_rag, skip_tools=False,
+                max_tool_rounds=max(route.max_tool_rounds, 2),
+                max_tokens=route.max_tokens, temperature=route.temperature,
+                is_write=route.is_write, model=route.model,
+                rag_top_k=route.rag_top_k, rag_max_tokens=route.rag_max_tokens,
+                history_max_tokens=2000,  # ensure enough for workflow context
+                use_rerank=route.use_rerank, use_hybrid=route.use_hybrid,
+                reasoning_effort=route.reasoning_effort,
+            )
+        return route
+
+    # Route has skip_tools=True (Lane A) but there's an active workflow.
+    # Override to Lane C write route so tools are available for confirmation.
+    return RouteDecision(
+        lane="C",
+        skip_rag=True,  # confirmation doesn't need RAG
+        skip_tools=False,
+        max_tool_rounds=3,
+        max_tokens=1024,
+        temperature=0.2,
+        is_write=True,
+        model=route.model or OPENAI_CHAT_MODEL,
+        rag_top_k=0,
+        rag_max_tokens=0,
+        history_max_tokens=2000,  # enough for workflow context
+    )
 
 
 # ── RAG result cache (60s TTL) ────────────────────────────────────────
@@ -314,6 +407,20 @@ async def run_gateway_stream(
         visible_context_shortcut=visible_context_policy["disable_tools"],
     )
 
+    # ── Workflow-aware routing override (Section I fix) ───────────────
+    # Check if conversation has a pending workflow before finalizing route.
+    # This ensures short messages like "yes" or "winston real estate I" during
+    # active confirmation flows don't get misclassified as Lane A (no tools).
+    _pending_workflow = _check_pending_workflow(conversation_id)
+    if _pending_workflow:
+        route = _override_route_for_workflow(route, _pending_workflow, message)
+        emit_log(
+            level="info", service="backend", action="ai.gateway.workflow_override",
+            message=f"Active workflow detected ({_pending_workflow['type']}), "
+                    f"route overridden to Lane {route.lane} (skip_tools={route.skip_tools})",
+            context={"workflow_type": _pending_workflow["type"], "original_lane": route.lane},
+        )
+
     # Emit status immediately so frontend shows processing started
     yield _sse(
         "status",
@@ -473,8 +580,9 @@ async def run_gateway_stream(
     )
     system_prompt = _build_system_prompt()
     effective_model = route.model or OPENAI_CHAT_MODEL
-    # Reasoning models use "developer" role instead of "system"
-    system_role = "developer" if _is_reasoning_model(effective_model) else "system"
+    # Reasoning / o-series models use "developer" role instead of "system"
+    _caps = get_caps(effective_model)
+    system_role = "developer" if (_caps.supports_reasoning_effort and not _caps.supports_temperature) else "system"
     messages: list[dict[str, Any]] = [
         {"role": system_role, "content": system_prompt + "\n\n" + context_block + rag_context},
     ]
@@ -519,6 +627,21 @@ async def run_gateway_stream(
 
     messages.append({"role": "user", "content": message})
 
+    # ── A9: Context window overflow guard ─────────────────────────────
+    # Estimate total tokens and trim history if approaching context limit.
+    _caps = get_caps(route.model or OPENAI_CHAT_MODEL)
+    _total_chars = sum(len(m.get("content") or "") for m in messages)
+    _approx_tokens = _total_chars // 4  # ~4 chars per token
+    _max_context = _caps.max_context_tokens
+    _headroom = _max_context - _caps.max_output_tokens - 2000  # 2k buffer for tools
+    if _approx_tokens > _headroom and len(messages) > 2:
+        # Trim oldest history messages (keep system + user), from index 1
+        while _approx_tokens > _headroom and len(messages) > 2:
+            removed = messages.pop(1)  # remove oldest after system prompt
+            _approx_tokens -= len(removed.get("content") or "") // 4
+        emit_log(level="warning", service="backend", action="ai.gateway.context_trimmed",
+                 message=f"Context window guard: trimmed history to fit {_headroom} token budget")
+
     openai_tools, tool_name_map = _build_openai_tools()
     if route.skip_tools:
         emit_log(
@@ -540,6 +663,7 @@ async def run_gateway_stream(
     total_completion_tokens = 0
     total_cached_tokens = 0
     tool_call_count = 0
+    _failed_tool_names: set[str] = set()  # A11: track hallucinated/failed tool names to avoid loops
     tool_calls_log: list[dict[str, Any]] = []
     tool_timeline: list[dict[str, Any]] = []
     data_sources: list[dict[str, Any]] = []
@@ -684,7 +808,20 @@ async def run_gateway_stream(
             sanitized_name = tool_call["name"]
             t_name = tool_name_map.get(sanitized_name, sanitized_name)
             t_def = registry.get(t_name)
-            raw_args = json.loads(tool_call["args"]) if tool_call["args"] else {}
+            try:
+                raw_args = json.loads(tool_call["args"]) if tool_call["args"] else {}
+            except json.JSONDecodeError:
+                # A10: Attempt JSON repair for common LLM mistakes (trailing comma, unquoted keys)
+                _args_str = (tool_call["args"] or "").strip()
+                try:
+                    # Try stripping trailing commas before closing braces
+                    import re as _re
+                    _args_str = _re.sub(r",\s*([}\]])", r"\1", _args_str)
+                    raw_args = json.loads(_args_str)
+                except (json.JSONDecodeError, Exception):
+                    emit_log(level="warning", service="backend", action="ai.gateway.tool_args_parse_error",
+                             message=f"Malformed tool args for {sanitized_name}: {tool_call['args'][:200]}")
+                    raw_args = {}
             if t_def is not None:
                 raw_args = _maybe_attach_scope(t_def, raw_args, scope_dump)
             tool_tasks.append({
@@ -714,7 +851,12 @@ async def run_gateway_stream(
             t_success = False
             t_error_msg: str | None = None
             if not t_def:
-                t_result = {"error": f"Unknown tool: {t_name}"}
+                # A11: If same tool already failed, give a clearer hint to stop
+                if t_name in _failed_tool_names:
+                    t_result = {"error": f"Tool '{t_name}' does not exist. Do NOT retry. Available tools: {', '.join(tool_name_map.values())[:300]}"}
+                else:
+                    t_result = {"error": f"Unknown tool: {t_name}. Available tools: {', '.join(tool_name_map.values())[:300]}"}
+                _failed_tool_names.add(t_name)
                 t_error_msg = t_result["error"]
             else:
                 try:
