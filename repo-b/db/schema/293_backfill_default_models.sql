@@ -15,7 +15,7 @@ SELECT
   now()
 FROM re_scenario s
 GROUP BY s.fund_id
-ON CONFLICT (fund_id, name) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 -- Step 2: Link existing scenarios to their fund's default model
 UPDATE re_scenario s

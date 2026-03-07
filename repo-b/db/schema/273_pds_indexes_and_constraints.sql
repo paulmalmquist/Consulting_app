@@ -29,7 +29,7 @@ CREATE INDEX IF NOT EXISTS idx_pds_risks_project_status
   ON pds_risks (project_id, status, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_pds_milestones_project_dates
-  ON pds_milestones (project_id, baseline_date, current_date, actual_date);
+  ON pds_milestones (project_id, baseline_date, "current_date", actual_date);
 
 ALTER TABLE IF EXISTS pds_projects
   DROP CONSTRAINT IF EXISTS chk_pds_projects_stage;

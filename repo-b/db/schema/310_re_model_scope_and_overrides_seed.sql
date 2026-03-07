@@ -30,7 +30,7 @@ BEGIN
     LIMIT 1;
 
     IF v_fund_id IS NOT NULL THEN
-      INSERT INTO re_model (model_id, fund_id, name, description, status, strategy_type, created_at)
+      INSERT INTO re_model (model_id, primary_fund_id, name, description, status, strategy_type, created_at)
       VALUES (
         gen_random_uuid(),
         v_fund_id,
@@ -45,7 +45,7 @@ BEGIN
   END IF;
 
   IF v_base_model_id IS NULL AND v_fund_id IS NOT NULL THEN
-    INSERT INTO re_model (model_id, fund_id, name, description, status, strategy_type, created_at)
+    INSERT INTO re_model (model_id, primary_fund_id, name, description, status, strategy_type, created_at)
     VALUES (
       gen_random_uuid(),
       v_fund_id,
@@ -77,7 +77,7 @@ BEGIN
     -- === Seed assumption overrides for Morgan QA Downside ===
     IF v_asset_count > 0 THEN
       -- Get the fund_id for this model
-      SELECT m.fund_id INTO v_fund_id
+      SELECT m.primary_fund_id INTO v_fund_id
       FROM re_model m
       WHERE m.model_id = v_morgan_model_id;
 
@@ -113,7 +113,7 @@ BEGIN
 
     -- === Seed assumption overrides for Base Case Stress Test ===
     IF v_asset_count > 0 THEN
-      SELECT m.fund_id INTO v_fund_id
+      SELECT m.primary_fund_id INTO v_fund_id
       FROM re_model m
       WHERE m.model_id = v_base_model_id;
 

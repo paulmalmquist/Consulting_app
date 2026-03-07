@@ -224,10 +224,6 @@ SELECT
     ELSE NULL
   END::numeric(18,6),
   CASE
-    WHEN ma.name ILIKE '%Meridian Park%' THEN 18 + (EXTRACT(MONTH FROM m.month_start)::int * 0.11)
-    ELSE NULL
-  END::numeric(18,6),
-  CASE
     WHEN ma.name ILIKE '%Ellipse Senior%' THEN 60 + (EXTRACT(MONTH FROM m.month_start)::int * 0.35)
     WHEN ma.name ILIKE '%Phoenix Gateway%' THEN 83 + (EXTRACT(MONTH FROM m.month_start)::int * 0.40)
     WHEN ma.name ILIKE '%Westgate Student Housing%' THEN 76 + (EXTRACT(MONTH FROM m.month_start)::int * 0.38)

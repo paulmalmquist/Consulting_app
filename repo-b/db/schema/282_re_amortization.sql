@@ -2,16 +2,16 @@
 -- Amortization schedules, property comps, and capital account snapshots.
 
 -- ─── 2A. Extend re_loan with amortization parameters ───────────────────
-ALTER TABLE app.re_loan ADD COLUMN IF NOT EXISTS amortization_period_years INT;
-ALTER TABLE app.re_loan ADD COLUMN IF NOT EXISTS term_years INT;
-ALTER TABLE app.re_loan ADD COLUMN IF NOT EXISTS io_period_months INT DEFAULT 0;
-ALTER TABLE app.re_loan ADD COLUMN IF NOT EXISTS balloon_flag BOOLEAN DEFAULT false;
-ALTER TABLE app.re_loan ADD COLUMN IF NOT EXISTS payment_frequency TEXT DEFAULT 'monthly';
+ALTER TABLE app.re_loans ADD COLUMN IF NOT EXISTS amortization_period_years INT;
+ALTER TABLE app.re_loans ADD COLUMN IF NOT EXISTS term_years INT;
+ALTER TABLE app.re_loans ADD COLUMN IF NOT EXISTS io_period_months INT DEFAULT 0;
+ALTER TABLE app.re_loans ADD COLUMN IF NOT EXISTS balloon_flag BOOLEAN DEFAULT false;
+ALTER TABLE app.re_loans ADD COLUMN IF NOT EXISTS payment_frequency TEXT DEFAULT 'monthly';
 
 -- ─── 2B. Persisted amortization schedule per loan ──────────────────────
-CREATE TABLE IF NOT EXISTS app.re_loan_amortization_schedule (
+CREATE TABLE IF NOT EXISTS app.re_loans_amortization_schedule (
   id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  loan_id             UUID NOT NULL REFERENCES app.re_loan(id) ON DELETE CASCADE,
+  loan_id             UUID NOT NULL REFERENCES app.re_loans(loan_id) ON DELETE CASCADE,
   period_number       INT NOT NULL,
   payment_date        DATE,
   beginning_balance   NUMERIC(18,2) NOT NULL,

@@ -6,10 +6,12 @@
 CREATE EXTENSION IF NOT EXISTS postgis;
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- GEOGRAPHY DIMENSION — Census tracts, counties, CBSAs
+-- PIPELINE GEOGRAPHY DIMENSION — Census tracts, counties, CBSAs for pipeline map
+-- Note: dim_geography is defined in 303_cre_intelligence_graph.sql (uuid PK, geoid).
+-- This file uses pipeline_geography for the pipeline-map workflow (text GEOID PK).
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-CREATE TABLE IF NOT EXISTS dim_geography (
+CREATE TABLE IF NOT EXISTS pipeline_geography (
     geography_id    text PRIMARY KEY,              -- stable ID: GEOID for tract/county, CBSA code for metro
     geography_type  text NOT NULL
                     CHECK (geography_type IN ('tract', 'county', 'cbsa', 'zcta', 'state')),
@@ -27,18 +29,18 @@ CREATE TABLE IF NOT EXISTS dim_geography (
     created_at      timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_dim_geography_type
-    ON dim_geography (geography_type);
+CREATE INDEX IF NOT EXISTS idx_pipeline_geography_type
+    ON pipeline_geography (geography_type);
 
-CREATE INDEX IF NOT EXISTS idx_dim_geography_state
-    ON dim_geography (state_fips);
+CREATE INDEX IF NOT EXISTS idx_pipeline_geography_state
+    ON pipeline_geography (state_fips);
 
 -- Spatial indexes (only effective if PostGIS is active)
-CREATE INDEX IF NOT EXISTS idx_dim_geography_geom
-    ON dim_geography USING GIST (geom);
+CREATE INDEX IF NOT EXISTS idx_pipeline_geography_geom
+    ON pipeline_geography USING GIST (geom);
 
-CREATE INDEX IF NOT EXISTS idx_dim_geography_bbox
-    ON dim_geography USING GIST (bbox);
+CREATE INDEX IF NOT EXISTS idx_pipeline_geography_bbox
+    ON pipeline_geography USING GIST (bbox);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- METRIC DIMENSION — Catalog of available market data layers
@@ -76,7 +78,7 @@ ON CONFLICT (metric_key) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS fact_market_metric (
     id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    geography_id      text NOT NULL REFERENCES dim_geography(geography_id),
+    geography_id      text NOT NULL REFERENCES pipeline_geography(geography_id),
     metric_key        text NOT NULL REFERENCES dim_metric(metric_key),
     period_start      date NOT NULL,
     period_grain      text NOT NULL CHECK (period_grain IN ('monthly', 'quarterly', 'annual')),
@@ -103,7 +105,7 @@ CREATE INDEX IF NOT EXISTS idx_fact_market_metric_key_period
 CREATE TABLE IF NOT EXISTS property_geography_link (
     property_id     uuid NOT NULL,
     geography_type  text NOT NULL,
-    geography_id    text NOT NULL REFERENCES dim_geography(geography_id),
+    geography_id    text NOT NULL REFERENCES pipeline_geography(geography_id),
     link_method     text NOT NULL DEFAULT 'geocode+spatial_join'
                     CHECK (link_method IN ('geocode+spatial_join', 'manual', 'address_match')),
     confidence      numeric(5, 4),

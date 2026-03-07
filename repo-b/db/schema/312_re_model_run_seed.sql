@@ -36,11 +36,11 @@ BEGIN
       'seed',
       now()
     )
-    RETURNING id INTO v_morgan_run_id
-    ON CONFLICT DO NOTHING;
+    ON CONFLICT DO NOTHING
+    RETURNING id INTO v_morgan_run_id;
 
     -- Get fund_id for this model
-    SELECT m.fund_id INTO v_fund_id
+    SELECT m.primary_fund_id INTO v_fund_id
     FROM re_model m
     WHERE m.model_id = v_morgan_model_id;
 
@@ -70,11 +70,11 @@ BEGIN
       'seed',
       now()
     )
-    RETURNING id INTO v_base_run_id
-    ON CONFLICT DO NOTHING;
+    ON CONFLICT DO NOTHING
+    RETURNING id INTO v_base_run_id;
 
     -- Get fund_id for this model
-    SELECT m.fund_id INTO v_fund_id
+    SELECT m.primary_fund_id INTO v_fund_id
     FROM re_model m
     WHERE m.model_id = v_base_model_id;
 

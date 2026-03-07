@@ -227,7 +227,7 @@ CREATE TABLE IF NOT EXISTS pds_milestones (
   project_id              uuid NOT NULL REFERENCES pds_projects(project_id) ON DELETE CASCADE,
   milestone_name          text NOT NULL,
   baseline_date           date,
-  current_date            date,
+  "current_date"          date,
   actual_date             date,
   slip_reason             text,
   is_critical             boolean NOT NULL DEFAULT false,
