@@ -420,8 +420,10 @@ async def run_gateway_stream(
     # This ensures short messages like "yes" or "winston real estate I" during
     # active confirmation flows don't get misclassified as Lane A (no tools).
     _pending_workflow = _check_pending_workflow(conversation_id)
+    _workflow_override_applied = False
     if _pending_workflow:
         route = _override_route_for_workflow(route, _pending_workflow, message)
+        _workflow_override_applied = True
         emit_log(
             level="info", service="backend", action="ai.gateway.workflow_override",
             message=f"Active workflow detected ({_pending_workflow['type']}), "
@@ -671,6 +673,7 @@ async def run_gateway_stream(
     total_completion_tokens = 0
     total_cached_tokens = 0
     tool_call_count = 0
+    _fallback_used = False
     _failed_tool_names: set[str] = set()  # A11: track hallucinated/failed tool names to avoid loops
     tool_calls_log: list[dict[str, Any]] = []
     tool_timeline: list[dict[str, Any]] = []
@@ -725,6 +728,7 @@ async def run_gateway_stream(
                 stream = await client.chat.completions.create(**_kwargs)
                 if _try_model != effective_model:
                     effective_model = _try_model
+                    _fallback_used = True
                     emit_log(level="warning", service="backend", action="ai.gateway.fallback",
                              message=f"Using fallback model {_try_model}", context={"original": _models_to_try[0]})
                 break
@@ -1162,6 +1166,43 @@ async def run_gateway_stream(
         },
     )
     langfuse_client.flush()
+
+    # ── Persist gateway log row ───────────────────────────────────────
+    try:
+        from app.services.ai_gateway_logger import log_request as _log_request
+        _log_request(
+            conversation_id=conversation_id,
+            session_id=session_id,
+            business_id=resolved_scope.business_id,
+            env_id=str(env_id) if env_id else None,
+            actor=actor,
+            message_preview=message[:500],
+            route_lane=route.lane,
+            route_model=effective_model,
+            is_write=route.is_write,
+            workflow_override=_workflow_override_applied,
+            prompt_tokens=total_prompt_tokens,
+            completion_tokens=total_completion_tokens,
+            cached_tokens=total_cached_tokens,
+            reasoning_effort=route.reasoning_effort,
+            tool_call_count=tool_call_count,
+            tool_calls_json=tool_calls_log or None,
+            tools_skipped=route.skip_tools,
+            rag_chunks_raw=len(rag_chunks_raw) if rag_chunks_raw else 0,
+            rag_chunks_used=len(rag_chunks),
+            rag_rerank_method=RAG_RERANK_METHOD if route.use_rerank else None,
+            rag_scores=[round(c.score, 4) for c in rag_chunks] if rag_chunks else None,
+            cost_total=cost_info.get("total_cost", 0),
+            cost_model=cost_info.get("model_cost", 0),
+            cost_embedding=cost_info.get("embedding_cost", 0),
+            cost_rerank=cost_info.get("rerank_cost", 0),
+            elapsed_ms=elapsed_ms,
+            ttft_ms=timings.get("ttft_ms"),
+            model_ms=timings.get("model_ms"),
+            fallback_used=_fallback_used,
+        )
+    except Exception:
+        pass  # never block the response for logging
 
     yield _sse(
         "done",

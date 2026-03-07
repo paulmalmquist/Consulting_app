@@ -242,6 +242,72 @@ def archive_conversation(conversation_id: str):
     return {"archived": True}
 
 
+# ── Gateway Logs ──────────────────────────────────────────────────────────
+
+
+@router.get("/logs")
+def get_gateway_logs(
+    business_id: str | None = None,
+    conversation_id: str | None = None,
+    lane: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    """Query AI gateway request logs — routing decisions, models, tools, RAG, cost, timings."""
+    from app.services.ai_gateway_logger import get_logs
+
+    rows = get_logs(
+        business_id=business_id,
+        conversation_id=conversation_id,
+        lane=lane,
+        limit=min(limit, 200),
+        offset=offset,
+    )
+    return {
+        "logs": [_serialize_log(r) for r in rows],
+        "count": len(rows),
+    }
+
+
+def _serialize_log(row: dict) -> dict:
+    return {
+        "id": str(row["id"]),
+        "conversation_id": str(row["conversation_id"]) if row.get("conversation_id") else None,
+        "session_id": row.get("session_id"),
+        "business_id": str(row["business_id"]) if row.get("business_id") else None,
+        "actor": row.get("actor"),
+        "message_preview": row.get("message_preview"),
+        "route_lane": row.get("route_lane"),
+        "route_model": row.get("route_model"),
+        "is_write": row.get("is_write", False),
+        "workflow_override": row.get("workflow_override", False),
+        "prompt_tokens": row.get("prompt_tokens", 0),
+        "completion_tokens": row.get("completion_tokens", 0),
+        "cached_tokens": row.get("cached_tokens", 0),
+        "reasoning_effort": row.get("reasoning_effort"),
+        "tool_call_count": row.get("tool_call_count", 0),
+        "tool_calls_json": row.get("tool_calls_json"),
+        "tools_skipped": row.get("tools_skipped", False),
+        "rag_chunks_raw": row.get("rag_chunks_raw", 0),
+        "rag_chunks_used": row.get("rag_chunks_used", 0),
+        "rag_rerank_method": row.get("rag_rerank_method"),
+        "rag_scores": row.get("rag_scores"),
+        "cost_total": float(row.get("cost_total", 0)),
+        "cost_model": float(row.get("cost_model", 0)),
+        "cost_embedding": float(row.get("cost_embedding", 0)),
+        "cost_rerank": float(row.get("cost_rerank", 0)),
+        "elapsed_ms": row.get("elapsed_ms"),
+        "ttft_ms": row.get("ttft_ms"),
+        "model_ms": row.get("model_ms"),
+        "fallback_used": row.get("fallback_used", False),
+        "error_message": row.get("error_message"),
+        "created_at": row["created_at"].isoformat() if row.get("created_at") else None,
+    }
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────
+
+
 def _serialize_conversation(row: dict, *, messages: list, message_count: int) -> dict:
     return {
         "conversation_id": str(row["conversation_id"]),
