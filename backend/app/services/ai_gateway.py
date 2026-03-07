@@ -587,8 +587,8 @@ async def run_gateway_stream(
             stream_kwargs["max_completion_tokens"] = route.max_tokens
         else:
             stream_kwargs["max_tokens"] = route.max_tokens
-        # o1/o3 reasoning models don't support temperature; GPT-5 and others do
-        if not _is_reasoning_model(effective_model):
+        # o1/o3 and gpt-5 family don't support custom temperature (only default=1)
+        if not _is_reasoning_model(effective_model) and not _uses_max_completion_tokens(effective_model):
             stream_kwargs["temperature"] = route.temperature
         # GPT-5 family supports reasoning_effort as an additive parameter
         if route.reasoning_effort:
