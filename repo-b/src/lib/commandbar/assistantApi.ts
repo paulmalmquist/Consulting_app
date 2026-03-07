@@ -958,6 +958,11 @@ export async function askAi(input: {
 
     const reader = response.body?.getReader();
     if (reader) {
+      // Safety net: if the 90s timeout fires, force-cancel a potentially hung reader.
+      // The abort signal passed to fetch() does not reliably cancel an already-received
+      // response body's ReadableStream — wire it directly to reader.cancel().
+      const onAbort = () => reader.cancel();
+      signal.addEventListener("abort", onAbort, { once: true });
       console.group(`[Winston] SSE stream for request ${requestId}`);
       console.log(`[Winston] Message: "${input.message.slice(0, 80)}${input.message.length > 80 ? "..." : ""}"`);
       console.log(`[Winston] business_id=${input.business_id || "none"} env_id=${input.env_id || "none"} conversation_id=${input.conversation_id || "none"}`);
@@ -1089,6 +1094,7 @@ export async function askAi(input: {
           }
         }
       }
+      signal.removeEventListener("abort", onAbort);
       // Final summary log
       console.log(`[Winston] Stream complete: ${tokenCount} tokens, ${answer.length} chars, ${debug.toolCalls.length} tool calls, ${debug.eventLog.length} SSE events, ${Date.now() - sseStartMs}ms`);
       console.groupEnd();

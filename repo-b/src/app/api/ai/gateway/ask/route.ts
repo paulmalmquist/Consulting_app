@@ -179,20 +179,30 @@ export async function POST(req: NextRequest) {
     context_envelope: contextEnvelope,
   });
 
-  // Try FastAPI backend first (60s timeout — tool-calling workflows take 15-20s)
+  // Try FastAPI backend first.
+  // Use a connection-only timeout (10s) — once headers arrive, let the SSE body
+  // stream as long as needed. Tool-calling workflows can take 40-70s across
+  // multiple LLM rounds; a body timeout would silently kill the stream mid-flight.
   const requestId = req.headers.get("x-bm-request-id") || crypto.randomUUID();
   try {
-    const upstream = await fetch(`${FASTAPI_BASE}/api/ai/gateway/ask`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-bm-actor": actor,
-        "x-bm-request-id": requestId,
-        "x-request-id": requestId,
-      },
-      body: gatewayBody,
-      signal: AbortSignal.timeout(60_000),
-    });
+    const proxyCtrl = new AbortController();
+    const connectTimer = setTimeout(() => proxyCtrl.abort(), 10_000);
+    let upstream: Response;
+    try {
+      upstream = await fetch(`${FASTAPI_BASE}/api/ai/gateway/ask`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-bm-actor": actor,
+          "x-bm-request-id": requestId,
+          "x-request-id": requestId,
+        },
+        body: gatewayBody,
+        signal: proxyCtrl.signal,
+      });
+    } finally {
+      clearTimeout(connectTimer);
+    }
 
     if (upstream.ok) {
       return new Response(upstream.body, {

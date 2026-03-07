@@ -423,7 +423,9 @@ async def run_gateway_stream(
     # Check if conversation has a pending workflow before finalizing route.
     # This ensures short messages like "yes" or "winston real estate I" during
     # active confirmation flows don't get misclassified as Lane A (no tools).
-    _pending_workflow = _check_pending_workflow(conversation_id)
+    _pending_workflow = await asyncio.get_event_loop().run_in_executor(
+        None, _check_pending_workflow, conversation_id
+    )
     _workflow_override_applied = False
     if _pending_workflow:
         route = _override_route_for_workflow(route, _pending_workflow, message)
@@ -606,7 +608,9 @@ async def run_gateway_stream(
         try:
             from app.services import ai_conversations as convo_svc
 
-            history = convo_svc.get_messages(conversation_id=conversation_id)
+            history = await asyncio.get_event_loop().run_in_executor(
+                None, convo_svc.get_messages, conversation_id
+            )
             max_history = 6 if route.lane in ("A", "B") else 10
             recent = [m for m in history if m["role"] in ("user", "assistant")][-max_history:]
             history_token_budget = route.history_max_tokens
@@ -1002,14 +1006,111 @@ async def run_gateway_stream(
                 }
             )
 
+    # ── Compute metrics and emit done BEFORE persistence ─────────────
+    # Emit the stream-terminating `done` event before any DB writes so
+    # slow/hanging DB calls cannot block the frontend from receiving it.
+    elapsed_ms = int((time.time() - start) * 1000)
+    timings["model_ms"] = int((time.time() - model_start) * 1000)
+    if first_token_time is not None:
+        timings["ttft_ms"] = int((first_token_time - model_start) * 1000)
+    timings["total_ms"] = elapsed_ms
+
+    # Track RAG as data source
+    if rag_chunks:
+        execution_path = "hybrid" if tool_call_count > 0 else "rag"
+        for chunk in rag_chunks:
+            data_sources.append({
+                "source_type": "document",
+                "doc_id": chunk.document_id,
+                "chunk_id": chunk.chunk_id,
+                "score": round(chunk.score, 4),
+                "section_heading": chunk.section_heading,
+            })
+
+    # Detect REPE-specific metadata from scope
+    repe_metadata: dict[str, Any] = {}
+    if resolved_scope.industry == "real_estate":
+        repe_metadata["industry"] = "real_estate"
+        if resolved_scope.entity_type == "fund":
+            repe_metadata["rollup_level"] = "fund"
+            repe_metadata["fund_id"] = resolved_scope.entity_id
+        elif resolved_scope.entity_type == "asset":
+            repe_metadata["rollup_level"] = "asset"
+            repe_metadata["asset_id"] = resolved_scope.entity_id
+        elif resolved_scope.entity_type in ("investment", "deal"):
+            repe_metadata["rollup_level"] = "investment"
+            repe_metadata["deal_id"] = resolved_scope.entity_id
+        else:
+            repe_metadata["rollup_level"] = "portfolio"
+        repe_metadata["schema_name"] = resolved_scope.schema_name
+
+    # Build RAG quality and cost metrics for trace
+    rag_quality = {
+        "chunks_retrieved": len(rag_chunks_raw),
+        "chunks_after_threshold": len([c for c in rag_chunks_raw if c.score >= RAG_MIN_SCORE]) if rag_chunks_raw else 0,
+        "chunks_after_rerank": len(rag_chunks),
+        "rerank_method": RAG_RERANK_METHOD if route.use_rerank else "none",
+        "hybrid_used": route.use_hybrid,
+        "scores": [round(c.score, 4) for c in rag_chunks],
+    }
+    cost_info = estimate_cost(
+        model=route.model or OPENAI_CHAT_MODEL,
+        prompt_tokens=total_prompt_tokens,
+        completion_tokens=total_completion_tokens,
+        rerank_method=RAG_RERANK_METHOD if route.use_rerank else None,
+    )
+
+    yield _sse(
+        "done",
+        {
+            "session_id": session_id,
+            "trace": {
+                "execution_path": execution_path,
+                "lane": route.lane,
+                "model": route.model or OPENAI_CHAT_MODEL,
+                "reasoning_effort": route.reasoning_effort,
+                "prompt_tokens": total_prompt_tokens,
+                "completion_tokens": total_completion_tokens,
+                "cached_tokens": total_cached_tokens,
+                "total_tokens": total_prompt_tokens + total_completion_tokens,
+                "tool_call_count": tool_call_count,
+                "tool_timeline": tool_timeline,
+                "data_sources": data_sources,
+                "citations": citations_log,
+                "rag_chunks_used": len(rag_chunks),
+                "warnings": warnings,
+                "elapsed_ms": elapsed_ms,
+                "resolved_scope": scope_dump,
+                "repe": repe_metadata or None,
+                "visible_context_shortcut": visible_context_policy.get("disable_tools", False),
+                "timings": timings,
+                "rag_quality": rag_quality,
+                "cost": cost_info,
+            },
+            # Keep flat fields for backward compat
+            "prompt_tokens": total_prompt_tokens,
+            "completion_tokens": total_completion_tokens,
+            "tool_calls": tool_call_count,
+            "elapsed_ms": elapsed_ms,
+            "resolved_scope": scope_dump,
+        },
+    )
+
+    # ── Post-stream persistence (non-blocking for the client) ─────────
+    # Everything below runs after the frontend has received the `done`
+    # event. Slow DB writes here cannot cause the UI to stall.
+
     if conversation_id:
         try:
             from app.services import ai_conversations as convo_svc
 
-            convo_svc.append_message(
-                conversation_id=conversation_id,
-                role="user",
-                content=message,
+            await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: convo_svc.append_message(
+                    conversation_id=conversation_id,
+                    role="user",
+                    content=message,
+                ),
             )
             # Build enriched content that includes tool call context so
             # the next turn's history gives the LLM full awareness of
@@ -1079,22 +1180,20 @@ async def run_gateway_stream(
                     "using those parameters.]"
                 )
             if enriched_content:
-                convo_svc.append_message(
-                    conversation_id=conversation_id,
-                    role="assistant",
-                    content=enriched_content,
-                    tool_calls=tool_calls_log or None,
-                    citations=citations_log or None,
-                    token_count=total_completion_tokens or None,
+                await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: convo_svc.append_message(
+                        conversation_id=conversation_id,
+                        role="assistant",
+                        content=enriched_content,
+                        tool_calls=tool_calls_log or None,
+                        citations=citations_log or None,
+                        token_count=total_completion_tokens or None,
+                    ),
                 )
         except Exception:
             pass
 
-    elapsed_ms = int((time.time() - start) * 1000)
-    timings["model_ms"] = int((time.time() - model_start) * 1000)
-    if first_token_time is not None:
-        timings["ttft_ms"] = int((first_token_time - model_start) * 1000)
-    timings["total_ms"] = elapsed_ms
     try:
         audit_svc.record_event(
             actor=actor,
@@ -1120,51 +1219,6 @@ async def run_gateway_stream(
         )
     except Exception:
         pass
-
-    # Track RAG as data source
-    if rag_chunks:
-        execution_path = "hybrid" if tool_call_count > 0 else "rag"
-        for chunk in rag_chunks:
-            data_sources.append({
-                "source_type": "document",
-                "doc_id": chunk.document_id,
-                "chunk_id": chunk.chunk_id,
-                "score": round(chunk.score, 4),
-                "section_heading": chunk.section_heading,
-            })
-
-    # Detect REPE-specific metadata from scope
-    repe_metadata: dict[str, Any] = {}
-    if resolved_scope.industry == "real_estate":
-        repe_metadata["industry"] = "real_estate"
-        if resolved_scope.entity_type == "fund":
-            repe_metadata["rollup_level"] = "fund"
-            repe_metadata["fund_id"] = resolved_scope.entity_id
-        elif resolved_scope.entity_type == "asset":
-            repe_metadata["rollup_level"] = "asset"
-            repe_metadata["asset_id"] = resolved_scope.entity_id
-        elif resolved_scope.entity_type in ("investment", "deal"):
-            repe_metadata["rollup_level"] = "investment"
-            repe_metadata["deal_id"] = resolved_scope.entity_id
-        else:
-            repe_metadata["rollup_level"] = "portfolio"
-        repe_metadata["schema_name"] = resolved_scope.schema_name
-
-    # Build RAG quality and cost metrics for trace
-    rag_quality = {
-        "chunks_retrieved": len(rag_chunks_raw),
-        "chunks_after_threshold": len([c for c in rag_chunks_raw if c.score >= RAG_MIN_SCORE]) if rag_chunks_raw else 0,
-        "chunks_after_rerank": len(rag_chunks),
-        "rerank_method": RAG_RERANK_METHOD if route.use_rerank else "none",
-        "hybrid_used": route.use_hybrid,
-        "scores": [round(c.score, 4) for c in rag_chunks],
-    }
-    cost_info = estimate_cost(
-        model=route.model or OPENAI_CHAT_MODEL,
-        prompt_tokens=total_prompt_tokens,
-        completion_tokens=total_completion_tokens,
-        rerank_method=RAG_RERANK_METHOD if route.use_rerank else None,
-    )
 
     # ── Langfuse finalize ────────────────────────────────────────────
     trace.update(
@@ -1219,39 +1273,3 @@ async def run_gateway_stream(
         )
     except Exception:
         pass  # never block the response for logging
-
-    yield _sse(
-        "done",
-        {
-            "session_id": session_id,
-            "trace": {
-                "execution_path": execution_path,
-                "lane": route.lane,
-                "model": route.model or OPENAI_CHAT_MODEL,
-                "reasoning_effort": route.reasoning_effort,
-                "prompt_tokens": total_prompt_tokens,
-                "completion_tokens": total_completion_tokens,
-                "cached_tokens": total_cached_tokens,
-                "total_tokens": total_prompt_tokens + total_completion_tokens,
-                "tool_call_count": tool_call_count,
-                "tool_timeline": tool_timeline,
-                "data_sources": data_sources,
-                "citations": citations_log,
-                "rag_chunks_used": len(rag_chunks),
-                "warnings": warnings,
-                "elapsed_ms": elapsed_ms,
-                "resolved_scope": scope_dump,
-                "repe": repe_metadata or None,
-                "visible_context_shortcut": visible_context_policy.get("disable_tools", False),
-                "timings": timings,
-                "rag_quality": rag_quality,
-                "cost": cost_info,
-            },
-            # Keep flat fields for backward compat
-            "prompt_tokens": total_prompt_tokens,
-            "completion_tokens": total_completion_tokens,
-            "tool_calls": tool_call_count,
-            "elapsed_ms": elapsed_ms,
-            "resolved_scope": scope_dump,
-        },
-    )
