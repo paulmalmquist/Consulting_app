@@ -67,6 +67,7 @@ def _check_pending_workflow(conversation_id: str | None) -> dict | None:
             if "confirmation request with no tool call" in content:
                 return {"type": "text_confirmation", "content": content}
             # Check tool_calls for confirmed=false (needs_input / pending)
+            # OR validation-failed tool calls that need more user input
             if tool_calls:
                 tcs = tool_calls if isinstance(tool_calls, list) else json.loads(tool_calls) if isinstance(tool_calls, str) else None
                 if tcs:
@@ -74,6 +75,9 @@ def _check_pending_workflow(conversation_id: str | None) -> dict | None:
                         args = tc.get("args", {})
                         if args.get("confirmed") is False and tc.get("success"):
                             return {"type": "pending_confirmation", "content": content, "tool_calls": tcs}
+                        # Validation errors (missing required fields) = pending slot-fill
+                        if not tc.get("success") and tc.get("error") and "required" in str(tc.get("error", "")).lower():
+                            return {"type": "pending_slot_fill", "content": content, "tool_calls": tcs}
         return None
     except Exception:
         return None
@@ -1020,10 +1024,12 @@ async def run_gateway_stream(
                     else:
                         tc_line += f" → error: {tc.get('error', 'unknown')}"
                     tool_summary_parts.append(tc_line)
-                # Check for any pending confirmations
+                # Check for any pending confirmations OR validation-failed tool calls
+                # that need more user input (e.g., missing required fields).
                 pending_tools = [
                     tc for tc in tool_calls_log
-                    if tc.get("success") and tc.get("args", {}).get("confirmed") is False
+                    if (tc.get("success") and tc.get("args", {}).get("confirmed") is False)
+                    or (not tc.get("success") and tc.get("error") and "required" in str(tc.get("error", "")).lower())
                 ]
                 if pending_tools:
                     pending_names = [tc["name"] for tc in pending_tools]
@@ -1033,17 +1039,27 @@ async def run_gateway_stream(
                         args = tc.get("args", {})
                         params_str = ", ".join(
                             f"{k}={json.dumps(v, default=str)}" for k, v in args.items()
-                            if k != "confirmed" and v is not None
+                            if k not in ("confirmed", "resolved_scope") and v is not None
                         )
                         param_summaries.append(f"{tc['name']}({params_str})")
+                    # Distinguish validation-failed vs confirmed=false
+                    has_validation_failure = any(not tc.get("success") for tc in pending_tools)
+                    merge_instruction = (
+                        "The tool call FAILED due to missing required fields. "
+                        "When the user provides the missing values, you MUST call the tool again "
+                        "with ALL known parameters PLUS the new values. "
+                        "NEVER re-ask for parameters already listed above."
+                    ) if has_validation_failure else (
+                        "If the user provides missing values, MERGE them with these known params "
+                        "and call again with confirmed=false. "
+                        "If the user confirms, call with confirmed=true using ALL these parameters."
+                    )
                     enriched_content += (
                         "\n\n[SYSTEM NOTE: Tool calls this turn: "
                         + "; ".join(tool_summary_parts)
                         + ". PENDING CONFIRMATION for: " + ", ".join(pending_names) + ". "
                         + "Known parameters: " + "; ".join(param_summaries) + ". "
-                        + "If the user provides missing values, MERGE them with these known params "
-                        + "and call again with confirmed=false. "
-                        + "If the user confirms, call with confirmed=true using ALL these parameters.]"
+                        + merge_instruction + "]"
                     )
             # Defensive: if Winston produced a text-only confirmation (no tool call),
             # still annotate the persisted message so "yes" on the next turn has context.

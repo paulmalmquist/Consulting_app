@@ -878,7 +878,111 @@ Expected: streaming SSE response with non-empty `content` tokens. A 503 means `O
 
 ---
 
-## 15. Winston AI Gateway Architecture
+## 15. Winston Conversation Log Review Protocol
+
+### After every test session, pull and analyze the gateway logs
+
+After testing Winston, fetch the most recent gateway logs and analyze whether the conversations routed and behaved correctly.
+
+```bash
+# Pull last 20 requests (replace with your business_id)
+curl -s "https://authentic-sparkle-production-7f37.up.railway.app/api/ai/gateway/logs?limit=20" | jq .
+
+# Filter by conversation
+curl -s "https://authentic-sparkle-production-7f37.up.railway.app/api/ai/gateway/logs?conversation_id=<uuid>" | jq .
+
+# Or query Supabase directly (use pooler URL — direct host is IPv6 only and unreachable from most local setups)
+python3 -c "
+import psycopg, json
+conn = psycopg.connect('postgresql://postgres.ozboonlsplroialdwuxj:ripsalesforce8084@aws-1-us-east-1.pooler.supabase.com:6543/postgres')
+cur = conn.cursor(row_factory=psycopg.rows.dict_row)
+cur.execute('SELECT route_lane, route_model, message_preview, tool_call_count, workflow_override, cost_total, elapsed_ms, created_at FROM ai_gateway_logs ORDER BY created_at DESC LIMIT 20')
+for r in cur.fetchall(): print(json.dumps(dict(r), default=str))
+conn.close()
+"
+```
+
+### Ask the assistant to analyze the logs for these signals
+
+After pulling the logs, paste them and ask:
+
+> "Analyze these gateway logs. For each request: was the routing lane correct for the message? Did the workflow override fire when it should (or shouldn't) have? Were the right tools called? Were there any fallbacks or errors? What should have happened differently?"
+
+### What to look for per request
+
+| Field | What to check |
+|---|---|
+| `route_lane` | A = no tools/RAG, B = RAG only, C = tools (write), D = deep reasoning. Does the lane match the question type? |
+| `workflow_override` | Should be `true` on slot-fill follow-ups (e.g., "2024 open-end core" after "create a fund called X") |
+| `tool_call_count` | Should be > 0 for any create/update/lookup request. 0 on a write request = routing failure |
+| `tools_skipped` | `true` means Lane A — verify this was intentional (simple greeting, identity query) |
+| `rag_chunks_used` | Should be > 0 for document/property questions. 0 = possible miss |
+| `fallback_used` | `true` = primary model failed. Investigate if frequent |
+| `cost_total` | Sanity check — a $0.01+ cost on a simple greeting means wrong lane |
+| `elapsed_ms` | > 10s on a simple lookup = probable tool loop or slow model |
+| `message_preview` | Confirms what was actually sent (useful to catch frontend truncation) |
+
+### Key routing expectations to verify
+
+| Message type | Expected lane | Expected tools | Expected RAG |
+|---|---|---|---|
+| "hi", "thanks", "who are you" | A | none | none |
+| "how many funds do we have" | A or B | none | optional |
+| "what is the cap rate for Ashford" | B | optional lookup | yes |
+| "create a fund called X" | C | `repe.create_fund` | no |
+| "2024 open-end core" (after fund creation) | C (workflow override) | `repe.create_fund` | no |
+| "yes" / "go ahead" (confirming action) | C (workflow override) | same tool + confirmed=true | no |
+| "analyze our portfolio performance in detail" | D | multiple | yes |
+
+---
+
+## 16. Winston Slot-Fill Amnesia — Debugging Checklist
+
+### Symptom
+Winston asks for a parameter that the user already provided in a previous turn. Example: turn 1 provides fund name, turn 2 provides vintage/type/strategy, and Winston says "I need the fund name to proceed."
+
+### Root causes
+
+| Cause | Symptom in logs | Fix |
+|---|---|---|
+| Tool call failed validation (missing fields) → no PENDING CONFIRMATION annotation written | `wf_override=false` on turn 2; turn 1 tool call shows `success: false` + `"required"` in error | Treat validation-failed tool calls as pending slot-fill in both annotation logic and `_check_pending_workflow()` |
+| Workflow detection only checks `success=true AND confirmed=false` | Same as above | Also check `success=false AND "required" in error` |
+| Message on turn 2 doesn't match `_WRITE_RE` regex | Turn 2 routed to Lane A/B, `skip_tools=true`, workflow override not applied | Fix workflow detection so it fires regardless of regex match |
+
+### What to check in gateway logs after a slot-fill failure
+
+```bash
+# Check the two consecutive turns
+curl -s "https://authentic-sparkle-production-7f37.up.railway.app/api/ai/gateway/logs?limit=5" | jq '[.[] | {lane: .route_lane, wf_override: .workflow_override, msg: .message_preview, tools: .tool_calls_json}]'
+```
+
+Look for:
+1. Turn 1: `route_lane=C`, tool call present with `success: false` and error containing "required" — this is the slot-fill trigger
+2. Turn 2: `workflow_override` — must be `true`. If `false`, the pending workflow detection missed the failed call
+3. Turn 2: tool args — must include ALL params from turn 1 plus the new ones from turn 2
+
+### Annotation that gets written to conversation history (turn 1)
+
+When a tool call fails due to missing required fields, this annotation is appended to the assistant message:
+
+```
+[SYSTEM NOTE: Tool calls this turn: - repe.create_fund(confirmed=N/A) → error: ...
+PENDING CONFIRMATION for: repe.create_fund.
+Known parameters: repe.create_fund(name="winston real estate I").
+The tool call FAILED due to missing required fields. When the user provides the missing values,
+you MUST call the tool again with ALL known parameters PLUS the new values.
+NEVER re-ask for parameters already listed above.]
+```
+
+If this annotation is missing from the stored assistant message, the workflow override on turn 2 will not fire.
+
+### Key files
+- `backend/app/services/ai_gateway.py` — `_check_pending_workflow()` (detection) and annotation logic (~line 1024)
+- Workflow override fires at ~line 422
+
+---
+
+## 17. Winston AI Gateway Architecture
 
 ### Payload contract
 
