@@ -835,6 +835,12 @@ Before testing, confirm these are set on the right service:
 Set on Railway: `railway variables set KEY=VALUE --service authentic-sparkle`
 Set on Vercel: `echo "value" | npx vercel env add KEY production` then redeploy
 
+### Production credentials
+
+| Credential | Value | Used for |
+|---|---|---|
+| `ADMIN_INVITE_CODE` | `SWvxEtVPMK_YanlB` | Login to `/admin` on paulmalmquist.com |
+
 ---
 
 ### Correct test order for a full-stack change

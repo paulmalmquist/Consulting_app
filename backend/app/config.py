@@ -5,10 +5,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL: str = os.getenv("DATABASE_URL", "")
-SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
-SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-STORAGE_BUCKET: str = os.getenv("STORAGE_BUCKET", "documents")
+def _clean_env_value(value: str | None) -> str:
+    return value.strip() if value else ""
+
+
+DATABASE_URL: str = _clean_env_value(os.getenv("DATABASE_URL", ""))
+SUPABASE_URL: str = _clean_env_value(os.getenv("SUPABASE_URL", ""))
+SUPABASE_SERVICE_ROLE_KEY: str = _clean_env_value(os.getenv("SUPABASE_SERVICE_ROLE_KEY", ""))
+STORAGE_BUCKET: str = _clean_env_value(os.getenv("STORAGE_BUCKET", "documents")) or "documents"
+
+
 def _expand_localhost_origins(origins_csv: str) -> list[str]:
     # Keep CORS deterministic while tolerating localhost/127.0.0.1 dev host aliases.
     out: list[str] = []
@@ -116,12 +122,13 @@ def require_database_url() -> str:
     need the database (e.g. MCP bm.list_tools) can still start.
     """
     global _db_validated
-    if not DATABASE_URL:
+    database_url = _clean_env_value(DATABASE_URL)
+    if not database_url:
         raise RuntimeError(
             "DATABASE_URL is not set.  Set it in .env or environment."
         )
     _db_validated = True
-    return DATABASE_URL
+    return database_url
 
 
 # Backwards compat: keep the hard exit for the REST server entrypoint.
