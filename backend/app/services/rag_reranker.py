@@ -135,12 +135,17 @@ Passages:
 
 Return ONLY a JSON array of objects with "id" (int) and "score" (float 0-10), sorted by score descending. No other text."""
 
-    response = await client.chat.completions.create(
-        model=OPENAI_CHAT_MODEL_FAST,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0,
-        max_tokens=512,
-    )
+    _is_gpt5 = OPENAI_CHAT_MODEL_FAST.lower().startswith("gpt-5")
+    _create_kwargs: dict = {
+        "model": OPENAI_CHAT_MODEL_FAST,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    if _is_gpt5:
+        _create_kwargs["max_completion_tokens"] = 512
+    else:
+        _create_kwargs["temperature"] = 0
+        _create_kwargs["max_tokens"] = 512
+    response = await client.chat.completions.create(**_create_kwargs)
 
     content = response.choices[0].message.content or "[]"
     # Parse JSON from response (handle markdown code blocks)

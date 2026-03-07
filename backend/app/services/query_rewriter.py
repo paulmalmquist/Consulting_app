@@ -36,13 +36,18 @@ async def expand_query(
         import openai
 
         client = openai.AsyncOpenAI(api_key=OPENAI_API_KEY)
+        _is_gpt5 = OPENAI_CHAT_MODEL_FAST.lower().startswith("gpt-5")
+        _create_kwargs: dict = {
+            "model": OPENAI_CHAT_MODEL_FAST,
+            "messages": [{"role": "user", "content": _EXPAND_PROMPT.format(n=num_variants, query=query)}],
+        }
+        if _is_gpt5:
+            _create_kwargs["max_completion_tokens"] = 256
+        else:
+            _create_kwargs["temperature"] = 0.7
+            _create_kwargs["max_tokens"] = 256
         response = await asyncio.wait_for(
-            client.chat.completions.create(
-                model=OPENAI_CHAT_MODEL_FAST,
-                messages=[{"role": "user", "content": _EXPAND_PROMPT.format(n=num_variants, query=query)}],
-                temperature=0.7,
-                max_tokens=256,
-            ),
+            client.chat.completions.create(**_create_kwargs),
             timeout=1.5,
         )
 
