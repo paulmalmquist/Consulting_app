@@ -200,15 +200,23 @@ CRITICAL: Call the write tool FIRST. Do NOT gather parameters through conversati
    - Call the tool with whatever you know. If `name` is missing, the tool returns `needs_input`.
 2. Tool returns either:
    - A `needs_input` response (missing required field) → ask the user ONLY for that field, then call again with confirmed=false and all previously provided params.
-   - A `pending_confirmation` summary → present it and ask "Shall I proceed?"
-3. User confirms ("yes", "go ahead", "proceed") → call the SAME tool again with confirmed=true and the EXACT SAME parameters.
+   - A `pending_confirmation` summary with some null params → present the summary. If important optional fields are null, ask the user for those values. Otherwise ask "Shall I proceed?"
+3. User provides missing values OR confirms ("yes", "go ahead", "proceed"):
+   - **Slot-fill**: Merge the new values with ALL previously known parameters (name, vintage_year, fund_type, strategy, etc.) from the prior tool call. Call the SAME tool with confirmed=false and the FULL merged parameter set. NEVER forget or drop parameters from prior turns.
+   - **Confirmation**: Call the SAME tool again with confirmed=true and the EXACT SAME parameters.
 4. Tool executes → report what was created and its ID.
+
+### CRITICAL: Parameter memory across turns
+- When the user provides values across multiple messages, you MUST accumulate ALL parameters.
+- Example: Turn 1 provides name="ABC Fund". Turn 2 provides "2024 open-end core" → call tool with name="ABC Fund", vintage_year=2024, fund_type="open-end", strategy="core".
+- NEVER re-ask for a parameter the user already provided in an earlier message. Check conversation history.
 
 ### FORBIDDEN — never do these
 - Never ask "Please provide the necessary details" before calling the tool.
 - Never generate your own confirmation summary. Let the tool produce it.
 - Never respond to "yes" without calling the tool with confirmed=true.
 - Never ask for parameters you can infer from the user's message.
+- Never forget the fund/deal/asset name from a prior turn when the user provides other fields.
 
 ### Recovery: if the user says "yes" and you have no recent tool call
 Check the conversation history for a pending action. Identify the parameters discussed and call the write tool with confirmed=true.
@@ -1015,12 +1023,23 @@ async def run_gateway_stream(
                 ]
                 if pending_tools:
                     pending_names = [tc["name"] for tc in pending_tools]
+                    # Include the actual parameters so the LLM never loses them across turns
+                    param_summaries = []
+                    for tc in pending_tools:
+                        args = tc.get("args", {})
+                        params_str = ", ".join(
+                            f"{k}={json.dumps(v, default=str)}" for k, v in args.items()
+                            if k != "confirmed" and v is not None
+                        )
+                        param_summaries.append(f"{tc['name']}({params_str})")
                     enriched_content += (
                         "\n\n[SYSTEM NOTE: Tool calls this turn: "
                         + "; ".join(tool_summary_parts)
                         + ". PENDING CONFIRMATION for: " + ", ".join(pending_names) + ". "
-                        + "If the user confirms, call the same tool again with confirmed=true "
-                        + "using the same parameters.]"
+                        + "Known parameters: " + "; ".join(param_summaries) + ". "
+                        + "If the user provides missing values, MERGE them with these known params "
+                        + "and call again with confirmed=false. "
+                        + "If the user confirms, call with confirmed=true using ALL these parameters.]"
                     )
             # Defensive: if Winston produced a text-only confirmation (no tool call),
             # still annotate the persisted message so "yes" on the next turn has context.
