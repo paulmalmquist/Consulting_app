@@ -1,8 +1,5 @@
 """Tests for model_registry — capability lookup, request sanitizer, error mapper."""
-import pytest
 from app.services.model_registry import (
-    ModelCaps,
-    MappedError,
     get_caps,
     map_openai_error,
     sanitize_params,
