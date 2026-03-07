@@ -7,6 +7,7 @@ import logging
 from typing import Any
 
 from app.config import OPENAI_API_KEY, OPENAI_CHAT_MODEL_FAST
+from app.services.model_registry import sanitize_params
 
 logger = logging.getLogger(__name__)
 
@@ -36,16 +37,12 @@ async def expand_query(
         import openai
 
         client = openai.AsyncOpenAI(api_key=OPENAI_API_KEY)
-        _is_gpt5 = OPENAI_CHAT_MODEL_FAST.lower().startswith("gpt-5")
-        _create_kwargs: dict = {
-            "model": OPENAI_CHAT_MODEL_FAST,
-            "messages": [{"role": "user", "content": _EXPAND_PROMPT.format(n=num_variants, query=query)}],
-        }
-        if _is_gpt5:
-            _create_kwargs["max_completion_tokens"] = 256
-        else:
-            _create_kwargs["temperature"] = 0.7
-            _create_kwargs["max_tokens"] = 256
+        _create_kwargs = sanitize_params(
+            OPENAI_CHAT_MODEL_FAST,
+            messages=[{"role": "user", "content": _EXPAND_PROMPT.format(n=num_variants, query=query)}],
+            max_tokens=256,
+            temperature=0.7,
+        )
         response = await asyncio.wait_for(
             client.chat.completions.create(**_create_kwargs),
             timeout=1.5,

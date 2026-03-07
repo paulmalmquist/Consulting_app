@@ -9,7 +9,7 @@ from typing import Any, AsyncGenerator
 
 import hashlib
 
-from app.config import AI_MAX_TOOL_ROUNDS, ENABLE_QUERY_EXPANSION, OPENAI_API_KEY, OPENAI_CHAT_MODEL, RAG_CACHE_TTL_SECONDS, RAG_MIN_SCORE, RAG_OVERFETCH, RAG_RERANK_METHOD, RAG_TOP_K
+from app.config import AI_MAX_TOOL_ROUNDS, ENABLE_QUERY_EXPANSION, OPENAI_API_KEY, OPENAI_CHAT_MODEL, OPENAI_CHAT_MODEL_FALLBACK, RAG_CACHE_TTL_SECONDS, RAG_MIN_SCORE, RAG_OVERFETCH, RAG_RERANK_METHOD, RAG_TOP_K
 from app.mcp.audit import execute_tool
 from app.mcp.auth import McpContext
 from app.mcp.registry import registry
@@ -27,23 +27,8 @@ from app.services.assistant_scope import (
 from app.services.cost_tracker import estimate_cost
 from app.services.rag_indexer import RetrievedChunk, semantic_search
 from app.services.rag_reranker import rerank_chunks
+from app.services.model_registry import get_caps, map_openai_error, sanitize_params
 from app.services.request_router import classify_request
-
-# ── Reasoning model detection ────────────────────────────────────────
-_REASONING_PREFIXES = ("o1", "o3")
-_REASONING_KEYWORDS = ("reasoning",)
-
-
-def _is_reasoning_model(model: str) -> bool:
-    """Check if a model requires reasoning-model parameters (no temperature, developer role)."""
-    m = model.lower()
-    return m.startswith(_REASONING_PREFIXES) or any(kw in m for kw in _REASONING_KEYWORDS)
-
-
-def _uses_max_completion_tokens(model: str) -> bool:
-    """GPT-5 and o1/o3 models require max_completion_tokens instead of max_tokens."""
-    m = model.lower()
-    return m.startswith(("o1", "o3", "gpt-5"))
 
 
 # ── RAG result cache (60s TTL) ────────────────────────────────────────
@@ -576,26 +561,15 @@ async def run_gateway_stream(
     effective_max_rounds = min(route.max_tool_rounds, AI_MAX_TOOL_ROUNDS)
     for round_num in range(effective_max_rounds + 1):
         effective_model = route.model or OPENAI_CHAT_MODEL
-        stream_kwargs: dict[str, Any] = {
-            "model": effective_model,
-            "messages": messages,
-            "stream": True,
-            "stream_options": {"include_usage": True},
-        }
-        # GPT-5 and o1/o3 models require max_completion_tokens instead of max_tokens
-        if _uses_max_completion_tokens(effective_model):
-            stream_kwargs["max_completion_tokens"] = route.max_tokens
-        else:
-            stream_kwargs["max_tokens"] = route.max_tokens
-        # o1/o3 and gpt-5 family don't support custom temperature (only default=1)
-        if not _is_reasoning_model(effective_model) and not _uses_max_completion_tokens(effective_model):
-            stream_kwargs["temperature"] = route.temperature
-        # GPT-5 family supports reasoning_effort as an additive parameter
-        if route.reasoning_effort:
-            stream_kwargs["reasoning_effort"] = route.reasoning_effort
-        if openai_tools:
-            stream_kwargs["tools"] = openai_tools
-            stream_kwargs["tool_choice"] = "auto"
+        stream_kwargs = sanitize_params(
+            effective_model,
+            messages=messages,
+            max_tokens=route.max_tokens,
+            temperature=route.temperature,
+            reasoning_effort=route.reasoning_effort,
+            tools=openai_tools or None,
+            stream=True,
+        )
 
         collected_content = ""
         collected_tool_calls: dict[int, dict[str, Any]] = {}
@@ -605,14 +579,33 @@ async def run_gateway_stream(
             input={"message_count": len(messages)},
         )
 
-        try:
-            stream = await client.chat.completions.create(**stream_kwargs)
-        except Exception as model_err:
-            err_msg = str(model_err)[:300]
-            emit_log(level="error", service="backend", action="ai.gateway.model_error",
-                     message=f"OpenAI API error: {err_msg}", context={"model": effective_model})
-            yield _sse("error", {"message": f"Model error ({effective_model}): {err_msg}"})
-            warnings.append(f"Model error: {err_msg}")
+        # Retry + fallback on model errors
+        stream = None
+        _models_to_try = [effective_model]
+        if OPENAI_CHAT_MODEL_FALLBACK and OPENAI_CHAT_MODEL_FALLBACK != effective_model:
+            _models_to_try.append(OPENAI_CHAT_MODEL_FALLBACK)
+        for _try_model in _models_to_try:
+            try:
+                _kwargs = stream_kwargs if _try_model == effective_model else sanitize_params(
+                    _try_model, messages=messages, max_tokens=route.max_tokens,
+                    tools=openai_tools or None, stream=True,
+                )
+                stream = await client.chat.completions.create(**_kwargs)
+                if _try_model != effective_model:
+                    effective_model = _try_model
+                    emit_log(level="warning", service="backend", action="ai.gateway.fallback",
+                             message=f"Using fallback model {_try_model}", context={"original": _models_to_try[0]})
+                break
+            except Exception as model_err:
+                mapped = map_openai_error(model_err, _try_model)
+                emit_log(level="error", service="backend", action="ai.gateway.model_error",
+                         message=mapped.debug_message, context={"model": _try_model})
+                if mapped.is_retryable and _try_model != _models_to_try[-1]:
+                    continue  # try fallback
+                yield _sse("error", {"message": mapped.user_message, "debug": mapped.debug_message})
+                warnings.append(f"Model error: {mapped.debug_message}")
+                break
+        if stream is None:
             break
 
         async for chunk in stream:

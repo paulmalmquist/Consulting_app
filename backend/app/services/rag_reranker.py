@@ -8,6 +8,7 @@ import time
 from typing import Any
 
 from app.config import COHERE_API_KEY, OPENAI_API_KEY, OPENAI_CHAT_MODEL_FAST, RAG_RERANK_METHOD
+from app.services.model_registry import sanitize_params
 from app.services.rag_indexer import RetrievedChunk
 
 logger = logging.getLogger(__name__)
@@ -135,16 +136,12 @@ Passages:
 
 Return ONLY a JSON array of objects with "id" (int) and "score" (float 0-10), sorted by score descending. No other text."""
 
-    _is_gpt5 = OPENAI_CHAT_MODEL_FAST.lower().startswith("gpt-5")
-    _create_kwargs: dict = {
-        "model": OPENAI_CHAT_MODEL_FAST,
-        "messages": [{"role": "user", "content": prompt}],
-    }
-    if _is_gpt5:
-        _create_kwargs["max_completion_tokens"] = 512
-    else:
-        _create_kwargs["temperature"] = 0
-        _create_kwargs["max_tokens"] = 512
+    _create_kwargs = sanitize_params(
+        OPENAI_CHAT_MODEL_FAST,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=512,
+        temperature=0,
+    )
     response = await client.chat.completions.create(**_create_kwargs)
 
     content = response.choices[0].message.content or "[]"

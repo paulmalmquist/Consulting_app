@@ -232,8 +232,12 @@ export async function POST(req: NextRequest) {
       model: OPENAI_MODEL,
       messages,
       stream: true,
-      temperature: 0.3,
-      max_tokens: 2048,
+      // GPT-5 family and o-series don't support custom temperature — only include for GPT-4o
+      ...(!/^(gpt-5|o[13])/.test(OPENAI_MODEL.toLowerCase()) && { temperature: 0.3 }),
+      // GPT-5 and o-series use max_completion_tokens; GPT-4o uses max_tokens
+      ...(/^(gpt-5|o[13])/.test(OPENAI_MODEL.toLowerCase())
+        ? { max_completion_tokens: 2048 }
+        : { max_tokens: 2048 }),
     }),
   });
 

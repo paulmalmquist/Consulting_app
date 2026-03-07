@@ -1,6 +1,10 @@
 """Cost estimation for AI gateway requests."""
 from __future__ import annotations
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 # Pricing per 1M tokens (USD) — update as models change
 _PRICING: dict[str, dict[str, float]] = {
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
@@ -42,7 +46,16 @@ def estimate_cost(
 
     Returns a dict with individual cost components and total.
     """
-    pricing = _PRICING.get(model, _PRICING.get("gpt-4o-mini", {"input": 0.15, "output": 0.60}))
+    pricing = _PRICING.get(model)
+    if pricing is None:
+        # Prefix match for dated variants (e.g., gpt-5-mini-2026-03-01)
+        for key in sorted(_PRICING, key=len, reverse=True):
+            if model.lower().startswith(key):
+                pricing = _PRICING[key]
+                break
+    if pricing is None:
+        logger.warning("Unknown model '%s' for cost estimation — using gpt-4o-mini pricing as fallback", model)
+        pricing = _PRICING.get("gpt-4o-mini", {"input": 0.15, "output": 0.60})
     model_cost = (prompt_tokens * pricing["input"] + completion_tokens * pricing["output"]) / 1_000_000
 
     embedding_cost = 0.0

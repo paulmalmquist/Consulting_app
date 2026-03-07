@@ -136,6 +136,7 @@ def _get_metrics(*, env_id: UUID, business_id: UUID) -> dict:
 def _maybe_generate_with_gateway(prompt: str) -> tuple[str | None, str | None]:
     """Try to generate text via OpenAI API. Falls back gracefully."""
     from app.config import OPENAI_API_KEY, OPENAI_CHAT_MODEL
+    from app.services.model_registry import sanitize_params
 
     if not OPENAI_API_KEY:
         return None, "OPENAI_API_KEY not configured"
@@ -144,15 +145,16 @@ def _maybe_generate_with_gateway(prompt: str) -> tuple[str | None, str | None]:
         import openai
 
         client = openai.OpenAI(api_key=OPENAI_API_KEY)
-        response = client.chat.completions.create(
-            model=OPENAI_CHAT_MODEL,
+        _kwargs = sanitize_params(
+            OPENAI_CHAT_MODEL,
             messages=[
                 {"role": "system", "content": "Write executive communications in non-technical language."},
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.3,
             max_tokens=500,
+            temperature=0.3,
         )
+        response = client.chat.completions.create(**_kwargs)
         text = response.choices[0].message.content or ""
         return text.strip() or None, None
     except Exception as exc:
