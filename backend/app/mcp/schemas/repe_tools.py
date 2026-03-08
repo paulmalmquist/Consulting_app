@@ -1,5 +1,6 @@
 """Schemas for REPE portfolio data MCP tools."""
 
+from typing import Literal
 from pydantic import BaseModel, Field
 from uuid import UUID
 
@@ -75,13 +76,13 @@ class GetEnvironmentSnapshotInput(BaseModel):
 
 
 class CreateFundInput(BaseModel):
-    model_config = {"extra": "forbid"}
+    model_config = {"extra": "ignore"}
 
     confirmed: bool = Field(default=False, description="Must be true to execute. If false, returns a confirmation summary instead.")
     name: str | None = Field(default=None, description="Fund name (required — tool will ask if omitted)")
-    vintage_year: int = Field(description="Vintage year (e.g. 2024)")
-    fund_type: str = Field(description="Fund type: open-end, closed-end, co-invest, fund-of-funds")
-    strategy: str = Field(description="Strategy: core, core-plus, value-add, opportunistic")
+    vintage_year: int | None = Field(default=None, description="Vintage year, e.g. 2024 (required — tool will ask if omitted)")
+    fund_type: Literal["closed_end", "open_end", "sma", "co_invest"] | None = Field(default=None, description="Fund type: closed_end, open_end, sma, co_invest (required — tool will ask if omitted)")
+    strategy: Literal["equity", "debt"] | None = Field(default=None, description="Strategy: equity, debt (required — tool will ask if omitted)")
     status: str = Field(default="fundraising", description="Status: fundraising, investing, harvesting, closed")
     sub_strategy: str | None = Field(default=None, description="Optional sub-strategy")
     target_size: float | None = Field(default=None, description="Target fund size in base currency")
@@ -93,12 +94,12 @@ class CreateFundInput(BaseModel):
 
 
 class CreateDealInput(BaseModel):
-    model_config = {"extra": "forbid"}
+    model_config = {"extra": "ignore"}
 
     confirmed: bool = Field(default=False, description="Must be true to execute. If false, returns a confirmation summary instead.")
     name: str | None = Field(default=None, description="Deal/investment name (required — tool will ask if omitted)")
-    deal_type: str = Field(description="Deal type: equity, debt, preferred, mezzanine")
-    stage: str = Field(default="screening", description="Stage: screening, due-diligence, closed, exited")
+    deal_type: Literal["equity", "debt"] | None = Field(default=None, description="Deal type: equity, debt (required — tool will ask if omitted)")
+    stage: Literal["sourcing", "underwriting", "ic", "closing", "operating", "exited"] = Field(default="sourcing", description="Stage: sourcing, underwriting, ic, closing, operating, exited")
     sponsor: str | None = Field(default=None, description="Deal sponsor name")
     target_close_date: str | None = Field(default=None, description="Target close date (YYYY-MM-DD)")
     fund_id: UUID | None = Field(default=None, description="Fund ID — auto-resolved from scope if omitted")
@@ -107,7 +108,7 @@ class CreateDealInput(BaseModel):
 
 
 class CreateAssetInput(BaseModel):
-    model_config = {"extra": "forbid"}
+    model_config = {"extra": "ignore"}
 
     confirmed: bool = Field(default=False, description="Must be true to execute. If false, returns a confirmation summary instead.")
     name: str | None = Field(default=None, description="Asset name (required — tool will ask if omitted)")

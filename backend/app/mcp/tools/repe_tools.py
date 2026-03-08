@@ -201,19 +201,40 @@ def _confirmation_summary(action: str, params: dict) -> dict:
 
 
 def _create_fund(ctx: McpContext, inp: CreateFundInput) -> dict:
-    if not inp.name and not inp.confirmed:
+    # Collect all provided values and detect missing required fields
+    provided = {k: v for k, v in {
+        "name": inp.name,
+        "vintage_year": inp.vintage_year,
+        "fund_type": inp.fund_type,
+        "strategy": inp.strategy,
+        "status": inp.status,
+        "sub_strategy": inp.sub_strategy,
+        "target_size": inp.target_size,
+        "term_years": inp.term_years,
+        "base_currency": inp.base_currency,
+    }.items() if v is not None}
+    missing = [f for f in ("name", "vintage_year", "fund_type", "strategy") if provided.get(f) is None]
+    if missing and not inp.confirmed:
+        field_hints = {
+            "name": "Fund name",
+            "vintage_year": "Vintage year (e.g. 2024)",
+            "fund_type": "Fund type: closed_end, open_end, sma, co_invest",
+            "strategy": "Strategy: equity, debt",
+        }
         return {
             "pending_confirmation": True,
             "needs_input": True,
-            "missing_fields": ["name"],
-            "provided": {k: v for k, v in {
-                "vintage_year": inp.vintage_year,
-                "fund_type": inp.fund_type,
-                "strategy": inp.strategy,
-                "status": inp.status,
-            }.items() if v is not None},
-            "message": "Fund name is required. What would you like to call this fund?",
+            "missing_fields": missing,
+            "provided": {k: v for k, v in provided.items() if v is not None},
+            "message": f"Missing required fields: {', '.join(field_hints[f] for f in missing)}. "
+                       f"Already collected: {', '.join(f'{k}={v}' for k, v in provided.items()) or 'none'}.",
         }
+    if not inp.confirmed:
+        return _confirmation_summary("create fund", provided)
+    if not inp.name:
+        raise ValueError("Fund name is required to execute creation")
+    if inp.vintage_year is None or inp.fund_type is None or inp.strategy is None:
+        raise ValueError("vintage_year, fund_type, and strategy are required to execute creation")
     business_id = _resolve_business_id(inp, ctx)
     payload = {
         "name": inp.name,
@@ -226,28 +247,38 @@ def _create_fund(ctx: McpContext, inp: CreateFundInput) -> dict:
         "term_years": inp.term_years,
         "base_currency": inp.base_currency,
     }
-    if not inp.confirmed:
-        return _confirmation_summary("create fund", payload)
-    if not inp.name:
-        raise ValueError("Fund name is required to execute creation")
     fund = repe.create_fund(business_id=business_id, payload=payload)
     return {"fund": _serialize(fund), "created": True}
 
 
 def _create_deal(ctx: McpContext, inp: CreateDealInput) -> dict:
-    if not inp.name and not inp.confirmed:
+    provided = {k: v for k, v in {
+        "name": inp.name,
+        "deal_type": inp.deal_type,
+        "stage": inp.stage,
+        "sponsor": inp.sponsor,
+        "target_close_date": inp.target_close_date,
+    }.items() if v is not None}
+    missing = [f for f in ("name", "deal_type") if provided.get(f) is None]
+    if missing and not inp.confirmed:
+        field_hints = {
+            "name": "Deal/investment name",
+            "deal_type": "Deal type: equity, debt",
+        }
         return {
             "pending_confirmation": True,
             "needs_input": True,
-            "missing_fields": ["name"],
-            "provided": {k: v for k, v in {
-                "deal_type": inp.deal_type,
-                "stage": inp.stage,
-                "sponsor": inp.sponsor,
-                "target_close_date": inp.target_close_date,
-            }.items() if v is not None},
-            "message": "Deal name is required. What would you like to call this deal?",
+            "missing_fields": missing,
+            "provided": {k: v for k, v in provided.items() if v is not None},
+            "message": f"Missing required fields: {', '.join(field_hints[f] for f in missing)}. "
+                       f"Already collected: {', '.join(f'{k}={v}' for k, v in provided.items()) or 'none'}.",
         }
+    if not inp.confirmed:
+        return _confirmation_summary("create deal", provided)
+    if not inp.name:
+        raise ValueError("Deal name is required to execute creation")
+    if inp.deal_type is None:
+        raise ValueError("deal_type is required to execute creation")
     fund_id = _resolve_fund_id(inp, ctx)
     payload = {
         "name": inp.name,
@@ -256,34 +287,12 @@ def _create_deal(ctx: McpContext, inp: CreateDealInput) -> dict:
         "sponsor": inp.sponsor,
         "target_close_date": inp.target_close_date,
     }
-    if not inp.confirmed:
-        return _confirmation_summary("create deal", payload)
-    if not inp.name:
-        raise ValueError("Deal name is required to execute creation")
     deal = repe.create_deal(fund_id=fund_id, payload=payload)
     return {"deal": _serialize(deal), "created": True}
 
 
 def _create_asset(ctx: McpContext, inp: CreateAssetInput) -> dict:
-    if not inp.name and not inp.confirmed:
-        return {
-            "pending_confirmation": True,
-            "needs_input": True,
-            "missing_fields": ["name"],
-            "provided": {k: v for k, v in {
-                "asset_type": inp.asset_type,
-                "property_type": inp.property_type,
-                "units": inp.units,
-                "market": inp.market,
-                "current_noi": inp.current_noi,
-                "occupancy": inp.occupancy,
-            }.items() if v is not None},
-            "message": "Asset name is required. What would you like to call this asset?",
-        }
-    deal_id = _resolve_deal_id(inp, ctx)
-    if deal_id is None:
-        raise ValueError("deal_id is required to create an asset")
-    payload = {
+    provided = {k: v for k, v in {
         "name": inp.name,
         "asset_type": inp.asset_type,
         "property_type": inp.property_type,
@@ -291,12 +300,32 @@ def _create_asset(ctx: McpContext, inp: CreateAssetInput) -> dict:
         "market": inp.market,
         "current_noi": inp.current_noi,
         "occupancy": inp.occupancy,
-    }
+    }.items() if v is not None}
+    missing = [f for f in ("name",) if provided.get(f) is None]
+    if missing and not inp.confirmed:
+        return {
+            "pending_confirmation": True,
+            "needs_input": True,
+            "missing_fields": missing,
+            "provided": {k: v for k, v in provided.items() if v is not None},
+            "message": f"Asset name is required. Already collected: {', '.join(f'{k}={v}' for k, v in provided.items()) or 'none'}.",
+        }
+    deal_id = _resolve_deal_id(inp, ctx)
+    if deal_id is None:
+        raise ValueError("deal_id is required to create an asset")
     if not inp.confirmed:
-        return _confirmation_summary("create asset", payload)
+        return _confirmation_summary("create asset", provided)
     if not inp.name:
         raise ValueError("Asset name is required to execute creation")
-    asset = repe.create_asset(deal_id=deal_id, payload=payload)
+    asset = repe.create_asset(deal_id=deal_id, payload={
+        "name": inp.name,
+        "asset_type": inp.asset_type,
+        "property_type": inp.property_type,
+        "units": inp.units,
+        "market": inp.market,
+        "current_noi": inp.current_noi,
+        "occupancy": inp.occupancy,
+    })
     return {"asset": _serialize(asset), "created": True}
 
 

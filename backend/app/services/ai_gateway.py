@@ -201,9 +201,9 @@ CRITICAL: Call the write tool FIRST. Do NOT gather parameters through conversati
 ### The four steps
 1. User requests creation/modification → call the write tool with `confirmed=false` IMMEDIATELY.
    - Do NOT ask "what name?", "what vintage?", or any other parameter question first.
-   - Call the tool with whatever you know. If `name` is missing, the tool returns `needs_input`.
+   - Call the tool with whatever you know — even just a name. Missing fields will be handled by the tool.
 2. Tool returns either:
-   - A `needs_input` response (missing required field) → ask the user ONLY for that field, then call again with confirmed=false and all previously provided params.
+   - A `needs_input` response listing missing fields and already-collected params → ask the user ONLY for the missing fields, then call again with confirmed=false and ALL previously provided params merged with new values.
    - A `pending_confirmation` summary with some null params → present the summary. If important optional fields are null, ask the user for those values. Otherwise ask "Shall I proceed?"
 3. User provides missing values OR confirms ("yes", "go ahead", "proceed"):
    - **Slot-fill**: Merge the new values with ALL previously known parameters (name, vintage_year, fund_type, strategy, etc.) from the prior tool call. Call the SAME tool with confirmed=false and the FULL merged parameter set. NEVER forget or drop parameters from prior turns.
@@ -212,7 +212,7 @@ CRITICAL: Call the write tool FIRST. Do NOT gather parameters through conversati
 
 ### CRITICAL: Parameter memory across turns
 - When the user provides values across multiple messages, you MUST accumulate ALL parameters.
-- Example: Turn 1 provides name="ABC Fund". Turn 2 provides "2024 open-end core" → call tool with name="ABC Fund", vintage_year=2024, fund_type="open-end", strategy="core".
+- Example: Turn 1 provides name="ABC Fund". Turn 2 provides "2024 open_end equity" → call tool with name="ABC Fund", vintage_year=2024, fund_type="open_end", strategy="equity".
 - NEVER re-ask for a parameter the user already provided in an earlier message. Check conversation history.
 
 ### FORBIDDEN — never do these
