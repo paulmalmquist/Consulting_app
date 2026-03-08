@@ -12,9 +12,6 @@ import {
   getReV2InvestmentQuarterState,
   getRepeFund,
   listReV2Jvs,
-  listReV2Models,
-  listReV2ScenarioVersions,
-  listReV2Scenarios,
   ReV2EntityLineageResponse,
   ReV2FundQuarterState,
   ReV2Investment,
@@ -23,9 +20,6 @@ import {
   ReV2InvestmentHistoryPoint,
   ReV2InvestmentQuarterState,
   ReV2Jv,
-  ReV2Model,
-  ReV2Scenario,
-  ReV2ScenarioVersion,
   RepeFundDetail,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
@@ -253,37 +247,6 @@ function buildReturnsLogRows(history: ReV2InvestmentHistoryPoint[]) {
   return [...history].sort((a, b) => compareQuarter(a.quarter, b.quarter)).reverse();
 }
 
-function PillSelect({
-  label,
-  value,
-  onChange,
-  options,
-  testId,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: Array<{ label: string; value: string }>;
-  testId?: string;
-}) {
-  return (
-    <label className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 shadow-[0_8px_18px_-16px_rgba(15,23,42,0.16)] dark:border-white/10 dark:bg-white/[0.03] dark:shadow-[0_8px_18px_-16px_rgba(15,23,42,0.95)]">
-      <span className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="appearance-none bg-transparent pr-4 text-sm font-medium text-bm-text outline-none"
-        data-testid={testId}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value} className="bg-white text-slate-900 dark:bg-slate-950 dark:text-white">
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
 
 function SegmentToggle<T extends string>({
   label,
@@ -467,9 +430,6 @@ function InvestmentBriefingPageContent({
   const searchParams = useSearchParams();
   const { businessId } = useReEnv();
 
-  const selectedModelId = searchParams.get("modelId") || "";
-  const selectedScenarioId = searchParams.get("scenarioId") || "";
-  const selectedVersionId = searchParams.get("versionId") || "";
   const quarterParam = searchParams.get("quarter") || "";
 
   const [period, setPeriod] = useState<AnalysisPeriod>("quarterly");
@@ -484,9 +444,6 @@ function InvestmentBriefingPageContent({
   const [assets, setAssets] = useState<ReV2InvestmentAsset[]>([]);
   const [jvs, setJvs] = useState<ReV2Jv[]>([]);
   const [lineage, setLineage] = useState<ReV2EntityLineageResponse | null>(null);
-  const [models, setModels] = useState<ReV2Model[]>([]);
-  const [scenarios, setScenarios] = useState<ReV2Scenario[]>([]);
-  const [versions, setVersions] = useState<ReV2ScenarioVersion[]>([]);
   const [resolvedQuarter, setResolvedQuarter] = useState("");
   const [loadingBase, setLoadingBase] = useState(true);
   const [loadingQuarter, setLoadingQuarter] = useState(true);
@@ -499,27 +456,6 @@ function InvestmentBriefingPageContent({
       for (const [key, value] of Object.entries(updates)) {
         if (value) nextParams.set(key, value);
         else nextParams.delete(key);
-      }
-      const next = nextParams.toString();
-      const current = searchParams.toString();
-      if (next !== current) {
-        router.replace(next ? `?${next}` : "?", { scroll: false });
-      }
-    },
-    [router, searchParams]
-  );
-
-  const setScopeParam = useCallback(
-    (key: string, value: string) => {
-      const nextParams = new URLSearchParams(searchParams.toString());
-      if (value) nextParams.set(key, value);
-      else nextParams.delete(key);
-      if (key === "modelId") {
-        nextParams.delete("scenarioId");
-        nextParams.delete("versionId");
-      }
-      if (key === "scenarioId") {
-        nextParams.delete("versionId");
       }
       const next = nextParams.toString();
       const current = searchParams.toString();
@@ -544,20 +480,13 @@ function InvestmentBriefingPageContent({
         const results = await Promise.allSettled([
           getRepeFund(inv.fund_id),
           listReV2Jvs(params.investmentId),
-          listReV2Models(inv.fund_id),
-          listReV2Scenarios(inv.fund_id),
-          getReV2InvestmentHistory(params.investmentId, {
-            scenario_id: selectedScenarioId || undefined,
-            version_id: selectedVersionId || undefined,
-          }),
+          getReV2InvestmentHistory(params.investmentId, {}),
         ]);
         if (cancelled) return;
 
         setFundDetail(results[0].status === "fulfilled" ? results[0].value : null);
         setJvs(results[1].status === "fulfilled" ? results[1].value : []);
-        setModels(results[2].status === "fulfilled" ? results[2].value : []);
-        setScenarios(results[3].status === "fulfilled" ? results[3].value : []);
-        const nextHistory = results[4].status === "fulfilled" ? results[4].value : null;
+        const nextHistory = results[2].status === "fulfilled" ? results[2].value : null;
         setHistory(nextHistory);
 
         const quarter = resolveQuarter(quarterParam, nextHistory, inv);
@@ -577,23 +506,7 @@ function InvestmentBriefingPageContent({
     return () => {
       cancelled = true;
     };
-  }, [
-    params.investmentId,
-    quarterParam,
-    selectedScenarioId,
-    selectedVersionId,
-    setQueryParams,
-  ]);
-
-  useEffect(() => {
-    if (!selectedScenarioId) {
-      setVersions([]);
-      return;
-    }
-    listReV2ScenarioVersions(selectedScenarioId)
-      .then(setVersions)
-      .catch(() => setVersions([]));
-  }, [selectedScenarioId]);
+  }, [params.investmentId, quarterParam, setQueryParams]);
 
   useEffect(() => {
     if (!investment?.fund_id || !resolvedQuarter) return;
@@ -602,30 +515,10 @@ function InvestmentBriefingPageContent({
 
     (async () => {
       const results = await Promise.allSettled([
-        getReV2InvestmentQuarterState(
-          params.investmentId,
-          resolvedQuarter,
-          selectedScenarioId || undefined,
-          selectedVersionId || undefined
-        ),
-        getReV2InvestmentAssets(
-          params.investmentId,
-          resolvedQuarter,
-          selectedScenarioId || undefined,
-          selectedVersionId || undefined
-        ),
-        getReV2InvestmentLineage(
-          params.investmentId,
-          resolvedQuarter,
-          selectedScenarioId || undefined,
-          selectedVersionId || undefined
-        ),
-        getReV2FundQuarterState(
-          investment.fund_id,
-          resolvedQuarter,
-          selectedScenarioId || undefined,
-          selectedVersionId || undefined
-        ).catch(() => null),
+        getReV2InvestmentQuarterState(params.investmentId, resolvedQuarter),
+        getReV2InvestmentAssets(params.investmentId, resolvedQuarter),
+        getReV2InvestmentLineage(params.investmentId, resolvedQuarter),
+        getReV2FundQuarterState(investment.fund_id, resolvedQuarter).catch(() => null),
       ]);
 
       if (cancelled) return;
@@ -640,18 +533,7 @@ function InvestmentBriefingPageContent({
     return () => {
       cancelled = true;
     };
-  }, [
-    investment?.fund_id,
-    params.investmentId,
-    resolvedQuarter,
-    selectedScenarioId,
-    selectedVersionId,
-  ]);
-
-  const filteredScenarios = useMemo(() => {
-    if (!selectedModelId) return scenarios;
-    return scenarios.filter((scenario) => scenario.model_id === selectedModelId);
-  }, [scenarios, selectedModelId]);
+  }, [investment?.fund_id, params.investmentId, resolvedQuarter]);
 
   const totalAssetValue = useMemo(
     () => assets.reduce((sum, asset) => sum + Number(asset.asset_value || 0), 0),
@@ -748,12 +630,6 @@ function InvestmentBriefingPageContent({
   const fundNavConcentrationPct =
     currentFundNav > 0 ? (fundNavContribution / currentFundNav) * 100 : 0;
 
-  const selectedScenarioName =
-    scenarios.find((scenario) => scenario.scenario_id === selectedScenarioId)?.name || "";
-  const selectedVersionLabel =
-    versions.find((version) => version.version_id === selectedVersionId)?.label ||
-    (selectedVersionId ? `v${versions.find((version) => version.version_id === selectedVersionId)?.version_number || ""}` : "");
-
   const sustainabilityHref = investment
     ? `/lab/env/${params.envId}/re/sustainability?section=${assets[0] ? "asset-sustainability" : "portfolio-footprint"}&fundId=${investment.fund_id}&investmentId=${investment.investment_id}${assets[0] ? `&assetId=${assets[0].asset_id}` : ""}`
     : `/lab/env/${params.envId}/re/sustainability`;
@@ -822,8 +698,6 @@ function InvestmentBriefingPageContent({
         },
         notes: [
           `Investment briefing for ${investment.name} in ${fundDetail?.fund?.name || investment.fund_id} as of ${resolvedQuarter}.`,
-          selectedScenarioName ? `Scenario: ${selectedScenarioName}.` : "Scenario: Base.",
-          selectedVersionLabel ? `Version: ${selectedVersionLabel}.` : "Version: Latest available state.",
         ],
       },
     });
@@ -842,8 +716,6 @@ function InvestmentBriefingPageContent({
     quarterState?.net_irr,
     quarterState?.noi,
     resolvedQuarter,
-    selectedScenarioName,
-    selectedVersionLabel,
     totalNoi,
   ]);
 
@@ -906,63 +778,21 @@ function InvestmentBriefingPageContent({
               </Link>
             </div>
 
-            <div className="rounded-2xl border border-bm-border/30 bg-bm-surface/60 px-5 py-4">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">Context</p>
-              <div className="mt-3 space-y-2">
-                {[
-                  ["Acquisition", fmtMoney(totalCostBasis || investment.invested_capital)],
-                  ["Current Value", fmtMoney(currentValue)],
-                  ["Hold Period", holdPeriodLabel(investment.target_close_date)],
-                  ["Market", primaryMarket],
-                  ["Property Type", primaryPropertyType],
-                ].map(([label, value]) => (
-                  <div key={label} className="flex items-center justify-between gap-4 border-b border-bm-border/15 pb-1.5 last:border-b-0 last:pb-0">
-                    <span className="text-xs text-bm-muted2">{label}</span>
-                    <span className="text-xs font-medium text-bm-text">{value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <dl className="mt-1 grid grid-cols-2 gap-x-6 gap-y-3">
+              {[
+                ["Acquisition", fmtMoney(totalCostBasis || investment.invested_capital)],
+                ["Current Value", fmtMoney(currentValue)],
+                ["Hold Period", holdPeriodLabel(investment.target_close_date)],
+                ["Market", primaryMarket],
+                ["Property Type", primaryPropertyType],
+              ].map(([label, value]) => (
+                <div key={label} className="min-w-0">
+                  <dt className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">{label}</dt>
+                  <dd className="mt-0.5 text-sm font-medium text-bm-text truncate">{value}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
-        </div>
-
-        <div className="mt-5 flex flex-wrap gap-3 border-t border-bm-border/20 pt-4">
-          <PillSelect
-            label="Model"
-            value={selectedModelId}
-            onChange={(value) => setScopeParam("modelId", value)}
-            options={[
-              { label: "All Models", value: "" },
-              ...models.map((model) => ({ label: model.name, value: model.model_id })),
-            ]}
-            testId="selector-model"
-          />
-          <PillSelect
-            label="Scenario"
-            value={selectedScenarioId}
-            onChange={(value) => setScopeParam("scenarioId", value)}
-            options={[
-              { label: "Default", value: "" },
-              ...filteredScenarios.map((scenario) => ({
-                label: `${scenario.name}${scenario.is_base ? " (Base)" : ""}`,
-                value: scenario.scenario_id,
-              })),
-            ]}
-            testId="selector-scenario"
-          />
-          <PillSelect
-            label="Version"
-            value={selectedVersionId}
-            onChange={(value) => setScopeParam("versionId", value)}
-            options={[
-              { label: "Latest", value: "" },
-              ...versions.map((version) => ({
-                label: `v${version.version_number}${version.label ? ` — ${version.label}` : ""}${version.is_locked ? " (Locked)" : ""}`,
-                value: version.version_id,
-              })),
-            ]}
-            testId="selector-version"
-          />
         </div>
       </header>
 
@@ -1219,7 +1049,7 @@ function InvestmentBriefingPageContent({
                         return (
                           <tr key={asset.asset_id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02]">
                             <td className="px-4 py-3">
-                              <Link href={`/lab/env/${params.envId}/re/assets/${asset.asset_id}${selectedScenarioId ? `?scenarioId=${selectedScenarioId}` : ""}`} className="font-medium text-bm-text hover:text-slate-900 dark:hover:text-white">
+                              <Link href={`/lab/env/${params.envId}/re/assets/${asset.asset_id}`} className="font-medium text-bm-text hover:text-slate-900 dark:hover:text-white">
                                 {asset.name}
                               </Link>
                               <p className="text-xs text-bm-muted2">{asset.property_type || asset.asset_type}</p>

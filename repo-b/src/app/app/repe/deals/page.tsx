@@ -15,8 +15,6 @@ import { KpiStrip } from "@/components/repe/asset-cockpit/KpiStrip";
 import {
   RepeIndexScaffold,
   reIndexActionClass,
-  reIndexControlLabelClass,
-  reIndexInputClass,
   reIndexNumericCellClass,
   reIndexPrimaryCellClass,
   reIndexSecondaryCellClass,
@@ -27,15 +25,6 @@ import {
   reIndexTableShellClass,
 } from "@/components/repe/RepeIndexScaffold";
 
-const STAGE_OPTIONS = [
-  "sourcing",
-  "underwriting",
-  "ic",
-  "closing",
-  "operating",
-  "exited",
-] as const;
-
 const STAGE_LABELS: Record<string, string> = {
   sourcing: "Sourced",
   underwriting: "Underwriting",
@@ -44,6 +33,8 @@ const STAGE_LABELS: Record<string, string> = {
   operating: "Operating",
   exited: "Exited",
 };
+
+const STAGE_OPTIONS = ["sourcing", "underwriting", "ic", "closing", "operating", "exited"] as const;
 
 function pickCurrentQuarter(): string {
   const now = new Date();
@@ -75,6 +66,104 @@ function DataHealthDot({ missing }: { missing: number | undefined }) {
   if (missing <= 2) return <span className="inline-block h-2.5 w-2.5 rounded-full bg-yellow-400" title={`${missing} asset(s) missing data`} />;
   return <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-400" title={`${missing} assets missing data`} />;
 }
+
+// ── Column-header filter components ─────────────────────────────────────────
+
+function ColTextFilter({
+  value,
+  onChange,
+  placeholder = "Filter...",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  const active = value.length > 0;
+  return (
+    <div className="relative mt-1.5 flex items-center">
+      <input
+        className={`h-6 w-full min-w-[72px] rounded border px-2 pr-5 text-[11px] font-normal normal-case tracking-normal outline-none transition-colors placeholder:text-bm-muted2/40 ${
+          active
+            ? "border-bm-accent/50 bg-bm-accent/[0.06] text-bm-text"
+            : "border-bm-border/40 bg-transparent text-bm-text"
+        }`}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+      />
+      {active && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          className="absolute right-1 text-[12px] leading-none text-bm-muted2/70 hover:text-bm-text"
+          aria-label="Clear filter"
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ColSelectFilter({
+  value,
+  onChange,
+  options,
+  allLabel,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  allLabel: string;
+}) {
+  const active = value !== "";
+  return (
+    <select
+      className={`mt-1.5 h-6 w-full min-w-[72px] appearance-none rounded border px-2 text-[11px] font-normal normal-case tracking-normal outline-none transition-colors ${
+        active
+          ? "border-bm-accent/50 bg-bm-accent/[0.06] text-bm-accent"
+          : "border-bm-border/40 bg-transparent text-bm-text"
+      }`}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      <option value="">{allLabel}</option>
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>{o.label}</option>
+      ))}
+    </select>
+  );
+}
+
+function FundSelectFilter({
+  value,
+  onChange,
+  funds,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  funds: { id: string; name: string }[];
+}) {
+  const active = value !== "";
+  return (
+    <select
+      className={`mt-1.5 h-6 w-full min-w-[80px] appearance-none rounded border px-2 text-[11px] font-normal normal-case tracking-normal outline-none transition-colors ${
+        active
+          ? "border-bm-accent/50 bg-bm-accent/[0.06] text-bm-accent"
+          : "border-bm-border/40 bg-transparent text-bm-text"
+      }`}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      <option value="">All Funds</option>
+      {funds.map((f) => (
+        <option key={f.id} value={f.id}>{f.name}</option>
+      ))}
+    </select>
+  );
+}
+
+// ── Create modal ─────────────────────────────────────────────────────────────
 
 function InvestmentCreateModal({
   open,
@@ -210,6 +299,8 @@ function InvestmentCreateModal({
   );
 }
 
+// ── Main page content ─────────────────────────────────────────────────────────
+
 function RepeInvestmentsPageContent() {
   const { businessId, environmentId, loading: ctxLoading, contextError, initializeWorkspace } = useRepeContext();
   const basePath = useRepeBasePath();
@@ -217,31 +308,39 @@ function RepeInvestmentsPageContent() {
   const searchParams = useSearchParams();
   const quarter = pickCurrentQuarter();
 
-  const [rows, setRows] = useState<ReV2FundInvestmentRollupRow[]>([]);
+  const [allRows, setAllRows] = useState<ReV2FundInvestmentRollupRow[]>([]);
   const [funds, setFunds] = useState<RepeFund[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  // Filters from URL params
+  // ── Filter state from URL params ────────────────────────────────────────
+  const nameFilter = searchParams.get("q") || "";
   const fundFilter = searchParams.get("fund") || "";
-  const stageFilter = searchParams.get("stage") || "All";
-  const typeFilter = searchParams.get("type") || "All";
+  const typeFilter = searchParams.get("type") || "";
+  const stageFilter = searchParams.get("stage") || "";
+  const marketFilter = searchParams.get("market") || "";
   const sponsorFilter = searchParams.get("sponsor") || "";
-  const searchQuery = searchParams.get("q") || "";
 
-  const setFilter = (key: string, value: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (value === "All" || value === "") {
-      params.delete(key);
-    } else {
-      params.set(key, value);
-    }
-    const qs = params.toString();
-    router.replace(qs ? `?${qs}` : "?", { scroll: false });
-  };
+  const setFilter = useCallback(
+    (key: string, value: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (value === "") {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+      const qs = params.toString();
+      router.replace(qs ? `?${qs}` : "?", { scroll: false });
+    },
+    [router, searchParams]
+  );
 
-  // Load funds for filter dropdown
+  const clearFilters = useCallback(() => {
+    router.replace("?", { scroll: false });
+  }, [router]);
+
+  // ── Load all funds (for create modal) ───────────────────────────────────
   useEffect(() => {
     if (!businessId && !environmentId) return;
     listReV1Funds({
@@ -250,26 +349,7 @@ function RepeInvestmentsPageContent() {
     }).then(setFunds).catch(() => {});
   }, [businessId, environmentId]);
 
-  // Derive filter options from loaded data
-  const availableStages = useMemo(() => {
-    const set = new Set<string>();
-    rows.forEach((r) => { if (r.stage) set.add(r.stage); });
-    return Array.from(set).sort();
-  }, [rows]);
-
-  const availableTypes = useMemo(() => {
-    const set = new Set<string>();
-    rows.forEach((r) => { if (r.deal_type) set.add(r.deal_type); });
-    return Array.from(set).sort();
-  }, [rows]);
-
-  const availableSponsors = useMemo(() => {
-    const set = new Set<string>();
-    rows.forEach((r) => { if (r.sponsor) set.add(r.sponsor); });
-    return Array.from(set).sort();
-  }, [rows]);
-
-  // Fetch investments with server-side filtering
+  // ── Load all investments (no server-side filters) ────────────────────────
   const fetchInvestments = useCallback(async () => {
     if (!environmentId) return;
     setLoading(true);
@@ -277,44 +357,74 @@ function RepeInvestmentsPageContent() {
     try {
       const result = await listReV2InvestmentsFiltered({
         env_id: environmentId,
-        fund_id: fundFilter || undefined,
-        stage: stageFilter !== "All" ? stageFilter : undefined,
-        type: typeFilter !== "All" ? typeFilter : undefined,
-        sponsor: sponsorFilter || undefined,
-        q: searchQuery || undefined,
         quarter,
       });
-      setRows(result);
+      setAllRows(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load investments");
     } finally {
       setLoading(false);
     }
-  }, [environmentId, fundFilter, stageFilter, typeFilter, sponsorFilter, searchQuery, quarter]);
+  }, [environmentId, quarter]);
 
   useEffect(() => {
     fetchInvestments();
   }, [fetchInvestments]);
 
-  // KPI aggregates from filtered data
-  const totalInvestments = rows.length;
-  const aggregateNav = rows.reduce((s, r) => s + Number(r.nav || 0), 0);
-  const aggregateNoi = rows.reduce((s, r) => s + Number(r.total_noi || 0), 0);
-  const totalValue = rows.reduce((s, r) => s + Number(r.total_asset_value || 0), 0);
+  // ── Client-side filtering ────────────────────────────────────────────────
+  const filteredRows = useMemo(() => {
+    const nameLc = nameFilter.toLowerCase();
+    const marketLc = marketFilter.toLowerCase();
+    return allRows.filter((r) => {
+      if (nameFilter && !r.name?.toLowerCase().includes(nameLc)) return false;
+      if (fundFilter && r.fund_id !== fundFilter) return false;
+      if (typeFilter && r.deal_type !== typeFilter) return false;
+      if (stageFilter && r.stage !== stageFilter) return false;
+      if (marketFilter && !r.primary_market?.toLowerCase().includes(marketLc)) return false;
+      if (sponsorFilter && r.sponsor !== sponsorFilter) return false;
+      return true;
+    });
+  }, [allRows, nameFilter, fundFilter, typeFilter, stageFilter, marketFilter, sponsorFilter]);
+
+  // ── Derived filter options (from all unfiltered rows) ────────────────────
+  const availableFunds = useMemo(() => {
+    const seen = new Map<string, string>();
+    allRows.forEach((r) => { if (r.fund_id && r.fund_name) seen.set(r.fund_id, r.fund_name); });
+    return Array.from(seen.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [allRows]);
+
+  const availableTypes = useMemo(() => {
+    const set = new Set<string>();
+    allRows.forEach((r) => { if (r.deal_type) set.add(r.deal_type); });
+    return Array.from(set).sort();
+  }, [allRows]);
+
+  const availableStages = useMemo(() => {
+    const set = new Set<string>();
+    allRows.forEach((r) => { if (r.stage) set.add(r.stage); });
+    return STAGE_OPTIONS.filter((s) => set.has(s));
+  }, [allRows]);
+
+  const availableSponsors = useMemo(() => {
+    const set = new Set<string>();
+    allRows.forEach((r) => { if (r.sponsor) set.add(r.sponsor); });
+    return Array.from(set).sort();
+  }, [allRows]);
+
+  // ── KPI aggregates (from filtered rows) ──────────────────────────────────
+  const totalInvestments = filteredRows.length;
+  const aggregateNav = filteredRows.reduce((s, r) => s + Number(r.nav || 0), 0);
+  const aggregateNoi = filteredRows.reduce((s, r) => s + Number(r.total_noi || 0), 0);
+  const totalValue = filteredRows.reduce((s, r) => s + Number(r.total_asset_value || 0), 0);
   const avgWeightedOccupancy = totalValue > 0
-    ? rows.reduce((s, r) => s + Number(r.weighted_occupancy || 0) * Number(r.total_asset_value || 0), 0) / totalValue
+    ? filteredRows.reduce((s, r) => s + Number(r.weighted_occupancy || 0) * Number(r.total_asset_value || 0), 0) / totalValue
     : 0;
 
   const hasActiveFilters =
-    fundFilter !== "" ||
-    stageFilter !== "All" ||
-    typeFilter !== "All" ||
-    sponsorFilter !== "" ||
-    searchQuery !== "";
-
-  const clearFilters = () => {
-    router.replace("?", { scroll: false });
-  };
+    nameFilter !== "" || fundFilter !== "" || typeFilter !== "" ||
+    stageFilter !== "" || marketFilter !== "" || sponsorFilter !== "";
 
   if (!businessId) {
     return (
@@ -337,7 +447,23 @@ function RepeInvestmentsPageContent() {
   return (
     <RepeIndexScaffold
       title="Investments"
-      subtitle={`Portfolio investments across all funds · As of ${quarter}`}
+      subtitle={
+        <span>
+          Portfolio investments across all funds · As of {quarter}
+          {hasActiveFilters && (
+            <>
+              {" "}·{" "}
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-bm-accent underline-offset-2 hover:underline"
+              >
+                Clear filters
+              </button>
+            </>
+          )}
+        </span>
+      }
       action={
         <button
           type="button"
@@ -359,90 +485,6 @@ function RepeInvestmentsPageContent() {
           ]}
         />
       }
-      controls={
-        <div className="flex flex-wrap items-end gap-x-3 gap-y-3 border-b border-bm-border/20 pb-5">
-          <label className={reIndexControlLabelClass}>
-            Fund
-            <select
-              className={`${reIndexInputClass} w-44`}
-              value={fundFilter}
-              onChange={(e) => setFilter("fund", e.target.value)}
-              data-testid="filter-fund"
-            >
-              <option value="">All Funds</option>
-              {funds.map((f) => (
-                <option key={f.fund_id} value={f.fund_id}>{f.name}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className={reIndexControlLabelClass}>
-            Stage
-            <select
-              className={`${reIndexInputClass} w-32`}
-              value={stageFilter}
-              onChange={(e) => setFilter("stage", e.target.value)}
-              data-testid="filter-stage"
-            >
-              <option value="All">All Stages</option>
-              {availableStages.map((s) => (
-                <option key={s} value={s}>{STAGE_LABELS[s] || s}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className={reIndexControlLabelClass}>
-            Type
-            <select
-              className={`${reIndexInputClass} w-28`}
-              value={typeFilter}
-              onChange={(e) => setFilter("type", e.target.value)}
-              data-testid="filter-type"
-            >
-              <option value="All">All Types</option>
-              {availableTypes.map((t) => (
-                <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className={reIndexControlLabelClass}>
-            Sponsor
-            <select
-              className={`${reIndexInputClass} w-40`}
-              value={sponsorFilter}
-              onChange={(e) => setFilter("sponsor", e.target.value)}
-              data-testid="filter-sponsor"
-            >
-              <option value="">All Sponsors</option>
-              {availableSponsors.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className={reIndexControlLabelClass}>
-            Search
-            <input
-              className={`${reIndexInputClass} w-48`}
-              value={searchQuery}
-              onChange={(e) => setFilter("q", e.target.value)}
-              placeholder="Name, sponsor..."
-              data-testid="filter-search"
-            />
-          </label>
-
-          {hasActiveFilters ? (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="inline-flex h-10 items-center rounded-md border border-bm-border/70 px-3 text-[11px] uppercase tracking-[0.12em] text-bm-muted2 transition-colors duration-100 hover:bg-bm-surface/25 hover:text-bm-text"
-            >
-              Clear Filters
-            </button>
-          ) : null}
-        </div>
-      }
       className="w-full"
     >
       <section data-testid="re-investments-list">
@@ -459,32 +501,95 @@ function RepeInvestmentsPageContent() {
             <table className={`${reIndexTableClass} min-w-[1240px]`}>
               <thead>
                 <tr className={reIndexTableHeadRowClass}>
-                  <th className="px-3 py-3 font-medium">Name</th>
-                  <th className="px-3 py-3 font-medium">Fund</th>
-                  <th className="px-3 py-3 font-medium">Type</th>
-                  <th className="px-3 py-3 font-medium">Stage</th>
-                  <th className="px-3 py-3 text-right font-medium">Assets</th>
-                  <th className="px-3 py-3 font-medium">Market</th>
-                  <th className="px-3 py-3 text-right font-medium">NAV</th>
-                  <th className="px-3 py-3 text-right font-medium">NOI</th>
-                  <th className="px-3 py-3 text-right font-medium">Occ</th>
-                  <th className="px-3 py-3 text-right font-medium">LTV</th>
-                  <th className="px-3 py-3 text-right font-medium">DSCR</th>
-                  <th className="px-3 py-3 text-right font-medium">Value</th>
-                  <th className="px-3 py-3 text-center font-medium">Health</th>
+                  {/* Name — text filter */}
+                  <th className="px-3 py-2.5 font-medium">
+                    <div>Name</div>
+                    <ColTextFilter
+                      value={nameFilter}
+                      onChange={(v) => setFilter("q", v)}
+                      placeholder="Search..."
+                    />
+                  </th>
+
+                  {/* Fund — select filter */}
+                  <th className="px-3 py-2.5 font-medium">
+                    <div>Fund</div>
+                    <FundSelectFilter
+                      value={fundFilter}
+                      onChange={(v) => setFilter("fund", v)}
+                      funds={availableFunds}
+                    />
+                  </th>
+
+                  {/* Type — select filter */}
+                  <th className="px-3 py-2.5 font-medium">
+                    <div>Type</div>
+                    <ColSelectFilter
+                      value={typeFilter}
+                      onChange={(v) => setFilter("type", v)}
+                      options={availableTypes.map((t) => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) }))}
+                      allLabel="All"
+                    />
+                  </th>
+
+                  {/* Stage — select filter */}
+                  <th className="px-3 py-2.5 font-medium">
+                    <div>Stage</div>
+                    <ColSelectFilter
+                      value={stageFilter}
+                      onChange={(v) => setFilter("stage", v)}
+                      options={availableStages.map((s) => ({ value: s, label: STAGE_LABELS[s] || s }))}
+                      allLabel="All"
+                    />
+                  </th>
+
+                  {/* Assets — no filter */}
+                  <th className="px-3 py-2.5 text-right font-medium">Assets</th>
+
+                  {/* Market — text filter */}
+                  <th className="px-3 py-2.5 font-medium">
+                    <div>Market</div>
+                    <ColTextFilter
+                      value={marketFilter}
+                      onChange={(v) => setFilter("market", v)}
+                      placeholder="Search..."
+                    />
+                  </th>
+
+                  {/* Numeric cols — no filter */}
+                  <th className="px-3 py-2.5 text-right font-medium">NAV</th>
+                  <th className="px-3 py-2.5 text-right font-medium">NOI</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Occ</th>
+                  <th className="px-3 py-2.5 text-right font-medium">LTV</th>
+                  <th className="px-3 py-2.5 text-right font-medium">DSCR</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Value</th>
+
+                  {/* Sponsor — select filter */}
+                  <th className="px-3 py-2.5 font-medium">
+                    <div>Sponsor</div>
+                    <ColSelectFilter
+                      value={sponsorFilter}
+                      onChange={(v) => setFilter("sponsor", v)}
+                      options={availableSponsors.map((s) => ({ value: s, label: s }))}
+                      allLabel="All"
+                    />
+                  </th>
+
+                  {/* Health — no filter */}
+                  <th className="px-3 py-2.5 text-center font-medium">Health</th>
                 </tr>
               </thead>
               <tbody className={reIndexTableBodyClass}>
-                {rows.length === 0 ? (
+                {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={13} className="px-4 py-8 text-center text-sm text-bm-muted2">
+                    <td colSpan={14} className="px-4 py-8 text-center text-sm text-bm-muted2">
                       {hasActiveFilters
                         ? "No investments match the current filters."
                         : "No investments yet."}
                     </td>
                   </tr>
                 ) : (
-                  rows.map((row) => (
+                  filteredRows.map((row) => (
                     <tr
                       key={row.investment_id}
                       data-testid={`investment-row-${row.investment_id}`}
@@ -534,6 +639,9 @@ function RepeInvestmentsPageContent() {
                       </td>
                       <td className={`px-3 py-4 align-middle ${reIndexNumericCellClass}`}>
                         {fmtMoney(row.total_asset_value)}
+                      </td>
+                      <td className={`px-3 py-4 align-middle ${reIndexSecondaryCellClass}`}>
+                        {row.sponsor || "—"}
                       </td>
                       <td className="px-3 py-4 text-center align-middle">
                         <DataHealthDot missing={row.missing_quarter_state_count} />
