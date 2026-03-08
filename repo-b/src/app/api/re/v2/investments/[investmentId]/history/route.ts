@@ -107,44 +107,7 @@ export async function GET(
     );
 
     const returnsRes = await pool.query(
-      `WITH asset_nav AS (
-         SELECT
-           qs.quarter,
-           SUM(qs.nav)::float8 AS nav
-         FROM repe_asset a
-         JOIN (
-           SELECT
-             asset_id,
-             quarter,
-             nav,
-             created_at,
-             ROW_NUMBER() OVER (
-               PARTITION BY asset_id, quarter
-               ORDER BY
-                 CASE
-                   WHEN $4::uuid IS NOT NULL AND version_id = $4::uuid THEN 0
-                   WHEN version_id IS NULL THEN 1
-                   ELSE 2
-                 END,
-                 created_at DESC
-             ) AS version_rank
-           FROM re_asset_quarter_state
-           WHERE (
-             ($3::uuid IS NULL AND scenario_id IS NULL)
-             OR scenario_id = $3::uuid
-           )
-             AND (
-               $4::uuid IS NULL
-               OR version_id = $4::uuid
-               OR version_id IS NULL
-             )
-             AND ($5::text IS NULL OR quarter >= $5::text)
-             AND ($6::text IS NULL OR quarter <= $6::text)
-         ) qs ON qs.asset_id = a.asset_id AND qs.version_rank = 1
-         WHERE a.deal_id = $1::uuid
-         GROUP BY qs.quarter
-       ),
-       investment_state AS (
+      `WITH investment_state AS (
          SELECT
            s.quarter,
            s.nav::float8 AS nav,
@@ -176,27 +139,26 @@ export async function GET(
            AND ($6::text IS NULL OR s.quarter <= $6::text)
        )
        SELECT
-         COALESCE(i.quarter, a.quarter) AS quarter,
-         COALESCE(i.nav, a.nav)::float8 AS nav,
-         i.gross_irr::float8 AS gross_irr,
-         i.net_irr::float8 AS net_irr,
-         i.equity_multiple::float8 AS equity_multiple,
-         COALESCE(i.nav, a.nav)::float8 AS fund_nav_contribution
-       FROM asset_nav a
-       FULL OUTER JOIN (
-         SELECT quarter, nav, gross_irr, net_irr, equity_multiple
-         FROM investment_state
-         WHERE version_rank = 1
-       ) i
-         ON i.quarter = a.quarter
-       ORDER BY COALESCE(i.quarter, a.quarter) ASC`,
+         quarter,
+         nav::float8 AS nav,
+         gross_irr::float8 AS gross_irr,
+         net_irr::float8 AS net_irr,
+         equity_multiple::float8 AS equity_multiple,
+         nav::float8 AS fund_nav_contribution
+       FROM investment_state
+       WHERE version_rank = 1
+       ORDER BY quarter ASC`,
       [params.investmentId, investment.fund_id, scenarioId, versionId, quarterFrom, quarterTo]
     );
 
+    const lastReturnsQuarter =
+      returnsRes.rows.length > 0 ? returnsRes.rows[returnsRes.rows.length - 1]?.quarter : null;
+    const lastOperatingQuarter =
+      operatingRes.rows.length > 0 ? operatingRes.rows[operatingRes.rows.length - 1]?.quarter : null;
     const asOfQuarter =
       quarterTo ||
-      returnsRes.rows.at(-1)?.quarter ||
-      operatingRes.rows.at(-1)?.quarter ||
+      lastReturnsQuarter ||
+      lastOperatingQuarter ||
       null;
 
     return Response.json({
