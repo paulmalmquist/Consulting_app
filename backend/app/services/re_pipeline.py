@@ -43,9 +43,9 @@ LEFT JOIN LATERAL (
 ) prop ON TRUE
 LEFT JOIN LATERAL (
     SELECT
-        MAX(c.name) FILTER (WHERE LOWER(COALESCE(c.role, '')) LIKE '%broker%') AS broker_name,
-        MAX(c.org) FILTER (WHERE LOWER(COALESCE(c.role, '')) LIKE '%broker%') AS broker_org,
-        MAX(c.name) FILTER (WHERE LOWER(COALESCE(c.role, '')) LIKE '%sponsor%') AS sponsor_name
+        MAX(c.name) FILTER (WHERE LOWER(COALESCE(c.role, '')) LIKE '%%broker%%') AS broker_name,
+        MAX(c.org) FILTER (WHERE LOWER(COALESCE(c.role, '')) LIKE '%%broker%%') AS broker_org,
+        MAX(c.name) FILTER (WHERE LOWER(COALESCE(c.role, '')) LIKE '%%sponsor%%') AS sponsor_name
     FROM re_pipeline_contact c
     WHERE c.deal_id = d.deal_id
 ) contact ON TRUE
