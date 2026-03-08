@@ -94,7 +94,6 @@ export default function RepeWorkspaceShell({
       : []),
     { href: `${base}/models`,              label: "Models",         isBase: false },
     { href: `${base}/reports`,             label: "Reports",        isBase: false },
-    { href: `${base}/runs/quarter-close`,  label: "Run Center",     isBase: false },
     ...(showSustainability
       ? [{ href: `${base}/sustainability`, label: "Sustainability",  isBase: false }]
       : []),

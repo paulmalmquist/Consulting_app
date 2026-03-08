@@ -186,7 +186,7 @@ export function RailAssetHealth({ metrics }: { metrics: RailHealthMetric[] }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Recent Runs (Fund / Run Center page)
+// Recent Runs (fund detail and workflow surfaces)
 // ─────────────────────────────────────────────────────────────────────────────
 
 type RunStatus = "complete" | "running" | "failed";

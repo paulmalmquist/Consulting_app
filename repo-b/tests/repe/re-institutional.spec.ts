@@ -562,7 +562,7 @@ test.describe("RE Institutional Workspace", () => {
     expect(critErrors).toEqual([]);
   });
 
-  test("4. Quarter Close page: run quarter-close → result appears", async ({ page }) => {
+  test("4. Legacy quarter-close route redirects to waterfalls", async ({ page }) => {
     const state = makeState();
     const fundId = makeId(199);
     state.funds.push({
@@ -592,11 +592,8 @@ test.describe("RE Institutional Workspace", () => {
     await installMocks(page, state);
 
     await page.goto(`/lab/env/${state.envId}/re/runs/quarter-close`);
-    await expect(page.getByTestId("re-quarter-close-page")).toBeVisible();
-
-    await page.getByTestId("run-quarter-close-btn").click();
-    await expect(page.getByTestId("qc-result")).toBeVisible();
-    await expect(page.getByTestId("qc-result")).toContainText("success");
+    await expect(page).toHaveURL(new RegExp(`/lab/env/${state.envId}/re/waterfalls`));
+    await expect(page.getByTestId("re-waterfall-runner")).toBeVisible();
 
     const critErrors = filterConsoleErrors(state.consoleErrors);
     expect(critErrors).toEqual([]);

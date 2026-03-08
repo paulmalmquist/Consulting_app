@@ -21,7 +21,6 @@ describe("Sidebar active state", () => {
     { href: `${base}/deals`, label: "Investments", isBase: false },
     { href: `${base}/assets`, label: "Assets", isBase: false },
     { href: `${base}/scenarios`, label: "Scenarios", isBase: false },
-    { href: `${base}/runs/quarter-close`, label: "Run Center", isBase: false },
     { href: `${base}/sustainability`, label: "Sustainability", isBase: false },
   ];
 
@@ -59,11 +58,6 @@ describe("Sidebar active state", () => {
   it("Scenarios route highlights Scenarios only", () => {
     const active = getActiveLabels(`${base}/scenarios`);
     expect(active).toEqual(["Scenarios"]);
-  });
-
-  it("Run Center route highlights Run Center only", () => {
-    const active = getActiveLabels(`${base}/runs/quarter-close`);
-    expect(active).toEqual(["Run Center"]);
   });
 
   it("Sustainability route highlights Sustainability only", () => {

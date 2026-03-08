@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, ChevronDown, GitBranch, Leaf } from "lucide-react";
-import { label as labelFn, RUN_TYPE_LABELS, STATUS_LABELS, PROPERTY_TYPE_LABELS } from "@/lib/labels";
+import { label as labelFn, PROPERTY_TYPE_LABELS } from "@/lib/labels";
 import { KpiStrip, type KpiDef } from "@/components/repe/asset-cockpit/KpiStrip";
 import { MetricCard } from "@/components/ui/MetricCard";
 import {
@@ -11,6 +11,7 @@ import {
   listRepeDeals,
   listRepeAssets,
   listReV2Investments,
+  listReV2Runs,
   RepeFundDetail,
   RepeDeal,
   ReV2Investment,
@@ -19,14 +20,10 @@ import {
   getReV2FundLineage,
   getReV2FundInvestmentRollup,
   getReV2InvestmentAssets,
-  runReV2QuarterClose,
-  runReV2Waterfall,
   listReV2Scenarios,
-  listReV2Runs,
   ReV2FundQuarterState,
   ReV2FundMetrics,
   ReV2Scenario,
-  ReV2RunProvenance,
   ReV2FundInvestmentRollupRow,
   ReV2EntityLineageResponse,
   ReV2InvestmentAsset,
@@ -35,15 +32,12 @@ import {
   getFiLoans,
   getFiCovenantResults,
   getFiWatchlist,
-  runFiCovenantTests,
-  listFiUwVersions,
   getLpSummary,
   FiVarianceResult,
   FiFundMetricsResult,
   FiLoan,
   FiCovenantResult,
   FiWatchlistEvent,
-  FiUwVersion,
   type LpSummary,
   seedReV2Data,
   getFundValuationRollup,
@@ -246,7 +240,6 @@ export default function FundDetailPage({
     { label: "Gross IRR", value: fmtPercent(fundState?.gross_irr) },
     { label: "Net IRR", value: fmtPercent(fundState?.net_irr) },
   ];
-  const runCenterHref = `/lab/env/${params.envId}/re/runs/quarter-close?fundId=${params.fundId}`;
 
   useEffect(() => {
     publishAssistantPageContext({
@@ -407,15 +400,8 @@ export default function FundDetailPage({
             </p>
             <p className="text-xs text-amber-400/80 mt-0.5">
               {covenantAlerts.map((a) => (a as Record<string, unknown>).investment_name as string || a.reason || "Investment").join(", ")}
-              {" — review debt controls in Run Center"}
             </p>
           </div>
-          <Link
-            href={runCenterHref}
-            className="rounded-lg border border-amber-500/40 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-500/20"
-          >
-            Open Run Center
-          </Link>
         </div>
       )}
 
@@ -460,7 +446,6 @@ export default function FundDetailPage({
           businessId={businessId}
           fundId={params.fundId}
           quarter={quarter}
-          runCenterHref={runCenterHref}
         />
       )}
       {tab === "LP Summary" && envId && businessId && (
@@ -1145,9 +1130,8 @@ function GrossNetBridgeWaterfall({ bars }: { bars: BridgeBar[] }) {
   );
 }
 
-function ReturnsTab({ envId, businessId, fundId, quarter, runCenterHref }: {
+function ReturnsTab({ envId, businessId, fundId, quarter }: {
   envId: string; businessId: string; fundId: string; quarter: string;
-  runCenterHref: string;
 }) {
   const [data, setData] = useState<FiFundMetricsResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1170,13 +1154,6 @@ function ReturnsTab({ envId, businessId, fundId, quarter, runCenterHref }: {
           <p className="text-xs text-slate-500">Fund performance requires a Quarter Close calculation.</p>
           <p className="text-xs text-slate-500">Last Close: Never</p>
         </div>
-        <Link
-          href={runCenterHref}
-          className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#38BDF8] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-          data-testid="returns-run-quarter-close-cta"
-        >
-          Open Run Center
-        </Link>
       </div>
     );
   }
@@ -1506,219 +1483,6 @@ function DebtSurveillanceTab({ envId, businessId, fundId, quarter }: {
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-// ── Run Center Tab ──────────────────────────────────────────────────────────
-
-function RunCenterTab({ envId, businessId, fundId, quarter, isDebtFund, onCanonicalRefresh }: {
-  envId: string;
-  businessId: string;
-  fundId: string;
-  quarter: string;
-  isDebtFund: boolean;
-  onCanonicalRefresh: () => Promise<void>;
-}) {
-  const [runs, setRuns] = useState<ReV2RunProvenance[]>([]);
-  const [uwVersions, setUwVersions] = useState<FiUwVersion[]>([]);
-  const [selectedUwVersionId, setSelectedUwVersionId] = useState("");
-  const [running, setRunning] = useState<string | null>(null);
-  const [result, setResult] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    Promise.all([
-      listReV2Runs(fundId, quarter).catch(() => []),
-      listFiUwVersions({ env_id: envId, business_id: businessId }).catch(() => []),
-    ]).then(([r, uv]) => {
-      setRuns(r);
-      setUwVersions(uv);
-      if (uv.length > 0) setSelectedUwVersionId(uv[0].id);
-    });
-  }, [envId, businessId, fundId, quarter]);
-
-  const refreshRuns = () => {
-    listReV2Runs(fundId, quarter).then(setRuns).catch(() => {});
-  };
-
-  const handleQuarterClose = async () => {
-    setRunning("quarter_close");
-    setError(null);
-    setResult(null);
-    try {
-      const res = await runReV2QuarterClose(fundId, {
-        quarter,
-        run_waterfall: false,
-      });
-      setResult(`Quarter Close: ${res.status} (run ${res.run_id.slice(0, 8)})`);
-      await onCanonicalRefresh();
-      refreshRuns();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Quarter close failed");
-    } finally {
-      setRunning(null);
-    }
-  };
-
-  const handleWaterfallShadow = async () => {
-    setRunning("waterfall");
-    setError(null);
-    setResult(null);
-    try {
-      const res = await runReV2Waterfall(fundId, {
-        quarter,
-        run_type: "shadow",
-      });
-      setResult(`Waterfall Shadow: ${res.status} (run ${res.run_id.slice(0, 8)})`);
-      await onCanonicalRefresh();
-      refreshRuns();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Waterfall run failed");
-    } finally {
-      setRunning(null);
-    }
-  };
-
-  const handleCovenantTest = async () => {
-    setRunning("covenant");
-    setError(null);
-    setResult(null);
-    try {
-      const res = await runFiCovenantTests({
-        env_id: envId,
-        business_id: businessId,
-        fund_id: fundId,
-        quarter,
-      });
-      setResult(`Covenant Tests: ${res.status} — ${res.violations} violations / ${res.total_tested} tested`);
-      refreshRuns();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Covenant test failed");
-    } finally {
-      setRunning(null);
-    }
-  };
-
-  return (
-    <div className="space-y-4" data-testid="run-center-section">
-      {/* Config */}
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
-            Quarter
-            <input className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm" value={quarter} readOnly />
-          </label>
-          <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
-            Budget Baseline (UW Version)
-            <select
-              className="mt-1 w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
-              value={selectedUwVersionId}
-              onChange={(e) => setSelectedUwVersionId(e.target.value)}
-            >
-              <option value="">None (skip variance)</option>
-              {uwVersions.map((uv) => (
-                <option key={uv.id} value={uv.id}>{uv.name}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={handleQuarterClose}
-            disabled={running !== null}
-            className="rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90 disabled:opacity-50"
-            data-testid="run-quarter-close"
-          >
-            {running === "quarter_close" ? "Running..." : "Run Quarter Close"}
-          </button>
-          <button
-            type="button"
-            onClick={handleWaterfallShadow}
-            disabled={running !== null}
-            className="rounded-lg border border-bm-accent/60 px-4 py-2 text-sm font-medium text-bm-accent hover:bg-bm-accent/10 disabled:opacity-50"
-          >
-            {running === "waterfall" ? "Running..." : "Run Waterfall (Shadow)"}
-          </button>
-          {isDebtFund && (
-            <button
-              type="button"
-              onClick={handleCovenantTest}
-              disabled={running !== null}
-              className="rounded-lg border border-amber-500/60 px-4 py-2 text-sm font-medium text-amber-400 hover:bg-amber-500/10 disabled:opacity-50"
-              data-testid="run-covenant-tests"
-            >
-              {running === "covenant" ? "Testing..." : "Run Covenant Tests"}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Result Toast */}
-      {result && (
-        <div className="rounded-xl border border-green-500/50 bg-green-500/10 p-4 text-sm" data-testid="run-result-toast">
-          {result}
-        </div>
-      )}
-      {error && (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
-          {error}
-        </div>
-      )}
-
-      {/* Run History */}
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4 space-y-3" data-testid="run-history">
-        <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Run History</h3>
-        {runs.length === 0 ? (
-          <p className="text-sm text-bm-muted2">No runs yet.</p>
-        ) : (
-          <div className="rounded-xl border border-bm-border/70 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-bm-border/50 bg-bm-surface/30 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
-                  <th className="px-4 py-2 font-medium">Run ID</th>
-                  <th className="px-4 py-2 font-medium">Type</th>
-                  <th className="px-4 py-2 font-medium">Quarter</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                  <th className="px-4 py-2 font-medium">Duration</th>
-                  <th className="px-4 py-2 font-medium">Created</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-bm-border/40">
-                {runs.map((r) => {
-                  let duration = "—";
-                  if (r.started_at && r.completed_at) {
-                    const ms = new Date(r.completed_at).getTime() - new Date(r.started_at).getTime();
-                    if (ms < 1000) duration = `${ms}ms`;
-                    else if (ms < 60_000) duration = `${(ms / 1000).toFixed(1)}s`;
-                    else duration = `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
-                  } else if (r.started_at && r.status !== "success" && r.status !== "failed") {
-                    duration = "running...";
-                  }
-                  return (
-                  <tr key={r.run_id} className="hover:bg-bm-surface/20">
-                    <td className="px-4 py-2 font-mono text-xs">{r.run_id.slice(0, 8)}</td>
-                    <td className="px-4 py-2 text-xs">{labelFn(RUN_TYPE_LABELS, r.run_type)}</td>
-                    <td className="px-4 py-2 text-xs">{r.quarter}</td>
-                    <td className="px-4 py-2">
-                      <span className={`rounded-full px-2 py-0.5 text-xs ${
-                        r.status === "success" ? "bg-green-500/20 text-green-300" :
-                        r.status === "failed" ? "bg-red-500/20 text-red-300" :
-                        "bg-yellow-500/20 text-yellow-300"
-                      }`}>{labelFn(STATUS_LABELS, r.status)}</span>
-                    </td>
-                    <td className="px-4 py-2 text-xs font-mono text-bm-muted2">{duration}</td>
-                    <td className="px-4 py-2 text-xs text-bm-muted2">{r.started_at?.slice(0, 19).replace("T", " ")}</td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

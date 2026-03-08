@@ -34,12 +34,9 @@ const FUNDS_LIST_URL = `/lab/env/${ENV_ID}/re/funds`;
 const SEL = {
   fundTabs:       "[data-testid='fund-tabs']",
   tabOverview:    "[data-testid='tab-overview']",
-  tabVariance:    "[data-testid='tab-variance--noi-']",
-  tabReturns:     "[data-testid='tab-returns--gross-net-']",
-  tabRunCenter:   "[data-testid='tab-run-center']",
-  tabScenarios:   "[data-testid='tab-scenarios']",
+  tabVariance:    "[data-testid='tab-asset-variance']",
+  tabReturns:     "[data-testid='tab-performance']",
   tabLPSummary:   "[data-testid='tab-lp-summary']",
-  tabWaterfall:   "[data-testid='tab-waterfall-scenario']",
 
   fundDetail:     "[data-testid='re-fund-detail']",
   fundError:      "[data-testid='fund-error']",
@@ -50,9 +47,6 @@ const SEL = {
   varianceSection:"[data-testid='variance-section']",
   returnsSection: "[data-testid='returns-section']",
   returnsKpis:    "[data-testid='returns-kpis']",
-  runCenterSection:"[data-testid='run-center-section']",
-  runQuarterClose:"[data-testid='run-quarter-close']",
-  runHistory:     "[data-testid='run-history']",
   lpSummarySection:"[data-testid='lp-summary-section']",
   lpPartnerTable: "[data-testid='lp-partner-table']",
 };
@@ -367,16 +361,13 @@ test.describe("Deep — Fund Detail Tabs", () => {
     checkErrors();
   });
 
-  test("Run Center tab: has run-quarter-close button", async ({ page }) => {
+  test("Fund detail: Run Center tab is not present", async ({ page }) => {
     const checkErrors = attachPageErrorTrap(page);
 
-    await clickTab(page, SEL.tabRunCenter);
+    await page.goto(FUND_URL);
+    await expect(page.locator(SEL.fundDetail)).toBeVisible({ timeout: 10_000 });
 
-    // Render: run center section visible
-    await expect(page.locator(SEL.runCenterSection)).toBeVisible({ timeout: 10_000 });
-
-    // Render: run-quarter-close button present (stable data-testid)
-    await expect(page.locator(SEL.runQuarterClose)).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("[data-testid='tab-run-center']")).toHaveCount(0);
 
     // No workspace error
     await expect(page.locator(SEL.workspaceError)).not.toBeVisible();

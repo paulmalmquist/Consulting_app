@@ -20,7 +20,6 @@ const navItems = [
   { href: `${BASE}/deals`, label: "Investments", isBase: false },
   { href: `${BASE}/assets`, label: "Assets", isBase: false },
   { href: `${BASE}/scenarios`, label: "Scenarios", isBase: false },
-  { href: `${BASE}/runs/quarter-close`, label: "Run Center", isBase: false },
   { href: `${BASE}/sustainability`, label: "Sustainability", isBase: false },
 ];
 
@@ -49,10 +48,6 @@ describe("RE nav highlight logic", () => {
 
   test("Scenarios page highlights only Scenarios", () => {
     expect(activeLabels(`${BASE}/scenarios`)).toEqual(["Scenarios"]);
-  });
-
-  test("Run Center highlights only Run Center", () => {
-    expect(activeLabels(`${BASE}/runs/quarter-close`)).toEqual(["Run Center"]);
   });
 
   test("Sustainability highlights only Sustainability", () => {

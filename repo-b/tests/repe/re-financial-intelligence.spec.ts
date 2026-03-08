@@ -5,11 +5,9 @@ import { expect, test, type Page } from "@playwright/test";
  *
  * These tests verify the financial intelligence layer:
  * 1. Fund portfolio shows funds with correct strategy
- * 2. Equity fund detail has Variance, Returns, Run Center tabs but NOT Debt Surveillance
- * 3. Debt fund detail has Debt Surveillance tab
- * 4. Run Center shows correct buttons per fund type
- * 5. Navigation correctness
- * 6. Error state for non-existent fund
+ * 2. Fund detail exposes the current analysis tabs and not the retired Run Center tab
+ * 3. Navigation correctness
+ * 4. Error state for non-existent fund
  *
  * Tests use route mocking to avoid requiring a live backend.
  */
@@ -262,64 +260,32 @@ test.describe("Financial Intelligence E2E", () => {
     await expect(fundSelect.locator("option")).toHaveCount(3); // empty + 2 funds
   });
 
-  test("2. Equity fund detail: Variance tab loads non-empty, Returns shows KPIs, no Covenant Tests", async ({ page }) => {
+  test("2. Fund detail: current analysis tabs render and Run Center is absent", async ({ page }) => {
     await page.goto(`${BASE}/funds/${EQUITY_FUND_ID}`);
     await page.waitForSelector("[data-testid='re-fund-detail']", { timeout: 10000 });
 
     // Check tabs exist
     await expect(page.getByTestId("fund-tabs")).toBeVisible();
-    await expect(page.getByTestId("tab-variance--noi-")).toBeVisible();
-    await expect(page.getByTestId("tab-returns--gross-net-")).toBeVisible();
-    await expect(page.getByTestId("tab-run-center")).toBeVisible();
-
-    // Debt Surveillance tab should NOT exist for equity fund
-    await expect(page.getByTestId("tab-debt-surveillance")).not.toBeVisible();
+    await expect(page.getByTestId("tab-overview")).toBeVisible();
+    await expect(page.getByTestId("tab-asset-variance")).toBeVisible();
+    await expect(page.getByTestId("tab-performance")).toBeVisible();
+    await expect(page.getByTestId("tab-lp-summary")).toBeVisible();
+    await expect(page.getByTestId("tab-run-center")).not.toBeVisible();
 
     // Click Variance tab
-    await page.getByTestId("tab-variance--noi-").click();
+    await page.getByTestId("tab-asset-variance").click();
     await page.waitForSelector("[data-testid='variance-table']", { timeout: 5000 });
     const rows = page.locator("[data-testid='variance-table'] tbody tr");
     await expect(rows).toHaveCount(2);
 
     // Click Returns tab
-    await page.getByTestId("tab-returns--gross-net-").click();
+    await page.getByTestId("tab-performance").click();
     await page.waitForSelector("[data-testid='returns-kpis']", { timeout: 5000 });
     await expect(page.getByTestId("returns-kpis")).toBeVisible();
     await expect(page.getByTestId("gross-net-bridge")).toBeVisible();
-
-    // Run Center should NOT have covenant tests button
-    await page.getByTestId("tab-run-center").click();
-    await page.waitForSelector("[data-testid='run-quarter-close']", { timeout: 5000 });
-    await expect(page.getByTestId("run-quarter-close")).toBeVisible();
-    await expect(page.getByTestId("run-covenant-tests")).not.toBeVisible();
   });
 
-  test("3. Debt fund detail: Debt Surveillance tab exists", async ({ page }) => {
-    await page.goto(`${BASE}/funds/${DEBT_FUND_ID}`);
-    await page.waitForSelector("[data-testid='re-fund-detail']", { timeout: 10000 });
-
-    // Debt Surveillance tab should exist
-    await expect(page.getByTestId("tab-debt-surveillance")).toBeVisible();
-
-    // Click it
-    await page.getByTestId("tab-debt-surveillance").click();
-    await page.waitForSelector("[data-testid='debt-surveillance-section']", { timeout: 5000 });
-    await expect(page.getByTestId("loans-table")).toBeVisible();
-  });
-
-  test("4. Debt fund Run Center shows Covenant Tests button", async ({ page }) => {
-    await page.goto(`${BASE}/funds/${DEBT_FUND_ID}`);
-    await page.waitForSelector("[data-testid='re-fund-detail']", { timeout: 10000 });
-
-    await page.getByTestId("tab-run-center").click();
-    await page.waitForSelector("[data-testid='run-center-section']", { timeout: 5000 });
-
-    // Should have Covenant Tests button
-    await expect(page.getByTestId("run-covenant-tests")).toBeVisible();
-    await expect(page.getByTestId("run-quarter-close")).toBeVisible();
-  });
-
-  test("5. Nav correctness: sidebar highlights correct item", async ({ page }) => {
+  test("3. Nav correctness: sidebar highlights correct item", async ({ page }) => {
     // Investments route
     await page.goto(`${BASE}/deals`);
     await page.waitForSelector("[data-testid='repe-left-nav']", { timeout: 10000 });
@@ -343,7 +309,7 @@ test.describe("Financial Intelligence E2E", () => {
     await expect(fundsLinkDetail).toHaveClass(/border-l-bm-accent/);
   });
 
-  test("6. Non-existent fund shows clean 404", async ({ page }) => {
+  test("4. Non-existent fund shows clean 404", async ({ page }) => {
     await page.goto(`${BASE}/funds/00000000-0000-0000-0000-000000000000`);
     await page.waitForSelector("[data-testid='fund-error']", { timeout: 10000 });
     await expect(page.getByTestId("fund-error")).toContainText("Fund Not Found");
