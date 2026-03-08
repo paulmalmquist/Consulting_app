@@ -9,14 +9,13 @@ Verifies that:
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
 
 from app.mcp.auth import McpContext
-from app.mcp.schemas.repe_tools import CreateFundInput, CreateDealInput, CreateAssetInput
+from app.mcp.schemas.repe_tools import CreateFundInput, CreateDealInput
 
 
 def _ctx(business_id: str | None = None) -> McpContext:
