@@ -267,7 +267,7 @@ function PillSelect({
   testId?: string;
 }) {
   return (
-    <label className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 shadow-[0_8px_18px_-16px_rgba(15,23,42,0.95)]">
+    <label className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 shadow-[0_8px_18px_-16px_rgba(15,23,42,0.16)] dark:border-white/10 dark:bg-white/[0.03] dark:shadow-[0_8px_18px_-16px_rgba(15,23,42,0.95)]">
       <span className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">{label}</span>
       <select
         value={value}
@@ -276,7 +276,7 @@ function PillSelect({
         data-testid={testId}
       >
         {options.map((option) => (
-          <option key={option.value} value={option.value} className="bg-slate-950 text-white">
+          <option key={option.value} value={option.value} className="bg-white text-slate-900 dark:bg-slate-950 dark:text-white">
             {option.label}
           </option>
         ))}
@@ -301,7 +301,7 @@ function SegmentToggle<T extends string>({
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid={testId}>
       <span className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">{label}</span>
-      <div className="flex rounded-full border border-white/10 bg-white/[0.03] p-1 shadow-[0_8px_18px_-16px_rgba(15,23,42,0.95)]">
+      <div className="flex rounded-full border border-slate-200 bg-white p-1 shadow-[0_8px_18px_-16px_rgba(15,23,42,0.16)] dark:border-white/10 dark:bg-white/[0.03] dark:shadow-[0_8px_18px_-16px_rgba(15,23,42,0.95)]">
         {options.map((option) => {
           const active = option.value === value;
           return (
@@ -311,7 +311,7 @@ function SegmentToggle<T extends string>({
               onClick={() => onChange(option.value)}
               className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                 active
-                  ? "bg-white text-slate-950"
+                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950"
                   : "text-bm-muted2 hover:text-bm-text"
               }`}
             >
@@ -349,9 +349,9 @@ function HeroMetricCard({
 }) {
   return (
     <div
-      className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.92))] p-5"
+      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_18px_44px_-30px_rgba(15,23,42,0.15)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.92))]"
       data-testid={testId}
-      style={{ boxShadow: `inset 0 1px 0 rgba(255,255,255,0.03), 0 16px 40px -28px ${accent}` }}
+      style={{ boxShadow: `0 18px 44px -30px ${accent}22` }}
     >
       <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">{label}</p>
       <p className="mt-4 text-3xl font-semibold tracking-tight text-bm-text tabular-nums">{value}</p>
@@ -361,7 +361,7 @@ function HeroMetricCard({
 
 function SecondaryMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3">
+    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-white/8 dark:bg-white/[0.02]">
       <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">{label}</p>
       <p className="mt-1 text-sm font-medium text-bm-text tabular-nums">{value}</p>
     </div>
@@ -376,7 +376,7 @@ function CompositionBar({
   equityPct: number;
 }) {
   return (
-    <div className="overflow-hidden rounded-full border border-white/10 bg-white/[0.04]">
+    <div className="overflow-hidden rounded-full border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/[0.04]">
       <div className="flex h-10 w-full">
         <div
           className="flex items-center justify-center text-xs font-semibold text-white"
@@ -412,7 +412,7 @@ function HorizontalBar({
         <span className="text-bm-text">{label}</span>
         <span className="text-bm-muted2">{value}</span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
+      <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/[0.06]">
         <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
       </div>
     </div>
@@ -434,8 +434,8 @@ function SupportingTabButton({
       onClick={onClick}
       className={`rounded-full border px-3 py-1.5 text-xs font-medium uppercase tracking-[0.12em] transition ${
         active
-          ? "border-white/20 bg-white text-slate-950"
-          : "border-white/10 bg-white/[0.02] text-bm-muted2 hover:text-bm-text"
+          ? "border-slate-900 bg-slate-900 text-white dark:border-white/20 dark:bg-white dark:text-slate-950"
+          : "border-slate-200 bg-white text-bm-muted2 hover:text-bm-text dark:border-white/10 dark:bg-white/[0.02]"
       }`}
     >
       {children}
@@ -865,7 +865,7 @@ function InvestmentBriefingPageContent({
 
   return (
     <section className="space-y-8" data-testid="investment-briefing-page">
-      <header className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(9,14,28,0.92))] p-6 shadow-[0_24px_60px_-40px_rgba(15,23,42,0.95)]">
+      <header className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.18)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(9,14,28,0.92))] dark:shadow-[0_24px_60px_-40px_rgba(15,23,42,0.95)]">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.14em] text-bm-muted2">
@@ -886,27 +886,27 @@ function InvestmentBriefingPageContent({
           <div className="flex flex-wrap gap-2">
             <Link
               href={reportHref}
-              className="rounded-full border border-white/15 bg-white text-xs font-semibold uppercase tracking-[0.12em] text-slate-950 px-4 py-2 hover:bg-white/90"
+              className="rounded-full border border-slate-900 bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white hover:bg-slate-800 dark:border-white/15 dark:bg-white dark:text-slate-950 dark:hover:bg-white/90"
             >
               Generate Report
             </Link>
             <button
               type="button"
               onClick={() => setLineageOpen(true)}
-              className="rounded-full border border-white/12 bg-white/[0.03] px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-bm-text hover:bg-white/[0.08]"
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-bm-text hover:bg-slate-50 dark:border-white/12 dark:bg-white/[0.03] dark:hover:bg-white/[0.08]"
             >
               View Lineage
             </button>
             <Link
               href={sustainabilityHref}
-              className="rounded-full border border-white/12 bg-white/[0.03] px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-bm-text hover:bg-white/[0.08]"
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-bm-text hover:bg-slate-50 dark:border-white/12 dark:bg-white/[0.03] dark:hover:bg-white/[0.08]"
             >
               Open Sustainability Module
             </Link>
           </div>
         </div>
 
-        <div className="mt-6 flex flex-wrap gap-3 border-t border-white/10 pt-5">
+        <div className="mt-6 flex flex-wrap gap-3 border-t border-slate-200 pt-5 dark:border-white/10">
           <PillSelect
             label="Model"
             value={selectedModelId}
@@ -992,7 +992,7 @@ function InvestmentBriefingPageContent({
             </div>
           </div>
 
-          <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.95))] p-5 xl:col-span-4">
+          <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_44px_-32px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.95))] xl:col-span-4">
             <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">Investment Context</p>
             <div className="mt-4 space-y-3">
               {[
@@ -1003,7 +1003,7 @@ function InvestmentBriefingPageContent({
                 ["Market", primaryMarket],
                 ["Property Type", primaryPropertyType],
               ].map(([label, value]) => (
-                <div key={label} className="flex items-center justify-between gap-4 border-b border-white/8 pb-2 last:border-b-0 last:pb-0">
+                <div key={label} className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2 last:border-b-0 last:pb-0 dark:border-white/8">
                   <span className="text-sm text-bm-muted2">{label}</span>
                   <span className="text-sm font-medium text-bm-text">{value}</span>
                 </div>
@@ -1019,8 +1019,8 @@ function InvestmentBriefingPageContent({
           title="Operating Performance"
           description={comparisonSummary || "Operating charts use real quarter-state history and keep NOI as the dominant visual."}
         />
-        <div className="space-y-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))] p-5">
-          <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4">
+        <div className="space-y-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))]">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/8 dark:bg-white/[0.02]">
             <div className="mb-4">
               <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">NOI Over Time</p>
               <p className="mt-1 text-sm text-bm-muted2">Primary operating signal for asset health and valuation support.</p>
@@ -1039,7 +1039,7 @@ function InvestmentBriefingPageContent({
             />
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/8 dark:bg-white/[0.02]">
               <div className="mb-4">
                 <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Revenue vs Expenses</p>
                 <p className="mt-1 text-sm text-bm-muted2">Revenue and expense structure stays visually calm and secondary to NOI.</p>
@@ -1054,7 +1054,7 @@ function InvestmentBriefingPageContent({
                 showLegend
               />
             </div>
-            <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/8 dark:bg-white/[0.02]">
               <div className="mb-4">
                 <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Occupancy Trend</p>
                 <p className="mt-1 text-sm text-bm-muted2">Occupancy is tracked as a supporting operating indicator, not a competing headline metric.</p>
@@ -1078,7 +1078,7 @@ function InvestmentBriefingPageContent({
           title="Investor Returns"
           description="Capital invested, capital returned, and value still owned are grouped so the outcome is legible without mixing in operating detail."
         />
-        <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))] p-5">
+        <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))]">
           <div className="grid gap-4 lg:grid-cols-3">
             <HeroMetricCard label="Committed Capital" value={fmtMoney(quarterState?.committed_capital || investment.committed_capital)} accent={BRIEFING_COLORS.capital} testId="returns-committed" />
             <HeroMetricCard label="Invested Capital" value={fmtMoney(quarterState?.invested_capital || investment.invested_capital)} accent={BRIEFING_COLORS.capital} testId="returns-invested" />
@@ -1099,7 +1099,7 @@ function InvestmentBriefingPageContent({
           title="Capital Structure"
           description="Debt and equity are shown as structure and risk, not as decorative dashboard stats."
         />
-        <div className="grid gap-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))] p-5 xl:grid-cols-12">
+        <div className="grid gap-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))] xl:grid-cols-12">
           <div className="space-y-4 xl:col-span-7">
             <div>
               <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Debt vs Equity</p>
@@ -1134,7 +1134,7 @@ function InvestmentBriefingPageContent({
           title="Portfolio Exposure"
           description="Contextualizes the investment inside the fund without collapsing portfolio and investment performance into the same panel."
         />
-        <div className="grid gap-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))] p-5 xl:grid-cols-12">
+        <div className="grid gap-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))] xl:grid-cols-12">
           <div className="space-y-5 xl:col-span-8">
             <div className="space-y-3">
               <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Sector Exposure</p>
@@ -1161,13 +1161,13 @@ function InvestmentBriefingPageContent({
               )) : <p className="text-sm text-bm-muted2">No geographic exposure available.</p>}
             </div>
           </div>
-          <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-5 xl:col-span-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/8 dark:bg-white/[0.03] xl:col-span-4">
             <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Fund NAV Concentration</p>
             <p className="mt-3 text-3xl font-semibold tabular-nums text-bm-text">{fundNavConcentrationPct ? `${fundNavConcentrationPct.toFixed(1)}%` : "—"}</p>
             <p className="mt-1 text-sm text-bm-muted2">
               {fmtMoney(fundNavContribution)} of {fmtMoney(currentFundNav || null)} fund NAV
             </p>
-            <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/[0.06]">
+            <div className="mt-5 h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-white/[0.06]">
               <div
                 className="h-full rounded-full"
                 style={{ width: `${Math.min(fundNavConcentrationPct, 100)}%`, backgroundColor: BRIEFING_COLORS.performance }}
@@ -1183,7 +1183,7 @@ function InvestmentBriefingPageContent({
           title="Supporting Detail"
           description="Operational detail stays below the narrative surface so the briefing remains decision-first."
         />
-        <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))] p-5">
+        <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))]">
           <div className="flex flex-wrap gap-2">
             <SupportingTabButton active={supportingTab === "assets"} onClick={() => setSupportingTab("assets")}>
               Assets
@@ -1202,9 +1202,9 @@ function InvestmentBriefingPageContent({
           <div className="mt-5">
             {supportingTab === "assets" && (
               <div className="space-y-4">
-                <div className="overflow-hidden rounded-2xl border border-white/10">
+                <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-white/10">
                   <table className="w-full text-sm">
-                    <thead className="bg-white/[0.03] text-left text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
+                    <thead className="bg-slate-50 text-left text-[10px] uppercase tracking-[0.14em] text-bm-muted2 dark:bg-white/[0.03]">
                       <tr>
                         <th className="px-4 py-3">Asset</th>
                         <th className="px-4 py-3">Market</th>
@@ -1216,14 +1216,14 @@ function InvestmentBriefingPageContent({
                         <th className="px-4 py-3 text-right">% NAV</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/8">
+                    <tbody className="divide-y divide-slate-100 dark:divide-white/8">
                       {assets.length ? assets.map((asset) => {
                         const nav = Number(asset.nav || 0);
                         const pct = fundNavContribution > 0 ? (nav / fundNavContribution) * 100 : 0;
                         return (
-                          <tr key={asset.asset_id} className="hover:bg-white/[0.02]">
+                          <tr key={asset.asset_id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02]">
                             <td className="px-4 py-3">
-                              <Link href={`/lab/env/${params.envId}/re/assets/${asset.asset_id}${selectedScenarioId ? `?scenarioId=${selectedScenarioId}` : ""}`} className="font-medium text-bm-text hover:text-white">
+                              <Link href={`/lab/env/${params.envId}/re/assets/${asset.asset_id}${selectedScenarioId ? `?scenarioId=${selectedScenarioId}` : ""}`} className="font-medium text-bm-text hover:text-slate-900 dark:hover:text-white">
                                 {asset.name}
                               </Link>
                               <p className="text-xs text-bm-muted2">{asset.property_type || asset.asset_type}</p>
@@ -1247,11 +1247,11 @@ function InvestmentBriefingPageContent({
                 </div>
 
                 {jvs.length > 0 && (
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.02]">
                     <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">JV Entities</p>
                     <div className="mt-3 grid gap-3 md:grid-cols-2">
                       {jvs.map((jv) => (
-                        <div key={jv.jv_id} className="rounded-xl border border-white/8 bg-white/[0.02] p-3">
+                        <div key={jv.jv_id} className="rounded-xl border border-slate-200 bg-white p-3 dark:border-white/8 dark:bg-white/[0.02]">
                           <p className="font-medium text-bm-text">{jv.legal_name}</p>
                           <p className="mt-1 text-sm text-bm-muted2">Ownership {fmtPct(jv.ownership_percent)}</p>
                         </div>
@@ -1264,7 +1264,7 @@ function InvestmentBriefingPageContent({
 
             {supportingTab === "documents" && (
               <div className="grid gap-4 lg:grid-cols-3">
-                <Link href={reportHref} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 hover:bg-white/[0.05]">
+                <Link href={reportHref} className="rounded-2xl border border-slate-200 bg-white p-4 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.02] dark:hover:bg-white/[0.05]">
                   <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Analytical Report</p>
                   <h3 className="mt-3 text-lg font-semibold text-bm-text">UW vs Actual Detail</h3>
                   <p className="mt-2 text-sm text-bm-muted2">Open the existing investment report detail prefiltered to the active valuation quarter.</p>
@@ -1272,13 +1272,13 @@ function InvestmentBriefingPageContent({
                 <button
                   type="button"
                   onClick={() => setLineageOpen(true)}
-                  className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-left hover:bg-white/[0.05]"
+                  className="rounded-2xl border border-slate-200 bg-white p-4 text-left hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.02] dark:hover:bg-white/[0.05]"
                 >
                   <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Audit Trail</p>
                   <h3 className="mt-3 text-lg font-semibold text-bm-text">Lineage Pack</h3>
                   <p className="mt-2 text-sm text-bm-muted2">Review object-level lineage from rendered widgets back to persisted inputs.</p>
                 </button>
-                <Link href={sustainabilityHref} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 hover:bg-white/[0.05]">
+                <Link href={sustainabilityHref} className="rounded-2xl border border-slate-200 bg-white p-4 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.02] dark:hover:bg-white/[0.05]">
                   <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Linked Module</p>
                   <h3 className="mt-3 text-lg font-semibold text-bm-text">Sustainability Brief</h3>
                   <p className="mt-2 text-sm text-bm-muted2">Carry the current investment and valuation context into the sustainability workspace.</p>
@@ -1287,9 +1287,9 @@ function InvestmentBriefingPageContent({
             )}
 
             {supportingTab === "logs" && (
-              <div className="overflow-hidden rounded-2xl border border-white/10">
+              <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-white/10">
                 <table className="w-full text-sm">
-                  <thead className="bg-white/[0.03] text-left text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
+                  <thead className="bg-slate-50 text-left text-[10px] uppercase tracking-[0.14em] text-bm-muted2 dark:bg-white/[0.03]">
                     <tr>
                       <th className="px-4 py-3">Quarter</th>
                       <th className="px-4 py-3 text-right">NAV</th>
@@ -1299,7 +1299,7 @@ function InvestmentBriefingPageContent({
                       <th className="px-4 py-3 text-right">Fund NAV Contrib.</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/8">
+                  <tbody className="divide-y divide-slate-100 dark:divide-white/8">
                     {returnsLogRows.length ? returnsLogRows.map((row) => (
                       <tr key={row.quarter}>
                         <td className="px-4 py-3 text-bm-text">{formatQuarterLabel(row.quarter)}</td>
@@ -1329,7 +1329,7 @@ function InvestmentBriefingPageContent({
                   title="Investment Attachments"
                 />
               ) : (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-sm text-bm-muted2">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-bm-muted2 dark:border-white/10 dark:bg-white/[0.02]">
                   Business context is required to load attachments.
                 </div>
               )
