@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 
 export type AssistantStage = "plan" | "confirm" | "execute";
@@ -113,7 +112,7 @@ export default function AssistantShell({
 
       <div
         ref={panelRef}
-        className="absolute bottom-0 right-0 h-[93vh] w-full max-w-[1100px] overflow-hidden rounded-t-2xl border border-bm-border/65 bg-bm-bg/95 shadow-bm-card md:bottom-4 md:right-4 md:h-[92vh] md:rounded-2xl"
+        className="absolute bottom-0 right-0 h-[93vh] w-full max-w-[1500px] overflow-hidden rounded-t-2xl border border-bm-border/65 bg-bm-bg/95 shadow-bm-card md:bottom-4 md:right-4 md:h-[92vh] md:rounded-2xl"
       >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_10%,hsl(var(--bm-accent)/0.16),transparent_38%),radial-gradient(circle_at_20%_80%,hsl(var(--bm-accent)/0.08),transparent_32%)]" />
         <div className="relative z-10 flex h-full flex-col">
@@ -132,28 +131,31 @@ export default function AssistantShell({
                 </div>
                 <h2 className="text-base font-semibold">Winston</h2>
                 {showRightPane && <Badge variant={statusVariant(stage)}>{stageCopy(stage)}</Badge>}
-                <span className="text-xs text-bm-muted truncate max-w-[300px]">{workspace.env}</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <Button
+              <div className="flex items-center gap-1">
+                <button
                   type="button"
-                  size="sm"
-                  variant="ghost"
                   onClick={onToggleAdvanced}
                   aria-expanded={advancedOpen}
                   aria-controls="winston-advanced-drawer"
+                  className="rounded-md p-1.5 text-bm-muted hover:text-bm-text hover:bg-bm-surface/60 transition-colors"
+                  title={advancedOpen ? "Hide debug panel" : "Debug / diagnostics"}
                 >
-                  {advancedOpen ? "Hide Advanced" : "Advanced / Debug"}
-                </Button>
-                <Button
+                  <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 1a1 1 0 0 1 1 1v1.07A5.5 5.5 0 0 1 13 8.5V10l1 2H2l1-2V8.5A5.5 5.5 0 0 1 7 3.07V2a1 1 0 0 1 1-1zM5.5 13a2.5 2.5 0 0 0 5 0" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+                <button
                   type="button"
-                  size="sm"
-                  variant="ghost"
                   data-testid="global-commandbar-close"
                   onClick={onClose}
+                  className="rounded-md p-1.5 text-bm-muted hover:text-bm-text hover:bg-bm-surface/60 transition-colors"
+                  title="Close (Esc)"
                 >
-                  Close
-                </Button>
+                  <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none">
+                    <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                </button>
               </div>
             </div>
           </header>

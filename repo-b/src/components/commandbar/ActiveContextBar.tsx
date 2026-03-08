@@ -19,24 +19,24 @@ type ActiveContextBarProps = {
   quarter?: string;
 };
 
-function ContextChip({ label, value }: { label: string; value: string }) {
+function ContextChip({ label, value, accent }: { label?: string; value: string; accent?: boolean }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded bg-bm-surface/50 border border-bm-border/30 px-2 py-0.5">
-      <span className="text-[9px] text-bm-muted2 uppercase tracking-wider">{label}</span>
-      <span className="text-[11px] text-bm-text font-medium truncate max-w-[160px]">{value}</span>
+    <span className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 ${accent ? "bg-bm-accent/10 border border-bm-accent/20" : "bg-bm-surface/50 border border-bm-border/30"}`}>
+      {label && <span className="text-[9px] text-bm-muted2 uppercase tracking-wider">{label}</span>}
+      <span className="text-[11px] text-bm-text font-medium truncate max-w-[200px]">{value}</span>
     </span>
   );
 }
 
 export default function ActiveContextBar({ workspace, resolvedScope, quarter }: ActiveContextBarProps) {
-  const chips: { label: string; value: string }[] = [];
+  const chips: { label?: string; value: string; accent?: boolean }[] = [];
 
-  // Environment
+  // Environment name — no label, just the name
   if (workspace.env && workspace.env !== "none") {
-    chips.push({ label: "Env", value: workspace.env });
+    chips.push({ value: workspace.env, accent: true });
   }
 
-  // Entity (fund, asset, investment)
+  // Entity (fund, asset, investment) — use resolved name when available
   if (resolvedScope?.entity_name) {
     const typeLabel = resolvedScope.entity_type || "Entity";
     chips.push({ label: typeLabel, value: resolvedScope.entity_name });
@@ -55,11 +55,10 @@ export default function ActiveContextBar({ workspace, resolvedScope, quarter }: 
 
   return (
     <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-bm-border/30 bg-bm-surface/10">
-      <span className="text-[9px] text-bm-muted2 uppercase tracking-wider mr-1">Context</span>
       {chips.map((chip, i) => (
         <span key={i} className="flex items-center gap-1">
           {i > 0 && <span className="text-bm-muted2 text-[10px]">&rsaquo;</span>}
-          <ContextChip label={chip.label} value={chip.value} />
+          <ContextChip label={chip.label} value={chip.value} accent={chip.accent} />
         </span>
       ))}
     </div>

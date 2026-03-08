@@ -251,12 +251,22 @@ function MessageBubble({
   );
 }
 
+const STARTER_QUERIES = [
+  "What assets have refinance risk in the next 24 months?",
+  "Run a waterfall assuming a 10% IRR hurdle",
+  "Compare portfolio performance under a +100bps rate scenario",
+  "Show LP distributions by vintage year",
+  "Stress all assets with 75bps cap rate expansion",
+  "Summarize fund performance — IRR, TVPI, DPI",
+];
+
 export default function ConversationPane({
   messages,
   thinking,
   thinkingStatus,
   thinkingProgress,
   onAction,
+  onExampleClick,
 }: {
   contextKey?: string;
   messages: CommandMessage[];
@@ -266,6 +276,7 @@ export default function ConversationPane({
   thinkingStatus?: string;
   thinkingProgress?: number;
   onAction?: (action: StructuredResultAction) => void;
+  onExampleClick?: (example: string) => void;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -274,7 +285,6 @@ export default function ConversationPane({
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
-    // If user is within 80px of the bottom, consider them "at bottom"
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
     userScrolledUp.current = !atBottom;
   }, []);
@@ -287,20 +297,34 @@ export default function ConversationPane({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div ref={scrollContainerRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto px-4 py-3" style={{ scrollbarWidth: "thin", scrollbarColor: "hsl(var(--bm-border)/0.5) transparent" }}>
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto px-5 py-4" style={{ scrollbarWidth: "thin", scrollbarColor: "hsl(var(--bm-border)/0.5) transparent" }}>
         {messages.length === 0 && !thinking ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-bm-border/40 bg-bm-surface/40">
-              <svg className="h-5 w-5 text-bm-accent" viewBox="0 0 16 16" fill="none">
-                <path
-                  d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.414 1.414M11.536 11.536l1.414 1.414M3.05 12.95l1.414-1.414M11.536 4.464l1.414-1.414"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
-              </svg>
+          <div className="flex h-full flex-col items-center justify-center gap-6">
+            <div className="text-center space-y-2">
+              <div className="flex h-10 w-10 mx-auto items-center justify-center rounded-lg border border-bm-border/30 bg-bm-surface/30">
+                <svg className="h-5 w-5 text-bm-accent" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.414 1.414M11.536 11.536l1.414 1.414M3.05 12.95l1.414-1.414M11.536 4.464l1.414-1.414"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
+              <p className="text-[13px] text-bm-muted font-medium">Run an analysis or ask a question</p>
             </div>
-            <p className="text-sm text-bm-muted">Ask Winston anything about your portfolio.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
+              {STARTER_QUERIES.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  onClick={() => onExampleClick?.(q)}
+                  className="text-left rounded-lg border border-bm-border/30 bg-bm-surface/20 px-3 py-2.5 text-[12px] text-bm-muted leading-snug transition-colors hover:border-bm-accent/30 hover:bg-bm-accent/5 hover:text-bm-text"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="space-y-3">

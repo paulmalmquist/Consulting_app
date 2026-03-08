@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import AssistantShell, { type AssistantStage } from "@/components/commandbar/AssistantShell";
 import AdvancedDrawer from "@/components/commandbar/AdvancedDrawer";
@@ -9,8 +9,6 @@ import ConfirmPanel from "@/components/commandbar/ConfirmPanel";
 import ConversationPane from "@/components/commandbar/ConversationPane";
 import ExecutePanel from "@/components/commandbar/ExecutePanel";
 import PlanPanel from "@/components/commandbar/PlanPanel";
-import QuickActions, { type QuickAction } from "@/components/commandbar/QuickActions";
-import { Textarea } from "@/components/ui/Textarea";
 import { useToast } from "@/components/ui/Toast";
 import {
   type AskAiDebug,
@@ -117,86 +115,18 @@ function toFriendlyError(error: unknown): string {
   return "Unknown assistant error";
 }
 
-function deriveQuickActions(pathname: string, context: ContextSnapshot | null): QuickAction[] {
-  // Context-aware prompts for asset/fund pages — REPE workflow starters
-  const isAssetPage = /\/re\/assets\/[^/]+/.test(pathname);
-  const isFundPage = /\/re\/funds\/[^/]+/.test(pathname) && !pathname.includes("/new");
-  const isInvestmentPage = /\/re\/investments\/[^/]+/.test(pathname);
-
-  if (isAssetPage || isInvestmentPage) {
-    return [
-      { id: "sale-scenario", label: "Run Sale Scenario", prompt: "Model a sale of this asset at current market cap rate and show the fund impact.", description: "Hypothetical sale analysis with IRR/TVPI impact" },
-      { id: "stress-cap", label: "Stress Exit Cap +50bps", prompt: "What happens if exit cap rate expands by 50 basis points?", description: "Cap rate sensitivity analysis" },
-      { id: "investment-irr", label: "Show Investment IRR", prompt: "Show gross and net IRR for this investment.", description: "Investment return metrics" },
-      { id: "run-waterfall", label: "Run Waterfall", prompt: "Run waterfall distribution including this asset's contribution.", description: "LP/GP distribution calculation" },
-      { id: "compare-base", label: "Compare to Base", prompt: "Compare current scenario to base case.", description: "Scenario comparison with deltas" },
-    ];
-  }
-
-  if (isFundPage) {
-    return [
-      { id: "fund-waterfall", label: "Run Waterfall", prompt: "Run the waterfall distribution for this fund.", description: "LP/GP distribution with carry calculation" },
-      { id: "fund-metrics", label: "Fund Performance", prompt: "Show IRR, TVPI, DPI, and RVPI for this fund.", description: "Fund-level performance metrics" },
-      { id: "portfolio-stress", label: "Portfolio Stress", prompt: "Stress all assets with 75bps cap rate expansion and show fund NAV impact.", description: "Portfolio-wide cap rate stress test" },
-      { id: "lp-summary", label: "LP Summary", prompt: "Show capital accounts and partner returns.", description: "LP capital accounts and waterfall allocations" },
-      { id: "scenario-compare", label: "Compare Scenarios", prompt: "Compare base case to most recent stress scenario.", description: "Side-by-side scenario comparison" },
-    ];
-  }
-
-  const defaults: QuickAction[] = [
-    {
-      id: "list-environments",
-      label: "List Environments",
-      prompt: "List environments and highlight any needing attention.",
-      description: "Read-only environment overview",
-    },
-    {
-      id: "run-health",
-      label: "Workspace Health",
-      prompt: "Run a workspace health check and summarize issues.",
-      description: "Health check with no mutations",
-    },
-    {
-      id: "recent-docs",
-      label: "Recent Documents",
-      prompt: "List recent documents for the current workspace.",
-      description: "Read-only document discovery",
-    },
-  ];
-
-  if (pathname.startsWith("/tasks")) {
-    defaults.unshift({
-      id: "tasks-summary",
-      label: "Task Summary",
-      prompt: "Summarize high-priority tasks for this workspace.",
-      description: "Read-only task report",
-    });
-  }
-
-  if (context?.selectedEnv?.env_id) {
-    defaults.unshift({
-      id: "env-context",
-      label: "Current Env Snapshot",
-      prompt: `Summarize environment ${context.selectedEnv.env_id} with active modules and recent run context.`,
-      description: "Read-only summary tied to current environment",
-    });
-  }
-
-  return defaults.slice(0, 5);
-}
-
 function derivePlaceholder(pathname: string): string {
   const isAssetPage = /\/re\/assets\/[^/]+/.test(pathname);
   const isFundPage = /\/re\/funds\/[^/]+/.test(pathname) && !pathname.includes("/new");
   const isInvestmentPage = /\/re\/investments\/[^/]+/.test(pathname);
 
   if (isAssetPage || isInvestmentPage) {
-    return "Ask about this asset, run a scenario, or explain returns...";
+    return "Analyze this asset, run scenario, model returns...";
   }
   if (isFundPage) {
-    return "Ask about this fund, run waterfall, or model scenarios...";
+    return "Run waterfall, stress test, model scenarios...";
   }
-  return "Ask Winston anything...";
+  return "Ask Winston or run a command...";
 }
 
 const EMPTY_EXAMPLES = [
@@ -241,6 +171,14 @@ export default function GlobalCommandBar() {
   const [recentRuns, setRecentRuns] = useState<ContextSnapshot["recentRuns"]>([]);
   const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, []);
 
   const [raw, setRaw] = useState<{
     contextSnapshot?: unknown;
@@ -254,7 +192,6 @@ export default function GlobalCommandBar() {
 
   const context = useMemo(() => readContextFromBrowser(pathname), [pathname]);
   const workspace = useMemo(() => workspaceFromContext(contextSnapshot, context), [contextSnapshot, context]);
-  const quickActions = useMemo(() => deriveQuickActions(pathname, contextSnapshot), [pathname, contextSnapshot]);
   const authenticated = authState === "authenticated";
 
   const appendTrace = (trace: AssistantApiTrace) => {
@@ -737,22 +674,27 @@ export default function GlobalCommandBar() {
         showRightPane={Boolean(hasMutations) || advancedOpen}
         leftPane={
           <div className="flex h-full min-h-0">
-            {/* Conversations sidebar */}
-            <div className="flex w-44 flex-shrink-0 flex-col border-r border-bm-border/40 bg-bm-surface/10">
-              <div className="flex items-center justify-between px-2.5 py-2 border-b border-bm-border/30">
-                <span className="text-[10px] font-medium uppercase tracking-wide text-bm-muted2">History</span>
+            {/* Analytical sessions sidebar */}
+            <div className="flex w-60 flex-shrink-0 flex-col border-r border-bm-border/40 bg-bm-bg/40">
+              <div className="flex items-center justify-between px-3 py-2.5 border-b border-bm-border/30">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-bm-muted2">Sessions</span>
                 <button
                   type="button"
                   onClick={startNewConversation}
-                  className="rounded px-1.5 py-0.5 text-[10px] text-bm-accent hover:bg-bm-accent/10 transition-colors"
-                  title="New conversation"
+                  className="rounded-md p-1 text-bm-muted hover:text-bm-accent hover:bg-bm-accent/10 transition-colors"
+                  title="New session"
                 >
-                  + New
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
                 </button>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto py-1" style={{ scrollbarWidth: "thin", scrollbarColor: "hsl(var(--bm-border)/0.5) transparent" }}>
                 {conversations.length === 0 ? (
-                  <p className="px-2.5 py-3 text-[11px] text-bm-muted2 text-center leading-relaxed">No past conversations</p>
+                  <div className="px-3 py-6 text-center">
+                    <p className="text-[11px] text-bm-muted2 leading-relaxed">No previous sessions</p>
+                    <p className="text-[10px] text-bm-muted2/60 mt-1">Analyses will appear here</p>
+                  </div>
                 ) : (
                   conversations.map((c) => (
                     <button
@@ -777,33 +719,28 @@ export default function GlobalCommandBar() {
                           // Fall through
                         }
                       }}
-                      className={`w-full text-left px-2.5 py-2 text-[11px] leading-snug hover:bg-bm-surface/60 transition-colors border-l-2 ${
+                      className={`w-full text-left px-3 py-2.5 transition-colors border-l-2 ${
                         c.conversation_id === conversationId
-                          ? "border-bm-accent text-bm-text bg-bm-accent/5"
-                          : "border-transparent text-bm-muted"
+                          ? "border-bm-accent text-bm-text bg-bm-accent/8"
+                          : "border-transparent text-bm-muted hover:bg-bm-surface/40 hover:text-bm-text"
                       }`}
                     >
-                      <div className="truncate">{c.title || "Untitled"}</div>
-                      <div className="text-[10px] text-bm-muted2">{c.message_count} msg{c.message_count !== 1 ? "s" : ""}</div>
+                      <div className="truncate text-[12px] font-medium leading-tight">{c.title || "Untitled Session"}</div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-[10px] text-bm-muted2">{c.message_count} turn{c.message_count !== 1 ? "s" : ""}</span>
+                      </div>
                     </button>
                   ))
                 )}
               </div>
             </div>
 
-            {/* Main chat column */}
+            {/* AI Workspace */}
             <div className="flex min-w-0 flex-1 flex-col">
               <ActiveContextBar
                 workspace={workspace}
                 resolvedScope={assistantDebug?.resolvedScope as { resolved_scope_type?: string; entity_type?: string; entity_name?: string; environment_id?: string } | null}
               />
-              <div className="border-b border-bm-border/60 p-2.5">
-                <QuickActions
-                  actions={quickActions}
-                  disabled={false}
-                  onSelect={(action) => void onSend(action.prompt)}
-                />
-              </div>
 
               <div className="min-h-0 flex-1 overflow-hidden">
                 <ConversationPane
@@ -817,10 +754,11 @@ export default function GlobalCommandBar() {
                     const prompt = `${action.label} for fund ${(action.params as Record<string, string>)?.fund_id || "this fund"}`;
                     void onSend(prompt);
                   }}
+                  onExampleClick={(example: string) => void onSend(example)}
                 />
               </div>
 
-              <div className="border-t border-bm-border/40 p-3">
+              <div className="border-t border-bm-border/40 px-4 py-3">
                 {/* File attachment preview */}
                 {attachedFile && (
                   <div className="mb-2 flex items-center gap-1.5 rounded-md border border-bm-border/40 bg-bm-surface/40 px-2 py-1">
@@ -843,14 +781,18 @@ export default function GlobalCommandBar() {
                 )}
 
                 <div className="flex items-end gap-2 rounded-lg border border-bm-border/50 bg-bm-bg/60 px-3 py-2 transition-colors focus-within:border-bm-accent/40 focus-within:shadow-[0_0_0_1px_hsl(var(--bm-accent)/0.15)]">
-                  <Textarea
+                  <textarea
+                    ref={textareaRef}
                     data-testid="global-commandbar-input"
                     value={prompt}
-                    onChange={(event) => setPrompt(event.target.value)}
+                    onChange={(event) => {
+                      setPrompt(event.target.value);
+                      autoResize();
+                    }}
                     rows={1}
                     placeholder={derivePlaceholder(pathname)}
                     aria-label="Command input"
-                    className="!border-0 !bg-transparent !shadow-none !ring-0 resize-none text-sm !p-0 !min-h-[24px] placeholder:text-bm-muted2"
+                    className="flex-1 border-0 bg-transparent shadow-none ring-0 outline-none resize-none text-sm p-0 min-h-[24px] max-h-[120px] placeholder:text-bm-muted2 text-bm-text leading-relaxed"
                     onKeyDown={(event) => {
                       if (event.key === "Enter" && !event.shiftKey) {
                         event.preventDefault();
@@ -858,7 +800,7 @@ export default function GlobalCommandBar() {
                       }
                     }}
                   />
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <div className="flex items-center gap-1 flex-shrink-0 pb-0.5">
                     {/* File attach button */}
                     <input
                       ref={fileInputRef}
@@ -881,7 +823,7 @@ export default function GlobalCommandBar() {
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       className="rounded p-1 text-bm-muted2 transition-colors hover:text-bm-text"
-                      title="Attach file (.txt, .csv, .json, .md, .pdf)"
+                      title="Attach file"
                     >
                       <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none">
                         <path d="M13.5 8.5l-6 6a4 4 0 0 1-5.657-5.657l6.5-6.5a2.5 2.5 0 0 1 3.536 3.536l-6.5 6.5a1 1 0 0 1-1.414-1.414L10 5.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
@@ -892,7 +834,7 @@ export default function GlobalCommandBar() {
                         type="button"
                         onClick={clearHistory}
                         className="rounded p-1 text-bm-muted2 transition-colors hover:text-bm-text"
-                        title="Clear conversation"
+                        title="Clear session"
                       >
                         <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none">
                           <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
