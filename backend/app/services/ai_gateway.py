@@ -643,7 +643,26 @@ async def run_gateway_stream(
         except Exception:
             pass
 
-    messages.append({"role": "user", "content": message})
+    # ── Workflow context injection ──────────────────────────────────────
+    # When a pending workflow is active (slot-fill or confirmation), extract
+    # known params from the prior annotation and inject them into the user
+    # message so the LLM cannot lose them. This is more reliable than hoping
+    # the LLM picks up params from conversation history.
+    effective_message = message
+    if _pending_workflow and _pending_workflow.get("content"):
+        wf_content = _pending_workflow["content"]
+        # Extract "Known parameters: ..." from the annotation
+        import re as _re
+        kp_match = _re.search(r"Known parameters:\s*(.+?)(?:\.\s*(?:If|The|NEVER))", wf_content)
+        if kp_match:
+            known_params = kp_match.group(1).strip().rstrip(".")
+            effective_message = (
+                f"[CONTEXT: Active slot-fill workflow. Previously collected parameters: {known_params}. "
+                f"MERGE the user's new values below with ALL previously collected parameters when calling the tool.]\n\n"
+                f"{message}"
+            )
+
+    messages.append({"role": "user", "content": effective_message})
 
     # ── A9: Context window overflow guard ─────────────────────────────
     # Estimate total tokens and trim history if approaching context limit.
