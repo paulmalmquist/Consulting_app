@@ -1,5 +1,35 @@
 export type CommandContextKey = `env:${string}` | `biz:${string}` | "global";
 
+export type StructuredResultAction = {
+  label: string;
+  action: string;
+  params?: Record<string, unknown>;
+};
+
+export type StructuredResultMetric = {
+  label: string;
+  value: string | null;
+  delta?: { value: string; direction: "positive" | "negative" } | null;
+};
+
+export type StructuredResultCard = {
+  title: string;
+  subtitle?: string;
+  metrics?: StructuredResultMetric[];
+  parameters?: Record<string, string | null>;
+  actions?: StructuredResultAction[];
+  // Specialized sections
+  tiers?: Array<Record<string, string>>;
+  partners?: Array<Record<string, string | null>>;
+  assets?: Array<Record<string, string | null>>;
+  scenarios?: Array<Record<string, string | null>>;
+};
+
+export type StructuredResult = {
+  result_type: string;
+  card: StructuredResultCard;
+};
+
 export type CommandMessage = {
   id: string;
   role: "user" | "assistant" | "system";
@@ -8,6 +38,7 @@ export type CommandMessage = {
   kind?: "text" | "plan" | "run" | "verification";
   planId?: string | null;
   runId?: string | null;
+  structuredResult?: StructuredResult | null;
 };
 
 export function resolveCommandContext(): CommandContextKey {

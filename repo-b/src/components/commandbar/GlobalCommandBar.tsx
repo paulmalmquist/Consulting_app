@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import AssistantShell, { type AssistantStage } from "@/components/commandbar/AssistantShell";
 import AdvancedDrawer from "@/components/commandbar/AdvancedDrawer";
+import ActiveContextBar from "@/components/commandbar/ActiveContextBar";
 import ConfirmPanel from "@/components/commandbar/ConfirmPanel";
 import ConversationPane from "@/components/commandbar/ConversationPane";
 import ExecutePanel from "@/components/commandbar/ExecutePanel";
@@ -34,6 +35,8 @@ import { buildAssistantContextEnvelope } from "@/lib/commandbar/contextEnvelope"
 import {
   type CommandContextKey,
   type CommandMessage,
+  type StructuredResult,
+  type StructuredResultAction,
   loadHistory,
   makeMessage,
   persistHistory,
@@ -115,28 +118,28 @@ function toFriendlyError(error: unknown): string {
 }
 
 function deriveQuickActions(pathname: string, context: ContextSnapshot | null): QuickAction[] {
-  // Context-aware prompts for asset/fund pages
+  // Context-aware prompts for asset/fund pages — REPE workflow starters
   const isAssetPage = /\/re\/assets\/[^/]+/.test(pathname);
   const isFundPage = /\/re\/funds\/[^/]+/.test(pathname) && !pathname.includes("/new");
   const isInvestmentPage = /\/re\/investments\/[^/]+/.test(pathname);
 
-  if (isAssetPage) {
+  if (isAssetPage || isInvestmentPage) {
     return [
-      { id: "asset-risk", label: "Summarize key risks", prompt: "Summarize this asset's key risks based on current KPIs, debt metrics, and market position.", description: "Asset risk analysis" },
-      { id: "asset-uw-compare", label: "Compare to underwriting", prompt: "Compare this asset's actual performance to the original underwriting assumptions.", description: "UW vs Actual comparison" },
-      { id: "asset-lp-update", label: "Draft LP update", prompt: "Draft an LP update paragraph for this asset for the current quarter.", description: "LP reporting helper" },
-      { id: "asset-covenant", label: "Identify covenant risk", prompt: "Identify any covenant risk for this investment based on current DSCR, LTV, and debt yield metrics.", description: "Covenant risk check" },
-      { id: "asset-cap-rate", label: "Cap rate impact on NAV", prompt: "What would a 50bps cap rate expansion do to this asset's NAV?", description: "Sensitivity scenario" },
+      { id: "sale-scenario", label: "Run Sale Scenario", prompt: "Model a sale of this asset at current market cap rate and show the fund impact.", description: "Hypothetical sale analysis with IRR/TVPI impact" },
+      { id: "stress-cap", label: "Stress Exit Cap +50bps", prompt: "What happens if exit cap rate expands by 50 basis points?", description: "Cap rate sensitivity analysis" },
+      { id: "investment-irr", label: "Show Investment IRR", prompt: "Show gross and net IRR for this investment.", description: "Investment return metrics" },
+      { id: "run-waterfall", label: "Run Waterfall", prompt: "Run waterfall distribution including this asset's contribution.", description: "LP/GP distribution calculation" },
+      { id: "compare-base", label: "Compare to Base", prompt: "Compare current scenario to base case.", description: "Scenario comparison with deltas" },
     ];
   }
 
   if (isFundPage) {
     return [
-      { id: "fund-summary", label: "Fund performance summary", prompt: "Summarize this fund's current performance, NAV, IRR, and DPI metrics.", description: "Fund KPI overview" },
-      { id: "fund-lp-update", label: "Draft LP update", prompt: "Draft an LP update for this quarter covering fund-level performance and key portfolio changes.", description: "LP update draft" },
-      { id: "fund-risk", label: "Portfolio risk assessment", prompt: "Assess portfolio-level risks across all investments in this fund.", description: "Portfolio risk review" },
-      { id: "fund-covenant", label: "Covenant status", prompt: "Review debt covenant compliance across all investments in this fund.", description: "Covenant compliance" },
-      { id: "fund-scenario", label: "Downside scenario impact", prompt: "Model a 75bps cap rate expansion across all assets and show the impact on fund NAV.", description: "Stress scenario" },
+      { id: "fund-waterfall", label: "Run Waterfall", prompt: "Run the waterfall distribution for this fund.", description: "LP/GP distribution with carry calculation" },
+      { id: "fund-metrics", label: "Fund Performance", prompt: "Show IRR, TVPI, DPI, and RVPI for this fund.", description: "Fund-level performance metrics" },
+      { id: "portfolio-stress", label: "Portfolio Stress", prompt: "Stress all assets with 75bps cap rate expansion and show fund NAV impact.", description: "Portfolio-wide cap rate stress test" },
+      { id: "lp-summary", label: "LP Summary", prompt: "Show capital accounts and partner returns.", description: "LP capital accounts and waterfall allocations" },
+      { id: "scenario-compare", label: "Compare Scenarios", prompt: "Compare base case to most recent stress scenario.", description: "Side-by-side scenario comparison" },
     ];
   }
 
@@ -180,6 +183,20 @@ function deriveQuickActions(pathname: string, context: ContextSnapshot | null): 
   }
 
   return defaults.slice(0, 5);
+}
+
+function derivePlaceholder(pathname: string): string {
+  const isAssetPage = /\/re\/assets\/[^/]+/.test(pathname);
+  const isFundPage = /\/re\/funds\/[^/]+/.test(pathname) && !pathname.includes("/new");
+  const isInvestmentPage = /\/re\/investments\/[^/]+/.test(pathname);
+
+  if (isAssetPage || isInvestmentPage) {
+    return "Ask about this asset, run a scenario, or explain returns...";
+  }
+  if (isFundPage) {
+    return "Ask about this fund, run waterfall, or model scenarios...";
+  }
+  return "Ask Winston anything...";
 }
 
 const EMPTY_EXAMPLES = [
@@ -531,7 +548,16 @@ export default function GlobalCommandBar() {
       appendTrace(result.trace);
       setRaw((prev) => ({ ...prev, assistant: result.debug }));
       setAssistantDebug(result.debug);
-      appendMessage("assistant", result.answer);
+
+      // Check for structured results from REPE fast-path
+      const structuredResults = (result.debug as Record<string, unknown>).structuredResults as StructuredResult[] | undefined;
+      if (structuredResults && structuredResults.length > 0) {
+        const msg = makeMessage("assistant", result.answer);
+        msg.structuredResult = structuredResults[0];
+        setMessages((prev) => [...prev, msg]);
+      } else {
+        appendMessage("assistant", result.answer);
+      }
     } catch (error) {
       const friendly = toFriendlyError(error);
       appendMessage("system", friendly);
@@ -691,6 +717,10 @@ export default function GlobalCommandBar() {
         showRightPane={Boolean(hasMutations) || advancedOpen}
         leftPane={
           <div className="flex h-full min-h-0 flex-col">
+            <ActiveContextBar
+              workspace={workspace}
+              resolvedScope={assistantDebug?.resolvedScope as { resolved_scope_type?: string; entity_type?: string; entity_name?: string; environment_id?: string } | null}
+            />
             <div className="border-b border-bm-border/60 p-2.5">
               <QuickActions
                 actions={quickActions}
@@ -764,6 +794,11 @@ export default function GlobalCommandBar() {
                 recentRuns={recentRuns}
                 thinking={planning}
                 thinkingStatus={thinkingStatus}
+                onAction={(action: StructuredResultAction) => {
+                  // Convert structured result action into a prompt
+                  const prompt = `${action.label} for fund ${(action.params as Record<string, string>)?.fund_id || "this fund"}`;
+                  void onSend(prompt);
+                }}
               />
             </div>
 
@@ -774,7 +809,7 @@ export default function GlobalCommandBar() {
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value)}
                   rows={1}
-                  placeholder="Ask Winston anything..."
+                  placeholder={derivePlaceholder(pathname)}
                   aria-label="Command input"
                   className="!border-0 !bg-transparent !shadow-none !ring-0 resize-none text-sm !p-0 !min-h-[24px] placeholder:text-bm-muted2"
                   onKeyDown={(event) => {

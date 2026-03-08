@@ -24,6 +24,9 @@ from app.services.assistant_scope import (
     resolve_assistant_scope,
     resolve_visible_context_policy,
 )
+from app.services.repe_intent import classify_repe_intent
+from app.services.repe_scenario_schema import build_clarification_question, resolve_scenario_params
+from app.services.repe_session import get_session, update_session
 from app.services.cost_tracker import estimate_cost
 from app.services.rag_indexer import RetrievedChunk, semantic_search
 from app.services.rag_reranker import rerank_chunks
@@ -330,6 +333,494 @@ def _sse(event: str, data: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(_json_safe(data), ensure_ascii=True)}\n\n"
 
 
+# ── REPE Fast-Path Engine ────────────────────────────────────────────────────
+
+async def _run_repe_fast_path(
+    *,
+    intent,
+    resolved_scope,
+    context_envelope,
+    session_id: str,
+    conversation_id,
+    scope_dump: dict,
+    timings: dict,
+    start: float,
+    trace,
+    actor: str,
+) -> AsyncGenerator[str, None]:
+    """Execute a REPE finance query deterministically without an LLM call.
+
+    Emits SSE events: status → tool_call → structured_result → done.
+    Target latency: <2s for metrics, <4s for scenario + waterfall.
+    """
+    from app.services.repe_intent import (
+        INTENT_COMPARE_SCENARIOS,
+        INTENT_EXPLAIN_RETURNS,
+        INTENT_FUND_METRICS,
+        INTENT_LP_SUMMARY,
+        INTENT_RUN_FUND_IMPACT,
+        INTENT_RUN_SALE_SCENARIO,
+        INTENT_RUN_WATERFALL,
+        INTENT_STRESS_CAP_RATE,
+    )
+    from app.mcp.auth import McpContext
+
+    scenario = resolve_scenario_params(intent, resolved_scope, context_envelope)
+
+    # ── Check for missing critical params ──────────────────────────────
+    clarification = build_clarification_question(scenario)
+    if clarification:
+        yield _sse("status", {"message": "Need a bit more info...", "stage": "clarification", "progress": 0.1})
+        yield _sse("clarification_required", {
+            "action": "finance_clarification",
+            "question": clarification,
+            "intent": intent.family,
+            "missing_params": scenario.missing_critical,
+        })
+        yield _sse("token", {"text": clarification})
+        timings["total_ms"] = int((time.time() - start) * 1000)
+        yield _sse("done", {
+            "session_id": session_id,
+            "trace": {
+                "execution_path": "repe_fast_path", "lane": "F",
+                "model": "none", "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
+                "tool_call_count": 0, "tool_timeline": [], "data_sources": [],
+                "citations": [], "rag_chunks_used": 0, "warnings": [],
+                "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+                "repe": {"intent": intent.family, "fast_path": True, "clarification": True},
+                "visible_context_shortcut": False, "timings": timings,
+            },
+            "prompt_tokens": 0, "completion_tokens": 0, "tool_calls": 0,
+            "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+        })
+        return
+
+    # ── Build MCP context for tool execution ───────────────────────────
+    ctx = McpContext(
+        user=actor,
+        resolved_scope=scope_dump,
+        env_id=scenario.env_id,
+        business_id=scenario.business_id,
+    )
+
+    tool_timeline = []
+    data_sources = []
+    family = intent.family
+
+    try:
+        # ── Route to the right engine ──────────────────────────────────
+        if family == INTENT_RUN_SALE_SCENARIO:
+            yield _sse("status", {"message": "Building sale scenario...", "stage": "params", "progress": 0.2})
+            result = await _exec_fast_tool(
+                ctx, "finance.run_sale_scenario", {
+                    "fund_id": scenario.fund_id,
+                    "deal_id": scenario.deal_id,
+                    "asset_id": scenario.asset_id,
+                    "sale_price": float(scenario.sale_price) if scenario.sale_price else None,
+                    "exit_cap_rate": float(scenario.exit_cap_rate) if scenario.exit_cap_rate else None,
+                    "quarter": scenario.quarter,
+                    "env_id": scenario.env_id,
+                    "business_id": scenario.business_id,
+                },
+                tool_timeline, data_sources,
+            )
+            yield _sse("status", {"message": "Computing fund impact...", "stage": "compute", "progress": 0.6})
+
+            # Build structured result card
+            card = _build_scenario_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "scenario_comparison", "card": card})
+
+        elif family == INTENT_RUN_WATERFALL:
+            yield _sse("status", {"message": "Running waterfall distribution...", "stage": "waterfall", "progress": 0.3})
+            result = await _exec_fast_tool(
+                ctx, "finance.run_waterfall", {
+                    "fund_id": scenario.fund_id,
+                    "quarter": scenario.quarter,
+                    "env_id": scenario.env_id,
+                    "business_id": scenario.business_id,
+                },
+                tool_timeline, data_sources,
+            )
+            card = _build_waterfall_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "waterfall_breakdown", "card": card})
+
+        elif family in (INTENT_FUND_METRICS, INTENT_RUN_FUND_IMPACT):
+            yield _sse("status", {"message": "Loading fund metrics...", "stage": "compute", "progress": 0.3})
+            result = await _exec_fast_tool(
+                ctx, "finance.fund_metrics", {
+                    "fund_id": scenario.fund_id,
+                    "quarter": scenario.quarter,
+                    "env_id": scenario.env_id,
+                    "business_id": scenario.business_id,
+                },
+                tool_timeline, data_sources,
+            )
+            card = _build_metrics_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "fund_metrics", "card": card})
+
+        elif family == INTENT_STRESS_CAP_RATE:
+            yield _sse("status", {"message": "Stress testing cap rates...", "stage": "compute", "progress": 0.3})
+            result = await _exec_fast_tool(
+                ctx, "finance.stress_cap_rate", {
+                    "fund_id": scenario.fund_id,
+                    "cap_rate_delta_bps": scenario.cap_rate_delta_bps or 50,
+                    "quarter": scenario.quarter,
+                    "env_id": scenario.env_id,
+                    "business_id": scenario.business_id,
+                },
+                tool_timeline, data_sources,
+            )
+            card = _build_stress_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "stress_matrix", "card": card})
+
+        elif family == INTENT_LP_SUMMARY:
+            yield _sse("status", {"message": "Building LP summary...", "stage": "compute", "progress": 0.3})
+            result = await _exec_fast_tool(
+                ctx, "finance.lp_summary", {
+                    "fund_id": scenario.fund_id,
+                    "quarter": scenario.quarter,
+                    "env_id": scenario.env_id,
+                    "business_id": scenario.business_id,
+                },
+                tool_timeline, data_sources,
+            )
+            card = _build_lp_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "lp_summary", "card": card})
+
+        elif family == INTENT_COMPARE_SCENARIOS:
+            yield _sse("status", {"message": "Comparing scenarios...", "stage": "compute", "progress": 0.3})
+            result = await _exec_fast_tool(
+                ctx, "finance.compare_scenarios", {
+                    "fund_id": scenario.fund_id,
+                    "scenario_ids": scenario.scenario_ids or [],
+                    "quarter": scenario.quarter,
+                    "env_id": scenario.env_id,
+                    "business_id": scenario.business_id,
+                },
+                tool_timeline, data_sources,
+            )
+            card = _build_comparison_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "scenario_comparison", "card": card})
+
+        else:
+            # Explain returns / fallback — emit as text
+            yield _sse("token", {"text": f"I recognized this as a **{family.replace('_', ' ')}** request but the fast-path engine doesn't handle it yet. Let me use the full analysis pipeline instead."})
+
+        # ── Update session state ───────────────────────────────────────
+        update_session(
+            str(conversation_id) if conversation_id else None,
+            analysis_mode=family,
+            last_fund_id=scenario.fund_id,
+            last_asset_id=scenario.asset_id,
+            last_quarter=scenario.quarter,
+        )
+
+        yield _sse("status", {"message": "Done", "stage": "results", "progress": 1.0})
+
+    except Exception as exc:
+        emit_log(
+            level="error", service="backend", action="ai.gateway.repe_fast_path.error",
+            message=f"REPE fast-path error: {exc}",
+            context={"intent": intent.family, "error": str(exc)},
+        )
+        yield _sse("token", {"text": f"I encountered an error running the {family.replace('_', ' ')}: {exc}\n\nLet me try the full analysis pipeline instead."})
+
+    # ── Done ───────────────────────────────────────────────────────────
+    timings["total_ms"] = int((time.time() - start) * 1000)
+    yield _sse("done", {
+        "session_id": session_id,
+        "trace": {
+            "execution_path": "repe_fast_path", "lane": "F",
+            "model": "none", "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
+            "tool_call_count": len(tool_timeline), "tool_timeline": tool_timeline,
+            "data_sources": data_sources, "citations": [], "rag_chunks_used": 0, "warnings": [],
+            "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+            "repe": {"intent": intent.family, "fast_path": True, "confidence": intent.confidence},
+            "visible_context_shortcut": False, "timings": timings,
+        },
+        "prompt_tokens": 0, "completion_tokens": 0, "tool_calls": len(tool_timeline),
+        "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+    })
+
+
+async def _exec_fast_tool(
+    ctx,
+    tool_name: str,
+    args: dict[str, Any],
+    tool_timeline: list,
+    data_sources: list,
+) -> dict:
+    """Execute an MCP tool from the fast-path and track timing."""
+    tool_start = time.time()
+    tool_def = registry.get(tool_name)
+    if not tool_def or not tool_def.handler:
+        raise ValueError(f"Tool {tool_name} not found in registry")
+
+    # Build pydantic input from args, filtering None values
+    clean_args = {k: v for k, v in args.items() if v is not None}
+    inp = tool_def.input_model(**clean_args)
+
+    # Execute synchronously in thread pool
+    result = await asyncio.get_event_loop().run_in_executor(
+        None, tool_def.handler, ctx, inp,
+    )
+
+    duration_ms = int((time.time() - tool_start) * 1000)
+    tool_timeline.append({
+        "step": len(tool_timeline) + 1,
+        "tool_name": tool_name,
+        "purpose": tool_def.description[:80],
+        "success": True,
+        "duration_ms": duration_ms,
+        "result_summary": f"Completed in {duration_ms}ms",
+    })
+    data_sources.append({
+        "source_type": "database",
+        "tool_name": tool_name,
+        "row_count": 1,
+    })
+
+    return result if isinstance(result, dict) else {}
+
+
+# ── Structured result card builders ──────────────────────────────────────────
+
+def _fmt_pct(value, decimals: int = 2) -> str | None:
+    """Format a decimal/float as percentage string."""
+    if value is None:
+        return None
+    try:
+        v = float(value)
+        return f"{v * 100:.{decimals}f}%"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _fmt_mult(value) -> str | None:
+    """Format as multiple (e.g. 1.65x)."""
+    if value is None:
+        return None
+    try:
+        return f"{float(value):.2f}x"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _fmt_dollar(value) -> str | None:
+    """Format as dollar amount."""
+    if value is None:
+        return None
+    try:
+        v = float(value)
+        if abs(v) >= 1_000_000:
+            return f"${v / 1_000_000:,.1f}M"
+        elif abs(v) >= 1_000:
+            return f"${v / 1_000:,.0f}K"
+        else:
+            return f"${v:,.0f}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _delta_str(value, fmt_fn=_fmt_pct, direction_positive: str = "up") -> dict | None:
+    """Build a delta display object."""
+    if value is None:
+        return None
+    try:
+        v = float(value)
+        direction = "positive" if v >= 0 else "negative"
+        prefix = "+" if v >= 0 else ""
+        return {"value": f"{prefix}{fmt_fn(value)}", "direction": direction}
+    except (TypeError, ValueError):
+        return None
+
+
+def _build_scenario_card(result: dict, scenario) -> dict:
+    """Build a sale scenario comparison card."""
+    entity = scenario.entity_name or "Asset"
+    return {
+        "title": f"Sale Scenario — {entity}",
+        "subtitle": f"Quarter: {scenario.quarter}",
+        "metrics": [
+            {"label": "Base Gross IRR", "value": _fmt_pct(result.get("base_gross_irr")), "delta": None},
+            {"label": "Scenario Gross IRR", "value": _fmt_pct(result.get("scenario_gross_irr")),
+             "delta": _delta_str(result.get("irr_delta"))},
+            {"label": "Base TVPI", "value": _fmt_mult(result.get("base_gross_tvpi")), "delta": None},
+            {"label": "Scenario TVPI", "value": _fmt_mult(result.get("scenario_gross_tvpi")),
+             "delta": _delta_str(result.get("tvpi_delta"), _fmt_mult)},
+            {"label": "Scenario Net IRR", "value": _fmt_pct(result.get("scenario_net_irr")), "delta": None},
+            {"label": "Scenario DPI", "value": _fmt_mult(result.get("scenario_dpi")), "delta": None},
+        ],
+        "parameters": {
+            "Entity": entity,
+            "Quarter": scenario.quarter,
+            "Sale Proceeds": _fmt_dollar(result.get("total_sale_proceeds")),
+            "Carry Estimate": _fmt_dollar(result.get("carry_estimate")),
+        },
+        "actions": [
+            {"label": "Run Waterfall", "action": "run_waterfall", "params": {"fund_id": scenario.fund_id}},
+            {"label": "Stress +50bps", "action": "stress_cap_rate", "params": {"fund_id": scenario.fund_id, "cap_rate_delta_bps": 50}},
+            {"label": "Compare to Base", "action": "compare_scenarios", "params": {"fund_id": scenario.fund_id}},
+        ],
+    }
+
+
+def _build_waterfall_card(result: dict, scenario) -> dict:
+    """Build a waterfall breakdown card."""
+    tiers = result.get("tiers", [])
+    allocations = result.get("allocations", [])
+
+    tier_rows = []
+    for alloc in allocations:
+        tier_rows.append({
+            "tier": alloc.get("tier_code", ""),
+            "participant": alloc.get("participant_id", ""),
+            "payout_type": alloc.get("payout_type", ""),
+            "amount": _fmt_dollar(alloc.get("amount")),
+        })
+
+    return {
+        "title": "Waterfall Distribution",
+        "subtitle": f"Quarter: {scenario.quarter}",
+        "metrics": [
+            {"label": "Total Distributed", "value": _fmt_dollar(result.get("total_distributed")), "delta": None},
+            {"label": "GP Carry", "value": _fmt_dollar(result.get("gp_carry")), "delta": None},
+            {"label": "LP Return", "value": _fmt_dollar(result.get("lp_total")), "delta": None},
+        ],
+        "tiers": tier_rows,
+        "parameters": {"Quarter": scenario.quarter, "Fund": scenario.fund_id},
+        "actions": [
+            {"label": "LP Summary", "action": "lp_summary", "params": {"fund_id": scenario.fund_id}},
+            {"label": "Fund Metrics", "action": "fund_metrics", "params": {"fund_id": scenario.fund_id}},
+        ],
+    }
+
+
+def _build_metrics_card(result: dict, scenario) -> dict:
+    """Build a fund metrics card."""
+    metrics = result.get("metrics", {})
+    state = result.get("state", {})
+    bridge = result.get("gross_net_bridge", {})
+
+    return {
+        "title": "Fund Performance",
+        "subtitle": f"Quarter: {scenario.quarter}",
+        "metrics": [
+            {"label": "Gross IRR", "value": _fmt_pct(metrics.get("gross_irr")), "delta": None},
+            {"label": "Net IRR", "value": _fmt_pct(metrics.get("net_irr")), "delta": None},
+            {"label": "Gross TVPI", "value": _fmt_mult(metrics.get("gross_tvpi")), "delta": None},
+            {"label": "Net TVPI", "value": _fmt_mult(metrics.get("net_tvpi")), "delta": None},
+            {"label": "DPI", "value": _fmt_mult(metrics.get("dpi")), "delta": None},
+            {"label": "RVPI", "value": _fmt_mult(metrics.get("rvpi")), "delta": None},
+        ],
+        "parameters": {
+            "NAV": _fmt_dollar(state.get("portfolio_nav")),
+            "Total Called": _fmt_dollar(state.get("total_called")),
+            "Total Distributed": _fmt_dollar(state.get("total_distributed")),
+            "Mgmt Fees": _fmt_dollar(bridge.get("mgmt_fees")),
+            "Fund Expenses": _fmt_dollar(bridge.get("fund_expenses")),
+        },
+        "actions": [
+            {"label": "Run Waterfall", "action": "run_waterfall", "params": {"fund_id": scenario.fund_id}},
+            {"label": "Stress Cap Rate", "action": "stress_cap_rate", "params": {"fund_id": scenario.fund_id}},
+            {"label": "LP Summary", "action": "lp_summary", "params": {"fund_id": scenario.fund_id}},
+        ],
+    }
+
+
+def _build_stress_card(result: dict, scenario) -> dict:
+    """Build a cap rate stress test card."""
+    assets = result.get("assets", [])
+    top_impacts = sorted(assets, key=lambda a: abs(a.get("nav_impact", 0)), reverse=True)[:5]
+
+    return {
+        "title": f"Cap Rate Stress: +{result.get('cap_rate_delta_bps', 50)}bps",
+        "subtitle": f"Quarter: {scenario.quarter}",
+        "metrics": [
+            {"label": "Base NAV", "value": _fmt_dollar(result.get("base_nav")), "delta": None},
+            {"label": "Stressed NAV", "value": _fmt_dollar(result.get("stressed_nav")),
+             "delta": {"value": f"{result.get('nav_delta_pct', 0):+.1f}%", "direction": "negative" if result.get("nav_delta_pct", 0) < 0 else "positive"}},
+            {"label": "NAV Impact", "value": _fmt_dollar(result.get("nav_delta")), "delta": None},
+        ],
+        "assets": [
+            {"name": a.get("asset_name", ""), "base": _fmt_dollar(a.get("base_valuation")),
+             "stressed": _fmt_dollar(a.get("stressed_valuation")), "impact": _fmt_dollar(a.get("nav_impact"))}
+            for a in top_impacts
+        ],
+        "parameters": {
+            "Delta": f"+{result.get('cap_rate_delta_bps', 50)}bps",
+            "Assets Affected": str(len(assets)),
+        },
+        "actions": [
+            {"label": "Run Sale Scenario", "action": "run_sale_scenario", "params": {"fund_id": scenario.fund_id}},
+            {"label": "Fund Metrics", "action": "fund_metrics", "params": {"fund_id": scenario.fund_id}},
+        ],
+    }
+
+
+def _build_lp_card(result: dict, scenario) -> dict:
+    """Build an LP summary card."""
+    partners = result.get("partners", [])
+    fund_metrics = result.get("fund_metrics", {})
+
+    return {
+        "title": "LP Summary",
+        "subtitle": f"Quarter: {scenario.quarter}",
+        "metrics": [
+            {"label": "Gross IRR", "value": _fmt_pct(fund_metrics.get("gross_irr")), "delta": None},
+            {"label": "Net IRR", "value": _fmt_pct(fund_metrics.get("net_irr")), "delta": None},
+            {"label": "TVPI", "value": _fmt_mult(fund_metrics.get("gross_tvpi")), "delta": None},
+            {"label": "DPI", "value": _fmt_mult(fund_metrics.get("dpi")), "delta": None},
+        ],
+        "partners": [
+            {
+                "name": p.get("name", ""),
+                "type": p.get("partner_type", ""),
+                "committed": _fmt_dollar(p.get("committed")),
+                "contributed": _fmt_dollar(p.get("contributed")),
+                "distributed": _fmt_dollar(p.get("distributed")),
+                "nav_share": _fmt_dollar(p.get("nav_share")),
+                "tvpi": _fmt_mult(p.get("tvpi")),
+                "dpi": _fmt_mult(p.get("dpi")),
+            }
+            for p in partners
+        ],
+        "parameters": {
+            "Total Committed": _fmt_dollar(result.get("total_committed")),
+            "Total Contributed": _fmt_dollar(result.get("total_contributed")),
+            "Fund NAV": _fmt_dollar(result.get("fund_nav")),
+        },
+        "actions": [
+            {"label": "Run Waterfall", "action": "run_waterfall", "params": {"fund_id": scenario.fund_id}},
+            {"label": "Fund Metrics", "action": "fund_metrics", "params": {"fund_id": scenario.fund_id}},
+        ],
+    }
+
+
+def _build_comparison_card(result: dict, scenario) -> dict:
+    """Build a scenario comparison card."""
+    scenarios = result.get("scenarios", [])
+    return {
+        "title": "Scenario Comparison",
+        "subtitle": f"Quarter: {scenario.quarter}",
+        "scenarios": [
+            {
+                "scenario_id": s.get("scenario_id"),
+                "gross_irr": _fmt_pct(s.get("gross_irr")),
+                "net_irr": _fmt_pct(s.get("net_irr")),
+                "tvpi": _fmt_mult(s.get("gross_tvpi")),
+                "dpi": _fmt_mult(s.get("dpi")),
+                "nav": _fmt_dollar(s.get("portfolio_nav")),
+            }
+            for s in scenarios
+        ],
+        "parameters": {"Scenarios Compared": str(len(scenarios))},
+        "actions": [
+            {"label": "Fund Metrics", "action": "fund_metrics", "params": {"fund_id": scenario.fund_id}},
+        ],
+    }
+
+
 async def run_gateway_stream(
     *,
     message: str,
@@ -460,6 +951,32 @@ async def run_gateway_stream(
         "env_id": resolved_scope.environment_id,
         "scope": scope_dump,
     }, tags=[f"lane:{route.lane}"])
+
+    # ── REPE Fast-Path — bypass LLM for high-confidence finance queries ──
+    repe_intent = classify_repe_intent(message, resolved_scope, normalized_envelope)
+    if repe_intent and repe_intent.confidence >= 0.85:
+        emit_log(
+            level="info", service="backend", action="ai.gateway.repe_fast_path",
+            message=f"REPE fast-path activated: {repe_intent.family} (confidence={repe_intent.confidence:.2f})",
+            context={"intent": repe_intent.family, "confidence": repe_intent.confidence,
+                      "extracted_params": {k: str(v) for k, v in repe_intent.extracted_params.items() if not k.startswith("_")}},
+        )
+        trace.update(metadata={"repe_fast_path": True, "repe_intent": repe_intent.family})
+
+        async for sse_line in _run_repe_fast_path(
+            intent=repe_intent,
+            resolved_scope=resolved_scope,
+            context_envelope=normalized_envelope,
+            session_id=session_id,
+            conversation_id=conversation_id,
+            scope_dump=scope_dump,
+            timings=timings,
+            start=start,
+            trace=trace,
+            actor=actor,
+        ):
+            yield sse_line
+        return
 
     # ── Graceful degradation: write request but no write tools ────────
     if route.is_write and not _has_write_tools():

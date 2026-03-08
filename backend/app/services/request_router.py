@@ -97,6 +97,12 @@ _AGENTIC_RE = re.compile(
     r"step.by.step|multi.step|chain together)\b",
     re.IGNORECASE,
 )
+# REPE scenario queries → Lane B (tool-backed, fast) — also handled by fast-path
+_REPE_SCENARIO_RE = re.compile(
+    r"\b(sell|exit|disposition|sale\s*scenario|waterfall|stress|what\s*if)\b.*\b(cap\s*rate|irr|tvpi|noi|nav|fund|impact)\b|"
+    r"\b(cap\s*rate|irr|tvpi|noi|nav|fund|impact)\b.*\b(sell|exit|disposition|sale\s*scenario|waterfall|stress|what\s*if)\b",
+    re.IGNORECASE,
+)
 
 
 def classify_request(
@@ -217,6 +223,24 @@ def classify_request(
             needs_verification=True,
             needs_query_expansion=is_vague,
             needs_structured_retrieval=has_financial_metrics,
+        )
+
+    # REPE scenario queries → Lane B (fast, 1 tool round)
+    # These are also handled by the REPE fast-path in ai_gateway.py, but this
+    # ensures proper routing if the fast-path confidence is below threshold.
+    if _REPE_SCENARIO_RE.search(message):
+        return RouteDecision(
+            lane="B",
+            skip_rag=True,
+            skip_tools=False,
+            max_tool_rounds=1,
+            max_tokens=1024,
+            temperature=0.1,
+            model=OPENAI_CHAT_MODEL_FAST,
+            rag_top_k=0,
+            rag_max_tokens=0,
+            history_max_tokens=1500,
+            needs_structured_retrieval=True,
         )
 
     # Analytical

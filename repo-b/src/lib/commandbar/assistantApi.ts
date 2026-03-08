@@ -1062,6 +1062,16 @@ export async function askAi(input: {
               input.onStatus?.(`Awaiting confirmation: ${parsed.action}`);
               continue;
             }
+            // REPE fast-path structured result card
+            else if (currentEvent === "structured_result" && parsed.card) {
+              if (!("structuredResults" in debug)) {
+                (debug as Record<string, unknown>).structuredResults = [];
+              }
+              ((debug as Record<string, unknown>).structuredResults as unknown[]).push(parsed);
+              logSSE("structured_result", { type: parsed.result_type, title: parsed.card.title },
+                `Card: ${parsed.card.title} (${parsed.result_type})`);
+              continue;
+            }
             // FastAPI citation/done events
             else if (currentEvent === "citation") {
               debug.citations.push(parsed);

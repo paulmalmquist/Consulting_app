@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import type { CommandMessage } from "@/lib/commandbar/store";
+import type { CommandMessage, StructuredResultAction } from "@/lib/commandbar/store";
+import StructuredResultCard from "@/components/commandbar/StructuredResultCard";
 
 function parseStatus(status?: string): { primary: string; meta?: string; lane?: string } {
   if (!status) return { primary: "Thinking" };
@@ -20,8 +21,10 @@ const LANE_COLORS: Record<string, string> = {
   D: "bg-red-500/20 text-red-300 border-red-500/30",
 };
 
-function ThinkingIndicator({ status }: { status?: string }) {
+function ThinkingIndicator({ status, progress }: { status?: string; progress?: number }) {
   const { primary, meta, lane } = parseStatus(status);
+  const showProgress = typeof progress === "number" && progress > 0 && progress < 1;
+
   return (
     <div className="flex items-start gap-3 animate-winston-fade-in">
       {/* Rotating thinking icon */}
@@ -40,7 +43,7 @@ function ThinkingIndicator({ status }: { status?: string }) {
           />
         </svg>
       </div>
-      <div className="flex flex-col gap-0.5 pt-0.5">
+      <div className="flex flex-col gap-0.5 pt-0.5 min-w-0 flex-1">
         <div className="flex items-center gap-1">
           <span className="text-sm text-bm-muted animate-winston-glow">
             {primary}
@@ -50,12 +53,22 @@ function ThinkingIndicator({ status }: { status?: string }) {
               {lane}
             </span>
           )}
-          <span className="inline-flex gap-0.5 ml-0.5">
-            <span className="h-1 w-1 rounded-full bg-bm-accent animate-winston-dot-1" />
-            <span className="h-1 w-1 rounded-full bg-bm-accent animate-winston-dot-2" />
-            <span className="h-1 w-1 rounded-full bg-bm-accent animate-winston-dot-3" />
-          </span>
+          {!showProgress && (
+            <span className="inline-flex gap-0.5 ml-0.5">
+              <span className="h-1 w-1 rounded-full bg-bm-accent animate-winston-dot-1" />
+              <span className="h-1 w-1 rounded-full bg-bm-accent animate-winston-dot-2" />
+              <span className="h-1 w-1 rounded-full bg-bm-accent animate-winston-dot-3" />
+            </span>
+          )}
         </div>
+        {showProgress && (
+          <div className="w-full max-w-[200px] h-1 rounded-full bg-bm-border/30 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-bm-accent transition-all duration-300 ease-out"
+              style={{ width: `${Math.round(progress * 100)}%` }}
+            />
+          </div>
+        )}
         {meta && (
           <span className="text-[11px] text-bm-muted2 truncate max-w-[280px]">{meta}</span>
         )}
@@ -117,9 +130,31 @@ function formatAssistantContent(content: string): React.ReactNode {
   return <>{elements}</>;
 }
 
-function MessageBubble({ message }: { message: CommandMessage }) {
+function MessageBubble({
+  message,
+  onAction,
+}: {
+  message: CommandMessage;
+  onAction?: (action: StructuredResultAction) => void;
+}) {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
+
+  // Render structured result card if present
+  if (message.structuredResult && !isUser) {
+    const hasText = message.content.trim().length > 0;
+    return (
+      <div className="animate-winston-fade-in space-y-2">
+        <StructuredResultCard result={message.structuredResult} onAction={onAction} />
+        {hasText && (
+          <div className="text-bm-text text-[13px] leading-relaxed whitespace-pre-wrap break-words font-sans">
+            {formatAssistantContent(cleanAssistantContent(message.content))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const displayContent = isUser || isSystem ? message.content : cleanAssistantContent(message.content);
 
   return (
@@ -149,6 +184,8 @@ export default function ConversationPane({
   messages,
   thinking,
   thinkingStatus,
+  thinkingProgress,
+  onAction,
 }: {
   contextKey?: string;
   messages: CommandMessage[];
@@ -156,6 +193,8 @@ export default function ConversationPane({
   recentRuns?: unknown[];
   thinking?: boolean;
   thinkingStatus?: string;
+  thinkingProgress?: number;
+  onAction?: (action: StructuredResultAction) => void;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -195,9 +234,9 @@ export default function ConversationPane({
         ) : (
           <div className="space-y-3">
             {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
+              <MessageBubble key={msg.id} message={msg} onAction={onAction} />
             ))}
-            {thinking && <ThinkingIndicator status={thinkingStatus} />}
+            {thinking && <ThinkingIndicator status={thinkingStatus} progress={thinkingProgress} />}
             <div ref={endRef} />
           </div>
         )}
