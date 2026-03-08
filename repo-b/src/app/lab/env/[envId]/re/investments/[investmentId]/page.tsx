@@ -883,21 +883,45 @@ function InvestmentBriefingPageContent({
             </div>
           </div>
 
-          <div className="shrink-0 rounded-2xl border border-bm-border/30 bg-bm-surface/60 px-5 py-4 min-w-[220px]">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">Context</p>
-            <div className="mt-3 space-y-2">
-              {[
-                ["Acquisition", fmtMoney(totalCostBasis || investment.invested_capital)],
-                ["Current Value", fmtMoney(currentValue)],
-                ["Hold Period", holdPeriodLabel(investment.target_close_date)],
-                ["Market", primaryMarket],
-                ["Property Type", primaryPropertyType],
-              ].map(([label, value]) => (
-                <div key={label} className="flex items-center justify-between gap-4 border-b border-bm-border/15 pb-1.5 last:border-b-0 last:pb-0">
-                  <span className="text-xs text-bm-muted2">{label}</span>
-                  <span className="text-xs font-medium text-bm-text">{value}</span>
-                </div>
-              ))}
+          <div className="shrink-0 min-w-[220px] space-y-3">
+            <div className="flex flex-wrap justify-end gap-2">
+              <Link
+                href={reportHref}
+                className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-bm-text shadow-[0_8px_18px_-16px_rgba(15,23,42,0.16)] hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
+              >
+                Generate Report
+              </Link>
+              <button
+                type="button"
+                onClick={() => setLineageOpen(true)}
+                className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-bm-text shadow-[0_8px_18px_-16px_rgba(15,23,42,0.16)] hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
+              >
+                View Lineage
+              </button>
+              <Link
+                href={sustainabilityHref}
+                className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-bm-text shadow-[0_8px_18px_-16px_rgba(15,23,42,0.16)] hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
+              >
+                Open Sustainability Module
+              </Link>
+            </div>
+
+            <div className="rounded-2xl border border-bm-border/30 bg-bm-surface/60 px-5 py-4">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">Context</p>
+              <div className="mt-3 space-y-2">
+                {[
+                  ["Acquisition", fmtMoney(totalCostBasis || investment.invested_capital)],
+                  ["Current Value", fmtMoney(currentValue)],
+                  ["Hold Period", holdPeriodLabel(investment.target_close_date)],
+                  ["Market", primaryMarket],
+                  ["Property Type", primaryPropertyType],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-center justify-between gap-4 border-b border-bm-border/15 pb-1.5 last:border-b-0 last:pb-0">
+                    <span className="text-xs text-bm-muted2">{label}</span>
+                    <span className="text-xs font-medium text-bm-text">{value}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
