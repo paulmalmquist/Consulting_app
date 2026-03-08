@@ -267,6 +267,58 @@ class TestEnrichmentAnnotation:
         assert "resolved_scope" not in params_str
         assert "fund_type" not in params_str  # None values excluded
 
+    def test_annotation_uses_tool_result_provided_over_args(self):
+        """Turn 2 annotation must use tool_result.provided (cumulative) not just args (current turn).
+
+        Scenario: Turn 1 LLM sends name="My Sweet Fund", Turn 2 sends vintage_year+fund_type+strategy.
+        The tool echoes ALL provided fields back. Annotation must include name from the tool result.
+        """
+        import json
+        # Simulate Turn 2: LLM only sent new fields, but tool result echoes cumulative provided
+        tc = {
+            "name": "repe.create_fund",
+            "success": True,
+            "args": {
+                "vintage_year": 2025,
+                "fund_type": "closed_end",
+                "strategy": "equity",
+                "confirmed": False,
+            },
+            "tool_result": {
+                "pending_confirmation": True,
+                "needs_input": False,
+                "provided": {
+                    "name": "My Sweet Fund",
+                    "vintage_year": 2025,
+                    "fund_type": "closed_end",
+                    "strategy": "equity",
+                    "status": "fundraising",
+                    "base_currency": "USD",
+                },
+            },
+        }
+        # Reproduce the updated annotation logic from ai_gateway.py
+        tr = tc.get("tool_result") or {}
+        provided = tr.get("provided") if isinstance(tr, dict) else None
+        if provided and isinstance(provided, dict):
+            params_str = ", ".join(
+                f"{k}={json.dumps(v, default=str)}" for k, v in provided.items()
+                if v is not None
+            )
+        else:
+            args = tc.get("args", {})
+            params_str = ", ".join(
+                f"{k}={json.dumps(v, default=str)}" for k, v in args.items()
+                if k not in ("confirmed", "resolved_scope") and v is not None
+            )
+        # The critical assertion: name MUST be in the annotation even though
+        # the LLM didn't send it this turn — it came from tool_result.provided
+        assert "name" in params_str, f"name missing from annotation: {params_str}"
+        assert "My Sweet Fund" in params_str
+        assert "vintage_year" in params_str
+        assert "fund_type" in params_str
+        assert "strategy" in params_str
+
 
 # ── Workflow detection tests ─────────────────────────────────────────
 

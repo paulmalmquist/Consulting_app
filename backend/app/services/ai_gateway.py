@@ -916,9 +916,9 @@ async def run_gateway_stream(
 
             if tool_success:
                 tool_call_count += 1
-                tool_calls_log.append({"name": tool_name, "success": True, "args": raw_args})
+                tool_calls_log.append({"name": tool_name, "success": True, "args": raw_args, "tool_result": tool_result})
             else:
-                tool_calls_log.append({"name": tool_name, "success": False, "args": raw_args, "error": tool_error_msg})
+                tool_calls_log.append({"name": tool_name, "success": False, "args": raw_args, "error": tool_error_msg, "tool_result": tool_result})
 
             # Build timeline entry
             result_summary = _preview(tool_result, max_chars=200)
@@ -1134,14 +1134,26 @@ async def run_gateway_stream(
                 ]
                 if pending_tools:
                     pending_names = [tc["name"] for tc in pending_tools]
-                    # Include the actual parameters so the LLM never loses them across turns
+                    # Include the CUMULATIVE parameters so the LLM never loses them across turns.
+                    # Prefer tool_result.provided (echoed by handler) over args (what LLM sent this turn),
+                    # because the handler's provided dict is the authoritative cumulative set.
                     param_summaries = []
                     for tc in pending_tools:
-                        args = tc.get("args", {})
-                        params_str = ", ".join(
-                            f"{k}={json.dumps(v, default=str)}" for k, v in args.items()
-                            if k not in ("confirmed", "resolved_scope") and v is not None
-                        )
+                        tr = tc.get("tool_result") or {}
+                        provided = tr.get("provided") if isinstance(tr, dict) else None
+                        if provided and isinstance(provided, dict):
+                            # Use the handler's cumulative provided dict
+                            params_str = ", ".join(
+                                f"{k}={json.dumps(v, default=str)}" for k, v in provided.items()
+                                if v is not None
+                            )
+                        else:
+                            # Fallback: use the LLM's args from this turn
+                            args = tc.get("args", {})
+                            params_str = ", ".join(
+                                f"{k}={json.dumps(v, default=str)}" for k, v in args.items()
+                                if k not in ("confirmed", "resolved_scope") and v is not None
+                            )
                         param_summaries.append(f"{tc['name']}({params_str})")
                     # Distinguish validation-failed vs confirmed=false
                     has_validation_failure = any(not tc.get("success") for tc in pending_tools)
