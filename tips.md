@@ -579,111 +579,93 @@ There is no `integration/` directory yet. If you want to add live smoke tests, c
 
 These are the API calls the frontend actually makes during a standard RE/REPE session. Run them in this order to confirm the full stack is healthy after a deploy.
 
+### Production seed IDs — use these, not test UUIDs
+
+All smoke tests should use the real Meridian Capital Management seed data. Do not substitute placeholder or test UUIDs.
+
+| Name | ID |
+|---|---|
+| Business (Meridian Capital Management) | `a1b2c3d4-0001-0001-0001-000000000001` |
+| Environment | `a1b2c3d4-0001-0001-0003-000000000001` |
+| Fund (Institutional Growth Fund VII) | `a1b2c3d4-0003-0030-0001-000000000001` |
+| Asset (Cascade Multifamily, Aurora CO) | `11689c58-7993-400e-89c9-b3f33e431553` |
+
+---
+
 #### 1. REPE Context bootstrap (required by nearly every page)
 
 ```
-GET /bos/repe/context?env_id={env_id}&business_id={business_id}
+GET /api/repe/context?env_id={env_id}&business_id={business_id}
 ```
 
 This is the very first call `repo-b` makes. If it returns empty or 404, every downstream page will show blank data. Check `backend/app/routes/repe.py → /context`.
 
-Expected shape:
-```json
-{
-  "business": { "business_id": "...", "name": "Redwood Capital" },
-  "funds": [ { "fund_id": "...", "name": "Institutional Growth Fund VII" } ],
-  "assets": [ { "asset_id": "...", "name": "Cascade Multifamily" } ]
-}
-```
+Note: the context endpoint returns a binding diagnostic, not the full fund/asset list. A `binding_found: false` is normal if env/business aren't explicitly linked — downstream pages still work as long as `business_found: true`.
 
 #### 2. Fund list / portfolio overview
 
 ```
-GET /bos/repe/funds?business_id={business_id}
+GET /api/repe/businesses/{business_id}/funds
 ```
 
-Route: `backend/app/routes/repe.py → /funds`.
+Route: `backend/app/routes/repe.py`.
 
-Expected: returns at least one fund with `name` = `"Institutional Growth Fund VII"`, `fund_type` = `"value_add"` or equivalent, `vintage` = `2022`.
+Expected: returns at least one fund with `name` = `"Institutional Growth Fund VII"`, `fund_type` = `"closed_end"`, `vintage_year` = `2024`.
 
 #### 3. Fund detail
 
 ```
-GET /bos/repe/funds/{fund_id}
+GET /api/repe/funds/{fund_id}
 ```
 
-Route: `backend/app/routes/repe.py → /funds/{fund_id}`.
+Route: `backend/app/routes/repe.py`.
 
-Expected: `"name"` field present, `"committed_capital"` in the hundreds of millions range matching seed.
+Expected: `"name"` = `"Institutional Growth Fund VII"`, `"target_size"` = `"500000000..."`, `"status"` = `"investing"`.
 
-#### 4. Fund quarter metrics (drives the Performance KPI strip)
-
-```
-GET /bos/api/re/v2/funds/{fund_id}/metrics/{quarter}
-```
-
-Quarter format: `"2026Q1"`. Route: `backend/app/routes/re_v2.py → /funds/{fund_id}/metrics/{quarter}`.
-
-Expected for Institutional Growth Fund VII, 2026Q1:
-```
-gross_irr ≈ 0.124    (12.4%)
-net_irr   ≈ 0.099    (9.9%)
-gross_tvpi ≈ 1.08
-net_tvpi   ≈ 1.02
-dpi        ≈ 0.08
-rvpi       ≈ 1.00
-```
-
-#### 5. Fund investments list (Investments tab)
+#### 4. Fund investments list (Investments tab)
 
 ```
-GET /bos/api/re/v2/funds/{fund_id}/investments
+GET /api/re/v2/funds/{fund_id}/investments
 ```
 
-Route: `backend/app/routes/re_v2.py → /funds/{fund_id}/investments`.
+Route: `backend/app/routes/re_v2.py`.
 
 Expected: returns at least one investment row with `"name"` containing `"Cascade"`.
 
-#### 6. Asset cockpit data
-
-The asset cockpit (`/app/re/assets/{asset_id}`) calls several endpoints simultaneously. The critical ones:
+#### 5. Asset cockpit data
 
 ```
-GET /bos/repe/assets/{asset_id}           ← identity card (name, address, type, units)
-GET /bos/api/re/v2/assets/{asset_id}/quarter-state/{quarter}   ← KPI snapshot
+GET /api/repe/assets/{asset_id}           ← identity card (name, address, type, units)
 ```
 
 Expected for Cascade Multifamily:
 ```
 name        = "Cascade Multifamily"
-location    = "Aurora, CO" (or similar)
-units       = 240
-asset_type  = "multifamily"
-
-# quarter-state 2026Q1:
-occupancy_rate ≈ 0.918   (91.8%)
-cap_rate       ≈ 0.065   (6.5%)
-noi            > 0
+address     = "14200 E Alameda Ave, Aurora, CO"
+units       = 280
+asset_type  = "property" / property_type = "multifamily"
+occupancy   ≈ 0.9243   (92.4%)
+noi         > 0
 ```
 
-#### 7. Fund investments / JVs (Fund → Investments tab)
+#### 6. Fund investments / JVs (Fund → Investments tab)
 
 ```
-GET /bos/api/re/v2/funds/{fund_id}/investments
-GET /bos/api/re/v2/investments/{investment_id}/jvs
-GET /bos/api/re/v2/jvs/{jv_id}/assets?quarter=2026Q1
+GET /api/re/v2/funds/{fund_id}/investments
+GET /api/re/v2/investments/{investment_id}/jvs
+GET /api/re/v2/jvs/{jv_id}/assets?quarter=2026Q1
 ```
 
 These power the investment rollup table. If JVs return empty, the Investments tab will show no rows even if assets exist.
 
-#### 8. Models list (Models page)
+#### 7. Models list (Models page)
 
 ```
-GET /bos/api/re/v2/funds/{fund_id}/models
-GET /bos/api/re/v2/models
+GET /api/re/v2/funds/{fund_id}/models
+GET /api/re/v2/models
 ```
 
-Route: `backend/app/routes/re_v2.py → /funds/{fund_id}/models` and `/models`.
+Route: `backend/app/routes/re_v2.py`.
 
 Expected: at least one model row seeded — if blank, the Models page is empty.
 
@@ -691,29 +673,29 @@ Expected: at least one model row seeded — if blank, the Models page is empty.
 
 ### How to run a live smoke pass manually
 
-If you have the backend running locally on port 8000, export your env_id/business_id and run:
+Use the real production seed IDs — no placeholders, no test UUIDs.
 
 ```bash
-export BASE="http://localhost:8000"
-export ENV_ID="<your env_id from seed>"
-export BIZ_ID="<your business_id from seed>"
-export FUND_ID="<fund_id for Institutional Growth Fund VII>"
-export ASSET_ID="<asset_id for Cascade Multifamily>"
+export BASE="https://authentic-sparkle-production-7f37.up.railway.app"
+export BIZ_ID="a1b2c3d4-0001-0001-0001-000000000001"
+export ENV_ID="a1b2c3d4-0001-0001-0003-000000000001"
+export FUND_ID="a1b2c3d4-0003-0030-0001-000000000001"
+export ASSET_ID="11689c58-7993-400e-89c9-b3f33e431553"
 
-# 1. Context
-curl -s "$BASE/bos/repe/context?env_id=$ENV_ID&business_id=$BIZ_ID" | jq '.funds | length'
+# 1. Context binding check
+curl -s "$BASE/api/repe/context?env_id=$ENV_ID&business_id=$BIZ_ID" | python3 -c "import sys,json; d=json.load(sys.stdin); print('business_found:', d['diagnostics']['business_found'])"
 
 # 2. Fund list
-curl -s "$BASE/bos/repe/funds?business_id=$BIZ_ID" | jq '.[0].name'
+curl -s "$BASE/api/repe/businesses/$BIZ_ID/funds" | python3 -c "import sys,json; d=json.load(sys.stdin); print([f['name'] for f in d])"
 
-# 3. Fund metrics
-curl -s "$BASE/bos/api/re/v2/funds/$FUND_ID/metrics/2026Q1" | jq '{gross_irr, net_irr, gross_tvpi, net_tvpi}'
+# 3. Fund detail
+curl -s "$BASE/api/repe/funds/$FUND_ID" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['fund']['name'], d['fund']['status'])"
 
 # 4. Asset identity
-curl -s "$BASE/bos/repe/assets/$ASSET_ID" | jq '{name, units, asset_type}'
+curl -s "$BASE/api/repe/assets/$ASSET_ID" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['asset']['name'], '| units:', d['details']['units'], '| occ:', d['details']['occupancy'])"
 
-# 5. Asset quarter-state
-curl -s "$BASE/bos/api/re/v2/assets/$ASSET_ID/quarter-state/2026Q1" | jq '{occupancy_rate, cap_rate, noi}'
+# 5. Fund investments
+curl -s "$BASE/api/re/v2/funds/$FUND_ID/investments" | python3 -c "import sys,json; d=json.load(sys.stdin); print('investments:', len(d) if isinstance(d, list) else d)"
 ```
 
 All of these should return non-null values with no 404 or 500 before you declare a deploy healthy.
