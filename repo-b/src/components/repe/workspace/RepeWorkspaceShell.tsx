@@ -603,6 +603,7 @@ export default function RepeWorkspaceShell({
       ? [{ href: `${base}/intelligence`,   label: "Intelligence",   isBase: false }]
       : []),
     { href: `${base}/models`,              label: "Models",         isBase: false },
+    { href: `${base}/dashboards`,           label: "Dashboards",     isBase: false },
     { href: `${base}/reports`,             label: "Reports",        isBase: false },
     ...(showSustainability
       ? [{ href: `${base}/sustainability`, label: "Sustainability",  isBase: false }]

@@ -28,6 +28,7 @@ import RepeEntityDocuments from "@/components/repe/RepeEntityDocuments";
 import TrendLineChart from "@/components/charts/TrendLineChart";
 import QuarterlyBarChart from "@/components/charts/QuarterlyBarChart";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
+import StatementTable from "@/components/repe/statements/StatementTable";
 
 type AnalysisPeriod = "quarterly" | "ttm" | "annual";
 type ComparisonMode = "yoy" | "budget" | "scenario";
@@ -897,6 +898,33 @@ function InvestmentBriefingPageContent({
           </div>
         </div>
       </section>
+
+      {/* Financial Statements (IS / CF with toggles) */}
+      {businessId && (
+        <section className="space-y-5" data-testid="section-financial-statements">
+          <SectionHeader
+            eyebrow="FINANCIAL STATEMENTS"
+            title="Income Statement & Cash Flow"
+            description="Ownership-adjusted financial detail assembled from the canonical accounting layer."
+          />
+          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))]">
+            <StatementTable
+              entityType="investment"
+              entityId={params.investmentId}
+              envId={params.envId}
+              businessId={businessId}
+              initialQuarter={resolvedQuarter}
+              availablePeriods={
+                history?.operating_history
+                  ? [...history.operating_history]
+                      .map((h) => h.quarter)
+                      .sort(compareQuarter)
+                  : undefined
+              }
+            />
+          </div>
+        </section>
+      )}
 
       <section className="space-y-5" data-testid="section-investor-returns">
         <SectionHeader

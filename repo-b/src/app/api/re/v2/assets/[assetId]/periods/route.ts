@@ -88,7 +88,71 @@ export async function GET(
       valuation_method: r.valuation_method,
     }));
 
-    return Response.json(rows);
+    // If quarter state has data, return it
+    if (rows.length > 0) {
+      return Response.json(rows);
+    }
+
+    // Fallback: try accounting rollup table (populated by seed data and TB uploads)
+    const fbConditions: string[] = ["r.asset_id = $1::uuid"];
+    const fbValues: (string | number)[] = [params.assetId];
+    let fbIdx = 2;
+
+    if (quarterFrom) {
+      fbConditions.push(`r.quarter >= $${fbIdx}`);
+      fbValues.push(quarterFrom);
+      fbIdx++;
+    }
+    if (quarterTo) {
+      fbConditions.push(`r.quarter <= $${fbIdx}`);
+      fbValues.push(quarterTo);
+      fbIdx++;
+    }
+
+    const fbWhere = fbConditions.join(" AND ");
+    const fbRes = await pool.query(
+      `SELECT
+         r.quarter,
+         r.revenue,
+         r.opex,
+         r.noi,
+         o.occupancy,
+         r.capex,
+         r.debt_service,
+         r.net_cash_flow,
+         CASE
+           WHEN r.noi IS NOT NULL AND r.revenue IS NOT NULL AND r.revenue > 0
+           THEN r.noi / r.revenue
+           ELSE NULL
+         END AS noi_margin
+       FROM re_asset_acct_quarter_rollup r
+       LEFT JOIN re_asset_occupancy_quarter o
+         ON o.asset_id = r.asset_id AND o.quarter = r.quarter
+       WHERE ${fbWhere}
+       ORDER BY r.quarter ASC`,
+      fbValues,
+    );
+
+    const fbRows = fbRes.rows.map((r: Record<string, unknown>) => ({
+      quarter: r.quarter,
+      revenue: r.revenue,
+      opex: r.opex,
+      noi: r.noi,
+      occupancy: r.occupancy,
+      asset_value: null,
+      cap_rate: null,
+      capex: r.capex,
+      debt_service: r.debt_service,
+      debt_balance: null,
+      cash_balance: null,
+      nav: null,
+      net_cash_flow: r.net_cash_flow,
+      noi_margin: r.noi_margin,
+      valuation_method: null,
+      source: "accounting_rollup",
+    }));
+
+    return Response.json(fbRows);
   } catch (err) {
     console.error("[re/v2/assets/[assetId]/periods] DB error", err);
     return Response.json([], { status: 200 });

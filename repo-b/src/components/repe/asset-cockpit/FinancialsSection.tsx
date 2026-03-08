@@ -16,12 +16,16 @@ import {
 import { WaterfallChart } from "@/components/charts";
 import type { WaterfallItem } from "@/components/charts/WaterfallChart";
 import { fmtMoney } from "./format-utils";
+import TBUploadDrawer from "./TBUploadDrawer";
+import StatementTable from "@/components/repe/statements/StatementTable";
 
 interface Props {
   assetId: string;
   quarter: string;
   financialState: ReV2AssetQuarterState | null;
   periods: ReV2AssetPeriod[];
+  envId?: string;
+  businessId?: string;
 }
 
 export default function FinancialsSection({
@@ -29,7 +33,13 @@ export default function FinancialsSection({
   quarter,
   financialState,
   periods,
+  envId,
+  businessId,
 }: Props) {
+  // Upload drawer
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadRefreshKey, setUploadRefreshKey] = useState(0);
+
   // Lazy-loaded accounting data
   const [trialBalance, setTrialBalance] = useState<ReV2TrialBalanceRow[]>([]);
   const [pnl, setPnl] = useState<ReV2PnlRow[]>([]);
@@ -81,6 +91,18 @@ export default function FinancialsSection({
         </div>
       )}
 
+      {/* Financial Statements (Income Statement / Cash Flow with toggles) */}
+      {envId && businessId && (
+        <StatementTable
+          entityType="asset"
+          entityId={assetId}
+          envId={envId}
+          businessId={businessId}
+          initialQuarter={quarter}
+          availablePeriods={periods.map((p) => p.quarter)}
+        />
+      )}
+
       {/* Historical P&L Summary */}
       {periods.length > 0 && (
         <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
@@ -114,14 +136,28 @@ export default function FinancialsSection({
 
       {/* Accounting Detail (collapsible) */}
       <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-        <button
-          type="button"
-          onClick={() => setAcctExpanded(!acctExpanded)}
-          className="flex w-full items-center justify-between text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2"
-        >
-          <span>Accounting &middot; {quarter}</span>
-          <span className="text-xs">{acctExpanded ? "\u25B2" : "\u25BC"}</span>
-        </button>
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setAcctExpanded(!acctExpanded)}
+            className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2"
+          >
+            <span>Accounting &middot; {quarter}</span>
+            <span className="text-xs">{acctExpanded ? "\u25B2" : "\u25BC"}</span>
+          </button>
+          {envId && businessId && (
+            <button
+              type="button"
+              onClick={() => setUploadOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-bm-border/50 px-3 py-1.5 text-xs font-medium text-bm-muted2 hover:bg-bm-surface/30 hover:text-bm-text transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+              </svg>
+              Upload Trial Balance
+            </button>
+          )}
+        </div>
         {acctExpanded && (
           <div className="mt-4 space-y-4">
             {acctLoading ? (
@@ -229,6 +265,20 @@ export default function FinancialsSection({
           </div>
         )}
       </div>
+      {/* TB Upload Drawer */}
+      {envId && businessId && (
+        <TBUploadDrawer
+          assetId={assetId}
+          envId={envId}
+          businessId={businessId}
+          open={uploadOpen}
+          onClose={() => setUploadOpen(false)}
+          onCommitted={() => {
+            setUploadRefreshKey((k) => k + 1);
+            setAcctExpanded(true);
+          }}
+        />
+      )}
     </div>
   );
 }

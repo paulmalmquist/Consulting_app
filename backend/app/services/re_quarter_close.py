@@ -371,15 +371,85 @@ def _compute_asset_state(
             occupancy = _d(operating_row.get("occupancy"))
         value_source = "operating_qtr"
     else:
-        cash_balance = Decimal("0")
-        if asset_type == "property":
-            base_noi = _d(asset_row.get("current_noi"))
-            revenue = base_noi
-            occupancy = _d(asset_row.get("occupancy")) if asset_row.get("occupancy") is not None else None
-        elif loan and loan.get("coupon"):
-            debt_balance = _d(loan.get("current_balance"))
-            revenue = (debt_balance * _d(loan.get("coupon")) / Decimal("4")).quantize(Decimal("0.01"))
-        value_source = "missing_inputs_fallback"
+        # Fallback 1: Try accounting rollup table (populated by TB uploads and seeds)
+        cur.execute(
+            """
+            SELECT revenue, opex, noi, capex, debt_service, ti_lc, reserves, net_cash_flow
+            FROM re_asset_acct_quarter_rollup
+            WHERE asset_id = %s AND quarter = %s
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            (str(asset_id), quarter),
+        )
+        acct_rollup = cur.fetchone()
+
+        if acct_rollup and _d(acct_rollup.get("revenue")) > 0:
+            revenue = _d(acct_rollup.get("revenue"))
+            opex = _d(acct_rollup.get("opex"))
+            capex = _d(acct_rollup.get("capex"))
+            debt_service = _d(acct_rollup.get("debt_service"))
+            tenant_improvements = _d(acct_rollup.get("ti_lc"))
+            value_source = "accounting_rollup"
+
+            # Also pull occupancy from quarter table
+            cur.execute(
+                """
+                SELECT occupancy, avg_rent
+                FROM re_asset_occupancy_quarter
+                WHERE asset_id = %s AND quarter = %s
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                (str(asset_id), quarter),
+            )
+            occ_row = cur.fetchone()
+            if occ_row and occ_row.get("occupancy") is not None:
+                occupancy = _d(occ_row.get("occupancy"))
+        else:
+            # Fallback 2: Try normalized accounting monthly data
+            year = int(quarter[:4])
+            q = int(quarter[-1])
+            start_month = (q - 1) * 3 + 1
+            end_month = start_month + 2
+            start_date = f"{year}-{start_month:02d}-01"
+            import calendar
+            last_day = calendar.monthrange(year, end_month)[1]
+            end_date = f"{year}-{end_month:02d}-{last_day:02d}"
+
+            cur.execute(
+                """
+                SELECT line_code, SUM(amount) AS amount
+                FROM acct_normalized_noi_monthly
+                WHERE asset_id = %s
+                  AND period_month >= %s AND period_month <= %s
+                GROUP BY line_code
+                """,
+                (str(asset_id), start_date, end_date),
+            )
+            acct_rows = cur.fetchall()
+
+            if acct_rows:
+                for ar in acct_rows:
+                    amt = _d(ar.get("amount"))
+                    lc = ar.get("line_code", "")
+                    if lc in ("RENT", "OTHER_INCOME"):
+                        if lc == "RENT":
+                            revenue += amt
+                        else:
+                            other_income += amt
+                    elif amt < 0:
+                        opex += abs(amt)
+                value_source = "accounting_normalized"
+            else:
+                # Fallback 3: Original minimal fallback
+                cash_balance = Decimal("0")
+                if asset_type == "property":
+                    base_noi = _d(asset_row.get("current_noi"))
+                    revenue = base_noi
+                    occupancy = _d(asset_row.get("occupancy")) if asset_row.get("occupancy") is not None else None
+                elif loan and loan.get("coupon"):
+                    debt_balance = _d(loan.get("current_balance"))
+                    revenue = (debt_balance * _d(loan.get("coupon")) / Decimal("4")).quantize(Decimal("0.01"))
+                value_source = "missing_inputs_fallback"
 
     growth_keys = (
         assumptions.get("rent_growth_override")
