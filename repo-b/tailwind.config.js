@@ -4,6 +4,7 @@ module.exports = {
     "./src/app/**/*.{ts,tsx}",
     "./src/components/**/*.{ts,tsx}"
   ],
+  darkMode: ["selector", "html:not([data-theme='light'])"],
   theme: {
     extend: {
       colors: {

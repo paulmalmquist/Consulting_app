@@ -54,8 +54,10 @@ export default function BosAppShell({ children }: { children: React.ReactNode })
             activeCapKey={capKey}
           />
         ) : null}
-        <main className="flex-1 overflow-y-auto p-4 pb-safe sm:p-5">
-          {children}
+        <main className="flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-[1680px] px-4 py-4 pb-safe sm:px-6 sm:py-5 lg:px-8 lg:py-6">
+            {children}
+          </div>
         </main>
       </div>
     </div>

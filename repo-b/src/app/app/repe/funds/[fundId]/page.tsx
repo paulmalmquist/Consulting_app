@@ -264,23 +264,33 @@ export default function RepeFundDetailPage({ params }: { params: { fundId: strin
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-bm-border/50 bg-bm-surface/30 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
-                    <th className="px-4 py-3 font-medium">Name</th>
+                    <th className="px-4 py-3 font-medium">Investment</th>
                     <th className="px-4 py-3 font-medium">Stage</th>
                     <th className="px-4 py-3 font-medium text-right">Assets</th>
                     <th className="px-4 py-3 font-medium">Sponsor</th>
                     <th className="px-4 py-3 font-medium">Target Close</th>
-                    <th className="px-4 py-3 font-medium"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-bm-border/40">
                   {deals.map((deal) => (
-                    <tr key={deal.deal_id} className="hover:bg-bm-surface/20">
-                      <td className="px-4 py-3 font-medium">{deal.name}</td>
+                    <tr
+                      key={deal.deal_id}
+                      className="group cursor-pointer transition-colors duration-100 hover:bg-bm-surface/20"
+                      onClick={() => window.location.href = `${basePath}/deals/${deal.deal_id}`}
+                    >
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`${basePath}/deals/${deal.deal_id}`}
+                          className="font-medium text-bm-text transition-colors duration-100 group-hover:text-bm-accent"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {deal.name}
+                        </Link>
+                      </td>
                       <td className="px-4 py-3"><span className="rounded-full border border-bm-border/70 px-2 py-0.5 text-xs">{STAGE_LABELS[deal.stage] || deal.stage}</span></td>
-                      <td className="px-4 py-3 text-right text-bm-muted2">{assetCounts[deal.deal_id] ?? 0}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-bm-muted2">{assetCounts[deal.deal_id] ?? 0}</td>
                       <td className="px-4 py-3 text-bm-muted2">{deal.sponsor || "—"}</td>
                       <td className="px-4 py-3 text-bm-muted2">{deal.target_close_date?.slice(0, 10) || "—"}</td>
-                      <td className="px-4 py-3"><Link href={`${basePath}/deals/${deal.deal_id}`} className="text-xs text-bm-accent hover:underline">Open</Link></td>
                     </tr>
                   ))}
                 </tbody>
