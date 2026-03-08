@@ -1,7 +1,6 @@
 """Schemas for REPE finance MCP tools — composite tools wrapping deterministic engines."""
 from __future__ import annotations
 
-from typing import Literal
 from pydantic import BaseModel, Field
 from uuid import UUID
 

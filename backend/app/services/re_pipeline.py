@@ -224,7 +224,7 @@ def get_deal(*, deal_id: UUID) -> dict:
 def create_deal(*, env_id: str, payload: dict) -> dict:
     with get_cursor() as cur:
         cur.execute(
-            f"""
+            """
             INSERT INTO re_pipeline_deal
                 (env_id, fund_id, deal_name, status, source, strategy, property_type,
                  target_close_date, headline_price, target_irr, target_moic, notes, created_by)

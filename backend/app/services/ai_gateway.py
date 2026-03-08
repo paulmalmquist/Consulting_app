@@ -26,7 +26,7 @@ from app.services.assistant_scope import (
 )
 from app.services.repe_intent import classify_repe_intent
 from app.services.repe_scenario_schema import build_clarification_question, resolve_scenario_params
-from app.services.repe_session import get_session, update_session
+from app.services.repe_session import update_session
 from app.services.cost_tracker import estimate_cost
 from app.services.rag_indexer import RetrievedChunk, semantic_search
 from app.services.rag_reranker import rerank_chunks
@@ -355,7 +355,6 @@ async def _run_repe_fast_path(
     """
     from app.services.repe_intent import (
         INTENT_COMPARE_SCENARIOS,
-        INTENT_EXPLAIN_RETURNS,
         INTENT_FUND_METRICS,
         INTENT_LP_SUMMARY,
         INTENT_RUN_FUND_IMPACT,
@@ -667,7 +666,6 @@ def _build_scenario_card(result: dict, scenario) -> dict:
 
 def _build_waterfall_card(result: dict, scenario) -> dict:
     """Build a waterfall breakdown card."""
-    tiers = result.get("tiers", [])
     allocations = result.get("allocations", [])
 
     tier_rows = []

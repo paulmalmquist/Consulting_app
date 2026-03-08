@@ -8,8 +8,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
-from typing import Any
-from uuid import UUID
 
 from app.schemas.ai_gateway import AssistantContextEnvelope, ResolvedAssistantScope
 from app.services.repe_intent import RepeIntent

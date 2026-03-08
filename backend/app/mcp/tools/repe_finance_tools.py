@@ -9,7 +9,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from app.mcp.auth import McpContext
-from app.mcp.registry import AuditPolicy, ToolDef, registry
+from app.mcp.registry import ToolDef, registry
 from app.mcp.schemas.repe_finance_tools import (
     CompareScenariosInput,
     FundMetricsInput,
