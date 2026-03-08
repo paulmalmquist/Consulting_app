@@ -313,7 +313,7 @@ class TestPipelineRoutes:
         payload = resp.json()
         assert payload[0]["fund_name"] == "Meridian Fund VI"
         assert payload[0]["broker_name"] == "Annie Case"
-        assert payload[0]["equity_required"] == 18000000
+        assert payload[0]["equity_required"] == "18000000"
         assert "priority" in payload[0]["attention_flags"]
 
     def test_create_deal_route(self, client, fake_cursor):

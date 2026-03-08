@@ -17,6 +17,7 @@ import { cn } from "@/lib/cn";
 import { DealIntelligencePanel } from "@/components/repe/pipeline/radar/DealIntelligencePanel";
 import { DealRadarCanvas } from "@/components/repe/pipeline/radar/DealRadarCanvas";
 import { RadarSummaryPanel } from "@/components/repe/pipeline/radar/RadarSummaryPanel";
+import { DealGeoWorkspace } from "@/components/repe/pipeline/geo/DealGeoWorkspace";
 import type {
   DealRadarDetailBundle,
   DealRadarFilters,
@@ -28,6 +29,7 @@ import type {
   PipelinePropertySummary,
   PipelineTrancheSummary,
 } from "@/components/repe/pipeline/radar/types";
+import type { GeoPipelineMarker } from "@/components/repe/pipeline/geo/types";
 import {
   buildDealRadarNodes,
   formatMoney,
@@ -39,24 +41,7 @@ import {
   summarizeDealRadar,
 } from "@/components/repe/pipeline/radar/utils";
 
-const PipelineMap = dynamic(
-  () => import("@/components/repe/pipeline/PipelineMap"),
-  { ssr: false },
-);
-
 type PipelineView = "radar" | "list" | "map";
-
-type MapMarker = {
-  deal_id: string;
-  canonical_property_id?: string | null;
-  deal_name: string;
-  status: string;
-  lat: number;
-  lon: number;
-  property_name?: string;
-  property_type?: string;
-  headline_price?: number | string | null;
-};
 
 const VIEW_OPTIONS: Array<{ value: PipelineView; label: string; icon: ComponentType<{ className?: string }> }> = [
   { value: "radar", label: "Radar", icon: Crosshair },
@@ -274,7 +259,7 @@ export function DealRadarWorkspace() {
   const effectiveFilters = useMemo(() => ({ ...filters, q: deferredSearch }), [filters, deferredSearch]);
 
   const [deals, setDeals] = useState<PipelineDealSummary[]>([]);
-  const [markers, setMarkers] = useState<MapMarker[]>([]);
+  const [markers, setMarkers] = useState<GeoPipelineMarker[]>([]);
   const [loading, setLoading] = useState(true);
   const [markersLoading, setMarkersLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -310,9 +295,9 @@ export function DealRadarWorkspace() {
 
   const fetchMarkers = useCallback(async () => {
     if (!envId || markers.length > 0 || markersLoading) return;
-    setMarkersLoading(true);
+      setMarkersLoading(true);
     try {
-      const rows = await bosFetch<MapMarker[]>("/api/re/v2/pipeline/map/markers", {
+      const rows = await bosFetch<GeoPipelineMarker[]>("/api/re/v2/pipeline/map/markers", {
         params: {
           env_id: envId,
           sw_lat: "24.0",
@@ -636,39 +621,14 @@ export function DealRadarWorkspace() {
           </div>
         </div>
       ) : (
-        <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)_360px]">
-          <DealListRail
-            nodes={sortedNodes}
-            selectedDealId={selectedDealId}
-            onSelectDeal={(dealId) => updateQuery({ deal: dealId })}
-          />
-          <div className="overflow-hidden rounded-2xl border border-bm-border/40 bg-bm-surface/35 p-2">
-            <div className="h-[420px] overflow-hidden rounded-xl md:h-[620px]">
-              <PipelineMap
-                markers={filteredMarkers}
-                onMarkerClick={(marker) => updateQuery({ deal: marker.deal_id })}
-              />
-            </div>
-          </div>
-          <div className="hidden xl:block">
-            <DealIntelligencePanel
-              envId={envId}
-              node={selectedNode}
-              details={selectedDetails}
-              loading={detailLoadingId === selectedNode?.dealId}
-              onAskWinston={askWinston}
-            />
-          </div>
-          <div className="hidden md:block xl:hidden md:col-span-1">
-            <DealIntelligencePanel
-              envId={envId}
-              node={selectedNode}
-              details={selectedDetails}
-              loading={detailLoadingId === selectedNode?.dealId}
-              onAskWinston={askWinston}
-            />
-          </div>
-        </div>
+        <DealGeoWorkspace
+          envId={envId}
+          filters={effectiveFilters}
+          nodes={filteredNodes}
+          markers={filteredMarkers}
+          selectedDealId={selectedDealId}
+          onSelectDeal={(dealId) => updateQuery({ deal: dealId })}
+        />
       )}
 
       {selectedNode ? (

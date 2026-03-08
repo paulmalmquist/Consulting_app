@@ -894,10 +894,7 @@ def get_deal_geo_context(*, deal_id: str) -> dict:
                 p.city,
                 p.state,
                 p.lat::float AS lat,
-                p.lon::float AS lon,
-                p.county_geoid,
-                p.tract_geoid,
-                p.block_group_geoid
+                p.lon::float AS lon
             FROM re_pipeline_deal d
             LEFT JOIN repe_fund f ON f.fund_id = d.fund_id
             LEFT JOIN LATERAL (
@@ -907,10 +904,7 @@ def get_deal_geo_context(*, deal_id: str) -> dict:
                     city,
                     state,
                     lat,
-                    lon,
-                    county_geoid,
-                    tract_geoid,
-                    block_group_geoid
+                    lon
                 FROM re_pipeline_property
                 WHERE deal_id = d.deal_id
                 ORDER BY created_at ASC
