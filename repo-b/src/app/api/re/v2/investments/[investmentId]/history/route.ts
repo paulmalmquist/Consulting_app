@@ -80,16 +80,16 @@ export async function GET(
            ON qs.asset_id = a.asset_id
          WHERE a.deal_id = $1::uuid
            AND (
-             ($3::uuid IS NULL AND qs.scenario_id IS NULL)
-             OR qs.scenario_id = $3::uuid
+             ($2::uuid IS NULL AND qs.scenario_id IS NULL)
+             OR qs.scenario_id = $2::uuid
            )
            AND (
-             $4::uuid IS NULL
-             OR qs.version_id = $4::uuid
+             $3::uuid IS NULL
+             OR qs.version_id = $3::uuid
              OR qs.version_id IS NULL
            )
-           AND ($5::text IS NULL OR qs.quarter >= $5::text)
-           AND ($6::text IS NULL OR qs.quarter <= $6::text)
+           AND ($4::text IS NULL OR qs.quarter >= $4::text)
+           AND ($5::text IS NULL OR qs.quarter <= $5::text)
        )
        SELECT
          quarter,
@@ -103,7 +103,7 @@ export async function GET(
        WHERE version_rank = 1
        GROUP BY quarter
        ORDER BY quarter ASC`,
-      [params.investmentId, investment.fund_id, scenarioId, versionId, quarterFrom, quarterTo]
+      [params.investmentId, scenarioId, versionId, quarterFrom, quarterTo]
     );
 
     const returnsRes = await pool.query(
@@ -118,7 +118,7 @@ export async function GET(
              PARTITION BY s.investment_id, s.quarter
              ORDER BY
                CASE
-                 WHEN $4::uuid IS NOT NULL AND s.version_id = $4::uuid THEN 0
+                 WHEN $3::uuid IS NOT NULL AND s.version_id = $3::uuid THEN 0
                  WHEN s.version_id IS NULL THEN 1
                  ELSE 2
                END,
@@ -127,16 +127,16 @@ export async function GET(
          FROM re_investment_quarter_state s
          WHERE s.investment_id = $1::uuid
            AND (
-             ($3::uuid IS NULL AND s.scenario_id IS NULL)
-             OR s.scenario_id = $3::uuid
+             ($2::uuid IS NULL AND s.scenario_id IS NULL)
+             OR s.scenario_id = $2::uuid
            )
            AND (
-             $4::uuid IS NULL
-             OR s.version_id = $4::uuid
+             $3::uuid IS NULL
+             OR s.version_id = $3::uuid
              OR s.version_id IS NULL
            )
-           AND ($5::text IS NULL OR s.quarter >= $5::text)
-           AND ($6::text IS NULL OR s.quarter <= $6::text)
+           AND ($4::text IS NULL OR s.quarter >= $4::text)
+           AND ($5::text IS NULL OR s.quarter <= $5::text)
        )
        SELECT
          quarter,
@@ -148,7 +148,7 @@ export async function GET(
        FROM investment_state
        WHERE version_rank = 1
        ORDER BY quarter ASC`,
-      [params.investmentId, investment.fund_id, scenarioId, versionId, quarterFrom, quarterTo]
+      [params.investmentId, scenarioId, versionId, quarterFrom, quarterTo]
     );
 
     const lastReturnsQuarter =
