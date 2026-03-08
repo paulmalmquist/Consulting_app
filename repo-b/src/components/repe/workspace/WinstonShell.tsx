@@ -227,9 +227,9 @@ export function WinstonShell({
       ───────────────────────────────────────────────────────────────────── */}
       <div
         className={cn(
-          "mx-auto flex-1 w-full max-w-[1680px]",
+          "mx-auto flex-1 w-full max-w-[2200px]",
           /* Desktop grid */
-          "xl:grid xl:gap-10 xl:px-10 xl:py-8",
+          "xl:grid xl:gap-8 xl:px-8 xl:py-8",
           hasRail
             ? "xl:grid-cols-[220px_minmax(0,1fr)_280px]"
             : "xl:grid-cols-[220px_minmax(0,1fr)]",

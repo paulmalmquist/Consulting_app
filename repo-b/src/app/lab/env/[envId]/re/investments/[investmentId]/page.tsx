@@ -866,8 +866,8 @@ function InvestmentBriefingPageContent({
   return (
     <section className="space-y-8" data-testid="investment-briefing-page">
       <header className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.18)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(9,14,28,0.92))] dark:shadow-[0_24px_60px_-40px_rgba(15,23,42,0.95)]">
-        <div className="flex flex-wrap items-start justify-between gap-5">
-          <div className="space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div className="space-y-3 min-w-0">
             <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.14em] text-bm-muted2">
               <Link href={`/lab/env/${params.envId}/re/funds/${investment.fund_id}`} className="hover:text-bm-text">
                 {fundDetail?.fund?.name || "Fund"}
@@ -883,30 +883,26 @@ function InvestmentBriefingPageContent({
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href={reportHref}
-              className="rounded-full border border-slate-900 bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white hover:bg-slate-800 dark:border-white/15 dark:bg-white dark:text-slate-950 dark:hover:bg-white/90"
-            >
-              Generate Report
-            </Link>
-            <button
-              type="button"
-              onClick={() => setLineageOpen(true)}
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-bm-text hover:bg-slate-50 dark:border-white/12 dark:bg-white/[0.03] dark:hover:bg-white/[0.08]"
-            >
-              View Lineage
-            </button>
-            <Link
-              href={sustainabilityHref}
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-bm-text hover:bg-slate-50 dark:border-white/12 dark:bg-white/[0.03] dark:hover:bg-white/[0.08]"
-            >
-              Open Sustainability Module
-            </Link>
+          <div className="shrink-0 rounded-2xl border border-bm-border/30 bg-bm-surface/60 px-5 py-4 min-w-[220px]">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">Context</p>
+            <div className="mt-3 space-y-2">
+              {[
+                ["Acquisition", fmtMoney(totalCostBasis || investment.invested_capital)],
+                ["Current Value", fmtMoney(currentValue)],
+                ["Hold Period", holdPeriodLabel(investment.target_close_date)],
+                ["Market", primaryMarket],
+                ["Property Type", primaryPropertyType],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-center justify-between gap-4 border-b border-bm-border/15 pb-1.5 last:border-b-0 last:pb-0">
+                  <span className="text-xs text-bm-muted2">{label}</span>
+                  <span className="text-xs font-medium text-bm-text">{value}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="mt-6 flex flex-wrap gap-3 border-t border-slate-200 pt-5 dark:border-white/10">
+        <div className="mt-5 flex flex-wrap gap-3 border-t border-bm-border/20 pt-4">
           <PillSelect
             label="Model"
             value={selectedModelId}
@@ -944,31 +940,6 @@ function InvestmentBriefingPageContent({
             testId="selector-version"
           />
         </div>
-
-        <div className="mt-4 flex flex-wrap gap-4">
-          <SegmentToggle
-            label="Period"
-            value={period}
-            onChange={setPeriod}
-            options={[
-              { label: "Quarterly", value: "quarterly" },
-              { label: "TTM", value: "ttm" },
-              { label: "Annual", value: "annual" },
-            ]}
-            testId="segment-period"
-          />
-          <SegmentToggle
-            label="Comparison"
-            value={comparison}
-            onChange={setComparison}
-            options={[
-              { label: "YoY", value: "yoy" },
-              { label: "Budget", value: "budget" },
-              { label: "Scenario", value: "scenario" },
-            ]}
-            testId="segment-comparison"
-          />
-        </div>
       </header>
 
       <section className="space-y-5" data-testid="section-position-snapshot">
@@ -977,48 +948,49 @@ function InvestmentBriefingPageContent({
           title="How is this investment performing for the fund?"
           description="The hero row combines investment outcome and operating throughput in the order analysts expect."
         />
-        <div className="grid gap-5 xl:grid-cols-12">
-          <div className="space-y-4 xl:col-span-8">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <HeroMetricCard label="NAV" value={fmtMoney(quarterState?.nav)} accent={BRIEFING_COLORS.structure} testId="hero-metric-nav" />
-              <HeroMetricCard label="Gross IRR" value={fmtPct(quarterState?.gross_irr)} accent={BRIEFING_COLORS.capital} testId="hero-metric-gross-irr" />
-              <HeroMetricCard label="MOIC" value={fmtX(quarterState?.equity_multiple)} accent={BRIEFING_COLORS.capital} testId="hero-metric-moic" />
-              <HeroMetricCard label="NOI" value={fmtMoney(quarterState?.noi ?? totalNoi)} accent={BRIEFING_COLORS.performance} testId="hero-metric-noi" />
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <SecondaryMetric label="Gross Value" value={fmtMoney(quarterState?.gross_asset_value ?? totalAssetValue)} />
-              <SecondaryMetric label="Debt" value={fmtMoney(quarterState?.debt_balance ?? totalDebt)} />
-              <SecondaryMetric label="LTV" value={fmtPct(ltv)} />
-            </div>
-          </div>
-
-          <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_44px_-32px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.95))] xl:col-span-4">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">Investment Context</p>
-            <div className="mt-4 space-y-3">
-              {[
-                ["Acquisition Price", fmtMoney(totalCostBasis || investment.invested_capital)],
-                ["Current Value", fmtMoney(currentValue)],
-                ["Hold Period", holdPeriodLabel(investment.target_close_date)],
-                ["Strategy", fundDetail?.fund?.sub_strategy || contextStrategy || "—"],
-                ["Market", primaryMarket],
-                ["Property Type", primaryPropertyType],
-              ].map(([label, value]) => (
-                <div key={label} className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2 last:border-b-0 last:pb-0 dark:border-white/8">
-                  <span className="text-sm text-bm-muted2">{label}</span>
-                  <span className="text-sm font-medium text-bm-text">{value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7">
+          <HeroMetricCard label="NAV" value={fmtMoney(quarterState?.nav)} accent={BRIEFING_COLORS.structure} testId="hero-metric-nav" />
+          <HeroMetricCard label="Gross IRR" value={fmtPct(quarterState?.gross_irr)} accent={BRIEFING_COLORS.capital} testId="hero-metric-gross-irr" />
+          <HeroMetricCard label="MOIC" value={fmtX(quarterState?.equity_multiple)} accent={BRIEFING_COLORS.capital} testId="hero-metric-moic" />
+          <HeroMetricCard label="NOI" value={fmtMoney(quarterState?.noi ?? totalNoi)} accent={BRIEFING_COLORS.performance} testId="hero-metric-noi" />
+          <HeroMetricCard label="Gross Value" value={fmtMoney(quarterState?.gross_asset_value ?? totalAssetValue)} accent={BRIEFING_COLORS.lineMuted} testId="hero-metric-gross-value" />
+          <HeroMetricCard label="Debt" value={fmtMoney(quarterState?.debt_balance ?? totalDebt)} accent={BRIEFING_COLORS.lineMuted} testId="hero-metric-debt" />
+          <HeroMetricCard label="LTV" value={fmtPct(ltv)} accent={BRIEFING_COLORS.risk} testId="hero-metric-ltv" />
         </div>
       </section>
 
-      <section className="space-y-5" data-testid="section-operating-performance">
-        <SectionHeader
-          eyebrow={SECTION_ORDER[1]}
-          title="Operating Performance"
-          description={comparisonSummary || "Operating charts use real quarter-state history and keep NOI as the dominant visual."}
-        />
+      <section className="space-y-4" data-testid="section-operating-performance">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">{SECTION_ORDER[1]}</p>
+            <h2 className="mt-1 text-xl font-semibold tracking-tight text-bm-text">Operating Performance</h2>
+            {comparisonSummary && <p className="mt-1 max-w-2xl text-sm text-bm-muted2">{comparisonSummary}</p>}
+          </div>
+          <div className="flex flex-wrap gap-3 shrink-0">
+            <SegmentToggle
+              label="Period"
+              value={period}
+              onChange={setPeriod}
+              options={[
+                { label: "Quarterly", value: "quarterly" },
+                { label: "TTM", value: "ttm" },
+                { label: "Annual", value: "annual" },
+              ]}
+              testId="segment-period"
+            />
+            <SegmentToggle
+              label="Comparison"
+              value={comparison}
+              onChange={setComparison}
+              options={[
+                { label: "YoY", value: "yoy" },
+                { label: "Budget", value: "budget" },
+                { label: "Scenario", value: "scenario" },
+              ]}
+              testId="segment-comparison"
+            />
+          </div>
+        </div>
         <div className="space-y-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))]">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/8 dark:bg-white/[0.02]">
             <div className="mb-4">
