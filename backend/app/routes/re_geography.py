@@ -6,6 +6,9 @@ from fastapi import APIRouter, HTTPException, Query
 from app.observability.logger import emit_log
 from app.schemas.re_geography import (
     ChoroplethEntry,
+    GeoDealContextOut,
+    GeoMapContextOut,
+    GeoOverlayCatalogItem,
     GeocodeResult,
     GeographyFeatureCollection,
     MetricCatalogItem,
@@ -61,6 +64,15 @@ def metric_catalog():
         raise _to_http(exc)
 
 
+@router.get("/overlay-catalog", response_model=list[GeoOverlayCatalogItem])
+def overlay_catalog():
+    """Return curated overlay definitions for the geo intelligence map."""
+    try:
+        return re_geography.list_overlay_catalog()
+    except Exception as exc:
+        raise _to_http(exc)
+
+
 # ── Choropleth Data ──────────────────────────────────────────────────────────
 
 @router.get("/metrics", response_model=list[ChoroplethEntry])
@@ -86,6 +98,43 @@ def choropleth_data(
         raise _to_http(exc)
 
 
+@router.get("/map-context", response_model=GeoMapContextOut)
+def map_context(
+    env_id: str = Query(...),
+    geography_level: str = Query(..., description="county|tract|block_group"),
+    overlay_key: str = Query(...),
+    sw_lat: float = Query(...),
+    sw_lon: float = Query(...),
+    ne_lat: float = Query(...),
+    ne_lon: float = Query(...),
+    fund_id: str | None = Query(None),
+    strategy: str | None = Query(None),
+    sector: str | None = Query(None),
+    stage: str | None = Query(None),
+    q: str | None = Query(None),
+    simplify: bool = Query(True),
+):
+    """Return choropleth polygons plus nearby pipeline deals for the current viewport."""
+    try:
+        return re_geography.get_map_context(
+            env_id=env_id,
+            geography_level=geography_level,
+            overlay_key=overlay_key,
+            sw_lat=sw_lat,
+            sw_lon=sw_lon,
+            ne_lat=ne_lat,
+            ne_lon=ne_lon,
+            fund_id=fund_id,
+            strategy=strategy,
+            sector=sector,
+            stage=stage,
+            q=q,
+            simplify=simplify,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
 # ── Tooltip Drilldown ────────────────────────────────────────────────────────
 
 @router.get("/geographies/{geography_type}/{geography_id}/metrics", response_model=list[MetricValue])
@@ -105,6 +154,15 @@ def geography_metrics(
             period_start=period_start,
             period_end=period_end,
         )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/deals/{deal_id}/geo-context", response_model=GeoDealContextOut)
+def deal_geo_context(deal_id: str):
+    """Return market, hazard, and benchmark context for a selected pipeline deal."""
+    try:
+        return re_geography.get_deal_geo_context(deal_id=deal_id)
     except Exception as exc:
         raise _to_http(exc)
 
@@ -146,4 +204,13 @@ def geocode_property(property_id: str):
             message=str(exc),
             context={"property_id": property_id},
         )
+        raise _to_http(exc)
+
+
+@router.post("/properties/{property_id}/link-geography", response_model=GeocodeResult)
+def link_property_geography(property_id: str):
+    """Relink a pipeline property to county/tract/block group using the current coordinates."""
+    try:
+        return re_geography.geocode_and_link_property(property_id)
+    except Exception as exc:
         raise _to_http(exc)
