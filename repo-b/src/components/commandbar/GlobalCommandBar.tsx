@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import AssistantShell, { type AssistantStage } from "@/components/commandbar/AssistantShell";
 import AdvancedDrawer from "@/components/commandbar/AdvancedDrawer";
@@ -239,6 +239,9 @@ export default function GlobalCommandBar() {
   const [runningDiagnostics, setRunningDiagnostics] = useState(false);
   const [traces, setTraces] = useState<AssistantApiTrace[]>([]);
   const [recentRuns, setRecentRuns] = useState<ContextSnapshot["recentRuns"]>([]);
+  const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [raw, setRaw] = useState<{
     contextSnapshot?: unknown;
     plan?: unknown;
@@ -479,11 +482,15 @@ export default function GlobalCommandBar() {
   };
 
   const onSend = async (message?: string) => {
-    const next = (message || prompt).trim();
-    if (!next) return;
+    const base = (message || prompt).trim();
+    if (!base) return;
+    const next = attachedFile
+      ? `${base}\n\n[Attached file: ${attachedFile.name}]\n${attachedFile.content}`
+      : base;
 
-    appendMessage("user", next);
+    appendMessage("user", attachedFile ? `${base}\n📎 ${attachedFile.name}` : base);
     setPrompt("");
+    setAttachedFile(null);
     setRun(null);
     setPlanning(true);
     setThinkingStatus(undefined);
@@ -729,137 +736,185 @@ export default function GlobalCommandBar() {
         onToggleAdvanced={() => setAdvancedOpen((prev) => !prev)}
         showRightPane={Boolean(hasMutations) || advancedOpen}
         leftPane={
-          <div className="flex h-full min-h-0 flex-col">
-            <ActiveContextBar
-              workspace={workspace}
-              resolvedScope={assistantDebug?.resolvedScope as { resolved_scope_type?: string; entity_type?: string; entity_name?: string; environment_id?: string } | null}
-            />
-            <div className="border-b border-bm-border/60 p-2.5">
-              <QuickActions
-                actions={quickActions}
-                disabled={false}
-                onSelect={(action) => void onSend(action.prompt)}
-              />
-            </div>
-
-            {/* Conversation header */}
-            <div className="flex items-center justify-between border-b border-bm-border/30 px-3 py-1.5">
-              <button
-                type="button"
-                onClick={() => setShowConversationList((prev) => !prev)}
-                className="text-[11px] text-bm-muted2 hover:text-bm-text transition-colors"
-                title="Show conversation history"
-              >
-                {conversationId ? (conversations.find((c) => c.conversation_id === conversationId)?.title || "Current conversation") : "New conversation"}
-              </button>
-              <button
-                type="button"
-                onClick={startNewConversation}
-                className="text-[11px] text-bm-accent hover:text-bm-text transition-colors"
-                title="Start new conversation"
-              >
-                + New
-              </button>
-            </div>
-
-            {/* Conversation list dropdown */}
-            {showConversationList && conversations.length > 0 && (
-              <div className="border-b border-bm-border/30 max-h-40 overflow-y-auto">
-                {conversations.map((c) => (
-                  <button
-                    key={c.conversation_id}
-                    type="button"
-                    onClick={async () => {
-                      setConversationId(c.conversation_id);
-                      setShowConversationList(false);
-                      // Load messages from server
-                      try {
-                        const { getConversation: getConvo } = await import("@/lib/commandbar/assistantApi");
-                        const detail = await getConvo(c.conversation_id);
-                        if (detail?.messages) {
-                          setMessages(
-                            detail.messages
-                              .filter((m: { role: string }) => m.role === "user" || m.role === "assistant")
-                              .map((m: { message_id: string; role: string; content: string; created_at: string | null }) =>
-                                makeMessage(m.role as "user" | "assistant", m.content, m.message_id),
-                              ),
-                          );
-                        }
-                      } catch {
-                        // Fall through — conversation loads empty
-                      }
-                    }}
-                    className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-bm-surface/60 transition-colors truncate ${
-                      c.conversation_id === conversationId ? "text-bm-accent" : "text-bm-muted"
-                    }`}
-                  >
-                    {c.title || "Untitled"} <span className="text-bm-muted2">({c.message_count})</span>
-                  </button>
-                ))}
+          <div className="flex h-full min-h-0">
+            {/* Conversations sidebar */}
+            <div className="flex w-44 flex-shrink-0 flex-col border-r border-bm-border/40 bg-bm-surface/10">
+              <div className="flex items-center justify-between px-2.5 py-2 border-b border-bm-border/30">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-bm-muted2">History</span>
+                <button
+                  type="button"
+                  onClick={startNewConversation}
+                  className="rounded px-1.5 py-0.5 text-[10px] text-bm-accent hover:bg-bm-accent/10 transition-colors"
+                  title="New conversation"
+                >
+                  + New
+                </button>
               </div>
-            )}
-
-            <div className="min-h-0 flex-1 overflow-hidden">
-              <ConversationPane
-                contextKey={contextKey}
-                messages={messages}
-                examples={EMPTY_EXAMPLES}
-                recentRuns={recentRuns}
-                thinking={planning}
-                thinkingStatus={thinkingStatus}
-                onAction={(action: StructuredResultAction) => {
-                  // Convert structured result action into a prompt
-                  const prompt = `${action.label} for fund ${(action.params as Record<string, string>)?.fund_id || "this fund"}`;
-                  void onSend(prompt);
-                }}
-              />
+              <div className="min-h-0 flex-1 overflow-y-auto py-1" style={{ scrollbarWidth: "thin", scrollbarColor: "hsl(var(--bm-border)/0.5) transparent" }}>
+                {conversations.length === 0 ? (
+                  <p className="px-2.5 py-3 text-[11px] text-bm-muted2 text-center leading-relaxed">No past conversations</p>
+                ) : (
+                  conversations.map((c) => (
+                    <button
+                      key={c.conversation_id}
+                      type="button"
+                      onClick={async () => {
+                        setConversationId(c.conversation_id);
+                        setShowConversationList(false);
+                        try {
+                          const { getConversation: getConvo } = await import("@/lib/commandbar/assistantApi");
+                          const detail = await getConvo(c.conversation_id);
+                          if (detail?.messages) {
+                            setMessages(
+                              detail.messages
+                                .filter((m: { role: string }) => m.role === "user" || m.role === "assistant")
+                                .map((m: { message_id: string; role: string; content: string; created_at: string | null }) =>
+                                  makeMessage(m.role as "user" | "assistant", m.content, m.message_id),
+                                ),
+                            );
+                          }
+                        } catch {
+                          // Fall through
+                        }
+                      }}
+                      className={`w-full text-left px-2.5 py-2 text-[11px] leading-snug hover:bg-bm-surface/60 transition-colors border-l-2 ${
+                        c.conversation_id === conversationId
+                          ? "border-bm-accent text-bm-text bg-bm-accent/5"
+                          : "border-transparent text-bm-muted"
+                      }`}
+                    >
+                      <div className="truncate">{c.title || "Untitled"}</div>
+                      <div className="text-[10px] text-bm-muted2">{c.message_count} msg{c.message_count !== 1 ? "s" : ""}</div>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
 
-            <div className="border-t border-bm-border/40 p-3">
-              <div className="flex items-end gap-2 rounded-lg border border-bm-border/50 bg-bm-bg/60 px-3 py-2 transition-colors focus-within:border-bm-accent/40 focus-within:shadow-[0_0_0_1px_hsl(var(--bm-accent)/0.15)]">
-                <Textarea
-                  data-testid="global-commandbar-input"
-                  value={prompt}
-                  onChange={(event) => setPrompt(event.target.value)}
-                  rows={1}
-                  placeholder={derivePlaceholder(pathname)}
-                  aria-label="Command input"
-                  className="!border-0 !bg-transparent !shadow-none !ring-0 resize-none text-sm !p-0 !min-h-[24px] placeholder:text-bm-muted2"
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault();
-                      void onSend();
-                    }
+            {/* Main chat column */}
+            <div className="flex min-w-0 flex-1 flex-col">
+              <ActiveContextBar
+                workspace={workspace}
+                resolvedScope={assistantDebug?.resolvedScope as { resolved_scope_type?: string; entity_type?: string; entity_name?: string; environment_id?: string } | null}
+              />
+              <div className="border-b border-bm-border/60 p-2.5">
+                <QuickActions
+                  actions={quickActions}
+                  disabled={false}
+                  onSelect={(action) => void onSend(action.prompt)}
+                />
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-hidden">
+                <ConversationPane
+                  contextKey={contextKey}
+                  messages={messages}
+                  examples={EMPTY_EXAMPLES}
+                  recentRuns={recentRuns}
+                  thinking={planning}
+                  thinkingStatus={thinkingStatus}
+                  onAction={(action: StructuredResultAction) => {
+                    const prompt = `${action.label} for fund ${(action.params as Record<string, string>)?.fund_id || "this fund"}`;
+                    void onSend(prompt);
                   }}
                 />
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {messages.length > 0 && (
+              </div>
+
+              <div className="border-t border-bm-border/40 p-3">
+                {/* File attachment preview */}
+                {attachedFile && (
+                  <div className="mb-2 flex items-center gap-1.5 rounded-md border border-bm-border/40 bg-bm-surface/40 px-2 py-1">
+                    <svg className="h-3.5 w-3.5 flex-shrink-0 text-bm-accent" viewBox="0 0 16 16" fill="none">
+                      <path d="M9 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6L9 2z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+                      <path d="M9 2v4h4" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+                    </svg>
+                    <span className="min-w-0 flex-1 truncate text-[11px] text-bm-text">{attachedFile.name}</span>
                     <button
                       type="button"
-                      onClick={clearHistory}
-                      className="rounded p-1 text-bm-muted2 transition-colors hover:text-bm-text"
-                      title="Clear conversation"
+                      onClick={() => setAttachedFile(null)}
+                      className="text-bm-muted2 hover:text-bm-text transition-colors"
+                      title="Remove attachment"
                     >
-                      <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none">
-                        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                       </svg>
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    data-testid="global-commandbar-send"
-                    disabled={!prompt.trim() || planning}
-                    onClick={() => void onSend()}
-                    className="flex h-7 w-7 items-center justify-center rounded-md bg-bm-accent text-bm-accentContrast transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:brightness-110"
-                    title="Send (Enter)"
-                  >
-                    <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none">
-                      <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
+                  </div>
+                )}
+
+                <div className="flex items-end gap-2 rounded-lg border border-bm-border/50 bg-bm-bg/60 px-3 py-2 transition-colors focus-within:border-bm-accent/40 focus-within:shadow-[0_0_0_1px_hsl(var(--bm-accent)/0.15)]">
+                  <Textarea
+                    data-testid="global-commandbar-input"
+                    value={prompt}
+                    onChange={(event) => setPrompt(event.target.value)}
+                    rows={1}
+                    placeholder={derivePlaceholder(pathname)}
+                    aria-label="Command input"
+                    className="!border-0 !bg-transparent !shadow-none !ring-0 resize-none text-sm !p-0 !min-h-[24px] placeholder:text-bm-muted2"
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        void onSend();
+                      }
+                    }}
+                  />
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {/* File attach button */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      accept=".txt,.csv,.json,.md,.pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          const text = (ev.target?.result as string) || "";
+                          setAttachedFile({ name: file.name, content: text.slice(0, 8000) });
+                        };
+                        reader.readAsText(file);
+                        e.target.value = "";
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="rounded p-1 text-bm-muted2 transition-colors hover:text-bm-text"
+                      title="Attach file (.txt, .csv, .json, .md, .pdf)"
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none">
+                        <path d="M13.5 8.5l-6 6a4 4 0 0 1-5.657-5.657l6.5-6.5a2.5 2.5 0 0 1 3.536 3.536l-6.5 6.5a1 1 0 0 1-1.414-1.414L10 5.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                    {messages.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={clearHistory}
+                        className="rounded p-1 text-bm-muted2 transition-colors hover:text-bm-text"
+                        title="Clear conversation"
+                      >
+                        <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none">
+                          <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      data-testid="global-commandbar-send"
+                      disabled={!prompt.trim() || planning}
+                      onClick={() => void onSend()}
+                      className="flex h-7 w-7 items-center justify-center rounded-md bg-bm-accent text-bm-accentContrast transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:brightness-110"
+                      title="Send (Enter)"
+                    >
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none">
+                        <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
+                <p className="mt-1.5 text-[10px] text-bm-muted2 text-center">Enter to send, Shift+Enter for new line</p>
               </div>
-              <p className="mt-1.5 text-[10px] text-bm-muted2 text-center">Enter to send, Shift+Enter for new line</p>
             </div>
           </div>
         }

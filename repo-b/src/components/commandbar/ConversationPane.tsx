@@ -1,8 +1,74 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import type { CommandMessage, StructuredResultAction } from "@/lib/commandbar/store";
 import StructuredResultCard from "@/components/commandbar/StructuredResultCard";
+
+/**
+ * Parse a markdown table string into chart data if the second+ columns are numeric.
+ * Returns null if the table isn't chartable.
+ */
+function parseTableForChart(tableText: string): { data: Record<string, string | number>[]; keys: string[] } | null {
+  const lines = tableText.trim().split("\n").filter((l) => l.trim());
+  if (lines.length < 3) return null;
+
+  const parseRow = (line: string) =>
+    line.split("|").map((c) => c.trim()).filter((c) => c.length > 0);
+
+  const header = parseRow(lines[0]);
+  // lines[1] is the separator row (--- |)
+  const dataRows = lines.slice(2).map(parseRow);
+  if (header.length < 2 || dataRows.length === 0) return null;
+
+  // Check if at least one data column is numeric
+  const numericCols = header.slice(1).filter((_, i) =>
+    dataRows.some((row) => {
+      const val = row[i + 1]?.replace(/[%,$]/g, "").trim();
+      return val !== undefined && !isNaN(parseFloat(val));
+    })
+  );
+  if (numericCols.length === 0) return null;
+
+  const data = dataRows.map((row) => {
+    const entry: Record<string, string | number> = { label: row[0] || "" };
+    header.slice(1).forEach((col, i) => {
+      const raw = row[i + 1]?.replace(/[%,$]/g, "").trim() || "";
+      const num = parseFloat(raw);
+      entry[col] = isNaN(num) ? raw : num;
+    });
+    return entry;
+  });
+
+  return { data, keys: numericCols };
+}
+
+function ChartBlock({ tableText }: { tableText: string }) {
+  const parsed = parseTableForChart(tableText);
+  if (!parsed) return null;
+  const { data, keys } = parsed;
+
+  const COLORS = ["hsl(var(--bm-accent))", "#60a5fa", "#34d399", "#f59e0b", "#f87171"];
+
+  return (
+    <div className="mt-2 rounded-lg border border-bm-border/30 bg-bm-surface/20 p-3">
+      <ResponsiveContainer width="100%" height={180}>
+        <BarChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--bm-border)/0.3)" />
+          <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--bm-muted))" }} />
+          <YAxis tick={{ fontSize: 10, fill: "hsl(var(--bm-muted))" }} />
+          <Tooltip
+            contentStyle={{ background: "hsl(var(--bm-surface))", border: "1px solid hsl(var(--bm-border)/0.5)", borderRadius: 6, fontSize: 11 }}
+            labelStyle={{ color: "hsl(var(--bm-text))" }}
+          />
+          {keys.map((k, i) => (
+            <Bar key={k} dataKey={k} fill={COLORS[i % COLORS.length]} radius={[3, 3, 0, 0]} maxBarSize={40} />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
 
 function parseStatus(status?: string): { primary: string; meta?: string; lane?: string } {
   if (!status) return { primary: "Thinking" };
@@ -100,9 +166,14 @@ function formatAssistantContent(content: string): React.ReactNode {
 
   const flushTable = () => {
     if (tableLines.length > 0) {
+      const tableText = tableLines.join("\n");
+      const key = `table-${elements.length}`;
       elements.push(
-        <div key={`table-${elements.length}`} className="overflow-x-auto my-2">
-          <pre className="whitespace-pre font-mono text-[12px] text-bm-text/90">{tableLines.join("\n")}</pre>
+        <div key={key} className="my-2 space-y-1">
+          <div className="overflow-x-auto">
+            <pre className="whitespace-pre font-mono text-[12px] text-bm-text/90">{tableText}</pre>
+          </div>
+          <ChartBlock tableText={tableText} />
         </div>,
       );
       tableLines = [];
@@ -216,7 +287,7 @@ export default function ConversationPane({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div ref={scrollContainerRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto px-4 py-3 scrollbar-hide">
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto px-4 py-3" style={{ scrollbarWidth: "thin", scrollbarColor: "hsl(var(--bm-border)/0.5) transparent" }}>
         {messages.length === 0 && !thinking ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
             <div className="flex h-10 w-10 items-center justify-center rounded-full border border-bm-border/40 bg-bm-surface/40">
