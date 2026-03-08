@@ -1,5 +1,6 @@
 """Tests for Pipeline CRUD service + route layer."""
 
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -36,6 +37,47 @@ class TestDealCrud:
         assert len(result) == 1
         assert result[0]["deal_name"] == "Test Deal"
 
+    def test_list_deals_derives_summary_fields(self, fake_cursor):
+        from app.services import re_pipeline
+
+        env_id = str(uuid4())
+        fake_cursor.push_result([{
+            "deal_id": str(uuid4()),
+            "env_id": env_id,
+            "fund_id": str(uuid4()),
+            "fund_name": "Meridian Growth Fund",
+            "deal_name": "Desert Logistics Portfolio",
+            "status": "closing",
+            "source": "Brokered",
+            "strategy": "value_add",
+            "property_type": "industrial",
+            "target_close_date": (datetime.now(timezone.utc) + timedelta(days=14)).date().isoformat(),
+            "headline_price": 42000000,
+            "target_irr": 17.5,
+            "target_moic": 2.0,
+            "notes": None,
+            "created_by": "test",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": None,
+            "city": "Phoenix",
+            "state": "AZ",
+            "sponsor_name": "Canyon Sponsor",
+            "broker_name": "Annie Case",
+            "broker_org": "CBRE",
+            "last_activity_at": (datetime.now(timezone.utc) - timedelta(days=2)).isoformat(),
+            "activity_count": 4,
+            "property_count": 2,
+            "open_equity_required": None,
+            "committed_debt": 30000000,
+        }])
+
+        result = re_pipeline.list_deals(env_id=env_id)
+
+        assert result[0]["fund_name"] == "Meridian Growth Fund"
+        assert result[0]["city"] == "Phoenix"
+        assert result[0]["equity_required"] == 12000000
+        assert result[0]["attention_flags"] == ["priority"]
+
     def test_list_deals_with_filters(self, fake_cursor):
         from app.services import re_pipeline
 
@@ -48,8 +90,9 @@ class TestDealCrud:
         assert result == []
         # Check the SQL included the filter conditions
         sql = fake_cursor.queries[0][0]
-        assert "status = %s" in sql
-        assert "strategy = %s" in sql
+        assert "d.status = %s" in sql
+        assert "d.strategy = %s" in sql
+        assert "LEFT JOIN LATERAL" in sql
 
     def test_get_deal_not_found(self, fake_cursor):
         from app.services import re_pipeline
@@ -231,6 +274,47 @@ class TestPipelineRoutes:
         resp = client.get(f"/api/re/v2/pipeline/deals?env_id={env_id}")
         assert resp.status_code == 200
         assert resp.json() == []
+
+    def test_list_deals_route_returns_summary_fields(self, client, fake_cursor):
+        env_id = str(uuid4())
+        fake_cursor.push_result([{
+            "deal_id": str(uuid4()),
+            "env_id": env_id,
+            "fund_id": None,
+            "fund_name": "Meridian Fund VI",
+            "deal_name": "Phoenix Commerce Center",
+            "status": "ic",
+            "source": "JLL",
+            "strategy": "core_plus",
+            "property_type": "industrial",
+            "target_close_date": "2026-03-20",
+            "headline_price": 51000000,
+            "target_irr": 15.0,
+            "target_moic": 1.8,
+            "notes": None,
+            "created_by": "test",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": None,
+            "city": "Phoenix",
+            "state": "AZ",
+            "sponsor_name": "Canyon Sponsor",
+            "broker_name": "Annie Case",
+            "broker_org": "JLL",
+            "last_activity_at": datetime.now(timezone.utc).isoformat(),
+            "activity_count": 3,
+            "property_count": 1,
+            "open_equity_required": 18000000,
+            "committed_debt": 30000000,
+        }])
+
+        resp = client.get(f"/api/re/v2/pipeline/deals?env_id={env_id}")
+
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload[0]["fund_name"] == "Meridian Fund VI"
+        assert payload[0]["broker_name"] == "Annie Case"
+        assert payload[0]["equity_required"] == 18000000
+        assert "priority" in payload[0]["attention_flags"]
 
     def test_create_deal_route(self, client, fake_cursor):
         env_id = str(uuid4())

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date, datetime, timezone
 import json
 from uuid import UUID
 
@@ -10,9 +11,164 @@ from app.db import get_cursor
 
 # ── Deal CRUD ────────────────────────────────────────────────────────────────
 
-_DEAL_COLS = """deal_id, env_id, fund_id, deal_name, status, source, strategy,
-               property_type, target_close_date, headline_price, target_irr,
-               target_moic, notes, created_by, created_at, updated_at"""
+_DEAL_BASE_COLS = """d.deal_id, d.env_id, d.fund_id, d.deal_name, d.status, d.source, d.strategy,
+                    d.property_type, d.target_close_date, d.headline_price, d.target_irr,
+                    d.target_moic, d.notes, d.created_by, d.created_at, d.updated_at"""
+
+_DEAL_SUMMARY_COLS = f"""{_DEAL_BASE_COLS},
+                         f.name AS fund_name,
+                         prop.city,
+                         prop.state,
+                         COALESCE(prop.property_count, 0) AS property_count,
+                         contact.broker_name,
+                         contact.broker_org,
+                         contact.sponsor_name,
+                         activity.last_activity_at,
+                         COALESCE(activity.activity_count, 0) AS activity_count,
+                         tranche.open_equity_required,
+                         tranche.committed_debt"""
+
+_DEAL_SUMMARY_JOINS = """
+LEFT JOIN repe_fund f ON f.fund_id = d.fund_id
+LEFT JOIN LATERAL (
+    SELECT
+        MIN(p.city) FILTER (WHERE NULLIF(TRIM(p.city), '') IS NOT NULL) AS city,
+        MIN(p.state) FILTER (WHERE NULLIF(TRIM(p.state), '') IS NOT NULL) AS state,
+        COUNT(*)::int AS property_count
+    FROM re_pipeline_property p
+    WHERE p.deal_id = d.deal_id
+) prop ON TRUE
+LEFT JOIN LATERAL (
+    SELECT
+        MAX(c.name) FILTER (WHERE LOWER(COALESCE(c.role, '')) LIKE '%broker%') AS broker_name,
+        MAX(c.org) FILTER (WHERE LOWER(COALESCE(c.role, '')) LIKE '%broker%') AS broker_org,
+        MAX(c.name) FILTER (WHERE LOWER(COALESCE(c.role, '')) LIKE '%sponsor%') AS sponsor_name
+    FROM re_pipeline_contact c
+    WHERE c.deal_id = d.deal_id
+) contact ON TRUE
+LEFT JOIN LATERAL (
+    SELECT
+        MAX(a.occurred_at) AS last_activity_at,
+        COUNT(*)::int AS activity_count
+    FROM re_pipeline_activity a
+    WHERE a.deal_id = d.deal_id
+) activity ON TRUE
+LEFT JOIN LATERAL (
+    SELECT
+        SUM(
+            CASE
+                WHEN t.tranche_type IN ('equity', 'pref_equity')
+                     AND COALESCE(t.status, 'open') NOT IN ('withdrawn', 'closed', 'funded', 'committed')
+                THEN COALESCE(t.commitment_amount, 0)
+                ELSE 0
+            END
+        ) AS open_equity_required,
+        SUM(
+            CASE
+                WHEN t.tranche_type IN ('senior_debt', 'bridge', 'mezz', 'note_purchase')
+                     AND COALESCE(t.status, 'open') IN ('committed', 'funded', 'closed')
+                THEN COALESCE(t.commitment_amount, 0)
+                ELSE 0
+            END
+        ) AS committed_debt
+    FROM re_pipeline_tranche t
+    WHERE t.deal_id = d.deal_id
+) tranche ON TRUE
+"""
+
+_STATUS_ORDER = {
+    "sourced": 0,
+    "screening": 1,
+    "loi": 2,
+    "dd": 3,
+    "ic": 4,
+    "closing": 5,
+    "closed": 6,
+    "dead": -1,
+}
+
+
+def _parse_datetime(value) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time(), tzinfo=timezone.utc)
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    return None
+
+
+def _days_since(value) -> int | None:
+    parsed = _parse_datetime(value)
+    if not parsed:
+        return None
+    delta = datetime.now(timezone.utc) - parsed.astimezone(timezone.utc)
+    return max(0, int(delta.total_seconds() // 86400))
+
+
+def _days_until(value) -> int | None:
+    parsed = _parse_datetime(value)
+    if not parsed:
+        return None
+    delta = parsed.astimezone(timezone.utc) - datetime.now(timezone.utc)
+    return int(delta.total_seconds() // 86400)
+
+
+def _derive_equity_required(row: dict):
+    open_equity = row.get("open_equity_required")
+    if open_equity not in (None, 0):
+        return open_equity
+
+    headline_price = row.get("headline_price")
+    committed_debt = row.get("committed_debt")
+    if headline_price is None or committed_debt in (None, 0):
+        return None
+
+    remaining_equity = headline_price - committed_debt
+    return remaining_equity if remaining_equity > 0 else 0
+
+
+def _derive_attention_flags(row: dict) -> list[str]:
+    status = row.get("status") or "sourced"
+    status_rank = _STATUS_ORDER.get(status, 0)
+    property_count = int(row.get("property_count") or 0)
+    activity_days = _days_since(row.get("last_activity_at"))
+    close_days = _days_until(row.get("target_close_date"))
+    equity_required = row.get("equity_required")
+
+    flags: set[str] = set()
+    if activity_days is None or activity_days > 10:
+        flags.add("stale")
+
+    if status_rank >= 1 and property_count == 0:
+        flags.add("missing_diligence")
+    if status_rank >= 1 and not any((row.get("broker_name"), row.get("broker_org"), row.get("source"))):
+        flags.add("missing_diligence")
+    if status in {"ic", "closing"} and (activity_days is None or activity_days > 5):
+        flags.add("missing_diligence")
+    if status_rank >= 2 and equity_required in (None, 0):
+        flags.add("capital_gap")
+    if status in {"ic", "closing"} or (close_days is not None and close_days <= 45):
+        flags.add("priority")
+
+    return sorted(flags)
+
+
+def _hydrate_deal_summary(row: dict) -> dict:
+    item = dict(row)
+    item["property_count"] = int(item.get("property_count") or 0)
+    item["activity_count"] = int(item.get("activity_count") or 0)
+    item["equity_required"] = _derive_equity_required(item)
+    item["attention_flags"] = _derive_attention_flags(item)
+    item.pop("open_equity_required", None)
+    item.pop("committed_debt", None)
+    return item
 
 
 def list_deals(
@@ -22,33 +178,47 @@ def list_deals(
     strategy: str | None = None,
     fund_id: UUID | None = None,
 ) -> list[dict]:
-    conditions = ["env_id = %s"]
+    conditions = ["d.env_id = %s"]
     params: list = [env_id]
     if status:
-        conditions.append("status = %s")
+        conditions.append("d.status = %s")
         params.append(status)
     if strategy:
-        conditions.append("strategy = %s")
+        conditions.append("d.strategy = %s")
         params.append(strategy)
     if fund_id:
-        conditions.append("fund_id = %s")
+        conditions.append("d.fund_id = %s")
         params.append(str(fund_id))
     where = " AND ".join(conditions)
     with get_cursor() as cur:
         cur.execute(
-            f"SELECT {_DEAL_COLS} FROM re_pipeline_deal WHERE {where} ORDER BY created_at DESC",
+            f"""
+            SELECT {_DEAL_SUMMARY_COLS}
+            FROM re_pipeline_deal d
+            {_DEAL_SUMMARY_JOINS}
+            WHERE {where}
+            ORDER BY COALESCE(activity.last_activity_at, d.updated_at, d.created_at) DESC, d.created_at DESC
+            """,
             params,
         )
-        return cur.fetchall()
+        return [_hydrate_deal_summary(row) for row in cur.fetchall()]
 
 
 def get_deal(*, deal_id: UUID) -> dict:
     with get_cursor() as cur:
-        cur.execute(f"SELECT {_DEAL_COLS} FROM re_pipeline_deal WHERE deal_id = %s", (str(deal_id),))
+        cur.execute(
+            f"""
+            SELECT {_DEAL_SUMMARY_COLS}
+            FROM re_pipeline_deal d
+            {_DEAL_SUMMARY_JOINS}
+            WHERE d.deal_id = %s
+            """,
+            (str(deal_id),),
+        )
         row = cur.fetchone()
         if not row:
             raise LookupError(f"Pipeline deal {deal_id} not found")
-        return row
+        return _hydrate_deal_summary(row)
 
 
 def create_deal(*, env_id: str, payload: dict) -> dict:
@@ -59,7 +229,9 @@ def create_deal(*, env_id: str, payload: dict) -> dict:
                 (env_id, fund_id, deal_name, status, source, strategy, property_type,
                  target_close_date, headline_price, target_irr, target_moic, notes, created_by)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING {_DEAL_COLS}
+            RETURNING deal_id, env_id, fund_id, deal_name, status, source, strategy,
+                      property_type, target_close_date, headline_price, target_irr,
+                      target_moic, notes, created_by, created_at, updated_at
             """,
             (
                 env_id,
@@ -77,7 +249,8 @@ def create_deal(*, env_id: str, payload: dict) -> dict:
                 payload.get("created_by"),
             ),
         )
-        return cur.fetchone()
+        row = cur.fetchone()
+        return _hydrate_deal_summary(row)
 
 
 def update_deal(*, deal_id: UUID, payload: dict) -> dict:
@@ -97,13 +270,18 @@ def update_deal(*, deal_id: UUID, payload: dict) -> dict:
     params.append(str(deal_id))
     with get_cursor() as cur:
         cur.execute(
-            f"UPDATE re_pipeline_deal SET {', '.join(sets)} WHERE deal_id = %s RETURNING {_DEAL_COLS}",
+            f"""UPDATE re_pipeline_deal
+                SET {', '.join(sets)}
+                WHERE deal_id = %s
+                RETURNING deal_id, env_id, fund_id, deal_name, status, source, strategy,
+                          property_type, target_close_date, headline_price, target_irr,
+                          target_moic, notes, created_by, created_at, updated_at""",
             params,
         )
         row = cur.fetchone()
         if not row:
             raise LookupError(f"Pipeline deal {deal_id} not found")
-        return row
+        return _hydrate_deal_summary(row)
 
 
 # ── Property CRUD ────────────────────────────────────────────────────────────

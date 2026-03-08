@@ -303,6 +303,19 @@ export default function GlobalCommandBar() {
   }, []);
 
   useEffect(() => {
+    const onPrefillPrompt = (event: Event) => {
+      const custom = event as CustomEvent<{ prompt?: string }>;
+      const nextPrompt = custom.detail?.prompt?.trim() || "";
+      setIsOpen(true);
+      setStage("plan");
+      if (nextPrompt) setPrompt(nextPrompt);
+    };
+
+    window.addEventListener("winston-prefill-prompt", onPrefillPrompt as EventListener);
+    return () => window.removeEventListener("winston-prefill-prompt", onPrefillPrompt as EventListener);
+  }, []);
+
+  useEffect(() => {
     if (!isOpen) return;
 
     let cancelled = false;

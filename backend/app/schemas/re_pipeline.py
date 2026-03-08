@@ -58,6 +58,7 @@ class RePipelineDealOut(BaseModel):
     deal_id: UUID
     env_id: UUID
     fund_id: UUID | None = None
+    fund_name: str | None = None
     deal_name: str
     status: str
     source: str | None = None
@@ -71,6 +72,16 @@ class RePipelineDealOut(BaseModel):
     created_by: str | None = None
     created_at: datetime
     updated_at: datetime | None = None
+    city: str | None = None
+    state: str | None = None
+    sponsor_name: str | None = None
+    broker_name: str | None = None
+    broker_org: str | None = None
+    equity_required: Decimal | None = None
+    last_activity_at: datetime | None = None
+    activity_count: int = 0
+    property_count: int = 0
+    attention_flags: list[str] = Field(default_factory=list)
 
 
 # ── Property ─────────────────────────────────────────────────────────────────
