@@ -8,21 +8,21 @@ import {
   getReV2AssetPeriods,
   getReV2AssetLineage,
   generateReV2AssetReport,
-  listReV2Scenarios,
   ReV2AssetDetail,
   ReV2AssetQuarterState,
   ReV2AssetPeriod,
   ReV2EntityLineageResponse,
-  ReV2Scenario,
 } from "@/lib/bos-api";
 import { useRepeBasePath, useRepeContext } from "@/lib/repe-context";
 import { PROPERTY_TYPE_LABELS, label as labelFn } from "@/lib/labels";
 import CockpitSection from "@/components/repe/asset-cockpit/CockpitSection";
-import ModelInputsSection from "@/components/repe/asset-cockpit/ModelInputsSection";
-import ValuationReturnsSection from "@/components/repe/asset-cockpit/ValuationReturnsSection";
-import OpsAuditSection from "@/components/repe/asset-cockpit/OpsAuditSection";
+import FinancialsSection from "@/components/repe/asset-cockpit/FinancialsSection";
+import DebtSection from "@/components/repe/asset-cockpit/DebtSection";
+import ValuationSection from "@/components/repe/asset-cockpit/ValuationSection";
+import DocumentsSection from "@/components/repe/asset-cockpit/DocumentsSection";
+import AuditSection from "@/components/repe/asset-cockpit/AuditSection";
 
-const SECTIONS = ["Cockpit", "Model Inputs", "Valuation & Returns", "Ops & Audit"] as const;
+const SECTIONS = ["Cockpit", "Financials", "Debt", "Valuation", "Documents", "Audit"] as const;
 type SectionKey = (typeof SECTIONS)[number];
 
 function pickQuarter(): string {
@@ -51,7 +51,6 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
   const [financialState, setFinancialState] = useState<ReV2AssetQuarterState | null>(null);
   const [periods, setPeriods] = useState<ReV2AssetPeriod[]>([]);
   const [lineage, setLineage] = useState<ReV2EntityLineageResponse | null>(null);
-  const [scenarios, setScenarios] = useState<ReV2Scenario[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,18 +73,16 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
         if (cancelled) return;
         setDetail(assetDetail);
 
-        const [finState, periodsData, lin, scenariosData] = await Promise.allSettled([
+        const [finState, periodsData, lin] = await Promise.allSettled([
           getReV2AssetQuarterState(params.assetId, quarter),
           getReV2AssetPeriods(params.assetId),
           getReV2AssetLineage(params.assetId, quarter),
-          listReV2Scenarios(assetDetail.fund.fund_id),
         ]);
 
         if (cancelled) return;
         setFinancialState(finState.status === "fulfilled" ? finState.value : null);
         setPeriods(periodsData.status === "fulfilled" ? periodsData.value : []);
         setLineage(lin.status === "fulfilled" ? lin.value : null);
-        setScenarios(scenariosData.status === "fulfilled" ? scenariosData.value : []);
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : "Failed to load asset");
@@ -138,8 +135,6 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
 
   const { asset, property, investment, fund, env } = detail;
   const base = basePath || `/lab/env/${env.env_id}/re`;
-  const isPropertyAsset = String(asset.asset_type || "").toLowerCase() === "property";
-  const sustainabilityHref = `${base}/sustainability?section=${isPropertyAsset ? "asset-sustainability" : "overview"}&fundId=${fund.fund_id}&investmentId=${investment.investment_id}&assetId=${asset.asset_id}`;
 
   return (
     <section className="space-y-4" data-testid="re-asset-homepage">
@@ -195,6 +190,12 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Link
+              href={`${base}/models?asset=${asset.asset_id}&fund=${fund.fund_id}`}
+              className="rounded-lg border border-bm-accent/60 bg-bm-accent/10 px-3 py-2 text-sm text-bm-accent hover:bg-bm-accent/20"
+            >
+              Run Model
+            </Link>
             <button
               type="button"
               onClick={() => setReportModalOpen(true)}
@@ -235,44 +236,56 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
       {/* ── COCKPIT ── */}
       {section === "Cockpit" && (
         <CockpitSection
+          detail={detail}
           financialState={financialState}
           periods={periods}
           occupancy={property.occupancy}
         />
       )}
 
-      {/* ── MODEL INPUTS ── */}
-      {section === "Model Inputs" && (
-        <ModelInputsSection
-          detail={detail}
-          financialState={financialState}
-          scenarios={scenarios}
-          quarter={quarter}
-          sustainabilityHref={sustainabilityHref}
-        />
-      )}
-
-      {/* ── VALUATION & RETURNS ── */}
-      {section === "Valuation & Returns" && (
-        <ValuationReturnsSection
+      {/* ── FINANCIALS ── */}
+      {section === "Financials" && (
+        <FinancialsSection
           assetId={asset.asset_id}
           quarter={quarter}
           financialState={financialState}
           periods={periods}
-          fundId={fund.fund_id}
         />
       )}
 
-      {/* ── OPS & AUDIT ── */}
-      {section === "Ops & Audit" && (
-        <OpsAuditSection
+      {/* ── DEBT ── */}
+      {section === "Debt" && (
+        <DebtSection
+          financialState={financialState}
+          periods={periods}
+        />
+      )}
+
+      {/* ── VALUATION ── */}
+      {section === "Valuation" && (
+        <ValuationSection
+          financialState={financialState}
+          periods={periods}
+        />
+      )}
+
+      {/* ── DOCUMENTS ── */}
+      {section === "Documents" && businessId && environmentId && (
+        <DocumentsSection
+          businessId={businessId}
+          environmentId={environmentId}
+          assetId={asset.asset_id}
+        />
+      )}
+
+      {/* ── AUDIT ── */}
+      {section === "Audit" && (
+        <AuditSection
           assetId={asset.asset_id}
           quarter={quarter}
           financialState={financialState}
           periods={periods}
           lineage={lineage}
-          businessId={businessId ?? undefined}
-          environmentId={environmentId ?? undefined}
           assetCreatedAt={asset.created_at}
         />
       )}

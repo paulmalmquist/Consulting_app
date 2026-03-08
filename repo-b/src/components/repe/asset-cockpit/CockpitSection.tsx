@@ -1,54 +1,31 @@
 "use client";
 
 import type {
+  ReV2AssetDetail,
   ReV2AssetQuarterState,
   ReV2AssetPeriod,
 } from "@/lib/bos-api";
+import { PROPERTY_TYPE_LABELS, label } from "@/lib/labels";
 import { KpiStrip, type KpiDef } from "./KpiStrip";
 import { QuarterlyBarChart, TrendLineChart } from "@/components/charts";
 import { CHART_COLORS } from "@/components/charts/chart-theme";
-
-function fmtMoney(v: number | string | null | undefined): string {
-  if (v == null) return "—";
-  const n = Number(v);
-  if (Number.isNaN(n) || !n) return "—";
-  if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-  if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
-function fmtPct(v: number | string | null | undefined): string {
-  if (v == null) return "—";
-  const n = Number(v);
-  if (Number.isNaN(n)) return "—";
-  if (n <= 1 && n >= 0) return `${(n * 100).toFixed(1)}%`;
-  return `${n.toFixed(1)}%`;
-}
-
-function fmtX(v: number | string | null | undefined): string {
-  if (v == null) return "—";
-  const n = Number(v);
-  if (Number.isNaN(n)) return "—";
-  return `${n.toFixed(2)}x`;
-}
+import SectorCapacityCard from "./SectorCapacityCard";
+import { fmtMoney, fmtPct, fmtX, fmtText, fmtYear } from "./format-utils";
 
 interface Props {
+  detail: ReV2AssetDetail;
   financialState: ReV2AssetQuarterState | null;
   periods: ReV2AssetPeriod[];
   occupancy?: number;
 }
 
 export default function CockpitSection({
+  detail,
   financialState,
   periods,
   occupancy,
 }: Props) {
-  // Extract sparkline arrays from periods
-  const noiValues = periods.map((p) => Number(p.noi ?? 0));
-  const revenueValues = periods.map((p) => Number(p.revenue ?? 0));
-  const occValues = periods.map((p) => Number(p.occupancy ?? 0));
-  const valueValues = periods.map((p) => Number(p.asset_value ?? 0));
+  const { asset, property } = detail;
 
   // Prior quarter (second-to-last in sorted periods)
   const prior = periods.length >= 2 ? periods[periods.length - 2] : null;
@@ -124,36 +101,28 @@ export default function CockpitSection({
         ]}
       />
 
-      {/* Loan Health Strip */}
-      {financialState && (financialState.dscr || financialState.ltv || financialState.debt_yield) && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-bm-border/70 bg-bm-surface/20 px-4 py-2.5">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2 mr-2">Loan Health</span>
-          {financialState.dscr && (
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-              Number(financialState.dscr) >= 1.25 ? "bg-green-500/10 text-green-400" : Number(financialState.dscr) >= 1.0 ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"
-            }`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${Number(financialState.dscr) >= 1.25 ? "bg-green-400" : Number(financialState.dscr) >= 1.0 ? "bg-amber-400" : "bg-red-400"}`} />
-              DSCR {fmtX(financialState.dscr)}
-            </span>
-          )}
-          {financialState.ltv && (
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-              Number(financialState.ltv) <= 0.65 ? "bg-green-500/10 text-green-400" : Number(financialState.ltv) <= 0.75 ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"
-            }`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${Number(financialState.ltv) <= 0.65 ? "bg-green-400" : Number(financialState.ltv) <= 0.75 ? "bg-amber-400" : "bg-red-400"}`} />
-              LTV {fmtPct(financialState.ltv)}
-            </span>
-          )}
-          {financialState.debt_yield && (
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-              Number(financialState.debt_yield) >= 0.10 ? "bg-green-500/10 text-green-400" : Number(financialState.debt_yield) >= 0.08 ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"
-            }`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${Number(financialState.debt_yield) >= 0.10 ? "bg-green-400" : Number(financialState.debt_yield) >= 0.08 ? "bg-amber-400" : "bg-red-400"}`} />
-              Debt Yield {financialState.debt_yield ? `${(Number(financialState.debt_yield) * 100).toFixed(1)}%` : "—"}
-            </span>
-          )}
+      {/* Property Details + Sector Capacity */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Property Details */}
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">
+            Property Details
+          </h3>
+          <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+            <div><dt className="text-xs text-bm-muted2">Property Type</dt><dd className="font-medium">{label(PROPERTY_TYPE_LABELS, property.property_type ?? "")}</dd></div>
+            <div><dt className="text-xs text-bm-muted2">Market</dt><dd className="font-medium">{fmtText(property.market)}</dd></div>
+            <div><dt className="text-xs text-bm-muted2">City / State</dt><dd className="font-medium">{property.city ? `${property.city}, ${property.state}` : "—"}</dd></div>
+            <div><dt className="text-xs text-bm-muted2">MSA</dt><dd className="font-medium">{fmtText(property.msa)}</dd></div>
+            <div><dt className="text-xs text-bm-muted2">Square Feet</dt><dd className="font-medium">{property.square_feet ? `${(Number(property.square_feet) / 1000).toFixed(0)}K SF` : "—"}</dd></div>
+            <div><dt className="text-xs text-bm-muted2">Year Built</dt><dd className="font-medium">{fmtYear(property.year_built)}</dd></div>
+            <div><dt className="text-xs text-bm-muted2">Cost Basis</dt><dd className="font-medium">{fmtMoney(asset.cost_basis)}</dd></div>
+            <div><dt className="text-xs text-bm-muted2">Status</dt><dd className="font-medium">{asset.status}</dd></div>
+          </dl>
         </div>
-      )}
+
+        {/* Sector Capacity */}
+        <SectorCapacityCard property={property} />
+      </div>
 
       {/* Charts Row */}
       <div className="grid gap-4 lg:grid-cols-2">
