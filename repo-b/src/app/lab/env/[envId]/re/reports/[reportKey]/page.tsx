@@ -41,7 +41,7 @@ export default function ReportViewerPage({
         entityType={entityType}
         entityId={entityId}
         envId={params.envId}
-        businessId={businessId}
+        businessId={businessId ?? ""}
         quarter={quarter}
       />
     </div>
