@@ -11,7 +11,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
-import re
+
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import UUID
@@ -267,7 +267,13 @@ def auto_map_accounts(
             row["mapping_confidence"] = 1.0
             continue
 
-        # Priority 2: Exact GL code match in chart of accounts
+        # Priority 2: Mapping rule match (GL → target line code)
+        if code in rules:
+            row["mapped_gl_account"] = code
+            row["mapping_confidence"] = 0.95
+            continue
+
+        # Priority 3: Exact GL code match in chart of accounts
         if code in coa:
             row["mapped_gl_account"] = code
             row["mapping_confidence"] = 1.0
