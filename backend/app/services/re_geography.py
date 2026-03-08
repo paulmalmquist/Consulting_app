@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from typing import Any
 
 from app.db import get_cursor
+
+logger = logging.getLogger(__name__)
 
 
 _OVERLAY_CATALOG_FALLBACK = [
@@ -304,7 +307,7 @@ def _resolve_pipeline_property_geographies(property_row: dict) -> dict[str, str 
             cur.execute(
                 """
                 SELECT geography_type, geography_id
-                FROM dim_geography
+                FROM pipeline_geography
                 WHERE ST_Contains(geom, ST_SetSRID(ST_Point(%s, %s), 4326))
                 ORDER BY CASE geography_type
                   WHEN 'block_group' THEN 1
@@ -330,7 +333,7 @@ def _benchmark_metric_map(cbsa_code: str | None, metric_keys: list[str]) -> dict
         cur.execute(
             """
             SELECT geography_id
-            FROM dim_geography
+            FROM pipeline_geography
             WHERE cbsa_code = %s
               AND geography_type = 'county'
             """,
@@ -512,6 +515,10 @@ def list_geographies(
         else "ST_AsGeoJSON(g.geom)::json"
     )
 
+    logger.debug(
+        "list_geographies type=%s bbox=[%.4f,%.4f,%.4f,%.4f] max=%d",
+        geography_type, sw_lat, sw_lon, ne_lat, ne_lon, max_features,
+    )
     with get_cursor() as cur:
         cur.execute(
             f"""
@@ -526,7 +533,7 @@ def list_geographies(
                 g.centroid_lon::float,
                 g.area_sq_miles::float,
                 {geom_select} AS geometry
-            FROM dim_geography g
+            FROM pipeline_geography g
             WHERE g.geography_type = %s
               AND g.centroid_lat BETWEEN %s AND %s
               AND g.centroid_lon BETWEEN %s AND %s
@@ -535,6 +542,7 @@ def list_geographies(
             (geography_type, sw_lat, ne_lat, sw_lon, ne_lon, max_features),
         )
         rows = cur.fetchall()
+    logger.debug("list_geographies returned %d features", len(rows))
 
     return {
         "type": "FeatureCollection",
@@ -615,7 +623,7 @@ def get_choropleth_data(
                 f.dataset_vintage,
                 f.source_name
             FROM fact_market_metric f
-            JOIN dim_geography g ON g.geography_id = f.geography_id
+            JOIN pipeline_geography g ON g.geography_id = f.geography_id
             WHERE g.geography_type = %s
               AND f.metric_key = %s
               {bbox_clause}
@@ -657,8 +665,14 @@ def get_map_context(
     geography_ids = [feature["properties"]["geography_id"] for feature in geographies["features"]]
     latest_metrics = _latest_metric_map(geography_ids=geography_ids, metric_keys=[overlay_key])
 
+    logger.debug(
+        "get_map_context env=%s level=%s overlay=%s",
+        env_id, geography_level, overlay_key,
+    )
+    # NOTE: SQL processes %s left-to-right. The JOIN clause has pgl.geography_type = %s
+    # BEFORE the WHERE clause has d.env_id = %s, so geography_level must come first.
     conditions = ["d.env_id = %s"]
-    params: list[Any] = [env_id, geography_level]
+    params: list[Any] = [geography_level, env_id]
     if fund_id:
         conditions.append("d.fund_id = %s")
         params.append(fund_id)
@@ -859,7 +873,7 @@ def get_pipeline_map_feed(
                 """
                 SELECT pgl.geography_type, pgl.geography_id, g.name
                 FROM property_geography_link pgl
-                JOIN dim_geography g ON g.geography_id = pgl.geography_id
+                JOIN pipeline_geography g ON g.geography_id = pgl.geography_id
                 WHERE pgl.property_id = %s::uuid
                 """,
                 (prop["property_id"],),
@@ -925,7 +939,7 @@ def get_deal_geo_context(*, deal_id: str) -> dict:
             cur.execute(
                 """
                 SELECT cbsa_code
-                FROM dim_geography
+                FROM pipeline_geography
                 WHERE geography_id = %s
                 LIMIT 1
                 """,
@@ -1016,7 +1030,7 @@ def geocode_and_link_property(property_id: str) -> dict:
         cur.execute(
             """
             SELECT geography_id, geography_type, name
-            FROM dim_geography
+            FROM pipeline_geography
             WHERE ST_Contains(geom, ST_SetSRID(ST_Point(%s, %s), 4326))
             """,
             (lon, lat),

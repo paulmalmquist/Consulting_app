@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 import json
+import logging
 from uuid import UUID
 
 from app.db import get_cursor
+
+logger = logging.getLogger(__name__)
 
 
 # ── Deal CRUD ────────────────────────────────────────────────────────────────
@@ -190,6 +193,7 @@ def list_deals(
         conditions.append("d.fund_id = %s")
         params.append(str(fund_id))
     where = " AND ".join(conditions)
+    logger.debug("list_deals env=%s status=%s strategy=%s fund=%s", env_id, status, strategy, fund_id)
     with get_cursor() as cur:
         cur.execute(
             f"""
@@ -201,7 +205,9 @@ def list_deals(
             """,
             params,
         )
-        return [_hydrate_deal_summary(row) for row in cur.fetchall()]
+        rows = cur.fetchall()
+    logger.debug("list_deals returned %d rows for env=%s", len(rows), env_id)
+    return [_hydrate_deal_summary(row) for row in rows]
 
 
 def get_deal(*, deal_id: UUID) -> dict:

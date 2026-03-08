@@ -5,7 +5,7 @@ import type { ComponentType } from "react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
-import { Crosshair, List, Loader2, Map as MapIcon, Search, SlidersHorizontal, X } from "lucide-react";
+import { AlertTriangle, Crosshair, List, Loader2, Map as MapIcon, RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
 import { bosFetch } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import { Button } from "@/components/ui/Button";
@@ -261,6 +261,7 @@ export function DealRadarWorkspace() {
   const [deals, setDeals] = useState<PipelineDealSummary[]>([]);
   const [markers, setMarkers] = useState<GeoPipelineMarker[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [markersLoading, setMarkersLoading] = useState(false);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -280,12 +281,15 @@ export function DealRadarWorkspace() {
   const fetchDeals = useCallback(async () => {
     if (!envId) return;
     setLoading(true);
+    setFetchError(null);
     try {
       const rows = await bosFetch<PipelineDealSummary[]>("/api/re/v2/pipeline/deals", {
         params: { env_id: envId },
       });
       setDeals(rows);
-    } catch {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setFetchError(message);
       setDeals([]);
     } finally {
       setLoading(false);
@@ -556,6 +560,22 @@ export function DealRadarWorkspace() {
       {loading ? (
         <div className="flex h-64 items-center justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-bm-muted" />
+        </div>
+      ) : fetchError ? (
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-red-500/30 bg-red-500/8 px-6 py-10 text-center">
+          <AlertTriangle className="h-6 w-6 text-red-400" />
+          <div>
+            <p className="text-sm font-medium text-bm-text">Pipeline data unavailable</p>
+            <p className="mt-1 text-xs text-bm-muted">{fetchError}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void fetchDeals()}
+            className="inline-flex items-center gap-2 rounded-lg border border-bm-border/40 px-3 py-2 text-xs text-bm-muted transition-colors hover:text-bm-text"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </button>
         </div>
       ) : view === "radar" ? (
         <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
