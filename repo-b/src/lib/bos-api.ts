@@ -2902,12 +2902,28 @@ export function listReV2CapitalLedger(fundId: string, quarter?: string): Promise
 }
 
 // Quarter State
-export function getReV2FundQuarterState(fundId: string, quarter: string, scenarioId?: string): Promise<ReV2FundQuarterState> {
-  return directFetch(`/api/re/v2/funds/${fundId}/quarter-state/${quarter}`, { params: { scenario_id: scenarioId } });
+export function getReV2FundQuarterState(
+  fundId: string,
+  quarter: string,
+  scenarioId?: string,
+  versionId?: string
+): Promise<ReV2FundQuarterState> {
+  const params: Record<string, string | undefined> = {
+    scenario_id: scenarioId,
+    version_id: versionId,
+  };
+  return directFetch(`/api/re/v2/funds/${fundId}/quarter-state/${quarter}`, { params });
 }
 
-export function getReV2InvestmentQuarterState(investmentId: string, quarter: string): Promise<ReV2InvestmentQuarterState> {
-  return directFetch(`/api/re/v2/investments/${investmentId}/quarter-state/${quarter}`);
+export function getReV2InvestmentQuarterState(
+  investmentId: string,
+  quarter: string,
+  scenarioId?: string,
+  versionId?: string
+): Promise<ReV2InvestmentQuarterState> {
+  return directFetch(`/api/re/v2/investments/${investmentId}/quarter-state/${quarter}`, {
+    params: { scenario_id: scenarioId, version_id: versionId },
+  });
 }
 
 export function getReV2JvQuarterState(jvId: string, quarter: string): Promise<ReV2JvQuarterState> {
@@ -2937,10 +2953,25 @@ export function getReV2FundInvestmentRollup(
 export function getReV2InvestmentAssets(
   investmentId: string,
   quarter: string,
-  scenarioId?: string
+  scenarioId?: string,
+  versionId?: string
 ): Promise<ReV2InvestmentAsset[]> {
   return directFetch(`/api/re/v2/investments/${investmentId}/assets/${quarter}`, {
-    params: { scenario_id: scenarioId },
+    params: { scenario_id: scenarioId, version_id: versionId },
+  });
+}
+
+export function getReV2InvestmentHistory(
+  investmentId: string,
+  params?: {
+    scenario_id?: string;
+    version_id?: string;
+    quarter_from?: string;
+    quarter_to?: string;
+  }
+): Promise<ReV2InvestmentHistory> {
+  return directFetch(`/api/re/v2/investments/${investmentId}/history`, {
+    params,
   });
 }
 
@@ -3212,10 +3243,11 @@ export function getReV2FundLineage(
 export function getReV2InvestmentLineage(
   investmentId: string,
   quarter: string,
-  scenarioId?: string
+  scenarioId?: string,
+  versionId?: string
 ): Promise<ReV2EntityLineageResponse> {
   return directFetch(`/api/re/v2/investments/${investmentId}/lineage/${quarter}`, {
-    params: { scenario_id: scenarioId },
+    params: { scenario_id: scenarioId, version_id: versionId },
   });
 }
 
@@ -3403,9 +3435,22 @@ export type ReV2Investment = {
   stage: string;
   sponsor?: string;
   target_close_date?: string;
+  as_of_quarter?: string;
+  hold_period_years?: number;
   committed_capital?: number;
   invested_capital?: number;
   realized_distributions?: number;
+  nav?: number;
+  unrealized_value?: number;
+  gross_irr?: number;
+  net_irr?: number;
+  equity_multiple?: number;
+  total_noi?: number;
+  gross_asset_value?: number;
+  debt_balance?: number;
+  ltv?: number;
+  cap_rate?: number;
+  dscr?: number;
   created_at: string;
 };
 
@@ -3464,6 +3509,7 @@ export type ReV2FundQuarterState = {
   fund_id: string;
   quarter: string;
   scenario_id?: string;
+  version_id?: string;
   run_id: string;
   portfolio_nav?: number;
   total_committed?: number;
@@ -3497,12 +3543,18 @@ export type ReV2InvestmentQuarterState = {
   investment_id: string;
   quarter: string;
   scenario_id?: string;
+  version_id?: string;
   run_id?: string;
   nav?: number;
   committed_capital?: number;
   invested_capital?: number;
   realized_distributions?: number;
   unrealized_value?: number;
+  noi?: number;
+  revenue?: number;
+  opex?: number;
+  occupancy?: number;
+  debt_service?: number;
   gross_asset_value?: number;
   debt_balance?: number;
   cash_balance?: number;
@@ -3606,15 +3658,44 @@ export type ReV2InvestmentAsset = {
   property_type?: string;
   units?: number;
   market?: string;
+  city?: string;
+  state?: string;
+  msa?: string;
   quarter_state_id?: string;
   run_id?: string;
   noi?: number;
+  occupancy?: number;
   net_cash_flow?: number;
   debt_balance?: number;
   asset_value?: number;
   nav?: number;
   inputs_hash?: string;
   created_at?: string;
+};
+
+export type ReV2InvestmentHistoryPoint = {
+  quarter: string;
+  noi?: number;
+  revenue?: number;
+  opex?: number;
+  occupancy?: number;
+  asset_value?: number;
+  debt_balance?: number;
+  nav?: number;
+  gross_irr?: number;
+  net_irr?: number;
+  equity_multiple?: number;
+  fund_nav_contribution?: number;
+};
+
+export type ReV2InvestmentHistory = {
+  investment_id: string;
+  fund_id: string;
+  as_of_quarter: string | null;
+  scenario_id?: string | null;
+  version_id?: string | null;
+  operating_history: ReV2InvestmentHistoryPoint[];
+  returns_history: ReV2InvestmentHistoryPoint[];
 };
 
 export type ReV2FundMetrics = {

@@ -20,17 +20,18 @@ export async function GET(
 
   try {
     const res = await pool.query(
-      `SELECT
+       `SELECT
          d.deal_id::text AS investment_id,
          d.fund_id::text,
          d.name,
          d.deal_type AS investment_type,
          d.stage,
          d.sponsor,
-         d.target_close_date::text AS acquisition_date,
+         d.target_close_date::text AS target_close_date,
          CASE WHEN d.target_close_date IS NOT NULL
            THEN ROUND(EXTRACT(EPOCH FROM (NOW() - d.target_close_date)) / (365.25 * 86400), 1)
            ELSE NULL END AS hold_period_years,
+         iqs.quarter AS as_of_quarter,
          iqs.committed_capital::float8,
          iqs.invested_capital::float8,
          iqs.realized_distributions::float8,
@@ -54,7 +55,7 @@ export async function GET(
          d.created_at::text
        FROM repe_deal d
        LEFT JOIN LATERAL (
-         SELECT committed_capital, invested_capital, realized_distributions,
+         SELECT quarter, committed_capital, invested_capital, realized_distributions,
                 nav, unrealized_value, gross_irr, net_irr, equity_multiple
          FROM re_investment_quarter_state
          WHERE investment_id = d.deal_id AND scenario_id IS NULL
