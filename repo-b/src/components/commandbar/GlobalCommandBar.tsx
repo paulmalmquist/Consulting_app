@@ -470,21 +470,8 @@ export default function GlobalCommandBar() {
         snapshot.selectedEnv?.env_id ||
         null;
 
-      // Auto-create conversation on first message if we have a business_id
-      let activeConvoId = conversationId;
-      if (!activeConvoId && derivedBusinessId) {
-        try {
-          const convo = await createConversation({
-            business_id: derivedBusinessId,
-            env_id: derivedEnvId || undefined,
-          });
-          activeConvoId = convo.conversation_id;
-          setConversationId(activeConvoId);
-        } catch {
-          // Non-fatal — proceed without conversation persistence
-        }
-      }
-
+      // Build the envelope first so effectiveBusinessId includes the app-context bridge
+      // (bridge?.environment.active_business_id), which may be set even when localStorage is empty.
       const contextEnvelope = buildAssistantContextEnvelope({
         context: {
           ...context,
@@ -492,7 +479,7 @@ export default function GlobalCommandBar() {
           currentEnvId: derivedEnvId,
         },
         snapshot,
-        conversationId: activeConvoId,
+        conversationId: conversationId,
         launchSource: "winston_modal",
       });
       const effectiveBusinessId =
@@ -505,6 +492,23 @@ export default function GlobalCommandBar() {
         contextEnvelope.session.session_env_id ||
         derivedEnvId ||
         undefined;
+
+      // Auto-create conversation using effectiveBusinessId (includes bridge data, not just localStorage)
+      let activeConvoId = conversationId;
+      if (!activeConvoId && effectiveBusinessId) {
+        try {
+          const convo = await createConversation({
+            business_id: effectiveBusinessId,
+            env_id: effectiveEnvId || undefined,
+          });
+          activeConvoId = convo.conversation_id;
+          setConversationId(activeConvoId);
+          contextEnvelope.thread.thread_id = activeConvoId;
+        } catch {
+          // Non-fatal — proceed without conversation persistence
+        }
+      }
+
       setRaw((prev) => ({
         ...prev,
         assistant: {
