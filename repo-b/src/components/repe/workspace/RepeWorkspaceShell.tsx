@@ -174,7 +174,7 @@ export default function RepeWorkspaceShell({
                 key={item.href}
                 href={item.href}
                 className={[
-                  "flex items-center border-l-2 px-3 py-2 text-[13px] transition-colors duration-fast",
+                  "flex items-center border-l-2 px-3 py-2 text-[15px] transition-colors duration-fast",
                   active
                     ? "border-bm-accent bg-bm-surface/20 font-medium text-bm-text"
                     : "border-transparent text-bm-muted hover:bg-bm-surface/10 hover:text-bm-text",

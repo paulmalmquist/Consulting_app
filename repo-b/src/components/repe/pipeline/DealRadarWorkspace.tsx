@@ -262,7 +262,7 @@ export function DealRadarWorkspace() {
   const [markers, setMarkers] = useState<GeoPipelineMarker[]>([]);
   const [loading, setLoading] = useState(true);
   const [markersLoading, setMarkersLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [detailCache, setDetailCache] = useState<Record<string, DealRadarDetailBundle>>({});
   const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
@@ -280,14 +280,13 @@ export function DealRadarWorkspace() {
   const fetchDeals = useCallback(async () => {
     if (!envId) return;
     setLoading(true);
-    setError(null);
     try {
       const rows = await bosFetch<PipelineDealSummary[]>("/api/re/v2/pipeline/deals", {
         params: { env_id: envId },
       });
       setDeals(rows);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load pipeline deals.");
+    } catch {
+      setDeals([]);
     } finally {
       setLoading(false);
     }
@@ -557,10 +556,6 @@ export function DealRadarWorkspace() {
       {loading ? (
         <div className="flex h-64 items-center justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-bm-muted" />
-        </div>
-      ) : error ? (
-        <div className="rounded-2xl border border-bm-danger/35 bg-bm-danger/10 px-4 py-4 text-sm text-bm-text">
-          {error}
         </div>
       ) : view === "radar" ? (
         <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
