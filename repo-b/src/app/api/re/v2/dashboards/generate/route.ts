@@ -136,6 +136,8 @@ function detectMetrics(prompt: string, entityType: string): string[] {
     dscr: ["DSCR_KPI"],
     "debt service": ["TOTAL_DEBT_SERVICE", "DSCR_KPI"],
     "debt maturity": ["TOTAL_DEBT_SERVICE"],
+    "debt yield": ["DEBT_YIELD"],
+    dy: ["DEBT_YIELD"],
     ltv: ["LTV"],
     "loan to value": ["LTV"],
     "cap rate": ["ASSET_VALUE", "NOI"],

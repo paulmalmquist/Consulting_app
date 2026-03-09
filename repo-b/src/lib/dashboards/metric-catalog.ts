@@ -51,7 +51,7 @@ const CF_METRICS: MetricDefinition[] = [
   { key: "TOTAL_DEBT_SERVICE", label: "Total Debt Service", description: "Interest + principal", format: "dollar", statement: "CF", entity_levels: ["asset", "investment"], polarity: "down_good", group: "Debt Service" },
   { key: "NET_CASH_FLOW", label: "Net Cash Flow", description: "NOI minus all below-NOI items", format: "dollar", statement: "CF", entity_levels: ["asset", "investment"], polarity: "up_good", group: "Net", default_color: "#2563EB" },
   { key: "DSCR", label: "Debt Service Coverage", description: "NOI / Total Debt Service", format: "ratio", statement: "CF", entity_levels: ["asset", "investment"], polarity: "up_good", group: "Metrics" },
-  { key: "DEBT_YIELD", label: "Debt Yield", description: "NOI / UPB", format: "percent", statement: "CF", entity_levels: ["asset", "investment"], polarity: "up_good", group: "Metrics" },
+  { key: "DEBT_YIELD", label: "Debt Yield", description: "NOI divided by total debt", format: "percent", statement: "CF", entity_levels: ["asset", "investment"], polarity: "up_good", group: "Metrics" },
 ];
 
 /* --------------------------------------------------------------------------
