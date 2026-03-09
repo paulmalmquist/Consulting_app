@@ -29,6 +29,7 @@ const DOMAIN_LABELS: Record<DomainSlug, string> = {
   copilot: "AI Discovery Copilot",
   outputs: "Engagement Output Center",
   "pattern-intel": "Execution Pattern Intelligence",
+  "opportunity-engine": "Opportunity Engine",
 };
 
 function navItems(domain: DomainSlug, base: string): NavItem[] {
@@ -187,6 +188,11 @@ function navItems(domain: DomainSlug, base: string): NavItem[] {
       { href: `${base}/graph`, label: "Graph" },
       { href: `${base}/dashboards`, label: "Dashboards" },
       { href: `${base}/case-feed`, label: "Case Feed" },
+    ];
+  }
+  if (domain === "opportunity-engine") {
+    return [
+      { href: base, label: "Command Center" },
     ];
   }
   return [

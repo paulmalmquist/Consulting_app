@@ -28,7 +28,7 @@ export default function AppShell({
 }) {
   const pathname = usePathname();
   const { selectedEnv } = useEnv();
-  const isDomainRoute = /^\/lab\/env\/[^/]+\/(re|pds|credit|legal|medical|consulting)(\/|$)/.test(pathname);
+  const isDomainRoute = /^\/lab\/env\/[^/]+\/(re|pds|credit|legal|medical|consulting|opportunity-engine)(\/|$)/.test(pathname);
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";

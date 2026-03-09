@@ -182,6 +182,7 @@ function getConsultingKpis(): KPI[] {
 function getQuickActions(industry: string, envId: string): Array<{ label: string; href: string }> {
   if (isConsultingEnvironment(industry)) {
     return [
+      { label: "Opportunity Engine", href: `/lab/env/${envId}/opportunity-engine` },
       { label: "Add Lead", href: `/lab/env/${envId}/consulting/outreach` },
       { label: "Log Outreach", href: `/lab/env/${envId}/consulting/outreach` },
       { label: "Create Proposal", href: `/lab/env/${envId}/consulting/proposals` },
@@ -191,6 +192,7 @@ function getQuickActions(industry: string, envId: string): Array<{ label: string
   }
   if (isRepeEnvironment(industry)) {
     return [
+      { label: "Opportunity Engine", href: `/lab/env/${envId}/opportunity-engine` },
       { label: "Create Fund", href: `/lab/env/${envId}/re/funds/new` },
       { label: "Start Underwriting", href: `/lab/env/${envId}/re/deals` },
       { label: "Run Waterfall", href: `/lab/env/${envId}/re/waterfalls` },
@@ -198,6 +200,7 @@ function getQuickActions(industry: string, envId: string): Array<{ label: string
   }
   if (isPdsEnvironment(industry)) {
     return [
+      { label: "Opportunity Engine", href: `/lab/env/${envId}/opportunity-engine` },
       { label: "Open Command Center", href: `/lab/env/${envId}/pds` },
       { label: "Create Project", href: `/lab/env/${envId}/pds` },
       { label: "Run Snapshot", href: `/lab/env/${envId}/pds` },

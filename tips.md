@@ -4,6 +4,11 @@ This file is a repo inventory plus a pre-flight checklist for giving instruction
 
 The main repeat failure pattern here is simple: assistants assume there is one app, one backend, one API surface, and one database path. That is false in this repo.
 
+## Quick Tip
+
+- When reading or editing Next.js route files with shell commands, quote paths like `'repo-b/src/app/lab/env/[envId]/page.tsx'`. Unquoted brackets will be globbed by `zsh` and the command will fail before it reaches the file.
+- Run backend tests with `python3.11 -m pytest ...` in this repo. A bare `pytest` invocation may bind to an older interpreter and fail inside existing files before your feature code is even imported.
+
 ## 1. Repo Inventory
 
 ### Primary surfaces

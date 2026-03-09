@@ -6,114 +6,99 @@ description: >
   change — even if they say "add", "build", "implement", "create", "fix", or
   "wire up". The skill scaffolds code in the right surface (repo-b, backend, or
   repo-c), generates matching tests following the repo's established patterns,
-  runs the local test suite, deploys to production, and runs a live smoke pass
-  against paulmalmquist.com to confirm the feature actually works end-to-end.
-  Trigger this skill any time the user wants to go from idea to confirmed-working
-  in production — not just for greenfield features but also for bug fixes,
-  schema changes, and test coverage gaps.
+  ACTUALLY RUNS the local test suite and reports results, deploys immediately to
+  production (Railway for backend, Vercel via git push for frontend), and then
+  opens a browser to visually walk through paulmalmquist.com to confirm the
+  feature is live and working as intended. This is a fast, autonomous, deploy-first
+  workflow — no staging, no hand-holding. Trigger this skill any time the user
+  wants to go from idea to confirmed-working in production.
 ---
 
 # Feature Dev — Winston Monorepo
 
-This skill takes a feature from description to confirmed-working in production.
-It covers the full cycle: understand → scaffold → test locally → deploy → smoke
-prod. The goal is to never leave a feature half-done — either it works against
-`paulmalmquist.com` or you surface the failure clearly.
+**This skill is autonomous and deploy-first.** The goal is confirmed, visually
+verified working code on `paulmalmquist.com` — not a plan, not a proposal, not
+proposed code. Execute every step. Don't describe what you would do; do it.
+
+The workflow is: read context → scaffold → run tests → fix failures → deploy →
+walk through the live site in a browser → report with screenshots.
 
 ---
 
-## Step 0: Bootstrap CLAUDE.md if missing
-
-Before anything else, check whether `CLAUDE.md` exists at the repo root:
+## Step 0: Read CLAUDE.md NOW — before touching any file
 
 ```bash
-ls /path/to/repo/CLAUDE.md
+cat CLAUDE.md
 ```
 
-If it's missing, generate it from `tips.md` — that file is the source of truth for
-repo topology, API patterns, test conventions, and deploy procedure. Read `tips.md`
-in full, then write `CLAUDE.md` following the structure in `tips.md`'s own sections
-1–12 (repo inventory, data flows, env vars, common errors, deploy steps). This
-bootstraps the shared memory that the rest of the workflow depends on.
+If `CLAUDE.md` is missing, read `tips.md` in full and write `CLAUDE.md` from
+sections 1–12 (repo inventory, API patterns, env vars, common errors, deploy
+procedure). Then `cat` the result before proceeding.
 
-If `CLAUDE.md` already exists, read it now. It contains the repo map, test
-conventions, and deploy procedure you'll need for every step below.
+Do not skip this step. CLAUDE.md tells you which runtime owns your feature,
+which test command to run, and the exact deploy commands. Getting this wrong
+wastes the entire cycle.
 
 ---
 
-## Step 1: Clarify scope before writing a line of code
+## Step 1: Identify the surface — answer these before writing code
 
-The most expensive mistake is building in the wrong surface. Before touching any
-file, establish:
-
-1. **Which runtime owns this feature?**
-   - UI-only change → `repo-b/src/` (components, pages)
-   - RE v2 data access → `repo-b/src/app/api/re/v2/*` (Next route handler, direct Postgres)
-   - Business OS API → `backend/app/routes/`, `backend/app/services/`
+1. **Which runtime?**
+   - UI-only → `repo-b/src/` (components, pages)
+   - RE v2 data → `repo-b/src/app/api/re/v2/*` (Next route handler → Postgres, NO FastAPI)
+   - Business OS API → `backend/app/routes/` + `backend/app/services/`
    - Demo Lab → `repo-c/app/`
-   - Full-stack → identify both sides
+   - Full-stack → identify both sides explicitly
 
-2. **What API path does data flow through?**
-   - `bosFetch()` → BOS backend (FastAPI)
-   - Direct fetch to `/api/re/v2/*` → Next route handler (no FastAPI)
-   - `apiFetch()` → Demo Lab backend
-   - Check `CLAUDE.md` "Two API patterns" section if unsure
+2. **Which API path?**
+   - `bosFetch()` → BOS FastAPI backend (port 8000)
+   - Direct fetch `/api/re/v2/*` → Next route handler (no FastAPI)
+   - `apiFetch()` → Demo Lab (port 8001)
 
-3. **Does this require a schema change?**
-   - If yes, identify the table in `repo-b/db/schema/*.sql`
-   - Plan the migration before writing service code
+3. **Schema change needed?** If yes, identify the `.sql` file first.
 
-4. **What IDs are in scope?** (`env_id`, `business_id`, `fund_id`, `asset_id`, etc.)
-   - Most RE flows require both `env_id` and `business_id`
-   - Empty-data bugs are almost always a missing context issue
+4. **Which IDs are in scope?** (`env_id`, `business_id`, `fund_id`, `asset_id`)
+   — empty data is almost always a missing context issue, not a UI bug.
 
-If anything is ambiguous, ask one focused question rather than assuming.
+If scope is ambiguous after reading CLAUDE.md, ask one focused question. If it's
+clear, proceed immediately.
 
 ---
 
-## Step 2: Scaffold the implementation
+## Step 2: Write the implementation
 
-Write code in the correct location based on scope from Step 1. Follow existing
-patterns — don't invent new ones.
+Write code in the correct location. Follow existing patterns in adjacent files.
 
 ### Backend (FastAPI in `backend/`)
-- Route: `backend/app/routes/<domain>.py` — add a new endpoint function
-- Service: `backend/app/services/<domain>.py` — put business logic here, not in routes
-- Schema: `backend/app/schemas/<domain>.py` — Pydantic model for request/response
-- Pattern: look at an adjacent route/service in the same domain file as your model
+- Route: `backend/app/routes/<domain>.py`
+- Service: `backend/app/services/<domain>.py` — logic here, not in routes
+- Schema: `backend/app/schemas/<domain>.py` — Pydantic request/response models
+- Reference: look at an adjacent file in the same domain first
 
-### Next route handler (RE v2 style)
+### Next route handler (RE v2)
 - File: `repo-b/src/app/api/re/v2/<resource>/route.ts`
-- Use `getPool()` from `@/lib/server/db`
-- Return `Response.json(...)` — no FastAPI involved
-- Pattern: look at `repo-b/src/app/api/re/v2/dashboards/route.ts` as a reference
+- Uses `getPool()` from `@/lib/server/db`, returns `Response.json(...)`
+- Reference: `repo-b/src/app/api/re/v2/dashboards/route.ts`
 
-### Frontend component/page
+### Frontend
 - Page: `repo-b/src/app/lab/env/[envId]/<domain>/page.tsx`
 - Component: `repo-b/src/components/repe/<domain>/`
-- Always check if `env_id`/`business_id` context is needed — use `useReEnv()` hook
-- Pattern: look at `repo-b/src/app/lab/env/[envId]/re/dashboards/page.tsx`
+- Always wire `env_id`/`business_id` — use `useReEnv()` hook
+- `"use client"` components require `import React from "react"` (Vitest/jsdom doesn't auto-inject)
+- Reference: `repo-b/src/app/lab/env/[envId]/re/dashboards/page.tsx`
 
 ### Schema change
-- Add or modify the appropriate numbered `.sql` file in `repo-b/db/schema/`
-- Never create ad hoc migrations outside this directory
+- Add/modify the numbered `.sql` file in `repo-b/db/schema/`
+- Never create migrations outside this directory
 
 ---
 
-## Step 3: Write tests — before verifying manually
+## Step 3: Write a test — as part of the feature, not after
 
-Tests should be written as part of the feature, not after. The goal is to make
-the test suite tell you whether the feature works, rather than relying on visual
-inspection.
+Write the minimum test that would catch a regression in your specific change.
 
-### Backend test (always required for backend changes)
-Add to `backend/tests/test_<domain>.py`. Use the `FakeCursor` fixture — no real
-DB needed. The test should:
-- Call the route with a shaped mock response
-- Assert the response schema matches the Pydantic model
-- Assert edge cases (missing fields, empty arrays, auth failures)
-
-Example pattern from the codebase:
+### Backend test
+Add to `backend/tests/test_<domain>.py`. Use `FakeCursor` — no real DB:
 ```python
 def test_<feature>(client, fake_cursor):
     fake_cursor.return_value = [{"id": "abc", "name": "test"}]
@@ -122,172 +107,166 @@ def test_<feature>(client, fake_cursor):
     assert resp.json()[0]["name"] == "test"
 ```
 
-### Next route handler test (for `repo-b/src/app/api/*` changes)
-Add a `route.test.ts` alongside the route file. Use Vitest + mocked `getPool`.
-Pattern: `repo-b/src/app/api/repe/funds/[fundId]/route.test.ts`
+### Next route handler test
+Add `route.test.ts` alongside the route. Use Vitest + mocked `getPool`.
+Reference: `repo-b/src/app/api/repe/funds/[fundId]/route.test.ts`
 
-### Playwright E2E test (for user-journey changes)
-Add to `repo-b/tests/repe/<feature>.spec.ts`. Use the `installRepeApiMocks`
-pattern from `repo-b/tests/repe/repe-workspace.spec.ts`:
-- Intercept `**/api/**` with `context.route(...)`
-- Build a `MockState` object that evolves as the user interacts
-- Assert on what the page renders, not on network calls
-
-### Unit test (for isolated logic)
-Add `*.test.ts` alongside the component or lib file if it contains pure logic.
-Pattern: `repo-b/src/lib/commandbar/schemas.test.ts`
+### Playwright E2E
+Add to `repo-b/tests/repe/<feature>.spec.ts`. Use `installRepeApiMocks` pattern
+from `repo-b/tests/repe/repe-workspace.spec.ts`. Assert on page renders, not
+network calls.
 
 ---
 
-## Step 4: Run the local test suite
+## Step 4: EXECUTE the local test suite — report actual output
 
-Run only the suites affected by your change. Don't run the full suite if you
-only changed the backend.
+**This step requires running real commands and capturing real output.**
+Do not skip, do not summarize what the output "would be."
 
 ```bash
 # Backend change:
-make test-backend
+cd /path/to/repo && make test-backend 2>&1 | tail -30
 
-# Next route handler change:
-make test-frontend
+# Next route handler / frontend change:
+cd /path/to/repo && make test-frontend 2>&1 | tail -30
 
 # REPE-specific:
-make test-repe
+make test-repe 2>&1 | tail -30
 
-# Schema change — always run this:
-make db:verify
+# Schema change:
+make db:verify 2>&1
 
 # Full-stack:
-make test-backend && make test-frontend
+make test-backend 2>&1 | tail -20 && make test-frontend 2>&1 | tail -20
 ```
 
-If any test fails, fix it before proceeding. Don't push and hope CI catches it.
+**If tests fail:** read the error, fix the code, re-run. Don't move to Step 5
+until tests pass. Report the final passing output in your Step 7 summary.
 
-Also run lint/typecheck for the affected surface:
-
+Also run lint for the affected surface:
 ```bash
-# Python (backend or repo-c):
-source backend/.venv/bin/activate && ruff check backend/app/
+# Python:
+source backend/.venv/bin/activate && ruff check backend/app/ 2>&1
 
-# TypeScript (repo-b):
-cd repo-b && npx tsc --noEmit
+# TypeScript:
+cd repo-b && npx tsc --noEmit 2>&1 | head -20
 ```
 
 ---
 
-## Step 5: Commit and deploy
+## Step 5: Deploy — immediately, don't wait for permission
+
+Tests pass → deploy. This app is on Vercel + Railway. No staging environment.
 
 ```bash
-git add <specific files — never git add -A blindly>
-git commit -m "<type>(<scope>): <description>"
+# Stage and commit:
+git add <specific files — never `git add -A` blindly>
+git commit -m "<type>(<scope>): <short description>"
 git push
 ```
 
-Then deploy the affected runtime(s):
+**Frontend changed → Vercel auto-deploys from git push.** Poll for READY:
+```bash
+gh run list --repo paulmalmquist/Consulting_app --limit 3
+```
+Wait for the top run to reach `completed / success`. Then verify the Vercel
+deployment is READY and the commit SHA matches your push.
 
-**Backend changed** → Railway (does not auto-deploy):
+**Backend changed → Railway does NOT auto-deploy.** Run manually:
 ```bash
 cd backend && railway up --service authentic-sparkle --detach
 ```
 Poll until `SUCCESS`:
 ```bash
-railway deployment list --service authentic-sparkle
+railway deployment list --service authentic-sparkle | head -5
 curl -s https://authentic-sparkle-production-7f37.up.railway.app/health
 ```
+Confirm the deployment timestamp is after your push before declaring it live.
 
-**Frontend changed** → Vercel deploys automatically from `git push`.
-Monitor with:
+**Schema changed → migrate manually** (Railway does NOT auto-migrate):
 ```bash
-gh run list --repo paulmalmquist/Consulting_app --limit 1
-```
-
-**Schema changed** → run migrations manually (Railway does NOT auto-migrate):
-```bash
-make db:migrate
-make db:verify
-```
-
-Wait for all affected surfaces to be healthy before running smoke tests. A healthy
-`/health` endpoint alone doesn't prove new code is live — verify Railway deployment
-lineage (`SUCCESS`, timestamped after your push) and Vercel commit SHA match.
-
----
-
-## Step 6: Production smoke test
-
-Run the smallest possible smoke pass that would catch a regression in your feature.
-
-**For backend API changes** — curl the endpoint directly:
-```bash
-export BASE="https://authentic-sparkle-production-7f37.up.railway.app"
-export BIZ_ID="a1b2c3d4-0001-0001-0001-000000000001"
-export ENV_ID="a1b2c3d4-0001-0001-0003-000000000001"
-
-curl -s "$BASE/api/<your-endpoint>?env_id=$ENV_ID&business_id=$BIZ_ID" | python3 -c "
-import sys, json; d = json.load(sys.stdin); print(json.dumps(d, indent=2))
-"
-```
-
-**For Next route handler changes** — curl via the Vercel frontend:
-```bash
-curl -s "https://www.paulmalmquist.com/api/re/v2/<your-route>" | python3 -c "
-import sys, json; d = json.load(sys.stdin); print(json.dumps(d, indent=2))
-"
-```
-
-**For AI gateway changes**:
-```bash
-curl -sL -X POST "https://www.paulmalmquist.com/api/ai/gateway/ask" \
-  -H "Content-Type: application/json" \
-  -H "Cookie: bos_session=..." \
-  -d '{"message": "<test question related to your feature>"}' \
-  --max-time 30
-```
-
-Assert that the response shape matches what the frontend expects. Any 404, 500,
-or empty response is a failure — surface the error and diagnose before declaring done.
-
-**For Winston AI responses** — check gateway logs for correct lane routing:
-```bash
-curl -s "$BASE/api/ai/gateway/logs?limit=5" | python3 -c "
-import sys, json
-for r in json.load(sys.stdin):
-    print(r['route_lane'], r['tool_call_count'], r['message_preview'][:60])
-"
+make db:migrate 2>&1
+make db:verify 2>&1
 ```
 
 ---
 
-## Step 7: Report
+## Step 6: Curl smoke — confirm the API is live
 
-Don't just say "done." Report:
-1. What was built and in which file(s)
-2. What tests were added and that they pass
-3. Which surfaces were deployed and their health status
-4. The actual production response from the smoke curl — not "looks good," but the
-   real JSON or SSE output
+Run a curl against the deployed endpoint to verify the new code is actually
+serving. Use production seed IDs from CLAUDE.md.
 
-If anything failed in the smoke pass, report the error and your diagnosis. Don't
-declare done until production confirms.
+```bash
+export RAIL="https://authentic-sparkle-production-7f37.up.railway.app"
+export VERC="https://www.paulmalmquist.com"
+export BIZ="a1b2c3d4-0001-0001-0001-000000000001"
+export ENV="a1b2c3d4-0001-0001-0003-000000000001"
+
+# Backend endpoint:
+curl -s "$RAIL/api/<your-endpoint>?env_id=$ENV&business_id=$BIZ" \
+  | python3 -m json.tool
+
+# Next route handler (via Vercel):
+curl -s "$VERC/api/re/v2/<your-route>?env_id=$ENV" \
+  | python3 -m json.tool
+```
+
+A 404 or 500 means the deploy didn't take or there's a runtime error.
+Read the response body, diagnose, fix, re-deploy. Don't proceed to Step 7
+until you have a successful response shape.
 
 ---
 
-## Quick reference: which make target to run
+## Step 7: Visual browser verification on paulmalmquist.com
 
-| Changed surface | Local test command |
+**This step is required.** Open a browser and walk through the live site to
+confirm the feature is visually working as intended — not just API-healthy.
+
+Use the browser tools to:
+1. Navigate to the relevant section of `https://www.paulmalmquist.com`
+   (e.g. the RE dashboard page, the specific lab env, the fund view)
+2. Trigger the feature the way a real user would
+   (click the button, submit the form, open the panel)
+3. Confirm the expected UI change is present and correct
+4. Take a screenshot as evidence
+
+If the UI doesn't reflect the change, check:
+- Is the Vercel deployment READY with the correct commit SHA?
+- Is the component pulling from the correct API path?
+- Is `env_id`/`business_id` context populated? (open browser devtools → Network)
+- Did the browser cache an old build? (hard refresh: Ctrl+Shift+R)
+
+Don't declare done until a screenshot confirms the feature works visually.
+
+---
+
+## Step 8: Report — with evidence, not assertions
+
+Report exactly:
+1. **What was built** — file paths changed/created
+2. **Test result** — the actual passing test output (last N lines of `make test-*`)
+3. **Deploy status** — Railway `SUCCESS` timestamp or Vercel commit SHA
+4. **Curl smoke result** — the actual JSON response from production
+5. **Screenshot** — the live site showing the feature working
+
+"It should work" is not a report. The actual output is the report.
+
+---
+
+## Quick reference
+
+| Surface changed | Run locally | Deploy command |
+|---|---|---|
+| `backend/app/*` | `make test-backend` | `railway up --service authentic-sparkle --detach` |
+| `repo-c/app/*` | `make test-demo` | (repo-c deploy — see tips.md) |
+| `repo-b/src/app/api/*` | `make test-frontend` | `git push` → Vercel auto |
+| `repo-b/src/components/*` | `make test-frontend` | `git push` → Vercel auto |
+| REPE-specific | `make test-repe` | depends on surface |
+| SQL schema | `make db:verify` | `make db:migrate` then `make db:verify` |
+| Full-stack | `make test-backend && make test-frontend` | both of the above |
+
+| URL | Purpose |
 |---|---|
-| `backend/app/*` | `make test-backend` |
-| `repo-c/app/*` | `make test-demo` |
-| `repo-b/src/app/api/*` or components | `make test-frontend` |
-| REPE-specific (`re_*.py`, `re/v2/*`) | `make test-repe` |
-| Playwright journey | `make test-e2e` |
-| SQL schema | `make db:verify` |
-| Everything | `make test-backend && make test-frontend && make db:verify` |
-
-## Quick reference: production URLs
-
-| Surface | URL |
-|---|---|
-| Frontend | `https://www.paulmalmquist.com` |
-| BOS backend | `https://authentic-sparkle-production-7f37.up.railway.app` |
-| Health check | `https://authentic-sparkle-production-7f37.up.railway.app/health` |
+| `https://www.paulmalmquist.com` | Live frontend — visual verification target |
+| `https://authentic-sparkle-production-7f37.up.railway.app` | BOS backend |
+| `https://authentic-sparkle-production-7f37.up.railway.app/health` | Backend health |

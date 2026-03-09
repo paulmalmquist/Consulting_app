@@ -29,6 +29,7 @@ import {
   getCopilotContext,
   getOutputsContext,
   getPatternIntelContext,
+  getOpportunityEngineContext,
 } from "@/lib/bos-api";
 import { useBusinessContext } from "@/lib/business-context";
 import { resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
@@ -36,7 +37,8 @@ import { resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
 export type DomainSlug = "pds" | "credit" | "legal" | "medical"
   | "discovery" | "data-studio" | "workflow-intel" | "vendor-intel"
   | "metric-dict" | "data-chaos" | "blueprint" | "pilot"
-  | "impact" | "case-factory" | "copilot" | "outputs" | "pattern-intel";
+  | "impact" | "case-factory" | "copilot" | "outputs" | "pattern-intel"
+  | "opportunity-engine";
 
 type DomainEnvironment = {
   env_id: string;
@@ -86,6 +88,7 @@ async function resolveDomainContext(domain: DomainSlug, envId: string): Promise<
   if (domain === "copilot") return getCopilotContext(envId);
   if (domain === "outputs") return getOutputsContext(envId);
   if (domain === "pattern-intel") return getPatternIntelContext(envId);
+  if (domain === "opportunity-engine") return getOpportunityEngineContext(envId);
   return getMedOfficeContext(envId);
 }
 

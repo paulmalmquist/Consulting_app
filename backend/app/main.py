@@ -47,6 +47,7 @@ from app.routes import (
     medoffice,
     winston_demo,
     query_engine,
+    opportunity_engine,
 )
 from app.routes.ai import router as ai_router
 from app.routes.ai_gateway import router as ai_gateway_router
@@ -165,6 +166,7 @@ app.include_router(legal_ops.router)
 app.include_router(medoffice.router)
 app.include_router(winston_demo.router)
 app.include_router(query_engine.router)
+app.include_router(opportunity_engine.router)
 app.include_router(website_content.router)
 app.include_router(website_rankings.router)
 app.include_router(website_analytics.router)

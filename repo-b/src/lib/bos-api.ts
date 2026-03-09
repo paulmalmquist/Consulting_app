@@ -662,6 +662,107 @@ export interface DomainContext {
   diagnostics: Record<string, unknown>;
 }
 
+export interface OpportunityModelRun {
+  run_id: string;
+  env_id: string;
+  business_id: string;
+  run_type: string;
+  mode: string;
+  model_version: string;
+  status: string;
+  business_lines: string[];
+  triggered_by?: string | null;
+  input_hash?: string | null;
+  parameters_json: Record<string, unknown>;
+  metrics_json: Record<string, unknown>;
+  error_summary?: string | null;
+  started_at: string;
+  finished_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OpportunitySignal {
+  market_signal_id: string;
+  run_id: string;
+  signal_source: string;
+  source_market_id: string;
+  signal_key: string;
+  signal_name: string;
+  canonical_topic: string;
+  business_line: string;
+  sector?: string | null;
+  geography?: string | null;
+  signal_direction?: string | null;
+  probability: number;
+  signal_strength: number;
+  confidence?: number | null;
+  observed_at?: string | null;
+  expires_at?: string | null;
+  metadata_json: Record<string, unknown>;
+  explanation_json: Record<string, unknown>;
+  created_at?: string | null;
+}
+
+export interface OpportunityRecommendation {
+  recommendation_id: string;
+  run_id: string;
+  opportunity_score_id?: string | null;
+  business_line: string;
+  entity_type: string;
+  entity_id?: string | null;
+  entity_key: string;
+  recommendation_type: string;
+  title: string;
+  summary?: string | null;
+  suggested_action?: string | null;
+  action_owner?: string | null;
+  priority: string;
+  sector?: string | null;
+  geography?: string | null;
+  confidence: number;
+  why_json: Record<string, unknown>;
+  driver_summary?: string | null;
+  created_at: string;
+  updated_at: string;
+  score?: number | null;
+  probability?: number | null;
+  expected_value?: number | null;
+  rank_position?: number | null;
+  model_version?: string | null;
+  fallback_mode?: string | null;
+}
+
+export interface OpportunityExplanation {
+  driver_key: string;
+  driver_label: string;
+  driver_value?: number | null;
+  contribution_score?: number | null;
+  rank_position?: number | null;
+  explanation_text?: string | null;
+}
+
+export interface OpportunityScoreHistoryPoint {
+  as_of_date: string;
+  score?: number | null;
+  probability?: number | null;
+}
+
+export interface OpportunityRecommendationDetail extends OpportunityRecommendation {
+  drivers: OpportunityExplanation[];
+  score_history: OpportunityScoreHistoryPoint[];
+  linked_signals: OpportunitySignal[];
+  linked_forecasts: Array<Record<string, unknown>>;
+}
+
+export interface OpportunityDashboard {
+  latest_run: OpportunityModelRun | null;
+  recommendation_counts: Record<string, number>;
+  top_recommendations: OpportunityRecommendation[];
+  top_signals: OpportunitySignal[];
+  run_history: OpportunityModelRun[];
+}
+
 export type PdsV2Lens = "market" | "account" | "project" | "resource";
 export type PdsV2Horizon = "MTD" | "QTD" | "YTD" | "Forecast";
 export type PdsV2RolePreset = "executive" | "market_leader" | "account_director" | "project_lead";
@@ -6534,6 +6635,115 @@ export function getOutputsContext(envId: string, businessId?: string): Promise<D
 export function getPatternIntelContext(envId: string, businessId?: string): Promise<DomainContext> {
   return bosFetch("/api/pattern-intel/v1/context", {
     params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOpportunityEngineContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/opportunity-engine/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOpportunityDashboard(params: {
+  env_id: string;
+  business_id?: string;
+  business_line?: string;
+  sector?: string;
+  geography?: string;
+  as_of_date?: string;
+}): Promise<OpportunityDashboard> {
+  return bosFetch("/api/opportunity-engine/v1/dashboard", {
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+      business_line: params.business_line,
+      sector: params.sector,
+      geography: params.geography,
+      as_of_date: params.as_of_date,
+    },
+  });
+}
+
+export function listOpportunityRecommendations(params: {
+  env_id: string;
+  business_id?: string;
+  business_line?: string;
+  sector?: string;
+  geography?: string;
+  as_of_date?: string;
+  limit?: number;
+}): Promise<OpportunityRecommendation[]> {
+  return bosFetch("/api/opportunity-engine/v1/recommendations", {
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+      business_line: params.business_line,
+      sector: params.sector,
+      geography: params.geography,
+      as_of_date: params.as_of_date,
+      limit: params.limit?.toString(),
+    },
+  });
+}
+
+export function getOpportunityRecommendationDetail(
+  recommendationId: string,
+  params: { env_id: string; business_id?: string }
+): Promise<OpportunityRecommendationDetail> {
+  return bosFetch(`/api/opportunity-engine/v1/recommendations/${recommendationId}`, {
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+    },
+  });
+}
+
+export function listOpportunitySignals(params: {
+  env_id: string;
+  business_id?: string;
+  canonical_topic?: string;
+  geography?: string;
+  limit?: number;
+}): Promise<OpportunitySignal[]> {
+  return bosFetch("/api/opportunity-engine/v1/signals", {
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+      canonical_topic: params.canonical_topic,
+      geography: params.geography,
+      limit: params.limit?.toString(),
+    },
+  });
+}
+
+export function listOpportunityRuns(params: {
+  env_id: string;
+  business_id?: string;
+  status?: string;
+  limit?: number;
+}): Promise<OpportunityModelRun[]> {
+  return bosFetch("/api/opportunity-engine/v1/runs", {
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+      status: params.status,
+      limit: params.limit?.toString(),
+    },
+  });
+}
+
+export function createOpportunityRun(body: {
+  env_id: string;
+  business_id?: string;
+  mode?: "fixture" | "live";
+  run_type?: string;
+  business_lines?: Array<"consulting" | "pds" | "re_investment" | "market_intel">;
+  triggered_by?: string;
+  as_of_date?: string;
+}): Promise<OpportunityModelRun> {
+  return bosFetch("/api/opportunity-engine/v1/runs", {
+    method: "POST",
+    body: JSON.stringify(body),
   });
 }
 
