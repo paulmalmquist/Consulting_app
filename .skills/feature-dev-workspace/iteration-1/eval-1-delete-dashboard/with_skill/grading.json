@@ -1,0 +1,40 @@
+{
+  "expectations": [
+    {
+      "text": "Skill reads CLAUDE.md (or generates it from tips.md) at the start",
+      "passed": false,
+      "evidence": "No reference to reading CLAUDE.md or tips.md in any output files. The summary.md begins with task analysis without indicating that context was read from external files."
+    },
+    {
+      "text": "Skill correctly identifies this as a repo-b Next route handler change (not a backend/FastAPI change)",
+      "passed": true,
+      "evidence": "summary.md line 9-12: 'Surface: RE v2 (Next route handler, Pattern B)... This is **NOT** a FastAPI backend endpoint — it's a Next.js direct-to-Postgres route handler'"
+    },
+    {
+      "text": "Skill creates or modifies a route file under repo-b/src/app/api/re/v2/dashboards/",
+      "passed": true,
+      "evidence": "proposed_route.ts is a complete implementation of the DELETE handler in the correct path. summary.md line 49: 'File: repo-b/src/app/api/re/v2/dashboards/route.ts'. Contains DELETE function exported at lines 84-141 of proposed_route.ts"
+    },
+    {
+      "text": "Skill writes at least one test (Vitest or pytest) for the new endpoint",
+      "passed": true,
+      "evidence": "proposed_test.ts contains 6 Vitest test cases (lines 10-209): happy path delete, 404 not found, missing ID, database unavailable, database error, and cascade verification. Uses vi.fn() and describe/test pattern."
+    },
+    {
+      "text": "Skill runs a local test command (make test-frontend or equivalent) and reports the result",
+      "passed": false,
+      "evidence": "summary.md mentions test commands (lines 141-142) but outputs do not include actual test execution results. The command is documented but no evidence of running it locally and reporting results."
+    },
+    {
+      "text": "Skill specifies a curl smoke command against paulmalmquist.com or the Railway backend URL",
+      "passed": true,
+      "evidence": "smoke_test.sh contains comprehensive curl smoke test (lines 22, 48, 67, 91) against https://www.paulmalmquist.com frontend URL with full lifecycle testing: create, verify, delete, and validate deletion."
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 2,
+    "total": 6,
+    "pass_rate": 0.6667
+  }
+}

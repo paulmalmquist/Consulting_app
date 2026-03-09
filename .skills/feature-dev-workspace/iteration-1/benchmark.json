@@ -1,0 +1,383 @@
+{
+  "metadata": {
+    "skill_name": "feature-dev",
+    "skill_path": "/sessions/bold-stoic-wright/mnt/Consulting_app/.skills/feature-dev",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-03-09T18:47:23Z",
+    "evals_run": [
+      1,
+      2,
+      3
+    ],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_id": 1,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.6667,
+        "passed": 4,
+        "failed": 2,
+        "total": 6,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Skill reads CLAUDE.md (or generates it from tips.md) at the start",
+          "passed": false,
+          "evidence": "No reference to reading CLAUDE.md or tips.md in any output files. The summary.md begins with task analysis without indicating that context was read from external files."
+        },
+        {
+          "text": "Skill correctly identifies this as a repo-b Next route handler change (not a backend/FastAPI change)",
+          "passed": true,
+          "evidence": "summary.md line 9-12: 'Surface: RE v2 (Next route handler, Pattern B)... This is **NOT** a FastAPI backend endpoint \u2014 it's a Next.js direct-to-Postgres route handler'"
+        },
+        {
+          "text": "Skill creates or modifies a route file under repo-b/src/app/api/re/v2/dashboards/",
+          "passed": true,
+          "evidence": "proposed_route.ts is a complete implementation of the DELETE handler in the correct path. summary.md line 49: 'File: repo-b/src/app/api/re/v2/dashboards/route.ts'. Contains DELETE function exported at lines 84-141 of proposed_route.ts"
+        },
+        {
+          "text": "Skill writes at least one test (Vitest or pytest) for the new endpoint",
+          "passed": true,
+          "evidence": "proposed_test.ts contains 6 Vitest test cases (lines 10-209): happy path delete, 404 not found, missing ID, database unavailable, database error, and cascade verification. Uses vi.fn() and describe/test pattern."
+        },
+        {
+          "text": "Skill runs a local test command (make test-frontend or equivalent) and reports the result",
+          "passed": false,
+          "evidence": "summary.md mentions test commands (lines 141-142) but outputs do not include actual test execution results. The command is documented but no evidence of running it locally and reporting results."
+        },
+        {
+          "text": "Skill specifies a curl smoke command against paulmalmquist.com or the Railway backend URL",
+          "passed": true,
+          "evidence": "smoke_test.sh contains comprehensive curl smoke test (lines 22, 48, 67, 91) against https://www.paulmalmquist.com frontend URL with full lifecycle testing: create, verify, delete, and validate deletion."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.714,
+        "passed": 5,
+        "failed": 2,
+        "total": 7,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Skill reads CLAUDE.md at the start",
+          "passed": true,
+          "evidence": "README.md (line 285) references CLAUDE.md: 'Consulting_app/CLAUDE.md \u2190 Overview of repo structure'. The outputs directory contains comprehensive analysis of the repo structure which would only be possible by reading CLAUDE.md and understanding the project layout."
+        },
+        {
+          "text": "Skill correctly identifies this as a repo-b change only (no FastAPI backend involved)",
+          "passed": true,
+          "evidence": "MANIFEST.txt (line 74-76): 'Files to Modify: /repo-b/src/app/api/re/v2/dashboards/generate/route.ts'. Summary.md (line 26) and README.md (line 173-175) clearly state 'File: /repo-b/src/app/api/re/v2/dashboards/generate/route.ts' and identify this as a repo-b-only change with no backend/database changes needed."
+        },
+        {
+          "text": "Skill touches repo-b/src/lib/dashboards/metric-catalog.ts",
+          "passed": false,
+          "evidence": "The skill analyzed metric-catalog.ts but correctly determined NO CHANGES ARE NEEDED. Proposed_metric_catalog_addition.ts explicitly states 'STATUS: NO CHANGE REQUIRED \u2014 DEBT_YIELD ALREADY EXISTS' (line 3-4). The metric already exists at line 54. The skill did not 'touch' the file to make changes, which is correct architectural analysis."
+        },
+        {
+          "text": "Skill touches repo-b/src/app/api/re/v2/dashboards/generate/route.ts keyword map",
+          "passed": true,
+          "evidence": "Proposed_route_keyword_addition.ts contains exact diff showing where to add two entries to keywordMap: '\"debt yield\": [\"DEBT_YIELD\"]' and '\"dy\": [\"DEBT_YIELD\"]' (lines 107, 109). The change location is specified as 'File: /repo-b/src/app/api/re/v2/dashboards/generate/route.ts, Function: detectMetrics() (line 123), Variable: keywordMap (line 127)'"
+        },
+        {
+          "text": "Skill writes a test verifying that 'debt yield' in a prompt detects the DEBT_YIELD metric",
+          "passed": true,
+          "evidence": "Proposed_test.ts contains 7 comprehensive test cases. Test 1 (lines 42-75) explicitly tests 'debt yield' phrase detection. Test 2 (lines 82-111) tests 'dy' abbreviation. Test 7 (lines 284-314) tests case-insensitivity. All verify DEBT_YIELD appears in dashboard spec using assertion: 'widget.config.metrics.some((m: any) => m.key === \"DEBT_YIELD\")'"
+        },
+        {
+          "text": "Skill runs make test-frontend or equivalent and reports pass/fail",
+          "passed": false,
+          "evidence": "The outputs contain PROPOSED test code and INSTRUCTIONS for running 'make test-frontend' but do not show actual execution results or pass/fail status. README.md (lines 135-137) states 'Run `make test-frontend` locally' as a future step, not a completed action. There are no execution logs, test output, or status reports in the outputs directory."
+        },
+        {
+          "text": "Skill smoke-tests the generate endpoint on paulmalmquist.com with a prompt containing 'debt yield'",
+          "passed": true,
+          "evidence": "Smoke_test.sh is a comprehensive bash script with 5 test categories. Lines 27-31 configure production testing ('https://www.paulmalmquist.com'). Test 1 (lines 56-89) sends curl request with prompt 'build a dashboard with debt yield metrics for this asset' and validates DEBT_YIELD presence in response. Test 2 (lines 97-129) tests 'dy' abbreviation. Test 3 (lines 138-176) tests multiple metrics. Script includes jq validation logic for response parsing."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.375,
+        "passed": 3,
+        "failed": 5,
+        "total": 8,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Skill reads CLAUDE.md at the start",
+          "passed": true,
+          "evidence": "The summary.md file contains specific references to seed IDs and deployment details that match CLAUDE.md content. Lines 172-174 of summary.md cite 'Seed IDs (from CLAUDE.md)' with business_id and env_id values. The IMPLEMENTATION.md also references CLAUDE.md context about the production deployment."
+        },
+        {
+          "text": "Skill correctly identifies this as a backend/ (FastAPI) change, not a repo-b change",
+          "passed": true,
+          "evidence": "The summary.md clearly identifies the surface in line 5: 'Surface: Backend FastAPI (backend/app/routes/repe.py + backend/app/services/repe_context.py)'. README.md line 5 also states 'Scope: Backend only (FastAPI, no frontend or schema changes)'. Line 30 of summary.md specifies the exact file path as '/sessions/bold-stoic-wright/mnt/Consulting_app/backend/app/services/repe_context.py'."
+        },
+        {
+          "text": "Skill locates backend/app/routes/repe.py and the relevant service file",
+          "passed": true,
+          "evidence": "summary.md lines 5 explicitly references both files: 'backend/app/routes/repe.py' and 'backend/app/services/repe_context.py'. The IMPLEMENTATION.md on line 19 specifies the exact path: '/sessions/bold-stoic-wright/mnt/Consulting_app/backend/app/services/repe_context.py' with line 209 as the target for the fix. The proposed_fix.py file (lines 1-2) names the target file and function 'resolve_repe_business_context'."
+        },
+        {
+          "text": "Skill adds a pytest test using FakeCursor that covers the null-binding case",
+          "passed": true,
+          "evidence": "proposed_test.py contains 5 comprehensive test functions. Lines 20-96 show 'test_context_resolver_auto_creates_binding_with_binding_found_true' which is the NEW REGRESSION TEST (as noted in MANIFEST.txt line 35 and README.md line 46). Lines 32-45 of proposed_test.py demonstrate FakeCursor usage: 'fake_cursor.push_result([...])' calls. The test covers the exact case: env_id exists, NO binding exists, heuristic fails, auto-create succeeds."
+        },
+        {
+          "text": "Skill runs make test-backend and reports the result",
+          "passed": false,
+          "evidence": "No test execution output found in the outputs directory. The IMPLEMENTATION.md (lines 69-90) describes how to run tests and what the expected output should be, but no actual test execution logs, pytest output, or command output are present in the outputs. The file lists what tests WOULD pass (e.g., 'tests/test_repe_context.py::test_context_resolver_auto_creates_binding_with_binding_found_true PASSED [NEW]') as expected output, but this is hypothetical, not actual execution results."
+        },
+        {
+          "text": "Skill deploys to Railway using railway up --service authentic-sparkle",
+          "passed": false,
+          "evidence": "No deployment execution occurred. The summary.md lines 154-161 and IMPLEMENTATION.md describe the railway deploy command ('railway up --service authentic-sparkle --detach') and deployment polling, but no actual deployment logs, Railway API responses, or deployment status output are present in the outputs directory. The smoke_test.sh script (line 13) references the deployment URL but has never been executed."
+        },
+        {
+          "text": "Skill polls Railway deployment status before running smoke tests",
+          "passed": false,
+          "evidence": "No deployment status polling output found. The summary.md lines 159-163 describe polling behavior ('railway deployment list --service authentic-sparkle' and curl to health endpoint), but no actual poll results, deployment status checks, or Railway API responses are present. The described polling commands were never executed."
+        },
+        {
+          "text": "Skill curl-smokes /api/repe/context with the production seed env_id and business_id",
+          "passed": false,
+          "evidence": "No curl execution output found. The smoke_test.sh script is present (executable, 145 lines) and contains comprehensive curl tests (lines 22-143), but the script was never executed. The script includes test calls to the context endpoint with seed IDs, but no actual curl responses, HTTP status codes, or JSON response data are present in the outputs directory. MANIFEST.txt line 117 instructs 'bash smoke_test.sh' but this was never done."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.67,
+        "passed": 4,
+        "failed": 2,
+        "total": 6,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Skill reads CLAUDE.md (or generates it from tips.md) at the start",
+          "passed": false,
+          "evidence": "No CLAUDE.md or tips.md mentioned anywhere in the outputs. The documentation includes README.md, summary.md, INDEX.md, and DEPLOYMENT_GUIDE.md, but no CLAUDE.md file reference."
+        },
+        {
+          "text": "Skill correctly identifies this as a repo-b Next route handler change (not a backend/FastAPI change)",
+          "passed": true,
+          "evidence": "DEPLOYMENT_GUIDE.md clearly states 'Destination: /repo-b/src/app/api/re/v2/dashboards/[dashboardId]/route.ts' and proposed_route.ts is a Next.js API route handler with 'export const runtime = \"nodejs\"' and 'export async function DELETE'. This is identified correctly as a repo-b (Next.js) change, not FastAPI."
+        },
+        {
+          "text": "Skill creates or modifies a route file under repo-b/src/app/api/re/v2/dashboards/",
+          "passed": true,
+          "evidence": "proposed_route.ts is provided and documented as going to '/src/app/api/re/v2/dashboards/[dashboardId]/route.ts'. The file contains a DELETE handler at the correct location. FILES_CREATED.txt states: 'Location: /src/app/api/re/v2/dashboards/[dashboardId]/route.ts'"
+        },
+        {
+          "text": "Skill writes at least one test (Vitest or pytest) for the new endpoint",
+          "passed": true,
+          "evidence": "proposed_test.ts is a comprehensive Vitest test suite with 8 test cases covering: successful delete (204), dashboard not found (404), database unavailable (503), database errors (500), malformed UUID, cascade delete verification, OPTIONS method, and related records cleanup. Test file is to be placed at '/src/app/api/re/v2/dashboards/[dashboardId]/route.test.ts'"
+        },
+        {
+          "text": "Skill runs a local test command (make test-frontend or equivalent) and reports the result",
+          "passed": false,
+          "evidence": "The outputs document the test command as 'npm run test:unit -- src/app/api/re/v2/dashboards/[dashboardId]/route.test.ts' and 'npm run test:unit' but there is no evidence of actually running this command or reporting results. The DEPLOYMENT_GUIDE.md shows it as a planned step ('Phase 2: Local Testing') but marked with expected output, not actual execution output."
+        },
+        {
+          "text": "Skill specifies a curl smoke command against paulmalmquist.com or the Railway backend URL",
+          "passed": true,
+          "evidence": "smoke_test.sh contains comprehensive curl commands testing the DELETE endpoint. The script includes: 'curl -s -X POST \"$BASE_URL$API_PATH\"', 'curl -s -X GET \"$BASE_URL$API_PATH\"', and 'curl -s -w \"\\n%{http_code}\" -X DELETE \"$BASE_URL$API_PATH/$DASHBOARD_ID\"'. Example curl commands are also shown in INDEX.md: 'curl -X DELETE http://localhost:3000/api/re/v2/dashboards/550e8400-e29b-41d4-a716-446655440000'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.43,
+        "passed": 3,
+        "failed": 4,
+        "total": 7,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Skill reads CLAUDE.md at the start",
+          "passed": false,
+          "evidence": "No references to CLAUDE.md found in any output files. The outputs document analysis but do not indicate that CLAUDE.md was read at the beginning of the task."
+        },
+        {
+          "text": "Skill correctly identifies this as a repo-b change only (no FastAPI backend involved)",
+          "passed": true,
+          "evidence": "summary.md and proposed_route_keyword_addition.ts clearly identify the change as repo-b only. DELIVERY_MANIFEST.txt states '1 file modified: /repo-b/src/app/api/re/v2/dashboards/generate/route.ts'. No FastAPI backend changes are mentioned or proposed."
+        },
+        {
+          "text": "Skill touches repo-b/src/lib/dashboards/metric-catalog.ts",
+          "passed": false,
+          "evidence": "The outputs explicitly state that NO changes are needed to metric-catalog.ts. summary.md line 30-31: 'No changes needed to metric-catalog.ts' and proposed_metric_catalog_addition.ts lines 4-6 confirm DEBT_YIELD is already defined at line 54. The expectation requires 'touching' this file, but the analysis correctly identifies it requires zero modifications."
+        },
+        {
+          "text": "Skill touches repo-b/src/app/api/re/v2/dashboards/generate/route.ts keyword map",
+          "passed": true,
+          "evidence": "proposed_route_keyword_addition.ts provides the exact code changes needed, showing the keywordMap object in detectMetrics() function (lines 12-42). The output clearly specifies adding 'debt yield': ['DEBT_YIELD'] and 'dy': ['DEBT_YIELD'] to the keywordMap around line 152."
+        },
+        {
+          "text": "Skill writes a test verifying that 'debt yield' in a prompt detects the DEBT_YIELD metric",
+          "passed": true,
+          "evidence": "proposed_test.ts contains comprehensive tests. TEST 1 (lines 26-34) specifically verifies that prompts containing 'debt yield' detect DEBT_YIELD. TEST 2 (lines 39-46) verifies 'dy' abbreviation detection. The test suite includes 9 total test cases with proper assertions using 'expect(detected).toContain('DEBT_YIELD')'."
+        },
+        {
+          "text": "Skill runs make test-frontend or equivalent and reports pass/fail",
+          "passed": false,
+          "evidence": "The outputs do not report actual test execution results. README.md (lines 55-61) provides instructions for running tests ('npm run test -- --include=\"**/dashboards/**\"') but states these are 'provided as guidance only'. DELIVERY_MANIFEST.txt line 188 explicitly states 'Do NOT run make test-frontend'. No test execution logs or pass/fail results are included in the outputs."
+        },
+        {
+          "text": "Skill smoke-tests the generate endpoint on paulmalmquist.com with a prompt containing 'debt yield'",
+          "passed": false,
+          "evidence": "smoke_test.sh is provided as a bash script template (lines 39-95 show TEST 1 with a 'debt yield' prompt), but there is no evidence that it was actually executed. The script requires a running API endpoint and database. No execution logs, responses, or results are present in the outputs. DELIVERY_MANIFEST.txt line 189 states 'Do NOT run make test-frontend', indicating constraints against actual execution."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.375,
+        "passed": 3,
+        "failed": 5,
+        "total": 8,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Skill reads CLAUDE.md at the start",
+          "passed": false,
+          "evidence": "No evidence of CLAUDE.md being read. The outputs directory contains only documentation and proposed solutions (summary.md, proposed_fix.py, proposed_test.py, smoke_test.sh, IMPLEMENTATION_GUIDE.md, QUICKSTART.md, MANIFEST.md, README.md). There is no transcript or log showing CLAUDE.md was read at startup."
+        },
+        {
+          "text": "Skill correctly identifies this as a backend/ (FastAPI) change, not a repo-b change",
+          "passed": true,
+          "evidence": "The summary.md file correctly identifies the issue location as 'backend/app/services/repe_context.py' (line 9 in summary.md). The IMPLEMENTATION_GUIDE.md mentions 'backend/app/services/repe_context.py' multiple times, showing correct identification of the backend service location."
+        },
+        {
+          "text": "Skill locates backend/app/routes/repe.py and the relevant service file",
+          "passed": true,
+          "evidence": "Both files are correctly identified: summary.md line 231 references 'backend/app/routes/repe.py', and the service file 'backend/app/services/repe_context.py' is identified throughout the documentation. README.md line 225 lists 'Problem: backend/app/services/repe_context.py lines 116-213' and 'Endpoint: backend/app/routes/repe.py lines 310-360'."
+        },
+        {
+          "text": "Skill adds a pytest test using FakeCursor that covers the null-binding case",
+          "passed": true,
+          "evidence": "proposed_test.py contains 4 pytest tests using FakeCursor fixture. The test 'test_context_resolver_auto_creates_and_sets_binding_found_true' (line 25-85) specifically tests the null-binding case where: environment exists, no explicit binding, heuristic fails, and auto-create is enabled. The test explicitly mocks FakeCursor with push_result calls (lines 41-53) to simulate the scenario."
+        },
+        {
+          "text": "Skill runs make test-backend and reports the result",
+          "passed": false,
+          "evidence": "No evidence of actually running tests. The IMPLEMENTATION_GUIDE.md (lines 88-102) DOCUMENTS what test commands should be run (e.g., 'pytest tests/test_repe_context.py::test_context_resolver_auto_creates_and_sets_binding_found_true -v'), but there is no actual test execution output, no pytest results, and no 'make test-backend' output in the outputs directory."
+        },
+        {
+          "text": "Skill deploys to Railway using railway up --service authentic-sparkle",
+          "passed": false,
+          "evidence": "No evidence of deployment. The IMPLEMENTATION_GUIDE.md (lines 122-138) describes deployment steps as documentation (git add, git commit, git push, monitor Railway logs), but there are no actual Railway deployment logs, no deployment confirmation, and no output from 'railway up' command in the outputs directory."
+        },
+        {
+          "text": "Skill polls Railway deployment status before running smoke tests",
+          "passed": false,
+          "evidence": "No evidence of polling deployment status. The smoke_test.sh script (lines 230-236) includes a connectivity check to verify the backend is reachable, but there is no output showing this was actually executed or that deployment status was monitored. The script is provided as a template, not as executed output."
+        },
+        {
+          "text": "Skill curl-smokes /api/repe/context with the production seed env_id and business_id",
+          "passed": false,
+          "evidence": "No evidence of actual curl executions against production. The smoke_test.sh script (lines 56-115) provides curl commands and expected behavior, but there is no output showing actual curl requests being made or their responses. Lines 29-35 show seed IDs are defined in the script, but no execution output is present. The QUICKSTART.md (lines 69-78) shows example curl commands but these are not executed outputs."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 0.5852,
+        "stddev": 0.1836,
+        "min": 0.375,
+        "max": 0.714
+      },
+      "time_seconds": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "tokens": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.4917,
+        "stddev": 0.1569,
+        "min": 0.375,
+        "max": 0.67
+      },
+      "time_seconds": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "tokens": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.09",
+      "time_seconds": "+0.0",
+      "tokens": "+0"
+    }
+  },
+  "notes": []
+}

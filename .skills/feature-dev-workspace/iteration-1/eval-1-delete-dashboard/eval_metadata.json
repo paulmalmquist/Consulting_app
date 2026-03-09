@@ -1,0 +1,13 @@
+{
+  "eval_id": 1,
+  "eval_name": "delete-dashboard-endpoint",
+  "prompt": "Add a DELETE endpoint for saved dashboards. When the user clicks a delete button in the dashboard gallery, it should remove the dashboard from the re_dashboard table. I need the backend route, the Next API handler, and a test.",
+  "assertions": [
+    {"text": "Skill reads CLAUDE.md (or generates it from tips.md) at the start", "passed": null, "evidence": ""},
+    {"text": "Skill correctly identifies this as a repo-b Next route handler change (not a backend/FastAPI change)", "passed": null, "evidence": ""},
+    {"text": "Skill creates or modifies a route file under repo-b/src/app/api/re/v2/dashboards/", "passed": null, "evidence": ""},
+    {"text": "Skill writes at least one test (Vitest or pytest) for the new endpoint", "passed": null, "evidence": ""},
+    {"text": "Skill runs a local test command (make test-frontend or equivalent) and reports the result", "passed": null, "evidence": ""},
+    {"text": "Skill specifies a curl smoke command against paulmalmquist.com or the Railway backend URL", "passed": null, "evidence": ""}
+  ]
+}

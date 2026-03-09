@@ -33,6 +33,30 @@ export async function POST(request: Request) {
     // 2. Detect entity scope
     const scope = detectScope(promptLower, entity_type, entity_ids);
 
+    // 2b. Auto-populate entity_ids from DB when not provided
+    if (!scope.entity_ids?.length && env_id) {
+      const table = scope.entity_type === "fund" ? "repe_fund"
+        : scope.entity_type === "investment" ? "repe_deal"
+        : "repe_property_asset";
+      const idCol = scope.entity_type === "fund" ? "fund_id"
+        : scope.entity_type === "investment" ? "deal_id"
+        : "id";
+      const envCol = scope.entity_type === "fund" ? "business_id" : "env_id";
+      const envVal = scope.entity_type === "fund" ? business_id : env_id;
+
+      try {
+        const entRes = await pool.query(
+          `SELECT ${idCol}::text AS id FROM ${table} WHERE ${envCol} = $1 LIMIT 10`,
+          [envVal],
+        );
+        if (entRes.rows.length > 0) {
+          scope.entity_ids = entRes.rows.map((r: { id: string }) => r.id);
+        }
+      } catch {
+        // If entity lookup fails, continue without — widgets will show placeholder
+      }
+    }
+
     // 3. Detect requested metrics
     const requestedMetrics = detectMetrics(promptLower, scope.entity_type);
 
@@ -51,7 +75,7 @@ export async function POST(request: Request) {
       entityNames = await resolveEntityNames(pool, scope.entity_type, scope.entity_ids);
     }
 
-    return Response.json({
+    const responsePayload = {
       name,
       description: prompt,
       layout_archetype: archetype,
@@ -63,7 +87,9 @@ export async function POST(request: Request) {
         warnings: validation.warnings,
       },
       entity_names: entityNames,
-    });
+    };
+    console.log("[dashboards/generate] Response:", JSON.stringify({ name: responsePayload.name, widgetCount: responsePayload.spec?.widgets?.length, entity_scope: responsePayload.entity_scope, quarter: responsePayload.quarter }));
+    return Response.json(responsePayload);
   } catch (err) {
     console.error("[dashboards/generate] Error:", err);
     return Response.json({ error: "Dashboard generation failed" }, { status: 500 });

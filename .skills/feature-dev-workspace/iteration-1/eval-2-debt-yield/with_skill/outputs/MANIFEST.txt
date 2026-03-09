@@ -1,0 +1,142 @@
+DEBT YIELD METRIC IMPLEMENTATION — DELIVERABLES MANIFEST
+========================================================
+
+Directory: /sessions/bold-stoic-wright/mnt/Consulting_app/.skills/feature-dev-workspace/iteration-1/eval-2-debt-yield/with_skill/outputs/
+
+Generated: 2026-03-09
+
+Deliverables (6 files):
+=======================
+
+1. README.md (11 KB)
+   - Start here for complete context
+   - Implementation steps
+   - Testing checklist
+   - Architecture notes
+   - Troubleshooting guide
+
+2. summary.md (8.6 KB)
+   - Executive summary
+   - Root cause analysis
+   - Files affected and changes required
+   - Detection behavior after fix
+   - Test plan and smoke test plan
+   - Risk assessment (LOW RISK)
+
+3. proposed_metric_catalog_addition.ts (2.7 KB)
+   - Status: NO CHANGE NEEDED
+   - Confirms DEBT_YIELD already correctly defined in metric-catalog.ts (line 54)
+   - Documents existing metric definition
+   - Explains why catalog doesn't need modification
+
+4. proposed_route_keyword_addition.ts (7.9 KB)
+   - The ONLY code change needed
+   - File: /repo-b/src/app/api/re/v2/dashboards/generate/route.ts
+   - Change: Add 2 entries to keywordMap in detectMetrics()
+   - Contains exact diff to apply
+   - Impact analysis and edge case handling
+
+5. proposed_test.ts (11 KB)
+   - Vitest unit tests for new functionality
+   - 7 comprehensive test cases
+   - File location: /repo-b/src/app/api/re/v2/dashboards/generate/route.test.ts
+   - Tests: phrase detection, abbreviation, entity filtering, validation
+
+6. smoke_test.sh (9.0 KB, executable)
+   - End-to-end curl tests for dashboard endpoint
+   - Usage: ./smoke_test.sh [dev|prod] [-v]
+   - 5 test categories covering all detection scenarios
+   - Validates response structure and DEBT_YIELD presence
+
+Key Findings:
+=============
+
+✓ DEBT_YIELD metric already exists in catalog (metric-catalog.ts, line 54)
+✓ Metric is correctly defined with all required fields
+✓ Problem: Metric not detected because keyword map has no "debt yield" or "dy" entries
+✓ Solution: Add 2 lines to keywordMap in generate/route.ts (MINIMAL CHANGE)
+✓ No schema changes needed (pure calculation metric)
+✓ No metric catalog changes needed
+✓ No changes to composition, validation, or archetype logic needed
+✓ Risk: LOW (additive change only, no deletions or modifications)
+
+Implementation Summary:
+=======================
+
+Change Type: ADDITION (new keyword mapping)
+Files to Modify: 1
+Lines to Add: 2
+Lines to Delete: 0
+New Test File: 1
+Risk Level: LOW
+Effort: 15-20 minutes
+
+Files Modified:
+- /repo-b/src/app/api/re/v2/dashboards/generate/route.ts (keywordMap addition)
+
+Files Created:
+- /repo-b/src/app/api/re/v2/dashboards/generate/route.test.ts (unit tests)
+
+No Changes Required:
+- /repo-b/src/lib/dashboards/metric-catalog.ts
+- /repo-b/src/lib/dashboards/spec-validator.ts
+- /repo-b/src/lib/dashboards/layout-archetypes.ts
+- Database schema
+
+The Fix in 30 Seconds:
+=======================
+
+Before:
+const keywordMap: Record<string, string[]> = {
+  // ... entries ...
+  "debt maturity": ["TOTAL_DEBT_SERVICE"],
+  ltv: ["LTV"],
+  // ... entries ...
+};
+
+After:
+const keywordMap: Record<string, string[]> = {
+  // ... entries ...
+  "debt maturity": ["TOTAL_DEBT_SERVICE"],
+  "debt yield": ["DEBT_YIELD"],    // ← NEW
+  dpi: ["DPI"],
+  "dy": ["DEBT_YIELD"],             // ← NEW
+  ltv: ["LTV"],
+  // ... entries ...
+};
+
+Next Steps:
+===========
+
+1. Read README.md for complete context
+2. Review summary.md for scope and risk analysis
+3. Apply the code change from proposed_route_keyword_addition.ts
+4. Add tests from proposed_test.ts
+5. Run local tests: make test-frontend
+6. Commit and push
+7. Verify Vercel deployment
+8. Run smoke tests: ./smoke_test.sh prod
+9. Manual dashboard UI test
+
+Constraints Followed:
+====================
+
+✓ No modification of existing repo files (proposed changes only)
+✓ No railway/vercel/make db:migrate execution
+✓ No make test-frontend execution (described instead)
+✓ All proposed changes in outputs directory only
+✓ Complete test coverage provided
+✓ Comprehensive smoke test script included
+
+Files Ready:
+============
+
+[✓] summary.md - Analysis and test plan
+[✓] proposed_metric_catalog_addition.ts - Catalog status (no change needed)
+[✓] proposed_route_keyword_addition.ts - Code change to apply
+[✓] proposed_test.ts - Unit tests to add
+[✓] smoke_test.sh - End-to-end validation
+[✓] README.md - Complete implementation guide
+[✓] MANIFEST.txt - This file
+
+All deliverables are complete and ready for implementation.

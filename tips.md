@@ -1,4 +1,4 @@
-# Coding Assistant Tips
+# Coding Assistant    
 
 This file is a repo inventory plus a pre-flight checklist for giving instructions to coding assistants in this monorepo.
 

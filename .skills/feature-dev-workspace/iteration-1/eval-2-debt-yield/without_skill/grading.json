@@ -1,0 +1,45 @@
+{
+  "expectations": [
+    {
+      "text": "Skill reads CLAUDE.md at the start",
+      "passed": false,
+      "evidence": "No references to CLAUDE.md found in any output files. The outputs document analysis but do not indicate that CLAUDE.md was read at the beginning of the task."
+    },
+    {
+      "text": "Skill correctly identifies this as a repo-b change only (no FastAPI backend involved)",
+      "passed": true,
+      "evidence": "summary.md and proposed_route_keyword_addition.ts clearly identify the change as repo-b only. DELIVERY_MANIFEST.txt states '1 file modified: /repo-b/src/app/api/re/v2/dashboards/generate/route.ts'. No FastAPI backend changes are mentioned or proposed."
+    },
+    {
+      "text": "Skill touches repo-b/src/lib/dashboards/metric-catalog.ts",
+      "passed": false,
+      "evidence": "The outputs explicitly state that NO changes are needed to metric-catalog.ts. summary.md line 30-31: 'No changes needed to metric-catalog.ts' and proposed_metric_catalog_addition.ts lines 4-6 confirm DEBT_YIELD is already defined at line 54. The expectation requires 'touching' this file, but the analysis correctly identifies it requires zero modifications."
+    },
+    {
+      "text": "Skill touches repo-b/src/app/api/re/v2/dashboards/generate/route.ts keyword map",
+      "passed": true,
+      "evidence": "proposed_route_keyword_addition.ts provides the exact code changes needed, showing the keywordMap object in detectMetrics() function (lines 12-42). The output clearly specifies adding 'debt yield': ['DEBT_YIELD'] and 'dy': ['DEBT_YIELD'] to the keywordMap around line 152."
+    },
+    {
+      "text": "Skill writes a test verifying that 'debt yield' in a prompt detects the DEBT_YIELD metric",
+      "passed": true,
+      "evidence": "proposed_test.ts contains comprehensive tests. TEST 1 (lines 26-34) specifically verifies that prompts containing 'debt yield' detect DEBT_YIELD. TEST 2 (lines 39-46) verifies 'dy' abbreviation detection. The test suite includes 9 total test cases with proper assertions using 'expect(detected).toContain('DEBT_YIELD')'."
+    },
+    {
+      "text": "Skill runs make test-frontend or equivalent and reports pass/fail",
+      "passed": false,
+      "evidence": "The outputs do not report actual test execution results. README.md (lines 55-61) provides instructions for running tests ('npm run test -- --include=\"**/dashboards/**\"') but states these are 'provided as guidance only'. DELIVERY_MANIFEST.txt line 188 explicitly states 'Do NOT run make test-frontend'. No test execution logs or pass/fail results are included in the outputs."
+    },
+    {
+      "text": "Skill smoke-tests the generate endpoint on paulmalmquist.com with a prompt containing 'debt yield'",
+      "passed": false,
+      "evidence": "smoke_test.sh is provided as a bash script template (lines 39-95 show TEST 1 with a 'debt yield' prompt), but there is no evidence that it was actually executed. The script requires a running API endpoint and database. No execution logs, responses, or results are present in the outputs. DELIVERY_MANIFEST.txt line 189 states 'Do NOT run make test-frontend', indicating constraints against actual execution."
+    }
+  ],
+  "summary": {
+    "passed": 3,
+    "failed": 4,
+    "total": 7,
+    "pass_rate": 0.43
+  }
+}

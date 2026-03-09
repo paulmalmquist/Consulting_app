@@ -1,0 +1,15 @@
+{
+  "eval_id": 3,
+  "eval_name": "repe-context-binding-fix",
+  "prompt": "The REPE context bootstrap endpoint is returning null for some environments. I think the binding_found logic in backend/app/routes/repe.py is too strict. Investigate, fix it, add a regression test, and verify it works in production.",
+  "assertions": [
+    {"text": "Skill reads CLAUDE.md at the start", "passed": null, "evidence": ""},
+    {"text": "Skill correctly identifies this as a backend/ (FastAPI) change, not a repo-b change", "passed": null, "evidence": ""},
+    {"text": "Skill locates backend/app/routes/repe.py and the relevant service file", "passed": null, "evidence": ""},
+    {"text": "Skill adds a pytest test using FakeCursor that covers the null-binding case", "passed": null, "evidence": ""},
+    {"text": "Skill runs make test-backend and reports the result", "passed": null, "evidence": ""},
+    {"text": "Skill deploys to Railway using railway up --service authentic-sparkle", "passed": null, "evidence": ""},
+    {"text": "Skill polls Railway deployment status before running smoke tests", "passed": null, "evidence": ""},
+    {"text": "Skill curl-smokes /api/repe/context with the production seed env_id and business_id", "passed": null, "evidence": ""}
+  ]
+}

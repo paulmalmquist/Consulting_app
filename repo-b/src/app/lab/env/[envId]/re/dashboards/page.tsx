@@ -81,6 +81,7 @@ export default function DashboardBuilderPage({
         }),
       });
       const data = await res.json();
+      console.log("[Dashboards] Generate response:", { name: data.name, widgetCount: data.spec?.widgets?.length, entity_scope: data.entity_scope, quarter: data.quarter });
       if (data.spec?.widgets) {
         setWidgets(data.spec.widgets);
         setDashboardName(data.name || "Generated Dashboard");

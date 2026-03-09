@@ -1,0 +1,40 @@
+{
+  "expectations": [
+    {
+      "text": "Skill reads CLAUDE.md (or generates it from tips.md) at the start",
+      "passed": false,
+      "evidence": "No CLAUDE.md or tips.md mentioned anywhere in the outputs. The documentation includes README.md, summary.md, INDEX.md, and DEPLOYMENT_GUIDE.md, but no CLAUDE.md file reference."
+    },
+    {
+      "text": "Skill correctly identifies this as a repo-b Next route handler change (not a backend/FastAPI change)",
+      "passed": true,
+      "evidence": "DEPLOYMENT_GUIDE.md clearly states 'Destination: /repo-b/src/app/api/re/v2/dashboards/[dashboardId]/route.ts' and proposed_route.ts is a Next.js API route handler with 'export const runtime = \"nodejs\"' and 'export async function DELETE'. This is identified correctly as a repo-b (Next.js) change, not FastAPI."
+    },
+    {
+      "text": "Skill creates or modifies a route file under repo-b/src/app/api/re/v2/dashboards/",
+      "passed": true,
+      "evidence": "proposed_route.ts is provided and documented as going to '/src/app/api/re/v2/dashboards/[dashboardId]/route.ts'. The file contains a DELETE handler at the correct location. FILES_CREATED.txt states: 'Location: /src/app/api/re/v2/dashboards/[dashboardId]/route.ts'"
+    },
+    {
+      "text": "Skill writes at least one test (Vitest or pytest) for the new endpoint",
+      "passed": true,
+      "evidence": "proposed_test.ts is a comprehensive Vitest test suite with 8 test cases covering: successful delete (204), dashboard not found (404), database unavailable (503), database errors (500), malformed UUID, cascade delete verification, OPTIONS method, and related records cleanup. Test file is to be placed at '/src/app/api/re/v2/dashboards/[dashboardId]/route.test.ts'"
+    },
+    {
+      "text": "Skill runs a local test command (make test-frontend or equivalent) and reports the result",
+      "passed": false,
+      "evidence": "The outputs document the test command as 'npm run test:unit -- src/app/api/re/v2/dashboards/[dashboardId]/route.test.ts' and 'npm run test:unit' but there is no evidence of actually running this command or reporting results. The DEPLOYMENT_GUIDE.md shows it as a planned step ('Phase 2: Local Testing') but marked with expected output, not actual execution output."
+    },
+    {
+      "text": "Skill specifies a curl smoke command against paulmalmquist.com or the Railway backend URL",
+      "passed": true,
+      "evidence": "smoke_test.sh contains comprehensive curl commands testing the DELETE endpoint. The script includes: 'curl -s -X POST \"$BASE_URL$API_PATH\"', 'curl -s -X GET \"$BASE_URL$API_PATH\"', and 'curl -s -w \"\\n%{http_code}\" -X DELETE \"$BASE_URL$API_PATH/$DASHBOARD_ID\"'. Example curl commands are also shown in INDEX.md: 'curl -X DELETE http://localhost:3000/api/re/v2/dashboards/550e8400-e29b-41d4-a716-446655440000'"
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 2,
+    "total": 6,
+    "pass_rate": 0.67
+  }
+}

@@ -246,7 +246,7 @@ function DealListRail({
 }
 
 export function DealRadarWorkspace() {
-  const { envId } = useReEnv();
+  const { envId, businessId } = useReEnv();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -279,13 +279,13 @@ export function DealRadarWorkspace() {
   }, [pathname, router, searchParams]);
 
   const fetchDeals = useCallback(async () => {
-    if (!envId) return;
+    if (!envId || !businessId) return;
     setLoading(true);
     setFetchError(null);
     try {
       const payload = await getPipelineRadar({
         env_id: envId,
-        business_id: typeof window !== "undefined" ? (window.localStorage.getItem("bos_business_id") || "") : "",
+        business_id: businessId,
       });
       setDeals(((payload.deals || []) as unknown) as PipelineDealSummary[]);
     } catch (err) {
@@ -295,7 +295,7 @@ export function DealRadarWorkspace() {
     } finally {
       setLoading(false);
     }
-  }, [envId]);
+  }, [envId, businessId]);
 
   const fetchMarkers = useCallback(async () => {
     if (!envId || markers.length > 0 || markersLoading) return;

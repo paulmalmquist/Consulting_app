@@ -38,9 +38,11 @@ function useWidgetData(
     const effectiveQuarter = widget.config.quarter || quarter;
 
     if (!entityIds?.length || !effectiveQuarter) {
+      console.log("[WidgetRenderer] Skipping fetch — entityIds:", entityIds, "quarter:", effectiveQuarter, "widget:", widget.id, widget.type);
       setData(null);
       return;
     }
+    console.log("[WidgetRenderer] Fetching data — entityIds:", entityIds, "quarter:", effectiveQuarter, "widget:", widget.id, widget.type);
 
     // Only fetch for chart widgets that need time-series data
     if (!["trend_line", "bar_chart", "waterfall", "metrics_strip", "metric_card", "sparkline_grid"].includes(widget.type)) {
@@ -122,18 +124,23 @@ function MetricsStripWidget({ widget, data }: { widget: DashboardWidget; data: R
   );
 }
 
-function TrendWidget({ widget }: { widget: DashboardWidget }) {
+function TrendWidget({ widget, data }: { widget: DashboardWidget; data: Record<string, unknown>[] | null }) {
   const metrics = widget.config.metrics || [];
-  // Placeholder data for rendering — real data comes from periods API
+  const values = data?.[0] as Record<string, number> | undefined;
   const lines = metrics.map((m: WidgetMetricRef) => {
     const def = METRIC_MAP.get(m.key);
     return { key: m.key, label: m.label || def?.label || m.key, color: m.color || def?.default_color, dashed: m.dashed };
   });
 
+  // Build single-period data point from fetched values (full time-series is a future enhancement)
+  const chartData = values
+    ? [Object.fromEntries([["period", widget.config.quarter || "Current"], ...metrics.map((m: WidgetMetricRef) => [m.key, values[m.key] ?? 0])])]
+    : [];
+
   return (
     <div>
       <TrendLineChart
-        data={[]}
+        data={chartData}
         lines={lines}
         height={240}
         format={(widget.config.format as "dollar" | "percent" | "number") || "dollar"}
@@ -146,16 +153,22 @@ function TrendWidget({ widget }: { widget: DashboardWidget }) {
   );
 }
 
-function BarWidget({ widget }: { widget: DashboardWidget }) {
+function BarWidget({ widget, data }: { widget: DashboardWidget; data: Record<string, unknown>[] | null }) {
   const metrics = widget.config.metrics || [];
+  const values = data?.[0] as Record<string, number> | undefined;
   const bars = metrics.map((m: WidgetMetricRef) => {
     const def = METRIC_MAP.get(m.key);
     return { key: m.key, label: m.label || def?.label || m.key, color: m.color || def?.default_color };
   });
 
+  // Build single-period data point from fetched values (full time-series is a future enhancement)
+  const chartData = values
+    ? [Object.fromEntries([["period", widget.config.quarter || "Current"], ...metrics.map((m: WidgetMetricRef) => [m.key, values[m.key] ?? 0])])]
+    : [];
+
   return (
     <QuarterlyBarChart
-      data={[]}
+      data={chartData}
       bars={bars}
       height={240}
       showLegend={widget.config.show_legend !== false}
@@ -256,8 +269,8 @@ export default function WidgetRenderer({ widget, envId, businessId, quarter, onC
           <>
             {widget.type === "metrics_strip" && <MetricsStripWidget widget={widget} data={data} />}
             {widget.type === "metric_card" && <MetricsStripWidget widget={widget} data={data} />}
-            {widget.type === "trend_line" && <TrendWidget widget={widget} />}
-            {widget.type === "bar_chart" && <BarWidget widget={widget} />}
+            {widget.type === "trend_line" && <TrendWidget widget={widget} data={data} />}
+            {widget.type === "bar_chart" && <BarWidget widget={widget} data={data} />}
             {widget.type === "waterfall" && <WaterfallWidget widget={widget} data={data} />}
             {widget.type === "statement_table" && <StatementWidget widget={widget} envId={envId} businessId={businessId} quarter={quarter} />}
             {widget.type === "comparison_table" && (

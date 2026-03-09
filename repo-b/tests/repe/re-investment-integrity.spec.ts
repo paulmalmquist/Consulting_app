@@ -252,8 +252,65 @@ async function installInvestmentIntegrityMocks(page: Page) {
           cash_balance: 250000,
           effective_ownership_percent: 1,
           fund_nav_contribution: 8500000 + index * 250000,
+          asset_count: 1,
+          total_noi: 250000 + index * 10000,
+          weighted_occupancy: 0.94,
+          computed_ltv: 0.42,
+          computed_dscr: 1.55,
+          primary_market: index % 2 === 0 ? "Dallas-Fort Worth" : "Atlanta",
+          missing_quarter_state_count: 0,
+          committed_capital: investment.committed_capital,
           inputs_hash: `rollup-hash-${index}`,
           created_at: "2026-01-15T00:00:00Z",
+        })),
+      );
+    }
+
+    if (path === `/api/re/v2/funds/${FUND_ID}/valuation/rollup` && method === "GET") {
+      return fulfill(route, {
+        fund_id: FUND_ID,
+        quarter: QUARTER,
+        scenario_id: null,
+        summary: {
+          asset_count: investments.length,
+          total_portfolio_value: 1380000000,
+          total_equity: 802700000,
+          total_debt: 577300000,
+          total_noi: 18600000,
+          weighted_avg_cap_rate: 0.0539,
+          weighted_avg_ltv: 0.419,
+          weighted_avg_occupancy: 0.941,
+        },
+        assets: [],
+      });
+    }
+
+    if (path === `/api/re/v2/funds/${FUND_ID}/irr-timeline` && method === "GET") {
+      return fulfill(route, [
+        { quarter: "2024Q1", portfolio_nav: "-3000000", gross_irr: null, net_irr: null, dpi: null, tvpi: null },
+        { quarter: "2025Q1", portfolio_nav: "515000000", gross_irr: "0.094", net_irr: "0.082", dpi: "0.01", tvpi: "1.18" },
+        { quarter: QUARTER, portfolio_nav: "802700000", gross_irr: "0.138", net_irr: "0.121", dpi: "0.05", tvpi: "2.59" },
+      ]);
+    }
+
+    if (path === `/api/re/v2/funds/${FUND_ID}/capital-timeline` && method === "GET") {
+      return fulfill(route, [
+        { quarter: "2024Q1", total_called: "75000000", total_distributed: "0" },
+        { quarter: "2025Q1", total_called: "221400000", total_distributed: "5400000" },
+        { quarter: QUARTER, total_called: "316400000", total_distributed: "17100000" },
+      ]);
+    }
+
+    if (path === `/api/re/v2/funds/${FUND_ID}/irr-contribution` && method === "GET") {
+      return fulfill(
+        route,
+        investments.map((investment, index) => ({
+          investment_id: investment.investment_id,
+          investment_name: investment.name,
+          investment_irr: (0.11 + index * 0.004).toFixed(3),
+          investment_tvpi: (1.2 + index * 0.03).toFixed(2),
+          fund_nav_contribution: String(8500000 + index * 250000),
+          irr_contribution: String(8500000 + index * 250000),
         })),
       );
     }
@@ -376,13 +433,13 @@ test("all seeded investments load with deterministic asset detail and no client 
       await expect(page.getByRole("link", { name: investment.name })).toBeVisible();
     }
 
-    const detailLink = row.getByRole("link", { name: "Detail →" });
+    const investmentLink = row.getByRole("link", { name: investment.name });
     const detailResponse = page.waitForResponse(
       (response) =>
         response.url().includes(`/api/re/v2/investments/${investment.investment_id}`) &&
         response.status() === 200,
     );
-    await detailLink.click();
+    await investmentLink.click();
     await detailResponse;
 
     await expect(page.getByTestId("re-investment-homepage")).toBeVisible();

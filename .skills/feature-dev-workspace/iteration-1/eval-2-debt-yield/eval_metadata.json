@@ -1,0 +1,14 @@
+{
+  "eval_id": 2,
+  "eval_name": "debt-yield-metric",
+  "prompt": "I want to add a new metric to the dashboard generator — debt yield (NOI divided by total debt). It should be detectable from prompts mentioning 'debt yield' or 'dy', show up in the metric catalog, and be composable into dashboard widgets.",
+  "assertions": [
+    {"text": "Skill reads CLAUDE.md at the start", "passed": null, "evidence": ""},
+    {"text": "Skill correctly identifies this as a repo-b change only (no FastAPI backend involved)", "passed": null, "evidence": ""},
+    {"text": "Skill touches repo-b/src/lib/dashboards/metric-catalog.ts", "passed": null, "evidence": ""},
+    {"text": "Skill touches repo-b/src/app/api/re/v2/dashboards/generate/route.ts keyword map", "passed": null, "evidence": ""},
+    {"text": "Skill writes a test verifying that 'debt yield' in a prompt detects the DEBT_YIELD metric", "passed": null, "evidence": ""},
+    {"text": "Skill runs make test-frontend or equivalent and reports pass/fail", "passed": null, "evidence": ""},
+    {"text": "Skill smoke-tests the generate endpoint on paulmalmquist.com with a prompt containing 'debt yield'", "passed": null, "evidence": ""}
+  ]
+}

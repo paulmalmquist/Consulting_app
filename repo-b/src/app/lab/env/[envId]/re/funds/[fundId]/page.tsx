@@ -1,12 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, ChevronDown, GitBranch, Leaf } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { label as labelFn, PROPERTY_TYPE_LABELS } from "@/lib/labels";
 import { KpiStrip, type KpiDef } from "@/components/repe/asset-cockpit/KpiStrip";
+import { FundDeleteDialog } from "@/components/repe/FundDeleteDialog";
 import { MetricCard } from "@/components/ui/MetricCard";
+import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
 import {
+  deleteRepeFund,
   getRepeFund,
   listRepeDeals,
   listRepeAssets,
@@ -90,6 +95,21 @@ function fmtPercent(v: string | number | null | undefined): string {
   return `${(Number(v) * 100).toFixed(1)}%`;
 }
 
+function fmtFlexiblePercent(v: string | number | null | undefined): string {
+  if (v === null || v === undefined) return "—";
+  const n = Number(v);
+  if (Number.isNaN(n)) return "—";
+  const normalized = Math.abs(n) > 1.5 ? n / 100 : n;
+  return `${(normalized * 100).toFixed(1)}%`;
+}
+
+function fmtCoverage(v: string | number | null | undefined): string {
+  if (v === null || v === undefined) return "—";
+  const n = Number(v);
+  if (Number.isNaN(n)) return "—";
+  return `${n.toFixed(2)}x`;
+}
+
 const NOI_LINE_LABELS: Record<string, string> = {
   RENT: "Rental Income",
   OTHER_INCOME: "Other Income",
@@ -121,6 +141,8 @@ export default function FundDetailPage({
 }: {
   params: { envId: string; fundId: string };
 }) {
+  const router = useRouter();
+  const { push } = useToast();
   const { envId, businessId } = useReEnv();
   const [tab, setTab] = useState<TabKey>("Overview");
   const [detail, setDetail] = useState<RepeFundDetail | null>(null);
@@ -135,6 +157,8 @@ export default function FundDetailPage({
   const [lineageLoading, setLineageLoading] = useState(false);
   const [lineageError, setLineageError] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingFund, setDeletingFund] = useState(false);
   const [covenantAlerts, setCovenantAlerts] = useState<FiWatchlistEvent[]>([]);
   const [lastCloseQuarter, setLastCloseQuarter] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -230,6 +254,8 @@ export default function FundDetailPage({
   const fund = detail?.fund;
   const terms = detail?.terms ?? [];
   const latestTerms = terms[0];
+  const investmentCount = investmentRollup.length || investments.length || deals.length;
+  const assetCount = investmentRollup.reduce((sum, row) => sum + Number(row.asset_count || 0), 0);
   const headerKpis: KpiDef[] = [
     { label: "Committed", value: fmtMoney(fundState?.total_committed) },
     { label: "Called", value: fmtMoney(fundState?.total_called) },
@@ -240,6 +266,29 @@ export default function FundDetailPage({
     { label: "Gross IRR", value: fmtPercent(fundState?.gross_irr) },
     { label: "Net IRR", value: fmtPercent(fundState?.net_irr) },
   ];
+
+  const handleDeleteFund = useCallback(async () => {
+    if (!fund) return;
+    setDeletingFund(true);
+    try {
+      const result = await deleteRepeFund(params.fundId);
+      push({
+        title: "Fund deleted",
+        description: `Removed ${result.deleted.investments} investments and ${result.deleted.assets} assets.`,
+        variant: "success",
+      });
+      router.push(`/lab/env/${params.envId}/re`);
+    } catch (err) {
+      push({
+        title: "Delete failed",
+        description: err instanceof Error ? err.message : "Failed to delete fund.",
+        variant: "danger",
+      });
+    } finally {
+      setDeletingFund(false);
+      setDeleteDialogOpen(false);
+    }
+  }, [fund, params.envId, params.fundId, push, router]);
 
   useEffect(() => {
     publishAssistantPageContext({
@@ -309,40 +358,52 @@ export default function FundDetailPage({
             <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Fund</p>
             <h1 className="mt-1 font-display text-xl font-semibold text-bm-text">{fund?.name || "—"}</h1>
           </div>
-          <div className="relative">
-            <button
+          <div className="flex items-center gap-2">
+            <Button
               type="button"
-              onClick={() => setExportOpen((o) => !o)}
-              className="inline-flex items-center gap-1.5 rounded-md border border-bm-border/30 px-3 py-1.5 text-sm transition-colors duration-100 hover:bg-bm-surface/20"
+              variant="destructive"
+              size="sm"
+              className="h-9 px-3"
+              onClick={() => setDeleteDialogOpen(true)}
+              data-testid="delete-fund-detail"
             >
-              Export
-              <ChevronDown className="h-3.5 w-3.5 text-bm-muted" strokeWidth={1.5} />
-            </button>
-            {exportOpen && (
-              <div
-                className="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-lg border border-bm-border/20 bg-bm-surface/95"
-                onBlur={() => setExportOpen(false)}
+              Delete Fund
+            </Button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setExportOpen((o) => !o)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-bm-border/30 px-3 py-1.5 text-sm transition-colors duration-100 hover:bg-bm-surface/20"
               >
-                <div className="space-y-0.5 p-1">
-                  {envId && businessId && (
-                    <div className="rounded-md" onClick={() => setExportOpen(false)}>
-                      <ExcelExportButton
-                        fundId={params.fundId}
-                        envId={envId}
-                        businessId={businessId}
-                        quarter={quarter}
-                      />
-                    </div>
-                  )}
-                  <button type="button" className="w-full rounded-md px-3 py-1.5 text-left text-sm text-bm-muted transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text">
-                    Download LP Report (PDF)
-                  </button>
-                  <button type="button" className="w-full rounded-md px-3 py-1.5 text-left text-sm text-bm-muted transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text">
-                    Download Waterfall (.xlsx)
-                  </button>
+                Export
+                <ChevronDown className="h-3.5 w-3.5 text-bm-muted" strokeWidth={1.5} />
+              </button>
+              {exportOpen && (
+                <div
+                  className="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-lg border border-bm-border/20 bg-bm-surface/95"
+                  onBlur={() => setExportOpen(false)}
+                >
+                  <div className="space-y-0.5 p-1">
+                    {envId && businessId && (
+                      <div className="rounded-md" onClick={() => setExportOpen(false)}>
+                        <ExcelExportButton
+                          fundId={params.fundId}
+                          envId={envId}
+                          businessId={businessId}
+                          quarter={quarter}
+                        />
+                      </div>
+                    )}
+                    <button type="button" className="w-full rounded-md px-3 py-1.5 text-left text-sm text-bm-muted transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text">
+                      Download LP Report (PDF)
+                    </button>
+                    <button type="button" className="w-full rounded-md px-3 py-1.5 text-left text-sm text-bm-muted transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text">
+                      Download Waterfall (.xlsx)
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
@@ -465,6 +526,15 @@ export default function FundDetailPage({
         loading={lineageLoading}
         error={lineageError}
       />
+      <FundDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        fundName={fund?.name || ""}
+        deleting={deletingFund}
+        investmentCount={investmentCount}
+        assetCount={assetCount}
+        onConfirm={handleDeleteFund}
+      />
     </section>
   );
 }
@@ -486,6 +556,11 @@ function InvestmentRow({
   const [assets, setAssets] = useState<ReV2InvestmentAsset[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const investmentType = (rollup?.deal_type || inv.investment_type || "—").toString();
+  const missingQuarterStates = Number(rollup?.missing_quarter_state_count || 0);
+  const committedCapital = rollup?.committed_capital ?? inv.committed_capital;
+  const totalNoi = rollup?.total_noi;
+  const fundNav = rollup?.fund_nav_contribution ?? rollup?.nav;
 
   const handleToggle = () => {
     const next = !open;
@@ -511,36 +586,50 @@ function InvestmentRow({
         data-testid={`investment-row-${inv.investment_id}`}
       >
         <td className="px-4 py-3">
-          <span className="mr-2 text-bm-muted2 text-xs">{open ? "▾" : "▸"}</span>
-          <Link
-            href={`/lab/env/${envId}/re/investments/${inv.investment_id}`}
-            className="font-medium text-bm-accent hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {inv.name}
-          </Link>
+          <div className="flex items-start gap-2">
+            <span className="mt-0.5 text-bm-muted2 text-xs">{open ? "▾" : "▸"}</span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href={`/lab/env/${envId}/re/investments/${inv.investment_id}`}
+                  className="font-medium text-bm-accent hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {inv.name}
+                </Link>
+                <span className="inline-flex rounded-full border border-bm-border/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-bm-muted2">
+                  {investmentType}
+                </span>
+                {missingQuarterStates > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] text-amber-300">
+                    <AlertTriangle className="h-3 w-3" strokeWidth={1.5} />
+                    {missingQuarterStates} missing
+                  </span>
+                )}
+              </div>
+              {rollup?.sponsor && (
+                <p className="mt-1 text-xs text-bm-muted2">{rollup.sponsor}</p>
+              )}
+            </div>
+          </div>
         </td>
-        <td className="px-4 py-3 text-bm-muted2 text-xs capitalize">{inv.investment_type || "—"}</td>
-        <td className="px-4 py-3 text-bm-muted2 text-xs capitalize">{inv.stage || "—"}</td>
+        <td className="px-4 py-3 text-bm-muted2 text-xs capitalize">{rollup?.stage || inv.stage || "—"}</td>
+        <td className="px-4 py-3 text-right text-sm">{rollup?.asset_count ?? "—"}</td>
+        <td className="px-4 py-3 text-sm text-bm-muted2">{rollup?.primary_market || "—"}</td>
         <td className="px-4 py-3 text-right text-sm">
-          {inv.committed_capital ? fmtMoney(inv.committed_capital) : "—"}
+          {committedCapital != null ? fmtMoney(committedCapital) : "—"}
         </td>
+        <td className="px-4 py-3 text-right text-sm">{totalNoi != null ? fmtMoney(totalNoi) : "—"}</td>
+        <td className="px-4 py-3 text-right text-sm">{fmtFlexiblePercent(rollup?.weighted_occupancy)}</td>
+        <td className="px-4 py-3 text-right text-sm">{fmtFlexiblePercent(rollup?.computed_ltv)}</td>
+        <td className="px-4 py-3 text-right text-sm">{fmtCoverage(rollup?.computed_dscr)}</td>
         <td className="px-4 py-3 text-right text-sm">
-          {rollup?.fund_nav_contribution ? fmtMoney(rollup.fund_nav_contribution) : rollup?.nav ? fmtMoney(rollup.nav) : "—"}
-        </td>
-        <td className="px-4 py-3 text-center">
-          <Link
-            href={`/lab/env/${envId}/re/investments/${inv.investment_id}`}
-            className="text-xs text-bm-accent hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            Detail →
-          </Link>
+          {fundNav != null ? fmtMoney(fundNav) : "—"}
         </td>
       </tr>
       {open && (
         <tr>
-          <td colSpan={6} className="px-0 py-0 bg-bm-surface/10">
+          <td colSpan={10} className="px-0 py-0 bg-bm-surface/10">
             {loading ? (
               <div className="px-8 py-3 text-xs text-bm-muted2">Loading assets...</div>
             ) : loadError ? (
@@ -601,6 +690,7 @@ function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, en
 }) {
   const rollupById = new Map(investmentRollup.map((row) => [row.investment_id, row]));
   const nonBaseScenarioCount = scenarios.filter((scenario) => !scenario.is_base).length;
+  const seededOverviewRetryRef = useRef(false);
 
   // Valuation rollup
   const [rollup, setRollup] = useState<FundValuationRollup | null>(null);
@@ -613,13 +703,69 @@ function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, en
 
   useEffect(() => {
     if (!fund?.fund_id) return;
-    getFundValuationRollup(fund.fund_id, quarter).then(setRollup).catch(() => {});
-    if (businessId) {
-      getIrrTimeline({ fund_id: fundId, env_id: envId, business_id: businessId }).then(setIrrTimeline).catch(() => []);
-      getCapitalTimeline({ fund_id: fundId, env_id: envId, business_id: businessId }).then(setCapitalTimeline).catch(() => []);
-      getIrrContribution({ fund_id: fundId, env_id: envId, business_id: businessId, quarter }).then(setIrrContrib).catch(() => []);
+    let cancelled = false;
+
+    const fetchOverviewData = async () => {
+      const [nextRollup, nextIrrTimeline, nextCapitalTimeline, nextIrrContrib] = await Promise.all([
+        getFundValuationRollup(fund.fund_id, quarter).catch(() => null),
+        getIrrTimeline({ fund_id: fundId, env_id: envId, business_id: businessId || fund.business_id }).catch(() => []),
+        getCapitalTimeline({ fund_id: fundId, env_id: envId, business_id: businessId || fund.business_id }).catch(() => []),
+        getIrrContribution({ fund_id: fundId, env_id: envId, business_id: businessId || fund.business_id, quarter }).catch(() => []),
+      ]);
+      return {
+        nextRollup,
+        nextIrrTimeline,
+        nextCapitalTimeline,
+        nextIrrContrib,
+      };
+    };
+
+    const applyOverviewData = (nextData: {
+      nextRollup: FundValuationRollup | null;
+      nextIrrTimeline: IrrTimelinePoint[];
+      nextCapitalTimeline: CapitalTimelinePoint[];
+      nextIrrContrib: IrrContributionItem[];
+    }) => {
+      setRollup(nextData.nextRollup);
+      setIrrTimeline(nextData.nextIrrTimeline);
+      setCapitalTimeline(nextData.nextCapitalTimeline);
+      setIrrContrib(nextData.nextIrrContrib);
+    };
+
+    async function loadOverview() {
+      const initial = await fetchOverviewData();
+      if (cancelled) return;
+      applyOverviewData(initial);
+
+      const needsSeedRetry = Boolean(businessId) &&
+        !seededOverviewRetryRef.current &&
+        (
+          !initial.nextRollup ||
+          initial.nextRollup.summary.asset_count === 0 ||
+          initial.nextIrrTimeline.length === 0 ||
+          initial.nextCapitalTimeline.length === 0 ||
+          initial.nextIrrContrib.length === 0
+        );
+
+      if (!needsSeedRetry || !businessId) return;
+
+      seededOverviewRetryRef.current = true;
+      try {
+        await seedReV2Data({ fund_id: fundId, business_id: businessId });
+      } catch {
+        return;
+      }
+
+      const retried = await fetchOverviewData();
+      if (cancelled) return;
+      applyOverviewData(retried);
     }
-  }, [fund?.fund_id, quarter, businessId, envId, fundId]);
+
+    void loadOverview();
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId, envId, fund?.business_id, fund?.fund_id, fundId, quarter]);
 
   const displayInvestments = investments.length > 0
     ? investments
@@ -636,14 +782,58 @@ function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, en
   const navValues = irrTimeline.map((p) => Number(p.portfolio_nav || 0));
   const maxNav = Math.max(...navValues, 1);
 
-  // Top 3 performers by IRR contribution
+  const investmentCount = displayInvestments.length || investmentRollup.length || deals.length;
+
+  const performerScore = (item: IrrContributionItem) => {
+    const irr = Number(item.investment_irr);
+    if (!Number.isNaN(irr)) return irr;
+    const nav = Number(item.fund_nav_contribution);
+    return Number.isNaN(nav) ? Number.NEGATIVE_INFINITY : nav;
+  };
+
   const topPerformers = [...irrContrib]
-    .sort((a, b) => Number(b.irr_contribution || b.fund_nav_contribution || 0) - Number(a.irr_contribution || a.fund_nav_contribution || 0))
+    .sort((a, b) => performerScore(b) - performerScore(a))
     .slice(0, 3);
 
   return (
     <div className="space-y-4">
-      {/* Fund Value Chart — NAV sparkline */}
+      {rollup && rollup.summary.asset_count > 0 ? (
+        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="valuation-rollup">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2 mb-3">
+            Portfolio Valuation · {quarter}
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            <div className="rounded-lg border border-bm-border/60 p-3">
+              <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Portfolio Value</p>
+              <p className="mt-1 text-lg font-bold">{fmtMoney(rollup.summary.total_portfolio_value)}</p>
+            </div>
+            <div className="rounded-lg border border-bm-border/60 p-3">
+              <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Total Equity</p>
+              <p className="mt-1 text-lg font-bold">{fmtMoney(rollup.summary.total_equity)}</p>
+            </div>
+            <div className="rounded-lg border border-bm-border/60 p-3">
+              <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Wtd Avg Cap Rate</p>
+              <p className="mt-1 text-lg font-bold">
+                {rollup.summary.weighted_avg_cap_rate != null
+                  ? `${(rollup.summary.weighted_avg_cap_rate * 100).toFixed(2)}%`
+                  : "—"}
+              </p>
+            </div>
+            <div className="rounded-lg border border-bm-border/60 p-3">
+              <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Wtd Avg LTV</p>
+              <p className="mt-1 text-lg font-bold">
+                {rollup.summary.weighted_avg_ltv != null
+                  ? `${(rollup.summary.weighted_avg_ltv * 100).toFixed(1)}%`
+                  : "—"}
+              </p>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-bm-muted2">
+            {rollup.summary.asset_count} assets · Total NOI: {fmtMoney(rollup.summary.total_noi)}
+          </p>
+        </div>
+      ) : null}
+
       {irrTimeline.length > 1 && (
         <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="nav-sparkline">
           <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2 mb-3">Fund NAV Over Time</h3>
@@ -668,9 +858,7 @@ function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, en
         </div>
       )}
 
-      {/* Two-column: Top Performers + Capital Activity Timeline */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Top Performers */}
         <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="top-performers">
           <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2 mb-3">
             Top Performers by IRR Contribution
@@ -707,7 +895,6 @@ function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, en
           )}
         </div>
 
-        {/* Capital Activity Timeline */}
         <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="capital-timeline">
           <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2 mb-3">
             Capital Activity Timeline
@@ -747,55 +934,27 @@ function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, en
         </div>
       </div>
 
-      {/* IRR Contribution Bar Chart (all investments) */}
-      {irrContrib.length > 0 && (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="irr-contribution-chart">
-          <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2 mb-3">
-            Contribution to Fund IRR
-          </h3>
-          <div className="space-y-2">
-            {irrContrib.map((item) => {
-              const contrib = Number(item.irr_contribution || item.fund_nav_contribution || 0);
-              const maxContrib = Math.max(...irrContrib.map((t) => Math.abs(Number(t.irr_contribution || t.fund_nav_contribution || 0))), 1);
-              const pct = (Math.abs(contrib) / maxContrib) * 100;
-              return (
-                <div key={item.investment_id} className="flex items-center gap-3">
-                  <span className="w-32 text-xs truncate text-bm-muted2">{item.investment_name}</span>
-                  <div className="flex-1 h-4 rounded-full bg-bm-surface/40 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${contrib >= 0 ? "bg-green-500/60" : "bg-red-500/60"}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <span className={`text-xs font-semibold w-16 text-right ${contrib >= 0 ? "text-green-400" : "text-red-400"}`}>
-                    {fmtMoney(contrib)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Summary metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <MetricCard label="Investments" value={String(investmentRollup.length || investments.length || deals.length)} size="large" />
+        <MetricCard label="Investments" value={String(investmentCount)} size="large" />
         <MetricCard label="Strategy" value={fund?.strategy?.toUpperCase() || "—"} size="large" />
         <MetricCard label="Scenarios" value={String(nonBaseScenarioCount)} size="large" />
       </div>
 
-      {/* Investment list */}
       {displayInvestments.length > 0 && (
         <div className="rounded-xl border border-bm-border/70 overflow-hidden" data-testid="investment-list">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-bm-border/50 bg-bm-surface/30 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
                 <th className="px-4 py-3 font-medium">Investment</th>
-                <th className="px-4 py-3 font-medium">Type</th>
                 <th className="px-4 py-3 font-medium">Stage</th>
+                <th className="px-4 py-3 font-medium text-right">Assets</th>
+                <th className="px-4 py-3 font-medium">Primary Market</th>
                 <th className="px-4 py-3 font-medium text-right">Committed</th>
+                <th className="px-4 py-3 font-medium text-right">NOI</th>
+                <th className="px-4 py-3 font-medium text-right">Occupancy</th>
+                <th className="px-4 py-3 font-medium text-right">LTV</th>
+                <th className="px-4 py-3 font-medium text-right">DSCR</th>
                 <th className="px-4 py-3 font-medium text-right">Fund NAV</th>
-                <th className="px-4 py-3 font-medium text-center">Link</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-bm-border/40">
@@ -812,34 +971,6 @@ function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, en
           </table>
         </div>
       )}
-
-      {/* Valuation Rollup Card */}
-      {rollup && rollup.summary.asset_count > 0 ? (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="valuation-rollup">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2 mb-3">
-            Portfolio Valuation · {quarter}
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-            <div className="rounded-lg border border-bm-border/60 p-3">
-              <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Portfolio Value</p>
-              <p className="mt-1 text-lg font-bold">{fmtMoney(rollup.summary.total_portfolio_value)}</p>
-            </div>
-            <div className="rounded-lg border border-bm-border/60 p-3">
-              <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Total Equity</p>
-              <p className="mt-1 text-lg font-bold">{fmtMoney(rollup.summary.total_equity)}</p>
-            </div>
-            <div className="rounded-lg border border-bm-border/60 p-3">
-              <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Wtd Avg Cap Rate</p>
-              <p className="mt-1 text-lg font-bold">{rollup.summary.weighted_avg_cap_rate != null ? `${(rollup.summary.weighted_avg_cap_rate * 100).toFixed(2)}%` : "—"}</p>
-            </div>
-            <div className="rounded-lg border border-bm-border/60 p-3">
-              <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Wtd Avg LTV</p>
-              <p className="mt-1 text-lg font-bold">{rollup.summary.weighted_avg_ltv != null ? `${(rollup.summary.weighted_avg_ltv * 100).toFixed(1)}%` : "—"}</p>
-            </div>
-          </div>
-          <p className="mt-2 text-xs text-bm-muted2">{rollup.summary.asset_count} assets · Total NOI: {fmtMoney(rollup.summary.total_noi)}</p>
-        </div>
-      ) : null}
     </div>
   );
 }

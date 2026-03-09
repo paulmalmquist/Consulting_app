@@ -1,0 +1,156 @@
+===============================================================================
+REPE CONTEXT BOOTSTRAP FIX - DELIVERY MANIFEST
+===============================================================================
+
+Generated: 2026-03-09
+Task: Fix REPE context endpoint returning null in some environments
+Surface: Backend FastAPI (backend/app/routes/repe.py + backend/app/services/repe_context.py)
+
+===============================================================================
+DELIVERABLE FILES
+===============================================================================
+
+1. README.md (143 lines)
+   - Overview of all deliverables
+   - Problem statement and solution summary
+   - Key characteristics and timeline
+   - How to use the files
+   
+2. summary.md (224 lines)
+   - Surface: Backend FastAPI
+   - Root cause analysis (binding_found logic)
+   - Proposed fix (1 line change)
+   - Test plan with multiple test cases
+   - Railway deploy plan
+   - Production smoke test plan with curl assertions
+
+3. proposed_fix.py (189 lines)
+   - Complete resolve_repe_business_context() function
+   - Line 209: binding_found changed from False to True
+   - Inline comments explaining rationale
+   - Shows exactly what to change in production
+
+4. proposed_test.py (227 lines)
+   - 5 comprehensive test functions
+   - test_context_resolver_auto_creates_binding_with_binding_found_true() [NEW REGRESSION TEST]
+   - test_context_resolver_explicit_binding_has_binding_found_true()
+   - test_context_resolver_heuristic_match_has_binding_found_false()
+   - test_context_resolver_raises_error_when_no_create_allowed()
+   - test_repe_context_endpoint_returns_successful_response_on_auto_create()
+   - All use FakeCursor pattern (no real DB)
+   - Ready to add to backend/tests/test_repe_context.py
+
+5. smoke_test.sh (144 lines)
+   - Executable bash script for production verification
+   - Tests context endpoint with various parameter combinations
+   - Verifies response structure and field presence
+   - Asserts business_found is always True
+   - Asserts no null responses
+   - Run after Railway deployment with: bash smoke_test.sh
+
+6. IMPLEMENTATION.md (300 lines)
+   - Step-by-step implementation guide
+   - Before/after code snippets
+   - How to add tests (using FakeCursor)
+   - Local test commands
+   - Commit message template
+   - Railway deployment commands
+   - Smoke test execution
+   - Verification checklist
+   - Rollback plan
+
+7. MANIFEST.txt (this file)
+   - Index of all deliverables
+   - File descriptions and line counts
+   - Quick reference guide
+
+===============================================================================
+QUICK START
+===============================================================================
+
+1. Read README.md for overview
+2. Read summary.md for technical details
+3. Follow IMPLEMENTATION.md step-by-step to apply fix
+4. Use proposed_fix.py and proposed_test.py as implementation reference
+5. Use smoke_test.sh to verify production deployment
+
+===============================================================================
+KEY FACTS
+===============================================================================
+
+Problem:     REPE context endpoint returning null for some environments
+Root Cause:  binding_found diagnostic flag incorrect (False when should be True)
+Solution:    Change 1 line: binding_found: False → True (line 209)
+File:        backend/app/services/repe_context.py
+Risk:        Very low (1 boolean flag, no breaking changes)
+Tests:       5 new comprehensive regression tests
+Deploy:      Manual Railway deploy (no Vercel required)
+Timeline:    ~15-20 minutes from local fix to production verification
+
+===============================================================================
+FILE LOCATIONS
+===============================================================================
+
+Directory: /sessions/bold-stoic-wright/mnt/Consulting_app/
+           .skills/feature-dev-workspace/iteration-1/eval-3-repe-context-fix/
+           with_skill/outputs/
+
+Files in this directory:
+- README.md
+- MANIFEST.txt
+- summary.md
+- proposed_fix.py
+- proposed_test.py
+- smoke_test.sh
+- IMPLEMENTATION.md
+
+===============================================================================
+PRODUCTION VERIFICATION
+===============================================================================
+
+After deploying to Railway:
+
+1. Verify health endpoint:
+   curl https://authentic-sparkle-production-7f37.up.railway.app/health
+
+2. Run smoke test:
+   bash smoke_test.sh
+
+3. Test with seed IDs (from CLAUDE.md):
+   - Business: a1b2c3d4-0001-0001-0001-000000000001
+   - Environment: a1b2c3d4-0001-0001-0003-000000000001
+
+Expected successful response:
+{
+  "env_id": "a1b2c3d4-0001-0001-0003-000000000001",
+  "business_id": "<uuid>",
+  "created": true/false,
+  "source": "binding:query" or "auto_create:query" etc,
+  "diagnostics": {
+    "binding_found": true,
+    "business_found": true,
+    "env_found": true
+  }
+}
+
+===============================================================================
+NOTES
+===============================================================================
+
+- No schema changes required
+- No migrations needed
+- Backward compatible (binding_found=True is more correct than False)
+- All tests use FakeCursor (no real DB required for local testing)
+- Smoke test uses curl + python3 json parsing (standard tools)
+- Railway deploy is manual (not auto-deploy from git)
+
+===============================================================================
+SUPPORT
+===============================================================================
+
+For questions or issues:
+1. See IMPLEMENTATION.md "Questions?" section
+2. See summary.md for technical deep dive
+3. Review proposed_test.py for expected behavior
+4. Check proposed_fix.py for exact code change
+

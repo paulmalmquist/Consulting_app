@@ -1,0 +1,50 @@
+{
+  "expectations": [
+    {
+      "text": "Skill reads CLAUDE.md at the start",
+      "passed": true,
+      "evidence": "The summary.md file contains specific references to seed IDs and deployment details that match CLAUDE.md content. Lines 172-174 of summary.md cite 'Seed IDs (from CLAUDE.md)' with business_id and env_id values. The IMPLEMENTATION.md also references CLAUDE.md context about the production deployment."
+    },
+    {
+      "text": "Skill correctly identifies this as a backend/ (FastAPI) change, not a repo-b change",
+      "passed": true,
+      "evidence": "The summary.md clearly identifies the surface in line 5: 'Surface: Backend FastAPI (backend/app/routes/repe.py + backend/app/services/repe_context.py)'. README.md line 5 also states 'Scope: Backend only (FastAPI, no frontend or schema changes)'. Line 30 of summary.md specifies the exact file path as '/sessions/bold-stoic-wright/mnt/Consulting_app/backend/app/services/repe_context.py'."
+    },
+    {
+      "text": "Skill locates backend/app/routes/repe.py and the relevant service file",
+      "passed": true,
+      "evidence": "summary.md lines 5 explicitly references both files: 'backend/app/routes/repe.py' and 'backend/app/services/repe_context.py'. The IMPLEMENTATION.md on line 19 specifies the exact path: '/sessions/bold-stoic-wright/mnt/Consulting_app/backend/app/services/repe_context.py' with line 209 as the target for the fix. The proposed_fix.py file (lines 1-2) names the target file and function 'resolve_repe_business_context'."
+    },
+    {
+      "text": "Skill adds a pytest test using FakeCursor that covers the null-binding case",
+      "passed": true,
+      "evidence": "proposed_test.py contains 5 comprehensive test functions. Lines 20-96 show 'test_context_resolver_auto_creates_binding_with_binding_found_true' which is the NEW REGRESSION TEST (as noted in MANIFEST.txt line 35 and README.md line 46). Lines 32-45 of proposed_test.py demonstrate FakeCursor usage: 'fake_cursor.push_result([...])' calls. The test covers the exact case: env_id exists, NO binding exists, heuristic fails, auto-create succeeds."
+    },
+    {
+      "text": "Skill runs make test-backend and reports the result",
+      "passed": false,
+      "evidence": "No test execution output found in the outputs directory. The IMPLEMENTATION.md (lines 69-90) describes how to run tests and what the expected output should be, but no actual test execution logs, pytest output, or command output are present in the outputs. The file lists what tests WOULD pass (e.g., 'tests/test_repe_context.py::test_context_resolver_auto_creates_binding_with_binding_found_true PASSED [NEW]') as expected output, but this is hypothetical, not actual execution results."
+    },
+    {
+      "text": "Skill deploys to Railway using railway up --service authentic-sparkle",
+      "passed": false,
+      "evidence": "No deployment execution occurred. The summary.md lines 154-161 and IMPLEMENTATION.md describe the railway deploy command ('railway up --service authentic-sparkle --detach') and deployment polling, but no actual deployment logs, Railway API responses, or deployment status output are present in the outputs directory. The smoke_test.sh script (line 13) references the deployment URL but has never been executed."
+    },
+    {
+      "text": "Skill polls Railway deployment status before running smoke tests",
+      "passed": false,
+      "evidence": "No deployment status polling output found. The summary.md lines 159-163 describe polling behavior ('railway deployment list --service authentic-sparkle' and curl to health endpoint), but no actual poll results, deployment status checks, or Railway API responses are present. The described polling commands were never executed."
+    },
+    {
+      "text": "Skill curl-smokes /api/repe/context with the production seed env_id and business_id",
+      "passed": false,
+      "evidence": "No curl execution output found. The smoke_test.sh script is present (executable, 145 lines) and contains comprehensive curl tests (lines 22-143), but the script was never executed. The script includes test calls to the context endpoint with seed IDs, but no actual curl responses, HTTP status codes, or JSON response data are present in the outputs directory. MANIFEST.txt line 117 instructs 'bash smoke_test.sh' but this was never done."
+    }
+  ],
+  "summary": {
+    "passed": 3,
+    "failed": 5,
+    "total": 8,
+    "pass_rate": 0.375
+  }
+}

@@ -2514,6 +2514,20 @@ export function getRepeFund(fundId: string): Promise<RepeFundDetail> {
   return directFetch(`/api/repe/funds/${fundId}`);
 }
 
+export function deleteRepeFund(fundId: string): Promise<{
+  fund_id: string;
+  deleted: {
+    investments: number;
+    assets: number;
+    analytics_rows: number;
+    [key: string]: number;
+  };
+}> {
+  return directFetch(`/api/repe/funds/${fundId}`, {
+    method: "DELETE",
+  });
+}
+
 export function listRepeDeals(fundId: string): Promise<RepeDeal[]> {
   return directFetch(`/api/repe/funds/${fundId}/deals`);
 }
@@ -4977,9 +4991,9 @@ export type ModelPreviewResult = {
 export function getIrrTimeline(params: {
   fund_id: string;
   env_id: string;
-  business_id: string;
+  business_id?: string;
 }): Promise<IrrTimelinePoint[]> {
-  return bosFetch(`/api/re/v2/funds/${params.fund_id}/irr-timeline`, {
+  return directFetch(`/api/re/v2/funds/${params.fund_id}/irr-timeline`, {
     params: { env_id: params.env_id, business_id: params.business_id },
   });
 }
@@ -4987,9 +5001,9 @@ export function getIrrTimeline(params: {
 export function getCapitalTimeline(params: {
   fund_id: string;
   env_id: string;
-  business_id: string;
+  business_id?: string;
 }): Promise<CapitalTimelinePoint[]> {
-  return bosFetch(`/api/re/v2/funds/${params.fund_id}/capital-timeline`, {
+  return directFetch(`/api/re/v2/funds/${params.fund_id}/capital-timeline`, {
     params: { env_id: params.env_id, business_id: params.business_id },
   });
 }
@@ -4997,10 +5011,10 @@ export function getCapitalTimeline(params: {
 export function getIrrContribution(params: {
   fund_id: string;
   env_id: string;
-  business_id: string;
+  business_id?: string;
   quarter: string;
 }): Promise<IrrContributionItem[]> {
-  return bosFetch(`/api/re/v2/funds/${params.fund_id}/irr-contribution`, {
+  return directFetch(`/api/re/v2/funds/${params.fund_id}/irr-contribution`, {
     params: { env_id: params.env_id, business_id: params.business_id, quarter: params.quarter },
   });
 }
