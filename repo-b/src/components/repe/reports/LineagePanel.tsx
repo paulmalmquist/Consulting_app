@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 
 /* ── LineagePanel ─────────────────────────────────────────────────
    Small card showing model lineage metadata (model name, model_id,

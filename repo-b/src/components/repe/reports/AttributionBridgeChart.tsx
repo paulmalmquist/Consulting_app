@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 
 /* ── AttributionBridgeChart ───────────────────────────────────────
    Waterfall-style bar chart using recharts. Each bar shows one

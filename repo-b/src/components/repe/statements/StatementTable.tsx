@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import type { ComparisonMode, PeriodType, Scenario, StatementType } from "./StatementToolbar";
 import StatementToolbar from "./StatementToolbar";
 

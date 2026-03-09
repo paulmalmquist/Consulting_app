@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import React, { useCallback, useState } from "react";
 import type { DashboardWidget, WidgetType, ChartFormat } from "@/lib/dashboards/types";
 import { METRIC_CATALOG } from "@/lib/dashboards/metric-catalog";
 

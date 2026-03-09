@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 
 /* ── MetricComparisonCard ─────────────────────────────────────────
    Side-by-side UW vs Actual metric card with computed delta.

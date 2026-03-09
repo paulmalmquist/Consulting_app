@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { DashboardWidget, WidgetMetricRef } from "@/lib/dashboards/types";
 import { METRIC_MAP } from "@/lib/dashboards/metric-catalog";
 import { WaterfallChart } from "@/components/charts";

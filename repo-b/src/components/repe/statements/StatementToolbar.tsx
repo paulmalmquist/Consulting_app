@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 
 export type PeriodType = "monthly" | "quarterly" | "annual" | "ytd" | "ttm";
 export type Scenario = "actual" | "budget" | "proforma";

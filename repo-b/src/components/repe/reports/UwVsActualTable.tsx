@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 
 /* ── UwVsActualTable ──────────────────────────────────────────────
    Portfolio scorecard table with color-coded deltas.

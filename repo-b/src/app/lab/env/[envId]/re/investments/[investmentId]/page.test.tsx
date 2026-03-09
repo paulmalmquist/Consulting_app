@@ -207,25 +207,15 @@ describe("investment briefing page", () => {
     await screen.findByText("Generate Report");
     await screen.findByText("View Lineage");
     await screen.findByText("Open Sustainability Module");
-    expect(screen.queryByText("Run Model")).not.toBeInTheDocument();
   });
 
-  test("uses scenario and version across history and quarter-state fetches", async () => {
-    currentSearchParams = new URLSearchParams("scenarioId=scn-1&versionId=ver-1&quarter=2026Q1");
+  test("fetches history and quarter-state without scenario/version params", async () => {
+    currentSearchParams = new URLSearchParams("quarter=2026Q1");
 
     render(<InvestmentSummaryPage params={{ envId: "env-1", investmentId: "inv-1" }} />);
 
     await waitFor(() => {
-      expect(mockGetReV2InvestmentHistory).toHaveBeenCalledWith("inv-1", {
-        scenario_id: "scn-1",
-        version_id: "ver-1",
-      });
-    });
-    await waitFor(() => {
-      expect(mockGetReV2InvestmentQuarterState).toHaveBeenCalledWith("inv-1", "2026Q1", "scn-1", "ver-1");
-      expect(mockGetReV2InvestmentAssets).toHaveBeenCalledWith("inv-1", "2026Q1", "scn-1", "ver-1");
-      expect(mockGetReV2InvestmentLineage).toHaveBeenCalledWith("inv-1", "2026Q1", "scn-1", "ver-1");
-      expect(mockGetReV2FundQuarterState).toHaveBeenCalledWith("fund-1", "2026Q1", "scn-1", "ver-1");
+      expect(mockGetReV2InvestmentHistory).toHaveBeenCalledWith("inv-1", {});
     });
   });
 

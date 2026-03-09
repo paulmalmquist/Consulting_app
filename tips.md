@@ -300,6 +300,9 @@ cd repo-b && npm run db:dry
 11. Changing backend contracts without checking frontend callers in `bos-api.ts` or `api.ts`
 12. Forgetting that `repo-b` can fail because DB env vars are missing even if `backend` is healthy
 13. Mistaking Demo Lab fallback responses for real `repo-c` behavior
+14. Creating new `"use client"` React components without `import React from "react"` — Next.js auto-injects it for production builds but the vitest/jsdom test environment does NOT, causing `ReferenceError: React is not defined` in CI
+15. Pushing Python changes without running `ruff check` locally first — CI will catch it but it wastes a deploy cycle
+16. Hardcoded `%` in SQL strings passed to psycopg3 `execute()` — must be `%%` to avoid format-string errors (e.g. `LIKE '%%broker%%'`)
 
 ## 8. Pre-Flight Checklist Before Prompting A Coding Assistant
 
@@ -715,7 +718,11 @@ The `make test-backend` suite does not catch missing seed data or wrong prod env
 When you give a large task, the assistant must complete the **full cycle** without prompting:
 
 1. Make all code and schema changes
-2. Run relevant unit/lint checks locally before committing
+2. Run **all** local checks before committing — every single one, no exceptions:
+   - `cd repo-b && npx vitest run` — unit tests (catches missing React imports, stale test expectations)
+   - `cd repo-b && npx tsc --noEmit` — TypeScript (catches null coalesce, type mismatches)
+   - `source backend/.venv/bin/activate && ruff check backend/` — Python lint (catches unused imports, unused variables)
+   - If any check fails, fix it before committing. Do not push and hope CI catches it.
 3. Commit and push to `main` (triggers Railway backend redeploy + Vercel frontend redeploy automatically)
 4. Poll all three deployment targets until each one reaches a healthy state — **never declare done until all services confirm healthy**
 5. Run live smoke tests against production endpoints (not localhost, not demo cookies, not mock data)

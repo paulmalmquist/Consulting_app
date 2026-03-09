@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import type { HintChip } from "@/lib/dashboards/types";
 import { generateHints, type HintContext } from "@/lib/dashboards/hint-engine";
 
