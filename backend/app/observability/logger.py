@@ -3,8 +3,16 @@ from __future__ import annotations
 import json
 import re
 import traceback
-from datetime import UTC, datetime
+import sys
+from datetime import datetime
 from typing import Any, Mapping
+
+# Python 3.11+ has UTC in datetime, older versions use timezone.utc
+if sys.version_info >= (3, 11):
+    from datetime import UTC
+else:
+    from datetime import timezone
+    UTC = timezone.utc
 
 from fastapi import Request
 

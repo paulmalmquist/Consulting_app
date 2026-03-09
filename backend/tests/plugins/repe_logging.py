@@ -1,10 +1,18 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
+
+# Python 3.11+ has UTC in datetime, older versions use timezone.utc
+if sys.version_info >= (3, 11):
+    from datetime import UTC
+else:
+    from datetime import timezone
+    UTC = timezone.utc
 
 import pytest
 

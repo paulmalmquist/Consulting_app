@@ -106,3 +106,71 @@ def test_repe_context_health_works_without_repe_tables(client, monkeypatch):
     body = resp.json()
     assert body["ok"] is False
     assert "repe_fund" in body["missing_tables"]
+
+
+def test_context_resolver_accepts_explicit_business_id_without_env_id():
+    """Regression test: explicit business_id should work without env_id extraction.
+
+    Issue: binding_found logic was too strict - it required env_id extraction.
+    Now explicit business_id is accepted even when env_id is None.
+    """
+    out = repe_context.resolve_repe_business_context(
+        request=None,  # No request = no env_id extraction
+        env_id=None,   # No env_id parameter
+        business_id="58fcfb0d-827a-472e-98a5-46326b5d080d",
+        allow_create=False,
+    )
+
+    assert out.business_id == "58fcfb0d-827a-472e-98a5-46326b5d080d"
+    assert out.env_id == ""
+    assert out.diagnostics["binding_found"] is False
+    assert out.diagnostics["business_found"] is True
+    assert out.diagnostics["env_found"] is False
+    assert out.source == "explicit_business_id"
+    assert out.created is False
+
+
+def test_context_resolver_creates_binding_when_explicit_business_with_env_id(fake_cursor):
+    """Test that binding is created when both business_id and env_id are provided."""
+    out = repe_context.resolve_repe_business_context(
+        request=None,
+        env_id="f0790a88-5d05-4991-8d0e-243ab4f9af27",  # Explicit env_id
+        business_id="58fcfb0d-827a-472e-98a5-46326b5d080d",  # Explicit business_id
+        allow_create=False,
+    )
+
+    assert out.business_id == "58fcfb0d-827a-472e-98a5-46326b5d080d"
+    assert out.env_id == "f0790a88-5d05-4991-8d0e-243ab4f9af27"
+    assert out.diagnostics["binding_found"] is False
+    assert out.diagnostics["business_found"] is True
+    assert out.diagnostics["env_found"] is True
+    assert out.source == "explicit_business_id"
+
+
+def test_repe_context_route_with_explicit_business_id(client, monkeypatch):
+    """Integration test: /api/repe/context with explicit business_id parameter."""
+    monkeypatch.setattr(
+        repe_routes.repe_context,
+        "resolve_repe_business_context",
+        lambda **kwargs: repe_context.RepeContextResolution(
+            env_id="",
+            business_id="58fcfb0d-827a-472e-98a5-46326b5d080d",
+            created=False,
+            source="explicit_business_id",
+            diagnostics={
+                "binding_found": False,
+                "business_found": True,
+                "env_found": False,
+            },
+        ),
+    )
+
+    resp = client.get("/api/repe/context?business_id=58fcfb0d-827a-472e-98a5-46326b5d080d")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["business_id"] == "58fcfb0d-827a-472e-98a5-46326b5d080d"
+    assert "env_id" in body
+    assert body["diagnostics"]["binding_found"] is False
+    assert body["diagnostics"]["business_found"] is True
+    assert body["diagnostics"]["env_found"] is False

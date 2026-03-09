@@ -68,12 +68,27 @@ def resolve_repe_business_context(
     business_id: str | None = None,
     allow_create: bool = True,
 ) -> RepeContextResolution:
+    """Resolve REPE business context from env/business parameters or session.
+
+    Returns a RepeContextResolution with business_id, env_id, and diagnostic info
+    about how the binding was found or created. Binding semantics:
+
+    - binding_found=True: Binding existed in DB (not newly created)
+    - binding_found=False: No binding found or binding was just created
+    - business_found=True: We have a valid business_id (from param or DB)
+    - env_found=True: env_id was successfully extracted/provided
+
+    Will auto-create a business if allow_create=True and no binding found.
+    """
     resolved_env_id, source = _extract_env_id(request, env_id)
 
+    # If explicit business_id provided, use it directly
+    # (may optionally create binding if env_id is also available)
     if business_id:
         if resolved_env_id:
             with get_cursor() as cur:
                 if _table_exists(cur, "app.env_business_bindings"):
+                    # Create or update binding for this env->business mapping
                     cur.execute(
                         """
                         INSERT INTO app.env_business_bindings (env_id, business_id)
@@ -82,15 +97,17 @@ def resolve_repe_business_context(
                         """,
                         (resolved_env_id, business_id),
                     )
+        # Return explicit business_id even if env_id could not be extracted
+        # binding_found=False means binding was not pre-existing, not that business is invalid
         return RepeContextResolution(
             env_id=resolved_env_id or "",
             business_id=business_id,
             created=False,
             source="explicit_business_id",
             diagnostics={
-                "binding_found": False,
-                "business_found": True,
-                "env_found": bool(resolved_env_id),
+                "binding_found": False,  # Not a pre-existing binding (may have just created it)
+                "business_found": True,   # Caller provided valid business_id
+                "env_found": bool(resolved_env_id),  # env_id may or may not be available
             },
         )
 

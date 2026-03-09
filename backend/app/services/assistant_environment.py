@@ -1,8 +1,16 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import sys
 from decimal import Decimal
 from uuid import UUID
+from datetime import datetime
+
+# Python 3.11+ has UTC in datetime, older versions use timezone.utc
+if sys.version_info >= (3, 11):
+    from datetime import UTC
+else:
+    from datetime import timezone
+    UTC = timezone.utc
 
 from app.services import re_env_portfolio, re_investment, re_model, re_pipeline, repe
 
