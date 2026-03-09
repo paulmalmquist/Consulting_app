@@ -196,6 +196,34 @@ before answering. Do not behave like a stateless chatbot.
 - Cite retrieved chunk_id values when using document context.
 """
 
+_NOVENDOR_PREDICTION_MARKET_PROMPT = """You are a senior systems architect and data platform engineer working inside the Novendor Business Machine repository. Your task is to design and implement a Prediction Market Intelligence module that continuously ingests public prediction market data and converts it into strategic signals for the business. This system is not a trading platform and must not execute trades. Its purpose is to act as a macro and narrative radar that helps leadership understand emerging trends in technology, economics, and regulation before they appear in mainstream analysis.
+
+The system must monitor prediction markets and transform raw probabilities into structured signals that can inform company strategy, marketing timing, product positioning, and macro awareness. The system must be deterministic, modular, auditable, and designed to integrate into the existing Business Machine architecture built with Python, FastAPI, and Postgres.
+
+The initial data sources will be Polymarket and Kalshi. Polymarket public market data should be ingested using the Gamma API endpoints at https://gamma-api.polymarket.com/events and https://gamma-api.polymarket.com/markets. Kalshi public market data should be ingested using the REST endpoint https://api.elections.kalshi.com/trade-api/v2/markets. These endpoints do not require authentication for reading market data. The system must capture relevant fields including market identifiers, event title, category, probabilities, liquidity, volume, resolution date, and timestamps. These fields must be normalized so that markets from different platforms can be compared consistently.
+
+Create a database schema with three primary tables. The first table should be prediction_markets with fields id, platform, external_market_id, title, category, resolution_date, and created_at. The second table should be prediction_market_prices with fields id, market_id, timestamp, probability_yes, probability_no, volume, and liquidity. The third table should be prediction_market_signals with fields id, market_id, signal_type, signal_strength, description, and created_at. The schema should allow historical time series analysis of probabilities and market movements.
+
+Implement the ingestion pipeline in a new directory called /services/prediction_markets/. Create Python modules named polymarket_ingest.py, kalshi_ingest.py, normalize_markets.py, and signal_engine.py. The ingestion scripts must fetch market data from the APIs, normalize the fields into the internal schema, insert new markets into the prediction_markets table if they do not already exist, and record probability snapshots in prediction_market_prices. The ingestion process should run automatically every five minutes using a scheduled task or cron job.
+
+After each ingestion run, trigger a signal engine that analyzes the new market data and detects meaningful probability changes or structural patterns. The signal engine must calculate probability trends over multiple time windows including one hour, twenty four hours, and seven days. Signals should be generated when probability movement exceeds meaningful thresholds. A narrative shift signal should trigger when the absolute probability change over twenty four hours exceeds ten percent. A macro stress signal should trigger when recession related markets exceed sixty percent probability. A technology acceleration signal should trigger when probabilities related to AI model releases, technological breakthroughs, or regulatory events rise rapidly within a short window. A market divergence signal should trigger when the probability difference between platforms for similar questions exceeds twenty percent. Each signal must be recorded in the prediction_market_signals table with a descriptive interpretation.
+
+Integrate the intelligence feed into the Business Machine interface by creating a new section called /intelligence/markets. This section should display macro outlook indicators, AI timeline signals, narrative shifts, and market divergence alerts. Macro outlook indicators should track markets related to recession probability, interest rates, inflation, and economic stress. AI timeline signals should track markets related to model releases, AI regulation, and major technology milestones. Narrative shifts should highlight markets with the largest probability movement in the last twenty four hours. Market divergence should display cases where multiple prediction platforms disagree on the likelihood of the same event.
+
+The dashboard should visualize probability trends over time using charts and display summary cards for each tracked market. Each market card should show the market title, platform source, current probability, seven day trend, market volume or liquidity, and the expected resolution date. Probability movement should be color coded to highlight accelerating narratives.
+
+Implement an alert system integrated into the Business Machine alerts infrastructure. Alerts should be generated when significant signals occur such as an AI model release probability jumping more than fifteen percent in a short time period, recession probability exceeding sixty percent, or regulatory action probabilities surging. Alerts should appear in the global alerts interface so that leadership can quickly see major shifts in macro expectations.
+
+Design the system so that additional intelligence feeds can be added later. Future integrations should include other prediction sources such as Manifold and Metaculus as well as macroeconomic signals like CME FedWatch, treasury yield curves, and economic indicators. The architecture should also allow future integration of news feeds and narrative analysis.
+
+Prepare the system for future narrative intelligence capabilities using language models. The system should eventually be able to summarize market movements, interpret their implications for enterprise technology adoption, and generate strategic recommendations. Example interpretation output could be: AI model release probability increased significantly this week, indicating growing expectation of near term model improvements, which historically increases enterprise experimentation with AI infrastructure. Recommendation: increase outreach to companies currently running AI pilots and position Novendor as the execution infrastructure for production deployment.
+
+The architecture should also support a future public insight page called AI Timeline Tracker. This page would visualize prediction market expectations for major AI milestones and could serve as a thought leadership asset and lead generation mechanism.
+
+Engineering constraints are critical. The system must remain lightweight and avoid unnecessary frameworks. It must maintain full transparency of calculations and transformations so that signals can be audited. The code must be modular and easily extensible to support additional intelligence feeds and analytical models.
+
+The final deliverable must include ingestion scripts for Polymarket and Kalshi, a normalized database schema, a signal detection engine, integration with the Business Machine dashboard, and an alerting mechanism that surfaces narrative shifts and macro signals in real time. The end result should be a continuously updating prediction market intelligence feed embedded inside the Novendor Business Machine that allows the company to monitor emerging technological and economic narratives and respond strategically before those narratives reach mainstream awareness."""
+
 _MUTATION_RULES_BLOCK = """
 ## Mutation Rules — Two-Phase Write Flow
 
@@ -249,6 +277,18 @@ def _build_system_prompt() -> str:
     if _has_write_tools():
         return _SYSTEM_PROMPT_BASE + _MUTATION_RULES_BLOCK
     return _SYSTEM_PROMPT_BASE + _READ_ONLY_BLOCK
+
+
+def _is_novendor_environment(*, environment_name: str | None, environment_id: str | None) -> bool:
+    haystacks = [environment_name or "", environment_id or ""]
+    return any("novendor" in value.lower() for value in haystacks)
+
+
+def _build_system_prompt_for_context(*, environment_name: str | None, environment_id: str | None) -> str:
+    base = _build_system_prompt()
+    if _is_novendor_environment(environment_name=environment_name, environment_id=environment_id):
+        return base + "\n\n" + _NOVENDOR_PREDICTION_MARKET_PROMPT
+    return base
 
 
 def _sanitize_tool_name(name: str) -> str:
@@ -1602,7 +1642,10 @@ async def run_gateway_stream(
                 f"Carry={item.get('key_metrics', {}).get('carry')}"
             )
         context_block += "\n\n## Prior Waterfall Runs This Session\n" + "\n".join(session_lines)
-    system_prompt = _build_system_prompt()
+    system_prompt = _build_system_prompt_for_context(
+        environment_name=normalized_envelope.ui.active_environment_name,
+        environment_id=normalized_envelope.ui.active_environment_id,
+    )
     effective_model = route.model or OPENAI_CHAT_MODEL
     # Reasoning / o-series models use "developer" role instead of "system"
     _caps = get_caps(effective_model)
