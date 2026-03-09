@@ -5857,6 +5857,9 @@ export async function runWaterfallScenario(params: {
   scenario_id: string;
   quarter: string;
   mode?: string;
+  cap_rate_delta_bps?: number;
+  noi_stress_pct?: number;
+  exit_date_shift_months?: number;
 }): Promise<WaterfallScenarioRunResult> {
   // Use Next.js proxy endpoint for waterfall scenarios
   const res = await fetch(`/api/re/v2/funds/${params.fund_id}/waterfall-scenarios/run`, {
@@ -5868,6 +5871,9 @@ export async function runWaterfallScenario(params: {
       scenario_id: params.scenario_id,
       as_of_quarter: params.quarter,
       mode: params.mode || "shadow",
+      cap_rate_delta_bps: params.cap_rate_delta_bps,
+      noi_stress_pct: params.noi_stress_pct,
+      exit_date_shift_months: params.exit_date_shift_months,
     }),
   });
   if (!res.ok) throw new Error("Waterfall scenario run failed");
@@ -6508,5 +6514,164 @@ export function getCopilotContext(envId: string, businessId?: string): Promise<D
 export function getOutputsContext(envId: string, businessId?: string): Promise<DomainContext> {
   return bosFetch("/api/outputs/v1/context", {
     params: { env_id: envId, business_id: businessId },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Novendor Consulting OS – Discovery Lab CRUD
+// ---------------------------------------------------------------------------
+
+export type NvAccount = {
+  account_id: string;
+  env_id: string;
+  business_id: string;
+  company_name: string;
+  industry?: string | null;
+  sub_industry?: string | null;
+  employee_count?: number | null;
+  annual_revenue?: string | null;
+  headquarters?: string | null;
+  primary_contact_name?: string | null;
+  champion_name?: string | null;
+  engagement_stage: string;
+  pain_summary?: string | null;
+  vendor_count: number;
+  system_count: number;
+  status: string;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type NvDashboard = {
+  total_accounts: number;
+  active_engagements: number;
+  total_systems: number;
+  total_vendors: number;
+  total_artifacts: number;
+  total_vendor_spend: string;
+  total_pain_points: number;
+  stage_counts: Record<string, number>;
+};
+
+export function getDiscoveryDashboard(envId: string, businessId?: string): Promise<NvDashboard> {
+  return bosFetch("/api/discovery/v1/dashboard", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listDiscoveryAccounts(envId: string, businessId?: string): Promise<NvAccount[]> {
+  return bosFetch("/api/discovery/v1/accounts", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function createDiscoveryAccount(body: Record<string, unknown>): Promise<NvAccount> {
+  return bosFetch("/api/discovery/v1/accounts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listDiscoverySystems(accountId: string, envId: string, businessId?: string): Promise<unknown[]> {
+  return bosFetch(`/api/discovery/v1/accounts/${accountId}/systems`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function createDiscoverySystem(accountId: string, body: Record<string, unknown>, envId: string, businessId?: string): Promise<unknown> {
+  return bosFetch(`/api/discovery/v1/accounts/${accountId}/systems?env_id=${envId}${businessId ? `&business_id=${businessId}` : ""}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listDiscoveryVendors(accountId: string, envId: string, businessId?: string): Promise<unknown[]> {
+  return bosFetch(`/api/discovery/v1/accounts/${accountId}/vendors`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function createDiscoveryVendor(accountId: string, body: Record<string, unknown>, envId: string, businessId?: string): Promise<unknown> {
+  return bosFetch(`/api/discovery/v1/accounts/${accountId}/vendors?env_id=${envId}${businessId ? `&business_id=${businessId}` : ""}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listDiscoverySessions(accountId: string, envId: string, businessId?: string): Promise<unknown[]> {
+  return bosFetch(`/api/discovery/v1/accounts/${accountId}/sessions`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function createDiscoverySession(accountId: string, body: Record<string, unknown>, envId: string, businessId?: string): Promise<unknown> {
+  return bosFetch(`/api/discovery/v1/accounts/${accountId}/sessions?env_id=${envId}${businessId ? `&business_id=${businessId}` : ""}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listDiscoveryPainPoints(accountId: string, envId: string, businessId?: string): Promise<unknown[]> {
+  return bosFetch(`/api/discovery/v1/accounts/${accountId}/pain-points`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function createDiscoveryPainPoint(accountId: string, body: Record<string, unknown>, envId: string, businessId?: string): Promise<unknown> {
+  return bosFetch(`/api/discovery/v1/accounts/${accountId}/pain-points?env_id=${envId}${businessId ? `&business_id=${businessId}` : ""}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Novendor Consulting OS – Data Studio CRUD
+// ---------------------------------------------------------------------------
+
+export function listDataStudioArtifacts(accountId: string, envId: string, businessId?: string): Promise<unknown[]> {
+  return bosFetch(`/api/data-studio/v1/accounts/${accountId}/artifacts`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function createDataStudioArtifact(body: Record<string, unknown>, envId: string, businessId?: string): Promise<unknown> {
+  return bosFetch(`/api/data-studio/v1/artifacts?env_id=${envId}${businessId ? `&business_id=${businessId}` : ""}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listDataStudioEntities(accountId: string, envId: string, businessId?: string): Promise<unknown[]> {
+  return bosFetch(`/api/data-studio/v1/accounts/${accountId}/entities`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function createDataStudioEntity(body: Record<string, unknown>, envId: string, businessId?: string): Promise<unknown> {
+  return bosFetch(`/api/data-studio/v1/entities?env_id=${envId}${businessId ? `&business_id=${businessId}` : ""}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listDataStudioEntityMappings(accountId: string, envId: string, businessId?: string): Promise<unknown[]> {
+  return bosFetch(`/api/data-studio/v1/accounts/${accountId}/entity-mappings`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function createDataStudioEntityMapping(body: Record<string, unknown>, envId: string, businessId?: string): Promise<unknown> {
+  return bosFetch(`/api/data-studio/v1/entity-mappings?env_id=${envId}${businessId ? `&business_id=${businessId}` : ""}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
 }

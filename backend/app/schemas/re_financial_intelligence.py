@@ -525,6 +525,9 @@ class WaterfallScenarioRunRequest(BaseModel):
     scenario_id: UUID
     as_of_quarter: str = Field(pattern=r"^\d{4}Q[1-4]$")
     mode: str = "shadow"
+    cap_rate_delta_bps: int | None = None
+    noi_stress_pct: float | None = None
+    exit_date_shift_months: int | None = None
 
 
 class WaterfallScenarioTierAllocation(BaseModel):

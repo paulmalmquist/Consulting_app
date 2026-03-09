@@ -1036,6 +1036,32 @@ def _build_mc_waterfall_card(result: dict, scenario) -> dict:
             _metric("GP Carry", "gp_carry"),
             _metric("Net TVPI", "net_tvpi"),
         ],
+        "table": {
+            "columns": ["percentile", "nav", "lp_total", "gp_carry", "net_tvpi"],
+            "rows": [
+                {
+                    "percentile": "P10",
+                    "nav": _fmt_dollar(result.get("p10", {}).get("summary", {}).get("nav")),
+                    "lp_total": _fmt_dollar(result.get("p10", {}).get("summary", {}).get("lp_total")),
+                    "gp_carry": _fmt_dollar(result.get("p10", {}).get("summary", {}).get("gp_carry")),
+                    "net_tvpi": _fmt_mult(result.get("p10", {}).get("summary", {}).get("net_tvpi")),
+                },
+                {
+                    "percentile": "P50",
+                    "nav": _fmt_dollar(result.get("p50", {}).get("summary", {}).get("nav")),
+                    "lp_total": _fmt_dollar(result.get("p50", {}).get("summary", {}).get("lp_total")),
+                    "gp_carry": _fmt_dollar(result.get("p50", {}).get("summary", {}).get("gp_carry")),
+                    "net_tvpi": _fmt_mult(result.get("p50", {}).get("summary", {}).get("net_tvpi")),
+                },
+                {
+                    "percentile": "P90",
+                    "nav": _fmt_dollar(result.get("p90", {}).get("summary", {}).get("nav")),
+                    "lp_total": _fmt_dollar(result.get("p90", {}).get("summary", {}).get("lp_total")),
+                    "gp_carry": _fmt_dollar(result.get("p90", {}).get("summary", {}).get("gp_carry")),
+                    "net_tvpi": _fmt_mult(result.get("p90", {}).get("summary", {}).get("net_tvpi")),
+                },
+            ],
+        },
         "parameters": {
             "Fund": scenario.fund_id,
             "Template": scenario.scenario_template,
@@ -1068,6 +1094,21 @@ def _build_portfolio_waterfall_card(result: dict, scenario) -> dict:
             }
             for fund in funds
         ],
+        "table": {
+            "columns": ["fund_name", "fund_id", "nav", "net_irr", "carry", "lp_shortfall", "return_share"],
+            "rows": [
+                {
+                    "fund_name": fund.get("fund_name") or fund.get("fund_id"),
+                    "fund_id": fund.get("fund_id"),
+                    "nav": _fmt_dollar(fund.get("nav")),
+                    "net_irr": _fmt_pct(fund.get("net_irr")),
+                    "carry": _fmt_dollar(fund.get("carry")),
+                    "lp_shortfall": _fmt_dollar(fund.get("lp_shortfall")),
+                    "return_share": f"{float(fund.get('return_share') or 0):.1%}" if fund.get("return_share") is not None else "—",
+                }
+                for fund in funds
+            ],
+        },
         "parameters": {
             "Funds": str(len(funds)),
             "Diversification": f"{float(result.get('diversification_score') or 0):.1f}",
@@ -1083,6 +1124,18 @@ def _build_pipeline_radar_card(result: dict, scenario) -> dict:
         "metrics": [
             {"label": "Deals Scored", "value": str(result.get("count", len(top_5))), "delta": None},
         ],
+        "table": {
+            "columns": ["deal_name", "opportunity_score", "risk_score", "composite_score"],
+            "rows": [
+                {
+                    "deal_name": deal.get("deal_name", ""),
+                    "opportunity_score": f"{float(deal.get('opportunity_score', 0)):.1f}",
+                    "risk_score": f"{float(deal.get('risk_score', 0)):.1f}",
+                    "composite_score": f"{float(deal.get('composite_score', 0)):.1f}",
+                }
+                for deal in top_5
+            ],
+        },
         "assets": [
             {
                 "name": deal.get("deal_name", ""),
@@ -1144,6 +1197,18 @@ def _build_uw_vs_actual_card(result: dict, scenario) -> dict:
             "Largest Driver": attribution.get("largest_driver"),
             "Narrative": result.get("narrative_hint"),
         },
+        "table": {
+            "columns": ["tier", "uw_amount", "actual_amount", "delta"],
+            "rows": [
+                {
+                    "tier": row.get("tier") or row.get("tier_code"),
+                    "uw_amount": _fmt_dollar(row.get("uw_amount")),
+                    "actual_amount": _fmt_dollar(row.get("actual_amount")),
+                    "delta": _fmt_dollar(row.get("delta")),
+                }
+                for row in attribution.get("tier_attribution", [])
+            ],
+        },
     }
 
 
@@ -1162,6 +1227,13 @@ def _build_sensitivity_card(result: dict, scenario) -> dict:
             {"label": "Base Value", "value": str(result.get("base_value")), "delta": None},
             {"label": "Best Cell", "value": str(best) if best is not None else "—", "delta": None},
         ],
+        "heatmap": {
+            "title": "Cap Rate vs NOI Stress",
+            "col_headers": result.get("col_headers", []),
+            "row_headers": result.get("row_headers", []),
+            "rows": result.get("rows", []),
+            "base_value": result.get("base_value"),
+        },
         "parameters": {
             "Cap Rate Steps": str(len(result.get("col_headers", []))),
             "NOI Steps": str(len(result.get("row_headers", []))),
@@ -1184,6 +1256,26 @@ def _build_construction_waterfall_card(result: dict, scenario) -> dict:
     }
 
 
+def _build_waterfall_memo_card(result: dict) -> dict:
+    sections = result.get("sections") or []
+    metadata = result.get("metadata") or {}
+    return {
+        "title": f"Waterfall Memo: {metadata.get('fund_name') or 'IC Draft'}",
+        "subtitle": metadata.get("quarter"),
+        "sections": [
+            {
+                "title": section.get("title") or "Section",
+                "content": section.get("body") or section.get("content") or "",
+            }
+            for section in sections
+        ],
+        "parameters": {
+            "Base Run": metadata.get("scenarios_compared", {}).get("base"),
+            "Scenario Run": metadata.get("scenarios_compared", {}).get("scenario"),
+        },
+    }
+
+
 def _build_session_waterfall_card(session_state) -> dict:
     runs = list(session_state.waterfall_runs)
     best = max(runs, key=lambda item: _to_num(item.get("key_metrics", {}).get("irr")) or float("-inf"), default=None)
@@ -1194,6 +1286,7 @@ def _build_session_waterfall_card(session_state) -> dict:
             {"label": "Tracked Runs", "value": str(len(runs)), "delta": None},
             {"label": "Best IRR", "value": _fmt_pct(best.get("key_metrics", {}).get("irr")) if best else "—", "delta": None},
         ],
+        "session_waterfall_runs": runs,
         "scenarios": [
             {
                 "scenario_id": item.get("scenario_name") or item.get("run_id"),
@@ -1931,6 +2024,14 @@ async def run_gateway_stream(
                 "tool_result",
                 {"tool_name": tool_name, "args": raw_args, "result": _json_safe(tool_result)},
             )
+            if tool_success and tool_name == "finance.generate_waterfall_memo" and isinstance(tool_result, dict):
+                yield _sse(
+                    "structured_result",
+                    {
+                        "result_type": "waterfall_memo",
+                        "card": _build_waterfall_memo_card(tool_result),
+                    },
+                )
 
             if conversation_id and isinstance(tool_result, dict) and tool_name.startswith("finance."):
                 conversation_key = str(conversation_id)

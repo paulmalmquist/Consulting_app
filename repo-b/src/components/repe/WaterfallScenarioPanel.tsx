@@ -23,6 +23,7 @@ import {
 import { label, WATERFALL_TIER_LABELS, PAYOUT_TYPE_LABELS, STATUS_LABELS } from "@/lib/labels";
 import { ClawbackRiskBadge } from "@/components/repe/ClawbackRiskBadge";
 import { SensitivityMatrix } from "@/components/repe/SensitivityMatrix";
+import { getSupabaseBrowserClient } from "@/lib/supabase-client";
 
 function fmt(val: string | null | undefined, suffix = ""): string {
   if (!val) return "—";
@@ -81,6 +82,7 @@ export default function WaterfallScenarioPanel({
   const [sensitivity, setSensitivity] = useState<SensitivityMatrixResponse | null>(null);
   const [loadingSensitivity, setLoadingSensitivity] = useState(false);
   const [loadingCapitalImpact, setLoadingCapitalImpact] = useState(false);
+  const [hasNewRun, setHasNewRun] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Load scenarios
@@ -118,6 +120,38 @@ export default function WaterfallScenarioPanel({
   }, [loadRuns]);
 
   useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel(`re-waterfall-event-${fundId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "re_waterfall_event",
+          filter: `fund_id=eq.${fundId}`,
+        },
+        () => {
+          setHasNewRun(true);
+          loadRuns();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [fundId, loadRuns]);
+
+  useEffect(() => {
+    if (!hasNewRun) return;
+    const timer = window.setTimeout(() => setHasNewRun(false), 8000);
+    return () => window.clearTimeout(timer);
+  }, [hasNewRun]);
+
+  useEffect(() => {
     getClawbackRisk({
       fund_id: fundId,
       env_id: envId,
@@ -152,6 +186,9 @@ export default function WaterfallScenarioPanel({
         scenario_id: selectedScenarioId,
         quarter,
         mode: "shadow",
+        cap_rate_delta_bps: inlineOverrides.cap_rate_delta_bps,
+        noi_stress_pct: inlineOverrides.noi_stress_pct,
+        exit_date_shift_months: inlineOverrides.exit_date_shift_months,
       });
       setResult(res);
       if (res.status === "failed") {
@@ -658,9 +695,16 @@ export default function WaterfallScenarioPanel({
       {/* Run History */}
       {runs.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <h4 className="text-sm font-semibold text-gray-900 px-4 pt-3 pb-2">
-            Scenario Run History
-          </h4>
+          <div className="flex items-center justify-between px-4 pt-3 pb-2">
+            <h4 className="text-sm font-semibold text-gray-900">
+              Scenario Run History
+            </h4>
+            {hasNewRun ? (
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                New run available
+              </span>
+            ) : null}
+          </div>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-gray-50">

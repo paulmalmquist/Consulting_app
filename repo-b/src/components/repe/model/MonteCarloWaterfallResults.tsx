@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import type { MonteCarloWaterfallResponse } from "@/lib/bos-api";
 
 function fmtMoney(value: number | string | null | undefined) {

@@ -156,6 +156,7 @@ def run_waterfall_scenario(
     scenario_id: UUID,
     quarter: str,
     mode: str = "shadow",
+    inline_overrides: dict | None = None,
 ) -> dict:
     """Execute a full waterfall scenario calculation.
 
@@ -214,11 +215,20 @@ def run_waterfall_scenario(
             r["key"]: re_scenario_service._extract_value(r)
             for r in overrides_raw
         }
+        if inline_overrides:
+            for key, value in inline_overrides.items():
+                if value is not None:
+                    overrides[key] = value
 
         # Parse scenario parameters
         cap_rate_delta_bps = Decimal(str(overrides.get("exit_cap_rate_delta_bps", "0")))
         noi_stress_pct = Decimal(str(overrides.get("noi_stress_pct", "0")))
         exit_date_shift_months = int(overrides.get("exit_date_shift_months", "0"))
+        overrides_are_neutral = (
+            cap_rate_delta_bps == 0
+            and noi_stress_pct == 0
+            and exit_date_shift_months == 0
+        )
 
         # ── Load base fund state ─────────────────────────────────────────
         cur.execute(
@@ -335,7 +345,7 @@ def run_waterfall_scenario(
             )
             wf_def = cur.fetchone()
 
-            if wf_def:
+            if wf_def and not overrides_are_neutral:
                 defn_id = wf_def["definition_id"]
 
                 # Load tiers
@@ -484,11 +494,12 @@ def run_waterfall_scenario(
                 action="re.waterfall_scenario.waterfall_fallback",
                 message=f"Waterfall engine fallback: {exc}",
             )
-            # Simplified carry fallback
-            gross_return = total_distributed + scenario_nav - total_called
-            pref_hurdle = total_called * Decimal("0.08")
-            if gross_return > pref_hurdle:
-                carry_from_waterfall = ((gross_return - pref_hurdle) * Decimal("0.20")).quantize(Decimal("0.01"))
+            if not overrides_are_neutral:
+                # Simplified carry fallback
+                gross_return = total_distributed + scenario_nav - total_called
+                pref_hurdle = total_called * Decimal("0.08")
+                if gross_return > pref_hurdle:
+                    carry_from_waterfall = ((gross_return - pref_hurdle) * Decimal("0.20")).quantize(Decimal("0.01"))
 
         # ── Compute net metrics ──────────────────────────────────────────
         carry_estimate = carry_from_waterfall.quantize(Decimal("0.01"))
@@ -528,6 +539,19 @@ def run_waterfall_scenario(
         base_net_tvpi = Decimal(str(base_metrics["net_tvpi"])) if base_metrics and base_metrics.get("net_tvpi") else None
         base_dpi = Decimal(str(base_metrics["dpi"])) if base_metrics and base_metrics.get("dpi") else None
         base_rvpi = Decimal(str(base_metrics["rvpi"])) if base_metrics and base_metrics.get("rvpi") else None
+
+        if overrides_are_neutral:
+            scenario_nav = base_nav
+            scenario_gross_irr = base_gross_irr
+            scenario_net_irr = base_net_irr
+            scenario_gross_tvpi = base_gross_tvpi
+            scenario_net_tvpi = base_net_tvpi
+            scenario_dpi = base_dpi
+            scenario_rvpi = base_rvpi
+            carry_estimate = Decimal("0.00")
+            nav_adjustment = Decimal("0.00")
+            tier_allocations = []
+            waterfall_run_id = None
 
         # ── Store scenario metrics snapshot ──────────────────────────────
         cur.execute(

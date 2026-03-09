@@ -12,12 +12,37 @@ export type StructuredResultMetric = {
   delta?: { value: string; direction: "positive" | "negative" } | null;
 };
 
+export type StructuredResultPrimitive = string | number | boolean | null;
+
+export type StructuredResultTable = {
+  columns: string[];
+  rows: Array<Record<string, StructuredResultPrimitive>>;
+};
+
+export type StructuredResultHeatmap = {
+  title?: string;
+  col_headers: string[];
+  row_headers: string[];
+  rows: Array<Array<StructuredResultPrimitive>>;
+  base_value?: StructuredResultPrimitive;
+  value_suffix?: string;
+};
+
+export type StructuredResultSection = {
+  title: string;
+  content: string;
+};
+
 export type StructuredResultCard = {
   title: string;
   subtitle?: string;
   metrics?: StructuredResultMetric[];
   parameters?: Record<string, string | null>;
   actions?: StructuredResultAction[];
+  table?: StructuredResultTable | null;
+  heatmap?: StructuredResultHeatmap | null;
+  sections?: StructuredResultSection[] | null;
+  session_waterfall_runs?: WaterfallRunSummary[] | null;
   // Specialized sections
   tiers?: Array<Record<string, string>>;
   partners?: Array<Record<string, string | null>>;

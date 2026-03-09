@@ -829,6 +829,11 @@ def run_waterfall_scenario(fund_id: UUID, body: WaterfallScenarioRunRequest):
             scenario_id=body.scenario_id,
             quarter=body.as_of_quarter,
             mode=body.mode,
+            inline_overrides={
+                "exit_cap_rate_delta_bps": body.cap_rate_delta_bps,
+                "noi_stress_pct": body.noi_stress_pct,
+                "exit_date_shift_months": body.exit_date_shift_months,
+            },
         )
     except Exception as exc:
         raise _to_http(exc)

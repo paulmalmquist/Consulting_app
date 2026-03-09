@@ -519,20 +519,38 @@ export default function GlobalCommandBar() {
         setMessages((prev) => [...prev, msg]);
         const card = structuredResults[0].card;
         const scenarioRows = card.scenarios ?? [];
-        if ((structuredResults[0].result_type.startsWith("waterfall") || structuredResults[0].result_type === "session_waterfall_summary") && scenarioRows.length > 0) {
-          setWaterfallRuns((prev) => [
-            ...prev,
-            ...scenarioRows.map((row) => ({
-              run_id: String(row.scenario_id || `wf_${Date.now()}`),
-              scenario_name: String(row.scenario_id || ""),
-              key_metrics: {
-                irr: row.gross_irr,
-                tvpi: row.tvpi,
-                carry: row.dpi,
-                nav: row.nav,
-              },
-            })),
-          ].slice(-20));
+        const sessionRuns = card.session_waterfall_runs ?? [];
+        if (
+          structuredResults[0].result_type.startsWith("waterfall") ||
+          structuredResults[0].result_type === "session_waterfall_summary"
+        ) {
+          const nextRuns =
+            sessionRuns.length > 0
+              ? sessionRuns
+              : scenarioRows.map((row) => ({
+                  run_id: String(row.scenario_id || `wf_${Date.now()}`),
+                  scenario_name: String(row.scenario_id || ""),
+                  key_metrics: {
+                    irr: row.gross_irr,
+                    tvpi: row.tvpi,
+                    carry: row.dpi,
+                    nav: row.nav,
+                  },
+                }));
+          if (nextRuns.length > 0) {
+            setWaterfallRuns((prev) => {
+              const merged = [...prev];
+              for (const run of nextRuns) {
+                const idx = merged.findIndex((item) => item.run_id === run.run_id);
+                if (idx >= 0) {
+                  merged[idx] = run;
+                } else {
+                  merged.push(run);
+                }
+              }
+              return merged.slice(-20);
+            });
+          }
         }
       } else {
         appendMessage("assistant", result.answer);
