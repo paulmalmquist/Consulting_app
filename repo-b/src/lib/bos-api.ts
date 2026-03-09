@@ -5927,7 +5927,7 @@ export function runMonteCarloWaterfall(params: {
   p50_nav: number;
   p90_nav: number;
 }): Promise<MonteCarloWaterfallResponse> {
-  return bosFetch(`/api/re/v2/funds/${params.fund_id}/monte-carlo-waterfall`, {
+  return directFetch(`/api/re/v2/funds/${params.fund_id}/monte-carlo-waterfall`, {
     method: "POST",
     body: JSON.stringify({
       env_id: params.env_id,
@@ -5946,7 +5946,7 @@ export function getPortfolioWaterfall(params: {
   business_id: string;
   quarter: string;
 }): Promise<PortfolioWaterfallResponse> {
-  return bosFetch("/api/re/v2/portfolio/waterfall", {
+  return directFetch("/api/re/v2/portfolio/waterfall", {
     method: "POST",
     body: JSON.stringify(params),
   });
@@ -6432,5 +6432,81 @@ export async function listCreResolutionCandidates(params: {
       status: params.status,
       entity_type: params.entity_type,
     },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Novendor Consulting OS – Context Fetchers
+// ---------------------------------------------------------------------------
+
+export function getDiscoveryContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/discovery/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getDataStudioContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/data-studio/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getWorkflowIntelContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/workflow-intel/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getVendorIntelContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/vendor-intel/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getMetricDictContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/metric-dict/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getDataChaosContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/data-chaos/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getBlueprintContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/blueprint/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getPilotContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/pilot/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getImpactContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/impact/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getCaseFactoryContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/case-factory/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getCopilotContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/copilot/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOutputsContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/outputs/v1/context", {
+    params: { env_id: envId, business_id: businessId },
   });
 }

@@ -16,6 +16,18 @@ const DOMAIN_LABELS: Record<DomainSlug, string> = {
   credit: "Credit Risk Hub",
   legal: "Legal Ops Command",
   medical: "Medical Office Backoffice",
+  discovery: "Execution Discovery Lab",
+  "data-studio": "Data Ingestion & Mapping Studio",
+  "workflow-intel": "Workflow Intelligence Engine",
+  "vendor-intel": "Vendor Intelligence Engine",
+  "metric-dict": "Metric Dictionary Engine",
+  "data-chaos": "Data Chaos Detector",
+  blueprint: "Execution Blueprint Studio",
+  pilot: "Pilot Builder",
+  impact: "Economic Impact Estimator",
+  "case-factory": "Case Study Factory",
+  copilot: "AI Discovery Copilot",
+  outputs: "Engagement Output Center",
 };
 
 function navItems(domain: DomainSlug, base: string): NavItem[] {
@@ -50,6 +62,119 @@ function navItems(domain: DomainSlug, base: string): NavItem[] {
       { href: `${base}/knowledge-base`, label: "Knowledge Base" },
       { href: `${base}/reports`, label: "Reports" },
       { href: `${base}/ai-briefing`, label: "AI Briefing" },
+    ];
+  }
+  if (domain === "discovery") {
+    return [
+      { href: base, label: "Command Center" },
+      { href: `${base}/accounts`, label: "Accounts" },
+      { href: `${base}/systems`, label: "Systems" },
+      { href: `${base}/vendors`, label: "Vendors" },
+      { href: `${base}/sessions`, label: "Sessions" },
+      { href: `${base}/pain-points`, label: "Pain Points" },
+    ];
+  }
+  if (domain === "data-studio") {
+    return [
+      { href: base, label: "Command Center" },
+      { href: `${base}/intake`, label: "Data Intake" },
+      { href: `${base}/schema`, label: "Schema Viewer" },
+      { href: `${base}/entities`, label: "Canonical Model" },
+      { href: `${base}/mappings`, label: "Field Mappings" },
+      { href: `${base}/lineage`, label: "Data Lineage" },
+    ];
+  }
+  if (domain === "workflow-intel") {
+    return [
+      { href: base, label: "Command Center" },
+      { href: `${base}/workflows`, label: "Workflows" },
+      { href: `${base}/steps`, label: "Steps & Handoffs" },
+      { href: `${base}/bottlenecks`, label: "Bottlenecks" },
+      { href: `${base}/automation`, label: "Automation Opps" },
+      { href: `${base}/metrics`, label: "Metrics" },
+    ];
+  }
+  if (domain === "vendor-intel") {
+    return [
+      { href: base, label: "Command Center" },
+      { href: `${base}/catalog`, label: "Vendor Catalog" },
+      { href: `${base}/capabilities`, label: "Capabilities" },
+      { href: `${base}/cost-analysis`, label: "Cost Analysis" },
+      { href: `${base}/lock-in`, label: "Lock-In Risk" },
+      { href: `${base}/replacement-map`, label: "Replacement Map" },
+    ];
+  }
+  if (domain === "metric-dict") {
+    return [
+      { href: base, label: "Command Center" },
+      { href: `${base}/metrics`, label: "Metrics" },
+      { href: `${base}/definitions`, label: "Definitions" },
+      { href: `${base}/conflicts`, label: "Conflicts" },
+      { href: `${base}/sources`, label: "Sources" },
+      { href: `${base}/reports`, label: "Reports" },
+    ];
+  }
+  if (domain === "data-chaos") {
+    return [
+      { href: base, label: "Command Center" },
+      { href: `${base}/anomalies`, label: "Anomalies" },
+      { href: `${base}/duplicates`, label: "Duplicates" },
+      { href: `${base}/conflicts`, label: "Conflicts" },
+      { href: `${base}/drift`, label: "Drift" },
+      { href: `${base}/reliability`, label: "Reliability Score" },
+    ];
+  }
+  if (domain === "blueprint") {
+    return [
+      { href: base, label: "Command Center" },
+      { href: `${base}/architectures`, label: "Architectures" },
+      { href: `${base}/modules`, label: "Modules" },
+      { href: `${base}/replacements`, label: "Replacements" },
+      { href: `${base}/phases`, label: "Phases" },
+      { href: `${base}/governance`, label: "Governance" },
+    ];
+  }
+  if (domain === "pilot") {
+    return [
+      { href: base, label: "Command Center" },
+      { href: `${base}/pilots`, label: "Pilots" },
+      { href: `${base}/milestones`, label: "Milestones" },
+      { href: `${base}/metrics`, label: "Metrics" },
+      { href: `${base}/proposals`, label: "Proposals" },
+    ];
+  }
+  if (domain === "impact") {
+    return [
+      { href: base, label: "Command Center" },
+      { href: `${base}/models`, label: "Models" },
+      { href: `${base}/assumptions`, label: "Assumptions" },
+      { href: `${base}/savings`, label: "Savings" },
+      { href: `${base}/roi`, label: "ROI Summary" },
+    ];
+  }
+  if (domain === "case-factory") {
+    return [
+      { href: base, label: "Command Center" },
+      { href: `${base}/case-studies`, label: "Case Studies" },
+      { href: `${base}/insights`, label: "Insights" },
+      { href: `${base}/patterns`, label: "Patterns" },
+      { href: `${base}/generator`, label: "Draft Generator" },
+    ];
+  }
+  if (domain === "copilot") {
+    return [
+      { href: base, label: "Command Center" },
+      { href: `${base}/ask`, label: "Ask" },
+      { href: `${base}/context`, label: "Context" },
+      { href: `${base}/history`, label: "History" },
+    ];
+  }
+  if (domain === "outputs") {
+    return [
+      { href: base, label: "Command Center" },
+      { href: `${base}/deliverables`, label: "Deliverables" },
+      { href: `${base}/templates`, label: "Templates" },
+      { href: `${base}/exports`, label: "Exports" },
     ];
   }
   return [

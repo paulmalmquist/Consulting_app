@@ -19,3 +19,14 @@ test("WaterfallRuns lock state rules", () => {
   expect(screen.getByTestId("waterfall-lock-run-2")).toBeDisabled();
   tlog.log("test.ok", "Waterfall lock button states validated");
 });
+
+test("WaterfallRuns shows new run notice", () => {
+  render(
+    <WaterfallRuns
+      rows={[{ runId: "run-3", status: "completed" }]}
+      hasNewRun
+    />
+  );
+
+  expect(screen.getByTestId("waterfall-new-run-toast")).toHaveTextContent("New run available");
+});

@@ -16,11 +16,26 @@ import {
   getLegalOpsContext,
   getMedOfficeContext,
   getPdsContext,
+  getDiscoveryContext,
+  getDataStudioContext,
+  getWorkflowIntelContext,
+  getVendorIntelContext,
+  getMetricDictContext,
+  getDataChaosContext,
+  getBlueprintContext,
+  getPilotContext,
+  getImpactContext,
+  getCaseFactoryContext,
+  getCopilotContext,
+  getOutputsContext,
 } from "@/lib/bos-api";
 import { useBusinessContext } from "@/lib/business-context";
 import { resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
 
-export type DomainSlug = "pds" | "credit" | "legal" | "medical";
+export type DomainSlug = "pds" | "credit" | "legal" | "medical"
+  | "discovery" | "data-studio" | "workflow-intel" | "vendor-intel"
+  | "metric-dict" | "data-chaos" | "blueprint" | "pilot"
+  | "impact" | "case-factory" | "copilot" | "outputs";
 
 type DomainEnvironment = {
   env_id: string;
@@ -57,6 +72,18 @@ async function resolveDomainContext(domain: DomainSlug, envId: string): Promise<
   if (domain === "pds") return getPdsContext(envId);
   if (domain === "credit") return getCreditContext(envId);
   if (domain === "legal") return getLegalOpsContext(envId);
+  if (domain === "discovery") return getDiscoveryContext(envId);
+  if (domain === "data-studio") return getDataStudioContext(envId);
+  if (domain === "workflow-intel") return getWorkflowIntelContext(envId);
+  if (domain === "vendor-intel") return getVendorIntelContext(envId);
+  if (domain === "metric-dict") return getMetricDictContext(envId);
+  if (domain === "data-chaos") return getDataChaosContext(envId);
+  if (domain === "blueprint") return getBlueprintContext(envId);
+  if (domain === "pilot") return getPilotContext(envId);
+  if (domain === "impact") return getImpactContext(envId);
+  if (domain === "case-factory") return getCaseFactoryContext(envId);
+  if (domain === "copilot") return getCopilotContext(envId);
+  if (domain === "outputs") return getOutputsContext(envId);
   return getMedOfficeContext(envId);
 }
 

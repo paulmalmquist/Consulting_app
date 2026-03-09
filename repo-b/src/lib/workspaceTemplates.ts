@@ -8,6 +8,18 @@ export const workspaceTemplateRegistry = {
   medical_office_backoffice: { label: "Medical Office Backoffice", openPath: "medical" },
   consulting_revenue_os: { label: "Consulting Revenue OS", openPath: "consulting" },
   website_workspace: { label: "Website Workspace", openPath: "content" },
+  discovery_lab: { label: "Execution Discovery Lab", openPath: "discovery" },
+  data_studio: { label: "Data Ingestion & Mapping Studio", openPath: "data-studio" },
+  workflow_intel: { label: "Workflow Intelligence Engine", openPath: "workflow-intel" },
+  vendor_intel: { label: "Vendor Intelligence Engine", openPath: "vendor-intel" },
+  metric_dict: { label: "Metric Dictionary Engine", openPath: "metric-dict" },
+  data_chaos: { label: "Data Chaos Detector", openPath: "data-chaos" },
+  exec_blueprint: { label: "Execution Blueprint Studio", openPath: "blueprint" },
+  pilot_builder: { label: "Pilot Builder", openPath: "pilot" },
+  impact_estimator: { label: "Economic Impact Estimator", openPath: "impact" },
+  case_factory: { label: "Case Study Factory", openPath: "case-factory" },
+  ai_copilot: { label: "AI Discovery Copilot", openPath: "copilot" },
+  engagement_output: { label: "Engagement Output Center", openPath: "outputs" },
 } as const;
 
 export type KnownWorkspaceTemplateKey = keyof typeof workspaceTemplateRegistry;
@@ -37,6 +49,18 @@ export function resolveWorkspaceTemplateKey(input: WorkspaceTemplateInput): stri
   if (industryKey === "medical_office_backoffice" || industryKey === "medical") return "medical_office_backoffice";
   if (industryKey === "consulting" || industryKey === "consulting_revenue_os") return "consulting_revenue_os";
   if (industryKey === "website" || industryKey.includes("floyorker") || industryKey.includes("digital_media")) return "website_workspace";
+  if (industryKey === "discovery_lab" || industryKey === "discovery") return "discovery_lab";
+  if (industryKey === "data_studio") return "data_studio";
+  if (industryKey === "workflow_intel") return "workflow_intel";
+  if (industryKey === "vendor_intel") return "vendor_intel";
+  if (industryKey === "metric_dict") return "metric_dict";
+  if (industryKey === "data_chaos") return "data_chaos";
+  if (industryKey === "exec_blueprint") return "exec_blueprint";
+  if (industryKey === "pilot_builder") return "pilot_builder";
+  if (industryKey === "impact_estimator") return "impact_estimator";
+  if (industryKey === "case_factory") return "case_factory";
+  if (industryKey === "ai_copilot") return "ai_copilot";
+  if (industryKey === "engagement_output") return "engagement_output";
   return null;
 }
 

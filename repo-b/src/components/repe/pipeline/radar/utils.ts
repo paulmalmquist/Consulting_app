@@ -397,9 +397,12 @@ export function buildDealRadarNodes(deals: PipelineDealSummary[]): DealRadarNode
     const normalizedAlerts = dedupeAlerts(alerts);
     const stage = normalizeStageForRadar(deal.status, readinessScore, normalizedAlerts);
     if (!stage) return [];
-    const riskScore = computeRiskScore(deal, normalizedAlerts, sectorShare, marketShare);
-    const fitScore = computeFitScore(deal.strategy, riskScore, coerceNumber(deal.target_irr));
-    const marketScore = computeMarketScore(deal, sectorShare, marketShare, normalizedAlerts);
+    const backendRisk = coerceNumber((deal as PipelineDealSummary & { risk_score?: number | string | null }).risk_score);
+    const backendOpportunity = coerceNumber((deal as PipelineDealSummary & { opportunity_score?: number | string | null }).opportunity_score);
+    const backendComposite = coerceNumber((deal as PipelineDealSummary & { composite_score?: number | string | null }).composite_score);
+    const riskScore = backendRisk ?? computeRiskScore(deal, normalizedAlerts, sectorShare, marketShare);
+    const fitScore = backendComposite ?? computeFitScore(deal.strategy, riskScore, coerceNumber(deal.target_irr));
+    const marketScore = backendOpportunity ?? computeMarketScore(deal, sectorShare, marketShare, normalizedAlerts);
 
     return [{
       dealId: deal.deal_id,

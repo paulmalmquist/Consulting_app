@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import React, { FormEvent, useEffect, useState } from "react";
-import { createRepeFund, listRepeFunds, RepeFund, seedRepeBusiness } from "@/lib/bos-api";
+import { createRepeFund, getPortfolioWaterfall, listRepeFunds, type PortfolioWaterfallResponse, RepeFund, seedRepeBusiness } from "@/lib/bos-api";
+import { PortfolioWaterfallSummary } from "@/components/repe/PortfolioWaterfallSummary";
 import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
 
 export default function RepePortfolioPage() {
-  const { businessId, loading, contextError, initializeWorkspace } = useRepeContext();
+  const { businessId, envId, loading, contextError, initializeWorkspace } = useRepeContext();
   const basePath = useRepeBasePath();
   const [funds, setFunds] = useState<RepeFund[]>([]);
+  const [portfolioWaterfall, setPortfolioWaterfall] = useState<PortfolioWaterfallResponse | null>(null);
   const [status, setStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -43,6 +45,19 @@ export default function RepePortfolioPage() {
       cancelled = true;
     };
   }, [businessId]);
+
+  useEffect(() => {
+    if (!businessId || !envId || funds.length === 0) return;
+    const quarter = `${new Date().getFullYear()}Q${Math.floor(new Date().getMonth() / 3) + 1}`;
+    getPortfolioWaterfall({
+      fund_ids: funds.map((fund) => fund.fund_id),
+      env_id: envId,
+      business_id: businessId,
+      quarter,
+    })
+      .then(setPortfolioWaterfall)
+      .catch(() => setPortfolioWaterfall(null));
+  }, [businessId, envId, funds]);
 
   async function onCreateFund(event?: FormEvent) {
     event?.preventDefault();
@@ -152,6 +167,7 @@ export default function RepePortfolioPage() {
 
   return (
     <section className="space-y-3">
+      {portfolioWaterfall ? <PortfolioWaterfallSummary result={portfolioWaterfall} /> : null}
       <div className="rounded-xl border border-bm-border/70 bg-bm-surface/25 p-4 flex items-center justify-between gap-2">
         <p className="text-sm text-bm-muted2">Portfolio ready. Select a fund to continue operations.</p>
         <button

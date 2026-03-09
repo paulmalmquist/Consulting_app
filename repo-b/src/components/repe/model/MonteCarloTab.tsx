@@ -228,7 +228,10 @@ export function MonteCarloTab({
       fund_id: primaryFundId,
       quarter,
     })
-      .then((payload) => setBaselineNav(Number(payload.state?.portfolio_nav || 0)))
+      .then((payload) => {
+        const stateful = payload as typeof payload & { state?: { portfolio_nav?: number | string | null } };
+        setBaselineNav(Number(stateful.state?.portfolio_nav || 0));
+      })
       .catch(() => setBaselineNav(null));
   }, [primaryFundId, envId, businessId, quarter]);
 

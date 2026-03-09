@@ -40,4 +40,19 @@ describe("environment open routing", () => {
   test("routes Medical Office environments into Medical workspace", () => {
     expect(resolveEnvironmentOpenPath({ envId: "env-5", industry: "medical_office_backoffice" })).toBe("/lab/env/env-5/medical");
   });
+
+  test("routes Novendor Consulting OS environments", () => {
+    expect(resolveEnvironmentOpenPath({ envId: "e", industry: "discovery_lab" })).toBe("/lab/env/e/discovery");
+    expect(resolveEnvironmentOpenPath({ envId: "e", industry: "data_studio" })).toBe("/lab/env/e/data-studio");
+    expect(resolveEnvironmentOpenPath({ envId: "e", industry: "workflow_intel" })).toBe("/lab/env/e/workflow-intel");
+    expect(resolveEnvironmentOpenPath({ envId: "e", industry: "vendor_intel" })).toBe("/lab/env/e/vendor-intel");
+    expect(resolveEnvironmentOpenPath({ envId: "e", industry: "metric_dict" })).toBe("/lab/env/e/metric-dict");
+    expect(resolveEnvironmentOpenPath({ envId: "e", industry: "data_chaos" })).toBe("/lab/env/e/data-chaos");
+    expect(resolveEnvironmentOpenPath({ envId: "e", industry: "exec_blueprint" })).toBe("/lab/env/e/blueprint");
+    expect(resolveEnvironmentOpenPath({ envId: "e", industry: "pilot_builder" })).toBe("/lab/env/e/pilot");
+    expect(resolveEnvironmentOpenPath({ envId: "e", industry: "impact_estimator" })).toBe("/lab/env/e/impact");
+    expect(resolveEnvironmentOpenPath({ envId: "e", industry: "case_factory" })).toBe("/lab/env/e/case-factory");
+    expect(resolveEnvironmentOpenPath({ envId: "e", industry: "ai_copilot" })).toBe("/lab/env/e/copilot");
+    expect(resolveEnvironmentOpenPath({ envId: "e", industry: "engagement_output" })).toBe("/lab/env/e/outputs");
+  });
 });

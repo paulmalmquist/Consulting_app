@@ -14,6 +14,18 @@ export const industries = [
   "real_estate",
   "website",
   "consulting",
+  "discovery_lab",
+  "data_studio",
+  "workflow_intel",
+  "vendor_intel",
+  "metric_dict",
+  "data_chaos",
+  "exec_blueprint",
+  "pilot_builder",
+  "impact_estimator",
+  "case_factory",
+  "ai_copilot",
+  "engagement_output",
 ] as const;
 
 export type Industry = (typeof industries)[number];
@@ -43,6 +55,18 @@ const INDUSTRY_DISPLAY_MAP: Record<string, string> = {
   real_estate: "Real Estate",
   website: "Website / General",
   consulting: "Consulting Revenue OS",
+  discovery_lab: "Execution Discovery Lab",
+  data_studio: "Data Ingestion & Mapping Studio",
+  workflow_intel: "Workflow Intelligence Engine",
+  vendor_intel: "Vendor Intelligence Engine",
+  metric_dict: "Metric Dictionary Engine",
+  data_chaos: "Data Chaos Detector",
+  exec_blueprint: "Execution Blueprint Studio",
+  pilot_builder: "Pilot Builder",
+  impact_estimator: "Economic Impact Estimator",
+  case_factory: "Case Study Factory",
+  ai_copilot: "AI Discovery Copilot",
+  engagement_output: "Engagement Output Center",
 };
 
 export function statusFromFlags(isActive: boolean): EnvironmentStatus {
@@ -109,6 +133,66 @@ export function isConsultingEnvironment(industry?: string | null): boolean {
   return key === "consulting" || key === "consulting_revenue_os";
 }
 
+export function isDiscoveryLabEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "discovery_lab" || key === "discovery";
+}
+
+export function isDataStudioEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "data_studio";
+}
+
+export function isWorkflowIntelEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "workflow_intel";
+}
+
+export function isVendorIntelEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "vendor_intel";
+}
+
+export function isMetricDictEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "metric_dict";
+}
+
+export function isDataChaosEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "data_chaos";
+}
+
+export function isExecBlueprintEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "exec_blueprint";
+}
+
+export function isPilotBuilderEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "pilot_builder";
+}
+
+export function isImpactEstimatorEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "impact_estimator";
+}
+
+export function isCaseFactoryEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "case_factory";
+}
+
+export function isAiCopilotEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "ai_copilot";
+}
+
+export function isEngagementOutputEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "engagement_output";
+}
+
 export function resolveEnvironmentOpenPath(args: {
   envId: string;
   industry?: string | null;
@@ -130,6 +214,18 @@ export function resolveEnvironmentOpenPath(args: {
   if (isLegalOpsEnvironment(args.industry)) return `/lab/env/${args.envId}/legal`;
   if (isMedicalBackofficeEnvironment(args.industry)) return `/lab/env/${args.envId}/medical`;
   if (isWebsiteEnvironment(args.industry)) return `/lab/env/${args.envId}/content`;
+  if (isDiscoveryLabEnvironment(args.industry)) return `/lab/env/${args.envId}/discovery`;
+  if (isDataStudioEnvironment(args.industry)) return `/lab/env/${args.envId}/data-studio`;
+  if (isWorkflowIntelEnvironment(args.industry)) return `/lab/env/${args.envId}/workflow-intel`;
+  if (isVendorIntelEnvironment(args.industry)) return `/lab/env/${args.envId}/vendor-intel`;
+  if (isMetricDictEnvironment(args.industry)) return `/lab/env/${args.envId}/metric-dict`;
+  if (isDataChaosEnvironment(args.industry)) return `/lab/env/${args.envId}/data-chaos`;
+  if (isExecBlueprintEnvironment(args.industry)) return `/lab/env/${args.envId}/blueprint`;
+  if (isPilotBuilderEnvironment(args.industry)) return `/lab/env/${args.envId}/pilot`;
+  if (isImpactEstimatorEnvironment(args.industry)) return `/lab/env/${args.envId}/impact`;
+  if (isCaseFactoryEnvironment(args.industry)) return `/lab/env/${args.envId}/case-factory`;
+  if (isAiCopilotEnvironment(args.industry)) return `/lab/env/${args.envId}/copilot`;
+  if (isEngagementOutputEnvironment(args.industry)) return `/lab/env/${args.envId}/outputs`;
   return `/lab/env/${args.envId}`;
 }
 

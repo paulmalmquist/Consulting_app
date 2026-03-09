@@ -125,7 +125,7 @@ _PORTFOLIO_WATERFALL_RE = re.compile(
     re.IGNORECASE,
 )
 _PIPELINE_RADAR_RE = re.compile(
-    r"\b(deal\s*radar|pipeline.*score|rank.*deals|best.*opportunit(?:y|ies))\b",
+    r"\b(deal\s*radar|pipeline.*score|score.*pipeline|rank.*deals|best.*opportunit(?:y|ies))\b",
     re.IGNORECASE,
 )
 _CAPITAL_CALL_RE = re.compile(
@@ -137,7 +137,7 @@ _CLAWBACK_RE = re.compile(
     re.IGNORECASE,
 )
 _UW_ACTUAL_RE = re.compile(
-    r"\b(uw.*vs.*actual|underwriting.*actual|thesis.*variance|how.*we.*tracking|vs.*underwriting)\b",
+    r"\b(uw.*vs.*actual|underwriting.*actual|thesis.*variance|how.*we.*tracking|vs.*underwriting|compare.*underwriting)\b",
     re.IGNORECASE,
 )
 _SENSITIVITY_MATRIX_RE = re.compile(

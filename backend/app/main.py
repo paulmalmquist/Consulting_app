@@ -53,6 +53,11 @@ from app.routes.ai_gateway import router as ai_gateway_router
 from app.routes import website_content, website_rankings, website_analytics
 from app.routes import consulting
 from app.routes import re_uw_reports, re_uw_links, re_pipeline, re_geography, re_intelligence
+from app.routes import (
+    nv_discovery, nv_data_studio, nv_workflow_intel, nv_vendor_intel,
+    nv_metric_dict, nv_data_chaos, nv_exec_blueprint, nv_pilot_builder,
+    nv_impact_estimator, nv_case_factory, nv_ai_copilot, nv_engagement_output,
+)
 
 app = FastAPI(title="Business OS API", version="0.1.0")
 
@@ -163,3 +168,15 @@ app.include_router(website_content.router)
 app.include_router(website_rankings.router)
 app.include_router(website_analytics.router)
 app.include_router(consulting.router)
+app.include_router(nv_discovery.router)
+app.include_router(nv_data_studio.router)
+app.include_router(nv_workflow_intel.router)
+app.include_router(nv_vendor_intel.router)
+app.include_router(nv_metric_dict.router)
+app.include_router(nv_data_chaos.router)
+app.include_router(nv_exec_blueprint.router)
+app.include_router(nv_pilot_builder.router)
+app.include_router(nv_impact_estimator.router)
+app.include_router(nv_case_factory.router)
+app.include_router(nv_ai_copilot.router)
+app.include_router(nv_engagement_output.router)

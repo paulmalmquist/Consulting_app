@@ -518,10 +518,11 @@ export default function GlobalCommandBar() {
         msg.structuredResult = structuredResults[0];
         setMessages((prev) => [...prev, msg]);
         const card = structuredResults[0].card;
-        if ((structuredResults[0].result_type.startsWith("waterfall") || structuredResults[0].result_type === "session_waterfall_summary") && card.scenarios) {
+        const scenarioRows = card.scenarios ?? [];
+        if ((structuredResults[0].result_type.startsWith("waterfall") || structuredResults[0].result_type === "session_waterfall_summary") && scenarioRows.length > 0) {
           setWaterfallRuns((prev) => [
             ...prev,
-            ...(card.scenarios ?? []).map((row) => ({
+            ...scenarioRows.map((row) => ({
               run_id: String(row.scenario_id || `wf_${Date.now()}`),
               scenario_name: String(row.scenario_id || ""),
               key_metrics: {

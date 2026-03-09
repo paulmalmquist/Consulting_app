@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Crosshair, List, Loader2, Map as MapIcon, RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
-import { bosFetch } from "@/lib/bos-api";
+import { bosFetch, getPipelineRadar } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -283,10 +283,11 @@ export function DealRadarWorkspace() {
     setLoading(true);
     setFetchError(null);
     try {
-      const rows = await bosFetch<PipelineDealSummary[]>("/api/re/v2/pipeline/deals", {
-        params: { env_id: envId },
+      const payload = await getPipelineRadar({
+        env_id: envId,
+        business_id: typeof window !== "undefined" ? (window.localStorage.getItem("bos_business_id") || "") : "",
       });
-      setDeals(rows);
+      setDeals(((payload.deals || []) as unknown) as PipelineDealSummary[]);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       setFetchError(message);
