@@ -28,18 +28,6 @@ export default function SavedDashboardPage({
 
   // Load dashboard
   useEffect(() => {
-    fetch(`/api/re/v2/dashboards?env_id=${params.envId}&business_id=${businessId}`)
-      .then((r) => r.json())
-      .then((list) => {
-        if (!Array.isArray(list)) return;
-        // Find by ID from the list, or load directly
-        // For now we need a direct GET endpoint — fallback to finding in list
-        // This is a simplification; a proper GET by ID endpoint would be better
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-
-    // Direct load attempt
     const pool = new URLSearchParams({ env_id: params.envId, business_id: businessId ?? "" });
     fetch(`/api/re/v2/dashboards?${pool}`)
       .then((r) => r.json())

@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 
   try {
     const res = await pool.query(
-      `SELECT id, name, description, layout_archetype, prompt_text, entity_scope,
+      `SELECT id, name, description, layout_archetype, spec, prompt_text, entity_scope,
               quarter, created_by, created_at, updated_at
        FROM re_dashboard
        WHERE env_id = $1 AND business_id = $2::uuid
