@@ -28,7 +28,7 @@ BEGIN
   FOR r IN
     SELECT
       f.fund_id,
-      COALESCE(ft.target_size, 500000000) AS target_size,
+      COALESCE(f.target_size, 500000000) AS target_size,
       ROW_NUMBER() OVER (ORDER BY f.fund_id) AS fund_num
     FROM repe_fund f
     LEFT JOIN repe_fund_term ft ON ft.fund_id = f.fund_id
@@ -225,8 +225,8 @@ BEGIN
   FOR r IN
     SELECT
       f.fund_id,
-      COALESCE(ft.mgmt_fee_rate, 0.015) AS fee_rate,
-      COALESCE(ft.target_size, 500000000) AS target_size
+      COALESCE(ft.management_fee_rate, 0.015) AS fee_rate,
+      COALESCE(f.target_size, 500000000) AS target_size
     FROM repe_fund f
     LEFT JOIN repe_fund_term ft ON ft.fund_id = f.fund_id
     WHERE f.business_id = v_business_id
