@@ -28,6 +28,7 @@ const DOMAIN_LABELS: Record<DomainSlug, string> = {
   "case-factory": "Case Study Factory",
   copilot: "AI Discovery Copilot",
   outputs: "Engagement Output Center",
+  "pattern-intel": "Execution Pattern Intelligence",
 };
 
 function navItems(domain: DomainSlug, base: string): NavItem[] {
@@ -175,6 +176,17 @@ function navItems(domain: DomainSlug, base: string): NavItem[] {
       { href: `${base}/deliverables`, label: "Deliverables" },
       { href: `${base}/templates`, label: "Templates" },
       { href: `${base}/exports`, label: "Exports" },
+    ];
+  }
+  if (domain === "pattern-intel") {
+    return [
+      { href: base, label: "Command Center" },
+      { href: `${base}/patterns`, label: "Patterns" },
+      { href: `${base}/predictions`, label: "Predictions" },
+      { href: `${base}/recommendations`, label: "Recommendations" },
+      { href: `${base}/graph`, label: "Graph" },
+      { href: `${base}/dashboards`, label: "Dashboards" },
+      { href: `${base}/case-feed`, label: "Case Feed" },
     ];
   }
   return [

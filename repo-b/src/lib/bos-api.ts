@@ -6517,6 +6517,12 @@ export function getOutputsContext(envId: string, businessId?: string): Promise<D
   });
 }
 
+export function getPatternIntelContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/pattern-intel/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Novendor Consulting OS – Discovery Lab CRUD
 // ---------------------------------------------------------------------------

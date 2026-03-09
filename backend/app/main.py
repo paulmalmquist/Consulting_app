@@ -58,6 +58,7 @@ from app.routes import (
     nv_metric_dict, nv_data_chaos, nv_exec_blueprint, nv_pilot_builder,
     nv_impact_estimator, nv_case_factory, nv_ai_copilot, nv_engagement_output,
 )
+from app.routes import epi as epi_routes
 
 app = FastAPI(title="Business OS API", version="0.1.0")
 
@@ -180,3 +181,4 @@ app.include_router(nv_impact_estimator.router)
 app.include_router(nv_case_factory.router)
 app.include_router(nv_ai_copilot.router)
 app.include_router(nv_engagement_output.router)
+app.include_router(epi_routes.router)
