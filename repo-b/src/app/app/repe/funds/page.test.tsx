@@ -1,6 +1,7 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import RepeFundsPage from "@/app/app/repe/funds/page";
+import { ToastProvider } from "@/components/ui/Toast";
 
 const mockUseRepeContext = vi.fn();
 const mockListReV1Funds = vi.fn();
@@ -48,7 +49,7 @@ describe("REPE funds context", () => {
   });
 
   test("shows initialize workspace CTA when context missing", () => {
-    render(<RepeFundsPage />);
+    render(<ToastProvider><RepeFundsPage /></ToastProvider>);
     expect(screen.getByText("Retry")).toBeInTheDocument();
   });
 
@@ -61,7 +62,7 @@ describe("REPE funds context", () => {
       initializeWorkspace: vi.fn(),
     });
 
-    render(<RepeFundsPage />);
+    render(<ToastProvider><RepeFundsPage /></ToastProvider>);
 
     expect(await screen.findByText("$490.0M")).toBeInTheDocument();
     expect(await screen.findByText("$1.7B")).toBeInTheDocument();
