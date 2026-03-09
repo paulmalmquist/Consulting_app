@@ -2,17 +2,27 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type {
+  CapitalCallImpactResponse,
+  ClawbackRiskResponse,
+  SensitivityMatrixResponse,
+  WaterfallTemplate,
   WaterfallScenarioRunResult,
   WaterfallScenarioRunListItem,
   WaterfallScenarioTierAllocation,
   ReV2Scenario,
 } from "@/lib/bos-api";
 import {
+  getClawbackRisk,
+  listWaterfallScenarioTemplates,
   runWaterfallScenario,
+  runCapitalCallImpact,
+  runWaterfallSensitivityMatrix,
   listWaterfallScenarioRuns,
   listReV2Scenarios,
 } from "@/lib/bos-api";
 import { label, WATERFALL_TIER_LABELS, PAYOUT_TYPE_LABELS, STATUS_LABELS } from "@/lib/labels";
+import { ClawbackRiskBadge } from "@/components/repe/ClawbackRiskBadge";
+import { SensitivityMatrix } from "@/components/repe/SensitivityMatrix";
 
 function fmt(val: string | null | undefined, suffix = ""): string {
   if (!val) return "—";
@@ -58,6 +68,19 @@ export default function WaterfallScenarioPanel({
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<WaterfallScenarioRunResult | null>(null);
   const [runs, setRuns] = useState<WaterfallScenarioRunListItem[]>([]);
+  const [templates, setTemplates] = useState<WaterfallTemplate[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [inlineOverrides, setInlineOverrides] = useState({
+    cap_rate_delta_bps: 0,
+    noi_stress_pct: 0,
+    exit_date_shift_months: 0,
+  });
+  const [capitalCallAmount, setCapitalCallAmount] = useState("10000000");
+  const [capitalImpact, setCapitalImpact] = useState<CapitalCallImpactResponse | null>(null);
+  const [clawbackRisk, setClawbackRisk] = useState<ClawbackRiskResponse | null>(null);
+  const [sensitivity, setSensitivity] = useState<SensitivityMatrixResponse | null>(null);
+  const [loadingSensitivity, setLoadingSensitivity] = useState(false);
+  const [loadingCapitalImpact, setLoadingCapitalImpact] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Load scenarios
@@ -73,6 +96,12 @@ export default function WaterfallScenarioPanel({
       .catch(() => setScenarios([]));
   }, [fundId, selectedScenarioId]);
 
+  useEffect(() => {
+    listWaterfallScenarioTemplates({ env_id: envId, business_id: businessId })
+      .then((payload) => setTemplates(payload.templates || []))
+      .catch(() => setTemplates([]));
+  }, [envId, businessId]);
+
   // Load run history
   const loadRuns = useCallback(() => {
     listWaterfallScenarioRuns({
@@ -87,6 +116,27 @@ export default function WaterfallScenarioPanel({
   useEffect(() => {
     loadRuns();
   }, [loadRuns]);
+
+  useEffect(() => {
+    getClawbackRisk({
+      fund_id: fundId,
+      env_id: envId,
+      business_id: businessId,
+      quarter,
+    })
+      .then(setClawbackRisk)
+      .catch(() => setClawbackRisk(null));
+  }, [fundId, envId, businessId, quarter, result]);
+
+  useEffect(() => {
+    const selected = templates.find((item) => item.name === selectedTemplate);
+    if (!selected) return;
+    setInlineOverrides({
+      cap_rate_delta_bps: Number(selected.cap_rate_delta_bps || 0),
+      noi_stress_pct: Number(selected.noi_stress_pct || 0),
+      exit_date_shift_months: Number(selected.exit_date_shift_months || 0),
+    });
+  }, [selectedTemplate, templates]);
 
   const handleRun = async () => {
     if (!selectedScenarioId) return;
@@ -117,13 +167,67 @@ export default function WaterfallScenarioPanel({
     }
   };
 
+  const handleCapitalCallImpact = async () => {
+    setLoadingCapitalImpact(true);
+    setError(null);
+    try {
+      const res = await runCapitalCallImpact({
+        fund_id: fundId,
+        env_id: envId,
+        business_id: businessId,
+        quarter,
+        additional_call_amount: Number(capitalCallAmount || 0),
+      });
+      setCapitalImpact(res);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Capital call impact failed");
+    } finally {
+      setLoadingCapitalImpact(false);
+    }
+  };
+
+  const handleRunSensitivity = async () => {
+    setLoadingSensitivity(true);
+    setError(null);
+    try {
+      const res = await runWaterfallSensitivityMatrix({
+        fund_id: fundId,
+        env_id: envId,
+        business_id: businessId,
+        quarter,
+        cap_rate_range_bps: [0, 50, 100, 150, 200],
+        noi_stress_range_pct: [0, -0.05, -0.1, -0.15, -0.2],
+        metric: "net_irr",
+      });
+      setSensitivity(res);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sensitivity run failed");
+    } finally {
+      setLoadingSensitivity(false);
+    }
+  };
+
+  const handleGenerateMemo = () => {
+    if (!result?.waterfall_run_id || !runs[0]?.id) return;
+    window.dispatchEvent(
+      new CustomEvent("winston-prefill-prompt", {
+        detail: {
+          prompt: `Generate an IC memo comparing waterfall run ${runs[0].id} and scenario waterfall run ${result.waterfall_run_id} for fund ${fundId} in ${quarter}.`,
+        },
+      })
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Run Controls */}
       <div className="bg-white border border-gray-200 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">
-          Waterfall Scenario Run
-        </h3>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-gray-900">
+            Waterfall Scenario Run
+          </h3>
+          <ClawbackRiskBadge riskLevel={clawbackRisk?.risk_level} />
+        </div>
         <div className="flex items-end gap-3">
           <div className="flex-1">
             <label className="block text-xs text-gray-500 mb-1">Scenario</label>
@@ -157,12 +261,115 @@ export default function WaterfallScenarioPanel({
             {running ? "Running..." : "Run Scenario Waterfall"}
           </button>
         </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Template</label>
+            <select
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm"
+              value={selectedTemplate}
+              onChange={(e) => setSelectedTemplate(e.target.value)}
+            >
+              <option value="">None</option>
+              {templates.map((template) => (
+                <option key={template.name} value={template.name}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Cap Rate Delta (bps)</label>
+            <input
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm"
+              type="number"
+              value={inlineOverrides.cap_rate_delta_bps}
+              onChange={(e) => setInlineOverrides((prev) => ({ ...prev, cap_rate_delta_bps: Number(e.target.value) }))}
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">NOI Stress</label>
+            <input
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm"
+              type="number"
+              step="0.01"
+              value={inlineOverrides.noi_stress_pct}
+              onChange={(e) => setInlineOverrides((prev) => ({ ...prev, noi_stress_pct: Number(e.target.value) }))}
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Exit Shift (months)</label>
+            <input
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm"
+              type="number"
+              value={inlineOverrides.exit_date_shift_months}
+              onChange={(e) => setInlineOverrides((prev) => ({ ...prev, exit_date_shift_months: Number(e.target.value) }))}
+            />
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-gray-100 pt-4">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">What-If Capital Call</label>
+            <input
+              className="border border-gray-300 rounded px-3 py-1.5 text-sm"
+              type="number"
+              value={capitalCallAmount}
+              onChange={(e) => setCapitalCallAmount(e.target.value)}
+            />
+          </div>
+          <button
+            className="px-4 py-1.5 text-sm font-medium rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            onClick={handleCapitalCallImpact}
+            disabled={loadingCapitalImpact}
+          >
+            {loadingCapitalImpact ? "Running..." : "Run Capital Call Impact"}
+          </button>
+          <button
+            className="px-4 py-1.5 text-sm font-medium rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            onClick={handleRunSensitivity}
+            disabled={loadingSensitivity}
+          >
+            {loadingSensitivity ? "Building..." : "Sensitivity Table"}
+          </button>
+          <button
+            className="px-4 py-1.5 text-sm font-medium rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            onClick={handleGenerateMemo}
+            disabled={!result?.waterfall_run_id}
+          >
+            Generate IC Memo
+          </button>
+        </div>
         {error && (
           <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
             {error}
           </div>
         )}
       </div>
+
+      {capitalImpact && (
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <h4 className="text-sm font-semibold text-gray-900 mb-2">Capital Call Impact</h4>
+          <div className="grid gap-3 md:grid-cols-4 text-sm">
+            <div>
+              <p className="text-xs text-gray-500">Additional Call</p>
+              <p className="font-medium">{fmt(String(capitalImpact.additional_call_amount), "$")}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Before LP Return</p>
+              <p className="font-medium">{fmt(String(capitalImpact.before.summary.lp_total ?? ""), "$")}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">After LP Return</p>
+              <p className="font-medium">{fmt(String(capitalImpact.after.summary.lp_total ?? ""), "$")}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Carry Delta</p>
+              <p className="font-medium">{fmt(String(capitalImpact.deltas.gp_carry ?? ""), "$")}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {sensitivity ? <SensitivityMatrix matrix={sensitivity} /> : null}
 
       {/* Results */}
       {result && result.status === "success" && (

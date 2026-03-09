@@ -1,3 +1,5 @@
+import { resolveWorkspaceOpenPath, resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
+
 export const industries = [
   "ecc",
   "repe",
@@ -107,8 +109,19 @@ export function isConsultingEnvironment(industry?: string | null): boolean {
   return key === "consulting" || key === "consulting_revenue_os";
 }
 
-export function resolveEnvironmentOpenPath(args: { envId: string; industry?: string | null }): string {
+export function resolveEnvironmentOpenPath(args: {
+  envId: string;
+  industry?: string | null;
+  industryType?: string | null;
+  workspaceTemplateKey?: string | null;
+}): string {
   if (args.envId === MERIDIAN_INSTITUTIONAL_DEMO_ENV_ID) return `/lab/env/${args.envId}/demo`;
+  const templatePath = resolveWorkspaceOpenPath(args.envId, {
+    workspaceTemplateKey: args.workspaceTemplateKey,
+    industry: args.industry,
+    industryType: args.industryType,
+  });
+  if (templatePath) return templatePath;
   if (isEccEnvironment(args.industry)) return `/lab/env/${args.envId}/ecc`;
   if (isRepeEnvironment(args.industry)) return `/lab/env/${args.envId}/re`;
   if (isConsultingEnvironment(args.industry)) return `/lab/env/${args.envId}/consulting`;
@@ -118,4 +131,12 @@ export function resolveEnvironmentOpenPath(args: { envId: string; industry?: str
   if (isMedicalBackofficeEnvironment(args.industry)) return `/lab/env/${args.envId}/medical`;
   if (isWebsiteEnvironment(args.industry)) return `/lab/env/${args.envId}/content`;
   return `/lab/env/${args.envId}`;
+}
+
+export function isPdsEnterpriseTemplate(args: {
+  industry?: string | null;
+  industryType?: string | null;
+  workspaceTemplateKey?: string | null;
+}): boolean {
+  return resolveWorkspaceTemplateKey(args) === "pds_enterprise";
 }

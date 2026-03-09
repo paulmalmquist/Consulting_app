@@ -16,6 +16,7 @@ import {
   isCreditEnvironment,
   isLegalOpsEnvironment,
   isMedicalBackofficeEnvironment,
+  resolveEnvironmentOpenPath,
 } from "@/components/lab/environments/constants";
 import { listReV1Funds, getReV2FundQuarterState, ReV2FundQuarterState } from "@/lib/bos-api";
 
@@ -265,12 +266,16 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
   // Auto-redirect domain-specific environments to their workspace
   useEffect(() => {
     if (!env) return;
-    if (isRepeEnvironment(industry)) {
-      router.replace(`/lab/env/${params.envId}/re`);
-    } else if (isConsultingEnvironment(industry)) {
-      router.replace(`/lab/env/${params.envId}/consulting`);
+    const workspacePath = resolveEnvironmentOpenPath({
+      envId: params.envId,
+      industry: env.industry,
+      industryType: env.industry_type,
+      workspaceTemplateKey: env.workspace_template_key,
+    });
+    if (workspacePath !== `/lab/env/${params.envId}`) {
+      router.replace(workspacePath);
     }
-  }, [env, industry, params.envId, router]);
+  }, [env, params.envId, router]);
 
   useEffect(() => {
     const raw = sessionStorage.getItem("bm_env_flash");

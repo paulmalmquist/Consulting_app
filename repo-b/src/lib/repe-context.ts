@@ -11,6 +11,7 @@ export type RepeEnvironment = {
   client_name: string;
   industry?: string;
   industry_type?: string;
+  workspace_template_key?: string | null;
   schema_name?: string;
   created_at?: string;
 };

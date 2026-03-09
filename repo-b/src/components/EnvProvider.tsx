@@ -2,12 +2,14 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
 
 export type Environment = {
   env_id: string;
   client_name: string;
   industry: string;
   industry_type?: string;
+  workspace_template_key?: string | null;
   schema_name: string;
   notes?: string | null;
   is_active: boolean;
@@ -42,6 +44,13 @@ export function EnvProvider({ children }: { children: React.ReactNode }) {
       const normalized = (data.environments || []).map((env) => ({
         ...env,
         industry_type: env.industry_type || env.industry,
+        workspace_template_key:
+          env.workspace_template_key ||
+          resolveWorkspaceTemplateKey({
+            workspaceTemplateKey: env.workspace_template_key,
+            industry: env.industry,
+            industryType: env.industry_type,
+          }),
       }));
       setEnvironments(normalized);
       const stored = localStorage.getItem(STORAGE_KEY);

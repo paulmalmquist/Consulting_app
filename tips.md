@@ -1027,3 +1027,23 @@ When smoke-testing `https://www.paulmalmquist.com/api/ai/gateway/ask`, send a va
 - `ui.selected_entities` must match `AssistantSelectedEntity` and may not include extra keys such as `status`
 
 If the backend rejects the payload with `422`, the Next.js route will fall back to direct OpenAI and the result will look like a generic chatbot response instead of Winston's SSE `context` / `tool_call` / `done` events.
+
+### Workspace templates
+
+When an environment needs a domain-specific operating system, add an explicit `workspace_template_key` instead of overloading `industry_type`. Resolution should follow:
+
+- explicit `workspace_template_key` wins
+- otherwise map legacy industry aliases like `pds_command` -> `pds_enterprise`
+- use the same resolver in backend services, Next.js environment APIs, fallback environment storage, and frontend open-path routing
+
+This avoids generic shells leaking back into mature environments just because provisioning metadata is old.
+
+### Snapshot-first domain homepages
+
+Executive homepages for real operating systems should read from snapshot-style management payloads, not ad hoc live aggregates or generic activity widgets.
+
+- use fast read-model endpoints like `/api/<domain>/v2/command-center`
+- keep homepage panels aligned to management questions, not CRUD modules
+- feed AI briefing surfaces from the same snapshots that drive metrics, risk panels, forecast tables, and closeout queues
+
+This keeps the homepage fast, coherent, and domain-specific.

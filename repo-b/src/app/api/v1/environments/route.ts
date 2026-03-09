@@ -6,6 +6,7 @@ import {
   listFallbackEnvironments,
 } from "@/lib/labV1Fallback";
 import { getMeridianEnvironmentRecord } from "@/lib/server/eccStore";
+import { resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,7 @@ type EnvironmentRow = {
   client_name: string;
   industry: string;
   industry_type?: string;
+  workspace_template_key?: string | null;
   schema_name: string;
   notes?: string | null;
   is_active: boolean;
@@ -22,6 +24,7 @@ type EnvironmentRow = {
 
 let _pool: Pool | null = null;
 let _hasIndustryTypeColumn: boolean | null = null;
+let _hasWorkspaceTemplateKeyColumn: boolean | null = null;
 
 function getPool(): Pool | null {
   if (_pool) return _pool;
@@ -83,6 +86,25 @@ async function hasIndustryTypeColumn(pool: Pool) {
   return _hasIndustryTypeColumn;
 }
 
+async function hasWorkspaceTemplateKeyColumn(pool: Pool) {
+  if (_hasWorkspaceTemplateKeyColumn !== null) return _hasWorkspaceTemplateKeyColumn;
+  try {
+    const { rows } = await pool.query<{ exists: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1
+         FROM information_schema.columns
+         WHERE table_schema = 'app'
+           AND table_name = 'environments'
+           AND column_name = 'workspace_template_key'
+       ) AS exists`
+    );
+    _hasWorkspaceTemplateKeyColumn = Boolean(rows[0]?.exists);
+  } catch {
+    _hasWorkspaceTemplateKeyColumn = false;
+  }
+  return _hasWorkspaceTemplateKeyColumn;
+}
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   return proxyOrFallback(request, `/v1/environments${url.search}`, async () => {
@@ -93,18 +115,37 @@ export async function GET(request: NextRequest) {
           const environments = [meridian, ...listFallbackEnvironments().filter((env) => env.env_id !== meridian.env_id)];
           return Response.json({ environments });
         }
-        const industryTypeEnabled = await hasIndustryTypeColumn(pool);
+        const [industryTypeEnabled, workspaceTemplateEnabled] = await Promise.all([
+          hasIndustryTypeColumn(pool),
+          hasWorkspaceTemplateKeyColumn(pool),
+        ]);
         const { rows } = await pool.query<EnvironmentRow>(
           `SELECT env_id::text, client_name, industry,
                   ${industryTypeEnabled ? "industry_type" : "industry AS industry_type"},
+                  ${workspaceTemplateEnabled ? "workspace_template_key" : "NULL::text AS workspace_template_key"},
                   schema_name, notes, is_active, created_at
          FROM app.environments
          ORDER BY created_at DESC`
         );
-        const meridian = getMeridianEnvironmentRecord();
+        const meridianBase = getMeridianEnvironmentRecord();
+        const meridian = {
+          ...meridianBase,
+          workspace_template_key:
+            resolveWorkspaceTemplateKey({
+              industry: meridianBase.industry,
+              industryType: meridianBase.industry_type,
+            }) || null,
+        };
         const environments = rows.map((row) => ({
           ...row,
           industry_type: row.industry_type || row.industry,
+          workspace_template_key:
+            row.workspace_template_key ||
+            resolveWorkspaceTemplateKey({
+              workspaceTemplateKey: row.workspace_template_key,
+              industry: row.industry,
+              industryType: row.industry_type,
+            }),
           created_at:
             row.created_at instanceof Date
               ? row.created_at.toISOString()
@@ -130,6 +171,7 @@ export async function POST(request: NextRequest) {
         client_name?: string;
         industry?: string;
         industry_type?: string;
+        workspace_template_key?: string | null;
         notes?: string | null;
       };
 
@@ -140,6 +182,12 @@ export async function POST(request: NextRequest) {
 
       const industryType = String(body.industry_type || body.industry || "general").trim() || "general";
       const industry = String(body.industry || industryType).trim() || "general";
+      const workspaceTemplateKey =
+        resolveWorkspaceTemplateKey({
+          workspaceTemplateKey: body.workspace_template_key,
+          industry,
+          industryType,
+        }) || null;
       const notes = body.notes ?? null;
       const schemaName = slugSchemaName(clientName);
 
@@ -149,31 +197,50 @@ export async function POST(request: NextRequest) {
           client_name: clientName,
           industry,
           industry_type: industryType,
+          workspace_template_key: workspaceTemplateKey,
           notes,
         });
         return Response.json(created, { status: 201 });
       }
 
-      const industryTypeEnabled = await hasIndustryTypeColumn(pool);
+      const [industryTypeEnabled, workspaceTemplateEnabled] = await Promise.all([
+        hasIndustryTypeColumn(pool),
+        hasWorkspaceTemplateKeyColumn(pool),
+      ]);
+
+      const insertQuery = (() => {
+        const columns = ["client_name", "industry"];
+        const values: Array<string | null> = [clientName, industry];
+        if (industryTypeEnabled) {
+          columns.push("industry_type");
+          values.push(industryType);
+        }
+        if (workspaceTemplateEnabled) {
+          columns.push("workspace_template_key");
+          values.push(workspaceTemplateKey);
+        }
+        columns.push("schema_name", "notes");
+        values.push(schemaName, notes);
+        const placeholders = values.map((_, index) => `$${index + 1}`).join(", ");
+        return {
+          sql: `INSERT INTO app.environments (${columns.join(", ")})
+                VALUES (${placeholders})
+                RETURNING env_id::text, client_name, industry,
+                          ${industryTypeEnabled ? "industry_type" : "industry AS industry_type"},
+                          ${workspaceTemplateEnabled ? "workspace_template_key" : "NULL::text AS workspace_template_key"},
+                          schema_name`,
+          values,
+        };
+      })();
 
       const { rows } = await pool.query<{
         env_id: string;
         client_name: string;
         industry: string;
         industry_type?: string;
+        workspace_template_key?: string | null;
         schema_name: string;
-      }>(
-        industryTypeEnabled
-          ? `INSERT INTO app.environments (client_name, industry, industry_type, schema_name, notes)
-             VALUES ($1, $2, $3, $4, $5)
-             RETURNING env_id::text, client_name, industry, industry_type, schema_name`
-          : `INSERT INTO app.environments (client_name, industry, schema_name, notes)
-             VALUES ($1, $2, $3, $4)
-             RETURNING env_id::text, client_name, industry, industry AS industry_type, schema_name`,
-        industryTypeEnabled
-          ? [clientName, industry, industryType, schemaName, notes]
-          : [clientName, industry, schemaName, notes]
-      );
+      }>(insertQuery.sql, insertQuery.values);
 
       return Response.json(rows[0], { status: 201 });
     } catch {

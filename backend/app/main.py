@@ -40,6 +40,7 @@ from app.routes import (
     re_financial_intelligence,
     re_sustainability,
     pds,
+    pds_v2,
     pds_executive,
     credit,
     legal_ops,
@@ -151,6 +152,7 @@ app.include_router(re_pipeline.router)
 app.include_router(re_geography.router)
 app.include_router(re_intelligence.router)
 app.include_router(pds.router)
+app.include_router(pds_v2.router)
 app.include_router(pds_executive.router)
 app.include_router(credit.router)
 app.include_router(legal_ops.router)

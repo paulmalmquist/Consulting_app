@@ -38,8 +38,18 @@ function navItems(domain: DomainSlug, base: string): NavItem[] {
   }
   if (domain === "legal") {
     return [
-      { href: base, label: "Home" },
+      { href: base, label: "Command Center" },
       { href: `${base}/matters`, label: "Matters" },
+      { href: `${base}/contracts`, label: "Contracts" },
+      { href: `${base}/outside-counsel`, label: "Outside Counsel" },
+      { href: `${base}/spend`, label: "Legal Spend" },
+      { href: `${base}/compliance`, label: "Compliance" },
+      { href: `${base}/governance`, label: "Governance" },
+      { href: `${base}/litigation`, label: "Litigation" },
+      { href: `${base}/documents`, label: "Documents" },
+      { href: `${base}/knowledge-base`, label: "Knowledge Base" },
+      { href: `${base}/reports`, label: "Reports" },
+      { href: `${base}/ai-briefing`, label: "AI Briefing" },
     ];
   }
   return [

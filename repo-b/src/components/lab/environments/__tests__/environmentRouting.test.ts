@@ -14,6 +14,17 @@ describe("environment open routing", () => {
     expect(resolveEnvironmentOpenPath({ envId: "env-2", industry: "pds_command" })).toBe("/lab/env/env-2/pds");
   });
 
+  test("workspace template key overrides generic industry routing", () => {
+    expect(
+      resolveEnvironmentOpenPath({
+        envId: "env-7",
+        industry: "construction",
+        industryType: "construction",
+        workspaceTemplateKey: "pds_enterprise",
+      })
+    ).toBe("/lab/env/env-7/pds");
+  });
+
   test("routes Credit environments into Credit workspace", () => {
     expect(resolveEnvironmentOpenPath({ envId: "env-3", industry: "credit_risk_hub" })).toBe("/lab/env/env-3/credit");
   });

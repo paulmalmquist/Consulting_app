@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, BrainCircuit, Building2, CircleAlert, Layers3 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { DealRadarLayoutNode, DealRadarMode, DealRadarNode, DealRadarSector, DealRadarStage } from "./types";
+import { RADAR_STAGE_ORDER } from "./types";
 import {
   computeRadarLayout,
   formatMoney,
@@ -35,6 +36,10 @@ const OUTER_RADIUS = 452;
 const CORE_RADIUS = 86;
 const WEDGE_ANGLE = 360 / 8;
 const BAND = (OUTER_RADIUS - CORE_RADIUS) / 7;
+// Reference spoke angle for stage ring labels: -112.5° sits exactly on the spoke
+// between the hospitality sector (last) and multifamily sector (first). Labels placed
+// here are between sectors, not inside any data region.
+const RING_LABEL_ANGLE = -112.5;
 
 function polarToCartesian(angleDeg: number, radius: number) {
   const radians = (angleDeg * Math.PI) / 180;
@@ -58,11 +63,6 @@ function describeSectorPath(startAngle: number, endAngle: number, innerRadius: n
     `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${endInner.x} ${endInner.y}`,
     "Z",
   ].join(" ");
-}
-
-function describeRingLabelPosition(stageIndex: number) {
-  const radius = OUTER_RADIUS - stageIndex * BAND - BAND / 2;
-  return polarToCartesian(-151, radius);
 }
 
 function describeSectorLabelPosition(sectorIndex: number) {
@@ -386,18 +386,43 @@ export function DealRadarCanvas({
           );
         })}
 
-        {Object.entries(RADAR_STAGE_LABELS).map(([stage, label], index) => {
-          const point = describeRingLabelPosition(index);
+        {/* Stage ring scale: subtle labels along the reference spoke between sectors.
+            Each label sits at the midpoint radius of its ring band, distributed
+            along the RING_LABEL_ANGLE spoke so stage is visually a radial dimension
+            that applies across the whole chart, not just one wedge. */}
+        {RADAR_STAGE_ORDER.map((stage, index) => {
+          const radius = OUTER_RADIUS - index * BAND - BAND / 2;
+          const pt = polarToCartesian(RING_LABEL_ANGLE, radius);
+          // Short display: abbreviate long names to keep labels unobtrusive
+          const abbr: Record<string, string> = {
+            sourced: "SRC",
+            screening: "SCR",
+            loi: "LOI",
+            dd: "DD",
+            ic: "IC",
+            closing: "CLO",
+            ready: "RDY",
+          };
           return (
-            <g key={stage} transform={`translate(${point.x}, ${point.y})`}>
-              <rect x="-52" y="-11" width="104" height="22" rx="11" fill="rgba(9,13,20,0.82)" stroke="rgba(255,255,255,0.06)" />
+            <g key={`ring-label-${stage}`} transform={`translate(${pt.x}, ${pt.y})`}>
+              <rect
+                x="-18"
+                y="-8"
+                width="36"
+                height="16"
+                rx="8"
+                fill="rgba(7,10,16,0.72)"
+                stroke="rgba(255,255,255,0.07)"
+              />
               <text
                 x="0"
                 y="4"
                 textAnchor="middle"
-                className="fill-bm-muted2 font-mono text-[10px] uppercase tracking-[0.18em]"
+                style={{ fontSize: "8px", letterSpacing: "0.13em" }}
+                className="fill-bm-muted2 font-mono uppercase"
+                opacity={0.55}
               >
-                {label}
+                {abbr[stage] ?? stage.toUpperCase().slice(0, 3)}
               </text>
             </g>
           );
@@ -491,6 +516,12 @@ export function DealRadarCanvas({
               <Building2 className="h-3.5 w-3.5" />
               Shape = sector
             </span>
+          </div>
+          <div className="mt-2 flex items-center gap-1.5 text-[10px] text-bm-muted2">
+            <span className="font-mono uppercase tracking-[0.10em]">Ring:</span>
+            <span className="text-bm-muted">outer → inner</span>
+            <span className="font-mono text-bm-muted2">=</span>
+            <span className="text-bm-muted">Sourced → Execution Ready</span>
           </div>
         </div>
       </div>

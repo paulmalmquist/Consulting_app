@@ -227,6 +227,22 @@ def get_deal(*, deal_id: UUID) -> dict:
         return _hydrate_deal_summary(row)
 
 
+def enrich_deal_with_geo(*, deal_id: str, market_id: str | None = None) -> dict:
+    from app.services import re_geography
+
+    context = re_geography.get_deal_geo_context(deal_id=deal_id)
+    market = context.get("market_metrics") or {}
+    return {
+        "deal_id": deal_id,
+        "market_id": market_id or market.get("market_id"),
+        "market_cap_rate": market.get("market_cap_rate"),
+        "population_growth_pct": market.get("population_growth_pct"),
+        "vacancy_rate": market.get("vacancy_rate"),
+        "employment_growth_pct": market.get("employment_growth_pct"),
+        "geo_risk_score": market.get("geo_risk_score") or context.get("geo_risk_score"),
+    }
+
+
 def create_deal(*, env_id: str, payload: dict) -> dict:
     with get_cursor() as cur:
         cur.execute(

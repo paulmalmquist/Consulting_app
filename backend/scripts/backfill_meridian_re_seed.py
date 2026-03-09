@@ -20,7 +20,7 @@ import os
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from typing import Iterable
@@ -1370,7 +1370,6 @@ def ensure_debt_loans(
         )
 
         cur.execute("DELETE FROM re_loan_amortization_schedule WHERE loan_id = %s", (str(loan_id),))
-        q_start = date(2024, 3, 31)
         for period, payment_date in enumerate(
             [date(2024, 3, 31), date(2024, 6, 30), date(2024, 9, 30), date(2024, 12, 31),
              date(2025, 3, 31), date(2025, 6, 30), date(2025, 9, 30), date(2025, 12, 31),
@@ -1858,7 +1857,6 @@ def main() -> None:
                 if not quarter_items:
                     continue
                 latest_quarter = quarter_items[-1]
-                latest_state = asset_states[latest_quarter]
                 initial_balance = sum(d(loan["upb"]) for loan in loans)
                 equity_basis = max(Decimal("0"), Decimal(str(profile["purchase_price"])) - initial_balance)
                 deal_age = deal_age_quarters(quarter_items[0], latest_quarter)

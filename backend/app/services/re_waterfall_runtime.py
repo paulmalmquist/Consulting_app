@@ -13,6 +13,7 @@ from app.finance.waterfall_engine import (
     WaterfallInput,
     run_us_waterfall,
 )
+from app.services.re_waterfall_events import insert_waterfall_event
 
 
 def _q(v: Decimal | None) -> Decimal | None:
@@ -31,6 +32,8 @@ def run_waterfall(
     scenario_id: UUID | None = None,
     run_type: str = "shadow",
     definition_id: UUID | None = None,
+    distributable_override: Decimal | None = None,
+    participant_adjustments: dict[str, dict] | None = None,
 ) -> dict:
     with get_cursor() as cur:
         # 1. Load waterfall definition
@@ -120,6 +123,9 @@ def run_waterfall(
 
             contributed = Decimal(balances["total_contributed"])
             distributed = Decimal(balances["total_distributed"])
+            adjustment = (participant_adjustments or {}).get(str(p["partner_id"]), {})
+            contributed += Decimal(str(adjustment.get("additional_contribution", 0)))
+            distributed += Decimal(str(adjustment.get("additional_distribution", 0)))
             unreturned = max(contributed - distributed, Decimal("0"))
 
             role = "lp" if p["partner_type"] in ("lp", "co_invest") else "gp"
@@ -130,7 +136,7 @@ def run_waterfall(
                     role=role,
                     commitment_amount=Decimal(p["committed_amount"]),
                     unreturned_capital=unreturned,
-                    pref_due=Decimal("0"),
+                    pref_due=Decimal(str(adjustment.get("pref_due", 0))),
                 )
             )
 
@@ -156,7 +162,7 @@ def run_waterfall(
         )
 
         # 6. Run waterfall
-        distributable = portfolio_nav
+        distributable = distributable_override if distributable_override is not None else portfolio_nav
         wf_input = WaterfallInput(
             as_of_date=None,
             distribution_amount=distributable,
@@ -172,9 +178,11 @@ def run_waterfall(
             "definition_id": str(defn_id),
             "definition_version": wf_def["version"],
             "fund_nav": str(portfolio_nav),
+            "distributable_override": str(distributable_override) if distributable_override is not None else None,
             "partner_ids": sorted(str(p["partner_id"]) for p in partners),
             "quarter": quarter,
             "scenario_id": str(scenario_id) if scenario_id else None,
+            "participant_adjustments": participant_adjustments or {},
         })
 
         # 8. Store waterfall run
@@ -216,4 +224,17 @@ def run_waterfall(
             results.append(cur.fetchone())
 
         wf_run["results"] = results
+        try:
+            insert_waterfall_event(
+                cur,
+                fund_id=str(fund_id),
+                run_id=run_id,
+                payload={
+                    "quarter": quarter,
+                    "run_type": run_type,
+                    "scenario_id": str(scenario_id) if scenario_id else None,
+                },
+            )
+        except Exception:
+            pass
         return wf_run

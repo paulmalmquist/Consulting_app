@@ -10,11 +10,13 @@ import {
   getMeridianEnvironmentRecord,
   MERIDIAN_APEX_ENV_ID,
 } from "@/lib/server/eccStore";
+import { resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
 
 export const runtime = "nodejs";
 
 let _pool: Pool | null = null;
 let _hasIndustryTypeColumn: boolean | null = null;
+let _hasWorkspaceTemplateKeyColumn: boolean | null = null;
 
 function getPool(): Pool | null {
   if (_pool) return _pool;
@@ -63,6 +65,25 @@ async function hasIndustryTypeColumn(pool: Pool) {
   return _hasIndustryTypeColumn;
 }
 
+async function hasWorkspaceTemplateKeyColumn(pool: Pool) {
+  if (_hasWorkspaceTemplateKeyColumn !== null) return _hasWorkspaceTemplateKeyColumn;
+  try {
+    const { rows } = await pool.query<{ exists: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1
+         FROM information_schema.columns
+         WHERE table_schema = 'app'
+           AND table_name = 'environments'
+           AND column_name = 'workspace_template_key'
+       ) AS exists`
+    );
+    _hasWorkspaceTemplateKeyColumn = Boolean(rows[0]?.exists);
+  } catch {
+    _hasWorkspaceTemplateKeyColumn = false;
+  }
+  return _hasWorkspaceTemplateKeyColumn;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -78,10 +99,14 @@ export async function GET(
         if (!env) return Response.json({ message: "Environment not found" }, { status: 404 });
         return Response.json(env);
       }
-      const industryTypeEnabled = await hasIndustryTypeColumn(pool);
+      const [industryTypeEnabled, workspaceTemplateEnabled] = await Promise.all([
+        hasIndustryTypeColumn(pool),
+        hasWorkspaceTemplateKeyColumn(pool),
+      ]);
       const { rows } = await pool.query(
         `SELECT env_id::text, client_name, industry,
                 ${industryTypeEnabled ? "industry_type" : "industry AS industry_type"},
+                ${workspaceTemplateEnabled ? "workspace_template_key" : "NULL::text AS workspace_template_key"},
                 schema_name, notes, is_active, created_at
            FROM app.environments
           WHERE env_id = $1::uuid
@@ -107,6 +132,7 @@ export async function PATCH(
         client_name?: string;
         industry?: string;
         industry_type?: string;
+        workspace_template_key?: string | null;
         notes?: string | null;
         is_active?: boolean;
       };
@@ -124,6 +150,7 @@ export async function PATCH(
           client_name: body.client_name,
           industry: body.industry,
           industry_type: body.industry_type,
+          workspace_template_key: body.workspace_template_key,
           notes: body.notes,
           is_active: body.is_active,
         });
@@ -131,42 +158,48 @@ export async function PATCH(
         return Response.json(updated);
       }
 
-      const industryTypeEnabled = await hasIndustryTypeColumn(pool);
+      const [industryTypeEnabled, workspaceTemplateEnabled] = await Promise.all([
+        hasIndustryTypeColumn(pool),
+        hasWorkspaceTemplateKeyColumn(pool),
+      ]);
       const nextIndustryType = String(body.industry_type || body.industry || "").trim() || null;
       const nextIndustry = String(body.industry || nextIndustryType || "").trim() || null;
       const nextClientName = body.client_name?.trim() || null;
+      const nextWorkspaceTemplateKey =
+        resolveWorkspaceTemplateKey({
+          workspaceTemplateKey: body.workspace_template_key,
+          industry: nextIndustry,
+          industryType: nextIndustryType,
+        }) || null;
 
-      const { rows } = industryTypeEnabled
-        ? await pool.query(
-            `UPDATE app.environments
-                SET client_name = COALESCE($2, client_name),
-                    industry = COALESCE($3, industry),
-                    industry_type = COALESCE($4, industry_type),
-                    notes = COALESCE($5, notes),
-                    is_active = COALESCE($6, is_active)
-              WHERE env_id = $1::uuid
-            RETURNING env_id::text, client_name, industry, industry_type,
-                      schema_name, notes, is_active, created_at`,
-            [
-              params.id,
-              nextClientName,
-              nextIndustry,
-              nextIndustryType,
-              body.notes,
-              body.is_active,
-            ]
-          )
-        : await pool.query(
-            `UPDATE app.environments
-                SET client_name = COALESCE($2, client_name),
-                    industry = COALESCE($3, industry),
-                    notes = COALESCE($4, notes),
-                    is_active = COALESCE($5, is_active)
-              WHERE env_id = $1::uuid
-            RETURNING env_id::text, client_name, industry, industry AS industry_type,
-                      schema_name, notes, is_active, created_at`,
-            [params.id, nextClientName, nextIndustry, body.notes, body.is_active]
-          );
+      const setClauses = [
+        "client_name = COALESCE($2, client_name)",
+        "industry = COALESCE($3, industry)",
+      ];
+      const values: Array<string | boolean | null> = [params.id, nextClientName, nextIndustry];
+      if (industryTypeEnabled) {
+        values.push(nextIndustryType);
+        setClauses.push(`industry_type = COALESCE($${values.length}, industry_type)`);
+      }
+      if (workspaceTemplateEnabled) {
+        values.push(nextWorkspaceTemplateKey);
+        setClauses.push(`workspace_template_key = COALESCE($${values.length}, workspace_template_key)`);
+      }
+      values.push(body.notes ?? null);
+      setClauses.push(`notes = COALESCE($${values.length}, notes)`);
+      values.push(body.is_active ?? null);
+      setClauses.push(`is_active = COALESCE($${values.length}, is_active)`);
+
+      const { rows } = await pool.query(
+        `UPDATE app.environments
+            SET ${setClauses.join(",\n                ")}
+          WHERE env_id = $1::uuid
+        RETURNING env_id::text, client_name, industry,
+                  ${industryTypeEnabled ? "industry_type" : "industry AS industry_type"},
+                  ${workspaceTemplateEnabled ? "workspace_template_key" : "NULL::text AS workspace_template_key"},
+                  schema_name, notes, is_active, created_at`,
+        values
+      );
 
       const updated = rows[0];
       if (!updated) return Response.json({ message: "Environment not found" }, { status: 404 });

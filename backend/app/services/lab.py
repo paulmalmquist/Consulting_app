@@ -5,6 +5,7 @@ from uuid import UUID
 
 from app.db import get_cursor
 from app.services import business as business_svc
+from app.services.workspace_templates import resolve_workspace_template_key
 
 
 # ── Environments ──────────────────────────────────────────────────────
@@ -12,7 +13,7 @@ from app.services import business as business_svc
 def list_environments() -> list[dict]:
     with get_cursor() as cur:
         cur.execute(
-            """SELECT env_id, client_name, industry, industry_type, schema_name,
+            """SELECT env_id, client_name, industry, industry_type, workspace_template_key, schema_name,
                       is_active, business_id, repe_initialized, created_at, notes
                FROM app.environments
                ORDER BY created_at DESC"""
@@ -23,7 +24,7 @@ def list_environments() -> list[dict]:
 def get_environment(env_id: UUID) -> dict | None:
     with get_cursor() as cur:
         cur.execute(
-            """SELECT env_id, client_name, industry, industry_type, schema_name,
+            """SELECT env_id, client_name, industry, industry_type, workspace_template_key, schema_name,
                       is_active, business_id, repe_initialized, created_at, notes
                FROM app.environments
                WHERE env_id = %s""",
@@ -41,18 +42,24 @@ def create_environment(
     client_name: str,
     industry: str,
     industry_type: str | None = None,
+    workspace_template_key: str | None = None,
     notes: str | None = None,
 ) -> dict:
     """Create an environment and auto-provision its business, modules, and REPE workspace if applicable."""
     schema_name = f"env_{client_name.lower().replace(' ', '_').replace('-', '_')[:30]}"
+    resolved_workspace_template = resolve_workspace_template_key(
+        workspace_template_key=workspace_template_key,
+        industry_type=industry_type,
+        industry=industry,
+    )
 
     # Step 1: Insert the environment row
     with get_cursor() as cur:
         cur.execute(
-            """INSERT INTO app.environments (client_name, industry, industry_type, schema_name, notes)
-               VALUES (%s, %s, %s, %s, %s)
-               RETURNING env_id, client_name, industry, industry_type, schema_name""",
-            (client_name, industry, industry_type, schema_name, notes),
+            """INSERT INTO app.environments (client_name, industry, industry_type, workspace_template_key, schema_name, notes)
+               VALUES (%s, %s, %s, %s, %s, %s)
+               RETURNING env_id, client_name, industry, industry_type, workspace_template_key, schema_name""",
+            (client_name, industry, industry_type, resolved_workspace_template, schema_name, notes),
         )
         env_row = cur.fetchone()
 
@@ -124,6 +131,7 @@ def create_environment(
             context={
                 "env_id": str(env_id),
                 "industry_type": industry_type,
+                "workspace_template_key": resolved_workspace_template,
                 "error_reason": str(exc),
             },
         )
@@ -133,6 +141,7 @@ def create_environment(
         "client_name": env_row["client_name"],
         "industry": env_row["industry"],
         "industry_type": industry_type,
+        "workspace_template_key": resolved_workspace_template,
         "schema_name": env_row["schema_name"],
         "business_id": business_id,
         "repe_initialized": repe_initialized,
@@ -141,8 +150,13 @@ def create_environment(
 
 def update_environment(env_id: UUID, fields: dict) -> dict:
     """Patch updatable environment fields."""
-    allowed = {"client_name", "industry", "industry_type", "notes", "is_active"}
+    allowed = {"client_name", "industry", "industry_type", "workspace_template_key", "notes", "is_active"}
     updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
+    if "workspace_template_key" not in updates and ("industry_type" in updates or "industry" in updates):
+        updates["workspace_template_key"] = resolve_workspace_template_key(
+            industry_type=updates.get("industry_type"),
+            industry=updates.get("industry"),
+        )
     if not updates:
         row = get_environment(env_id)
         if not row:
@@ -156,7 +170,7 @@ def update_environment(env_id: UUID, fields: dict) -> dict:
             f"""UPDATE app.environments
                 SET {set_clause}, updated_at = now()
                 WHERE env_id = %s::uuid
-                RETURNING env_id, client_name, industry, industry_type, schema_name,
+                RETURNING env_id, client_name, industry, industry_type, workspace_template_key, schema_name,
                           is_active, business_id, repe_initialized, created_at, notes""",
             values,
         )

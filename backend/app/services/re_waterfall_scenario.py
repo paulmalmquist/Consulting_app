@@ -22,6 +22,7 @@ from app.db import get_cursor
 from app.finance.irr_engine import xirr as _xirr
 from app.observability.logger import emit_log
 from app.services import re_scenario as re_scenario_service
+from app.services.re_waterfall_events import insert_waterfall_event
 
 
 def _q(v: Decimal | None) -> str | None:
@@ -461,6 +462,21 @@ def run_waterfall_scenario(
 
                     if "carry" in line.tier_code or "catch_up" in line.tier_code:
                         carry_from_waterfall += line.amount
+
+                if waterfall_run_id:
+                    try:
+                        insert_waterfall_event(
+                            cur,
+                            fund_id=str(fund_id),
+                            run_id=waterfall_run_id,
+                            payload={
+                                "quarter": quarter,
+                                "scenario_id": str(scenario_id),
+                                "mode": mode,
+                            },
+                        )
+                    except Exception:
+                        pass
 
         except (LookupError, ValueError, ImportError) as exc:
             emit_log(

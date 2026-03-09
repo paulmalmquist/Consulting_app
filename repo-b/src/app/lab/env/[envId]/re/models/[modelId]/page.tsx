@@ -113,6 +113,8 @@ export default function ModelWorkspacePage() {
 
   const surgeryAsset = surgeryAssetId ? assets.find((a) => a.asset_id === surgeryAssetId) ?? null : null;
   const isArchived = model?.status === "archived";
+  const businessId = typeof window !== "undefined" ? window.localStorage.getItem("bos_business_id") || "" : "";
+  const currentQuarter = `${new Date().getFullYear()}Q${Math.floor(new Date().getMonth() / 3) + 1}`;
 
   if (loading) {
     return <div className="p-6 text-sm text-bm-muted2">Loading model...</div>;
@@ -176,6 +178,10 @@ export default function ModelWorkspacePage() {
         <MonteCarloTab
           modelId={modelId}
           scopeCount={scope.length}
+          envId={envId}
+          businessId={businessId}
+          primaryFundId={model.fund_id}
+          quarter={currentQuarter}
           onError={setError}
         />
       )}

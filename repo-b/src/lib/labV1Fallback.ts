@@ -1,8 +1,11 @@
+import { resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
+
 type LabEnvironment = {
   env_id: string;
   client_name: string;
   industry: string;
   industry_type: string;
+  workspace_template_key?: string | null;
   schema_name: string;
   notes: string | null;
   is_active: boolean;
@@ -291,6 +294,7 @@ function ensureEnvironment(envId: string) {
       client_name: "General Client",
       industry: "website",
       industry_type: "website",
+      workspace_template_key: resolveWorkspaceTemplateKey({ industry: "website", industryType: "website" }),
       schema_name: slugSchemaName("General Client"),
       notes: null,
       is_active: true,
@@ -327,6 +331,7 @@ function ensureSeededDefaults() {
       client_name: env.client_name,
       industry: env.industry,
       industry_type: env.industry,
+      workspace_template_key: resolveWorkspaceTemplateKey({ industry: env.industry, industryType: env.industry }),
       schema_name: slugSchemaName(env.client_name),
       notes: null,
       is_active: true,
@@ -365,15 +370,23 @@ export function createFallbackEnvironment(input: {
   client_name: string;
   industry?: string;
   industry_type?: string;
+  workspace_template_key?: string | null;
   notes?: string | null;
 }) {
   ensureSeededDefaults();
   const industryType = input.industry_type || input.industry || "general";
+  const workspaceTemplateKey =
+    resolveWorkspaceTemplateKey({
+      workspaceTemplateKey: input.workspace_template_key,
+      industry: input.industry || industryType,
+      industryType,
+    }) || null;
   const row: LabEnvironment = {
     env_id: compactId("env", input.client_name),
     client_name: input.client_name,
     industry: input.industry || industryType,
     industry_type: industryType,
+    workspace_template_key: workspaceTemplateKey,
     schema_name: slugSchemaName(input.client_name),
     notes: input.notes || null,
     is_active: true,
@@ -392,7 +405,12 @@ export function createFallbackEnvironment(input: {
     action: "environment.created",
     entity_type: "environment",
     entity_id: row.env_id,
-    details: { fallback: true, industry: row.industry, industry_type: row.industry_type },
+    details: {
+      fallback: true,
+      industry: row.industry,
+      industry_type: row.industry_type,
+      workspace_template_key: row.workspace_template_key,
+    },
   });
   return row;
 }
@@ -408,6 +426,7 @@ export function updateFallbackEnvironment(
     client_name?: string;
     industry?: string;
     industry_type?: string;
+    workspace_template_key?: string | null;
     notes?: string | null;
     is_active?: boolean;
   }
@@ -420,11 +439,21 @@ export function updateFallbackEnvironment(
   const nextIndustryType = patch.industry_type ?? patch.industry ?? current.industry_type;
   const nextIndustry = patch.industry ?? nextIndustryType ?? current.industry;
   const nextClientName = patch.client_name?.trim() || current.client_name;
+  const workspaceTemplateKey =
+    resolveWorkspaceTemplateKey({
+      workspaceTemplateKey:
+        patch.workspace_template_key === undefined
+          ? current.workspace_template_key
+          : patch.workspace_template_key,
+      industry: nextIndustry,
+      industryType: nextIndustryType,
+    }) || null;
   const updated: LabEnvironment = {
     ...current,
     client_name: nextClientName,
     industry: nextIndustry,
     industry_type: nextIndustryType,
+    workspace_template_key: workspaceTemplateKey,
     schema_name: current.schema_name,
     notes: patch.notes === undefined ? current.notes : patch.notes,
     is_active: patch.is_active === undefined ? current.is_active : patch.is_active,
@@ -439,6 +468,7 @@ export function updateFallbackEnvironment(
       client_name: updated.client_name,
       industry: updated.industry,
       industry_type: updated.industry_type,
+      workspace_template_key: updated.workspace_template_key,
       is_active: updated.is_active,
     },
   });

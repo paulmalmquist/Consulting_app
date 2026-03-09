@@ -1,5 +1,5 @@
 import { DomainEnvProvider } from "@/components/domain/DomainEnvProvider";
-import DomainWorkspaceShell from "@/components/domain/DomainWorkspaceShell";
+import PdsEnterpriseShell from "@/components/pds-enterprise/PdsEnterpriseShell";
 import { isAdminSession } from "@/lib/server/sessionRole";
 
 export default async function DomainLayout({
@@ -13,9 +13,9 @@ export default async function DomainLayout({
   const domain = "pds" as const;
   return (
     <DomainEnvProvider domain={domain} envId={envId}>
-      <DomainWorkspaceShell envId={envId} domain={domain} isAdmin={isAdminSession()}>
+      <PdsEnterpriseShell envId={envId} isAdmin={isAdminSession()}>
         {children}
-      </DomainWorkspaceShell>
+      </PdsEnterpriseShell>
     </DomainEnvProvider>
   );
 }

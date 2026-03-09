@@ -30,7 +30,10 @@ class ScenarioRequest:
     sale_price: Decimal | None = None
     exit_cap_rate: Decimal | None = None
     cap_rate_delta_bps: int | None = None
+    noi_stress_pct: Decimal | None = None
+    exit_date_shift_months: int | None = None
     value_haircut_pct: Decimal | None = None
+    additional_call_amount: Decimal | None = None
     sale_date: date | None = None
     buyer_costs: Decimal = Decimal("0")
     disposition_fee_pct: Decimal = Decimal("0")
@@ -38,6 +41,7 @@ class ScenarioRequest:
     # ── Scenario references ────────────────────────────────────────────
     scenario_id: str | None = None
     scenario_name: str | None = None
+    scenario_template: str | None = None
     scenario_ids: list[str] | None = None  # for comparisons
     baseline_scenario_id: str | None = None
 
@@ -121,7 +125,11 @@ def resolve_scenario_params(
         sale_price=p.get("sale_price"),
         exit_cap_rate=p.get("exit_cap_rate"),
         cap_rate_delta_bps=p.get("cap_rate_delta_bps"),
+        noi_stress_pct=p.get("noi_stress_pct"),
+        exit_date_shift_months=p.get("exit_date_shift_months"),
         value_haircut_pct=p.get("value_haircut_pct"),
+        additional_call_amount=p.get("additional_call_amount"),
+        scenario_template=p.get("scenario_template"),
         fund_name_hint=p.get("fund_name_hint"),
         entity_name=entity_name,
         outputs_requested=outputs,
@@ -136,12 +144,19 @@ def _infer_outputs(intent: RepeIntent) -> list[str]:
     """Infer which output sections the user wants based on intent."""
     from app.services.repe_intent import (
         INTENT_COMPARE_SCENARIOS,
+        INTENT_CONSTRUCTION_IMPACT,
+        INTENT_MONTE_CARLO_WATERFALL,
         INTENT_FUND_METRICS,
         INTENT_LP_SUMMARY,
+        INTENT_PIPELINE_RADAR,
         INTENT_RUN_FUND_IMPACT,
         INTENT_RUN_SALE_SCENARIO,
         INTENT_RUN_WATERFALL,
+        INTENT_SENSITIVITY,
         INTENT_STRESS_CAP_RATE,
+        INTENT_CAPITAL_CALL_IMPACT,
+        INTENT_CLAWBACK_RISK,
+        INTENT_UW_VS_ACTUAL,
     )
 
     family = intent.family
@@ -165,9 +180,30 @@ def _infer_outputs(intent: RepeIntent) -> list[str]:
     elif family == INTENT_COMPARE_SCENARIOS:
         outputs.append("scenario_comparison")
 
+    elif family == INTENT_MONTE_CARLO_WATERFALL:
+        outputs.append("waterfall_percentiles")
+
+    elif family == INTENT_PIPELINE_RADAR:
+        outputs.append("pipeline_radar")
+
     elif family == INTENT_STRESS_CAP_RATE:
         outputs.append("stress_matrix")
         outputs.append("fund_impact")
+
+    elif family == INTENT_CAPITAL_CALL_IMPACT:
+        outputs.append("capital_call_impact")
+
+    elif family == INTENT_CLAWBACK_RISK:
+        outputs.append("clawback_risk")
+
+    elif family == INTENT_UW_VS_ACTUAL:
+        outputs.append("uw_vs_actual_waterfall")
+
+    elif family == INTENT_SENSITIVITY:
+        outputs.append("sensitivity_matrix")
+
+    elif family == INTENT_CONSTRUCTION_IMPACT:
+        outputs.append("construction_waterfall")
 
     elif family == INTENT_FUND_METRICS:
         outputs.append("fund_metrics")
@@ -214,5 +250,8 @@ def build_clarification_question(scenario: ScenarioRequest) -> str | None:
             "- 'at a 6.5 cap'\n\n"
             "Default: +50bps expansion."
         )
+
+    if "additional_call_amount" in missing:
+        return "How large is the additional capital call? For example: '$10 million'."
 
     return None

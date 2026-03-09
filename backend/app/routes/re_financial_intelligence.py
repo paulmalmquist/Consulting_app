@@ -572,6 +572,186 @@ def get_waterfall_breakdown(
         raise _to_http(exc)
 
 
+@router.get("/waterfall-scenarios/templates")
+def list_waterfall_templates(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        from app.mcp.auth import McpContext
+        from app.mcp.schemas.repe_finance_tools import ListScenarioTemplatesInput
+        from app.mcp.tools.repe_finance_tools import _list_scenario_templates
+
+        ctx = McpContext(user="api", resolved_scope={}, env_id=env_id, business_id=str(business_id))
+        return _list_scenario_templates(
+            ctx,
+            ListScenarioTemplatesInput(env_id=env_id, business_id=str(business_id)),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/funds/{fund_id}/monte-carlo-waterfall")
+def run_monte_carlo_waterfall(fund_id: UUID, body: dict):
+    try:
+        from app.mcp.auth import McpContext
+        from app.mcp.schemas.repe_finance_tools import MonteCarloWaterfallInput
+        from app.mcp.tools.repe_finance_tools import _monte_carlo_waterfall
+
+        payload = MonteCarloWaterfallInput(
+            fund_id=fund_id,
+            quarter=body["quarter"],
+            p10_nav=body["p10_nav"],
+            p50_nav=body["p50_nav"],
+            p90_nav=body["p90_nav"],
+            env_id=body["env_id"],
+            business_id=str(body["business_id"]),
+        )
+        ctx = McpContext(user="api", resolved_scope={}, env_id=payload.env_id, business_id=payload.business_id)
+        return _monte_carlo_waterfall(ctx, payload)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/portfolio/waterfall")
+def run_portfolio_waterfall(body: dict):
+    try:
+        from app.mcp.auth import McpContext
+        from app.mcp.schemas.repe_finance_tools import PortfolioWaterfallInput
+        from app.mcp.tools.repe_finance_tools import _portfolio_waterfall
+
+        payload = PortfolioWaterfallInput(
+            fund_ids=body["fund_ids"],
+            quarter=body["quarter"],
+            env_id=body["env_id"],
+            business_id=str(body["business_id"]),
+        )
+        ctx = McpContext(user="api", resolved_scope={}, env_id=payload.env_id, business_id=payload.business_id)
+        return _portfolio_waterfall(ctx, payload)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/funds/{fund_id}/capital-call-impact")
+def run_capital_call_impact(fund_id: UUID, body: dict):
+    try:
+        from app.mcp.auth import McpContext
+        from app.mcp.schemas.repe_finance_tools import CapitalCallImpactInput
+        from app.mcp.tools.repe_finance_tools import _capital_call_impact
+
+        payload = CapitalCallImpactInput(
+            fund_id=fund_id,
+            additional_call_amount=body["additional_call_amount"],
+            quarter=body["quarter"],
+            env_id=body["env_id"],
+            business_id=str(body["business_id"]),
+        )
+        ctx = McpContext(user="api", resolved_scope={}, env_id=payload.env_id, business_id=payload.business_id)
+        return _capital_call_impact(ctx, payload)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/funds/{fund_id}/clawback-risk")
+def get_clawback_risk(
+    fund_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    quarter: str = Query(...),
+    scenario_id: UUID | None = Query(None),
+):
+    try:
+        from app.mcp.auth import McpContext
+        from app.mcp.schemas.repe_finance_tools import ClawbackRiskInput
+        from app.mcp.tools.repe_finance_tools import _clawback_risk
+
+        payload = ClawbackRiskInput(
+            fund_id=fund_id,
+            scenario_id=scenario_id,
+            quarter=quarter,
+            env_id=env_id,
+            business_id=str(business_id),
+        )
+        ctx = McpContext(user="api", resolved_scope={}, env_id=payload.env_id, business_id=payload.business_id)
+        return _clawback_risk(ctx, payload)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/funds/{fund_id}/sensitivity-matrix")
+def run_waterfall_sensitivity_matrix(fund_id: UUID, body: dict):
+    try:
+        from app.mcp.auth import McpContext
+        from app.mcp.schemas.repe_finance_tools import SensitivityMatrixInput
+        from app.mcp.tools.repe_finance_tools import _sensitivity_matrix
+
+        payload = SensitivityMatrixInput(
+            fund_id=fund_id,
+            quarter=body["quarter"],
+            cap_rate_range_bps=body["cap_rate_range_bps"],
+            noi_stress_range_pct=body["noi_stress_range_pct"],
+            metric=body.get("metric", "net_irr"),
+            env_id=body["env_id"],
+            business_id=str(body["business_id"]),
+        )
+        ctx = McpContext(user="api", resolved_scope={}, env_id=payload.env_id, business_id=payload.business_id)
+        return _sensitivity_matrix(ctx, payload)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/funds/{fund_id}/uw-vs-actual-waterfall")
+def get_uw_vs_actual_waterfall(
+    fund_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    quarter: str = Query(...),
+    model_id: UUID | None = Query(None),
+):
+    try:
+        from app.mcp.auth import McpContext
+        from app.mcp.schemas.repe_finance_tools import UwVsActualWaterfallInput
+        from app.mcp.tools.repe_finance_tools import _uw_vs_actual_waterfall
+
+        payload = UwVsActualWaterfallInput(
+            fund_id=fund_id,
+            quarter=quarter,
+            model_id=model_id,
+            env_id=env_id,
+            business_id=str(business_id),
+        )
+        ctx = McpContext(user="api", resolved_scope={}, env_id=payload.env_id, business_id=payload.business_id)
+        return _uw_vs_actual_waterfall(ctx, payload)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/funds/{fund_id}/construction-waterfall")
+def get_construction_waterfall(
+    fund_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    quarter: str = Query(...),
+    asset_id: UUID | None = Query(None),
+):
+    try:
+        from app.mcp.auth import McpContext
+        from app.mcp.schemas.repe_finance_tools import ConstructionWaterfallInput
+        from app.mcp.tools.repe_finance_tools import _construction_waterfall
+
+        payload = ConstructionWaterfallInput(
+            fund_id=fund_id,
+            asset_id=asset_id,
+            quarter=quarter,
+            env_id=env_id,
+            business_id=str(business_id),
+        )
+        ctx = McpContext(user="api", resolved_scope={}, env_id=payload.env_id, business_id=payload.business_id)
+        return _construction_waterfall(ctx, payload)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
 # ── Property Comps ──────────────────────────────────────────────────────────
 
 @router.get("/assets/{asset_id}/comps", response_model=list[PropertyCompOut])

@@ -18,6 +18,7 @@ import {
   getPdsContext,
 } from "@/lib/bos-api";
 import { useBusinessContext } from "@/lib/business-context";
+import { resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
 
 export type DomainSlug = "pds" | "credit" | "legal" | "medical";
 
@@ -26,6 +27,7 @@ type DomainEnvironment = {
   client_name: string;
   industry: string;
   industry_type?: string;
+  workspace_template_key?: string | null;
   schema_name?: string;
   business_id?: string | null;
 };
@@ -83,7 +85,16 @@ export function DomainEnvProvider({
         apiFetch<DomainEnvironment>(`/v1/environments/${envId}`),
         resolveDomainContext(domain, envId),
       ]);
-      setEnvironment(env);
+      setEnvironment({
+        ...env,
+        workspace_template_key:
+          env.workspace_template_key ||
+          resolveWorkspaceTemplateKey({
+            workspaceTemplateKey: env.workspace_template_key,
+            industry: env.industry,
+            industryType: env.industry_type,
+          }),
+      });
       setResolvedBusinessId(context.business_id);
       setBusinessId(context.business_id);
     } catch (err) {

@@ -75,6 +75,38 @@ def get_deal(deal_id: UUID):
         raise _to_http(exc)
 
 
+@router.get("/deals/{deal_id}/geo-score")
+def get_deal_geo_score(
+    deal_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    market_id: str | None = Query(None),
+):
+    try:
+        return re_pipeline.enrich_deal_with_geo(deal_id=str(deal_id), market_id=market_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/radar")
+def get_pipeline_radar(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    stage: list[str] | None = Query(None),
+):
+    try:
+        from app.services.re_deal_scoring import batch_score_deals
+
+        deals = batch_score_deals(
+            env_id=env_id,
+            business_id=str(business_id),
+            stage_filter=stage,
+        )
+        return {"deals": deals, "top_5": deals[:5], "count": len(deals)}
+    except Exception as exc:
+        raise _to_http(exc)
+
+
 @router.patch("/deals/{deal_id}", response_model=RePipelineDealOut)
 def update_deal(deal_id: UUID, body: RePipelineDealPatchRequest):
     try:

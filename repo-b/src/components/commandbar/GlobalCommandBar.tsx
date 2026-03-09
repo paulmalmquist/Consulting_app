@@ -35,9 +35,10 @@ import {
   type CommandMessage,
   type StructuredResult,
   type StructuredResultAction,
-  loadHistory,
+  type WaterfallRunSummary,
+  loadHistoryState,
   makeMessage,
-  persistHistory,
+  persistHistoryState,
   resolveCommandContext,
 } from "@/lib/commandbar/store";
 import type { CommandContext, CommandRun, ContextSnapshot } from "@/lib/commandbar/types";
@@ -144,6 +145,7 @@ export default function GlobalCommandBar() {
   const [stage, setStage] = useState<AssistantStage>("plan");
   const [contextKey, setContextKey] = useState<CommandContextKey>("global");
   const [messages, setMessages] = useState<CommandMessage[]>([]);
+  const [waterfallRuns, setWaterfallRuns] = useState<WaterfallRunSummary[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [showConversationList, setShowConversationList] = useState(false);
@@ -206,7 +208,9 @@ export default function GlobalCommandBar() {
     const syncContext = () => {
       const next = resolveCommandContext();
       setContextKey(next);
-      setMessages(loadHistory(next));
+      const history = loadHistoryState(next);
+      setMessages(history.messages);
+      setWaterfallRuns(history.waterfallRuns);
     };
 
     syncContext();
@@ -221,8 +225,8 @@ export default function GlobalCommandBar() {
   }, []);
 
   useEffect(() => {
-    persistHistory(contextKey, messages);
-  }, [contextKey, messages]);
+    persistHistoryState(contextKey, { messages, waterfallRuns });
+  }, [contextKey, messages, waterfallRuns]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -354,7 +358,8 @@ export default function GlobalCommandBar() {
 
   const startNewConversation = () => {
     setMessages([]);
-    persistHistory(contextKey, []);
+    setWaterfallRuns([]);
+    persistHistoryState(contextKey, { messages: [], waterfallRuns: [] });
     setActivePlan(null);
     setRun(null);
     setPrompt("");
@@ -512,6 +517,22 @@ export default function GlobalCommandBar() {
         const msg = makeMessage("assistant", result.answer);
         msg.structuredResult = structuredResults[0];
         setMessages((prev) => [...prev, msg]);
+        const card = structuredResults[0].card;
+        if ((structuredResults[0].result_type.startsWith("waterfall") || structuredResults[0].result_type === "session_waterfall_summary") && card.scenarios) {
+          setWaterfallRuns((prev) => [
+            ...prev,
+            ...card.scenarios.map((row) => ({
+              run_id: String(row.scenario_id || `wf_${Date.now()}`),
+              scenario_name: String(row.scenario_id || ""),
+              key_metrics: {
+                irr: row.gross_irr,
+                tvpi: row.tvpi,
+                carry: row.dpi,
+                nav: row.nav,
+              },
+            })),
+          ].slice(-20));
+        }
       } else {
         appendMessage("assistant", result.answer);
       }

@@ -21,6 +21,15 @@ INTENT_RUN_WATERFALL = "run_waterfall"
 INTENT_COMPARE_SCENARIOS = "compare_scenarios"
 INTENT_STRESS_CAP_RATE = "stress_cap_rate"
 INTENT_FUND_METRICS = "fund_metrics"
+INTENT_MONTE_CARLO_WATERFALL = "monte_carlo_waterfall"
+INTENT_PORTFOLIO_WATERFALL = "portfolio_waterfall"
+INTENT_PIPELINE_RADAR = "pipeline_radar"
+INTENT_CAPITAL_CALL_IMPACT = "capital_call_impact"
+INTENT_CLAWBACK_RISK = "clawback_risk"
+INTENT_UW_VS_ACTUAL = "uw_vs_actual_waterfall"
+INTENT_SENSITIVITY = "sensitivity_matrix"
+INTENT_CONSTRUCTION_IMPACT = "construction_waterfall"
+INTENT_SESSION_WATERFALL_QUERY = "session_waterfall_query"
 INTENT_ASSET_VALUATION = "asset_valuation"
 INTENT_EXPLAIN_RETURNS = "explain_returns"
 INTENT_LP_SUMMARY = "lp_summary"
@@ -105,6 +114,42 @@ _LP_RE = re.compile(
 _WHAT_IF_RE = re.compile(
     r"\b(what\s*(?:if|happens?\s*(?:if|when))|if\s+we\s+(?:sell|exit|dispose|sold)|"
     r"assume\s+(?:we\s+)?(?:sell|exit|a\s+sale))\b",
+    re.IGNORECASE,
+)
+_MC_WATERFALL_RE = re.compile(
+    r"\b(monte\s*carlo\s*waterfall|probability.*waterfall|simulation.*distribution|p10.*p90.*waterfall)\b",
+    re.IGNORECASE,
+)
+_PORTFOLIO_WATERFALL_RE = re.compile(
+    r"\b(portfolio\s*waterfall|cross.*fund.*waterfall|aggregate.*carry|total.*carry.*exposure)\b",
+    re.IGNORECASE,
+)
+_PIPELINE_RADAR_RE = re.compile(
+    r"\b(deal\s*radar|pipeline.*score|rank.*deals|best.*opportunit(?:y|ies))\b",
+    re.IGNORECASE,
+)
+_CAPITAL_CALL_RE = re.compile(
+    r"\b(capital\s*call|call.*additional|what\s+if\s+we\s+call)\b",
+    re.IGNORECASE,
+)
+_CLAWBACK_RE = re.compile(
+    r"\b(clawback|promote.*risk|gp.*liability)\b",
+    re.IGNORECASE,
+)
+_UW_ACTUAL_RE = re.compile(
+    r"\b(uw.*vs.*actual|underwriting.*actual|thesis.*variance|how.*we.*tracking|vs.*underwriting)\b",
+    re.IGNORECASE,
+)
+_SENSITIVITY_MATRIX_RE = re.compile(
+    r"\b(sensitivity|data\s*table|matrix|grid.*scenarios)\b",
+    re.IGNORECASE,
+)
+_CONSTRUCTION_RE = re.compile(
+    r"\b(construction|development.*waterfall|stabilization|draw.*schedule.*impact)\b",
+    re.IGNORECASE,
+)
+_SESSION_WF_RE = re.compile(
+    r"\b(which.*best|compare all.*runs|best.*scenario|worst.*scenario|summary of.*runs)\b",
     re.IGNORECASE,
 )
 
@@ -224,6 +269,55 @@ def classify_repe_intent(
         fm_score += 0.10
     scores[INTENT_FUND_METRICS] = min(fm_score, 1.0)
 
+    mc_score = 0.0
+    if _MC_WATERFALL_RE.search(msg):
+        mc_score += 0.9
+    if _WATERFALL_RE.search(msg) and "p10" in msg.lower() and "p90" in msg.lower():
+        mc_score += 0.1
+    scores[INTENT_MONTE_CARLO_WATERFALL] = min(mc_score, 1.0)
+
+    portfolio_wf_score = 0.0
+    if _PORTFOLIO_WATERFALL_RE.search(msg):
+        portfolio_wf_score += 0.9
+    scores[INTENT_PORTFOLIO_WATERFALL] = min(portfolio_wf_score, 1.0)
+
+    radar_score = 0.0
+    if _PIPELINE_RADAR_RE.search(msg):
+        radar_score += 0.9
+    scores[INTENT_PIPELINE_RADAR] = min(radar_score, 1.0)
+
+    capital_call_score = 0.0
+    if _CAPITAL_CALL_RE.search(msg):
+        capital_call_score += 0.9
+    scores[INTENT_CAPITAL_CALL_IMPACT] = min(capital_call_score, 1.0)
+
+    clawback_score = 0.0
+    if _CLAWBACK_RE.search(msg):
+        clawback_score += 0.85
+    scores[INTENT_CLAWBACK_RISK] = min(clawback_score, 1.0)
+
+    uw_actual_score = 0.0
+    if _UW_ACTUAL_RE.search(msg):
+        uw_actual_score += 0.9
+    scores[INTENT_UW_VS_ACTUAL] = min(uw_actual_score, 1.0)
+
+    sensitivity_score = 0.0
+    if _SENSITIVITY_MATRIX_RE.search(msg) and _WATERFALL_RE.search(msg):
+        sensitivity_score += 0.9
+    scores[INTENT_SENSITIVITY] = min(sensitivity_score, 1.0)
+
+    construction_score = 0.0
+    if _CONSTRUCTION_RE.search(msg):
+        construction_score += 0.85
+    if _WATERFALL_RE.search(msg) and construction_score > 0:
+        construction_score += 0.1
+    scores[INTENT_CONSTRUCTION_IMPACT] = min(construction_score, 1.0)
+
+    session_wf_score = 0.0
+    if _SESSION_WF_RE.search(msg):
+        session_wf_score += 0.9
+    scores[INTENT_SESSION_WATERFALL_QUERY] = min(session_wf_score, 1.0)
+
     # ── Asset valuation ────────────────────────────────────────────────
     val_score = 0.0
     if _VALUATION_RE.search(msg):
@@ -336,6 +430,10 @@ def _extract_params(
         except ValueError:
             pass
 
+    if intent_family == INTENT_CAPITAL_CALL_IMPACT and "sale_price" in params:
+        params["additional_call_amount"] = params["sale_price"]
+        params["_source_additional_call_amount"] = params.get("_source_sale_price", "message")
+
     # Percentage haircut
     haircut_match = _PCT_HAIRCUT_RE.search(message)
     if haircut_match:
@@ -359,6 +457,18 @@ def _extract_params(
     if fund_match and "fund_id" not in params:
         params["fund_name_hint"] = fund_match.group(1).strip()
         params["_source_fund_name_hint"] = "message"
+
+    try:
+        from app.services.re_scenario_templates import resolve_template
+
+        template = resolve_template(message, env_id=str(params.get("env_id") or ""))
+        if template:
+            params["scenario_template"] = template["name"]
+            params["cap_rate_delta_bps"] = template.get("cap_rate_delta_bps")
+            params["noi_stress_pct"] = template.get("noi_stress_pct")
+            params["exit_date_shift_months"] = template.get("exit_date_shift_months")
+    except Exception:
+        pass
 
     return params
 
@@ -435,7 +545,7 @@ def _identify_missing_params(
         if not extracted.get("cap_rate_delta_bps") and not extracted.get("exit_cap_rate"):
             missing.append("cap_rate_delta")
 
-    elif intent_family in (INTENT_RUN_FUND_IMPACT, INTENT_FUND_METRICS, INTENT_LP_SUMMARY):
+    elif intent_family in (INTENT_RUN_FUND_IMPACT, INTENT_FUND_METRICS, INTENT_LP_SUMMARY, INTENT_MONTE_CARLO_WATERFALL, INTENT_PORTFOLIO_WATERFALL, INTENT_UW_VS_ACTUAL, INTENT_SENSITIVITY, INTENT_CONSTRUCTION_IMPACT):
         if not extracted.get("fund_id"):
             missing.append("fund_id")
 
@@ -444,6 +554,16 @@ def _identify_missing_params(
             missing.append("fund_id")
 
     elif intent_family == INTENT_COMPARE_SCENARIOS:
+        if not extracted.get("fund_id"):
+            missing.append("fund_id")
+
+    elif intent_family == INTENT_CAPITAL_CALL_IMPACT:
+        if not extracted.get("fund_id"):
+            missing.append("fund_id")
+        if not extracted.get("additional_call_amount"):
+            missing.append("additional_call_amount")
+
+    elif intent_family == INTENT_CLAWBACK_RISK:
         if not extracted.get("fund_id"):
             missing.append("fund_id")
 

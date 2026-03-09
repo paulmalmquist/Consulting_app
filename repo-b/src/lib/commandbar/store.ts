@@ -30,6 +30,22 @@ export type StructuredResult = {
   card: StructuredResultCard;
 };
 
+export type WaterfallRunSummary = {
+  run_id: string;
+  fund_id?: string;
+  fund_name?: string | null;
+  scenario_name?: string | null;
+  quarter?: string | null;
+  key_metrics?: {
+    nav?: string | number | null;
+    irr?: string | number | null;
+    tvpi?: string | number | null;
+    carry?: string | number | null;
+  };
+  overrides?: Record<string, unknown>;
+  created_at?: string | null;
+};
+
 export type CommandMessage = {
   id: string;
   role: "user" | "assistant" | "system";
@@ -39,6 +55,11 @@ export type CommandMessage = {
   planId?: string | null;
   runId?: string | null;
   structuredResult?: StructuredResult | null;
+};
+
+export type CommandHistoryState = {
+  messages: CommandMessage[];
+  waterfallRuns: WaterfallRunSummary[];
 };
 
 export function resolveCommandContext(): CommandContextKey {
@@ -59,28 +80,46 @@ export function historyStorageKey(contextKey: CommandContextKey): string {
   return `commandbar_history_${contextKey}`;
 }
 
-export function loadHistory(contextKey: CommandContextKey): CommandMessage[] {
-  if (typeof window === "undefined") return [];
+export function loadHistoryState(contextKey: CommandContextKey): CommandHistoryState {
+  if (typeof window === "undefined") return { messages: [], waterfallRuns: [] };
   try {
     const raw = window.localStorage.getItem(historyStorageKey(contextKey));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as CommandMessage[];
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
+    if (!raw) return { messages: [], waterfallRuns: [] };
+    const parsed = JSON.parse(raw) as CommandHistoryState | CommandMessage[];
+    const messages = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(parsed?.messages)
+        ? parsed.messages
+        : [];
+    const waterfallRuns = !Array.isArray(parsed) && Array.isArray(parsed?.waterfallRuns)
+      ? parsed.waterfallRuns
+      : [];
+    return {
+      messages: messages.filter(
       (item) =>
         typeof item.id === "string" &&
         (item.role === "user" || item.role === "assistant" || item.role === "system") &&
         typeof item.content === "string" &&
         typeof item.createdAt === "number"
-    );
+      ),
+      waterfallRuns,
+    };
   } catch {
-    return [];
+    return { messages: [], waterfallRuns: [] };
   }
 }
 
-export function persistHistory(contextKey: CommandContextKey, messages: CommandMessage[]) {
+export function loadHistory(contextKey: CommandContextKey): CommandMessage[] {
+  return loadHistoryState(contextKey).messages;
+}
+
+export function persistHistoryState(contextKey: CommandContextKey, state: CommandHistoryState) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(historyStorageKey(contextKey), JSON.stringify(messages));
+  window.localStorage.setItem(historyStorageKey(contextKey), JSON.stringify(state));
+}
+
+export function persistHistory(contextKey: CommandContextKey, messages: CommandMessage[]) {
+  persistHistoryState(contextKey, { messages, waterfallRuns: [] });
 }
 
 export function makeMessage(

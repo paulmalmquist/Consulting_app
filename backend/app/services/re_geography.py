@@ -13,6 +13,45 @@ logger = logging.getLogger(__name__)
 
 _OVERLAY_CATALOG_FALLBACK = [
     {
+        "metric_key": "market_cap_rate",
+        "display_name": "Market Cap Rate",
+        "description": "Observed market cap rate benchmark.",
+        "category": "market",
+        "units": "%",
+        "geography_levels": ["county", "tract", "block_group"],
+        "compare_modes": ["tract", "county", "metro"],
+        "color_scale": "orange_sequential",
+        "source_name": "Market Intelligence",
+        "source_url": None,
+        "is_active": True,
+    },
+    {
+        "metric_key": "population_growth_pct",
+        "display_name": "Population Growth",
+        "description": "Population growth benchmark.",
+        "category": "demographics",
+        "units": "%",
+        "geography_levels": ["county", "tract", "block_group"],
+        "compare_modes": ["tract", "county", "metro"],
+        "color_scale": "green_sequential",
+        "source_name": "ACS / Census",
+        "source_url": "https://data.census.gov",
+        "is_active": True,
+    },
+    {
+        "metric_key": "employment_growth_pct",
+        "display_name": "Employment Growth",
+        "description": "Employment growth benchmark.",
+        "category": "economy",
+        "units": "%",
+        "geography_levels": ["county", "tract", "block_group"],
+        "compare_modes": ["tract", "county", "metro"],
+        "color_scale": "green_sequential",
+        "source_name": "BLS / BEA",
+        "source_url": "https://www.bls.gov",
+        "is_active": True,
+    },
+    {
         "metric_key": "median_hh_income",
         "display_name": "Median Household Income",
         "description": "ACS household income benchmark.",
@@ -145,6 +184,9 @@ _OVERLAY_CATALOG_FALLBACK = [
 ]
 
 _PROFILE_METRICS = [
+    "market_cap_rate",
+    "population_growth_pct",
+    "employment_growth_pct",
     "median_hh_income",
     "median_age",
     "population",
@@ -495,6 +537,50 @@ def _build_commentary_seed(
     return {
         "facts": facts,
         "safe_narrative": narrative,
+    }
+
+
+def compute_geo_risk_score(*, market_id: str | None = None, tract_geoid: str | None = None, county_geoid: str | None = None) -> dict:
+    geography_id = tract_geoid or county_geoid or market_id
+    tract_profile = _build_metric_profile(tract_geoid, _PROFILE_METRICS + _HAZARD_METRICS)
+    county_profile = _build_metric_profile(county_geoid, _PROFILE_METRICS + _HAZARD_METRICS)
+    profile = tract_profile or county_profile
+
+    def metric(name: str, default: float | None = None) -> float | None:
+        value = _safe_float(profile.get(name, {}).get("value"))
+        if value is None and county_profile:
+            value = _safe_float(county_profile.get(name, {}).get("value"))
+        if value is None:
+            value = default
+        return value
+
+    market_cap_rate = metric("market_cap_rate", 5.5)
+    population_growth_pct = metric("population_growth_pct")
+    if population_growth_pct is None:
+        population_growth_pct = metric("mobility_proxy", 0.5)
+    employment_growth_pct = metric("employment_growth_pct")
+    if employment_growth_pct is None:
+        employment_growth_pct = metric("labor_context", 0.5)
+    vacancy_rate = metric("vacancy_rate", 6.0)
+
+    cap_rate_component = max(0.0, min(100.0, ((market_cap_rate or 5.5) - 5.0) * 18))
+    population_component = max(0.0, min(100.0, 55 - ((population_growth_pct or 0) * 10)))
+    employment_component = max(0.0, min(100.0, 55 - ((employment_growth_pct or 0) * 10)))
+    vacancy_component = max(0.0, min(100.0, (vacancy_rate or 0) * 7.5))
+    score = round(
+        (cap_rate_component * 0.25)
+        + (population_component * 0.25)
+        + (employment_component * 0.20)
+        + (vacancy_component * 0.30),
+        2,
+    )
+    return {
+        "market_id": geography_id,
+        "market_cap_rate": market_cap_rate,
+        "population_growth_pct": population_growth_pct,
+        "employment_growth_pct": employment_growth_pct,
+        "vacancy_rate": vacancy_rate,
+        "geo_risk_score": score,
     }
 
 
@@ -978,6 +1064,26 @@ def get_deal_geo_context(*, deal_id: str) -> dict:
         fit=fit,
         geographies=geographies,
     )
+    geo_metrics = compute_geo_risk_score(
+        market_id=cbsa_code,
+        tract_geoid=geographies.get("tract"),
+        county_geoid=geographies.get("county"),
+    )
+
+    if deal.get("property_id"):
+        try:
+            with get_cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE fact_asset_market_context
+                    SET geo_risk_score = %s,
+                        computed_at = now()
+                    WHERE property_id = %s::uuid
+                    """,
+                    (geo_metrics["geo_risk_score"], deal["property_id"]),
+                )
+        except Exception:
+            pass
 
     return {
         "deal": {
@@ -1007,8 +1113,10 @@ def get_deal_geo_context(*, deal_id: str) -> dict:
         "county_profile": county_profile,
         "metro_benchmark": metro_benchmark,
         "hazard": hazard,
+        "market_metrics": geo_metrics,
         "fit": fit,
         "commentary_seed": commentary_seed,
+        "geo_risk_score": geo_metrics["geo_risk_score"],
     }
 
 

@@ -26,7 +26,7 @@ from app.services.assistant_scope import (
 )
 from app.services.repe_intent import classify_repe_intent
 from app.services.repe_scenario_schema import build_clarification_question, resolve_scenario_params
-from app.services.repe_session import update_session
+from app.services.repe_session import get_session, summarize_waterfall_run, update_session
 from app.services.cost_tracker import estimate_cost
 from app.services.rag_indexer import RetrievedChunk, semantic_search
 from app.services.rag_reranker import rerank_chunks
@@ -354,17 +354,61 @@ async def _run_repe_fast_path(
     Target latency: <2s for metrics, <4s for scenario + waterfall.
     """
     from app.services.repe_intent import (
+        INTENT_CAPITAL_CALL_IMPACT,
+        INTENT_CLAWBACK_RISK,
         INTENT_COMPARE_SCENARIOS,
+        INTENT_CONSTRUCTION_IMPACT,
         INTENT_FUND_METRICS,
         INTENT_LP_SUMMARY,
+        INTENT_MONTE_CARLO_WATERFALL,
+        INTENT_PIPELINE_RADAR,
+        INTENT_PORTFOLIO_WATERFALL,
         INTENT_RUN_FUND_IMPACT,
         INTENT_RUN_SALE_SCENARIO,
         INTENT_RUN_WATERFALL,
+        INTENT_SENSITIVITY,
+        INTENT_SESSION_WATERFALL_QUERY,
         INTENT_STRESS_CAP_RATE,
+        INTENT_UW_VS_ACTUAL,
     )
     from app.mcp.auth import McpContext
 
     scenario = resolve_scenario_params(intent, resolved_scope, context_envelope)
+    session_state = get_session(str(conversation_id) if conversation_id else None)
+
+    if intent.family == INTENT_SESSION_WATERFALL_QUERY:
+        if session_state and session_state.waterfall_runs:
+            card = _build_session_waterfall_card(session_state)
+            yield _sse("structured_result", {"result_type": "session_waterfall_summary", "card": card})
+            timings["total_ms"] = int((time.time() - start) * 1000)
+            yield _sse("done", {
+                "session_id": session_id,
+                "trace": {
+                    "execution_path": "repe_fast_path",
+                    "lane": "F",
+                    "model": "none",
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0,
+                    "tool_call_count": 0,
+                    "tool_timeline": [],
+                    "data_sources": [],
+                    "citations": [],
+                    "rag_chunks_used": 0,
+                    "warnings": [],
+                    "elapsed_ms": timings["total_ms"],
+                    "resolved_scope": scope_dump,
+                    "repe": {"intent": intent.family, "fast_path": True, "session_memory": True},
+                    "visible_context_shortcut": False,
+                    "timings": timings,
+                },
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "tool_calls": 0,
+                "elapsed_ms": timings["total_ms"],
+                "resolved_scope": scope_dump,
+            })
+            return
 
     # ── Check for missing critical params ──────────────────────────────
     clarification = build_clarification_question(scenario)
@@ -405,6 +449,7 @@ async def _run_repe_fast_path(
     tool_timeline = []
     data_sources = []
     family = intent.family
+    result: dict[str, Any] | None = None
 
     try:
         # ── Route to the right engine ──────────────────────────────────
@@ -501,18 +546,162 @@ async def _run_repe_fast_path(
             card = _build_comparison_card(result, scenario)
             yield _sse("structured_result", {"result_type": "scenario_comparison", "card": card})
 
+        elif family == INTENT_MONTE_CARLO_WATERFALL:
+            yield _sse("status", {"message": "Running percentile waterfalls...", "stage": "compute", "progress": 0.3})
+            result = await _exec_fast_tool(
+                ctx, "finance.monte_carlo_waterfall", {
+                    "fund_id": scenario.fund_id,
+                    "quarter": scenario.quarter,
+                    "p10_nav": float(intent.extracted_params.get("p10_nav") or 0),
+                    "p50_nav": float(intent.extracted_params.get("p50_nav") or 0),
+                    "p90_nav": float(intent.extracted_params.get("p90_nav") or 0),
+                    "env_id": scenario.env_id,
+                    "business_id": scenario.business_id,
+                },
+                tool_timeline, data_sources,
+            )
+            card = _build_mc_waterfall_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "waterfall_percentiles", "card": card})
+
+        elif family == INTENT_PORTFOLIO_WATERFALL:
+            yield _sse("status", {"message": "Aggregating portfolio waterfalls...", "stage": "compute", "progress": 0.3})
+            fund_ids = intent.extracted_params.get("fund_ids") or ([scenario.fund_id] if scenario.fund_id else [])
+            result = await _exec_fast_tool(
+                ctx, "finance.portfolio_waterfall", {
+                    "fund_ids": fund_ids,
+                    "quarter": scenario.quarter,
+                    "env_id": scenario.env_id,
+                    "business_id": scenario.business_id,
+                },
+                tool_timeline, data_sources,
+            )
+            card = _build_portfolio_waterfall_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "portfolio_waterfall", "card": card})
+
+        elif family == INTENT_PIPELINE_RADAR:
+            yield _sse("status", {"message": "Scoring pipeline deals...", "stage": "compute", "progress": 0.3})
+            result = await _exec_fast_tool(
+                ctx, "finance.pipeline_radar", {
+                    "env_id": scenario.env_id,
+                    "business_id": scenario.business_id,
+                    "stage_filter": intent.extracted_params.get("stage_filter"),
+                },
+                tool_timeline, data_sources,
+            )
+            card = _build_pipeline_radar_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "pipeline_radar", "card": card})
+
+        elif family == INTENT_CAPITAL_CALL_IMPACT:
+            yield _sse("status", {"message": "Modeling capital call impact...", "stage": "compute", "progress": 0.3})
+            result = await _exec_fast_tool(
+                ctx, "finance.capital_call_impact", {
+                    "fund_id": scenario.fund_id,
+                    "additional_call_amount": float(scenario.additional_call_amount or 0),
+                    "quarter": scenario.quarter,
+                    "env_id": scenario.env_id,
+                    "business_id": scenario.business_id,
+                },
+                tool_timeline, data_sources,
+            )
+            card = _build_capital_call_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "capital_call_impact", "card": card})
+
+        elif family == INTENT_CLAWBACK_RISK:
+            yield _sse("status", {"message": "Assessing clawback risk...", "stage": "compute", "progress": 0.3})
+            result = await _exec_fast_tool(
+                ctx, "finance.clawback_risk", {
+                    "fund_id": scenario.fund_id,
+                    "scenario_id": scenario.scenario_id,
+                    "quarter": scenario.quarter,
+                    "env_id": scenario.env_id,
+                    "business_id": scenario.business_id,
+                },
+                tool_timeline, data_sources,
+            )
+            card = _build_clawback_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "clawback_risk", "card": card})
+
+        elif family == INTENT_UW_VS_ACTUAL:
+            yield _sse("status", {"message": "Comparing underwriting to actual...", "stage": "compute", "progress": 0.3})
+            result = await _exec_fast_tool(
+                ctx, "finance.uw_vs_actual_waterfall", {
+                    "fund_id": scenario.fund_id,
+                    "quarter": scenario.quarter,
+                    "model_id": intent.extracted_params.get("model_id"),
+                    "env_id": scenario.env_id,
+                    "business_id": scenario.business_id,
+                },
+                tool_timeline, data_sources,
+            )
+            card = _build_uw_vs_actual_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "uw_vs_actual_waterfall", "card": card})
+
+        elif family == INTENT_SENSITIVITY:
+            yield _sse("status", {"message": "Building sensitivity matrix...", "stage": "compute", "progress": 0.3})
+            result = await _exec_fast_tool(
+                ctx, "finance.sensitivity_matrix", {
+                    "fund_id": scenario.fund_id,
+                    "quarter": scenario.quarter,
+                    "cap_rate_range_bps": intent.extracted_params.get("cap_rate_range_bps") or [0, 50, 100, 150, 200],
+                    "noi_stress_range_pct": intent.extracted_params.get("noi_stress_range_pct") or [0, -0.05, -0.10, -0.15, -0.20],
+                    "metric": intent.extracted_params.get("metric") or "net_irr",
+                    "env_id": scenario.env_id,
+                    "business_id": scenario.business_id,
+                },
+                tool_timeline, data_sources,
+            )
+            card = _build_sensitivity_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "sensitivity_matrix", "card": card})
+
+        elif family == INTENT_CONSTRUCTION_IMPACT:
+            yield _sse("status", {"message": "Projecting construction timing...", "stage": "compute", "progress": 0.3})
+            result = await _exec_fast_tool(
+                ctx, "finance.construction_waterfall", {
+                    "fund_id": scenario.fund_id,
+                    "asset_id": scenario.asset_id,
+                    "quarter": scenario.quarter,
+                    "env_id": scenario.env_id,
+                    "business_id": scenario.business_id,
+                },
+                tool_timeline, data_sources,
+            )
+            card = _build_construction_waterfall_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "construction_waterfall", "card": card})
+
         else:
             # Explain returns / fallback — emit as text
             yield _sse("token", {"text": f"I recognized this as a **{family.replace('_', ' ')}** request but the fast-path engine doesn't handle it yet. Let me use the full analysis pipeline instead."})
 
         # ── Update session state ───────────────────────────────────────
+        conversation_key = str(conversation_id) if conversation_id else None
         update_session(
-            str(conversation_id) if conversation_id else None,
+            conversation_key,
             analysis_mode=family,
+            last_result=result,
             last_fund_id=scenario.fund_id,
             last_asset_id=scenario.asset_id,
             last_quarter=scenario.quarter,
         )
+        if conversation_key and result:
+            run_candidates: list[dict[str, Any]] = []
+            if isinstance(result, dict):
+                if result.get("run_id"):
+                    run_candidates.append(result)
+                for key in ("p10", "p50", "p90", "before", "after", "uw", "actual", "base", "construction_adjusted"):
+                    candidate = result.get(key)
+                    if isinstance(candidate, dict) and candidate.get("run_id"):
+                        run_candidates.append(candidate)
+            for candidate in run_candidates:
+                summary = summarize_waterfall_run(
+                    result=candidate,
+                    fund_id=scenario.fund_id,
+                    fund_name=candidate.get("fund_name"),
+                    scenario_name=candidate.get("scenario_name"),
+                    quarter=scenario.quarter,
+                    overrides=candidate.get("overrides"),
+                )
+                if summary:
+                    update_session(conversation_key, waterfall_run=summary)
 
         yield _sse("status", {"message": "Done", "stage": "results", "progress": 1.0})
 
@@ -630,6 +819,13 @@ def _delta_str(value, fmt_fn=_fmt_pct, direction_positive: str = "up") -> dict |
         direction = "positive" if v >= 0 else "negative"
         prefix = "+" if v >= 0 else ""
         return {"value": f"{prefix}{fmt_fn(value)}", "direction": direction}
+    except (TypeError, ValueError):
+        return None
+
+
+def _to_num(value) -> float | None:
+    try:
+        return float(value)
     except (TypeError, ValueError):
         return None
 
@@ -815,6 +1011,198 @@ def _build_comparison_card(result: dict, scenario) -> dict:
         "parameters": {"Scenarios Compared": str(len(scenarios))},
         "actions": [
             {"label": "Fund Metrics", "action": "fund_metrics", "params": {"fund_id": scenario.fund_id}},
+        ],
+    }
+
+
+def _build_mc_waterfall_card(result: dict, scenario) -> dict:
+    def _metric(label: str, key: str) -> dict:
+        p10 = result.get("p10", {}).get("summary", {}).get(key)
+        p50 = result.get("p50", {}).get("summary", {}).get(key)
+        p90 = result.get("p90", {}).get("summary", {}).get(key)
+        return {
+            "label": label,
+            "value": f"P10 {_fmt_dollar(p10) if 'carry' in key or 'total' in key or key == 'nav' else _fmt_mult(p10) if 'tvpi' in key else _fmt_pct(p10)} | "
+                     f"P50 {_fmt_dollar(p50) if 'carry' in key or 'total' in key or key == 'nav' else _fmt_mult(p50) if 'tvpi' in key else _fmt_pct(p50)} | "
+                     f"P90 {_fmt_dollar(p90) if 'carry' in key or 'total' in key or key == 'nav' else _fmt_mult(p90) if 'tvpi' in key else _fmt_pct(p90)}",
+            "delta": None,
+        }
+
+    return {
+        "title": "Monte Carlo Waterfall",
+        "subtitle": f"Quarter: {scenario.quarter}",
+        "metrics": [
+            _metric("LP Return", "lp_total"),
+            _metric("GP Carry", "gp_carry"),
+            _metric("Net TVPI", "net_tvpi"),
+        ],
+        "parameters": {
+            "Fund": scenario.fund_id,
+            "Template": scenario.scenario_template,
+        },
+        "actions": [
+            {"label": "Run Waterfall", "action": "run_waterfall", "params": {"fund_id": scenario.fund_id}},
+        ],
+    }
+
+
+def _build_portfolio_waterfall_card(result: dict, scenario) -> dict:
+    funds = result.get("funds", [])
+    portfolio = result.get("portfolio", {})
+    return {
+        "title": "Portfolio Waterfall",
+        "subtitle": f"Quarter: {scenario.quarter}",
+        "metrics": [
+            {"label": "Total NAV", "value": _fmt_dollar(portfolio.get("total_nav")), "delta": None},
+            {"label": "Weighted IRR", "value": _fmt_pct(portfolio.get("weighted_irr")), "delta": None},
+            {"label": "Total Carry", "value": _fmt_dollar(portfolio.get("total_carry")), "delta": None},
+            {"label": "LP Shortfall", "value": _fmt_dollar(portfolio.get("total_lp_shortfall")), "delta": None},
+        ],
+        "scenarios": [
+            {
+                "scenario_id": fund.get("fund_id"),
+                "gross_irr": _fmt_pct(fund.get("net_irr")),
+                "tvpi": _fmt_mult(fund.get("lp_total")),
+                "dpi": _fmt_dollar(fund.get("carry")),
+                "nav": _fmt_dollar(fund.get("nav")),
+            }
+            for fund in funds
+        ],
+        "parameters": {
+            "Funds": str(len(funds)),
+            "Diversification": f"{float(result.get('diversification_score') or 0):.1f}",
+        },
+    }
+
+
+def _build_pipeline_radar_card(result: dict, scenario) -> dict:
+    top_5 = result.get("top_5", [])
+    return {
+        "title": "Pipeline Radar",
+        "subtitle": "Top opportunities by composite score",
+        "metrics": [
+            {"label": "Deals Scored", "value": str(result.get("count", len(top_5))), "delta": None},
+        ],
+        "assets": [
+            {
+                "name": deal.get("deal_name", ""),
+                "base": f"Opp {deal.get('opportunity_score', 0):.1f}",
+                "stressed": f"Risk {deal.get('risk_score', 0):.1f}",
+                "impact": f"{deal.get('composite_score', 0):.1f}",
+            }
+            for deal in top_5
+        ],
+    }
+
+
+def _build_capital_call_card(result: dict, scenario) -> dict:
+    before = result.get("before", {}).get("summary", {})
+    after = result.get("after", {}).get("summary", {})
+    return {
+        "title": "Capital Call Impact",
+        "subtitle": f"Quarter: {scenario.quarter}",
+        "metrics": [
+            {"label": "Additional Call", "value": _fmt_dollar(result.get("additional_call_amount")), "delta": None},
+            {"label": "LP Return", "value": _fmt_dollar(after.get("lp_total")), "delta": _delta_str(result.get("deltas", {}).get("lp_total"), _fmt_dollar)},
+            {"label": "GP Carry", "value": _fmt_dollar(after.get("gp_carry")), "delta": _delta_str(result.get("deltas", {}).get("gp_carry"), _fmt_dollar)},
+            {"label": "Net TVPI", "value": _fmt_mult(after.get("net_tvpi")), "delta": _delta_str(result.get("deltas", {}).get("net_tvpi"), _fmt_mult)},
+        ],
+        "parameters": {
+            "Before LP Return": _fmt_dollar(before.get("lp_total")),
+            "After LP Return": _fmt_dollar(after.get("lp_total")),
+        },
+    }
+
+
+def _build_clawback_card(result: dict, scenario) -> dict:
+    return {
+        "title": "Clawback Risk",
+        "subtitle": f"Quarter: {scenario.quarter}",
+        "metrics": [
+            {"label": "Risk Level", "value": str(result.get("risk_level") or "none").title(), "delta": None},
+            {"label": "Clawback Liability", "value": _fmt_dollar(result.get("clawback_liability")), "delta": None},
+            {"label": "Outstanding", "value": _fmt_dollar(result.get("clawback_outstanding")), "delta": None},
+            {"label": "Promote Outstanding", "value": _fmt_dollar(result.get("promote_outstanding")), "delta": None},
+        ],
+    }
+
+
+def _build_uw_vs_actual_card(result: dict, scenario) -> dict:
+    uw = result.get("uw", {}).get("summary", {})
+    actual = result.get("actual", {}).get("summary", {})
+    attribution = result.get("attribution", {})
+    return {
+        "title": "UW vs Actual Waterfall",
+        "subtitle": attribution.get("largest_driver") or scenario.quarter,
+        "metrics": [
+            {"label": "UW IRR", "value": _fmt_pct(uw.get("net_irr")), "delta": None},
+            {"label": "Actual IRR", "value": _fmt_pct(actual.get("net_irr")), "delta": _delta_str(attribution.get("irr_attribution", {}).get("delta"))},
+            {"label": "UW NAV", "value": _fmt_dollar(uw.get("nav")), "delta": None},
+            {"label": "Actual NAV", "value": _fmt_dollar(actual.get("nav")), "delta": _delta_str(attribution.get("nav_attribution", {}).get("delta"), _fmt_dollar)},
+        ],
+        "parameters": {
+            "Largest Driver": attribution.get("largest_driver"),
+            "Narrative": result.get("narrative_hint"),
+        },
+    }
+
+
+def _build_sensitivity_card(result: dict, scenario) -> dict:
+    rows = result.get("rows", [])
+    best = None
+    for r in rows:
+        for value in r:
+            if value is None:
+                continue
+            best = value if best is None else max(best, value)
+    return {
+        "title": "Sensitivity Matrix",
+        "subtitle": f"Metric: {result.get('metric_name')}",
+        "metrics": [
+            {"label": "Base Value", "value": str(result.get("base_value")), "delta": None},
+            {"label": "Best Cell", "value": str(best) if best is not None else "—", "delta": None},
+        ],
+        "parameters": {
+            "Cap Rate Steps": str(len(result.get("col_headers", []))),
+            "NOI Steps": str(len(result.get("row_headers", []))),
+        },
+    }
+
+
+def _build_construction_waterfall_card(result: dict, scenario) -> dict:
+    base = result.get("base", {}).get("summary", {})
+    adjusted = result.get("construction_adjusted", {}).get("summary", {})
+    return {
+        "title": "Construction Impact",
+        "subtitle": f"Stabilization: {result.get('stabilization_date')}",
+        "metrics": [
+            {"label": "Months to Stabilize", "value": str(result.get("months_to_stabilization")), "delta": None},
+            {"label": "Base LP Return", "value": _fmt_dollar(base.get("lp_total")), "delta": None},
+            {"label": "Adjusted LP Return", "value": _fmt_dollar(adjusted.get("lp_total")), "delta": _delta_str((_to_num(adjusted.get("lp_total")) or 0) - (_to_num(base.get("lp_total")) or 0), _fmt_dollar)},
+            {"label": "Exit Shift", "value": f"{result.get('exit_shift_applied', 0)} mo", "delta": None},
+        ],
+    }
+
+
+def _build_session_waterfall_card(session_state) -> dict:
+    runs = list(session_state.waterfall_runs)
+    best = max(runs, key=lambda item: _to_num(item.get("key_metrics", {}).get("irr")) or float("-inf"), default=None)
+    return {
+        "title": "Session Waterfall Runs",
+        "subtitle": best.get("scenario_name") if best else None,
+        "metrics": [
+            {"label": "Tracked Runs", "value": str(len(runs)), "delta": None},
+            {"label": "Best IRR", "value": _fmt_pct(best.get("key_metrics", {}).get("irr")) if best else "—", "delta": None},
+        ],
+        "scenarios": [
+            {
+                "scenario_id": item.get("scenario_name") or item.get("run_id"),
+                "gross_irr": _fmt_pct(item.get("key_metrics", {}).get("irr")),
+                "tvpi": _fmt_mult(item.get("key_metrics", {}).get("tvpi")),
+                "dpi": _fmt_dollar(item.get("key_metrics", {}).get("carry")),
+                "nav": _fmt_dollar(item.get("key_metrics", {}).get("nav")),
+            }
+            for item in runs
         ],
     }
 
@@ -1109,6 +1497,18 @@ async def run_gateway_stream(
         resolved_scope=resolved_scope,
         additional_instructions=visible_context_policy["instructions"],
     )
+    session_state = get_session(str(conversation_id) if conversation_id else None)
+    if session_state and session_state.waterfall_runs:
+        session_lines = []
+        for item in session_state.waterfall_runs[-10:]:
+            session_lines.append(
+                f"- {item.get('scenario_name') or item.get('run_id')}: "
+                f"IRR={item.get('key_metrics', {}).get('irr')}, "
+                f"TVPI={item.get('key_metrics', {}).get('tvpi')}, "
+                f"NAV={item.get('key_metrics', {}).get('nav')}, "
+                f"Carry={item.get('key_metrics', {}).get('carry')}"
+            )
+        context_block += "\n\n## Prior Waterfall Runs This Session\n" + "\n".join(session_lines)
     system_prompt = _build_system_prompt()
     effective_model = route.model or OPENAI_CHAT_MODEL
     # Reasoning / o-series models use "developer" role instead of "system"
@@ -1532,6 +1932,33 @@ async def run_gateway_stream(
                 {"tool_name": tool_name, "args": raw_args, "result": _json_safe(tool_result)},
             )
 
+            if conversation_id and isinstance(tool_result, dict) and tool_name.startswith("finance."):
+                conversation_key = str(conversation_id)
+                update_session(
+                    conversation_key,
+                    last_result=tool_result,
+                    last_fund_id=str(raw_args.get("fund_id")) if raw_args.get("fund_id") else None,
+                    last_quarter=raw_args.get("quarter"),
+                )
+                run_candidates: list[dict[str, Any]] = []
+                if tool_result.get("run_id"):
+                    run_candidates.append(tool_result)
+                for key in ("p10", "p50", "p90", "before", "after", "uw", "actual", "base", "construction_adjusted"):
+                    candidate = tool_result.get(key)
+                    if isinstance(candidate, dict) and candidate.get("run_id"):
+                        run_candidates.append(candidate)
+                for candidate in run_candidates:
+                    summary = summarize_waterfall_run(
+                        result=candidate,
+                        fund_id=str(raw_args.get("fund_id") or candidate.get("fund_id") or ""),
+                        fund_name=candidate.get("fund_name"),
+                        scenario_name=candidate.get("scenario_name"),
+                        quarter=raw_args.get("quarter") or candidate.get("quarter"),
+                        overrides=candidate.get("overrides"),
+                    )
+                    if summary:
+                        update_session(conversation_key, waterfall_run=summary)
+
             messages.append(
                 {
                     "role": "tool",
@@ -1539,6 +1966,29 @@ async def run_gateway_stream(
                     "content": json.dumps(_json_safe(tool_result), ensure_ascii=True),
                 }
             )
+
+            if conversation_id and tool_success and isinstance(tool_result, dict):
+                conversation_key = str(conversation_id)
+                run_candidates: list[dict[str, Any]] = []
+                if tool_result.get("run_id"):
+                    run_candidates.append(tool_result)
+                for key in ("p10", "p50", "p90", "before", "after", "uw", "actual", "base", "construction_adjusted"):
+                    candidate = tool_result.get(key)
+                    if isinstance(candidate, dict) and candidate.get("run_id"):
+                        run_candidates.append(candidate)
+                fund_id_hint = raw_args.get("fund_id") or resolved_scope.entity_id
+                quarter_hint = raw_args.get("quarter")
+                for candidate in run_candidates:
+                    summary = summarize_waterfall_run(
+                        result=candidate,
+                        fund_id=str(fund_id_hint) if fund_id_hint else None,
+                        fund_name=candidate.get("fund_name"),
+                        scenario_name=candidate.get("scenario_name"),
+                        quarter=quarter_hint or candidate.get("quarter"),
+                        overrides=candidate.get("overrides"),
+                    )
+                    if summary:
+                        update_session(conversation_key, waterfall_run=summary)
 
     # ── Compute metrics and emit done BEFORE persistence ─────────────
     # Emit the stream-terminating `done` event before any DB writes so

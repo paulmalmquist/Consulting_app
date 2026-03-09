@@ -662,6 +662,173 @@ export interface DomainContext {
   diagnostics: Record<string, unknown>;
 }
 
+export type PdsV2Lens = "market" | "account" | "project" | "resource";
+export type PdsV2Horizon = "MTD" | "QTD" | "YTD" | "Forecast";
+export type PdsV2RolePreset = "executive" | "market_leader" | "account_director" | "project_lead";
+
+export interface PdsV2Context extends DomainContext {
+  workspace_template_key: string;
+}
+
+export interface PdsV2MetricCard {
+  key: string;
+  label: string;
+  value: string | number;
+  comparison_label?: string | null;
+  comparison_value?: string | number | null;
+  delta_value?: string | number | null;
+  tone: string;
+  unit?: string | null;
+}
+
+export interface PdsV2PerformanceRow {
+  entity_id: string;
+  entity_label: string;
+  owner_label?: string | null;
+  health_status: string;
+  fee_plan?: string | number;
+  fee_actual?: string | number;
+  fee_variance?: string | number;
+  gaap_plan?: string | number;
+  gaap_actual?: string | number;
+  gaap_variance?: string | number;
+  ci_plan?: string | number;
+  ci_actual?: string | number;
+  ci_variance?: string | number;
+  backlog?: string | number;
+  forecast?: string | number;
+  red_projects?: number;
+  client_risk_accounts?: number;
+  satisfaction_score?: string | number | null;
+  utilization_pct?: string | number | null;
+  timecard_compliance_pct?: string | number | null;
+  collections_lag?: string | number | null;
+  writeoff_leakage?: string | number | null;
+  reason_codes: string[];
+  href?: string | null;
+}
+
+export interface PdsV2PerformanceTable {
+  lens: PdsV2Lens;
+  horizon: PdsV2Horizon;
+  columns: string[];
+  rows: PdsV2PerformanceRow[];
+}
+
+export interface PdsV2DeliveryRiskItem {
+  project_id: string;
+  project_name: string;
+  account_name?: string | null;
+  market_name?: string | null;
+  issue_summary: string;
+  severity: string;
+  risk_score: string | number;
+  reason_codes: string[];
+  recommended_action: string;
+  recommended_owner?: string | null;
+  href: string;
+}
+
+export interface PdsV2ResourceHealthItem {
+  resource_id: string;
+  resource_name: string;
+  title?: string | null;
+  market_name?: string | null;
+  utilization_pct: string | number;
+  billable_mix_pct: string | number;
+  delinquent_timecards: number;
+  overload_flag: boolean;
+  staffing_gap_flag: boolean;
+  reason_codes: string[];
+}
+
+export interface PdsV2TimecardHealthItem {
+  resource_id?: string | null;
+  resource_name: string;
+  submitted_pct: string | number;
+  delinquent_count: number;
+  overdue_hours: string | number;
+  reason_codes: string[];
+}
+
+export interface PdsV2ForecastPoint {
+  forecast_month: string;
+  entity_type: string;
+  entity_id: string;
+  entity_label: string;
+  current_value: string | number;
+  prior_value: string | number;
+  delta_value: string | number;
+  override_value?: string | number | null;
+  override_reason?: string | null;
+  confidence_score: string | number;
+}
+
+export interface PdsV2SatisfactionItem {
+  account_id: string;
+  account_name: string;
+  client_name?: string | null;
+  average_score: string | number;
+  trend_delta: string | number;
+  response_count: number;
+  repeat_award_score: string | number;
+  risk_state: string;
+  reason_codes: string[];
+}
+
+export interface PdsV2CloseoutItem {
+  project_id: string;
+  project_name: string;
+  closeout_target_date?: string | null;
+  substantial_completion_date?: string | null;
+  actual_closeout_date?: string | null;
+  closeout_aging_days: number;
+  blocker_count: number;
+  final_billing_status: string;
+  survey_status: string;
+  lessons_learned_status: string;
+  risk_state: string;
+  reason_codes: string[];
+  href: string;
+}
+
+export interface PdsV2Briefing {
+  generated_at: string;
+  lens: PdsV2Lens;
+  horizon: PdsV2Horizon;
+  role_preset: PdsV2RolePreset;
+  headline: string;
+  summary_lines: string[];
+  recommended_actions: string[];
+}
+
+export interface PdsV2ReportPacket {
+  packet_type: string;
+  generated_at: string;
+  title: string;
+  sections: Array<Record<string, unknown>>;
+  narrative?: string | null;
+}
+
+export interface PdsV2CommandCenter {
+  env_id: string;
+  business_id: string;
+  workspace_template_key: string;
+  lens: PdsV2Lens;
+  horizon: PdsV2Horizon;
+  role_preset: PdsV2RolePreset;
+  generated_at: string;
+  metrics_strip: PdsV2MetricCard[];
+  performance_table: PdsV2PerformanceTable;
+  delivery_risk: PdsV2DeliveryRiskItem[];
+  resource_health: PdsV2ResourceHealthItem[];
+  timecard_health: PdsV2TimecardHealthItem[];
+  forecast_points: PdsV2ForecastPoint[];
+  satisfaction: PdsV2SatisfactionItem[];
+  closeout: PdsV2CloseoutItem[];
+  briefing: PdsV2Briefing;
+}
+
 export type {
   PdsAttentionAction,
   PdsAttentionProject,
@@ -988,6 +1155,160 @@ export function seedPdsWorkspace(envId: string, businessId?: string): Promise<{ 
   });
 }
 
+export function getPdsV2Context(envId: string, businessId?: string): Promise<PdsV2Context> {
+  return bosFetch("/api/pds/v2/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getPdsCommandCenter(
+  envId: string,
+  options?: {
+    business_id?: string;
+    lens?: PdsV2Lens;
+    horizon?: PdsV2Horizon;
+    role_preset?: PdsV2RolePreset;
+  },
+): Promise<PdsV2CommandCenter> {
+  return bosFetch("/api/pds/v2/command-center", {
+    params: {
+      env_id: envId,
+      business_id: options?.business_id,
+      lens: options?.lens,
+      horizon: options?.horizon,
+      role_preset: options?.role_preset,
+    },
+  });
+}
+
+export function getPdsPerformanceTable(
+  envId: string,
+  options?: { business_id?: string; lens?: PdsV2Lens; horizon?: PdsV2Horizon },
+): Promise<PdsV2PerformanceTable> {
+  return bosFetch("/api/pds/v2/performance-table", {
+    params: {
+      env_id: envId,
+      business_id: options?.business_id,
+      lens: options?.lens,
+      horizon: options?.horizon,
+    },
+  });
+}
+
+export function getPdsDeliveryRisk(
+  envId: string,
+  options?: { business_id?: string; horizon?: PdsV2Horizon },
+): Promise<PdsV2DeliveryRiskItem[]> {
+  return bosFetch("/api/pds/v2/delivery-risk", {
+    params: {
+      env_id: envId,
+      business_id: options?.business_id,
+      horizon: options?.horizon,
+    },
+  });
+}
+
+export function getPdsResourceHealth(
+  envId: string,
+  options?: { business_id?: string; horizon?: PdsV2Horizon },
+): Promise<PdsV2ResourceHealthItem[]> {
+  return bosFetch("/api/pds/v2/resources/health", {
+    params: {
+      env_id: envId,
+      business_id: options?.business_id,
+      horizon: options?.horizon,
+    },
+  });
+}
+
+export function getPdsTimecardHealth(
+  envId: string,
+  options?: { business_id?: string; horizon?: PdsV2Horizon },
+): Promise<PdsV2TimecardHealthItem[]> {
+  return bosFetch("/api/pds/v2/timecards/health", {
+    params: {
+      env_id: envId,
+      business_id: options?.business_id,
+      horizon: options?.horizon,
+    },
+  });
+}
+
+export function getPdsForecast(
+  envId: string,
+  options?: { business_id?: string; lens?: PdsV2Lens; horizon?: PdsV2Horizon },
+): Promise<PdsV2ForecastPoint[]> {
+  return bosFetch("/api/pds/v2/forecast", {
+    params: {
+      env_id: envId,
+      business_id: options?.business_id,
+      lens: options?.lens,
+      horizon: options?.horizon,
+    },
+  });
+}
+
+export function getPdsSatisfaction(
+  envId: string,
+  options?: { business_id?: string; horizon?: PdsV2Horizon },
+): Promise<PdsV2SatisfactionItem[]> {
+  return bosFetch("/api/pds/v2/satisfaction", {
+    params: {
+      env_id: envId,
+      business_id: options?.business_id,
+      horizon: options?.horizon,
+    },
+  });
+}
+
+export function getPdsCloseout(
+  envId: string,
+  options?: { business_id?: string; horizon?: PdsV2Horizon },
+): Promise<PdsV2CloseoutItem[]> {
+  return bosFetch("/api/pds/v2/closeout", {
+    params: {
+      env_id: envId,
+      business_id: options?.business_id,
+      horizon: options?.horizon,
+    },
+  });
+}
+
+export function getPdsExecutiveBriefingV2(
+  envId: string,
+  options?: {
+    business_id?: string;
+    lens?: PdsV2Lens;
+    horizon?: PdsV2Horizon;
+    role_preset?: PdsV2RolePreset;
+  },
+): Promise<PdsV2Briefing> {
+  return bosFetch("/api/pds/v2/briefings/executive", {
+    params: {
+      env_id: envId,
+      business_id: options?.business_id,
+      lens: options?.lens,
+      horizon: options?.horizon,
+      role_preset: options?.role_preset,
+    },
+  });
+}
+
+export function buildPdsReportPacket(body: {
+  env_id: string;
+  business_id?: string;
+  packet_type: string;
+  lens?: PdsV2Lens;
+  horizon?: PdsV2Horizon;
+  role_preset?: PdsV2RolePreset;
+  actor?: string;
+}): Promise<PdsV2ReportPacket> {
+  return bosFetch("/api/pds/v2/reports/packet", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 // ── PDS Executive ────────────────────────────────────────────────────
 
 export function getPdsExecutiveOverview(envId: string, businessId?: string): Promise<PdsExecutiveOverview> {
@@ -1248,6 +1569,200 @@ export function createLegalMatter(body: {
   return bosFetch("/api/legalops/v1/matters", {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+export interface LegalDashboardKpis {
+  open_matters: number;
+  high_risk_matters: number;
+  litigation_exposure: string;
+  contracts_pending_review: number;
+  contracts_expiring_soon: number;
+  regulatory_deadlines_30d: number;
+  outside_counsel_spend_ytd: string;
+  total_budget: string;
+}
+
+export interface LegalDashboard {
+  kpis: LegalDashboardKpis;
+  risk_radar: Array<{
+    matter_id: string;
+    matter_number: string;
+    title: string;
+    matter_type: string;
+    risk_level: string;
+    actual_spend: string;
+    internal_owner: string | null;
+    status: string;
+  }>;
+  contract_pipeline: Record<string, number>;
+  upcoming_deadlines: Array<{
+    deadline_id: string;
+    deadline_type: string;
+    due_date: string;
+    status: string;
+    matter_number: string;
+    title: string;
+  }>;
+  spend_summary: { ytd_spend: string; ytd_budget: string };
+  governance_alerts: Array<{
+    governance_item_id: string;
+    item_type: string;
+    title: string;
+    scheduled_date: string | null;
+    status: string;
+    owner: string | null;
+    entity_name: string | null;
+  }>;
+}
+
+export interface LegalFirm {
+  firm_id: string;
+  env_id: string;
+  business_id: string;
+  firm_name: string;
+  primary_contact: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  specialties: string[];
+  performance_rating: string | null;
+  status: string;
+  matter_count: number;
+  ytd_spend: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LegalContract {
+  legal_contract_id: string;
+  env_id: string;
+  business_id: string;
+  matter_id: string | null;
+  contract_ref: string;
+  contract_type: string;
+  counterparty_name: string | null;
+  effective_date: string | null;
+  expiration_date: string | null;
+  governing_law: string | null;
+  auto_renew: boolean;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LegalRegulatoryItem {
+  regulatory_item_id: string;
+  env_id: string;
+  business_id: string;
+  agency: string;
+  regulation_ref: string | null;
+  obligation_text: string;
+  deadline: string | null;
+  frequency: string | null;
+  owner: string | null;
+  status: string;
+  created_at: string;
+}
+
+export interface LegalGovernanceItem {
+  governance_item_id: string;
+  env_id: string;
+  business_id: string;
+  item_type: string;
+  title: string;
+  scheduled_date: string | null;
+  status: string;
+  owner: string | null;
+  entity_name: string | null;
+  created_at: string;
+}
+
+export interface LegalSpendEntry {
+  legal_spend_entry_id: string;
+  env_id: string;
+  business_id: string;
+  matter_id: string;
+  matter_number: string | null;
+  matter_title: string | null;
+  outside_counsel: string | null;
+  invoice_ref: string | null;
+  amount: string;
+  incurred_date: string | null;
+  created_at: string;
+}
+
+export interface LegalLitigationCase {
+  litigation_case_id: string;
+  env_id: string;
+  business_id: string;
+  matter_id: string;
+  matter_number: string | null;
+  matter_title: string | null;
+  jurisdiction: string | null;
+  claims: string | null;
+  exposure_estimate: string;
+  reserve_amount: string;
+  insurance_carrier: string | null;
+  status: string;
+  created_at: string;
+}
+
+export function getLegalDashboard(envId: string, businessId?: string): Promise<LegalDashboard> {
+  return bosFetch("/api/legalops/v1/dashboard", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listLegalFirms(envId: string, businessId?: string): Promise<LegalFirm[]> {
+  return bosFetch("/api/legalops/v1/firms", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function createLegalFirm(body: {
+  env_id: string;
+  business_id?: string;
+  firm_name: string;
+  primary_contact?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  specialties?: string[];
+  status?: string;
+  created_by?: string;
+}): Promise<LegalFirm> {
+  return bosFetch("/api/legalops/v1/firms", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listLegalContracts(envId: string, businessId?: string, status?: string): Promise<LegalContract[]> {
+  return bosFetch("/api/legalops/v1/contracts", {
+    params: { env_id: envId, business_id: businessId, status },
+  });
+}
+
+export function listLegalRegulatory(envId: string, businessId?: string): Promise<LegalRegulatoryItem[]> {
+  return bosFetch("/api/legalops/v1/regulatory", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listLegalGovernance(envId: string, businessId?: string, item_type?: string): Promise<LegalGovernanceItem[]> {
+  return bosFetch("/api/legalops/v1/governance", {
+    params: { env_id: envId, business_id: businessId, item_type },
+  });
+}
+
+export function listLegalSpendEntries(envId: string, businessId?: string): Promise<LegalSpendEntry[]> {
+  return bosFetch("/api/legalops/v1/spend-entries", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listLegalLitigation(envId: string, businessId?: string): Promise<LegalLitigationCase[]> {
+  return bosFetch("/api/legalops/v1/litigation", {
+    params: { env_id: envId, business_id: businessId },
   });
 }
 
@@ -5240,6 +5755,101 @@ export type WaterfallScenarioValidation = {
   missing: MissingIngredient[];
 };
 
+export type WaterfallTemplate = {
+  name: string;
+  description?: string | null;
+  cap_rate_delta_bps: number;
+  noi_stress_pct: number;
+  exit_date_shift_months: number;
+  is_system?: boolean;
+};
+
+export type WaterfallSummary = {
+  run_id: string;
+  fund_id: string;
+  fund_name?: string | null;
+  quarter: string;
+  scenario_id?: string | null;
+  scenario_name?: string | null;
+  created_at?: string | null;
+  summary: {
+    total_distributable?: number | string | null;
+    gp_carry?: number | string | null;
+    lp_total?: number | string | null;
+    lp_shortfall?: number | string | null;
+    net_irr?: number | string | null;
+    net_tvpi?: number | string | null;
+    nav?: number | string | null;
+  };
+  allocations?: Array<Record<string, string | number | null>>;
+  tier_totals?: Record<string, number>;
+};
+
+export type MonteCarloWaterfallResponse = {
+  p10: WaterfallSummary;
+  p50: WaterfallSummary;
+  p90: WaterfallSummary;
+  deltas: Record<string, Record<string, number | null>>;
+};
+
+export type PortfolioWaterfallResponse = {
+  funds: Array<Record<string, string | number | null>>;
+  portfolio: Record<string, string | number | null>;
+  diversification_score: number;
+};
+
+export type CapitalCallImpactResponse = {
+  before: WaterfallSummary;
+  after: WaterfallSummary;
+  deltas: Record<string, number | null>;
+  additional_call_amount: number;
+};
+
+export type ClawbackRiskResponse = {
+  fund_id: string;
+  quarter: string;
+  risk_level: "none" | "low" | "medium" | "high";
+  clawback_liability: number | string;
+  clawback_outstanding: number | string;
+  promote_outstanding: number | string;
+  reference_run_id: string;
+};
+
+export type SensitivityMatrixResponse = {
+  rows: Array<Array<number | null>>;
+  col_headers: string[];
+  row_headers: string[];
+  metric_name: string;
+  base_value: number | null;
+};
+
+export type UwVsActualWaterfallResponse = {
+  uw: WaterfallSummary;
+  actual: WaterfallSummary;
+  attribution: {
+    nav_attribution: Record<string, number | string | null>;
+    irr_attribution: Record<string, number | string | null>;
+    tier_attribution: Array<Record<string, number | string>>;
+    largest_driver: string;
+  };
+  narrative_hint: string;
+};
+
+export type ConstructionWaterfallResponse = {
+  base: WaterfallSummary;
+  construction_adjusted: WaterfallSummary;
+  stabilization_date: string;
+  months_to_stabilization: number;
+  exit_shift_applied: number;
+  construction_schedule: Array<Record<string, string | number | null>>;
+};
+
+export type PipelineRadarResponse = {
+  deals: Array<Record<string, unknown>>;
+  top_5: Array<Record<string, unknown>>;
+  count: number;
+};
+
 export async function runWaterfallScenario(params: {
   fund_id: string;
   env_id: string;
@@ -5294,6 +5904,144 @@ export function validateWaterfallScenarioIngredients(params: {
       quarter: params.quarter,
     },
   });
+}
+
+export function listWaterfallScenarioTemplates(params: {
+  env_id: string;
+  business_id: string;
+}): Promise<{ templates: WaterfallTemplate[] }> {
+  return bosFetch("/api/re/v2/waterfall-scenarios/templates", {
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+    },
+  });
+}
+
+export function runMonteCarloWaterfall(params: {
+  fund_id: string;
+  env_id: string;
+  business_id: string;
+  quarter: string;
+  p10_nav: number;
+  p50_nav: number;
+  p90_nav: number;
+}): Promise<MonteCarloWaterfallResponse> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/monte-carlo-waterfall`, {
+    method: "POST",
+    body: JSON.stringify({
+      env_id: params.env_id,
+      business_id: params.business_id,
+      quarter: params.quarter,
+      p10_nav: params.p10_nav,
+      p50_nav: params.p50_nav,
+      p90_nav: params.p90_nav,
+    }),
+  });
+}
+
+export function getPortfolioWaterfall(params: {
+  fund_ids: string[];
+  env_id: string;
+  business_id: string;
+  quarter: string;
+}): Promise<PortfolioWaterfallResponse> {
+  return bosFetch("/api/re/v2/portfolio/waterfall", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+}
+
+export function runCapitalCallImpact(params: {
+  fund_id: string;
+  env_id: string;
+  business_id: string;
+  quarter: string;
+  additional_call_amount: number;
+}): Promise<CapitalCallImpactResponse> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/capital-call-impact`, {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+}
+
+export function getClawbackRisk(params: {
+  fund_id: string;
+  env_id: string;
+  business_id: string;
+  quarter: string;
+  scenario_id?: string;
+}): Promise<ClawbackRiskResponse> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/clawback-risk`, {
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+      quarter: params.quarter,
+      scenario_id: params.scenario_id,
+    },
+  });
+}
+
+export function runWaterfallSensitivityMatrix(params: {
+  fund_id: string;
+  env_id: string;
+  business_id: string;
+  quarter: string;
+  cap_rate_range_bps: number[];
+  noi_stress_range_pct: number[];
+  metric?: string;
+}): Promise<SensitivityMatrixResponse> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/sensitivity-matrix`, {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+}
+
+export function getUwVsActualWaterfall(params: {
+  fund_id: string;
+  env_id: string;
+  business_id: string;
+  quarter: string;
+  model_id?: string;
+}): Promise<UwVsActualWaterfallResponse> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/uw-vs-actual-waterfall`, {
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+      quarter: params.quarter,
+      model_id: params.model_id,
+    },
+  });
+}
+
+export function getConstructionWaterfall(params: {
+  fund_id: string;
+  env_id: string;
+  business_id: string;
+  quarter: string;
+  asset_id?: string;
+}): Promise<ConstructionWaterfallResponse> {
+  return bosFetch(`/api/re/v2/funds/${params.fund_id}/construction-waterfall`, {
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+      quarter: params.quarter,
+      asset_id: params.asset_id,
+    },
+  });
+}
+
+export function getPipelineRadar(params: {
+  env_id: string;
+  business_id: string;
+  stage?: string[];
+}): Promise<PipelineRadarResponse> {
+  const query = new URLSearchParams({
+    env_id: params.env_id,
+    business_id: params.business_id,
+  });
+  (params.stage || []).forEach((value) => query.append("stage", value));
+  return bosFetch(`/api/re/v2/pipeline/radar?${query.toString()}`);
 }
 
 export function seedWaterfallScenarios(params: {

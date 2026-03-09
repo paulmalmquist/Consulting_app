@@ -7,11 +7,15 @@ export interface WaterfallRunRow {
 
 interface WaterfallRunsProps {
   rows: WaterfallRunRow[];
+  hasNewRun?: boolean;
 }
 
-export function WaterfallRuns({ rows }: WaterfallRunsProps) {
+export function WaterfallRuns({ rows, hasNewRun = false }: WaterfallRunsProps) {
   return (
     <section data-testid="waterfall-runs">
+      {hasNewRun ? (
+        <div data-testid="waterfall-new-run-toast">New run available</div>
+      ) : null}
       {rows.map((row) => (
         <div key={row.runId} data-testid="waterfall-run-row">
           <span>{row.runId}</span>

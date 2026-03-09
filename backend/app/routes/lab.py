@@ -53,6 +53,7 @@ def create_environment(req: CreateEnvironmentRequest):
         req.client_name,
         req.industry,
         req.industry_type,
+        req.workspace_template_key,
         req.notes,
     )
     return CreateEnvironmentResponse(**result)

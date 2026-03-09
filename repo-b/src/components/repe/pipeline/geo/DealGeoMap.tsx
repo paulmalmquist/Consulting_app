@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { GeoJSON, MapContainer, Marker, TileLayer, useMapEvents } from "react-leaflet";
+import { GeoJSON, MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
@@ -36,6 +36,23 @@ const STAGE_COLOR: Record<string, string> = {
   dead: "#a35e62",
 };
 
+/**
+ * Validate that a lat/lon pair is a finite number within legal geographic bounds.
+ * Returns true only if both values are safe to pass to Leaflet.
+ */
+function isValidCoord(lat: unknown, lon: unknown): boolean {
+  return (
+    typeof lat === "number" &&
+    typeof lon === "number" &&
+    isFinite(lat) &&
+    isFinite(lon) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lon >= -180 &&
+    lon <= 180
+  );
+}
+
 function markerShape(sector: string) {
   switch (sector) {
     case "industrial":
@@ -55,9 +72,15 @@ function markerShape(sector: string) {
   }
 }
 
-function markerSize(value: number | undefined) {
-  if (!value || value <= 0) return 18;
-  return Math.max(18, Math.min(38, Math.round(Math.sqrt(value) / 420)));
+/**
+ * Scale marker diameter using a log₁₀ curve calibrated for typical RE deal values.
+ * $1M → 18px, $50M → 25px, $500M → 33px, $5B → 38px.
+ * All invalid/zero values fall back to the minimum 18px.
+ */
+function markerSize(value: number | undefined): number {
+  if (!value || value <= 0 || !isFinite(value)) return 18;
+  const log = Math.log10(Math.max(value, 1_000_000)) - 6; // 0 at $1M, 3 at $1B
+  return Math.max(18, Math.min(38, Math.round(18 + log * 6.67)));
 }
 
 function buildMarkerIcon(marker: GeoDealMarker): L.DivIcon {
@@ -100,10 +123,16 @@ function colorFromBins(value: number | null, bins: Array<{ min: number; max: num
   return palette[Math.min(index, palette.length - 1)];
 }
 
+/**
+ * Fires the bounds-change and zoom callbacks after map pan or zoom events,
+ * using a debounce to avoid hammering the overlay fetch on every animation frame.
+ */
 function BoundsListener({
   onChange,
+  onZoomChange,
 }: {
   onChange: (sw: [number, number], ne: [number, number]) => void;
+  onZoomChange: (zoom: number) => void;
 }) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -116,9 +145,43 @@ function BoundsListener({
           [bounds.getSouthWest().lat, bounds.getSouthWest().lng],
           [bounds.getNorthEast().lat, bounds.getNorthEast().lng],
         );
+        onZoomChange(event.target.getZoom());
       }, 350);
     },
+    // Report zoom immediately so the parent can gate overlay requests without
+    // waiting for the full moveend debounce.
+    zoomend(event) {
+      onZoomChange(event.target.getZoom());
+    },
   });
+
+  return null;
+}
+
+/**
+ * On first render, fit the map viewport to the bounding box of all valid markers.
+ * Only runs once per mount — subsequent panning is left to the user.
+ * This ensures deals are always visible without requiring manual pan/zoom.
+ */
+function FitBoundsToMarkers({ markers }: { markers: GeoDealMarker[] }) {
+  const map = useMap();
+  const fittedRef = useRef(false);
+
+  useEffect(() => {
+    if (fittedRef.current || markers.length === 0) return;
+
+    const validPositions = markers
+      .filter((m) => isValidCoord(m.marker.lat, m.marker.lon))
+      .map((m) => [m.marker.lat, m.marker.lon] as [number, number]);
+
+    if (validPositions.length === 0) return;
+
+    const bounds = L.latLngBounds(validPositions);
+    if (!bounds.isValid()) return;
+
+    map.fitBounds(bounds, { padding: [64, 64], maxZoom: 12 });
+    fittedRef.current = true;
+  }, [markers, map]);
 
   return null;
 }
@@ -135,6 +198,7 @@ export function DealGeoMap({
   onFeatureHover,
   onFeatureSelect,
   onDealSelect,
+  onZoomChange,
 }: {
   features: GeoMapContextFeature[];
   colorScale: string;
@@ -147,10 +211,27 @@ export function DealGeoMap({
   onFeatureHover: (geoid: string | null) => void;
   onFeatureSelect: (geoid: string | null) => void;
   onDealSelect: (dealId: string | null) => void;
+  onZoomChange: (zoom: number) => void;
 }) {
   useEffect(() => {
     window.dispatchEvent(new Event("resize"));
   }, []);
+
+  // Filter markers to only those with valid geographic coordinates.
+  // Invalid coords are logged in development so data issues are surfaced.
+  const validMarkers = useMemo(() => {
+    return markers.filter((m) => {
+      const valid = isValidCoord(m.marker.lat, m.marker.lon);
+      if (!valid && process.env.NODE_ENV === "development") {
+        console.warn(
+          "[DealGeoMap] Skipping marker with invalid coordinates",
+          m.node.dealId,
+          { lat: m.marker.lat, lon: m.marker.lon },
+        );
+      }
+      return valid;
+    });
+  }, [markers]);
 
   const geojsonData = useMemo<GeoJSON.FeatureCollection>(() => ({
     type: "FeatureCollection",
@@ -204,6 +285,7 @@ export function DealGeoMap({
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
       />
 
+      {/* Overlay polygons: rendered when present, absent never suppresses markers */}
       {features.length > 0 ? (
         <GeoJSON
           key={`${features.length}-${colorScale}-${selectedGeoid}-${hoveredGeoid}`}
@@ -213,7 +295,8 @@ export function DealGeoMap({
         />
       ) : null}
 
-      {markers.map((item) => (
+      {/* Deal markers: always rendered for valid coords, independent of overlay state */}
+      {validMarkers.map((item) => (
         <Marker
           key={`${item.marker.deal_id}-${item.marker.lat}-${item.marker.lon}`}
           position={[item.marker.lat, item.marker.lon]}
@@ -223,7 +306,10 @@ export function DealGeoMap({
         />
       ))}
 
-      <BoundsListener onChange={onBoundsChange} />
+      {/* Auto-fit to markers on first load so deals are visible without manual pan */}
+      <FitBoundsToMarkers markers={validMarkers} />
+
+      <BoundsListener onChange={onBoundsChange} onZoomChange={onZoomChange} />
     </MapContainer>
   );
 }

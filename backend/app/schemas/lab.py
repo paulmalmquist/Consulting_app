@@ -9,6 +9,7 @@ class EnvironmentOut(BaseModel):
     client_name: str
     industry: str
     industry_type: Optional[str] = None
+    workspace_template_key: Optional[str] = None
     schema_name: str
     is_active: bool
     business_id: Optional[UUID] = None
@@ -21,6 +22,7 @@ class CreateEnvironmentRequest(BaseModel):
     client_name: str
     industry: str = "general"
     industry_type: Optional[str] = None
+    workspace_template_key: Optional[str] = None
     notes: Optional[str] = None
 
 
@@ -28,6 +30,7 @@ class CreateEnvironmentResponse(BaseModel):
     env_id: UUID
     client_name: str
     industry: str
+    workspace_template_key: Optional[str] = None
     schema_name: str
     business_id: Optional[UUID] = None
     repe_initialized: bool = False
@@ -37,6 +40,7 @@ class UpdateEnvironmentRequest(BaseModel):
     client_name: Optional[str] = None
     industry: Optional[str] = None
     industry_type: Optional[str] = None
+    workspace_template_key: Optional[str] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
 

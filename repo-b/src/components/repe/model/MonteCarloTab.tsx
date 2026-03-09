@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Activity, Play } from "lucide-react";
+import type { MonteCarloWaterfallResponse } from "@/lib/bos-api";
+import { getFiFundMetrics, runMonteCarloWaterfall } from "@/lib/bos-api";
+import { MonteCarloWaterfallResults } from "@/components/repe/model/MonteCarloWaterfallResults";
 
 /* ── Seeded PRNG (mulberry32) ── */
 function mulberry32(seed: number) {
@@ -35,7 +38,7 @@ interface SimResult {
   tvpi: number[];
 }
 
-function runSimulation(sims: number, seed: number): SimResult {
+export function runSimulation(sims: number, seed: number): SimResult {
   const rand = mulberry32(seed);
   const irr: number[] = [];
   const tvpi: number[] = [];
@@ -195,16 +198,39 @@ function MonteCarloResults({ sim }: { sim: SimResult }) {
 export function MonteCarloTab({
   modelId,
   scopeCount,
+  envId,
+  businessId,
+  primaryFundId,
+  quarter,
   onError,
 }: {
   modelId: string;
   scopeCount: number;
+  envId: string;
+  businessId: string;
+  primaryFundId?: string | null;
+  quarter: string;
   onError: (msg: string) => void;
 }) {
   const [mcSims, setMcSims] = useState(1000);
   const [mcSeed, setMcSeed] = useState(42);
   const [mcRunning, setMcRunning] = useState(false);
   const [simResult, setSimResult] = useState<SimResult | null>(null);
+  const [baselineNav, setBaselineNav] = useState<number | null>(null);
+  const [waterfallLoading, setWaterfallLoading] = useState(false);
+  const [waterfallResult, setWaterfallResult] = useState<MonteCarloWaterfallResponse | null>(null);
+
+  useEffect(() => {
+    if (!primaryFundId || !envId || !businessId || !quarter) return;
+    getFiFundMetrics({
+      env_id: envId,
+      business_id: businessId,
+      fund_id: primaryFundId,
+      quarter,
+    })
+      .then((payload) => setBaselineNav(Number(payload.state?.portfolio_nav || 0)))
+      .catch(() => setBaselineNav(null));
+  }, [primaryFundId, envId, businessId, quarter]);
 
   const handleRunMonteCarlo = async () => {
     if (scopeCount === 0) {
@@ -223,10 +249,40 @@ export function MonteCarloTab({
       // Client-side simulation for immediate visualization
       const result = runSimulation(mcSims, mcSeed);
       setSimResult(result);
+      setWaterfallResult(null);
     } catch (err) {
       onError(err instanceof Error ? err.message : "Monte Carlo simulation failed");
     } finally {
       setMcRunning(false);
+    }
+  };
+
+  const handleRunPercentileWaterfall = async () => {
+    if (!simResult || !primaryFundId) {
+      onError("Percentile waterfall requires a linked primary fund.");
+      return;
+    }
+    if (!baselineNav || baselineNav <= 0) {
+      onError("Could not resolve baseline fund NAV for the percentile waterfall.");
+      return;
+    }
+    setWaterfallLoading(true);
+    try {
+      const sortedTvpi = [...simResult.tvpi].sort((a, b) => a - b);
+      const result = await runMonteCarloWaterfall({
+        fund_id: primaryFundId,
+        env_id: envId,
+        business_id: businessId,
+        quarter,
+        p10_nav: percentile(sortedTvpi, 10) * baselineNav,
+        p50_nav: percentile(sortedTvpi, 50) * baselineNav,
+        p90_nav: percentile(sortedTvpi, 90) * baselineNav,
+      });
+      setWaterfallResult(result);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Monte Carlo waterfall failed");
+    } finally {
+      setWaterfallLoading(false);
     }
   };
 
@@ -277,7 +333,33 @@ export function MonteCarloTab({
       </div>
 
       {/* Results */}
-      {simResult && <MonteCarloResults sim={simResult} />}
+      {simResult && (
+        <>
+          <MonteCarloResults sim={simResult} />
+          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Waterfall Bridge</p>
+                <p className="text-sm text-bm-muted2">
+                  Feed P10, P50, and P90 Monte Carlo outcomes into the waterfall engine.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleRunPercentileWaterfall}
+                disabled={!primaryFundId || !businessId || waterfallLoading}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-bm-border px-4 py-2 text-sm text-bm-text hover:bg-bm-surface/40 disabled:opacity-40"
+              >
+                {waterfallLoading ? "Running..." : "Run Waterfall at Percentiles"}
+              </button>
+            </div>
+            {!primaryFundId ? (
+              <p className="mt-3 text-xs text-amber-300">Link this model to a primary fund to enable the percentile waterfall bridge.</p>
+            ) : null}
+          </div>
+          {waterfallResult ? <MonteCarloWaterfallResults result={waterfallResult} /> : null}
+        </>
+      )}
     </div>
   );
 }

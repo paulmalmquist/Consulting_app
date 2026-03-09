@@ -5,6 +5,7 @@ from datetime import date
 from uuid import UUID
 
 from app.db import get_cursor
+from app.services import pds_enterprise
 from app.services.pds_executive import narrative
 
 
@@ -17,22 +18,28 @@ def _build_sections(*, briefing_type: str, metrics: dict) -> list[dict]:
     queue_count = int(metrics.get("open_queue") or 0)
     high_signals = int(metrics.get("high_signals") or 0)
     pipeline_value = metrics.get("pipeline_value_open") or "0"
+    briefing = metrics.get("enterprise_briefing") or {}
+    metrics_strip = metrics.get("enterprise_metrics") or []
+    delivery_risk = int(metrics.get("delivery_risk_projects") or 0)
+    client_risk = int(metrics.get("client_risk_accounts") or 0)
+    top_metric = next((item for item in metrics_strip if item.get("key") == "fee_vs_plan"), None)
+    fee_delta = top_metric.get("delta_value") if isinstance(top_metric, dict) else None
 
     return [
         {
             "key": "portfolio_performance",
             "title": "Portfolio Performance",
             "body": (
-                "Delivery reliability remained stable while the executive queue prioritized the highest-impact items. "
-                f"There are currently {queue_count} active executive decisions in workflow."
+                "Executive management is anchored on the enterprise command center. "
+                f"Fee revenue is tracking {fee_delta or 'in line'} versus plan while {queue_count} active executive decisions remain in workflow."
             ),
         },
         {
             "key": "risk_commentary",
             "title": "Risk Commentary",
             "body": (
-                f"{high_signals} high-severity risk signals were surfaced through the automation layer, "
-                "enabling earlier intervention and tighter governance of escalation paths."
+                f"{delivery_risk} projects require intervention, {client_risk} accounts are in client-risk status, and "
+                f"{high_signals} automation signals remain open for executive review."
             ),
         },
         {
@@ -47,22 +54,34 @@ def _build_sections(*, briefing_type: str, metrics: dict) -> list[dict]:
             "key": "ai_impact",
             "title": "AI Impact",
             "body": (
-                "Automation is reducing reporting overhead and surfacing decision-ready recommendations, "
-                "allowing leaders to spend more time on strategic and client-facing work."
+                "Automation is now generating management-ready commentary from the same market, account, project, and resource snapshots "
+                "that drive the operating system."
             ),
         },
         {
             "key": "stakeholder_note",
             "title": "Stakeholder Positioning",
             "body": (
-                "The executive layer is strengthening consistency in risk governance and communication quality, "
-                f"which supports {briefing_type} confidence in execution discipline."
+                f"{(briefing.get('headline') or 'Leadership has direct visibility into portfolio movement.')} "
+                f"This supports {briefing_type} confidence in execution discipline."
             ),
         },
     ]
 
 
 def _collect_metrics(*, env_id: UUID, business_id: UUID) -> dict:
+    enterprise_payload: dict | None = None
+    try:
+        enterprise_payload = pds_enterprise.get_command_center(
+            env_id=env_id,
+            business_id=business_id,
+            lens="market",
+            horizon="YTD",
+            role_preset="executive",
+        )
+    except Exception:  # noqa: BLE001
+        enterprise_payload = None
+
     with get_cursor() as cur:
         cur.execute(
             """
@@ -104,6 +123,12 @@ def _collect_metrics(*, env_id: UUID, business_id: UUID) -> dict:
         "open_queue": int(queue_row.get("open_queue") or 0),
         "high_signals": int(signal_row.get("high_signals") or 0),
         "pipeline_value_open": str(pipeline_row.get("pipeline_value_open") or "0"),
+        "enterprise_metrics": (enterprise_payload or {}).get("metrics_strip") or [],
+        "enterprise_briefing": (enterprise_payload or {}).get("briefing") or {},
+        "delivery_risk_projects": len((enterprise_payload or {}).get("delivery_risk") or []),
+        "client_risk_accounts": len(
+            [item for item in ((enterprise_payload or {}).get("satisfaction") or []) if item.get("risk_state") == "red"]
+        ),
     }
 
 
@@ -139,7 +164,8 @@ def generate_briefing_pack(
         summary = None
 
     if not summary:
-        summary = (
+        enterprise_briefing = metrics.get("enterprise_briefing") or {}
+        summary = enterprise_briefing.get("headline") or (
             "Executive automation is improving visibility, accelerating escalation, and tightening decision accountability "
             f"across the portfolio for this {bt} cycle."
         )

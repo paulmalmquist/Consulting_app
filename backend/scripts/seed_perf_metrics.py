@@ -3,15 +3,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import uuid
 from datetime import date, timedelta
 from pathlib import Path
-import sys
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_DIR))
 
-from app.db import get_cursor
+from app.db import get_cursor  # noqa: E402
 
 
 TIER_DEFAULTS = {
