@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_TOOL_INPUT_FILE_PATH:-}\"; if echo \"$f\" | grep -q \"backend/\"; then cd /sessions/bold-stoic-wright/mnt/Consulting_app && make test-backend 2>&1 | tail -30; elif echo \"$f\" | grep -q \"repo-b/\"; then cd /sessions/bold-stoic-wright/mnt/Consulting_app && make test-frontend 2>&1 | tail -30; fi'"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(make *)",
+      "Bash(railway *)",
+      "Bash(git push *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(curl *)",
+      "Bash(gh *)"
+    ]
+  }
+}
