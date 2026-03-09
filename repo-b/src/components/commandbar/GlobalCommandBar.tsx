@@ -521,7 +521,7 @@ export default function GlobalCommandBar() {
         if ((structuredResults[0].result_type.startsWith("waterfall") || structuredResults[0].result_type === "session_waterfall_summary") && card.scenarios) {
           setWaterfallRuns((prev) => [
             ...prev,
-            ...card.scenarios.map((row) => ({
+            ...(card.scenarios ?? []).map((row) => ({
               run_id: String(row.scenario_id || `wf_${Date.now()}`),
               scenario_name: String(row.scenario_id || ""),
               key_metrics: {
