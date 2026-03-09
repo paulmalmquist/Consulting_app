@@ -685,6 +685,11 @@ def _insert_forecast_rows(cur, *, env_id: UUID, business_id: UUID, horizon: str,
                  delta_value, override_value, override_reason, confidence_score, explainability_json)
                 VALUES
                 (%s::uuid, %s::uuid, %s, %s, %s, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+                ON CONFLICT (env_id, business_id, snapshot_date, horizon, entity_type, entity_id, forecast_month)
+                DO UPDATE SET current_value = EXCLUDED.current_value, prior_value = EXCLUDED.prior_value,
+                  delta_value = EXCLUDED.delta_value, override_value = EXCLUDED.override_value,
+                  override_reason = EXCLUDED.override_reason, confidence_score = EXCLUDED.confidence_score,
+                  explainability_json = EXCLUDED.explainability_json
                 """,
                 (
                     str(env_id),
@@ -958,6 +963,15 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
                      health_status, reason_codes_json, explainability_json)
                     VALUES
                     (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb)
+                    ON CONFLICT (env_id, business_id, snapshot_date, horizon, market_id)
+                    DO UPDATE SET fee_plan = EXCLUDED.fee_plan, fee_actual = EXCLUDED.fee_actual,
+                      gaap_plan = EXCLUDED.gaap_plan, gaap_actual = EXCLUDED.gaap_actual,
+                      ci_plan = EXCLUDED.ci_plan, ci_actual = EXCLUDED.ci_actual,
+                      backlog = EXCLUDED.backlog, forecast = EXCLUDED.forecast,
+                      red_projects = EXCLUDED.red_projects, client_risk_accounts = EXCLUDED.client_risk_accounts,
+                      utilization_pct = EXCLUDED.utilization_pct, timecard_compliance_pct = EXCLUDED.timecard_compliance_pct,
+                      satisfaction_score = EXCLUDED.satisfaction_score, health_status = EXCLUDED.health_status,
+                      reason_codes_json = EXCLUDED.reason_codes_json, explainability_json = EXCLUDED.explainability_json
                     """,
                     (
                         str(env_id), str(business_id), str(market_id), snapshot_date, horizon,
@@ -1002,6 +1016,15 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
                      health_status, reason_codes_json, explainability_json)
                     VALUES
                     (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb)
+                    ON CONFLICT (env_id, business_id, snapshot_date, horizon, account_id)
+                    DO UPDATE SET fee_plan = EXCLUDED.fee_plan, fee_actual = EXCLUDED.fee_actual,
+                      gaap_plan = EXCLUDED.gaap_plan, gaap_actual = EXCLUDED.gaap_actual,
+                      ci_plan = EXCLUDED.ci_plan, ci_actual = EXCLUDED.ci_actual,
+                      backlog = EXCLUDED.backlog, forecast = EXCLUDED.forecast,
+                      collections_lag = EXCLUDED.collections_lag, writeoff_leakage = EXCLUDED.writeoff_leakage,
+                      red_projects = EXCLUDED.red_projects, satisfaction_score = EXCLUDED.satisfaction_score,
+                      account_risk_score = EXCLUDED.account_risk_score, health_status = EXCLUDED.health_status,
+                      reason_codes_json = EXCLUDED.reason_codes_json, explainability_json = EXCLUDED.explainability_json
                     """,
                     (
                         str(env_id), str(business_id), str(account_id), snapshot_date, horizon,
@@ -1026,6 +1049,16 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
                      satisfaction_score, risk_score, severity, reason_codes_json, recommended_action, recommended_owner, explainability_json)
                     VALUES
                     (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s::jsonb)
+                    ON CONFLICT (env_id, business_id, snapshot_date, horizon, project_id)
+                    DO UPDATE SET fee_variance = EXCLUDED.fee_variance, gaap_variance = EXCLUDED.gaap_variance,
+                      ci_variance = EXCLUDED.ci_variance, schedule_slip_days = EXCLUDED.schedule_slip_days,
+                      labor_overrun_pct = EXCLUDED.labor_overrun_pct, timecard_delinquent_count = EXCLUDED.timecard_delinquent_count,
+                      claims_exposure = EXCLUDED.claims_exposure, change_order_exposure = EXCLUDED.change_order_exposure,
+                      permit_exposure = EXCLUDED.permit_exposure, closeout_aging_days = EXCLUDED.closeout_aging_days,
+                      satisfaction_score = EXCLUDED.satisfaction_score, risk_score = EXCLUDED.risk_score,
+                      severity = EXCLUDED.severity, reason_codes_json = EXCLUDED.reason_codes_json,
+                      recommended_action = EXCLUDED.recommended_action, recommended_owner = EXCLUDED.recommended_owner,
+                      explainability_json = EXCLUDED.explainability_json
                     """,
                     (
                         str(env_id), str(business_id), str(project_id), snapshot_date, horizon,
@@ -1079,6 +1112,12 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
                      staffing_gap_flag, overload_flag, delinquent_timecards, reason_codes_json, explainability_json)
                     VALUES
                     (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb)
+                    ON CONFLICT (env_id, business_id, snapshot_date, horizon, resource_id)
+                    DO UPDATE SET assigned_hours = EXCLUDED.assigned_hours, capacity_hours = EXCLUDED.capacity_hours,
+                      utilization_pct = EXCLUDED.utilization_pct, billable_mix_pct = EXCLUDED.billable_mix_pct,
+                      staffing_gap_flag = EXCLUDED.staffing_gap_flag, overload_flag = EXCLUDED.overload_flag,
+                      delinquent_timecards = EXCLUDED.delinquent_timecards,
+                      reason_codes_json = EXCLUDED.reason_codes_json, explainability_json = EXCLUDED.explainability_json
                     """,
                     (
                         str(env_id), str(business_id), str(resource_id), snapshot_date, horizon,
@@ -1095,6 +1134,10 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
                     (env_id, business_id, resource_id, snapshot_date, horizon, submitted_pct, delinquent_count, overdue_hours, reason_codes_json, explainability_json)
                     VALUES
                     (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb)
+                    ON CONFLICT (env_id, business_id, snapshot_date, horizon, resource_id)
+                    DO UPDATE SET submitted_pct = EXCLUDED.submitted_pct, delinquent_count = EXCLUDED.delinquent_count,
+                      overdue_hours = EXCLUDED.overdue_hours,
+                      reason_codes_json = EXCLUDED.reason_codes_json, explainability_json = EXCLUDED.explainability_json
                     """,
                     (
                         str(env_id), str(business_id), str(resource_id), snapshot_date, horizon,
@@ -1121,6 +1164,11 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
                      repeat_award_score, risk_state, reason_codes_json, explainability_json)
                     VALUES
                     (%s::uuid, %s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb)
+                    ON CONFLICT (env_id, business_id, snapshot_date, horizon, account_id)
+                    DO UPDATE SET client_id = EXCLUDED.client_id, average_score = EXCLUDED.average_score,
+                      trend_delta = EXCLUDED.trend_delta, response_count = EXCLUDED.response_count,
+                      repeat_award_score = EXCLUDED.repeat_award_score, risk_state = EXCLUDED.risk_state,
+                      reason_codes_json = EXCLUDED.reason_codes_json, explainability_json = EXCLUDED.explainability_json
                     """,
                     (
                         str(env_id), str(business_id), str(account_id), str(account.get("client_id")) if account.get("client_id") else None,
@@ -1156,6 +1204,14 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
                      reason_codes_json, explainability_json)
                     VALUES
                     (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb)
+                    ON CONFLICT (env_id, business_id, snapshot_date, horizon, project_id)
+                    DO UPDATE SET closeout_target_date = EXCLUDED.closeout_target_date,
+                      substantial_completion_date = EXCLUDED.substantial_completion_date,
+                      actual_closeout_date = EXCLUDED.actual_closeout_date,
+                      closeout_aging_days = EXCLUDED.closeout_aging_days, blocker_count = EXCLUDED.blocker_count,
+                      final_billing_status = EXCLUDED.final_billing_status, survey_status = EXCLUDED.survey_status,
+                      lessons_learned_status = EXCLUDED.lessons_learned_status, risk_state = EXCLUDED.risk_state,
+                      reason_codes_json = EXCLUDED.reason_codes_json, explainability_json = EXCLUDED.explainability_json
                     """,
                     (
                         str(env_id), str(business_id), str(project_id), snapshot_date, horizon,
