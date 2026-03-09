@@ -25,6 +25,23 @@ const INDUSTRIES = [
   { key: "legal_ops", label: "Legal Ops" },
 ];
 
+function DashboardSection<T>({ title, items, render }: { title: string; items: T[] | undefined; render: (v: T) => string }) {
+  return (
+    <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+      <h3 className="text-sm font-semibold mb-2">{title}</h3>
+      {!items?.length ? (
+        <p className="text-xs text-bm-muted2">No data available.</p>
+      ) : (
+        <ul className="space-y-1">
+          {items.map((item, i) => (
+            <li key={i} className="text-sm text-bm-muted2">{render(item)}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export default function DashboardsPage() {
   const { envId } = useDomainEnv();
   const [selected, setSelected] = useState(INDUSTRIES[0].key);
@@ -105,28 +122,12 @@ export default function DashboardsPage() {
           </div>
 
           {/* Sections */}
-          {[
-            { title: "Common Vendor Stacks", items: dashboard.top_vendor_stacks, render: (v: { stack: string[]; count: number }) => `${v.stack?.join(" + ") || "\u2014"} (${v.count})` },
-            { title: "Workflow Bottlenecks", items: dashboard.top_workflow_bottlenecks, render: (v: { bottleneck: string; count: number }) => `${v.bottleneck} (${v.count})` },
-            { title: "Metric Inconsistency Hot Spots", items: dashboard.top_metric_conflicts, render: (v: { metric: string; variants: number }) => `${v.metric} \u2014 ${v.variants} variants` },
-            { title: "Failure Modes", items: dashboard.top_failure_modes, render: (v: { mode: string; count: number }) => `${v.mode} (${v.count})` },
-            { title: "Pilot Success Rates", items: dashboard.top_successful_pilots, render: (v: { pilot: string; success_rate: number }) => `${v.pilot} \u2014 ${(v.success_rate * 100).toFixed(0)}%` },
-            { title: "Winning Architectures", items: dashboard.top_architectures, render: (v: { architecture: string; avg_score: number }) => `${v.architecture} \u2014 score ${v.avg_score?.toFixed(2) || "\u2014"}` },
-          ].map(({ title, items, render }) => (
-            <div key={title} className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-              <h3 className="text-sm font-semibold mb-2">{title}</h3>
-              {!items?.length ? (
-                <p className="text-xs text-bm-muted2">No data available.</p>
-              ) : (
-                <ul className="space-y-1">
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  {items.map((item: any, i: number) => (
-                    <li key={i} className="text-sm text-bm-muted2">{render(item)}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ))}
+          <DashboardSection title="Common Vendor Stacks" items={dashboard.top_vendor_stacks} render={(v) => `${v.stack?.join(" + ") || "\u2014"} (${v.count})`} />
+          <DashboardSection title="Workflow Bottlenecks" items={dashboard.top_workflow_bottlenecks} render={(v) => `${v.bottleneck} (${v.count})`} />
+          <DashboardSection title="Metric Inconsistency Hot Spots" items={dashboard.top_metric_conflicts} render={(v) => `${v.metric} \u2014 ${v.variants} variants`} />
+          <DashboardSection title="Failure Modes" items={dashboard.top_failure_modes} render={(v) => `${v.mode} (${v.count})`} />
+          <DashboardSection title="Pilot Success Rates" items={dashboard.top_successful_pilots} render={(v) => `${v.pilot} \u2014 ${(v.success_rate * 100).toFixed(0)}%`} />
+          <DashboardSection title="Winning Architectures" items={dashboard.top_architectures} render={(v) => `${v.architecture} \u2014 score ${v.avg_score?.toFixed(2) || "\u2014"}`} />
         </div>
       )}
     </section>
