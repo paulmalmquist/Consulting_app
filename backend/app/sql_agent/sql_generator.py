@@ -84,7 +84,7 @@ async def generate_sql(
 
     response = await asyncio.wait_for(
         client.chat.completions.create(**create_kwargs),
-        timeout=10.0,
+        timeout=20.0,
     )
 
     sql = (response.choices[0].message.content or "").strip()

@@ -108,7 +108,7 @@ async def route_query(prompt: str, *, quarter: str | None = None) -> RoutingPlan
 
     response = await asyncio.wait_for(
         client.chat.completions.create(**create_kwargs),
-        timeout=5.0,
+        timeout=15.0,
     )
 
     content = (response.choices[0].message.content or "{}").strip()
