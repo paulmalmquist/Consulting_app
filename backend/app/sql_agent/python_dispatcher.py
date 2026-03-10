@@ -216,7 +216,7 @@ def _run_waterfall(
     *, business_id: UUID, quarter: str | None, params: dict[str, Any],
 ) -> dict[str, Any]:
     """Run a US-style waterfall distribution."""
-    from app.finance.waterfall_engine import run_us_waterfall, WaterfallContract, WaterfallInput, ParticipantState
+    from app.finance.waterfall_engine import run_us_waterfall, WaterfallContract, WaterfallInput
 
     fund_id = _resolve_fund_id(business_id, params)
     if not fund_id:

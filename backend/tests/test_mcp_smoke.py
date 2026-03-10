@@ -10,6 +10,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 # Add backend to path
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
@@ -20,8 +22,7 @@ os.environ["_BM_SKIP_DB_CHECK"] = "1"
 os.environ["MCP_API_TOKEN"] = "test-token"
 os.environ["ENABLE_MCP_WRITES"] = "false"  # Start with writes disabled
 
-import pytest
-from app.mcp.registry import registry
+from app.mcp.registry import registry  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

@@ -5,7 +5,6 @@ can answer REPE questions with SQL lookups or Python calculations.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 
 from app.mcp.auth import McpContext
