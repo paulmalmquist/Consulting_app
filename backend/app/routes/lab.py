@@ -118,8 +118,8 @@ def get_metrics(env_id: Optional[str] = Query(None)):
 
 @router.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
-    # For now, provide a helpful response. The AI sidecar integration
-    # can be wired in later when the LLM backend is deployed.
+    # For now, provide a helpful response until the chat flow is wired
+    # to the deployed AI backend.
     return ChatResponse(
         answer=(
             "I received your message. The AI chat backend is being configured. "

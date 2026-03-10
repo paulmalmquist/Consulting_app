@@ -1,2 +1,1 @@
-"""Local-only AI helper modules (sidecar client + retrieval)."""
-
+"""AI helper modules used by retrieval and related services."""

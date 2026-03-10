@@ -274,8 +274,8 @@ Last updated: 2026-02-25 — added environment registration rules, seed layer di
   through the registry.
 - MCP tools that mutate state must enforce the same auth and audit rules as REST
   endpoints (mcp/auth.py, mcp/audit.py).
-- AI sidecar calls (ai/sidecar_client.py, codexBridge.ts) must go through the
-  command orchestrator; no direct sidecar calls from UI components.
+- AI gateway and orchestration calls must go through approved helpers and the
+  command orchestrator; no ad hoc AI calls from UI components.
 - Codex orchestration sessions must be scoped: allowed directories, file count
   limits, and intent taxonomy (orchestration/intent_taxonomy.json) enforced before
   execution begins.

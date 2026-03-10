@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Starts sidecar (optional), backend, and frontend for local dev.
+# Starts backend and frontend for local dev.
 # Defaults avoid port 3000 (often in use).
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -10,13 +10,8 @@ FRONTEND_PORT="${FRONTEND_PORT:-3001}"
 BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 
-AI_MODE="${AI_MODE:-local}"
-AI_SIDECAR_URL="${AI_SIDECAR_URL:-http://127.0.0.1:7337}"
-
 echo "Frontend: http://127.0.0.1:${FRONTEND_PORT}"
 echo "Backend:   http://${BACKEND_HOST}:${BACKEND_PORT}"
-echo "AI_MODE=${AI_MODE}"
-echo "AI_SIDECAR_URL=${AI_SIDECAR_URL}"
 
 cleanup() {
   if [[ -n "${BACK_PID:-}" ]] && kill -0 "${BACK_PID}" 2>/dev/null; then
@@ -36,8 +31,6 @@ trap cleanup EXIT
     exit 1
   fi
   source ".venv/bin/activate"
-  export AI_MODE="${AI_MODE}"
-  export AI_SIDECAR_URL="${AI_SIDECAR_URL}"
   uvicorn app.main:app --reload --host "${BACKEND_HOST}" --port "${BACKEND_PORT}"
 ) &
 BACK_PID=$!
@@ -48,11 +41,9 @@ BACK_PID=$!
   if [[ ! -d "node_modules" ]]; then
     npm install
   fi
-  export NEXT_PUBLIC_AI_MODE="${NEXT_PUBLIC_AI_MODE:-local}"
   export NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL:-http://${BACKEND_HOST}:${BACKEND_PORT}}"
   PORT="${FRONTEND_PORT}" npm run dev
 ) &
 FRONT_PID=$!
 
 wait "${BACK_PID}" "${FRONT_PID}"
-

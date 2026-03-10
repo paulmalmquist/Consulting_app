@@ -295,7 +295,7 @@ The `fin_budget` + `fin_budget_line_csi` tables are perfect for PDS. Also surfac
 
 ### 4. AI Copilot pattern
 Establish the pattern once in PDS, reuse everywhere:
-- "Explain schedule variance" button → calls `/api/ai/codex/run` with project schedule data
+- "Explain schedule variance" button → calls the AI Gateway with project schedule data
 - "Summarize project health" → generates executive summary from budget + milestone + issue data
 - "Draft RFI response" → AI-assisted response generation
 

@@ -10,7 +10,6 @@ for full functionality.
 | Business OS Backend | `backend/` | FastAPI + Uvicorn | **8000** | `GET /health` |
 | Demo Lab Backend | `repo-c/` | FastAPI + Uvicorn | **8001** | `GET /health` |
 | Frontend | `repo-b/` | Next.js 14 | **3001** | `GET /` |
-| AI Sidecar (optional) | `scripts/ai_sidecar.py` | FastAPI | **7337** | `GET /health` |
 
 ## Quick Start
 

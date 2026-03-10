@@ -22,7 +22,7 @@ This document inventories the repo and lays out a forward plan (features + harde
 
 - `backend/` (FastAPI: "Business OS Backend")
   - API prefix mostly `/api/*` + `/health`.
-  - Supports: templates/catalog, business provisioning, documents (signed upload + versions + signed download), executions (currently stub), local AI sidecar endpoints (`/api/ai/*`).
+  - Supports: templates/catalog, business provisioning, documents (signed upload + versions + signed download), executions (currently stub), AI Gateway endpoints (`/api/ai/*`).
   - DB schema lives in `repo-b/db/schema.sql` (base) and `repo-b/db/business_os_schema.sql` (extension + seeds).
 
 - `repo-c/` (FastAPI: "Demo Lab API")
@@ -32,11 +32,10 @@ This document inventories the repo and lays out a forward plan (features + harde
 
 - `docs/`
   - `execution-engine-v1/*`: canonical schema + capability contract + bootstrap flow and infra boundary notes.
-  - `LOCAL_AI_SIDECAR.md`: local-only Codex sidecar setup.
+  - `LOCAL_DEV_PORTS.md`: local service topology and ports.
 
 - `scripts/`
   - `dev_all.sh` (existing): starts `backend` and `repo-b`.
-  - `ai_sidecar.py` + `ai_start_sidecar.sh` (local-only codex sidecar).
   - `dev.sh` (added): root entrypoint to start backend+frontend together.
 
 ### 1.2 Key Endpoints (What Exists Today)
@@ -300,8 +299,8 @@ Executions (today, stub):
 
 Local AI:
 - [ ] retrieval never reads `.env*` or denied paths (`backend/app/ai/retrieval.py`)
-- [ ] `/api/ai/health` returns enabled=false unless `AI_MODE=local`
-- [ ] `/api/ai/ask` returns 503 if sidecar unavailable (mock httpx)
+- [ ] `/api/ai/health` returns the legacy gateway redirect payload
+- [ ] `/api/ai/ask` returns a gateway redirect for legacy callers
 - [ ] prompt size limit returns 413
 
 ### 5.4 Demo Lab API (repo-c) Test Suites
@@ -395,4 +394,3 @@ An "environment" is feature-complete when:
   - run an action
   - review audit + metrics
   - repeat in a second environment and compare results
-

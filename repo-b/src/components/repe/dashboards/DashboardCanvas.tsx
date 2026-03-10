@@ -12,7 +12,7 @@ import {
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { SortableContext, useSortable, rectSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { DashboardWidget } from "@/lib/dashboards/types";
+import type { DashboardWidget, DataAvailability, WidgetQueryManifest } from "@/lib/dashboards/types";
 import WidgetRenderer from "./WidgetRenderer";
 
 /* --------------------------------------------------------------------------
@@ -26,6 +26,8 @@ interface Props {
   isEditing: boolean;
   onWidgetsChange: (widgets: DashboardWidget[]) => void;
   onConfigureWidget: (widgetId: string) => void;
+  queryManifests?: WidgetQueryManifest[];
+  dataAvailabilities?: DataAvailability[];
 }
 
 /* --------------------------------------------------------------------------
@@ -38,6 +40,8 @@ function SortableWidget({
   quarter,
   isEditing,
   onConfigure,
+  queryManifest,
+  dataAvailability,
 }: {
   widget: DashboardWidget;
   envId: string;
@@ -45,6 +49,8 @@ function SortableWidget({
   quarter?: string;
   isEditing: boolean;
   onConfigure: () => void;
+  queryManifest?: WidgetQueryManifest;
+  dataAvailability?: DataAvailability;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: widget.id,
@@ -72,6 +78,8 @@ function SortableWidget({
         quarter={quarter}
         isEditing={isEditing}
         onConfigure={onConfigure}
+        queryManifest={queryManifest}
+        dataAvailability={dataAvailability}
       />
     </div>
   );
@@ -88,6 +96,8 @@ export default function DashboardCanvas({
   isEditing,
   onWidgetsChange,
   onConfigureWidget,
+  queryManifests,
+  dataAvailabilities,
 }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -150,6 +160,8 @@ export default function DashboardCanvas({
               quarter={quarter}
               isEditing={isEditing}
               onConfigure={() => onConfigureWidget(widget.id)}
+              queryManifest={queryManifests?.find((m) => m.widget_id === widget.id)}
+              dataAvailability={dataAvailabilities?.find((d) => d.widget_id === widget.id)}
             />
           ))}
         </div>

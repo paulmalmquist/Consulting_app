@@ -38,6 +38,23 @@ export interface WidgetFilter {
   value: string | string[] | [string, string];
 }
 
+/** Per-widget data availability (derived from known context, not DB scan) */
+export interface DataAvailability {
+  widget_id: string;
+  has_data: boolean;
+  has_budget: boolean;
+  missing_reason?: string;
+}
+
+/** Per-widget query transparency — what API call backs each widget */
+export interface WidgetQueryManifest {
+  widget_id: string;
+  widget_type: string;
+  api_route: string;
+  params: Record<string, string>;
+  description: string;
+}
+
 export interface WidgetConfig {
   title?: string;
   subtitle?: string;

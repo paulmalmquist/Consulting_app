@@ -2,6 +2,7 @@ import { getPool } from "@/lib/server/db";
 import { METRIC_CATALOG } from "@/lib/dashboards/metric-catalog";
 import { LAYOUT_ARCHETYPES, SECTION_REGISTRY, ARCHETYPE_DEFAULT_SECTIONS } from "@/lib/dashboards/layout-archetypes";
 import { validateDashboardSpec } from "@/lib/dashboards/spec-validator";
+import { buildQueryManifest, deriveDataAvailability } from "@/lib/dashboards/query-manifest-builder";
 
 export const runtime = "nodejs";
 
@@ -27,8 +28,8 @@ export async function POST(request: Request) {
 
     const promptLower = prompt.toLowerCase();
 
-    // 1. Parse structured intent from the prompt
-    const intent = parseIntent(promptLower);
+    // 1. Parse structured intent — try LLM first, fall back to regex
+    const intent = await parseLLMIntent(prompt, entity_type || "asset");
 
     // 2. Detect entity scope
     const scope = detectScope(promptLower, entity_type, entity_ids);
@@ -82,15 +83,20 @@ export async function POST(request: Request) {
     const validation = validateDashboardSpec(spec);
 
     // 5b. Check intent coverage and surface warnings
-    const coverageWarnings = validateIntentCoverage(intent, spec.widgets);
+    const coverageWarnings = validateIntentCoverage(intent as DashboardIntent, spec.widgets);
     if (coverageWarnings.length > 0) {
       validation.warnings.push(...coverageWarnings);
     }
 
-    // 6. Generate a dashboard name
+    // 6. Build query manifest and data availability signal
+    const effectiveQuarter = quarter || detectQuarter(promptLower) || undefined;
+    const queryManifest = buildQueryManifest(spec.widgets, scope.entity_type, scope.entity_ids || [], effectiveQuarter);
+    const dataAvailability = deriveDataAvailability(spec.widgets, scope.entity_ids, effectiveQuarter);
+
+    // 7. Generate a dashboard name
     const name = generateName(promptLower, intent.archetype);
 
-    // 7. Resolve entity names for display
+    // 8. Resolve entity names for display
     let entityNames: Record<string, string> = {};
     if (scope.entity_ids?.length && env_id) {
       entityNames = await resolveEntityNames(pool, scope.entity_type, scope.entity_ids);
@@ -102,12 +108,15 @@ export async function POST(request: Request) {
       layout_archetype: intent.archetype,
       spec: validation.sanitized || spec,
       entity_scope: scope,
-      quarter: quarter || detectQuarter(promptLower),
+      quarter: effectiveQuarter,
       validation: {
         valid: validation.valid,
         warnings: validation.warnings,
       },
       entity_names: entityNames,
+      query_manifest: queryManifest,
+      data_availability: dataAvailability,
+      intent_source: (intent as TaggedIntent).source ?? "regex",
     };
     console.log("[dashboards/generate] Response:", JSON.stringify({ name: responsePayload.name, widgetCount: responsePayload.spec?.widgets?.length, entity_scope: responsePayload.entity_scope, quarter: responsePayload.quarter, archetype: intent.archetype, sections: intent.requested_sections }));
     return Response.json(responsePayload);
@@ -127,6 +136,51 @@ interface DashboardIntent {
   measures: string[];
   comparisons: string[];
   time_view: string;
+}
+
+interface TaggedIntent extends DashboardIntent {
+  source: "llm" | "regex";
+}
+
+const BOS_BASE = (
+  process.env.NEXT_PUBLIC_BOS_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  "http://localhost:8000"
+).replace(/\/$/, "");
+
+async function parseLLMIntent(prompt: string, entityType: string): Promise<TaggedIntent> {
+  const start = Date.now();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const res = await fetch(`${BOS_BASE}/api/ai/intent/dashboard`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, entity_type: entityType }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+    const data = await res.json();
+    const elapsed = Date.now() - start;
+    console.log(`[generate] LLM intent: archetype=${data.archetype}, sections=${JSON.stringify(data.requested_sections)}, confidence=${data.confidence} (${elapsed}ms)`);
+
+    return {
+      archetype: data.archetype || "executive_summary",
+      requested_sections: Array.isArray(data.requested_sections) ? data.requested_sections : [],
+      measures: [],
+      comparisons: Array.isArray(data.comparisons) ? data.comparisons : [],
+      time_view: data.time_view || "quarterly",
+      source: "llm",
+    };
+  } catch (err) {
+    clearTimeout(timeout);
+    const elapsed = Date.now() - start;
+    console.warn(`[generate] LLM intent failed after ${elapsed}ms, using regex:`, (err as Error).message);
+    return { ...parseIntent(prompt.toLowerCase()), source: "regex" };
+  }
 }
 
 const ARCHETYPE_PHRASES: Record<string, string[]> = {

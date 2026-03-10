@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "ai:sidecar": "node scripts/codex_sidecar.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

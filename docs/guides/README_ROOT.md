@@ -124,7 +124,7 @@ See each sub-project's `.env.example` for the full list.
 ## Documentation
 
 - `docs/execution-engine-v1/` — canonical schema, capability contracts, bootstrap flow
-- `docs/LOCAL_AI_SIDECAR.md` — local AI sidecar setup
+- `docs/LOCAL_DEV_PORTS.md` — local service topology and ports
 - `ROADMAP.md` — feature roadmap and test plan
 - `orchestration/README.md` — controlled parallel Codex orchestration (sessions, branch isolation, scope/risk controls, audit logs)
 

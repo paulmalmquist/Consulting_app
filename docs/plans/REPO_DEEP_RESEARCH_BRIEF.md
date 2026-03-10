@@ -243,7 +243,7 @@ It includes:
 - DB cursor helpers
 - Observability / request logging
 - MCP/tooling surfaces
-- AI sidecar integration
+- AI gateway integration
 
 This is where the platform wants critical logic to live, especially:
 

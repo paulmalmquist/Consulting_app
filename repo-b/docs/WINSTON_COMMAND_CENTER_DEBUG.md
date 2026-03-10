@@ -4,11 +4,9 @@
 - Frontend (Next.js): `http://127.0.0.1:3001`
 - Business backend (FastAPI): `http://127.0.0.1:8000`
 - Demo backend (FastAPI): `http://127.0.0.1:8001`
-- Codex sidecar: `http://127.0.0.1:7337`
 
 ## Required env vars
-- `AI_MODE=local` to enable local codex routes.
-- `AI_SIDECAR_URL=http://127.0.0.1:7337`
+- `OPENAI_API_KEY` on the backend to enable the AI Gateway.
 - `USE_CODEX_SERVER=true|false`
 - `USE_MOCKS=true|false`
 - `NEXT_PUBLIC_USE_CODEX_SERVER=true|false`
@@ -23,11 +21,11 @@
   - `/api/commands/confirm`
   - `/api/commands/execute`
   - `/api/commands/runs/[runId]`
-  - `/api/ai/codex/health`
+  - `/api/ai/gateway/health`
 
 ## Diagnostics button checks
-1. Codex bridge health (`/api/ai/codex/health`)
-2. Bridge mode/version summary
+1. AI Gateway health (`/api/ai/gateway/health`)
+2. Gateway mode/model summary
 3. Permissions (`/api/mcp/context-snapshot`)
 4. Sample dry-run plan (`/api/mcp/plan`, read-only prompt)
 
@@ -37,8 +35,8 @@ Each check records latency and status badge.
 - `401 Authentication required`:
   - Missing `demo_lab_session`/`bos_session` cookie.
   - Middleware blocked private API call.
-- `403 Local Codex routes are disabled`:
-  - `AI_MODE` is not `local`.
+- `403 AI Gateway unavailable`:
+  - Backend gateway route is disabled or rejecting the request.
 - `Response validation failed for /api/mcp/plan`:
   - Planner payload shape changed or malformed.
   - Open Advanced drawer and inspect `raw.plan`.
@@ -48,7 +46,7 @@ Each check records latency and status badge.
 
 ## Reproduction sequence
 1. `npm run dev` in `repo-b`.
-2. Confirm sidecar health: `curl -H 'Cookie: demo_lab_session=active' http://127.0.0.1:3001/api/ai/codex/health`.
+2. Confirm gateway health: `curl -H 'Cookie: demo_lab_session=active' http://127.0.0.1:3001/api/ai/gateway/health`.
 3. Open Winston Command Center from any page.
 4. Run `Quick Action -> List Environments`.
 5. Confirm and execute.

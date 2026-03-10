@@ -318,7 +318,7 @@ function summarizeIntent(intent: CommandIntent): string {
     return "Create a new Business OS business and verify returned identifiers.";
   }
   if (intent.domain === "system" && intent.action === "health") {
-    return "Run read-only health checks for command and environment endpoints.";
+    return "Run read-only health checks for the AI gateway and environment endpoints.";
   }
   return "Unable to map command to a direct mutation. Propose discovery steps first.";
 }
@@ -460,7 +460,7 @@ function planSteps(intent: CommandIntent): PlanStep[] {
       {
         id: "step_health_checks",
         title: "Run service health checks",
-        description: "Check codex bridge health and environment list reachability.",
+        description: "Check AI gateway health and environment list reachability.",
         mutation: false,
       },
     ];
@@ -1326,15 +1326,15 @@ async function executeStep(
   }
 
   if (intent.domain === "system" && intent.action === "health") {
-    const [commandHealth, envList] = await Promise.all([
-      requestJson(apiBases.origin, "/api/ai/codex/health", { idempotencyKey: `${key}:command` }),
+    const [gatewayHealth, envList] = await Promise.all([
+      requestJson(apiBases.origin, "/api/ai/gateway/health", { idempotencyKey: `${key}:command` }),
       requestJson(apiBases.labApiBaseUrl, "/api/v1/environments", {
         idempotencyKey: `${key}:envs`,
       }),
     ]);
     return {
       details: {
-        commandHealth,
+        gatewayHealth,
         environmentCount: Array.isArray(envList?.environments) ? envList.environments.length : 0,
       },
       verification: buildVerification(
@@ -1342,7 +1342,7 @@ async function executeStep(
         "Health checks completed.",
         true,
         {
-          commandHealth,
+          gatewayHealth,
           environmentCount: Array.isArray(envList?.environments) ? envList.environments.length : 0,
         }
       ),

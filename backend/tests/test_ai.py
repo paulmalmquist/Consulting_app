@@ -1,22 +1,20 @@
 """Tests for /api/ai/* endpoints and retrieval safety."""
 
-import os
 from pathlib import Path
-from unittest.mock import patch
 
 
 def test_ai_health_disabled(client):
-    """AI health should return enabled=false when AI_MODE != local."""
-    with patch.dict(os.environ, {"AI_MODE": "off"}):
-        resp = client.get("/api/ai/health")
+    """Legacy AI health stub should point callers to the gateway."""
+    resp = client.get("/api/ai/health")
     assert resp.status_code == 200
     data = resp.json()
     assert data["enabled"] is False
     assert data["sidecar_ok"] is False
+    assert data["mode"] == "gateway"
 
 
 def test_ai_ask_disabled(client):
-    """AI ask should return 301 (legacy route redirects to gateway)."""
+    """Legacy ask route should redirect callers to the gateway."""
     resp = client.post("/api/ai/ask", json={"prompt": "hello"})
     assert resp.status_code == 301
     assert "gateway" in resp.json()["detail"].lower()

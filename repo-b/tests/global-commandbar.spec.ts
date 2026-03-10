@@ -280,7 +280,7 @@ test.describe("Winston command center", () => {
     await expect(page.getByTestId("global-commandbar-output")).toContainText("Planner timeout");
   });
 
-  test("diagnostics surfaces codex down and permission failures", async ({ page, context, baseURL }) => {
+  test("diagnostics surfaces gateway and permission failures", async ({ page, context, baseURL }) => {
     if (!baseURL) throw new Error("baseURL missing");
     await seedAuthCookie(baseURL, context);
 
@@ -292,11 +292,11 @@ test.describe("Winston command center", () => {
       });
     });
 
-    await page.route("**/api/ai/codex/health", async (route) => {
+    await page.route("**/api/ai/gateway/health", async (route) => {
       await route.fulfill({
         status: 403,
         contentType: "application/json",
-        body: JSON.stringify({ error: "Local Codex routes are disabled." }),
+        body: JSON.stringify({ error: "AI Gateway unavailable." }),
       });
     });
 
@@ -305,7 +305,7 @@ test.describe("Winston command center", () => {
     await page.getByRole("button", { name: "Advanced / Debug" }).click();
     await page.getByRole("button", { name: "Diagnostics" }).click();
 
-    await expect(page.getByText("Codex bridge health")).toBeVisible();
+    await expect(page.getByText("AI Gateway health")).toBeVisible();
     await expect(page.getByText("Authentication required to run commands")).toBeVisible();
   });
 });

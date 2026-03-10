@@ -99,10 +99,10 @@ Tabs in project view:
 - `sprint-create`
 - `filter-search`
 
-## AI Assist (Local-only)
-AI helper buttons in New Issue and Issue Drawer call local Winston AI routes:
-- `/api/ai/health`
-- `/api/ai/ask`
+## AI Assist
+AI helper buttons in New Issue and Issue Drawer call the Winston AI Gateway:
+- `/api/ai/gateway/health`
+- `/api/ai/gateway/ask`
 
 Behavior:
 - Graceful fallback when unavailable

@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { useToast } from "@/components/ui/Toast";
+import { askAi, checkCodexHealth as checkAiGatewayHealth } from "@/lib/commandbar/assistantApi";
 import {
   addTaskAttachment,
   addTaskComment,
@@ -85,6 +86,24 @@ function formatDate(value: string | null): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString();
+}
+
+async function requestTaskAiSuggestion(prompt: string) {
+  const health = await checkAiGatewayHealth().catch(() => null);
+  if (!health?.health.ok) {
+    throw new Error(health?.health.message || "AI Gateway unavailable right now.");
+  }
+
+  const result = await askAi({ message: prompt });
+  if (!result.trace.ok) {
+    throw new Error(result.answer || "AI helper unavailable.");
+  }
+
+  const answer = result.answer.trim();
+  if (!answer || answer === "No response from Winston.") {
+    throw new Error("No AI suggestion returned.");
+  }
+  return answer;
 }
 
 function statusTone(statusCategory: string): string {
@@ -359,11 +378,6 @@ function NewIssueDialog({
     }
     setAiLoading(true);
     try {
-      const health = await fetch("/api/ai/health").then((res) => res.json().catch(() => ({})));
-      if (!health || (health.status && health.status !== "ok")) {
-        throw new Error("AI helper unavailable right now.");
-      }
-
       const promptByMode: Record<typeof mode, string> = {
         summary: "Summarize this issue and propose concrete next steps.",
         subtasks: "Turn these notes into an ordered subtask list.",
@@ -379,16 +393,7 @@ function NewIssueDialog({
         "Respond in Markdown.",
       ].join("\n");
 
-      const payload = await fetch("/api/ai/ask", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
-      }).then((res) => res.json());
-
-      if (!payload?.answer) {
-        throw new Error(payload?.detail || "No AI suggestion returned.");
-      }
-      setAiSuggestion(payload.answer);
+      setAiSuggestion(await requestTaskAiSuggestion(prompt));
     } catch (error) {
       push({
         variant: "warning",
@@ -992,10 +997,6 @@ export default function TasksProjectClient({
     if (!drawerIssue) return;
     setDrawerAiLoading(true);
     try {
-      const health = await fetch("/api/ai/health").then((res) => res.json().catch(() => ({})));
-      if (!health || (health.status && health.status !== "ok")) {
-        throw new Error("AI helper unavailable right now.");
-      }
       const instruction: Record<typeof mode, string> = {
         summary: "Summarize this issue and propose next steps.",
         subtasks: "Create subtasks from this issue details.",
@@ -1008,15 +1009,7 @@ export default function TasksProjectClient({
         instruction[mode],
         "Respond in Markdown.",
       ].join("\n");
-      const payload = await fetch("/api/ai/ask", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
-      }).then((res) => res.json());
-      if (!payload?.answer) {
-        throw new Error(payload?.detail || "No AI answer returned.");
-      }
-      setDrawerAiSuggestion(payload.answer);
+      setDrawerAiSuggestion(await requestTaskAiSuggestion(prompt));
     } catch (error) {
       push({
         variant: "warning",

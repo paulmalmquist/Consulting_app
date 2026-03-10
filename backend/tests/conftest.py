@@ -16,7 +16,6 @@ pytest_plugins = ("tests.plugins.repe_logging",)
 os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/test")
 os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
 os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-key")
-os.environ.setdefault("AI_MODE", "off")
 
 from fastapi.testclient import TestClient  # noqa: E402
 

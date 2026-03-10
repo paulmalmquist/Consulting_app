@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
-import type { DashboardSpec, DashboardWidget } from "@/lib/dashboards/types";
+import type { DashboardSpec, DashboardWidget, DataAvailability, WidgetQueryManifest } from "@/lib/dashboards/types";
 import { listArchetypes } from "@/lib/dashboards/layout-archetypes";
 import type { HintContext } from "@/lib/dashboards/hint-engine";
 import DashboardPrompt from "@/components/repe/dashboards/DashboardPrompt";
@@ -41,6 +41,10 @@ export default function DashboardBuilderPage({
   const [promptText, setPromptText] = useState("");
   const [layoutArchetype, setLayoutArchetype] = useState("executive_summary");
   const [quarter] = useState("2026Q1");
+
+  // Generate response metadata
+  const [dataAvailability, setDataAvailability] = useState<DataAvailability[]>([]);
+  const [queryManifest, setQueryManifest] = useState<WidgetQueryManifest[]>([]);
 
   // UI state
   const [generating, setGenerating] = useState(false);
@@ -88,6 +92,8 @@ export default function DashboardBuilderPage({
         setLayoutArchetype(data.layout_archetype || "custom");
         setView("builder");
         setIsEditing(true);
+        setDataAvailability(data.data_availability || []);
+        setQueryManifest(data.query_manifest || []);
       }
     } catch {
       // silent
@@ -263,6 +269,8 @@ export default function DashboardBuilderPage({
           isEditing={isEditing}
           onWidgetsChange={setWidgets}
           onConfigureWidget={handleConfigureWidget}
+          queryManifests={queryManifest}
+          dataAvailabilities={dataAvailability}
         />
 
         {/* Back to gallery */}

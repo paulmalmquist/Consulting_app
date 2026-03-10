@@ -1,5 +1,7 @@
 # Backend Query Performance Harness (AI + Metrics)
 
+`/api/ai/ask` in this harness is a legacy path retained only as a redirect stub after the local sidecar removal. Migrate perf coverage to `/api/ai/gateway/*` before treating AI numbers here as representative.
+
 This harness validates latency/error budgets for:
 - `POST /api/ai/ask`
 - `POST /api/metrics/query`
@@ -21,28 +23,22 @@ across subject context, data volume tier, action type, and concurrency profile.
 1. Backend running at `http://127.0.0.1:8000`
 2. `k6` installed
 3. Python env with backend dependencies installed
-4. AI mode enabled for `/api/ai/ask` tests:
-   - `AI_MODE=local`
-   - `AI_SIDECAR_URL=http://127.0.0.1:7337`
+4. For gateway-backed AI perf work, set `OPENAI_API_KEY` in the backend environment.
 
 ## Multi-Session Layout
 1. Session A (backend):
 ```bash
 cd backend
-AI_MODE=local AI_SIDECAR_URL=http://127.0.0.1:7337 .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
-2. Session B (sidecar):
-```bash
-python3 backend/perf/scripts/mock_sidecar.py
-```
-3. Session C (seed + load):
+2. Session B (seed + load):
 ```bash
 python3 backend/scripts/seed_perf_metrics.py --tier S --dataset-version perf_v1
 python3 backend/scripts/seed_perf_metrics.py --tier M --dataset-version perf_v1
 python3 backend/scripts/seed_perf_metrics.py --tier L --dataset-version perf_v1
 ./backend/perf/scripts/run_local.sh
 ```
-4. Session D (analysis):
+3. Session C (analysis):
 ```bash
 python3 backend/perf/scripts/summarize.py summarize --help
 python3 backend/perf/scripts/summarize.py baseline-build --help
@@ -75,4 +71,4 @@ make perf:nightly
   - invalid business ID
   - empty metric keys
   - oversized prompt
-  - sidecar unavailable (optional if `BASE_URL_SIDECAR_DOWN` is provided)
+  - legacy AI route unavailable (optional if `BASE_URL_SIDECAR_DOWN` is provided)

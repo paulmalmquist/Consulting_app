@@ -17,7 +17,7 @@ The repo contains multiple distinct AI systems:
 5. `repo-c` separate Demo Lab upload + RAG chat backend.
 6. `backend` niche AI workflows like PDS executive narrative generation.
 7. `repo-b` public assistant route that is advisory and effectively template-driven.
-8. `scripts/ai_sidecar.py` plus `orchestration/` for local Codex-side workflows.
+8. `orchestration/` for controlled Codex-side workflows after the local sidecar removal.
 
 The most important architectural fact is that these systems overlap in UI and branding but are not one coherent runtime. Winston is a family of adjacent systems, not a single pipeline.
 
@@ -28,7 +28,7 @@ The most important architectural fact is that these systems overlap in UI and br
 | Main UI | `repo-b/` | Next.js 14 App Router | Winston shell, command bar, AI proxy routes, deterministic command planner UI |
 | BOS backend | `backend/` | FastAPI + psycopg | AI Gateway, RAG indexing/retrieval, MCP tools, conversation persistence, logs |
 | Demo Lab backend | `repo-c/` | FastAPI + psycopg | Demo upload + doc chunking + simple RAG chat |
-| Local sidecar | `scripts/ai_sidecar.py` | FastAPI script | Local-only Codex bridge for developer/operator workflows |
+| Codex orchestration | `orchestration/` | Python library + CLI | Controlled developer/operator Codex workflows without the removed sidecar runtime |
 | Orchestration | `orchestration/` | Python library + CLI | Controlled Codex session orchestration, scope/risk/logging |
 | SQL source of truth | `repo-b/db/schema/` | ordered SQL | Canonical schema, including current `rag_chunks` table |
 
@@ -400,12 +400,10 @@ This should not be described as the same thing as Winston copilot.
 
 ## Local Codex Sidecar And Controlled Orchestration
 
-There is still a local-only Codex sidecar path:
+The old local-only Codex sidecar path has been removed. The remaining developer workflow path is:
 
-- `scripts/ai_sidecar.py`
 - `scripts/codex_orchestrator.py`
 - `orchestration/`
-- `docs/LOCAL_AI_SIDECAR.md`
 - `orchestration/README.md`
 
 This path is intended for developer/operator use, not end-user production AI.
@@ -421,7 +419,7 @@ It supports:
 
 ### Important drift note
 
-`backend/app/routes/ai.py` now declares the old sidecar path deprecated and points users to `/api/ai/gateway/*`, but the sidecar scripts and docs still exist. That creates architecture drift and can confuse reviewers.
+`backend/app/routes/ai.py` declares the old sidecar path deprecated and points users to `/api/ai/gateway/*`. The runtime sidecar scripts and docs have now been removed, reducing that architecture drift.
 
 ## Data Stores And Persistence Layers
 
@@ -545,7 +543,7 @@ The repo has at least four partially overlapping AI execution models:
 - production gateway
 - deterministic command planner
 - demo-lab chat
-- local Codex sidecar/orchestrator
+- local Codex orchestration tooling
 
 Research question:
 
@@ -630,11 +628,11 @@ Research question:
 
 ### 7. Documentation/runtime drift around the local sidecar
 
-The old AI sidecar is deprecated at the backend route layer, but sidecar code and documentation remain active in the repo.
+The old AI sidecar has been removed from the runtime path, but some historical planning docs may still reference it.
 
 Research question:
 
-- Should the local sidecar be formally retained as a developer feature, or archived and separated from product docs?
+- Should any remaining historical sidecar references be archived separately from current product docs?
 
 ### 8. Production RAG indexing is synchronous and inline
 
@@ -765,7 +763,7 @@ Focus on:
 3. RAG indexing/retrieval architecture around rag_chunks.
 4. Deterministic command plan/confirm/execute flow in repo-b.
 5. Demo-lab AI path in repo-c and how it diverges from production.
-6. Local Codex sidecar/orchestration path and whether it should remain.
+6. Controlled Codex orchestration path and how it should coexist with the production AI Gateway.
 
 Identify:
 - architectural duplication

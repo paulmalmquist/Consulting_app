@@ -44,7 +44,7 @@ It is:
 | Canonical SQL schema | `repo-b/db/schema/*.sql` applied in numeric order |
 | DB apply/verify scripts | `repo-b/db/schema/apply.js`, `repo-b/db/schema/verify.js` |
 | Local dev topology | `docs/LOCAL_DEV_PORTS.md`, `Makefile` |
-| AI sidecar notes | `docs/LOCAL_AI_SIDECAR.md` |
+| Local dev topology | `docs/LOCAL_DEV_PORTS.md` |
 
 ### Important conclusion
 
@@ -216,7 +216,6 @@ Do not default to `app.document_chunks` unless the task is explicitly about Wins
 - frontend: `3001`
 - BOS backend: `8000`
 - Demo Lab backend: `8001`
-- optional AI sidecar: `7337`
 
 ## 5. Authentication / Context Assumptions
 

@@ -40,7 +40,7 @@ echo "[4/8] Private mutation APIs blocked without auth"
 [[ "$(status_code POST /api/commands/confirm '{"plan_id":"x"}')" == "401" ]]
 [[ "$(status_code POST /api/commands/execute '{"plan_id":"x","confirm_token":"y"}')" == "401" ]]
 [[ "$(status_code GET /api/mcp/context-snapshot)" == "401" ]]
-[[ "$(status_code GET '/api/ai/codex/health')" == "401" ]]
+[[ "$(status_code GET '/api/ai/gateway/health')" == "401" ]]
 echo "ok"
 
 echo "[5/8] Public assistant health"

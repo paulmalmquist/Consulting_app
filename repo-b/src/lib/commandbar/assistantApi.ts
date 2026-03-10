@@ -687,7 +687,7 @@ export async function cancelRun(runId: string, signal?: AbortSignal) {
 }
 
 export async function checkCodexHealth(signal?: AbortSignal) {
-  // Use the AI Gateway health endpoint instead of the old Codex sidecar
+  // Use the AI Gateway health endpoint for command center diagnostics.
   const endpoint = "/api/ai/gateway/health";
   const started = Date.now();
 

@@ -12,10 +12,6 @@ BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 DEMO_LAB_PORT="${DEMO_LAB_PORT:-8001}"
 
-# Local AI sidecar integration is optional; backend behavior depends on AI_MODE.
-AI_MODE="${AI_MODE:-local}" # off | local
-AI_SIDECAR_URL="${AI_SIDECAR_URL:-http://127.0.0.1:7337}"
-
 _have() { command -v "$1" >/dev/null 2>&1; }
 
 _port_in_use() {
@@ -68,8 +64,6 @@ if [[ "${BACKEND_PORT}" != "0" ]]; then
       source .venv/bin/activate
     fi
 
-    export AI_MODE="${AI_MODE}"
-    export AI_SIDECAR_URL="${AI_SIDECAR_URL}"
     uvicorn app.main:app --reload --host "${BACKEND_HOST}" --port "${BACKEND_PORT}"
   ) &
   PIDS+=($!)
@@ -107,7 +101,6 @@ if _port_in_use "${FRONTEND_PORT}"; then
   exit 1
 fi
 echo "Frontend:            http://127.0.0.1:${FRONTEND_PORT}"
-echo "AI_MODE=${AI_MODE}"
 
 (
   cd "${ROOT_DIR}/repo-b"
@@ -119,7 +112,6 @@ echo "AI_MODE=${AI_MODE}"
     fi
   fi
 
-  export NEXT_PUBLIC_AI_MODE="${NEXT_PUBLIC_AI_MODE:-local}"
   export NEXT_PUBLIC_BOS_API_BASE_URL="${NEXT_PUBLIC_BOS_API_BASE_URL:-http://${BACKEND_HOST}:${BACKEND_PORT}}"
   export NEXT_PUBLIC_DEMO_API_BASE_URL="${NEXT_PUBLIC_DEMO_API_BASE_URL:-http://${BACKEND_HOST}:${DEMO_LAB_PORT}}"
   # Keep legacy var for backwards compat

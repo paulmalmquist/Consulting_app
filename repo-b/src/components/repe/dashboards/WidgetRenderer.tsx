@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import type { DashboardWidget, WidgetMetricRef } from "@/lib/dashboards/types";
+import type { DashboardWidget, WidgetMetricRef, DataAvailability, WidgetQueryManifest } from "@/lib/dashboards/types";
 import { METRIC_MAP } from "@/lib/dashboards/metric-catalog";
 import { WaterfallChart } from "@/components/charts";
 import TrendLineChart from "@/components/charts/TrendLineChart";
@@ -18,6 +18,8 @@ interface Props {
   quarter?: string;
   onConfigure?: () => void;
   isEditing?: boolean;
+  queryManifest?: WidgetQueryManifest;
+  dataAvailability?: DataAvailability;
 }
 
 /* --------------------------------------------------------------------------
@@ -222,8 +224,9 @@ function TextBlockWidget({ widget }: { widget: DashboardWidget }) {
 /* --------------------------------------------------------------------------
  * Main renderer
  * -------------------------------------------------------------------------- */
-export default function WidgetRenderer({ widget, envId, businessId, quarter, onConfigure, isEditing }: Props) {
+export default function WidgetRenderer({ widget, envId, businessId, quarter, onConfigure, isEditing, queryManifest, dataAvailability }: Props) {
   const { data, loading } = useWidgetData(widget, envId, businessId, quarter);
+  const [showInfo, setShowInfo] = useState(false);
 
   return (
     <div
@@ -245,19 +248,62 @@ export default function WidgetRenderer({ widget, envId, businessId, quarter, onC
             <p className="text-[10px] text-bm-muted2 mt-0.5">{widget.config.subtitle}</p>
           )}
         </div>
-        {isEditing && onConfigure && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onConfigure(); }}
-            className="rounded-md p-1 text-bm-muted2 hover:bg-bm-surface/30 hover:text-bm-text transition-colors"
-            title="Configure widget"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
-            </svg>
-          </button>
+        {isEditing && (
+          <div className="flex items-center gap-1">
+            {(queryManifest || dataAvailability) && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setShowInfo((v) => !v); }}
+                className={`rounded-md p-1 transition-colors ${showInfo ? "text-bm-accent" : "text-bm-muted2 hover:text-bm-text"} hover:bg-bm-surface/30`}
+                title="Query info"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
+                </svg>
+              </button>
+            )}
+            {onConfigure && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onConfigure(); }}
+                className="rounded-md p-1 text-bm-muted2 hover:bg-bm-surface/30 hover:text-bm-text transition-colors"
+                title="Configure widget"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
+                </svg>
+              </button>
+            )}
+          </div>
         )}
       </div>
+
+      {/* Query info panel */}
+      {isEditing && showInfo && (queryManifest || dataAvailability) && (
+        <div className="border-t border-slate-100 dark:border-white/10 px-4 py-2 text-xs text-bm-muted2 space-y-1 bg-bm-surface/10">
+          {queryManifest && queryManifest.api_route !== "none" && (
+            <>
+              <div className="font-mono text-[10px] text-bm-muted2 truncate">{queryManifest.api_route}</div>
+              <div>{queryManifest.description}</div>
+            </>
+          )}
+          {queryManifest && queryManifest.api_route === "none" && (
+            <div className="text-bm-muted2">{queryManifest.description}</div>
+          )}
+          {dataAvailability && !dataAvailability.has_data && (
+            <div className="text-amber-500 flex items-center gap-1">
+              <span>⚠</span>
+              <span>{dataAvailability.missing_reason}</span>
+            </div>
+          )}
+          {dataAvailability?.has_data && (
+            <div className="text-green-500">✓ Entities + quarter configured</div>
+          )}
+          {dataAvailability?.has_data && dataAvailability.missing_reason && (
+            <div className="text-amber-500">{dataAvailability.missing_reason}</div>
+          )}
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 px-4 pb-4 min-h-0">

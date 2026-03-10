@@ -8,6 +8,7 @@ from uuid import UUID
 import httpx
 from jsonschema import ValidationError, validate
 
+from app.config import AI_GATEWAY_ENABLED, OPENAI_API_KEY, OPENAI_CHAT_MODEL_STANDARD
 from app.db import get_cursor
 from app.services.documents import _storage
 from app.services.extraction_profiles import get_profile_schema
@@ -119,10 +120,29 @@ class ExtractionService:
         )
 
     def _ask_ai(self, prompt: str) -> str:
-        base = os.getenv("APP_SERVER_URL", "http://127.0.0.1:8000")
-        resp = httpx.post(f"{base}/api/ai/ask", json={"prompt": prompt}, timeout=90)
-        resp.raise_for_status()
-        return resp.json()["answer"]
+        if not AI_GATEWAY_ENABLED:
+            raise RuntimeError("AI Gateway disabled: set OPENAI_API_KEY")
+
+        import openai
+
+        client = openai.OpenAI(api_key=OPENAI_API_KEY)
+        response = client.chat.completions.create(
+            model=OPENAI_CHAT_MODEL_STANDARD,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You extract structured document data. "
+                        "Return valid JSON only with no markdown or commentary."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0,
+            max_tokens=2_000,
+            response_format={"type": "json_object"},
+        )
+        return response.choices[0].message.content or "{}"
 
     def _parse_and_validate(self, raw: str, schema: dict) -> dict | None:
         try:
