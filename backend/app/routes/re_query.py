@@ -203,7 +203,18 @@ async def query(req: QueryRequest) -> QueryResponse:
             context={"prompt": req.prompt[:200]},
             error=e,
         )
-        raise HTTPException(status_code=500, detail="Query execution failed")
+        return QueryResponse(
+            route="unknown",
+            intent="",
+            entity_type="",
+            visualization="table",
+            columns=[],
+            data=[],
+            row_count=0,
+            truncated=False,
+            duration_ms=_elapsed(t0),
+            error=f"Query execution failed: {type(e).__name__}: {e}",
+        )
 
 
 # ── Helpers ────────────────────────────────────────────────────────
