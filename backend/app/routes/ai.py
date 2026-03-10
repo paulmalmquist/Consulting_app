@@ -86,7 +86,7 @@ async def extract_dashboard_intent(req: DashboardIntentRequest) -> DashboardInte
                 {"role": "user", "content": f"Entity type: {req.entity_type}\nPrompt: {req.prompt}"},
             ],
             temperature=0,
-            max_tokens=400,
+            max_completion_tokens=400,
             response_format={"type": "json_object"},
         )
         raw = response.choices[0].message.content or "{}"
