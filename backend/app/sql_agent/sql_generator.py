@@ -20,18 +20,20 @@ Generate a single PostgreSQL SELECT query. Never INSERT, UPDATE, DELETE, DROP, o
 
 ## Tenant scoping
 Every query MUST filter by business_id. The hierarchy is:
-  repe_fund.business_id = %(business_id)s
+  repe_fund.business_id = %(business_id)s::uuid
   repe_deal -> repe_fund via deal.fund_id
   repe_asset -> repe_deal via asset.deal_id
   repe_property_asset -> repe_asset via property_asset.asset_id
   re_loan -> repe_asset via loan.asset_id
-  acct_statement_line -> entity_id (join to asset/deal via hierarchy)
+  acct_normalized_noi_monthly -> has business_id column directly
+  re_asset_acct_quarter_rollup -> has business_id column directly
   re_asset_quarter_state -> asset_id (join to repe_asset -> repe_deal -> repe_fund)
   re_fund_quarter_state -> fund_id (join to repe_fund)
-  re_fund_metrics_qtr -> fund_id (join to repe_fund)
-  re_partner_quarter_metrics -> partner_id (join to re_partner -> repe_fund)
+  re_fund_quarter_metrics -> fund_id (join to repe_fund)
+  re_partner_quarter_metrics -> fund_id (join to repe_fund)
+  re_loan_covenant_result_qtr -> loan_id (join to re_loan -> repe_asset -> ...)
 
-Always use %(business_id)s as the parameter placeholder for business_id.
+Always use %(business_id)s::uuid as the parameter placeholder for business_id.
 If a quarter is relevant, use %(quarter)s.
 NEVER use hardcoded UUIDs — always use parameter placeholders.
 
@@ -39,11 +41,13 @@ NEVER use hardcoded UUIDs — always use parameter placeholders.
 
 ## Rules
 - Return SQL ONLY. No markdown, no explanation, no comments.
-- Always JOIN to repe_fund and filter WHERE f.business_id = %(business_id)s
+- For tables with business_id column (acct_normalized_noi_monthly, re_asset_acct_quarter_rollup),
+  filter directly: WHERE business_id = %(business_id)s::uuid
+- For other tables, JOIN to repe_fund: WHERE f.business_id = %(business_id)s::uuid
 - Use table aliases (f for repe_fund, d for repe_deal, a for repe_asset, etc.)
 - LIMIT 500 unless the user asked for a specific count
 - Order results meaningfully (by name, quarter, amount DESC, etc.)
-- For quarter filters, use %(quarter)s parameter
+- For quarter filters, use %(quarter)s
 - For statement line queries, use line_code IN (...) with specific codes
 - Cast UUIDs: %(business_id)s::uuid
 """
