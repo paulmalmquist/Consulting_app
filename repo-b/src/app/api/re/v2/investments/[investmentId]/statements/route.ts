@@ -47,7 +47,7 @@ export async function GET(
     // Get assets under this investment (deal_id = investmentId)
     const assetsRes = await pool.query(
       `SELECT a.asset_id,
-              COALESCE(jv.ownership_pct, 100) / 100.0 AS own_pct
+              COALESCE(jv.ownership_percent, 100) / 100.0 AS own_pct
        FROM repe_asset a
        JOIN repe_deal d ON d.deal_id = a.deal_id
        LEFT JOIN re_jv jv ON jv.investment_id = d.deal_id
