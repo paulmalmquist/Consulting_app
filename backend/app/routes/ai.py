@@ -85,7 +85,6 @@ async def extract_dashboard_intent(req: DashboardIntentRequest) -> DashboardInte
                 {"role": "system", "content": _INTENT_SYSTEM_PROMPT},
                 {"role": "user", "content": f"Entity type: {req.entity_type}\nPrompt: {req.prompt}"},
             ],
-            temperature=0,
             max_completion_tokens=400,
             response_format={"type": "json_object"},
         )
