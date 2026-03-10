@@ -2,6 +2,7 @@
 
 Routes questions to SQL or Python execution engines.
 Phase 1: SQL path only (lookups, filters, aggregations).
+Uses a single LLM call for routing + SQL generation to minimize latency.
 """
 from __future__ import annotations
 
@@ -11,14 +12,13 @@ import time
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from app.db import get_cursor
 from app.observability.logger import emit_log
+from app.sql_agent.combined_agent import run_agent
 from app.sql_agent.interpreter import interpret
-from app.sql_agent.router import route_query
-from app.sql_agent.sql_generator import generate_sql
 from app.sql_agent.validator import validate_sql
 
 logger = logging.getLogger(__name__)
@@ -66,58 +66,69 @@ async def query(req: QueryRequest) -> QueryResponse:
     quarter = req.quarter
 
     try:
-        # 1. Route the query
-        plan = await route_query(req.prompt, quarter=quarter)
+        # 1. Single LLM call: route + generate SQL
+        result = await run_agent(
+            req.prompt,
+            business_id=business_id,
+            quarter=quarter,
+        )
         logger.info(
-            "Routed query: route=%s entity=%s intent=%s python_fn=%s",
-            plan.route, plan.entity_type, plan.intent, plan.python_fn,
+            "Agent result: route=%s entity=%s intent=%s sql_len=%s",
+            result.route, result.entity_type, result.intent,
+            len(result.sql) if result.sql else 0,
         )
 
-        # 2. Execute based on route
-        if plan.route == "python":
-            # Phase 2 — for now, return a helpful error
+        # 2. Handle Python route (Phase 2 stub)
+        if result.route == "python":
             return QueryResponse(
                 route="python",
-                intent=plan.intent,
-                entity_type=plan.entity_type,
+                intent=result.intent,
+                entity_type=result.entity_type,
                 visualization="table",
                 columns=[],
                 data=[],
                 row_count=0,
                 truncated=False,
-                computation={"type": plan.python_fn, "status": "not_yet_implemented"},
+                computation={"type": result.python_fn, "status": "not_yet_implemented"},
                 duration_ms=_elapsed(t0),
-                error=f"Python calculations ({plan.python_fn}) coming in Phase 2. "
+                error=f"Python calculations ({result.python_fn}) coming in Phase 2. "
                       f"Try rephrasing to read stored data instead.",
             )
 
-        # SQL path
-        sql = await generate_sql(
-            plan, req.prompt,
-            business_id=business_id,
-            quarter=quarter,
-        )
+        # 3. SQL path — validate
+        if not result.sql:
+            return QueryResponse(
+                route="sql",
+                intent=result.intent,
+                entity_type=result.entity_type,
+                visualization="table",
+                columns=[],
+                data=[],
+                row_count=0,
+                truncated=False,
+                duration_ms=_elapsed(t0),
+                error="Agent did not generate SQL. Try rephrasing your question.",
+            )
 
-        # 3. Validate
-        validation = validate_sql(sql, business_id)
+        validation = validate_sql(result.sql, business_id)
         if not validation.valid:
             emit_log(
                 level="warn",
                 service="sql_agent",
                 action="query.validation_failed",
                 message=validation.error or "Validation failed",
-                context={"sql": sql[:500], "prompt": req.prompt[:200]},
+                context={"sql": result.sql[:500], "prompt": req.prompt[:200]},
             )
             return QueryResponse(
                 route="sql",
-                intent=plan.intent,
-                entity_type=plan.entity_type,
+                intent=result.intent,
+                entity_type=result.entity_type,
                 visualization="table",
                 columns=[],
                 data=[],
                 row_count=0,
                 truncated=False,
-                sql=sql,
+                sql=result.sql,
                 duration_ms=_elapsed(t0),
                 error=f"Generated query failed safety validation: {validation.error}",
             )
@@ -126,8 +137,7 @@ async def query(req: QueryRequest) -> QueryResponse:
         params: dict[str, Any] = {"business_id": business_id}
         if quarter:
             params["quarter"] = quarter
-        # Add any extracted params from the router
-        for k, v in plan.params.items():
+        for k, v in result.params.items():
             if v is not None and k not in params:
                 params[k] = v
 
@@ -148,23 +158,24 @@ async def query(req: QueryRequest) -> QueryResponse:
             message=f"Query returned {len(rows)} rows as {viz}",
             context={
                 "prompt": req.prompt[:200],
-                "route": plan.route,
-                "entity_type": plan.entity_type,
+                "route": result.route,
+                "entity_type": result.entity_type,
                 "row_count": len(rows),
                 "visualization": viz,
+                "duration_ms": _elapsed(t0),
             },
         )
 
         return QueryResponse(
             route="sql",
-            intent=plan.intent,
-            entity_type=plan.entity_type,
+            intent=result.intent,
+            entity_type=result.entity_type,
             visualization=viz,
             columns=columns,
             data=rows,
             row_count=len(rows),
             truncated=truncated,
-            sql=sql,
+            sql=result.sql,
             duration_ms=_elapsed(t0),
         )
 
@@ -213,7 +224,7 @@ async def query(req: QueryRequest) -> QueryResponse:
             row_count=0,
             truncated=False,
             duration_ms=_elapsed(t0),
-            error=f"Query execution failed: {type(e).__name__}: {e}",
+            error=f"Query failed: {type(e).__name__}: {e}",
         )
 
 
@@ -229,7 +240,7 @@ def _execute_sql(sql: str, params: dict[str, Any]) -> tuple[list[str], list[dict
             return [], []
         columns = [desc[0] for desc in cur.description]
         rows = cur.fetchall()
-        # Convert any non-serializable types
+        # Convert non-serializable types (Decimal, date, etc.)
         cleaned = []
         for row in rows:
             cleaned_row: dict[str, Any] = {}
