@@ -6,7 +6,7 @@
  * rather than chaotic random card placement.
  */
 
-import type { DashboardWidget, WidgetType, LayoutArchetype } from "./types";
+import type { DashboardWidget, WidgetType, WidgetConfig, LayoutArchetype } from "./types";
 
 interface ArchetypeSlot {
   id_prefix: string;
@@ -94,11 +94,21 @@ const MARKET_COMPARISON: ArchetypeDefinition = {
 /* --------------------------------------------------------------------------
  * Registry
  * -------------------------------------------------------------------------- */
+const EMPTY_ARCHETYPE = (key: LayoutArchetype, name: string): ArchetypeDefinition => ({
+  key,
+  name,
+  description: "Section-based composition — layout built dynamically from intent.",
+  slots: [],
+});
+
 export const LAYOUT_ARCHETYPES: Record<LayoutArchetype, ArchetypeDefinition> = {
   executive_summary: EXECUTIVE_SUMMARY,
   operating_review: OPERATING_REVIEW,
+  monthly_operating_report: EMPTY_ARCHETYPE("monthly_operating_report", "Monthly Operating Report"),
   watchlist: WATCHLIST,
+  fund_quarterly_review: EMPTY_ARCHETYPE("fund_quarterly_review", "Fund Quarterly Review"),
   market_comparison: MARKET_COMPARISON,
+  underwriting_dashboard: EMPTY_ARCHETYPE("underwriting_dashboard", "Underwriting Dashboard"),
   custom: {
     key: "custom",
     name: "Custom",
@@ -114,3 +124,91 @@ export function getArchetype(key: LayoutArchetype): ArchetypeDefinition {
 export function listArchetypes(): ArchetypeDefinition[] {
   return Object.values(LAYOUT_ARCHETYPES).filter((a) => a.key !== "custom");
 }
+
+/* --------------------------------------------------------------------------
+ * Section Registry — maps section keys to widget definitions
+ * -------------------------------------------------------------------------- */
+
+export interface SectionWidgetDef {
+  type: WidgetType;
+  w: number;
+  h: number;
+  config_overrides: Partial<WidgetConfig>;
+}
+
+export interface SectionDefinition {
+  key: string;
+  widgets: SectionWidgetDef[];
+}
+
+export const SECTION_REGISTRY: Record<string, SectionDefinition> = {
+  kpi_summary: {
+    key: "kpi_summary",
+    widgets: [{ type: "metrics_strip", w: 12, h: 2, config_overrides: {} }],
+  },
+  noi_trend: {
+    key: "noi_trend",
+    widgets: [{ type: "trend_line", w: 12, h: 4, config_overrides: { title: "NOI Trend", format: "dollar", period_type: "quarterly" } }],
+  },
+  actual_vs_budget: {
+    key: "actual_vs_budget",
+    widgets: [
+      { type: "bar_chart", w: 7, h: 4, config_overrides: { title: "Actual vs Budget", comparison: "budget", format: "dollar" } },
+      { type: "metrics_strip", w: 5, h: 4, config_overrides: { title: "Budget Variance" } },
+    ],
+  },
+  underperformer_watchlist: {
+    key: "underperformer_watchlist",
+    widgets: [{ type: "comparison_table", w: 12, h: 5, config_overrides: { title: "Underperforming Assets", comparison: "budget" } }],
+  },
+  debt_maturity: {
+    key: "debt_maturity",
+    widgets: [{ type: "bar_chart", w: 12, h: 4, config_overrides: { title: "Debt Maturity Schedule", format: "dollar" } }],
+  },
+  income_statement: {
+    key: "income_statement",
+    widgets: [{ type: "statement_table", w: 6, h: 5, config_overrides: { title: "Income Statement", statement: "IS" } }],
+  },
+  cash_flow: {
+    key: "cash_flow",
+    widgets: [{ type: "statement_table", w: 6, h: 5, config_overrides: { title: "Cash Flow Statement", statement: "CF" } }],
+  },
+  noi_bridge: {
+    key: "noi_bridge",
+    widgets: [{ type: "waterfall", w: 6, h: 4, config_overrides: { title: "NOI Bridge" } }],
+  },
+  occupancy_trend: {
+    key: "occupancy_trend",
+    widgets: [{ type: "trend_line", w: 6, h: 4, config_overrides: { title: "Occupancy Trend", format: "percent" } }],
+  },
+  dscr_monitoring: {
+    key: "dscr_monitoring",
+    widgets: [{ type: "trend_line", w: 6, h: 4, config_overrides: { title: "DSCR Trend", format: "ratio" } }],
+  },
+  downloadable_table: {
+    key: "downloadable_table",
+    widgets: [{ type: "statement_table", w: 12, h: 5, config_overrides: { title: "Summary Report", period_type: "quarterly" } }],
+  },
+};
+
+/* --------------------------------------------------------------------------
+ * Default section lists per archetype (used when prompt is vague)
+ * -------------------------------------------------------------------------- */
+export const ARCHETYPE_DEFAULT_SECTIONS: Record<string, string[]> = {
+  monthly_operating_report: [
+    "kpi_summary", "noi_trend", "actual_vs_budget",
+    "underperformer_watchlist", "debt_maturity", "downloadable_table",
+  ],
+  executive_summary: ["kpi_summary", "noi_trend", "noi_bridge", "income_statement"],
+  watchlist: ["kpi_summary", "underperformer_watchlist", "dscr_monitoring", "occupancy_trend"],
+  fund_quarterly_review: [
+    "kpi_summary", "noi_trend", "actual_vs_budget", "income_statement", "cash_flow",
+  ],
+  market_comparison: ["kpi_summary", "noi_trend", "occupancy_trend", "noi_bridge"],
+  underwriting_dashboard: [
+    "kpi_summary", "income_statement", "cash_flow", "noi_bridge", "debt_maturity",
+  ],
+  operating_review: [
+    "kpi_summary", "income_statement", "cash_flow", "noi_trend", "occupancy_trend", "dscr_monitoring",
+  ],
+};

@@ -82,8 +82,11 @@ export interface DashboardWidget {
 export type LayoutArchetype =
   | "executive_summary"
   | "operating_review"
+  | "monthly_operating_report"
   | "watchlist"
+  | "fund_quarterly_review"
   | "market_comparison"
+  | "underwriting_dashboard"
   | "custom";
 
 /* --------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 import { getPool } from "@/lib/server/db";
 import { METRIC_CATALOG } from "@/lib/dashboards/metric-catalog";
-import { LAYOUT_ARCHETYPES } from "@/lib/dashboards/layout-archetypes";
+import { LAYOUT_ARCHETYPES, SECTION_REGISTRY, ARCHETYPE_DEFAULT_SECTIONS } from "@/lib/dashboards/layout-archetypes";
 import { validateDashboardSpec } from "@/lib/dashboards/spec-validator";
 
 export const runtime = "nodejs";
@@ -10,8 +10,8 @@ export const runtime = "nodejs";
  * AI-powered dashboard generation from natural language prompt.
  *
  * Takes a user prompt + entity context and returns a structured dashboard spec.
- * Uses deterministic pattern matching + template composition rather than raw LLM
- * to ensure every metric is approved and every layout is composed.
+ * Uses intent parsing + section-based composition rather than fixed archetypes
+ * to ensure every explicit user request maps to a widget in the output.
  */
 export async function POST(request: Request) {
   const pool = getPool();
@@ -27,15 +27,13 @@ export async function POST(request: Request) {
 
     const promptLower = prompt.toLowerCase();
 
-    // 1. Detect layout archetype from prompt intent
-    const archetype = detectArchetype(promptLower);
+    // 1. Parse structured intent from the prompt
+    const intent = parseIntent(promptLower);
 
     // 2. Detect entity scope
     const scope = detectScope(promptLower, entity_type, entity_ids);
 
     // 2b. Auto-populate entity_ids from DB when not provided
-    // Schema: repe_fund has business_id; repe_deal/repe_asset/repe_property_asset
-    // have NO env_id — they scope through fund hierarchy via business_id.
     if (!scope.entity_ids?.length && business_id) {
       try {
         let entRes;
@@ -65,7 +63,6 @@ export async function POST(request: Request) {
         if (entRes.rows.length > 0) {
           scope.entity_ids = entRes.rows.map((r: { id: string }) => r.id);
         } else if (scope.entity_type === "asset") {
-          // Fallback to known seed asset so widgets always render
           scope.entity_ids = ["11689c58-7993-400e-89c9-b3f33e431553"];
         } else if (scope.entity_type === "fund") {
           scope.entity_ids = ["a1b2c3d4-0003-0030-0001-000000000001"];
@@ -78,14 +75,20 @@ export async function POST(request: Request) {
     // 3. Detect requested metrics
     const requestedMetrics = detectMetrics(promptLower, scope.entity_type);
 
-    // 4. Compose dashboard spec from archetype + metrics
-    const spec = composeDashboard(archetype, requestedMetrics, scope, quarter);
+    // 4. Compose dashboard from intent + sections
+    const spec = composeFromIntent(intent, requestedMetrics, scope, quarter);
 
     // 5. Validate the generated spec
     const validation = validateDashboardSpec(spec);
 
+    // 5b. Check intent coverage and surface warnings
+    const coverageWarnings = validateIntentCoverage(intent, spec.widgets);
+    if (coverageWarnings.length > 0) {
+      validation.warnings.push(...coverageWarnings);
+    }
+
     // 6. Generate a dashboard name
-    const name = generateName(promptLower, archetype);
+    const name = generateName(promptLower, intent.archetype);
 
     // 7. Resolve entity names for display
     let entityNames: Record<string, string> = {};
@@ -96,7 +99,7 @@ export async function POST(request: Request) {
     const responsePayload = {
       name,
       description: prompt,
-      layout_archetype: archetype,
+      layout_archetype: intent.archetype,
       spec: validation.sanitized || spec,
       entity_scope: scope,
       quarter: quarter || detectQuarter(promptLower),
@@ -106,7 +109,7 @@ export async function POST(request: Request) {
       },
       entity_names: entityNames,
     };
-    console.log("[dashboards/generate] Response:", JSON.stringify({ name: responsePayload.name, widgetCount: responsePayload.spec?.widgets?.length, entity_scope: responsePayload.entity_scope, quarter: responsePayload.quarter }));
+    console.log("[dashboards/generate] Response:", JSON.stringify({ name: responsePayload.name, widgetCount: responsePayload.spec?.widgets?.length, entity_scope: responsePayload.entity_scope, quarter: responsePayload.quarter, archetype: intent.archetype, sections: intent.requested_sections }));
     return Response.json(responsePayload);
   } catch (err) {
     console.error("[dashboards/generate] Error:", err);
@@ -115,116 +118,71 @@ export async function POST(request: Request) {
 }
 
 /* --------------------------------------------------------------------------
- * Intent detection helpers
+ * Intent parsing
  * -------------------------------------------------------------------------- */
 
-function detectArchetype(prompt: string): string {
-  if (/watchlist|underperform|surveillance|flag|monitor/i.test(prompt)) return "watchlist";
-  if (/compar|vs\s|versus|benchmark|side.by.side|market\s/i.test(prompt)) return "market_comparison";
-  if (/operat|detail|deep.dive|asset.manag|cash.flow|income.statement/i.test(prompt)) return "operating_review";
-  return "executive_summary";
+interface DashboardIntent {
+  archetype: string;
+  requested_sections: string[];
+  measures: string[];
+  comparisons: string[];
+  time_view: string;
 }
 
-function detectScope(
-  prompt: string,
-  entityType?: string,
-  entityIds?: string[],
-): { entity_type: string; entity_ids?: string[] } {
-  const type = entityType ||
-    (/fund|portfolio|nav|tvpi|dpi/i.test(prompt) ? "fund" :
-     /investment|deal|return|irr|moic/i.test(prompt) ? "investment" :
-     "asset");
+const ARCHETYPE_PHRASES: Record<string, string[]> = {
+  monthly_operating_report: ["monthly operating", "operating report", "monthly report", "asset management report"],
+  executive_summary: ["executive summary", "board summary", "ic memo", "quarterly update", "overview"],
+  watchlist: ["watchlist", "underperform", "surveillance", "at risk"],
+  fund_quarterly_review: ["quarterly review", "fund review", "qbr", "fund performance"],
+  market_comparison: ["compar", "vs ", "versus", "benchmark", "side by side"],
+  underwriting_dashboard: ["underwriting", "uw dashboard", "deal screen"],
+};
 
-  return { entity_type: type, entity_ids: entityIds?.length ? entityIds : undefined };
-}
+const SECTION_PHRASES: Record<string, string[]> = {
+  noi_trend: ["noi trend", "trend over time", "operating trend", "noi over"],
+  actual_vs_budget: ["actual vs budget", "budget variance", "budget comparison", "avb", "vs budget"],
+  underperformer_watchlist: ["underperforming", "underperformer", "watchlist", "at risk", "flag", "highlight"],
+  debt_maturity: ["debt maturity", "loan maturity", "maturity schedule", "maturity timeline"],
+  downloadable_table: ["downloadable", "download", "export", "summary table"],
+  income_statement: ["income statement", "p&l", "profit and loss"],
+  cash_flow: ["cash flow", "cf statement"],
+  occupancy_trend: ["occupancy trend", "occupancy over time", "occupancy rate"],
+  dscr_monitoring: ["dscr", "debt service coverage", "coverage ratio"],
+  noi_bridge: ["noi bridge", "waterfall", "bridge analysis"],
+};
 
-function detectMetrics(prompt: string, entityType: string): string[] {
-  const detected: string[] = [];
-
-  // Match prompt keywords to catalog metrics
-  const keywordMap: Record<string, string[]> = {
-    noi: ["NOI"],
-    "net operating": ["NOI"],
-    revenue: ["RENT", "OTHER_INCOME", "EGI"],
-    rent: ["RENT"],
-    income: ["EGI"],
-    opex: ["TOTAL_OPEX"],
-    expense: ["TOTAL_OPEX"],
-    occupancy: ["OCCUPANCY"],
-    dscr: ["DSCR_KPI"],
-    "debt service": ["TOTAL_DEBT_SERVICE", "DSCR_KPI"],
-    "debt maturity": ["TOTAL_DEBT_SERVICE"],
-    "debt yield": ["DEBT_YIELD"],
-    dy: ["DEBT_YIELD"],
-    ltv: ["LTV"],
-    "loan to value": ["LTV"],
-    "cap rate": ["ASSET_VALUE", "NOI"],
-    "cash flow": ["NET_CASH_FLOW"],
-    capex: ["CAPEX"],
-    margin: ["NOI_MARGIN_KPI"],
-    value: ["ASSET_VALUE"],
-    equity: ["EQUITY_VALUE"],
-    irr: ["GROSS_IRR", "NET_IRR"],
-    tvpi: ["GROSS_TVPI", "NET_TVPI"],
-    dpi: ["DPI"],
-    nav: ["PORTFOLIO_NAV"],
-    "unit economics": ["AVG_RENT", "NOI_PER_UNIT"],
-  };
-
-  for (const [keyword, metrics] of Object.entries(keywordMap)) {
-    if (prompt.includes(keyword)) {
-      for (const m of metrics) {
-        if (!detected.includes(m)) detected.push(m);
-      }
+function parseIntent(prompt: string): DashboardIntent {
+  // Detect archetype — first phrase match wins
+  let archetype = "executive_summary";
+  for (const [key, phrases] of Object.entries(ARCHETYPE_PHRASES)) {
+    if (phrases.some((p) => prompt.includes(p))) {
+      archetype = key;
+      break;
     }
   }
 
-  // Filter to entity-appropriate metrics
-  const entityMetrics = METRIC_CATALOG
-    .filter((m) => m.entity_levels.includes(entityType as "asset" | "investment" | "fund"))
-    .map((m) => m.key);
-
-  const filtered = detected.filter((k) => entityMetrics.includes(k));
-
-  // If nothing specific detected, use sensible defaults
-  if (filtered.length === 0) {
-    if (entityType === "fund") return ["PORTFOLIO_NAV", "GROSS_IRR", "NET_TVPI", "DPI"];
-    if (entityType === "investment") return ["NOI", "ASSET_VALUE", "EQUITY_VALUE", "DSCR_KPI"];
-    return ["NOI", "OCCUPANCY", "DSCR_KPI", "ASSET_VALUE"];
+  // Detect ALL matching sections (not just one)
+  const requested_sections: string[] = [];
+  for (const [key, phrases] of Object.entries(SECTION_PHRASES)) {
+    if (phrases.some((p) => prompt.includes(p))) {
+      requested_sections.push(key);
+    }
   }
 
-  return filtered;
-}
+  const comparisons: string[] = [];
+  if (/budget/i.test(prompt)) comparisons.push("budget");
+  if (/prior.year|year.over.year|yoy/i.test(prompt)) comparisons.push("prior_year");
 
-function detectQuarter(prompt: string): string | null {
-  const match = prompt.match(/(\d{4})q([1-4])/i);
-  if (match) return `${match[1]}Q${match[2]}`;
-  return null;
-}
+  const time_view = /trailing|ttm/i.test(prompt) ? "ttm"
+    : /ytd|year.to.date/i.test(prompt) ? "ytd"
+    : /monthly/i.test(prompt) ? "monthly"
+    : "quarterly";
 
-function generateName(prompt: string, archetype: string): string {
-  const archetypeLabels: Record<string, string> = {
-    executive_summary: "Executive Summary",
-    operating_review: "Operating Review",
-    watchlist: "Watchlist",
-    market_comparison: "Market Comparison",
-    custom: "Dashboard",
-  };
-
-  // Extract key nouns from prompt for the name
-  const propertyTypes = prompt.match(/multifamily|office|industrial|retail|hotel|medical/gi);
-  const markets = prompt.match(/phoenix|denver|aurora|dallas|austin|atlanta|miami|nyc|chicago|boston/gi);
-
-  const parts: string[] = [];
-  if (propertyTypes?.length) parts.push(propertyTypes[0].charAt(0).toUpperCase() + propertyTypes[0].slice(1));
-  if (markets?.length) parts.push(markets.map((m) => m.charAt(0).toUpperCase() + m.slice(1)).join(" vs "));
-  parts.push(archetypeLabels[archetype] || "Dashboard");
-
-  return parts.join(" ");
+  return { archetype, requested_sections, measures: [], comparisons, time_view };
 }
 
 /* --------------------------------------------------------------------------
- * Dashboard composition
+ * Section-based composition
  * -------------------------------------------------------------------------- */
 
 interface WidgetSpec {
@@ -233,6 +191,102 @@ interface WidgetSpec {
   config: Record<string, unknown>;
   layout: { x: number; y: number; w: number; h: number };
 }
+
+function composeFromIntent(
+  intent: DashboardIntent,
+  metrics: string[],
+  scope: { entity_type: string; entity_ids?: string[] },
+  quarter?: string,
+): { widgets: WidgetSpec[] } {
+  // Use explicit sections from prompt, or fall back to archetype defaults
+  let sections = intent.requested_sections.length > 0
+    ? intent.requested_sections
+    : (ARCHETYPE_DEFAULT_SECTIONS[intent.archetype] ?? ARCHETYPE_DEFAULT_SECTIONS.executive_summary);
+
+  // kpi_summary always first, no duplicates
+  sections = ["kpi_summary", ...sections.filter((s) => s !== "kpi_summary")];
+
+  const widgets: WidgetSpec[] = [];
+  let currentY = 0;
+  const compact = sections.length >= 6; // reduce heights to prevent excessive scroll
+
+  for (const sectionKey of sections) {
+    const section = SECTION_REGISTRY[sectionKey];
+    if (!section) continue;
+
+    let currentX = 0;
+    let sectionH = 0;
+
+    for (const def of section.widgets) {
+      const h = compact && def.h > 2 ? Math.max(3, def.h - 1) : def.h;
+
+      if (currentX + def.w > 12) {
+        currentY += sectionH;
+        currentX = 0;
+        sectionH = 0;
+      }
+      sectionH = Math.max(sectionH, h);
+
+      widgets.push({
+        id: `${sectionKey}_${widgets.length}`,
+        type: def.type,
+        config: {
+          ...def.config_overrides,
+          entity_type: scope.entity_type,
+          entity_ids: scope.entity_ids,
+          quarter,
+          scenario: "actual",
+          metrics: selectMetricsForWidget(def.type, metrics, scope.entity_type),
+        },
+        layout: { x: currentX, y: currentY, w: def.w, h },
+      });
+      currentX += def.w;
+    }
+    currentY += sectionH;
+  }
+
+  // If section registry produced nothing useful, fall back to archetype slots
+  if (widgets.length <= 1) {
+    return composeDashboard(intent.archetype, metrics, scope, quarter);
+  }
+
+  return { widgets };
+}
+
+function selectMetricsForWidget(
+  widgetType: string,
+  metrics: string[],
+  _entityType: string,
+): Array<{ key: string }> {
+  switch (widgetType) {
+    case "metrics_strip":
+      return metrics.slice(0, 4).map((k) => ({ key: k }));
+    case "trend_line": {
+      const trendMetrics = metrics.filter((k) =>
+        ["NOI", "OCCUPANCY", "DSCR_KPI", "ASSET_VALUE", "PORTFOLIO_NAV", "NET_CASH_FLOW"].includes(k),
+      ).slice(0, 3);
+      return trendMetrics.length > 0 ? trendMetrics.map((k) => ({ key: k })) : [{ key: metrics[0] || "NOI" }];
+    }
+    case "bar_chart": {
+      const barMetrics = metrics.filter((k) =>
+        ["RENT", "TOTAL_OPEX", "EGI", "NOI", "CAPEX", "TOTAL_DEBT_SERVICE"].includes(k),
+      ).slice(0, 3);
+      return barMetrics.length > 0 ? barMetrics.map((k) => ({ key: k })) : [{ key: "NOI" }, { key: "TOTAL_OPEX" }];
+    }
+    case "waterfall":
+      return [{ key: "EGI" }, { key: "TOTAL_OPEX" }, { key: "NOI" }];
+    case "statement_table":
+    case "comparison_table":
+    case "text_block":
+      return [];
+    default:
+      return metrics.slice(0, 2).map((k) => ({ key: k }));
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Fallback: archetype-slot composition (original behavior, kept for backward compat)
+ * -------------------------------------------------------------------------- */
 
 function composeDashboard(
   archetypeKey: string,
@@ -267,7 +321,6 @@ function composeDashboard(
         break;
       }
       case "trend_line": {
-        // Pick 1-3 metrics for trend lines
         const trendMetrics = metrics.filter((k) =>
           ["NOI", "OCCUPANCY", "DSCR_KPI", "ASSET_VALUE", "PORTFOLIO_NAV", "NET_CASH_FLOW"].includes(k),
         ).slice(0, 3);
@@ -316,6 +369,135 @@ function composeDashboard(
   }
 
   return { widgets };
+}
+
+/* --------------------------------------------------------------------------
+ * Intent coverage validation
+ * -------------------------------------------------------------------------- */
+
+function validateIntentCoverage(intent: DashboardIntent, widgets: WidgetSpec[]): string[] {
+  const warnings: string[] = [];
+  const widgetTypes = new Set(widgets.map((w) => w.type));
+  const widgetTitles = widgets.map((w) => (w.config.title as string | undefined)?.toLowerCase() || "");
+
+  for (const section of intent.requested_sections) {
+    const sectionDef = SECTION_REGISTRY[section];
+    if (!sectionDef) continue;
+    const found = sectionDef.widgets.some((def) => widgetTypes.has(def.type));
+    if (!found) {
+      warnings.push(`Requested "${section}" but no matching widget was generated`);
+    }
+  }
+
+  if (
+    intent.comparisons.includes("budget") &&
+    !widgetTitles.some((t) => t.includes("budget") || t.includes("variance"))
+  ) {
+    warnings.push("Prompt requested budget comparison but no variance widget was generated");
+  }
+
+  return warnings;
+}
+
+/* --------------------------------------------------------------------------
+ * Other helpers
+ * -------------------------------------------------------------------------- */
+
+function detectScope(
+  prompt: string,
+  entityType?: string,
+  entityIds?: string[],
+): { entity_type: string; entity_ids?: string[] } {
+  const type = entityType ||
+    (/fund|portfolio|nav|tvpi|dpi/i.test(prompt) ? "fund" :
+     /investment|deal|return|irr|moic/i.test(prompt) ? "investment" :
+     "asset");
+
+  return { entity_type: type, entity_ids: entityIds?.length ? entityIds : undefined };
+}
+
+function detectMetrics(prompt: string, entityType: string): string[] {
+  const detected: string[] = [];
+
+  const keywordMap: Record<string, string[]> = {
+    noi: ["NOI"],
+    "net operating": ["NOI"],
+    revenue: ["RENT", "OTHER_INCOME", "EGI"],
+    rent: ["RENT"],
+    income: ["EGI"],
+    opex: ["TOTAL_OPEX"],
+    expense: ["TOTAL_OPEX"],
+    occupancy: ["OCCUPANCY"],
+    dscr: ["DSCR_KPI"],
+    "debt service": ["TOTAL_DEBT_SERVICE", "DSCR_KPI"],
+    "debt maturity": ["TOTAL_DEBT_SERVICE"],
+    "debt yield": ["DEBT_YIELD"],
+    dy: ["DEBT_YIELD"],
+    ltv: ["LTV"],
+    "loan to value": ["LTV"],
+    "cap rate": ["ASSET_VALUE", "NOI"],
+    "cash flow": ["NET_CASH_FLOW"],
+    capex: ["CAPEX"],
+    margin: ["NOI_MARGIN_KPI"],
+    value: ["ASSET_VALUE"],
+    equity: ["EQUITY_VALUE"],
+    irr: ["GROSS_IRR", "NET_IRR"],
+    tvpi: ["GROSS_TVPI", "NET_TVPI"],
+    dpi: ["DPI"],
+    nav: ["PORTFOLIO_NAV"],
+    "unit economics": ["AVG_RENT", "NOI_PER_UNIT"],
+  };
+
+  for (const [keyword, metrics] of Object.entries(keywordMap)) {
+    if (prompt.includes(keyword)) {
+      for (const m of metrics) {
+        if (!detected.includes(m)) detected.push(m);
+      }
+    }
+  }
+
+  const entityMetrics = METRIC_CATALOG
+    .filter((m) => m.entity_levels.includes(entityType as "asset" | "investment" | "fund"))
+    .map((m) => m.key);
+
+  const filtered = detected.filter((k) => entityMetrics.includes(k));
+
+  if (filtered.length === 0) {
+    if (entityType === "fund") return ["PORTFOLIO_NAV", "GROSS_IRR", "NET_TVPI", "DPI"];
+    if (entityType === "investment") return ["NOI", "ASSET_VALUE", "EQUITY_VALUE", "DSCR_KPI"];
+    return ["NOI", "OCCUPANCY", "DSCR_KPI", "ASSET_VALUE"];
+  }
+
+  return filtered;
+}
+
+function detectQuarter(prompt: string): string | null {
+  const match = prompt.match(/(\d{4})q([1-4])/i);
+  if (match) return `${match[1]}Q${match[2]}`;
+  return null;
+}
+
+function generateName(prompt: string, archetype: string): string {
+  const archetypeLabels: Record<string, string> = {
+    executive_summary: "Executive Summary",
+    operating_review: "Operating Review",
+    monthly_operating_report: "Monthly Operating Report",
+    watchlist: "Watchlist",
+    fund_quarterly_review: "Fund Quarterly Review",
+    market_comparison: "Market Comparison",
+    underwriting_dashboard: "Underwriting Dashboard",
+    custom: "Dashboard",
+  };
+
+  const propertyTypes = prompt.match(/multifamily|office|industrial|retail|hotel|medical/gi);
+  const markets = prompt.match(/phoenix|denver|aurora|dallas|austin|atlanta|miami|nyc|chicago|boston/gi);
+
+  const parts: string[] = [];
+  if (propertyTypes?.length) parts.push(propertyTypes[0].charAt(0).toUpperCase() + propertyTypes[0].slice(1));
+  if (markets?.length) parts.push(markets.map((m) => m.charAt(0).toUpperCase() + m.slice(1)).join(" vs "));
+  parts.push(archetypeLabels[archetype] || "Dashboard");
+
+  return parts.join(" ");
 }
 
 /* --------------------------------------------------------------------------
