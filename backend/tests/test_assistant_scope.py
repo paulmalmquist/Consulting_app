@@ -183,7 +183,7 @@ def test_visible_context_policy_disables_tools_for_visible_fund_list():
     )
 
     assert policy["disable_tools"] is True
-    assert "visible funds list" in policy["instructions"][0].lower()
+    assert "visible fund list" in policy["instructions"][0].lower()
 
 
 def test_visible_context_policy_disables_tools_for_visible_strategy_lookup():

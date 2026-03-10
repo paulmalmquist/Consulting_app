@@ -1,7 +1,6 @@
 """POST /api/re/v2/query — natural language query agent.
 
 Routes questions to SQL or Python execution engines.
-Phase 1: SQL path only (lookups, filters, aggregations).
 Uses a single LLM call for routing + SQL generation to minimize latency.
 """
 from __future__ import annotations
@@ -19,6 +18,7 @@ from app.db import get_cursor
 from app.observability.logger import emit_log
 from app.sql_agent.combined_agent import run_agent
 from app.sql_agent.interpreter import interpret
+from app.sql_agent.python_dispatcher import dispatch as dispatch_python
 from app.sql_agent.validator import validate_sql
 
 logger = logging.getLogger(__name__)
@@ -78,21 +78,87 @@ async def query(req: QueryRequest) -> QueryResponse:
             len(result.sql) if result.sql else 0,
         )
 
-        # 2. Handle Python route (Phase 2 stub)
+        # 2. Handle Python route — dispatch to finance engines
         if result.route == "python":
+            if not result.python_fn:
+                return QueryResponse(
+                    route="python",
+                    intent=result.intent,
+                    entity_type=result.entity_type,
+                    visualization="table",
+                    columns=[],
+                    data=[],
+                    row_count=0,
+                    truncated=False,
+                    duration_ms=_elapsed(t0),
+                    error="Agent routed to Python but did not specify a function.",
+                )
+
+            try:
+                py_result = await dispatch_python(
+                    result.python_fn,
+                    business_id=business_id,
+                    quarter=quarter,
+                    params=result.params,
+                )
+            except ValueError as e:
+                return QueryResponse(
+                    route="python",
+                    intent=result.intent,
+                    entity_type=result.entity_type,
+                    visualization="table",
+                    columns=[],
+                    data=[],
+                    row_count=0,
+                    truncated=False,
+                    duration_ms=_elapsed(t0),
+                    error=str(e),
+                )
+            except Exception as e:
+                logger.exception("Python dispatch failed: %s", e)
+                return QueryResponse(
+                    route="python",
+                    intent=result.intent,
+                    entity_type=result.entity_type,
+                    visualization="table",
+                    columns=[],
+                    data=[],
+                    row_count=0,
+                    truncated=False,
+                    duration_ms=_elapsed(t0),
+                    error=f"Computation failed: {type(e).__name__}: {e}",
+                )
+
+            columns = py_result.get("columns", [])
+            data = py_result.get("data", [])
+            computation = py_result.get("computation", {})
+            viz = interpret(columns, data, route="python", python_fn=result.python_fn)
+
+            emit_log(
+                level="info",
+                service="sql_agent",
+                action="query.python_executed",
+                message=f"Python {result.python_fn} returned {len(data)} rows as {viz}",
+                context={
+                    "prompt": req.prompt[:200],
+                    "python_fn": result.python_fn,
+                    "row_count": len(data),
+                    "visualization": viz,
+                    "duration_ms": _elapsed(t0),
+                },
+            )
+
             return QueryResponse(
                 route="python",
                 intent=result.intent,
                 entity_type=result.entity_type,
-                visualization="table",
-                columns=[],
-                data=[],
-                row_count=0,
+                visualization=viz,
+                columns=columns,
+                data=data,
+                row_count=len(data),
                 truncated=False,
-                computation={"type": result.python_fn, "status": "not_yet_implemented"},
+                computation=computation,
                 duration_ms=_elapsed(t0),
-                error=f"Python calculations ({result.python_fn}) coming in Phase 2. "
-                      f"Try rephrasing to read stored data instead.",
             )
 
         # 3. SQL path — validate

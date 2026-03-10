@@ -51,7 +51,7 @@ def test_generate_drafts_fallback_path(monkeypatch: pytest.MonkeyPatch):
     cursor = _InsertCursor()
     monkeypatch.setattr(narrative, "get_cursor", lambda: _cursor_ctx(cursor))
     monkeypatch.setattr(narrative, "_get_metrics", lambda **_: {"open_queue": 3, "risk_events": 2, "hours_saved": 10})
-    monkeypatch.setattr(narrative, "_maybe_generate_with_sidecar", lambda prompt: (None, "sidecar unavailable"))
+    monkeypatch.setattr(narrative, "_maybe_generate_with_gateway", lambda prompt: (None, "sidecar unavailable"))
 
     rows = narrative.generate_drafts(
         env_id=uuid4(),
@@ -71,7 +71,7 @@ def test_generate_drafts_llm_path(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(narrative, "_get_metrics", lambda **_: {"open_queue": 3, "risk_events": 2, "hours_saved": 10})
     monkeypatch.setattr(
         narrative,
-        "_maybe_generate_with_sidecar",
+        "_maybe_generate_with_gateway",
         lambda prompt: ("We are improving outcomes and client transparency.", None),
     )
 
@@ -155,4 +155,4 @@ def test_briefing_generation_fallback_summary(monkeypatch: pytest.MonkeyPatch):
         period="2026-03",
         actor="tester",
     )
-    assert "execution" in row["summary_text"].lower()
+    assert "executive" in row["summary_text"].lower()

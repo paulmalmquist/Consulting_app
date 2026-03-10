@@ -53,6 +53,10 @@ class ToolRegistry:
             raise ValueError(f"Invalid permission '{tool.permission}' for {tool.name}")
         self._tools[tool.name] = tool
 
+    def clear(self) -> None:
+        """Remove all registered tools. For testing only."""
+        self._tools.clear()
+
     def get(self, name: str) -> ToolDef | None:
         return self._tools.get(name)
 

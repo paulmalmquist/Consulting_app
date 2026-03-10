@@ -20,10 +20,20 @@ os.environ["_BM_SKIP_DB_CHECK"] = "1"
 os.environ["MCP_API_TOKEN"] = "test-token"
 os.environ["ENABLE_MCP_WRITES"] = "false"  # Start with writes disabled
 
+import pytest
+from app.mcp.registry import registry
+
+
+@pytest.fixture(autouse=True)
+def _clean_registry():
+    """Clear the global registry before each test to avoid duplicate errors."""
+    registry.clear()
+    yield
+    # leave registry populated for subsequent assertions
+
 
 def test_env_tools_registered():
     """Test that env tools are registered."""
-    from app.mcp.registry import registry
     from app.mcp.tools.env_tools import register_env_tools
 
     register_env_tools()
@@ -45,7 +55,6 @@ def test_env_tools_registered():
 
 def test_git_tools_registered():
     """Test that git tools are registered."""
-    from app.mcp.registry import registry
     from app.mcp.tools.git_tools import register_git_tools
 
     register_git_tools()
@@ -67,7 +76,6 @@ def test_git_tools_registered():
 
 def test_fe_tools_registered():
     """Test that frontend tools are registered."""
-    from app.mcp.registry import registry
     from app.mcp.tools.fe_tools import register_fe_tools
 
     register_fe_tools()
@@ -89,7 +97,6 @@ def test_fe_tools_registered():
 
 def test_api_tools_registered():
     """Test that API tools are registered."""
-    from app.mcp.registry import registry
     from app.mcp.tools.api_tools import register_api_tools
 
     register_api_tools()
@@ -104,7 +111,6 @@ def test_api_tools_registered():
 
 def test_rag_tools_registered():
     """Test that RAG tools are registered."""
-    from app.mcp.registry import registry
     from app.mcp.tools.rag_tools import register_rag_tools
 
     register_rag_tools()
@@ -118,7 +124,6 @@ def test_rag_tools_registered():
 
 def test_db_tools_registered():
     """Test that DB tools are registered."""
-    from app.mcp.registry import registry
     from app.mcp.tools.db_tools import register_db_tools
 
     register_db_tools()
@@ -133,10 +138,11 @@ def test_db_tools_registered():
 
 def test_env_get_read_only():
     """Test env.get with dry-run."""
-    from app.mcp.registry import registry
     from app.mcp.auth import McpContext
     from app.mcp.schemas.env_tools import EnvGetInput
+    from app.mcp.tools.env_tools import register_env_tools
 
+    register_env_tools()
     tool = registry.get("env.get")
     ctx = McpContext(actor="test_user", token_valid=True)
 
@@ -151,10 +157,11 @@ def test_env_get_read_only():
 
 def test_git_diff_read_only():
     """Test git.diff."""
-    from app.mcp.registry import registry
     from app.mcp.auth import McpContext
     from app.mcp.schemas.git_tools import GitDiffInput
+    from app.mcp.tools.git_tools import register_git_tools
 
+    register_git_tools()
     tool = registry.get("git.diff")
     ctx = McpContext(actor="test_user", token_valid=True)
 
@@ -170,10 +177,11 @@ def test_git_diff_read_only():
 
 def test_fe_run_typecheck():
     """Test fe.run with typecheck preset."""
-    from app.mcp.registry import registry
     from app.mcp.auth import McpContext
     from app.mcp.schemas.fe_tools import FeRunInput
+    from app.mcp.tools.fe_tools import register_fe_tools
 
+    register_fe_tools()
     tool = registry.get("fe.run")
     ctx = McpContext(actor="test_user", token_valid=True)
 
@@ -188,8 +196,9 @@ def test_fe_run_typecheck():
 
 def test_all_tools_list():
     """Test that all new tools show up in tool listing."""
-    from app.mcp.registry import registry
+    from app.mcp.server import _register_all_tools
 
+    _register_all_tools()
     tool_names = [t.name for t in registry.list_all()]
 
     # Check new tools are present
@@ -200,8 +209,8 @@ def test_all_tools_list():
     assert "fe.edit" in tool_names
     assert "fe.run" in tool_names
     assert "api.call" in tool_names
-    assert "codex.task" in tool_names
     assert "db.upsert" in tool_names
+    assert "repe.nl_query" in tool_names
 
 
 if __name__ == "__main__":

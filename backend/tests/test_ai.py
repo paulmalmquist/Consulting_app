@@ -16,30 +16,28 @@ def test_ai_health_disabled(client):
 
 
 def test_ai_ask_disabled(client):
-    """AI ask should return 501 when AI_MODE != local."""
-    with patch.dict(os.environ, {"AI_MODE": "off"}):
-        resp = client.post("/api/ai/ask", json={"prompt": "hello"})
-    assert resp.status_code == 501
+    """AI ask should return 301 (legacy route redirects to gateway)."""
+    resp = client.post("/api/ai/ask", json={"prompt": "hello"})
+    assert resp.status_code == 301
+    assert "gateway" in resp.json()["detail"].lower()
 
 
 def test_ai_ask_prompt_too_large(client):
-    """Should reject prompts exceeding max size."""
-    with patch.dict(os.environ, {"AI_MODE": "local", "AI_MAX_PROMPT_BYTES": "10"}):
-        resp = client.post("/api/ai/ask", json={
-            "prompt": "x" * 100,
-        })
-    assert resp.status_code == 413
+    """Legacy ask route returns 301 regardless of payload."""
+    resp = client.post("/api/ai/ask", json={
+        "prompt": "x" * 100,
+    })
+    assert resp.status_code == 301
 
 
 def test_ai_code_task_requires_dry_run(client):
-    """code_task only supports dry_run=true."""
-    with patch.dict(os.environ, {"AI_MODE": "local"}):
-        resp = client.post("/api/ai/code_task", json={
-            "task": "hello",
-            "dry_run": False,
-        })
-    assert resp.status_code == 400
-    assert "dry_run" in resp.json()["detail"]
+    """Legacy code_task route returns 301 redirect to gateway."""
+    resp = client.post("/api/ai/code_task", json={
+        "task": "hello",
+        "dry_run": False,
+    })
+    assert resp.status_code == 301
+    assert "gateway" in resp.json()["detail"].lower()
 
 
 # ── Retrieval safety tests ──────────────────────────────────────────

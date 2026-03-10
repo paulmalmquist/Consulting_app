@@ -33,6 +33,7 @@ def _register_all_tools():
     from app.mcp.tools.rag_tools import register_rag_tools
     from app.mcp.tools.repe_tools import register_repe_tools
     from app.mcp.tools.repe_finance_tools import register_repe_finance_tools
+    from app.mcp.tools.query_tools import register_query_tools
 
     register_meta_tools()
     register_business_tools()
@@ -51,6 +52,7 @@ def _register_all_tools():
     register_rag_tools()
     register_repe_tools()
     register_repe_finance_tools()
+    register_query_tools()
 
 
 def _make_response(req_id, result=None, error=None):
