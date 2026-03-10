@@ -60,6 +60,7 @@ from app.routes import (
     nv_impact_estimator, nv_case_factory, nv_ai_copilot, nv_engagement_output,
 )
 from app.routes import epi as epi_routes
+from app.routes import re_query
 
 app = FastAPI(title="Business OS API", version="0.1.0")
 
@@ -151,6 +152,7 @@ app.include_router(re_reports.router)
 app.include_router(re_v1_context.router)
 app.include_router(re_v1_funds.router)
 app.include_router(re_v2.router)
+app.include_router(re_query.router)
 app.include_router(re_financial_intelligence.router)
 app.include_router(re_sustainability.router)
 app.include_router(re_uw_reports.router)
