@@ -481,10 +481,9 @@ async def _run_repe_fast_path(
 
     # ── Build MCP context for tool execution ───────────────────────────
     ctx = McpContext(
-        user=actor,
+        actor=actor,
+        token_valid=True,
         resolved_scope=scope_dump,
-        env_id=scenario.env_id,
-        business_id=scenario.business_id,
     )
 
     tool_timeline = []
