@@ -3,6 +3,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import ALLOWED_ORIGINS
+from app.auth.middleware import AuthMiddleware
 from app.middleware import RequestLoggingMiddleware
 from app.mcp.registry import registry as _tool_registry
 from app.mcp.server import _register_all_tools
@@ -61,6 +62,7 @@ from app.routes import (
 )
 from app.routes import epi as epi_routes
 from app.routes import re_query
+from app.routes import semantic_catalog, analytics
 
 app = FastAPI(title="Business OS API", version="0.1.0")
 
@@ -85,6 +87,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(AuthMiddleware)
 
 
 @app.exception_handler(RequestValidationError)
@@ -186,3 +189,5 @@ app.include_router(nv_case_factory.router)
 app.include_router(nv_ai_copilot.router)
 app.include_router(nv_engagement_output.router)
 app.include_router(epi_routes.router)
+app.include_router(semantic_catalog.router)
+app.include_router(analytics.router)

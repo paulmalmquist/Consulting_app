@@ -394,12 +394,16 @@ async def _run_repe_fast_path(
     Target latency: <2s for metrics, <4s for scenario + waterfall.
     """
     from app.services.repe_intent import (
+        INTENT_ANALYTICS_QUERY,
+        INTENT_BRIEFING_GENERATE,
         INTENT_CAPITAL_CALL_IMPACT,
         INTENT_CLAWBACK_RISK,
         INTENT_COMPARE_SCENARIOS,
         INTENT_CONSTRUCTION_IMPACT,
+        INTENT_DATA_HEALTH,
         INTENT_FUND_METRICS,
         INTENT_GENERATE_DASHBOARD,
+        INTENT_KNOWLEDGE_SEARCH,
         INTENT_LP_SUMMARY,
         INTENT_MONTE_CARLO_WATERFALL,
         INTENT_PIPELINE_RADAR,
@@ -726,6 +730,71 @@ async def _run_repe_fast_path(
                 "card": card,
                 "dashboard_spec": dashboard_spec,
             })
+
+        elif family == INTENT_ANALYTICS_QUERY:
+            from app.services.analytics_workspace import run_query, suggest_visualization
+
+            yield _sse("status", {"message": "Generating SQL query...", "stage": "sql_gen", "progress": 0.2})
+
+            # Use the SQL agent to generate SQL from NL
+            try:
+                from app.sql_agent.combined_agent import generate_sql
+                from app.sql_agent.catalog import catalog_text_dynamic
+                catalog = catalog_text_dynamic(business_id=scenario.business_id)
+                generated = await generate_sql(
+                    message=intent.original_message,
+                    catalog=catalog,
+                    business_id=scenario.business_id,
+                )
+                sql = generated.get("sql", "")
+            except Exception:
+                # Fallback: treat the message as a direct SQL query hint
+                sql = ""
+
+            if sql:
+                yield _sse("status", {"message": "Executing query...", "stage": "execute", "progress": 0.6})
+                query_result = run_query(
+                    business_id=scenario.business_id or "",
+                    env_id=scenario.env_id or "",
+                    sql=sql,
+                    executed_by=actor,
+                )
+                if query_result.get("error"):
+                    yield _sse("token", {"text": f"Query error: {query_result['error']}"})
+                else:
+                    viz_hint = suggest_visualization(
+                        columns=query_result["columns"],
+                        row_count=query_result["row_count"],
+                    )
+                    yield _sse("structured_result", {
+                        "result_type": "query_result",
+                        "card": {
+                            "title": "Query Results",
+                            "sql": sql,
+                            "columns": query_result["columns"],
+                            "rows": query_result["rows"][:100],
+                            "row_count": query_result["row_count"],
+                            "elapsed_ms": query_result["elapsed_ms"],
+                            "visualization_hint": viz_hint,
+                            "truncated": query_result.get("truncated", False),
+                        },
+                    })
+                    result = query_result
+            else:
+                yield _sse("token", {"text": "I couldn't generate a SQL query from your request. Try rephrasing or use the SQL editor directly."})
+
+        elif family == INTENT_DATA_HEALTH:
+            yield _sse("status", {"message": "Checking data health...", "stage": "health_check", "progress": 0.3})
+            yield _sse("token", {"text": "Data health monitoring is available in the Admin Console. Navigate to **Admin & Ops → Data Health** to view quality scores, freshness SLAs, and anomaly alerts."})
+
+        elif family == INTENT_KNOWLEDGE_SEARCH:
+            yield _sse("status", {"message": "Searching knowledge base...", "stage": "search", "progress": 0.3})
+            yield _sse("token", {"text": "Knowledge search is available through the **Knowledge Explorer**. I'll route your question through the RAG pipeline for now."})
+            # Fall through to RAG — this intent will be handled by the main LLM pipeline
+
+        elif family == INTENT_BRIEFING_GENERATE:
+            yield _sse("status", {"message": "Generating executive briefing...", "stage": "briefing", "progress": 0.3})
+            yield _sse("token", {"text": "Executive briefing generation is available at **Briefings → Generate**. The briefing wizard will walk you through period selection, KPI snapshots, and AI-generated narratives."})
 
         else:
             # Explain returns / fallback — emit as text

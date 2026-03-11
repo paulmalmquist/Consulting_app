@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from app.sql_agent.catalog import ALLOWED_TABLES
+from app.sql_agent.catalog import ALLOWED_TABLES, get_join_path
 
 
 @dataclass
@@ -19,6 +19,7 @@ class ValidationResult:
     valid: bool
     sql: str
     error: str | None = None
+    warnings: list[str] | None = None
 
 
 # Patterns that indicate write operations
@@ -96,4 +97,39 @@ def validate_sql(sql: str, business_id: str) -> ValidationResult:
             error="Query must include business_id filter for tenant isolation",
         )
 
-    return ValidationResult(valid=True, sql=sql)
+    # Join validation: verify that all JOINs use validated paths
+    join_pattern = re.compile(
+        r"\bJOIN\s+(\w+)\b", re.IGNORECASE,
+    )
+    from_pattern = re.compile(
+        r"\bFROM\s+(\w+)\b", re.IGNORECASE,
+    )
+    from_tables = [m.group(1).lower() for m in from_pattern.finditer(sql)]
+    join_tables = [m.group(1).lower() for m in join_pattern.finditer(sql)]
+
+    warnings: list[str] = []
+    if join_tables and from_tables:
+        # Check each JOIN against the join graph
+        all_tables_in_order = from_tables + join_tables
+        for i, jt in enumerate(join_tables):
+            # The join target should have a validated path from at least one
+            # previously referenced table
+            preceding = all_tables_in_order[:len(from_tables) + i]
+            has_valid_path = any(
+                get_join_path(prev, jt) is not None for prev in preceding
+            )
+            if not has_valid_path:
+                warnings.append(
+                    f"Unvalidated join: no known path to '{jt}' from {preceding}. "
+                    f"This join may produce incorrect results."
+                )
+            else:
+                # Check for fan-out warnings
+                for prev in preceding:
+                    path = get_join_path(prev, jt)
+                    if path and not path.is_safe:
+                        warnings.append(
+                            f"Fan-out warning on {prev} → {jt}: {path.fan_out_warning or 'potential row multiplication'}"
+                        )
+
+    return ValidationResult(valid=True, sql=sql, warnings=warnings or None)

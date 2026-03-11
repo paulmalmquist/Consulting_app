@@ -35,6 +35,12 @@ INTENT_EXPLAIN_RETURNS = "explain_returns"
 INTENT_LP_SUMMARY = "lp_summary"
 INTENT_GENERATE_DASHBOARD = "generate_dashboard"
 
+# ── Analytics portal intent families ────────────────────────────────────────
+INTENT_ANALYTICS_QUERY = "analytics_query"
+INTENT_KNOWLEDGE_SEARCH = "knowledge_search"
+INTENT_DATA_HEALTH = "data_health"
+INTENT_BRIEFING_GENERATE = "briefing_generate"
+
 
 @dataclass
 class RepeIntent:
@@ -161,6 +167,41 @@ _DASHBOARD_RE = re.compile(
     r"operating\s+review\s+(?:dashboard|report)|"
     r"(?:asset|property)\s+(?:operating|management)\s+report|"
     r"underwriting\s+dashboard)\b",
+    re.IGNORECASE,
+)
+
+# ── Analytics portal patterns ───────────────────────────────────────────────
+_ANALYTICS_QUERY_RE = re.compile(
+    r"\b((?:run|execute|write|show\s+me)\s+(?:a\s+)?(?:sql\s+)?query|"
+    r"query\s+(?:the\s+)?(?:data|database|table)|"
+    r"how\s+many|total\s+(?:number|count|sum|amount)|"
+    r"average\s+(?:noi|rent|occupancy|budget|spend)|"
+    r"(?:list|show|get)\s+(?:all\s+)?(?:projects?|funds?|assets?|deals?|contracts?)|"
+    r"(?:group|break(?:down)?|aggregate|sum(?:marize)?)\s+(?:by|per))\b",
+    re.IGNORECASE,
+)
+_KNOWLEDGE_SEARCH_RE = re.compile(
+    r"\b((?:find|search|look\s*up|locate)\s+(?:documents?|knowledge|information|policies?|procedures?)|"
+    r"what\s+(?:is|are|do\s+we\s+know\s+about)|"
+    r"(?:who|which\s+team)\s+(?:is|are|owns|manages)|"
+    r"knowledge\s+(?:base|graph|search)|"
+    r"search\s+(?:for|the)\s+(?:docs?|documents?|files?))\b",
+    re.IGNORECASE,
+)
+_DATA_HEALTH_RE = re.compile(
+    r"\b(data\s+(?:health|quality|freshness|staleness|completeness|accuracy)|"
+    r"(?:is|are)\s+(?:the\s+)?data\s+(?:fresh|stale|up\s+to\s+date|current|accurate)|"
+    r"when\s+was\s+(?:the\s+)?(?:data|table)\s+(?:last\s+)?updated|"
+    r"data\s+(?:contract|sla)\s+(?:status|check|compliance)|"
+    r"pipeline\s+(?:status|health|check))\b",
+    re.IGNORECASE,
+)
+_BRIEFING_RE = re.compile(
+    r"\b((?:generate|create|draft|prepare)\s+(?:an?\s+)?(?:executive\s+)?briefing|"
+    r"executive\s+(?:briefing|summary|update|readout)|"
+    r"(?:weekly|monthly|quarterly)\s+(?:briefing|update|readout|summary)|"
+    r"brief\s+(?:me|the\s+(?:board|team|executives?))|"
+    r"(?:kpi|key\s+metric)\s+(?:snapshot|summary|update))\b",
     re.IGNORECASE,
 )
 
@@ -365,6 +406,42 @@ def classify_repe_intent(
     if scores.get(INTENT_LP_SUMMARY, 0) > 0.6 and dash_score > 0:
         dash_score *= 0.3
     scores[INTENT_GENERATE_DASHBOARD] = min(dash_score, 1.0)
+
+    # ── Analytics query ──────────────────────────────────────────────
+    aq_score = 0.0
+    if _ANALYTICS_QUERY_RE.search(msg):
+        aq_score += 0.70
+    # Suppress if a finance-specific intent already matched strongly
+    if any(scores.get(k, 0) > 0.7 for k in (
+        INTENT_RUN_SALE_SCENARIO, INTENT_RUN_WATERFALL, INTENT_FUND_METRICS,
+        INTENT_GENERATE_DASHBOARD, INTENT_PIPELINE_RADAR,
+    )):
+        aq_score *= 0.2
+    scores[INTENT_ANALYTICS_QUERY] = min(aq_score, 1.0)
+
+    # ── Knowledge search ─────────────────────────────────────────────
+    ks_score = 0.0
+    if _KNOWLEDGE_SEARCH_RE.search(msg):
+        ks_score += 0.80
+    scores[INTENT_KNOWLEDGE_SEARCH] = min(ks_score, 1.0)
+
+    # ── Data health ──────────────────────────────────────────────────
+    dh_score = 0.0
+    if _DATA_HEALTH_RE.search(msg):
+        dh_score += 0.85
+    scores[INTENT_DATA_HEALTH] = min(dh_score, 1.0)
+
+    # ── Executive briefing ───────────────────────────────────────────
+    br_score = 0.0
+    if _BRIEFING_RE.search(msg):
+        br_score += 0.90
+    # Suppress briefing if "dashboard" appears — that should route to dashboard generator
+    if "dashboard" in msg.lower() and br_score > 0:
+        br_score *= 0.2
+    # Suppress dashboard if briefing scored high and no "dashboard" keyword
+    elif br_score > 0.5 and scores.get(INTENT_GENERATE_DASHBOARD, 0) > 0.5 and "dashboard" not in msg.lower():
+        scores[INTENT_GENERATE_DASHBOARD] *= 0.3
+    scores[INTENT_BRIEFING_GENERATE] = min(br_score, 1.0)
 
     # ── Pick best intent ───────────────────────────────────────────────
     if not scores:
