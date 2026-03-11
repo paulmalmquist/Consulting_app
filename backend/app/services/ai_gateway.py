@@ -1523,21 +1523,32 @@ async def run_gateway_stream(
             context={"intent": repe_intent.family, "confidence": repe_intent.confidence,
                       "extracted_params": {k: str(v) for k, v in repe_intent.extracted_params.items() if not k.startswith("_")}},
         )
-        trace.update(metadata={"repe_fast_path": True, "repe_intent": repe_intent.family})
+        try:
+            trace.update(metadata={"repe_fast_path": True, "repe_intent": repe_intent.family})
+        except Exception:
+            pass
 
-        async for sse_line in _run_repe_fast_path(
-            intent=repe_intent,
-            resolved_scope=resolved_scope,
-            context_envelope=normalized_envelope,
-            session_id=session_id,
-            conversation_id=conversation_id,
-            scope_dump=scope_dump,
-            timings=timings,
-            start=start,
-            trace=trace,
-            actor=actor,
-        ):
-            yield sse_line
+        try:
+            async for sse_line in _run_repe_fast_path(
+                intent=repe_intent,
+                resolved_scope=resolved_scope,
+                context_envelope=normalized_envelope,
+                session_id=session_id,
+                conversation_id=conversation_id,
+                scope_dump=scope_dump,
+                timings=timings,
+                start=start,
+                trace=trace,
+                actor=actor,
+            ):
+                yield sse_line
+        except Exception as fp_exc:
+            emit_log(
+                level="error", service="backend", action="ai.gateway.repe_fast_path.outer_error",
+                message=f"Fast-path generator error: {fp_exc}",
+                context={"intent": repe_intent.family, "error": str(fp_exc)},
+            )
+            yield _sse("error", {"message": f"Fast-path error ({repe_intent.family}): {fp_exc}"})
         return
 
     # ── Graceful degradation: write request but no write tools ────────
