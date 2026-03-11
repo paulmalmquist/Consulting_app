@@ -33,6 +33,7 @@ INTENT_SESSION_WATERFALL_QUERY = "session_waterfall_query"
 INTENT_ASSET_VALUATION = "asset_valuation"
 INTENT_EXPLAIN_RETURNS = "explain_returns"
 INTENT_LP_SUMMARY = "lp_summary"
+INTENT_GENERATE_DASHBOARD = "generate_dashboard"
 
 
 @dataclass
@@ -150,6 +151,16 @@ _CONSTRUCTION_RE = re.compile(
 )
 _SESSION_WF_RE = re.compile(
     r"\b(which.*best|compare all.*runs|best.*scenario|worst.*scenario|summary of.*runs)\b",
+    re.IGNORECASE,
+)
+_DASHBOARD_RE = re.compile(
+    r"\b((?:build|show|create|generate)\s+(?:me\s+)?(?:a\s+)?(?:dashboard|report)|"
+    r"monthly\s+operating\s+report|executive\s+summary\s+dashboard|"
+    r"fund\s+(?:quarterly|performance)\s+(?:review|report|dashboard)|"
+    r"watchlist\s+(?:dashboard|report)|portfolio\s+(?:overview|summary|dashboard)|"
+    r"operating\s+review\s+(?:dashboard|report)|"
+    r"(?:asset|property)\s+(?:operating|management)\s+report|"
+    r"underwriting\s+dashboard)\b",
     re.IGNORECASE,
 )
 
@@ -341,6 +352,19 @@ def classify_repe_intent(
     if page_type == "fund":
         lp_score += 0.10
     scores[INTENT_LP_SUMMARY] = min(lp_score, 1.0)
+
+    # ── Generate dashboard ────────────────────────────────────────────
+    dash_score = 0.0
+    if _DASHBOARD_RE.search(msg):
+        dash_score += 0.90
+    # Suppress if a specific engine-level intent scored higher
+    if scores.get(INTENT_RUN_WATERFALL, 0) > 0.6 and dash_score > 0:
+        dash_score *= 0.3
+    if scores.get(INTENT_PIPELINE_RADAR, 0) > 0.6 and dash_score > 0:
+        dash_score *= 0.3
+    if scores.get(INTENT_LP_SUMMARY, 0) > 0.6 and dash_score > 0:
+        dash_score *= 0.3
+    scores[INTENT_GENERATE_DASHBOARD] = min(dash_score, 1.0)
 
     # ── Pick best intent ───────────────────────────────────────────────
     if not scores:
@@ -566,5 +590,8 @@ def _identify_missing_params(
     elif intent_family == INTENT_CLAWBACK_RISK:
         if not extracted.get("fund_id"):
             missing.append("fund_id")
+
+    elif intent_family == INTENT_GENERATE_DASHBOARD:
+        pass  # Only env_id/business_id needed (checked above); dashboards are portfolio-wide
 
     return missing

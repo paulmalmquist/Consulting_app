@@ -514,15 +514,33 @@ export default function GlobalCommandBar() {
       // Check for structured results from REPE fast-path
       const structuredResults = (result.debug as Record<string, unknown>).structuredResults as StructuredResult[] | undefined;
       if (structuredResults && structuredResults.length > 0) {
+        const sr = structuredResults[0];
+
+        // Dashboard results: store spec in localStorage for the dashboard page
+        if (sr.result_type === "dynamic_dashboard" && (sr as Record<string, unknown>).dashboard_spec) {
+          const specKey = `winston_dashboard_${Date.now()}`;
+          try {
+            localStorage.setItem(specKey, JSON.stringify((sr as Record<string, unknown>).dashboard_spec));
+          } catch { /* quota exceeded — still show card */ }
+          // Inject specKey into action params so the card's buttons can navigate
+          if (sr.card?.actions) {
+            for (const action of sr.card.actions) {
+              if (action.params) {
+                (action.params as Record<string, string>).spec_key = specKey;
+              }
+            }
+          }
+        }
+
         const msg = makeMessage("assistant", result.answer);
-        msg.structuredResult = structuredResults[0];
+        msg.structuredResult = sr;
         setMessages((prev) => [...prev, msg]);
-        const card = structuredResults[0].card;
+        const card = sr.card;
         const scenarioRows = card.scenarios ?? [];
         const sessionRuns = card.session_waterfall_runs ?? [];
         if (
-          structuredResults[0].result_type.startsWith("waterfall") ||
-          structuredResults[0].result_type === "session_waterfall_summary"
+          sr.result_type.startsWith("waterfall") ||
+          sr.result_type === "session_waterfall_summary"
         ) {
           const nextRuns =
             sessionRuns.length > 0
@@ -791,6 +809,14 @@ export default function GlobalCommandBar() {
                   thinking={planning}
                   thinkingStatus={thinkingStatus}
                   onAction={(action: StructuredResultAction) => {
+                    if (action.action === "open_dashboard" || action.action === "edit_dashboard") {
+                      const specKey = (action.params as Record<string, string>)?.spec_key;
+                      const envId = context.currentEnvId;
+                      if (envId && specKey) {
+                        window.open(`/lab/env/${envId}/re/dashboards?from_winston=${specKey}`, "_blank");
+                      }
+                      return;
+                    }
                     const prompt = `${action.label} for fund ${(action.params as Record<string, string>)?.fund_id || "this fund"}`;
                     void onSend(prompt);
                   }}

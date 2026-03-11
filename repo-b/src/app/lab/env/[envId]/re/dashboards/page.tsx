@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import type { DashboardSpec, DashboardWidget, DataAvailability, WidgetQueryManifest } from "@/lib/dashboards/types";
 import { listArchetypes } from "@/lib/dashboards/layout-archetypes";
@@ -33,6 +34,7 @@ export default function DashboardBuilderPage({
   params: { envId: string };
 }) {
   const { businessId } = useReEnv();
+  const searchParams = useSearchParams();
 
   // Dashboard state
   const [widgets, setWidgets] = useState<DashboardWidget[]>([]);
@@ -62,6 +64,28 @@ export default function DashboardBuilderPage({
       .then((data) => { if (Array.isArray(data)) setSavedDashboards(data); })
       .catch(() => {});
   }, [params.envId, businessId]);
+
+  // Load pre-generated dashboard from Winston command bar
+  useEffect(() => {
+    const winstonKey = searchParams.get("from_winston");
+    if (!winstonKey) return;
+    try {
+      const raw = localStorage.getItem(winstonKey);
+      if (!raw) return;
+      const spec = JSON.parse(raw) as { widgets?: DashboardWidget[]; name?: string; archetype?: string; prompt?: string };
+      if (spec.widgets?.length) {
+        setWidgets(spec.widgets);
+        setDashboardName(spec.name || "Winston Dashboard");
+        setLayoutArchetype(spec.archetype || "custom");
+        setPromptText(spec.prompt || "");
+        setView("builder");
+        setIsEditing(true);
+      }
+      localStorage.removeItem(winstonKey);
+    } catch {
+      // silent — fall back to gallery
+    }
+  }, [searchParams]);
 
   // Hint context
   const hintContext: HintContext = {

@@ -399,6 +399,7 @@ async def _run_repe_fast_path(
         INTENT_COMPARE_SCENARIOS,
         INTENT_CONSTRUCTION_IMPACT,
         INTENT_FUND_METRICS,
+        INTENT_GENERATE_DASHBOARD,
         INTENT_LP_SUMMARY,
         INTENT_MONTE_CARLO_WATERFALL,
         INTENT_PIPELINE_RADAR,
@@ -707,6 +708,25 @@ async def _run_repe_fast_path(
             )
             card = _build_construction_waterfall_card(result, scenario)
             yield _sse("structured_result", {"result_type": "construction_waterfall", "card": card})
+
+        elif family == INTENT_GENERATE_DASHBOARD:
+            from app.services.dashboard_composer import compose_dashboard_spec
+
+            yield _sse("status", {"message": "Composing dashboard layout...", "stage": "compose", "progress": 0.3})
+            dashboard_spec = compose_dashboard_spec(
+                message=intent.original_message,
+                env_id=scenario.env_id,
+                business_id=scenario.business_id,
+                fund_id=scenario.fund_id,
+                quarter=scenario.quarter,
+            )
+            yield _sse("status", {"message": "Dashboard ready", "stage": "results", "progress": 0.9})
+            card = _build_dashboard_card(dashboard_spec)
+            yield _sse("structured_result", {
+                "result_type": "dynamic_dashboard",
+                "card": card,
+                "dashboard_spec": dashboard_spec,
+            })
 
         else:
             # Explain returns / fallback — emit as text
@@ -1336,6 +1356,29 @@ def _build_session_waterfall_card(session_state) -> dict:
                 "nav": _fmt_dollar(item.get("key_metrics", {}).get("nav")),
             }
             for item in runs
+        ],
+    }
+
+
+def _build_dashboard_card(spec: dict) -> dict:
+    """Build a summary card for a generated dashboard."""
+    widget_count = len(spec.get("widgets", []))
+    archetype = spec.get("archetype", "custom").replace("_", " ").title()
+    return {
+        "title": spec.get("name", "Dashboard"),
+        "subtitle": f"{widget_count} widgets \u2022 {archetype}",
+        "metrics": [
+            {"label": "Widgets", "value": str(widget_count), "delta": None},
+            {"label": "Layout", "value": archetype, "delta": None},
+        ],
+        "parameters": {
+            "Archetype": archetype,
+            "Entity Scope": (spec.get("entity_scope", {}).get("entity_type") or "asset").title(),
+            "Quarter": spec.get("quarter") or "Current",
+        },
+        "actions": [
+            {"label": "View Dashboard", "action": "open_dashboard", "params": {}},
+            {"label": "Edit in Builder", "action": "edit_dashboard", "params": {}},
         ],
     }
 
