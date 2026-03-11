@@ -8,6 +8,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import type { DashboardWidget } from "@/lib/dashboards/types";
+import { createWinstonDashboardStorageKey } from "@/lib/dashboards/winston-bridge";
 
 const SAMPLE_SPEC = {
   name: "Monthly Operating Report",
@@ -34,7 +35,7 @@ const SAMPLE_SPEC = {
 // ── Simulate the bridge logic from GlobalCommandBar.tsx ──────────────────
 
 function writeSpecToLocalStorage(spec: typeof SAMPLE_SPEC): string {
-  const specKey = `winston_dashboard_${Date.now()}`;
+  const specKey = createWinstonDashboardStorageKey();
   localStorage.setItem(specKey, JSON.stringify(spec));
   return specKey;
 }
@@ -79,9 +80,9 @@ describe("from_winston localStorage bridge", () => {
   it("writes spec to localStorage with a unique key", () => {
     const key1 = writeSpecToLocalStorage(SAMPLE_SPEC);
     const key2 = writeSpecToLocalStorage(SAMPLE_SPEC);
-    expect(key1).toMatch(/^winston_dashboard_\d+$/);
-    expect(key2).toMatch(/^winston_dashboard_\d+$/);
-    // Keys should be unique (written at different timestamps)
+    expect(key1).toMatch(/^winston_dashboard_\d+_[a-z0-9]+$/i);
+    expect(key2).toMatch(/^winston_dashboard_\d+_[a-z0-9]+$/i);
+    expect(key1).not.toBe(key2);
     expect(localStorage.length).toBe(2);
   });
 

@@ -43,6 +43,7 @@ import {
 } from "@/lib/commandbar/store";
 import type { CommandContext, CommandRun, ContextSnapshot } from "@/lib/commandbar/types";
 import { ContractValidationError, type AssistantPlan } from "@/lib/commandbar/schemas";
+import { createWinstonDashboardStorageKey } from "@/lib/dashboards/winston-bridge";
 
 type PlanOverrides = {
   envId: string;
@@ -518,7 +519,7 @@ export default function GlobalCommandBar() {
 
         // Dashboard results: store spec in localStorage for the dashboard page
         if (sr.result_type === "dynamic_dashboard" && (sr as Record<string, unknown>).dashboard_spec) {
-          const specKey = `winston_dashboard_${Date.now()}`;
+          const specKey = createWinstonDashboardStorageKey();
           try {
             localStorage.setItem(specKey, JSON.stringify((sr as Record<string, unknown>).dashboard_spec));
           } catch { /* quota exceeded — still show card */ }

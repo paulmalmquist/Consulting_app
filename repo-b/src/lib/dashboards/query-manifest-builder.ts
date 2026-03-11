@@ -28,7 +28,7 @@ export function buildQueryManifest(
   const idPlaceholder = entityIds?.[0] || "{id}";
   const q = quarter || "{quarter}";
 
-  return widgets.map((w) => {
+  return widgets.map((w): WidgetQueryManifest => {
     const metrics = (w.config.metrics as Array<{ key: string }> | undefined) || [];
     const metricLabels = metrics
       .map((m) => METRIC_MAP.get(m.key)?.label || m.key)
