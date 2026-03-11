@@ -104,5 +104,4 @@ CREATE TABLE IF NOT EXISTS analytics_query_cache (
 );
 
 CREATE INDEX IF NOT EXISTS idx_aqc_lookup
-    ON analytics_query_cache (business_id, cache_key)
-    WHERE expires_at > now();
+    ON analytics_query_cache (business_id, cache_key);
