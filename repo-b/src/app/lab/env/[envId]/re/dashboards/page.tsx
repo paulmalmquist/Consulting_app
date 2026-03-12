@@ -49,7 +49,7 @@ export default function DashboardBuilderPage({
   const [queryManifest, setQueryManifest] = useState<WidgetQueryManifest[]>([]);
 
   // Intelligence layer results
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line -- intelligence shape is dynamic, typed at runtime
   const [intelligence, setIntelligence] = useState<Record<string, any> | null>(null);
 
   // UI state
