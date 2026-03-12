@@ -18,7 +18,9 @@ export type WidgetType =
   | "comparison_table"   // UwVsActualTable
   | "sparkline_grid"     // Grid of SparkLine + label cards
   | "sensitivity_heat"   // SensitivityHeatMap
-  | "text_block";        // Markdown/text annotation
+  | "text_block"         // Markdown/text annotation
+  | "pipeline_bar"       // Deal pipeline by stage (Recharts BarChart)
+  | "geographic_map";    // Geographic map (DealGeoIntelligencePanel wrapper)
 
 export type ChartFormat = "dollar" | "percent" | "number" | "ratio";
 
@@ -71,6 +73,15 @@ export interface WidgetConfig {
   show_legend?: boolean;
   stacked?: boolean;
   reference_lines?: Array<{ y: number; label: string; color?: string }>;
+  // pipeline_bar fields
+  pipeline_field?: string;        // grouping field (default: "status")
+  pipeline_value_field?: string;  // aggregation field (default: "headline_price")
+  pipeline_filter?: Record<string, string>; // e.g. {fund_id: "..."}
+  linked_table_id?: string;       // id of sibling table widget to sync
+  // geographic_map fields
+  geo_entity_type?: "asset" | "investment" | "fund" | "portfolio";
+  geo_filter?: Record<string, string>;
+  geo_cluster?: boolean;
 }
 
 /* --------------------------------------------------------------------------
@@ -120,6 +131,8 @@ export interface EntityScope {
  * -------------------------------------------------------------------------- */
 export interface DashboardSpec {
   widgets: DashboardWidget[];
+  density?: "comfortable" | "compact";
+  builder_messages?: Array<{ level: "info" | "warning" | "error"; text: string }>;
 }
 
 /* --------------------------------------------------------------------------

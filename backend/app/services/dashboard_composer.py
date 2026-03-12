@@ -12,6 +12,47 @@ import re
 from typing import Any
 
 
+# ── Intent → widget type mapping ────────────────────────────────────────────
+# Maps section_key to the canonical widget type for that intent.
+# Used in section composition instead of hardcoded type strings.
+
+INTENT_WIDGET_MAP: dict[str, str] = {
+    "kpi_summary": "metrics_strip",
+    "noi_trend": "trend_line",
+    "actual_vs_budget": "bar_chart",
+    "underperformer_watchlist": "comparison_table",
+    "debt_maturity": "bar_chart",
+    "income_statement": "statement_table",
+    "cash_flow": "statement_table",
+    "noi_bridge": "waterfall",
+    "occupancy_trend": "trend_line",
+    "dscr_monitoring": "trend_line",
+    "downloadable_table": "statement_table",
+    "pipeline_analysis": "pipeline_bar",
+    "geographic_analysis": "geographic_map",
+}
+
+# ── Table inference rules ────────────────────────────────────────────────────
+# After composing widgets, iterate this dict. If the key section is present in
+# the final widget list, inject a companion comparison_table below it.
+
+TABLE_INFERENCE_RULES: dict[str, dict[str, Any]] = {
+    "pipeline_bar": {
+        "companion_type": "comparison_table",
+        "title": "Pipeline Deal Detail",
+        "w": 12,
+        "h": 5,
+        "reason": "Pipeline bar charts should be paired with a drill-down deal table",
+    },
+    "geographic_map": {
+        "companion_type": "comparison_table",
+        "title": "Asset Detail by Geography",
+        "w": 12,
+        "h": 5,
+        "reason": "Geographic maps should be paired with a linked detail table",
+    },
+}
+
 # ── Archetype detection ─────────────────────────────────────────────────────
 
 ARCHETYPE_PHRASES: dict[str, list[str]] = {
@@ -65,6 +106,14 @@ SECTION_PHRASES: dict[str, list[str]] = {
     ],
     "dscr_monitoring": ["dscr", "debt service coverage", "coverage ratio"],
     "noi_bridge": ["noi bridge", "waterfall", "bridge analysis"],
+    "pipeline_analysis": [
+        "pipeline", "deal pipeline", "deal stages", "acquisition pipeline",
+        "active deals", "deal flow", "pipeline stages",
+    ],
+    "geographic_analysis": [
+        "map", "geographic", "geography", "by market", "by region", "by state",
+        "by msa", "spatial", "location", "where are",
+    ],
 }
 
 
@@ -115,6 +164,12 @@ SECTION_REGISTRY: dict[str, list[_SectionWidget]] = {
     "downloadable_table": [
         _sw("statement_table", 12, 5, title="Summary Report",
             period_type="quarterly"),
+    ],
+    "pipeline_analysis": [
+        _sw("pipeline_bar", 12, 5, title="Deal Pipeline by Stage"),
+    ],
+    "geographic_analysis": [
+        _sw("geographic_map", 12, 6, title="Portfolio Map"),
     ],
 }
 
@@ -278,12 +333,37 @@ def _generate_name(message: str, archetype: str) -> str:
     return " ".join(parts)
 
 
+AVAILABLE_WIDGET_TYPES: set[str] = {
+    "metric_card", "metrics_strip", "trend_line", "bar_chart", "waterfall",
+    "statement_table", "comparison_table", "sparkline_grid", "sensitivity_heat",
+    "text_block", "pipeline_bar", "geographic_map",
+}
+
+_WIDGET_FALLBACKS: dict[str, str] = {
+    "sparkline_grid": "metrics_strip",
+    "sensitivity_heat": "bar_chart",
+    "heatmap": "bar_chart",
+    "gauge": "metric_card",
+    "scatter": "trend_line",
+    "bubble": "bar_chart",
+}
+
+
+def _resolve_widget_type(requested: str) -> tuple[str, str | None]:
+    """Return (resolved_type, fallback_message | None)."""
+    if requested in AVAILABLE_WIDGET_TYPES:
+        return requested, None
+    fallback = _WIDGET_FALLBACKS.get(requested, "bar_chart")
+    return fallback, f"Widget type '{requested}' is not available; using '{fallback}' instead"
+
+
 def compose_dashboard_spec(
     message: str,
     env_id: str | None = None,
     business_id: str | None = None,
     fund_id: str | None = None,
     quarter: str | None = None,
+    density: str = "auto",
 ) -> dict[str, Any]:
     """Compose a complete dashboard spec from a user message.
 
@@ -307,8 +387,14 @@ def compose_dashboard_spec(
 
     # Build widgets on 12-col grid
     widgets: list[dict[str, Any]] = []
+    builder_messages: list[dict[str, str]] = []
     current_y = 0
-    compact = len(sections) >= 6
+    if density == "compact":
+        compact = True
+    elif density == "comfortable":
+        compact = False
+    else:  # "auto"
+        compact = len(sections) >= 6
 
     for section_key in sections:
         section_defs = SECTION_REGISTRY.get(section_key)
@@ -330,9 +416,13 @@ def compose_dashboard_spec(
 
             section_h = max(section_h, h)
 
+            resolved_type, fallback_msg = _resolve_widget_type(defn["type"])
+            if fallback_msg:
+                builder_messages.append({"level": "warning", "text": fallback_msg})
+
             widget: dict[str, Any] = {
                 "id": f"{section_key}_{len(widgets)}",
-                "type": defn["type"],
+                "type": resolved_type,
                 "config": {
                     **defn["config_overrides"],
                     "entity_type": entity_type,
@@ -354,9 +444,34 @@ def compose_dashboard_spec(
 
         current_y += section_h
 
+    # Inject companion tables for pipeline_bar and geographic_map
+    existing_types = {w["type"] for w in widgets}
+    for trigger_type, rule in TABLE_INFERENCE_RULES.items():
+        if trigger_type in existing_types:
+            # Only inject if no comparison_table already present
+            if rule["companion_type"] not in existing_types:
+                widgets.append({
+                    "id": f"inferred_table_{len(widgets)}",
+                    "type": rule["companion_type"],
+                    "config": {
+                        "title": rule["title"],
+                        "entity_type": entity_type,
+                        "quarter": quarter,
+                        "scenario": "actual",
+                        "metrics": [],
+                    },
+                    "layout": {"x": 0, "y": current_y, "w": rule["w"], "h": rule["h"]},
+                })
+                current_y += rule["h"]
+                existing_types.add(rule["companion_type"])
+                builder_messages.append({
+                    "level": "info",
+                    "text": rule["reason"],
+                })
+
     name = _generate_name(message, archetype)
 
-    return {
+    result: dict[str, Any] = {
         "name": name,
         "archetype": archetype,
         "widgets": widgets,
@@ -368,4 +483,8 @@ def compose_dashboard_spec(
         },
         "quarter": quarter,
         "prompt": message,
+        "density": density if density != "auto" else ("compact" if compact else "comfortable"),
     }
+    if builder_messages:
+        result["builder_messages"] = builder_messages
+    return result

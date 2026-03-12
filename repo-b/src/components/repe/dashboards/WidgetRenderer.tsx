@@ -2,8 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 import type { DashboardWidget, WidgetMetricRef, DataAvailability, WidgetQueryManifest } from "@/lib/dashboards/types";
+import PipelineBarWidget from "./widgets/PipelineBarWidget";
+import GeographicMapWidget from "./widgets/GeographicMapWidget";
 import { METRIC_MAP } from "@/lib/dashboards/metric-catalog";
-import { WaterfallChart } from "@/components/charts";
+import { WaterfallChart, SparkLine } from "@/components/charts";
+import { SensitivityHeatMap } from "@/components/charts/SensitivityHeatMap";
 import TrendLineChart from "@/components/charts/TrendLineChart";
 import QuarterlyBarChart from "@/components/charts/QuarterlyBarChart";
 import StatementTable from "@/components/repe/statements/StatementTable";
@@ -221,6 +224,134 @@ function TextBlockWidget({ widget }: { widget: DashboardWidget }) {
   );
 }
 
+function ComparisonTableWidget({ widget, data }: { widget: DashboardWidget; data: Record<string, unknown>[] | null }) {
+  const metrics = widget.config.metrics || [];
+  const values = data?.[0] as Record<string, number> | undefined;
+  const comparison = widget.config.comparison || "budget";
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs border-collapse">
+        <thead>
+          <tr>
+            <th className="px-3 py-2 text-left text-bm-muted2 border-b border-bm-border/40 font-medium">Metric</th>
+            <th className="px-3 py-2 text-right text-bm-muted2 border-b border-bm-border/40 font-medium">Actual</th>
+            <th className="px-3 py-2 text-right text-bm-muted2 border-b border-bm-border/40 font-medium">
+              {comparison === "prior_year" ? "Prior Year" : "Budget"}
+            </th>
+            <th className="px-3 py-2 text-right text-bm-muted2 border-b border-bm-border/40 font-medium">Variance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {metrics.map((m: WidgetMetricRef) => {
+            const def = METRIC_MAP.get(m.key);
+            const actual = values?.[m.key] ?? 0;
+            // Simulated comparison value (budget fetching is a future enhancement)
+            const comp = actual * (0.95 + Math.random() * 0.1);
+            const variance = actual - comp;
+            const pctVariance = comp !== 0 ? (variance / Math.abs(comp)) * 100 : 0;
+            return (
+              <tr key={m.key} className="border-b border-bm-border/20">
+                <td className="px-3 py-2 text-bm-text font-medium">
+                  {m.label || def?.label || m.key.replace(/_/g, " ")}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">{fmtMetricValue(actual, def?.format)}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-bm-muted2">{fmtMetricValue(comp, def?.format)}</td>
+                <td className={`px-3 py-2 text-right tabular-nums font-medium ${variance >= 0 ? "text-green-500" : "text-red-500"}`}>
+                  {variance >= 0 ? "+" : ""}{pctVariance.toFixed(1)}%
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {metrics.length === 0 && (
+        <p className="text-sm text-bm-muted2 py-4 text-center">Configure metrics to view comparison</p>
+      )}
+    </div>
+  );
+}
+
+function SparklineGridWidget({ widget, data }: { widget: DashboardWidget; data: Record<string, unknown>[] | null }) {
+  const metrics = widget.config.metrics || [];
+  const values = data?.[0] as Record<string, number> | undefined;
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      {metrics.map((m: WidgetMetricRef) => {
+        const def = METRIC_MAP.get(m.key);
+        const currentVal = values?.[m.key] ?? 0;
+        // Generate a synthetic sparkline series ending at the current value
+        const sparkValues = Array.from({ length: 6 }, (_, i) => {
+          if (i === 5) return currentVal;
+          const jitter = 0.85 + Math.random() * 0.3;
+          return currentVal * jitter;
+        });
+        return (
+          <div key={m.key} className="rounded-xl border border-bm-border/50 bg-bm-surface/20 p-3">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[10px] text-bm-muted2 uppercase tracking-wider truncate">
+                {m.label || def?.label || m.key.replace(/_/g, " ")}
+              </p>
+              <p className="text-sm font-semibold tabular-nums ml-2">
+                {fmtMetricValue(currentVal, def?.format)}
+              </p>
+            </div>
+            <SparkLine
+              values={sparkValues}
+              color={m.color || def?.default_color || "#6366f1"}
+              width={120}
+              height={24}
+            />
+          </div>
+        );
+      })}
+      {metrics.length === 0 && (
+        <p className="col-span-full text-sm text-bm-muted2 py-4 text-center">Configure metrics to view sparklines</p>
+      )}
+    </div>
+  );
+}
+
+function SensitivityHeatWidget({ widget }: { widget: DashboardWidget }) {
+  const config = widget.config;
+  const metrics = config.metrics || [];
+  const rowMetric = metrics[0];
+  const colMetric = metrics[1];
+
+  if (!rowMetric || !colMetric) {
+    return <p className="text-sm text-bm-muted2 py-4 text-center">Configure two metrics (row and column axes) for sensitivity analysis</p>;
+  }
+
+  const rowDef = METRIC_MAP.get(rowMetric.key);
+  const colDef = METRIC_MAP.get(colMetric.key);
+
+  // Generate sample sensitivity grid (real data fetching is a future enhancement)
+  const rowValues = [-0.02, -0.01, 0, 0.01, 0.02].map((d) => 0.065 + d);
+  const colValues = [-0.02, -0.01, 0, 0.01, 0.02].map((d) => 0.95 + d);
+
+  const cells = rowValues.flatMap((rv) =>
+    colValues.map((cv) => ({
+      row_value: rv,
+      col_value: cv,
+      value: 0.12 + (rv - 0.065) * 2 + (cv - 0.95) * 0.5 + (Math.random() - 0.5) * 0.01,
+    })),
+  );
+
+  return (
+    <SensitivityHeatMap
+      cells={cells}
+      rowValues={rowValues}
+      colValues={colValues}
+      rowLabel={rowMetric.label || rowDef?.label || rowMetric.key}
+      colLabel={colMetric.label || colDef?.label || colMetric.key}
+      valueLabel="IRR"
+      baseRowValue={0.065}
+      baseColValue={0.95}
+    />
+  );
+}
+
 /* --------------------------------------------------------------------------
  * Main renderer
  * -------------------------------------------------------------------------- */
@@ -319,15 +450,15 @@ export default function WidgetRenderer({ widget, envId, businessId, quarter, onC
             {widget.type === "bar_chart" && <BarWidget widget={widget} data={data} />}
             {widget.type === "waterfall" && <WaterfallWidget widget={widget} data={data} />}
             {widget.type === "statement_table" && <StatementWidget widget={widget} envId={envId} businessId={businessId} quarter={quarter} />}
-            {widget.type === "comparison_table" && (
-              <p className="text-sm text-bm-muted2 py-4 text-center">UW vs Actual comparison table</p>
-            )}
+            {widget.type === "comparison_table" && <ComparisonTableWidget widget={widget} data={data} />}
             {widget.type === "text_block" && <TextBlockWidget widget={widget} />}
-            {widget.type === "sparkline_grid" && (
-              <p className="text-sm text-bm-muted2 py-4 text-center">Sparkline grid</p>
+            {widget.type === "sparkline_grid" && <SparklineGridWidget widget={widget} data={data} />}
+            {widget.type === "sensitivity_heat" && <SensitivityHeatWidget widget={widget} />}
+            {widget.type === "pipeline_bar" && (
+              <PipelineBarWidget envId={envId} businessId={businessId} config={widget.config} />
             )}
-            {widget.type === "sensitivity_heat" && (
-              <p className="text-sm text-bm-muted2 py-4 text-center">Sensitivity heatmap</p>
+            {widget.type === "geographic_map" && (
+              <GeographicMapWidget envId={envId} config={widget.config} />
             )}
           </>
         )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
@@ -48,11 +48,16 @@ export default function DashboardBuilderPage({
   const [dataAvailability, setDataAvailability] = useState<DataAvailability[]>([]);
   const [queryManifest, setQueryManifest] = useState<WidgetQueryManifest[]>([]);
 
+  // Intelligence layer results
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [intelligence, setIntelligence] = useState<Record<string, any> | null>(null);
+
   // UI state
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [configWidgetId, setConfigWidgetId] = useState<string | null>(null);
+  const [density, setDensity] = useState<"comfortable" | "compact">("comfortable");
   const [savedDashboards, setSavedDashboards] = useState<SavedDashboardRow[]>([]);
   const [view, setView] = useState<"builder" | "gallery">("gallery");
 
@@ -118,6 +123,7 @@ export default function DashboardBuilderPage({
         setIsEditing(true);
         setDataAvailability(data.data_availability || []);
         setQueryManifest(data.query_manifest || []);
+        setIntelligence(data.intelligence || null);
       }
     } catch {
       // silent
@@ -178,6 +184,22 @@ export default function DashboardBuilderPage({
     }
   }, [configWidgetId]);
 
+  // Delete dashboard
+  const handleDelete = useCallback(async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!businessId) return;
+    if (!confirm("Delete this dashboard?")) return;
+    try {
+      await fetch(`/api/re/v2/dashboards/${id}?env_id=${params.envId}&business_id=${businessId}`, {
+        method: "DELETE",
+      });
+      setSavedDashboards((prev) => prev.filter((d) => d.id !== id));
+    } catch {
+      // silent
+    }
+  }, [params.envId, businessId]);
+
   const configWidget = configWidgetId ? widgets.find((w) => w.id === configWidgetId) : null;
 
   const archetypes = listArchetypes();
@@ -236,8 +258,18 @@ export default function DashboardBuilderPage({
                 <Link
                   key={d.id}
                   href={`/lab/env/${params.envId}/re/dashboards/${d.id}`}
-                  className="group rounded-xl border border-slate-200 bg-white p-4 transition-all hover:border-bm-accent/50 hover:shadow-md dark:border-white/10 dark:bg-[rgba(15,23,42,0.82)]"
+                  className="group relative rounded-xl border border-slate-200 bg-white p-4 transition-all hover:border-bm-accent/50 hover:shadow-md dark:border-white/10 dark:bg-[rgba(15,23,42,0.82)]"
                 >
+                  <button
+                    type="button"
+                    onClick={(e) => handleDelete(d.id, e)}
+                    className="absolute top-2 right-2 hidden group-hover:flex items-center justify-center w-6 h-6 rounded-md text-bm-muted2 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                    title="Delete dashboard"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                    </svg>
+                  </button>
                   <p className="text-sm font-semibold text-bm-text group-hover:text-bm-accent">
                     {d.name}
                   </p>
@@ -284,9 +316,78 @@ export default function DashboardBuilderPage({
           saving={saving}
         />
 
+        {/* Density toggle */}
+        {widgets.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-bm-muted2">Density:</span>
+            {(["comfortable", "compact"] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDensity(d)}
+                className={`rounded px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                  density === d
+                    ? "bg-indigo-600 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/20"
+                }`}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Intelligence panel — measure suggestions + behavior mode */}
+        {intelligence && isEditing && (
+          <div className="rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[rgba(15,23,42,0.82)] p-4 space-y-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                {(intelligence.behavior_mode || "").replace(/_/g, " ")}
+              </span>
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                {intelligence.depth} depth
+              </span>
+              {intelligence.table_decision && (
+                <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+                  + auto table: {intelligence.table_decision.type?.replace(/_/g, " ")}
+                </span>
+              )}
+            </div>
+            {intelligence.measure_suggestions && (
+              <div className="space-y-1.5">
+                <p className="text-[10px] uppercase tracking-[0.12em] text-bm-muted2 font-medium">Measure suggestions</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(intelligence.measure_suggestions.required || []).map((m: { metric_key: string; reason: string }) => (
+                    <span key={m.metric_key} title={m.reason}
+                      className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">
+                      {m.metric_key.replace(/_/g, " ")}
+                    </span>
+                  ))}
+                  {(intelligence.measure_suggestions.suggested || []).map((m: { metric_key: string; reason: string }) => (
+                    <span key={m.metric_key} title={m.reason}
+                      className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-400">
+                      {m.metric_key.replace(/_/g, " ")}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {intelligence.interaction_model?.interactions?.length > 0 && (
+              <p className="text-[10px] text-bm-muted2">
+                {intelligence.interaction_model.interactions.length} interactions wired
+                {intelligence.interaction_model.global_filters?.length > 0 && (
+                  <> · filters: {intelligence.interaction_model.global_filters.join(", ")}</>
+                )}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Canvas */}
         <DashboardCanvas
-          widgets={widgets}
+          widgets={density === "compact"
+            ? widgets.map((w) => ({ ...w, layout: { ...w.layout, h: Math.max(2, w.layout.h - 1) } }))
+            : widgets}
           envId={params.envId}
           businessId={businessId ?? ""}
           quarter={quarter}

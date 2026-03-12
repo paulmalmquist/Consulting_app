@@ -4,6 +4,8 @@ import { LAYOUT_ARCHETYPES, SECTION_REGISTRY, ARCHETYPE_DEFAULT_SECTIONS } from 
 import { validateDashboardSpec } from "@/lib/dashboards/spec-validator";
 import { buildQueryManifest, deriveDataAvailability } from "@/lib/dashboards/query-manifest-builder";
 import { parseMarkdownSpec } from "@/lib/dashboards/spec-from-markdown";
+import { assembleDashboardIntelligence } from "@/lib/dashboards/dashboard-intelligence";
+import type { DashboardWidget } from "@/lib/dashboards/types";
 import fs from "fs";
 import path from "path";
 
@@ -29,7 +31,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     let { prompt, entity_type, entity_ids, env_id, business_id, quarter } = body;
-    const { spec_file } = body;
+    const { spec_file, density } = body;
 
     // -- Markdown spec ingestion -------------------------------------------
     // If spec_file is provided, parse the markdown and derive prompt + params.
@@ -137,10 +139,28 @@ export async function POST(request: Request) {
       validation.warnings.push(...coverageWarnings);
     }
 
-    // 6. Build query manifest and data availability signal
+    // 6. Run dashboard intelligence layer (measure suggestions, table inference, interactions)
     const effectiveQuarter = quarter || detectQuarter(promptLower) || undefined;
-    const queryManifest = buildQueryManifest(spec.widgets, scope.entity_type, scope.entity_ids || [], effectiveQuarter);
-    const dataAvailability = deriveDataAvailability(spec.widgets, scope.entity_ids, effectiveQuarter);
+    const intelligence = assembleDashboardIntelligence({
+      widgets: (validation.sanitized || spec).widgets as DashboardWidget[],
+      archetype: intent.archetype,
+      entityType: (scope.entity_type || "asset") as "asset" | "investment" | "fund" | "portfolio",
+      promptText: prompt,
+      requestedSections: intent.requested_sections,
+      quarter: effectiveQuarter,
+    });
+
+    // Use intelligence-enriched widgets (may include auto-injected table)
+    const finalWidgets = intelligence.widgets;
+    const resolvedDensity: "comfortable" | "compact" | "auto" =
+      density === "compact" ? "compact" : density === "auto" ? "auto" : "comfortable";
+    const finalSpec = { widgets: finalWidgets, density: resolvedDensity };
+
+    // 6b. Build query manifest and data availability signal
+    // Cast back to local WidgetSpec shape for manifest builders (compatible at runtime)
+    const widgetsForManifest = finalWidgets as unknown as WidgetSpec[];
+    const queryManifest = buildQueryManifest(widgetsForManifest, scope.entity_type, scope.entity_ids || [], effectiveQuarter);
+    const dataAvailability = deriveDataAvailability(widgetsForManifest, scope.entity_ids, effectiveQuarter);
 
     // 7. Generate a dashboard name
     const name = generateName(promptLower, intent.archetype);
@@ -155,7 +175,7 @@ export async function POST(request: Request) {
       name,
       description: prompt,
       layout_archetype: intent.archetype,
-      spec: validation.sanitized || spec,
+      spec: finalSpec,
       entity_scope: scope,
       quarter: effectiveQuarter,
       validation: {
@@ -165,7 +185,29 @@ export async function POST(request: Request) {
       entity_names: entityNames,
       query_manifest: queryManifest,
       data_availability: dataAvailability,
+      spec_file: spec_file ?? null,
       intent_source: (intent as TaggedIntent).source ?? "regex",
+      // Intelligence layer results
+      intelligence: {
+        behavior_mode: intelligence.behavior_mode,
+        hero_widget_id: intelligence.hero_widget_id,
+        widget_roles: intelligence.widget_roles,
+        depth: intelligence.depth,
+        interaction_model: intelligence.interaction_model,
+        measure_suggestions: {
+          required: intelligence.measure_suggestions.required,
+          suggested: intelligence.measure_suggestions.suggested,
+          optional: intelligence.measure_suggestions.optional,
+          include_benchmark: intelligence.measure_suggestions.include_benchmark,
+          recommended_dimensions: intelligence.measure_suggestions.recommended_dimensions,
+        },
+        table_decision: intelligence.table_decision ? {
+          type: intelligence.table_decision.type,
+          visibility: intelligence.table_decision.visibility,
+          reason: intelligence.table_decision.reason,
+          columns: intelligence.table_decision.columns,
+        } : null,
+      },
     };
     console.log("[dashboards/generate] Response:", JSON.stringify({ name: responsePayload.name, widgetCount: responsePayload.spec?.widgets?.length, entity_scope: responsePayload.entity_scope, quarter: responsePayload.quarter, archetype: intent.archetype, sections: intent.requested_sections }));
     return Response.json(responsePayload);
