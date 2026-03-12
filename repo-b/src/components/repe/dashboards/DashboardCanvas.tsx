@@ -28,6 +28,7 @@ interface Props {
   onConfigureWidget: (widgetId: string) => void;
   queryManifests?: WidgetQueryManifest[];
   dataAvailabilities?: DataAvailability[];
+  entityNames?: Record<string, string>;
 }
 
 /* --------------------------------------------------------------------------
@@ -42,6 +43,7 @@ function SortableWidget({
   onConfigure,
   queryManifest,
   dataAvailability,
+  entityNames,
 }: {
   widget: DashboardWidget;
   envId: string;
@@ -51,6 +53,7 @@ function SortableWidget({
   onConfigure: () => void;
   queryManifest?: WidgetQueryManifest;
   dataAvailability?: DataAvailability;
+  entityNames?: Record<string, string>;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: widget.id,
@@ -80,6 +83,7 @@ function SortableWidget({
         onConfigure={onConfigure}
         queryManifest={queryManifest}
         dataAvailability={dataAvailability}
+        entityNames={entityNames}
       />
     </div>
   );
@@ -98,6 +102,7 @@ export default function DashboardCanvas({
   onConfigureWidget,
   queryManifests,
   dataAvailabilities,
+  entityNames,
 }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -162,6 +167,7 @@ export default function DashboardCanvas({
               onConfigure={() => onConfigureWidget(widget.id)}
               queryManifest={queryManifests?.find((m) => m.widget_id === widget.id)}
               dataAvailability={dataAvailabilities?.find((d) => d.widget_id === widget.id)}
+              entityNames={entityNames}
             />
           ))}
         </div>

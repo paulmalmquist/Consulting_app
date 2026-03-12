@@ -4,13 +4,20 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
-import type { DashboardSpec, DashboardWidget, DataAvailability, WidgetQueryManifest } from "@/lib/dashboards/types";
+import type {
+  DashboardSpec,
+  DashboardWidget,
+  DataAvailability,
+  EntityScope,
+  WidgetQueryManifest,
+} from "@/lib/dashboards/types";
 import { listArchetypes } from "@/lib/dashboards/layout-archetypes";
 import type { HintContext } from "@/lib/dashboards/hint-engine";
 import DashboardPrompt from "@/components/repe/dashboards/DashboardPrompt";
 import DashboardCanvas from "@/components/repe/dashboards/DashboardCanvas";
 import DashboardToolbar from "@/components/repe/dashboards/DashboardToolbar";
 import WidgetConfigPanel from "@/components/repe/dashboards/WidgetConfigPanel";
+import { DashboardFilterProvider } from "@/components/repe/dashboards/DashboardFilterContext";
 
 /* --------------------------------------------------------------------------
  * Types
@@ -42,11 +49,21 @@ export default function DashboardBuilderPage({
   const [dashboardId, setDashboardId] = useState<string | undefined>();
   const [promptText, setPromptText] = useState("");
   const [layoutArchetype, setLayoutArchetype] = useState("executive_summary");
-  const [quarter] = useState("2026Q1");
+  const [entityScope, setEntityScope] = useState<EntityScope>({ entity_type: "asset" });
+  const [quarter, setQuarter] = useState("2026Q1");
 
   // Generate response metadata
   const [dataAvailability, setDataAvailability] = useState<DataAvailability[]>([]);
   const [queryManifest, setQueryManifest] = useState<WidgetQueryManifest[]>([]);
+
+  // Entity names for multi-entity charting (entity_id -> display name)
+  const [entityNames, setEntityNames] = useState<Record<string, string>>({});
+
+  // Builder messages from AI composition (warnings, fallback notes)
+  const [builderMessages, setBuilderMessages] = useState<{ level: string; text: string }[]>([]);
+
+  // Spec file reference for "View Spec" link
+  const [specFile, setSpecFile] = useState<string | null>(null);
 
   // Intelligence layer results
   // eslint-disable-next-line -- intelligence shape is dynamic, typed at runtime
@@ -77,12 +94,23 @@ export default function DashboardBuilderPage({
     try {
       const raw = localStorage.getItem(winstonKey);
       if (!raw) return;
-      const spec = JSON.parse(raw) as { widgets?: DashboardWidget[]; name?: string; archetype?: string; prompt?: string };
+      const spec = JSON.parse(raw) as {
+        widgets?: DashboardWidget[];
+        name?: string;
+        archetype?: string;
+        prompt?: string;
+        density?: "comfortable" | "compact" | "auto";
+        entity_scope?: EntityScope;
+        quarter?: string;
+      };
       if (spec.widgets?.length) {
         setWidgets(spec.widgets);
         setDashboardName(spec.name || "Winston Dashboard");
         setLayoutArchetype(spec.archetype || "custom");
         setPromptText(spec.prompt || "");
+        setEntityScope(spec.entity_scope?.entity_type ? spec.entity_scope : { entity_type: "asset" });
+        setQuarter(spec.quarter || "2026Q1");
+        setDensity(spec.density === "compact" ? "compact" : "comfortable");
         setView("builder");
         setIsEditing(true);
       }
@@ -119,11 +147,17 @@ export default function DashboardBuilderPage({
         setWidgets(data.spec.widgets);
         setDashboardName(data.name || "Generated Dashboard");
         setLayoutArchetype(data.layout_archetype || "custom");
+        setEntityScope(data.entity_scope?.entity_type ? data.entity_scope : { entity_type: "asset" });
+        setQuarter(data.quarter || quarter);
+        setDensity(data.spec.density === "compact" ? "compact" : "comfortable");
         setView("builder");
         setIsEditing(true);
         setDataAvailability(data.data_availability || []);
         setQueryManifest(data.query_manifest || []);
         setIntelligence(data.intelligence || null);
+        setEntityNames(data.entity_names || {});
+        setBuilderMessages(data.spec?.builder_messages || []);
+        setSpecFile(data.spec_file || null);
       }
     } catch {
       // silent
@@ -137,9 +171,12 @@ export default function DashboardBuilderPage({
     if (!businessId) return;
     setSaving(true);
     try {
-      const spec: DashboardSpec = { widgets };
-      const res = await fetch("/api/re/v2/dashboards", {
-        method: "POST",
+      const spec: DashboardSpec = { widgets, density };
+      const targetUrl = dashboardId
+        ? `/api/re/v2/dashboards/${dashboardId}`
+        : "/api/re/v2/dashboards";
+      const res = await fetch(targetUrl, {
+        method: dashboardId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           env_id: params.envId,
@@ -149,7 +186,10 @@ export default function DashboardBuilderPage({
           layout_archetype: layoutArchetype,
           spec,
           prompt_text: promptText,
+          entity_scope: entityScope,
           quarter,
+          density,
+          spec_file: specFile,
         }),
       });
       const data = await res.json();
@@ -165,7 +205,7 @@ export default function DashboardBuilderPage({
     } finally {
       setSaving(false);
     }
-  }, [widgets, params.envId, businessId, promptText, layoutArchetype, quarter]);
+  }, [widgets, density, dashboardId, params.envId, businessId, promptText, layoutArchetype, entityScope, quarter, specFile]);
 
   // Widget operations
   const handleConfigureWidget = useCallback((widgetId: string) => {
@@ -295,6 +335,7 @@ export default function DashboardBuilderPage({
 
   // Builder view
   return (
+    <DashboardFilterProvider>
     <div className="flex h-full">
       {/* Main canvas area */}
       <div className={`flex-1 overflow-y-auto px-6 py-6 space-y-6 ${configWidget ? "pr-0" : ""}`}>
@@ -314,6 +355,7 @@ export default function DashboardBuilderPage({
           onSave={handleSave}
           onRename={setDashboardName}
           saving={saving}
+          specFile={specFile}
         />
 
         {/* Density toggle */}
@@ -335,6 +377,23 @@ export default function DashboardBuilderPage({
               </button>
             ))}
           </div>
+        )}
+
+        {/* Builder messages (warnings, fallback notes from AI composition) */}
+        {builderMessages.length > 0 && (
+          <details className="rounded border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+            <summary className="cursor-pointer font-medium text-amber-400">
+              Builder messages ({builderMessages.length})
+            </summary>
+            <ul className="mt-2 space-y-1 text-amber-300/80">
+              {builderMessages.map((m, i) => (
+                <li key={i} className="flex items-start gap-1.5">
+                  <span className="mt-0.5 text-[10px] text-amber-500">{m.level === "warning" ? "!" : "i"}</span>
+                  {m.text}
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
 
         {/* Intelligence panel — measure suggestions + behavior mode */}
@@ -396,13 +455,21 @@ export default function DashboardBuilderPage({
           onConfigureWidget={handleConfigureWidget}
           queryManifests={queryManifest}
           dataAvailabilities={dataAvailability}
+          entityNames={entityNames}
         />
 
         {/* Back to gallery */}
         <div className="text-center pt-4">
           <button
             type="button"
-            onClick={() => { setView("gallery"); setWidgets([]); setDashboardId(undefined); }}
+            onClick={() => {
+              setView("gallery");
+              setWidgets([]);
+              setDashboardId(undefined);
+              setEntityScope({ entity_type: "asset" });
+              setQuarter("2026Q1");
+              setDensity("comfortable");
+            }}
             className="text-xs text-bm-muted2 hover:text-bm-text"
           >
             Back to dashboard gallery
@@ -422,5 +489,6 @@ export default function DashboardBuilderPage({
         </div>
       )}
     </div>
+    </DashboardFilterProvider>
   );
 }

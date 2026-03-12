@@ -233,6 +233,77 @@ _METRIC_KEYWORDS: dict[str, list[str]] = {
 }
 
 
+# ── Dimension detection ────────────────────────────────────────────────────
+
+_DIMENSION_PATTERNS: list[tuple[re.Pattern[str], str | None]] = [
+    (re.compile(r"\bby\s+investment\b", re.I), "investment"),
+    (re.compile(r"\bby\s+asset\b", re.I), "asset"),
+    (re.compile(r"\bby\s+property\b", re.I), "asset"),
+    (re.compile(r"\bby\s+fund\b", re.I), "fund"),
+    (re.compile(r"\bby\s+market\b", re.I), "market"),
+    (re.compile(r"\bby\s+region\b", re.I), "region"),
+    (re.compile(r"\bby\s+quarter\b", re.I), "quarter"),
+    (re.compile(r"\bper\s+investment\b", re.I), "investment"),
+    (re.compile(r"\bper\s+asset\b", re.I), "asset"),
+    (re.compile(r"\bper\s+fund\b", re.I), "fund"),
+    (re.compile(r"\bacross\s+investments?\b", re.I), "investment"),
+    (re.compile(r"\bacross\s+assets?\b", re.I), "asset"),
+    (re.compile(r"\bacross\s+funds?\b", re.I), "fund"),
+    (re.compile(r"\beach\s+investment\b", re.I), "investment"),
+    (re.compile(r"\beach\s+asset\b", re.I), "asset"),
+]
+
+_BROKEN_DOWN_RE = re.compile(r"\b(?:broken?\s+down|grouped?)\s+by\s+(\w+)", re.I)
+
+_DIM_WORD_MAP: dict[str, str] = {
+    "investment": "investment", "investments": "investment",
+    "asset": "asset", "assets": "asset",
+    "property": "asset", "properties": "asset",
+    "fund": "fund", "funds": "fund",
+    "market": "market", "markets": "market",
+    "region": "region", "regions": "region",
+}
+
+_TIME_PATTERNS: list[tuple[str, str]] = [
+    (r"\bover\s+time\b", "quarterly"),
+    (r"\btrend\b", "quarterly"),
+    (r"\bmonthly\b", "monthly"),
+    (r"\bquarterly\b", "quarterly"),
+    (r"\bannual\b", "annual"),
+    (r"\byear[\s-]over[\s-]year\b", "annual"),
+    (r"\btime\s+series\b", "quarterly"),
+]
+
+
+def _detect_dimensions(message: str) -> dict[str, str | None]:
+    """Extract grouping/series dimensions from natural language.
+
+    Returns dict with:
+      group_by: "investment" | "asset" | "fund" | "market" | "region" | None
+      time_grain: "monthly" | "quarterly" | "annual" | None
+    """
+    msg = message.lower()
+    group_by: str | None = None
+    time_grain: str | None = None
+
+    for pattern, dimension in _DIMENSION_PATTERNS:
+        if pattern.search(msg):
+            group_by = dimension
+            break
+
+    if group_by is None:
+        m = _BROKEN_DOWN_RE.search(msg)
+        if m:
+            group_by = _DIM_WORD_MAP.get(m.group(1).lower())
+
+    for pat, grain in _TIME_PATTERNS:
+        if re.search(pat, msg, re.I):
+            time_grain = grain
+            break
+
+    return {"group_by": group_by, "time_grain": time_grain}
+
+
 def _detect_metrics(message: str, entity_type: str) -> list[str]:
     """Detect metrics mentioned in the message, falling back to entity defaults."""
     msg = message.lower()
@@ -373,6 +444,7 @@ def compose_dashboard_spec(
     archetype = _detect_archetype(message)
     entity_type = _detect_entity_type(message)
     metrics = _detect_metrics(message, entity_type)
+    dimensions = _detect_dimensions(message)
 
     # Use explicitly requested sections, or fall back to archetype defaults
     sections = _detect_sections(message)
@@ -381,8 +453,15 @@ def compose_dashboard_spec(
             archetype, ARCHETYPE_DEFAULT_SECTIONS["executive_summary"],
         )
 
-    # Always start with kpi_summary
-    if "kpi_summary" not in sections:
+    # Suppress auto-KPI for simple single-analysis requests
+    _SIMPLE_SECTIONS = {
+        "noi_trend", "occupancy_trend", "dscr_monitoring",
+        "pipeline_analysis", "geographic_analysis",
+    }
+    skip_auto_kpi = (
+        len(sections) == 1 and sections[0] in _SIMPLE_SECTIONS
+    )
+    if not skip_auto_kpi and "kpi_summary" not in sections:
         sections = ["kpi_summary", *sections]
 
     # Build widgets on 12-col grid
@@ -420,18 +499,27 @@ def compose_dashboard_spec(
             if fallback_msg:
                 builder_messages.append({"level": "warning", "text": fallback_msg})
 
+            # Build config with optional dimension fields
+            widget_config: dict[str, Any] = {
+                **defn["config_overrides"],
+                "entity_type": entity_type,
+                "quarter": quarter,
+                "scenario": "actual",
+                "metrics": _select_metrics_for_widget(
+                    defn["type"], metrics,
+                ),
+            }
+            # Propagate grouping dimensions for chart widgets
+            if resolved_type in ("trend_line", "bar_chart"):
+                if dimensions["group_by"]:
+                    widget_config["group_by"] = dimensions["group_by"]
+                if dimensions["time_grain"]:
+                    widget_config["time_grain"] = dimensions["time_grain"]
+
             widget: dict[str, Any] = {
                 "id": f"{section_key}_{len(widgets)}",
                 "type": resolved_type,
-                "config": {
-                    **defn["config_overrides"],
-                    "entity_type": entity_type,
-                    "quarter": quarter,
-                    "scenario": "actual",
-                    "metrics": _select_metrics_for_widget(
-                        defn["type"], metrics,
-                    ),
-                },
+                "config": widget_config,
                 "layout": {
                     "x": current_x,
                     "y": current_y,
@@ -443,6 +531,13 @@ def compose_dashboard_spec(
             current_x += defn["w"]
 
         current_y += section_h
+
+    # Adaptive sizing: center single chart widgets
+    non_kpi = [w for w in widgets if w["type"] != "metrics_strip"]
+    if len(non_kpi) == 1 and not non_kpi[0]["config"].get("group_by"):
+        w = non_kpi[0]
+        w["layout"]["w"] = 8
+        w["layout"]["x"] = 2
 
     # Inject companion tables for pipeline_bar and geographic_map
     existing_types = {w["type"] for w in widgets}

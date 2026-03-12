@@ -12,6 +12,7 @@ import {
   Cell,
 } from "recharts";
 import type { WidgetConfig } from "@/lib/dashboards/types";
+import { useDashboardFilters } from "../DashboardFilterContext";
 
 interface PipelineStageRow {
   status: string;
@@ -48,6 +49,8 @@ export default function PipelineBarWidget({ envId, businessId, config }: Props) 
   const [rows, setRows] = useState<PipelineStageRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { activeFilters, setFilter } = useDashboardFilters();
+  const selectedStage = activeFilters.deal_status as string | undefined;
 
   useEffect(() => {
     const params = new URLSearchParams({ env_id: envId, business_id: businessId });
@@ -96,9 +99,23 @@ export default function PipelineBarWidget({ envId, businessId, config }: Props) 
               valueField === "deal_count" ? [value, "Deals"] : [formatValue(value), "Total Value"]
             }
           />
-          <Bar dataKey={valueField} radius={[3, 3, 0, 0]}>
+          <Bar
+            dataKey={valueField}
+            radius={[3, 3, 0, 0]}
+            cursor="pointer"
+            onClick={(_data: unknown, index: number) => {
+              const stage = rows[index]?.status;
+              if (!stage) return;
+              // Toggle: clicking the same bar clears the filter
+              setFilter("deal_status", selectedStage === stage ? null : stage);
+            }}
+          >
             {rows.map((row) => (
-              <Cell key={row.status} fill={STAGE_COLORS[row.status] ?? "#60a5fa"} />
+              <Cell
+                key={row.status}
+                fill={STAGE_COLORS[row.status] ?? "#60a5fa"}
+                opacity={selectedStage && selectedStage !== row.status ? 0.35 : 1}
+              />
             ))}
           </Bar>
         </BarChart>

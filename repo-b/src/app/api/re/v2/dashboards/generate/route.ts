@@ -294,6 +294,14 @@ const SECTION_PHRASES: Record<string, string[]> = {
   occupancy_trend: ["occupancy trend", "occupancy over time", "occupancy rate"],
   dscr_monitoring: ["dscr", "debt service coverage", "coverage ratio"],
   noi_bridge: ["noi bridge", "waterfall", "bridge analysis"],
+  pipeline_analysis: [
+    "pipeline", "deal pipeline", "deal stages", "acquisition pipeline",
+    "active deals", "deal flow", "pipeline stages",
+  ],
+  geographic_analysis: [
+    "map", "geographic", "geography", "by market", "by region",
+    "by state", "by msa", "spatial", "location", "where are",
+  ],
 };
 
 function parseIntent(prompt: string): DashboardIntent {
@@ -348,8 +356,12 @@ function composeFromIntent(
     ? intent.requested_sections
     : (ARCHETYPE_DEFAULT_SECTIONS[intent.archetype] ?? ARCHETYPE_DEFAULT_SECTIONS.executive_summary);
 
-  // kpi_summary always first, no duplicates
-  sections = ["kpi_summary", ...sections.filter((s) => s !== "kpi_summary")];
+  // Suppress auto-KPI for simple single-analysis requests
+  const simpleSections = new Set(["noi_trend", "occupancy_trend", "dscr_monitoring", "pipeline_analysis", "geographic_analysis"]);
+  const skipAutoKpi = sections.length === 1 && simpleSections.has(sections[0]);
+  if (!skipAutoKpi) {
+    sections = ["kpi_summary", ...sections.filter((s) => s !== "kpi_summary")];
+  }
 
   const widgets: WidgetSpec[] = [];
   let currentY = 0;
@@ -388,6 +400,13 @@ function composeFromIntent(
       currentX += def.w;
     }
     currentY += sectionH;
+  }
+
+  // Adaptive sizing: center single chart widgets without group_by
+  const nonKpi = widgets.filter((w) => w.type !== "metrics_strip");
+  if (nonKpi.length === 1 && !nonKpi[0].config.group_by) {
+    nonKpi[0].layout.w = 8;
+    nonKpi[0].layout.x = 2;
   }
 
   // If section registry produced nothing useful, fall back to archetype slots

@@ -4,7 +4,8 @@ Purpose: implement Winston features with minimal, reversible repository changes.
 
 Rules:
 - Prefer the matching external harness when the user requests Claude or Codex explicitly.
-- Default to `codex-winston` for implementation-heavy work when no harness is specified and a persistent coding session would help.
+- Default to `codex-cli-winston` or `codex-winston` for implementation-heavy work, codegen, refactors, bug fixes, and test-writing.
+- Prefer `claude-cli-winston` or `claude-winston` for architecture-heavy investigation, code review, or difficult debugging when the user asks for Claude or when the task is reasoning-heavy.
 - Keep edits aligned with the existing monorepo structure.
 - Leave a clear verification trail for QA.
 

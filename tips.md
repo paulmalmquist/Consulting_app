@@ -112,16 +112,27 @@ _(This section is appended by the research-architect after each successful inges
 
 - When reading or editing Next.js route files with shell commands, quote paths like `'repo-b/src/app/lab/env/[envId]/page.tsx'`. Unquoted brackets will be globbed by `zsh` and the command will fail before it reaches the file.
 - Run backend tests with `python3.11 -m pytest ...` in this repo. A bare `pytest` invocation may bind to an older interpreter and fail inside existing files before your feature code is even imported.
-- OpenClaw now routes Telegram DMs from user `8672815280` to `commander-winston`, not the legacy `winston` agent. The default `main` agent still stays on `~/.openclaw/workspace`.
+- OpenClaw now routes Telegram DMs from user `8672815280` to `dispatcher-winston`, not the legacy `winston` agent. The default `main` agent still stays on `~/.openclaw/workspace`.
+- OpenClaw is now Codex-first for non-Claude control agents: `agents.defaults.model.primary`, `dispatcher-winston`, `commander-winston`, `data-winston`, and the new Novendor business agents all use `codex-cli/gpt-5.4` instead of the OpenAI API-backed default.
 - Winston harness agents are split cleanly: `claude-winston` and `codex-winston` use ACP persistent runtimes, while `claude-cli-winston` and `codex-cli-winston` provide explicit OpenClaw CLI-backend fallback agents.
 - OpenClaw CLI backend commands are pinned through `~/.openclaw/bin/claude` and `~/.openclaw/bin/codex` so launchd or other minimal-PATH environments still find the correct binaries.
+- Lobster is now installed locally and pinned through `~/.openclaw/bin/lobster`. Multi-step Novendor workflows live in `orchestration/openclaw/`.
 - ACP adapter commands are pinned in `~/.acpx/config.json` with absolute `/usr/local/bin/npx` wrappers so Claude/Codex ACP sessions do not depend on shell PATH resolution.
+- OpenClaw `2026.3.8` needs `tools.sessions.visibility: "all"` in `~/.openclaw/openclaw.json` if a Telegram-facing dispatcher is going to spawn and continue cross-agent CLI worker sessions like `claude-cli-winston` or `codex-cli-winston`.
 - The Winston routing skill is stored both in `skills/winston-router/SKILL.md` for repo context and in `~/.openclaw/skills/winston-router/SKILL.md` so the live gateway actually loads it.
 - `~/.openclaw/skills/acp-router/SKILL.md` overrides the bundled ACP router so Winston Telegram DMs prefer CLI worker agents instead of unsupported non-threaded ACP spawn paths.
-- For local alignment with Telegram, use `openclaw agent --agent commander-winston ...` for the controller, or attach the TUI to `agent:commander-winston:telegram:direct:8672815280` when you want the same Telegram session on desktop.
+- For local alignment with Telegram, use `openclaw agent --agent dispatcher-winston ...` for the lightweight DM entrypoint, or attach the TUI to `agent:dispatcher-winston:telegram:direct:8672815280` when you want the same Telegram session on desktop.
+- Keep `commander-winston` for richer local orchestration, but prefer `dispatcher-winston` as the Telegram front door so Winston spends fewer tokens on routing.
 - Winston repo synchronization now runs through `sync-winston` and `scripts/openclaw_safe_sync.sh`; this blocks pulls on dirty trees, wrong branches, or rebase conflicts instead of allowing a blind `git pull`.
 - Telegram DMs work best when `commander-winston` answers simple repo questions directly. Avoid subagent delegation for one-file lookups or doc-location questions, because a timed-out child run can leave the Telegram turn without a visible reply.
 - Telegram `push` or `deploy` requests should route to `deploy-winston`, not `commander-winston` directly. In Winston chat, `push` means commit + push to GitHub + monitor CI + monitor Vercel/Railway + run post-deploy checks from `tips.md`.
+- Telegram should never show internal delegation chatter like blocked ACP routes or abandoned subagent attempts. If a valid user-facing answer was already sent, any later internal completion event should be ignored with `NO_REPLY`.
+- The Novendor business agents use isolated workspaces under `~/.openclaw/workspaces/novendor-*` so outreach/proposal/content/demo work cannot accidentally target the Winston repo.
+- Telegram slash commands are now the preferred operator surface: `/research`, `/build`, `/propose`, `/outreach`, `/content`, `/status`, `/brief`, `/cost`.
+- The Telegram bot still has no live forum supergroup in state today. Topic-level routing is enabled by `scripts/openclaw_setup_forum.mjs` once the bot is added to a forum supergroup and you pass the real `--chat-id`.
+- `scripts/openclaw_setup_forum.mjs --chat-id <telegram-supergroup-id>` creates the Research/Builds/Client Ops/Sales/Status topics, patches `channels.telegram.groups.<chatId>.topics.*.agentId`, and installs the `Novendor Morning Brief` cron job to the Status topic.
+- Proposal approvals currently use Lobster approval gates and staged handoff files rather than Telegram-native host-exec approval buttons. This build does not expose a first-class Telegram `execApprovals` surface like Discord.
+- If an old Telegram DM session keeps reporting `openai/gpt-5.1-codex` after the Codex-first cutover, send `/reset` in that chat so the dispatcher session picks up the new model config.
 
 ## 1. Repo Inventory
 
@@ -1165,3 +1176,35 @@ Executive homepages for real operating systems should read from snapshot-style m
 - feed AI briefing surfaces from the same snapshots that drive metrics, risk panels, forecast tables, and closeout queues
 
 This keeps the homepage fast, coherent, and domain-specific.
+
+## Dashboard Builder — Grouping Dimensions & Multi-Period Fetch
+
+### group_by Dimensions
+Prompts like "NOI over time **by investment**" or "occupancy **per asset**" set `group_by` on widget config. Supported values: `investment`, `asset`, `fund`, `market`, `region`. The backend `_detect_dimensions()` regex extracts these from natural language. The frontend `useWidgetData` hook fetches all entities × all periods in parallel (capped at 5 entities × 8 periods = 40 fetches).
+
+### time_grain
+Detected from phrases: "over time" → quarterly, "monthly" → monthly, "annual"/"year-over-year" → annual. Propagated to `time_grain` on trend_line and bar_chart widgets. `generatePriorPeriods()` in `period-utils.ts` generates the period array.
+
+### Auto-KPI Suppression
+If exactly 1 detected section AND it's in `{noi_trend, occupancy_trend, dscr_monitoring, pipeline_analysis, geographic_analysis}`, the `kpi_summary` strip is NOT auto-prepended. This prevents "NOI over time" from producing a KPI strip + trend chart when only a trend chart was requested.
+
+### Adaptive Chart Sizing
+Single non-kpi widget without `group_by` gets `w=8, x=2` (centered) instead of full width. Multi-entity charts remain full width.
+
+### Widget Types (12 total)
+`metric_card`, `metrics_strip`, `trend_line`, `bar_chart`, `waterfall`, `statement_table`, `comparison_table`, `sparkline_grid`, `sensitivity_heat`, `text_block`, `pipeline_bar`, `geographic_map`
+
+### Intent → Widget Map
+Hardcoded in `INTENT_WIDGET_MAP` in `dashboard_composer.py`. Maps intents like `"generate_watchlist"` → `["comparison_table", "trend_line"]`. The fallback is section-based composition from `SECTION_REGISTRY` in `layout-archetypes.ts`.
+
+### Spec Round-Trip
+1. Generate → spec written to `tmp/dashboard_specs/` as JSON
+2. `spec_file` field returned in response, stored in `re_dashboards.spec_file` column
+3. View via `/api/re/v2/dashboards/spec/{filename}` (path traversal protected)
+4. Re-generate from saved spec file (future)
+
+### Cross-Widget Filter Linking
+`DashboardFilterContext` provides `{activeFilters, setFilter, clearFilters}`. Pipeline bar chart emits `deal_status` filter on bar click (toggle). Comparison table shows active filter badge and clear button. Geographic map filter linking is a future enhancement (underlying `DealGeoIntelligencePanel` doesn't expose selection callbacks).
+
+### Table Inference Rules
+`TABLE_INFERENCE_RULES` in `dashboard_composer.py` auto-inject companion tables. E.g., pipeline_bar → detail grid, geographic_map → asset table, comparison_table → ranked expandable.

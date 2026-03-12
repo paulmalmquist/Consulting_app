@@ -2,6 +2,47 @@ import { getPool } from "@/lib/server/db";
 
 export const runtime = "nodejs";
 
+type DashboardWriteBody = {
+  env_id?: string;
+  business_id?: string;
+  name?: string;
+  description?: string | null;
+  layout_archetype?: string;
+  spec?: unknown;
+  prompt_text?: string | null;
+  entity_scope?: Record<string, unknown>;
+  quarter?: string | null;
+  spec_file?: string | null;
+  density?: "comfortable" | "compact" | "auto";
+};
+
+const VALID_DENSITIES = new Set(["comfortable", "compact", "auto"]);
+
+function normalizeSpec(
+  spec: unknown,
+  density?: DashboardWriteBody["density"],
+) {
+  const baseSpec: Record<string, unknown> = spec && typeof spec === "object" && !Array.isArray(spec)
+    ? { ...(spec as Record<string, unknown>) }
+    : { widgets: [] };
+
+  const rawDensity = baseSpec["density"];
+  const specDensity = typeof rawDensity === "string" && VALID_DENSITIES.has(rawDensity)
+    ? rawDensity
+    : undefined;
+  const resolvedDensity = density && VALID_DENSITIES.has(density)
+    ? density
+    : specDensity || "comfortable";
+
+  return {
+    density: resolvedDensity,
+    spec: {
+      ...baseSpec,
+      density: resolvedDensity,
+    },
+  };
+}
+
 export async function OPTIONS() {
   return new Response(null, { status: 200, headers: { Allow: "GET, POST, OPTIONS" } });
 }
@@ -25,7 +66,7 @@ export async function GET(request: Request) {
   try {
     const res = await pool.query(
       `SELECT id, name, description, layout_archetype, spec, prompt_text, entity_scope,
-              quarter, created_by, created_at, updated_at
+              quarter, spec_file, density, created_by, created_at, updated_at
        FROM re_dashboard
        WHERE env_id = $1 AND business_id = $2::uuid
        ORDER BY updated_at DESC`,
@@ -47,25 +88,40 @@ export async function POST(request: Request) {
   if (!pool) return Response.json({ error: "Database unavailable" }, { status: 503 });
 
   try {
-    const body = await request.json();
-    const { env_id, business_id, name, description, layout_archetype, spec, prompt_text, entity_scope, quarter } = body;
+    const body = await request.json() as DashboardWriteBody;
+    const {
+      env_id,
+      business_id,
+      name,
+      description,
+      layout_archetype,
+      spec,
+      prompt_text,
+      entity_scope,
+      quarter,
+      spec_file,
+      density,
+    } = body;
 
     if (!env_id || !business_id || !name || !spec) {
       return Response.json({ error: "env_id, business_id, name, and spec are required" }, { status: 400 });
     }
 
+    const normalized = normalizeSpec(spec, density);
     const res = await pool.query(
       `INSERT INTO re_dashboard
-         (env_id, business_id, name, description, layout_archetype, spec, prompt_text, entity_scope, quarter)
-       VALUES ($1, $2::uuid, $3, $4, $5, $6::jsonb, $7, $8::jsonb, $9)
-       RETURNING id, name, created_at`,
+         (env_id, business_id, name, description, layout_archetype, spec, prompt_text, entity_scope, quarter, spec_file, density)
+       VALUES ($1, $2::uuid, $3, $4, $5, $6::jsonb, $7, $8::jsonb, $9, $10, $11)
+       RETURNING id, name, density, created_at, updated_at`,
       [
         env_id, business_id, name, description || null,
         layout_archetype || "custom",
-        JSON.stringify(spec),
+        JSON.stringify(normalized.spec),
         prompt_text || null,
         JSON.stringify(entity_scope || {}),
         quarter || null,
+        spec_file || null,
+        normalized.density,
       ],
     );
 

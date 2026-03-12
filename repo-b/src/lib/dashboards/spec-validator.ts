@@ -10,6 +10,7 @@ const VALID_WIDGET_TYPES: Set<WidgetType> = new Set([
   "metric_card", "metrics_strip", "trend_line", "bar_chart",
   "waterfall", "statement_table", "comparison_table",
   "sparkline_grid", "sensitivity_heat", "text_block",
+  "pipeline_bar", "geographic_map",
 ]);
 
 const MAX_GRID_COLS = 12;
@@ -111,6 +112,18 @@ export function validateDashboardSpec(spec: unknown): ValidationResult {
         show_legend: config.show_legend as boolean | undefined,
         stacked: config.stacked as boolean | undefined,
         reference_lines: Array.isArray(config.reference_lines) ? config.reference_lines as DashboardWidget["config"]["reference_lines"] : undefined,
+        // pipeline_bar fields
+        pipeline_field: config.pipeline_field as string | undefined,
+        pipeline_value_field: config.pipeline_value_field as string | undefined,
+        pipeline_filter: config.pipeline_filter as Record<string, string> | undefined,
+        linked_table_id: config.linked_table_id as string | undefined,
+        // geographic_map fields
+        geo_entity_type: config.geo_entity_type as "asset" | "investment" | "fund" | "portfolio" | undefined,
+        geo_filter: config.geo_filter as Record<string, string> | undefined,
+        geo_cluster: config.geo_cluster as boolean | undefined,
+        // grouping dimension fields
+        group_by: config.group_by as DashboardWidget["config"]["group_by"],
+        time_grain: config.time_grain as DashboardWidget["config"]["time_grain"],
       },
       layout: { x, y, w: Math.min(widgetW, MAX_GRID_COLS - x), h },
     });

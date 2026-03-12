@@ -8,8 +8,19 @@ import { METRIC_MAP } from "@/lib/dashboards/metric-catalog";
 import { WaterfallChart, SparkLine } from "@/components/charts";
 import { SensitivityHeatMap } from "@/components/charts/SensitivityHeatMap";
 import TrendLineChart from "@/components/charts/TrendLineChart";
+import type { LineDef } from "@/components/charts/TrendLineChart";
 import QuarterlyBarChart from "@/components/charts/QuarterlyBarChart";
 import StatementTable from "@/components/repe/statements/StatementTable";
+import { generatePriorPeriods } from "@/lib/dashboards/period-utils";
+import { useDashboardFilters } from "./DashboardFilterContext";
+
+/* --------------------------------------------------------------------------
+ * Multi-series color palette for entity-based lines
+ * -------------------------------------------------------------------------- */
+const ENTITY_COLORS = [
+  "#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6",
+  "#ec4899", "#14b8a6", "#f97316", "#06b6d4", "#84cc16",
+];
 
 /* --------------------------------------------------------------------------
  * Props
@@ -19,6 +30,7 @@ interface Props {
   envId: string;
   businessId: string;
   quarter?: string;
+  entityNames?: Record<string, string>;
   onConfigure?: () => void;
   isEditing?: boolean;
   queryManifest?: WidgetQueryManifest;
@@ -26,75 +38,178 @@ interface Props {
 }
 
 /* --------------------------------------------------------------------------
- * Data fetching hook for metric widgets
+ * Fetch a single entity + period from the statements API
+ * -------------------------------------------------------------------------- */
+async function fetchStatementData(
+  entityType: string,
+  entityId: string,
+  period: string,
+  statement: string,
+  periodType: string,
+  scenario: string,
+  comparison: string,
+  envId: string,
+  businessId: string,
+): Promise<Record<string, number>> {
+  const basePath = entityType === "investment"
+    ? `/api/re/v2/investments/${entityId}/statements`
+    : `/api/re/v2/assets/${entityId}/statements`;
+
+  const params = new URLSearchParams({
+    statement,
+    period_type: periodType,
+    period,
+    scenario,
+    comparison,
+    env_id: envId,
+    business_id: businessId,
+  });
+
+  const res = await fetch(`${basePath}?${params}`);
+  const json = await res.json();
+  const map: Record<string, number> = {};
+  for (const line of json.lines ?? []) {
+    map[line.line_code] = line.amount;
+  }
+  return map;
+}
+
+/* --------------------------------------------------------------------------
+ * Data fetching hook for metric widgets — supports multi-period + multi-entity
  * -------------------------------------------------------------------------- */
 function useWidgetData(
   widget: DashboardWidget,
   envId: string,
   businessId: string,
   quarter?: string,
+  entityNames?: Record<string, string>,
 ) {
   const [data, setData] = useState<Record<string, unknown>[] | null>(null);
+  const [seriesLines, setSeriesLines] = useState<LineDef[] | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const entityType = widget.config.entity_type || "asset";
     const entityIds = widget.config.entity_ids;
     const effectiveQuarter = widget.config.quarter || quarter;
+    const groupBy = widget.config.group_by;
+    const timeGrain = widget.config.time_grain;
 
     if (!entityIds?.length || !effectiveQuarter) {
-      console.log("[WidgetRenderer] Skipping fetch — entityIds:", entityIds, "quarter:", effectiveQuarter, "widget:", widget.id, widget.type);
       setData(null);
-      return;
-    }
-    console.log("[WidgetRenderer] Fetching data — entityIds:", entityIds, "quarter:", effectiveQuarter, "widget:", widget.id, widget.type);
-
-    // Only fetch for chart widgets that need time-series data
-    if (!["trend_line", "bar_chart", "waterfall", "metrics_strip", "metric_card", "sparkline_grid"].includes(widget.type)) {
+      setSeriesLines(null);
       return;
     }
 
-    setLoading(true);
-
-    const entityId = entityIds[0];
-    const basePath = entityType === "investment"
-      ? `/api/re/v2/investments/${entityId}/statements`
-      : `/api/re/v2/assets/${entityId}/statements`;
+    // Only fetch for chart widgets that need statement data
+    const chartTypes = ["trend_line", "bar_chart", "waterfall", "metrics_strip", "metric_card", "sparkline_grid"];
+    if (!chartTypes.includes(widget.type)) {
+      return;
+    }
 
     const statement = widget.config.statement || "IS";
-    const params = new URLSearchParams({
-      statement,
-      period_type: widget.config.period_type || "quarterly",
-      period: effectiveQuarter,
-      scenario: widget.config.scenario || "actual",
-      comparison: widget.config.comparison || "none",
-      env_id: envId,
-      business_id: businessId,
-    });
+    const periodType = widget.config.period_type || "quarterly";
+    const scenario = widget.config.scenario || "actual";
+    const comparison = widget.config.comparison || "none";
+    const metrics = widget.config.metrics || [];
 
-    fetch(`${basePath}?${params}`)
-      .then((r) => r.json())
-      .then((json) => {
-        if (json.lines) {
-          const map: Record<string, number> = {};
-          for (const line of json.lines) {
-            map[line.line_code] = line.amount;
-          }
-          setData([map]);
+    // Determine periods to fetch
+    const needsMultiPeriod = widget.type === "trend_line" || widget.type === "bar_chart";
+    const periods = needsMultiPeriod
+      ? generatePriorPeriods(effectiveQuarter, 8, timeGrain || "quarterly")
+      : [effectiveQuarter];
+
+    // Determine entities to fetch
+    const needsMultiEntity = !!groupBy && entityIds.length > 1;
+    const entitiesToFetch = needsMultiEntity ? entityIds.slice(0, 5) : [entityIds[0]]; // cap at 5 entities
+
+    setLoading(true);
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        if (needsMultiEntity && needsMultiPeriod) {
+          // Multi-entity + multi-period: N entities x M periods
+          const chartData: Record<string, unknown>[] = [];
+          const lines: LineDef[] = [];
+
+          // Build line defs for each entity x metric combo
+          entitiesToFetch.forEach((eid, entityIdx) => {
+            const eName = entityNames?.[eid] ?? eid.slice(0, 8);
+            metrics.forEach((m: WidgetMetricRef) => {
+              const def = METRIC_MAP.get(m.key);
+              const key = `${eName}_${m.key}`;
+              lines.push({
+                key,
+                label: `${eName} - ${m.label || def?.label || m.key}`,
+                color: ENTITY_COLORS[entityIdx % ENTITY_COLORS.length],
+                dashed: entityIdx > 0 ? false : m.dashed,
+              });
+            });
+          });
+
+          // Fetch all entity x period combos in parallel
+          const fetches = periods.map(async (period) => {
+            const row: Record<string, unknown> = { quarter: period };
+            const entityFetches = entitiesToFetch.map(async (eid) => {
+              const values = await fetchStatementData(
+                entityType, eid, period, statement, periodType, scenario, comparison, envId, businessId,
+              );
+              const eName = entityNames?.[eid] ?? eid.slice(0, 8);
+              metrics.forEach((m: WidgetMetricRef) => {
+                row[`${eName}_${m.key}`] = values[m.key] ?? 0;
+              });
+            });
+            await Promise.all(entityFetches);
+            return row;
+          });
+
+          const results = await Promise.all(fetches);
+          chartData.push(...results);
+          setData(chartData);
+          setSeriesLines(lines);
+        } else if (needsMultiPeriod) {
+          // Single-entity multi-period (standard trend line)
+          const periodFetches = periods.map(async (period) => {
+            const values = await fetchStatementData(
+              entityType, entitiesToFetch[0], period, statement, periodType, scenario, comparison, envId, businessId,
+            );
+            const row: Record<string, unknown> = { quarter: period };
+            for (const [k, v] of Object.entries(values)) {
+              row[k] = v;
+            }
+            return row;
+          });
+          const chartData = await Promise.all(periodFetches);
+          setData(chartData);
+          setSeriesLines(null); // use default metric-based lines
+        } else {
+          // Single entity, single period (original behavior)
+          const values = await fetchStatementData(
+            entityType, entitiesToFetch[0], periods[0], statement, periodType, scenario, comparison, envId, businessId,
+          );
+          setData([values]);
+          setSeriesLines(null);
         }
-      })
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
-  }, [widget, envId, businessId, quarter]);
+      } catch {
+        setData(null);
+        setSeriesLines(null);
+      } finally {
+        setLoading(false);
+      }
+    })();
 
-  return { data, loading };
+    return () => controller.abort();
+  }, [widget, envId, businessId, quarter, entityNames]);
+
+  return { data, seriesLines, loading };
 }
 
 /* --------------------------------------------------------------------------
  * Format helpers
  * -------------------------------------------------------------------------- */
 function fmtMetricValue(value: number | undefined, format?: string): string {
-  if (value === undefined || value === null) return "—";
+  if (value === undefined || value === null) return "\u2014";
   if (format === "percent") return `${(value * 100).toFixed(1)}%`;
   if (format === "ratio") return `${value.toFixed(2)}x`;
   if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
@@ -129,17 +244,55 @@ function MetricsStripWidget({ widget, data }: { widget: DashboardWidget; data: R
   );
 }
 
-function TrendWidget({ widget, data }: { widget: DashboardWidget; data: Record<string, unknown>[] | null }) {
+function TrendWidget({ widget, data, seriesLines }: {
+  widget: DashboardWidget;
+  data: Record<string, unknown>[] | null;
+  seriesLines: LineDef[] | null;
+}) {
   const metrics = widget.config.metrics || [];
+
+  // If we have pre-built series lines (multi-entity), use them directly
+  if (seriesLines && data && data.length > 1) {
+    return (
+      <div>
+        <TrendLineChart
+          data={data}
+          lines={seriesLines}
+          height={240}
+          format={(widget.config.format as "dollar" | "percent" | "number") || "dollar"}
+          showLegend={widget.config.show_legend !== false}
+        />
+      </div>
+    );
+  }
+
+  // Multi-period single-entity: data has multiple rows with metric keys
+  if (data && data.length > 1) {
+    const lines: LineDef[] = metrics.map((m: WidgetMetricRef) => {
+      const def = METRIC_MAP.get(m.key);
+      return { key: m.key, label: m.label || def?.label || m.key, color: m.color || def?.default_color, dashed: m.dashed };
+    });
+    return (
+      <div>
+        <TrendLineChart
+          data={data}
+          lines={lines}
+          height={240}
+          format={(widget.config.format as "dollar" | "percent" | "number") || "dollar"}
+          showLegend={widget.config.show_legend !== false}
+        />
+      </div>
+    );
+  }
+
+  // Fallback: single data point (legacy)
   const values = data?.[0] as Record<string, number> | undefined;
-  const lines = metrics.map((m: WidgetMetricRef) => {
+  const lines: LineDef[] = metrics.map((m: WidgetMetricRef) => {
     const def = METRIC_MAP.get(m.key);
     return { key: m.key, label: m.label || def?.label || m.key, color: m.color || def?.default_color, dashed: m.dashed };
   });
-
-  // Build single-period data point from fetched values (full time-series is a future enhancement)
   const chartData = values
-    ? [Object.fromEntries([["period", widget.config.quarter || "Current"], ...metrics.map((m: WidgetMetricRef) => [m.key, values[m.key] ?? 0])])]
+    ? [Object.fromEntries([["quarter", widget.config.quarter || "Current"], ...metrics.map((m: WidgetMetricRef) => [m.key, values[m.key] ?? 0])])]
     : [];
 
   return (
@@ -160,15 +313,27 @@ function TrendWidget({ widget, data }: { widget: DashboardWidget; data: Record<s
 
 function BarWidget({ widget, data }: { widget: DashboardWidget; data: Record<string, unknown>[] | null }) {
   const metrics = widget.config.metrics || [];
-  const values = data?.[0] as Record<string, number> | undefined;
   const bars = metrics.map((m: WidgetMetricRef) => {
     const def = METRIC_MAP.get(m.key);
     return { key: m.key, label: m.label || def?.label || m.key, color: m.color || def?.default_color };
   });
 
-  // Build single-period data point from fetched values (full time-series is a future enhancement)
+  // Multi-period data: pass through directly
+  if (data && data.length > 1) {
+    return (
+      <QuarterlyBarChart
+        data={data}
+        bars={bars}
+        height={240}
+        showLegend={widget.config.show_legend !== false}
+      />
+    );
+  }
+
+  // Single period fallback
+  const values = data?.[0] as Record<string, number> | undefined;
   const chartData = values
-    ? [Object.fromEntries([["period", widget.config.quarter || "Current"], ...metrics.map((m: WidgetMetricRef) => [m.key, values[m.key] ?? 0])])]
+    ? [Object.fromEntries([["quarter", widget.config.quarter || "Current"], ...metrics.map((m: WidgetMetricRef) => [m.key, values[m.key] ?? 0])])]
     : [];
 
   return (
@@ -228,9 +393,22 @@ function ComparisonTableWidget({ widget, data }: { widget: DashboardWidget; data
   const metrics = widget.config.metrics || [];
   const values = data?.[0] as Record<string, number> | undefined;
   const comparison = widget.config.comparison || "budget";
+  const { activeFilters, clearFilters } = useDashboardFilters();
+  const hasFilters = Object.keys(activeFilters).length > 0;
 
   return (
     <div className="overflow-x-auto">
+      {hasFilters && (
+        <div className="flex items-center gap-2 px-3 py-1.5 mb-1 bg-indigo-500/10 rounded-md text-[10px]">
+          <span className="text-indigo-400">Filtered by:</span>
+          {Object.entries(activeFilters).map(([k, v]) => (
+            <span key={k} className="rounded bg-indigo-500/20 px-1.5 py-0.5 text-indigo-300">
+              {k}: {Array.isArray(v) ? v.join(", ") : v}
+            </span>
+          ))}
+          <button type="button" onClick={clearFilters} className="ml-auto text-indigo-400 hover:text-indigo-200">clear</button>
+        </div>
+      )}
       <table className="w-full text-xs border-collapse">
         <thead>
           <tr>
@@ -355,8 +533,8 @@ function SensitivityHeatWidget({ widget }: { widget: DashboardWidget }) {
 /* --------------------------------------------------------------------------
  * Main renderer
  * -------------------------------------------------------------------------- */
-export default function WidgetRenderer({ widget, envId, businessId, quarter, onConfigure, isEditing, queryManifest, dataAvailability }: Props) {
-  const { data, loading } = useWidgetData(widget, envId, businessId, quarter);
+export default function WidgetRenderer({ widget, envId, businessId, quarter, entityNames, onConfigure, isEditing, queryManifest, dataAvailability }: Props) {
+  const { data, seriesLines, loading } = useWidgetData(widget, envId, businessId, quarter, entityNames);
   const [showInfo, setShowInfo] = useState(false);
 
   return (
@@ -423,12 +601,12 @@ export default function WidgetRenderer({ widget, envId, businessId, quarter, onC
           )}
           {dataAvailability && !dataAvailability.has_data && (
             <div className="text-amber-500 flex items-center gap-1">
-              <span>⚠</span>
+              <span>&#9888;</span>
               <span>{dataAvailability.missing_reason}</span>
             </div>
           )}
           {dataAvailability?.has_data && (
-            <div className="text-green-500">✓ Entities + quarter configured</div>
+            <div className="text-green-500">&#10003; Entities + quarter configured</div>
           )}
           {dataAvailability?.has_data && dataAvailability.missing_reason && (
             <div className="text-amber-500">{dataAvailability.missing_reason}</div>
@@ -446,7 +624,7 @@ export default function WidgetRenderer({ widget, envId, businessId, quarter, onC
           <>
             {widget.type === "metrics_strip" && <MetricsStripWidget widget={widget} data={data} />}
             {widget.type === "metric_card" && <MetricsStripWidget widget={widget} data={data} />}
-            {widget.type === "trend_line" && <TrendWidget widget={widget} data={data} />}
+            {widget.type === "trend_line" && <TrendWidget widget={widget} data={data} seriesLines={seriesLines} />}
             {widget.type === "bar_chart" && <BarWidget widget={widget} data={data} />}
             {widget.type === "waterfall" && <WaterfallWidget widget={widget} data={data} />}
             {widget.type === "statement_table" && <StatementWidget widget={widget} envId={envId} businessId={businessId} quarter={quarter} />}

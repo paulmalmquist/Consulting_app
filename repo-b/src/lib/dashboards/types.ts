@@ -73,6 +73,10 @@ export interface WidgetConfig {
   show_legend?: boolean;
   stacked?: boolean;
   reference_lines?: Array<{ y: number; label: string; color?: string }>;
+  /** Grouping dimension — produces separate series per entity. */
+  group_by?: "investment" | "asset" | "fund" | "market" | "region" | null;
+  /** Override time grain for time-series widgets. */
+  time_grain?: "monthly" | "quarterly" | "annual";
   // pipeline_bar fields
   pipeline_field?: string;        // grouping field (default: "status")
   pipeline_value_field?: string;  // aggregation field (default: "headline_price")
@@ -131,7 +135,7 @@ export interface EntityScope {
  * -------------------------------------------------------------------------- */
 export interface DashboardSpec {
   widgets: DashboardWidget[];
-  density?: "comfortable" | "compact";
+  density?: "comfortable" | "compact" | "auto";
   builder_messages?: Array<{ level: "info" | "warning" | "error"; text: string }>;
 }
 
@@ -149,6 +153,8 @@ export interface SavedDashboard {
   prompt_text: string | null;
   entity_scope: EntityScope;
   quarter: string | null;
+  spec_file: string | null;
+  density: "comfortable" | "compact" | "auto";
   created_by: string | null;
   created_at: string;
   updated_at: string;

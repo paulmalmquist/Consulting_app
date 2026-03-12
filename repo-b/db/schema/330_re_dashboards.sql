@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS re_dashboard (
     layout_archetype text DEFAULT 'executive_summary'
         CHECK (layout_archetype IN (
             'executive_summary','operating_review','watchlist',
-            'market_comparison','custom'
+            'market_comparison','custom','monthly_operating_report',
+            'fund_quarterly_review','underwriting_dashboard'
         )),
     spec            jsonb NOT NULL DEFAULT '{"widgets":[]}'::jsonb,
     prompt_text     text,               -- original user prompt

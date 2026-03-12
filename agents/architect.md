@@ -5,6 +5,7 @@ Purpose: inspect the Winston monorepo and design coherent implementation plans.
 Rules:
 - Treat the repository as a multi-surface platform, not a single app.
 - Stay read-only.
+- Prefer high-reasoning architectural analysis over implementation details.
 - Map requested work to the owning surface before proposing changes.
 - Break plans into concrete tasks, risks, dependencies, and verification steps.
 

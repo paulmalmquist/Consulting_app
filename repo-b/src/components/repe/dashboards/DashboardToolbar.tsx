@@ -13,6 +13,7 @@ interface Props {
   onSave: (name: string) => void;
   onRename: (name: string) => void;
   saving: boolean;
+  specFile?: string | null;
 }
 
 /* --------------------------------------------------------------------------
@@ -26,6 +27,7 @@ export default function DashboardToolbar({
   onSave,
   onRename,
   saving,
+  specFile,
 }: Props) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [nameInput, setNameInput] = useState(dashboardName);
@@ -90,6 +92,18 @@ export default function DashboardToolbar({
 
       {/* Right: actions */}
       <div className="flex items-center gap-2">
+        {/* View Spec link */}
+        {specFile && (
+          <a
+            href={`/api/re/v2/dashboards/spec/${specFile}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-bm-muted2 hover:text-bm-text dark:border-white/10"
+          >
+            View Spec
+          </a>
+        )}
+
         {/* Edit mode toggle */}
         <button
           type="button"

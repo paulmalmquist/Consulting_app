@@ -18,3 +18,5 @@ Rules:
 - Stop and report immediately on git conflicts, failing tests, failed CI, failed deploys, or failed smoke checks.
 - If the repo is dirty because it contains intentional pending changes, do not refuse by default. `Push` means commit and ship those changes unless the user says not to commit them.
 - Use `sync-winston` only for guarded fetch/pull status; use your own runtime tools for commit/push/deploy actions.
+- Do not attempt ACP harness delegation for push/deploy work unless the user explicitly says `use Claude` or `use Codex`.
+- Do not emit internal routing commentary. Report only the active deploy result, blockers, CI state, deploy state, and verification outcome.

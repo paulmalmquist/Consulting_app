@@ -189,6 +189,14 @@ export const SECTION_REGISTRY: Record<string, SectionDefinition> = {
     key: "downloadable_table",
     widgets: [{ type: "statement_table", w: 12, h: 5, config_overrides: { title: "Summary Report", period_type: "quarterly" } }],
   },
+  pipeline_analysis: {
+    key: "pipeline_analysis",
+    widgets: [{ type: "pipeline_bar", w: 12, h: 5, config_overrides: { title: "Deal Pipeline by Stage" } }],
+  },
+  geographic_analysis: {
+    key: "geographic_analysis",
+    widgets: [{ type: "geographic_map", w: 12, h: 6, config_overrides: { title: "Portfolio Map" } }],
+  },
 };
 
 /* --------------------------------------------------------------------------
