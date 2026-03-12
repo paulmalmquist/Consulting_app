@@ -4,10 +4,123 @@ This file is a repo inventory plus a pre-flight checklist for giving instruction
 
 The main repeat failure pattern here is simple: assistants assume there is one app, one backend, one API surface, and one database path. That is false in this repo.
 
+## Dashboard Intelligence Engines (depth-2 upgrade)
+
+Five TypeScript engines in `repo-b/src/lib/dashboards/` power smarter dashboard generation:
+
+| Engine | File | What it does |
+|---|---|---|
+| Interaction Engine | `interaction-engine.ts` | Level 1 + Level 2 interaction rules; infers wiring from widget pairs |
+| Measure Suggestion | `measure-suggestion-engine.ts` | required/suggested/optional metrics from keywords + user type |
+| Tabular Engine | `tabular-engine.ts` | Auto-injects table when one is logically needed (7 rules, first match wins) |
+| Dashboard Intelligence | `dashboard-intelligence.ts` | Orchestrator — behavior_mode, hero_widget, interactions, table_decision |
+| Spec Parser | `spec-from-markdown.ts` | Parses `## Interactions`, `## Measure Intent`, `## Table Behavior` sections |
+
+Call `assembleDashboardIntelligence()` AFTER initial widget composition.
+Its result enriches the response payload — these are design contracts, not yet rendered by frontend.
+
+**Behavior modes:** `executive_summary` | `operational_monitor` | `analytical_workbench` |
+`pipeline_manager` | `geographic_explorer`
+
+**Table auto-injection (first match):** watchlist → exceptions always; map → detail on_select;
+compare/market → grouped summary; pipeline/deal → deal grid; analytical+KPI+trend → ranked expandable;
+fund_quarterly_review → scorecard; executive_summary → ranked expandable.
+
+**Interaction levels:** Level 1 always wired (bar→table filter, kpi→trend, table row→kpi update).
+Level 2 archetype-specific (drilldown, cross-filter, sync_selection).
+
+**New markdown sections:** `## Interactions` (plain-English rules), `## Measure Intent`
+(depth/user-type/required metrics), `## Table Behavior` (include/visibility/type override).
+
+**Frontend implementation priority:**
+1. `interaction_model.global_filters` → page-level filter bar
+2. `behavior_mode` → layout density default
+3. `on_select` table visibility — hide table until click
+4. `hero_widget_id` → larger grid weight
+5. `measure_suggestions.suggested` → hint chips in builder UI
+
+## Dashboard Request System (docs/dashboard_requests/)
+
+Winston's AI dashboard builder accepts both free-form prompts and structured markdown specs.
+
+**Markdown spec path** — pass `spec_file` to the generate endpoint instead of `prompt`:
+```bash
+POST /api/re/v2/dashboards/generate
+{ "spec_file": "docs/dashboard_requests/real_estate_fund_dashboard.md",
+  "env_id": "...", "business_id": "..." }
+```
+
+The generate route (`repo-b/src/app/api/re/v2/dashboards/generate/route.ts`) reads the
+file via `fs.readFileSync`, parses it with `parseMarkdownSpec()` from
+`repo-b/src/lib/dashboards/spec-from-markdown.ts`, and synthesises a prompt. If required
+sections are missing it returns `422` with `missing_sections[]`.
+
+**Required sections in every markdown spec:** Purpose, Key Metrics, Layout, Entity Scope.
+
+**Widget types available:** `metrics_strip`, `trend_line`, `bar_chart`, `waterfall`,
+`statement_table`, `comparison_table`, `text_block`. The `sparkline_grid` and
+`sensitivity_heat` types are stubbed — don't request them yet.
+
+**Next.js `cwd()` is repo-b root** — the route resolves `spec_file` relative to `process.cwd()`
+first, then tries `../` (monorepo root). Paths like `docs/dashboard_requests/foo.md` work
+from the monorepo root; paths like `src/...` would need to be relative to repo-b/.
+
+**Archetype detection is regex-only, not LLM** — the fast-path classifier in
+`backend/app/services/repe_intent.py` fires at confidence ≥ 0.85. If the synthesised prompt
+is ambiguous, add explicit archetype-trigger words ("monthly operating", "fund quarterly
+review", "watchlist") to the Purpose section.
+
+**`comparison_table` is the right widget for "actual vs budget" or "UW vs actual" views.**
+Don't use `statement_table` for those — it renders full P&L rows, not a scorecard.
+
+Key files:
+- `docs/dashboard_requests/template.md` — blank request template
+- `docs/dashboard_requests/schema.md` — parsing rules and agent instructions
+- `docs/dashboard_requests/real_estate_fund_dashboard.md` — worked example
+- `docs/dashboard_requests/README.md` — workflow guide and curl examples
+- `repo-b/src/lib/dashboards/spec-from-markdown.ts` — markdown parser
+- `repo-b/src/app/api/re/v2/dashboards/generate/route.ts` — generate endpoint (modified)
+
+## Research Integration Layer
+
+Winston has a two-tier research model:
+- **Tier 1 (quick lookup):** OpenClaw web tools inline. No file needed.
+- **Tier 2 (deep research):** User runs ChatGPT Deep Research externally, pastes report into `docs/research/YYYY-MM-DD-<slug>.md` using `docs/research/template.md`, sets `Status: ready`, then asks Winston to ingest.
+- **Tier 3 (ingest):** `research-ingest` skill reads the report, assigns tasks to surfaces, hands to `feature-dev`.
+
+Key files:
+- `RESEARCH.md` — routing rules, Telegram command patterns, report lifecycle
+- `docs/research/template.md` — blank report template
+- `docs/research/README.md` — directory guide
+- `.skills/research-ingest/SKILL.md` — research-architect skill definition
+
+Telegram examples:
+```
+search: what changed in shadcn/ui v2 tooltips               # Tier 1
+deep research needed: compare IRR calculation libraries      # Tier 2
+ingest research: docs/research/2026-03-11-irr-libs.md       # Tier 3
+build plan from: docs/research/2026-03-11-irr-libs.md       # Tier 3
+```
+
+### Research-Driven Implementations
+
+_(This section is appended by the research-architect after each successful ingestion.)_
+
+---
+
 ## Quick Tip
 
 - When reading or editing Next.js route files with shell commands, quote paths like `'repo-b/src/app/lab/env/[envId]/page.tsx'`. Unquoted brackets will be globbed by `zsh` and the command will fail before it reaches the file.
 - Run backend tests with `python3.11 -m pytest ...` in this repo. A bare `pytest` invocation may bind to an older interpreter and fail inside existing files before your feature code is even imported.
+- OpenClaw now routes Telegram DMs from user `8672815280` to `commander-winston`, not the legacy `winston` agent. The default `main` agent still stays on `~/.openclaw/workspace`.
+- Winston harness agents are split cleanly: `claude-winston` and `codex-winston` use ACP persistent runtimes, while `claude-cli-winston` and `codex-cli-winston` provide explicit OpenClaw CLI-backend fallback agents.
+- OpenClaw CLI backend commands are pinned through `~/.openclaw/bin/claude` and `~/.openclaw/bin/codex` so launchd or other minimal-PATH environments still find the correct binaries.
+- ACP adapter commands are pinned in `~/.acpx/config.json` with absolute `/usr/local/bin/npx` wrappers so Claude/Codex ACP sessions do not depend on shell PATH resolution.
+- The Winston routing skill is stored both in `skills/winston-router/SKILL.md` for repo context and in `~/.openclaw/skills/winston-router/SKILL.md` so the live gateway actually loads it.
+- `~/.openclaw/skills/acp-router/SKILL.md` overrides the bundled ACP router so Winston Telegram DMs prefer CLI worker agents instead of unsupported non-threaded ACP spawn paths.
+- For local alignment with Telegram, use `openclaw agent --agent commander-winston ...` for the controller, or attach the TUI to `agent:commander-winston:telegram:direct:8672815280` when you want the same Telegram session on desktop.
+- Winston repo synchronization now runs through `sync-winston` and `scripts/openclaw_safe_sync.sh`; this blocks pulls on dirty trees, wrong branches, or rebase conflicts instead of allowing a blind `git pull`.
+- Telegram DMs work best when `commander-winston` answers simple repo questions directly. Avoid subagent delegation for one-file lookups or doc-location questions, because a timed-out child run can leave the Telegram turn without a visible reply.
 
 ## 1. Repo Inventory
 

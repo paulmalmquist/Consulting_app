@@ -3,6 +3,9 @@ import { METRIC_CATALOG } from "@/lib/dashboards/metric-catalog";
 import { LAYOUT_ARCHETYPES, SECTION_REGISTRY, ARCHETYPE_DEFAULT_SECTIONS } from "@/lib/dashboards/layout-archetypes";
 import { validateDashboardSpec } from "@/lib/dashboards/spec-validator";
 import { buildQueryManifest, deriveDataAvailability } from "@/lib/dashboards/query-manifest-builder";
+import { parseMarkdownSpec } from "@/lib/dashboards/spec-from-markdown";
+import fs from "fs";
+import path from "path";
 
 export const runtime = "nodejs";
 
@@ -13,6 +16,11 @@ export const runtime = "nodejs";
  * Takes a user prompt + entity context and returns a structured dashboard spec.
  * Uses intent parsing + section-based composition rather than fixed archetypes
  * to ensure every explicit user request maps to a widget in the output.
+ *
+ * Optional: pass `spec_file` (relative path from repo root, e.g.
+ * "docs/dashboard_requests/real_estate_fund_dashboard.md") to generate from a
+ * structured markdown spec instead of a free-form prompt. The markdown file is
+ * parsed into a synthesised prompt + entity params; generation proceeds normally.
  */
 export async function POST(request: Request) {
   const pool = getPool();
@@ -20,7 +28,48 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { prompt, entity_type, entity_ids, env_id, business_id, quarter } = body;
+    let { prompt, entity_type, entity_ids, env_id, business_id, quarter } = body;
+    const { spec_file } = body;
+
+    // -- Markdown spec ingestion -------------------------------------------
+    // If spec_file is provided, parse the markdown and derive prompt + params.
+    // Values in the markdown take precedence over body params ONLY when the
+    // body param is absent; explicit body params always win.
+    if (spec_file) {
+      const repoRoot = process.cwd(); // Next.js cwd is always the repo-b root
+      // Allow paths relative to repo root or relative to the project monorepo root
+      const candidates = [
+        path.resolve(repoRoot, spec_file),
+        path.resolve(repoRoot, "..", spec_file),
+      ];
+      const resolved = candidates.find((p) => fs.existsSync(p));
+      if (!resolved) {
+        return Response.json(
+          { error: `spec_file not found: ${spec_file}` },
+          { status: 404 },
+        );
+      }
+      const markdown = fs.readFileSync(resolved, "utf-8");
+      const parsed = parseMarkdownSpec(markdown);
+
+      if (parsed.missing_required.length > 0) {
+        return Response.json(
+          {
+            error: "Incomplete dashboard request spec",
+            missing_sections: parsed.missing_required,
+            hint: `Add these sections to ${spec_file}: ${parsed.missing_required.join(", ")}`,
+          },
+          { status: 422 },
+        );
+      }
+
+      // Apply parsed values — body params take precedence
+      if (!prompt) prompt = parsed.prompt;
+      if (!entity_type) entity_type = parsed.entity_type;
+      if (!quarter && parsed.quarter) quarter = parsed.quarter;
+      console.log("[generate] spec_file parsed:", { file: spec_file, name: parsed.name, entity_type, quarter });
+    }
+    // -----------------------------------------------------------------------
 
     if (!prompt) {
       return Response.json({ error: "prompt is required" }, { status: 400 });

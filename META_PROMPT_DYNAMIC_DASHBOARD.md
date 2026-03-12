@@ -1,675 +1,1048 @@
-# Meta Prompt — AI-Driven Dynamic Dashboard Generation
+# Meta Prompt — AI Dashboard Builder Extensions
+## Winston / Business Machine Monorepo
 
-> For a coding agent. This prompt contains everything needed to implement a system where users describe a business question in natural language and the AI generates a purpose-built analytical dashboard.
-
----
-
-## Vision
-
-A user types: *"show me a multifamily operating report for Cascade Multifamily"*
-
-The system:
-1. Classifies the intent as a **dashboard generation request**
-2. Infers the **entity type** (asset), **entity id** (from name resolution), **report archetype** (multifamily operating)
-3. Selects the **metrics, visuals, and layout sections** appropriate for that archetype
-4. Emits a **DashboardConfig** JSON via SSE
-5. The frontend renders a **multi-section analytical workspace** using a component registry
-
-Other examples:
-- *"build me a market dashboard for the Southeast"* → geo data + cap rate trends + population heatmap
-- *"acquisitions pipeline for all sourcing-stage deals"* → pipeline table + radar scores + stage funnel
-- *"quarterly investor report for Fund I"* → KPI strip + waterfall summary + LP table + NAV bridge
-
-The system is NOT a generic BI tool. It is a **domain-specific layout engine** that knows REPE analytical patterns and composes existing components into coherent workspaces.
+> For a coding agent. Do NOT redesign the dashboard system from scratch.
+> The core pipeline is fully implemented. This prompt extends specific gaps.
 
 ---
 
-## Architecture Patterns to Follow
+## What Already Works (Do Not Touch)
 
-These patterns are already established in the codebase. Every new piece must conform.
+Before writing a single line, verify these exist exactly as described:
 
-### Pattern 1 — MCP Tool Registration
-```
-Schema:    backend/app/mcp/schemas/<domain>_tools.py   → Pydantic model with extra="ignore"
-Handler:   backend/app/mcp/tools/<domain>_tools.py     → def _handler(ctx: McpContext, inp: Model) -> dict
-Register:  register_<domain>_tools() called by server.py _register_all_tools()
-Registry:  registry.register(ToolDef(name="<namespace>.<verb>", ...))
-```
-
-### Pattern 2 — Intent Classification + Fast-Path
-```
-Classifier:  backend/app/services/repe_intent.py       → compiled regex patterns → RepeIntent(family, confidence, extracted_params)
-Fast-path:   backend/app/services/ai_gateway.py         → _run_repe_fast_path() dispatches by intent.family
-SSE flow:    yield _sse("status", ...) → yield _sse("structured_result", {"result_type": "...", "card": card}) → yield _sse("done", ...)
-```
-
-### Pattern 3 — Card Builder Pipeline
-```
-Each fast-path intent maps to a _build_*_card() function in ai_gateway.py.
-Card shape:  { title, subtitle, metrics[], parameters{}, actions[], table?, heatmap?, sections?, tiers?, partners?, assets?, scenarios[] }
-Formatter helpers: _fmt_pct(), _fmt_mult(), _fmt_dollar(), _delta_str()
-```
-
-### Pattern 4 — StructuredResultCard (Frontend)
-```
-File:  repo-b/src/components/commandbar/StructuredResultCard.tsx
-Types: repo-b/src/lib/commandbar/store.ts
-Renders: metrics (with delta badges), generic tables, heatmaps, text sections, partner/asset/scenario specialized tables, action buttons
-Currently does NOT support: charts, grids of cards, tabbed sections, collapsible groups
-```
-
-### Pattern 5 — Context Envelope
-```
-Frontend: repo-b/src/lib/commandbar/contextEnvelope.ts  → reads route, cookie, app context
-Backend:  backend/app/schemas/ai_gateway.py              → AssistantContextEnvelope Pydantic model
-Includes: env_id, business_id, route, surface, active_module, page_entity_type, page_entity_id, selected_entities[], command_context{}
-```
-
-### Pattern 6 — ReportRenderer (Template-Driven Reports)
-```
-File: repo-b/src/components/repe/reports/ReportRenderer.tsx
-Fetches a report template from /api/re/v2/reports/catalog → renders blocks by type
-Block types: kpi_strip, statement_table, waterfall_chart (placeholder), trend_chart (placeholder)
-Limitation: Fixed template structure, no AI-driven composition
-```
-
-### Pattern 7 — WinstonShell (Layout Container)
-```
-File: repo-b/src/components/repe/workspace/WinstonShell.tsx
-Three-column responsive layout: [220px sidebar | 1fr main | 280px rail]
-Completely content-agnostic — just render slots
-```
-
-### Pattern 8 — Session State
-```
-File: backend/app/services/repe_session.py
-Per-conversation state: analysis_mode, last_result, last_fund_id, last_asset_id, last_quarter, waterfall_runs[]
-Used by INTENT_SESSION_WATERFALL_QUERY to answer "what did the waterfall show?" from memory
-```
-
----
-
-## Existing Building Blocks (DO NOT Rebuild)
-
-| Component | Location | Reuse As |
+| Component | File | Status |
 |---|---|---|
-| StructuredResultCard | `repo-b/src/components/commandbar/StructuredResultCard.tsx` | Metric panels, tables, heatmaps within dashboard sections |
-| MetricsStrip | `repo-b/src/components/repe/MetricsStrip.tsx` | KPI header rows |
-| StatementTable | `repo-b/src/components/repe/statements/StatementTable.tsx` | Financial statement blocks |
-| WaterfallScenarioPanel | `repo-b/src/components/repe/WaterfallScenarioPanel.tsx` | Embeddable waterfall section |
-| SaleScenarioPanel | `repo-b/src/components/repe/SaleScenarioPanel.tsx` | Embeddable sale scenario section |
-| MonteCarloTab | `repo-b/src/components/repe/model/MonteCarloTab.tsx` | Embeddable simulation section |
-| DealGeoIntelligencePanel | `repo-b/src/components/repe/geo/DealGeoIntelligencePanel.tsx` | Geo data section |
-| DealRadarCanvas | `repo-b/src/components/repe/pipeline/DealRadarCanvas.tsx` | Pipeline visualization section |
-| ReportRenderer | `repo-b/src/components/repe/reports/ReportRenderer.tsx` | Template-based report blocks |
-| ExcelExportButton | `repo-b/src/components/repe/ExcelExportButton.tsx` | Export action |
-| WinstonShell | `repo-b/src/components/repe/workspace/WinstonShell.tsx` | Outer layout frame |
-| _build_*_card() functions | `backend/app/services/ai_gateway.py` lines 873-1050 | Card data generation |
-| _exec_fast_tool() | `backend/app/services/ai_gateway.py` line 774 | Tool execution from fast-path |
-| repe_intent.classify_repe_intent() | `backend/app/services/repe_intent.py` | Intent detection base |
+| Markdown spec parser | `repo-b/src/lib/dashboards/spec-from-markdown.ts` | Complete |
+| Dashboard composer | `backend/app/services/dashboard_composer.py` | Complete (7 archetypes) |
+| Intent classifier | `backend/app/services/repe_intent.py` | Complete (`INTENT_GENERATE_DASHBOARD`) |
+| Fast-path handler | `backend/app/services/ai_gateway.py` lines 715-732 | Complete |
+| Widget types | `repo-b/src/lib/dashboards/types.ts` | 10 types defined |
+| Section registry | `repo-b/src/lib/dashboards/layout-archetypes.ts` | 11 sections, 7 archetypes |
+| Metric catalog | `repo-b/src/lib/dashboards/metric-catalog.ts` | 44 metrics |
+| Widget renderer | `repo-b/src/components/repe/dashboards/WidgetRenderer.tsx` | metrics_strip, trend_line, bar_chart, waterfall, statement_table |
+| DB schema | `repo-b/db/schema/330_re_dashboards.sql` | 4 tables |
+| Compact layout | `dashboard_composer.py` lines 311-324 | Auto-triggers at ≥6 sections |
+| Dashboard generate route | `repo-b/src/app/api/re/v2/dashboards/generate/route.ts` | Pattern B (Next route handler) |
+
+**Dashboard data flow (already wired):**
+```
+User message
+  → classify_repe_intent()       [repe_intent.py]
+  → INTENT_GENERATE_DASHBOARD
+  → compose_dashboard_spec()      [dashboard_composer.py]
+  → SSE: result_type "dynamic_dashboard" + dashboard_spec JSON
+  → Frontend (MISSING — see Task 0)
+```
+
+**Widget types that already render** (WidgetRenderer.tsx):
+`metric_card`, `metrics_strip`, `trend_line`, `bar_chart`, `waterfall`, `statement_table`, `comparison_table`, `text_block`
+
+**Widget types that are stubbed** (defined but not rendered):
+`sparkline_grid`, `sensitivity_heat`
 
 ---
 
-## What Must Be Built
+## Existing Building Blocks (Reference, Don't Rebuild)
 
-### Layer 1 — Dashboard Config Schema (Backend)
+These components exist standalone. Several tasks below wire them into the widget system.
 
-**File: `backend/app/schemas/dashboard_config.py`**
+| Component | Path |
+|---|---|
+| DealGeoIntelligencePanel | `repo-b/src/components/repe/pipeline/geo/DealGeoIntelligencePanel.tsx` |
+| DealGeoMap | `repo-b/src/components/repe/pipeline/geo/DealGeoMap.tsx` |
+| DealGeoWorkspace | `repo-b/src/components/repe/pipeline/geo/DealGeoWorkspace.tsx` |
+| DealRadarCanvas | `repo-b/src/components/repe/pipeline/radar/DealRadarCanvas.tsx` |
+| DealIntelligencePanel | `repo-b/src/components/repe/pipeline/radar/DealIntelligencePanel.tsx` |
+| DealRadarWorkspace | `repo-b/src/components/repe/pipeline/DealRadarWorkspace.tsx` |
+| PostGIS geo tables | `repo-b/db/schema/303_pipeline_geography.sql` |
+| WinstonShell | `repo-b/src/components/repe/workspace/WinstonShell.tsx` |
+| MetricsStrip | `repo-b/src/components/repe/MetricsStrip.tsx` |
+| ExcelExportButton | `repo-b/src/components/repe/ExcelExportButton.tsx` |
 
-Define a Pydantic model that the AI (or fast-path) emits to describe a complete dashboard layout:
+---
 
-```python
-from pydantic import BaseModel
-from typing import Optional
+## Architecture Constraints
 
-class DashboardMetricSpec(BaseModel):
-    metric_key: str            # e.g. "gross_irr", "noi", "occupancy_rate"
-    label: str                 # Display label
-    format: str                # "pct", "mult", "dollar", "number", "date"
-    source: str                # "fund_metrics" | "asset_statements" | "waterfall" | "computed"
-    statement: Optional[str]   # For statement-sourced: "IS", "BS", "KPI", "CF"
-    line_code: Optional[str]   # For statement-sourced: the line_code in re_financial_statements
+This repo has 3 runtimes. Never cross the boundaries.
 
-class DashboardSectionSpec(BaseModel):
-    section_id: str            # Unique within the dashboard
-    section_type: str          # "kpi_strip" | "table" | "heatmap" | "chart" | "waterfall_embed"
-                               # | "scenario_panel" | "monte_carlo" | "geo_intel" | "pipeline_radar"
-                               # | "statement_table" | "text_narrative" | "comparison_grid"
-    title: str
-    subtitle: Optional[str]
-    width: str                 # "full" | "half" | "third"
-    config: dict               # Section-type-specific config (see Section Type Configs below)
+| Rule | Detail |
+|---|---|
+| Dashboard generate endpoint is **Pattern B** | Lives in `repo-b/src/app/api/re/v2/dashboards/generate/route.ts` — Next.js route handler → Postgres directly. NOT a FastAPI route. |
+| Dashboard compose logic is **backend** | `dashboard_composer.py` in `backend/` FastAPI service |
+| Frontend widget rendering is **repo-b only** | `repo-b/src/components/repe/dashboards/` |
+| DB migrations go to `repo-b/db/schema/` | Not backend. Use numeric prefix (next after 330). |
+| Run tests after every change | `make test-frontend` (repo-b), `make test-backend` (backend) |
+| Never `git add -A` | Stage specific files only |
+| `%%` not `%` in psycopg3 SQL strings | |
+| All Pydantic models use `extra = "ignore"` | Never `extra = "forbid"` |
 
-class DashboardConfig(BaseModel):
-    dashboard_id: str          # Unique identifier
-    title: str                 # e.g. "Multifamily Operating Report — Cascade"
-    subtitle: Optional[str]    # e.g. "Q4 2025"
-    archetype: str             # "asset_operating" | "fund_performance" | "market_analysis"
-                               # | "pipeline_review" | "investor_report" | "waterfall_deep_dive"
-                               # | "custom"
-    entity_type: str           # "asset" | "fund" | "environment" | "deal" | "portfolio"
-    entity_id: str
-    env_id: str
-    business_id: str
-    quarter: str
-    kpi_header: list[DashboardMetricSpec]       # Top-level KPI strip (always present)
-    sections: list[DashboardSectionSpec]         # Ordered list of dashboard sections
-    export_enabled: bool                         # Show export button
-    refresh_interval_seconds: Optional[int]      # For live dashboards (future)
+---
+
+## Task 0 — Frontend Dashboard Renderer (Prerequisite for All UI Tasks)
+
+**Status:** NOT BUILT. The backend emits `result_type: "dynamic_dashboard"` but nothing renders it.
+
+This is the gate task. Complete it before Tasks 1-7.
+
+### 0A. SSE Handler (`repo-b/src/lib/commandbar/store.ts`)
+
+Find the SSE event dispatcher where `structured_result` events are handled. Add a branch for `result_type === "dynamic_dashboard"`:
+
+```typescript
+case "dynamic_dashboard":
+  set((state) => ({
+    ...state,
+    activeDashboard: {
+      spec: data.dashboard_spec,        // DashboardSpec from composer
+      dashboardId: data.dashboard_id ?? null,
+      name: data.dashboard_spec?.name ?? "Dashboard",
+    },
+    mode: "dashboard",                  // Switch command bar to dashboard mode
+  }));
+  break;
 ```
 
-**Section Type Configs** — each `section_type` has its own config shape:
+Add `activeDashboard` and `mode` fields to the store state type.
 
-```python
-# kpi_strip config:
-{ "metrics": [DashboardMetricSpec, ...] }
+### 0B. DashboardRenderer (`repo-b/src/components/repe/dashboards/DashboardRenderer.tsx`)
 
-# table config:
-{ "data_source": "tool_name", "tool_args": {...}, "columns": ["col1", "col2"], "sort_by": "col1", "limit": 20 }
+Takes a `DashboardSpec` (from `types.ts`) and renders it using WidgetRenderer for each widget. Layout uses CSS grid with 12-column base.
 
-# heatmap config:
-{ "data_source": "tool_name", "tool_args": {...}, "row_axis": "field", "col_axis": "field", "value_field": "field", "value_suffix": "%" }
+```tsx
+"use client";
+import React, { Suspense } from "react";
+import type { DashboardSpec, DashboardWidget } from "@/lib/dashboards/types";
+import { WidgetRenderer } from "./WidgetRenderer";
 
-# chart config (NEW — see Layer 3):
-{ "chart_type": "line" | "bar" | "area" | "waterfall_bar" | "donut", "data_source": "tool_name", "tool_args": {...}, "x_field": "...", "y_fields": ["..."], "colors": [...] }
+interface Props {
+  spec: DashboardSpec;
+  entityIds: string[];
+  envId: string;
+  businessId: string;
+}
 
-# waterfall_embed config:
-{ "fund_id": "...", "quarter": "...", "show_overrides": true, "show_history": false }
+export function DashboardRenderer({ spec, entityIds, envId, businessId }: Props) {
+  return (
+    <div className="grid grid-cols-12 gap-3 p-4 auto-rows-[80px]">
+      {spec.widgets.map((widget) => (
+        <div
+          key={widget.id}
+          className={`col-span-${widget.layout.w} row-span-${widget.layout.h}`}
+          style={{
+            gridColumnStart: widget.layout.x + 1,
+            gridRowStart: widget.layout.y + 1,
+          }}
+        >
+          <Suspense fallback={<WidgetSkeleton />}>
+            <WidgetRenderer
+              widget={widget}
+              entityIds={entityIds}
+              envId={envId}
+              businessId={businessId}
+            />
+          </Suspense>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-# scenario_panel config:
-{ "fund_id": "...", "panel_type": "sale" | "waterfall" }
-
-# monte_carlo config:
-{ "fund_id": "...", "simulations": 1000, "seed": 42 }
-
-# geo_intel config:
-{ "asset_id": "...", "deal_id": "..." }
-
-# pipeline_radar config:
-{ "stage_filter": "sourcing" | null }
-
-# statement_table config:
-{ "entity_type": "asset" | "investment" | "fund", "entity_id": "...", "statement": "IS" | "BS" | "CF" | "KPI", "period_type": "quarterly" | "annual", "comparison": "none" | "prior_period" | "budget" }
-
-# text_narrative config:
-{ "content": "..." }   # AI-generated narrative text
-
-# comparison_grid config:
-{ "items": [{ "label": "Base", "data_source": "...", "tool_args": {...} }, { "label": "Downside", ... }], "compare_fields": ["net_irr", "tvpi", "nav"] }
-```
-
-### Layer 2 — Dashboard Archetypes (Backend)
-
-**File: `backend/app/services/dashboard_archetypes.py`**
-
-A registry of known dashboard shapes. The AI classifies the user's request into an archetype, then the archetype provides the default section layout. The AI can modify, add, or remove sections based on the specific request.
-
-```python
-ARCHETYPES = {
-    "asset_operating": {
-        "description": "Property-level operating performance report",
-        "entity_type": "asset",
-        "default_kpi_header": [
-            {"metric_key": "noi", "label": "NOI", "format": "dollar", "source": "asset_statements", "statement": "IS", "line_code": "NOI"},
-            {"metric_key": "occupancy_rate", "label": "Occupancy", "format": "pct", "source": "asset_statements", "statement": "KPI", "line_code": "OCCUPANCY"},
-            {"metric_key": "effective_rent", "label": "Eff. Rent/Unit", "format": "dollar", "source": "asset_statements", "statement": "KPI", "line_code": "EFF_RENT_UNIT"},
-            {"metric_key": "capex_ytd", "label": "CapEx YTD", "format": "dollar", "source": "asset_statements", "statement": "CF", "line_code": "TOTAL_CAPEX"},
-        ],
-        "default_sections": [
-            {"section_type": "statement_table", "title": "Income Statement", "width": "full",
-             "config": {"statement": "IS", "comparison": "prior_period"}},
-            {"section_type": "chart", "title": "NOI Trend", "width": "half",
-             "config": {"chart_type": "line", "x_field": "period", "y_fields": ["noi", "budget_noi"]}},
-            {"section_type": "chart", "title": "Occupancy Trend", "width": "half",
-             "config": {"chart_type": "area", "x_field": "period", "y_fields": ["occupancy_rate"]}},
-            {"section_type": "table", "title": "Unit Mix", "width": "full",
-             "config": {"data_source": "unit_mix_summary"}},
-        ],
-        "applicable_when": ["multifamily", "operating", "property", "asset performance", "rent roll"],
-    },
-    "fund_performance": {
-        "description": "Fund-level performance and waterfall summary",
-        "entity_type": "fund",
-        "default_kpi_header": [
-            {"metric_key": "net_irr", "label": "Net IRR", "format": "pct", "source": "fund_metrics"},
-            {"metric_key": "gross_tvpi", "label": "Gross TVPI", "format": "mult", "source": "fund_metrics"},
-            {"metric_key": "dpi", "label": "DPI", "format": "mult", "source": "fund_metrics"},
-            {"metric_key": "portfolio_nav", "label": "NAV", "format": "dollar", "source": "fund_metrics"},
-        ],
-        "default_sections": [
-            {"section_type": "waterfall_embed", "title": "Waterfall Distribution", "width": "full"},
-            {"section_type": "table", "title": "Asset Performance", "width": "full",
-             "config": {"data_source": "finance.fund_metrics", "columns": ["asset_name", "noi", "valuation", "irr"]}},
-            {"section_type": "statement_table", "title": "Fund Financials", "width": "full",
-             "config": {"statement": "IS", "comparison": "budget"}},
-        ],
-        "applicable_when": ["fund performance", "fund report", "quarterly report", "fund overview"],
-    },
-    "investor_report": {
-        "description": "LP-facing quarterly investor report",
-        "entity_type": "fund",
-        "default_kpi_header": [
-            {"metric_key": "net_irr", "label": "Net IRR", "format": "pct", "source": "fund_metrics"},
-            {"metric_key": "net_tvpi", "label": "Net TVPI", "format": "mult", "source": "fund_metrics"},
-            {"metric_key": "dpi", "label": "DPI", "format": "mult", "source": "fund_metrics"},
-            {"metric_key": "total_distributed", "label": "Total Distributed", "format": "dollar", "source": "fund_metrics"},
-        ],
-        "default_sections": [
-            {"section_type": "text_narrative", "title": "Executive Summary", "width": "full"},
-            {"section_type": "kpi_strip", "title": "Portfolio Snapshot", "width": "full"},
-            {"section_type": "waterfall_embed", "title": "Waterfall Summary", "width": "full"},
-            {"section_type": "table", "title": "LP Capital Accounts", "width": "full",
-             "config": {"data_source": "finance.lp_summary"}},
-            {"section_type": "statement_table", "title": "Fund Income Statement", "width": "full",
-             "config": {"statement": "IS", "comparison": "budget"}},
-        ],
-        "applicable_when": ["investor report", "LP report", "quarterly investor", "capital account"],
-    },
-    "market_analysis": {
-        "description": "Geographic market analysis dashboard",
-        "entity_type": "environment",
-        "default_kpi_header": [
-            {"metric_key": "avg_cap_rate", "label": "Avg Cap Rate", "format": "pct", "source": "computed"},
-            {"metric_key": "population_growth", "label": "Pop Growth", "format": "pct", "source": "computed"},
-            {"metric_key": "job_growth", "label": "Job Growth", "format": "pct", "source": "computed"},
-            {"metric_key": "median_rent", "label": "Median Rent", "format": "dollar", "source": "computed"},
-        ],
-        "default_sections": [
-            {"section_type": "heatmap", "title": "Cap Rate by Market", "width": "full"},
-            {"section_type": "geo_intel", "title": "Market Intelligence", "width": "full"},
-            {"section_type": "chart", "title": "Cap Rate Trend", "width": "half",
-             "config": {"chart_type": "line"}},
-            {"section_type": "chart", "title": "Rent Growth Trend", "width": "half",
-             "config": {"chart_type": "bar"}},
-        ],
-        "applicable_when": ["market dashboard", "market analysis", "geographic", "southeast", "cap rate trends", "demographics"],
-    },
-    "pipeline_review": {
-        "description": "Deal pipeline review and scoring dashboard",
-        "entity_type": "environment",
-        "default_kpi_header": [
-            {"metric_key": "active_deals", "label": "Active Deals", "format": "number", "source": "computed"},
-            {"metric_key": "total_equity", "label": "Total Equity", "format": "dollar", "source": "computed"},
-            {"metric_key": "avg_irr", "label": "Avg Target IRR", "format": "pct", "source": "computed"},
-            {"metric_key": "deals_in_ic", "label": "In IC", "format": "number", "source": "computed"},
-        ],
-        "default_sections": [
-            {"section_type": "pipeline_radar", "title": "Deal Radar", "width": "full"},
-            {"section_type": "table", "title": "Pipeline Deals", "width": "full",
-             "config": {"data_source": "pipeline_deals", "columns": ["deal_name", "stage", "equity", "irr", "score"]}},
-            {"section_type": "chart", "title": "Stage Funnel", "width": "half",
-             "config": {"chart_type": "bar"}},
-            {"section_type": "chart", "title": "Deal Size Distribution", "width": "half",
-             "config": {"chart_type": "donut"}},
-        ],
-        "applicable_when": ["pipeline", "deal pipeline", "sourcing", "acquisitions", "deal flow"],
-    },
-    "waterfall_deep_dive": {
-        "description": "Deep waterfall analysis with scenarios and stress testing",
-        "entity_type": "fund",
-        "default_kpi_header": [
-            {"metric_key": "net_irr", "label": "Net IRR", "format": "pct", "source": "fund_metrics"},
-            {"metric_key": "gp_carry", "label": "GP Carry", "format": "dollar", "source": "waterfall"},
-            {"metric_key": "lp_total", "label": "LP Total", "format": "dollar", "source": "waterfall"},
-            {"metric_key": "total_distributed", "label": "Total Dist.", "format": "dollar", "source": "waterfall"},
-        ],
-        "default_sections": [
-            {"section_type": "waterfall_embed", "title": "Base Case Waterfall", "width": "full",
-             "config": {"show_overrides": true, "show_history": true}},
-            {"section_type": "heatmap", "title": "Sensitivity Matrix", "width": "full",
-             "config": {"data_source": "finance.sensitivity_matrix"}},
-            {"section_type": "scenario_panel", "title": "Scenario Builder", "width": "half",
-             "config": {"panel_type": "waterfall"}},
-            {"section_type": "monte_carlo", "title": "Monte Carlo Distribution", "width": "half"},
-            {"section_type": "comparison_grid", "title": "Scenario Comparison", "width": "full"},
-        ],
-        "applicable_when": ["waterfall analysis", "waterfall deep dive", "stress test", "scenario analysis", "carry analysis"],
-    },
+function WidgetSkeleton() {
+  return <div className="h-full rounded-lg bg-bm-surface animate-pulse" />;
 }
 ```
 
-### Layer 3 — Dashboard Intent Classification (Backend)
+**Important:** CSS grid `col-span-N` with dynamic N does NOT work with Tailwind's purge. Use inline `style` for `gridColumn` and `gridRow` spans, or use a fixed set of allowed classes via safelist in `tailwind.config.ts`.
 
-**File: `backend/app/services/repe_intent.py`** — Add to existing classifier
+### 0C. Dashboard Page Route (`repo-b/src/app/app/repe/dashboards/[dashboardId]/page.tsx`)
 
-Add a new intent family: `INTENT_GENERATE_DASHBOARD`
-
-The classifier must:
-1. Detect dashboard generation requests (keywords: "show me a", "build me a", "create a dashboard", "report for", "generate a")
-2. Extract: archetype hint, entity name, entity type, quarter, any specific metric requests
-3. Return `RepeIntent(family=INTENT_GENERATE_DASHBOARD, confidence=..., extracted_params={archetype_hint, entity_name, entity_type, metrics_requested[], quarter})`
-
-**Critical**: This intent must NOT collide with existing intents. If the user says "run the waterfall", that's still `INTENT_RUN_WATERFALL`. The dashboard intent fires when the user asks for a **composed view** — multiple sections, a report, a dashboard. The distinguishing signal is composition language ("show me a report", "build a dashboard", "operating report for") vs. action language ("run", "stress", "compare").
-
-### Layer 4 — Dashboard Composition Engine (Backend)
-
-**File: `backend/app/services/dashboard_composer.py`**
-
-This is the core engine. Given a classified intent, it:
-
-1. **Resolves the archetype** from `dashboard_archetypes.py` using `archetype_hint` + fuzzy match on `applicable_when`
-2. **Resolves the entity** using `resolve_assistant_scope()` (already exists in `assistant_scope.py`)
-3. **Builds the DashboardConfig** by:
-   - Starting from the archetype's default sections
-   - Adjusting based on entity type and data availability
-   - Adding/removing sections based on extracted_params (e.g. if user mentioned "with waterfall", ensure waterfall_embed is present)
-   - Resolving metric sources to actual line_codes
-4. **Hydrates the data** for each section by calling the appropriate MCP tools via `_exec_fast_tool()`
-5. **Returns** a hydrated `DashboardConfig` with data attached to each section
-
-```python
-async def compose_dashboard(
-    intent: RepeIntent,
-    resolved_scope: dict,
-    context_envelope: AssistantContextEnvelope,
-    ctx: McpContext,
-) -> dict:
-    """Compose a complete dashboard from an intent.
-
-    Returns a dict with:
-    - config: DashboardConfig (layout spec)
-    - section_data: dict[section_id, data]  (hydrated data per section)
-    - narrative: str (AI-generated executive summary if investor_report archetype)
-    """
-```
-
-**Data hydration strategy**: For each section, call the corresponding data source tool:
-- `kpi_strip` → fetch from `/api/re/v2/.../statements?statement=KPI` or `finance.fund_metrics`
-- `statement_table` → fetch from `/api/re/v2/.../statements`
-- `waterfall_embed` → call `finance.run_waterfall`
-- `table` with tool source → call via `_exec_fast_tool()`
-- `chart` → fetch time-series data from statement API with multiple periods
-- `geo_intel` → call `re_geography` service
-- `pipeline_radar` → call `finance.pipeline_radar`
-- `heatmap` with tool source → call via `_exec_fast_tool()`
-- `monte_carlo` → no backend data needed (client-side compute)
-- `text_narrative` → call OpenAI with a focused prompt to generate narrative from the hydrated metrics
-
-### Layer 5 — Fast-Path Integration (Backend)
-
-**File: `backend/app/services/ai_gateway.py`** — Add to `_run_repe_fast_path()`
-
-Add `INTENT_GENERATE_DASHBOARD` handler:
-
-```python
-elif family == INTENT_GENERATE_DASHBOARD:
-    yield _sse("status", {"message": "Composing dashboard layout...", "stage": "compose", "progress": 0.2})
-    dashboard = await compose_dashboard(intent, resolved_scope, context_envelope, ctx)
-    yield _sse("status", {"message": "Hydrating sections...", "stage": "hydrate", "progress": 0.5})
-    # Section data hydration happens inside compose_dashboard
-    yield _sse("status", {"message": "Finalizing dashboard...", "stage": "finalize", "progress": 0.9})
-    yield _sse("structured_result", {
-        "result_type": "dynamic_dashboard",
-        "dashboard_config": dashboard["config"],
-        "section_data": dashboard["section_data"],
-        "narrative": dashboard.get("narrative"),
-    })
-```
-
-The SSE `result_type` of `"dynamic_dashboard"` is the signal to the frontend to render the full dashboard instead of a single card.
-
-### Layer 6 — Component Registry (Frontend)
-
-**File: `repo-b/src/components/dashboard/DashboardComponentRegistry.tsx`**
-
-A mapping from `section_type` to React component. This is the bridge between the DashboardConfig and actual rendering.
+Fetch the saved dashboard by ID from `/api/re/v2/dashboards/[id]` and render with DashboardRenderer.
 
 ```tsx
-import React, { lazy } from "react";
+"use client";
+import React, { useEffect, useState } from "react";
+import { DashboardRenderer } from "@/components/repe/dashboards/DashboardRenderer";
+import type { SavedDashboard } from "@/lib/dashboards/types";
 
-// Lazy-load heavy components
-const WaterfallScenarioPanel = lazy(() => import("@/components/repe/WaterfallScenarioPanel"));
-const SaleScenarioPanel = lazy(() => import("@/components/repe/SaleScenarioPanel"));
-const MonteCarloTab = lazy(() => import("@/components/repe/model/MonteCarloTab"));
-const DealGeoIntelligencePanel = lazy(() => import("@/components/repe/geo/DealGeoIntelligencePanel"));
-const DealRadarCanvas = lazy(() => import("@/components/repe/pipeline/DealRadarCanvas"));
-const StatementTable = lazy(() => import("@/components/repe/statements/StatementTable"));
+export default function DashboardPage({ params }: { params: { dashboardId: string } }) {
+  const [dashboard, setDashboard] = useState<SavedDashboard | null>(null);
 
-export type SectionRenderer = React.FC<{
-  config: Record<string, unknown>;
-  data: unknown;
-  entityId: string;
-  entityType: string;
+  useEffect(() => {
+    fetch(`/api/re/v2/dashboards/${params.dashboardId}`)
+      .then((r) => r.json())
+      .then(setDashboard)
+      .catch(console.error);
+  }, [params.dashboardId]);
+
+  if (!dashboard) return <div className="p-8 text-bm-muted">Loading…</div>;
+
+  return (
+    <DashboardRenderer
+      spec={dashboard.spec}
+      entityIds={dashboard.entity_scope.entity_ids ?? []}
+      envId={dashboard.env_id}
+      businessId={dashboard.business_id}
+    />
+  );
+}
+```
+
+Also add `GET /api/re/v2/dashboards/[id]/route.ts` (Pattern B) that queries `re_dashboard` by ID.
+
+### Test Task 0
+
+After implementing:
+1. Trigger `POST /v1/ai/chat` with message "show me an executive summary dashboard"
+2. Confirm SSE emits `result_type: "dynamic_dashboard"` with a `dashboard_spec` containing widgets
+3. Confirm command bar switches to `mode: "dashboard"`
+4. Confirm DashboardRenderer renders the widget grid
+
+---
+
+## Task 1 — `pipeline_bar` Widget (Deal Pipeline Stages)
+
+**Goal:** When a user asks about "pipeline", "deal flow", "stages", or "opportunities", render a bar chart grouped by `deal_status`, not a financial time-series.
+
+### 1A. Add Widget Type (`repo-b/src/lib/dashboards/types.ts`)
+
+```typescript
+export type WidgetType =
+  | "metric_card"
+  | "metrics_strip"
+  | "trend_line"
+  | "bar_chart"
+  | "waterfall"
+  | "statement_table"
+  | "comparison_table"
+  | "sparkline_grid"
+  | "sensitivity_heat"
+  | "text_block"
+  | "pipeline_bar"      // NEW
+  | "geographic_map"    // NEW (Task 2)
+```
+
+Add to `WidgetConfig`:
+```typescript
+// For pipeline_bar
+pipeline_field?: "deal_status" | "deal_stage" | "deal_type";  // grouping field
+pipeline_value_field?: "count" | "deal_value" | "equity_required";  // bar height
+pipeline_filter?: {
+  fund_id?: string;
+  market?: string;
+  date_after?: string;
+  date_before?: string;
+};
+linked_table_id?: string;  // widget ID of the deal table to filter on click
+```
+
+### 1B. Data Route (`repo-b/src/app/api/re/v2/dashboards/pipeline-stages/route.ts`)
+
+Pattern B — Next.js route handler, direct Postgres query.
+
+```typescript
+// GET /api/re/v2/dashboards/pipeline-stages
+// Query params: env_id, business_id, fund_id?, market?, value_field?
+// Returns: { stages: [{ label: string, count: number, value: number | null }] }
+
+import { getServerPool } from "@/lib/db/pool";
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const env_id = url.searchParams.get("env_id");
+  const business_id = url.searchParams.get("business_id");
+  const fund_id = url.searchParams.get("fund_id");
+  const market = url.searchParams.get("market");
+  const value_field = url.searchParams.get("value_field") ?? "count";
+
+  const pool = getServerPool();
+
+  // Query repe_deal grouped by deal_status
+  // Filter by env_id, business_id, optionally fund_id and market
+  // Order by a canonical stage progression: sourcing → loi → due_diligence → ic_approved → closing → closed → rejected
+  const result = await pool.query(`
+    SELECT
+      d.deal_status            AS label,
+      COUNT(*)::int            AS count,
+      SUM(d.equity_required)   AS equity_total,
+      SUM(d.deal_value)        AS value_total
+    FROM repe_deal d
+    WHERE d.env_id = $1
+      AND d.business_id = $2
+      ${fund_id ? "AND d.fund_id = $3" : ""}
+      ${market ? `AND d.market ILIKE '%' || $${fund_id ? 4 : 3} || '%'` : ""}
+    GROUP BY d.deal_status
+    ORDER BY CASE d.deal_status
+      WHEN 'sourcing'       THEN 1
+      WHEN 'loi'            THEN 2
+      WHEN 'due_diligence'  THEN 3
+      WHEN 'ic_approved'    THEN 4
+      WHEN 'closing'        THEN 5
+      WHEN 'closed'         THEN 6
+      WHEN 'rejected'       THEN 7
+      ELSE 8
+    END
+  `, [env_id, business_id, fund_id, market].filter(Boolean));
+
+  const stages = result.rows.map((r) => ({
+    label: r.label,
+    count: r.count,
+    value: value_field === "equity" ? r.equity_total : r.value_total,
+  }));
+
+  return Response.json({ stages });
+}
+```
+
+**Critical:** Verify that `repe_deal` has columns `deal_status`, `equity_required`, `deal_value`, `env_id`, `business_id`, `fund_id`, `market` before writing this query. Read the actual schema first.
+
+### 1C. Frontend Component (`repo-b/src/components/repe/dashboards/widgets/PipelineBarWidget.tsx`)
+
+Use Recharts `BarChart` (already available). Clicking a bar should call `onStageClick(label)` which filters a sibling table widget.
+
+```tsx
+"use client";
+import React, { useState, useEffect } from "react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import type { WidgetConfig } from "@/lib/dashboards/types";
+
+interface Props {
+  config: WidgetConfig;
   envId: string;
   businessId: string;
-  quarter: string;
-}>;
+  onStageClick?: (stage: string | null) => void;
+}
 
-export const SECTION_REGISTRY: Record<string, SectionRenderer> = {
-  kpi_strip:         KpiStripSection,
-  table:             GenericTableSection,
-  heatmap:           HeatmapSection,
-  chart:             ChartSection,         // NEW — see Layer 7
-  waterfall_embed:   WaterfallEmbedSection,
-  scenario_panel:    ScenarioPanelSection,
-  monte_carlo:       MonteCarloSection,
-  geo_intel:         GeoIntelSection,
-  pipeline_radar:    PipelineRadarSection,
-  statement_table:   StatementTableSection,
-  text_narrative:    TextNarrativeSection,
-  comparison_grid:   ComparisonGridSection,
-};
-```
-
-Each section renderer receives its config and pre-hydrated data. It should be a thin wrapper around the existing component, adapting props.
-
-### Layer 7 — Chart Component (Frontend)
-
-**File: `repo-b/src/components/dashboard/DashboardChart.tsx`**
-
-This is the primary missing primitive. StructuredResultCard has tables and heatmaps but no charts. Use **Recharts** (already available as a dependency in the repo).
-
-Support these chart types:
-- `line` — Time-series trends (NOI, occupancy, cap rates over quarters)
-- `bar` — Categorical comparisons (stage funnel, scenario IRR comparison)
-- `area` — Stacked time-series (revenue breakdown, capital calls vs distributions)
-- `waterfall_bar` — Waterfall-style bar chart (tier allocations, NAV bridge)
-- `donut` — Proportional breakdowns (allocation by strategy, LP composition)
-
-```tsx
-import { LineChart, BarChart, AreaChart, PieChart, Line, Bar, Area, Pie, Cell,
-         XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-
-type ChartProps = {
-  chartType: "line" | "bar" | "area" | "waterfall_bar" | "donut";
-  data: Array<Record<string, unknown>>;
-  xField: string;
-  yFields: string[];
-  colors?: string[];
-  valueFormat?: "pct" | "dollar" | "mult" | "number";
-};
-```
-
-Color palette should use the existing `bm-*` design tokens from Tailwind config.
-
-### Layer 8 — DashboardRenderer (Frontend)
-
-**File: `repo-b/src/components/dashboard/DashboardRenderer.tsx`**
-
-The main renderer that takes a DashboardConfig + section_data and composes the full page.
-
-```tsx
-type DashboardRendererProps = {
-  config: DashboardConfig;
-  sectionData: Record<string, unknown>;
-  narrative?: string;
+const STAGE_COLORS: Record<string, string> = {
+  sourcing:     "#6366f1",  // indigo
+  loi:          "#8b5cf6",  // violet
+  due_diligence:"#a855f7",  // purple
+  ic_approved:  "#22c55e",  // green
+  closing:      "#f59e0b",  // amber
+  closed:       "#10b981",  // emerald
+  rejected:     "#ef4444",  // red
 };
 
-export function DashboardRenderer({ config, sectionData, narrative }: DashboardRendererProps) {
+export function PipelineBarWidget({ config, envId, businessId, onStageClick }: Props) {
+  const [stages, setStages] = useState<Array<{ label: string; count: number; value: number | null }>>([]);
+  const [activeStage, setActiveStage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams({
+      env_id: envId,
+      business_id: businessId,
+      value_field: config.pipeline_value_field ?? "count",
+      ...(config.pipeline_filter?.fund_id ? { fund_id: config.pipeline_filter.fund_id } : {}),
+      ...(config.pipeline_filter?.market ? { market: config.pipeline_filter.market } : {}),
+    });
+    fetch(`/api/re/v2/dashboards/pipeline-stages?${params}`)
+      .then((r) => r.json())
+      .then((d) => setStages(d.stages ?? []))
+      .catch(() => {});
+  }, [envId, businessId, config]);
+
+  const handleClick = (entry: { label: string }) => {
+    const next = activeStage === entry.label ? null : entry.label;
+    setActiveStage(next);
+    onStageClick?.(next);
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Dashboard header with title and export */}
-      <DashboardHeader title={config.title} subtitle={config.subtitle} exportEnabled={config.export_enabled} />
-
-      {/* KPI header strip */}
-      <MetricsStrip metrics={config.kpi_header.map(spec => hydrate(spec, sectionData))} />
-
-      {/* Section grid */}
-      <div className="grid grid-cols-6 gap-4">
-        {config.sections.map(section => {
-          const Component = SECTION_REGISTRY[section.section_type];
-          const colSpan = section.width === "full" ? 6 : section.width === "half" ? 3 : 2;
-          return (
-            <div key={section.section_id} className={`col-span-${colSpan}`}>
-              <SectionCard title={section.title} subtitle={section.subtitle}>
-                <Component
-                  config={section.config}
-                  data={sectionData[section.section_id]}
-                  entityId={config.entity_id}
-                  entityType={config.entity_type}
-                  envId={config.env_id}
-                  businessId={config.business_id}
-                  quarter={config.quarter}
-                />
-              </SectionCard>
-            </div>
-          );
-        })}
-      </div>
+    <div className="h-full w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={stages} margin={{ top: 8, right: 16, left: 0, bottom: 24 }}>
+          <XAxis
+            dataKey="label"
+            tick={{ fontSize: 11, fill: "var(--color-bm-muted)" }}
+            angle={-30}
+            textAnchor="end"
+          />
+          <YAxis tick={{ fontSize: 11, fill: "var(--color-bm-muted)" }} />
+          <Tooltip
+            contentStyle={{ background: "var(--color-bm-surface)", border: "1px solid var(--color-bm-border)" }}
+            labelStyle={{ color: "var(--color-bm-text)" }}
+          />
+          <Bar dataKey="count" onClick={handleClick} cursor="pointer">
+            {stages.map((entry) => (
+              <Cell
+                key={entry.label}
+                fill={STAGE_COLORS[entry.label] ?? "#6366f1"}
+                opacity={activeStage && activeStage !== entry.label ? 0.4 : 1}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }
 ```
 
-**Layout rules**:
-- `full` width sections span all 6 columns
-- `half` width sections span 3 columns (two side-by-side)
-- `third` width sections span 2 columns (three across)
-- Each section is wrapped in a `SectionCard` with title, subtitle, and a subtle border
+**Check first:** Is Recharts in `repo-b/package.json`? If not: `npm install recharts` inside `repo-b/`.
 
-### Layer 9 — SSE Handler Integration (Frontend)
+### 1D. Register in WidgetRenderer (`repo-b/src/components/repe/dashboards/WidgetRenderer.tsx`)
 
-**File: `repo-b/src/lib/commandbar/store.ts`** or wherever the SSE reader handles `structured_result` events
+Add a case for `pipeline_bar` in the widget type switch. Import `PipelineBarWidget`.
 
-When `result_type === "dynamic_dashboard"`:
-- Store the full dashboard config and section data
-- Trigger a render mode switch from "card" to "dashboard"
-- The command bar panel should expand to full-width or open a new page
+### 1E. Intent → Widget Mapping (Backend)
 
-**Important decision**: The dashboard can render in two places:
-1. **In the command bar rail** (collapsed view — just the KPI strip + summary)
-2. **As a full page** (expanded view — all sections rendered)
+**File: `backend/app/services/dashboard_composer.py`**
 
-Recommended approach: Emit a "view dashboard" action button in the command bar card. Clicking it navigates to a dynamic route like `/app/repe/dashboards/[dashboardId]` where the DashboardRenderer renders the full layout. The dashboard config and data should be stored in a zustand store or passed via URL state.
+In `SECTION_PHRASES` and `ARCHETYPE_PHRASES`, add detection for pipeline intent. In `_select_widget_for_section()` or equivalent, map detected pipeline intent to `pipeline_bar` widget type.
 
-### Layer 10 — Dashboard Page (Frontend)
+Add to `SECTION_PHRASES`:
+```python
+"pipeline_analysis": re.compile(
+    r"\b(pipeline|deal\s+flow|stage|deal_status|deal\s+stage|opportunities|sourcing|loi|"
+    r"due\s+diligence|ic\s+review|closing)\b",
+    re.IGNORECASE,
+),
+```
 
-**File: `repo-b/src/app/app/repe/dashboards/[dashboardId]/page.tsx`**
+When `pipeline_analysis` section is detected, set widget type to `pipeline_bar`. Do NOT fall through to `bar_chart` (which renders financial time-series). This is the fix for the wrong-visualization bug.
 
-A dynamic route that renders DashboardRenderer. The dashboard config can be:
-- Loaded from the command bar store (if just generated)
-- Fetched from a saved dashboard API (future — for bookmarked dashboards)
+### 1F. Table Inference for Pipeline
+
+When a `pipeline_bar` widget is added to a dashboard, automatically add a companion `repe_deal` table widget immediately below it. This table should:
+- Filter by `deal_status` when user clicks a pipeline bar
+- Show columns: deal_name, market, equity_required, target_irr, deal_status, assigned_to
+
+The table interaction is wired via `linked_table_id` in WidgetConfig (added in 1A). WidgetRenderer must propagate the `activeStage` filter down to the linked table widget via a shared filter context (React context or zustand slice).
+
+### Test Task 1
+
+```bash
+# Send: "show me a pipeline dashboard for all active deals"
+# Expected SSE: dashboard_spec contains a widget with type: "pipeline_bar"
+# NOT: type: "bar_chart" with financial metrics
+
+# Smoke test the data route:
+curl "http://localhost:3001/api/re/v2/dashboards/pipeline-stages?env_id=...&business_id=..."
+# Expected: { stages: [{ label: "sourcing", count: 3, value: 12000000 }, ...] }
+```
+
+---
+
+## Task 2 — `geographic_map` Widget
+
+**Goal:** Wire existing `DealGeoIntelligencePanel` (already built) into the dashboard widget system. The component exists — it just isn't a widget type yet.
+
+### 2A. Add to types.ts (already done in Task 1A above)
+
+Add to `WidgetConfig`:
+```typescript
+// For geographic_map
+geo_entity_type?: "deal" | "asset";
+geo_filter?: {
+  market?: string;
+  region?: string;
+  fund_id?: string;
+};
+geo_cluster?: boolean;  // enable/disable point clustering
+linked_table_id?: string;
+```
+
+### 2B. Frontend Component (`repo-b/src/components/repe/dashboards/widgets/GeographicMapWidget.tsx`)
+
+Thin wrapper around the existing `DealGeoIntelligencePanel`. Adapts the dashboard WidgetConfig props to the panel's expected props.
 
 ```tsx
 "use client";
 import React from "react";
-import { DashboardRenderer } from "@/components/dashboard/DashboardRenderer";
-import { useDashboardStore } from "@/lib/dashboard/store";
+import type { WidgetConfig } from "@/lib/dashboards/types";
+// Read DealGeoIntelligencePanel props before writing this wrapper
+// The component lives at: repo-b/src/components/repe/pipeline/geo/DealGeoIntelligencePanel.tsx
+// Read it first, then adapt
 
-export default function DashboardPage({ params }: { params: { dashboardId: string } }) {
-  const { config, sectionData, narrative } = useDashboardStore(params.dashboardId);
-  if (!config) return <div>Loading...</div>;
-  return <DashboardRenderer config={config} sectionData={sectionData} narrative={narrative} />;
+interface Props {
+  config: WidgetConfig;
+  envId: string;
+  businessId: string;
+  onPointClick?: (dealId: string) => void;
 }
+
+export function GeographicMapWidget({ config, envId, businessId, onPointClick }: Props) {
+  // TODO: Read DealGeoIntelligencePanel's actual prop interface before writing this.
+  // Import and render it with the config values mapped to its props.
+  return null; // placeholder — implement after reading the source component
+}
+```
+
+**Critical:** Read `DealGeoIntelligencePanel.tsx` first to understand its prop interface. Do not guess.
+
+### 2C. Intent → Widget Mapping
+
+Add to `SECTION_PHRASES` in `dashboard_composer.py`:
+```python
+"geographic_analysis": re.compile(
+    r"\b(map|geography|geographic|geo\s+intel|market\s+distribution|"
+    r"locations?|assets?\s+by\s+region|regional\s+distribution|"
+    r"where\s+are|spatial)\b",
+    re.IGNORECASE,
+),
+```
+
+Map `geographic_analysis` section → `geographic_map` widget type.
+
+### 2D. Table Inference for Map
+
+When `geographic_map` is in the dashboard, auto-add a deal/asset table below it. The table filters by `market` or `region` when user clicks a map point.
+
+### Test Task 2
+
+```bash
+# Send: "build me a market dashboard for the Southeast"
+# Expected: dashboard_spec contains widget type: "geographic_map"
+# Verify DealGeoIntelligencePanel renders inside the widget grid
+```
+
+---
+
+## Task 3 — Spec File Round-Trip
+
+**Goal:** When a dashboard is generated from a markdown spec in `docs/dashboard_requests/`, store the originating spec path in `re_dashboard.spec_file` and expose an "Edit source spec" link in the UI.
+
+### 3A. Database Migration
+
+**File: `repo-b/db/schema/331_re_dashboard_spec_file.sql`**
+
+```sql
+ALTER TABLE re_dashboard
+  ADD COLUMN IF NOT EXISTS spec_file text;
+
+COMMENT ON COLUMN re_dashboard.spec_file IS
+  'Relative path to the originating markdown spec (e.g. docs/dashboard_requests/fund_quarterly.md). NULL if generated from natural language.';
+```
+
+Apply via Supabase migration tool. Do NOT use raw `psql` or `ALTER TABLE` in production without a migration record.
+
+### 3B. Pass `spec_file` Through the Generate Route
+
+**File: `repo-b/src/app/api/re/v2/dashboards/generate/route.ts`**
+
+The route already accepts `spec_file` as a query parameter for resolving the markdown file. Extend it to also:
+1. Persist `spec_file` to the `re_dashboard` row when saving
+2. Return `spec_file` in the response JSON
+
+Find the `INSERT INTO re_dashboard` statement (or the save logic) and add `spec_file` to the insert.
+
+### 3C. "Edit source spec" UI Link
+
+**File: wherever the saved dashboard header is rendered** (likely `DashboardRenderer.tsx` header or the dashboard detail page)
+
+If `dashboard.spec_file` is present, render a link:
+```tsx
+{dashboard.spec_file && (
+  <a
+    href={`/api/re/v2/dashboards/spec/${encodeURIComponent(dashboard.spec_file)}`}
+    className="text-xs text-bm-muted hover:text-bm-text underline"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    Edit source spec →
+  </a>
+)}
+```
+
+### 3D. Spec Viewer/Edit Route
+
+**File: `repo-b/src/app/api/re/v2/dashboards/spec/[...path]/route.ts`**
+
+Returns the raw markdown content of the spec file so users can view or edit it. Returns 404 if path is outside `docs/dashboard_requests/` (path traversal protection).
+
+```typescript
+export async function GET(request: Request, { params }: { params: { path: string[] } }) {
+  const relativePath = params.path.join("/");
+  // Security: only allow paths within docs/dashboard_requests/
+  if (!relativePath.startsWith("docs/dashboard_requests/") || relativePath.includes("..")) {
+    return new Response("Forbidden", { status: 403 });
+  }
+  // Read file and return as text/markdown
+}
+```
+
+### 3E. Regeneration Flow
+
+After the user edits the markdown spec file, they can regenerate by calling `POST /api/re/v2/dashboards/generate?spec_file=docs/dashboard_requests/...` again. The existing route already handles this. The UI "Regenerate" button simply calls this endpoint with the stored `spec_file`.
+
+### Test Task 3
+
+```bash
+# 1. Generate dashboard from spec:
+curl -X POST "http://localhost:3001/api/re/v2/dashboards/generate?spec_file=docs/dashboard_requests/real_estate_fund_dashboard.md&..."
+# Expected response includes spec_file in saved dashboard record
+
+# 2. Verify spec_file stored in DB:
+SELECT id, name, spec_file FROM re_dashboard WHERE spec_file IS NOT NULL LIMIT 5;
+
+# 3. Fetch spec content:
+curl "http://localhost:3001/api/re/v2/dashboards/spec/docs/dashboard_requests/real_estate_fund_dashboard.md"
+# Expected: raw markdown text
+```
+
+---
+
+## Task 4 — Density Toggle (Expose Existing Compact Mode)
+
+**Goal:** The compact layout already exists server-side (triggers at ≥6 sections). Expose it as a user-controlled toggle.
+
+### 4A. Add `density` to DashboardSpec (`repo-b/src/lib/dashboards/types.ts`)
+
+```typescript
+export interface DashboardSpec {
+  widgets: DashboardWidget[];
+  density?: "comfortable" | "compact";  // NEW — default: "comfortable"
+}
+```
+
+### 4B. Pass `density` to the Composer
+
+**File: `repo-b/src/app/api/re/v2/dashboards/generate/route.ts`**
+
+Accept `density` as a request body param. Pass it to `compose_dashboard_spec()`.
+
+**File: `backend/app/services/dashboard_composer.py`**
+
+Add `density: str = "auto"` parameter to `compose_dashboard_spec()`. When `density == "compact"`, force compact mode regardless of section count. When `density == "comfortable"`, never compact even with ≥6 sections. When `density == "auto"` (default), use existing threshold logic.
+
+```python
+def compose_dashboard_spec(
+    message: str,
+    env_id: str | None = None,
+    ...
+    density: str = "auto",          # NEW
+) -> dict[str, Any]:
+    ...
+    # Existing compact logic (lines 311-324):
+    if density == "compact":
+        compact = True
+    elif density == "comfortable":
+        compact = False
+    else:
+        compact = len(sections) >= 6   # existing auto behavior
+```
+
+### 4C. Density Toggle UI
+
+**File: wherever the dashboard header/toolbar is rendered** (DashboardRenderer header or dashboard page)
+
+```tsx
+function DensityToggle({ value, onChange }: { value: "comfortable" | "compact"; onChange: (v: "comfortable" | "compact") => void }) {
+  return (
+    <div className="flex rounded border border-bm-border overflow-hidden text-xs">
+      {(["comfortable", "compact"] as const).map((mode) => (
+        <button
+          key={mode}
+          onClick={() => onChange(mode)}
+          className={`px-3 py-1 capitalize ${
+            value === mode
+              ? "bg-bm-primary text-white"
+              : "bg-bm-surface text-bm-muted hover:text-bm-text"
+          }`}
+        >
+          {mode}
+        </button>
+      ))}
+    </div>
+  );
+}
+```
+
+When toggled, re-fetch the dashboard with the new density param or recompute widget heights client-side:
+- Compact: subtract 1 from each widget's `h` (min 2)
+- Comfortable: use original `h` values from spec
+
+Store original `h` values before modifying so comfortable mode can restore them.
+
+### 4D. Store density in `re_dashboard`
+
+**File: `repo-b/db/schema/331_re_dashboard_spec_file.sql`** (add to same migration as Task 3)
+
+```sql
+ALTER TABLE re_dashboard
+  ADD COLUMN IF NOT EXISTS density text DEFAULT 'comfortable'
+    CHECK (density IN ('comfortable', 'compact', 'auto'));
+```
+
+### Test Task 4
+
+```bash
+# Generate compact dashboard:
+# POST /api/re/v2/dashboards/generate with body: { density: "compact" }
+# Expected: all widget heights 1 row smaller than comfortable equivalent
+
+# Verify toggle in UI re-renders grid without page reload
+```
+
+---
+
+## Task 5 — Widget Fallback Transparency
+
+**Goal:** When a requested widget type cannot be rendered, log clearly and surface a builder message. Currently fails silently.
+
+### 5A. Fallback Logging (Backend)
+
+**File: `backend/app/services/dashboard_composer.py`**
+
+In `_select_widget_for_section()` or wherever widget type is resolved, track when a fallback occurs:
+
+```python
+from app.observability.logger import emit_log
+
+def _resolve_widget_type(requested: str, available: set[str]) -> tuple[str, str | None]:
+    """Returns (resolved_type, fallback_reason). fallback_reason is None if no fallback."""
+    if requested in available:
+        return requested, None
+    # Fallback map
+    fallbacks = {
+        "pipeline":           "bar_chart",
+        "pipeline_bar":       "bar_chart",
+        "geographic_map":     "text_block",
+        "sparkline_grid":     "metrics_strip",
+        "sensitivity_heat":   "text_block",
+    }
+    fallback = fallbacks.get(requested, "text_block")
+    emit_log(
+        level="warning",
+        service="backend",
+        action="dashboard.widget.fallback",
+        message=f"Widget type '{requested}' not available. Using fallback '{fallback}'.",
+        context={"requested": requested, "fallback": fallback},
+    )
+    return fallback, f'Requested widget "{requested}" not available. Using fallback visualization "{fallback}".'
+```
+
+### 5B. Expose Fallback in Dashboard Spec
+
+When a fallback occurs, add a `builder_messages` array to the dashboard spec:
+
+```python
+dashboard_spec["builder_messages"] = [
+    { "level": "warning", "text": fallback_reason }
+    for fallback_reason in fallback_reasons
+    if fallback_reason
+]
+```
+
+### 5C. Builder Messages UI
+
+**File: `DashboardRenderer.tsx`**
+
+If `spec.builder_messages` is non-empty, render a collapsible notice at the top:
+
+```tsx
+{spec.builder_messages?.length > 0 && (
+  <details className="mb-3 rounded border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+    <summary className="cursor-pointer text-amber-400 font-medium">
+      ⚠ Builder messages ({spec.builder_messages.length})
+    </summary>
+    <ul className="mt-2 space-y-1 text-bm-muted">
+      {spec.builder_messages.map((msg, i) => (
+        <li key={i}>{msg.text}</li>
+      ))}
+    </ul>
+  </details>
+)}
+```
+
+### 5D. Add `builder_messages` to Types
+
+```typescript
+export interface DashboardSpec {
+  widgets: DashboardWidget[];
+  density?: "comfortable" | "compact";
+  builder_messages?: Array<{ level: "info" | "warning" | "error"; text: string }>;
+}
+```
+
+### Test Task 5
+
+```bash
+# Request a dashboard with a stubbed widget type, e.g. "sparkline_grid"
+# Expected: builder_messages contains: "Requested widget 'sparkline_grid' not available. Using fallback visualization 'metrics_strip'."
+# Expected: backend log shows action: "dashboard.widget.fallback"
+# Expected: UI shows amber warning notice at top of dashboard
+```
+
+---
+
+## Task 6 — Intent → Widget Mapping (Formalize and Extend)
+
+**Goal:** The mapping from natural language keywords to widget types currently lives scattered across `dashboard_composer.py`. Extract it into an explicit, documented, testable mapping layer.
+
+### 6A. Intent → Widget Map (`backend/app/services/dashboard_composer.py`)
+
+Add an explicit mapping at the top of the file (before the archetypes):
+
+```python
+# Maps detected section intent → widget type
+# Checked BEFORE fallback logic. Add new widget types here when implemented.
+INTENT_WIDGET_MAP: dict[str, str] = {
+    # Pipeline
+    "pipeline_analysis":     "pipeline_bar",
+    "deal_flow":             "pipeline_bar",
+    "deal_stages":           "pipeline_bar",
+    "opportunities":         "pipeline_bar",
+    # Geographic
+    "geographic_analysis":   "geographic_map",
+    "market_distribution":   "geographic_map",
+    "geo_intel":             "geographic_map",
+    # Financial time-series
+    "noi_trend":             "trend_line",
+    "occupancy_trend":       "trend_line",
+    "dscr_monitoring":       "trend_line",
+    # Financial comparisons
+    "actual_vs_budget":      "bar_chart",
+    "debt_maturity":         "bar_chart",
+    "income_statement":      "statement_table",
+    "cash_flow":             "statement_table",
+    "noi_bridge":            "waterfall",
+    "underperformer_watchlist": "comparison_table",
+    # Structural
+    "kpi_summary":           "metrics_strip",
+    "downloadable_table":    "statement_table",
+}
+
+# AVAILABLE_WIDGET_TYPES — the set that WidgetRenderer can currently render.
+# Stubbed types (sparkline_grid, sensitivity_heat) are intentionally excluded.
+AVAILABLE_WIDGET_TYPES: set[str] = {
+    "metric_card", "metrics_strip", "trend_line", "bar_chart",
+    "waterfall", "statement_table", "comparison_table", "text_block",
+    "pipeline_bar",    # Added in Task 1
+    "geographic_map",  # Added in Task 2
+}
+```
+
+Replace any inline `if/elif` widget type resolution with `INTENT_WIDGET_MAP.get(detected_intent)`, then fall through to `_resolve_widget_type()` (fallback logger from Task 5).
+
+### 6B. Table Inference Rules
+
+**File: `backend/app/services/dashboard_composer.py`**
+
+Add a `TABLE_INFERENCE_RULES` dict that maps widget types to auto-added companion table sections:
+
+```python
+TABLE_INFERENCE_RULES: dict[str, dict] = {
+    "pipeline_bar": {
+        "widget_type": "statement_table",
+        "title": "Deal Pipeline",
+        "subtitle": "All active deals",
+        "config": {
+            "data_source": "repe_deal",
+            "columns": ["deal_name", "market", "equity_required", "target_irr", "deal_status"],
+            "statement": None,
+        },
+        "layout": {"w": 12, "h": 4},
+    },
+    "geographic_map": {
+        "widget_type": "statement_table",
+        "title": "Deal / Asset Detail",
+        "subtitle": "Filtered by selected region",
+        "config": {
+            "data_source": "repe_deal",
+            "columns": ["deal_name", "market", "asset_class", "deal_status", "equity_required"],
+            "statement": None,
+        },
+        "layout": {"w": 12, "h": 4},
+    },
+    "waterfall": {
+        "widget_type": "comparison_table",
+        "title": "Tier Breakdown",
+        "config": {"statement": "waterfall_allocations"},
+        "layout": {"w": 12, "h": 3},
+    },
+}
+```
+
+In `compose_dashboard_spec()`, after composing the initial widget list, iterate and add companion tables for any widget types that appear in `TABLE_INFERENCE_RULES`.
+
+### Test Task 6
+
+```bash
+# Verify mapping layer:
+# Send "pipeline" intent → confirm widget type is pipeline_bar, not bar_chart
+# Send "map" intent → confirm widget type is geographic_map, not text_block
+# Send "NOI trend" intent → confirm widget type is trend_line (unchanged)
+# Confirm pipeline dashboard auto-includes a deal table
+# Confirm map dashboard auto-includes a deal/asset table
+```
+
+---
+
+## Task 7 — Example Dashboard Spec
+
+Create this file to demonstrate the new widget types and serve as a reference for the intent → widget mapping.
+
+**File: `docs/dashboard_requests/pipeline_and_market_dashboard.md`**
+
+```markdown
+# Pipeline and Market Dashboard
+
+## Purpose
+Visualize the current deal pipeline by stage alongside geographic market distribution.
+Show active opportunities grouped by deal_status and their geographic spread across target markets.
+
+## Key Metrics
+- Active deal count by stage
+- Total equity required in pipeline
+- Geographic distribution of deals
+- Average target IRR by stage
+
+## Layout
+- Pipeline stage bar chart (full width)
+- Geographic market map (full width)
+- Supporting deal table with stage and market filters
+
+## Entity Scope
+- entity_type: portfolio
+- quarter: 2026Q1
+
+## Interactions
+- Clicking a pipeline stage filters the deal table to that stage
+- Clicking a map point filters the deal table to that market
+
+## Visualizations
+- pipeline_bar: group by deal_status, value by equity_required
+- geographic_map: entity_type deal, filter by market
+
+## Table Behavior
+- include deal table: yes
+- table linked to: pipeline_bar, geographic_map
+- table columns: deal_name, market, deal_status, equity_required, target_irr
+```
+
+---
+
+## Example: Testing New Functionality
+
+### Backend smoke tests
+
+```bash
+# 1. Start backend
+cd backend && uvicorn app.main:app --port 8000
+
+# 2. Verify pipeline intent classification
+curl -X POST http://localhost:8000/v1/ai/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "show me deal pipeline stages", "env_id": "...", "business_id": "..."}'
+# Expected SSE: result_type "dynamic_dashboard", spec.widgets[0].type = "pipeline_bar"
+
+# 3. Verify map intent classification
+curl -X POST http://localhost:8000/v1/ai/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "build me a geographic market dashboard", "env_id": "...", "business_id": "..."}'
+# Expected SSE: result_type "dynamic_dashboard", spec contains widget type "geographic_map"
+
+# 4. Run backend tests
+cd backend && make test-backend
+```
+
+### Frontend smoke tests
+
+```bash
+cd repo-b && make test-frontend
+
+# Manual browser tests:
+# 1. Navigate to any page with command bar
+# 2. Type "show me a pipeline dashboard"
+# 3. Confirm: command bar shows "Generating dashboard..."
+# 4. Confirm: DashboardRenderer renders with PipelineBarWidget visible
+# 5. Click a pipeline stage bar
+# 6. Confirm: deal table below filters to that stage
+# 7. Toggle Compact/Comfortable — confirm grid heights change without reload
+```
+
+---
+
+## Modified Files
+
+| File | Task | Change |
+|---|---|---|
+| `repo-b/src/lib/dashboards/types.ts` | 1A, 4A, 5D | Add `pipeline_bar`, `geographic_map` widget types; add `density`, `builder_messages` to DashboardSpec |
+| `backend/app/services/dashboard_composer.py` | 1E, 2C, 4B, 5A, 6A, 6B | Add INTENT_WIDGET_MAP, pipeline_bar/geographic_map sections, density param, fallback logging, TABLE_INFERENCE_RULES |
+| `repo-b/src/app/api/re/v2/dashboards/generate/route.ts` | 4B, 3B | Pass density param; persist spec_file |
+| `repo-b/src/lib/commandbar/store.ts` | 0A | Handle `dynamic_dashboard` result type |
+| `repo-b/src/components/repe/dashboards/WidgetRenderer.tsx` | 1D, 2B | Add cases for pipeline_bar, geographic_map |
+
+## New Files
+
+| File | Task |
+|---|---|
+| `repo-b/src/components/repe/dashboards/DashboardRenderer.tsx` | 0B |
+| `repo-b/src/app/app/repe/dashboards/[dashboardId]/page.tsx` | 0C |
+| `repo-b/src/app/api/re/v2/dashboards/[id]/route.ts` | 0C |
+| `repo-b/src/app/api/re/v2/dashboards/pipeline-stages/route.ts` | 1B |
+| `repo-b/src/components/repe/dashboards/widgets/PipelineBarWidget.tsx` | 1C |
+| `repo-b/src/components/repe/dashboards/widgets/GeographicMapWidget.tsx` | 2B |
+| `repo-b/src/app/api/re/v2/dashboards/spec/[...path]/route.ts` | 3D |
+| `repo-b/db/schema/331_re_dashboard_spec_file.sql` | 3A, 4D |
+| `docs/dashboard_requests/pipeline_and_market_dashboard.md` | 7 |
+
+---
+
+## Durable Insights for `tips.md`
+
+Add this section to `tips.md` under a `## Dashboard Builder` heading:
+
+```markdown
+## Dashboard Builder
+
+**Widget types and their render status:**
+- Fully rendered: metric_card, metrics_strip, trend_line, bar_chart, waterfall, statement_table, comparison_table, text_block, pipeline_bar, geographic_map
+- Stubbed (defined but no renderer): sparkline_grid, sensitivity_heat
+
+**Markdown spec format:**
+- Lives in docs/dashboard_requests/*.md
+- Required H2 sections: Purpose, Key Metrics, Layout, Entity Scope
+- Generate route: POST /api/re/v2/dashboards/generate?spec_file=docs/dashboard_requests/[file].md
+- Store spec_file in re_dashboard.spec_file for round-trip editing
+
+**Intent → widget mapping lives in:**
+- Backend: backend/app/services/dashboard_composer.py → INTENT_WIDGET_MAP dict
+- Frontend sections: repo-b/src/lib/dashboards/layout-archetypes.ts → SECTION_REGISTRY
+
+**Common wrong-widget bug:** If pipeline intent maps to bar_chart (financial time-series), check INTENT_WIDGET_MAP in dashboard_composer.py. "pipeline_analysis" must map to "pipeline_bar", not "bar_chart".
+
+**Density:**
+- Auto-compact triggers at ≥6 sections (reduces widget height by 1 row, min 3)
+- Override with: compose_dashboard_spec(density="compact"|"comfortable"|"auto")
+- UI toggle in DashboardRenderer header
+
+**Fallback transparency:**
+- Fallback widget selection logs to observability with action "dashboard.widget.fallback"
+- Surfaced in dashboard spec as spec.builder_messages[]
+- Rendered in UI as amber warning notice (collapsible)
+
+**Table inference:**
+- pipeline_bar → auto-add deal table (columns: deal_name, market, deal_status, equity_required)
+- geographic_map → auto-add deal/asset table
+- Table filters update when user clicks chart or map via linked_table_id in WidgetConfig
+
+**Route pattern:**
+- Dashboard generate: Pattern B (Next.js route handler, direct Postgres) at /api/re/v2/dashboards/
+- Dashboard composition: backend FastAPI service at dashboard_composer.py
+- Never put composition logic in the Next.js route handler
 ```
 
 ---
 
 ## Prerequisites to Verify Before Building
 
-1. **Recharts is available**: Check `repo-b/package.json` for `recharts`. If missing, add it.
-2. **MetricsStrip accepts DashboardMetricSpec shape**: May need adapter function.
-3. **Statement API supports multi-period fetch**: For chart time-series data, the `/api/re/v2/.../statements` endpoint must be called with multiple periods. Verify it supports a `periods` array or requires sequential calls.
-4. **MCP tools are registered for all data sources**: Verify `finance.fund_metrics`, `finance.lp_summary`, `finance.pipeline_radar`, `finance.sensitivity_matrix` all exist and return the expected shapes.
-5. **WaterfallScenarioPanel can be embedded**: Verify it accepts `fundId`, `quarter`, `envId`, `businessId` as props without requiring route context.
-6. **MonteCarloTab can be embedded**: Same — verify it works outside its current parent component.
-7. **`extra = "ignore"` fix applied**: All Pydantic models in `repe_finance_tools.py` must use `extra = "ignore"` (see WATERFALL_AI_TASKS.md SC-5).
-8. **Intent classifier regex ordering**: The new `INTENT_GENERATE_DASHBOARD` patterns must be checked BEFORE generic patterns to avoid false matches on "show me the waterfall" → dashboard instead of waterfall.
+1. **Recharts in repo-b package.json** — If missing: `cd repo-b && npm install recharts`
+2. **`repe_deal` column names** — Read the actual schema for `deal_status`, `equity_required`, `deal_value`, `market`, `fund_id` before writing SQL
+3. **DealGeoIntelligencePanel prop interface** — Read the component before writing the wrapper
+4. **INTENT_GENERATE_DASHBOARD regex ordering** — Verify pipeline/map patterns are checked before the generic dashboard regex to prevent over-matching
+5. **Tailwind CSS grid dynamic class purge** — Confirm approach: use inline `style` for `gridColumn`/`gridRow`, or add safelist to `tailwind.config.ts` for `col-span-{1-12}` and `row-span-{1-12}`
+6. **`330_re_dashboards.sql` layout_archetype CHECK constraint** — Verify the constraint includes all archetype values before adding new ones
+7. **DB migration sequence** — Verify next migration number is 331 (count existing files in `repo-b/db/schema/`)
 
 ---
 
 ## Execution Order
 
-### Phase A — Foundation (no frontend changes)
-1. `dashboard_config.py` — Schema definitions (Layer 1)
-2. `dashboard_archetypes.py` — Archetype registry (Layer 2)
-3. Add `INTENT_GENERATE_DASHBOARD` to `repe_intent.py` (Layer 3)
-4. `dashboard_composer.py` — Composition engine (Layer 4)
-5. Add fast-path handler to `ai_gateway.py` (Layer 5)
+**Phase 0 (gate — do this first):** Task 0 — DashboardRenderer + SSE handler + page route
+**Phase 1 (new widgets):** Tasks 1 + 2 in parallel
+**Phase 2 (developer ergonomics):** Tasks 3 + 4 + 5 in parallel
+**Phase 3 (intelligence layer):** Task 6 — INTENT_WIDGET_MAP + TABLE_INFERENCE_RULES
+**Phase 4 (reference artifacts):** Task 7 — Example spec + tips.md updates
 
-**Smoke test**: Send "show me a fund performance report" through the AI gateway. Verify SSE emits `result_type: "dynamic_dashboard"` with a valid config and hydrated section data.
-
-### Phase B — Frontend Rendering
-6. `DashboardChart.tsx` — Chart component (Layer 7)
-7. `DashboardComponentRegistry.tsx` — Section registry (Layer 6)
-8. `DashboardRenderer.tsx` — Main renderer (Layer 8)
-9. SSE handler update for `dynamic_dashboard` result type (Layer 9)
-10. Dashboard page route (Layer 10)
-
-**Smoke test**: Type "show me a fund performance report for Fund I" → see a full multi-section dashboard render with KPIs, waterfall, asset table.
-
-### Phase C — Refinement
-11. Add narrative generation for `investor_report` archetype (call OpenAI with hydrated metrics as context)
-12. Add "Save Dashboard" action that persists the config to DB for later recall
-13. Add "Modify Dashboard" intent that takes an existing dashboard and adjusts sections (e.g. "add a waterfall section", "remove the geo panel")
-14. Excel export of dashboard data across all sections
-
-### Phase D — Intelligence
-15. **Archetype auto-detection**: If the user's request doesn't match any archetype, fall through to the LLM (Lane C/D) with the archetype catalog as context. The LLM picks the best archetype and customizations, returning a DashboardConfig JSON.
-16. **Section recommendation**: Based on the entity's data availability, suppress sections that would render empty (e.g. don't show geo_intel if the asset has no geographic data).
-17. **Cross-dashboard linking**: Action buttons in one dashboard section can trigger a new dashboard (e.g. clicking an asset row in the fund dashboard opens the asset operating dashboard).
-
----
-
-## Testing Requirements
-
-### Backend Tests
-- `test_dashboard_config.py` — Validate DashboardConfig serialization, all section types, edge cases (empty sections, missing entity)
-- `test_dashboard_archetypes.py` — Verify archetype matching from natural language hints, all 6 archetypes resolve correctly
-- `test_dashboard_composer.py` — Mock tool execution, verify section data hydration, verify narrative generation is called for investor_report
-- `test_intent_dashboard.py` — Test INTENT_GENERATE_DASHBOARD classification, verify no collision with existing intents ("run waterfall" ≠ dashboard, "show me a report" = dashboard)
-
-### Frontend Tests
-- `DashboardRenderer.test.tsx` — Render with full config, verify all section types mount, verify grid layout (half = 3 cols, full = 6 cols)
-- `DashboardChart.test.tsx` — Render each chart type with sample data, verify Recharts components mount
-- `DashboardComponentRegistry.test.tsx` — Verify all section_types map to a component, no undefined renderers
-
----
-
-## What NOT to Do
-
-1. **Do NOT build a generic BI query engine.** This is not Looker. The system knows REPE and has 6 fixed archetypes (extendable later). It composes existing components, not arbitrary SQL.
-
-2. **Do NOT call the OpenAI API for every dashboard.** Dashboard composition is deterministic: archetype + entity → sections. Only the `text_narrative` section type calls the LLM. All data hydration goes through MCP tools / fast-path.
-
-3. **Do NOT create new database tables for dashboard storage in Phase A/B.** The DashboardConfig is ephemeral — generated per request, rendered, done. Persistence (Phase C) comes later.
-
-4. **Do NOT duplicate data-fetching logic.** The chart and table sections must call the same APIs and tools that already exist. If `finance.fund_metrics` returns asset-level data, use it. Don't build a parallel data pipeline.
-
-5. **Do NOT break the existing StructuredResultCard flow.** All existing intents (INTENT_RUN_WATERFALL, INTENT_STRESS_CAP_RATE, etc.) continue to work exactly as they do today. The dashboard system is additive — it adds `INTENT_GENERATE_DASHBOARD` alongside existing intents.
-
-6. **Do NOT put chart rendering in StructuredResultCard.** Charts are a dashboard concern, not a card concern. The card system stays focused on metrics/tables/heatmaps. Charts live in `DashboardChart.tsx` and are only used by `DashboardRenderer`.
-
-7. **Do NOT use `extra = "forbid"` on any new Pydantic models.** Always use `extra = "ignore"` to prevent LLM-generated extra keys from causing ValidationErrors.
-
-8. **Do NOT put the DashboardRenderer inside the command bar.** The command bar shows a summary card with a "View Dashboard" button. The full dashboard renders on its own page route.
-
----
-
-## File Summary
-
-| File | Layer | Action |
-|---|---|---|
-| `backend/app/schemas/dashboard_config.py` | 1 | CREATE |
-| `backend/app/services/dashboard_archetypes.py` | 2 | CREATE |
-| `backend/app/services/repe_intent.py` | 3 | MODIFY — add INTENT_GENERATE_DASHBOARD |
-| `backend/app/services/dashboard_composer.py` | 4 | CREATE |
-| `backend/app/services/ai_gateway.py` | 5 | MODIFY — add fast-path branch |
-| `repo-b/src/components/dashboard/DashboardComponentRegistry.tsx` | 6 | CREATE |
-| `repo-b/src/components/dashboard/DashboardChart.tsx` | 7 | CREATE |
-| `repo-b/src/components/dashboard/DashboardRenderer.tsx` | 8 | CREATE |
-| `repo-b/src/lib/commandbar/store.ts` | 9 | MODIFY — add dynamic_dashboard handling |
-| `repo-b/src/app/app/repe/dashboards/[dashboardId]/page.tsx` | 10 | CREATE |
-| `repo-b/src/lib/dashboard/store.ts` | 10 | CREATE — zustand store for dashboard state |
-| `backend/tests/test_dashboard_*.py` | Tests | CREATE |
-| `repo-b/src/components/dashboard/__tests__/*.test.tsx` | Tests | CREATE |
+Run `make test-frontend` and `make test-backend` after each phase. Include actual terminal output.

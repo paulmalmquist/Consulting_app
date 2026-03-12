@@ -71,3 +71,4 @@ openaikey.txt
 # Local test/runtime artifacts
 artifacts/
 repo-b/.next.bak*/
+.openclaw/
