@@ -119,6 +119,7 @@ _(This section is appended by the research-architect after each successful inges
 - Lobster is now installed locally and pinned through `~/.openclaw/bin/lobster`. Multi-step Novendor workflows live in `orchestration/openclaw/`.
 - ACP adapter commands are pinned in `~/.acpx/config.json` with absolute `/usr/local/bin/npx` wrappers so Claude/Codex ACP sessions do not depend on shell PATH resolution.
 - OpenClaw `2026.3.8` needs `tools.sessions.visibility: "all"` in `~/.openclaw/openclaw.json` if a Telegram-facing dispatcher is going to spawn and continue cross-agent CLI worker sessions like `claude-cli-winston` or `codex-cli-winston`.
+- If Telegram behavior seems to ignore the current Winston routing, inspect `~/.openclaw/agents/*/sessions/sessions.json` for stale `telegram:direct:<peer>` entries. Old `main` or `commander-winston` mappings can keep a DM on the wrong agent path even after config changes.
 - The Winston routing skill is stored both in `skills/winston-router/SKILL.md` for repo context and in `~/.openclaw/skills/winston-router/SKILL.md` so the live gateway actually loads it.
 - `~/.openclaw/skills/acp-router/SKILL.md` overrides the bundled ACP router so Winston Telegram DMs prefer CLI worker agents instead of unsupported non-threaded ACP spawn paths.
 - For local alignment with Telegram, use `openclaw agent --agent dispatcher-winston ...` for the lightweight DM entrypoint, or attach the TUI to `agent:dispatcher-winston:telegram:direct:8672815280` when you want the same Telegram session on desktop.
@@ -127,10 +128,16 @@ _(This section is appended by the research-architect after each successful inges
 - Telegram DMs work best when `commander-winston` answers simple repo questions directly. Avoid subagent delegation for one-file lookups or doc-location questions, because a timed-out child run can leave the Telegram turn without a visible reply.
 - Telegram `push` or `deploy` requests should route to `deploy-winston`, not `commander-winston` directly. In Winston chat, `push` means commit + push to GitHub + monitor CI + monitor Vercel/Railway + run post-deploy checks from `tips.md`.
 - Telegram should never show internal delegation chatter like blocked ACP routes or abandoned subagent attempts. If a valid user-facing answer was already sent, any later internal completion event should be ignored with `NO_REPLY`.
+- Telegram UX should be incremental for long tasks: quick acknowledgment first, then short progress notes at real milestones, then one final answer.
+- Live-site login, invite-code login, authenticated dashboard verification, and browser-based production checks should route to `builder-winston`, not to Claude/Codex CLI workers, because those tasks need browser state rather than a CLI-only harness.
+- If a Telegram request mentions both live/browser work and `Claude`, `opus 4.6`, or `high thinking`, the browser/live-site route still wins. Send it to `builder-winston` first and let the builder decide whether Claude should be used internally.
 - The Novendor business agents use isolated workspaces under `~/.openclaw/workspaces/novendor-*` so outreach/proposal/content/demo work cannot accidentally target the Winston repo.
-- Telegram slash commands are now the preferred operator surface: `/research`, `/build`, `/propose`, `/outreach`, `/content`, `/status`, `/brief`, `/cost`.
+- Telegram slash commands are now the preferred operator surface: `/research`, `/build`, `/propose`, `/outreach`, `/content`, `/ops_status`, `/brief`, `/cost`.
+- OpenClaw `2026.3.8` reserves `/status` as a native Telegram command. Use `/ops_status`, plain `status`, or the forum `Status` topic for the Novendor status rollup on this machine.
+- `~/.openclaw/bin/codex` now strips OpenClaw's unsupported `--color`/`--progress-cursor` flags when it resumes Codex sessions, which fixes the `codex exec resume ... unexpected argument '--color'` failure on this install.
 - The Telegram bot still has no live forum supergroup in state today. Topic-level routing is enabled by `scripts/openclaw_setup_forum.mjs` once the bot is added to a forum supergroup and you pass the real `--chat-id`.
 - `scripts/openclaw_setup_forum.mjs --chat-id <telegram-supergroup-id>` creates the Research/Builds/Client Ops/Sales/Status topics, patches `channels.telegram.groups.<chatId>.topics.*.agentId`, and installs the `Novendor Morning Brief` cron job to the Status topic.
+- The OpenClaw gateway is managed through the launchd service again on this machine. Use `openclaw gateway stop` and `openclaw gateway start` for reloads instead of killing the port manually.
 - Proposal approvals currently use Lobster approval gates and staged handoff files rather than Telegram-native host-exec approval buttons. This build does not expose a first-class Telegram `execApprovals` surface like Discord.
 - If an old Telegram DM session keeps reporting `openai/gpt-5.1-codex` after the Codex-first cutover, send `/reset` in that chat so the dispatcher session picks up the new model config.
 
@@ -1208,3 +1215,115 @@ Hardcoded in `INTENT_WIDGET_MAP` in `dashboard_composer.py`. Maps intents like `
 
 ### Table Inference Rules
 `TABLE_INFERENCE_RULES` in `dashboard_composer.py` auto-inject companion tables. E.g., pipeline_bar → detail grid, geographic_map → asset table, comparison_table → ranked expandable.
+
+## Browser Automation for Agents (OpenClaw)
+
+OpenClaw ships a built-in Playwright-backed browser tool (`openclaw browser *`).
+It was not available to agents until 2026-03-12 because the `coding` tool profile
+only includes `group:fs`, `group:runtime`, `group:sessions`, `group:memory`, `image`
+— **not** `browser` (which is in `group:ui`).
+
+### Config changes (2026-03-12)
+
+1. **`builder-winston`** — added `"browser"` to `tools.allow` (on top of `coding` profile)
+2. **`qa-winston`** — added `"browser"` to `tools.allow`
+3. Gateway installed as macOS LaunchAgent (`ai.openclaw.gateway.plist`)
+
+### Which agents can use the browser
+
+| Agent | Browser | Why |
+|---|---|---|
+| builder-winston | YES | Live-site verification, Meridian flow |
+| qa-winston | YES | Regression checks, screenshot verification |
+| deploy-winston | NO | Deploy agent shouldn't drive UI |
+| dispatcher-winston | NO | Routes only, no direct tool use |
+| commander-winston | NO | Orchestrator, delegates to builder |
+
+### Key browser commands (agent or CLI)
+
+```bash
+openclaw browser start                    # launch Chrome
+openclaw browser open <url>               # open tab
+openclaw browser snapshot                 # AI-readable page snapshot (refs)
+openclaw browser screenshot               # PNG screenshot
+openclaw browser click <ref>              # click element by snapshot ref
+openclaw browser type <ref> "text"        # type into input
+openclaw browser fill --fields '[...]'    # fill form fields
+openclaw browser press Enter              # press key
+openclaw browser wait --text "Done"       # wait for text
+openclaw browser close                    # close tab
+openclaw browser stop                     # quit browser
+```
+
+### Meridian live-site flow (browser automation)
+
+```bash
+openclaw browser start
+openclaw browser open "https://paulmalmquist.com/admin"
+openclaw browser snapshot          # find invite code input ref
+openclaw browser type <ref> "SWvxEtVPMK_YanlB"
+openclaw browser press Enter       # or click submit ref
+openclaw browser wait --text "Institutional Demo"
+openclaw browser screenshot        # verify admin dashboard
+# click Open Institutional Demo, then navigate fund portfolio
+```
+
+### Gateway lifecycle
+
+```bash
+openclaw gateway start             # start managed service
+openclaw gateway stop              # stop managed service
+openclaw gateway restart           # restart (picks up config changes)
+openclaw gateway health            # RPC health probe
+openclaw gateway status            # service + probe status
+```
+
+If `gateway stop` says "service not loaded", the gateway was never installed as a
+LaunchAgent. Fix: `openclaw gateway install` then `openclaw gateway start`.
+
+If there is an orphaned gateway process (e.g. after a crash), kill it before
+reinstalling: `kill $(lsof -ti :18789)`.
+
+The gateway runs in **foreground** when started via `openclaw gateway` in a terminal
+(parent PID = a shell). Config changes (openclaw.json edits) are not picked up until
+the process restarts. Kill the terminal process, then restart.
+
+### Subagent tool inheritance (CRITICAL)
+
+Per-agent `tools.allow` only applies when that agent is the **primary** agent.
+When an agent runs as a **subagent** (spawned via `sessions_spawn`), it inherits
+tools from the **global** `tools.allow`, not its own agent config.
+
+Fix: add any tool that subagents must use to the global `tools.allow`:
+```json
+"tools": {
+  "allow": ["browser"]
+}
+```
+Without this, a subagent will get "no nodes with browsing capabilities" even if
+the agent definition has `tools.allow: ["browser"]`.
+
+### CLI backend agents cannot call OpenClaw tools (CRITICAL)
+
+Agents with `model: "codex-cli/gpt-5.4"` or `model: "claude-cli/opus-4.6"` are
+**text-only**. They run in a subprocess CLI and have NO access to OpenClaw tool APIs
+(`browser`, `sessions_spawn`, `sessions_send`, `session_status`, etc.).
+
+For any agent that must spawn subagents or use browser automation, set:
+```json
+"model": "openai/gpt-5.1-codex"
+```
+
+### Telegram binding — bypass dispatcher for direct tool use
+
+Binding Telegram DMs directly to `builder-winston` (instead of `dispatcher-winston`)
+avoids the dispatcher-as-router reliability issue. The builder can still spawn
+specialists via `sessions_spawn` when needed.
+
+Current binding (2026-03-12): `builder-winston` handles all DMs from account 8672815280.
+
+### Global default model (2026-03-12)
+
+Changed `agents.defaults.model.primary` from `codex-cli/gpt-5.4` to
+`openai/gpt-5.1-codex` to prevent `FailoverError: Unknown model: codex-cli/gpt-5.4`
+in gateway logs (affected `main` agent and slug generator).

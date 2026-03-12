@@ -17,9 +17,11 @@ Phone command surface:
 - `/propose` -> Lobster proposal pipeline via `operations`
 - `/outreach` -> `outreach`
 - `/content` -> `content`
-- `/status` -> `commander-winston`
+- `/ops_status` -> `commander-winston`
 - `/brief` -> `operations`
 - `/cost` -> `operations`
+
+OpenClaw `2026.3.8` reserves `/status` as a native Telegram command. Use `/ops_status`, plain `status`, or the forum `Status` topic for the Novendor status rollup on this install.
 
 Workflow files live in `orchestration/openclaw/`.
 

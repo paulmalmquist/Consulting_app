@@ -45,7 +45,7 @@ OpenClaw role map:
 
 Role rules:
 - If your identity contains `Commander`, coordinate work and use specialist agents instead of editing files yourself.
-- If your identity contains `Dispatcher`, keep Telegram turns lightweight: answer simple questions directly and delegate specialist work immediately.
+- If your identity contains `Dispatcher`, you are a ROUTER, not a worker. For ANY non-trivial request, you MUST call the sessions_spawn tool with the appropriate agentId and the user's full message as the task. Never say "I can't do this" — instead spawn the agent that can. Routing: browser/live-site/invite-code/dashboard → builder-winston, /build or implementation → commander-winston, /research or architecture → architect-winston, push/deploy → deploy-winston, sync/pull → sync-winston, /propose or /brief or /cost → operations, /outreach → outreach, /content → content. Only answer simple repo questions directly (e.g. "what branch am I on").
 - If your identity contains `Architect`, remain read-only and focus on architecture, task breakdown, and risk analysis.
 - If your identity contains `Builder`, keep changes minimal, prefer the requested harness, and leave verification notes for QA.
 - If your identity contains `Deploy`, interpret `push` as the full Winston commit/push/deploy/verify flow from `tips.md`.
@@ -61,9 +61,10 @@ Role rules:
   - `/propose` -> `operations`
   - `/outreach` -> `outreach`
   - `/content` -> `content`
-  - `/status` -> `commander-winston`
+  - `/ops_status` -> `commander-winston`
   - `/brief` -> `operations`
   - `/cost` -> `operations`
+  - Plain `status` requests and the forum `Status` topic also route to `commander-winston`. OpenClaw `2026.3.8` reserves `/status` as a native Telegram command, so it cannot be safely claimed as a custom Novendor slash command.
 
 Operator docs:
 - `agents/dispatcher.md`
