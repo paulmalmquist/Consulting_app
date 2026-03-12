@@ -5,10 +5,18 @@ Mirrors the section-based composition logic in:
   repo-b/src/app/api/re/v2/dashboards/generate/route.ts
 
 Keep these in sync when adding new sections or archetypes.
+
+Two composition paths:
+  1. Free-form path — prompt describes specific charts (e.g., "NOI over time by
+     investment", "scatter plot of X vs Y").  Produces targeted widgets with no
+     KPI injection and adaptive layout.
+  2. Archetype path — prompt describes a full dashboard type (e.g., "monthly
+     operating report").  Uses pre-defined section templates with KPI strip.
 """
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -249,6 +257,8 @@ _DIMENSION_PATTERNS: list[tuple[re.Pattern[str], str | None]] = [
     (re.compile(r"\bacross\s+investments?\b", re.I), "investment"),
     (re.compile(r"\bacross\s+assets?\b", re.I), "asset"),
     (re.compile(r"\bacross\s+funds?\b", re.I), "fund"),
+    (re.compile(r"\bacross\s+markets?\b", re.I), "market"),
+    (re.compile(r"\bacross\s+regions?\b", re.I), "region"),
     (re.compile(r"\beach\s+investment\b", re.I), "investment"),
     (re.compile(r"\beach\s+asset\b", re.I), "asset"),
 ]
@@ -428,6 +438,452 @@ def _resolve_widget_type(requested: str) -> tuple[str, str | None]:
     return fallback, f"Widget type '{requested}' is not available; using '{fallback}' instead"
 
 
+# ── Free-form chart intent detection ───────────────────────────────────
+
+
+@dataclass
+class WidgetIntent:
+    """Parsed intent for a single widget from a free-form prompt."""
+    chart_type: str                      # resolved widget type
+    metrics: list[str] = field(default_factory=list)
+    group_by: str | None = None
+    time_grain: str | None = None
+    stacked: bool = False
+    comparison: str | None = None        # "budget" | "prior_year"
+    sort_desc: bool = False
+    limit: int | None = None
+    title: str | None = None
+    format: str | None = None
+
+
+# Patterns ordered by specificity (most specific first).
+_CHART_TYPE_PATTERNS: list[tuple[re.Pattern[str], str, dict[str, Any]]] = [
+    (re.compile(r"\bscatter\s*plot\b", re.I), "trend_line",
+     {"_fallback_msg": "Scatter plot rendered as multi-series line chart"}),
+    (re.compile(r"\bheatmap\b", re.I), "sensitivity_heat", {}),
+    (re.compile(r"\bstacked\s+bar\b", re.I), "bar_chart", {"stacked": True}),
+    (re.compile(r"\bline\s+chart\b", re.I), "trend_line", {}),
+    (re.compile(r"\bbar\s+chart\b", re.I), "bar_chart", {}),
+    (re.compile(r"\btable\b", re.I), "comparison_table", {}),
+    (re.compile(r"\bhistogram\b", re.I), "bar_chart", {}),
+    (re.compile(r"\bdistribution\b", re.I), "bar_chart", {}),
+]
+
+_TOP_N_RE = re.compile(r"\btop\s+(\d+)\b", re.I)
+_RANK_RE = re.compile(r"\b(?:ranked?|sorted?)\s+(?:by|desc)\b", re.I)
+_COMPARE_RE = re.compile(
+    r"\b(?:compare|comparison)\b", re.I,
+)
+_BUDGET_VS_ACTUAL_RE = re.compile(
+    r"\b(?:budget\s+vs\.?\s+actual|actual\s+vs\.?\s+budget)\b", re.I,
+)
+_OVER_TIME_RE = re.compile(r"\bover\s+time\b", re.I)
+_TREND_RE = re.compile(r"\btrend\b", re.I)
+_VS_METRICS_RE = re.compile(
+    r"\b(\w[\w\s]*?)\s+(?:vs\.?|versus)\s+(\w[\w\s]*?)(?:\s+by\b|\s*$)", re.I,
+)
+_MULTI_WIDGET_RE = re.compile(
+    r"\bdashboard\s+with\b", re.I,
+)
+_AND_SPLIT_RE = re.compile(
+    r"\s+and\s+|\s*,\s*", re.I,
+)
+
+
+def _detect_chart_intents(
+    message: str,
+    metrics: list[str],
+    dimensions: dict[str, str | None],
+) -> list[WidgetIntent] | None:
+    """Attempt to parse explicit chart intents from a free-form prompt.
+
+    Returns a list of WidgetIntent objects if the prompt describes specific
+    charts, or None if the prompt should go through the archetype path.
+    """
+    msg = message.lower().strip()
+
+    # ── Guard: if prompt matches multiple section phrases, it's a dashboard
+    # request, not a free-form chart.  Let the archetype path handle it. ──
+    matched_sections = _detect_sections(message)
+    if len(matched_sections) >= 2 and not _MULTI_WIDGET_RE.search(msg):
+        # Exception: "side by side" explicitly requests separate widgets
+        if "side by side" not in msg:
+            return None
+
+    # ── Multi-widget: "Dashboard with X, Y, and Z" ──
+    if _MULTI_WIDGET_RE.search(msg):
+        return _parse_multi_widget(message, metrics, dimensions)
+
+    # ── Side-by-side: "X and Y side by side" ──
+    if "side by side" in msg:
+        return _parse_side_by_side(message, metrics, dimensions)
+
+    # ── Single widget intent ──
+    intent = _parse_single_intent(message, metrics, dimensions)
+    if intent is not None:
+        return [intent]
+
+    return None
+
+
+def _parse_single_intent(
+    message: str,
+    metrics: list[str],
+    dimensions: dict[str, str | None],
+) -> WidgetIntent | None:
+    """Parse a single chart intent from the message."""
+    msg = message.lower().strip()
+
+    chart_type: str | None = None
+    extra: dict[str, Any] = {}
+    fallback_msg: str | None = None
+
+    # 1. Explicit chart type
+    for pattern, ctype, attrs in _CHART_TYPE_PATTERNS:
+        if pattern.search(msg):
+            chart_type = ctype
+            extra = {k: v for k, v in attrs.items() if not k.startswith("_")}
+            fallback_msg = attrs.get("_fallback_msg")
+            break
+
+    # 2. Budget vs actual pattern
+    if _BUDGET_VS_ACTUAL_RE.search(msg):
+        chart_type = chart_type or "bar_chart"
+        extra["comparison"] = "budget"
+
+    # 3. Top N pattern
+    top_match = _TOP_N_RE.search(msg)
+    if top_match:
+        chart_type = chart_type or "bar_chart"
+        extra["limit"] = int(top_match.group(1))
+        extra["sort_desc"] = True
+
+    # 4. Ranked/sorted pattern
+    if _RANK_RE.search(msg):
+        if chart_type is None:
+            chart_type = "comparison_table"
+        extra["sort_desc"] = True
+
+    # 5. "over time" or "trend" → trend_line
+    if chart_type is None and (_OVER_TIME_RE.search(msg) or _TREND_RE.search(msg)):
+        chart_type = "trend_line"
+
+    # 6. "compare X and Y" (without "budget vs actual") → bar_chart
+    if chart_type is None and _COMPARE_RE.search(msg):
+        chart_type = "bar_chart"
+
+    if chart_type is None:
+        return None
+
+    # Resolve widget type through fallback system
+    resolved_type, resolve_msg = _resolve_widget_type(chart_type)
+    if resolve_msg and not fallback_msg:
+        fallback_msg = resolve_msg
+
+    # Detect format from metric context
+    fmt = _infer_format(metrics)
+
+    intent = WidgetIntent(
+        chart_type=resolved_type,
+        metrics=list(metrics),
+        group_by=dimensions.get("group_by"),
+        time_grain=dimensions.get("time_grain"),
+        format=fmt,
+        **extra,
+    )
+
+    # Default time_grain for trend_line
+    if intent.chart_type == "trend_line" and not intent.time_grain:
+        intent.time_grain = "quarterly"
+
+    # Auto-generate title
+    intent.title = _generate_widget_title(intent, message)
+
+    return intent
+
+
+def _parse_multi_widget(
+    message: str,
+    metrics: list[str],
+    dimensions: dict[str, str | None],
+) -> list[WidgetIntent] | None:
+    """Parse 'Dashboard with X, Y, and Z' into multiple widget intents."""
+    msg = message.lower()
+    # Strip "dashboard with" prefix
+    prefix_end = msg.find("dashboard with")
+    if prefix_end < 0:
+        return None
+    remainder = message[prefix_end + len("dashboard with"):].strip()
+
+    # Split on "and" / ","
+    segments = _AND_SPLIT_RE.split(remainder)
+    segments = [s.strip() for s in segments if s.strip()]
+
+    if len(segments) < 2:
+        return None
+
+    intents: list[WidgetIntent] = []
+    for segment in segments:
+        seg_metrics = _detect_metrics(segment, "asset")
+        seg_dims = _detect_dimensions(segment)
+        intent = _parse_single_intent(segment, seg_metrics, seg_dims)
+        if intent is None:
+            # Try inferring from segment keywords
+            intent = _infer_intent_from_segment(segment, seg_metrics, seg_dims)
+        if intent is not None:
+            intents.append(intent)
+
+    return intents if len(intents) >= 2 else None
+
+
+def _parse_side_by_side(
+    message: str,
+    metrics: list[str],
+    dimensions: dict[str, str | None],
+) -> list[WidgetIntent] | None:
+    """Parse 'X and Y side by side' into two widget intents."""
+    msg = message.lower()
+    # Remove "side by side" and "show"
+    cleaned = re.sub(r"\bside\s+by\s+side\b", "", msg)
+    cleaned = re.sub(r"\bshow\b", "", cleaned).strip()
+
+    segments = _AND_SPLIT_RE.split(cleaned)
+    segments = [s.strip() for s in segments if s.strip()]
+
+    if len(segments) < 2:
+        return None
+
+    intents: list[WidgetIntent] = []
+    for segment in segments:
+        seg_metrics = _detect_metrics(segment, "asset")
+        seg_dims = _detect_dimensions(segment)
+        intent = _parse_single_intent(segment, seg_metrics, seg_dims)
+        if intent is None:
+            intent = _infer_intent_from_segment(segment, seg_metrics, seg_dims)
+        if intent is not None:
+            intents.append(intent)
+
+    return intents if len(intents) >= 2 else None
+
+
+def _infer_intent_from_segment(
+    segment: str,
+    metrics: list[str],
+    dimensions: dict[str, str | None],
+) -> WidgetIntent | None:
+    """Infer a widget intent from a segment that lacks an explicit chart type.
+
+    Handles phrases like "NOI trend", "occupancy trend", "asset ranking table".
+    """
+    seg = segment.lower().strip()
+
+    # "ranking table" or "ranked" → comparison_table
+    if "ranking" in seg or "ranked" in seg or "table" in seg:
+        return WidgetIntent(
+            chart_type="comparison_table",
+            metrics=metrics or ["NOI"],
+            group_by=dimensions.get("group_by"),
+            sort_desc=True,
+            title=_title_case_segment(segment),
+        )
+
+    # "trend" or "over time" → trend_line
+    if "trend" in seg or "over time" in seg:
+        fmt = _infer_format(metrics)
+        return WidgetIntent(
+            chart_type="trend_line",
+            metrics=metrics,
+            group_by=dimensions.get("group_by"),
+            time_grain=dimensions.get("time_grain") or "quarterly",
+            format=fmt,
+            title=_title_case_segment(segment),
+        )
+
+    return None
+
+
+def _infer_format(metrics: list[str]) -> str | None:
+    """Infer chart format from the primary metric."""
+    if not metrics:
+        return None
+    primary = metrics[0]
+    if primary in ("OCCUPANCY", "NOI_MARGIN", "NOI_MARGIN_KPI", "LTV"):
+        return "percent"
+    if primary in ("DSCR_KPI", "DSCR", "GROSS_TVPI", "NET_TVPI", "DPI", "RVPI"):
+        return "ratio"
+    if primary in ("NOI", "RENT", "EGI", "TOTAL_OPEX", "NET_CASH_FLOW",
+                    "CAPEX", "ASSET_VALUE", "EQUITY_VALUE", "PORTFOLIO_NAV",
+                    "TOTAL_DEBT_SERVICE"):
+        return "dollar"
+    return None
+
+
+def _title_case_segment(segment: str) -> str:
+    """Convert a segment to a readable title."""
+    # Remove common filler words
+    cleaned = re.sub(r"\b(show|me|a|the|of|for)\b", "", segment, flags=re.I)
+    cleaned = " ".join(cleaned.split())
+    return cleaned.strip().title() if cleaned.strip() else "Chart"
+
+
+def _generate_widget_title(intent: WidgetIntent, message: str) -> str:
+    """Generate a descriptive title for a widget from its intent."""
+    parts: list[str] = []
+
+    # Metric names
+    metric_labels = {
+        "NOI": "NOI", "OCCUPANCY": "Occupancy", "DSCR_KPI": "DSCR",
+        "RENT": "Revenue", "TOTAL_OPEX": "Expenses", "EGI": "EGI",
+        "NET_CASH_FLOW": "Net Cash Flow", "ASSET_VALUE": "Asset Value",
+        "EQUITY_VALUE": "Equity Value", "CAPEX": "CapEx",
+        "TOTAL_DEBT_SERVICE": "Debt Service", "LTV": "LTV",
+        "GROSS_IRR": "Gross IRR", "NET_IRR": "Net IRR",
+        "GROSS_TVPI": "TVPI", "NET_TVPI": "Net TVPI",
+        "DPI": "DPI", "PORTFOLIO_NAV": "NAV",
+    }
+
+    if intent.metrics:
+        metric_names = [metric_labels.get(m, m) for m in intent.metrics[:3]]
+        if intent.comparison == "budget":
+            parts.append(f"{metric_names[0]} — Budget vs Actual")
+        elif len(metric_names) >= 2 and intent.chart_type == "bar_chart":
+            parts.append(" vs ".join(metric_names[:2]))
+        else:
+            parts.append(", ".join(metric_names))
+
+    if intent.chart_type == "trend_line" and not intent.comparison:
+        parts.append("Trend")
+
+    if intent.group_by:
+        parts.append(f"by {intent.group_by.title()}")
+
+    if intent.limit:
+        return f"Top {intent.limit} — {' '.join(parts)}"
+
+    return " ".join(parts) if parts else "Chart"
+
+
+def _build_freeform_widget(
+    intent: WidgetIntent,
+    idx: int,
+    entity_type: str,
+    quarter: str | None,
+) -> dict[str, Any]:
+    """Build a single widget dict from a WidgetIntent."""
+    config: dict[str, Any] = {
+        "entity_type": entity_type,
+        "quarter": quarter,
+        "scenario": "actual",
+        "metrics": [{"key": k} for k in intent.metrics],
+    }
+    if intent.title:
+        config["title"] = intent.title
+    if intent.group_by:
+        config["group_by"] = intent.group_by
+    if intent.time_grain:
+        config["time_grain"] = intent.time_grain
+    if intent.stacked:
+        config["stacked"] = True
+    if intent.comparison:
+        config["comparison"] = intent.comparison
+    if intent.sort_desc:
+        config["sort_desc"] = True
+    if intent.limit:
+        config["limit"] = intent.limit
+    if intent.format:
+        config["format"] = intent.format
+
+    return {
+        "id": f"freeform_{idx}",
+        "type": intent.chart_type,
+        "config": config,
+        "layout": {"x": 0, "y": 0, "w": 12, "h": 4},  # placeholder
+    }
+
+
+def _apply_freeform_layout(widgets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Apply adaptive layout to free-form widgets based on count and type."""
+    n = len(widgets)
+    if n == 0:
+        return widgets
+
+    if n == 1:
+        w = widgets[0]
+        if w["type"] == "comparison_table":
+            w["layout"] = {"x": 0, "y": 0, "w": 12, "h": 5}
+        elif w["config"].get("group_by") or w["config"].get("stacked"):
+            w["layout"] = {"x": 0, "y": 0, "w": 12, "h": 4}
+        else:
+            w["layout"] = {"x": 2, "y": 0, "w": 8, "h": 4}
+        return widgets
+
+    if n == 2:
+        for i, w in enumerate(widgets):
+            if w["type"] == "comparison_table":
+                w["layout"] = {"x": 0, "y": 4, "w": 12, "h": 5}
+            else:
+                w["layout"] = {"x": i * 6, "y": 0, "w": 6, "h": 4}
+        # Fix: if both are tables, stack them
+        if all(w["type"] == "comparison_table" for w in widgets):
+            widgets[0]["layout"] = {"x": 0, "y": 0, "w": 12, "h": 5}
+            widgets[1]["layout"] = {"x": 0, "y": 5, "w": 12, "h": 5}
+        return widgets
+
+    # 3+ widgets: grid layout
+    current_x = 0
+    current_y = 0
+    row_h = 0
+    for w in widgets:
+        if w["type"] == "comparison_table":
+            # Tables go full width on a new row
+            if current_x > 0:
+                current_y += row_h
+                current_x = 0
+                row_h = 0
+            w["layout"] = {"x": 0, "y": current_y, "w": 12, "h": 5}
+            current_y += 5
+            row_h = 0
+        else:
+            width = 6
+            h = 4
+            if current_x + width > 12:
+                current_y += row_h
+                current_x = 0
+                row_h = 0
+            w["layout"] = {"x": current_x, "y": current_y, "w": width, "h": h}
+            row_h = max(row_h, h)
+            current_x += width
+
+    return widgets
+
+
+def _try_freeform_widgets(
+    message: str,
+    entity_type: str,
+    metrics: list[str],
+    dimensions: dict[str, str | None],
+    quarter: str | None,
+) -> list[dict[str, Any]] | None:
+    """Attempt to build widgets directly from semantic prompt analysis.
+
+    Returns a list of widget dicts if the prompt describes specific charts,
+    or None to fall through to the archetype path.
+    """
+    intents = _detect_chart_intents(message, metrics, dimensions)
+    if intents is None:
+        return None
+
+    widgets = [
+        _build_freeform_widget(intent, i, entity_type, quarter)
+        for i, intent in enumerate(intents)
+    ]
+
+    return _apply_freeform_layout(widgets)
+
+
+# ── Core composition ──────────────────────────────────────────────────────
+
+
 def compose_dashboard_spec(
     message: str,
     env_id: str | None = None,
@@ -440,11 +896,42 @@ def compose_dashboard_spec(
 
     Returns a dict matching the frontend DashboardSpec + metadata shape:
     {name, archetype, widgets[], entity_scope{}, quarter}
+
+    Two paths:
+      1. Free-form: prompt describes specific charts → targeted widgets
+      2. Archetype: prompt describes a dashboard type → section templates
     """
-    archetype = _detect_archetype(message)
     entity_type = _detect_entity_type(message)
     metrics = _detect_metrics(message, entity_type)
     dimensions = _detect_dimensions(message)
+
+    # ── Path 1: Free-form analysis ──
+    freeform_widgets = _try_freeform_widgets(
+        message, entity_type, metrics, dimensions, quarter,
+    )
+    if freeform_widgets is not None:
+        builder_messages: list[dict[str, str]] = []
+        name = _generate_name(message, "custom")
+        result: dict[str, Any] = {
+            "name": name,
+            "archetype": "custom",
+            "widgets": freeform_widgets,
+            "entity_scope": {
+                "entity_type": entity_type,
+                "env_id": env_id,
+                "business_id": business_id,
+                "fund_id": fund_id,
+            },
+            "quarter": quarter,
+            "prompt": message,
+            "density": density if density != "auto" else "comfortable",
+        }
+        if builder_messages:
+            result["builder_messages"] = builder_messages
+        return result
+
+    # ── Path 2: Archetype-based composition ──
+    archetype = _detect_archetype(message)
 
     # Use explicitly requested sections, or fall back to archetype defaults
     sections = _detect_sections(message)
@@ -466,7 +953,7 @@ def compose_dashboard_spec(
 
     # Build widgets on 12-col grid
     widgets: list[dict[str, Any]] = []
-    builder_messages: list[dict[str, str]] = []
+    arch_builder_messages: list[dict[str, str]] = []
     current_y = 0
     if density == "compact":
         compact = True
@@ -497,7 +984,7 @@ def compose_dashboard_spec(
 
             resolved_type, fallback_msg = _resolve_widget_type(defn["type"])
             if fallback_msg:
-                builder_messages.append({"level": "warning", "text": fallback_msg})
+                arch_builder_messages.append({"level": "warning", "text": fallback_msg})
 
             # Build config with optional dimension fields
             widget_config: dict[str, Any] = {
@@ -559,14 +1046,14 @@ def compose_dashboard_spec(
                 })
                 current_y += rule["h"]
                 existing_types.add(rule["companion_type"])
-                builder_messages.append({
+                arch_builder_messages.append({
                     "level": "info",
                     "text": rule["reason"],
                 })
 
     name = _generate_name(message, archetype)
 
-    result: dict[str, Any] = {
+    result = {
         "name": name,
         "archetype": archetype,
         "widgets": widgets,
@@ -580,6 +1067,6 @@ def compose_dashboard_spec(
         "prompt": message,
         "density": density if density != "auto" else ("compact" if compact else "comfortable"),
     }
-    if builder_messages:
-        result["builder_messages"] = builder_messages
+    if arch_builder_messages:
+        result["builder_messages"] = arch_builder_messages
     return result

@@ -207,3 +207,151 @@ def test_asset_entity_type_default():
         business_id=BUS_ID,
     )
     assert spec["entity_scope"]["entity_type"] == "asset"
+
+
+# ── Free-form prompt test suite (15 prompts) ────────────────────────────
+
+
+def _spec(msg: str) -> dict:
+    return compose_dashboard_spec(msg, env_id=ENV_ID, business_id=BUS_ID)
+
+
+def _widget_types(spec: dict) -> list[str]:
+    return [w["type"] for w in spec["widgets"]]
+
+
+class TestFreeformPrompts:
+    """15 natural-language prompts that should produce specific widget specs."""
+
+    # TEST 1: single trend line, no KPI strip
+    def test_01_noi_over_time(self):
+        spec = _spec("NOI over time")
+        assert len(spec["widgets"]) == 1
+        w = spec["widgets"][0]
+        assert w["type"] == "trend_line"
+        assert any(m["key"] == "NOI" for m in w["config"]["metrics"])
+        assert w["config"].get("group_by") is None
+
+    # TEST 2: trend line with group_by
+    def test_02_noi_over_time_by_investment(self):
+        spec = _spec("NOI over time by investment")
+        assert len(spec["widgets"]) == 1
+        w = spec["widgets"][0]
+        assert w["type"] == "trend_line"
+        assert any(m["key"] == "NOI" for m in w["config"]["metrics"])
+        assert w["config"]["group_by"] == "investment"
+
+    # TEST 3: grouped bar chart comparing two metrics
+    def test_03_compare_revenue_expenses_by_asset(self):
+        spec = _spec("Compare revenue and expenses by asset")
+        assert len(spec["widgets"]) == 1
+        w = spec["widgets"][0]
+        assert w["type"] == "bar_chart"
+        metric_keys = {m["key"] for m in w["config"]["metrics"]}
+        assert len(metric_keys) >= 2
+        assert w["config"]["group_by"] == "asset"
+
+    # TEST 4: two side-by-side trend lines
+    def test_04_side_by_side_trends(self):
+        spec = _spec("Show occupancy trend and NOI trend side by side")
+        types = _widget_types(spec)
+        assert types.count("trend_line") == 2
+        assert "metrics_strip" not in types
+        # Side-by-side layout: both should be w=6
+        for w in spec["widgets"]:
+            assert w["layout"]["w"] == 6
+
+    # TEST 5: table ranked by NOI
+    def test_05_table_ranked_by_noi(self):
+        spec = _spec("Table of assets ranked by NOI")
+        assert len(spec["widgets"]) == 1
+        w = spec["widgets"][0]
+        assert w["type"] == "comparison_table"
+
+    # TEST 6: scatter plot fallback
+    def test_06_scatter_plot(self):
+        spec = _spec("Scatter plot of occupancy vs NOI by asset")
+        assert len(spec["widgets"]) == 1
+        w = spec["widgets"][0]
+        # scatter falls back to trend_line
+        assert w["type"] == "trend_line"
+        assert w["config"]["group_by"] == "asset"
+
+    # TEST 7: stacked bar chart
+    def test_07_stacked_bar(self):
+        spec = _spec("Stacked bar chart of revenue vs expenses by month")
+        assert len(spec["widgets"]) == 1
+        w = spec["widgets"][0]
+        assert w["type"] == "bar_chart"
+        assert w["config"].get("stacked") is True
+
+    # TEST 8: heatmap
+    def test_08_heatmap(self):
+        spec = _spec("Heatmap of occupancy by asset and month")
+        assert len(spec["widgets"]) == 1
+        w = spec["widgets"][0]
+        # heatmap → sensitivity_heat or bar_chart fallback
+        assert w["type"] in ("sensitivity_heat", "bar_chart")
+
+    # TEST 9: top N bar chart
+    def test_09_top_5_investments(self):
+        spec = _spec("Show top 5 investments by NOI")
+        assert len(spec["widgets"]) == 1
+        w = spec["widgets"][0]
+        assert w["type"] == "bar_chart"
+        assert any(m["key"] == "NOI" for m in w["config"]["metrics"])
+        assert w["config"].get("limit") == 5
+
+    # TEST 10: budget vs actual variance
+    def test_10_budget_vs_actual(self):
+        spec = _spec("Compare budget vs actual NOI")
+        assert len(spec["widgets"]) == 1
+        w = spec["widgets"][0]
+        assert w["type"] == "bar_chart"
+        assert w["config"].get("comparison") == "budget"
+
+    # TEST 11: distribution / histogram
+    def test_11_distribution(self):
+        spec = _spec("Show NOI distribution across investments")
+        assert len(spec["widgets"]) == 1
+        w = spec["widgets"][0]
+        assert w["type"] == "bar_chart"
+        assert any(m["key"] == "NOI" for m in w["config"]["metrics"])
+
+    # TEST 12: line chart with explicit type + group_by
+    def test_12_line_chart_dscr_by_asset(self):
+        spec = _spec("Line chart of DSCR by asset")
+        assert len(spec["widgets"]) == 1
+        w = spec["widgets"][0]
+        assert w["type"] == "trend_line"
+        assert any(m["key"] == "DSCR_KPI" for m in w["config"]["metrics"])
+        assert w["config"]["group_by"] == "asset"
+
+    # TEST 13: table of debt maturity
+    def test_13_table_debt_maturity(self):
+        spec = _spec("Table of debt maturity by asset")
+        assert len(spec["widgets"]) == 1
+        w = spec["widgets"][0]
+        assert w["type"] == "comparison_table"
+
+    # TEST 14: bar chart comparing across markets
+    def test_14_compare_noi_margin_across_markets(self):
+        spec = _spec("Compare NOI margin across markets")
+        assert len(spec["widgets"]) == 1
+        w = spec["widgets"][0]
+        assert w["type"] == "bar_chart"
+        assert w["config"]["group_by"] == "market"
+
+    # TEST 15: multi-widget dashboard
+    def test_15_multi_widget_dashboard(self):
+        spec = _spec(
+            "Dashboard with NOI trend, occupancy trend, and asset ranking table"
+        )
+        types = _widget_types(spec)
+        assert types.count("trend_line") >= 2
+        assert "comparison_table" in types
+        assert "metrics_strip" not in types
+        assert len(spec["widgets"]) >= 3
+        # Grid layout validation: no widget overflows
+        for w in spec["widgets"]:
+            assert w["layout"]["x"] + w["layout"]["w"] <= 12

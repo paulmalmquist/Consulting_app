@@ -1216,6 +1216,54 @@ Hardcoded in `INTENT_WIDGET_MAP` in `dashboard_composer.py`. Maps intents like `
 ### Table Inference Rules
 `TABLE_INFERENCE_RULES` in `dashboard_composer.py` auto-inject companion tables. E.g., pipeline_bar → detail grid, geographic_map → asset table, comparison_table → ranked expandable.
 
+### Free-Form Prompt Parsing (2026-03-12)
+
+The composer now has **two paths**: free-form and archetype.
+
+**Free-form path** (`_try_freeform_widgets`) triggers when the prompt describes specific
+charts rather than a full dashboard.  It runs **before** archetype detection.  If it
+returns widgets, the archetype path is skipped entirely (no KPI injection, no template
+sections).
+
+**Decision tree:**
+```
+prompt
+├── matches ≥2 section phrases? → archetype path (existing behavior)
+├── "Dashboard with X, Y, Z" → multi-widget free-form
+├── "X and Y side by side" → side-by-side free-form
+└── single chart intent? → single-widget free-form
+    └── no explicit intent? → archetype path fallback
+```
+
+**Chart type detection rules** (ordered by priority):
+| Prompt pattern | Widget type | Extra config |
+|---|---|---|
+| `"scatter plot"` | `trend_line` | fallback message |
+| `"heatmap"` | `sensitivity_heat` | |
+| `"stacked bar"` | `bar_chart` | `stacked: true` |
+| `"line chart"` | `trend_line` | |
+| `"bar chart"` | `bar_chart` | |
+| `"table"` | `comparison_table` | |
+| `"histogram"` / `"distribution"` | `bar_chart` | |
+| `"budget vs actual"` / `"actual vs budget"` | `bar_chart` | `comparison: "budget"` |
+| `"compare"` / `"comparison"` | `bar_chart` | |
+| `"top N"` | `bar_chart` | `limit: N, sort_desc: true` |
+| `"ranked by"` / `"sorted by"` | `comparison_table` | `sort_desc: true` |
+| `"over time"` / `"trend"` | `trend_line` | `time_grain: "quarterly"` |
+
+**Grouping dimension detection** (`_detect_dimensions`):
+- `"by investment"` / `"per investment"` / `"across investments"` / `"each investment"` → `group_by: "investment"`
+- Same patterns for: `asset`, `property` (→ asset), `fund`, `market`, `region`
+- `"broken down by X"` / `"grouped by X"` → word-mapped to dimension
+
+**Layout adaptation** (`_apply_freeform_layout`):
+- 1 widget: centered `w=8` (or `w=12` if grouped/stacked, tables always `w=12`)
+- 2 widgets: side-by-side `w=6` each (tables get own row at `w=12`)
+- 3+ widgets: grid with charts at `w=6`, tables at `w=12` full-width
+
+**KPI injection reform:** Free-form path NEVER injects KPI strips. Archetype path
+preserves existing behavior (auto-prepends `kpi_summary` unless single simple section).
+
 ## Browser Automation for Agents (OpenClaw)
 
 OpenClaw ships a built-in Playwright-backed browser tool (`openclaw browser *`).
