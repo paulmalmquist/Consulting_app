@@ -121,6 +121,7 @@ _(This section is appended by the research-architect after each successful inges
 - For local alignment with Telegram, use `openclaw agent --agent commander-winston ...` for the controller, or attach the TUI to `agent:commander-winston:telegram:direct:8672815280` when you want the same Telegram session on desktop.
 - Winston repo synchronization now runs through `sync-winston` and `scripts/openclaw_safe_sync.sh`; this blocks pulls on dirty trees, wrong branches, or rebase conflicts instead of allowing a blind `git pull`.
 - Telegram DMs work best when `commander-winston` answers simple repo questions directly. Avoid subagent delegation for one-file lookups or doc-location questions, because a timed-out child run can leave the Telegram turn without a visible reply.
+- Telegram `push` or `deploy` requests should route to `deploy-winston`, not `commander-winston` directly. In Winston chat, `push` means commit + push to GitHub + monitor CI + monitor Vercel/Railway + run post-deploy checks from `tips.md`.
 
 ## 1. Repo Inventory
 

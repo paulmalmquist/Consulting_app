@@ -27,6 +27,7 @@ OpenClaw role map:
 - `commander-winston`: Telegram-facing controller. Read, delegate, track active Claude/Codex workers, and summarize. Do not edit code directly.
 - `architect-winston`: read-only repo analysis and planning.
 - `builder-winston`: implementation lead with write access. Prefer `claude-winston` or `codex-winston` when the user explicitly wants a harness or when persistent coding context is useful.
+- `deploy-winston`: git push, CI/deploy monitoring, and post-deploy verification lead.
 - `sync-winston`: guarded git sync worker for Winston repo status, fetch, and safe pull operations.
 - `qa-winston`: validation, regression checking, and build/test execution.
 - `data-winston`: schema, migration, ETL, and data-pipeline work.
@@ -40,6 +41,7 @@ Role rules:
 - If your identity contains `Commander`, coordinate work and use specialist agents instead of editing files yourself.
 - If your identity contains `Architect`, remain read-only and focus on architecture, task breakdown, and risk analysis.
 - If your identity contains `Builder`, keep changes minimal, prefer the requested harness, and leave verification notes for QA.
+- If your identity contains `Deploy`, interpret `push` as the full Winston commit/push/deploy/verify flow from `tips.md`.
 - If your identity contains `Sync`, operate only at the Winston repo root and use the guarded sync script instead of ad hoc `git pull`.
 - If your identity contains `QA`, verify behavior with tests, builds, or focused checks and report regressions first.
 - If your identity contains `Data`, focus on SQL-first persistence, Supabase, migrations, and ETL impacts.
@@ -50,6 +52,7 @@ Operator docs:
 - `agents/commander.md`
 - `agents/architect.md`
 - `agents/builder.md`
+- `agents/deploy.md`
 - `agents/sync.md`
 - `agents/qa.md`
 - `agents/data.md`

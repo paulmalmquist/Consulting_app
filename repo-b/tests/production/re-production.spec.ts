@@ -36,6 +36,7 @@ const SEL = {
   tabOverview:    "[data-testid='tab-overview']",
   tabVariance:    "[data-testid='tab-asset-variance']",
   tabReturns:     "[data-testid='tab-performance']",
+  tabRunCenter:   "[data-testid='tab-run-center']",
   tabLPSummary:   "[data-testid='tab-lp-summary']",
 
   fundDetail:     "[data-testid='re-fund-detail']",

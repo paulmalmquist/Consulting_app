@@ -154,7 +154,7 @@ describe("assistantApi contract behavior", () => {
       },
     });
 
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async (..._args) =>
       new Response(stream, {
         status: 200,
         headers: { "Content-Type": "text/event-stream" },

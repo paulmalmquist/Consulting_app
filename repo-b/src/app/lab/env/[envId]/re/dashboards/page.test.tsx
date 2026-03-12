@@ -18,18 +18,18 @@ const SAMPLE_SPEC = {
     {
       id: "kpi_summary_0",
       type: "metrics_strip" as const,
-      config: { metrics: [{ key: "NOI" }], entity_type: "asset", quarter: null, scenario: "actual" },
+      config: { metrics: [{ key: "NOI" }], entity_type: "asset", quarter: "2026Q1", scenario: "actual" },
       layout: { x: 0, y: 0, w: 12, h: 2 },
     },
     {
       id: "noi_trend_1",
       type: "trend_line" as const,
-      config: { title: "NOI Trend", metrics: [{ key: "NOI" }], entity_type: "asset", quarter: null, scenario: "actual" },
+      config: { title: "NOI Trend", metrics: [{ key: "NOI" }], entity_type: "asset", quarter: "2026Q1", scenario: "actual" },
       layout: { x: 0, y: 2, w: 12, h: 3 },
     },
   ] as DashboardWidget[],
   entity_scope: { entity_type: "asset", env_id: "env-123", business_id: "biz-456", fund_id: null },
-  quarter: null,
+  quarter: "2026Q1",
 };
 
 // ── Simulate the bridge logic from GlobalCommandBar.tsx ──────────────────

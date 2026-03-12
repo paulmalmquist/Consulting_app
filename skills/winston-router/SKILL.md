@@ -17,6 +17,7 @@ Use this skill for Winston / Business Machine work that needs deliberate harness
 - `commander-winston`: Telegram-facing orchestrator
 - `architect-winston`: read-only planning
 - `builder-winston`: implementation coordinator
+- `deploy-winston`: git push and deployment worker
 - `sync-winston`: guarded repo sync worker
 - `qa-winston`: validation
 - `data-winston`: schema/data work
@@ -32,6 +33,7 @@ Use this skill for Winston / Business Machine work that needs deliberate harness
 This includes ordinary Telegram DMs and normal local `main` sessions unless the current conversation is explicitly thread-bound.
 
 - For ordinary Telegram DM questions that only require local reading of the Winston repo, answer directly from `commander-winston` without spawning subagents.
+- For `push`, `push please`, `deploy this`, `ship it`, `release this`, `push to GitHub`, or requests to monitor CI/Vercel/Railway after a code change, route to `deploy-winston`.
 - For `check whether Winston is up to date`, `fetch origin`, `pull the latest Winston changes safely`, `sync Winston`, `git status`, or `stop if the repo is dirty`, route to `sync-winston`.
 - For sync requests, this routing is mandatory. Do not answer from memory. Spawn or reuse `sync-winston`, run `scripts/openclaw_safe_sync.sh` with `status`, `fetch`, or `pull`, and summarize the result.
 - For `use Claude`, `run this in Claude CLI`, or `start a persistent Claude session`, prefer `claude-cli-winston`.
@@ -54,6 +56,7 @@ This includes ordinary Telegram DMs and normal local `main` sessions unless the 
 
 - Prefer reusing the active Winston worker for the same harness in the current conversation.
 - For sync requests, prefer reusing the active `sync-winston` worker and run `scripts/openclaw_safe_sync.sh` with `status`, `fetch`, or `pull` as appropriate.
+- For deploy requests, prefer reusing the active `deploy-winston` worker and interpret `push` as the full commit/push/deploy/verify sequence from `tips.md`.
 - If the sync worker reports a dirty tree, wrong branch, or rebase conflict, surface that refusal clearly and do not fall back to any other agent.
 - If a child worker or subagent times out in Telegram, stop delegating and send a direct best-effort answer from the current session instead of leaving the chat without a reply.
 - If the user switches harnesses, say so briefly and then start or reuse the matching Winston worker.
