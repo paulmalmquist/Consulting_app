@@ -1,0 +1,55 @@
+{
+  "name": "Executive Summary",
+  "archetype": "executive_summary",
+  "widgets": [
+    {
+      "id": "pipeline_analysis_0",
+      "type": "pipeline_bar",
+      "config": {
+        "title": "Deal Pipeline by Stage",
+        "entity_type": "asset",
+        "quarter": null,
+        "scenario": "actual",
+        "metrics": []
+      },
+      "layout": {
+        "x": 2,
+        "y": 0,
+        "w": 8,
+        "h": 5
+      }
+    },
+    {
+      "id": "inferred_table_1",
+      "type": "comparison_table",
+      "config": {
+        "title": "Pipeline Deal Detail",
+        "entity_type": "asset",
+        "quarter": null,
+        "scenario": "actual",
+        "metrics": []
+      },
+      "layout": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 5
+      }
+    }
+  ],
+  "entity_scope": {
+    "entity_type": "asset",
+    "env_id": "a1b2c3d4-0001-0001-0003-000000000001",
+    "business_id": "a1b2c3d4-0001-0001-0001-000000000001",
+    "fund_id": null
+  },
+  "quarter": null,
+  "prompt": "Show me a pipeline dashboard",
+  "density": "comfortable",
+  "builder_messages": [
+    {
+      "level": "info",
+      "text": "Pipeline bar charts should be paired with a drill-down deal table"
+    }
+  ]
+}

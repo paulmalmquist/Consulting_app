@@ -1,0 +1,6 @@
+Widget types: metrics_strip, trend_line, bar_chart
+Metrics: NOI
+Group by: None
+Time grain: None
+Entity type: asset
+Archetype: monthly_operating_report

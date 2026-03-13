@@ -1,0 +1,55 @@
+{
+  "name": "Executive Summary",
+  "archetype": "executive_summary",
+  "widgets": [
+    {
+      "id": "geographic_analysis_0",
+      "type": "geographic_map",
+      "config": {
+        "title": "Portfolio Map",
+        "entity_type": "fund",
+        "quarter": null,
+        "scenario": "actual",
+        "metrics": []
+      },
+      "layout": {
+        "x": 2,
+        "y": 0,
+        "w": 8,
+        "h": 6
+      }
+    },
+    {
+      "id": "inferred_table_1",
+      "type": "comparison_table",
+      "config": {
+        "title": "Asset Detail by Geography",
+        "entity_type": "fund",
+        "quarter": null,
+        "scenario": "actual",
+        "metrics": []
+      },
+      "layout": {
+        "x": 0,
+        "y": 6,
+        "w": 12,
+        "h": 5
+      }
+    }
+  ],
+  "entity_scope": {
+    "entity_type": "fund",
+    "env_id": "a1b2c3d4-0001-0001-0003-000000000001",
+    "business_id": "a1b2c3d4-0001-0001-0001-000000000001",
+    "fund_id": null
+  },
+  "quarter": null,
+  "prompt": "Geographic analysis of our portfolio",
+  "density": "comfortable",
+  "builder_messages": [
+    {
+      "level": "info",
+      "text": "Geographic maps should be paired with a linked detail table"
+    }
+  ]
+}

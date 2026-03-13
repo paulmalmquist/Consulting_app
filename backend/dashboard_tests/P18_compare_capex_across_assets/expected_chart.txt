@@ -1,0 +1,6 @@
+Widget types: bar_chart
+Metrics: CAPEX
+Group by: asset
+Time grain: None
+Entity type: asset
+Archetype: custom

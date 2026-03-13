@@ -1,0 +1,6 @@
+Widget types: trend_line
+Metrics: ASSET_VALUE
+Group by: None
+Time grain: monthly
+Entity type: asset
+Archetype: custom

@@ -2484,32 +2484,88 @@ async def run_gateway_stream(
         emit_log(level="info", service="backend", action="ai.gateway.final_answer_fallback",
                  message="No content after tool loop — forcing final answer with tools disabled")
         yield _sse("status", {"message": "Synthesizing answer..."})
-        messages.append({"role": "user", "content": "Now answer the original question using the tool results above. Do not call any more tools."})
-        _fallback_model = route.model or OPENAI_CHAT_MODEL
+
+        # Build a compact message list for the fallback to avoid context overflow.
+        # Keep: system prompt, original user message, a summary of tool results,
+        # and the synthesis instruction.
+        _fb_messages: list[dict[str, Any]] = []
+        # 1) System prompt (first message if role==system)
+        if messages and messages[0].get("role") == "system":
+            _fb_messages.append(messages[0])
+        # 2) Original user message (first user message)
+        for _m in messages:
+            if _m.get("role") == "user":
+                _fb_messages.append(_m)
+                break
+        # 3) Collect tool results into a single assistant summary
+        _tool_summaries: list[str] = []
+        for _m in messages:
+            if _m.get("role") == "tool":
+                _tool_name = _m.get("name", "tool")
+                _tool_content = str(_m.get("content", ""))[:1500]
+                _tool_summaries.append(f"[{_tool_name}]: {_tool_content}")
+        if _tool_summaries:
+            _fb_messages.append({
+                "role": "user",
+                "content": "Here are the tool results from previous calls:\n\n"
+                           + "\n\n".join(_tool_summaries[:5])
+                           + "\n\nNow answer the original question using these results. "
+                           "Be concise and helpful. Do not call any tools."
+            })
+        else:
+            _fb_messages.append({
+                "role": "user",
+                "content": "Answer the original question as best you can based on your knowledge. "
+                           "Be concise and helpful. Do not call any tools."
+            })
+
+        _fallback_model = OPENAI_CHAT_MODEL  # gpt-5-mini
         _fallback_kwargs = sanitize_params(
             _fallback_model,
-            messages=messages,
+            messages=_fb_messages,
             max_tokens=route.max_tokens,
             temperature=route.temperature,
         )
+        # Ensure no tools are included
+        _fallback_kwargs.pop("tools", None)
+        _fallback_kwargs.pop("tool_choice", None)
+        emit_log(level="debug", service="backend", action="ai.gateway.fallback_kwargs",
+                 message=f"Fallback model={_fallback_model}, msg_count={len(_fb_messages)}, "
+                         f"keys={list(_fallback_kwargs.keys())}")
         try:
             _fb_client = _get_openai_client()
             _fb_stream = await _fb_client.chat.completions.create(**_fallback_kwargs, stream=True)
+            _fb_chunk_count = 0
             async for _fb_chunk in _fb_stream:
+                _fb_chunk_count += 1
                 if not _fb_chunk.choices:
                     if _fb_chunk.usage:
                         total_prompt_tokens += _fb_chunk.usage.prompt_tokens or 0
                         total_completion_tokens += _fb_chunk.usage.completion_tokens or 0
                     continue
                 _fb_delta = _fb_chunk.choices[0].delta
+                _fb_finish = _fb_chunk.choices[0].finish_reason
+                # Check for reasoning content (gpt-5 family internal reasoning)
+                _fb_reasoning = getattr(_fb_delta, "reasoning_content", None) or getattr(_fb_delta, "reasoning", None)
                 if _fb_delta.content:
                     if first_token_time is None:
                         first_token_time = time.time()
                     collected_content += _fb_delta.content
                     yield _sse("token", {"text": _fb_delta.content})
+                elif _fb_reasoning:
+                    # Model is reasoning — skip but log
+                    pass
+                elif _fb_finish:
+                    emit_log(level="debug", service="backend", action="ai.gateway.fallback_finish",
+                             message=f"Fallback finished: reason={_fb_finish}, chunks={_fb_chunk_count}, "
+                                     f"content_len={len(collected_content)}")
+            if not collected_content:
+                emit_log(level="warn", service="backend", action="ai.gateway.fallback_empty",
+                         message=f"Fallback produced 0 content tokens after {_fb_chunk_count} chunks")
         except Exception as fb_err:
             emit_log(level="error", service="backend", action="ai.gateway.final_answer_error",
-                     message=f"Final answer fallback failed: {fb_err}")
+                     message=f"Final answer fallback failed: {type(fb_err).__name__}: {fb_err}")
+            yield _sse("error", {"message": f"Fallback synthesis failed: {str(fb_err)[:200]}"})
 
     # ── Compute metrics and emit done BEFORE persistence ─────────────
     # Emit the stream-terminating `done` event before any DB writes so

@@ -1,0 +1,6 @@
+Widget types: comparison_table
+Metrics: 
+Group by: None
+Time grain: None
+Entity type: asset
+Archetype: custom

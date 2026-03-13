@@ -1,0 +1,6 @@
+Widget types: trend_line
+Metrics: DSCR_KPI
+Group by: asset
+Time grain: None
+Entity type: asset
+Archetype: custom

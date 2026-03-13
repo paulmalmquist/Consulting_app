@@ -1415,3 +1415,44 @@ Tests live in `backend/tests/dashboard_validation/`:
 
 Run: `make test-dashboard-validation` (no DB needed)
 Run with DB: `make test-dashboard-live`
+
+## Winston Copilot Workspace (2026-03-12)
+
+### Canonical assistant block protocol
+
+- The full-screen copilot now treats assistant output as `response_blocks`, not just plain text. Persist them in `ai_messages.response_blocks` and keep per-message trace/status in `ai_messages.message_meta`.
+- Supported block types in v1: `markdown_text`, `chart`, `table`, `kpi_group`, `citations`, `tool_activity`, `workflow_result`, `confirmation`, `error`.
+- Backend emits `response_block` SSE events during the turn and a final `response_blocks` array in the `done` event. The workspace streams the interim blocks; the command bar remains a text-first wrapper.
+
+### Chart rendering rules
+
+- Reuse the existing chart stack instead of inventing a second one:
+  - `TrendLineChart` for line charts
+  - `QuarterlyBarChart` for bar / grouped bar / stacked bar
+  - `WaterfallChart` for waterfall blocks
+- `TrendLineChart` and `QuarterlyBarChart` still expect `quarter` as the x-axis key. The copilot renderer normalizes arbitrary `x_key` values into a `quarter` field before rendering. Do not fork the chart components just for copilot.
+- Legacy `structured_result` cards are still emitted for command-bar compatibility. Map them to canonical blocks with `backend/app/services/assistant_blocks.py`; do not teach the workspace to reverse-engineer charts from markdown tables.
+
+### Persistence and follow-up context
+
+- Follow-up prompts like “turn that into a bar chart” depend on `AssistantThreadContext.active_artifact_id` and `artifact_refs`. Build those from recent chart/table/workflow blocks before each send.
+- The workspace should reload the authoritative conversation from the backend after each streamed turn. This avoids client/server drift once the gateway persists enriched assistant content, response blocks, and tool metadata.
+- “Clear context” means new conversation ID + cleared artifact refs + cleared pending attachments. Do not archive or delete historical conversations automatically.
+
+### File upload path
+
+- Use the generic document APIs: `initUpload` -> signed PUT -> `completeUpload` -> `/api/ai/gateway/index`.
+- For copilot uploads, tag with `business_id` + `env_id`; `entity_type` is optional and should be omitted unless the chat is explicitly scoped to a fund/asset/investment detail surface.
+- Show attachment chips with explicit status transitions: `uploading` -> `indexing` -> `ready` or `failed`.
+
+### Latency and streaming lessons
+
+- The workspace should create the assistant message immediately and stream tokens into it. Waiting for the final `done` event makes the surface feel broken even when the gateway is healthy.
+- Emit a `tool_activity` block whenever a tool finishes. This keeps long analytical or action turns trustworthy without spamming raw tool JSON into the transcript.
+- Persisting the conversation must stay after the final `done` event. Slow DB writes should never block the client from receiving the final streamed answer.
+
+### Repeat-offense prevention
+
+- If you add a new fast-path `structured_result`, also add the block mapping in `assistant_blocks.py`; otherwise the full-screen workspace silently loses the inline analytic render.
+- If you extend `AssistantContextEnvelope`, update both backend Pydantic schemas and `repo-b/src/lib/commandbar/types.ts` together. The command bar, workspace, and Next proxy all rely on the same shape.
+- Keep `askAi()` as a wrapper over the shared streaming client. Do not let the command bar and full-screen workspace drift into separate SSE parsers.

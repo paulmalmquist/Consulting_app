@@ -41,7 +41,7 @@ import {
   persistHistoryState,
   resolveCommandContext,
 } from "@/lib/commandbar/store";
-import type { CommandContext, CommandRun, ContextSnapshot } from "@/lib/commandbar/types";
+import type { AssistantResponseBlock, CommandContext, CommandRun, ContextSnapshot } from "@/lib/commandbar/types";
 import { ContractValidationError, type AssistantPlan } from "@/lib/commandbar/schemas";
 import { createWinstonDashboardStorageKey } from "@/lib/dashboards/winston-bridge";
 
@@ -769,9 +769,18 @@ export default function GlobalCommandBar() {
                             setMessages(
                               detail.messages
                                 .filter((m: { role: string }) => m.role === "user" || m.role === "assistant")
-                                .map((m: { message_id: string; role: string; content: string; created_at: string | null }) =>
-                                  makeMessage(m.role as "user" | "assistant", m.content, m.message_id),
-                                ),
+                                .map((m: {
+                                  message_id: string;
+                                  role: string;
+                                  content: string;
+                                  created_at: string | null;
+                                  response_blocks?: AssistantResponseBlock[];
+                                  message_meta?: Record<string, unknown>;
+                                }) => ({
+                                  ...makeMessage(m.role as "user" | "assistant", m.content, m.message_id),
+                                  responseBlocks: m.response_blocks || [],
+                                  messageMeta: m.message_meta || {},
+                                })),
                             );
                           }
                         } catch {
@@ -905,6 +914,23 @@ export default function GlobalCommandBar() {
                       >
                         <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none">
                           <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    )}
+                    {context.currentEnvId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const url = `/lab/env/${context.currentEnvId}/copilot${conversationId ? `?conversation_id=${conversationId}` : ""}`;
+                          window.open(url, "_blank", "noopener,noreferrer");
+                        }}
+                        className="rounded p-1 text-bm-muted2 transition-colors hover:text-bm-text"
+                        title="Open in full workspace"
+                      >
+                        <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none">
+                          <path d="M4 3.5h8A1.5 1.5 0 0 1 13.5 5v7A1.5 1.5 0 0 1 12 13.5H5A1.5 1.5 0 0 1 3.5 12V4a.5.5 0 0 1 .5-.5Z" stroke="currentColor" strokeWidth="1.3" />
+                          <path d="M6 2.5h6.5V9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M12.5 2.5 7.5 7.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </button>
                     )}
