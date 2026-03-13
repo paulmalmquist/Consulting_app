@@ -411,17 +411,20 @@ def classify_repe_intent(
 
     # ── Generate dashboard ────────────────────────────────────────────
     dash_score = 0.0
+    _has_chart_keywords = bool(_CHART_INTENT_RE.search(msg))
     if _DASHBOARD_RE.search(msg):
         dash_score += 0.90
-    elif _CHART_INTENT_RE.search(msg):
+    elif _has_chart_keywords:
         dash_score += 0.90
     # Suppress if a specific engine-level intent scored higher
-    if scores.get(INTENT_RUN_WATERFALL, 0) > 0.6 and dash_score > 0:
-        dash_score *= 0.3
-    if scores.get(INTENT_PIPELINE_RADAR, 0) > 0.6 and dash_score > 0:
-        dash_score *= 0.3
-    if scores.get(INTENT_LP_SUMMARY, 0) > 0.6 and dash_score > 0:
-        dash_score *= 0.3
+    # BUT do NOT suppress when the user explicitly used chart language
+    if not _has_chart_keywords:
+        if scores.get(INTENT_RUN_WATERFALL, 0) > 0.6 and dash_score > 0:
+            dash_score *= 0.3
+        if scores.get(INTENT_PIPELINE_RADAR, 0) > 0.6 and dash_score > 0:
+            dash_score *= 0.3
+        if scores.get(INTENT_LP_SUMMARY, 0) > 0.6 and dash_score > 0:
+            dash_score *= 0.3
     scores[INTENT_GENERATE_DASHBOARD] = min(dash_score, 1.0)
 
     # ── Analytics query ──────────────────────────────────────────────
