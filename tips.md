@@ -1264,6 +1264,20 @@ prompt
 **KPI injection reform:** Free-form path NEVER injects KPI strips. Archetype path
 preserves existing behavior (auto-prepends `kpi_summary` unless single simple section).
 
+**Intent classifier routing (CRITICAL):** Free-form chart prompts must also trigger
+`INTENT_GENERATE_DASHBOARD` in `repe_intent.py` — otherwise the SSE gateway routes
+them to the LLM tool path (Lane D, 30-130s) instead of the dashboard fast-path (<200ms).
+`_CHART_INTENT_RE` in `repe_intent.py` captures chart keywords (trend, bar chart,
+scatter plot, heatmap, table of, compare, top N, etc.) and scores 0.90 for dashboard
+intent. When chart keywords are present, the waterfall/radar/LP suppression is skipped
+so chart language always wins over coincidental metric matches.
+
+**Deploy-test lesson:** Unit tests for `dashboard_composer.py` pass locally because
+they call `compose_dashboard_spec()` directly. But the production SSE endpoint goes
+through `classify_repe_intent()` → fast-path gate → `compose_dashboard_spec()`. If
+the classifier doesn't route the prompt to `generate_dashboard`, the composer is never
+reached. Always test the full SSE path against production after deploying composer changes.
+
 ## Browser Automation for Agents (OpenClaw)
 
 OpenClaw ships a built-in Playwright-backed browser tool (`openclaw browser *`).
