@@ -169,6 +169,21 @@ _DASHBOARD_RE = re.compile(
     r"underwriting\s+dashboard)\b",
     re.IGNORECASE,
 )
+# Free-form chart requests that should also route to the dashboard composer
+_CHART_INTENT_RE = re.compile(
+    r"\b("
+    r"(?:line|bar|stacked\s+bar|trend|scatter)\s+(?:chart|plot)|"
+    r"heatmap|heat\s+map|histogram|distribution\s+(?:of|across)|"
+    r"(?:trend|table|comparison)\s+(?:of|for|by|across|ranked)|"
+    r"(?:NOI|DSCR|occupancy|revenue|expenses?|debt\s+maturity|"
+    r"irr|tvpi|nav|noi\s+margin)\s+(?:over\s+time|trend|across\s+)|"
+    r"compare\s+(?:revenue|noi|budget|expenses?|occupancy)|"
+    r"(?:top\s+\d+|ranked\s+by)\s+\w+|"
+    r"(?:budget|actual)\s+vs\s+(?:budget|actual)|"
+    r"side\s+by\s+side"
+    r")\b",
+    re.IGNORECASE,
+)
 
 # ── Analytics portal patterns ───────────────────────────────────────────────
 _ANALYTICS_QUERY_RE = re.compile(
@@ -397,6 +412,8 @@ def classify_repe_intent(
     # ── Generate dashboard ────────────────────────────────────────────
     dash_score = 0.0
     if _DASHBOARD_RE.search(msg):
+        dash_score += 0.90
+    elif _CHART_INTENT_RE.search(msg):
         dash_score += 0.90
     # Suppress if a specific engine-level intent scored higher
     if scores.get(INTENT_RUN_WATERFALL, 0) > 0.6 and dash_score > 0:
