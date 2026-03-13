@@ -71,7 +71,7 @@ def get_conversation(*, conversation_id: UUID) -> dict[str, Any] | None:
 def get_messages(*, conversation_id: UUID) -> list[dict[str, Any]]:
     with get_cursor() as cur:
         cur.execute(
-            """SELECT message_id, conversation_id, role, content, tool_calls, citations, token_count, created_at
+            """SELECT message_id, conversation_id, role, content, tool_calls, citations, response_blocks, message_meta, token_count, created_at
                FROM ai_messages
                WHERE conversation_id = %s
                ORDER BY created_at ASC""",
@@ -87,21 +87,25 @@ def append_message(
     content: str,
     tool_calls: list | None = None,
     citations: list | None = None,
+    response_blocks: list[dict[str, Any]] | None = None,
+    message_meta: dict[str, Any] | None = None,
     token_count: int | None = None,
 ) -> dict[str, Any]:
     import json
 
     with get_cursor() as cur:
         cur.execute(
-            """INSERT INTO ai_messages (conversation_id, role, content, tool_calls, citations, token_count)
-               VALUES (%s, %s, %s, %s, %s, %s)
-               RETURNING message_id, conversation_id, role, content, tool_calls, citations, token_count, created_at""",
+            """INSERT INTO ai_messages (conversation_id, role, content, tool_calls, citations, response_blocks, message_meta, token_count)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+               RETURNING message_id, conversation_id, role, content, tool_calls, citations, response_blocks, message_meta, token_count, created_at""",
             (
                 str(conversation_id),
                 role,
                 content,
                 json.dumps(tool_calls) if tool_calls else None,
                 json.dumps(citations) if citations else None,
+                json.dumps(response_blocks or []),
+                json.dumps(message_meta or {}),
                 token_count,
             ),
         )

@@ -1,6 +1,6 @@
 # ── Consulting App Makefile ────────────────────────────────────────
 .PHONY: dev dev-bos dev-demo test test-backend test-demo test-frontend test-e2e test-repe-backend test-repe-unit test-repe-e2e test-repe \
-        test-live \
+        test-live test-dashboard-validation test-dashboard-live test-dashboard-report \
         lint lint-strict typecheck quality fmt db\:migrate db\:seed db\:dry db\:verify install \
         bmctl smoke mcp-smoke command-regression public-walloff-smoke \
         orchestration\:install-hooks orchestration\:validate orchestration\:verify-logs \
@@ -53,6 +53,19 @@ test-repe-e2e: ## Run REPE Playwright flows
 	cd repo-b && npm run test:repe:e2e
 
 test-repe: test-repe-backend test-repe-unit test-repe-e2e ## Run full REPE verification suite
+
+test-dashboard-validation:  ## Run dashboard validation spec + layout tests (no DB needed)
+	cd backend && .venv/bin/python -m pytest tests/dashboard_validation/ -v --ignore=tests/dashboard_validation/test_data_reachability.py
+
+test-dashboard-live:  ## Run dashboard validation with live DB (requires DATABASE_URL)
+	@if [ -z "$$DATABASE_URL" ]; then \
+	  echo "ERROR: DATABASE_URL is not set."; \
+	  exit 1; \
+	fi
+	cd backend && DATABASE_URL="$$DATABASE_URL" .venv/bin/python -m pytest tests/dashboard_validation/ -v -m live
+
+test-dashboard-report:  ## Generate dashboard validation report (JSON + Markdown)
+	cd backend && .venv/bin/python -m tests.dashboard_validation.report_generator
 
 test-live:  ## Run live integration smoke tests against a real DB (requires DATABASE_URL)
 	@if [ -z "$$DATABASE_URL" ]; then \

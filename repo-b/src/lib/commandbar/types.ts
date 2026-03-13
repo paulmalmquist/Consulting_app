@@ -77,6 +77,7 @@ export type AssistantVisibleData = {
   assets?: AssistantVisibleRecord[];
   models?: AssistantVisibleRecord[];
   pipeline_items?: AssistantVisibleRecord[];
+  documents?: AssistantVisibleRecord[];
   metrics?: Record<string, string | number | null>;
   notes?: string[];
 };
@@ -103,7 +104,17 @@ export type AssistantUiContext = {
   page_entity_id?: string | null;
   page_entity_name?: string | null;
   selected_entities: AssistantSelectedEntity[];
+  active_filters?: Record<string, unknown>;
   visible_data?: AssistantVisibleData | null;
+};
+
+export type AssistantArtifactRef = {
+  block_id: string;
+  type: string;
+  title?: string | null;
+  summary?: string | null;
+  created_at?: string | null;
+  metadata?: Record<string, unknown>;
 };
 
 export type AssistantThreadContext = {
@@ -112,6 +123,9 @@ export type AssistantThreadContext = {
   scope_type: AssistantScopeType | string;
   scope_id?: string | null;
   launch_source: string;
+  active_artifact_id?: string | null;
+  artifact_refs?: AssistantArtifactRef[];
+  mode?: "ask" | "analyze" | "act" | string;
 };
 
 export type AssistantContextEnvelope = {
@@ -132,6 +146,99 @@ export type ResolvedAssistantScope = {
   confidence: number;
   source: string;
 };
+
+export type AssistantCitationItem = {
+  label: string;
+  href?: string | null;
+  snippet?: string | null;
+  score?: number | null;
+  doc_id?: string | null;
+  chunk_id?: string | null;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  section_heading?: string | null;
+};
+
+export type AssistantToolActivityItem = {
+  tool_name: string;
+  status: "running" | "completed" | "failed" | string;
+  summary: string;
+  duration_ms?: number | null;
+  is_write?: boolean;
+};
+
+export type AssistantResponseBlock =
+  | {
+      type: "markdown_text";
+      block_id: string;
+      markdown: string;
+    }
+  | {
+      type: "chart";
+      block_id: string;
+      chart_type: "line" | "bar" | "grouped_bar" | "stacked_bar" | "waterfall" | string;
+      title: string;
+      description?: string | null;
+      x_key: string;
+      y_keys: string[];
+      series_key?: string | null;
+      data: Array<Record<string, unknown>>;
+      format?: "dollar" | "percent" | "number" | string;
+      stacked?: boolean;
+      source_block_id?: string | null;
+    }
+  | {
+      type: "table";
+      block_id: string;
+      title?: string | null;
+      columns: string[];
+      rows: Array<Record<string, unknown>>;
+      ranked?: boolean;
+      export_name?: string | null;
+      source_block_id?: string | null;
+    }
+  | {
+      type: "kpi_group";
+      block_id: string;
+      title?: string | null;
+      items: Array<Record<string, unknown>>;
+      source_block_id?: string | null;
+    }
+  | {
+      type: "citations";
+      block_id: string;
+      items: AssistantCitationItem[];
+    }
+  | {
+      type: "tool_activity";
+      block_id: string;
+      items: AssistantToolActivityItem[];
+    }
+  | {
+      type: "workflow_result";
+      block_id: string;
+      title: string;
+      status: string;
+      summary: string;
+      metrics?: Array<Record<string, unknown>>;
+      actions?: Array<Record<string, unknown>>;
+    }
+  | {
+      type: "confirmation";
+      block_id: string;
+      action: string;
+      summary: string;
+      provided_params?: Record<string, unknown>;
+      missing_fields?: string[];
+      confirm_label?: string | null;
+    }
+  | {
+      type: "error";
+      block_id: string;
+      title?: string | null;
+      message: string;
+      recoverable: boolean;
+    };
 
 export type CommandContext = {
   currentEnvId?: string | null;

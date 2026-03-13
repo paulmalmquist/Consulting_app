@@ -1,3 +1,5 @@
+import type { AssistantResponseBlock } from "@/lib/commandbar/types";
+
 export type CommandContextKey = `env:${string}` | `biz:${string}` | "global";
 
 export type StructuredResultAction = {
@@ -80,6 +82,8 @@ export type CommandMessage = {
   planId?: string | null;
   runId?: string | null;
   structuredResult?: StructuredResult | null;
+  responseBlocks?: AssistantResponseBlock[] | null;
+  messageMeta?: Record<string, unknown> | null;
 };
 
 export type CommandHistoryState = {

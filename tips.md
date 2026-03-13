@@ -1389,3 +1389,29 @@ Current binding (2026-03-12): `builder-winston` handles all DMs from account 867
 Changed `agents.defaults.model.primary` from `codex-cli/gpt-5.4` to
 `openai/gpt-5.1-codex` to prevent `FailoverError: Unknown model: codex-cli/gpt-5.4`
 in gateway logs (affected `main` agent and slug generator).
+
+## Dashboard Composer Validation Lessons (2026-03-12)
+
+### Prompt parsing pitfalls discovered
+
+1. **Plural entity detection**: `\binvestment\b` does NOT match "investments" — always use `\binvestments?\b` (with optional `s`). Same for deals, returns, assets, funds.
+
+2. **Time grain ordering matters**: If `_TIME_PATTERNS` checks `\btrend\b` before `\bmonthly\b`, then "asset value trend monthly" gets `time_grain=quarterly` (from "trend") instead of `monthly`. Always check explicit grains (monthly, quarterly, annual) BEFORE generic patterns (trend, over time).
+
+3. **Section phrase collisions**: "watchlist dashboard" triggers both `ARCHETYPE_PHRASES["watchlist"]` AND `SECTION_PHRASES["underperformer_watchlist"]`. When the detected sections are a subset of the archetype's default sections, use the full archetype template — the user asked for a dashboard type, not specific charts.
+
+4. **"across all X" dimension detection**: Regex `\bacross\s+assets\b` fails on "across all assets" because of "all" in between. Use `\bacross\s+(?:all\s+)?assets?\b`.
+
+5. **"X vs Y" comparison detection**: The `_VS_METRICS_RE` regex was defined but never checked in `_parse_single_intent`. "revenue vs expenses by asset" fell through to the archetype path instead of producing a bar_chart.
+
+### Validation test structure
+
+Tests live in `backend/tests/dashboard_validation/`:
+- `sql_reference.py` — 24 SQL ground truth queries
+- `prompt_pairs.py` — 30 NL prompt → expected spec mappings
+- `test_spec_validation.py` — widget type, metrics, group_by, time_grain assertions
+- `test_layout_validation.py` — grid bounds, sizing rules, companion tables
+- `test_data_reachability.py` — live DB data existence (mark `@pytest.mark.live`)
+
+Run: `make test-dashboard-validation` (no DB needed)
+Run with DB: `make test-dashboard-live`

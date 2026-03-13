@@ -254,11 +254,11 @@ _DIMENSION_PATTERNS: list[tuple[re.Pattern[str], str | None]] = [
     (re.compile(r"\bper\s+investment\b", re.I), "investment"),
     (re.compile(r"\bper\s+asset\b", re.I), "asset"),
     (re.compile(r"\bper\s+fund\b", re.I), "fund"),
-    (re.compile(r"\bacross\s+investments?\b", re.I), "investment"),
-    (re.compile(r"\bacross\s+assets?\b", re.I), "asset"),
-    (re.compile(r"\bacross\s+funds?\b", re.I), "fund"),
-    (re.compile(r"\bacross\s+markets?\b", re.I), "market"),
-    (re.compile(r"\bacross\s+regions?\b", re.I), "region"),
+    (re.compile(r"\bacross\s+(?:all\s+)?investments?\b", re.I), "investment"),
+    (re.compile(r"\bacross\s+(?:all\s+)?assets?\b", re.I), "asset"),
+    (re.compile(r"\bacross\s+(?:all\s+)?funds?\b", re.I), "fund"),
+    (re.compile(r"\bacross\s+(?:all\s+)?markets?\b", re.I), "market"),
+    (re.compile(r"\bacross\s+(?:all\s+)?regions?\b", re.I), "region"),
     (re.compile(r"\beach\s+investment\b", re.I), "investment"),
     (re.compile(r"\beach\s+asset\b", re.I), "asset"),
 ]
@@ -275,12 +275,14 @@ _DIM_WORD_MAP: dict[str, str] = {
 }
 
 _TIME_PATTERNS: list[tuple[str, str]] = [
-    (r"\bover\s+time\b", "quarterly"),
-    (r"\btrend\b", "quarterly"),
+    # Explicit grains first — they override generic "trend"/"over time" defaults
     (r"\bmonthly\b", "monthly"),
     (r"\bquarterly\b", "quarterly"),
     (r"\bannual\b", "annual"),
     (r"\byear[\s-]over[\s-]year\b", "annual"),
+    # Generic time-series patterns default to quarterly
+    (r"\bover\s+time\b", "quarterly"),
+    (r"\btrend\b", "quarterly"),
     (r"\btime\s+series\b", "quarterly"),
 ]
 
@@ -378,7 +380,7 @@ def _detect_entity_type(message: str) -> str:
     msg = message.lower()
     if re.search(r"\b(fund|portfolio|nav|tvpi|dpi)\b", msg):
         return "fund"
-    if re.search(r"\b(investment|deal|return|irr|moic)\b", msg):
+    if re.search(r"\b(investments?|deals?|returns?|irr|moic)\b", msg):
         return "investment"
     return "asset"
 
@@ -570,6 +572,10 @@ def _parse_single_intent(
 
     # 6. "compare X and Y" (without "budget vs actual") → bar_chart
     if chart_type is None and _COMPARE_RE.search(msg):
+        chart_type = "bar_chart"
+
+    # 7. "X vs Y" (metric comparison) → bar_chart
+    if chart_type is None and _VS_METRICS_RE.search(msg):
         chart_type = "bar_chart"
 
     if chart_type is None:
@@ -933,12 +939,16 @@ def compose_dashboard_spec(
     # ── Path 2: Archetype-based composition ──
     archetype = _detect_archetype(message)
 
-    # Use explicitly requested sections, or fall back to archetype defaults
+    # Use explicitly requested sections, or fall back to archetype defaults.
+    # When detected sections are a subset of the archetype defaults, prefer the
+    # full archetype template — the user asked for a dashboard TYPE, not specific
+    # sections (e.g. "watchlist dashboard" should get the full watchlist layout).
     sections = _detect_sections(message)
-    if not sections:
-        sections = ARCHETYPE_DEFAULT_SECTIONS.get(
-            archetype, ARCHETYPE_DEFAULT_SECTIONS["executive_summary"],
-        )
+    archetype_defaults = ARCHETYPE_DEFAULT_SECTIONS.get(
+        archetype, ARCHETYPE_DEFAULT_SECTIONS["executive_summary"],
+    )
+    if not sections or set(sections).issubset(set(archetype_defaults)):
+        sections = archetype_defaults
 
     # Suppress auto-KPI for simple single-analysis requests
     _SIMPLE_SECTIONS = {

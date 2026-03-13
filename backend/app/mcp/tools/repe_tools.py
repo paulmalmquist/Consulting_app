@@ -312,7 +312,38 @@ def _create_asset(ctx: McpContext, inp: CreateAssetInput) -> dict:
         }
     deal_id = _resolve_deal_id(inp, ctx)
     if deal_id is None:
-        raise ValueError("deal_id is required to create an asset")
+        # Auto-resolve: if fund_id is available, look up deals under it
+        fund_id = _scope_value(inp, ctx, "fund_id")
+        if fund_id is None and _scope_entity_type(inp, ctx) == "fund":
+            fund_id = _scope_entity_id(inp, ctx)
+        if fund_id is not None:
+            fund_uuid = _uuid_or_none(fund_id)
+            if fund_uuid:
+                deals = repe.list_deals(fund_id=fund_uuid)
+                if len(deals) == 1:
+                    deal_id = UUID(str(deals[0]["deal_id"]))
+                elif len(deals) > 1:
+                    deal_names = [f"- {d.get('name', 'unnamed')} (id: {d['deal_id']})" for d in deals[:10]]
+                    return {
+                        "pending_confirmation": True,
+                        "needs_input": True,
+                        "missing_fields": ["deal_id"],
+                        "provided": provided,
+                        "message": (
+                            f"Multiple investments exist under this fund. Which one should this asset belong to?\n"
+                            + "\n".join(deal_names)
+                        ),
+                    }
+                else:
+                    return {
+                        "pending_confirmation": True,
+                        "needs_input": True,
+                        "missing_fields": ["deal_id"],
+                        "provided": provided,
+                        "message": "No investments exist under this fund yet. Create an investment first, then add the asset to it.",
+                    }
+        if deal_id is None:
+            raise ValueError("deal_id is required to create an asset — specify a fund or investment")
     if not inp.confirmed:
         return _confirmation_summary("create asset", provided)
     if not inp.name:

@@ -32,6 +32,26 @@ from app.services.rag_indexer import RetrievedChunk, semantic_search
 from app.services.rag_reranker import rerank_chunks
 from app.services.model_registry import get_caps, map_openai_error, sanitize_params
 from app.services.request_router import RouteDecision, classify_request
+from app.services.assistant_blocks import (
+    citations_block,
+    confirmation_block,
+    error_block,
+    legacy_structured_result_to_blocks,
+    markdown_block,
+    tool_activity_block,
+)
+
+# ── Singleton OpenAI client (reuse HTTP connection pool) ──────────
+import openai as _openai_mod
+
+_openai_client: _openai_mod.AsyncOpenAI | None = None
+
+
+def _get_openai_client() -> _openai_mod.AsyncOpenAI:
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = _openai_mod.AsyncOpenAI(api_key=OPENAI_API_KEY)
+    return _openai_client
 
 
 # ── Workflow-aware routing override ──────────────────────────────────
@@ -177,6 +197,8 @@ before answering. Do not behave like a stateless chatbot.
 - Call tools with EMPTY parameters (no arguments) — business_id, env_id, and fund_id are auto-resolved from context. Do NOT copy IDs from the context into tool parameters.
 - Prefer structured tool data over general knowledge.
 - If visible UI data already answers the question, do not contradict it with a stale assumption.
+- When the user mentions a fund by NAME (not ID), call repe.list_funds first to resolve the fund_id, then pass that fund_id to subsequent tools like finance.run_waterfall.
+- After creating an entity, always report its ID back to the user so they can reference it later.
 
 ## Tool Failure Recovery
 - If a tool call returns an error, surface the error plainly: "I tried to [action] but got: [error]."
@@ -373,6 +395,40 @@ def _sse(event: str, data: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(_json_safe(data), ensure_ascii=True)}\n\n"
 
 
+def _citation_items(chunks: list[RetrievedChunk]) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for chunk in chunks:
+        items.append(
+            {
+                "label": chunk.source_filename or chunk.document_id or chunk.chunk_id,
+                "href": None,
+                "snippet": chunk.chunk_text[:240],
+                "score": round(chunk.score, 4),
+                "doc_id": chunk.document_id,
+                "chunk_id": chunk.chunk_id,
+                "section_heading": chunk.section_heading,
+            }
+        )
+    return items
+
+
+def _tool_activity_item(
+    *,
+    tool_name: str,
+    summary: str,
+    duration_ms: int | None = None,
+    status: str = "completed",
+    is_write: bool = False,
+) -> dict[str, Any]:
+    return {
+        "tool_name": tool_name,
+        "status": status,
+        "summary": summary,
+        "duration_ms": duration_ms,
+        "is_write": is_write,
+    }
+
+
 # ── REPE Fast-Path Engine ────────────────────────────────────────────────────
 
 async def _run_repe_fast_path(
@@ -425,6 +481,10 @@ async def _run_repe_fast_path(
         if session_state and session_state.waterfall_runs:
             card = _build_session_waterfall_card(session_state)
             yield _sse("structured_result", {"result_type": "session_waterfall_summary", "card": card})
+            blocks = legacy_structured_result_to_blocks("session_waterfall_summary", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
             timings["total_ms"] = int((time.time() - start) * 1000)
             yield _sse("done", {
                 "session_id": session_id,
@@ -452,6 +512,7 @@ async def _run_repe_fast_path(
                 "tool_calls": 0,
                 "elapsed_ms": timings["total_ms"],
                 "resolved_scope": scope_dump,
+                "response_blocks": response_blocks,
             })
             return
 
@@ -466,7 +527,9 @@ async def _run_repe_fast_path(
             "missing_params": scenario.missing_critical,
         })
         yield _sse("token", {"text": clarification})
+        collected_text_parts.append(clarification)
         timings["total_ms"] = int((time.time() - start) * 1000)
+        response_blocks.append(markdown_block(clarification))
         yield _sse("done", {
             "session_id": session_id,
             "trace": {
@@ -480,6 +543,7 @@ async def _run_repe_fast_path(
             },
             "prompt_tokens": 0, "completion_tokens": 0, "tool_calls": 0,
             "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+            "response_blocks": response_blocks,
         })
         return
 
@@ -494,6 +558,8 @@ async def _run_repe_fast_path(
     data_sources = []
     family = intent.family
     result: dict[str, Any] | None = None
+    response_blocks: list[dict[str, Any]] = []
+    collected_text_parts: list[str] = []
 
     try:
         # ── Route to the right engine ──────────────────────────────────
@@ -517,6 +583,10 @@ async def _run_repe_fast_path(
             # Build structured result card
             card = _build_scenario_card(result, scenario)
             yield _sse("structured_result", {"result_type": "scenario_comparison", "card": card})
+            blocks = legacy_structured_result_to_blocks("scenario_comparison", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
 
         elif family == INTENT_RUN_WATERFALL:
             yield _sse("status", {"message": "Running waterfall distribution...", "stage": "waterfall", "progress": 0.3})
@@ -531,6 +601,10 @@ async def _run_repe_fast_path(
             )
             card = _build_waterfall_card(result, scenario)
             yield _sse("structured_result", {"result_type": "waterfall_breakdown", "card": card})
+            blocks = legacy_structured_result_to_blocks("waterfall_breakdown", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
 
         elif family in (INTENT_FUND_METRICS, INTENT_RUN_FUND_IMPACT):
             yield _sse("status", {"message": "Loading fund metrics...", "stage": "compute", "progress": 0.3})
@@ -545,6 +619,10 @@ async def _run_repe_fast_path(
             )
             card = _build_metrics_card(result, scenario)
             yield _sse("structured_result", {"result_type": "fund_metrics", "card": card})
+            blocks = legacy_structured_result_to_blocks("fund_metrics", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
 
         elif family == INTENT_STRESS_CAP_RATE:
             yield _sse("status", {"message": "Stress testing cap rates...", "stage": "compute", "progress": 0.3})
@@ -560,6 +638,10 @@ async def _run_repe_fast_path(
             )
             card = _build_stress_card(result, scenario)
             yield _sse("structured_result", {"result_type": "stress_matrix", "card": card})
+            blocks = legacy_structured_result_to_blocks("stress_matrix", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
 
         elif family == INTENT_LP_SUMMARY:
             yield _sse("status", {"message": "Building LP summary...", "stage": "compute", "progress": 0.3})
@@ -574,6 +656,10 @@ async def _run_repe_fast_path(
             )
             card = _build_lp_card(result, scenario)
             yield _sse("structured_result", {"result_type": "lp_summary", "card": card})
+            blocks = legacy_structured_result_to_blocks("lp_summary", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
 
         elif family == INTENT_COMPARE_SCENARIOS:
             yield _sse("status", {"message": "Comparing scenarios...", "stage": "compute", "progress": 0.3})
@@ -589,6 +675,10 @@ async def _run_repe_fast_path(
             )
             card = _build_comparison_card(result, scenario)
             yield _sse("structured_result", {"result_type": "scenario_comparison", "card": card})
+            blocks = legacy_structured_result_to_blocks("scenario_comparison", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
 
         elif family == INTENT_MONTE_CARLO_WATERFALL:
             yield _sse("status", {"message": "Running percentile waterfalls...", "stage": "compute", "progress": 0.3})
@@ -606,6 +696,10 @@ async def _run_repe_fast_path(
             )
             card = _build_mc_waterfall_card(result, scenario)
             yield _sse("structured_result", {"result_type": "waterfall_percentiles", "card": card})
+            blocks = legacy_structured_result_to_blocks("waterfall_percentiles", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
 
         elif family == INTENT_PORTFOLIO_WATERFALL:
             yield _sse("status", {"message": "Aggregating portfolio waterfalls...", "stage": "compute", "progress": 0.3})
@@ -621,6 +715,10 @@ async def _run_repe_fast_path(
             )
             card = _build_portfolio_waterfall_card(result, scenario)
             yield _sse("structured_result", {"result_type": "portfolio_waterfall", "card": card})
+            blocks = legacy_structured_result_to_blocks("portfolio_waterfall", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
 
         elif family == INTENT_PIPELINE_RADAR:
             yield _sse("status", {"message": "Scoring pipeline deals...", "stage": "compute", "progress": 0.3})
@@ -634,6 +732,10 @@ async def _run_repe_fast_path(
             )
             card = _build_pipeline_radar_card(result, scenario)
             yield _sse("structured_result", {"result_type": "pipeline_radar", "card": card})
+            blocks = legacy_structured_result_to_blocks("pipeline_radar", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
 
         elif family == INTENT_CAPITAL_CALL_IMPACT:
             yield _sse("status", {"message": "Modeling capital call impact...", "stage": "compute", "progress": 0.3})
@@ -649,6 +751,10 @@ async def _run_repe_fast_path(
             )
             card = _build_capital_call_card(result, scenario)
             yield _sse("structured_result", {"result_type": "capital_call_impact", "card": card})
+            blocks = legacy_structured_result_to_blocks("capital_call_impact", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
 
         elif family == INTENT_CLAWBACK_RISK:
             yield _sse("status", {"message": "Assessing clawback risk...", "stage": "compute", "progress": 0.3})
@@ -664,6 +770,10 @@ async def _run_repe_fast_path(
             )
             card = _build_clawback_card(result, scenario)
             yield _sse("structured_result", {"result_type": "clawback_risk", "card": card})
+            blocks = legacy_structured_result_to_blocks("clawback_risk", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
 
         elif family == INTENT_UW_VS_ACTUAL:
             yield _sse("status", {"message": "Comparing underwriting to actual...", "stage": "compute", "progress": 0.3})
@@ -679,6 +789,10 @@ async def _run_repe_fast_path(
             )
             card = _build_uw_vs_actual_card(result, scenario)
             yield _sse("structured_result", {"result_type": "uw_vs_actual_waterfall", "card": card})
+            blocks = legacy_structured_result_to_blocks("uw_vs_actual_waterfall", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
 
         elif family == INTENT_SENSITIVITY:
             yield _sse("status", {"message": "Building sensitivity matrix...", "stage": "compute", "progress": 0.3})
@@ -696,6 +810,10 @@ async def _run_repe_fast_path(
             )
             card = _build_sensitivity_card(result, scenario)
             yield _sse("structured_result", {"result_type": "sensitivity_matrix", "card": card})
+            blocks = legacy_structured_result_to_blocks("sensitivity_matrix", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
 
         elif family == INTENT_CONSTRUCTION_IMPACT:
             yield _sse("status", {"message": "Projecting construction timing...", "stage": "compute", "progress": 0.3})
@@ -711,6 +829,10 @@ async def _run_repe_fast_path(
             )
             card = _build_construction_waterfall_card(result, scenario)
             yield _sse("structured_result", {"result_type": "construction_waterfall", "card": card})
+            blocks = legacy_structured_result_to_blocks("construction_waterfall", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
 
         elif family == INTENT_GENERATE_DASHBOARD:
             from app.services.dashboard_composer import compose_dashboard_spec
@@ -730,6 +852,10 @@ async def _run_repe_fast_path(
                 "card": card,
                 "dashboard_spec": dashboard_spec,
             })
+            blocks = legacy_structured_result_to_blocks("dynamic_dashboard", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
 
         elif family == INTENT_ANALYTICS_QUERY:
             from app.services.analytics_workspace import run_query, suggest_visualization
@@ -760,45 +886,62 @@ async def _run_repe_fast_path(
                     executed_by=actor,
                 )
                 if query_result.get("error"):
-                    yield _sse("token", {"text": f"Query error: {query_result['error']}"})
+                    text = f"Query error: {query_result['error']}"
+                    yield _sse("token", {"text": text})
+                    collected_text_parts.append(text)
                 else:
                     viz_hint = suggest_visualization(
                         columns=query_result["columns"],
                         row_count=query_result["row_count"],
                     )
+                    query_card = {
+                        "title": "Query Results",
+                        "sql": sql,
+                        "columns": query_result["columns"],
+                        "rows": query_result["rows"][:100],
+                        "row_count": query_result["row_count"],
+                        "elapsed_ms": query_result["elapsed_ms"],
+                        "visualization_hint": viz_hint,
+                        "truncated": query_result.get("truncated", False),
+                    }
                     yield _sse("structured_result", {
                         "result_type": "query_result",
-                        "card": {
-                            "title": "Query Results",
-                            "sql": sql,
-                            "columns": query_result["columns"],
-                            "rows": query_result["rows"][:100],
-                            "row_count": query_result["row_count"],
-                            "elapsed_ms": query_result["elapsed_ms"],
-                            "visualization_hint": viz_hint,
-                            "truncated": query_result.get("truncated", False),
-                        },
+                        "card": query_card,
                     })
+                    blocks = legacy_structured_result_to_blocks("query_result", query_card)
+                    response_blocks.extend(blocks)
+                    for block in blocks:
+                        yield _sse("response_block", {"block": block})
                     result = query_result
             else:
-                yield _sse("token", {"text": "I couldn't generate a SQL query from your request. Try rephrasing or use the SQL editor directly."})
+                text = "I couldn't generate a SQL query from your request. Try rephrasing or use the SQL editor directly."
+                yield _sse("token", {"text": text})
+                collected_text_parts.append(text)
 
         elif family == INTENT_DATA_HEALTH:
             yield _sse("status", {"message": "Checking data health...", "stage": "health_check", "progress": 0.3})
-            yield _sse("token", {"text": "Data health monitoring is available in the Admin Console. Navigate to **Admin & Ops → Data Health** to view quality scores, freshness SLAs, and anomaly alerts."})
+            text = "Data health monitoring is available in the Admin Console. Navigate to **Admin & Ops → Data Health** to view quality scores, freshness SLAs, and anomaly alerts."
+            yield _sse("token", {"text": text})
+            collected_text_parts.append(text)
 
         elif family == INTENT_KNOWLEDGE_SEARCH:
             yield _sse("status", {"message": "Searching knowledge base...", "stage": "search", "progress": 0.3})
-            yield _sse("token", {"text": "Knowledge search is available through the **Knowledge Explorer**. I'll route your question through the RAG pipeline for now."})
+            text = "Knowledge search is available through the **Knowledge Explorer**. I'll route your question through the RAG pipeline for now."
+            yield _sse("token", {"text": text})
+            collected_text_parts.append(text)
             # Fall through to RAG — this intent will be handled by the main LLM pipeline
 
         elif family == INTENT_BRIEFING_GENERATE:
             yield _sse("status", {"message": "Generating executive briefing...", "stage": "briefing", "progress": 0.3})
-            yield _sse("token", {"text": "Executive briefing generation is available at **Briefings → Generate**. The briefing wizard will walk you through period selection, KPI snapshots, and AI-generated narratives."})
+            text = "Executive briefing generation is available at **Briefings → Generate**. The briefing wizard will walk you through period selection, KPI snapshots, and AI-generated narratives."
+            yield _sse("token", {"text": text})
+            collected_text_parts.append(text)
 
         else:
             # Explain returns / fallback — emit as text
-            yield _sse("token", {"text": f"I recognized this as a **{family.replace('_', ' ')}** request but the fast-path engine doesn't handle it yet. Let me use the full analysis pipeline instead."})
+            text = f"I recognized this as a **{family.replace('_', ' ')}** request but the fast-path engine doesn't handle it yet. Let me use the full analysis pipeline instead."
+            yield _sse("token", {"text": text})
+            collected_text_parts.append(text)
 
         # ── Update session state ───────────────────────────────────────
         conversation_key = str(conversation_id) if conversation_id else None
@@ -839,10 +982,14 @@ async def _run_repe_fast_path(
             message=f"REPE fast-path error: {exc}",
             context={"intent": intent.family, "error": str(exc)},
         )
-        yield _sse("token", {"text": f"I encountered an error running the {family.replace('_', ' ')}: {exc}\n\nLet me try the full analysis pipeline instead."})
+        text = f"I encountered an error running the {family.replace('_', ' ')}: {exc}\n\nLet me try the full analysis pipeline instead."
+        yield _sse("token", {"text": text})
+        collected_text_parts.append(text)
 
     # ── Done ───────────────────────────────────────────────────────────
     timings["total_ms"] = int((time.time() - start) * 1000)
+    if collected_text_parts:
+        response_blocks.insert(0, markdown_block("".join(collected_text_parts).strip()))
     yield _sse("done", {
         "session_id": session_id,
         "trace": {
@@ -856,6 +1003,7 @@ async def _run_repe_fast_path(
         },
         "prompt_tokens": 0, "completion_tokens": 0, "tool_calls": len(tool_timeline),
         "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+        "response_blocks": response_blocks,
     })
 
 
@@ -1467,9 +1615,7 @@ async def run_gateway_stream(
         yield _sse("error", {"message": "OPENAI_API_KEY not configured"})
         return
 
-    import openai
-
-    client = openai.AsyncOpenAI(api_key=OPENAI_API_KEY)
+    client = _get_openai_client()
     start = time.time()
     timings: dict[str, int] = {}
     session_id = session_id or str(uuid.uuid4())
@@ -1480,6 +1626,13 @@ async def run_gateway_stream(
         session_id=session_id,
         user_id=actor,
         input=message,
+    )
+
+    # ── Kick off workflow check in parallel with context resolution ──
+    _workflow_task = asyncio.ensure_future(
+        asyncio.get_event_loop().run_in_executor(
+            None, _check_pending_workflow, conversation_id
+        )
     )
 
     normalized_envelope = ensure_context_envelope(
@@ -1541,12 +1694,9 @@ async def run_gateway_stream(
     )
 
     # ── Workflow-aware routing override (Section I fix) ───────────────
-    # Check if conversation has a pending workflow before finalizing route.
-    # This ensures short messages like "yes" or "winston real estate I" during
-    # active confirmation flows don't get misclassified as Lane A (no tools).
-    _pending_workflow = await asyncio.get_event_loop().run_in_executor(
-        None, _check_pending_workflow, conversation_id
-    )
+    # Workflow check was kicked off in parallel with context resolution above.
+    _pending_workflow = await _workflow_task
+    timings["workflow_check_ms"] = int((time.time() - start) * 1000) - timings["context_resolution_ms"]
     _workflow_override_applied = False
     if _pending_workflow:
         route = _override_route_for_workflow(route, _pending_workflow, message)
@@ -1583,7 +1733,9 @@ async def run_gateway_stream(
     }, tags=[f"lane:{route.lane}"])
 
     # ── REPE Fast-Path — bypass LLM for high-confidence finance queries ──
+    _intent_start = time.time()
     repe_intent = classify_repe_intent(message, resolved_scope, normalized_envelope)
+    timings["intent_classification_ms"] = int((time.time() - _intent_start) * 1000)
     if repe_intent and repe_intent.confidence >= 0.85:
         emit_log(
             level="info", service="backend", action="ai.gateway.repe_fast_path",
@@ -1621,7 +1773,9 @@ async def run_gateway_stream(
 
     # ── Graceful degradation: write request but no write tools ────────
     if route.is_write and not _has_write_tools():
-        yield _sse("token", {"text": "Write operations (creating funds, deals, or assets) are not available in the current configuration. I can read and analyze your portfolio data — for creating records, please use the platform UI directly."})
+        text = "Write operations (creating funds, deals, or assets) are not available in the current configuration. I can read and analyze your portfolio data — for creating records, please use the platform UI directly."
+        response_blocks = [markdown_block(text)]
+        yield _sse("token", {"text": text})
         timings["total_ms"] = int((time.time() - start) * 1000)
         yield _sse("done", {
             "session_id": session_id,
@@ -1635,8 +1789,11 @@ async def run_gateway_stream(
             },
             "prompt_tokens": 0, "completion_tokens": 0, "tool_calls": 0,
             "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+            "response_blocks": response_blocks,
         })
         return
+
+    response_blocks: list[dict[str, Any]] = []
 
     # ── RAG (conditional — skipped for Lane A/B when not needed) ────
     rag_chunks: list[RetrievedChunk] = []
@@ -1709,6 +1866,10 @@ async def run_gateway_stream(
                         "retrieval_method": chunk.retrieval_method,
                     },
                 )
+            if rag_chunks:
+                citation_block = citations_block(_citation_items(rag_chunks))
+                response_blocks.append(citation_block)
+                yield _sse("response_block", {"block": citation_block})
         except Exception as rag_err:
             rag_chunks = []
             yield _sse(
@@ -1777,6 +1938,7 @@ async def run_gateway_stream(
     ]
 
     # ── Conversation history (token-budgeted per lane) ────────────
+    _history_start = time.time()
     if conversation_id:
         try:
             from app.services import ai_conversations as convo_svc
@@ -1815,25 +1977,65 @@ async def run_gateway_stream(
                 messages.append(msg)
         except Exception:
             pass
+    timings["history_load_ms"] = int((time.time() - _history_start) * 1000)
 
     # ── Workflow context injection ──────────────────────────────────────
     # When a pending workflow is active (slot-fill or confirmation), extract
-    # known params from the prior annotation and inject them into the user
-    # message so the LLM cannot lose them. This is more reliable than hoping
-    # the LLM picks up params from conversation history.
+    # known params from the prior annotation AND from tool_calls JSON, then
+    # inject them into the user message so the LLM cannot lose them.
     effective_message = message
-    if _pending_workflow and _pending_workflow.get("content"):
-        wf_content = _pending_workflow["content"]
-        # Extract "Known parameters: ..." from the annotation
+    if _pending_workflow:
         import re as _re
+        known_params_parts: list[str] = []
+
+        # Source 1: Text annotation "Known parameters: ..."
+        wf_content = _pending_workflow.get("content") or ""
         kp_match = _re.search(r"Known parameters:\s*(.+?)(?:\.\s*(?:If|The|NEVER))", wf_content)
         if kp_match:
-            known_params = kp_match.group(1).strip().rstrip(".")
-            effective_message = (
-                f"[CONTEXT: Active slot-fill workflow. Previously collected parameters: {known_params}. "
-                f"MERGE the user's new values below with ALL previously collected parameters when calling the tool.]\n\n"
-                f"{message}"
-            )
+            known_params_parts.append(kp_match.group(1).strip().rstrip("."))
+
+        # Source 2: Tool call args from prior pending tool_calls (more structured)
+        wf_tool_calls = _pending_workflow.get("tool_calls")
+        if wf_tool_calls and isinstance(wf_tool_calls, list):
+            for tc in wf_tool_calls:
+                tc_args = tc.get("args", {})
+                if isinstance(tc_args, str):
+                    try:
+                        tc_args = json.loads(tc_args)
+                    except Exception:
+                        tc_args = {}
+                if isinstance(tc_args, dict):
+                    # Include all non-null, non-confirmed params
+                    param_strs = [f"{k}={v}" for k, v in tc_args.items()
+                                  if v is not None and k not in ("confirmed", "scope", "resolved_scope")]
+                    if param_strs:
+                        known_params_parts.append("; ".join(param_strs))
+
+                # Also include provided params from tool result (needs_input responses)
+                tc_result = tc.get("result") or tc.get("tool_result")
+                if isinstance(tc_result, dict) and tc_result.get("provided"):
+                    provided = tc_result["provided"]
+                    param_strs = [f"{k}={v}" for k, v in provided.items() if v is not None]
+                    if param_strs:
+                        known_params_parts.append("; ".join(param_strs))
+
+        if known_params_parts:
+            all_params = "; ".join(known_params_parts)
+            wf_type = _pending_workflow.get("type", "workflow")
+            is_confirm = _CONFIRM_KEYWORDS.search(message.strip())
+            if is_confirm:
+                effective_message = (
+                    f"[CONTEXT: User is confirming a pending {wf_type}. "
+                    f"Previously collected parameters: {all_params}. "
+                    f"Call the SAME tool with confirmed=true and ALL these parameters.]\n\n"
+                    f"{message}"
+                )
+            else:
+                effective_message = (
+                    f"[CONTEXT: Active {wf_type}. Previously collected parameters: {all_params}. "
+                    f"MERGE the user's new values below with ALL previously collected parameters when calling the tool.]\n\n"
+                    f"{message}"
+                )
 
     messages.append({"role": "user", "content": effective_message})
 
@@ -2175,7 +2377,28 @@ async def run_gateway_stream(
                     "pending_confirmation": is_pending_confirmation,
                 },
             )
+            activity_block = tool_activity_block(
+                [
+                    _tool_activity_item(
+                        tool_name=tool_name,
+                        summary=result_summary,
+                        duration_ms=tool_duration_ms,
+                        status="completed" if tool_success else "failed",
+                        is_write=bool(is_write_tool),
+                    )
+                ]
+            )
+            response_blocks.append(activity_block)
+            yield _sse("response_block", {"block": activity_block})
             if is_pending_confirmation:
+                confirm_block = confirmation_block(
+                    action=tool_result.get("action", tool_name),
+                    summary=tool_result.get("message", "Confirm to proceed."),
+                    provided_params=tool_result.get("provided") or raw_args,
+                    missing_fields=tool_result.get("missing_fields") or tool_result.get("required_fields") or [],
+                    confirm_label="Confirm action",
+                )
+                response_blocks.append(confirm_block)
                 yield _sse(
                     "confirmation_required",
                     {
@@ -2185,45 +2408,32 @@ async def run_gateway_stream(
                         "message": tool_result.get("message", "Confirm to proceed."),
                     },
                 )
+                yield _sse("response_block", {"block": confirm_block})
+            elif not tool_success and tool_error_msg:
+                tool_error_block = error_block(
+                    title=f"{tool_name} failed",
+                    message=tool_error_msg,
+                    recoverable=True,
+                )
+                response_blocks.append(tool_error_block)
+                yield _sse("response_block", {"block": tool_error_block})
             yield _sse(
                 "tool_result",
                 {"tool_name": tool_name, "args": raw_args, "result": _json_safe(tool_result)},
             )
             if tool_success and tool_name == "finance.generate_waterfall_memo" and isinstance(tool_result, dict):
+                memo_card = _build_waterfall_memo_card(tool_result)
                 yield _sse(
                     "structured_result",
                     {
                         "result_type": "waterfall_memo",
-                        "card": _build_waterfall_memo_card(tool_result),
+                        "card": memo_card,
                     },
                 )
-
-            if conversation_id and isinstance(tool_result, dict) and tool_name.startswith("finance."):
-                conversation_key = str(conversation_id)
-                update_session(
-                    conversation_key,
-                    last_result=tool_result,
-                    last_fund_id=str(raw_args.get("fund_id")) if raw_args.get("fund_id") else None,
-                    last_quarter=raw_args.get("quarter"),
-                )
-                run_candidates: list[dict[str, Any]] = []
-                if tool_result.get("run_id"):
-                    run_candidates.append(tool_result)
-                for key in ("p10", "p50", "p90", "before", "after", "uw", "actual", "base", "construction_adjusted"):
-                    candidate = tool_result.get(key)
-                    if isinstance(candidate, dict) and candidate.get("run_id"):
-                        run_candidates.append(candidate)
-                for candidate in run_candidates:
-                    summary = summarize_waterfall_run(
-                        result=candidate,
-                        fund_id=str(raw_args.get("fund_id") or candidate.get("fund_id") or ""),
-                        fund_name=candidate.get("fund_name"),
-                        scenario_name=candidate.get("scenario_name"),
-                        quarter=raw_args.get("quarter") or candidate.get("quarter"),
-                        overrides=candidate.get("overrides"),
-                    )
-                    if summary:
-                        update_session(conversation_key, waterfall_run=summary)
+                blocks = legacy_structured_result_to_blocks("waterfall_memo", memo_card)
+                response_blocks.extend(blocks)
+                for block in blocks:
+                    yield _sse("response_block", {"block": block})
 
             messages.append(
                 {
@@ -2235,6 +2445,14 @@ async def run_gateway_stream(
 
             if conversation_id and tool_success and isinstance(tool_result, dict):
                 conversation_key = str(conversation_id)
+                # Track last finance result for session memory
+                if tool_name.startswith("finance."):
+                    update_session(
+                        conversation_key,
+                        last_result=tool_result,
+                        last_fund_id=str(raw_args.get("fund_id")) if raw_args.get("fund_id") else None,
+                        last_quarter=raw_args.get("quarter"),
+                    )
                 run_candidates: list[dict[str, Any]] = []
                 if tool_result.get("run_id"):
                     run_candidates.append(tool_result)
@@ -2255,6 +2473,41 @@ async def run_gateway_stream(
                     )
                     if summary:
                         update_session(conversation_key, waterfall_run=summary)
+
+    # ── Final-answer fallback ─────────────────────────────────────────
+    # If the tool loop exhausted all rounds without producing text content
+    # (model kept requesting tools), make one last call with tools disabled
+    # to force a text response that synthesizes available tool results.
+    if not collected_content and tool_call_count > 0:
+        emit_log(level="info", service="backend", action="ai.gateway.final_answer_fallback",
+                 message="No content after tool loop — forcing final answer with tools disabled")
+        yield _sse("status", {"message": "Synthesizing answer..."})
+        messages.append({"role": "user", "content": "Now answer the original question using the tool results above. Do not call any more tools."})
+        _fallback_model = route.model or OPENAI_CHAT_MODEL
+        _fallback_kwargs = sanitize_params(
+            _fallback_model,
+            messages=messages,
+            max_tokens=route.max_tokens,
+            temperature=route.temperature,
+        )
+        try:
+            _fb_client = _get_openai_client()
+            _fb_stream = await _fb_client.chat.completions.create(**_fallback_kwargs, stream=True)
+            async for _fb_chunk in _fb_stream:
+                if not _fb_chunk.choices:
+                    if _fb_chunk.usage:
+                        total_prompt_tokens += _fb_chunk.usage.prompt_tokens or 0
+                        total_completion_tokens += _fb_chunk.usage.completion_tokens or 0
+                    continue
+                _fb_delta = _fb_chunk.choices[0].delta
+                if _fb_delta.content:
+                    if first_token_time is None:
+                        first_token_time = time.time()
+                    collected_content += _fb_delta.content
+                    yield _sse("token", {"text": _fb_delta.content})
+        except Exception as fb_err:
+            emit_log(level="error", service="backend", action="ai.gateway.final_answer_error",
+                     message=f"Final answer fallback failed: {fb_err}")
 
     # ── Compute metrics and emit done BEFORE persistence ─────────────
     # Emit the stream-terminating `done` event before any DB writes so
@@ -2309,6 +2562,8 @@ async def run_gateway_stream(
         completion_tokens=total_completion_tokens,
         rerank_method=RAG_RERANK_METHOD if route.use_rerank else None,
     )
+    if collected_content.strip():
+        response_blocks.insert(0, markdown_block(collected_content.strip()))
 
     yield _sse(
         "done",
@@ -2343,6 +2598,7 @@ async def run_gateway_stream(
             "tool_calls": tool_call_count,
             "elapsed_ms": elapsed_ms,
             "resolved_scope": scope_dump,
+            "response_blocks": response_blocks,
         },
     )
 
@@ -2450,6 +2706,16 @@ async def run_gateway_stream(
                         content=enriched_content,
                         tool_calls=tool_calls_log or None,
                         citations=citations_log or None,
+                        response_blocks=response_blocks,
+                        message_meta={
+                            "session_id": session_id,
+                            "route_lane": route.lane,
+                            "execution_path": execution_path,
+                            "elapsed_ms": elapsed_ms,
+                            "tool_call_count": tool_call_count,
+                            "rag_chunks_used": len(rag_chunks),
+                            "cost": cost_info,
+                        },
                         token_count=total_completion_tokens or None,
                     ),
                 )

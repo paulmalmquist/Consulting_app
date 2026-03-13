@@ -72,12 +72,13 @@ _RAG_HINT_RE = re.compile(
     re.IGNORECASE,
 )
 _WRITE_RE = re.compile(
-    r"\b(create|add a new|set up a|register a|insert a)\b[\s\w]{0,40}\b(fund|deal|investment|asset|property)\b",
+    r"\b(create|add|make|set up|register|insert|establish|build)\b[\s\w]{0,40}\b(fund|deal|investment|asset|property)\b|"
+    r"\bnew\s+(fund|deal|investment|asset|property)\b",
     re.IGNORECASE,
 )
-# Exclude analytical/navigational queries that happen to contain write-like keywords
+# Exclude ONLY when the primary verb is analytical — not when write verb appears first
 _WRITE_EXCLUDE_RE = re.compile(
-    r"\b(compare|analyze|show|list|what|how|tell me|describe|explain|summarize)\b",
+    r"^\s*(compare|analyze|list|describe|explain|summarize|how (?:many|much|does|do|is|are))\b",
     re.IGNORECASE,
 )
 # Financial metrics → structured retrieval
@@ -183,7 +184,7 @@ def classify_request(
             model=OPENAI_CHAT_MODEL_FAST,
             rag_top_k=0,
             rag_max_tokens=0,
-            history_max_tokens=1500,
+            history_max_tokens=2000,
         )
 
     # Agentic tasks → Lane D with agentic model
@@ -225,7 +226,7 @@ def classify_request(
             needs_structured_retrieval=has_financial_metrics,
         )
 
-    # REPE scenario queries → Lane B (fast, 1 tool round)
+    # REPE scenario queries → Lane B (fast, 2 tool rounds)
     # These are also handled by the REPE fast-path in ai_gateway.py, but this
     # ensures proper routing if the fast-path confidence is below threshold.
     if _REPE_SCENARIO_RE.search(message):
@@ -233,7 +234,7 @@ def classify_request(
             lane="B",
             skip_rag=True,
             skip_tools=False,
-            max_tool_rounds=1,
+            max_tool_rounds=2,
             max_tokens=1024,
             temperature=0.1,
             model=OPENAI_CHAT_MODEL_FAST,
@@ -289,13 +290,13 @@ def classify_request(
                     history_max_tokens=800,
                 )
 
-    # Simple lookup → Lane B (1 tool round, no RAG)
+    # Simple lookup → Lane B (2 tool rounds, no RAG)
     if _SIMPLE_LOOKUP_RE.search(message):
         return RouteDecision(
             lane="B",
             skip_rag=True,
             skip_tools=False,
-            max_tool_rounds=1,
+            max_tool_rounds=2,
             max_tokens=1024,
             temperature=0.2,
             model=OPENAI_CHAT_MODEL_FAST,

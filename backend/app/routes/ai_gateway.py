@@ -227,6 +227,8 @@ def append_message(conversation_id: str, payload: MessageAppendRequest):
         content=payload.content,
         tool_calls=payload.tool_calls,
         citations=payload.citations,
+        response_blocks=payload.response_blocks,
+        message_meta=payload.message_meta,
         token_count=payload.token_count,
     )
     return _serialize_message(msg)
@@ -330,6 +332,8 @@ def _serialize_message(row: dict) -> dict:
         "content": row["content"],
         "tool_calls": row.get("tool_calls"),
         "citations": row.get("citations"),
+        "response_blocks": row.get("response_blocks") or [],
+        "message_meta": row.get("message_meta") or {},
         "token_count": row.get("token_count"),
         "created_at": row["created_at"].isoformat() if row.get("created_at") else None,
     }

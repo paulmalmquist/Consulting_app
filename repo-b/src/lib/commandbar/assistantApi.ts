@@ -1,5 +1,6 @@
 import type {
   AssistantContextEnvelope,
+  AssistantResponseBlock,
   CommandContext,
   ContextSnapshot,
   ExecutionPlan,
@@ -128,9 +129,24 @@ export type AskAiDebug = {
   toolCalls: AssistantToolEvent[];
   toolResults: AssistantToolEvent[];
   citations: unknown[];
+  responseBlocks?: AssistantResponseBlock[];
   done?: unknown;
   trace?: WinstonTrace | null;
   eventLog: SSEEvent[];
+};
+
+export type StreamAiHandlers = {
+  onContext?: (payload: {
+    contextEnvelope?: AssistantContextEnvelope;
+    resolvedScope?: ResolvedAssistantScope | null;
+  }) => void;
+  onStatus?: (status: string, payload?: unknown) => void;
+  onToken?: (token: string) => void;
+  onToolActivity?: (event: AssistantToolEvent) => void;
+  onResponseBlock?: (block: AssistantResponseBlock) => void;
+  onConfirmationRequired?: (payload: Record<string, unknown>) => void;
+  onDone?: (payload: Record<string, unknown>) => void;
+  onError?: (message: string, payload?: unknown) => void;
 };
 
 export class AssistantApiError extends Error {
@@ -840,10 +856,9 @@ export function buildExecutionSummary(plan: ExecutionPlan | AssistantPlan | null
 }
 
 /**
- * Ask Winston AI a freeform question via the AI gateway.
- * Collects SSE stream into a single text response.
+ * Stream Winston AI via the shared gateway and expose structured response blocks.
  */
-export async function askAi(input: {
+export async function streamAi(input: {
   message: string;
   workspace?: Record<string, string>;
   business_id?: string;
@@ -851,8 +866,15 @@ export async function askAi(input: {
   conversation_id?: string;
   context_envelope?: AssistantContextEnvelope;
   onStatus?: (status: string) => void;
+  onContext?: StreamAiHandlers["onContext"];
+  onToken?: StreamAiHandlers["onToken"];
+  onToolActivity?: StreamAiHandlers["onToolActivity"];
+  onResponseBlock?: StreamAiHandlers["onResponseBlock"];
+  onConfirmationRequired?: StreamAiHandlers["onConfirmationRequired"];
+  onDone?: StreamAiHandlers["onDone"];
+  onError?: StreamAiHandlers["onError"];
   signal?: AbortSignal;
-}): Promise<{ answer: string; trace: AssistantApiTrace; debug: AskAiDebug }> {
+}): Promise<{ answer: string; blocks: AssistantResponseBlock[]; trace: AssistantApiTrace; debug: AskAiDebug }> {
   const requestId = nextRequestId();
   const startedAt = Date.now();
   const endpoint = "/api/ai/gateway/ask";
@@ -860,6 +882,7 @@ export async function askAi(input: {
   if (USE_MOCKS) {
     return {
       answer: `[Mock] Winston would analyze: "${input.message}". In production this calls the AI gateway.`,
+      blocks: [],
       trace: { requestId, endpoint, method: "POST", startedAt, durationMs: 10, status: 200, ok: true },
       debug: {
         contextEnvelope: input.context_envelope,
@@ -867,6 +890,7 @@ export async function askAi(input: {
         toolCalls: [],
         toolResults: [],
         citations: [],
+        responseBlocks: [],
         trace: null,
         eventLog: [],
       },
@@ -910,6 +934,7 @@ export async function askAi(input: {
           : errText.slice(0, 200);
       return {
         answer: `Winston is unavailable (${response.status}). ${hint}`,
+        blocks: [],
         trace,
         debug: {
           contextEnvelope: input.context_envelope,
@@ -917,6 +942,7 @@ export async function askAi(input: {
           toolCalls: [],
           toolResults: [],
           citations: [],
+          responseBlocks: [],
           trace: null,
           eventLog: [],
         },
@@ -933,6 +959,7 @@ export async function askAi(input: {
       toolCalls: [],
       toolResults: [],
       citations: [],
+      responseBlocks: [],
       trace: null,
       eventLog: [],
     };
@@ -997,6 +1024,10 @@ export async function askAi(input: {
               debug.contextEnvelope = parsed.context_envelope || debug.contextEnvelope;
               debug.resolvedScope = parsed.resolved_scope || null;
               logSSE("context", parsed, `scope=${parsed.resolved_scope?.resolved_scope_type || "none"} env=${parsed.resolved_scope?.environment_id || "none"}`);
+              input.onContext?.({
+                contextEnvelope: debug.contextEnvelope,
+                resolvedScope: debug.resolvedScope,
+              });
             }
             // Status event — show lane/scope immediately
             else if (currentEvent === "status" && parsed.message) {
@@ -1008,6 +1039,7 @@ export async function askAi(input: {
             else if (currentEvent === "token" && parsed.text) {
               tokenCount++;
               answer += parsed.text;
+              input.onToken?.(parsed.text);
               // Log first token and then every 20th to avoid spam
               if (tokenCount === 1) {
                 logSSE("token", { text: parsed.text.slice(0, 50) }, `First token: "${parsed.text.slice(0, 40)}..."`);
@@ -1019,6 +1051,7 @@ export async function askAi(input: {
             else if (parsed.choices?.[0]?.delta?.content) {
               tokenCount++;
               answer += parsed.choices[0].delta.content;
+              input.onToken?.(parsed.choices[0].delta.content);
               if (tokenCount === 1) {
                 logSSE("openai_token", { text: parsed.choices[0].delta.content.slice(0, 50) }, `First OpenAI token (fallback path)`);
               }
@@ -1028,6 +1061,7 @@ export async function askAi(input: {
               logSSE("error", parsed, `ERROR: ${parsed.message}`);
               console.error(`[Winston SSE] Error event: ${parsed.message}`, parsed);
               answer += `\n[Error: ${parsed.message}]`;
+              input.onError?.(parsed.message, parsed);
             }
             // FastAPI tool_call event — surface as status
             else if (currentEvent === "tool_call" && parsed.tool_name) {
@@ -1045,6 +1079,7 @@ export async function askAi(input: {
               logSSE("tool_call", parsed, `${parsed.tool_name} → ${successStr} (${parsed.duration_ms || 0}ms, ${parsed.row_count ?? "?"} rows)`);
               const label = parsed.tool_name.replace(/^repe\./, "").replace(/_/g, " ");
               input.onStatus?.(`Looking up ${label}...`);
+              input.onToolActivity?.(debug.toolCalls[debug.toolCalls.length - 1]);
               continue;
             }
             else if (currentEvent === "tool_result" && parsed.tool_name) {
@@ -1060,6 +1095,14 @@ export async function askAi(input: {
             else if (currentEvent === "confirmation_required" && parsed.action) {
               logSSE("confirmation_required", parsed, `Action: ${parsed.action} — ${parsed.summary || "awaiting user confirmation"}`);
               input.onStatus?.(`Awaiting confirmation: ${parsed.action}`);
+              input.onConfirmationRequired?.(parsed);
+              continue;
+            }
+            else if (currentEvent === "response_block" && parsed.block) {
+              const block = parsed.block as AssistantResponseBlock;
+              debug.responseBlocks?.push(block);
+              logSSE("response_block", { type: block.type, block_id: block.block_id }, `Block: ${block.type}`);
+              input.onResponseBlock?.(block);
               continue;
             }
             // REPE fast-path structured result card
@@ -1084,9 +1127,13 @@ export async function askAi(input: {
               if (parsed.trace) {
                 debug.trace = parsed.trace as WinstonTrace;
               }
+              if (Array.isArray(parsed.response_blocks) && parsed.response_blocks.length > 0) {
+                debug.responseBlocks = parsed.response_blocks as AssistantResponseBlock[];
+              }
               const t = parsed.trace;
               logSSE("done", { lane: t?.lane, path: t?.execution_path, tools: t?.tool_call_count, elapsed: t?.elapsed_ms, tokens: t?.total_tokens },
                 `Lane ${t?.lane || "?"} | ${t?.execution_path || "?"} | ${t?.tool_call_count || 0} tools | ${t?.elapsed_ms || 0}ms | ${t?.total_tokens || 0} tokens`);
+              input.onDone?.(parsed);
               continue;
             }
             else {
@@ -1119,7 +1166,12 @@ export async function askAi(input: {
       console.warn(`[askAi] Empty response for ${requestId} after ${trace.durationMs}ms (status=${response.status})`);
     }
     logClientTrace(trace);
-    return { answer: answer.trim() || "No response from Winston.", trace, debug };
+    return {
+      answer: answer.trim() || "No response from Winston.",
+      blocks: debug.responseBlocks || [],
+      trace,
+      debug,
+    };
   } catch (error) {
     const trace: AssistantApiTrace = {
       requestId,
@@ -1133,6 +1185,7 @@ export async function askAi(input: {
     logClientTrace(trace);
     return {
       answer: error instanceof Error ? `Winston error: ${error.message}` : "Winston encountered an error.",
+      blocks: [],
       trace,
       debug: {
         contextEnvelope: input.context_envelope,
@@ -1140,6 +1193,7 @@ export async function askAi(input: {
         toolCalls: [],
         toolResults: [],
         citations: [],
+        responseBlocks: [],
         trace: null,
         eventLog: [],
       },
@@ -1147,6 +1201,28 @@ export async function askAi(input: {
   } finally {
     cancel();
   }
+}
+
+/**
+ * Compatibility wrapper for the bottom-right command bar.
+ * It reuses the shared streaming client but only returns the final text answer.
+ */
+export async function askAi(input: {
+  message: string;
+  workspace?: Record<string, string>;
+  business_id?: string;
+  env_id?: string;
+  conversation_id?: string;
+  context_envelope?: AssistantContextEnvelope;
+  onStatus?: (status: string) => void;
+  signal?: AbortSignal;
+}): Promise<{ answer: string; trace: AssistantApiTrace; debug: AskAiDebug }> {
+  const result = await streamAi(input);
+  return {
+    answer: result.answer,
+    trace: result.trace,
+    debug: result.debug,
+  };
 }
 
 // ── Conversation management ─────────────────────────────────────────────────
@@ -1162,11 +1238,16 @@ export type ConversationSummary = {
 export type ConversationDetail = {
   conversation_id: string;
   business_id: string;
+  env_id?: string | null;
   title: string | null;
   messages: Array<{
     message_id: string;
     role: string;
     content: string;
+    tool_calls?: unknown[] | null;
+    citations?: unknown[] | null;
+    response_blocks?: AssistantResponseBlock[];
+    message_meta?: Record<string, unknown>;
     created_at: string | null;
   }>;
 };

@@ -38,6 +38,7 @@ class AssistantVisibleData(BaseModel):
     assets: list[AssistantVisibleRecord] = Field(default_factory=list)
     models: list[AssistantVisibleRecord] = Field(default_factory=list)
     pipeline_items: list[AssistantVisibleRecord] = Field(default_factory=list)
+    documents: list[AssistantVisibleRecord] = Field(default_factory=list)
     metrics: dict[str, Any] | None = None
     notes: list[str] = Field(default_factory=list)
 
@@ -68,7 +69,19 @@ class AssistantUiContext(BaseModel):
     page_entity_id: str | None = None
     page_entity_name: str | None = None
     selected_entities: list[AssistantSelectedEntity] = Field(default_factory=list)
+    active_filters: dict[str, Any] = Field(default_factory=dict)
     visible_data: AssistantVisibleData | None = None
+
+
+class AssistantArtifactRef(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    block_id: str
+    type: str
+    title: str | None = None
+    summary: str | None = None
+    created_at: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class AssistantThreadContext(BaseModel):
@@ -79,6 +92,9 @@ class AssistantThreadContext(BaseModel):
     scope_type: str = "environment"
     scope_id: str | None = None
     launch_source: str = "winston_commandbar"
+    active_artifact_id: str | None = None
+    artifact_refs: list[AssistantArtifactRef] = Field(default_factory=list)
+    mode: str = "ask"
 
 
 class AssistantContextEnvelope(BaseModel):
@@ -169,6 +185,8 @@ class MessageAppendRequest(BaseModel):
     content: str = Field(min_length=1, max_length=100_000)
     tool_calls: list | None = None
     citations: list | None = None
+    response_blocks: list[dict[str, Any]] | None = None
+    message_meta: dict[str, Any] | None = None
     token_count: int | None = None
 
 
@@ -179,5 +197,7 @@ class MessageResponse(BaseModel):
     content: str
     tool_calls: list | None = None
     citations: list | None = None
+    response_blocks: list[dict[str, Any]] | None = None
+    message_meta: dict[str, Any] | None = None
     token_count: int | None = None
     created_at: str | None = None
