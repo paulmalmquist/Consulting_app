@@ -330,7 +330,7 @@ def _create_asset(ctx: McpContext, inp: CreateAssetInput) -> dict:
                         "missing_fields": ["deal_id"],
                         "provided": provided,
                         "message": (
-                            f"Multiple investments exist under this fund. Which one should this asset belong to?\n"
+                            "Multiple investments exist under this fund. Which one should this asset belong to?\n"
                             + "\n".join(deal_names)
                         ),
                     }

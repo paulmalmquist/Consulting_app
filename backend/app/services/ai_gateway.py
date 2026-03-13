@@ -476,6 +476,8 @@ async def _run_repe_fast_path(
 
     scenario = resolve_scenario_params(intent, resolved_scope, context_envelope)
     session_state = get_session(str(conversation_id) if conversation_id else None)
+    response_blocks: list[dict[str, Any]] = []
+    collected_text_parts: list[str] = []
 
     if intent.family == INTENT_SESSION_WATERFALL_QUERY:
         if session_state and session_state.waterfall_runs:
