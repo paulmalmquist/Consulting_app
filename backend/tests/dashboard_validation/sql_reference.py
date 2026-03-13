@@ -6,7 +6,7 @@ these queries document what data the generated widget spec *implies*.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 ENV_ID = "a1b2c3d4-0001-0001-0003-000000000001"
 BUS_ID = "a1b2c3d4-0001-0001-0001-000000000001"

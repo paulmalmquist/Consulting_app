@@ -9,7 +9,7 @@ import pytest
 from app.services.dashboard_composer import compose_dashboard_spec
 
 from .conftest import ENV_ID, BUS_ID
-from .prompt_pairs import PROMPT_PAIRS, FREEFORM_PAIRS, ARCHETYPE_PAIRS, PromptPair
+from .prompt_pairs import PROMPT_PAIRS, FREEFORM_PAIRS, PromptPair
 from .sql_reference import SQL_REF_BY_ID
 
 

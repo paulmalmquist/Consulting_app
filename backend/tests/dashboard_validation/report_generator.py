@@ -8,7 +8,6 @@ Or call generate_report() directly after a test run.
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from pathlib import Path
