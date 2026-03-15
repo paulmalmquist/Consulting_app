@@ -474,6 +474,15 @@ async def _run_repe_fast_path(
         INTENT_SESSION_WATERFALL_QUERY,
         INTENT_STRESS_CAP_RATE,
         INTENT_UW_VS_ACTUAL,
+        INTENT_CAPITAL_CALL_WORKFLOW,
+        INTENT_DISTRIBUTION_WORKFLOW,
+        INTENT_PERIOD_CLOSE,
+        INTENT_FEE_SCHEDULE,
+        INTENT_WATERFALL_COMPARE,
+        INTENT_NOI_VARIANCE,
+        INTENT_LIST_APPROVALS,
+        INTENT_LIST_DOCUMENTS,
+        INTENT_SAVED_ANALYSES,
     )
     from app.mcp.auth import McpContext
 
@@ -936,6 +945,133 @@ async def _run_repe_fast_path(
             card = _build_nav_rollforward_card(result, scenario)
             yield _sse("structured_result", {"result_type": "nav_rollforward", "card": card})
             blocks = legacy_structured_result_to_blocks("nav_rollforward", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
+
+        elif family == INTENT_CAPITAL_CALL_WORKFLOW:
+            yield _sse("status", {"message": "Loading capital calls...", "stage": "compute", "progress": 0.3})
+            tool_params: dict[str, Any] = {"env_id": scenario.env_id, "business_id": scenario.business_id}
+            if scenario.fund_id:
+                tool_params["fund_id"] = scenario.fund_id
+            result = await _exec_fast_tool(ctx, "finance.list_capital_calls", tool_params, tool_timeline, data_sources)
+            card = _build_capital_calls_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "capital_calls", "card": card})
+            blocks = legacy_structured_result_to_blocks("capital_calls", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
+
+        elif family == INTENT_DISTRIBUTION_WORKFLOW:
+            yield _sse("status", {"message": "Loading distributions...", "stage": "compute", "progress": 0.3})
+            tool_params: dict[str, Any] = {"env_id": scenario.env_id, "business_id": scenario.business_id}
+            if scenario.fund_id:
+                tool_params["fund_id"] = scenario.fund_id
+            result = await _exec_fast_tool(ctx, "finance.list_distributions", tool_params, tool_timeline, data_sources)
+            card = _build_distributions_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "distributions", "card": card})
+            blocks = legacy_structured_result_to_blocks("distributions", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
+
+        elif family == INTENT_PERIOD_CLOSE:
+            yield _sse("status", {"message": "Loading period close status...", "stage": "compute", "progress": 0.3})
+            tool_params: dict[str, Any] = {"env_id": scenario.env_id, "business_id": scenario.business_id}
+            if scenario.fund_id:
+                tool_params["fund_id"] = scenario.fund_id
+            result = await _exec_fast_tool(ctx, "ops.period_close_status", tool_params, tool_timeline, data_sources)
+            card = _build_period_close_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "period_close", "card": card})
+            blocks = legacy_structured_result_to_blocks("period_close", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
+
+        elif family == INTENT_FEE_SCHEDULE:
+            yield _sse("status", {"message": "Loading fee schedule...", "stage": "compute", "progress": 0.3})
+            tool_params: dict[str, Any] = {"env_id": scenario.env_id, "business_id": scenario.business_id}
+            if scenario.fund_id:
+                tool_params["fund_id"] = scenario.fund_id
+            result = await _exec_fast_tool(ctx, "ops.fee_schedule", tool_params, tool_timeline, data_sources)
+            card = _build_fee_schedule_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "fee_schedule", "card": card})
+            blocks = legacy_structured_result_to_blocks("fee_schedule", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
+
+        elif family == INTENT_WATERFALL_COMPARE:
+            yield _sse("status", {"message": "Comparing waterfall runs...", "stage": "compute", "progress": 0.3})
+            # This intent navigates to the waterfall comparison page
+            card = {
+                "title": "Waterfall Comparison",
+                "subtitle": "Select two waterfall runs to compare",
+                "metrics": [],
+                "actions": [
+                    {"label": "Open Comparison", "action": "navigate", "params": {"path": "waterfall-comparison"}},
+                ],
+            }
+            yield _sse("structured_result", {"result_type": "waterfall_compare", "card": card})
+            blocks = legacy_structured_result_to_blocks("waterfall_compare", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
+
+        elif family == INTENT_NOI_VARIANCE:
+            yield _sse("status", {"message": "Loading variance analysis...", "stage": "compute", "progress": 0.3})
+            tool_params: dict[str, Any] = {"env_id": scenario.env_id, "business_id": scenario.business_id}
+            if scenario.fund_id:
+                tool_params["fund_id"] = scenario.fund_id
+            q = intent.extracted_params.get("quarter") or scenario.quarter
+            if q:
+                tool_params["quarter"] = q
+            result = await _exec_fast_tool(ctx, "finance.noi_variance", tool_params, tool_timeline, data_sources)
+            card = _build_variance_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "noi_variance", "card": card})
+            blocks = legacy_structured_result_to_blocks("noi_variance", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
+
+        elif family == INTENT_LIST_APPROVALS:
+            yield _sse("status", {"message": "Loading approvals...", "stage": "compute", "progress": 0.3})
+            result = await _exec_fast_tool(
+                ctx, "platform.list_approvals",
+                {"env_id": scenario.env_id, "business_id": scenario.business_id},
+                tool_timeline, data_sources,
+            )
+            card = _build_approvals_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "approvals", "card": card})
+            blocks = legacy_structured_result_to_blocks("approvals", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
+
+        elif family == INTENT_LIST_DOCUMENTS:
+            yield _sse("status", {"message": "Loading documents...", "stage": "compute", "progress": 0.3})
+            result = await _exec_fast_tool(
+                ctx, "platform.list_documents",
+                {"env_id": scenario.env_id, "business_id": scenario.business_id},
+                tool_timeline, data_sources,
+            )
+            card = _build_documents_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "documents", "card": card})
+            blocks = legacy_structured_result_to_blocks("documents", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
+
+        elif family == INTENT_SAVED_ANALYSES:
+            yield _sse("status", {"message": "Loading saved analyses...", "stage": "compute", "progress": 0.3})
+            result = await _exec_fast_tool(
+                ctx, "platform.list_saved_analyses",
+                {"env_id": scenario.env_id, "business_id": scenario.business_id},
+                tool_timeline, data_sources,
+            )
+            card = _build_saved_analyses_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "saved_analyses", "card": card})
+            blocks = legacy_structured_result_to_blocks("saved_analyses", card)
             response_blocks.extend(blocks)
             for block in blocks:
                 yield _sse("response_block", {"block": block})
@@ -1806,6 +1942,255 @@ def _build_session_waterfall_card(session_state) -> dict:
             }
             for item in runs
         ],
+    }
+
+
+def _build_capital_calls_card(result: dict, scenario) -> dict:
+    """Build card for capital call list."""
+    calls = result.get("capital_calls", [])
+    total_requested = sum(float(c.get("amount_requested") or 0) for c in calls)
+    total_contributed = sum(float(c.get("total_contributed") or 0) for c in calls)
+    return {
+        "title": "Capital Calls",
+        "subtitle": f"{len(calls)} calls found",
+        "metrics": [
+            {"label": "Total Calls", "value": str(len(calls)), "delta": None},
+            {"label": "Total Requested", "value": _fmt_dollar(total_requested), "delta": None},
+            {"label": "Total Contributed", "value": _fmt_dollar(total_contributed), "delta": None},
+        ],
+        "table": {
+            "columns": ["Call #", "Fund", "Call Date", "Due Date", "Requested", "Contributed", "Status"],
+            "rows": [
+                [
+                    c.get("call_number", "—"),
+                    c.get("fund_name", "—"),
+                    c.get("call_date", "—"),
+                    c.get("due_date", "—"),
+                    _fmt_dollar(c.get("amount_requested")),
+                    _fmt_dollar(c.get("total_contributed")),
+                    c.get("status", "—"),
+                ]
+                for c in calls[:20]
+            ],
+        },
+        "actions": [
+            {"label": "View All Capital Calls", "action": "view_capital_calls", "params": {}},
+            {"label": "Create Follow-Up Task", "action": "create_task", "params": {"context_type": "capital_calls", "fund_id": scenario.fund_id, "quarter": scenario.quarter}},
+        ],
+    }
+
+
+def _build_distributions_card(result: dict, scenario) -> dict:
+    """Build card for distribution list."""
+    events = result.get("distributions", [])
+    total_amount = sum(float(e.get("total_amount") or 0) for e in events)
+    return {
+        "title": "Distribution Events",
+        "subtitle": f"{len(events)} events found",
+        "metrics": [
+            {"label": "Total Events", "value": str(len(events)), "delta": None},
+            {"label": "Total Distributed", "value": _fmt_dollar(total_amount), "delta": None},
+        ],
+        "table": {
+            "columns": ["Type", "Fund", "Effective Date", "Amount", "Payouts", "Status"],
+            "rows": [
+                [
+                    (e.get("event_type") or "—").replace("_", " ").title(),
+                    e.get("fund_name", "—"),
+                    e.get("effective_date", "—"),
+                    _fmt_dollar(e.get("total_amount")),
+                    str(e.get("payout_count", 0)),
+                    e.get("status", "—"),
+                ]
+                for e in events[:20]
+            ],
+        },
+        "actions": [
+            {"label": "View All Distributions", "action": "view_distributions", "params": {}},
+            {"label": "Create Follow-Up Task", "action": "create_task", "params": {"context_type": "distributions", "fund_id": scenario.fund_id, "quarter": scenario.quarter}},
+        ],
+    }
+
+
+def _build_period_close_card(result: dict, scenario) -> dict:
+    """Build card for period close status."""
+    runs = result.get("runs", [])
+    completed = [r for r in runs if r.get("status") == "completed"]
+    return {
+        "title": "Period Close Status",
+        "subtitle": f"{len(runs)} close runs",
+        "metrics": [
+            {"label": "Total Runs", "value": str(len(runs)), "delta": None},
+            {"label": "Completed", "value": str(len(completed)), "delta": None},
+        ],
+        "table": {
+            "columns": ["Fund", "Quarter", "Status", "Triggered By", "Started", "Completed"],
+            "rows": [
+                [
+                    r.get("fund_name", "—"),
+                    r.get("quarter", "—"),
+                    r.get("status", "—"),
+                    r.get("triggered_by", "—"),
+                    (r.get("started_at") or "—")[:19],
+                    (r.get("completed_at") or "—")[:19],
+                ]
+                for r in runs[:20]
+            ],
+        },
+        "actions": [
+            {"label": "View Period Close", "action": "view_period_close", "params": {}},
+            {"label": "Create Follow-Up Task", "action": "create_task", "params": {"context_type": "period_close", "fund_id": scenario.fund_id, "quarter": scenario.quarter}},
+        ],
+    }
+
+
+def _build_fee_schedule_card(result: dict, scenario) -> dict:
+    """Build card for fee schedule."""
+    policies = result.get("policies", [])
+    accruals = result.get("accruals", [])
+    total_accrued = sum(float(a.get("accrued_amount") or 0) for a in accruals)
+    return {
+        "title": "Fee Schedule",
+        "subtitle": f"{len(policies)} policies",
+        "metrics": [
+            {"label": "Policies", "value": str(len(policies)), "delta": None},
+            {"label": "Total Accrued", "value": _fmt_dollar(total_accrued), "delta": None},
+        ],
+        "table": {
+            "columns": ["Fund", "Fee Basis", "Annual Rate", "Start Date", "Stepdown Date", "Stepdown Rate"],
+            "rows": [
+                [
+                    p.get("fund_name", "—"),
+                    (p.get("fee_basis") or "—").replace("_", " ").title(),
+                    _fmt_pct(p.get("annual_rate")),
+                    p.get("start_date", "—"),
+                    p.get("stepdown_date", "—"),
+                    _fmt_pct(p.get("stepdown_rate")),
+                ]
+                for p in policies[:20]
+            ],
+        },
+        "actions": [
+            {"label": "Create Follow-Up Task", "action": "create_task", "params": {"context_type": "fees", "fund_id": scenario.fund_id, "quarter": scenario.quarter}},
+        ],
+    }
+
+
+def _build_variance_card(result: dict, scenario) -> dict:
+    """Build card for NOI variance analysis."""
+    items = result.get("variance_items", [])
+    summary = result.get("summary", {})
+    return {
+        "title": "Budget vs Actual Variance",
+        "subtitle": f"{len(items)} line items",
+        "metrics": [
+            {"label": "Total Actual", "value": _fmt_dollar(summary.get("total_actual")), "delta": None},
+            {"label": "Total Plan", "value": _fmt_dollar(summary.get("total_plan")), "delta": None},
+            {"label": "Total Variance", "value": _fmt_dollar(summary.get("total_variance")), "delta": {
+                "value": _fmt_pct(summary.get("avg_variance_pct")),
+                "direction": "positive" if float(summary.get("avg_variance_pct") or 0) >= 0 else "negative",
+            } if summary.get("avg_variance_pct") else None},
+        ],
+        "table": {
+            "columns": ["Asset", "Line Code", "Actual", "Plan", "Variance $", "Variance %"],
+            "rows": [
+                [
+                    i.get("asset_name", "—"),
+                    i.get("line_code", "—"),
+                    _fmt_dollar(i.get("actual_amount")),
+                    _fmt_dollar(i.get("plan_amount")),
+                    _fmt_dollar(i.get("variance_amount")),
+                    _fmt_pct(i.get("variance_pct")),
+                ]
+                for i in items[:30]
+            ],
+        },
+        "actions": [
+            {"label": "View Variance Dashboard", "action": "view_variance", "params": {}},
+            {"label": "Create Follow-Up Task", "action": "create_task", "params": {"context_type": "variance", "fund_id": scenario.fund_id, "quarter": scenario.quarter}},
+        ],
+    }
+
+
+def _build_approvals_card(result: dict, scenario) -> dict:
+    """Build card for approvals list."""
+    approvals = result.get("approvals", [])
+    pending = [a for a in approvals if a.get("status") == "pending"]
+    return {
+        "title": "Approval Queue",
+        "subtitle": f"{len(pending)} pending approvals",
+        "metrics": [
+            {"label": "Total", "value": str(len(approvals)), "delta": None},
+            {"label": "Pending", "value": str(len(pending)), "delta": None},
+        ],
+        "table": {
+            "columns": ["Step", "Workflow", "Entity", "Actor", "Status", "Due Date"],
+            "rows": [
+                [
+                    a.get("step_label", "—"),
+                    a.get("workflow_name", "—"),
+                    a.get("entity_type", "—"),
+                    a.get("actor", "—"),
+                    a.get("status", "—"),
+                    (a.get("due_date") or "—")[:10],
+                ]
+                for a in approvals[:20]
+            ],
+        },
+        "actions": [],
+    }
+
+
+def _build_documents_card(result: dict, scenario) -> dict:
+    """Build card for documents list."""
+    docs = result.get("documents", [])
+    return {
+        "title": "Document Library",
+        "subtitle": f"{len(docs)} documents",
+        "metrics": [
+            {"label": "Documents", "value": str(len(docs)), "delta": None},
+        ],
+        "table": {
+            "columns": ["Title", "Classification", "Domain", "Status", "Updated"],
+            "rows": [
+                [
+                    d.get("title", "—"),
+                    (d.get("classification") or "—").replace("_", " ").title(),
+                    (d.get("domain") or "—").title(),
+                    d.get("status", "—"),
+                    (d.get("updated_at") or "—")[:10],
+                ]
+                for d in docs[:20]
+            ],
+        },
+        "actions": [
+            {"label": "View Document Library", "action": "view_documents", "params": {}},
+        ],
+    }
+
+
+def _build_saved_analyses_card(result: dict, scenario) -> dict:
+    """Build card for saved analyses list."""
+    analyses = result.get("analyses", [])
+    return {
+        "title": "Saved Analyses",
+        "subtitle": f"{len(analyses)} saved analyses",
+        "metrics": [
+            {"label": "Total", "value": str(len(analyses)), "delta": None},
+        ],
+        "table": {
+            "columns": ["Title", "Source Prompt", "Created By", "Created"],
+            "rows": [
+                [
+                    a.get("title", "—"),
+                    (a.get("nl_prompt") or "—")[:60],
+                    a.get("created_by", "—"),
+                    (a.get("created_at") or "—")[:10],
+                ]
+                for a in analyses[:20]
+            ],
+        },
+        "actions": [],
     }
 
 

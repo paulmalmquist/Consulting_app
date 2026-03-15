@@ -844,6 +844,76 @@ export default function GlobalCommandBar() {
                       // CSV export is handled by StructuredResultCard directly
                       return;
                     }
+                    if (action.action === "view_investor") {
+                      const envId = context.currentEnvId;
+                      if (envId && p.partner_id) {
+                        window.open(`/lab/env/${envId}/re/investors/${p.partner_id}`, "_blank");
+                      }
+                      return;
+                    }
+                    if (action.action === "view_capital_calls") {
+                      const envId = context.currentEnvId;
+                      if (envId) {
+                        window.open(`/lab/env/${envId}/re/capital-calls`, "_blank");
+                      }
+                      return;
+                    }
+                    if (action.action === "view_distributions") {
+                      const envId = context.currentEnvId;
+                      if (envId) {
+                        window.open(`/lab/env/${envId}/re/distributions`, "_blank");
+                      }
+                      return;
+                    }
+                    if (action.action === "view_period_close") {
+                      const envId = context.currentEnvId;
+                      if (envId) {
+                        window.open(`/lab/env/${envId}/re/period-close`, "_blank");
+                      }
+                      return;
+                    }
+                    if (action.action === "view_variance") {
+                      const envId = context.currentEnvId;
+                      if (envId) {
+                        window.open(`/lab/env/${envId}/re/variance`, "_blank");
+                      }
+                      return;
+                    }
+                    if (action.action === "view_documents") {
+                      const envId = context.currentEnvId;
+                      if (envId) {
+                        window.open(`/lab/env/${envId}/re/documents`, "_blank");
+                      }
+                      return;
+                    }
+                    if (action.action === "save_analysis") {
+                      const envId = context.currentEnvId;
+                      const title = p.title || "Untitled Analysis";
+                      const description = p.description || "";
+                      const nlPrompt = p.nl_prompt || "";
+                      if (envId) {
+                        void fetch("/api/re/v2/saved-analyses", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            title,
+                            description,
+                            nl_prompt: nlPrompt,
+                            env_id: envId,
+                            business_id: p.business_id || "",
+                          }),
+                        });
+                      }
+                      return;
+                    }
+                    if (action.action === "download_statement") {
+                      const envId = context.currentEnvId;
+                      if (envId && p.partner_id) {
+                        const url = `/api/re/v2/investors/${p.partner_id}/statement?env_id=${envId}&format=html${p.fund_id ? `&fund_id=${p.fund_id}` : ""}${p.quarter ? `&quarter=${p.quarter}` : ""}`;
+                        window.open(url, "_blank");
+                      }
+                      return;
+                    }
                     const prompt = `${action.label} for fund ${p.fund_id || "this fund"}`;
                     void onSend(prompt);
                   }}

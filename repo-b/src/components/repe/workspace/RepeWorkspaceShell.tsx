@@ -599,12 +599,21 @@ export default function RepeWorkspaceShell({
     { href: `${base}/deals`,               label: "Investments",    isBase: false },
     { href: `${base}/assets`,              label: "Assets",         isBase: false },
     { href: `${base}/investors`,           label: "Investors",      isBase: false },
+    { href: `${base}/capital-calls`,       label: "Capital Calls",  isBase: false },
+    { href: `${base}/distributions`,       label: "Distributions",  isBase: false },
     { href: `${base}/pipeline`,            label: "Pipeline",       isBase: false },
     ...(showIntelligence
       ? [{ href: `${base}/intelligence`,   label: "Intelligence",   isBase: false }]
       : []),
+    { href: `${base}/fees`,                label: "Fees",           isBase: false },
+    { href: `${base}/period-close`,        label: "Period Close",   isBase: false },
+    { href: `${base}/variance`,            label: "Variance",       isBase: false },
+    { href: `${base}/waterfall-comparison`, label: "Waterfall Comp", isBase: false },
     { href: `${base}/models`,              label: "Models",         isBase: false },
     { href: `${base}/dashboards`,           label: "Dashboards",     isBase: false },
+    { href: `${base}/documents`,           label: "Documents",      isBase: false },
+    { href: `${base}/approvals`,           label: "Approvals",      isBase: false },
+    { href: `${base}/saved-analyses`,      label: "Saved Analyses", isBase: false },
     { href: `${base}/reports`,             label: "Reports",        isBase: false },
     ...(showSustainability
       ? [{ href: `${base}/sustainability`, label: "Sustainability",  isBase: false }]

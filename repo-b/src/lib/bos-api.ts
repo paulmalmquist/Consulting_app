@@ -5719,6 +5719,154 @@ export function getInvestorCapitalActivity(partnerId: string, params?: {
   });
 }
 
+// ── Capital Calls ──────────────────────────────────────────────────────────
+
+export function listCapitalCalls(params: {
+  env_id: string;
+  business_id?: string;
+  fund_id?: string;
+  status?: string;
+}): Promise<{ capital_calls: Record<string, unknown>[] }> {
+  return directFetch("/api/re/v2/capital-calls", { params });
+}
+
+export function getCapitalCall(callId: string): Promise<Record<string, unknown>> {
+  return directFetch(`/api/re/v2/capital-calls/${callId}`);
+}
+
+// ── Distributions ──────────────────────────────────────────────────────────
+
+export function listDistributions(params: {
+  env_id: string;
+  business_id?: string;
+  fund_id?: string;
+  status?: string;
+  event_type?: string;
+}): Promise<{ distributions: Record<string, unknown>[] }> {
+  return directFetch("/api/re/v2/distributions", { params });
+}
+
+export function getDistribution(eventId: string): Promise<Record<string, unknown>> {
+  return directFetch(`/api/re/v2/distributions/${eventId}`);
+}
+
+// ── Period Close ───────────────────────────────────────────────────────────
+
+export function listPeriodCloseRuns(params: {
+  env_id: string;
+  business_id?: string;
+  fund_id?: string;
+  quarter?: string;
+}): Promise<{ runs: Record<string, unknown>[] }> {
+  return directFetch("/api/re/v2/period-close", { params });
+}
+
+export function getPeriodCloseDetail(fundId: string, params: {
+  env_id: string;
+}): Promise<Record<string, unknown>> {
+  return directFetch(`/api/re/v2/period-close/${fundId}`, { params });
+}
+
+// ── Fees ───────────────────────────────────────────────────────────────────
+
+export function listFees(params: {
+  env_id: string;
+  business_id?: string;
+  fund_id?: string;
+}): Promise<{ policies: Record<string, unknown>[]; accruals: Record<string, unknown>[] }> {
+  return directFetch("/api/re/v2/fees", { params });
+}
+
+export function getFundFees(fundId: string, params: {
+  env_id: string;
+}): Promise<Record<string, unknown>> {
+  return directFetch(`/api/re/v2/fees/${fundId}`, { params });
+}
+
+// ── Variance ───────────────────────────────────────────────────────────────
+
+export function listVariance(params: {
+  env_id: string;
+  business_id?: string;
+  fund_id?: string;
+  quarter?: string;
+  asset_id?: string;
+}): Promise<{ variance_items: Record<string, unknown>[]; summary: Record<string, unknown> }> {
+  return directFetch("/api/re/v2/variance", { params });
+}
+
+// ── Waterfall Comparison ───────────────────────────────────────────────────
+
+export function listWaterfallRuns(params: {
+  env_id: string;
+  fund_id?: string;
+}): Promise<{ runs: Record<string, unknown>[] }> {
+  return directFetch("/api/re/v2/waterfall-runs", { params });
+}
+
+export function compareWaterfallRuns(params: {
+  run_id_a: string;
+  run_id_b: string;
+  env_id: string;
+}): Promise<Record<string, unknown>> {
+  return directFetch("/api/re/v2/waterfall-comparison", { params });
+}
+
+// ── Approvals ──────────────────────────────────────────────────────────────
+
+export function listApprovals(params: {
+  env_id: string;
+  business_id?: string;
+  status?: string;
+}): Promise<{ approvals: Record<string, unknown>[] }> {
+  return directFetch("/api/re/v2/approvals", { params });
+}
+
+// ── Saved Analyses ─────────────────────────────────────────────────────────
+
+export function listSavedAnalyses(params: {
+  env_id: string;
+  business_id?: string;
+}): Promise<{ analyses: Record<string, unknown>[] }> {
+  return directFetch("/api/re/v2/saved-analyses", { params });
+}
+
+export function getSavedAnalysis(queryId: string): Promise<Record<string, unknown>> {
+  return directFetch(`/api/re/v2/saved-analyses/${queryId}`);
+}
+
+// ── Documents ──────────────────────────────────────────────────────────────
+
+export function listDocuments(params: {
+  env_id: string;
+  business_id?: string;
+  classification?: string;
+  domain?: string;
+  status?: string;
+}): Promise<{ documents: Record<string, unknown>[] }> {
+  return directFetch("/api/re/v2/documents", { params });
+}
+
+export function getDocument(docId: string): Promise<Record<string, unknown>> {
+  return directFetch(`/api/re/v2/documents/${docId}`);
+}
+
+// ── Investor Statements ────────────────────────────────────────────────────
+
+export function getInvestorStatementHtml(partnerId: string, params: {
+  env_id: string;
+  fund_id?: string;
+  quarter?: string;
+}): Promise<string> {
+  const qs = new URLSearchParams();
+  qs.set("env_id", params.env_id);
+  qs.set("format", "html");
+  if (params.fund_id) qs.set("fund_id", params.fund_id);
+  if (params.quarter) qs.set("quarter", params.quarter);
+  return fetch(`/api/re/v2/investors/${partnerId}/statement?${qs.toString()}`)
+    .then(r => r.text());
+}
+
 // ── Amortization ────────────────────────────────────────────────────────────
 
 export type AmortizationRow = {

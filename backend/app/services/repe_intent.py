@@ -39,6 +39,15 @@ INTENT_GENERATE_DASHBOARD = "generate_dashboard"
 INTENT_LIST_INVESTORS = "list_investors"
 INTENT_LIST_CAPITAL_ACTIVITY = "list_capital_activity"
 INTENT_NAV_ROLLFORWARD = "nav_rollforward"
+INTENT_CAPITAL_CALL_WORKFLOW = "capital_call_workflow"
+INTENT_DISTRIBUTION_WORKFLOW = "distribution_workflow"
+INTENT_PERIOD_CLOSE = "period_close"
+INTENT_FEE_SCHEDULE = "fee_schedule"
+INTENT_WATERFALL_COMPARE = "waterfall_compare"
+INTENT_NOI_VARIANCE = "noi_variance"
+INTENT_LIST_APPROVALS = "list_approvals"
+INTENT_LIST_DOCUMENTS = "list_documents"
+INTENT_SAVED_ANALYSES = "saved_analyses"
 
 # ── Analytics portal intent families ────────────────────────────────────────
 INTENT_ANALYTICS_QUERY = "analytics_query"
@@ -214,6 +223,69 @@ _NAV_ROLLFORWARD_RE = re.compile(
     r"what\s+(?:drove|changed|explains?|caused)\s+(?:the\s+)?nav|"
     r"nav\s+(?:over|across|between|from)\s+(?:the\s+)?(?:quarter|period)|"
     r"why\s+did\s+nav\s+(?:change|increase|decrease|drop|go\s+up|go\s+down))\b",
+    re.IGNORECASE,
+)
+
+# ── Phase 2 fund operations patterns ──────────────────────────────────────
+_CAPITAL_CALL_WORKFLOW_RE = re.compile(
+    r"\b((?:list|show|view)\s+(?:the\s+)?(?:capital\s+)?calls?|"
+    r"capital\s+call\s+(?:status|history|list|log|tracker|pipeline)|"
+    r"(?:pending|outstanding|open)\s+capital\s+calls?|"
+    r"contribution\s+(?:status|tracking|tracker))\b",
+    re.IGNORECASE,
+)
+_DISTRIBUTION_WORKFLOW_RE = re.compile(
+    r"\b((?:list|show|view)\s+(?:the\s+)?distributions?(?:\s+events?)?|"
+    r"distribution\s+(?:history|log|tracker|pipeline|status)|"
+    r"(?:pending|recent|latest)\s+distribution|"
+    r"(?:payout|payouts?)\s+(?:status|history|tracker|breakdown))\b",
+    re.IGNORECASE,
+)
+_PERIOD_CLOSE_RE = re.compile(
+    r"\b(period\s+close|quarter[\s-]?close|close\s+(?:the\s+)?(?:quarter|period|books?)|"
+    r"quarter[\s-]?end\s+(?:close|process|status)|"
+    r"closing\s+(?:the\s+)?(?:quarter|books?)|close\s+status)\b",
+    re.IGNORECASE,
+)
+_FEE_SCHEDULE_RE = re.compile(
+    r"\b(fee\s+(?:schedule|policy|policies|accrual|structure|computation)|"
+    r"management\s+fee|"
+    r"(?:show|compute|calculate|list)\s+(?:the\s+)?(?:management\s+)?fees?|"
+    r"fee\s+(?:basis|rate|calculation))\b",
+    re.IGNORECASE,
+)
+_WATERFALL_COMPARE_RE = re.compile(
+    r"\b(compare\s+(?:the\s+)?waterfall|waterfall\s+comparison|"
+    r"side[\s-]?by[\s-]?side\s+waterfall|"
+    r"diff(?:erence)?\s+(?:between|in)\s+waterfall|"
+    r"waterfall\s+(?:delta|diff|versus|vs))\b",
+    re.IGNORECASE,
+)
+_NOI_VARIANCE_RE = re.compile(
+    r"\b((?:noi|budget)\s+variance|budget\s*vs\.?\s*actual|actual\s*vs\.?\s*(?:budget|plan)|"
+    r"variance\s+(?:report|analysis|dashboard|summary)|"
+    r"(?:show|get)\s+(?:the\s+)?variance|"
+    r"how.*(?:tracking|performing).*(?:budget|plan|underwriting))\b",
+    re.IGNORECASE,
+)
+_LIST_APPROVALS_RE = re.compile(
+    r"\b((?:list|show|view|pending)\s+(?:the\s+)?approvals?|"
+    r"approval\s+(?:status|queue|dashboard|requests?)|"
+    r"(?:what\s+needs?|items?\s+(?:needing|awaiting))\s+approval|"
+    r"pending\s+(?:approval|review)s?)\b",
+    re.IGNORECASE,
+)
+_LIST_DOCUMENTS_RE = re.compile(
+    r"\b((?:list|show|view|find)\s+(?:the\s+)?(?:side\s+letters?|subscription\s+(?:docs?|agreements?)|documents?)|"
+    r"document\s+(?:library|list|catalog|index)|"
+    r"(?:side\s+letters?|subscription\s+(?:docs?|agreements?))\s+(?:for|on)|"
+    r"investor\s+(?:docs?|documents?|agreements?))\b",
+    re.IGNORECASE,
+)
+_SAVED_ANALYSES_RE = re.compile(
+    r"\b((?:list|show|view|my)\s+(?:saved\s+)?(?:analyses|analysis|queries)|"
+    r"saved\s+(?:analysis|analyses|queries|reports?)|"
+    r"(?:analysis|query)\s+(?:library|history|collection))\b",
     re.IGNORECASE,
 )
 
@@ -471,6 +543,70 @@ def classify_repe_intent(
         nav_rf_score += 0.05
     scores[INTENT_NAV_ROLLFORWARD] = min(nav_rf_score, 1.0)
 
+    # ── Capital call workflow ──────────────────────────────────────────
+    ccw_score = 0.0
+    if _CAPITAL_CALL_WORKFLOW_RE.search(msg):
+        ccw_score += 0.90
+    # Suppress if capital call IMPACT is higher (what-if vs. list)
+    if scores.get(INTENT_CAPITAL_CALL_IMPACT, 0) > 0.6 and ccw_score > 0:
+        ccw_score *= 0.3
+    scores[INTENT_CAPITAL_CALL_WORKFLOW] = min(ccw_score, 1.0)
+
+    # ── Distribution workflow ─────────────────────────────────────────
+    dw_score = 0.0
+    if _DISTRIBUTION_WORKFLOW_RE.search(msg):
+        dw_score += 0.90
+    # Suppress if waterfall intent is stronger (waterfall ≠ distribution list)
+    if scores.get(INTENT_RUN_WATERFALL, 0) > 0.6 and dw_score > 0:
+        dw_score *= 0.3
+    scores[INTENT_DISTRIBUTION_WORKFLOW] = min(dw_score, 1.0)
+
+    # ── Period close ──────────────────────────────────────────────────
+    pc_score = 0.0
+    if _PERIOD_CLOSE_RE.search(msg):
+        pc_score += 0.90
+    scores[INTENT_PERIOD_CLOSE] = min(pc_score, 1.0)
+
+    # ── Fee schedule ──────────────────────────────────────────────────
+    fee_score = 0.0
+    if _FEE_SCHEDULE_RE.search(msg):
+        fee_score += 0.90
+    scores[INTENT_FEE_SCHEDULE] = min(fee_score, 1.0)
+
+    # ── Waterfall comparison ──────────────────────────────────────────
+    wfc_score = 0.0
+    if _WATERFALL_COMPARE_RE.search(msg):
+        wfc_score += 0.90
+    # Takes precedence over generic compare or waterfall
+    if wfc_score > 0.5:
+        scores[INTENT_COMPARE_SCENARIOS] *= 0.3
+        scores[INTENT_RUN_WATERFALL] *= 0.3
+    scores[INTENT_WATERFALL_COMPARE] = min(wfc_score, 1.0)
+
+    # ── NOI variance ──────────────────────────────────────────────────
+    var_score = 0.0
+    if _NOI_VARIANCE_RE.search(msg):
+        var_score += 0.90
+    scores[INTENT_NOI_VARIANCE] = min(var_score, 1.0)
+
+    # ── List approvals ────────────────────────────────────────────────
+    appr_score = 0.0
+    if _LIST_APPROVALS_RE.search(msg):
+        appr_score += 0.90
+    scores[INTENT_LIST_APPROVALS] = min(appr_score, 1.0)
+
+    # ── List documents ────────────────────────────────────────────────
+    doc_score = 0.0
+    if _LIST_DOCUMENTS_RE.search(msg):
+        doc_score += 0.90
+    scores[INTENT_LIST_DOCUMENTS] = min(doc_score, 1.0)
+
+    # ── Saved analyses ────────────────────────────────────────────────
+    sa_score = 0.0
+    if _SAVED_ANALYSES_RE.search(msg):
+        sa_score += 0.90
+    scores[INTENT_SAVED_ANALYSES] = min(sa_score, 1.0)
+
     # ── Generate dashboard ────────────────────────────────────────────
     dash_score = 0.0
     _has_chart_keywords = bool(_CHART_INTENT_RE.search(msg))
@@ -498,6 +634,10 @@ def classify_repe_intent(
         INTENT_RUN_SALE_SCENARIO, INTENT_RUN_WATERFALL, INTENT_FUND_METRICS,
         INTENT_GENERATE_DASHBOARD, INTENT_PIPELINE_RADAR,
         INTENT_LIST_INVESTORS, INTENT_LIST_CAPITAL_ACTIVITY, INTENT_NAV_ROLLFORWARD,
+        INTENT_CAPITAL_CALL_WORKFLOW, INTENT_DISTRIBUTION_WORKFLOW,
+        INTENT_PERIOD_CLOSE, INTENT_FEE_SCHEDULE, INTENT_WATERFALL_COMPARE,
+        INTENT_NOI_VARIANCE, INTENT_LIST_APPROVALS, INTENT_LIST_DOCUMENTS,
+        INTENT_SAVED_ANALYSES,
     )):
         aq_score *= 0.2
     scores[INTENT_ANALYTICS_QUERY] = min(aq_score, 1.0)
