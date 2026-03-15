@@ -1,17 +1,34 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, ChevronDown, GitBranch, Leaf } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, ChevronDown, GitBranch, Leaf, MoreHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
+import {
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  Legend,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { label as labelFn, PROPERTY_TYPE_LABELS } from "@/lib/labels";
-import { KpiStrip, type KpiDef } from "@/components/repe/asset-cockpit/KpiStrip";
 import { FundDeleteDialog } from "@/components/repe/FundDeleteDialog";
 import { MetricCard } from "@/components/ui/MetricCard";
-import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import {
+  AXIS_TICK_STYLE,
+  CHART_COLORS,
+  GRID_STYLE,
+  TOOLTIP_STYLE,
+  fmtCompact,
+} from "@/components/charts/chart-theme";
+import {
   deleteRepeFund,
+  exportFundExcelUrl,
   getRepeFund,
   listRepeDeals,
   listRepeAssets,
@@ -21,13 +38,11 @@ import {
   RepeDeal,
   ReV2Investment,
   getReV2FundQuarterState,
-  getReV2FundMetrics,
   getReV2FundLineage,
   getReV2FundInvestmentRollup,
   getReV2InvestmentAssets,
   listReV2Scenarios,
   ReV2FundQuarterState,
-  ReV2FundMetrics,
   ReV2Scenario,
   ReV2FundInvestmentRollupRow,
   ReV2EntityLineageResponse,
@@ -64,10 +79,21 @@ import SaleScenarioPanel from "@/components/repe/SaleScenarioPanel";
 import { AmortizationViewer } from "@/components/repe/AmortizationViewer";
 import { WaterfallTierTable } from "@/components/repe/WaterfallTierTable";
 import { LPBreakdown } from "@/components/repe/LPBreakdown";
-import { ExcelExportButton } from "@/components/repe/ExcelExportButton";
 import WaterfallScenarioPanel from "@/components/repe/WaterfallScenarioPanel";
 import { DebugFooter } from "@/components/repe/DebugFooter";
 import { EntityLineagePanel } from "@/components/repe/EntityLineagePanel";
+import {
+  buildExposureInsights,
+  buildFundHealthSummary,
+  buildPerformanceDrivers,
+  buildPortfolioTableRows,
+  mergeValueCreationSeries,
+  type ExposureDatum,
+  type FundHealthSummary,
+  type PerformanceDriver,
+  type PortfolioTableRow,
+  type ValueCreationPoint,
+} from "./overviewNarrative";
 
 function pickCurrentQuarter(): string {
   const d = new Date();
@@ -103,13 +129,6 @@ function fmtFlexiblePercent(v: string | number | null | undefined): string {
   return `${(normalized * 100).toFixed(1)}%`;
 }
 
-function fmtCoverage(v: string | number | null | undefined): string {
-  if (v === null || v === undefined) return "—";
-  const n = Number(v);
-  if (Number.isNaN(n)) return "—";
-  return `${n.toFixed(2)}x`;
-}
-
 const NOI_LINE_LABELS: Record<string, string> = {
   RENT: "Rental Income",
   OTHER_INCOME: "Other Income",
@@ -126,6 +145,256 @@ const NOI_LINE_LABELS: Record<string, string> = {
 
 function fmtLineCode(code: string): string {
   return NOI_LINE_LABELS[code] || code.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+type HeaderMetric = {
+  label: string;
+  value: string;
+};
+
+function NarrativeSectionHeading({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-2">
+      <div>
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-bm-muted2">{eyebrow}</p>
+        <h2 className="mt-1 text-lg font-semibold tracking-tight text-bm-text">{title}</h2>
+      </div>
+      {description ? <p className="max-w-2xl text-sm text-bm-muted2">{description}</p> : null}
+    </div>
+  );
+}
+
+function NarrativeEmptyState({
+  title,
+  detail,
+}: {
+  title: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-xl border border-dashed border-bm-border px-4 py-6 text-center">
+      <p className="text-sm text-bm-muted2">{title}</p>
+      <p className="mt-1 text-xs text-bm-muted2">{detail}</p>
+    </div>
+  );
+}
+
+function KpiGroupCard({
+  title,
+  metrics,
+  testId,
+}: {
+  title: string;
+  metrics: HeaderMetric[];
+  testId: string;
+}) {
+  return (
+    <div
+      className="rounded-xl border border-bm-border/60 bg-bm-surface/25 p-4 shadow-[0_16px_34px_-26px_rgba(15,23,42,0.52)]"
+      data-testid={testId}
+    >
+      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-bm-muted2">{title}</p>
+      <dl className="mt-4 space-y-3">
+        {metrics.map((metric) => (
+          <div
+            key={metric.label}
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4 border-b border-bm-border/20 pb-3 last:border-b-0 last:pb-0"
+          >
+            <dt className="text-sm text-bm-muted">{metric.label}</dt>
+            <dd className="text-right font-display text-xl font-semibold leading-none tracking-tight text-bm-text tabular-nums">
+              {metric.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+function FundValueCreationCard({ data }: { data: ValueCreationPoint[] }) {
+  return (
+    <div
+      className="rounded-[22px] border border-bm-border/70 bg-bm-surface/20 p-5 shadow-[0_18px_42px_-30px_rgba(15,23,42,0.55)]"
+      data-testid="fund-value-creation"
+    >
+      <NarrativeSectionHeading
+        eyebrow="Value Creation"
+        title="Fund Value Creation"
+        description="Tracks deployed capital against realized and unrealized value so the fund's progress reads at a glance."
+      />
+      <div className="mt-5 h-[320px]">
+        {data.length > 0 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={data} margin={{ top: 12, right: 16, left: 0, bottom: 0 }}>
+              <CartesianGrid vertical={false} {...GRID_STYLE} />
+              <XAxis
+                dataKey="quarter"
+                tick={AXIS_TICK_STYLE}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={AXIS_TICK_STYLE}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(value: number) => fmtCompact(value)}
+                width={70}
+              />
+              <Tooltip
+                contentStyle={TOOLTIP_STYLE}
+                formatter={(value: number, name: string) => [fmtCompact(value), name]}
+                labelStyle={{ color: "hsl(210, 24%, 94%)", fontWeight: 600 }}
+              />
+              <Legend wrapperStyle={{ fontSize: 11, color: "hsl(215, 12%, 72%)" }} />
+              <Bar
+                dataKey="distributions"
+                name="Realized Value"
+                stackId="value"
+                fill={CHART_COLORS.noi}
+                radius={[4, 4, 0, 0]}
+                maxBarSize={42}
+              />
+              <Bar
+                dataKey="nav"
+                name="Unrealized Value"
+                stackId="value"
+                fill={CHART_COLORS.revenue}
+                radius={[4, 4, 0, 0]}
+                maxBarSize={42}
+              />
+              <Line
+                type="monotone"
+                dataKey="calledCapital"
+                name="Called Capital"
+                stroke={CHART_COLORS.scenario[0]}
+                strokeWidth={2.5}
+                dot={{ r: 2, fill: CHART_COLORS.scenario[0] }}
+                activeDot={{ r: 4 }}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        ) : (
+          <NarrativeEmptyState
+            title="Value-creation history will appear after quarter-close data is available."
+            detail="The chart combines cumulative called capital, realized distributions, and NAV by quarter."
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function HorizontalInsightBar({
+  label,
+  valueLabel,
+  pct,
+  color,
+}: {
+  label: string;
+  valueLabel: string;
+  pct: number;
+  color: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="truncate text-bm-text">{label}</span>
+        <span className="shrink-0 font-medium tabular-nums text-bm-muted">{valueLabel}</span>
+      </div>
+      <div className="h-2.5 overflow-hidden rounded-full bg-bm-surface/40">
+        <div className="h-full rounded-full" style={{ width: `${Math.min(Math.max(pct, 3), 100)}%`, backgroundColor: color }} />
+      </div>
+    </div>
+  );
+}
+
+function PerformanceDriversCard({ drivers }: { drivers: PerformanceDriver[] }) {
+  return (
+    <div
+      className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.5)]"
+      data-testid="performance-drivers"
+    >
+      <NarrativeSectionHeading
+        eyebrow="Drivers"
+        title="Performance Drivers"
+        description="Investment-level attribution highlights where current fund NAV is being built."
+      />
+      <div className="mt-4">
+        {drivers.length > 0 ? (
+          <div className="space-y-4">
+            {drivers.map((driver) => (
+              <div key={driver.investmentId} className="space-y-2">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-sm font-medium text-bm-text">{driver.investmentName}</p>
+                  <div className="flex items-center gap-4 text-xs tabular-nums text-bm-muted">
+                    <span>IRR: {driver.irr != null ? fmtPercent(driver.irr) : "—"}</span>
+                    <span>NAV Contribution: {driver.navContributionPct.toFixed(1)}%</span>
+                  </div>
+                </div>
+                <HorizontalInsightBar
+                  label="Relative contribution"
+                  valueLabel={fmtMoney(driver.navContributionValue)}
+                  pct={driver.barPct}
+                  color={CHART_COLORS.noi}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <NarrativeEmptyState
+            title="Contribution data populates after capital calls and quarter-close runs."
+            detail="This panel stays investment-level to avoid overstating asset-level attribution precision."
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ExposureCard({
+  title,
+  rows,
+  emptyLabel,
+  color,
+}: {
+  title: string;
+  rows: ExposureDatum[];
+  emptyLabel: string;
+  color: string;
+}) {
+  return (
+    <div className="rounded-xl border border-bm-border/60 bg-bm-surface/15 p-4">
+      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-bm-muted2">{title}</p>
+      <div className="mt-4">
+        {rows.length > 0 ? (
+          <div className="space-y-3">
+            {rows.map((row) => (
+              <HorizontalInsightBar
+                key={row.label}
+                label={row.label}
+                valueLabel={`${row.pct.toFixed(1)}% • ${fmtMoney(row.value)}`}
+                pct={row.pct}
+                color={color}
+              />
+            ))}
+          </div>
+        ) : (
+          <NarrativeEmptyState
+            title={emptyLabel}
+            detail="Exposure weights are based on current fund NAV contribution, falling back to current value when needed."
+          />
+        )}
+      </div>
+    </div>
+  );
 }
 
 const TABS = [
@@ -150,36 +419,32 @@ export default function FundDetailPage({
   const [investments, setInvestments] = useState<ReV2Investment[]>([]);
   const [investmentRollup, setInvestmentRollup] = useState<ReV2FundInvestmentRollupRow[]>([]);
   const [fundState, setFundState] = useState<ReV2FundQuarterState | null>(null);
-  const [fundMetrics, setFundMetrics] = useState<ReV2FundMetrics | null>(null);
   const [scenarios, setScenarios] = useState<ReV2Scenario[]>([]);
   const [lineage, setLineage] = useState<ReV2EntityLineageResponse | null>(null);
   const [lineageOpen, setLineageOpen] = useState(false);
   const [lineageLoading, setLineageLoading] = useState(false);
   const [lineageError, setLineageError] = useState<string | null>(null);
-  const [exportOpen, setExportOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingFund, setDeletingFund] = useState(false);
   const [covenantAlerts, setCovenantAlerts] = useState<FiWatchlistEvent[]>([]);
   const [lastCloseQuarter, setLastCloseQuarter] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
   const quarter = pickCurrentQuarter();
-
-  const isDebtFund = detail?.fund?.strategy === "debt";
 
   const refreshCanonical = useCallback(async () => {
     setLineageLoading(true);
     setLineageError(null);
     try {
-      const [fs, fm, sc, rollup, lineageData] = await Promise.all([
+      const [fs, sc, rollup, lineageData] = await Promise.all([
         getReV2FundQuarterState(params.fundId, quarter).catch(() => null),
-        getReV2FundMetrics(params.fundId, quarter).catch(() => null),
         listReV2Scenarios(params.fundId).catch(() => []),
         getReV2FundInvestmentRollup(params.fundId, quarter).catch(() => []),
         getReV2FundLineage(params.fundId, quarter).catch(() => null),
       ]);
       setFundState(fs);
-      setFundMetrics(fm);
       setScenarios(sc);
       setInvestmentRollup(rollup);
       setLineage(lineageData);
@@ -256,10 +521,12 @@ export default function FundDetailPage({
   const latestTerms = terms[0];
   const investmentCount = investmentRollup.length || investments.length || deals.length;
   const assetCount = investmentRollup.reduce((sum, row) => sum + Number(row.asset_count || 0), 0);
-  const headerKpis: KpiDef[] = [
+  const capitalMetrics: HeaderMetric[] = [
     { label: "Committed", value: fmtMoney(fundState?.total_committed) },
     { label: "Called", value: fmtMoney(fundState?.total_called) },
     { label: "Distributed", value: fmtMoney(fundState?.total_distributed) },
+  ];
+  const performanceMetrics: HeaderMetric[] = [
     { label: "NAV", value: fmtMoney(fundState?.portfolio_nav) },
     { label: "DPI", value: fmtMultiple(fundState?.dpi) },
     { label: "TVPI", value: fmtMultiple(fundState?.tvpi) },
@@ -289,6 +556,63 @@ export default function FundDetailPage({
       setDeleteDialogOpen(false);
     }
   }, [fund, params.envId, params.fundId, push, router]);
+
+  const handleExportWorkbook = useCallback(() => {
+    if (!envId || !businessId) return;
+    const url = exportFundExcelUrl({
+      fund_id: params.fundId,
+      env_id: envId,
+      business_id: businessId,
+      quarter,
+    });
+    window.open(url, "_blank");
+    setActionsOpen(false);
+  }, [businessId, envId, params.fundId, quarter]);
+
+  const metadataItems = useMemo(() => {
+    const items: string[] = [];
+    if (fund?.strategy) {
+      items.push(`${fund.strategy}${fund.sub_strategy ? ` · ${fund.sub_strategy}` : ""}`);
+    }
+    if (fund?.vintage_year) {
+      items.push(`Vintage ${fund.vintage_year}`);
+    }
+    if (fund?.target_size) {
+      items.push(`Target ${fmtMoney(fund.target_size)}`);
+    }
+    const topGeography = fund?.target_geographies_json?.[0];
+    if (topGeography) {
+      items.push(topGeography);
+    }
+    const gpName = typeof fund?.metadata_json?.gp_entity_name === "string"
+      ? fund.metadata_json.gp_entity_name
+      : null;
+    if (gpName) {
+      items.push(gpName);
+    }
+    return items;
+  }, [fund]);
+
+  const headerHealthSummary: FundHealthSummary = useMemo(
+    () =>
+      buildFundHealthSummary({
+        fundState,
+        exposureInsights: buildExposureInsights(investmentRollup),
+        performanceDrivers: [],
+      }),
+    [fundState, investmentRollup]
+  );
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (!actionsMenuRef.current?.contains(event.target as Node)) {
+        setActionsOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
 
   useEffect(() => {
     publishAssistantPageContext({
@@ -352,102 +676,154 @@ export default function FundDetailPage({
 
   return (
     <section className="flex flex-col gap-4" data-testid="re-fund-detail">
-      <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Fund</p>
-            <h1 className="mt-1 font-display text-xl font-semibold text-bm-text">{fund?.name || "—"}</h1>
+      <div
+        className="rounded-[24px] border border-bm-border/30 bg-bm-surface/35 p-5 shadow-[0_22px_48px_-36px_rgba(15,23,42,0.6)]"
+        data-testid="fund-overview-header"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Fund</p>
+            <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-bm-text sm:text-[2.35rem]">
+              {fund?.name || "—"}
+            </h1>
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-bm-muted">
+              {metadataItems.map((item, index) => (
+                <span key={`${item}-${index}`} className="inline-flex items-center gap-3">
+                  {index > 0 ? <span className="text-bm-muted2">•</span> : null}
+                  <span>{item}</span>
+                </span>
+              ))}
+              {lastCloseQuarter ? (
+                <span className="inline-flex items-center rounded-full border border-green-500/25 bg-green-500/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-green-300">
+                  Last Close {lastCloseQuarter}
+                </span>
+              ) : null}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
+
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
               type="button"
-              variant="destructive"
-              size="sm"
-              className="h-9 px-3"
-              onClick={() => setDeleteDialogOpen(true)}
-              data-testid="delete-fund-detail"
+              onClick={() => setLineageOpen(true)}
+              title="View entity lineage"
+              className="inline-flex items-center gap-1 rounded-md border border-bm-border/30 px-3 py-2 text-sm text-bm-muted transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text"
             >
-              Delete Fund
-            </Button>
-            <div className="relative">
+              <GitBranch className="h-3.5 w-3.5 text-bm-muted" strokeWidth={1.5} />
+              Lineage
+            </button>
+            <Link
+              href={`/lab/env/${params.envId}/re/sustainability?section=portfolio-footprint&fundId=${params.fundId}`}
+              title="Sustainability dashboard"
+              className="inline-flex items-center gap-1 rounded-md border border-bm-border/30 px-3 py-2 text-sm text-bm-muted transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text"
+            >
+              <Leaf className="h-3.5 w-3.5 text-bm-muted" strokeWidth={1.5} />
+              Sustainability
+            </Link>
+            <div className="relative" ref={actionsMenuRef}>
               <button
                 type="button"
-                onClick={() => setExportOpen((o) => !o)}
-                className="inline-flex items-center gap-1.5 rounded-md border border-bm-border/30 px-3 py-1.5 text-sm transition-colors duration-100 hover:bg-bm-surface/20"
+                onClick={() => setActionsOpen((open) => !open)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-bm-border/30 px-3 py-2 text-sm text-bm-text transition-colors duration-100 hover:bg-bm-surface/20"
+                aria-haspopup="menu"
+                aria-expanded={actionsOpen}
               >
-                Export
+                <MoreHorizontal className="h-4 w-4 text-bm-muted" strokeWidth={1.5} />
+                Actions
                 <ChevronDown className="h-3.5 w-3.5 text-bm-muted" strokeWidth={1.5} />
               </button>
-              {exportOpen && (
+              {actionsOpen ? (
                 <div
-                  className="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-lg border border-bm-border/20 bg-bm-surface/95"
-                  onBlur={() => setExportOpen(false)}
+                  className="absolute right-0 top-full z-50 mt-2 min-w-[220px] rounded-xl border border-bm-border/30 bg-bm-surface/95 p-1.5 shadow-[0_24px_40px_-30px_rgba(15,23,42,0.8)]"
+                  role="menu"
                 >
-                  <div className="space-y-0.5 p-1">
-                    {envId && businessId && (
-                      <div className="rounded-md" onClick={() => setExportOpen(false)}>
-                        <ExcelExportButton
-                          fundId={params.fundId}
-                          envId={envId}
-                          businessId={businessId}
-                          quarter={quarter}
-                        />
-                      </div>
-                    )}
-                    <button type="button" className="w-full rounded-md px-3 py-1.5 text-left text-sm text-bm-muted transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text">
-                      Download LP Report (PDF)
-                    </button>
-                    <button type="button" className="w-full rounded-md px-3 py-1.5 text-left text-sm text-bm-muted transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text">
-                      Download Waterfall (.xlsx)
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={handleExportWorkbook}
+                    disabled={!envId || !businessId}
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-bm-text transition-colors duration-100 hover:bg-bm-surface/20 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Export Excel Workbook
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => setActionsOpen(false)}
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-bm-text transition-colors duration-100 hover:bg-bm-surface/20"
+                  >
+                    Download LP Report (PDF)
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => setActionsOpen(false)}
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-bm-text transition-colors duration-100 hover:bg-bm-surface/20"
+                  >
+                    Download Waterfall (.xlsx)
+                  </button>
+                  <div className="my-1 border-t border-bm-border/20" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setDeleteDialogOpen(true);
+                      setActionsOpen(false);
+                    }}
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-300 transition-colors duration-100 hover:bg-red-500/10"
+                  >
+                    Delete Fund
+                  </button>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 font-mono text-xs text-bm-muted">
-          {fund?.strategy && (
-            <span className="uppercase tracking-[0.08em]">{fund.strategy}{fund.sub_strategy ? ` · ${fund.sub_strategy}` : ""}</span>
-          )}
-          {fund?.vintage_year && <span>Vintage {fund.vintage_year}</span>}
-          {fund?.target_size && <span>Target {fmtMoney(fund.target_size)}</span>}
-          {lastCloseQuarter && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-0.5 text-[11px] text-green-400">
-              Last Close: {lastCloseQuarter}
-            </span>
-          )}
-          <span className="flex-1" />
-          <button
-            type="button"
-            onClick={() => setLineageOpen(true)}
-            title="View entity lineage"
-            className="inline-flex items-center gap-1 rounded-md border border-bm-border/30 px-2.5 py-1 text-xs transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text"
-          >
-            <GitBranch className="h-3.5 w-3.5 text-bm-muted" strokeWidth={1.5} />
-            Lineage
-          </button>
-          <Link
-            href={`/lab/env/${params.envId}/re/sustainability?section=portfolio-footprint&fundId=${params.fundId}`}
-            title="Sustainability dashboard"
-            className="inline-flex items-center gap-1 rounded-md border border-bm-border/30 px-2.5 py-1 text-xs transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text"
-          >
-            <Leaf className="h-3.5 w-3.5 text-bm-muted" strokeWidth={1.5} />
-            Sustainability
-          </Link>
-        </div>
+        <div className="mt-5 border-t border-bm-border/20 pt-4" data-testid="fund-health-summary">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+            <div>
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Fund Health</p>
+                <span
+                  className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${
+                    headerHealthSummary.label === "Strong"
+                      ? "bg-green-500/15 text-green-300"
+                      : headerHealthSummary.label === "Stable"
+                        ? "bg-sky-500/15 text-sky-300"
+                        : "bg-amber-500/15 text-amber-300"
+                  }`}
+                >
+                  {headerHealthSummary.label}
+                </span>
+              </div>
+              <p className="mt-3 text-base font-medium text-bm-text">{headerHealthSummary.headline}</p>
+              <p className="mt-2 text-sm leading-6 text-bm-muted2">{headerHealthSummary.detail}</p>
+            </div>
 
-        {latestTerms && (
-          <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-bm-border/20 pt-3 text-sm">
-            <div><dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Pref Return</dt><dd className="font-semibold tabular-nums">{fmtPercent(latestTerms.preferred_return_rate)}</dd></div>
-            <div><dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Carry</dt><dd className="font-semibold tabular-nums">{fmtPercent(latestTerms.carry_rate)}</dd></div>
-            <div><dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Waterfall</dt><dd className="font-semibold capitalize">{latestTerms.waterfall_style || "—"}</dd></div>
-          </dl>
-        )}
+            {latestTerms ? (
+              <dl className="grid gap-3 rounded-xl border border-bm-border/30 bg-bm-surface/20 p-4 text-sm sm:grid-cols-3 xl:grid-cols-1">
+                <div>
+                  <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Pref Return</dt>
+                  <dd className="mt-1 font-semibold tabular-nums text-bm-text">{fmtPercent(latestTerms.preferred_return_rate)}</dd>
+                </div>
+                <div>
+                  <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Carry</dt>
+                  <dd className="mt-1 font-semibold tabular-nums text-bm-text">{fmtPercent(latestTerms.carry_rate)}</dd>
+                </div>
+                <div>
+                  <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Waterfall</dt>
+                  <dd className="mt-1 font-semibold capitalize text-bm-text">{latestTerms.waterfall_style || "—"}</dd>
+                </div>
+              </dl>
+            ) : null}
+          </div>
+        </div>
       </div>
 
-      <KpiStrip kpis={headerKpis} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <KpiGroupCard title="Capital" metrics={capitalMetrics} testId="kpi-group-capital" />
+        <KpiGroupCard title="Performance" metrics={performanceMetrics} testId="kpi-group-performance" />
+      </div>
 
       {covenantAlerts.length > 0 && (
         <div
@@ -492,6 +868,7 @@ export default function FundDetailPage({
           deals={deals}
           scenarios={scenarios}
           fund={fund}
+          fundState={fundState}
           envId={params.envId}
           businessId={businessId ?? undefined}
           fundId={params.fundId}
@@ -542,25 +919,25 @@ export default function FundDetailPage({
 // ── Overview Tab ──────────────────────────────────────────────────────────────
 
 function InvestmentRow({
-  inv,
+  row,
   envId,
   quarter,
-  rollup,
 }: {
-  inv: ReV2Investment;
+  row: PortfolioTableRow;
   envId: string;
   quarter: string;
-  rollup?: ReV2FundInvestmentRollupRow;
 }) {
   const [open, setOpen] = useState(false);
   const [assets, setAssets] = useState<ReV2InvestmentAsset[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const inv = row.investment;
+  const rollup = row.rollup;
   const investmentType = (rollup?.deal_type || inv.investment_type || "—").toString();
   const missingQuarterStates = Number(rollup?.missing_quarter_state_count || 0);
-  const committedCapital = rollup?.committed_capital ?? inv.committed_capital;
-  const totalNoi = rollup?.total_noi;
-  const fundNav = rollup?.fund_nav_contribution ?? rollup?.nav;
+  const propertyType = row.propertyTypeKey
+    ? labelFn(PROPERTY_TYPE_LABELS, row.propertyTypeKey) || fmtLineCode(row.propertyTypeKey)
+    : "—";
 
   const handleToggle = () => {
     const next = !open;
@@ -581,85 +958,115 @@ function InvestmentRow({
   return (
     <>
       <tr
-        className="hover:bg-bm-surface/20 cursor-pointer select-none"
+        className="cursor-pointer select-none hover:bg-bm-surface/20"
         onClick={handleToggle}
         data-testid={`investment-row-${inv.investment_id}`}
       >
         <td className="px-4 py-3">
           <div className="flex items-start gap-2">
-            <span className="mt-0.5 text-bm-muted2 text-xs">{open ? "▾" : "▸"}</span>
+            <span className="mt-0.5 text-xs text-bm-muted2">{open ? "▾" : "▸"}</span>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <Link
                   href={`/lab/env/${envId}/re/investments/${inv.investment_id}`}
                   className="font-medium text-bm-accent hover:underline"
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
                 >
                   {inv.name}
                 </Link>
                 <span className="inline-flex rounded-full border border-bm-border/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-bm-muted2">
                   {investmentType}
                 </span>
-                {missingQuarterStates > 0 && (
+                {rollup?.asset_count ? (
+                  <span className="inline-flex rounded-full border border-bm-border/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-bm-muted2">
+                    {rollup.asset_count} Assets
+                  </span>
+                ) : null}
+                {missingQuarterStates > 0 ? (
                   <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] text-amber-300">
                     <AlertTriangle className="h-3 w-3" strokeWidth={1.5} />
                     {missingQuarterStates} missing
                   </span>
-                )}
+                ) : null}
               </div>
-              {rollup?.sponsor && (
-                <p className="mt-1 text-xs text-bm-muted2">{rollup.sponsor}</p>
-              )}
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-bm-muted2">
+                <span className="capitalize">{rollup?.stage || inv.stage || "—"}</span>
+                {rollup?.sponsor ? <span>{rollup.sponsor}</span> : null}
+              </div>
             </div>
           </div>
         </td>
-        <td className="px-4 py-3 text-bm-muted2 text-xs capitalize">{rollup?.stage || inv.stage || "—"}</td>
-        <td className="px-4 py-3 text-right text-sm">{rollup?.asset_count ?? "—"}</td>
-        <td className="px-4 py-3 text-sm text-bm-muted2">{rollup?.primary_market || "—"}</td>
-        <td className="px-4 py-3 text-right text-sm">
-          {committedCapital != null ? fmtMoney(committedCapital) : "—"}
-        </td>
-        <td className="px-4 py-3 text-right text-sm">{totalNoi != null ? fmtMoney(totalNoi) : "—"}</td>
-        <td className="px-4 py-3 text-right text-sm">{fmtFlexiblePercent(rollup?.weighted_occupancy)}</td>
-        <td className="px-4 py-3 text-right text-sm">{fmtFlexiblePercent(rollup?.computed_ltv)}</td>
-        <td className="px-4 py-3 text-right text-sm">{fmtCoverage(rollup?.computed_dscr)}</td>
-        <td className="px-4 py-3 text-right text-sm">
-          {fundNav != null ? fmtMoney(fundNav) : "—"}
-        </td>
+        <td className="px-4 py-3 text-sm text-bm-muted2">{propertyType}</td>
+        <td className="px-4 py-3 text-sm text-bm-muted2">{row.market || "—"}</td>
+        <td className="px-4 py-3 text-right text-sm tabular-nums">{row.equityInvested != null ? fmtMoney(row.equityInvested) : "—"}</td>
+        <td className="px-4 py-3 text-right text-sm tabular-nums">{row.currentValue != null ? fmtMoney(row.currentValue) : "—"}</td>
+        <td className="px-4 py-3 text-right text-sm tabular-nums">{row.irr != null ? fmtPercent(row.irr) : "—"}</td>
+        <td className="px-4 py-3 text-right text-sm tabular-nums">{row.noi != null ? fmtMoney(row.noi) : "—"}</td>
+        <td className="px-4 py-3 text-right text-sm tabular-nums">{fmtFlexiblePercent(row.occupancy)}</td>
+        <td className="px-4 py-3 text-right text-sm tabular-nums">{fmtFlexiblePercent(row.ltv)}</td>
       </tr>
-      {open && (
+      {open ? (
         <tr>
-          <td colSpan={10} className="px-0 py-0 bg-bm-surface/10">
+          <td colSpan={9} className="bg-bm-surface/10 px-0 py-0">
             {loading ? (
               <div className="px-8 py-3 text-xs text-bm-muted2">Loading assets...</div>
             ) : loadError ? (
               <div className="px-12 py-3 text-xs text-amber-300">{loadError}</div>
             ) : assets && assets.length > 0 ? (
               <table className="w-full text-sm">
+                <thead className="bg-bm-surface/20 text-left text-[10px] uppercase tracking-[0.12em] text-bm-muted2">
+                  <tr>
+                    <th className="pl-12 pr-4 py-2 font-medium">Asset</th>
+                    <th className="px-4 py-2 font-medium">Type</th>
+                    <th className="px-4 py-2 font-medium">Market</th>
+                    <th className="px-4 py-2 font-medium text-right">Equity Basis</th>
+                    <th className="px-4 py-2 font-medium text-right">Current Value</th>
+                    <th className="px-4 py-2 font-medium text-right">NAV</th>
+                    <th className="px-4 py-2 font-medium text-right">NOI</th>
+                    <th className="px-4 py-2 font-medium text-right">Occupancy</th>
+                    <th className="px-4 py-2 font-medium text-right">LTV</th>
+                  </tr>
+                </thead>
                 <tbody className="divide-y divide-bm-border/30">
                   {assets.map((asset) => (
                     <tr key={asset.asset_id} className="hover:bg-bm-surface/20">
-                      <td className="pl-12 pr-4 py-2 text-bm-muted2 text-xs w-8">└</td>
-                      <td className="px-2 py-2 font-medium text-sm">
+                      <td className="pl-12 pr-4 py-2 font-medium text-sm">
                         <Link href={`/lab/env/${envId}/re/assets/${asset.asset_id}`} className="text-bm-accent hover:underline">
                           {asset.name}
                         </Link>
+                        {(asset.units || asset.city || asset.state) ? (
+                          <p className="mt-1 text-xs text-bm-muted2">
+                            {asset.units ? `${Number(asset.units).toLocaleString()} sf` : "—"}
+                            {asset.city ? ` · ${asset.city}` : ""}
+                            {asset.state ? `, ${asset.state}` : ""}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-4 py-2 text-xs text-bm-muted2">
                         {labelFn(PROPERTY_TYPE_LABELS, asset.property_type || asset.asset_type || "")}
                       </td>
                       <td className="px-4 py-2 text-xs text-bm-muted2">
+                        {asset.market || asset.msa || "—"}
+                      </td>
+                      <td className="px-4 py-2 text-right text-xs text-bm-muted2 tabular-nums">
                         {asset.cost_basis ? fmtMoney(asset.cost_basis) : "—"}
                       </td>
-                      <td className="px-4 py-2 text-xs text-bm-muted2">
-                        {asset.units ? `${Number(asset.units).toLocaleString()} sf` : "—"}
-                        {asset.market ? ` · ${asset.market}` : ""}
-                      </td>
-                      <td className="px-4 py-2 text-xs text-bm-muted2 text-right">
+                      <td className="px-4 py-2 text-right text-xs text-bm-muted2 tabular-nums">
                         {asset.asset_value ? fmtMoney(asset.asset_value) : "—"}
                       </td>
-                      <td className="px-4 py-2 text-xs text-bm-muted2 text-right">
+                      <td className="px-4 py-2 text-right text-xs text-bm-muted2 tabular-nums">
                         {asset.nav ? fmtMoney(asset.nav) : "—"}
+                      </td>
+                      <td className="px-4 py-2 text-right text-xs text-bm-muted2 tabular-nums">
+                        {asset.noi ? fmtMoney(asset.noi) : "—"}
+                      </td>
+                      <td className="px-4 py-2 text-right text-xs text-bm-muted2 tabular-nums">
+                        {fmtFlexiblePercent(asset.occupancy)}
+                      </td>
+                      <td className="px-4 py-2 text-right text-xs text-bm-muted2 tabular-nums">
+                        {asset.asset_value && asset.debt_balance
+                          ? fmtFlexiblePercent(Number(asset.debt_balance) / Math.max(Number(asset.asset_value), 1))
+                          : "—"}
                       </td>
                     </tr>
                   ))}
@@ -672,33 +1079,33 @@ function InvestmentRow({
             )}
           </td>
         </tr>
-      )}
+      ) : null}
     </>
   );
 }
 
-function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, envId, businessId, fundId, quarter }: {
+function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, fundState, envId, businessId, fundId, quarter }: {
   investments: ReV2Investment[];
   investmentRollup: ReV2FundInvestmentRollupRow[];
   deals: RepeDeal[];
   scenarios: ReV2Scenario[];
   fund: RepeFundDetail["fund"] | undefined;
+  fundState: ReV2FundQuarterState | null;
   envId: string;
   businessId: string | undefined;
   fundId: string;
   quarter: string;
 }) {
-  const rollupById = new Map(investmentRollup.map((row) => [row.investment_id, row]));
+  const rollupById = useMemo(
+    () => new Map(investmentRollup.map((row) => [row.investment_id, row])),
+    [investmentRollup]
+  );
   const nonBaseScenarioCount = scenarios.filter((scenario) => !scenario.is_base).length;
   const seededOverviewRetryRef = useRef(false);
 
-  // Valuation rollup
   const [rollup, setRollup] = useState<FundValuationRollup | null>(null);
-  // IRR timeline (NAV sparkline)
   const [irrTimeline, setIrrTimeline] = useState<IrrTimelinePoint[]>([]);
-  // Capital timeline
   const [capitalTimeline, setCapitalTimeline] = useState<CapitalTimelinePoint[]>([]);
-  // IRR contribution
   const [irrContrib, setIrrContrib] = useState<IrrContributionItem[]>([]);
 
   useEffect(() => {
@@ -778,199 +1185,224 @@ function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, en
         created_at: row.created_at || "",
       } as ReV2Investment));
 
-  // Compute sparkline bar heights for NAV timeline
-  const navValues = irrTimeline.map((p) => Number(p.portfolio_nav || 0));
-  const maxNav = Math.max(...navValues, 1);
-
   const investmentCount = displayInvestments.length || investmentRollup.length || deals.length;
-
-  const performerScore = (item: IrrContributionItem) => {
-    const irr = Number(item.investment_irr);
-    if (!Number.isNaN(irr)) return irr;
-    const nav = Number(item.fund_nav_contribution);
-    return Number.isNaN(nav) ? Number.NEGATIVE_INFINITY : nav;
-  };
-
-  const topPerformers = [...irrContrib]
-    .sort((a, b) => performerScore(b) - performerScore(a))
-    .slice(0, 3);
+  const valueCreationSeries = useMemo(
+    () => mergeValueCreationSeries(irrTimeline, capitalTimeline),
+    [capitalTimeline, irrTimeline]
+  );
+  const exposureInsights = useMemo(
+    () => buildExposureInsights(investmentRollup),
+    [investmentRollup]
+  );
+  const performanceDrivers = useMemo(
+    () => buildPerformanceDrivers(irrContrib, fundState?.portfolio_nav ?? rollup?.summary.total_equity ?? null),
+    [fundState?.portfolio_nav, irrContrib, rollup?.summary.total_equity]
+  );
+  const portfolioRows = useMemo(
+    () => buildPortfolioTableRows(displayInvestments, rollupById),
+    [displayInvestments, rollupById]
+  );
+  const sectorExposureRows = useMemo(
+    () =>
+      exposureInsights.sector.map((row) => ({
+        ...row,
+        label: labelFn(PROPERTY_TYPE_LABELS, row.label) || fmtLineCode(row.label),
+      })),
+    [exposureInsights.sector]
+  );
+  const maxCapitalBase = Math.max(...capitalTimeline.map((point) => Number(point.total_called || 0)), 1);
 
   return (
-    <div className="space-y-4">
-      {rollup && rollup.summary.asset_count > 0 ? (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="valuation-rollup">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2 mb-3">
-            Portfolio Valuation · {quarter}
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-            <div className="rounded-lg border border-bm-border/60 p-3">
-              <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Portfolio Value</p>
-              <p className="mt-1 text-lg font-bold">{fmtMoney(rollup.summary.total_portfolio_value)}</p>
-            </div>
-            <div className="rounded-lg border border-bm-border/60 p-3">
-              <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Total Equity</p>
-              <p className="mt-1 text-lg font-bold">{fmtMoney(rollup.summary.total_equity)}</p>
-            </div>
-            <div className="rounded-lg border border-bm-border/60 p-3">
-              <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Wtd Avg Cap Rate</p>
-              <p className="mt-1 text-lg font-bold">
-                {rollup.summary.weighted_avg_cap_rate != null
-                  ? `${(rollup.summary.weighted_avg_cap_rate * 100).toFixed(2)}%`
-                  : "—"}
-              </p>
-            </div>
-            <div className="rounded-lg border border-bm-border/60 p-3">
-              <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Wtd Avg LTV</p>
-              <p className="mt-1 text-lg font-bold">
-                {rollup.summary.weighted_avg_ltv != null
-                  ? `${(rollup.summary.weighted_avg_ltv * 100).toFixed(1)}%`
-                  : "—"}
-              </p>
-            </div>
-          </div>
-          <p className="mt-2 text-xs text-bm-muted2">
-            {rollup.summary.asset_count} assets · Total NOI: {fmtMoney(rollup.summary.total_noi)}
-          </p>
-        </div>
-      ) : null}
+    <div className="space-y-5">
+      <FundValueCreationCard data={valueCreationSeries} />
 
-      {irrTimeline.length > 1 && (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="nav-sparkline">
-          <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2 mb-3">Fund NAV Over Time</h3>
-          <div className="flex items-end gap-1 h-20">
-            {irrTimeline.map((point, i) => {
-              const val = Number(point.portfolio_nav || 0);
-              const pct = maxNav > 0 ? (val / maxNav) * 100 : 0;
-              return (
-                <div key={point.quarter} className="flex-1 flex flex-col items-center gap-1" title={`${point.quarter}: ${fmtMoney(val)}`}>
-                  <div className="w-full rounded-t bg-bm-accent/70 transition-all" style={{ height: `${Math.max(pct, 2)}%` }} />
-                  {(i === 0 || i === irrTimeline.length - 1 || i === Math.floor(irrTimeline.length / 2)) && (
-                    <span className="text-[9px] text-bm-muted2">{point.quarter}</span>
-                  )}
+      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+        <div
+          className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.5)]"
+          data-testid="portfolio-snapshot"
+        >
+          <NarrativeSectionHeading
+            eyebrow="Portfolio Snapshot"
+            title="Portfolio Snapshot"
+            description="A quick look at scale, leverage, and income generation across the current portfolio."
+          />
+          {rollup && rollup.summary.asset_count > 0 ? (
+            <>
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm lg:grid-cols-4">
+                <div className="rounded-xl border border-bm-border/50 bg-bm-surface/15 p-4">
+                  <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Portfolio Value</p>
+                  <p className="mt-2 text-xl font-semibold tabular-nums text-bm-text">{fmtMoney(rollup.summary.total_portfolio_value)}</p>
                 </div>
-              );
-            })}
-          </div>
-          <div className="mt-2 flex justify-between text-xs text-bm-muted2">
-            <span>{irrTimeline[0]?.quarter}: {fmtMoney(navValues[0])}</span>
-            <span>{irrTimeline[irrTimeline.length - 1]?.quarter}: {fmtMoney(navValues[navValues.length - 1])}</span>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="top-performers">
-          <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2 mb-3">
-            Top Performers by IRR Contribution
-          </h3>
-          {topPerformers.length > 0 ? (
-            <div className="space-y-3">
-              {topPerformers.map((item, idx) => {
-                const contrib = Number(item.irr_contribution || item.fund_nav_contribution || 0);
-                const maxContrib = Math.max(...topPerformers.map((t) => Math.abs(Number(t.irr_contribution || t.fund_nav_contribution || 0))), 1);
-                const pct = (Math.abs(contrib) / maxContrib) * 100;
-                return (
-                  <div key={item.investment_id} className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium">{idx + 1}. {item.investment_name}</span>
-                      <span className={`font-semibold ${contrib >= 0 ? "text-green-400" : "text-red-400"}`}>
-                        {item.investment_irr ? fmtPercent(item.investment_irr) : fmtMoney(contrib)}
-                      </span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-bm-surface/40 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${contrib >= 0 ? "bg-green-500/60" : "bg-red-500/60"}`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                <div className="rounded-xl border border-bm-border/50 bg-bm-surface/15 p-4">
+                  <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Total Equity</p>
+                  <p className="mt-2 text-xl font-semibold tabular-nums text-bm-text">{fmtMoney(rollup.summary.total_equity)}</p>
+                </div>
+                <div className="rounded-xl border border-bm-border/50 bg-bm-surface/15 p-4">
+                  <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Weighted Avg Cap Rate</p>
+                  <p className="mt-2 text-xl font-semibold tabular-nums text-bm-text">
+                    {rollup.summary.weighted_avg_cap_rate != null
+                      ? `${(rollup.summary.weighted_avg_cap_rate * 100).toFixed(2)}%`
+                      : "—"}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-bm-border/50 bg-bm-surface/15 p-4">
+                  <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Weighted Avg LTV</p>
+                  <p className="mt-2 text-xl font-semibold tabular-nums text-bm-text">
+                    {rollup.summary.weighted_avg_ltv != null
+                      ? `${(rollup.summary.weighted_avg_ltv * 100).toFixed(1)}%`
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-bm-muted2">
+                <span>{rollup.summary.asset_count} assets across {investmentCount} investments</span>
+                <span>Total NOI: {fmtMoney(rollup.summary.total_noi)}</span>
+                <span>Scenarios: {nonBaseScenarioCount}</span>
+              </div>
+            </>
           ) : (
-            <div className="rounded-xl border border-dashed border-bm-border px-4 py-6 text-center">
-              <p className="text-sm text-bm-muted2">Contribution data populates after capital calls are recorded.</p>
-              <p className="text-xs text-bm-muted2 mt-1">Run a quarter-close or seed capital ledger entries to see LP contributions.</p>
+            <div className="mt-4">
+              <NarrativeEmptyState
+                title="Portfolio rollup data will appear after valuation outputs are available."
+                detail="The snapshot section summarizes value, equity, cap rate, and leverage from the current quarter."
+              />
             </div>
           )}
         </div>
 
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="capital-timeline">
-          <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2 mb-3">
-            Capital Activity Timeline
-          </h3>
-          {capitalTimeline.length > 0 ? (
-            <div className="space-y-2">
-              {capitalTimeline.map((point) => (
-                <div key={point.quarter} className="flex items-center gap-3 text-sm">
-                  <span className="w-16 text-xs text-bm-muted2 shrink-0">{point.quarter}</span>
-                  <div className="flex-1 flex items-center gap-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] uppercase text-bm-muted2 w-12">Called</span>
-                        <div className="flex-1 h-3 rounded-full bg-bm-surface/40 overflow-hidden">
-                          <div className="h-full rounded-full bg-bm-accent/60" style={{ width: `${Math.min(100, (Number(point.total_called) / Math.max(Number(capitalTimeline[capitalTimeline.length - 1]?.total_called || 1), 1)) * 100)}%` }} />
+        <PerformanceDriversCard drivers={performanceDrivers} />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <div
+          className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.5)]"
+          data-testid="capital-activity"
+        >
+          <NarrativeSectionHeading
+            eyebrow="Capital Activity"
+            title="Capital Activity Timeline"
+            description="Cumulative capital movement by quarter keeps deployment and returned capital legible."
+          />
+          <div className="mt-4">
+            {capitalTimeline.length > 0 ? (
+              <div className="space-y-3">
+                {capitalTimeline.map((point) => (
+                  <div key={point.quarter} className="flex items-start gap-3 text-sm">
+                    <span className="w-16 shrink-0 pt-1 text-xs text-bm-muted2">{point.quarter}</span>
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-3">
+                        <span className="w-24 shrink-0 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Capital Called</span>
+                        <div className="h-3 flex-1 overflow-hidden rounded-full bg-bm-surface/40">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${Math.min(100, (Number(point.total_called) / maxCapitalBase) * 100)}%`,
+                              backgroundColor: CHART_COLORS.scenario[0],
+                            }}
+                          />
                         </div>
-                        <span className="text-xs font-medium w-16 text-right">{fmtMoney(point.total_called)}</span>
+                        <span className="w-20 text-right font-medium tabular-nums text-bm-text">{fmtMoney(point.total_called)}</span>
                       </div>
-                      <div className="flex items-center gap-1 mt-1">
-                        <span className="text-[10px] uppercase text-bm-muted2 w-12">Dist</span>
-                        <div className="flex-1 h-3 rounded-full bg-bm-surface/40 overflow-hidden">
-                          <div className="h-full rounded-full bg-green-500/60" style={{ width: `${Math.min(100, (Number(point.total_distributed) / Math.max(Number(capitalTimeline[capitalTimeline.length - 1]?.total_called || 1), 1)) * 100)}%` }} />
+                      <div className="flex items-center gap-3">
+                        <span className="w-24 shrink-0 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Capital Returned</span>
+                        <div className="h-3 flex-1 overflow-hidden rounded-full bg-bm-surface/40">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${Math.min(100, (Number(point.total_distributed) / maxCapitalBase) * 100)}%`,
+                              backgroundColor: CHART_COLORS.noi,
+                            }}
+                          />
                         </div>
-                        <span className="text-xs font-medium w-16 text-right">{fmtMoney(point.total_distributed)}</span>
+                        <span className="w-20 text-right font-medium tabular-nums text-bm-text">{fmtMoney(point.total_distributed)}</span>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-bm-border px-4 py-6 text-center">
-              <p className="text-sm text-bm-muted2">Capital activity timeline populates after quarter-close runs.</p>
-              <p className="text-xs text-bm-muted2 mt-1">Each closed quarter adds called capital and distribution totals.</p>
-            </div>
-          )}
+                ))}
+              </div>
+            ) : (
+              <NarrativeEmptyState
+                title="Capital activity will populate after quarter-close runs or capital ledger entries."
+                detail="Each closed quarter adds cumulative called capital and returned capital to the timeline."
+              />
+            )}
+          </div>
+        </div>
+
+        <div
+          className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.5)]"
+          data-testid="exposure-insights"
+        >
+          <NarrativeSectionHeading
+            eyebrow="Exposure"
+            title="Exposure Insights"
+            description="Composition is weighted by current NAV contribution, falling back to current value when NAV weights are unavailable."
+          />
+          <div className="mt-4 grid gap-4 xl:grid-cols-2">
+            <ExposureCard
+              title="Sector Allocation"
+              rows={sectorExposureRows}
+              emptyLabel="No sector allocation is available yet."
+              color={CHART_COLORS.revenue}
+            />
+            <ExposureCard
+              title="Geographic Exposure"
+              rows={exposureInsights.geography}
+              emptyLabel="No geographic exposure is available yet."
+              color={CHART_COLORS.scenario[0]}
+            />
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <MetricCard label="Investments" value={String(investmentCount)} size="large" />
-        <MetricCard label="Strategy" value={fund?.strategy?.toUpperCase() || "—"} size="large" />
-        <MetricCard label="Scenarios" value={String(nonBaseScenarioCount)} size="large" />
-      </div>
-
-      {displayInvestments.length > 0 && (
-        <div className="rounded-xl border border-bm-border/70 overflow-hidden" data-testid="investment-list">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-bm-border/50 bg-bm-surface/30 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
-                <th className="px-4 py-3 font-medium">Investment</th>
-                <th className="px-4 py-3 font-medium">Stage</th>
-                <th className="px-4 py-3 font-medium text-right">Assets</th>
-                <th className="px-4 py-3 font-medium">Primary Market</th>
-                <th className="px-4 py-3 font-medium text-right">Committed</th>
-                <th className="px-4 py-3 font-medium text-right">NOI</th>
-                <th className="px-4 py-3 font-medium text-right">Occupancy</th>
-                <th className="px-4 py-3 font-medium text-right">LTV</th>
-                <th className="px-4 py-3 font-medium text-right">DSCR</th>
-                <th className="px-4 py-3 font-medium text-right">Fund NAV</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-bm-border/40">
-              {displayInvestments.map((inv) => (
-                <InvestmentRow
-                  key={inv.investment_id}
-                  inv={inv}
-                  envId={envId}
-                  quarter={quarter}
-                  rollup={rollupById.get(inv.investment_id)}
-                />
-              ))}
-            </tbody>
-          </table>
+      <div
+        className="rounded-xl border border-bm-border/70 bg-bm-surface/20 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.5)]"
+        data-testid="portfolio-holdings"
+      >
+        <div className="border-b border-bm-border/30 px-5 py-4">
+          <NarrativeSectionHeading
+            eyebrow="Portfolio Assets"
+            title="Portfolio Assets"
+            description="The main grid stays investment-level for return accuracy while expanded rows reveal the underlying asset detail."
+          />
         </div>
-      )}
+        {portfolioRows.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-bm-border/40 bg-bm-surface/15 text-left text-xs uppercase tracking-[0.12em] text-bm-muted2">
+                  <th className="px-4 py-3 font-medium">Investment</th>
+                  <th className="px-4 py-3 font-medium">Property Type</th>
+                  <th className="px-4 py-3 font-medium">Market</th>
+                  <th className="px-4 py-3 font-medium text-right">Equity Invested</th>
+                  <th className="px-4 py-3 font-medium text-right">Current Value</th>
+                  <th className="px-4 py-3 font-medium text-right">IRR</th>
+                  <th className="px-4 py-3 font-medium text-right">NOI</th>
+                  <th className="px-4 py-3 font-medium text-right">Occupancy</th>
+                  <th className="px-4 py-3 font-medium text-right">LTV</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-bm-border/30">
+                {portfolioRows.map((row) => (
+                  <InvestmentRow
+                    key={row.investment.investment_id}
+                    row={row}
+                    envId={envId}
+                    quarter={quarter}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-5">
+            <NarrativeEmptyState
+              title="No portfolio investments are available yet."
+              detail="Add investments to this fund to populate the holdings table and the asset drill-down rows."
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

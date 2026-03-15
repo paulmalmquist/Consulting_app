@@ -7,6 +7,8 @@ import type {
 import { TrendLineChart } from "@/components/charts";
 import { CHART_COLORS } from "@/components/charts/chart-theme";
 import { fmtMoney, fmtPct } from "./format-utils";
+import SectionHeader from "./shared/SectionHeader";
+import { BRIEFING_CARD } from "./shared/briefing-colors";
 
 const VALUATION_METHOD_LABELS: Record<string, string> = {
   cap_rate: "Direct Cap",
@@ -41,40 +43,42 @@ export default function ValuationSection({ financialState, periods }: Props) {
   }));
 
   return (
-    <div className="space-y-4" data-testid="asset-valuation-section">
+    <div className="space-y-5" data-testid="asset-valuation-section">
+      <SectionHeader eyebrow="VALUATION" title="Asset Value & Appraisal" />
+
       {/* Current Valuation Snapshot */}
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">
+      <div className={BRIEFING_CARD}>
+        <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2">
           Current Valuation
         </h3>
         <dl className="mt-3 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
           <div>
             <dt className="text-xs text-bm-muted2">Asset Value</dt>
-            <dd className="text-lg font-semibold">{fmtMoney(financialState?.asset_value)}</dd>
+            <dd className="text-lg font-semibold text-bm-text">{fmtMoney(financialState?.asset_value)}</dd>
           </div>
           <div>
             <dt className="text-xs text-bm-muted2">NAV Contribution</dt>
-            <dd className="text-lg font-semibold">{fmtMoney(financialState?.nav)}</dd>
+            <dd className="text-lg font-semibold text-bm-text">{fmtMoney(financialState?.nav)}</dd>
           </div>
           <div>
             <dt className="text-xs text-bm-muted2">Cap Rate</dt>
-            <dd className="text-lg font-semibold">
+            <dd className="text-lg font-semibold text-bm-text">
               {capRate != null ? `${(capRate * 100).toFixed(2)}%` : "—"}
             </dd>
           </div>
           <div>
             <dt className="text-xs text-bm-muted2">Method</dt>
-            <dd className="text-lg font-semibold">{fmtMethod(financialState?.valuation_method)}</dd>
+            <dd className="text-lg font-semibold text-bm-text">{fmtMethod(financialState?.valuation_method)}</dd>
           </div>
         </dl>
       </div>
 
       {/* Value & NAV Trend */}
       {valueTrendData.length > 0 && (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-          <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2 mb-3">
+        <div className={BRIEFING_CARD}>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2 mb-3">
             Value &amp; NAV Trend
-          </h3>
+          </p>
           <TrendLineChart
             data={valueTrendData}
             lines={[
@@ -89,34 +93,34 @@ export default function ValuationSection({ financialState, periods }: Props) {
 
       {/* Valuation History Table */}
       {periods.length > 0 && (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-          <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2 mb-3">
+        <div className={BRIEFING_CARD}>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2 mb-3">
             Valuation History
-          </h3>
+          </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-bm-border/50 text-xs uppercase tracking-[0.1em] text-bm-muted2">
+                <tr className="border-b border-slate-200 text-[10px] uppercase tracking-[0.14em] text-bm-muted2 dark:border-white/10">
                   <th className="px-3 py-2 text-left font-medium">Quarter</th>
                   <th className="px-3 py-2 text-right font-medium">Asset Value</th>
                   <th className="px-3 py-2 text-right font-medium">Cap Rate</th>
                   <th className="px-3 py-2 text-right font-medium">NAV</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-bm-border/40">
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                 {periods.map((p) => {
                   const pCapRate =
                     p.asset_value && p.noi
                       ? (Number(p.noi) * 4) / Number(p.asset_value)
                       : null;
                   return (
-                    <tr key={p.quarter} className="hover:bg-bm-surface/20">
-                      <td className="px-3 py-2 font-medium">{p.quarter}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(p.asset_value)}</td>
-                      <td className="px-3 py-2 text-right">
+                    <tr key={p.quarter} className="hover:bg-slate-50 dark:hover:bg-white/[0.02]">
+                      <td className="px-3 py-2 font-medium text-bm-text">{p.quarter}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-bm-text">{fmtMoney(p.asset_value)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-bm-text">
                         {pCapRate != null ? fmtPct(pCapRate) : "—"}
                       </td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(p.nav)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-bm-text">{fmtMoney(p.nav)}</td>
                     </tr>
                   );
                 })}

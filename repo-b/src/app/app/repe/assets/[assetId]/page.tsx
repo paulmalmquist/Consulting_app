@@ -21,6 +21,7 @@ import DebtSection from "@/components/repe/asset-cockpit/DebtSection";
 import ValuationSection from "@/components/repe/asset-cockpit/ValuationSection";
 import DocumentsSection from "@/components/repe/asset-cockpit/DocumentsSection";
 import AuditSection from "@/components/repe/asset-cockpit/AuditSection";
+import { fmtMoney } from "@/components/repe/asset-cockpit/format-utils";
 
 const SECTIONS = ["Cockpit", "Financials", "Debt", "Valuation", "Documents", "Audit"] as const;
 type SectionKey = (typeof SECTIONS)[number];
@@ -122,12 +123,12 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
   }
 
   if (loading) {
-    return <div className="rounded-xl border border-bm-border/70 p-6 text-sm text-bm-muted2">Loading asset...</div>;
+    return <div className="rounded-[28px] border border-slate-200 bg-white p-6 text-sm text-bm-muted2 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))]">Loading asset...</div>;
   }
 
   if (error || !detail) {
     return (
-      <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">
+      <div className="rounded-[28px] border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">
         {error || "Asset not found"}
       </div>
     );
@@ -138,11 +139,12 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
 
   return (
     <section className="space-y-4" data-testid="re-asset-homepage">
-      {/* Header + Breadcrumb */}
-      <div className="rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-5">
+      {/* ── HEADER ── */}
+      <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.18)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-xs text-bm-muted2">
+            {/* Breadcrumb */}
+            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-bm-muted2">
               <Link href={`${base}/funds/${fund.fund_id}`} className="hover:text-bm-accent hover:underline">
                 {fund.name}
               </Link>
@@ -153,8 +155,10 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
               <span>/</span>
               <span className="text-bm-text">{asset.name}</span>
             </div>
-            <div className="mt-2 flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">{asset.name}</h1>
+
+            {/* Title + status */}
+            <div className="mt-3 flex items-center gap-3">
+              <h1 className="text-3xl font-semibold tracking-tight text-bm-text">{asset.name}</h1>
               <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
                 asset.status === "active"
                   ? "bg-green-500/15 text-green-400 border border-green-500/30"
@@ -168,44 +172,76 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
                 {asset.status}
               </span>
             </div>
+
+            {/* Subtitle tags */}
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               {property.property_type && (
-                <span className="rounded-full border border-bm-border/50 bg-bm-surface/30 px-2.5 py-0.5 text-xs text-bm-muted2">
+                <span className="rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-xs text-bm-muted2 dark:border-white/10 dark:bg-white/[0.03]">
                   {labelFn(PROPERTY_TYPE_LABELS, property.property_type)}
                 </span>
               )}
               {property.city && (
-                <span className="rounded-full border border-bm-border/50 bg-bm-surface/30 px-2.5 py-0.5 text-xs text-bm-muted2">
+                <span className="rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-xs text-bm-muted2 dark:border-white/10 dark:bg-white/[0.03]">
                   {property.city}, {property.state}
                 </span>
               )}
               {property.msa && (
-                <span className="rounded-full border border-bm-border/50 bg-bm-surface/30 px-2.5 py-0.5 text-xs text-bm-muted2">
+                <span className="rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-xs text-bm-muted2 dark:border-white/10 dark:bg-white/[0.03]">
                   {property.msa}
                 </span>
               )}
-              <span className="rounded-full border border-bm-border/50 bg-bm-surface/30 px-2.5 py-0.5 text-xs text-bm-muted2">
+              <span className="rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-xs text-bm-muted2 dark:border-white/10 dark:bg-white/[0.03]">
                 {fund.name}
               </span>
             </div>
+
+            {/* Metadata grid */}
+            <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
+              <div>
+                <dt className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Acquisition</dt>
+                <dd className="text-sm font-medium text-bm-text truncate">{asset.acquisition_date ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Cost Basis</dt>
+                <dd className="text-sm font-medium text-bm-text truncate">{fmtMoney(asset.cost_basis)}</dd>
+              </div>
+              <div>
+                <dt className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Current Value</dt>
+                <dd className="text-sm font-medium text-bm-text truncate">{fmtMoney(financialState?.asset_value)}</dd>
+              </div>
+              <div>
+                <dt className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Property Type</dt>
+                <dd className="text-sm font-medium text-bm-text truncate">{labelFn(PROPERTY_TYPE_LABELS, property.property_type ?? "")}</dd>
+              </div>
+              <div>
+                <dt className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Market</dt>
+                <dd className="text-sm font-medium text-bm-text truncate">{property.market ?? property.msa ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Square Feet</dt>
+                <dd className="text-sm font-medium text-bm-text truncate">{property.square_feet ? `${(Number(property.square_feet) / 1000).toFixed(0)}K SF` : "—"}</dd>
+              </div>
+            </dl>
           </div>
+
+          {/* Action buttons — pill style */}
           <div className="flex flex-wrap gap-2">
             <Link
               href={`${base}/models?asset=${asset.asset_id}&fund=${fund.fund_id}`}
-              className="rounded-lg border border-bm-accent/60 bg-bm-accent/10 px-3 py-2 text-sm text-bm-accent hover:bg-bm-accent/20"
+              className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-bm-text shadow-[0_8px_18px_-16px_rgba(15,23,42,0.15)] hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
             >
               Run Model
             </Link>
             <button
               type="button"
               onClick={() => setReportModalOpen(true)}
-              className="rounded-lg bg-bm-accent px-3 py-2 text-sm text-white hover:bg-bm-accent/80"
+              className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-bm-text shadow-[0_8px_18px_-16px_rgba(15,23,42,0.15)] hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
             >
               Generate Report
             </button>
             <Link
               href={`${base}/assets`}
-              className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
+              className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-bm-text shadow-[0_8px_18px_-16px_rgba(15,23,42,0.15)] hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
             >
               Back to Assets
             </Link>
@@ -213,24 +249,22 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
         </div>
       </div>
 
-      {/* Section Nav */}
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-2">
-        <div className="flex flex-wrap gap-2">
-          {SECTIONS.map((label) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => setSection(label)}
-              className={`rounded-lg border px-3 py-1.5 text-sm transition ${
-                section === label
-                  ? "border-bm-accent/60 bg-bm-accent/10"
-                  : "border-bm-border/70 hover:bg-bm-surface/40"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+      {/* ── SECTION NAV ── */}
+      <div className="flex flex-wrap gap-2 rounded-full border border-slate-200 bg-white p-1.5 shadow-[0_8px_18px_-16px_rgba(15,23,42,0.1)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))]">
+        {SECTIONS.map((lbl) => (
+          <button
+            key={lbl}
+            type="button"
+            onClick={() => setSection(lbl)}
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium uppercase tracking-[0.12em] transition ${
+              section === lbl
+                ? "border-slate-900 bg-slate-900 text-white dark:border-white/20 dark:bg-white/10 dark:text-white"
+                : "border-transparent text-bm-muted2 hover:text-bm-text"
+            }`}
+          >
+            {lbl}
+          </button>
+        ))}
       </div>
 
       {/* ── COCKPIT ── */}
@@ -300,15 +334,15 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
       {/* ── REPORT GENERATION MODAL ── */}
       {reportModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-2xl border border-bm-border bg-bm-surface p-6 shadow-xl">
-            <h2 className="text-lg font-semibold">Generate Asset Report</h2>
+          <div className="w-full max-w-md rounded-[28px] border border-slate-200 bg-white p-6 shadow-xl dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(9,14,28,0.98))]">
+            <h2 className="text-lg font-semibold text-bm-text">Generate Asset Report</h2>
             <p className="mt-1 text-sm text-bm-muted2">{asset.name}</p>
 
             <div className="mt-4 space-y-3">
-              <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+              <label className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
                 Report Type
                 <select
-                  className="mt-1 block w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
+                  className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-bm-text dark:border-white/10 dark:bg-white/[0.04]"
                   value={reportType}
                   onChange={(e) => setReportType(e.target.value)}
                 >
@@ -318,10 +352,10 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
                 </select>
               </label>
 
-              <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
+              <label className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
                 Quarter
                 <input
-                  className="mt-1 block w-full rounded-lg border border-bm-border bg-bm-surface px-3 py-2 text-sm"
+                  className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-bm-text dark:border-white/10 dark:bg-white/[0.04]"
                   value={reportQuarter}
                   onChange={(e) => setReportQuarter(e.target.value)}
                   placeholder="2026Q1"
@@ -337,7 +371,7 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
               <button
                 type="button"
                 onClick={() => setReportModalOpen(false)}
-                className="rounded-lg border border-bm-border px-4 py-2 text-sm hover:bg-bm-surface/40"
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
               >
                 Cancel
               </button>
@@ -345,7 +379,7 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
                 type="button"
                 onClick={handleGenerateReport}
                 disabled={reportGenerating}
-                className="rounded-lg bg-bm-accent px-4 py-2 text-sm text-white hover:bg-bm-accent/80 disabled:opacity-50"
+                className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-white/10 dark:hover:bg-white/20"
               >
                 {reportGenerating ? "Generating..." : "Generate"}
               </button>

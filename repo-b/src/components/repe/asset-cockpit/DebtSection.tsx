@@ -8,6 +8,10 @@ import { KpiStrip } from "./KpiStrip";
 import { TrendLineChart } from "@/components/charts";
 import { CHART_COLORS } from "@/components/charts/chart-theme";
 import { fmtMoney, fmtPct, fmtX } from "./format-utils";
+import SectionHeader from "./shared/SectionHeader";
+import SecondaryMetric from "./shared/SecondaryMetric";
+import { BRIEFING_CONTAINER, BRIEFING_CARD } from "./shared/briefing-colors";
+import { getMockLoanDetails } from "./mock-data";
 
 interface Props {
   financialState: ReV2AssetQuarterState | null;
@@ -22,16 +26,20 @@ export default function DebtSection({ financialState, periods }: Props) {
       debt_balance: Number(p.debt_balance ?? 0),
     }));
 
+  const loan = getMockLoanDetails();
+
   if (!financialState && debtTrendData.length === 0) {
     return (
-      <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-6 text-sm text-bm-muted2">
+      <div className={`${BRIEFING_CONTAINER} text-sm text-bm-muted2`}>
         No debt data available for this asset.
       </div>
     );
   }
 
   return (
-    <div className="space-y-4" data-testid="asset-debt-section">
+    <div className="space-y-5" data-testid="asset-debt-section">
+      <SectionHeader eyebrow="DEBT STRUCTURE" title="Capital Stack & Loan Health" />
+
       {/* Debt KPI Strip */}
       {financialState && (
         <KpiStrip
@@ -70,7 +78,7 @@ export default function DebtSection({ financialState, periods }: Props) {
 
       {/* Loan Health Indicators */}
       {financialState && (financialState.dscr || financialState.ltv || financialState.debt_yield) && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-bm-border/70 bg-bm-surface/20 px-4 py-2.5">
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 dark:border-white/10 dark:bg-white/[0.02]">
           <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2 mr-2">Loan Health</span>
           {financialState.dscr && (
             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
@@ -101,10 +109,10 @@ export default function DebtSection({ financialState, periods }: Props) {
 
       {/* Debt Balance Trend */}
       {debtTrendData.length > 0 && (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-          <h3 className="text-xs uppercase tracking-[0.12em] text-bm-muted2 mb-3">
+        <div className={BRIEFING_CARD}>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2 mb-3">
             Debt Balance Trend
-          </h3>
+          </p>
           <TrendLineChart
             data={debtTrendData}
             lines={[{ key: "debt_balance", label: "Debt Balance", color: CHART_COLORS.opex }]}
@@ -117,27 +125,31 @@ export default function DebtSection({ financialState, periods }: Props) {
 
       {/* Debt Detail Summary */}
       {financialState && (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">
+        <div className={BRIEFING_CARD}>
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2">
             Debt Summary
           </h3>
           <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-            <div><dt className="text-xs text-bm-muted2">Debt Balance</dt><dd className="font-medium">{fmtMoney(financialState.debt_balance)}</dd></div>
-            <div><dt className="text-xs text-bm-muted2">Debt Service</dt><dd className="font-medium">{fmtMoney(financialState.debt_service)}</dd></div>
-            <div><dt className="text-xs text-bm-muted2">LTV</dt><dd className="font-medium">{fmtPct(financialState.ltv)}</dd></div>
-            <div><dt className="text-xs text-bm-muted2">DSCR</dt><dd className="font-medium">{fmtX(financialState.dscr)}</dd></div>
+            <div><dt className="text-xs text-bm-muted2">Debt Balance</dt><dd className="font-medium text-bm-text">{fmtMoney(financialState.debt_balance)}</dd></div>
+            <div><dt className="text-xs text-bm-muted2">Debt Service</dt><dd className="font-medium text-bm-text">{fmtMoney(financialState.debt_service)}</dd></div>
+            <div><dt className="text-xs text-bm-muted2">LTV</dt><dd className="font-medium text-bm-text">{fmtPct(financialState.ltv)}</dd></div>
+            <div><dt className="text-xs text-bm-muted2">DSCR</dt><dd className="font-medium text-bm-text">{fmtX(financialState.dscr)}</dd></div>
           </dl>
         </div>
       )}
 
-      {/* Placeholder for future enrichment */}
-      <div className="rounded-xl border border-dashed border-bm-border/50 bg-bm-surface/10 p-4">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">
+      {/* Loan Details */}
+      <div className={BRIEFING_CONTAINER}>
+        <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2">
           Loan Details
         </h3>
-        <p className="mt-2 text-sm text-bm-muted2">
-          Lender, interest rate, maturity date, and amortization schedule will appear here once loan documents are uploaded.
-        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <SecondaryMetric label="Lender" value={loan.lender} />
+          <SecondaryMetric label="Interest Rate" value={`${loan.rate.toFixed(2)}%`} />
+          <SecondaryMetric label="Maturity" value={loan.maturity} />
+          <SecondaryMetric label="Amortization" value={loan.amortization} />
+          <SecondaryMetric label="Loan Type" value={loan.loan_type} />
+        </div>
       </div>
     </div>
   );

@@ -35,3 +35,18 @@ export function fmtYear(v: unknown): string {
   if (!Number.isFinite(n)) return "—";
   return String(Math.round(n));
 }
+
+export function fmtSfPsf(v: number | string | null | undefined): string {
+  if (v == null) return "—";
+  const n = Number(v);
+  if (Number.isNaN(n)) return "—";
+  return `$${n.toFixed(2)}/SF`;
+}
+
+export function fmtBps(v: number | string | null | undefined): string {
+  if (v == null) return "—";
+  const n = Number(v);
+  if (Number.isNaN(n)) return "—";
+  const sign = n >= 0 ? "+" : "";
+  return `${sign}${n.toFixed(0)} bps`;
+}
