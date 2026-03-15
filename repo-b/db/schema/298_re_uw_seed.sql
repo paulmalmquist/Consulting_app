@@ -51,18 +51,36 @@ BEGIN
     v_uw_nav := 15000000 + (v_counter * 3000000);
 
     -- Create underwriting model
-    INSERT INTO re_model (model_id, fund_id, name, description, status, model_type, locked_at, created_by)
-    VALUES (
-      v_model_id,
-      v_fund_id,
-      'UW IO - ' || v_deal.name,
-      'Initial offering underwriting for ' || v_deal.name,
-      'approved',
-      'underwriting_io',
-      now(),
-      'seed'
-    )
-    ON CONFLICT DO NOTHING;
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 're_model' AND column_name = 'fund_id'
+    ) THEN
+      INSERT INTO re_model (model_id, fund_id, name, description, status, model_type, locked_at, created_by)
+      VALUES (
+        v_model_id,
+        v_fund_id,
+        'UW IO - ' || v_deal.name,
+        'Initial offering underwriting for ' || v_deal.name,
+        'approved',
+        'underwriting_io',
+        now(),
+        'seed'
+      )
+      ON CONFLICT DO NOTHING;
+    ELSE
+      INSERT INTO re_model (model_id, primary_fund_id, name, description, status, model_type, locked_at, created_by)
+      VALUES (
+        v_model_id,
+        v_fund_id,
+        'UW IO - ' || v_deal.name,
+        'Initial offering underwriting for ' || v_deal.name,
+        'approved',
+        'underwriting_io',
+        now(),
+        'seed'
+      )
+      ON CONFLICT DO NOTHING;
+    END IF;
 
     -- Store model results
     INSERT INTO re_model_results_investment (model_id, investment_id, metrics_json, compute_version)

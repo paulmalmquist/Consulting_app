@@ -81,7 +81,20 @@ END $$;
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Indexes
 -- ═══════════════════════════════════════════════════════════════════════════
-CREATE INDEX IF NOT EXISTS idx_re_model_fund ON re_model(fund_id);
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 're_model' AND column_name = 'fund_id'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_re_model_fund ON re_model(fund_id);
+  ELSIF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 're_model' AND column_name = 'primary_fund_id'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_re_model_fund ON re_model(primary_fund_id);
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS idx_re_scenario_version_scenario ON re_scenario_version(scenario_id);
 CREATE INDEX IF NOT EXISTS idx_re_scenario_version_model ON re_scenario_version(model_id);
 CREATE INDEX IF NOT EXISTS idx_re_scenario_model ON re_scenario(model_id);
