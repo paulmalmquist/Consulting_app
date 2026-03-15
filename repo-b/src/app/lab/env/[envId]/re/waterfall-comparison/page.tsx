@@ -358,7 +358,7 @@ export default function WaterfallComparisonPage() {
         <StateCard
           state="empty"
           title="No waterfall runs"
-          message="Waterfall runs are created from the Waterfalls module. Run a waterfall first to compare."
+          description="Waterfall runs are created from the Waterfalls module. Run a waterfall first to compare."
         />
       )}
 

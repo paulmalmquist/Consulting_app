@@ -251,7 +251,7 @@ export default function FeesPage() {
           <StateCard
             state="empty"
             title="No fee policies"
-            message="Fee policies define management fee structures for each fund."
+            description="Fee policies define management fee structures for each fund."
           />
         ) : (
           <div className="overflow-x-auto rounded-xl border border-bm-border/30">

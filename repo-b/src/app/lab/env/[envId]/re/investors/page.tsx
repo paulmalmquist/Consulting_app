@@ -214,7 +214,7 @@ export default function InvestorsPage() {
           <StateCard
             state="empty"
             title="No investors yet"
-            message="Investor data is populated from fund partner records and commitments."
+            description="Investor data is populated from fund partner records and commitments."
           />
         )
       ) : (

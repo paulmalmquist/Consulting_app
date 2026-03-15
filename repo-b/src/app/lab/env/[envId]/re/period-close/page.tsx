@@ -279,7 +279,7 @@ export default function PeriodClosePage() {
           <StateCard
             state="empty"
             title="No period closes yet"
-            message="Quarter-end close runs will appear here once initiated."
+            description="Quarter-end close runs will appear here once initiated."
           />
         )
       ) : (

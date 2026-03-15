@@ -245,7 +245,7 @@ export default function DistributionsPage() {
           <StateCard
             state="empty"
             title="No distributions yet"
-            message="Distribution data is populated from fund exit events and partner payout records."
+            description="Distribution data is populated from fund exit events and partner payout records."
           />
         )
       ) : (

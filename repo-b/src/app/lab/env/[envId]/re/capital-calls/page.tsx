@@ -228,7 +228,7 @@ export default function CapitalCallsPage() {
           <StateCard
             state="empty"
             title="No capital calls yet"
-            message="Capital call data is populated from fund call issuance and partner contributions."
+            description="Capital call data is populated from fund call issuance and partner contributions."
           />
         )
       ) : (

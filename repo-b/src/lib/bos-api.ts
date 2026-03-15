@@ -5835,9 +5835,9 @@ export function getSavedAnalysis(queryId: string): Promise<Record<string, unknow
   return directFetch(`/api/re/v2/saved-analyses/${queryId}`);
 }
 
-// ── Documents ──────────────────────────────────────────────────────────────
+// ── Documents (RE v2) ─────────────────────────────────────────────────────
 
-export function listDocuments(params: {
+export function listReDocuments(params: {
   env_id: string;
   business_id?: string;
   classification?: string;

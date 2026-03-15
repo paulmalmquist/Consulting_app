@@ -80,6 +80,7 @@ export type AssistantVisibleData = {
   documents?: AssistantVisibleRecord[];
   metrics?: Record<string, string | number | null>;
   notes?: string[];
+  [key: string]: unknown;
 };
 
 export type AssistantSessionContext = {

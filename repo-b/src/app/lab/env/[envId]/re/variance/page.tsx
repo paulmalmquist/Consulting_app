@@ -364,7 +364,7 @@ export default function VariancePage() {
         <StateCard
           state="empty"
           title="No variance data"
-          message="Budget vs actual variance data is populated from underwriting versions and normalized accounting data."
+          description="Budget vs actual variance data is populated from underwriting versions and normalized accounting data."
         />
       )}
 
