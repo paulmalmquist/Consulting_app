@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import { Building2, ChevronDown, ChevronRight, Landmark, Plus, PlusCircle } from "lucide-react";
 import { cn } from "@/lib/cn";
