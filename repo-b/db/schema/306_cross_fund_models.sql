@@ -33,9 +33,16 @@ DO $$ BEGIN
 END $$;
 
 -- New unique: (env_id, name) — models are unique per environment
-DO $$ BEGIN
-  ALTER TABLE re_model ADD CONSTRAINT re_model_env_name_key UNIQUE (env_id, name);
-EXCEPTION WHEN duplicate_object THEN NULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE table_name = 're_model' AND constraint_name = 're_model_env_name_key'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM pg_class WHERE relname = 're_model_env_name_key'
+  ) THEN
+    ALTER TABLE re_model ADD CONSTRAINT re_model_env_name_key UNIQUE (env_id, name);
+  END IF;
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_re_model_env ON re_model(env_id);
