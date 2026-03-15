@@ -1,34 +1,7 @@
 import { NextRequest } from "next/server";
-import { Pool } from "pg";
+import { getPool } from "@/lib/server/db";
 
 export const runtime = "nodejs";
-
-let _pool: Pool | null = null;
-
-function getPool(): Pool | null {
-  if (_pool) return _pool;
-  const raw = process.env.PG_POOLER_URL || process.env.DATABASE_URL;
-  if (!raw) return null;
-  try {
-    const u = new URL(raw);
-    const hostname = u.hostname.replace(/^\[(.*)\]$/, "$1");
-    const isLocal =
-      hostname === "localhost" ||
-      hostname === "127.0.0.1" ||
-      hostname === "::1";
-    _pool = new Pool({
-      host: hostname,
-      port: u.port ? Number(u.port) : 5432,
-      user: decodeURIComponent(u.username || ""),
-      password: decodeURIComponent(u.password || ""),
-      database: u.pathname?.replace(/^\//, "") || "postgres",
-      ...(isLocal ? {} : { ssl: { rejectUnauthorized: false } }),
-    });
-    return _pool;
-  } catch {
-    return null;
-  }
-}
 
 function resolveEnvId(request: NextRequest): string | null {
   const url = new URL(request.url);

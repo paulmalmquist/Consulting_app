@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import { getPool } from "@/lib/server/db";
+import { getFundDetail } from "@/lib/server/repeFunds";
 
 export const runtime = "nodejs";
 
@@ -94,33 +95,12 @@ export async function GET(
   }
 
   try {
-    const [fundRes, termsRes] = await Promise.all([
-      pool.query(
-        `SELECT
-           fund_id::text, business_id::text, name, vintage_year,
-           fund_type, strategy, sub_strategy, target_size, term_years,
-           status, created_at
-         FROM repe_fund WHERE fund_id = $1::uuid`,
-        [params.fundId]
-      ),
-      pool.query(
-        `SELECT
-           fund_term_id::text AS term_id,
-           fund_id::text,
-           effective_from AS effective_date,
-           preferred_return_rate, carry_rate, waterfall_style,
-           management_fee_rate, created_at
-         FROM repe_fund_term WHERE fund_id = $1::uuid
-         ORDER BY effective_from DESC`,
-        [params.fundId]
-      ).catch(() => ({ rows: [] })),
-    ]);
-
-    if (!fundRes.rows[0]) {
+    const detail = await getFundDetail(pool, params.fundId);
+    if (!detail) {
       return Response.json({ error_code: "FUND_NOT_FOUND", message: `Fund ${params.fundId} not found` }, { status: 404 });
     }
 
-    return Response.json({ fund: fundRes.rows[0], terms: termsRes.rows });
+    return Response.json(detail);
   } catch (err) {
     console.error("[repe/funds/[fundId]] DB error", err);
     return Response.json({ error_code: "DB_ERROR", message: "Failed to load fund" }, { status: 500 });

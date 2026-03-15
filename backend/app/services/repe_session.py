@@ -21,6 +21,8 @@ class RepeSessionState:
     baseline_scenario_id: str | None = None
     analysis_mode: str | None = None  # "sale_scenario", "stress_test", "waterfall"
     last_result: dict[str, Any] | None = None
+    last_query_intent: dict[str, Any] | None = None
+    last_result_data: list[dict[str, Any]] | None = None
     accumulated_params: dict[str, Any] = field(default_factory=dict)
     waterfall_runs: list[dict[str, Any]] = field(default_factory=list)
     last_fund_id: str | None = None
@@ -59,6 +61,8 @@ def update_session(
     baseline_scenario_id: str | None = None,
     analysis_mode: str | None = None,
     last_result: dict[str, Any] | None = None,
+    last_query_intent: dict[str, Any] | None = None,
+    last_result_data: list[dict[str, Any]] | None = None,
     accumulated_params: dict[str, Any] | None = None,
     waterfall_run: dict[str, Any] | None = None,
     last_fund_id: str | None = None,
@@ -84,6 +88,10 @@ def update_session(
         session.analysis_mode = analysis_mode
     if last_result is not None:
         session.last_result = last_result
+    if last_query_intent is not None:
+        session.last_query_intent = last_query_intent
+    if last_result_data is not None:
+        session.last_result_data = last_result_data
     if accumulated_params is not None:
         session.accumulated_params.update(accumulated_params)
     if waterfall_run is not None:

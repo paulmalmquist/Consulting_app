@@ -5,6 +5,7 @@ import {
   createFallbackEnvironment,
   listFallbackEnvironments,
 } from "@/lib/labV1Fallback";
+import { getPool } from "@/lib/server/db";
 import { getMeridianEnvironmentRecord } from "@/lib/server/eccStore";
 import { resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
 
@@ -22,40 +23,8 @@ type EnvironmentRow = {
   created_at?: string | Date;
 };
 
-let _pool: Pool | null = null;
 let _hasIndustryTypeColumn: boolean | null = null;
 let _hasWorkspaceTemplateKeyColumn: boolean | null = null;
-
-function getPool(): Pool | null {
-  if (_pool) return _pool;
-  const raw = process.env.PG_POOLER_URL || process.env.DATABASE_URL;
-  if (!raw) {
-    return null;
-  }
-
-  // Don't rely on connection string `sslmode=` parsing. In some environments
-  // (notably Vercel), Node can reject Supabase's chain unless we explicitly
-  // disable verification. Build the config ourselves and force SSL.
-  const u = new URL(raw);
-  const hostname = u.hostname.replace(/^\[(.*)\]$/, "$1");
-  const port = u.port ? Number(u.port) : 5432;
-  const user = decodeURIComponent(u.username || "");
-  const password = decodeURIComponent(u.password || "");
-  const database = u.pathname?.replace(/^\//, "") || "postgres";
-
-  const isLocal =
-    hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
-
-  _pool = new Pool({
-    host: hostname,
-    port,
-    user,
-    password,
-    database,
-    ...(isLocal ? {} : { ssl: { rejectUnauthorized: false } }),
-  });
-  return _pool;
-}
 
 function slugSchemaName(clientName: string): string {
   const base = clientName

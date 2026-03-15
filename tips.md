@@ -140,6 +140,9 @@ _(This section is appended by the research-architect after each successful inges
 - The OpenClaw gateway is managed through the launchd service again on this machine. Use `openclaw gateway stop` and `openclaw gateway start` for reloads instead of killing the port manually.
 - Proposal approvals currently use Lobster approval gates and staged handoff files rather than Telegram-native host-exec approval buttons. This build does not expose a first-class Telegram `execApprovals` surface like Discord.
 - If an old Telegram DM session keeps reporting `openai/gpt-5.1-codex` after the Codex-first cutover, send `/reset` in that chat so the dispatcher session picks up the new model config.
+- Audit note (2026-03-14): legacy direct-DB Next routes in `repo-b/src/app/api/re/v1/*` and `repo-b/src/app/api/v1/environments/*` should reuse `repo-b/src/lib/server/db.ts` and shared query helpers instead of re-declaring file-local `getPool()` / `resolveBusinessId()` logic.
+- Audit note (2026-03-14): Lab/Data Studio pages under `repo-b/src/app/lab/env/[envId]/...` have repeated `API_BASE` + `qs()` + account-bootstrap fetch patterns. New pages in that surface should land on a shared hook/client, not another page-local copy.
+- Audit note (2026-03-14): assistant response rendering is now split across both `repo-b/src/components/copilot/` and `repo-b/src/components/winston/`. Before adding a third assistant surface, extract shared response blocks or add mirrored tests so charts/tables/confirmations do not drift silently.
 
 ## 1. Repo Inventory
 
@@ -1456,3 +1459,59 @@ Run with DB: `make test-dashboard-live`
 - If you add a new fast-path `structured_result`, also add the block mapping in `assistant_blocks.py`; otherwise the full-screen workspace silently loses the inline analytic render.
 - If you extend `AssistantContextEnvelope`, update both backend Pydantic schemas and `repo-b/src/lib/commandbar/types.ts` together. The command bar, workspace, and Next proxy all rely on the same shape.
 - Keep `askAi()` as a wrapper over the shared streaming client. Do not let the command bar and full-screen workspace drift into separate SSE parsers.
+
+## Fund Operations Surface — Architecture Notes (March 2026)
+
+### Investor / LP Data Model
+
+The investor surface uses existing tables — no new schema was needed:
+- `re_partner` — partner profile (name, type, business_id)
+- `re_partner_commitment` — per-fund commitment amount + date
+- `re_partner_quarter_metrics` — per-partner per-fund quarterly metrics (contributed, distributed, NAV, TVPI, IRR)
+- `re_capital_ledger_entry` — append-only capital events (contribution, distribution, fee)
+
+Investor list/detail pages live at `/lab/env/[envId]/re/investors/` (Pattern B — Next.js route handler → Postgres).
+
+### Intent Classification Conventions
+
+When adding new fast-path intents:
+1. Add constant in `repe_intent.py` intent families section
+2. Add compiled regex pattern (test with real phrases before committing)
+3. Add scoring block in `classify_repe_intent()` — base score 0.90 for strong regex match
+4. Add suppression rules to prevent collision with similar intents (e.g., `LIST_INVESTORS` vs `LP_SUMMARY`)
+5. Add to the analytics_query suppression list so AQ doesn't steal strong matches
+6. Import the constant in `ai_gateway.py` `_run_repe_fast_path`
+7. Add `elif family ==` block in the fast-path with status → tool call → card build → structured_result → block mapping
+
+### Card Builder Patterns
+
+Card builder functions (`_build_*_card`) return dicts with these standard fields:
+- `title`, `subtitle` — display header
+- `metrics` — list of `{label, value, delta}` for KPI strip
+- `table` — `{columns: string[], rows: dict[]}` for tabular data
+- `sections` — list of `{title, content}` for explanatory prose (markdown)
+- `parameters` — key-value context info
+- `actions` — list of `{label, action, params}` for follow-up buttons
+
+Action types handled by GlobalCommandBar:
+- `open_dashboard` / `edit_dashboard` — navigate to dashboard builder
+- `navigate` — open a path under `/lab/env/{envId}/re/{path}`
+- `create_task` — sends a follow-up prompt to create a task via LLM + `work.create_item`
+- `export_csv` — handled by StructuredResultCard directly (client-side CSV generation)
+- Default — sends `{action.label} for fund {fund_id}` as a new chat prompt
+
+### MCP Tool Naming
+
+Investor/capital tools follow the `finance.*` namespace:
+- `finance.list_investors` — list with commitment totals
+- `finance.get_investor_summary` — single partner across funds
+- `finance.list_capital_activity` — ledger entries with filters
+- `finance.nav_rollforward` — NAV bridge between two quarters
+
+Tools are registered in `backend/app/mcp/tools/repe_investor_tools.py` and loaded via `register_repe_investor_tools()` in `backend/app/mcp/server.py`.
+
+### Regex Gotchas
+
+- Always test regex against the exact phrases users type (e.g., "show me the investors" has "me the" between "show" and "investors")
+- Use `(?:me\s+)?(?:the\s+)?(?:all\s+)?` as a flexible filler between verb and noun
+- The classifier picks the highest-confidence intent — ties go to the first one scored, so order matters for suppression rules

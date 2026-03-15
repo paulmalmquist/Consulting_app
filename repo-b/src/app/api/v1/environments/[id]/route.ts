@@ -6,6 +6,7 @@ import {
   getFallbackEnvironment,
   updateFallbackEnvironment,
 } from "@/lib/labV1Fallback";
+import { getPool } from "@/lib/server/db";
 import {
   getMeridianEnvironmentRecord,
   MERIDIAN_APEX_ENV_ID,
@@ -14,37 +15,8 @@ import { resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
 
 export const runtime = "nodejs";
 
-let _pool: Pool | null = null;
 let _hasIndustryTypeColumn: boolean | null = null;
 let _hasWorkspaceTemplateKeyColumn: boolean | null = null;
-
-function getPool(): Pool | null {
-  if (_pool) return _pool;
-  const raw = process.env.PG_POOLER_URL || process.env.DATABASE_URL;
-  if (!raw) {
-    return null;
-  }
-
-  const u = new URL(raw);
-  const hostname = u.hostname.replace(/^\[(.*)\]$/, "$1");
-  const port = u.port ? Number(u.port) : 5432;
-  const user = decodeURIComponent(u.username || "");
-  const password = decodeURIComponent(u.password || "");
-  const database = u.pathname?.replace(/^\//, "") || "postgres";
-
-  const isLocal =
-    hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
-
-  _pool = new Pool({
-    host: hostname,
-    port,
-    user,
-    password,
-    database,
-    ...(isLocal ? {} : { ssl: { rejectUnauthorized: false } }),
-  });
-  return _pool;
-}
 
 async function hasIndustryTypeColumn(pool: Pool) {
   if (_hasIndustryTypeColumn !== null) return _hasIndustryTypeColumn;

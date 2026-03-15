@@ -35,6 +35,11 @@ INTENT_EXPLAIN_RETURNS = "explain_returns"
 INTENT_LP_SUMMARY = "lp_summary"
 INTENT_GENERATE_DASHBOARD = "generate_dashboard"
 
+# ── Fund operations intent families ────────────────────────────────────────
+INTENT_LIST_INVESTORS = "list_investors"
+INTENT_LIST_CAPITAL_ACTIVITY = "list_capital_activity"
+INTENT_NAV_ROLLFORWARD = "nav_rollforward"
+
 # ── Analytics portal intent families ────────────────────────────────────────
 INTENT_ANALYTICS_QUERY = "analytics_query"
 INTENT_KNOWLEDGE_SEARCH = "knowledge_search"
@@ -184,6 +189,31 @@ _CHART_INTENT_RE = re.compile(
     r"(?:budget|actual)\s+vs\s+(?:budget|actual)|"
     r"side\s+by\s+side"
     r")\b",
+    re.IGNORECASE,
+)
+
+# ── Fund operations patterns ──────────────────────────────────────────────
+_LIST_INVESTORS_RE = re.compile(
+    r"\b((?:list|show|who\s+are)\s+(?:(?:me\s+)?(?:the\s+)?(?:all\s+)?)?(?:investors|lps|limited\s+partners)|"
+    r"investor\s+(?:list|summary|overview|roster)|"
+    r"partner\s+(?:list|roster|overview)|"
+    r"(?:show|get)\s+(?:me\s+)?(?:the\s+)?(?:all\s+)?(?:investors|lps)|"
+    r"investor(?:s)?.*commit(?:ment|ted))\b",
+    re.IGNORECASE,
+)
+_LIST_CAPITAL_ACTIVITY_RE = re.compile(
+    r"\b((?:list|show|recent|latest)\s+(?:capital\s+)?(?:calls?|contributions?|distributions?|capital\s+activity)|"
+    r"what\s+(?:capital\s+)?(?:calls?|distributions?)\s+(?:have\s+been|were)\s+(?:made|sent|issued)|"
+    r"capital\s+(?:call|activity)\s+(?:history|log|summary|ledger)|"
+    r"(?:show|get)\s+(?:me\s+)?(?:recent\s+)?(?:capital\s+)?(?:activity|transactions)|"
+    r"summarize\s+(?:capital\s+)?distributions)\b",
+    re.IGNORECASE,
+)
+_NAV_ROLLFORWARD_RE = re.compile(
+    r"\b(nav\s+(?:roll\s*forward|bridge|walk|change|movement|reconciliation)|"
+    r"what\s+(?:drove|changed|explains?|caused)\s+(?:the\s+)?nav|"
+    r"nav\s+(?:over|across|between|from)\s+(?:the\s+)?(?:quarter|period)|"
+    r"why\s+did\s+nav\s+(?:change|increase|decrease|drop|go\s+up|go\s+down))\b",
     re.IGNORECASE,
 )
 
@@ -411,6 +441,36 @@ def classify_repe_intent(
         lp_score += 0.10
     scores[INTENT_LP_SUMMARY] = min(lp_score, 1.0)
 
+    # ── List investors ────────────────────────────────────────────────
+    inv_score = 0.0
+    if _LIST_INVESTORS_RE.search(msg):
+        inv_score += 0.90
+    # Suppress if LP summary scored higher (LP summary is fund-scoped, investors is cross-fund)
+    if scores.get(INTENT_LP_SUMMARY, 0) > 0.6 and inv_score > 0:
+        # If message mentions a specific fund, LP summary wins; otherwise investors wins
+        if page_type == "fund":
+            inv_score *= 0.3
+        else:
+            scores[INTENT_LP_SUMMARY] *= 0.3
+    scores[INTENT_LIST_INVESTORS] = min(inv_score, 1.0)
+
+    # ── List capital activity ─────────────────────────────────────────
+    cap_act_score = 0.0
+    if _LIST_CAPITAL_ACTIVITY_RE.search(msg):
+        cap_act_score += 0.90
+    # Suppress if capital call impact scored higher (impact is a what-if tool)
+    if scores.get(INTENT_CAPITAL_CALL_IMPACT, 0) > 0.6 and cap_act_score > 0:
+        cap_act_score *= 0.3
+    scores[INTENT_LIST_CAPITAL_ACTIVITY] = min(cap_act_score, 1.0)
+
+    # ── NAV rollforward ──────────────────────────────────────────────
+    nav_rf_score = 0.0
+    if _NAV_ROLLFORWARD_RE.search(msg):
+        nav_rf_score += 0.90
+    if page_type == "fund":
+        nav_rf_score += 0.05
+    scores[INTENT_NAV_ROLLFORWARD] = min(nav_rf_score, 1.0)
+
     # ── Generate dashboard ────────────────────────────────────────────
     dash_score = 0.0
     _has_chart_keywords = bool(_CHART_INTENT_RE.search(msg))
@@ -437,6 +497,7 @@ def classify_repe_intent(
     if any(scores.get(k, 0) > 0.7 for k in (
         INTENT_RUN_SALE_SCENARIO, INTENT_RUN_WATERFALL, INTENT_FUND_METRICS,
         INTENT_GENERATE_DASHBOARD, INTENT_PIPELINE_RADAR,
+        INTENT_LIST_INVESTORS, INTENT_LIST_CAPITAL_ACTIVITY, INTENT_NAV_ROLLFORWARD,
     )):
         aq_score *= 0.2
     scores[INTENT_ANALYTICS_QUERY] = min(aq_score, 1.0)

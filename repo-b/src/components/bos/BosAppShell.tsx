@@ -12,6 +12,7 @@ export default function BosAppShell({ children }: { children: React.ReactNode })
   const deptKey = (params?.deptKey as string) || null;
   const capKey = (params?.capKey as string) || null;
   const isRepeWorkspace = pathname.startsWith("/app/repe");
+  const isWinstonWorkspace = pathname.startsWith("/app/winston");
   const { setActiveDeptKey } = useBusinessContext();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -46,7 +47,7 @@ export default function BosAppShell({ children }: { children: React.ReactNode })
         onHamburgerClick={() => setSidebarOpen(true)}
       />
       <div className="flex flex-1 overflow-hidden">
-        {!isRepeWorkspace ? (
+        {!isRepeWorkspace && !isWinstonWorkspace ? (
           <Sidebar
             open={sidebarOpen}
             onClose={() => setSidebarOpen(false)}
@@ -55,7 +56,7 @@ export default function BosAppShell({ children }: { children: React.ReactNode })
           />
         ) : null}
         <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1680px] px-4 py-4 pb-safe sm:px-6 sm:py-5 lg:px-8 lg:py-6">
+          <div className={isWinstonWorkspace ? "h-full" : "mx-auto w-full max-w-[1680px] px-4 py-4 pb-safe sm:px-6 sm:py-5 lg:px-8 lg:py-6"}>
             {children}
           </div>
         </main>

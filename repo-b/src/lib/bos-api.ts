@@ -5671,6 +5671,54 @@ export function seedInstitutionalFund(params: {
   return bosFetch("/api/re/v2/fi/seed-institutional", { method: "POST", params });
 }
 
+// ── Investors ─────────────────────────────────────────────────────────────────
+
+export function listInvestors(params: {
+  env_id: string;
+  business_id?: string;
+  partner_type?: string;
+  quarter?: string;
+}): Promise<{ investors: Record<string, unknown>[] }> {
+  return directFetch("/api/re/v2/investors", {
+    params: {
+      env_id: params.env_id,
+      business_id: params.business_id,
+      partner_type: params.partner_type,
+      quarter: params.quarter,
+    },
+  });
+}
+
+export function getInvestor(partnerId: string, params: {
+  quarter?: string;
+}): Promise<{
+  partner: Record<string, unknown> | null;
+  commitments: Record<string, unknown>[];
+  metrics: Record<string, unknown>[];
+  totals: Record<string, string>;
+}> {
+  return directFetch(`/api/re/v2/investors/${partnerId}`, {
+    params: { quarter: params.quarter },
+  });
+}
+
+export function getInvestorCapitalActivity(partnerId: string, params?: {
+  quarter?: string;
+  entry_type?: string;
+  limit?: string;
+}): Promise<{
+  entries: Record<string, unknown>[];
+  totals: Record<string, string>;
+}> {
+  return directFetch(`/api/re/v2/investors/${partnerId}/capital-activity`, {
+    params: {
+      quarter: params?.quarter,
+      entry_type: params?.entry_type,
+      limit: params?.limit,
+    },
+  });
+}
+
 // ── Amortization ────────────────────────────────────────────────────────────
 
 export type AmortizationRow = {

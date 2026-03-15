@@ -76,9 +76,39 @@ function GenericTable({
   if (!table.rows.length || !table.columns.length) return null;
   const numeric = new Set(numericColumns || []);
 
+  const handleExportCsv = () => {
+    const header = table.columns.join(",");
+    const rows = table.rows.map((r) =>
+      table.columns
+        .map((c) => {
+          const val = String(r[c] ?? "");
+          return val.includes(",") || val.includes('"') ? `"${val.replace(/"/g, '""')}"` : val;
+        })
+        .join(",")
+    );
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(title || "export").replace(/\s+/g, "_").toLowerCase()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="mt-2 overflow-x-auto">
-      {title ? <div className="mb-1 text-[11px] font-medium text-bm-muted">{title}</div> : null}
+      <div className="flex items-center justify-between mb-1">
+        {title ? <div className="text-[11px] font-medium text-bm-muted">{title}</div> : <div />}
+        <button
+          type="button"
+          onClick={handleExportCsv}
+          className="text-[10px] text-bm-muted2 hover:text-bm-accent transition-colors"
+          title="Export as CSV"
+        >
+          Export CSV
+        </button>
+      </div>
       <table className="w-full text-xs">
         <thead>
           <tr className="border-b border-bm-border/30">

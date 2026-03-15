@@ -598,6 +598,7 @@ export default function RepeWorkspaceShell({
     { href: base,                          label: "Funds",          isBase: true  },
     { href: `${base}/deals`,               label: "Investments",    isBase: false },
     { href: `${base}/assets`,              label: "Assets",         isBase: false },
+    { href: `${base}/investors`,           label: "Investors",      isBase: false },
     { href: `${base}/pipeline`,            label: "Pipeline",       isBase: false },
     ...(showIntelligence
       ? [{ href: `${base}/intelligence`,   label: "Intelligence",   isBase: false }]

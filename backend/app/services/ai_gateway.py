@@ -460,8 +460,11 @@ async def _run_repe_fast_path(
         INTENT_FUND_METRICS,
         INTENT_GENERATE_DASHBOARD,
         INTENT_KNOWLEDGE_SEARCH,
+        INTENT_LIST_CAPITAL_ACTIVITY,
+        INTENT_LIST_INVESTORS,
         INTENT_LP_SUMMARY,
         INTENT_MONTE_CARLO_WATERFALL,
+        INTENT_NAV_ROLLFORWARD,
         INTENT_PIPELINE_RADAR,
         INTENT_PORTFOLIO_WATERFALL,
         INTENT_RUN_FUND_IMPACT,
@@ -474,10 +477,23 @@ async def _run_repe_fast_path(
     )
     from app.mcp.auth import McpContext
 
+    from app.services.query_intent import extract_query_intent, detect_transform, is_transform_command
+
     scenario = resolve_scenario_params(intent, resolved_scope, context_envelope)
     session_state = get_session(str(conversation_id) if conversation_id else None)
     response_blocks: list[dict[str, Any]] = []
     collected_text_parts: list[str] = []
+
+    # Extract analytical query intent (group_by, time_grain, chart_preference, etc.)
+    query_intent = extract_query_intent(intent.original_message)
+
+    # Store query intent in session for conversational transforms
+    if conversation_id and (query_intent.group_by or query_intent.is_time_series or query_intent.limit):
+        from dataclasses import asdict
+        update_session(
+            str(conversation_id),
+            last_query_intent=asdict(query_intent),
+        )
 
     if intent.family == INTENT_SESSION_WATERFALL_QUERY:
         if session_state and session_state.waterfall_runs:
@@ -859,6 +875,71 @@ async def _run_repe_fast_path(
             for block in blocks:
                 yield _sse("response_block", {"block": block})
 
+        elif family == INTENT_LIST_INVESTORS:
+            yield _sse("status", {"message": "Loading investors...", "stage": "compute", "progress": 0.3})
+            result = await _exec_fast_tool(
+                ctx, "finance.list_investors", {
+                    "env_id": scenario.env_id,
+                    "business_id": scenario.business_id,
+                },
+                tool_timeline, data_sources,
+            )
+            card = _build_investor_list_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "investor_list", "card": card})
+            blocks = legacy_structured_result_to_blocks("investor_list", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
+
+        elif family == INTENT_LIST_CAPITAL_ACTIVITY:
+            yield _sse("status", {"message": "Loading capital activity...", "stage": "compute", "progress": 0.3})
+            tool_params: dict[str, Any] = {
+                "env_id": scenario.env_id,
+                "business_id": scenario.business_id,
+            }
+            if scenario.fund_id:
+                tool_params["fund_id"] = scenario.fund_id
+            # Extract quarter from message if present
+            quarter_param = intent.extracted_params.get("quarter") or scenario.quarter
+            if quarter_param:
+                tool_params["quarter"] = quarter_param
+            result = await _exec_fast_tool(
+                ctx, "finance.list_capital_activity", tool_params,
+                tool_timeline, data_sources,
+            )
+            card = _build_capital_activity_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "capital_activity", "card": card})
+            blocks = legacy_structured_result_to_blocks("capital_activity", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
+
+        elif family == INTENT_NAV_ROLLFORWARD:
+            yield _sse("status", {"message": "Computing NAV rollforward...", "stage": "compute", "progress": 0.3})
+            # Determine quarter_from/to — default: prior quarter → current quarter
+            q = scenario.quarter or "2026Q1"
+            year, qn = int(q[:4]), int(q[-1])
+            if qn == 1:
+                q_from = f"{year - 1}Q4"
+            else:
+                q_from = f"{year}Q{qn - 1}"
+            result = await _exec_fast_tool(
+                ctx, "finance.nav_rollforward", {
+                    "fund_id": scenario.fund_id,
+                    "quarter_from": q_from,
+                    "quarter_to": q,
+                    "env_id": scenario.env_id,
+                    "business_id": scenario.business_id,
+                },
+                tool_timeline, data_sources,
+            )
+            card = _build_nav_rollforward_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "nav_rollforward", "card": card})
+            blocks = legacy_structured_result_to_blocks("nav_rollforward", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
+
         elif family == INTENT_ANALYTICS_QUERY:
             from app.services.analytics_workspace import run_query, suggest_visualization
 
@@ -1151,6 +1232,34 @@ def _build_waterfall_card(result: dict, scenario) -> dict:
             "amount": _fmt_dollar(alloc.get("amount")),
         })
 
+    # Build tier-by-tier explanation
+    explanation_parts = []
+    tier_totals: dict[str, float] = {}
+    for alloc in allocations:
+        tc = alloc.get("tier_code", "")
+        amt = float(alloc.get("amount") or 0)
+        tier_totals[tc] = tier_totals.get(tc, 0) + amt
+
+    for tc, total in tier_totals.items():
+        label = tc.replace("_", " ").title()
+        if "return_of_capital" in tc:
+            explanation_parts.append(f"**{label}**: {_fmt_dollar(total)} — LPs receive their invested capital back before any profit split.")
+        elif "preferred_return" in tc:
+            explanation_parts.append(f"**{label}**: {_fmt_dollar(total)} — LPs receive a preferred return (typically 8%) on contributed capital.")
+        elif "catch_up" in tc:
+            explanation_parts.append(f"**{label}**: {_fmt_dollar(total)} — GP receives catch-up carry to reach their target share of total profits.")
+        elif "carried_interest" in tc or "split" in tc:
+            explanation_parts.append(f"**{label}**: {_fmt_dollar(total)} — Remaining profits split between LP and GP per the partnership agreement.")
+        else:
+            explanation_parts.append(f"**{label}**: {_fmt_dollar(total)}")
+
+    sections = []
+    if explanation_parts:
+        sections.append({
+            "title": "Waterfall Explanation",
+            "content": "\n".join(explanation_parts),
+        })
+
     return {
         "title": "Waterfall Distribution",
         "subtitle": f"Quarter: {scenario.quarter}",
@@ -1160,10 +1269,16 @@ def _build_waterfall_card(result: dict, scenario) -> dict:
             {"label": "LP Return", "value": _fmt_dollar(result.get("lp_total")), "delta": None},
         ],
         "tiers": tier_rows,
+        "sections": sections,
         "parameters": {"Quarter": scenario.quarter, "Fund": scenario.fund_id},
         "actions": [
             {"label": "LP Summary", "action": "lp_summary", "params": {"fund_id": scenario.fund_id}},
             {"label": "Fund Metrics", "action": "fund_metrics", "params": {"fund_id": scenario.fund_id}},
+            {"label": "Create Follow-Up Task", "action": "create_task", "params": {
+                "context_type": "waterfall",
+                "fund_id": scenario.fund_id,
+                "quarter": scenario.quarter,
+            }},
         ],
     }
 
@@ -1265,6 +1380,122 @@ def _build_lp_card(result: dict, scenario) -> dict:
         "actions": [
             {"label": "Run Waterfall", "action": "run_waterfall", "params": {"fund_id": scenario.fund_id}},
             {"label": "Fund Metrics", "action": "fund_metrics", "params": {"fund_id": scenario.fund_id}},
+        ],
+    }
+
+
+def _build_investor_list_card(result: dict, scenario) -> dict:
+    """Build an investor list card."""
+    investors = result.get("investors", [])
+    total_committed = sum(float(inv.get("total_committed") or 0) for inv in investors)
+    return {
+        "title": "Investors",
+        "subtitle": f"Business: {scenario.business_id or 'All'}",
+        "metrics": [
+            {"label": "Total Investors", "value": str(len(investors)), "delta": None},
+            {"label": "Total Committed", "value": _fmt_dollar(total_committed), "delta": None},
+        ],
+        "table": {
+            "columns": ["Name", "Type", "Funds", "Total Committed"],
+            "rows": [
+                {
+                    "Name": inv.get("name", ""),
+                    "Type": (inv.get("partner_type") or "").upper(),
+                    "Funds": str(inv.get("fund_count", 0)),
+                    "Total Committed": _fmt_dollar(inv.get("total_committed")),
+                }
+                for inv in investors
+            ],
+        },
+        "actions": [
+            {"label": "View Investors", "action": "navigate", "params": {"path": "investors"}},
+            {"label": "Create Follow-Up Task", "action": "create_task", "params": {
+                "context_type": "investor_list",
+                "quarter": scenario.quarter,
+            }},
+        ],
+    }
+
+
+def _build_capital_activity_card(result: dict, scenario) -> dict:
+    """Build a capital activity card."""
+    entries = result.get("entries", [])
+    totals = result.get("totals", {})
+    total_contributed = float(totals.get("contribution", 0)) + float(totals.get("capital_call", 0))
+    total_distributed = float(totals.get("distribution", 0))
+    net_flow = total_contributed - total_distributed
+    return {
+        "title": "Capital Activity",
+        "subtitle": f"Quarter: {scenario.quarter or 'All'}" if scenario.quarter else "Recent Activity",
+        "metrics": [
+            {"label": "Total Called", "value": _fmt_dollar(total_contributed), "delta": None},
+            {"label": "Total Distributed", "value": _fmt_dollar(total_distributed), "delta": None},
+            {"label": "Net Capital Flow", "value": _fmt_dollar(net_flow), "delta": None},
+            {"label": "Entries", "value": str(len(entries)), "delta": None},
+        ],
+        "table": {
+            "columns": ["Date", "Type", "Fund", "Partner", "Amount", "Memo"],
+            "rows": [
+                {
+                    "Date": e.get("effective_date", ""),
+                    "Type": (e.get("entry_type") or "").replace("_", " ").title(),
+                    "Fund": e.get("fund_name", ""),
+                    "Partner": e.get("partner_name", ""),
+                    "Amount": _fmt_dollar(e.get("amount")),
+                    "Memo": e.get("memo") or "",
+                }
+                for e in entries[:50]
+            ],
+        },
+        "actions": [
+            {"label": "Export CSV", "action": "export_csv", "params": {"context_type": "capital_activity"}},
+            {"label": "Create Follow-Up Task", "action": "create_task", "params": {
+                "context_type": "capital_activity",
+                "quarter": scenario.quarter,
+            }},
+        ],
+    }
+
+
+def _build_nav_rollforward_card(result: dict, scenario) -> dict:
+    """Build a NAV rollforward card."""
+    prior_nav = float(result.get("prior_nav") or 0)
+    current_nav = float(result.get("current_nav") or 0)
+    nav_change = float(result.get("nav_change") or 0)
+    nav_change_pct = result.get("nav_change_pct", "0")
+    bridge = result.get("bridge", [])
+    investment_changes = result.get("investment_changes", [])
+    fund_name = result.get("fund_name", "")
+    return {
+        "title": f"NAV Rollforward — {fund_name}" if fund_name else "NAV Rollforward",
+        "subtitle": f"{result.get('quarter_from', '')} → {result.get('quarter_to', '')}",
+        "metrics": [
+            {"label": "Prior NAV", "value": _fmt_dollar(prior_nav), "delta": None},
+            {"label": "Current NAV", "value": _fmt_dollar(current_nav), "delta": None},
+            {"label": "Change", "value": _fmt_dollar(nav_change), "delta": f"{nav_change_pct}%"},
+        ],
+        "table": {
+            "columns": ["Driver", "Amount"],
+            "rows": [
+                {"Driver": item.get("driver", ""), "Amount": _fmt_dollar(item.get("amount"))}
+                for item in bridge
+            ],
+        },
+        "sections": ([{
+            "title": "Investment-Level Changes",
+            "content": "\n".join(
+                f"- **{ic['investment']}**: {_fmt_dollar(ic.get('prior_nav'))} → {_fmt_dollar(ic.get('current_nav'))} ({_fmt_dollar(ic.get('change'))})"
+                for ic in investment_changes[:10]
+            ),
+        }] if investment_changes else []),
+        "actions": [
+            {"label": "Fund Metrics", "action": "fund_metrics", "params": {"fund_id": scenario.fund_id}},
+            {"label": "LP Summary", "action": "lp_summary", "params": {"fund_id": scenario.fund_id}},
+            {"label": "Create Follow-Up Task", "action": "create_task", "params": {
+                "context_type": "nav_rollforward",
+                "fund_id": scenario.fund_id,
+                "quarter": scenario.quarter,
+            }},
         ],
     }
 

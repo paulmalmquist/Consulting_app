@@ -1,51 +1,7 @@
 import { NextRequest } from "next/server";
-import { Pool } from "pg";
+import { getPool, resolveBusinessId } from "@/lib/server/db";
 
 export const runtime = "nodejs";
-
-let _pool: Pool | null = null;
-
-function getPool(): Pool | null {
-  if (_pool) return _pool;
-  const raw = process.env.PG_POOLER_URL || process.env.DATABASE_URL;
-  if (!raw) return null;
-  try {
-    const u = new URL(raw);
-    const hostname = u.hostname.replace(/^\[(.*)\]$/, "$1");
-    const isLocal =
-      hostname === "localhost" ||
-      hostname === "127.0.0.1" ||
-      hostname === "::1";
-    _pool = new Pool({
-      host: hostname,
-      port: u.port ? Number(u.port) : 5432,
-      user: decodeURIComponent(u.username || ""),
-      password: decodeURIComponent(u.password || ""),
-      database: u.pathname?.replace(/^\//, "") || "postgres",
-      ...(isLocal ? {} : { ssl: { rejectUnauthorized: false } }),
-    });
-    return _pool;
-  } catch {
-    return null;
-  }
-}
-
-async function resolveBusinessId(
-  pool: Pool,
-  envId: string | null,
-  businessId: string | null
-): Promise<string | null> {
-  // If business_id explicitly provided, use it directly
-  if (businessId) return businessId;
-  if (!envId) return null;
-
-  // Look up via env_business_bindings
-  const res = await pool.query<{ business_id: string }>(
-    `SELECT business_id::text FROM app.env_business_bindings WHERE env_id = $1::uuid LIMIT 1`,
-    [envId]
-  );
-  return res.rows[0]?.business_id ?? null;
-}
 
 export async function OPTIONS() {
   return new Response(null, {

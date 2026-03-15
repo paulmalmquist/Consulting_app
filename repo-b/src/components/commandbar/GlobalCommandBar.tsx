@@ -819,15 +819,32 @@ export default function GlobalCommandBar() {
                   thinking={planning}
                   thinkingStatus={thinkingStatus}
                   onAction={(action: StructuredResultAction) => {
+                    const p = (action.params || {}) as Record<string, string>;
                     if (action.action === "open_dashboard" || action.action === "edit_dashboard") {
-                      const specKey = (action.params as Record<string, string>)?.spec_key;
+                      const specKey = p.spec_key;
                       const envId = context.currentEnvId;
                       if (envId && specKey) {
                         window.open(`/lab/env/${envId}/re/dashboards?from_winston=${specKey}`, "_blank");
                       }
                       return;
                     }
-                    const prompt = `${action.label} for fund ${(action.params as Record<string, string>)?.fund_id || "this fund"}`;
+                    if (action.action === "navigate") {
+                      const envId = context.currentEnvId;
+                      if (envId && p.path) {
+                        window.open(`/lab/env/${envId}/re/${p.path}`, "_blank");
+                      }
+                      return;
+                    }
+                    if (action.action === "create_task") {
+                      const taskPrompt = `Create a follow-up task for ${p.context_type || "analysis"} findings${p.fund_id ? ` — fund ${p.fund_id}` : ""}${p.quarter ? `, quarter ${p.quarter}` : ""}`;
+                      void onSend(taskPrompt);
+                      return;
+                    }
+                    if (action.action === "export_csv") {
+                      // CSV export is handled by StructuredResultCard directly
+                      return;
+                    }
+                    const prompt = `${action.label} for fund ${p.fund_id || "this fund"}`;
                     void onSend(prompt);
                   }}
                   onExampleClick={(example: string) => void onSend(example)}
