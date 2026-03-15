@@ -1,10 +1,8 @@
 """Tests for analytical query intent extraction."""
 from __future__ import annotations
 
-import pytest
 
 from app.services.query_intent import (
-    AnalyticalQueryIntent,
     detect_transform,
     extract_query_intent,
     is_transform_command,

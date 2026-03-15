@@ -486,7 +486,7 @@ async def _run_repe_fast_path(
     )
     from app.mcp.auth import McpContext
 
-    from app.services.query_intent import extract_query_intent, detect_transform, is_transform_command
+    from app.services.query_intent import extract_query_intent
 
     scenario = resolve_scenario_params(intent, resolved_scope, context_envelope)
     session_state = get_session(str(conversation_id) if conversation_id else None)

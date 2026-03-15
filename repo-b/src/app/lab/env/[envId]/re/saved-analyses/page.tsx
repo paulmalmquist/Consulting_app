@@ -125,8 +125,8 @@ export default function SavedAnalysesPage() {
       page_entity_name: null,
       selected_entities: [],
       visible_data: {
-        analyses: analyses.map((a) => ({
-          entity_type: "analytics_query",
+        pipeline_items: analyses.map((a) => ({
+          entity_type: "analytics_query" as const,
           entity_id: a.id,
           name: a.title,
           metadata: {
@@ -174,7 +174,7 @@ export default function SavedAnalysesPage() {
         <StateCard
           state="empty"
           title="No saved analyses"
-          message="Analyses are saved from Winston chat or the analytics workspace."
+          description="Analyses are saved from Winston chat or the analytics workspace."
         />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-bm-border/30">

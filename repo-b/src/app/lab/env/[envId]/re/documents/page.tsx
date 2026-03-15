@@ -276,7 +276,7 @@ export default function DocumentsPage() {
           <StateCard
             state="empty"
             title="No documents"
-            message="Documents are uploaded at the fund, investment, and asset levels."
+            description="Documents are uploaded at the fund, investment, and asset levels."
           />
         )
       ) : (

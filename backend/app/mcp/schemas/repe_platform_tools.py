@@ -1,7 +1,6 @@
 """Schemas for REPE platform MCP tools (approvals, saved analyses, documents)."""
 from __future__ import annotations
 
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 

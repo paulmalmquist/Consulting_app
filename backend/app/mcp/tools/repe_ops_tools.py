@@ -6,7 +6,6 @@ fee schedules, and fee accruals.
 from __future__ import annotations
 
 from decimal import Decimal
-from uuid import UUID
 
 from app.mcp.auth import McpContext
 from app.mcp.registry import ToolDef, registry

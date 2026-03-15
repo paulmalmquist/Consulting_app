@@ -116,7 +116,7 @@ export default function ApprovalsPage() {
       page_entity_name: null,
       selected_entities: [],
       visible_data: {
-        approvals: filteredApprovals.map((a) => ({
+        pipeline_items: filteredApprovals.map((a) => ({
           entity_type: a.entity_type,
           entity_id: a.entity_id,
           name: a.step_label,
@@ -199,7 +199,7 @@ export default function ApprovalsPage() {
           <StateCard
             state="empty"
             title="No approval items"
-            message="Approval gate items are created by workflow transitions."
+            description="Approval gate items are created by workflow transitions."
           />
         )
       ) : (

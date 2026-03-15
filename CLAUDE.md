@@ -134,9 +134,11 @@ Before declaring a deploy done, all of the following must be true:
 
 - ALWAYS run tests after changes using the relevant `make test-*` command
 - ALWAYS include actual terminal output in your response
+- ALWAYS run `cd backend && python -m ruff check` before ANY `git push` — fix all errors before pushing
 - NEVER say "tests should pass" — RUN THEM
 - NEVER use `git add -A` — stage specific files only
 - NEVER declare deploy done before Railway shows `SUCCESS` + `/health` 200
+- NEVER push code that hasn't passed `ruff check` — CI will reject it
 
 ---
 

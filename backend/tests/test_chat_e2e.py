@@ -344,8 +344,6 @@ def _run_standalone():
     print(f"\nWinston E2E Test Harness — targeting {GATEWAY_ENDPOINT}")
     print("=" * 70)
 
-    results: list[TestResult] = []
-
     # Instantiate test classes and run methods
     test_classes = [
         TestWinstonRetrieval(),
