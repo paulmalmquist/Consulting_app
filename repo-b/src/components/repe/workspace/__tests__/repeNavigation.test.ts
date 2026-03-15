@@ -28,7 +28,7 @@ describe("REPE navigation model", () => {
     expect(groups[0]?.items.map((item) => item.label)).toEqual(["Pipeline"]);
     expect(groups[1]?.items.map((item) => item.label)).toEqual(["Funds", "Investments", "Assets"]);
     expect(groups[2]?.items.map((item) => item.label)).toEqual(["Investors", "Capital Calls", "Distributions"]);
-    expect(groups[3]?.items.map((item) => item.label)).toEqual(["Fees", "Period Close", "Variance", "Waterfall Comp"]);
+    expect(groups[3]?.items.map((item) => item.label)).toEqual(["Fees", "Period Close", "Variance"]);
     expect(groups[4]?.items.map((item) => item.label)).toEqual(["Dashboards", "Reports", "Saved Views", "Models"]);
     expect(groups[5]?.items.map((item) => item.label)).toEqual(["Documents", "Approvals"]);
     expect(groups[6]?.items.map((item) => item.label)).toEqual(["Winston"]);
@@ -37,7 +37,7 @@ describe("REPE navigation model", () => {
   it("keeps parent group context active for nested routes", () => {
     expect(getActiveRepeGroupKey(`${base}/assets/asset-123`, groups)).toBe("portfolio");
     expect(getActiveRepeGroupKey(`${base}/controls`, groups)).toBe("governance");
-    expect(getActiveRepeGroupKey(`${base}/waterfalls`, groups)).toBe("accounting");
+    expect(getActiveRepeGroupKey(`${base}/variance`, groups)).toBe("accounting");
     expect(getActiveRepeGroupKey(`${base}/winston`, groups)).toBe("automation");
   });
 });

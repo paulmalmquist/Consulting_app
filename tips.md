@@ -144,6 +144,7 @@ _(This section is appended by the research-architect after each successful inges
 - Audit note (2026-03-14): Lab/Data Studio pages under `repo-b/src/app/lab/env/[envId]/...` have repeated `API_BASE` + `qs()` + account-bootstrap fetch patterns. New pages in that surface should land on a shared hook/client, not another page-local copy.
 - Audit note (2026-03-14): assistant response rendering is now split across both `repo-b/src/components/copilot/` and `repo-b/src/components/winston/`. Before adding a third assistant surface, extract shared response blocks or add mirrored tests so charts/tables/confirmations do not drift silently.
 - REPE sidebar UX source of truth now lives in `repo-b/src/components/repe/workspace/repeNavigation.ts`. Desktop grouped nav, tablet compact icon rail, and mobile quick-nav all derive from that config; if you change section order or labels, update that file and `repo-b/src/components/repe/workspace/__tests__/repeNavigation.test.ts` together.
+- RE create/list flows are easy to break when the page mixes a legacy direct-DB Next route with the canonical BOS API contract. For models, the durable contract is `env_id` + `primary_fund_id` on `/api/re/v2/models`; validate inline before submit, disable only during the in-flight save, and refetch the list from that same source of truth after success instead of hand-appending a stale payload.
 
 ## 1. Repo Inventory
 

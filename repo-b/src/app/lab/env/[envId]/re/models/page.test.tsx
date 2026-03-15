@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ReModelsPage from "@/app/lab/env/[envId]/re/models/page";
 
@@ -102,9 +102,10 @@ describe("RE models page create flow", () => {
     });
 
     expect(await screen.findByText('Created "New Model" and refreshed the models list.')).toBeInTheDocument();
-    expect(screen.getByText("Paul Test Fund")).toBeInTheDocument();
-    expect(screen.getByText("forecast")).toBeInTheDocument();
-    expect(screen.getByText("credit")).toBeInTheDocument();
+    const row = screen.getByTestId("model-row-model-1");
+    expect(within(row).getByText("Paul Test Fund")).toBeInTheDocument();
+    expect(within(row).getByText("forecast")).toBeInTheDocument();
+    expect(within(row).getByText("credit")).toBeInTheDocument();
   });
 
   test("shows an inline validation error when the model name is blank", async () => {

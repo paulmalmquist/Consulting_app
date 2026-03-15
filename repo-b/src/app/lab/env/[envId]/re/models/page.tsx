@@ -1,6 +1,8 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import React from "react";
+import type { FormEvent } from "react";
+import { useEffect, useState } from "react";
 import {
   createCrossFundModel,
   listAllModels,
@@ -97,40 +99,50 @@ export default function ReModelsPage() {
   const [cloningId, setCloningId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
-  const loadModels = useCallback(async (fundRows: RepeFund[]) => {
+  async function loadModels(fundRows: RepeFund[]) {
     if (!envId) {
       setModels([]);
       return;
     }
     const modelRows = await listAllModels(envId);
     setModels(enrichModels(modelRows, fundRows));
-  }, [envId]);
-
-  const loadPageData = useCallback(async () => {
-    if (!businessId && !envId) return;
-    setLoading(true);
-    try {
-      const fundRows = await listReV1Funds({ env_id: envId, business_id: businessId || undefined });
-      setFunds(fundRows);
-      setNewFundId((currentFundId) => {
-        if (currentFundId && fundRows.some((fund) => fund.fund_id === currentFundId)) {
-          return currentFundId;
-        }
-        return fundRows[0]?.fund_id ?? "";
-      });
-      await loadModels(fundRows);
-    } catch (err) {
-      setFunds([]);
-      setModels([]);
-      setError(err instanceof Error ? err.message : "Failed to load models");
-    } finally {
-      setLoading(false);
-    }
-  }, [businessId, envId, loadModels]);
+  }
 
   useEffect(() => {
+    if (!businessId && !envId) return;
+
+    let cancelled = false;
+
+    async function loadPageData() {
+      setLoading(true);
+      setError(null);
+      try {
+        const fundRows = await listReV1Funds({ env_id: envId, business_id: businessId || undefined });
+        if (cancelled) return;
+        setFunds(fundRows);
+        setNewFundId((currentFundId) => {
+          if (currentFundId && fundRows.some((fund) => fund.fund_id === currentFundId)) {
+            return currentFundId;
+          }
+          return fundRows[0]?.fund_id ?? "";
+        });
+        await loadModels(fundRows);
+      } catch (err) {
+        if (cancelled) return;
+        setFunds([]);
+        setModels([]);
+        setError(err instanceof Error ? err.message : "Failed to load models");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
     void loadPageData();
-  }, [loadPageData]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId, envId]);
 
   useEffect(() => {
     if (!success) return;
@@ -138,12 +150,9 @@ export default function ReModelsPage() {
     return () => window.clearTimeout(timeoutId);
   }, [success]);
 
-  const selectedFund = useMemo(
-    () => funds.find((fund) => fund.fund_id === newFundId) ?? null,
-    [funds, newFundId],
-  );
+  const selectedFund = funds.find((fund) => fund.fund_id === newFundId) ?? null;
 
-  const duplicateMessage = useMemo(() => {
+  const duplicateMessage = (() => {
     const trimmedName = newName.trim().toLowerCase();
     if (!newFundId || !trimmedName) return null;
     const duplicate = models.find(
@@ -152,11 +161,12 @@ export default function ReModelsPage() {
     return duplicate
       ? `A model named "${newName.trim()}" already exists in that fund. Choose a different name.`
       : null;
-  }, [models, newFundId, newName]);
+  })();
 
   const noFundsAvailable = funds.length === 0;
 
   const validateCreate = () => {
+    if (!envId) return "Environment context is unavailable. Reload the page and try again.";
     if (!newName.trim()) return "Model name is required.";
     if (noFundsAvailable) return "No funds are available in this environment. Create a fund before creating a model.";
     if (!newFundId) return "Select a fund before creating a model.";
