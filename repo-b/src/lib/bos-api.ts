@@ -7101,3 +7101,118 @@ export function createDataStudioEntityMapping(body: Record<string, unknown>, env
     body: JSON.stringify(body),
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REPE Asset Leasing Layer
+// Powered by re_tenant / re_lease / re_rent_roll_snapshot tables (migration 347).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ReLeaseSummary = {
+  lease_count:            number;
+  tenant_count:           number;
+  occupied_sf:            number | null;
+  total_sf:               number | null;
+  physical_occupancy:     number | null;
+  walt_years:             number | null;
+  in_place_psf:           number | null;
+  market_rent_psf:        number | null;
+  mark_to_market_pct:     number | null;
+  total_annual_base_rent: number | null;
+  top_tenant_name:        string | null;
+  anchor_pct:             number | null;
+  next_expiration:        string | null;
+  snapshot_date:          string | null;
+};
+
+export type ReLeaseTenant = {
+  tenant_id:       string;
+  name:            string;
+  industry:        string | null;
+  is_anchor:       boolean;
+  lease_id:        string;
+  rentable_sf:     number;
+  gla_pct:         number;
+  base_rent_psf:   number;
+  expiration_date: string;
+  lease_type:      string;
+  status:          string;
+};
+
+export type ReLeaseExpirationBucket = {
+  year:         string;
+  sf:           number;
+  pct_expiring: number;
+  lease_count:  number;
+};
+
+export type ReRentRollRow = {
+  lease_id:           string;
+  tenant_name:        string;
+  is_anchor:          boolean;
+  suite_number:       string | null;
+  floor:              number | null;
+  rentable_sf:        number;
+  lease_type:         string;
+  status:             string;
+  commencement_date:  string;
+  expiration_date:    string;
+  base_rent_psf:      number;
+  annual_base_rent:   number;
+  free_rent_months:   number;
+  ti_allowance_psf:   number | null;
+  renewal_options:    string | null;
+  expansion_option:   boolean;
+  termination_option: boolean;
+};
+
+export type ReLeaseDocument = {
+  doc_id:        string;
+  lease_id:      string;
+  tenant_name:   string;
+  doc_type:      string;
+  file_name:     string;
+  parser_status: string;
+  confidence:    number | null;
+  uploaded_at:   string;
+};
+
+export type ReLeaseEconomics = {
+  in_place_psf:           number | null;
+  market_rent_psf:        number | null;
+  mark_to_market_pct:     number | null;
+  total_annual_base_rent: number | null;
+  below_market_leases: Array<{
+    tenant_name:  string;
+    in_place_psf: number;
+    market_psf:   number;
+    gap_psf:      number;
+    rentable_sf:  number;
+    annual_upside: number;
+  }>;
+};
+
+export function getAssetLeaseSummary(assetId: string): Promise<ReLeaseSummary | null> {
+  return directFetch(`/api/re/v2/assets/${assetId}/leasing/summary`);
+}
+
+export function getAssetLeaseTenants(assetId: string): Promise<{ tenants: ReLeaseTenant[]; walt: number | null }> {
+  return directFetch(`/api/re/v2/assets/${assetId}/leasing/tenants`);
+}
+
+export function getAssetLeaseExpiration(assetId: string): Promise<{ buckets: ReLeaseExpirationBucket[]; total_leased_sf: number }> {
+  return directFetch(`/api/re/v2/assets/${assetId}/leasing/expiration`);
+}
+
+export function getAssetRentRoll(assetId: string, sort?: string): Promise<{ rows: ReRentRollRow[]; total: number }> {
+  return directFetch(`/api/re/v2/assets/${assetId}/leasing/rent-roll`, {
+    params: sort ? { sort } : undefined,
+  });
+}
+
+export function getAssetLeaseDocuments(assetId: string): Promise<{ documents: ReLeaseDocument[] }> {
+  return directFetch(`/api/re/v2/assets/${assetId}/leasing/documents`);
+}
+
+export function getAssetLeaseEconomics(assetId: string): Promise<ReLeaseEconomics> {
+  return directFetch(`/api/re/v2/assets/${assetId}/leasing/economics`);
+}

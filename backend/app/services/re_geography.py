@@ -951,27 +951,32 @@ def get_pipeline_map_feed(
         )
         properties = cur.fetchall()
 
-    markers = []
-    for prop in properties:
-        geographies = []
+    # Pre-fetch all geographies in one query to avoid N+1
+    property_ids = [p["property_id"] for p in properties]
+    geo_by_prop: dict[str, list[dict]] = {}
+    if property_ids:
         with get_cursor() as cur:
             cur.execute(
                 """
-                SELECT pgl.geography_type, pgl.geography_id, g.name
+                SELECT pgl.property_id::text AS property_id,
+                       pgl.geography_type, pgl.geography_id, g.name
                 FROM property_geography_link pgl
                 JOIN pipeline_geography g ON g.geography_id = pgl.geography_id
-                WHERE pgl.property_id = %s::uuid
+                WHERE pgl.property_id = ANY(%s::uuid[])
                 """,
-                (prop["property_id"],),
+                (property_ids,),
             )
             for link in cur.fetchall():
-                geographies.append({
+                geo_by_prop.setdefault(link["property_id"], []).append({
                     "geography_type": link["geography_type"],
                     "geography_id": link["geography_id"],
                     "name": link["name"],
                 })
 
-        markers.append({**prop, "geographies": geographies})
+    markers = []
+    for prop in properties:
+        pid = str(prop["property_id"]) if not isinstance(prop["property_id"], str) else prop["property_id"]
+        markers.append({**prop, "geographies": geo_by_prop.get(pid, [])})
     return {"markers": markers, "total_count": len(markers)}
 
 

@@ -1,21 +1,34 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   getReV2AssetDetail,
   getReV2AssetQuarterState,
   getReV2AssetPeriods,
   getReV2AssetLineage,
   generateReV2AssetReport,
+  getAssetLeaseSummary,
+  getAssetLeaseTenants,
+  getAssetLeaseExpiration,
+  getAssetRentRoll,
+  getAssetLeaseDocuments,
+  getAssetLeaseEconomics,
   ReV2AssetDetail,
   ReV2AssetQuarterState,
   ReV2AssetPeriod,
   ReV2EntityLineageResponse,
+  ReLeaseSummary,
+  ReLeaseTenant,
+  ReLeaseExpirationBucket,
+  ReRentRollRow,
+  ReLeaseDocument,
+  ReLeaseEconomics,
 } from "@/lib/bos-api";
 import { useRepeBasePath, useRepeContext } from "@/lib/repe-context";
 import { PROPERTY_TYPE_LABELS, label as labelFn } from "@/lib/labels";
 import CockpitSection from "@/components/repe/asset-cockpit/CockpitSection";
+import LeasingSection from "@/components/repe/asset-cockpit/LeasingSection";
 import FinancialsSection from "@/components/repe/asset-cockpit/FinancialsSection";
 import DebtSection from "@/components/repe/asset-cockpit/DebtSection";
 import ValuationSection from "@/components/repe/asset-cockpit/ValuationSection";
@@ -23,7 +36,7 @@ import DocumentsSection from "@/components/repe/asset-cockpit/DocumentsSection";
 import AuditSection from "@/components/repe/asset-cockpit/AuditSection";
 import { fmtMoney } from "@/components/repe/asset-cockpit/format-utils";
 
-const SECTIONS = ["Cockpit", "Financials", "Debt", "Valuation", "Documents", "Audit"] as const;
+const SECTIONS = ["Cockpit", "Leasing", "Financials", "Debt", "Valuation", "Documents", "Audit"] as const;
 type SectionKey = (typeof SECTIONS)[number];
 
 function pickQuarter(): string {
@@ -54,6 +67,18 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
   const [lineage, setLineage] = useState<ReV2EntityLineageResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Leasing data (lazy-loaded on first Leasing tab activation)
+  const [leaseSummary, setLeaseSummary] = useState<ReLeaseSummary | null>(null);
+  const [leaseTenants, setLeaseTenants] = useState<ReLeaseTenant[]>([]);
+  const [leaseWalt, setLeaseWalt] = useState<number | null>(null);
+  const [leaseExpiration, setLeaseExpiration] = useState<ReLeaseExpirationBucket[]>([]);
+  const [leaseTotalSf, setLeaseTotalSf] = useState(0);
+  const [rentRoll, setRentRoll] = useState<ReRentRollRow[]>([]);
+  const [leaseDocuments, setLeaseDocuments] = useState<ReLeaseDocument[]>([]);
+  const [leaseEconomics, setLeaseEconomics] = useState<ReLeaseEconomics | null>(null);
+  const [leasingLoading, setLeasingLoading] = useState(false);
+  const leaseFetched = useRef(false);
 
   // Report generation
   const [reportModalOpen, setReportModalOpen] = useState(false);
@@ -94,6 +119,35 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
 
     return () => { cancelled = true; };
   }, [params.assetId, quarter]);
+
+  // Lazy-load leasing data on first activation of the Leasing tab
+  useEffect(() => {
+    if (section !== "Leasing" || leaseFetched.current) return;
+    leaseFetched.current = true;
+    setLeasingLoading(true);
+
+    Promise.allSettled([
+      getAssetLeaseSummary(params.assetId),
+      getAssetLeaseTenants(params.assetId),
+      getAssetLeaseExpiration(params.assetId),
+      getAssetRentRoll(params.assetId),
+      getAssetLeaseDocuments(params.assetId),
+      getAssetLeaseEconomics(params.assetId),
+    ]).then(([sumRes, tenRes, expRes, rrRes, docRes, ecoRes]) => {
+      if (sumRes.status === "fulfilled") setLeaseSummary(sumRes.value);
+      if (tenRes.status === "fulfilled") {
+        setLeaseTenants(tenRes.value.tenants);
+        setLeaseWalt(tenRes.value.walt);
+      }
+      if (expRes.status === "fulfilled") {
+        setLeaseExpiration(expRes.value.buckets);
+        setLeaseTotalSf(expRes.value.total_leased_sf);
+      }
+      if (rrRes.status === "fulfilled") setRentRoll(rrRes.value.rows);
+      if (docRes.status === "fulfilled") setLeaseDocuments(docRes.value.documents);
+      if (ecoRes.status === "fulfilled") setLeaseEconomics(ecoRes.value);
+    }).finally(() => setLeasingLoading(false));
+  }, [section, params.assetId]);
 
   // Report generation handler
   async function handleGenerateReport() {
@@ -274,6 +328,23 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
           financialState={financialState}
           periods={periods}
           occupancy={property.occupancy}
+          leaseSummary={leaseSummary}
+        />
+      )}
+
+      {/* ── LEASING ── */}
+      {section === "Leasing" && (
+        <LeasingSection
+          assetId={asset.asset_id}
+          summary={leaseSummary}
+          tenants={leaseTenants}
+          walt={leaseWalt}
+          expirationBuckets={leaseExpiration}
+          totalLeasedSf={leaseTotalSf}
+          rentRoll={rentRoll}
+          documents={leaseDocuments}
+          economics={leaseEconomics}
+          loading={leasingLoading}
         />
       )}
 

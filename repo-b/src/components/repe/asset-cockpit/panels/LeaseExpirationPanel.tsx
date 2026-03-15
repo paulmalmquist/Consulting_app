@@ -13,9 +13,17 @@ import {
 import SectionHeader from "../shared/SectionHeader";
 import { BRIEFING_COLORS, BRIEFING_CONTAINER, BRIEFING_CARD } from "../shared/briefing-colors";
 import { getMockLeaseExpiration } from "../mock-data";
+import type { ReLeaseExpirationBucket } from "@/lib/bos-api";
 
-export default function LeaseExpirationPanel() {
-  const data = getMockLeaseExpiration();
+interface Props {
+  /** Real expiration buckets from /leasing/expiration API. When provided, overrides mock. */
+  realBuckets?: ReLeaseExpirationBucket[];
+}
+
+export default function LeaseExpirationPanel({ realBuckets }: Props = {}) {
+  const data = (realBuckets && realBuckets.length > 0)
+    ? realBuckets
+    : getMockLeaseExpiration();
 
   return (
     <div className={BRIEFING_CONTAINER}>

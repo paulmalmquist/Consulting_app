@@ -81,6 +81,8 @@ export default function WinstonChatWorkspace() {
   });
 
   const abortRef = useRef<AbortController | null>(null);
+  const tokenBufferRef = useRef<string>("");
+  const tokenFlushTimerRef = useRef<number | null>(null);
 
   const context = useMemo(() => readContextFromBrowser(pathname), [pathname]);
   const workspace = useMemo(() => workspaceFromContext(contextSnapshot, context), [contextSnapshot, context]);
@@ -233,14 +235,25 @@ export default function WinstonChatWorkspace() {
           setThinkingStatus(status);
         },
         onToken: (token) => {
-          setMessages((prev) => {
-            const updated = [...prev];
-            const last = updated[updated.length - 1];
-            if (last?.id === assistantMsgId) {
-              last.content += token;
-            }
-            return updated;
-          });
+          // Buffer tokens and flush every 50ms to reduce React re-renders
+          tokenBufferRef.current += token;
+          if (!tokenFlushTimerRef.current) {
+            tokenFlushTimerRef.current = window.setTimeout(() => {
+              const buffered = tokenBufferRef.current;
+              tokenBufferRef.current = "";
+              tokenFlushTimerRef.current = null;
+              if (buffered) {
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const last = updated[updated.length - 1];
+                  if (last?.id === assistantMsgId) {
+                    last.content += buffered;
+                  }
+                  return updated;
+                });
+              }
+            }, 50);
+          }
         },
         onResponseBlock: (block) => {
           setMessages((prev) => {
@@ -279,6 +292,24 @@ export default function WinstonChatWorkspace() {
           }
         },
         onDone: (payload) => {
+          // Flush any remaining buffered tokens
+          if (tokenFlushTimerRef.current) {
+            clearTimeout(tokenFlushTimerRef.current);
+            tokenFlushTimerRef.current = null;
+          }
+          const remaining = tokenBufferRef.current;
+          tokenBufferRef.current = "";
+          if (remaining) {
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last?.id === assistantMsgId) {
+                last.content += remaining;
+              }
+              return updated;
+            });
+          }
+
           const trace = payload?.trace as WinstonTrace | undefined;
           if (trace) {
             setContextPanel((prev) => ({ ...prev, trace }));

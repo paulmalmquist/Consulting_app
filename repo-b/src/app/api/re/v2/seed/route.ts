@@ -298,6 +298,70 @@ export async function POST(request: Request) {
       results.push(`Backfilled ${histFqsSeeded} historical fund quarter states (2024Q1–2025Q4)`);
     }
 
+    // 6c. Ensure every deal has at least one linked repe_asset.
+    // Without this, the investment-rollup enrichment (NOI, occupancy, LTV, property type, market)
+    // returns nothing because the JOIN to repe_asset yields zero rows.
+    {
+      const dealsWithoutAssets = await pool.query(
+        `SELECT d.deal_id::text, d.name
+         FROM repe_deal d
+         LEFT JOIN repe_asset a ON a.deal_id = d.deal_id
+         WHERE d.fund_id = $1::uuid
+         GROUP BY d.deal_id, d.name
+         HAVING COUNT(a.asset_id) = 0`,
+        [fund_id]
+      );
+
+      const assetTemplates = [
+        { suffix: "Office Tower",       type: "office",       city: "Denver",    state: "CO", msa: "Denver-Aurora, CO MSA",              sqft: 185000, yearBuilt: 2012 },
+        { suffix: "Logistics Park",     type: "industrial",   city: "Phoenix",   state: "AZ", msa: "Phoenix-Mesa-Chandler, AZ MSA",      sqft: 340000, yearBuilt: 2018 },
+        { suffix: "Multifamily",        type: "multifamily",  city: "Austin",    state: "TX", msa: "Austin-Round Rock-Georgetown, TX MSA", sqft: 210000, yearBuilt: 2016 },
+        { suffix: "Retail Center",      type: "retail",       city: "Atlanta",   state: "GA", msa: "Atlanta-Sandy Springs-Alpharetta, GA MSA", sqft: 125000, yearBuilt: 2008 },
+        { suffix: "Medical Plaza",      type: "medical_office", city: "Nashville", state: "TN", msa: "Nashville-Davidson-Murfreesboro, TN MSA", sqft: 92000, yearBuilt: 2015 },
+        { suffix: "Student Housing",    type: "student_housing", city: "Chapel Hill", state: "NC", msa: "Raleigh-Durham-Chapel Hill, NC MSA", sqft: 175000, yearBuilt: 2019 },
+        { suffix: "Senior Living",      type: "senior_housing", city: "Scottsdale", state: "AZ", msa: "Phoenix-Mesa-Chandler, AZ MSA", sqft: 68000, yearBuilt: 2014 },
+        { suffix: "Mixed-Use",          type: "mixed_use",    city: "Seattle",   state: "WA", msa: "Seattle-Tacoma-Bellevue, WA MSA",     sqft: 155000, yearBuilt: 2020 },
+        { suffix: "Data Center",        type: "data_center",  city: "Dallas",    state: "TX", msa: "Dallas-Fort Worth-Arlington, TX MSA", sqft: 60000,  yearBuilt: 2021 },
+        { suffix: "Life Science Campus", type: "life_science", city: "San Diego", state: "CA", msa: "San Diego-Chula Vista-Carlsbad, CA MSA", sqft: 110000, yearBuilt: 2017 },
+        { suffix: "Self-Storage Portfolio", type: "self_storage", city: "Tampa",  state: "FL", msa: "Tampa-St. Petersburg-Clearwater, FL MSA", sqft: 95000, yearBuilt: 2013 },
+        { suffix: "Hospitality",        type: "hospitality",  city: "Chicago",   state: "IL", msa: "Chicago-Naperville-Elgin, IL MSA",    sqft: 140000, yearBuilt: 2010 },
+      ];
+
+      let assetsCreated = 0;
+      for (let di = 0; di < dealsWithoutAssets.rows.length; di++) {
+        const deal = dealsWithoutAssets.rows[di];
+        const tmpl = assetTemplates[di % assetTemplates.length];
+        const assetId = randomUUID();
+        const assetName = `${deal.name.split(/\s*[-–(]/)[0].trim()} ${tmpl.suffix}`;
+
+        await pool.query(
+          `INSERT INTO repe_asset (asset_id, deal_id, asset_type, name, asset_status)
+           VALUES ($1::uuid, $2::uuid, 'property', $3, 'active')
+           ON CONFLICT (asset_id) DO NOTHING`,
+          [assetId, deal.deal_id, assetName]
+        );
+
+        await pool.query(
+          `INSERT INTO repe_property_asset (
+             asset_id, property_type, square_feet, market, city, state, msa, year_built
+           ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8)
+           ON CONFLICT (asset_id) DO UPDATE SET
+             property_type = EXCLUDED.property_type,
+             square_feet = COALESCE(repe_property_asset.square_feet, EXCLUDED.square_feet),
+             market = COALESCE(NULLIF(repe_property_asset.market, ''), EXCLUDED.market),
+             city = COALESCE(NULLIF(repe_property_asset.city, ''), EXCLUDED.city),
+             state = COALESCE(NULLIF(repe_property_asset.state, ''), EXCLUDED.state),
+             msa = COALESCE(NULLIF(repe_property_asset.msa, ''), EXCLUDED.msa),
+             year_built = COALESCE(repe_property_asset.year_built, EXCLUDED.year_built)`,
+          [assetId, tmpl.type, tmpl.sqft, tmpl.msa, tmpl.city, tmpl.state, tmpl.msa, tmpl.yearBuilt]
+        );
+        assetsCreated++;
+      }
+      if (assetsCreated > 0) {
+        results.push(`Created ${assetsCreated} assets for deals that had none`);
+      }
+    }
+
     // 7. Seed accounting data for assets under this fund
     const assetsResult = await pool.query(
       `SELECT a.asset_id::text
@@ -554,30 +618,42 @@ export async function POST(request: Request) {
       }
       results.push(`Seeded investment quarter state for ${iqsSeeded} deals`);
 
-      // 10. Seed property asset details (units, market, cost_basis)
-      const propertyMarkets = [
-        "Downtown Chicago", "Midtown Manhattan", "Buckhead Atlanta",
-        "South Beach Miami", "Downtown Denver", "Seattle CBD",
-        "San Jose", "Austin CBD", "Nashville", "Raleigh-Durham",
-        "Charlotte Uptown", "Tampa Bay",
+      // 10. Seed property asset details (units, market, msa, property_type)
+      const propertyTemplates = [
+        { market: "Downtown Chicago",    msa: "Chicago-Naperville-Elgin, IL MSA",          city: "Chicago",   state: "IL", type: "office" },
+        { market: "Midtown Manhattan",   msa: "New York-Newark-Jersey City, NY MSA",       city: "New York",  state: "NY", type: "mixed_use" },
+        { market: "Buckhead Atlanta",    msa: "Atlanta-Sandy Springs-Alpharetta, GA MSA",  city: "Atlanta",   state: "GA", type: "multifamily" },
+        { market: "South Beach Miami",   msa: "Miami-Fort Lauderdale-Pompano Beach, FL MSA", city: "Miami",  state: "FL", type: "hospitality" },
+        { market: "Downtown Denver",     msa: "Denver-Aurora, CO MSA",                     city: "Denver",    state: "CO", type: "office" },
+        { market: "Seattle CBD",         msa: "Seattle-Tacoma-Bellevue, WA MSA",           city: "Seattle",   state: "WA", type: "life_science" },
+        { market: "San Jose",            msa: "San Jose-Sunnyvale-Santa Clara, CA MSA",    city: "San Jose",  state: "CA", type: "data_center" },
+        { market: "Austin CBD",          msa: "Austin-Round Rock-Georgetown, TX MSA",      city: "Austin",    state: "TX", type: "industrial" },
+        { market: "Nashville",           msa: "Nashville-Davidson-Murfreesboro, TN MSA",   city: "Nashville", state: "TN", type: "medical_office" },
+        { market: "Raleigh-Durham",      msa: "Raleigh-Durham-Chapel Hill, NC MSA",        city: "Raleigh",   state: "NC", type: "retail" },
+        { market: "Charlotte Uptown",    msa: "Charlotte-Concord-Gastonia, NC MSA",        city: "Charlotte", state: "NC", type: "multifamily" },
+        { market: "Tampa Bay",           msa: "Tampa-St. Petersburg-Clearwater, FL MSA",   city: "Tampa",     state: "FL", type: "self_storage" },
       ];
       let propSeeded = 0;
       for (let i = 0; i < assetIds.length; i++) {
         const assetId = assetIds[i];
-        const market = propertyMarkets[i % propertyMarkets.length];
+        const tmpl = propertyTemplates[i % propertyTemplates.length];
         const units = 50000 + Math.floor(Math.random() * 300000);
         const costBasis = Math.round(20_000_000 + Math.random() * 60_000_000);
         const noi = Math.round(costBasis * (0.05 + Math.random() * 0.03));
         const occ = 0.85 + Math.random() * 0.12;
         await pool.query(
-          `INSERT INTO repe_property_asset (asset_id, property_type, units, market, current_noi, occupancy)
-           VALUES ($1::uuid, 'Office', $2, $3, $4, $5)
+          `INSERT INTO repe_property_asset (asset_id, property_type, units, market, city, state, msa, current_noi, occupancy)
+           VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9)
            ON CONFLICT (asset_id) DO UPDATE SET
+             property_type = COALESCE(NULLIF(repe_property_asset.property_type, ''), EXCLUDED.property_type),
              units = COALESCE(NULLIF(repe_property_asset.units, 0), EXCLUDED.units),
              market = COALESCE(NULLIF(repe_property_asset.market, ''), EXCLUDED.market),
+             city = COALESCE(NULLIF(repe_property_asset.city, ''), EXCLUDED.city),
+             state = COALESCE(NULLIF(repe_property_asset.state, ''), EXCLUDED.state),
+             msa = COALESCE(NULLIF(repe_property_asset.msa, ''), EXCLUDED.msa),
              current_noi = COALESCE(repe_property_asset.current_noi, EXCLUDED.current_noi),
              occupancy = COALESCE(repe_property_asset.occupancy, EXCLUDED.occupancy)`,
-          [assetId, units, market, noi, Math.round(occ * 10000) / 10000]
+          [assetId, tmpl.type, units, tmpl.market, tmpl.city, tmpl.state, tmpl.msa, noi, Math.round(occ * 10000) / 10000]
         );
         propSeeded++;
       }

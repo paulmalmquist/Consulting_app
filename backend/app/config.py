@@ -100,7 +100,7 @@ ENABLE_AGENTIC_EXECUTOR: bool = os.getenv("ENABLE_AGENTIC_EXECUTOR", "false").lo
 RAG_MIN_SCORE: float = float(os.getenv("RAG_MIN_SCORE", "0.30"))
 RAG_RRF_K: int = int(os.getenv("RAG_RRF_K", "60"))
 RAG_EMBEDDING_CACHE_SIZE: int = int(os.getenv("RAG_EMBEDDING_CACHE_SIZE", "512"))
-RAG_CACHE_TTL_SECONDS: int = int(os.getenv("RAG_CACHE_TTL_SECONDS", "60"))
+RAG_CACHE_TTL_SECONDS: int = int(os.getenv("RAG_CACHE_TTL_SECONDS", "300"))
 
 # ── Re-ranking ───────────────────────────────────────────────────
 COHERE_API_KEY: str = os.getenv("COHERE_API_KEY", "")

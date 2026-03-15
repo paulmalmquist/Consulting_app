@@ -1547,3 +1547,31 @@ Tools are registered in `backend/app/mcp/tools/repe_investor_tools.py` and loade
 **Narrative ordering for institutional dashboards** — Prefer a clear sequence: header + health summary, grouped KPI cards, one hero value-creation chart, then portfolio snapshot, performance drivers, capital activity/exposure, and only then the detailed holdings table. This reads much faster than a flat widget grid.
 
 **Hybrid investment table pattern** — When asset-level return attribution is not available, keep the main table investment-level for IRR/NAV accuracy, but use row expansion to reveal asset-level real estate metrics. Show property type/market/current value in the collapsed row and reserve the expanded row for richer asset columns and hoverable drill-in links.
+
+## REPE Lease Layer Patterns (Asset Leasing UI + DB, March 2026)
+
+**Lease schema lives in `re_*` namespace, not `lease`** — The canonical REPE lease tables (`re_tenant`, `re_lease`, `re_asset_space`, `re_lease_step`, etc., migration 347) are distinct from the generic property-management `lease` table in 220_property.sql. Never mix them. FK refs go to `repe_asset`, not `property`.
+
+**`re_asset_lease_summary_v` is the cockpit KPI source** — This SQL view aggregates active leases per asset and `LATERAL` joins the latest `re_rent_roll_snapshot` for PSF/WALT fields. Use it for summary reads; use raw table joins for rent roll and tenant detail endpoints.
+
+**UNIQUE(asset_id, as_of_date) on `re_rent_roll_snapshot`** — Snapshot inserts use this constraint for idempotency (`ON CONFLICT (asset_id, as_of_date) DO NOTHING`). Always pair `as_of_date` + `quarter` fields; `quarter` is a text column like `'2026Q1'` for grouping.
+
+**WALT computation** — Weighted average lease term = `SUM(SF × max(years_remaining, 0)) / SUM(SF)` over active leases. Use `EXTRACT(EPOCH FROM (expiration_date - CURRENT_DATE)) / (365.25 * 86400)` in SQL. Leases past expiry contribute 0 years, not negative values — use `GREATEST(..., 0)`.
+
+**Below-market threshold** — Flag leases where `base_rent_psf < market_rent_psf * 0.97` (3% buffer prevents flagging leases that are effectively at market). Join lease table with latest snapshot's `market_rent_psf`.
+
+**Mark-to-market column convention** — `mark_to_market_pct` stores the raw ratio (e.g., `0.099` = 9.9% upside). Multiply by 100 for display. A positive value means in-place rent is below market (upside). Store as `numeric(8,4)` for precision.
+
+**Lazy-load leasing tab** — Use a `useRef(false)` guard + `useEffect` on `section === "Leasing"` to fire all 6 lease API calls via `Promise.allSettled` only on first activation. Partial failures degrade gracefully (panel renders with empty data) rather than blocking the whole tab.
+
+**Mock-to-real panel migration pattern** — Add optional `realXxx` props to existing mock-data panels. Compute whether to use real data via `const useReal = realXxx && realXxx.length > 0`. Fall back to mock. This keeps Cockpit working for all non-office assets while enabling real data for leased assets without breaking existing pages.
+
+**Rent roll table sort** — Keep sort state local to the table component (`useState<SortKey>("sf")`). Sort a derived array (`[...rows].sort(...)`) rather than mutating prop arrays. Offer 3 sort keys: SF (descending), PSF (descending), Expiry (ascending). Anchor tenant rows get `border-l-2 border-l-amber-400` for visual call-out.
+
+**Lease type pill labels** — `full_service` → "Full Svc"; `nnn` → "NNN"; `modified_gross` → "Mod. Gross"; `ground` → "Ground". Compact labels prevent overflow in narrow table cells.
+
+**Expiration bucket cap year** — `EXTRACT(year FROM expiration_date) >= capYear` goes into a single `'YYYY+'` bucket. Set `capYear = currentYear + 5`. Use PostgreSQL parameterized `$2` for the cap year and `$3` for the label string to avoid SQL injection.
+
+**Staging table pattern** — `stg_lease_extract` and `stg_rent_roll_extract` store raw extraction output in `jsonb` with common flat fields denormalized for easy querying. No FKs to canonical tables (staging is pre-review). `re_lease_reconciliation_queue` holds human-reviewable discrepancy records. Promote to canonical only after analyst approval.
+
+**Seed deterministic UUIDs for lease entities** — Use a distinct 8-char prefix segment per entity type: `b0010000-*` for tenants, `b0020000-*` for spaces, `b0030000-*` for leases, `c0010000-*` for documents, `d0010000-*` for events, `e0010000-*` for snapshots. This avoids collision with asset UUIDs (prefix `a1b2c3d4-9001-*`) while remaining readable in DB inspection.

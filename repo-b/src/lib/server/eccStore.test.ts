@@ -13,6 +13,7 @@ import {
   resetEccRuntime,
   taskAction,
 } from "@/lib/server/eccStore";
+import { vi } from "vitest";
 
 function dedupe<T>(items: T[]): T[] {
   return Array.from(new Set(items));
@@ -88,20 +89,28 @@ describe("eccStore", () => {
     expect(getDelegations().some((row) => row.item_id === payable!.id)).toBe(true);
   });
 
-  it("hides a snoozed item and resurfaces it after the snooze expires", async () => {
-    const message = getQueue().sections.general.find((item) => item.kind === "message");
-    expect(message).toBeTruthy();
+  it("hides a snoozed item and resurfaces it after the snooze expires", () => {
+    vi.useFakeTimers();
+    try {
+      resetEccRuntime();
+      createOrResetMeridianDemo();
 
-    messageAction(message!.id, {
-      action: "snooze_until",
-      value: new Date(Date.parse("2026-02-27T14:00:00.000Z") + 120).toISOString(),
-    });
+      const message = getQueue().sections.general.find((item) => item.kind === "message");
+      expect(message).toBeTruthy();
 
-    expect(getQueue().sections.general.some((item) => item.id === message!.id)).toBe(false);
+      messageAction(message!.id, {
+        action: "snooze_until",
+        value: new Date(Date.parse("2026-02-27T14:00:00.000Z") + 120).toISOString(),
+      });
 
-    await new Promise((resolve) => setTimeout(resolve, 180));
+      expect(getQueue().sections.general.some((item) => item.id === message!.id)).toBe(false);
 
-    expect(getQueue().sections.general.some((item) => item.id === message!.id)).toBe(true);
+      vi.advanceTimersByTime(180);
+
+      expect(getQueue().sections.general.some((item) => item.id === message!.id)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("links finance matches for the seeded payables and routes two to needs review", () => {

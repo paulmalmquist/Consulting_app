@@ -51,7 +51,9 @@ describe("/api/re/v2/dashboards/[dashboardId]", () => {
       density: "compact",
     });
 
-    const [sql, params] = query.mock.calls[0];
+    const firstCall = query.mock.calls.at(0) as [unknown, unknown[]] | undefined;
+    expect(firstCall).toBeDefined();
+    const [sql, params] = firstCall!;
     expect(String(sql)).toContain("FROM re_dashboard");
     expect(params).toEqual([DASHBOARD_ID, ENV_ID, BUSINESS_ID]);
   });
@@ -110,7 +112,9 @@ describe("/api/re/v2/dashboards/[dashboardId]", () => {
       density: "compact",
     });
 
-    const [sql, params] = query.mock.calls[0];
+    const firstCall = query.mock.calls.at(0) as [unknown, unknown[]] | undefined;
+    expect(firstCall).toBeDefined();
+    const [sql, params] = firstCall!;
     expect(String(sql)).toContain("UPDATE re_dashboard");
     expect(params).toEqual([
       DASHBOARD_ID,

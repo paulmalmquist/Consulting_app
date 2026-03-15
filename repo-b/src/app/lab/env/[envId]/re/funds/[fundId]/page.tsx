@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ChevronDown, GitBranch, Leaf, MoreHorizontal } from "lucide-react";
+import { AlertTriangle, ChevronDown, GitBranch, MoreHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   Bar,
@@ -711,14 +711,6 @@ export default function FundDetailPage({
               <GitBranch className="h-3.5 w-3.5 text-bm-muted" strokeWidth={1.5} />
               Lineage
             </button>
-            <Link
-              href={`/lab/env/${params.envId}/re/sustainability?section=portfolio-footprint&fundId=${params.fundId}`}
-              title="Sustainability dashboard"
-              className="inline-flex items-center gap-1 rounded-md border border-bm-border/30 px-3 py-2 text-sm text-bm-muted transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text"
-            >
-              <Leaf className="h-3.5 w-3.5 text-bm-muted" strokeWidth={1.5} />
-              Sustainability
-            </Link>
             <div className="relative" ref={actionsMenuRef}>
               <button
                 type="button"

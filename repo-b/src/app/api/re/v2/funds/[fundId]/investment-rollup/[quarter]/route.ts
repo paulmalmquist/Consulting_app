@@ -220,11 +220,11 @@ async function addSectorAndMarket(
     investmentIds
   );
 
-  // Primary market: top MSA by asset value
+  // Primary market: top MSA/market by asset value (fall back to market or city when msa is null)
   const marketRes = await pool.query(
     `SELECT DISTINCT ON (d.deal_id)
        d.deal_id::text AS investment_id,
-       pa.msa AS primary_market
+       COALESCE(NULLIF(pa.msa, ''), NULLIF(pa.market, ''), NULLIF(pa.city, '')) AS primary_market
      FROM repe_deal d
      JOIN repe_asset a ON a.deal_id = d.deal_id
      LEFT JOIN repe_property_asset pa ON pa.asset_id = a.asset_id
@@ -234,7 +234,7 @@ async function addSectorAndMarket(
        ORDER BY quarter DESC LIMIT 1
      ) qs ON true
      WHERE d.deal_id IN (${placeholders})
-       AND pa.msa IS NOT NULL AND pa.msa != ''
+       AND COALESCE(NULLIF(pa.msa, ''), NULLIF(pa.market, ''), NULLIF(pa.city, '')) IS NOT NULL
      ORDER BY d.deal_id, COALESCE(qs.asset_value, 0) DESC`,
     investmentIds
   );

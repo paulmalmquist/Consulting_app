@@ -325,6 +325,29 @@ def _reset_tool_cache() -> None:
     _cached_tools = None
 
 
+def _strip_schema(schema: dict) -> dict:
+    """Remove metadata and auto-resolved context fields from tool schema to
+    reduce token overhead.  The gateway injects env_id/business_id from
+    resolved scope, so they don't need to appear in the tool definition sent
+    to the model."""
+    _DROP_KEYS = {"$schema", "title"}
+    _AUTO_RESOLVED_PROPS = {"env_id", "business_id"}
+    out: dict = {}
+    for key, value in schema.items():
+        if key in _DROP_KEYS:
+            continue
+        if key == "properties" and isinstance(value, dict):
+            out[key] = {
+                k: v for k, v in value.items() if k not in _AUTO_RESOLVED_PROPS
+            }
+            continue
+        if key == "required" and isinstance(value, list):
+            out[key] = [r for r in value if r not in _AUTO_RESOLVED_PROPS]
+            continue
+        out[key] = value
+    return out
+
+
 def _build_openai_tools() -> tuple[list[dict], dict[str, str]]:
     global _cached_tools
     if _cached_tools is not None:
@@ -337,11 +360,7 @@ def _build_openai_tools() -> tuple[list[dict], dict[str, str]]:
             continue
         if tool_def.handler is None:
             continue
-        clean_schema = {
-            key: value
-            for key, value in tool_def.input_schema.items()
-            if key not in ("$schema", "title")
-        }
+        clean_schema = _strip_schema(tool_def.input_schema)
         safe_name = _sanitize_tool_name(tool_def.name)
         name_map[safe_name] = tool_def.name
         tools.append(
@@ -349,7 +368,7 @@ def _build_openai_tools() -> tuple[list[dict], dict[str, str]]:
                 "type": "function",
                 "function": {
                     "name": safe_name,
-                    "description": tool_def.description,
+                    "description": tool_def.description[:200],
                     "parameters": clean_schema,
                 },
             }
@@ -2630,17 +2649,33 @@ async def run_gateway_stream(
                 f"Carry={item.get('key_metrics', {}).get('carry')}"
             )
         context_block += "\n\n## Prior Waterfall Runs This Session\n" + "\n".join(session_lines)
-    system_prompt = _build_system_prompt_for_context(
-        environment_name=normalized_envelope.ui.active_environment_name,
-        environment_id=normalized_envelope.ui.active_environment_id,
-    )
     effective_model = route.model or OPENAI_CHAT_MODEL
     # Reasoning / o-series models use "developer" role instead of "system"
     _caps = get_caps(effective_model)
     system_role = "developer" if (_caps.supports_reasoning_effort and not _caps.supports_temperature) else "system"
+
+    # ── Prompt caching: stable base prompt first (>=1024 tokens), dynamic
+    #    content second.  OpenAI caches matching prefixes automatically so
+    #    keeping the base prompt identical across requests enables cache hits.
     messages: list[dict[str, Any]] = [
-        {"role": system_role, "content": system_prompt + "\n\n" + context_block + rag_context},
+        {"role": system_role, "content": _SYSTEM_PROMPT_BASE},
     ]
+
+    # Dynamic blocks: mutation rules, Novendor prompt, context, RAG
+    _dynamic_parts: list[str] = []
+    if _has_write_tools():
+        _dynamic_parts.append(_MUTATION_RULES_BLOCK)
+    else:
+        _dynamic_parts.append(_READ_ONLY_BLOCK)
+    if _is_novendor_environment(
+        environment_name=normalized_envelope.ui.active_environment_name,
+        environment_id=normalized_envelope.ui.active_environment_id,
+    ):
+        _dynamic_parts.append(_NOVENDOR_PREDICTION_MARKET_PROMPT)
+    _dynamic_parts.append(context_block)
+    if rag_context:
+        _dynamic_parts.append(rag_context)
+    messages.append({"role": system_role, "content": "\n\n".join(_dynamic_parts)})
 
     # ── Conversation history (token-budgeted per lane) ────────────
     _history_start = time.time()

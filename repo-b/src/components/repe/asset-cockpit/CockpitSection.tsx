@@ -4,6 +4,7 @@ import type {
   ReV2AssetDetail,
   ReV2AssetQuarterState,
   ReV2AssetPeriod,
+  ReLeaseSummary,
 } from "@/lib/bos-api";
 import { PROPERTY_TYPE_LABELS, label } from "@/lib/labels";
 import { QuarterlyBarChart, TrendLineChart } from "@/components/charts";
@@ -27,11 +28,16 @@ import InvestmentThesisCard from "./panels/InvestmentThesisCard";
 import RiskIndicatorsPanel from "./panels/RiskIndicatorsPanel";
 import ICReviewPanel from "./panels/ICReviewPanel";
 
+import SecondaryMetric from "./shared/SecondaryMetric";
+import { fmtSfPsf } from "./format-utils";
+
 interface Props {
   detail: ReV2AssetDetail;
   financialState: ReV2AssetQuarterState | null;
   periods: ReV2AssetPeriod[];
   occupancy?: number;
+  /** Lease summary from /leasing/summary — shown as compact Leasing Signals strip. */
+  leaseSummary?: ReLeaseSummary | null;
 }
 
 export default function CockpitSection({
@@ -39,6 +45,7 @@ export default function CockpitSection({
   financialState,
   periods,
   occupancy,
+  leaseSummary,
 }: Props) {
   const { asset, property } = detail;
 
@@ -280,6 +287,39 @@ export default function CockpitSection({
           <LeaseExpirationPanel />
           <RentEconomicsPanel detail={detail} />
         </div>
+
+        {/* Leasing Signals strip — shown when real lease data is available */}
+        {leaseSummary && (
+          <div className={BRIEFING_CARD}>
+            <p className="mb-3 text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
+              Leasing Signals
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+              <SecondaryMetric
+                label="WALT"
+                value={leaseSummary.walt_years != null ? `${Number(leaseSummary.walt_years).toFixed(1)} yrs` : "—"}
+              />
+              <SecondaryMetric
+                label="Anchor Share"
+                value={leaseSummary.anchor_pct != null ? `${(Number(leaseSummary.anchor_pct) * 100).toFixed(0)}%` : "—"}
+              />
+              <SecondaryMetric
+                label="Next Expiry"
+                value={leaseSummary.next_expiration ? String(new Date(leaseSummary.next_expiration).getFullYear()) : "—"}
+              />
+              <SecondaryMetric
+                label="In-Place PSF"
+                value={fmtSfPsf(leaseSummary.in_place_psf)}
+              />
+              <SecondaryMetric
+                label="Mark-to-Market"
+                value={leaseSummary.mark_to_market_pct != null
+                  ? `${(Number(leaseSummary.mark_to_market_pct) * 100).toFixed(1)}%`
+                  : "—"}
+              />
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════ */}

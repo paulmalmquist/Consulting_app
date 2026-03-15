@@ -1,7 +1,8 @@
-import { describe, test, expect, beforeEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { POST } from "@/app/api/re/v2/dashboards/generate/route";
 
 const mockGetPool = vi.fn();
+const mockFetch = vi.fn();
 
 vi.mock("@/lib/server/db", () => ({
   getPool: () => mockGetPool(),
@@ -10,6 +11,12 @@ vi.mock("@/lib/server/db", () => ({
 describe("POST /api/re/v2/dashboards/generate - Debt Yield Detection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFetch.mockRejectedValue(new Error("intent service unavailable in unit tests"));
+    vi.stubGlobal("fetch", mockFetch);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   test("detects DEBT_YIELD metric when prompt mentions 'debt yield'", async () => {

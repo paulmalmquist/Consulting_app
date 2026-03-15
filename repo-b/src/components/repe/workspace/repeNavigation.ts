@@ -69,21 +69,13 @@ export function getActiveRepeGroupKey(pathname: string, navGroups: RepeNavGroup[
 export function buildRepeNavGroups({
   base,
   showIntelligence,
-  showSustainability,
+  showSustainability: _showSustainability,
 }: {
   base: string;
   showIntelligence: boolean;
   showSustainability: boolean;
 }): RepeNavGroup[] {
   return [
-    {
-      label: "Acquisitions",
-      key: "acquisitions",
-      icon: Radar,
-      items: [
-        { href: `${base}/pipeline`, label: "Pipeline", isBase: false, icon: Radar },
-      ],
-    },
     {
       label: "Portfolio",
       key: "portfolio",
@@ -95,40 +87,46 @@ export function buildRepeNavGroups({
       ],
     },
     {
-      label: "Investor Management",
-      key: "investor-management",
+      label: "Investor Operations",
+      key: "investor-operations",
       icon: Users,
       items: [
         { href: `${base}/investors`, label: "Investors", isBase: false, icon: Users },
         { href: `${base}/capital-calls`, label: "Capital Calls", isBase: false, icon: ArrowUpCircle },
         { href: `${base}/distributions`, label: "Distributions", isBase: false, icon: ArrowDownCircle },
+        { href: `${base}/fees`, label: "Fees", isBase: false, icon: WalletCards },
       ],
     },
     {
-      label: "Accounting",
-      key: "accounting",
+      label: "Fund Accounting",
+      key: "fund-accounting",
       icon: ReceiptText,
       items: [
-        { href: `${base}/fees`, label: "Fees", isBase: false, icon: WalletCards },
         { href: `${base}/period-close`, label: "Period Close", isBase: false, icon: CalendarCheck2 },
         { href: `${base}/variance`, label: "Variance", isBase: false, icon: Scale },
       ],
     },
     {
-      label: "Insights",
-      key: "insights",
+      label: "Analytics",
+      key: "analytics",
       icon: BarChart3,
       items: [
-        { href: `${base}/dashboards`, label: "Dashboards", isBase: false, icon: LayoutDashboard },
-        { href: `${base}/reports`, label: "Reports", isBase: false, icon: FileBarChart },
-        { href: `${base}/saved-analyses`, label: "Saved Views", isBase: false, icon: Bookmark },
         { href: `${base}/models`, label: "Models", isBase: false, icon: LineChart },
+        { href: `${base}/dashboards`, label: "Dashboards", isBase: false, icon: LayoutDashboard },
+        { href: `${base}/saved-analyses`, label: "Saved Analyses", isBase: false, icon: Bookmark },
+        { href: `${base}/reports`, label: "Reports", isBase: false, icon: FileBarChart },
         ...(showIntelligence
           ? [{ href: `${base}/intelligence`, label: "Intelligence", isBase: false, icon: Activity }]
           : []),
-        ...(showSustainability
-          ? [{ href: `${base}/sustainability`, label: "Sustainability", isBase: false, icon: Leaf }]
-          : []),
+        { href: `${base}/sustainability`, label: "Sustainability", isBase: false, icon: Leaf },
+      ],
+    },
+    {
+      label: "Acquisitions",
+      key: "acquisitions",
+      icon: Radar,
+      items: [
+        { href: `${base}/pipeline`, label: "Pipeline", isBase: false, icon: Radar },
       ],
     },
     {
