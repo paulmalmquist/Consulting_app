@@ -15,6 +15,7 @@ DO $$
 DECLARE
   v_env_id text := 'a1b2c3d4-0001-0001-0003-000000000001';
   v_business_id uuid;
+  v_has_legacy_ledger boolean;
   r RECORD;
 BEGIN
   SELECT business_id INTO v_business_id
@@ -23,6 +24,11 @@ BEGIN
   LIMIT 1;
 
   IF v_business_id IS NULL THEN RETURN; END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 're_capital_ledger_entry' AND column_name = 'env_id'
+  ) INTO v_has_legacy_ledger;
 
   -- For each fund, seed capital calls
   FOR r IN
@@ -61,18 +67,43 @@ BEGIN
         );
 
         -- Also seed capital ledger entry (contribution)
-        INSERT INTO re_capital_ledger_entry
-          (env_id, business_id, fund_id, event_type, event_date, amount, memo)
-        SELECT
-          v_env_id::uuid, v_business_id, r.fund_id, 'contribution', v_dates[i], v_amount,
-          'LP contribution - call ' || i
-        WHERE NOT EXISTS (
-          SELECT 1 FROM re_capital_ledger_entry cle
-          WHERE cle.env_id = v_env_id::uuid
-            AND cle.fund_id = r.fund_id
-            AND cle.event_type = 'contribution'
-            AND cle.event_date = v_dates[i]
-        );
+        IF v_has_legacy_ledger THEN
+          INSERT INTO re_capital_ledger_entry
+            (env_id, business_id, fund_id, event_type, event_date, amount, memo)
+          SELECT
+            v_env_id::uuid, v_business_id, r.fund_id, 'contribution', v_dates[i], v_amount,
+            'LP contribution - call ' || i
+          WHERE NOT EXISTS (
+            SELECT 1 FROM re_capital_ledger_entry cle
+            WHERE cle.env_id = v_env_id::uuid
+              AND cle.fund_id = r.fund_id
+              AND cle.event_type = 'contribution'
+              AND cle.event_date = v_dates[i]
+          );
+        ELSE
+          INSERT INTO re_capital_ledger_entry
+            (fund_id, partner_id, entry_type, amount, amount_base, effective_date, quarter, memo)
+          SELECT
+            r.fund_id,
+            pc.partner_id,
+            'contribution',
+            v_amount,
+            v_amount,
+            v_dates[i],
+            v_quarters[i],
+            'LP contribution - call ' || i
+          FROM re_partner_commitment pc
+          WHERE pc.fund_id = r.fund_id
+            AND NOT EXISTS (
+              SELECT 1 FROM re_capital_ledger_entry cle
+              WHERE cle.fund_id = r.fund_id
+                AND cle.partner_id = pc.partner_id
+                AND cle.entry_type = 'contribution'
+                AND cle.effective_date = v_dates[i]
+            )
+          ORDER BY pc.partner_id
+          LIMIT 1;
+        END IF;
       END LOOP;
     END;
   END LOOP;
@@ -86,6 +117,7 @@ DO $$
 DECLARE
   v_env_id text := 'a1b2c3d4-0001-0001-0003-000000000001';
   v_business_id uuid;
+  v_has_legacy_ledger boolean;
   r RECORD;
 BEGIN
   SELECT business_id INTO v_business_id
@@ -94,6 +126,11 @@ BEGIN
   LIMIT 1;
 
   IF v_business_id IS NULL THEN RETURN; END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 're_capital_ledger_entry' AND column_name = 'env_id'
+  ) INTO v_has_legacy_ledger;
 
   -- For each fund + quarter, sum net cash flow from assets and distribute ~80%
   FOR r IN
@@ -134,18 +171,43 @@ BEGIN
       );
 
       -- Capital ledger distribution entry
-      INSERT INTO re_capital_ledger_entry
-        (env_id, business_id, fund_id, event_type, event_date, amount, memo)
-      SELECT
-        v_env_id::uuid, v_business_id, r.fund_id, 'distribution', v_dist_date, v_dist_amount,
-        'Operating distribution - ' || r.quarter
-      WHERE NOT EXISTS (
-        SELECT 1 FROM re_capital_ledger_entry cle
-        WHERE cle.env_id = v_env_id::uuid
-          AND cle.fund_id = r.fund_id
-          AND cle.event_type = 'distribution'
-          AND cle.event_date = v_dist_date
-      );
+      IF v_has_legacy_ledger THEN
+        INSERT INTO re_capital_ledger_entry
+          (env_id, business_id, fund_id, event_type, event_date, amount, memo)
+        SELECT
+          v_env_id::uuid, v_business_id, r.fund_id, 'distribution', v_dist_date, v_dist_amount,
+          'Operating distribution - ' || r.quarter
+        WHERE NOT EXISTS (
+          SELECT 1 FROM re_capital_ledger_entry cle
+          WHERE cle.env_id = v_env_id::uuid
+            AND cle.fund_id = r.fund_id
+            AND cle.event_type = 'distribution'
+            AND cle.event_date = v_dist_date
+        );
+      ELSE
+        INSERT INTO re_capital_ledger_entry
+          (fund_id, partner_id, entry_type, amount, amount_base, effective_date, quarter, memo)
+        SELECT
+          r.fund_id,
+          pc.partner_id,
+          'distribution',
+          v_dist_amount,
+          v_dist_amount,
+          v_dist_date,
+          r.quarter,
+          'Operating distribution - ' || r.quarter
+        FROM re_partner_commitment pc
+        WHERE pc.fund_id = r.fund_id
+          AND NOT EXISTS (
+            SELECT 1 FROM re_capital_ledger_entry cle
+            WHERE cle.fund_id = r.fund_id
+              AND cle.partner_id = pc.partner_id
+              AND cle.entry_type = 'distribution'
+              AND cle.effective_date = v_dist_date
+          )
+        ORDER BY pc.partner_id
+        LIMIT 1;
+      END IF;
     END;
   END LOOP;
 END $$;
