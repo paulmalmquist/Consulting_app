@@ -199,7 +199,9 @@ SELECT
     THEN
       SUM(
         l.rentable_sf * GREATEST(
-          EXTRACT(EPOCH FROM (l.expiration_date - CURRENT_DATE)) / (365.25 * 86400),
+          EXTRACT(
+            EPOCH FROM (l.expiration_date::timestamp - CURRENT_DATE::timestamp)
+          ) / (365.25 * 86400),
           0
         )
       ) FILTER (WHERE l.status = 'active' AND l.expiration_date > CURRENT_DATE)
