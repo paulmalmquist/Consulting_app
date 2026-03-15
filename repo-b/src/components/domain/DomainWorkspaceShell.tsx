@@ -186,7 +186,6 @@ function navItems(domain: DomainSlug, base: string): NavItem[] {
       { href: `${base}/predictions`, label: "Predictions" },
       { href: `${base}/recommendations`, label: "Recommendations" },
       { href: `${base}/graph`, label: "Graph" },
-      { href: `${base}/dashboards`, label: "Dashboards" },
       { href: `${base}/case-feed`, label: "Case Feed" },
     ];
   }

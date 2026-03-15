@@ -5,7 +5,7 @@
  *
  * Three structural zones:
  *   Desktop (≥ 1280px):  | Sidebar 240px | Main 900–1fr | Context Rail 300px |
- *   Tablet  (768–1279px): | Sidebar drawer | Main full-width | Rail as right sheet |
+ *   Tablet  (768–1279px): | Compact icon rail | Main full-width | Rail as right sheet |
  *   Mobile  (< 768px):   | Main full-width | Bottom nav | Rail / Winston as bottom sheet |
  *
  * Usage:
@@ -20,7 +20,8 @@
  *   </WinstonShell>
  */
 
-import { useState, useId } from "react";
+import { useEffect, useId, useState } from "react";
+import { usePathname } from "next/navigation";
 import { X, Menu, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { MobileBottomNav, type MobileNavItem } from "./MobileBottomNav";
@@ -36,6 +37,8 @@ export interface WinstonShellProps {
   headerLabel?: string;
   /** Primary action slot in the mobile header (e.g. "+ Fund" button) */
   headerAction?: React.ReactNode;
+  /** Collapsed icon-only navigation rail for tablet widths */
+  tabletSidebar?: React.ReactNode;
   /** Items for the mobile bottom nav. If omitted, bottom nav is not rendered. */
   mobileNavItems?: MobileNavItem[];
   className?: string;
@@ -47,16 +50,24 @@ export function WinstonShell({
   rail,
   headerLabel,
   headerAction,
+  tabletSidebar,
   mobileNavItems,
   className,
 }: WinstonShellProps) {
+  const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [railOpen, setRailOpen] = useState(false);
   const navDrawerId = useId();
   const railSheetId = useId();
 
   const hasRail = Boolean(rail);
+  const hasTabletSidebar = Boolean(tabletSidebar);
   const hasMobileNav = Boolean(mobileNavItems?.length);
+
+  useEffect(() => {
+    setDrawerOpen(false);
+    setRailOpen(false);
+  }, [pathname]);
 
   return (
     <div className={cn("min-h-screen flex flex-col bg-bm-bg", className)}>
@@ -132,7 +143,7 @@ export function WinstonShell({
         {/* Drawer panel */}
         <div
           className={cn(
-            "absolute left-0 top-0 h-full w-60 flex flex-col",
+            "absolute left-0 top-0 h-full w-72 max-w-[88vw] flex flex-col",
             "bg-bm-bg border-r border-bm-border/[0.08]",
             "shadow-[4px_0_32px_-8px_rgba(0,0,0,0.6)]",
             "transition-transform duration-200",
@@ -228,15 +239,27 @@ export function WinstonShell({
       <div
         className={cn(
           "mx-auto flex-1 w-full max-w-[2200px]",
+          /* Tablet grid */
+          "md:grid md:gap-6 md:px-6 md:py-6",
+          hasTabletSidebar ? "md:grid-cols-[76px_minmax(0,1fr)]" : "md:grid-cols-[minmax(0,1fr)]",
           /* Desktop grid */
           "xl:grid xl:gap-8 xl:px-8 xl:py-8",
           hasRail
             ? "xl:grid-cols-[220px_minmax(0,1fr)_280px]"
             : "xl:grid-cols-[220px_minmax(0,1fr)]",
           /* Mobile: padding-bottom for bottom nav */
-          hasMobileNav && "pb-20 md:pb-20 xl:pb-0"
+          hasMobileNav && "pb-20 md:pb-0 xl:pb-0"
         )}
       >
+        {/* ── Left compact rail — tablet only ── */}
+        {hasTabletSidebar && (
+          <aside className="hidden md:block xl:hidden min-w-0" aria-label="Compact sidebar navigation">
+            <div className="sticky top-20">
+              {tabletSidebar}
+            </div>
+          </aside>
+        )}
+
         {/* ── Left sidebar — desktop only ── */}
         <aside className="hidden xl:block min-w-0" aria-label="Sidebar navigation">
           {/* Sticky within the grid column */}
@@ -246,7 +269,7 @@ export function WinstonShell({
         </aside>
 
         {/* ── Main workspace ── */}
-        <main className="min-w-0 px-4 py-4 xl:px-0 xl:py-0">
+        <main className="min-w-0 px-4 py-4 md:px-0 md:py-0 xl:px-0 xl:py-0">
           {children}
         </main>
 

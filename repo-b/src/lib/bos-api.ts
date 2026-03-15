@@ -3690,7 +3690,7 @@ export function approveReV2Model(modelId: string): Promise<ReV2Model> {
 
 // Cross-Fund Models
 export function listAllModels(envId?: string): Promise<ReV2Model[]> {
-  return directFetch(`/api/re/v2/models`, { params: { env_id: envId } });
+  return bosFetch(`/api/re/v2/models`, { params: { env_id: envId } });
 }
 
 export function createCrossFundModel(body: {

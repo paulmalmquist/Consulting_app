@@ -41,7 +41,6 @@ export default function AppShell({
 
   const navItems = useMemo<NavItem[]>(() => {
     const base: NavItem[] = [
-      { id: "dashboard", href: homeHref, label: "Dashboard", navKey: "dashboard", group: "operations" },
       { id: "environments", href: "/lab/environments", label: "Environments", navKey: "environments", group: "operations" },
       { id: "pipeline", href: "/lab/pipeline", label: "Pipeline", navKey: "pipeline", group: "operations" },
       { id: "uploads", href: "/lab/upload", label: "Uploads", navKey: "uploads", group: "operations" },
@@ -127,10 +126,7 @@ export default function AppShell({
               ) : null}
               <div className="flex flex-col gap-1.5">
                 {groupedItems[groupKey].map((item) => {
-                  const isActive =
-                    item.id === "dashboard"
-                      ? pathname === item.href || (!isAdmin && pathname.startsWith("/lab/env/"))
-                      : pathname === item.href;
+                  const isActive = pathname === item.href;
                   return (
                     <Link
                       key={item.id}

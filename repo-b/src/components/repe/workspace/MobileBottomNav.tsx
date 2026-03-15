@@ -3,8 +3,8 @@
 /**
  * MobileBottomNav — Mobile-first bottom tab bar
  *
- * Five tabs: Funds · Deals · Winston (center, elevated) · Assets · Models
- * Winston gets a raised pill treatment — it's the primary action, not a peer nav item.
+ * Five quick-access tabs:
+ * Pipeline · Funds · Winston (center, elevated) · Investors · Reports
  *
  * Rendered by WinstonShell when mobileNavItems are provided.
  * Respects iOS safe-area-inset-bottom via env().
@@ -13,18 +13,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BarChart3,
   Landmark,
-  TrendingUp,
-  Building2,
-  Layers,
+  Radar,
   Sparkles,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 export interface MobileNavItem {
   href: string;
   label: string;
-  icon: "funds" | "deals" | "assets" | "models" | "winston";
+  icon: "pipeline" | "funds" | "investors" | "reports" | "winston";
   /** Match sub-paths (prefix match) */
   matchPrefix?: boolean;
 }
@@ -32,20 +32,20 @@ export interface MobileNavItem {
 type LucideIcon = React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
 
 const ICON_MAP: Record<MobileNavItem["icon"], LucideIcon> = {
-  funds:   Landmark   as LucideIcon,
-  deals:   TrendingUp as LucideIcon,
-  assets:  Building2  as LucideIcon,
-  models:  Layers     as LucideIcon,
-  winston: Sparkles   as LucideIcon,
+  pipeline: Radar      as LucideIcon,
+  funds:    Landmark   as LucideIcon,
+  investors: Users     as LucideIcon,
+  reports:  BarChart3  as LucideIcon,
+  winston:  Sparkles   as LucideIcon,
 };
 
 /** Default REPE nav items — pass these from the shell consumer */
 export const REPE_MOBILE_NAV_ITEMS = (base: string): MobileNavItem[] => [
-  { href: base,              label: "Funds",   icon: "funds",   matchPrefix: false },
-  { href: `${base}/deals`,   label: "Deals",   icon: "deals",   matchPrefix: true },
-  { href: `${base}/winston`, label: "Winston", icon: "winston", matchPrefix: true },
-  { href: `${base}/assets`,  label: "Assets",  icon: "assets",  matchPrefix: true },
-  { href: `${base}/models`,  label: "Models",  icon: "models",  matchPrefix: true },
+  { href: `${base}/pipeline`,  label: "Pipeline",  icon: "pipeline",  matchPrefix: true },
+  { href: base,                label: "Funds",     icon: "funds",     matchPrefix: false },
+  { href: `${base}/winston`,   label: "Winston",   icon: "winston",   matchPrefix: true },
+  { href: `${base}/investors`, label: "Investors", icon: "investors", matchPrefix: true },
+  { href: `${base}/reports`,   label: "Reports",   icon: "reports",   matchPrefix: true },
 ];
 
 function isItemActive(pathname: string, item: MobileNavItem): boolean {
@@ -60,7 +60,7 @@ export function MobileBottomNav({ items }: { items: MobileNavItem[] }) {
     <nav
       aria-label="Mobile navigation"
       className={cn(
-        "xl:hidden fixed bottom-0 inset-x-0 z-40",
+        "fixed bottom-0 inset-x-0 z-40 md:hidden",
         "bg-bm-bg/95 backdrop-blur-sm supports-[backdrop-filter]:bg-bm-bg/85",
         "border-t border-bm-border/[0.08]",
         /* iOS safe area */

@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
+  createCrossFundModel,
+  listAllModels,
   listReV1Funds,
+  ReV2Model,
   RepeFund,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
@@ -24,37 +27,42 @@ import {
 
 /* ── Types ─────────────────────────────────────────────────────── */
 
-interface ReModel {
-  model_id: string;
-  fund_id: string;
+type ReModel = ReV2Model & {
+  fund_id?: string | null;
   fund_name?: string;
-  name: string;
-  description: string | null;
-  status: string;
-  strategy_type: string | null;
-  created_by: string | null;
-  created_at: string;
-}
+};
 
 /* ── API helpers ─────────────────────────────────────────────────── */
 
-async function listAllModels(businessId: string): Promise<ReModel[]> {
-  const res = await fetch(`/api/re/v2/models?business_id=${encodeURIComponent(businessId)}`);
-  if (!res.ok) return [];
-  return res.json();
+const MODEL_TYPE_OPTIONS = [
+  { value: "scenario", label: "Scenario" },
+  { value: "forecast", label: "Forecast" },
+  { value: "downside", label: "Downside" },
+  { value: "upside", label: "Upside" },
+  { value: "underwriting_io", label: "Underwriting IO" },
+] as const;
+
+const STRATEGY_OPTIONS = [
+  { value: "equity", label: "Equity" },
+  { value: "credit", label: "Credit" },
+  { value: "cmbs", label: "CMBS" },
+  { value: "mixed", label: "Mixed" },
+] as const;
+
+const VALID_MODEL_TYPES = new Set<string>(MODEL_TYPE_OPTIONS.map((option) => option.value));
+const VALID_STRATEGIES = new Set<string>(STRATEGY_OPTIONS.map((option) => option.value));
+
+function getModelFundId(model: ReModel): string {
+  return model.primary_fund_id ?? model.fund_id ?? "";
 }
 
-async function createModel(fundId: string, body: { name: string; description?: string; strategy_type?: string }): Promise<ReModel> {
-  const res = await fetch(`/api/re/v2/funds/${fundId}/models`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-  return res.json();
+function enrichModels(models: ReV2Model[], funds: RepeFund[]): ReModel[] {
+  const fundNameById = new Map(funds.map((fund) => [fund.fund_id, fund.name]));
+  return models.map((model) => ({
+    ...model,
+    fund_id: model.primary_fund_id ?? null,
+    fund_name: model.primary_fund_id ? fundNameById.get(model.primary_fund_id) : undefined,
+  }));
 }
 
 async function cloneModel(modelId: string): Promise<ReModel> {
@@ -81,52 +89,116 @@ export default function ReModelsPage() {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [newModelType, setNewModelType] = useState<string>("scenario");
   const [newStrategy, setNewStrategy] = useState<string>("equity");
   const [newFundId, setNewFundId] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [cloningId, setCloningId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
-  // Load funds (for create form) and all models
-  useEffect(() => {
+  const loadModels = useCallback(async (fundRows: RepeFund[]) => {
+    if (!envId) {
+      setModels([]);
+      return;
+    }
+    const modelRows = await listAllModels(envId);
+    setModels(enrichModels(modelRows, fundRows));
+  }, [envId]);
+
+  const loadPageData = useCallback(async () => {
     if (!businessId && !envId) return;
-    Promise.all([
-      listReV1Funds({ env_id: envId, business_id: businessId || undefined }),
-      businessId ? listAllModels(businessId) : Promise.resolve([]),
-    ])
-      .then(([fundRows, modelRows]) => {
-        setFunds(fundRows);
-        if (fundRows[0]) setNewFundId(fundRows[0].fund_id);
-        setModels(modelRows);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [businessId, envId]);
+    setLoading(true);
+    try {
+      const fundRows = await listReV1Funds({ env_id: envId, business_id: businessId || undefined });
+      setFunds(fundRows);
+      setNewFundId((currentFundId) => {
+        if (currentFundId && fundRows.some((fund) => fund.fund_id === currentFundId)) {
+          return currentFundId;
+        }
+        return fundRows[0]?.fund_id ?? "";
+      });
+      await loadModels(fundRows);
+    } catch (err) {
+      setFunds([]);
+      setModels([]);
+      setError(err instanceof Error ? err.message : "Failed to load models");
+    } finally {
+      setLoading(false);
+    }
+  }, [businessId, envId, loadModels]);
 
-  const handleCreate = async () => {
-    if (!newFundId || !newName.trim()) return;
+  useEffect(() => {
+    void loadPageData();
+  }, [loadPageData]);
 
+  useEffect(() => {
+    if (!success) return;
+    const timeoutId = window.setTimeout(() => setSuccess(null), 4000);
+    return () => window.clearTimeout(timeoutId);
+  }, [success]);
+
+  const selectedFund = useMemo(
+    () => funds.find((fund) => fund.fund_id === newFundId) ?? null,
+    [funds, newFundId],
+  );
+
+  const duplicateMessage = useMemo(() => {
+    const trimmedName = newName.trim().toLowerCase();
+    if (!newFundId || !trimmedName) return null;
     const duplicate = models.find(
-      (m) => m.fund_id === newFundId && m.name.toLowerCase().trim() === newName.toLowerCase().trim()
+      (model) => getModelFundId(model) === newFundId && model.name.toLowerCase().trim() === trimmedName,
     );
-    if (duplicate) {
-      setError(`A model named "${newName}" already exists in that fund. Choose a different name.`);
+    return duplicate
+      ? `A model named "${newName.trim()}" already exists in that fund. Choose a different name.`
+      : null;
+  }, [models, newFundId, newName]);
+
+  const noFundsAvailable = funds.length === 0;
+
+  const validateCreate = () => {
+    if (!newName.trim()) return "Model name is required.";
+    if (noFundsAvailable) return "No funds are available in this environment. Create a fund before creating a model.";
+    if (!newFundId) return "Select a fund before creating a model.";
+    if (!selectedFund) return "Select a valid fund before creating a model.";
+    if (!VALID_MODEL_TYPES.has(newModelType)) return "Select a valid model type.";
+    if (!VALID_STRATEGIES.has(newStrategy)) return "Select a valid strategy.";
+    return duplicateMessage;
+  };
+
+  const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (creating) return;
+
+    const validationError = validateCreate();
+    if (validationError) {
+      setSuccess(null);
+      setError(validationError);
       return;
     }
 
     setCreating(true);
     setError(null);
+    setSuccess(null);
+
+    const payload = {
+      env_id: envId || undefined,
+      primary_fund_id: newFundId,
+      name: newName.trim(),
+      description: newDesc.trim() || undefined,
+      model_type: newModelType,
+      strategy_type: newStrategy,
+    } as const;
+
     try {
-      const created = await createModel(newFundId, {
-        name: newName.trim(),
-        description: newDesc.trim() || undefined,
-        strategy_type: newStrategy || undefined,
-      });
-      // Attach fund_name from the selected fund
-      const fundName = funds.find((f) => f.fund_id === newFundId)?.name;
-      setModels((prev) => [{ ...created, fund_name: fundName }, ...prev]);
+      await createCrossFundModel(payload);
+      await loadModels(funds);
       setNewName("");
       setNewDesc("");
+      setNewModelType("scenario");
+      setNewStrategy("equity");
+      setNewFundId(selectedFund?.fund_id ?? funds[0]?.fund_id ?? "");
+      setSuccess(`Created "${payload.name}" and refreshed the models list.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create model");
     } finally {
@@ -148,10 +220,6 @@ export default function ReModelsPage() {
       setCloningId(null);
     }
   };
-
-  const isDuplicateName = newFundId && newName.trim().length > 0 && models.some(
-    (m) => m.fund_id === newFundId && m.name.toLowerCase().trim() === newName.toLowerCase().trim()
-  );
 
   if (loading) {
     return <div className="p-6 text-sm text-bm-muted2">Loading models...</div>;
@@ -175,6 +243,7 @@ export default function ReModelsPage() {
                 <tr className={reIndexTableHeadRowClass}>
                   <th className="px-4 py-3 font-medium">Name</th>
                   <th className="px-4 py-3 font-medium">Fund</th>
+                  <th className="px-4 py-3 font-medium">Type</th>
                   <th className="px-4 py-3 font-medium">Strategy</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Created</th>
@@ -197,6 +266,11 @@ export default function ReModelsPage() {
                     </td>
                     <td className={`px-4 py-4 align-middle ${reIndexSecondaryCellClass}`}>
                       {m.fund_name || "—"}
+                    </td>
+                    <td className="px-4 py-4 align-middle">
+                      <span className="inline-flex rounded-full border border-bm-border/60 bg-bm-surface/18 px-2.5 py-1 text-[11px] capitalize text-bm-muted2">
+                        {(m.model_type || "scenario").replaceAll("_", " ")}
+                      </span>
                     </td>
                     <td className="px-4 py-4 align-middle">
                       <span className="inline-flex rounded-full border border-bm-border/60 bg-bm-surface/18 px-2.5 py-1 text-[11px] text-bm-muted2">
@@ -242,49 +316,81 @@ export default function ReModelsPage() {
           </div>
         )}
 
-        <div className="space-y-3 rounded-xl border border-bm-border/70 bg-bm-surface/10 p-4">
+        <form
+          className="space-y-3 rounded-xl border border-bm-border/70 bg-bm-surface/10 p-4"
+          onSubmit={handleCreate}
+        >
           <h2 className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Create Model</h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
-            <input
-              className={reIndexInputClass}
-              placeholder="Model name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              data-testid="model-name-input"
-            />
-            <input
-              className={reIndexInputClass}
-              placeholder="Description (optional)"
-              value={newDesc}
-              onChange={(e) => setNewDesc(e.target.value)}
-              data-testid="model-desc-input"
-            />
-            <select
-              className={reIndexInputClass}
-              value={newStrategy}
-              onChange={(e) => setNewStrategy(e.target.value)}
-              data-testid="model-strategy-select"
-            >
-              <option value="equity">Equity</option>
-              <option value="credit">Credit</option>
-              <option value="cmbs">CMBS</option>
-              <option value="mixed">Mixed</option>
-            </select>
-            <select
-              className={reIndexInputClass}
-              value={newFundId}
-              onChange={(e) => setNewFundId(e.target.value)}
-              data-testid="model-fund-select"
-            >
-              <option value="">Select fund</option>
-              {funds.map((f) => (
-                <option key={f.fund_id} value={f.fund_id}>{f.name}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-5 lg:grid-cols-6">
+            <label className={reIndexControlLabelClass}>
+              Model name
+              <input
+                className={reIndexInputClass}
+                placeholder="Model name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                data-testid="model-name-input"
+              />
+            </label>
+            <label className={reIndexControlLabelClass}>
+              Description
+              <input
+                className={reIndexInputClass}
+                placeholder="Description (optional)"
+                value={newDesc}
+                onChange={(e) => setNewDesc(e.target.value)}
+                data-testid="model-desc-input"
+              />
+            </label>
+            <label className={reIndexControlLabelClass}>
+              Model type
+              <select
+                className={reIndexInputClass}
+                value={newModelType}
+                onChange={(e) => setNewModelType(e.target.value)}
+                data-testid="model-type-select"
+              >
+                {MODEL_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={reIndexControlLabelClass}>
+              Strategy
+              <select
+                className={reIndexInputClass}
+                value={newStrategy}
+                onChange={(e) => setNewStrategy(e.target.value)}
+                data-testid="model-strategy-select"
+              >
+                {STRATEGY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={reIndexControlLabelClass}>
+              Fund
+              <select
+                className={reIndexInputClass}
+                value={newFundId}
+                onChange={(e) => setNewFundId(e.target.value)}
+                data-testid="model-fund-select"
+              >
+                <option value="">Select fund</option>
+                {funds.map((fund) => (
+                  <option key={fund.fund_id} value={fund.fund_id}>
+                    {fund.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button
-              type="button"
-              onClick={handleCreate}
-              disabled={creating || !newName.trim() || !newFundId || !!isDuplicateName}
+              type="submit"
+              disabled={creating || noFundsAvailable}
               className={reIndexActionClass}
               data-testid="create-model-btn"
             >
@@ -292,16 +398,25 @@ export default function ReModelsPage() {
               {creating ? "Creating..." : "Create Model"}
             </button>
           </div>
-          {isDuplicateName ? (
-            <p className="text-xs text-amber-400">A model with this name already exists in that fund. Choose a different name.</p>
+          {noFundsAvailable ? (
+            <p className="text-xs text-amber-400">
+              No funds are available in this environment. Create a fund before creating a model.
+            </p>
           ) : null}
-        </div>
-
-        {error ? (
-          <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
-            {error}
-          </div>
-        ) : null}
+          {duplicateMessage ? (
+            <p className="text-xs text-amber-400">{duplicateMessage}</p>
+          ) : null}
+          {success ? (
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200">
+              {success}
+            </div>
+          ) : null}
+          {error ? (
+            <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
+              {error}
+            </div>
+          ) : null}
+        </form>
       </section>
     </RepeIndexScaffold>
   );

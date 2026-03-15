@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
-import { Building2, ChevronDown, Landmark, Plus, PlusCircle, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
+import { RepeSidebarCompactRail, RepeSidebarNav } from "@/components/repe/workspace/RepeSidebarNav";
 import {
   completeUpload,
   computeSha256,
@@ -17,6 +18,12 @@ import {
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import { WinstonShell } from "@/components/repe/workspace/WinstonShell";
 import type { MobileNavItem } from "@/components/repe/workspace/MobileBottomNav";
+import {
+  buildRepeMobileNavItems,
+  buildRepeNavGroups,
+  getActiveRepeGroupKey,
+  isRepePathActive,
+} from "@/components/repe/workspace/repeNavigation";
 
 const STAGE_OPTIONS = [
   { value: "sourcing", label: "Sourced" },
@@ -517,16 +524,6 @@ function InvestmentIntakeDialog({
   );
 }
 
-function isActive(pathname: string, href: string, isBase: boolean): boolean {
-  if (isBase) {
-    if (pathname === href) return true;
-    if (pathname.startsWith(`${href}/funds`)) return true;
-    if (pathname.startsWith(`${href}/portfolio`)) return true;
-    return false;
-  }
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
 function TopUtilityNav({
   pathname,
   base,
@@ -544,9 +541,9 @@ function TopUtilityNav({
 }) {
   const links = [
     { href: homeHref, label: "Home", isActive: pathname === homeHref, testId: "global-home-button" },
-    { href: base, label: "Funds", isActive: isActive(pathname, base, true) },
-    { href: `${base}/deals`, label: "Investments", isActive: isActive(pathname, `${base}/deals`, false) },
-    { href: `${base}/assets`, label: "Assets", isActive: isActive(pathname, `${base}/assets`, false) },
+    { href: base, label: "Funds", isActive: isRepePathActive(pathname, base, true) },
+    { href: `${base}/deals`, label: "Investments", isActive: isRepePathActive(pathname, `${base}/deals`, false) },
+    { href: `${base}/assets`, label: "Assets", isActive: isRepePathActive(pathname, `${base}/assets`, false) },
   ];
 
   const visibleLinks = showAll ? links : links.slice(0, 1);
@@ -594,74 +591,23 @@ export default function RepeWorkspaceShell({
   const showIntelligence  = process.env.NEXT_PUBLIC_SHOW_INTELLIGENCE_MODULE  === "true";
   const showSustainability = process.env.NEXT_PUBLIC_SHOW_SUSTAINABILITY_MODULE === "true";
 
-  type NavItem = { href: string; label: string; isBase: boolean };
-  type NavGroup = { label: string; key: string; items: NavItem[] };
+  const navGroups = useMemo(
+    () => buildRepeNavGroups({ base, showIntelligence, showSustainability }),
+    [base, showIntelligence, showSustainability],
+  );
 
-  const navGroups: NavGroup[] = useMemo(() => [
-    {
-      label: "Portfolio",
-      key: "portfolio",
-      items: [
-        { href: base,                  label: "Funds",       isBase: true  },
-        { href: `${base}/deals`,       label: "Investments", isBase: false },
-        { href: `${base}/assets`,      label: "Assets",      isBase: false },
-        { href: `${base}/investors`,   label: "Investors",   isBase: false },
-        { href: `${base}/pipeline`,    label: "Pipeline",    isBase: false },
-      ],
-    },
-    {
-      label: "Investor Operations",
-      key: "investor-ops",
-      items: [
-        { href: `${base}/capital-calls`,  label: "Capital Calls",  isBase: false },
-        { href: `${base}/distributions`,  label: "Distributions",  isBase: false },
-        { href: `${base}/fees`,           label: "Fees",           isBase: false },
-      ],
-    },
-    {
-      label: "Fund Accounting",
-      key: "fund-acct",
-      items: [
-        { href: `${base}/period-close`,        label: "Period Close",   isBase: false },
-        { href: `${base}/variance`,            label: "Variance",       isBase: false },
-        { href: `${base}/waterfall-comparison`, label: "Waterfall Comp", isBase: false },
-      ],
-    },
-    {
-      label: "Analytics",
-      key: "analytics",
-      items: [
-        { href: `${base}/models`,          label: "Models",         isBase: false },
-        { href: `${base}/dashboards`,      label: "Dashboards",     isBase: false },
-        { href: `${base}/saved-analyses`,  label: "Saved Analyses", isBase: false },
-        { href: `${base}/reports`,         label: "Reports",        isBase: false },
-        ...(showIntelligence
-          ? [{ href: `${base}/intelligence`, label: "Intelligence", isBase: false }]
-          : []),
-        ...(showSustainability
-          ? [{ href: `${base}/sustainability`, label: "Sustainability", isBase: false }]
-          : []),
-      ],
-    },
-    {
-      label: "Governance",
-      key: "governance",
-      items: [
-        { href: `${base}/documents`,  label: "Documents",  isBase: false },
-        { href: `${base}/approvals`,  label: "Approvals",  isBase: false },
-        { href: `${base}/winston`,    label: "Winston",    isBase: false },
-      ],
-    },
-  ], [base, showIntelligence, showSustainability]);
+  const activeGroupKey = useMemo(
+    () => getActiveRepeGroupKey(pathname, navGroups),
+    [navGroups, pathname],
+  );
 
-  // Flat list for mobile nav and other consumers
-  const navItems = useMemo(() => navGroups.flatMap(g => g.items), [navGroups]);
-
-  // Sidebar collapse state persisted to localStorage
+  // Sidebar collapse state persisted to sessionStorage
   const COLLAPSED_KEY = "repe-sidebar-collapsed-groups";
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
     try {
-      const stored = typeof window !== "undefined" ? localStorage.getItem(COLLAPSED_KEY) : null;
+      const stored = typeof window !== "undefined"
+        ? sessionStorage.getItem(COLLAPSED_KEY) ?? localStorage.getItem(COLLAPSED_KEY)
+        : null;
       return stored ? new Set(JSON.parse(stored) as string[]) : new Set<string>();
     } catch {
       return new Set<string>();
@@ -673,34 +619,34 @@ export default function RepeWorkspaceShell({
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
-      try { localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next])); } catch { /* noop */ }
+      try {
+        sessionStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]));
+        localStorage.removeItem(COLLAPSED_KEY);
+      } catch {
+        /* noop */
+      }
       return next;
     });
   };
 
   // Auto-expand the group containing the active page
   useEffect(() => {
-    const activeGroup = navGroups.find(g =>
-      g.items.some(item => isActive(pathname, item.href, item.isBase))
-    );
-    if (activeGroup && collapsedGroups.has(activeGroup.key)) {
+    if (activeGroupKey && collapsedGroups.has(activeGroupKey)) {
       setCollapsedGroups(prev => {
         const next = new Set(prev);
-        next.delete(activeGroup.key);
-        try { localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next])); } catch { /* noop */ }
+        next.delete(activeGroupKey);
+        try {
+          sessionStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]));
+          localStorage.removeItem(COLLAPSED_KEY);
+        } catch {
+          /* noop */
+        }
         return next;
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }, [activeGroupKey, collapsedGroups]);
 
-  const mobileNavItems: MobileNavItem[] = useMemo(() => [
-    { href: base,                label: "Funds",   icon: "funds",   matchPrefix: false },
-    { href: `${base}/deals`,     label: "Deals",   icon: "deals",   matchPrefix: true  },
-    { href: `${base}/winston`,   label: "Winston", icon: "winston", matchPrefix: true  },
-    { href: `${base}/assets`,    label: "Assets",  icon: "assets",  matchPrefix: true  },
-    { href: `${base}/models`,    label: "Models",  icon: "models",  matchPrefix: true  },
-  ], [base]);
+  const mobileNavItems: MobileNavItem[] = useMemo(() => buildRepeMobileNavItems(base), [base]);
 
   const envLabel = environment?.client_name || envId || "Real Estate";
 
@@ -747,99 +693,23 @@ export default function RepeWorkspaceShell({
   // ── Sidebar nav ───────────────────────────────────────────────────────────
 
   const sidebarNav = (
-    <div data-testid="repe-sidebar">
-      <nav
-        className="flex flex-col"
-        data-testid="repe-left-nav"
-        aria-label="REPE navigation"
-      >
-      {/* Firm identity */}
-        <div className="mb-1 flex items-center gap-2 border-b border-bm-border/[0.08] px-3 pb-3">
-          <Building2 size={13} className="shrink-0 text-bm-muted2" aria-hidden="true" />
-          <span className="truncate text-[12px] font-semibold text-bm-text">{envLabel}</span>
-          <Landmark size={11} className="ml-auto shrink-0 text-bm-muted2" aria-hidden="true" />
-        </div>
+    <RepeSidebarNav
+      base={base}
+      envLabel={envLabel}
+      navGroups={navGroups}
+      pathname={pathname}
+      collapsedGroups={collapsedGroups}
+      onToggleGroup={toggleGroup}
+      onOpenInvestmentDialog={() => setInvestmentDialogOpen(true)}
+    />
+  );
 
-      {/* Grouped nav links */}
-        <div className="mt-1 space-y-3">
-          {navGroups.map((group) => {
-            const isCollapsed = collapsedGroups.has(group.key);
-            return (
-              <div key={group.key}>
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(group.key)}
-                  className="flex w-full items-center justify-between px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-bm-muted2 transition-colors duration-fast hover:text-bm-text"
-                >
-                  {group.label}
-                  <ChevronDown
-                    size={12}
-                    className={`transition-transform duration-150 ${isCollapsed ? "-rotate-90" : ""}`}
-                  />
-                </button>
-                {!isCollapsed && (
-                  <div className="mt-0.5 space-y-px">
-                    {group.items.map((item) => {
-                      const active = isActive(pathname, item.href, item.isBase);
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          className={[
-                            "flex items-center border-l-2 px-3 py-2 text-[15px] transition-colors duration-fast",
-                            active
-                              ? "border-bm-accent bg-bm-surface/20 font-medium text-bm-text"
-                              : "border-transparent text-bm-muted hover:bg-bm-surface/10 hover:text-bm-text",
-                          ].join(" ")}
-                        >
-                          {item.label}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-      {/* Quick-create actions */}
-        <div className="mt-6 space-y-px border-t border-bm-border/[0.08] px-2 pt-4">
-          <p className="mb-2 px-1 font-mono text-[9px] uppercase tracking-[0.14em] text-bm-muted2">
-            Create
-          </p>
-          <Link
-            href={`${base}/funds/new`}
-            className="flex items-center gap-1.5 px-2 py-1.5 text-[11px] text-bm-muted transition-colors duration-fast hover:text-bm-text"
-          >
-            <PlusCircle size={10} aria-hidden="true" />
-            + Fund
-          </Link>
-          <div className="flex items-center gap-2 px-2 py-1.5">
-            <button
-              type="button"
-              onClick={() => setInvestmentDialogOpen(true)}
-              aria-label="Create investment"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-bm-border/50 bg-bm-surface/35 text-bm-text transition-colors duration-fast hover:border-bm-accent/60 hover:bg-bm-surface/55"
-              data-testid="open-investment-intake-dialog"
-            >
-              <Plus size={12} aria-hidden="true" />
-            </button>
-            <div className="min-w-0">
-              <p className="text-[11px] text-bm-text">New Investment</p>
-              <p className="text-[10px] text-bm-muted2">Type it in or upload source docs</p>
-            </div>
-          </div>
-          <Link
-            href={`${base}/assets?create=1`}
-            className="flex items-center gap-1.5 px-2 py-1.5 text-[11px] text-bm-muted transition-colors duration-fast hover:text-bm-text"
-          >
-            <PlusCircle size={10} aria-hidden="true" />
-            + Asset
-          </Link>
-        </div>
-      </nav>
-    </div>
+  const tabletSidebar = (
+    <RepeSidebarCompactRail
+      envLabel={envLabel}
+      navGroups={navGroups}
+      pathname={pathname}
+    />
   );
 
   const headerAction = (
@@ -858,6 +728,7 @@ export default function RepeWorkspaceShell({
   return (
     <WinstonShell
       sidebar={sidebarNav}
+      tabletSidebar={tabletSidebar}
       rail={rail}
       headerLabel={envLabel}
       headerAction={headerAction}

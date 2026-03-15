@@ -90,12 +90,34 @@ async function installMocks(context: BrowserContext) {
 test.describe("RE Models Workspace", () => {
   test("left nav shows Models instead of Scenarios", async ({ page, context }) => {
     await installMocks(context);
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/lab/env/${TEST_ENV_ID}/re`);
     await page.waitForSelector("[data-testid='repe-left-nav']");
 
     const navText = await page.textContent("[data-testid='repe-left-nav']");
     expect(navText).toContain("Models");
     expect(navText).not.toContain("Scenarios");
+  });
+
+  test("sidebar groups follow the institutional workflow order", async ({ page, context }) => {
+    await installMocks(context);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`/lab/env/${TEST_ENV_ID}/re`);
+    await page.waitForSelector("[data-testid='repe-left-nav']");
+
+    const labels = await page.locator("[data-testid='repe-nav-group-label']").allTextContents();
+    expect(labels).toEqual([
+      "Acquisitions",
+      "Portfolio",
+      "Investor Management",
+      "Accounting",
+      "Insights",
+      "Governance",
+      "Automation",
+    ]);
+
+    const navText = await page.textContent("[data-testid='repe-left-nav']");
+    expect(navText).toContain("Saved Views");
   });
 
   test("workspace header has no global filter strip (Fund/Investment/JV/Asset dropdowns)", async ({ page, context }) => {
@@ -111,6 +133,7 @@ test.describe("RE Models Workspace", () => {
 
   test("header does not show env debug identifier", async ({ page, context }) => {
     await installMocks(context);
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/lab/env/${TEST_ENV_ID}/re`);
     await page.waitForSelector("[data-testid='repe-sidebar']");
 
@@ -143,6 +166,7 @@ test.describe("RE Models Workspace", () => {
 
   test("models page loads and shows model list", async ({ page, context }) => {
     await installMocks(context);
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/lab/env/${TEST_ENV_ID}/re/models`);
     await page.waitForSelector("[data-testid='re-models-page']");
 
@@ -157,6 +181,7 @@ test.describe("RE Models Workspace", () => {
 
   test("create model form is present", async ({ page, context }) => {
     await installMocks(context);
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/lab/env/${TEST_ENV_ID}/re/models`);
     await page.waitForSelector("[data-testid='re-models-page']");
 
@@ -168,5 +193,18 @@ test.describe("RE Models Workspace", () => {
     await expect(nameInput).toBeVisible();
     await expect(strategySelect).toBeVisible();
     await expect(createBtn).toBeVisible();
+  });
+
+  test("tablet view shows compact icon rail and expandable drawer", async ({ page, context }) => {
+    await installMocks(context);
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.goto(`/lab/env/${TEST_ENV_ID}/re`);
+    await page.waitForSelector("[data-testid='repe-sidebar-compact']");
+
+    await expect(page.getByTestId("repe-sidebar-compact")).toBeVisible();
+    await page.getByLabel("Open navigation").click();
+    await expect(page.getByRole("dialog", { name: "Navigation" })).toBeVisible();
+    await expect(page.locator("[data-testid='repe-left-nav']")).toContainText("Acquisitions");
+    await expect(page.locator("[data-testid='repe-left-nav']")).toContainText("Automation");
   });
 });

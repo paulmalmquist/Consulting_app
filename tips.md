@@ -143,6 +143,7 @@ _(This section is appended by the research-architect after each successful inges
 - Audit note (2026-03-14): legacy direct-DB Next routes in `repo-b/src/app/api/re/v1/*` and `repo-b/src/app/api/v1/environments/*` should reuse `repo-b/src/lib/server/db.ts` and shared query helpers instead of re-declaring file-local `getPool()` / `resolveBusinessId()` logic.
 - Audit note (2026-03-14): Lab/Data Studio pages under `repo-b/src/app/lab/env/[envId]/...` have repeated `API_BASE` + `qs()` + account-bootstrap fetch patterns. New pages in that surface should land on a shared hook/client, not another page-local copy.
 - Audit note (2026-03-14): assistant response rendering is now split across both `repo-b/src/components/copilot/` and `repo-b/src/components/winston/`. Before adding a third assistant surface, extract shared response blocks or add mirrored tests so charts/tables/confirmations do not drift silently.
+- REPE sidebar UX source of truth now lives in `repo-b/src/components/repe/workspace/repeNavigation.ts`. Desktop grouped nav, tablet compact icon rail, and mobile quick-nav all derive from that config; if you change section order or labels, update that file and `repo-b/src/components/repe/workspace/__tests__/repeNavigation.test.ts` together.
 
 ## 1. Repo Inventory
 
@@ -1534,6 +1535,14 @@ Tools are registered in `backend/app/mcp/tools/repe_investor_tools.py` and loade
 
 **STATUS_COLORS map pattern** — For status pills with semantic colors, define a `STATUS_COLORS: Record<string, { bg, text, dot }>` map and reference it in the render. Keeps color logic out of JSX. For statuses without a `bm-*` design token (e.g., "harvesting"), use Tailwind built-in colors like `purple-400`/`purple-500`.
 
-**Sidebar grouped navigation** — The REPE sidebar in `RepeWorkspaceShell.tsx` supports collapsible nav groups. Groups are defined as `NavGroup[]` with `label`, `key`, and `items`. Collapse state is persisted to `localStorage("repe-sidebar-collapsed-groups")`. Active page's group auto-expands via `useEffect` on pathname. The flat `navItems` is derived via `.flatMap()` for mobile nav compatibility.
+**Sidebar grouped navigation** — REPE navigation now uses `repo-b/src/components/repe/workspace/repeNavigation.ts` as the source of truth for workflow order, icon mapping, and active-route matching. `RepeSidebarNav.tsx` renders the desktop/drawer grouped sidebar, `WinstonShell.tsx` renders the tablet compact rail, and collapse state now persists in `sessionStorage("repe-sidebar-collapsed-groups")` with active groups auto-expanding on route change.
 
 **Column sorting pattern** — For table sorting: `useState<SortColumn | null>(null)` + `useState<SortDir>("desc")`. Toggle via `handleSort(col)` that flips direction on same column, defaults to desc on new column. Sort in a `useMemo` after filtering. Unicode `▲`/`▼` indicators in `<th>` are simpler than importing icon components.
+
+## Reusable REPE Narrative Dashboard Patterns (Fund Detail UX Refresh, March 2026)
+
+**Route-local narrative helpers** — For dense REPE dashboard pages, keep derived presentation logic in a route-local helper module beside the page (for example `overviewNarrative.ts`). Put quarter-merging, exposure weighting, health-summary generation, and hybrid table mapping there so the main route stays readable and the logic can be covered with pure Vitest tests.
+
+**Narrative ordering for institutional dashboards** — Prefer a clear sequence: header + health summary, grouped KPI cards, one hero value-creation chart, then portfolio snapshot, performance drivers, capital activity/exposure, and only then the detailed holdings table. This reads much faster than a flat widget grid.
+
+**Hybrid investment table pattern** — When asset-level return attribution is not available, keep the main table investment-level for IRR/NAV accuracy, but use row expansion to reveal asset-level real estate metrics. Show property type/market/current value in the collapsed row and reserve the expanded row for richer asset columns and hoverable drill-in links.
