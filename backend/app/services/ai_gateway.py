@@ -483,6 +483,7 @@ async def _run_repe_fast_path(
         INTENT_LIST_APPROVALS,
         INTENT_LIST_DOCUMENTS,
         INTENT_SAVED_ANALYSES,
+        INTENT_TRANSFORM_RESULT,
     )
     from app.mcp.auth import McpContext
 
@@ -542,6 +543,82 @@ async def _run_repe_fast_path(
                 "response_blocks": response_blocks,
             })
             return
+
+    # ── Handle conversational transforms ──────────────────────────────
+    if intent.family == INTENT_TRANSFORM_RESULT:
+        if session_state and session_state.last_result_data:
+            from app.services.assistant_blocks import chart_block, table_block
+
+            transform = intent.extracted_params or {}
+            prior_intent = session_state.last_query_intent or {}
+            rows = session_state.last_result_data
+
+            # Determine visualization type
+            chart_type = transform.get("chart_type") or prior_intent.get("chart_preference", "bar")
+
+            # Apply limit transform
+            if "limit" in transform:
+                limit_n = int(transform["limit"])
+                sort_key = prior_intent.get("sort_by") or (prior_intent.get("metrics", [None])[0] if prior_intent.get("metrics") else None)
+                if sort_key and rows:
+                    rows = sorted(rows, key=lambda r: r.get(sort_key) or 0, reverse=True)[:limit_n]
+                else:
+                    rows = rows[:limit_n]
+
+            # Apply group_by transform (re-query would be needed — for now just note it)
+            if "group_by" in transform and transform["group_by"] != prior_intent.get("group_by"):
+                text = f"I'll need to re-query the data to group by **{transform['group_by']}**. Let me rephrase your original question."
+                yield _sse("token", {"text": text})
+                collected_text_parts.append(text)
+            elif chart_type == "table":
+                # Re-emit as table
+                columns = list(rows[0].keys()) if rows else []
+                block = table_block(title="Results", columns=columns, rows=rows)
+                response_blocks.append(block)
+                yield _sse("response_block", {"block": block})
+            else:
+                # Re-emit as chart
+                x_key = prior_intent.get("x_key", "period")
+                y_keys = prior_intent.get("metrics", ["value"])
+                series_key = prior_intent.get("group_by")
+                # Infer x_key from data
+                if rows and x_key not in rows[0]:
+                    for candidate in ("period", "quarter", "entity_name", "name"):
+                        if candidate in rows[0]:
+                            x_key = candidate
+                            break
+                block = chart_block(
+                    title="Results",
+                    chart_type=chart_type,
+                    x_key=x_key,
+                    y_keys=y_keys,
+                    data=rows,
+                    series_key=series_key,
+                )
+                response_blocks.append(block)
+                yield _sse("response_block", {"block": block})
+
+            timings["total_ms"] = int((time.time() - start) * 1000)
+            yield _sse("done", {
+                "session_id": session_id,
+                "trace": {
+                    "execution_path": "repe_fast_path", "lane": "F",
+                    "model": "none", "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
+                    "tool_call_count": 0, "tool_timeline": [],
+                    "data_sources": [], "citations": [], "rag_chunks_used": 0, "warnings": [],
+                    "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+                    "repe": {"intent": intent.family, "fast_path": True, "transform": True},
+                    "visible_context_shortcut": False, "timings": timings,
+                },
+                "prompt_tokens": 0, "completion_tokens": 0, "tool_calls": 0,
+                "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+                "response_blocks": response_blocks,
+            })
+            return
+        else:
+            text = "I don't have a previous result to transform. Try running an analysis first, then ask me to change the visualization."
+            yield _sse("token", {"text": text})
+            collected_text_parts.append(text)
 
     # ── Check for missing critical params ──────────────────────────────
     clarification = build_clarification_question(scenario)
@@ -1164,10 +1241,20 @@ async def _run_repe_fast_path(
 
         # ── Update session state ───────────────────────────────────────
         conversation_key = str(conversation_id) if conversation_id else None
+
+        # Extract rows from result for conversational transforms
+        result_rows: list[dict[str, Any]] | None = None
+        if isinstance(result, dict):
+            if "rows" in result and isinstance(result["rows"], list):
+                result_rows = result["rows"][:200]
+            elif "data" in result and isinstance(result["data"], list):
+                result_rows = result["data"][:200]
+
         update_session(
             conversation_key,
             analysis_mode=family,
             last_result=result,
+            last_result_data=result_rows,
             last_fund_id=scenario.fund_id,
             last_asset_id=scenario.asset_id,
             last_quarter=scenario.quarter,

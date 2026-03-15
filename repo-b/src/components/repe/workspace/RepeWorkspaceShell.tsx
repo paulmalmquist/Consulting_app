@@ -615,6 +615,7 @@ export default function RepeWorkspaceShell({
     { href: `${base}/approvals`,           label: "Approvals",      isBase: false },
     { href: `${base}/saved-analyses`,      label: "Saved Analyses", isBase: false },
     { href: `${base}/reports`,             label: "Reports",        isBase: false },
+    { href: `${base}/winston`,             label: "Winston",        isBase: false },
     ...(showSustainability
       ? [{ href: `${base}/sustainability`, label: "Sustainability",  isBase: false }]
       : []),

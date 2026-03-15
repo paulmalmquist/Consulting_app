@@ -1,3 +1,32 @@
+---
+id: winston-latency-optimization
+kind: prompt
+status: active
+source_of_truth: true
+topic: latency-optimization
+owners:
+  - docs
+  - backend
+  - repo-b
+intent_tags:
+  - docs
+  - build
+  - research
+triggers:
+  - latency optimization
+  - latency prompt
+  - snappy copilot
+entrypoint: true
+handoff_to:
+  - feature-dev
+when_to_use: "Use when the user explicitly asks for the latency optimization prompt or the Winston copilot latency brief."
+when_not_to_use: "Do not use as the general router for repo work; CLAUDE.md should already have selected a prompt or workflow."
+surface_paths:
+  - docs/
+  - backend/
+  - repo-b/
+---
+
 # Winston Latency Optimization — Engineering Prompt
 
 > **Purpose:** Hand this prompt to an AI coding agent (or use it as your own implementation brief) to systematically reduce Winston's response latency. Every reference points to a real file in this monorepo.

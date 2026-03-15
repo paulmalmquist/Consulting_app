@@ -100,8 +100,15 @@ function UwVsActualScorecardInner() {
     listReV1Funds({ env_id: envId, business_id: businessId || undefined })
       .then((rows) => {
         setFunds(rows);
-        if (!selectedFundId && rows[0]) {
-          setSelectedFundId(rows[0].fund_id);
+        if (!selectedFundId && rows.length > 0) {
+          const sorted = [...rows].sort(
+            (a, b) =>
+              parseFloat(b.target_size ?? "0") -
+              parseFloat(a.target_size ?? "0"),
+          );
+          const primary =
+            sorted.find((f) => !/test/i.test(f.name)) || sorted[0];
+          setSelectedFundId(primary.fund_id);
         }
       })
       .catch(() => setFunds([]))

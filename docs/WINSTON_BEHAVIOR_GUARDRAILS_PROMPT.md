@@ -1,3 +1,29 @@
+---
+id: winston-behavior-guardrails
+kind: prompt
+status: active
+source_of_truth: true
+topic: behavior-guardrails
+owners:
+  - docs
+  - backend
+intent_tags:
+  - docs
+  - research
+triggers:
+  - behavior guardrails
+  - what went wrong
+  - lost the plot
+entrypoint: true
+handoff_to:
+  - architect-winston
+when_to_use: "Use when the user explicitly asks for the Winston behavior guardrails prompt or the post-mortem around agent behavior failures."
+when_not_to_use: "Do not use as the general router for repo work; CLAUDE.md should already have selected a prompt or workflow."
+surface_paths:
+  - docs/
+  - backend/
+---
+
 # Winston — Behavior Guardrails: What Went Wrong and How to Fix It
 
 > **Purpose:** This is a post-mortem and architectural remediation prompt. Use it to understand the specific failure modes that caused Winston to "lose the plot," and to guide the changes needed to prevent recurrence. No code is written here — this is a diagnosis, a set of behavioral principles, and a structural plan.

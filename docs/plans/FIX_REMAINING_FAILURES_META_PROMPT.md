@@ -1,8 +1,35 @@
+---
+id: fix-remaining-failures-meta-prompt
+kind: prompt
+status: archived
+source_of_truth: false
+topic: legacy-fix-remaining-failures
+owners:
+  - docs
+intent_tags:
+  - docs
+  - build
+triggers:
+  - fix remaining failures
+  - run 2
+  - 10 out of 10
+entrypoint: false
+handoff_to: []
+when_to_use: "Use only as historical reference for the older paulmalmquist.com failure-recovery prompt."
+when_not_to_use: "Do not use as the primary execution prompt for current routing or new implementation work."
+surface_paths:
+  - docs/plans/
+notes:
+  - Archived in favor of CLAUDE.md plus active routed skills and playbooks.
+---
+
 # Meta Prompt: Fix Remaining paulmalmquist.com Failures (Run 2 → 10/10)
 **Generated:** 2026-03-02
 **Based on:** SITE_TEST_REPORT_2026-03-02_RUN2.md
 **Current score:** 7/10
 **Target score:** 10/10
+
+> Archived reference. Kept for historical context; do not use as the primary execution prompt.
 
 **Resolved in previous round (do NOT re-touch):**
 - P0-A RSC TypeError → fixed ✅

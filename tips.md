@@ -1515,3 +1515,13 @@ Tools are registered in `backend/app/mcp/tools/repe_investor_tools.py` and loade
 - Always test regex against the exact phrases users type (e.g., "show me the investors" has "me the" between "show" and "investors")
 - Use `(?:me\s+)?(?:the\s+)?(?:all\s+)?` as a flexible filler between verb and noun
 - The classifier picks the highest-confidence intent — ties go to the first one scored, so order matters for suppression rules
+
+## Instruction Routing Contract (March 2026)
+
+- `CLAUDE.md` is now the single global markdown router for repo-local prompt behavior. Do not add repo-wide dispatch tables to downstream `agents/*.md`, `skills/*.md`, or prompt docs.
+- Routed markdown docs now require the shared YAML front matter contract: `id`, `kind`, `status`, `source_of_truth`, `topic`, `owners`, `intent_tags`, `triggers`, `entrypoint`, `handoff_to`, `when_to_use`, `when_not_to_use`.
+- Keep skill-loader fields like `name` and `description` when a skill already uses them; add routing metadata on top instead of replacing them.
+- Every routed doc must be listed in `docs/instruction-index.md`. If a new routed markdown file is added and it is not in the index, the validator should fail.
+- Run `npm run validate:instructions` after changing routed markdown metadata or the registry.
+- Run `npm run test:instructions` after changing routing rules, triggers, or the example fixture set.
+- Use `status: archived` plus `entrypoint: false` for legacy prompt docs that must remain in the repo for history but should no longer act like alternate execution entrypoints.

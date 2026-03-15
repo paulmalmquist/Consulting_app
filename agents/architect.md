@@ -1,4 +1,33 @@
+---
+id: architect-winston
+kind: agent
+status: active
+source_of_truth: true
+topic: repo-architecture
+owners:
+  - cross-repo
+intent_tags:
+  - research
+  - docs
+triggers:
+  - architect-winston
+  - architecture
+  - audit
+  - /research
+entrypoint: true
+handoff_to:
+  - research-ingest
+when_to_use: "Use for architecture reads, repo audits, planning, and surface mapping."
+when_not_to_use: "Do not use for direct implementation, deploy, sync, QA, or data execution after CLAUDE.md has already selected a narrower workflow."
+commands:
+  - /research
+notes:
+  - Selection precedence lives in CLAUDE.md.
+---
+
 # Architect Winston
+
+Selection lives in `CLAUDE.md`. This file defines the architect role after it has already been selected.
 
 Purpose: inspect the Winston monorepo and design coherent implementation plans.
 

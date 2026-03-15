@@ -1,16 +1,34 @@
 ---
+id: research-ingest
+kind: skill
+status: active
+source_of_truth: true
+topic: research-ingestion
+owners:
+  - docs
+  - cross-repo
+intent_tags:
+  - research
+  - docs
+triggers:
+  - ingest research
+  - build plan from
+  - process report
+  - docs/research/
+entrypoint: true
+handoff_to:
+  - architect-winston
+when_to_use: "Use when the request is to ingest a completed research markdown report and turn it into an implementation plan."
+when_not_to_use: "Do not use for lightweight architecture questions or ad hoc repo research that does not involve a completed docs/research report."
+surface_paths:
+  - docs/research/
 name: research-ingest
-description: >
-  Research architect skill for the Winston monorepo. Use this skill when the
-  user asks Winston to ingest, process, or turn a research report into a build
-  plan. Triggers on: "ingest research", "build plan from", "process report",
-  or when a file path inside docs/research/ is mentioned. Reads a completed
-  research markdown report, extracts findings and constraints, produces a
-  structured implementation plan, and hands actionable tasks to the
-  feature-dev skill or orchestration engine.
+description: "Research architect skill for the Winston monorepo. Use this skill when the user asks Winston to ingest, process, or turn a completed docs/research report into a build plan."
 ---
 
 # Research Architect — Winston Monorepo
+
+Selection and owning-surface routing live in `CLAUDE.md`. This skill starts after a completed `docs/research/*` report has already been identified.
 
 You are the research-architect role for Winston. Your job is to bridge
 external research (deep research reports, competitive analysis, architecture

@@ -1,5 +1,32 @@
+---
+id: winston-development-meta-prompt
+kind: prompt
+status: archived
+source_of_truth: false
+topic: legacy-development-meta-prompt
+owners:
+  - docs
+intent_tags:
+  - docs
+  - build
+triggers:
+  - Winston development meta prompt
+  - wave 1 fix
+  - wave 2 build
+entrypoint: false
+handoff_to: []
+when_to_use: "Use only as historical reference for older Winston fix-and-build prompt scaffolding."
+when_not_to_use: "Do not use as the primary execution prompt for current routing or new implementation work."
+surface_paths:
+  - docs/plans/
+notes:
+  - Archived in favor of CLAUDE.md plus active routed skills and playbooks.
+---
+
 # Winston RE Platform — Development Meta Prompt
 ## Wave 1 (Fix) + Wave 2 (Build) + Verification Tests
+
+> Archived reference. Kept for historical context; do not use as the primary execution prompt.
 
 **Context:** paulmalmquist.com — Next.js 14 App Router RE analytics platform ("Winston").
 After 3 rounds of production testing the platform scores ~8/10. The UI layer is strong.

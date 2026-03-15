@@ -31,6 +31,12 @@ export function LPBreakdown({ fundId, quarter }: Props) {
   useEffect(() => {
     setLoading(true);
     getCapitalSnapshots({ fund_id: fundId, quarter })
+      .then((results) => {
+        if (results.length === 0) {
+          return computeCapitalSnapshots(fundId, quarter);
+        }
+        return results;
+      })
       .then(setSnapshots)
       .catch(() => setSnapshots([]))
       .finally(() => setLoading(false));

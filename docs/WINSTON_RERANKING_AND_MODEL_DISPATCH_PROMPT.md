@@ -1,3 +1,30 @@
+---
+id: winston-reranking-model-dispatch
+kind: prompt
+status: active
+source_of_truth: true
+topic: reranking-and-model-dispatch
+owners:
+  - docs
+  - backend
+intent_tags:
+  - docs
+  - build
+  - research
+triggers:
+  - reranking
+  - model dispatch
+  - latency architecture
+entrypoint: true
+handoff_to:
+  - feature-dev
+when_to_use: "Use when the user explicitly asks for the reranking and model-dispatch prompt or that specific AI gateway improvement brief."
+when_not_to_use: "Do not use as the general router for repo work; CLAUDE.md should already have selected a prompt or workflow."
+surface_paths:
+  - docs/
+  - backend/
+---
+
 # Winston — Re-Ranking, Model Dispatch & Latency Architecture
 
 > **Scope:** This prompt covers three interconnected improvements: (1) a multi-stage RAG re-ranking pipeline, (2) per-lane model dispatch so complex queries use a stronger model and simple queries stay fast, and (3) latency controls — caching, token budgets, and pipeline optimizations — that keep the system snappy as we add re-ranking overhead. These changes are additive. Nothing in the existing gateway loop breaks.

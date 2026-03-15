@@ -1,3 +1,31 @@
+---
+id: winston-agentic-prompt
+kind: prompt
+status: active
+source_of_truth: true
+topic: agentic-capabilities
+owners:
+  - docs
+  - backend
+  - repo-b
+intent_tags:
+  - docs
+  - build
+triggers:
+  - agentic prompt
+  - REPE write tools
+  - AdvancedDrawer
+entrypoint: true
+handoff_to:
+  - feature-dev
+when_to_use: "Use when the user explicitly asks for the Winston agentic capabilities prompt or the REPE mutation and live-feedback implementation brief."
+when_not_to_use: "Do not use as the general router for repo work; CLAUDE.md should already have selected a prompt or workflow."
+surface_paths:
+  - docs/
+  - backend/
+  - repo-b/
+---
+
 # Winston — Agentic Capabilities: Implementation Prompt
 
 > **Scope:** This prompt is for getting Winston's agentic layer fully operational. The latency architecture (routing, parallel tools, conditional RAG, caching, prompt compaction) is already implemented. What remains is: (1) write/mutation tools so Winston can actually act on data, (2) the three missing frontend pieces that make the experience feel live, and (3) a tighter thinking indicator that reflects real execution state.

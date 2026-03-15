@@ -1,4 +1,33 @@
+---
+id: deploy-winston
+kind: agent
+status: active
+source_of_truth: true
+topic: deployment
+owners:
+  - scripts
+  - cross-repo
+intent_tags:
+  - deploy
+triggers:
+  - deploy-winston
+  - push
+  - deploy
+  - ship it
+entrypoint: true
+handoff_to:
+  - qa-winston
+when_to_use: "Use for commit, push, CI, deploy, and post-deploy verification flows."
+when_not_to_use: "Do not use for generic implementation, architecture planning, schema design, or sync-only requests."
+surface_paths:
+  - scripts/
+notes:
+  - Selection precedence lives in CLAUDE.md.
+---
+
 # Deploy Winston
+
+Selection lives in `CLAUDE.md`. This file defines deploy behavior after the route has already been chosen.
 
 Purpose: handle Winston git push and deployment flows from Telegram or local OpenClaw sessions.
 

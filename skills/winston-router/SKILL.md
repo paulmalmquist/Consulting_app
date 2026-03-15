@@ -1,18 +1,54 @@
 ---
+id: winston-router
+kind: skill
+status: active
+source_of_truth: true
+topic: winston-routing-skill
+owners:
+  - cross-repo
+intent_tags:
+  - docs
+  - ops
+triggers:
+  - use Claude
+  - use Codex
+  - Telegram
+  - Novendor
+  - Winston router
+entrypoint: true
+handoff_to:
+  - dispatcher-winston
+  - commander-winston
+when_to_use: "Use after CLAUDE.md selects Winston or Novendor routing, harness selection, Telegram command handling, or workspace selection."
+when_not_to_use: "Do not use as the generic repo-wide router after CLAUDE.md has already selected a more specific build, QA, deploy, sync, data, or research workflow."
+surface_paths:
+  - skills/
+  - orchestration/
+  - scripts/
+commands:
+  - /research
+  - /build
+  - /propose
+  - /outreach
+  - /content
+  - /ops_status
+  - /brief
+  - /cost
 name: winston-router
 description: Route Winston / Business Machine and Novendor requests to the correct agents, harnesses, and Lobster workflows. Use when the user mentions Winston, Business Machine, Claude Code, Claude CLI, Codex, Codex CLI, Telegram-controlled development, or the Novendor phone command surface.
 ---
 
 # Winston / Novendor Router
 
-Use this skill for Winston / Business Machine and Novendor work that needs deliberate routing.
+`CLAUDE.md` owns the global routing contract. This skill applies the Winston-specific handoff rules once the repo-level router has already decided that the request is about Winston or Novendor orchestration.
 
-## Repo target
+## Scope
 
 - Winston repo root: `/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app`
-- Never route Winston coding work to `main` or `~/.openclaw/workspace` unless the user explicitly asks for the generic workspace.
+- Never route Winston coding work to `main` or `~/.openclaw/workspace` unless the user explicitly asks for the generic workspace
+- Prefer Winston or Novendor specialists over generic workers when the request is explicitly about this repo or these operator workflows
 
-## Business workspaces
+## Business Workspaces
 
 - `outreach`: `~/.openclaw/workspaces/novendor-outreach`
 - `proposals`: `~/.openclaw/workspaces/novendor-proposals`
@@ -40,61 +76,27 @@ Use this skill for Winston / Business Machine and Novendor work that needs delib
 - `claude-winston`: thread-bound Claude ACP harness
 - `codex-winston`: thread-bound Codex ACP harness
 
-## Command surface
+## Handoff Map
 
-- `/research` -> `architect-winston`
-- `/build` -> `commander-winston` + `orchestration/openclaw/novendor-dev-pipeline.lobster`
-- `/propose` -> `operations` + `orchestration/openclaw/novendor-proposal-pipeline.lobster`
-- `/outreach` -> `outreach`
-- `/content` -> `content`
-- `/ops_status` -> `commander-winston`
-- `/brief` -> `operations` + `orchestration/openclaw/morning-brief.lobster`
-- `/cost` -> `operations`
+- repo planning, audits, `/research`, and architecture questions -> `architect-winston`
+- broad implementation workflows and `/build` -> `commander-winston`
+- explicit feature work in repo surfaces -> `.skills/feature-dev/SKILL.md`
+- push, deploy, CI, Railway, or Vercel checks -> `deploy-winston`
+- sync, fetch, pull, branch, or dirty-tree checks -> `sync-winston`
+- QA and regression checks -> `qa-winston`
+- schema, migrations, ETL, and seed coordination -> `data-winston`
+- proposal, outreach, content, demo, brief, or cost flows -> the matching Novendor business agent
+- explicit `Claude` or `Codex` harness requests -> the matching Winston CLI or ACP worker
 
 OpenClaw `2026.3.8` reserves `/status` as a native Telegram command. Route plain `status`, `/ops_status`, or the forum `Status` topic to the status rollup instead of trying to register `/status` as a custom command.
 
-## Routing rules
+## Operating Rules
 
-### Non-threaded chats and DMs
-
-This includes ordinary Telegram DMs and normal local `main` sessions unless the current conversation is explicitly thread-bound.
-
-- In Telegram DMs, prefer `dispatcher-winston` as the entrypoint and keep routing light.
-- In Telegram DMs, if the work will take more than a few seconds, send an acknowledgment first and then brief progress updates as real milestones complete.
-- For ordinary Telegram DM questions that only require local reading of the Winston repo, answer directly from `dispatcher-winston` without spawning subagents.
-- For `research`, `/research`, repo architecture, or planning questions, route to `architect-winston`.
-- For `build`, `/build`, implementation workflow requests, or multi-step Winston feature work, route to `commander-winston` and use the Lobster dev pipeline.
-- For `propose`, `/propose`, or proposal approval flow requests, route to `operations` and use the Lobster proposal pipeline.
-- For `/outreach`, route to `outreach`. For `/content`, route to `content`.
-- For plain `status`, `/ops_status`, `/brief`, or `/cost`, route to `operations` or `commander-winston` depending on whether the user needs business-side or delivery-side focus.
-- For `push`, `push please`, `deploy this`, `ship it`, `release this`, `push to GitHub`, or requests to monitor CI/Vercel/Railway after a code change, route to `deploy-winston`.
-- For push/deploy requests, do not use ACP or generic coding-agent delegation unless the user explicitly requests Claude or Codex by name.
-- For `check whether Winston is up to date`, `fetch origin`, `pull the latest Winston changes safely`, `sync Winston`, `git status`, or `stop if the repo is dirty`, route to `sync-winston`.
-- For sync requests, this routing is mandatory. Do not answer from memory. Spawn or reuse `sync-winston`, run `scripts/openclaw_safe_sync.sh` with `status`, `fetch`, or `pull`, and summarize the result.
-- For `use Claude`, `run this in Claude CLI`, or `start a persistent Claude session`, prefer `claude-cli-winston`.
-- For `use Codex`, `run this in Codex CLI`, or `start a persistent Codex session`, prefer `codex-cli-winston`.
-- For live-site login, invite-code login, authenticated dashboard validation, browser-visible checks, Meridian dashboard flow work, or production Vercel verification that depends on browser state, route to `builder-winston`.
-- If the same request also mentions Claude, opus 4.6, or high thinking, the browser/live-site route still wins. Use `builder-winston` first and let the builder decide whether to use Claude internally.
-- For persistence in non-threaded chats, create or reuse a child session with `sessions_spawn` targeting the CLI worker agent and continue it with `sessions_send`.
-- Keep the worker cwd rooted in the Winston repo.
-
-### Thread-bound chats
-
-- Once a Telegram forum supergroup exists, topic routing is configured by `scripts/openclaw_setup_forum.mjs`:
-  - `General` -> `commander-winston`
-  - `Research` -> `architect-winston`
-  - `Builds` -> `builder-winston`
-  - `Client Ops` -> `operations`
-  - `Sales` -> `outreach`
-  - `Status` -> `commander-winston`
-- Use ACP only when the current surface actually supports a bound thread/topic conversation or the user explicitly asks for ACP thread behavior.
-- For thread-bound persistent Claude work, use `sessions_spawn` with:
-  - `agentId: "claude"`
-  - `runtime: "acp"`
-  - `mode: "session"`
-  - `thread: true`
-- For thread-bound persistent Codex work, use the same pattern with `agentId: "codex"`.
-- Always set the Winston repo root as cwd for ACP Winston work.
+- In Telegram DMs, start with `dispatcher-winston` unless the request explicitly names another Winston or Novendor specialist
+- For long-running Telegram work, send a short acknowledgment first and then brief milestone updates
+- For thread-bound persistence, use the matching Winston ACP harness only when the current surface actually supports it or the user explicitly asks for ACP thread behavior
+- Keep the Winston repo root as cwd for Winston coding work
+- Prefer the dedicated Novendor workspaces for outreach, proposals, content, demo, and operations work
 
 ## Session reuse policy
 
@@ -110,5 +112,5 @@ This includes ordinary Telegram DMs and normal local `main` sessions unless the 
 
 ## Practical default
 
-- Ordinary Telegram DM: `dispatcher-winston` first, then the correct Winston or Novendor specialist.
-- Telegram topic or other thread-bound flow: ACP harness agents when persistence in-thread is desired.
+- Ordinary Telegram DM: `dispatcher-winston` first, then the downstream specialist chosen by `CLAUDE.md`
+- Telegram topic or other thread-bound flow: ACP harness agents when persistence in-thread is desired

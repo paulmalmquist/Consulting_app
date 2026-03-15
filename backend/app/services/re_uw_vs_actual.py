@@ -213,7 +213,7 @@ def compute_portfolio_scorecard(
         if isinstance(uw_m, str):
             uw_m = json.loads(uw_m)
 
-        uw_irr = _d(uw_m.get("gross_irr"))
+        uw_irr = _d(uw_m.get("gross_irr") or uw_m.get("irr"))
         uw_moic = _d(uw_m.get("equity_multiple") or uw_m.get("moic"))
         uw_nav = _d(uw_m.get("nav"))
         uw_tvpi = _d(uw_m.get("tvpi"))
@@ -390,7 +390,7 @@ def compute_bridge_fast(
     # Compute explained total and residual
     total_irr_delta = _delta(
         _d(actual_m.get("gross_irr")),
-        _d(uw_m.get("gross_irr")),
+        _d(uw_m.get("gross_irr") or uw_m.get("irr")),
     )
     explained = sum(
         (d["irr_impact_bps"] or Decimal(0)) for d in drivers

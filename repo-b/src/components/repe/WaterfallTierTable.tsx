@@ -6,16 +6,12 @@ import {
   type WaterfallBreakdown,
   type WaterfallTierAllocation,
 } from "@/lib/bos-api";
+import { fmtCompact } from "@/components/charts/chart-theme";
 
 type Props = {
   fundId: string;
   quarter: string;
 };
-
-function fmtMoney(v: number | null | undefined): string {
-  if (v == null) return "—";
-  return `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 export function WaterfallTierTable({ fundId, quarter }: Props) {
   const [data, setData] = useState<WaterfallBreakdown | null>(null);
@@ -70,7 +66,7 @@ export function WaterfallTierTable({ fundId, quarter }: Props) {
                       {a.partner_type.toUpperCase()}
                     </span>
                   </td>
-                  <td className="px-3 py-1.5 text-right font-mono">{fmtMoney(a.amount)}</td>
+                  <td className="px-3 py-1.5 text-right font-mono">{a.amount == null ? "—" : fmtCompact(a.amount)}</td>
                 </tr>
               )),
             )}

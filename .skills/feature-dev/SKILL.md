@@ -1,17 +1,42 @@
 ---
+id: feature-dev
+kind: skill
+status: active
+source_of_truth: true
+topic: feature-delivery
+owners:
+  - backend
+  - repo-b
+  - repo-c
+  - scripts
+  - orchestration
+intent_tags:
+  - build
+  - bugfix
+triggers:
+  - implement
+  - fix
+  - build
+  - add
+  - wire up
+entrypoint: true
+handoff_to:
+  - builder-winston
+when_to_use: "Use when the user wants code written or behavior changed in a Winston repo surface."
+when_not_to_use: "Do not use for deploy-only, sync-only, research-only, or QA-only requests after CLAUDE.md has already selected a narrower workflow."
+surface_paths:
+  - backend/
+  - repo-b/
+  - repo-c/
+  - scripts/
+  - orchestration/
 name: feature-dev
-description: >
-  Full-cycle feature delivery for the Winston monorepo. Use this skill whenever
-  the user describes a new feature, endpoint, component, page, bug fix, or data
-  model change — even if they say "add", "build", "implement", "create", "fix",
-  or "wire up". Scaffolds code in the right surface (repo-b, backend, or repo-c),
-  writes matching tests, EXECUTES the local test suite and reports real output,
-  deploys immediately to production (Railway for backend, Vercel via git push for
-  frontend), curls the live endpoint, then opens a browser to visually walk through
-  paulmalmquist.com to confirm the feature is live. Fast, autonomous, deploy-first.
+description: "Full-cycle feature delivery for the Winston monorepo. Use this skill whenever the user describes a new feature, endpoint, component, page, bug fix, or data model change, including add, build, implement, create, fix, or wire up requests."
 ---
 
 # Feature Dev — Winston Monorepo
+
+Selection and owning-surface routing live in `CLAUDE.md`. This skill starts after the primary repo surface has already been chosen.
 
 ## BANNED PATTERNS — violations mean the task is INCOMPLETE
 

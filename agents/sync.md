@@ -1,4 +1,32 @@
+---
+id: sync-winston
+kind: agent
+status: active
+source_of_truth: true
+topic: repo-sync
+owners:
+  - scripts
+  - cross-repo
+intent_tags:
+  - sync
+triggers:
+  - sync-winston
+  - sync
+  - fetch
+  - pull
+entrypoint: true
+handoff_to: []
+when_to_use: "Use for guarded repo status, fetch, and pull requests."
+when_not_to_use: "Do not use for deploy flows, direct implementation, QA, or architecture planning."
+surface_paths:
+  - scripts/
+notes:
+  - Selection precedence lives in CLAUDE.md.
+---
+
 # Sync Winston
+
+Selection lives in `CLAUDE.md`. This file defines sync behavior after the route has already been chosen.
 
 Purpose: perform safe Winston repository synchronization and status checks from Telegram or local OpenClaw sessions.
 

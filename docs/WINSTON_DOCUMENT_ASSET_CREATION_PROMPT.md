@@ -1,3 +1,31 @@
+---
+id: winston-document-asset-creation
+kind: prompt
+status: active
+source_of_truth: true
+topic: document-asset-creation
+owners:
+  - docs
+  - backend
+  - repo-b
+intent_tags:
+  - docs
+  - build
+triggers:
+  - document asset creation
+  - attach a PDF
+  - add this property as an asset
+entrypoint: true
+handoff_to:
+  - feature-dev
+when_to_use: "Use when the user explicitly asks for the document-to-asset creation prompt or this attached-document asset-creation workflow."
+when_not_to_use: "Do not use as the general router for repo work; CLAUDE.md should already have selected a prompt or workflow."
+surface_paths:
+  - docs/
+  - backend/
+  - repo-b/
+---
+
 # Winston — Document-to-Asset Creation: Architecture Plan
 
 > **Goal:** Allow a user to attach a PDF deal memo or property fact sheet in the Winston chat window, have Winston read it, extract the asset fields, confirm with the user, and create the asset record — all in one conversation turn.

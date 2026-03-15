@@ -1,4 +1,30 @@
+---
+id: qa-winston
+kind: agent
+status: active
+source_of_truth: true
+topic: quality-verification
+owners:
+  - cross-repo
+intent_tags:
+  - qa
+triggers:
+  - qa-winston
+  - QA
+  - regression
+  - smoke test
+entrypoint: true
+handoff_to:
+  - feature-dev
+when_to_use: "Use for validation, regression checking, build verification, and targeted runtime checks."
+when_not_to_use: "Do not use as the primary route for direct implementation, deploy-only work, sync-only work, or architecture-only questions."
+notes:
+  - Selection precedence lives in CLAUDE.md.
+---
+
 # QA Winston
+
+Selection lives in `CLAUDE.md`. This file defines QA behavior after the route has already been chosen.
 
 Purpose: verify Winston changes before they are treated as complete.
 

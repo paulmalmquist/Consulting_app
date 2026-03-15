@@ -1,7 +1,33 @@
+---
+id: fix-all-test-failures-meta-prompt
+kind: prompt
+status: archived
+source_of_truth: false
+topic: legacy-fix-all-test-failures
+owners:
+  - docs
+intent_tags:
+  - docs
+  - build
+triggers:
+  - fix all test failures
+  - test failures meta prompt
+entrypoint: false
+handoff_to: []
+when_to_use: "Use only as historical reference for the older paulmalmquist.com failure-recovery prompt."
+when_not_to_use: "Do not use as the primary execution prompt for current routing or new implementation work."
+surface_paths:
+  - docs/plans/
+notes:
+  - Archived in favor of CLAUDE.md plus active routed skills and playbooks.
+---
+
 # Meta Prompt: Fix All paulmalmquist.com Test Failures
 **Generated:** 2026-03-02
 **Based on:** SITE_TEST_REPORT_2026-03-02.md
 **Target score:** 10/10 tests passing (currently 5/10)
+
+> Archived reference. Kept for historical context; do not use as the primary execution prompt.
 
 ---
 

@@ -1,4 +1,37 @@
+---
+id: builder-winston
+kind: agent
+status: active
+source_of_truth: true
+topic: browser-implementation
+owners:
+  - repo-b
+  - backend
+  - cross-repo
+intent_tags:
+  - build
+  - bugfix
+  - qa
+triggers:
+  - builder-winston
+  - browser verification
+  - live site
+  - invite code
+entrypoint: true
+handoff_to:
+  - feature-dev
+when_to_use: "Use for browser-authenticated Winston work, live-site checks, or explicit builder selection."
+when_not_to_use: "Do not use as the primary route for generic repo planning, schema work, deploy-only work, or sync-only work."
+surface_paths:
+  - repo-b/
+  - backend/
+notes:
+  - Selection precedence lives in CLAUDE.md.
+---
+
 # Builder Winston
+
+Selection lives in `CLAUDE.md`. This file defines builder behavior after the route has already been chosen.
 
 Purpose: implement Winston features with minimal, reversible repository changes.
 

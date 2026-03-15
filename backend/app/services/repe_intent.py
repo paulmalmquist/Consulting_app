@@ -54,6 +54,7 @@ INTENT_ANALYTICS_QUERY = "analytics_query"
 INTENT_KNOWLEDGE_SEARCH = "knowledge_search"
 INTENT_DATA_HEALTH = "data_health"
 INTENT_BRIEFING_GENERATE = "briefing_generate"
+INTENT_TRANSFORM_RESULT = "transform_result"
 
 
 @dataclass
@@ -369,6 +370,19 @@ def classify_repe_intent(
     msg = message.strip()
     if not msg:
         return None
+
+    # ── Check for conversational transform first ────────────────────
+    from app.services.query_intent import is_transform_command, detect_transform
+
+    if is_transform_command(msg):
+        transform = detect_transform(msg) or {}
+        return RepeIntent(
+            family=INTENT_TRANSFORM_RESULT,
+            confidence=0.92,
+            extracted_params=transform,
+            missing_params=[],
+            original_message=msg,
+        )
 
     # Score each intent family
     scores: dict[str, float] = {}
