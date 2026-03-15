@@ -988,14 +988,14 @@ function InvestmentRow({
             </div>
           </div>
         </td>
-        <td className="px-4 py-3 text-sm text-bm-muted2">{propertyType}</td>
-        <td className="px-4 py-3 text-sm text-bm-muted2">{row.market || "—"}</td>
+        <td className="px-4 py-3 text-sm text-bm-muted2">{propertyType !== "—" ? propertyType : <span className="text-bm-muted2/50">No type</span>}</td>
+        <td className="px-4 py-3 text-sm text-bm-muted2">{row.market || <span className="text-bm-muted2/50">No market</span>}</td>
         <td className="px-4 py-3 text-right text-sm tabular-nums">{row.equityInvested != null ? fmtMoney(row.equityInvested) : "—"}</td>
-        <td className="px-4 py-3 text-right text-sm tabular-nums">{row.currentValue != null ? fmtMoney(row.currentValue) : "—"}</td>
-        <td className="px-4 py-3 text-right text-sm tabular-nums">{row.irr != null ? fmtPercent(row.irr) : "—"}</td>
-        <td className="px-4 py-3 text-right text-sm tabular-nums">{row.noi != null ? fmtMoney(row.noi) : "—"}</td>
-        <td className="px-4 py-3 text-right text-sm tabular-nums">{fmtFlexiblePercent(row.occupancy)}</td>
-        <td className="px-4 py-3 text-right text-sm tabular-nums">{fmtFlexiblePercent(row.ltv)}</td>
+        <td className="px-4 py-3 text-right text-sm tabular-nums">{row.currentValue != null ? fmtMoney(row.currentValue) : <span className="text-bm-muted2/50 text-xs">No valuation</span>}</td>
+        <td className="px-4 py-3 text-right text-sm tabular-nums">{row.irr != null ? fmtPercent(row.irr) : <span className="text-bm-muted2/50 text-xs">Pending</span>}</td>
+        <td className="px-4 py-3 text-right text-sm tabular-nums">{row.noi != null ? fmtMoney(row.noi) : <span className="text-bm-muted2/50 text-xs">No operating data</span>}</td>
+        <td className="px-4 py-3 text-right text-sm tabular-nums">{fmtFlexiblePercent(row.occupancy) !== "—" ? fmtFlexiblePercent(row.occupancy) : <span className="text-bm-muted2/50 text-xs">—</span>}</td>
+        <td className="px-4 py-3 text-right text-sm tabular-nums">{fmtFlexiblePercent(row.ltv) !== "—" ? fmtFlexiblePercent(row.ltv) : <span className="text-bm-muted2/50 text-xs">No debt data</span>}</td>
       </tr>
       {open ? (
         <tr>
