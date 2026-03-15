@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
-import { Building2, Landmark, Plus, PlusCircle, Upload } from "lucide-react";
+import { Building2, ChevronDown, Landmark, Plus, PlusCircle, Upload } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import {
@@ -594,32 +594,105 @@ export default function RepeWorkspaceShell({
   const showIntelligence  = process.env.NEXT_PUBLIC_SHOW_INTELLIGENCE_MODULE  === "true";
   const showSustainability = process.env.NEXT_PUBLIC_SHOW_SUSTAINABILITY_MODULE === "true";
 
-  const navItems = useMemo(() => [
-    { href: base,                          label: "Funds",          isBase: true  },
-    { href: `${base}/deals`,               label: "Investments",    isBase: false },
-    { href: `${base}/assets`,              label: "Assets",         isBase: false },
-    { href: `${base}/investors`,           label: "Investors",      isBase: false },
-    { href: `${base}/capital-calls`,       label: "Capital Calls",  isBase: false },
-    { href: `${base}/distributions`,       label: "Distributions",  isBase: false },
-    { href: `${base}/pipeline`,            label: "Pipeline",       isBase: false },
-    ...(showIntelligence
-      ? [{ href: `${base}/intelligence`,   label: "Intelligence",   isBase: false }]
-      : []),
-    { href: `${base}/fees`,                label: "Fees",           isBase: false },
-    { href: `${base}/period-close`,        label: "Period Close",   isBase: false },
-    { href: `${base}/variance`,            label: "Variance",       isBase: false },
-    { href: `${base}/waterfall-comparison`, label: "Waterfall Comp", isBase: false },
-    { href: `${base}/models`,              label: "Models",         isBase: false },
-    { href: `${base}/dashboards`,           label: "Dashboards",     isBase: false },
-    { href: `${base}/documents`,           label: "Documents",      isBase: false },
-    { href: `${base}/approvals`,           label: "Approvals",      isBase: false },
-    { href: `${base}/saved-analyses`,      label: "Saved Analyses", isBase: false },
-    { href: `${base}/reports`,             label: "Reports",        isBase: false },
-    { href: `${base}/winston`,             label: "Winston",        isBase: false },
-    ...(showSustainability
-      ? [{ href: `${base}/sustainability`, label: "Sustainability",  isBase: false }]
-      : []),
+  type NavItem = { href: string; label: string; isBase: boolean };
+  type NavGroup = { label: string; key: string; items: NavItem[] };
+
+  const navGroups: NavGroup[] = useMemo(() => [
+    {
+      label: "Portfolio",
+      key: "portfolio",
+      items: [
+        { href: base,                  label: "Funds",       isBase: true  },
+        { href: `${base}/deals`,       label: "Investments", isBase: false },
+        { href: `${base}/assets`,      label: "Assets",      isBase: false },
+        { href: `${base}/investors`,   label: "Investors",   isBase: false },
+        { href: `${base}/pipeline`,    label: "Pipeline",    isBase: false },
+      ],
+    },
+    {
+      label: "Investor Operations",
+      key: "investor-ops",
+      items: [
+        { href: `${base}/capital-calls`,  label: "Capital Calls",  isBase: false },
+        { href: `${base}/distributions`,  label: "Distributions",  isBase: false },
+        { href: `${base}/fees`,           label: "Fees",           isBase: false },
+      ],
+    },
+    {
+      label: "Fund Accounting",
+      key: "fund-acct",
+      items: [
+        { href: `${base}/period-close`,        label: "Period Close",   isBase: false },
+        { href: `${base}/variance`,            label: "Variance",       isBase: false },
+        { href: `${base}/waterfall-comparison`, label: "Waterfall Comp", isBase: false },
+      ],
+    },
+    {
+      label: "Analytics",
+      key: "analytics",
+      items: [
+        { href: `${base}/models`,          label: "Models",         isBase: false },
+        { href: `${base}/dashboards`,      label: "Dashboards",     isBase: false },
+        { href: `${base}/saved-analyses`,  label: "Saved Analyses", isBase: false },
+        { href: `${base}/reports`,         label: "Reports",        isBase: false },
+        ...(showIntelligence
+          ? [{ href: `${base}/intelligence`, label: "Intelligence", isBase: false }]
+          : []),
+        ...(showSustainability
+          ? [{ href: `${base}/sustainability`, label: "Sustainability", isBase: false }]
+          : []),
+      ],
+    },
+    {
+      label: "Governance",
+      key: "governance",
+      items: [
+        { href: `${base}/documents`,  label: "Documents",  isBase: false },
+        { href: `${base}/approvals`,  label: "Approvals",  isBase: false },
+        { href: `${base}/winston`,    label: "Winston",    isBase: false },
+      ],
+    },
   ], [base, showIntelligence, showSustainability]);
+
+  // Flat list for mobile nav and other consumers
+  const navItems = useMemo(() => navGroups.flatMap(g => g.items), [navGroups]);
+
+  // Sidebar collapse state persisted to localStorage
+  const COLLAPSED_KEY = "repe-sidebar-collapsed-groups";
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
+    try {
+      const stored = typeof window !== "undefined" ? localStorage.getItem(COLLAPSED_KEY) : null;
+      return stored ? new Set(JSON.parse(stored) as string[]) : new Set<string>();
+    } catch {
+      return new Set<string>();
+    }
+  });
+
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      try { localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next])); } catch { /* noop */ }
+      return next;
+    });
+  };
+
+  // Auto-expand the group containing the active page
+  useEffect(() => {
+    const activeGroup = navGroups.find(g =>
+      g.items.some(item => isActive(pathname, item.href, item.isBase))
+    );
+    if (activeGroup && collapsedGroups.has(activeGroup.key)) {
+      setCollapsedGroups(prev => {
+        const next = new Set(prev);
+        next.delete(activeGroup.key);
+        try { localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next])); } catch { /* noop */ }
+        return next;
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   const mobileNavItems: MobileNavItem[] = useMemo(() => [
     { href: base,                label: "Funds",   icon: "funds",   matchPrefix: false },
@@ -687,23 +760,45 @@ export default function RepeWorkspaceShell({
           <Landmark size={11} className="ml-auto shrink-0 text-bm-muted2" aria-hidden="true" />
         </div>
 
-      {/* Primary nav links */}
-        <div className="mt-1 space-y-px">
-          {navItems.map((item) => {
-            const active = isActive(pathname, item.href, item.isBase);
+      {/* Grouped nav links */}
+        <div className="mt-1 space-y-3">
+          {navGroups.map((group) => {
+            const isCollapsed = collapsedGroups.has(group.key);
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={[
-                  "flex items-center border-l-2 px-3 py-2 text-[15px] transition-colors duration-fast",
-                  active
-                    ? "border-bm-accent bg-bm-surface/20 font-medium text-bm-text"
-                    : "border-transparent text-bm-muted hover:bg-bm-surface/10 hover:text-bm-text",
-                ].join(" ")}
-              >
-                {item.label}
-              </Link>
+              <div key={group.key}>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.key)}
+                  className="flex w-full items-center justify-between px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-bm-muted2 transition-colors duration-fast hover:text-bm-text"
+                >
+                  {group.label}
+                  <ChevronDown
+                    size={12}
+                    className={`transition-transform duration-150 ${isCollapsed ? "-rotate-90" : ""}`}
+                  />
+                </button>
+                {!isCollapsed && (
+                  <div className="mt-0.5 space-y-px">
+                    {group.items.map((item) => {
+                      const active = isActive(pathname, item.href, item.isBase);
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={[
+                            "flex items-center border-l-2 px-3 py-2 text-[15px] transition-colors duration-fast",
+                            active
+                              ? "border-bm-accent bg-bm-surface/20 font-medium text-bm-text"
+                              : "border-transparent text-bm-muted hover:bg-bm-surface/10 hover:text-bm-text",
+                          ].join(" ")}
+                        >
+                          {item.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>

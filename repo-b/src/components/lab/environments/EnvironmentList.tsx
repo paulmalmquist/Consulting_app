@@ -141,7 +141,7 @@ export function EnvironmentList({
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search name, schema, industry"
+          placeholder="Search environments, schemas, or commands..."
           data-testid="env-search"
           className="h-8 max-w-xs border-bm-border/30 bg-bm-surface/40 px-3 text-xs placeholder:text-bm-muted2 focus-visible:border-bm-accent/60 focus-visible:shadow-none"
         />
@@ -189,7 +189,7 @@ export function EnvironmentList({
       </section>
 
       <section className="overflow-hidden rounded-lg border border-bm-border/20 bg-bm-surface/20">
-        <div className="sticky top-0 z-10 flex items-center gap-4 border-b border-bm-border/20 bg-bm-surface/10 px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
+        <div className="sticky top-0 z-10 flex items-center gap-4 border-b border-bm-border/30 bg-bm-surface/20 px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
           <span>STATUS</span>
           <span className="min-w-[180px]">ENVIRONMENT</span>
           <span className="flex-1" />

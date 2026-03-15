@@ -22,11 +22,13 @@ export type InsightItem = {
   label: string;
   detail?: string;
   action?: { label: string; href: string };
+  onAction?: { label: string; onClick: () => void };
 };
 
 export type InsightSection = {
   title: string;
   items: InsightItem[];
+  emptyText?: string;
 };
 
 export type InsightRailProps = {
@@ -43,7 +45,7 @@ export function InsightRail({ sections, className }: InsightRailProps) {
             {section.title}
           </p>
           {section.items.length === 0 ? (
-            <p className="mt-2 text-xs text-bm-muted2">No items.</p>
+            <p className="mt-2 text-xs text-bm-muted2">{section.emptyText || "No items."}</p>
           ) : (
             <div className="mt-2 space-y-1.5">
               {section.items.map((item) => {
@@ -65,13 +67,26 @@ export function InsightRail({ sections, className }: InsightRailProps) {
                     {item.detail && (
                       <p className="mt-1 text-xs text-bm-muted2 line-clamp-2">{item.detail}</p>
                     )}
-                    {item.action && (
-                      <Link
-                        href={item.action.href}
-                        className="mt-1.5 inline-block font-mono text-[11px] text-bm-accent hover:underline"
-                      >
-                        {item.action.label}
-                      </Link>
+                    {(item.action || item.onAction) && (
+                      <div className="mt-1.5 flex items-center gap-3">
+                        {item.action && (
+                          <Link
+                            href={item.action.href}
+                            className="inline-block font-mono text-[11px] text-bm-accent hover:underline"
+                          >
+                            {item.action.label}
+                          </Link>
+                        )}
+                        {item.onAction && (
+                          <button
+                            type="button"
+                            onClick={item.onAction.onClick}
+                            className="inline-block font-mono text-[11px] text-bm-muted hover:text-bm-text hover:underline"
+                          >
+                            {item.onAction.label}
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 );

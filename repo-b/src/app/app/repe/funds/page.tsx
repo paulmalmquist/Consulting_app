@@ -2,7 +2,7 @@
 
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   deleteRepeFund,
@@ -16,8 +16,21 @@ import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 import { KpiStrip, type KpiDef } from "@/components/repe/asset-cockpit/KpiStrip";
 import { StateCard } from "@/components/ui/StateCard";
-import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
+import {
+  RepeIndexScaffold,
+  reIndexActionClass,
+  reIndexControlLabelClass,
+  reIndexInputClass,
+  reIndexNumericCellClass,
+  reIndexPrimaryCellClass,
+  reIndexSecondaryCellClass,
+  reIndexTableBodyClass,
+  reIndexTableClass,
+  reIndexTableHeadRowClass,
+  reIndexTableRowClass,
+  reIndexTableShellClass,
+} from "@/components/repe/RepeIndexScaffold";
 
 function pickCurrentQuarter(): string {
   const now = new Date();
@@ -36,7 +49,31 @@ function fmtMoney(v: string | number | null | undefined): string {
   return `$${n.toFixed(0)}`;
 }
 
-const STATUS_OPTIONS = ["All", "investing", "closed", "fundraising"] as const;
+const STATUS_OPTIONS = ["All", "fundraising", "investing", "harvesting", "closed"] as const;
+
+const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+  fundraising: { bg: "bg-bm-accent/15", text: "text-bm-accent", dot: "bg-bm-accent" },
+  investing: { bg: "bg-bm-success/15", text: "text-bm-success", dot: "bg-bm-success" },
+  harvesting: { bg: "bg-purple-500/15", text: "text-purple-400", dot: "bg-purple-400" },
+  closed: { bg: "bg-bm-muted2/15", text: "text-bm-muted2", dot: "bg-bm-muted2" },
+};
+
+const FUND_TYPE_LABELS: Record<string, string> = {
+  closed_end: "Closed-End",
+  open_end: "Open-End",
+  sma: "SMA",
+  co_invest: "Co-Invest",
+};
+
+type SortColumn = "name" | "vintage" | "commitment" | "status";
+type SortDir = "asc" | "desc";
+
+const STATUS_ORDER: Record<string, number> = {
+  fundraising: 0,
+  investing: 1,
+  harvesting: 2,
+  closed: 3,
+};
 
 function RepeFundsPageContent() {
   const { businessId, environmentId, loading, contextError, initializeWorkspace } = useRepeContext();
@@ -49,6 +86,8 @@ function RepeFundsPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<RepeFund | null>(null);
   const [deletingFundId, setDeletingFundId] = useState<string | null>(null);
+  const [sortCol, setSortCol] = useState<SortColumn | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const quarter = pickCurrentQuarter();
 
   const strategyFilter = searchParams.get("strategy") || "All";
@@ -126,21 +165,70 @@ function RepeFundsPageContent() {
     });
   }, [funds, strategyFilter, vintageFilter, statusFilter, searchQuery]);
 
+  const sortedFunds = useMemo(() => {
+    if (!sortCol) return filteredFunds;
+    return [...filteredFunds].sort((a, b) => {
+      let cmp = 0;
+      switch (sortCol) {
+        case "name":
+          cmp = a.name.localeCompare(b.name);
+          break;
+        case "vintage":
+          cmp = (a.vintage_year || 0) - (b.vintage_year || 0);
+          break;
+        case "commitment":
+          cmp = Number(a.target_size || 0) - Number(b.target_size || 0);
+          break;
+        case "status":
+          cmp = (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
+          break;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [filteredFunds, sortCol, sortDir]);
+
+  const handleSort = (col: SortColumn) => {
+    if (sortCol === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortCol(col);
+      setSortDir("desc");
+    }
+  };
+
   const hasActiveFilters =
     strategyFilter !== "All" ||
     vintageFilter !== "All" ||
     statusFilter !== "All" ||
     searchQuery !== "";
 
+  const uniqueStrategies = new Set(filteredFunds.map((f) => f.strategy)).size;
+  const activeFundCount = filteredFunds.filter((f) => f.status === "investing").length;
+
   const kpis = useMemo<KpiDef[]>(
     () => [
-      { label: "Funds", value: String(filteredFunds.length) },
-      { label: "Total Committed", value: fmtMoney(portfolioKpis?.total_commitments) },
-      { label: "Portfolio NAV", value: fmtMoney(portfolioKpis?.portfolio_nav) },
-      { label: "Active Assets", value: portfolioKpis ? String(portfolioKpis.active_assets) : "—" },
-      { label: "Warnings", value: portfolioKpis ? String(portfolioKpis.warnings.length) : "—" },
+      {
+        label: "Funds",
+        value: String(filteredFunds.length),
+        delta: { value: `Across ${uniqueStrategies} ${uniqueStrategies === 1 ? "strategy" : "strategies"}`, tone: "neutral" as const },
+      },
+      {
+        label: "Total Committed",
+        value: fmtMoney(portfolioKpis?.total_commitments),
+        delta: portfolioKpis ? { value: `${filteredFunds.filter((f) => f.target_size && Number(f.target_size) > 0).length} funds with targets`, tone: "neutral" as const } : undefined,
+      },
+      {
+        label: "Portfolio NAV",
+        value: fmtMoney(portfolioKpis?.portfolio_nav),
+        delta: portfolioKpis ? { value: quarter.replace("Q", " Q"), tone: "neutral" as const } : undefined,
+      },
+      {
+        label: "Active Assets",
+        value: portfolioKpis ? String(portfolioKpis.active_assets) : "—",
+        delta: activeFundCount > 0 ? { value: `across ${activeFundCount} active ${activeFundCount === 1 ? "fund" : "funds"}`, tone: "neutral" as const } : undefined,
+      },
     ],
-    [filteredFunds.length, portfolioKpis]
+    [filteredFunds, portfolioKpis, uniqueStrategies, activeFundCount, quarter]
   );
 
   useEffect(() => {
@@ -219,195 +307,193 @@ function RepeFundsPageContent() {
     );
   }
 
+  const sortableThClass = "px-4 py-3 font-medium cursor-pointer select-none transition-colors hover:text-bm-text";
+
   return (
     <>
-      <section className="flex flex-col gap-4" data-testid="re-funds-list">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="font-display text-xl font-semibold text-bm-text">Funds</h2>
-            <p className="mt-1 text-sm text-bm-muted2">Portfolio of funds in this environment.</p>
-          </div>
-          <Link href={`${basePath}/funds/new`}>
-            <Button className="h-auto rounded-md px-3 py-1.5 text-sm shadow-none transition-colors duration-100 hover:translate-y-0 hover:shadow-none">
-              + New Fund
-            </Button>
+      <RepeIndexScaffold
+        title="Funds"
+        subtitle="Portfolio of funds in this environment."
+        action={
+          <Link href={`${basePath}/funds/new`} className={reIndexActionClass} data-testid="btn-new-fund">
+            + New Fund
           </Link>
-        </div>
-
-        <KpiStrip kpis={kpis} />
-
-        <div className="flex flex-wrap items-center gap-2">
-        <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
-          Strategy
-          <select
-            className="mt-1 block h-8 w-40 cursor-pointer appearance-none rounded-md border border-bm-border/30 bg-bm-surface/40 px-2 text-xs"
-            value={strategyFilter}
-            onChange={(e) => setFilter("strategy", e.target.value)}
-            data-testid="filter-strategy"
-          >
-            <option value="All">All Strategies</option>
-            {strategies.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        </label>
-
-        <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
-          Vintage
-          <select
-            className="mt-1 block h-8 w-28 cursor-pointer appearance-none rounded-md border border-bm-border/30 bg-bm-surface/40 px-2 text-xs"
-            value={vintageFilter}
-            onChange={(e) => setFilter("vintage", e.target.value)}
-            data-testid="filter-vintage"
-          >
-            <option value="All">All Years</option>
-            {vintageYears.map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-        </label>
-
-        <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
-          Status
-          <select
-            className="mt-1 block h-8 w-32 cursor-pointer appearance-none rounded-md border border-bm-border/30 bg-bm-surface/40 px-2 text-xs"
-            value={statusFilter}
-            onChange={(e) => setFilter("status", e.target.value)}
-            data-testid="filter-status"
-          >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s === "All" ? "All Statuses" : s.charAt(0).toUpperCase() + s.slice(1)}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="text-xs uppercase tracking-[0.1em] text-bm-muted2">
-          Search
-          <input
-            className="mt-1 block h-8 w-48 rounded-md border border-bm-border/30 bg-bm-surface/40 px-3 text-xs placeholder:text-bm-muted2"
-            value={searchQuery}
-            onChange={(e) => setFilter("q", e.target.value)}
-            placeholder="Fund name..."
-            data-testid="filter-search"
-          />
-        </label>
-
-        {hasActiveFilters && (
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="rounded-md border border-bm-border/30 px-3 py-1.5 text-xs text-bm-muted transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text"
-          >
-            Clear Filters
-          </button>
-        )}
-        </div>
-
-        {error && (
-          <StateCard state="error" title="Failed to load funds" message={error} />
-        )}
-
-        {filteredFunds.length === 0 && !error ? (
-          hasActiveFilters ? (
-            <div className="rounded-lg border border-bm-border/20 p-6 text-center text-sm text-bm-muted2">
-              No funds match the current filters.
-            </div>
-          ) : (
-            <StateCard
-              state="empty"
-              title="No funds yet"
-              description="Create your first fund to get started with the portfolio."
-              cta={{ label: "Create First Fund", onClick: () => { window.location.href = `${basePath}/funds/new`; } }}
-            />
-          )
-        ) : (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {filteredFunds.map((fund) => (
-              <div
-                key={fund.fund_id}
-                data-testid={`fund-row-${fund.fund_id}`}
-                className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-4 transition-colors duration-100 hover:bg-bm-surface/30"
+        }
+        metrics={<KpiStrip variant="band" kpis={kpis} />}
+        controls={
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-3 border-b border-bm-border/20 pb-5">
+            <label className={reIndexControlLabelClass}>
+              Strategy
+              <select
+                className={`${reIndexInputClass} w-40`}
+                value={strategyFilter}
+                onChange={(e) => setFilter("strategy", e.target.value)}
+                data-testid="filter-strategy"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="truncate font-display text-base font-semibold text-bm-text">
-                      <Link href={`${basePath}/funds/${fund.fund_id}`} className="hover:text-bm-accent">
-                        {fund.name}
-                      </Link>
-                    </h3>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className="inline-flex items-center rounded-full border border-bm-border/30 px-2.5 py-0.5 font-mono text-[11px] text-bm-muted capitalize">
-                        {fund.strategy}
-                      </span>
-                      <span className="font-mono text-xs text-bm-muted">{fund.base_currency || "USD"}</span>
-                    </div>
-                  </div>
-                  <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-mono text-[11px] capitalize ${
-                    fund.status === "closed"
-                      ? "bg-bm-muted2/15 text-bm-muted2"
-                      : fund.status === "investing"
-                      ? "bg-bm-success/15 text-bm-success"
-                      : "bg-bm-warning/15 text-bm-warning"
-                  }`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${
-                      fund.status === "closed"
-                        ? "bg-bm-muted2"
-                        : fund.status === "investing"
-                        ? "bg-bm-success"
-                        : "bg-bm-warning"
-                    }`} />
-                    {fund.status}
-                  </span>
-                </div>
+                <option value="All">All Strategies</option>
+                {strategies.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </label>
 
-                <div className="mt-3 flex flex-wrap items-center gap-2 font-mono text-xs text-bm-muted">
-                  {fund.vintage_year && <span>Vintage {fund.vintage_year}</span>}
-                  {fund.inception_date && <span>Inception {fund.inception_date.slice(0, 10)}</span>}
-                </div>
+            <label className={reIndexControlLabelClass}>
+              Vintage
+              <select
+                className={`${reIndexInputClass} w-28`}
+                value={vintageFilter}
+                onChange={(e) => setFilter("vintage", e.target.value)}
+                data-testid="filter-vintage"
+              >
+                <option value="All">All Years</option>
+                {vintageYears.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </label>
 
-                <div className="mt-4 grid grid-cols-3 gap-3">
-                  <div>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Target</p>
-                    <p className="mt-1 text-sm font-semibold text-bm-text tabular-nums">{fmtMoney(fund.target_size)}</p>
-                  </div>
-                  <div>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Term</p>
-                    <p className="mt-1 text-sm font-semibold text-bm-text tabular-nums">
-                      {fund.term_years ? `${fund.term_years}Y` : "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Cadence</p>
-                    <p className="mt-1 text-sm font-semibold text-bm-text">{fund.quarter_cadence.replace(/_/g, " ")}</p>
-                  </div>
-                </div>
+            <label className={reIndexControlLabelClass}>
+              Status
+              <select
+                className={`${reIndexInputClass} w-32`}
+                value={statusFilter}
+                onChange={(e) => setFilter("status", e.target.value)}
+                data-testid="filter-status"
+              >
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s === "All" ? "All Statuses" : s.charAt(0).toUpperCase() + s.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-                <div className="mt-4 flex items-center justify-between gap-2">
-                  <Link
-                    href={`${basePath}/funds/${fund.fund_id}`}
-                    className="inline-flex items-center gap-1 rounded-md border border-bm-border/30 px-2.5 py-1.5 font-mono text-xs text-bm-muted transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text"
-                  >
-                    Open Fund
-                    <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  </Link>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 px-2 text-bm-danger hover:bg-bm-danger/10 hover:text-bm-danger"
-                    onClick={() => setDeleteTarget(fund)}
-                    data-testid={`delete-fund-${fund.fund_id}`}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </div>
-            ))}
+            <label className={reIndexControlLabelClass}>
+              Search
+              <input
+                className={`${reIndexInputClass} w-48`}
+                value={searchQuery}
+                onChange={(e) => setFilter("q", e.target.value)}
+                placeholder="Fund name..."
+                data-testid="filter-search"
+              />
+            </label>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex h-10 items-center rounded-md border border-bm-border/70 px-3 text-[11px] uppercase tracking-[0.12em] text-bm-muted2 transition-colors duration-100 hover:bg-bm-surface/25 hover:text-bm-text"
+              >
+                Clear Filters
+              </button>
+            )}
           </div>
-        )}
-      </section>
+        }
+        className="w-full"
+      >
+        <section data-testid="re-funds-list">
+          {error ? (
+            <StateCard state="error" title="Failed to load funds" message={error} />
+          ) : sortedFunds.length === 0 ? (
+            hasActiveFilters ? (
+              <div className="rounded-xl border border-bm-border/20 p-6 text-center text-sm text-bm-muted2">
+                No funds match the current filters.
+              </div>
+            ) : (
+              <StateCard
+                state="empty"
+                title="No funds yet"
+                description="Create your first fund to get started with the portfolio."
+                cta={{ label: "Create First Fund", onClick: () => { window.location.href = `${basePath}/funds/new`; } }}
+              />
+            )
+          ) : (
+            <div className={reIndexTableShellClass}>
+              <table className={`${reIndexTableClass} min-w-[960px]`}>
+                <thead>
+                  <tr className={reIndexTableHeadRowClass}>
+                    <th className={sortableThClass} onClick={() => handleSort("name")}>
+                      Fund {sortCol === "name" && <span className="ml-0.5 text-[10px]">{sortDir === "asc" ? "▲" : "▼"}</span>}
+                    </th>
+                    <th className={sortableThClass} onClick={() => handleSort("vintage")}>
+                      Vintage {sortCol === "vintage" && <span className="ml-0.5 text-[10px]">{sortDir === "asc" ? "▲" : "▼"}</span>}
+                    </th>
+                    <th className={`${sortableThClass} text-right`} onClick={() => handleSort("commitment")}>
+                      Commitment {sortCol === "commitment" && <span className="ml-0.5 text-[10px]">{sortDir === "asc" ? "▲" : "▼"}</span>}
+                    </th>
+                    <th className="px-4 py-3 text-right font-medium">NAV</th>
+                    <th className="px-4 py-3 text-right font-medium">DPI</th>
+                    <th className="px-4 py-3 text-right font-medium">TVPI</th>
+                    <th className={sortableThClass} onClick={() => handleSort("status")}>
+                      Status {sortCol === "status" && <span className="ml-0.5 text-[10px]">{sortDir === "asc" ? "▲" : "▼"}</span>}
+                    </th>
+                    <th className="px-4 py-3 font-medium"><span className="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody className={reIndexTableBodyClass}>
+                  {sortedFunds.map((fund) => {
+                    const colors = STATUS_COLORS[fund.status] || STATUS_COLORS.closed;
+                    return (
+                      <tr
+                        key={fund.fund_id}
+                        data-testid={`fund-row-${fund.fund_id}`}
+                        className={reIndexTableRowClass}
+                      >
+                        <td className="px-4 py-4 align-middle">
+                          <Link
+                            href={`${basePath}/funds/${fund.fund_id}`}
+                            className={reIndexPrimaryCellClass}
+                          >
+                            {fund.name}
+                          </Link>
+                          <p className={`mt-0.5 ${reIndexSecondaryCellClass}`}>
+                            {fund.strategy && <span className="capitalize">{fund.strategy}</span>}
+                            {fund.strategy && fund.fund_type && " · "}
+                            {fund.fund_type && (FUND_TYPE_LABELS[fund.fund_type] || fund.fund_type)}
+                          </p>
+                        </td>
+                        <td className={`px-4 py-4 align-middle ${reIndexSecondaryCellClass}`}>
+                          {fund.vintage_year || "—"}
+                        </td>
+                        <td className={`px-4 py-4 align-middle ${reIndexNumericCellClass}`}>
+                          {fmtMoney(fund.target_size)}
+                        </td>
+                        <td className={`px-4 py-4 align-middle ${reIndexNumericCellClass} text-bm-muted2`}>
+                          —
+                        </td>
+                        <td className={`px-4 py-4 align-middle ${reIndexNumericCellClass} text-bm-muted2`}>
+                          —
+                        </td>
+                        <td className={`px-4 py-4 align-middle ${reIndexNumericCellClass} text-bm-muted2`}>
+                          —
+                        </td>
+                        <td className="px-4 py-4 align-middle">
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-mono text-[11px] capitalize ${colors.bg} ${colors.text}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${colors.dot}`} />
+                            {fund.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 align-middle text-right">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setDeleteTarget(fund); }}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-bm-muted2 transition-colors hover:bg-bm-danger/10 hover:text-bm-danger"
+                            data-testid={`delete-fund-${fund.fund_id}`}
+                            title="Delete fund"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </RepeIndexScaffold>
       <FundDeleteDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {

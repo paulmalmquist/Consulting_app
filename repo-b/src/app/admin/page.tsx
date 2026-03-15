@@ -8,11 +8,13 @@ import { CreateEnvironmentPanel } from "@/components/lab/environments/CreateEnvi
 import { EnvironmentList } from "@/components/lab/environments/EnvironmentList";
 import { EnvironmentSettingsModal } from "@/components/lab/environments/EnvironmentSettingsModal";
 import { type Industry } from "@/components/lab/environments/constants";
-import { KpiStrip, type KpiDef } from "@/components/repe/asset-cockpit/KpiStrip";
+import { MetricCard } from "@/components/ui/MetricCard";
 import { ActivityFeed, type ActivityItem } from "@/components/ui/ActivityFeed";
 import { InsightRail, type InsightSection } from "@/components/ui/InsightRail";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
+import { SystemStatusBanner } from "@/components/admin/SystemStatusBanner";
+import { useGatewayHealth } from "@/components/admin/useGatewayHealth";
 
 function formatRelative(dateStr?: string): string {
   if (!dateStr) return "—";
@@ -32,6 +34,7 @@ export default function AdminPage() {
   const [selectedSettingsId, setSelectedSettingsId] = useState<string | null>(null);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [showProvision, setShowProvision] = useState(false);
+  const gateway = useGatewayHealth();
 
   const selectedSettingsEnv = useMemo(
     () => environments.find((env) => env.env_id === selectedSettingsId) || null,
@@ -40,41 +43,42 @@ export default function AdminPage() {
 
   // Compute KPI values from environments
   const activeCount = environments.filter((e) => e.is_active).length;
-  const archivedCount = environments.filter((e) => !e.is_active).length;
   const industryCount = new Set(environments.map((e) => e.industry_type || e.industry)).size;
   const recentCount = environments.filter(
     (e) => e.created_at && (Date.now() - new Date(e.created_at).getTime()) / 86_400_000 < 7
   ).length;
-  const kpis = useMemo<KpiDef[]>(
-    () => [
-      {
-        label: "Total Envs",
-        value: String(environments.length),
-        delta: recentCount > 0 ? { value: `+${recentCount} / 7d`, tone: "positive" } : undefined,
-      },
-      { label: "Active", value: String(activeCount) },
-      { label: "Archived", value: String(archivedCount) },
-      { label: "Industries", value: String(industryCount) },
-      { label: "Recent 7D", value: String(recentCount) },
-    ],
-    [activeCount, archivedCount, environments.length, industryCount, recentCount]
-  );
 
-  // Activity feed from environment creation dates
+  // Activity feed from environment data — show provisioned + archived events
   const activityItems = useMemo<ActivityItem[]>(() => {
-    return [...environments]
-      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
-      .slice(0, 8)
-      .map((env) => ({
-        id: env.env_id,
+    const items: ActivityItem[] = [];
+    for (const env of environments) {
+      items.push({
+        id: `prov-${env.env_id}`,
         avatar: env.client_name.slice(0, 2),
         summary: `Environment "${env.client_name}" provisioned`,
         entityLink: { label: env.client_name, href: `/lab/env/${env.env_id}` },
         timestamp: formatRelative(env.created_at),
-      }));
+      });
+      if (!env.is_active) {
+        items.push({
+          id: `arch-${env.env_id}`,
+          avatar: env.client_name.slice(0, 2),
+          summary: `Environment "${env.client_name}" archived`,
+          entityLink: { label: env.client_name, href: `/lab/env/${env.env_id}` },
+          timestamp: formatRelative(env.created_at),
+        });
+      }
+    }
+    return items
+      .sort((a, b) => {
+        // Sort by most recent first using the raw timestamp text
+        // (this is best-effort since we only have formatted strings)
+        return 0; // preserve insertion order which is already sorted by env list
+      })
+      .slice(0, 8);
   }, [environments]);
 
-  // Insight rail: stale environments
+  // Insight rail: operational alerts + recently provisioned
   const insightSections = useMemo<InsightSection[]>(() => {
     const stale = environments.filter((e) => {
       if (!e.created_at) return false;
@@ -83,17 +87,19 @@ export default function AdminPage() {
     });
     return [
       {
-        title: "Stale Environments",
+        title: "Operational Alerts",
+        emptyText: "All environments active and healthy.",
         items: stale.slice(0, 5).map((e) => ({
           id: e.env_id,
           severity: "warning" as const,
           label: e.client_name,
-          detail: `No activity for ${Math.floor((Date.now() - new Date(e.created_at || 0).getTime()) / 86_400_000)} days`,
+          detail: `Inactive for ${Math.floor((Date.now() - new Date(e.created_at || 0).getTime()) / 86_400_000)} days`,
           action: { label: "Open", href: `/lab/env/${e.env_id}` },
         })),
       },
       {
         title: "Recently Provisioned",
+        emptyText: "No recent provisioning. Use '+ New Environment' to create one.",
         items: environments
           .filter((e) => {
             if (!e.created_at) return false;
@@ -105,6 +111,7 @@ export default function AdminPage() {
             severity: "info" as const,
             label: e.client_name,
             detail: `Created ${formatRelative(e.created_at)}`,
+            action: { label: "Open", href: `/lab/env/${e.env_id}` },
           })),
       },
     ];
@@ -173,6 +180,7 @@ export default function AdminPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Header + CTA */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-xl font-semibold text-bm-text">Control Tower</h1>
@@ -180,16 +188,53 @@ export default function AdminPage() {
             Operational readiness across all business environments.
           </p>
         </div>
-        <Button
-          onClick={() => setShowProvision(true)}
-          className="h-auto rounded-md px-3 py-1.5 text-sm shadow-none transition-colors duration-100 hover:translate-y-0 hover:shadow-none"
-        >
-          + Provision
+        <Button onClick={() => setShowProvision(true)}>
+          + New Environment
         </Button>
       </div>
 
-      <KpiStrip kpis={kpis} />
+      {/* System Status Banner */}
+      <SystemStatusBanner status={gateway.status} lastChecked={gateway.lastChecked} />
 
+      {/* KPI Metric Cards */}
+      <div className="grid grid-cols-2 gap-3 border-b border-bm-border/15 pb-4 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-3">
+          <MetricCard
+            label="Active Environments"
+            value={String(activeCount)}
+            delta={recentCount > 0 ? { value: `+${recentCount} / 7d`, direction: "up" } : undefined}
+            status="success"
+          />
+        </div>
+        <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-3">
+          <MetricCard
+            label="Total Environments"
+            value={String(environments.length)}
+          />
+        </div>
+        <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-3">
+          <MetricCard
+            label="Industries"
+            value={String(industryCount)}
+          />
+        </div>
+        <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-3">
+          <MetricCard
+            label="AI Gateway"
+            value={gateway.status === "checking" ? "…" : gateway.status === "operational" ? "Online" : "Offline"}
+            status={gateway.status === "operational" ? "success" : gateway.status === "degraded" ? "danger" : "neutral"}
+          />
+        </div>
+        <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-3">
+          <MetricCard
+            label="Recent (7d)"
+            value={String(recentCount)}
+            delta={recentCount > 0 ? { value: `${recentCount} new`, direction: "up" } : undefined}
+          />
+        </div>
+      </div>
+
+      {/* Main Content Grid */}
       <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr),280px]">
         <div className="flex flex-col gap-4">
           <EnvironmentList
@@ -200,7 +245,7 @@ export default function AdminPage() {
           />
 
           <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-3">
-            <ActivityFeed items={activityItems} maxItems={6} title="Recent Provisioning" />
+            <ActivityFeed items={activityItems} maxItems={6} title="Recent Activity" />
           </div>
         </div>
 

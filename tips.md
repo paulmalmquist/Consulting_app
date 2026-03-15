@@ -1525,3 +1525,15 @@ Tools are registered in `backend/app/mcp/tools/repe_investor_tools.py` and loade
 - Run `npm run validate:instructions` after changing routed markdown metadata or the registry.
 - Run `npm run test:instructions` after changing routing rules, triggers, or the example fixture set.
 - Use `status: archived` plus `entrypoint: false` for legacy prompt docs that must remain in the repo for history but should no longer act like alternate execution entrypoints.
+
+## Reusable REPE Index Page Patterns (Fund Portfolio UX Upgrade, March 2026)
+
+**RepeIndexScaffold + table class constants** — The standard pattern for REPE index/list pages. Import `RepeIndexScaffold`, `reIndexTableShellClass`, `reIndexTableClass`, `reIndexTableHeadRowClass`, `reIndexTableBodyClass`, `reIndexTableRowClass`, `reIndexPrimaryCellClass`, `reIndexSecondaryCellClass`, `reIndexNumericCellClass`, `reIndexActionClass`, `reIndexControlLabelClass`, `reIndexInputClass` from `@/components/repe/RepeIndexScaffold`. This gives consistent table styling, filter bar styling, and page scaffolding across funds, assets, models, and other index pages.
+
+**KpiStrip delta prop** — `KpiStrip` supports a `delta` field on each `KpiDef` with `{ value: ReactNode, tone: "positive" | "negative" | "neutral" }`. Use this for contextual subtext under each metric (e.g., "Across 3 strategies", "Q1 2026"). Use `variant="band"` for the institutional-style horizontal layout with border-b divider.
+
+**STATUS_COLORS map pattern** — For status pills with semantic colors, define a `STATUS_COLORS: Record<string, { bg, text, dot }>` map and reference it in the render. Keeps color logic out of JSX. For statuses without a `bm-*` design token (e.g., "harvesting"), use Tailwind built-in colors like `purple-400`/`purple-500`.
+
+**Sidebar grouped navigation** — The REPE sidebar in `RepeWorkspaceShell.tsx` supports collapsible nav groups. Groups are defined as `NavGroup[]` with `label`, `key`, and `items`. Collapse state is persisted to `localStorage("repe-sidebar-collapsed-groups")`. Active page's group auto-expands via `useEffect` on pathname. The flat `navItems` is derived via `.flatMap()` for mobile nav compatibility.
+
+**Column sorting pattern** — For table sorting: `useState<SortColumn | null>(null)` + `useState<SortDir>("desc")`. Toggle via `handleSort(col)` that flips direction on same column, defaults to desc on new column. Sort in a `useMemo` after filtering. Unicode `▲`/`▼` indicators in `<th>` are simpler than importing icon components.

@@ -53,7 +53,7 @@ export function ActivityFeed({
           {visible.map((item) => (
             <div
               key={item.id}
-              className="flex items-start gap-3 border-b border-bm-border/20 py-2.5 last:border-b-0"
+              className="-mx-1 flex items-start gap-3 rounded-md border-b border-bm-border/20 px-1 py-2.5 transition-colors duration-100 last:border-b-0 hover:bg-bm-surface/10"
             >
               <AvatarCircle avatar={item.avatar} />
               <div className="min-w-0 flex-1">

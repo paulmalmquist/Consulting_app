@@ -3,8 +3,9 @@
 import React from "react";
 import { ArrowRight, Settings, Trash2 } from "lucide-react";
 import type { Environment } from "@/components/EnvProvider";
+import { Badge } from "@/components/ui/Badge";
 import { EnvironmentStatus } from "./constants";
-import { getIndustryIcon } from "./visuals";
+import { getIndustryIcon, getStatusBadge, getHealthLabel } from "./visuals";
 
 type EnvironmentStats = {
   last_activity?: string;
@@ -29,14 +30,8 @@ export function EnvironmentCard({
   const industryVisual = getIndustryIcon(industry);
   const IndustryIcon = industryVisual.icon;
   const lastActivity = stats?.last_activity || env.created_at;
-  const statusDotClass =
-    status === "active"
-      ? "bg-bm-success"
-      : status === "failed"
-      ? "bg-bm-danger"
-      : status === "provisioning"
-      ? "animate-pulse bg-bm-warning"
-      : "bg-bm-muted2";
+  const statusVisual = getStatusBadge(status);
+  const healthLabel = getHealthLabel(status);
   const compactIndustry =
     industry === "real_estate" || industry === "real_estate_pe" || industry === "repe"
       ? "repe"
@@ -58,7 +53,9 @@ export function EnvironmentCard({
       role="button"
       tabIndex={0}
     >
-      <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${statusDotClass}`} />
+      <span className={`inline-flex shrink-0 items-center rounded-full border px-1.5 py-0 font-mono text-[9px] uppercase tracking-[0.06em] font-medium ${statusVisual.pillClass}`}>
+        {healthLabel}
+      </span>
       <IndustryIcon
         className="h-4 w-4 shrink-0 text-bm-muted"
         data-testid={industryVisual.testId}
@@ -70,7 +67,7 @@ export function EnvironmentCard({
       </div>
 
       <div className="min-w-0 flex items-center gap-2 overflow-hidden font-mono text-xs text-bm-muted">
-        <span className="truncate">{compactIndustry}</span>
+        <Badge variant="default" className="text-[10px] shrink-0">{compactIndustry}</Badge>
         <span aria-hidden>&middot;</span>
         <span className="truncate">{env.schema_name || "—"}</span>
         <span aria-hidden>&middot;</span>
