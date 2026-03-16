@@ -17,7 +17,7 @@ def _get_pool() -> ConnectionPool:
             require_database_url(),
             min_size=2,
             max_size=10,
-            kwargs={"prepare_threshold": 5, "row_factory": psycopg.rows.dict_row},
+            kwargs={"prepare_threshold": None, "row_factory": psycopg.rows.dict_row},
         )
         atexit.register(_pool.close)
     return _pool

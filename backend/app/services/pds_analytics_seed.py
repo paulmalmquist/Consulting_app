@@ -276,17 +276,18 @@ def _seed_accounts(cur, env_str: str, biz_str: str, rng, n: int) -> list[dict]:
             """INSERT INTO pds_accounts
                (account_id, env_id, business_id, account_code, account_name,
                 tier, industry, governance_track, annual_contract_value,
-                contract_start_date, contract_end_date, status, metadata_json)
+                contract_start_date, contract_end_date, region, status, metadata_json)
                VALUES (%s, %s::uuid, %s::uuid, %s, %s,
                        %s, %s, %s, %s,
-                       %s, %s, 'active', '{}')
+                       %s, %s, %s, 'active', '{}')
                ON CONFLICT (env_id, business_id, account_code) DO UPDATE
                SET tier = EXCLUDED.tier,
                    industry = EXCLUDED.industry,
                    governance_track = EXCLUDED.governance_track,
                    annual_contract_value = EXCLUDED.annual_contract_value,
                    contract_start_date = EXCLUDED.contract_start_date,
-                   contract_end_date = EXCLUDED.contract_end_date
+                   contract_end_date = EXCLUDED.contract_end_date,
+                   region = EXCLUDED.region
             """,
             (
                 account_id, env_str, biz_str,
@@ -294,6 +295,7 @@ def _seed_accounts(cur, env_str: str, biz_str: str, rng, n: int) -> list[dict]:
                 tier, industry, gov, acv,
                 date.today() - timedelta(days=random.randint(180, 730)),
                 date.today() + timedelta(days=random.randint(180, 730)),
+                region,
             ),
         )
         accounts.append({
