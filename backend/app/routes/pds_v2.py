@@ -362,3 +362,32 @@ def build_report_packet(req: PdsV2ReportPacketRequest, request: Request):
             action="pds.v2.report_packet.failed",
             context={"env_id": req.env_id, "packet_type": req.packet_type},
         )
+
+
+@router.post("/seed-analytics")
+def seed_analytics(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    """Seed PDS analytics tables with synthetic demo data."""
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+
+        from app.services.pds_analytics_seed import seed_pds_analytics
+
+        counts = seed_pds_analytics(
+            env_id=resolved_env_id,
+            business_id=resolved_business_id,
+        )
+        return {"status": "ok", "counts": counts}
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="pds.v2.seed_analytics.failed",
+            context={"env_id": env_id},
+        )

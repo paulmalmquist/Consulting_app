@@ -490,3 +490,91 @@ DO $$ BEGIN
   CREATE POLICY report_materialization_job_isolation ON report_materialization_job
     USING (tenant_id = current_tenant_id());
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- ─────────────────────────────────────────────
+-- PDS ANALYTICS tables (business_id scoped, join through business)
+-- ─────────────────────────────────────────────
+
+ALTER TABLE pds_analytics_employees ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY pds_analytics_employees_isolation ON pds_analytics_employees
+    USING (
+      EXISTS (
+        SELECT 1 FROM business b
+        WHERE b.business_id = pds_analytics_employees.business_id
+          AND b.tenant_id = current_tenant_id()
+      )
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE pds_analytics_projects ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY pds_analytics_projects_isolation ON pds_analytics_projects
+    USING (
+      EXISTS (
+        SELECT 1 FROM business b
+        WHERE b.business_id = pds_analytics_projects.business_id
+          AND b.tenant_id = current_tenant_id()
+      )
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE pds_revenue_entries ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY pds_revenue_entries_isolation ON pds_revenue_entries
+    USING (
+      EXISTS (
+        SELECT 1 FROM business b
+        WHERE b.business_id = pds_revenue_entries.business_id
+          AND b.tenant_id = current_tenant_id()
+      )
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE pds_analytics_assignments ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY pds_analytics_assignments_isolation ON pds_analytics_assignments
+    USING (
+      EXISTS (
+        SELECT 1 FROM business b
+        WHERE b.business_id = pds_analytics_assignments.business_id
+          AND b.tenant_id = current_tenant_id()
+      )
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE pds_analytics_timecards ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY pds_analytics_timecards_isolation ON pds_analytics_timecards
+    USING (
+      EXISTS (
+        SELECT 1 FROM business b
+        WHERE b.business_id = pds_analytics_timecards.business_id
+          AND b.tenant_id = current_tenant_id()
+      )
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE pds_nps_responses ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY pds_nps_responses_isolation ON pds_nps_responses
+    USING (
+      EXISTS (
+        SELECT 1 FROM business b
+        WHERE b.business_id = pds_nps_responses.business_id
+          AND b.tenant_id = current_tenant_id()
+      )
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE pds_technology_adoption ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY pds_technology_adoption_isolation ON pds_technology_adoption
+    USING (
+      EXISTS (
+        SELECT 1 FROM business b
+        WHERE b.business_id = pds_technology_adoption.business_id
+          AND b.tenant_id = current_tenant_id()
+      )
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

@@ -7216,3 +7216,85 @@ export function getAssetLeaseDocuments(assetId: string): Promise<{ documents: Re
 export function getAssetLeaseEconomics(assetId: string): Promise<ReLeaseEconomics> {
   return directFetch(`/api/re/v2/assets/${assetId}/leasing/economics`);
 }
+
+// ─── PDS Analytics API ──────────────────────────────────────────────
+
+export function getPdsRevenueTimeSeries(
+  envId: string,
+  businessId: string,
+  options?: { governance_track?: string; version?: string[]; date_from?: string; date_to?: string },
+): Promise<{ series: Record<string, unknown>[] }> {
+  const params: Record<string, string | undefined> = { env_id: envId, business_id: businessId };
+  if (options?.governance_track) params.governance_track = options.governance_track;
+  if (options?.date_from) params.date_from = options.date_from;
+  if (options?.date_to) params.date_to = options.date_to;
+  return bosFetch("/api/pds/v2/revenue/time-series", { params });
+}
+
+export function getPdsRevenueVariance(
+  envId: string,
+  businessId: string,
+  comparison?: string,
+): Promise<{ comparison: string; base_version: string; compare_version: string; data: Record<string, unknown>[] }> {
+  return bosFetch("/api/pds/v2/revenue/variance", { params: { env_id: envId, business_id: businessId, comparison } });
+}
+
+export function getPdsRevenuePipeline(envId: string, businessId: string): Promise<{ stages: Record<string, unknown>[]; coverage_ratio: number }> {
+  return bosFetch("/api/pds/v2/revenue/pipeline", { params: { env_id: envId, business_id: businessId } });
+}
+
+export function getPdsDedicatedPortfolio(envId: string, businessId: string): Promise<{ accounts: Record<string, unknown>[] }> {
+  return bosFetch("/api/pds/v2/revenue/portfolio", { params: { env_id: envId, business_id: businessId } });
+}
+
+export function getPdsRevenueWaterfall(envId: string, businessId: string): Promise<{ waterfall: Record<string, unknown>[] }> {
+  return bosFetch("/api/pds/v2/revenue/waterfall", { params: { env_id: envId, business_id: businessId } });
+}
+
+export function getPdsRevenueMix(envId: string, businessId: string): Promise<{ mix: Record<string, unknown>[] }> {
+  return bosFetch("/api/pds/v2/revenue/mix", { params: { env_id: envId, business_id: businessId } });
+}
+
+export function getPdsUtilizationSummary(envId: string, businessId: string): Promise<{ summary: Record<string, unknown>[] }> {
+  return bosFetch("/api/pds/v2/utilization/summary", { params: { env_id: envId, business_id: businessId } });
+}
+
+export function getPdsUtilizationHeatmap(envId: string, businessId: string): Promise<{ employees: Record<string, unknown>[] }> {
+  return bosFetch("/api/pds/v2/utilization/heatmap", { params: { env_id: envId, business_id: businessId } });
+}
+
+export function getPdsUtilizationBench(envId: string, businessId: string): Promise<{ bench: Record<string, unknown>[] }> {
+  return bosFetch("/api/pds/v2/utilization/bench", { params: { env_id: envId, business_id: businessId } });
+}
+
+export function getPdsNpsSummary(envId: string, businessId: string): Promise<{ data: Record<string, unknown>[] }> {
+  return bosFetch("/api/pds/v2/satisfaction/nps-summary", { params: { env_id: envId, business_id: businessId } });
+}
+
+export function getPdsSatisfactionDrivers(envId: string, businessId: string): Promise<{ drivers: Record<string, unknown>[] }> {
+  return bosFetch("/api/pds/v2/satisfaction/drivers", { params: { env_id: envId, business_id: businessId } });
+}
+
+export function getPdsAdoptionOverview(envId: string, businessId: string): Promise<{ tools: Record<string, unknown>[] }> {
+  return bosFetch("/api/pds/v2/adoption/overview", { params: { env_id: envId, business_id: businessId } });
+}
+
+export function getPdsAdoptionHealthScore(envId: string, businessId: string): Promise<{ accounts: Record<string, unknown>[] }> {
+  return bosFetch("/api/pds/v2/adoption/health-score", { params: { env_id: envId, business_id: businessId } });
+}
+
+export function getPdsAccountsExecutiveOverview(envId: string, businessId: string): Promise<Record<string, unknown>> {
+  return bosFetch("/api/pds/v2/accounts/executive-overview", { params: { env_id: envId, business_id: businessId } });
+}
+
+export function getPdsAccountsRegional(envId: string, businessId: string): Promise<{ regions: Record<string, unknown>[] }> {
+  return bosFetch("/api/pds/v2/accounts/regional", { params: { env_id: envId, business_id: businessId } });
+}
+
+export function getPdsAccount360(envId: string, businessId: string, accountId: string): Promise<Record<string, unknown>> {
+  return bosFetch(`/api/pds/v2/accounts/${accountId}/360`, { params: { env_id: envId, business_id: businessId } });
+}
+
+export function seedPdsAnalytics(envId: string, businessId?: string): Promise<{ status: string; counts: Record<string, number> }> {
+  return bosFetch("/api/pds/v2/seed-analytics", { method: "POST", params: { env_id: envId, business_id: businessId } });
+}

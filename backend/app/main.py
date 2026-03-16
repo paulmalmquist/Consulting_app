@@ -63,6 +63,8 @@ from app.routes import (
 from app.routes import epi as epi_routes
 from app.routes import re_query
 from app.routes import semantic_catalog, analytics
+from app.routes import pds_revenue, pds_utilization, pds_satisfaction, pds_adoption, pds_accounts_v2
+from app.routes import pds_query, pds_chat, pds_analytics
 
 app = FastAPI(title="Business OS API", version="0.1.0")
 
@@ -166,6 +168,14 @@ app.include_router(re_intelligence.router)
 app.include_router(pds.router)
 app.include_router(pds_v2.router)
 app.include_router(pds_executive.router)
+app.include_router(pds_revenue.router)
+app.include_router(pds_utilization.router)
+app.include_router(pds_satisfaction.router)
+app.include_router(pds_adoption.router)
+app.include_router(pds_accounts_v2.router)
+app.include_router(pds_query.router)
+app.include_router(pds_chat.router)
+app.include_router(pds_analytics.router)
 app.include_router(credit.router)
 app.include_router(legal_ops.router)
 app.include_router(medoffice.router)
