@@ -1,9 +1,8 @@
 """PDS Account analytics service.
 
 Queries pds_accounts + pds_revenue_entries + pds_analytics_projects +
-v_pds_account_health + v_pds_nps_summary + v_pds_utilization_monthly
-to produce executive overview, regional rollup, account 360, project detail,
-quadrant scatter, and RAG summary.
+v_pds_account_health + v_pds_nps_summary to produce executive overview,
+regional rollup, account 360, project detail, quadrant scatter, and RAG summary.
 """
 from __future__ import annotations
 
@@ -11,6 +10,15 @@ from typing import Any
 
 from app.db import get_cursor
 
+# Compute a unified health_status from nps_health + margin_health available in the view.
+_HEALTH_STATUS_EXPR = """
+    CASE
+        WHEN h.nps_health = 'red' OR h.margin_health = 'red' THEN 'red'
+        WHEN h.nps_health = 'amber' OR h.margin_health = 'amber' THEN 'amber'
+        WHEN h.nps_health = 'green' AND h.margin_health = 'green' THEN 'green'
+        ELSE 'unknown'
+    END
+"""
 
 # ---------------------------------------------------------------------------
 # GET /executive-overview  (Level 0 — C-Suite)
@@ -24,7 +32,6 @@ def get_executive_overview(
     """Total revenue YTD, YoY growth, portfolio margin, health distribution,
     top 5 by revenue, top 5 at risk."""
     with get_cursor() as cur:
-        # YTD revenue + prior-year for YoY
         cur.execute(
             """
             WITH ytd AS (
@@ -64,21 +71,21 @@ def get_executive_overview(
         )
         overview = cur.fetchone()
 
-        # Health distribution
+        # Health distribution using available nps_health + margin_health columns
         cur.execute(
-            """
+            f"""
             SELECT
-                health_status,
+                {_HEALTH_STATUS_EXPR} AS health_status,
                 COUNT(*) AS account_count
-            FROM v_pds_account_health
-            WHERE env_id = %s::uuid AND business_id = %s::uuid
-            GROUP BY health_status
+            FROM v_pds_account_health h
+            WHERE h.env_id = %s::uuid AND h.business_id = %s::uuid
+            GROUP BY {_HEALTH_STATUS_EXPR}
             """,
             (env_id, business_id),
         )
         health_dist = cur.fetchall()
 
-        # Top 5 by revenue
+        # Top 5 by YTD revenue
         cur.execute(
             """
             SELECT
@@ -100,18 +107,18 @@ def get_executive_overview(
         )
         top5_revenue = cur.fetchall()
 
-        # Top 5 at risk
+        # Top 5 at risk (red or amber NPS)
         cur.execute(
-            """
+            f"""
             SELECT
-                h.account_id, a.account_name,
-                h.health_status, h.health_score
+                h.account_id, h.account_name,
+                {_HEALTH_STATUS_EXPR} AS health_status,
+                h.latest_nps,
+                h.avg_margin
             FROM v_pds_account_health h
-            JOIN pds_accounts a ON a.account_id = h.account_id
-                AND a.env_id = h.env_id AND a.business_id = h.business_id
             WHERE h.env_id = %s::uuid AND h.business_id = %s::uuid
-              AND h.health_status IN ('red', 'yellow')
-            ORDER BY h.health_score ASC
+              AND ({_HEALTH_STATUS_EXPR}) IN ('red', 'amber')
+            ORDER BY h.latest_nps ASC NULLS LAST
             LIMIT 5
             """,
             (env_id, business_id),
@@ -165,65 +172,59 @@ def get_regional(
         )
         revenue_rows = cur.fetchall()
 
-        # Health distribution by region
         cur.execute(
-            """
+            f"""
             SELECT
                 a.region,
-                h.health_status,
+                {_HEALTH_STATUS_EXPR} AS health_status,
                 COUNT(*) AS count
             FROM v_pds_account_health h
             JOIN pds_accounts a ON a.account_id = h.account_id
                 AND a.env_id = h.env_id AND a.business_id = h.business_id
             WHERE h.env_id = %s::uuid AND h.business_id = %s::uuid
-            GROUP BY a.region, h.health_status
+            GROUP BY a.region, {_HEALTH_STATUS_EXPR}
             """,
             (env_id, business_id),
         )
         health_rows = cur.fetchall()
 
-        # Budget vs actual by region
+        # Budget vs actual by region (aggregate from revenue_entries directly)
         cur.execute(
             """
             SELECT
                 a.region,
-                v.budget_total,
-                v.actual_total,
-                CASE WHEN v.budget_total > 0
-                     THEN ROUND(v.actual_total / v.budget_total * 100, 2)
-                     ELSE NULL
-                END AS budget_vs_actual_pct
-            FROM v_pds_revenue_variance v
-            JOIN pds_accounts a ON a.account_id = v.account_id
-                AND a.env_id = v.env_id AND a.business_id = v.business_id
-            WHERE v.env_id = %s::uuid AND v.business_id = %s::uuid
+                SUM(r.recognized_revenue) FILTER (WHERE r.version = 'budget') AS budget_total,
+                SUM(r.recognized_revenue) FILTER (WHERE r.version = 'actual') AS actual_total
+            FROM pds_revenue_entries r
+            JOIN pds_analytics_projects p ON p.project_id = r.project_id
+                AND p.env_id = r.env_id AND p.business_id = r.business_id
+            JOIN pds_accounts a ON a.account_id = p.account_id
+                AND a.env_id = p.env_id AND a.business_id = p.business_id
+            WHERE r.env_id = %s::uuid AND r.business_id = %s::uuid
+              AND r.period >= date_trunc('year', CURRENT_DATE)::date
+            GROUP BY a.region
             """,
             (env_id, business_id),
         )
         bva_rows = cur.fetchall()
 
-    # Merge health distributions into region map
     health_by_region: dict[str, dict[str, int]] = {}
     for r in health_rows:
-        region = r["region"]
-        health_by_region.setdefault(region, {})[r["health_status"]] = r["count"]
+        health_by_region.setdefault(r["region"], {})[r["health_status"]] = r["count"]
 
-    bva_by_region: dict[str, float] = {}
+    bva_by_region: dict[str, float | None] = {}
     for r in bva_rows:
-        region = r["region"]
-        # Aggregate across accounts
-        bva_by_region.setdefault(region, [])
-        if r["budget_vs_actual_pct"] is not None:
-            bva_by_region[region].append(float(r["budget_vs_actual_pct"]))
+        budget = float(r["budget_total"] or 0)
+        actual = float(r["actual_total"] or 0)
+        bva_by_region[r["region"]] = round(actual / budget * 100, 2) if budget else None
 
     regions = []
     for r in revenue_rows:
         region = r["region"]
-        bva_list = bva_by_region.get(region, [])
         regions.append({
             **dict(r),
             "health_distribution": health_by_region.get(region, {}),
-            "budget_vs_actual_pct": round(sum(bva_list) / max(len(bva_list), 1), 2) if bva_list else None,
+            "budget_vs_actual_pct": bva_by_region.get(region),
         })
 
     return {"regions": regions}
@@ -239,9 +240,8 @@ def get_account_360(
     business_id: str,
     account_id: str,
 ) -> dict[str, Any]:
-    """Full account profile: P&L, project count with RAG, utilization, NPS trend, contract value."""
+    """Full account profile: P&L, project count, NPS trend, contract info."""
     with get_cursor() as cur:
-        # Account info
         cur.execute(
             """
             SELECT
@@ -256,7 +256,6 @@ def get_account_360(
         )
         acct = cur.fetchone()
 
-        # P&L
         cur.execute(
             """
             SELECT
@@ -280,7 +279,6 @@ def get_account_360(
         )
         pnl = cur.fetchone()
 
-        # Project count by status
         cur.execute(
             """
             SELECT status, COUNT(*) AS count
@@ -293,23 +291,6 @@ def get_account_360(
         )
         project_counts = cur.fetchall()
 
-        # Utilization for this account's employees
-        cur.execute(
-            """
-            SELECT
-                v.period,
-                v.utilization_pct
-            FROM v_pds_utilization_monthly v
-            WHERE v.env_id = %s::uuid AND v.business_id = %s::uuid
-              AND v.account_id = %s::uuid
-            ORDER BY v.period DESC
-            LIMIT 12
-            """,
-            (env_id, business_id, account_id),
-        )
-        util_rows = cur.fetchall()
-
-        # NPS trend
         cur.execute(
             """
             SELECT
@@ -333,7 +314,6 @@ def get_account_360(
         "account": dict(acct) if acct else None,
         "pnl": dict(pnl) if pnl else None,
         "project_counts": [dict(r) for r in project_counts],
-        "utilization_trend": [dict(r) for r in util_rows],
         "nps_trend": [dict(r) for r in nps_rows],
     }
 
@@ -348,7 +328,7 @@ def get_account_projects(
     business_id: str,
     account_id: str,
 ) -> dict[str, Any]:
-    """Projects for an account: timeline, budget vs actual, EVM metrics."""
+    """Projects for an account: timeline, budget vs actual."""
     with get_cursor() as cur:
         cur.execute(
             """
@@ -357,7 +337,7 @@ def get_account_projects(
                 p.project_name,
                 p.status,
                 p.start_date,
-                p.end_date,
+                p.planned_end_date AS end_date,
                 p.percent_complete,
                 p.fee_amount AS budget,
                 COALESCE(act.actual_revenue, 0) AS actual_revenue,
@@ -365,9 +345,7 @@ def get_account_projects(
                      THEN ROUND(COALESCE(act.actual_revenue, 0)
                                 / p.fee_amount * 100, 2)
                      ELSE NULL
-                END AS budget_vs_actual_pct,
-                p.cpi,
-                p.spi
+                END AS budget_vs_actual_pct
             FROM pds_analytics_projects p
             LEFT JOIN LATERAL (
                 SELECT SUM(r.recognized_revenue) AS actual_revenue
@@ -517,25 +495,22 @@ def get_rag_summary(
     env_id: str,
     business_id: str,
 ) -> dict[str, Any]:
-    """RAG scoring across all accounts per dimension."""
+    """RAG scoring across all accounts."""
     with get_cursor() as cur:
         cur.execute(
-            """
+            f"""
             SELECT
                 h.account_id,
-                a.account_name,
-                h.health_status,
-                h.health_score,
-                h.revenue_rag,
-                h.margin_rag,
-                h.utilization_rag,
-                h.satisfaction_rag,
-                h.adoption_rag
+                h.account_name,
+                {_HEALTH_STATUS_EXPR} AS health_status,
+                h.nps_health AS satisfaction_rag,
+                h.margin_health AS margin_rag,
+                h.latest_nps,
+                h.avg_margin,
+                h.ytd_revenue
             FROM v_pds_account_health h
-            JOIN pds_accounts a ON a.account_id = h.account_id
-                AND a.env_id = h.env_id AND a.business_id = h.business_id
             WHERE h.env_id = %s::uuid AND h.business_id = %s::uuid
-            ORDER BY h.health_score ASC
+            ORDER BY h.latest_nps ASC NULLS LAST
             """,
             (env_id, business_id),
         )

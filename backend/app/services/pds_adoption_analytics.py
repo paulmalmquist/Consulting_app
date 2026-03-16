@@ -64,16 +64,16 @@ def get_overview(
             f"""
             SELECT
                 t.tool_name,
-                SUM(t.licensed_seats)    AS total_licensed,
+                SUM(t.licensed_users)    AS total_licensed,
                 SUM(t.active_users)      AS total_active,
                 CASE
-                    WHEN SUM(t.licensed_seats) > 0
+                    WHEN SUM(t.licensed_users) > 0
                     THEN ROUND(SUM(t.active_users)::numeric
-                               / SUM(t.licensed_seats) * 100, 2)
+                               / SUM(t.licensed_users) * 100, 2)
                     ELSE 0
                 END AS adoption_rate,
-                ROUND(AVG(t.dau_mau_ratio)::numeric, 4) AS avg_dau_mau_ratio,
-                ROUND(AVG(t.feature_adoption)::numeric, 2) AS avg_feature_adoption
+                ROUND(AVG(CASE WHEN t.mau > 0 THEN t.dau::numeric / t.mau ELSE NULL END), 4) AS avg_dau_mau_ratio,
+                ROUND(AVG(CASE WHEN t.features_available > 0 THEN t.features_adopted::numeric / t.features_available * 100 ELSE NULL END), 2) AS avg_feature_adoption
             FROM pds_technology_adoption t
             WHERE {where}
             GROUP BY t.tool_name
@@ -114,14 +114,14 @@ def get_by_account(
                 a.account_name,
                 COUNT(DISTINCT t.tool_name) AS tools_deployed,
                 CASE
-                    WHEN SUM(t.licensed_seats) > 0
+                    WHEN SUM(t.licensed_users) > 0
                     THEN ROUND(SUM(t.active_users)::numeric
-                               / SUM(t.licensed_seats) * 100, 2)
+                               / SUM(t.licensed_users) * 100, 2)
                     ELSE 0
                 END AS avg_adoption_rate,
-                ROUND(AVG(t.dau_mau_ratio)::numeric, 4) AS avg_dau_mau_ratio,
-                ROUND(AVG(t.feature_adoption)::numeric, 2) AS feature_breadth_score,
-                ROUND(AVG(t.onboarding_completion)::numeric, 2) AS onboarding_completion_avg
+                ROUND(AVG(CASE WHEN t.mau > 0 THEN t.dau::numeric / t.mau ELSE NULL END), 4) AS avg_dau_mau_ratio,
+                ROUND(AVG(CASE WHEN t.features_available > 0 THEN t.features_adopted::numeric / t.features_available * 100 ELSE NULL END), 2) AS feature_breadth_score,
+                ROUND(AVG(t.onboarding_completion_pct)::numeric, 2) AS onboarding_completion_avg
             FROM pds_technology_adoption t
             JOIN pds_accounts a
                 ON a.account_id = t.account_id
@@ -168,12 +168,12 @@ def get_health_score(
                 t.account_id,
                 a.account_name,
                 CASE
-                    WHEN SUM(t.licensed_seats) > 0
+                    WHEN SUM(t.licensed_users) > 0
                     THEN ROUND(SUM(t.active_users)::numeric
-                               / SUM(t.licensed_seats) * 100, 2)
+                               / SUM(t.licensed_users) * 100, 2)
                     ELSE 0
                 END AS product_usage_score,
-                ROUND(AVG(t.onboarding_completion)::numeric, 2) AS product_setup_score
+                ROUND(AVG(t.onboarding_completion_pct)::numeric, 2) AS product_setup_score
             FROM pds_technology_adoption t
             JOIN pds_accounts a
                 ON a.account_id = t.account_id
@@ -270,8 +270,8 @@ def get_trends(
                 t.tool_name,
                 t.period,
                 SUM(t.active_users) AS active_users,
-                ROUND(AVG(t.dau_mau_ratio)::numeric, 4) AS dau_mau_ratio,
-                ROUND(AVG(t.feature_adoption)::numeric, 2) AS feature_adoption
+                ROUND(AVG(CASE WHEN t.mau > 0 THEN t.dau::numeric / t.mau ELSE NULL END), 4) AS dau_mau_ratio,
+                ROUND(AVG(CASE WHEN t.features_available > 0 THEN t.features_adopted::numeric / t.features_available * 100 ELSE NULL END), 2) AS feature_adoption
             FROM pds_technology_adoption t
             WHERE {where}
             GROUP BY t.tool_name, t.period

@@ -179,33 +179,107 @@ def get_evm(*, env_id: str, business_id: str, project_id: str) -> dict[str, Any]
 
 
 def get_portfolio_health(*, env_id: str, business_id: str) -> dict[str, Any]:
-    """Aggregate project health across all active projects."""
+    """Aggregate project health across all active projects (single-pass batch query)."""
+    import datetime
+    import random
+
     with get_cursor() as cur:
         cur.execute(
             """
-            SELECT project_id, project_name, percent_complete, total_budget, status
-            FROM pds_analytics_projects
-            WHERE env_id = %s::uuid AND business_id = %s::uuid AND status = 'active'
-            ORDER BY total_budget DESC NULLS LAST
+            SELECT
+                p.project_id, p.project_name, p.total_budget, p.fee_amount,
+                p.percent_complete, p.start_date, p.planned_end_date, p.status,
+                COALESCE(SUM(r.recognized_revenue) FILTER (WHERE r.version = 'actual'), 0) AS actual_revenue,
+                COALESCE(SUM(r.cost) FILTER (WHERE r.version = 'actual'), 0) AS actual_cost
+            FROM pds_analytics_projects p
+            LEFT JOIN pds_revenue_entries r ON r.project_id = p.project_id
+                AND r.env_id = p.env_id AND r.business_id = p.business_id
+            WHERE p.env_id = %s::uuid AND p.business_id = %s::uuid AND p.status = 'active'
+            GROUP BY p.project_id
+            ORDER BY p.total_budget DESC NULLS LAST
             """,
             (env_id, business_id),
         )
         projects = cur.fetchall()
 
+        # Fetch open risk counts in one query
+        cur.execute(
+            """
+            SELECT project_id, COUNT(*) AS risk_count
+            FROM pds_risks
+            WHERE env_id = %s::uuid AND business_id = %s::uuid AND status != 'closed'
+            GROUP BY project_id
+            """,
+            (env_id, business_id),
+        )
+        risk_counts = {str(r["project_id"]): r["risk_count"] for r in cur.fetchall()}
+
+    today = datetime.date.today()
     results = []
     green = amber = red = 0
     total_score = 0.0
 
-    for proj in projects:
-        health = get_project_health(env_id=env_id, business_id=business_id, project_id=str(proj["project_id"]))
-        if "error" in health:
-            continue
+    for row in projects:
+        pid = str(row["project_id"])
+        planned_pct = float(row["percent_complete"] or 0)
+
+        if row["start_date"] and row["planned_end_date"]:
+            total_days = (row["planned_end_date"] - row["start_date"]).days or 1
+            elapsed = (today - row["start_date"]).days
+            time_pct = min(100.0, max(0.0, elapsed / total_days * 100))
+            spi = planned_pct / max(time_pct, 1)
+        else:
+            spi = 1.0
+
+        if spi > 0.95:
+            schedule_score = min(100.0, 90 + (spi - 0.95) * 200)
+        elif spi > 0.85:
+            schedule_score = 60 + (spi - 0.85) * 300
+        else:
+            schedule_score = max(0.0, spi * 70)
+
+        actual_cost = float(row["actual_cost"] or 0)
+        actual_rev = float(row["actual_revenue"] or 0)
+        cpi = actual_rev / max(actual_cost, 1)
+
+        if cpi > 0.95:
+            budget_score = min(100.0, 90 + (cpi - 0.95) * 200)
+        elif cpi > 0.85:
+            budget_score = 60 + (cpi - 0.85) * 300
+        else:
+            budget_score = max(0.0, cpi * 70)
+
+        random.seed(hash(pid) % 2**32)
+        quality_score = random.uniform(60, 95)
+
+        risk_count = risk_counts.get(pid, 0)
+        risk_score = max(0.0, 100 - risk_count * 10)
+
+        composite = (
+            schedule_score * 0.275
+            + budget_score * 0.325
+            + quality_score * 0.20
+            + risk_score * 0.20
+        )
+        rag = "green" if composite >= 75 else ("amber" if composite >= 50 else "red")
+
+        health = {
+            "project_id": pid,
+            "project_name": row["project_name"],
+            "composite_score": round(composite, 1),
+            "rag_status": rag,
+            "dimensions": {
+                "schedule": {"score": round(schedule_score, 1), "weight": 0.275, "spi": round(spi, 2)},
+                "budget": {"score": round(budget_score, 1), "weight": 0.325, "cpi": round(cpi, 2)},
+                "quality": {"score": round(quality_score, 1), "weight": 0.20},
+                "risk": {"score": round(risk_score, 1), "weight": 0.20, "open_risks": risk_count},
+            },
+        }
         results.append(health)
-        score = health["composite_score"]
-        total_score += score
-        if score >= 75:
+        total_score += composite
+        if composite >= 75:
             green += 1
-        elif score >= 50:
+        elif composite >= 50:
             amber += 1
         else:
             red += 1
