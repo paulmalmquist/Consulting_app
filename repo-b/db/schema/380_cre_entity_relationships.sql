@@ -17,9 +17,12 @@ CREATE TABLE IF NOT EXISTS cre_entity_relationship (
   weight            int NOT NULL DEFAULT 1,
   start_date        date,
   end_date          date,
-  created_at        timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (entity_a_id, entity_b_id, relationship_type, COALESCE(start_date, '1900-01-01'))
+  created_at        timestamptz NOT NULL DEFAULT now()
 );
+
+-- Unique constraint using index (COALESCE not allowed inline)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cer_unique
+  ON cre_entity_relationship (entity_a_id, entity_b_id, relationship_type, COALESCE(start_date, '1900-01-01'));
 
 -- Bidirectional traversal indexes
 CREATE INDEX IF NOT EXISTS idx_cer_a ON cre_entity_relationship (entity_a_id, relationship_type);
