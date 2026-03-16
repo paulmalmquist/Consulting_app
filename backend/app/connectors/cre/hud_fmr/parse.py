@@ -3,16 +3,15 @@ from __future__ import annotations
 from app.connectors.cre.base import ConnectorContext, as_period
 
 
-def parse(raw: dict, _context: ConnectorContext) -> list[dict]:
-    period = as_period(raw["period"])
+def parse(raw: dict, context: ConnectorContext) -> list[dict]:
+    cbsa = context.filters.get("metro", "33100")
     return [
         {
             **row,
-            "period": period,
-            "source": "hud_fmr",
-            "vintage": "2025_fmr",
-            "provenance": {"dataset": "HUD FMR", "metro": "33100"},
+            "period": as_period(row["period"]) if isinstance(row.get("period"), str) else row.get("period", as_period(raw["period"])),
+            "source": row.get("source", "hud_fmr"),
+            "vintage": row.get("vintage", raw.get("period", "")),
+            "provenance": {"dataset": "HUD FMR", "cbsa": cbsa},
         }
         for row in raw.get("rows", [])
     ]
-

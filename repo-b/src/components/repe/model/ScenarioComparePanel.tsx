@@ -2,36 +2,67 @@
 
 import { useState, useCallback } from "react";
 import { GitCompare, Loader2 } from "lucide-react";
-import { compareScenarios } from "@/lib/bos-api";
+import { compareScenariosV2 } from "@/lib/bos-api";
 import type { ModelScenario } from "@/lib/bos-api";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 
 interface ScenarioComparePanelProps {
   modelId: string;
   scenarios: ModelScenario[];
 }
 
-interface ComparisonResult {
+interface MetricDelta {
+  base: number;
+  compare: number;
+  delta: number;
+}
+
+interface AssetAttribution {
+  asset_id: string;
+  base_noi: number;
+  compare_noi: number;
+  noi_delta: number;
+  base_equity_cf: number;
+  compare_equity_cf: number;
+  equity_cf_delta: number;
+}
+
+interface ComparisonV2 {
+  base_scenario: string;
+  compare_scenario: string;
+  metric_deltas: Record<string, MetricDelta>;
+  asset_attribution: AssetAttribution[];
+}
+
+interface ComparisonV2Result {
   scenarios: Array<{
     scenario_id: string;
     scenario_name: string;
     run_id: string;
-    summary: Record<string, unknown>;
+    metrics: Array<Record<string, unknown>>;
+    asset_summary: Array<Record<string, unknown>>;
   }>;
-  comparison: Array<{
-    base_scenario: string;
-    compare_scenario: string;
-    variance: Record<
-      string,
-      { base: number; compare: number; delta: number; delta_pct: number }
-    >;
-  }> | null;
+  comparison: ComparisonV2[] | null;
 }
 
-const METRIC_LABELS: Record<string, string> = {
-  total_noi_cash: "Total NOI (Cash)",
-  total_noi_gaap: "Total NOI (GAAP)",
-  total_revenue: "Total Revenue",
-  total_expense: "Total Expense",
+const METRIC_LABELS: Record<string, { label: string; format: "pct" | "multiple" | "currency" }> = {
+  gross_irr: { label: "Gross IRR", format: "pct" },
+  net_irr: { label: "Net IRR", format: "pct" },
+  gross_moic: { label: "Gross MOIC", format: "multiple" },
+  net_moic: { label: "Net MOIC", format: "multiple" },
+  dpi: { label: "DPI", format: "multiple" },
+  rvpi: { label: "RVPI", format: "multiple" },
+  tvpi: { label: "TVPI", format: "multiple" },
+  ending_nav: { label: "NAV", format: "currency" },
 };
 
 function formatCurrency(val: number): string {
@@ -40,8 +71,24 @@ function formatCurrency(val: number): string {
   return `$${val.toFixed(2)}`;
 }
 
-function formatDelta(val: number): string {
+function formatPct(val: number): string {
+  return `${(val * 100).toFixed(2)}%`;
+}
+
+function formatMultiple(val: number): string {
+  return `${val.toFixed(2)}x`;
+}
+
+function formatMetric(val: number, format: "pct" | "multiple" | "currency"): string {
+  if (format === "pct") return formatPct(val);
+  if (format === "multiple") return formatMultiple(val);
+  return formatCurrency(val);
+}
+
+function formatDelta(val: number, format: "pct" | "multiple" | "currency"): string {
   const sign = val >= 0 ? "+" : "";
+  if (format === "pct") return `${sign}${(val * 100).toFixed(2)}%`;
+  if (format === "multiple") return `${sign}${val.toFixed(4)}x`;
   return `${sign}${formatCurrency(val)}`;
 }
 
@@ -50,7 +97,7 @@ export function ScenarioComparePanel({
   scenarios,
 }: ScenarioComparePanelProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [result, setResult] = useState<ComparisonResult | null>(null);
+  const [result, setResult] = useState<ComparisonV2Result | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,13 +118,11 @@ export function ScenarioComparePanel({
     setLoading(true);
     setError(null);
     try {
-      const res = await compareScenarios(modelId, Array.from(selected));
-      setResult(res as unknown as ComparisonResult);
+      const res = await compareScenariosV2(modelId, Array.from(selected));
+      setResult(res as unknown as ComparisonV2Result);
 
-      if (!res || ((res as unknown as ComparisonResult).scenarios?.length || 0) < 2) {
-        setError(
-          "Not enough completed runs to compare. Run both scenarios first.",
-        );
+      if (!res || ((res as unknown as ComparisonV2Result).scenarios?.length || 0) < 2) {
+        setError("Not enough completed runs to compare. Run both scenarios first.");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Comparison failed");
@@ -109,8 +154,7 @@ export function ScenarioComparePanel({
       {/* Scenario Selection */}
       <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
         <p className="mb-3 text-xs text-bm-muted2">
-          Select two or more scenarios to compare. The first scenario (Base) is
-          used as the reference.
+          Select two or more scenarios to compare. The first scenario is used as the base reference.
         </p>
         <div className="space-y-1">
           {scenarios.map((s) => (
@@ -145,67 +189,138 @@ export function ScenarioComparePanel({
       {result?.comparison && result.comparison.length > 0 && (
         <div className="space-y-4">
           {result.comparison.map((comp, idx) => (
-            <div
-              key={idx}
-              className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4"
-            >
-              <h4 className="mb-3 text-sm font-medium text-bm-text">
-                {comp.base_scenario}{" "}
-                <span className="text-bm-muted2">vs</span>{" "}
-                {comp.compare_scenario}
-              </h4>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-bm-border/30 text-left text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
-                    <th className="px-3 py-2 font-medium">Metric</th>
-                    <th className="px-3 py-2 text-right font-medium">Base</th>
-                    <th className="px-3 py-2 text-right font-medium">Compare</th>
-                    <th className="px-3 py-2 text-right font-medium">Delta</th>
-                    <th className="px-3 py-2 text-right font-medium">%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(comp.variance).map(([key, v]) => (
-                    <tr
-                      key={key}
-                      className="border-b border-bm-border/20"
-                    >
-                      <td className="px-3 py-2.5 text-bm-text">
-                        {METRIC_LABELS[key] || key}
-                      </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-bm-muted2">
-                        {formatCurrency(v.base)}
-                      </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-bm-muted2">
-                        {formatCurrency(v.compare)}
-                      </td>
-                      <td
-                        className={`px-3 py-2.5 text-right tabular-nums font-medium ${
-                          v.delta > 0
-                            ? "text-emerald-400"
-                            : v.delta < 0
-                              ? "text-red-400"
-                              : "text-bm-muted2"
-                        }`}
-                      >
-                        {formatDelta(v.delta)}
-                      </td>
-                      <td
-                        className={`px-3 py-2.5 text-right tabular-nums ${
-                          v.delta_pct > 0
-                            ? "text-emerald-400"
-                            : v.delta_pct < 0
-                              ? "text-red-400"
-                              : "text-bm-muted2"
-                        }`}
-                      >
-                        {v.delta_pct >= 0 ? "+" : ""}
-                        {v.delta_pct.toFixed(1)}%
-                      </td>
+            <div key={idx} className="space-y-4">
+              {/* Return Metrics Delta Table */}
+              <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+                <h4 className="mb-3 text-sm font-medium text-bm-text">
+                  {comp.base_scenario}{" "}
+                  <span className="text-bm-muted2">vs</span>{" "}
+                  {comp.compare_scenario}
+                </h4>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-bm-border/30 text-left text-[10px] uppercase tracking-[0.12em] text-bm-muted2">
+                      <th className="px-3 py-2 font-medium">Metric</th>
+                      <th className="px-3 py-2 text-right font-medium">Base</th>
+                      <th className="px-3 py-2 text-right font-medium">Compare</th>
+                      <th className="px-3 py-2 text-right font-medium">Delta</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {Object.entries(comp.metric_deltas).map(([key, v]) => {
+                      const meta = METRIC_LABELS[key];
+                      if (!meta) return null;
+                      return (
+                        <tr key={key} className="border-b border-bm-border/20">
+                          <td className="px-3 py-2.5 text-bm-text">{meta.label}</td>
+                          <td className="px-3 py-2.5 text-right tabular-nums text-bm-muted2">
+                            {formatMetric(v.base, meta.format)}
+                          </td>
+                          <td className="px-3 py-2.5 text-right tabular-nums text-bm-muted2">
+                            {formatMetric(v.compare, meta.format)}
+                          </td>
+                          <td
+                            className={`px-3 py-2.5 text-right tabular-nums font-medium ${
+                              v.delta > 0
+                                ? "text-emerald-400"
+                                : v.delta < 0
+                                  ? "text-red-400"
+                                  : "text-bm-muted2"
+                            }`}
+                          >
+                            {formatDelta(v.delta, meta.format)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* By-Asset Attribution */}
+              {comp.asset_attribution && comp.asset_attribution.length > 0 && (
+                <>
+                  <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+                    <h4 className="mb-3 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
+                      By-Asset Attribution
+                    </h4>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-bm-border/30 text-left text-[10px] uppercase tracking-[0.12em] text-bm-muted2">
+                            <th className="px-3 py-2 font-medium">Asset</th>
+                            <th className="px-3 py-2 text-right font-medium">Base NOI</th>
+                            <th className="px-3 py-2 text-right font-medium">Compare NOI</th>
+                            <th className="px-3 py-2 text-right font-medium">NOI Delta</th>
+                            <th className="px-3 py-2 text-right font-medium">Base Equity CF</th>
+                            <th className="px-3 py-2 text-right font-medium">Compare Equity CF</th>
+                            <th className="px-3 py-2 text-right font-medium">Equity Delta</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {comp.asset_attribution.map((aa) => (
+                            <tr key={aa.asset_id} className="border-b border-bm-border/20">
+                              <td className="px-3 py-2 text-bm-text font-mono text-xs">
+                                {aa.asset_id.slice(0, 8)}
+                              </td>
+                              <td className="px-3 py-2 text-right tabular-nums text-bm-muted2">
+                                {formatCurrency(aa.base_noi)}
+                              </td>
+                              <td className="px-3 py-2 text-right tabular-nums text-bm-muted2">
+                                {formatCurrency(aa.compare_noi)}
+                              </td>
+                              <td className={`px-3 py-2 text-right tabular-nums font-medium ${
+                                aa.noi_delta > 0 ? "text-emerald-400" : aa.noi_delta < 0 ? "text-red-400" : "text-bm-muted2"
+                              }`}>
+                                {aa.noi_delta >= 0 ? "+" : ""}{formatCurrency(aa.noi_delta)}
+                              </td>
+                              <td className="px-3 py-2 text-right tabular-nums text-bm-muted2">
+                                {formatCurrency(aa.base_equity_cf)}
+                              </td>
+                              <td className="px-3 py-2 text-right tabular-nums text-bm-muted2">
+                                {formatCurrency(aa.compare_equity_cf)}
+                              </td>
+                              <td className={`px-3 py-2 text-right tabular-nums font-medium ${
+                                aa.equity_cf_delta > 0 ? "text-emerald-400" : aa.equity_cf_delta < 0 ? "text-red-400" : "text-bm-muted2"
+                              }`}>
+                                {aa.equity_cf_delta >= 0 ? "+" : ""}{formatCurrency(aa.equity_cf_delta)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Attribution Bar Chart */}
+                  <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+                    <h4 className="mb-2 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
+                      NOI Delta by Asset
+                    </h4>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart
+                        data={comp.asset_attribution.map((aa) => ({
+                          asset: aa.asset_id.slice(0, 8),
+                          noi_delta: Math.round(aa.noi_delta),
+                          equity_delta: Math.round(aa.equity_cf_delta),
+                        }))}
+                        margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                        <XAxis dataKey="asset" tick={{ fontSize: 9, fill: "#888" }} />
+                        <YAxis tick={{ fontSize: 10, fill: "#888" }} tickFormatter={(v) => formatCurrency(v)} width={55} />
+                        <Tooltip
+                          contentStyle={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 11 }}
+                          formatter={(value: number) => formatCurrency(value)}
+                        />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                        <Bar dataKey="noi_delta" fill="#10b981" name="NOI Delta" radius={[2, 2, 0, 0]} />
+                        <Bar dataKey="equity_delta" fill="#8b5cf6" name="Equity CF Delta" radius={[2, 2, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </>
+              )}
             </div>
           ))}
         </div>

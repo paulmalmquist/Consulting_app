@@ -9,6 +9,8 @@ import {
   deleteScenarioOverride,
 } from "@/lib/bos-api";
 import type { ScenarioAsset, ScenarioOverride } from "@/lib/bos-api";
+import { useAssetPreview } from "./useAssetPreview";
+import { AssetPreviewPanel } from "./AssetPreviewPanel";
 
 /* ── Override key catalog ── */
 
@@ -134,6 +136,14 @@ export function AssetModelingDrawer({
     return map;
   }, [asset, overrides]);
 
+  // Live preview hook
+  const { preview, loading: previewLoading, error: previewError } = useAssetPreview(
+    open ? scenarioId : null,
+    asset?.asset_id ?? null,
+    drafts,
+    assetOverrides.size,
+  );
+
   const getValue = (key: string): string => {
     if (drafts[key] !== undefined) return drafts[key];
     const ov = assetOverrides.get(key);
@@ -220,7 +230,7 @@ export function AssetModelingDrawer({
       onClose={onClose}
       title={asset.asset_name || asset.asset_id.slice(0, 8)}
       subtitle={[asset.asset_type, asset.fund_name].filter(Boolean).join(" · ")}
-      width="max-w-3xl"
+      width="max-w-6xl"
       footer={
         !readOnly ? (
           <>
@@ -242,87 +252,105 @@ export function AssetModelingDrawer({
         ) : undefined
       }
     >
-      {/* Tab bar */}
-      <div className="mb-4 flex gap-1 overflow-x-auto rounded-lg border border-bm-border/50 bg-bm-surface/10 p-0.5">
-        {TABS.map((tab) => {
-          const tabOverrides = [...assetOverrides.entries()].filter(
-            ([k]) => tab.fields.some((f) => f.key === k),
-          ).length;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`relative whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                activeTab === tab.key
-                  ? "bg-bm-surface/50 text-bm-text"
-                  : "text-bm-muted2 hover:bg-bm-surface/30 hover:text-bm-text"
-              }`}
-            >
-              {tab.label}
-              {tabOverrides > 0 && (
-                <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-500/20 text-[9px] text-amber-300">
-                  {tabOverrides}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {/* Two-column layout: Assumptions (left) + Live Preview (right) */}
+      <div className="flex gap-5">
+        {/* Left: Assumptions Form */}
+        <div className="flex-1 min-w-0">
+          {/* Tab bar */}
+          <div className="mb-4 flex gap-1 overflow-x-auto rounded-lg border border-bm-border/50 bg-bm-surface/10 p-0.5">
+            {TABS.map((tab) => {
+              const tabOverrides = [...assetOverrides.entries()].filter(
+                ([k]) => tab.fields.some((f) => f.key === k),
+              ).length;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`relative whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    activeTab === tab.key
+                      ? "bg-bm-surface/50 text-bm-text"
+                      : "text-bm-muted2 hover:bg-bm-surface/30 hover:text-bm-text"
+                  }`}
+                >
+                  {tab.label}
+                  {tabOverrides > 0 && (
+                    <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-500/20 text-[9px] text-amber-300">
+                      {tabOverrides}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
 
-      {error && (
-        <div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 p-2 text-xs text-red-200">
-          {error}
+          {error && (
+            <div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 p-2 text-xs text-red-200">
+              {error}
+            </div>
+          )}
+
+          {/* Fields grid */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {activeFields.map((field) => {
+              const hasOverride = assetOverrides.has(field.key);
+              const currentValue = getValue(field.key);
+              const isDraft = drafts[field.key] !== undefined;
+
+              return (
+                <label key={field.key} className="space-y-1">
+                  <span className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
+                    {field.label}
+                    <span className="text-[10px] font-normal normal-case tracking-normal text-bm-muted">
+                      ({field.unit})
+                    </span>
+                    {hasOverride && !isDraft && (
+                      <span className="rounded-full bg-amber-500/20 px-1 text-[9px] text-amber-300">
+                        set
+                      </span>
+                    )}
+                    {isDraft && (
+                      <span className="rounded-full bg-bm-accent/20 px-1 text-[9px] text-bm-accent">
+                        edited
+                      </span>
+                    )}
+                  </span>
+                  <input
+                    type={field.unit === "date" ? "date" : "number"}
+                    step={field.step}
+                    className={`w-full rounded-md border px-3 py-1.5 text-sm tabular-nums outline-none transition-colors disabled:opacity-40 ${
+                      hasOverride || isDraft
+                        ? "border-amber-500/40 bg-amber-500/5 focus:border-amber-500/60"
+                        : "border-bm-border/70 bg-bm-surface/18 focus:border-bm-border-strong/70"
+                    }`}
+                    placeholder={field.placeholder || "—"}
+                    value={currentValue}
+                    onChange={(e) => setDraft(field.key, e.target.value)}
+                    disabled={readOnly}
+                  />
+                </label>
+              );
+            })}
+          </div>
+
+          {activeFields.length === 0 && (
+            <p className="py-8 text-center text-sm text-bm-muted2">
+              No fields available for this tab.
+            </p>
+          )}
         </div>
-      )}
 
-      {/* Fields grid */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {activeFields.map((field) => {
-          const hasOverride = assetOverrides.has(field.key);
-          const currentValue = getValue(field.key);
-          const isDraft = drafts[field.key] !== undefined;
-
-          return (
-            <label key={field.key} className="space-y-1">
-              <span className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
-                {field.label}
-                <span className="text-[10px] font-normal normal-case tracking-normal text-bm-muted">
-                  ({field.unit})
-                </span>
-                {hasOverride && !isDraft && (
-                  <span className="rounded-full bg-amber-500/20 px-1 text-[9px] text-amber-300">
-                    set
-                  </span>
-                )}
-                {isDraft && (
-                  <span className="rounded-full bg-bm-accent/20 px-1 text-[9px] text-bm-accent">
-                    edited
-                  </span>
-                )}
-              </span>
-              <input
-                type={field.unit === "date" ? "date" : "number"}
-                step={field.step}
-                className={`w-full rounded-md border px-3 py-1.5 text-sm tabular-nums outline-none transition-colors disabled:opacity-40 ${
-                  hasOverride || isDraft
-                    ? "border-amber-500/40 bg-amber-500/5 focus:border-amber-500/60"
-                    : "border-bm-border/70 bg-bm-surface/18 focus:border-bm-border-strong/70"
-                }`}
-                placeholder={field.placeholder || "—"}
-                value={currentValue}
-                onChange={(e) => setDraft(field.key, e.target.value)}
-                disabled={readOnly}
-              />
-            </label>
-          );
-        })}
+        {/* Right: Live Preview Panel */}
+        <div className="w-80 flex-shrink-0 border-l border-bm-border/30 pl-5">
+          <h3 className="mb-3 text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
+            Live Projections
+          </h3>
+          <AssetPreviewPanel
+            preview={preview}
+            loading={previewLoading}
+            error={previewError}
+          />
+        </div>
       </div>
-
-      {activeFields.length === 0 && (
-        <p className="py-8 text-center text-sm text-bm-muted2">
-          No fields available for this tab.
-        </p>
-      )}
     </SlideOver>
   );
 }

@@ -96,7 +96,15 @@ def create_ingest_run(
                     str(run["run_id"]),
                 ),
             )
-            return cur.fetchone()
+            run_out = cur.fetchone()
+        # Run data quality checks post-ingest
+        try:
+            from app.services.cre_data_quality import run_quality_checks
+            run_quality_checks(str(run["run_id"]), source_key)
+        except Exception as qc_exc:
+            import logging
+            logging.getLogger(__name__).warning("Quality checks failed for %s: %s", source_key, qc_exc)
+        return run_out
     except Exception as exc:
         with get_cursor() as cur:
             cur.execute(
@@ -129,6 +137,23 @@ def list_ingest_runs(*, source_key: str | None = None, status: str | None = None
     with get_cursor() as cur:
         cur.execute(
             f"SELECT * FROM cre_ingest_run {where} ORDER BY started_at DESC LIMIT %s",
+            params,
+        )
+        return cur.fetchall()
+
+
+def list_quality_checks(*, source_key: str | None = None, limit: int = 50) -> list[dict]:
+    """List recent quality check results, optionally filtered by source."""
+    conditions: list[str] = []
+    params: list = []
+    if source_key:
+        conditions.append("source_key = %s")
+        params.append(source_key)
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    params.append(limit)
+    with get_cursor() as cur:
+        cur.execute(
+            f"SELECT * FROM cre_quality_check {where} ORDER BY created_at DESC LIMIT %s",
             params,
         )
         return cur.fetchall()

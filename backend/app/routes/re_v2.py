@@ -66,6 +66,13 @@ from app.schemas.re_institutional import (
     ReModelRunDetailOut,
     ReScenarioCompareRequest,
     ReScenarioCompareOut,
+    ReScenarioRunV2Out,
+    ReAssetCashflowOut,
+    ReFundCashflowOut,
+    ReReturnMetricsOut,
+    ReWaterfallResultOut,
+    ReAssetPreviewOut,
+    ReScenarioCompareV2Out,
 )
 from app.services import (
     re_investment,
@@ -1401,5 +1408,105 @@ def compare_model_scenarios(model_id: UUID, body: ReScenarioCompareRequest):
     try:
         from app.services import re_scenario_engine
         return re_scenario_engine.compare_scenarios(scenario_ids=body.scenario_ids)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ─── V2 Scenario Engine Endpoints ─────────────────────────────────────────────
+
+
+@router.post("/model-scenarios/{scenario_id}/run-v2", response_model=ReScenarioRunV2Out)
+def run_scenario_v2(scenario_id: UUID):
+    """Execute the v2 deterministic 8-step scenario pipeline."""
+    try:
+        from app.services import re_scenario_engine_v2
+        result = re_scenario_engine_v2.run_scenario(scenario_id=scenario_id)
+        _log("re.scenario.run_v2", f"Scenario {scenario_id} v2 run completed")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/model-runs/{run_id}/asset-cashflows", response_model=list[ReAssetCashflowOut])
+def get_run_asset_cashflows(run_id: UUID):
+    """Get per-asset period-level cashflows for a completed run."""
+    try:
+        from app.db import get_cursor
+        with get_cursor() as cur:
+            cur.execute(
+                """SELECT * FROM scenario_asset_cashflows
+                   WHERE run_id = %s ORDER BY asset_id, period_date""",
+                (str(run_id),),
+            )
+            return cur.fetchall()
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/model-runs/{run_id}/fund-cashflows", response_model=list[ReFundCashflowOut])
+def get_run_fund_cashflows(run_id: UUID):
+    """Get fund-level period cashflows for a completed run."""
+    try:
+        from app.db import get_cursor
+        with get_cursor() as cur:
+            cur.execute(
+                """SELECT * FROM scenario_fund_cashflows
+                   WHERE run_id = %s ORDER BY fund_id, period_date""",
+                (str(run_id),),
+            )
+            return cur.fetchall()
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/model-runs/{run_id}/return-metrics", response_model=list[ReReturnMetricsOut])
+def get_run_return_metrics(run_id: UUID):
+    """Get return metrics (IRR, MOIC, DPI, RVPI, TVPI) for a completed run."""
+    try:
+        from app.db import get_cursor
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT * FROM scenario_return_metrics WHERE run_id = %s",
+                (str(run_id),),
+            )
+            return cur.fetchall()
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/model-runs/{run_id}/waterfall-results", response_model=list[ReWaterfallResultOut])
+def get_run_waterfall_results(run_id: UUID):
+    """Get waterfall distribution breakdown for a completed run."""
+    try:
+        from app.db import get_cursor
+        with get_cursor() as cur:
+            cur.execute(
+                """SELECT * FROM scenario_waterfall_results
+                   WHERE run_id = %s ORDER BY fund_id, period_date""",
+                (str(run_id),),
+            )
+            return cur.fetchall()
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/model-scenarios/{scenario_id}/preview-asset/{asset_id}", response_model=ReAssetPreviewOut)
+def preview_scenario_asset(scenario_id: UUID, asset_id: UUID):
+    """Lightweight single-asset preview for live drawer recalculation."""
+    try:
+        from app.services import re_scenario_engine_v2
+        return re_scenario_engine_v2.preview_asset(
+            scenario_id=scenario_id, asset_id=asset_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/models/{model_id}/compare-v2", response_model=ReScenarioCompareV2Out)
+def compare_scenarios_v2(model_id: UUID, body: ReScenarioCompareRequest):
+    """Compare scenarios using structured output tables (v2)."""
+    try:
+        from app.services import re_scenario_engine_v2
+        return re_scenario_engine_v2.compare_scenarios(scenario_ids=body.scenario_ids)
     except Exception as exc:
         raise _to_http(exc)

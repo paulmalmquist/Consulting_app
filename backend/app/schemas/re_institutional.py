@@ -895,3 +895,82 @@ class ReScenarioCompareRequest(BaseModel):
 class ReScenarioCompareOut(BaseModel):
     scenarios: list[dict]
     comparison: list[dict] | None = None
+
+
+# ─── V2 Scenario Engine Schemas ────────────────────────────────────────────
+
+
+class ReScenarioRunV2Out(BaseModel):
+    run_id: str
+    scenario_id: str
+    model_id: str
+    status: str
+    assets_processed: int = 0
+    summary: dict | None = None
+
+
+class ReAssetCashflowOut(BaseModel):
+    id: UUID
+    run_id: UUID
+    asset_id: UUID
+    period_date: date
+    revenue: float = 0
+    expenses: float = 0
+    noi: float = 0
+    capex: float = 0
+    debt_service: float = 0
+    net_cash_flow: float = 0
+    sale_proceeds: float = 0
+    equity_cash_flow: float = 0
+
+
+class ReFundCashflowOut(BaseModel):
+    id: UUID
+    run_id: UUID
+    fund_id: UUID
+    period_date: date
+    capital_calls: float = 0
+    distributions: float = 0
+    net_cash_flow: float = 0
+    ending_nav: float = 0
+
+
+class ReReturnMetricsOut(BaseModel):
+    id: UUID
+    run_id: UUID
+    scope_type: str
+    scope_id: UUID
+    gross_irr: float | None = None
+    net_irr: float | None = None
+    gross_moic: float | None = None
+    net_moic: float | None = None
+    dpi: float | None = None
+    rvpi: float | None = None
+    tvpi: float | None = None
+    ending_nav: float | None = None
+
+
+class ReWaterfallResultOut(BaseModel):
+    id: UUID
+    run_id: UUID
+    fund_id: UUID
+    period_date: date
+    lp_distribution: float = 0
+    gp_distribution: float = 0
+    carry: float = 0
+    return_of_capital: float = 0
+    pref_paid: float = 0
+
+
+class ReAssetPreviewOut(BaseModel):
+    asset_id: str
+    asset_name: str
+    cashflows: list[dict]
+    exit: dict | None = None
+    metrics: dict | None = None
+    summary: dict | None = None
+
+
+class ReScenarioCompareV2Out(BaseModel):
+    scenarios: list[dict]
+    comparison: list[dict] | None = None

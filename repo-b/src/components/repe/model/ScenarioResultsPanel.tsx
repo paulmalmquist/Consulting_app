@@ -2,8 +2,23 @@
 
 import { useState, useCallback } from "react";
 import { Play, Loader2, ChevronDown, ChevronRight } from "lucide-react";
-import { runScenario, getModelRun } from "@/lib/bos-api";
-import type { ModelRunDetail } from "@/lib/bos-api";
+import {
+  runScenarioV2,
+  getRunAssetCashflows,
+  getRunReturnMetrics,
+} from "@/lib/bos-api";
+import type { AssetCashflow, ReturnMetricsRow } from "@/lib/bos-api";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 interface ScenarioResultsPanelProps {
   scenarioId: string;
@@ -16,12 +31,35 @@ function formatCurrency(val: number): string {
   return `$${val.toFixed(2)}`;
 }
 
+function formatPct(val: number | null | undefined): string {
+  if (val == null) return "—";
+  return `${(val * 100).toFixed(2)}%`;
+}
+
+function formatMultiple(val: number | null | undefined): string {
+  if (val == null) return "—";
+  return `${val.toFixed(2)}x`;
+}
+
+function formatQuarter(dateStr: string): string {
+  const d = new Date(dateStr);
+  const q = Math.ceil((d.getMonth() + 1) / 3);
+  return `Q${q} ${d.getFullYear().toString().slice(2)}`;
+}
+
+interface RunResult {
+  run_id: string;
+  summary: Record<string, unknown>;
+  cashflows: AssetCashflow[];
+  metrics: ReturnMetricsRow[];
+}
+
 export function ScenarioResultsPanel({
   scenarioId,
   assetCount,
 }: ScenarioResultsPanelProps) {
   const [running, setRunning] = useState(false);
-  const [run, setRun] = useState<ModelRunDetail | null>(null);
+  const [result, setResult] = useState<RunResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedAsset, setExpandedAsset] = useState<string | null>(null);
 
@@ -33,10 +71,17 @@ export function ScenarioResultsPanel({
     setRunning(true);
     setError(null);
     try {
-      const result = await runScenario(scenarioId);
-      // Fetch the full run detail
-      const detail = await getModelRun(result.run_id);
-      setRun(detail);
+      const runResult = await runScenarioV2(scenarioId);
+      const [cashflows, metrics] = await Promise.all([
+        getRunAssetCashflows(runResult.run_id),
+        getRunReturnMetrics(runResult.run_id),
+      ]);
+      setResult({
+        run_id: runResult.run_id,
+        summary: runResult.summary || {},
+        cashflows,
+        metrics,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Scenario run failed");
     } finally {
@@ -44,8 +89,22 @@ export function ScenarioResultsPanel({
     }
   }, [scenarioId, assetCount]);
 
-  const summary = run?.summary_json as Record<string, unknown> | undefined;
-  const outputs = run?.outputs_json as { assets?: Array<Record<string, unknown>> } | undefined;
+  // Group cashflows by asset
+  const assetGroups = result
+    ? groupBy(result.cashflows, (cf) => cf.asset_id)
+    : {};
+
+  // Get fund and asset metrics
+  const fundMetrics = result?.metrics.filter((m) => m.scope_type === "fund") ?? [];
+  const assetMetrics = result?.metrics.filter((m) => m.scope_type === "asset") ?? [];
+
+  // Aggregate chart data
+  const periodTotals = result
+    ? aggregatePeriods(result.cashflows)
+    : [];
+
+  const summary = result?.summary;
+  const assetMetricsList = (summary?.asset_metrics ?? []) as Array<Record<string, unknown>>;
 
   return (
     <div className="space-y-4">
@@ -73,10 +132,10 @@ export function ScenarioResultsPanel({
         </div>
       )}
 
-      {!run && !running && !error && (
+      {!result && !running && !error && (
         <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-8 text-center">
           <p className="text-sm text-bm-muted2">
-            Click &ldquo;Run Scenario&rdquo; to calculate cash flows and generate results.
+            Click &ldquo;Run Scenario&rdquo; to execute the deterministic modeling pipeline.
           </p>
           {assetCount === 0 && (
             <p className="mt-1 text-xs text-amber-400">
@@ -86,114 +145,172 @@ export function ScenarioResultsPanel({
         </div>
       )}
 
-      {run && run.status === "success" && summary && (
+      {result && (
         <>
-          {/* KPI Strip */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+          {/* Return Metrics KPI Strip */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
             {[
-              { label: "Total NOI (Cash)", value: formatCurrency(Number(summary.total_noi_cash || 0)) },
-              { label: "Total NOI (GAAP)", value: formatCurrency(Number(summary.total_noi_gaap || 0)) },
-              { label: "Total Revenue", value: formatCurrency(Number(summary.total_revenue || 0)) },
-              { label: "Total Expense", value: formatCurrency(Number(summary.total_expense || 0)) },
-              { label: "Assets", value: String(summary.asset_count || 0) },
-              { label: "Periods", value: String(summary.period_count || 0) },
+              { label: "Total NOI", value: formatCurrency(Number(summary?.total_noi ?? 0)) },
+              { label: "Total Revenue", value: formatCurrency(Number(summary?.total_revenue ?? 0)) },
+              { label: "Equity CF", value: formatCurrency(Number(summary?.total_equity_cf ?? 0)) },
+              { label: "Assets", value: String(summary?.asset_count ?? 0) },
+              ...(fundMetrics.length > 0
+                ? [
+                    { label: "Gross IRR", value: formatPct(fundMetrics[0].gross_irr), highlight: true },
+                    { label: "MOIC", value: formatMultiple(fundMetrics[0].gross_moic), highlight: true },
+                    { label: "TVPI", value: formatMultiple(fundMetrics[0].tvpi), highlight: true },
+                  ]
+                : []),
             ].map((kpi) => (
               <div
                 key={kpi.label}
-                className="rounded-lg border border-bm-border/50 bg-bm-surface/10 p-3"
+                className={`rounded-lg border p-3 ${
+                  "highlight" in kpi && kpi.highlight
+                    ? "border-bm-accent/30 bg-bm-accent/5"
+                    : "border-bm-border/50 bg-bm-surface/10"
+                }`}
               >
                 <p className="text-[10px] uppercase tracking-[0.12em] text-bm-muted2">
                   {kpi.label}
                 </p>
-                <p className="mt-1 text-lg font-semibold tabular-nums text-bm-text">
+                <p className={`mt-1 text-lg font-semibold tabular-nums ${
+                  "highlight" in kpi && kpi.highlight ? "text-bm-accent" : "text-bm-text"
+                }`}>
                   {kpi.value}
                 </p>
               </div>
             ))}
           </div>
 
-          {/* By-Fund Breakdown */}
-          {summary.by_fund && typeof summary.by_fund === "object" && (
+          {/* Fund-Level Metrics Detail */}
+          {fundMetrics.length > 0 && (
             <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
               <h4 className="mb-2 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
-                By Fund
+                Fund Return Metrics
               </h4>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-bm-border/30 text-left text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
-                    <th className="px-3 py-2 font-medium">Fund</th>
-                    <th className="px-3 py-2 font-medium text-right">NOI (Cash)</th>
-                    <th className="px-3 py-2 font-medium text-right">NOI (GAAP)</th>
-                    <th className="px-3 py-2 font-medium text-right">Assets</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(summary.by_fund as Record<string, Record<string, unknown>>).map(
-                    ([fundId, fund]) => (
-                      <tr
-                        key={fundId}
-                        className="border-b border-bm-border/20"
-                      >
-                        <td className="px-3 py-2.5 text-bm-text">
-                          {String(fund.fund_name || fundId)}
-                        </td>
-                        <td className="px-3 py-2.5 text-right tabular-nums text-bm-muted2">
-                          {formatCurrency(Number(fund.noi_cash || 0))}
-                        </td>
-                        <td className="px-3 py-2.5 text-right tabular-nums text-bm-muted2">
-                          {formatCurrency(Number(fund.noi_gaap || 0))}
-                        </td>
-                        <td className="px-3 py-2.5 text-right tabular-nums text-bm-muted2">
-                          {String(fund.asset_count || 0)}
-                        </td>
-                      </tr>
-                    ),
-                  )}
-                </tbody>
-              </table>
+              <div className="grid grid-cols-3 gap-x-6 gap-y-2 text-sm sm:grid-cols-6">
+                {fundMetrics.map((fm) => (
+                  <div key={fm.scope_id} className="contents">
+                    <MetricCell label="Gross IRR" value={formatPct(fm.gross_irr)} />
+                    <MetricCell label="Net IRR" value={formatPct(fm.net_irr)} />
+                    <MetricCell label="Gross MOIC" value={formatMultiple(fm.gross_moic)} />
+                    <MetricCell label="DPI" value={formatMultiple(fm.dpi)} />
+                    <MetricCell label="RVPI" value={formatMultiple(fm.rvpi)} />
+                    <MetricCell label="TVPI" value={formatMultiple(fm.tvpi)} />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
-          {/* Per-Asset Details */}
-          {outputs?.assets && outputs.assets.length > 0 && (
+          {/* NOI + Equity CF Charts */}
+          {periodTotals.length > 0 && (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+                <h4 className="mb-2 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
+                  NOI Projection
+                </h4>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={periodTotals} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                    <XAxis dataKey="period" tick={{ fontSize: 10, fill: "#888" }} interval="preserveStartEnd" />
+                    <YAxis tick={{ fontSize: 10, fill: "#888" }} tickFormatter={(v) => formatCurrency(v)} width={55} />
+                    <Tooltip
+                      contentStyle={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 11 }}
+                      formatter={(value: number) => formatCurrency(value)}
+                    />
+                    <Line type="monotone" dataKey="noi" stroke="#10b981" strokeWidth={2} dot={false} name="NOI" />
+                    <Line type="monotone" dataKey="revenue" stroke="#60a5fa" strokeWidth={1} dot={false} name="Revenue" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+                <h4 className="mb-2 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
+                  Equity Cashflow
+                </h4>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={periodTotals} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                    <XAxis dataKey="period" tick={{ fontSize: 10, fill: "#888" }} interval="preserveStartEnd" />
+                    <YAxis tick={{ fontSize: 10, fill: "#888" }} tickFormatter={(v) => formatCurrency(v)} width={55} />
+                    <Tooltip
+                      contentStyle={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 11 }}
+                      formatter={(value: number) => formatCurrency(value)}
+                    />
+                    <Bar dataKey="equity_cf" fill="#8b5cf6" name="Equity CF" radius={[2, 2, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {/* Per-Asset Summary Table */}
+          {assetMetricsList.length > 0 && (
             <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
               <h4 className="mb-2 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
-                Per-Asset Cash Flows
+                Asset-Level Results
+              </h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-bm-border/30 text-left text-[10px] uppercase tracking-[0.12em] text-bm-muted2">
+                      <th className="px-3 py-2 font-medium">Asset</th>
+                      <th className="px-3 py-2 text-right font-medium">Total NOI</th>
+                      <th className="px-3 py-2 text-right font-medium">Gross IRR</th>
+                      <th className="px-3 py-2 text-right font-medium">MOIC</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {assetMetricsList.map((am) => {
+                      const amRow = assetMetrics.find((m) => m.scope_id === String(am.asset_id));
+                      return (
+                        <tr key={String(am.asset_id)} className="border-b border-bm-border/20">
+                          <td className="px-3 py-2.5 text-bm-text">{String(am.asset_name || "")}</td>
+                          <td className="px-3 py-2.5 text-right tabular-nums text-bm-muted2">
+                            {formatCurrency(Number(am.total_noi || 0))}
+                          </td>
+                          <td className="px-3 py-2.5 text-right tabular-nums text-bm-accent">
+                            {formatPct(amRow?.gross_irr)}
+                          </td>
+                          <td className="px-3 py-2.5 text-right tabular-nums text-bm-muted2">
+                            {formatMultiple(amRow?.gross_moic)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Expandable Per-Asset Cash Flows */}
+          {Object.keys(assetGroups).length > 0 && (
+            <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+              <h4 className="mb-2 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
+                Detailed Cash Flows
               </h4>
               <div className="space-y-1">
-                {outputs.assets.map((asset) => {
-                  const assetId = String(asset.asset_id);
+                {Object.entries(assetGroups).map(([assetId, cfs]) => {
                   const isExpanded = expandedAsset === assetId;
-                  const periods = (asset.periods || []) as Array<Record<string, unknown>>;
-
+                  const am = assetMetricsList.find((a) => String(a.asset_id) === assetId);
                   return (
-                    <div
-                      key={assetId}
-                      className="rounded-lg border border-bm-border/30"
-                    >
+                    <div key={assetId} className="rounded-lg border border-bm-border/30">
                       <button
-                        onClick={() =>
-                          setExpandedAsset(isExpanded ? null : assetId)
-                        }
+                        onClick={() => setExpandedAsset(isExpanded ? null : assetId)}
                         className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors hover:bg-bm-surface/20"
                       >
-                        {isExpanded ? (
-                          <ChevronDown size={13} />
-                        ) : (
-                          <ChevronRight size={13} />
-                        )}
+                        {isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                         <span className="flex-1 font-medium text-bm-text">
-                          {String(asset.asset_name || assetId.slice(0, 8))}
-                        </span>
-                        <span className="text-xs text-bm-muted2">
-                          {String(asset.fund_name || "")}
+                          {String(am?.asset_name || assetId.slice(0, 8))}
                         </span>
                         <span className="text-xs tabular-nums text-bm-muted2">
-                          {periods.length} periods
+                          {cfs.length} periods
                         </span>
                       </button>
 
-                      {isExpanded && periods.length > 0 && (
+                      {isExpanded && (
                         <div className="border-t border-bm-border/20 overflow-x-auto">
                           <table className="w-full text-xs">
                             <thead>
@@ -201,34 +318,35 @@ export function ScenarioResultsPanel({
                                 <th className="px-3 py-1.5 text-left font-medium">Period</th>
                                 <th className="px-3 py-1.5 text-right font-medium">Revenue</th>
                                 <th className="px-3 py-1.5 text-right font-medium">Expense</th>
-                                <th className="px-3 py-1.5 text-right font-medium">NOI Cash</th>
-                                <th className="px-3 py-1.5 text-right font-medium">NOI GAAP</th>
+                                <th className="px-3 py-1.5 text-right font-medium">NOI</th>
                                 <th className="px-3 py-1.5 text-right font-medium">Capex</th>
+                                <th className="px-3 py-1.5 text-right font-medium">Debt Svc</th>
+                                <th className="px-3 py-1.5 text-right font-medium">Equity CF</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {periods.map((p, i) => (
-                                <tr
-                                  key={i}
-                                  className="border-b border-bm-border/10"
-                                >
+                              {cfs.map((cf, i) => (
+                                <tr key={i} className="border-b border-bm-border/10">
                                   <td className="px-3 py-1.5 text-bm-text font-mono">
-                                    {String(p.period_date || "")}
+                                    {formatQuarter(cf.period_date)}
                                   </td>
                                   <td className="px-3 py-1.5 text-right tabular-nums text-bm-muted2">
-                                    {formatCurrency(Number(p.revenue || 0))}
+                                    {formatCurrency(cf.revenue)}
                                   </td>
                                   <td className="px-3 py-1.5 text-right tabular-nums text-bm-muted2">
-                                    {formatCurrency(Number(p.expense || 0))}
+                                    {formatCurrency(cf.expenses)}
                                   </td>
                                   <td className="px-3 py-1.5 text-right tabular-nums text-bm-text font-medium">
-                                    {formatCurrency(Number(p.noi_cash || 0))}
+                                    {formatCurrency(cf.noi)}
                                   </td>
                                   <td className="px-3 py-1.5 text-right tabular-nums text-bm-muted2">
-                                    {formatCurrency(Number(p.noi_gaap || 0))}
+                                    {formatCurrency(cf.capex)}
                                   </td>
                                   <td className="px-3 py-1.5 text-right tabular-nums text-bm-muted2">
-                                    {formatCurrency(Number(p.capex || 0))}
+                                    {formatCurrency(cf.debt_service)}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-right tabular-nums text-bm-accent">
+                                    {formatCurrency(cf.equity_cash_flow)}
                                   </td>
                                 </tr>
                               ))}
@@ -244,12 +362,47 @@ export function ScenarioResultsPanel({
           )}
         </>
       )}
-
-      {run && run.status === "failed" && (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">
-          Scenario run failed. Check that all assets have base schedule data and try again.
-        </div>
-      )}
     </div>
   );
+}
+
+function MetricCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[10px] text-bm-muted2">{label}</p>
+      <p className="font-mono tabular-nums text-bm-text">{value}</p>
+    </div>
+  );
+}
+
+function groupBy<T>(arr: T[], keyFn: (item: T) => string): Record<string, T[]> {
+  const result: Record<string, T[]> = {};
+  for (const item of arr) {
+    const key = keyFn(item);
+    if (!result[key]) result[key] = [];
+    result[key].push(item);
+  }
+  return result;
+}
+
+function aggregatePeriods(cashflows: AssetCashflow[]): Array<{
+  period: string;
+  revenue: number;
+  noi: number;
+  equity_cf: number;
+}> {
+  const byPeriod: Record<string, { revenue: number; noi: number; equity_cf: number }> = {};
+  for (const cf of cashflows) {
+    const p = formatQuarter(cf.period_date);
+    if (!byPeriod[p]) byPeriod[p] = { revenue: 0, noi: 0, equity_cf: 0 };
+    byPeriod[p].revenue += cf.revenue;
+    byPeriod[p].noi += cf.noi;
+    byPeriod[p].equity_cf += cf.equity_cash_flow;
+  }
+  return Object.entries(byPeriod).map(([period, data]) => ({
+    period,
+    revenue: Math.round(data.revenue),
+    noi: Math.round(data.noi),
+    equity_cf: Math.round(data.equity_cf),
+  }));
 }

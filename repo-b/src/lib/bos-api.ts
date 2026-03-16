@@ -3781,7 +3781,7 @@ export function deleteModelScenario(scenarioId: string): Promise<void> {
 
 // Scenario Asset Scope
 export function listScenarioAssets(scenarioId: string): Promise<ScenarioAsset[]> {
-  return directFetch(`/api/re/v2/model-scenarios/${scenarioId}/assets`);
+  return bosFetch(`/api/re/v2/model-scenarios/${scenarioId}/assets`);
 }
 
 export function addScenarioAsset(scenarioId: string, body: {
@@ -3801,12 +3801,12 @@ export function removeScenarioAsset(scenarioId: string, assetId: string): Promis
 }
 
 export function listAvailableAssets(scenarioId: string, envId?: string): Promise<AvailableAsset[]> {
-  return directFetch(`/api/re/v2/model-scenarios/${scenarioId}/available-assets`, { params: { env_id: envId } });
+  return bosFetch(`/api/re/v2/model-scenarios/${scenarioId}/available-assets`, { params: { env_id: envId } });
 }
 
 // Scenario Overrides
 export function listScenarioOverrides(scenarioId: string): Promise<ScenarioOverride[]> {
-  return directFetch(`/api/re/v2/model-scenarios/${scenarioId}/overrides`);
+  return bosFetch(`/api/re/v2/model-scenarios/${scenarioId}/overrides`);
 }
 
 export function setScenarioOverride(scenarioId: string, body: {
@@ -3841,6 +3841,100 @@ export function getModelRun(runId: string): Promise<ModelRunDetail> {
 
 export function compareScenarios(modelId: string, scenarioIds: string[]): Promise<ScenarioCompareResult> {
   return bosFetch(`/api/re/v2/models/${modelId}/compare`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ scenario_ids: scenarioIds }),
+  });
+}
+
+// V2 Scenario Engine
+export interface AssetCashflow {
+  id: string;
+  run_id: string;
+  asset_id: string;
+  period_date: string;
+  revenue: number;
+  expenses: number;
+  noi: number;
+  capex: number;
+  debt_service: number;
+  net_cash_flow: number;
+  sale_proceeds: number;
+  equity_cash_flow: number;
+}
+
+export interface ReturnMetricsRow {
+  id: string;
+  run_id: string;
+  scope_type: string;
+  scope_id: string;
+  gross_irr: number | null;
+  net_irr: number | null;
+  gross_moic: number | null;
+  net_moic: number | null;
+  dpi: number | null;
+  rvpi: number | null;
+  tvpi: number | null;
+  ending_nav: number | null;
+}
+
+export interface AssetPreview {
+  asset_id: string;
+  asset_name: string;
+  cashflows: Array<{
+    period_date: string;
+    revenue: number;
+    expenses: number;
+    noi: number;
+    capex: number;
+    debt_service: number;
+    net_cash_flow: number;
+    sale_proceeds: number;
+    equity_cash_flow: number;
+  }>;
+  exit: {
+    sale_date: string | null;
+    gross_sale_price: number;
+    net_sale_proceeds: number;
+    equity_proceeds: number;
+  } | null;
+  metrics: {
+    gross_irr: number | null;
+    net_irr: number | null;
+    gross_moic: number | null;
+    net_moic: number | null;
+    dpi: number | null;
+    rvpi: number | null;
+    tvpi: number | null;
+    ending_nav: number | null;
+  } | null;
+  summary: {
+    total_noi: number;
+    total_equity_cf: number;
+    periods: number;
+  } | null;
+}
+
+export function runScenarioV2(scenarioId: string): Promise<ScenarioRunResult> {
+  return bosFetch(`/api/re/v2/model-scenarios/${scenarioId}/run-v2`, { method: "POST" });
+}
+
+export function getRunAssetCashflows(runId: string): Promise<AssetCashflow[]> {
+  return bosFetch(`/api/re/v2/model-runs/${runId}/asset-cashflows`);
+}
+
+export function getRunReturnMetrics(runId: string): Promise<ReturnMetricsRow[]> {
+  return bosFetch(`/api/re/v2/model-runs/${runId}/return-metrics`);
+}
+
+export function previewAsset(scenarioId: string, assetId: string): Promise<AssetPreview> {
+  return bosFetch(`/api/re/v2/model-scenarios/${scenarioId}/preview-asset/${assetId}`, {
+    method: "POST",
+  });
+}
+
+export function compareScenariosV2(modelId: string, scenarioIds: string[]): Promise<ScenarioCompareResult> {
+  return bosFetch(`/api/re/v2/models/${modelId}/compare-v2`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ scenario_ids: scenarioIds }),

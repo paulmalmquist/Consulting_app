@@ -254,3 +254,34 @@ def create_document_extraction(body: CreDocumentExtractionRequest):
     except Exception as exc:
         raise _to_http(exc)
 
+
+# ---------------------------------------------------------------------------
+# Connector run + quality check endpoints (Phase 1)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/connectors/{source_key}/run", response_model=CreIngestRunOut, status_code=201)
+def run_connector(source_key: str, body: CreIngestRunCreateRequest):
+    """Trigger a connector ingest run for the given source."""
+    try:
+        return re_intelligence.create_ingest_run(
+            source_key=source_key,
+            scope=body.scope,
+            filters=body.filters,
+            force_refresh=body.force_refresh,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/quality-checks")
+def list_quality_checks(
+    source_key: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+):
+    """List recent quality check results."""
+    try:
+        return re_intelligence.list_quality_checks(source_key=source_key, limit=limit)
+    except Exception as exc:
+        raise _to_http(exc)
+

@@ -1575,3 +1575,44 @@ Tools are registered in `backend/app/mcp/tools/repe_investor_tools.py` and loade
 **Staging table pattern** — `stg_lease_extract` and `stg_rent_roll_extract` store raw extraction output in `jsonb` with common flat fields denormalized for easy querying. No FKs to canonical tables (staging is pre-review). `re_lease_reconciliation_queue` holds human-reviewable discrepancy records. Promote to canonical only after analyst approval.
 
 **Seed deterministic UUIDs for lease entities** — Use a distinct 8-char prefix segment per entity type: `b0010000-*` for tenants, `b0020000-*` for spaces, `b0030000-*` for leases, `c0010000-*` for documents, `d0010000-*` for events, `e0010000-*` for snapshots. This avoids collision with asset UUIDs (prefix `a1b2c3d4-9001-*`) while remaining readable in DB inspection.
+
+## Scenario Modeling Engine v2
+
+### Architecture
+
+The scenario system has three layers: **canonical data** (repe_asset, re_loan, schedules — never mutated), **scenario overrides** (re_scenario_overrides with flexible key-value JSON), and **scenario results** (structured output tables: scenario_asset_cashflows, scenario_fund_cashflows, scenario_return_metrics, scenario_waterfall_results).
+
+### directFetch vs bosFetch
+
+Scenario CRUD reads (`listScenarioAssets`, `listAvailableAssets`, `listScenarioOverrides`) must use `bosFetch`, not `directFetch`. The `/api/re/v2/model-scenarios/*` routes only exist on the FastAPI backend. `directFetch` hits Next.js at `window.location.origin` and silently 404s — the reads return empty arrays while writes (which use `bosFetch`) succeed. This was the root cause of the "empty selected assets" bug.
+
+### Override Key System
+
+The AssetModelingDrawer defines 73 override keys across 6 categories (Operating, Expenses, Capital, Debt, Exit, Overrides). These are stored as key-value pairs in `re_scenario_overrides(scenario_id, scope_type, scope_id, key, value_json)`. The v2 engine maps all 73 keys into a typed `AssetAssumptions` dataclass. When adding new override fields: (1) add to the `OverrideField[]` array in `AssetModelingDrawer.tsx`, (2) add to `AssetAssumptions` in `re_scenario_types.py`, (3) wire in `_resolve_assumptions()` in `re_scenario_engine_v2.py`.
+
+### Execution Pipeline (8 steps)
+
+1. Resolve assumptions (base + overrides merged)
+2. Project operations (revenue, expenses, NOI with compound growth)
+3. Model debt (IO vs amortizing, refi handling)
+4. Model exit (terminal NOI / cap rate, disposition costs)
+5. Compute levered cashflows (NOI - capex - debt service + exit)
+6. Translate to fund share (ownership % applied)
+7. Waterfall (placeholder — future integration with finance_repe)
+8. Return metrics (IRR via numpy polynomial roots, MOIC, DPI, RVPI, TVPI)
+
+### IRR Computation
+
+numpy's `np.irr` was removed in numpy 1.20+. The v2 engine uses `np.roots()` on the cashflow polynomial, filters for real positive roots, and converts `1/root - 1` to quarterly rates, then annualizes. Always check for sign changes in the cashflow series before attempting IRR.
+
+### Live Preview
+
+The `POST /model-scenarios/{id}/preview-asset/{assetId}` endpoint runs steps 1-5 only (no persist, no waterfall, no fund rollup). The `useAssetPreview` hook debounces at 800ms. The preview fires on draft changes and on saved override count changes, so the right panel stays current whether the user is editing or after they save.
+
+### Seed Data Convention
+
+Scenario seed UUIDs: `a0000001-*` for funds, `b0000001-*` for deals, `c0000001-*` for assets, `d0000001-*` for models, `e0000001-*` for scenarios. All seed inserts use `ON CONFLICT DO NOTHING` for idempotency.
+
+### Comparison
+
+The v2 comparison reads from structured output tables (not JSONB blobs), computes deltas on IRR/MOIC/DPI/RVPI/TVPI/NAV, and includes by-asset attribution showing NOI and equity CF deltas per asset. The first selected scenario is always the base reference.
