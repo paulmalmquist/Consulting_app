@@ -356,3 +356,67 @@ def run_community_detection(
     except Exception as exc:
         raise _to_http(exc)
 
+
+# ---------------------------------------------------------------------------
+# Observability, portfolio KPIs, model training endpoints (Phases 4-5)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/observability/health")
+def get_observability_health(
+    env_id: UUID | None = Query(None),
+    business_id: UUID | None = Query(None),
+):
+    """Aggregate connector health, freshness, and quality summaries."""
+    try:
+        return re_intelligence.get_observability_health(env_id=env_id, business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/portfolio/kpis")
+def get_portfolio_kpis(
+    env_id: UUID = Query(...),
+    business_id: UUID = Query(...),
+):
+    """Compute aggregate portfolio KPIs."""
+    from app.services import cre_portfolio_kpis
+    try:
+        return cre_portfolio_kpis.compute_portfolio_kpis(env_id=env_id, business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/models/train")
+def train_models(
+    env_id: str = Query(...),
+    business_id: str = Query(...),
+    feature_version: str = Query("miami_mvp_v1"),
+    target_metric: str = Query("rent_growth_next_12m"),
+):
+    """Train ML models on feature_store data."""
+    from app.services import cre_model_training
+    try:
+        return cre_model_training.train_models(
+            env_id=env_id, business_id=business_id,
+            feature_version=feature_version, target_metric=target_metric,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/models/backtest")
+def run_backtest(
+    env_id: str = Query(...),
+    business_id: str = Query(...),
+    model_family: str = Query("ensemble"),
+):
+    """Run rolling backtest evaluation."""
+    from app.services import cre_model_training
+    try:
+        return cre_model_training.run_backtest(
+            env_id=env_id, business_id=business_id, model_family=model_family,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+

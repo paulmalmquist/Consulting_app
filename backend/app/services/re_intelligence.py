@@ -159,6 +159,55 @@ def list_quality_checks(*, source_key: str | None = None, limit: int = 50) -> li
         return cur.fetchall()
 
 
+def get_observability_health(*, env_id=None, business_id=None) -> dict:
+    """Aggregate connector health from cre_ingest_run and quality checks."""
+    with get_cursor() as cur:
+        # Per-connector last run
+        cur.execute(
+            """
+            SELECT source_key,
+                   MAX(started_at) AS last_run,
+                   MAX(started_at) FILTER (WHERE status = 'success') AS last_success,
+                   COUNT(*) FILTER (WHERE status = 'failed' AND started_at > now() - interval '7 days') AS errors_7d,
+                   COUNT(*) FILTER (WHERE started_at > now() - interval '7 days') AS runs_7d
+            FROM cre_ingest_run
+            GROUP BY source_key
+            ORDER BY source_key
+            """
+        )
+        connectors = cur.fetchall()
+
+        # Quality check pass rates
+        cur.execute(
+            """
+            SELECT source_key,
+                   COUNT(*) AS total_checks,
+                   COUNT(*) FILTER (WHERE passed) AS passed_checks
+            FROM cre_quality_check
+            WHERE created_at > now() - interval '7 days'
+            GROUP BY source_key
+            """
+        )
+        quality = {row["source_key"]: row for row in cur.fetchall()}
+
+    health = []
+    for c in connectors:
+        sk = c["source_key"]
+        q = quality.get(sk, {})
+        total = q.get("total_checks", 0)
+        passed = q.get("passed_checks", 0)
+        health.append({
+            "source_key": sk,
+            "last_run": c["last_run"].isoformat() if c["last_run"] else None,
+            "last_success": c["last_success"].isoformat() if c["last_success"] else None,
+            "errors_7d": c["errors_7d"],
+            "runs_7d": c["runs_7d"],
+            "quality_pass_rate": round(passed / total, 4) if total > 0 else None,
+        })
+
+    return {"connectors": health, "total_sources": len(health)}
+
+
 def list_geographies(
     *,
     bbox: tuple[float, float, float, float] | None,

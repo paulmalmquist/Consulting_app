@@ -7,7 +7,10 @@ from app.connectors.cre.hud_usps_crosswalk import CONNECTOR as HUD_USPS_CONNECTO
 from app.connectors.cre.kalshi_markets import CONNECTOR as KALSHI_CONNECTOR
 from app.connectors.cre.noaa_storm_events import CONNECTOR as NOAA_CONNECTOR
 from app.connectors.cre.county_assessor import CONNECTOR as COUNTY_ASSESSOR_CONNECTOR
+from app.connectors.cre.building_permits import CONNECTOR as BUILDING_PERMITS_CONNECTOR
+from app.connectors.cre.fred_rates import CONNECTOR as FRED_RATES_CONNECTOR
 from app.connectors.cre.rentcast import CONNECTOR as RENTCAST_CONNECTOR
+from app.connectors.cre.sec_edgar import CONNECTOR as SEC_EDGAR_CONNECTOR
 from app.connectors.cre.tiger_geography import CONNECTOR as TIGER_CONNECTOR
 
 _CONNECTORS = {
@@ -20,6 +23,9 @@ _CONNECTORS = {
     KALSHI_CONNECTOR.source_key: KALSHI_CONNECTOR,
     COUNTY_ASSESSOR_CONNECTOR.source_key: COUNTY_ASSESSOR_CONNECTOR,
     RENTCAST_CONNECTOR.source_key: RENTCAST_CONNECTOR,
+    FRED_RATES_CONNECTOR.source_key: FRED_RATES_CONNECTOR,
+    BUILDING_PERMITS_CONNECTOR.source_key: BUILDING_PERMITS_CONNECTOR,
+    SEC_EDGAR_CONNECTOR.source_key: SEC_EDGAR_CONNECTOR,
 }
 
 

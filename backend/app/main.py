@@ -67,6 +67,7 @@ from app.routes import semantic_catalog, analytics
 from app.routes import pds_revenue, pds_utilization, pds_satisfaction, pds_adoption, pds_accounts_v2
 from app.routes import pds_query, pds_chat, pds_analytics
 from app.routes import cre_work_packages
+from app.routes import cre_submission
 
 app = FastAPI(title="Business OS API", version="0.1.0")
 
@@ -168,6 +169,7 @@ app.include_router(re_pipeline.router)
 app.include_router(re_geography.router)
 app.include_router(re_intelligence.router)
 app.include_router(cre_work_packages.router)
+app.include_router(cre_submission.router)
 app.include_router(pds.router)
 app.include_router(pds_v2.router)
 app.include_router(pds_executive.router)
