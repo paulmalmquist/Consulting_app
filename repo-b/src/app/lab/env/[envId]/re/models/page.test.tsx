@@ -1,11 +1,12 @@
 import React from "react";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ReModelsPage from "@/app/lab/env/[envId]/re/models/page";
 
 const mockListReV1Funds = vi.fn();
 const mockListAllModels = vi.fn();
 const mockCreateCrossFundModel = vi.fn();
+const mockLocationAssign = vi.fn();
 
 vi.mock("@/components/repe/workspace/ReEnvProvider", () => ({
   useReEnv: () => ({
@@ -28,6 +29,12 @@ describe("RE models page create flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    // Mock window.location.assign since jsdom doesn't support navigation
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, assign: mockLocationAssign },
+      writable: true,
+    });
+
     mockListReV1Funds.mockResolvedValue([
       {
         fund_id: "fund-1",
@@ -43,21 +50,7 @@ describe("RE models page create flow", () => {
       },
     ]);
 
-    mockListAllModels
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([
-        {
-          model_id: "model-1",
-          primary_fund_id: "fund-1",
-          env_id: "env-1",
-          name: "New Model",
-          description: "Underwritten base case",
-          status: "draft",
-          model_type: "forecast",
-          strategy_type: "credit",
-          created_at: "2026-03-15T13:00:00Z",
-        },
-      ]);
+    mockListAllModels.mockResolvedValue([]);
 
     mockCreateCrossFundModel.mockResolvedValue({
       model_id: "model-1",
@@ -72,7 +65,7 @@ describe("RE models page create flow", () => {
     });
   });
 
-  test("creates a model, refreshes the list, and renders the created row", async () => {
+  test("creates a model and navigates to the detail page", async () => {
     const user = userEvent.setup();
 
     render(<ReModelsPage />);
@@ -97,15 +90,10 @@ describe("RE models page create flow", () => {
       });
     });
 
+    // Page navigates to the new model detail after creation
     await waitFor(() => {
-      expect(mockListAllModels).toHaveBeenCalledTimes(2);
+      expect(mockLocationAssign).toHaveBeenCalledWith("/lab/env/env-1/re/models/model-1");
     });
-
-    expect(await screen.findByText('Created "New Model" and refreshed the models list.')).toBeInTheDocument();
-    const row = screen.getByTestId("model-row-model-1");
-    expect(within(row).getByText("Paul Test Fund")).toBeInTheDocument();
-    expect(within(row).getByText("forecast")).toBeInTheDocument();
-    expect(within(row).getByText("credit")).toBeInTheDocument();
   });
 
   test("shows an inline validation error when the model name is blank", async () => {

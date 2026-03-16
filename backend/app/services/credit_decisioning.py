@@ -17,7 +17,7 @@ import time
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from app.db import get_cursor
 
