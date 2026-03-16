@@ -18,9 +18,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
@@ -55,7 +54,7 @@ def run_scenario(*, scenario_id: UUID) -> dict:
     override_map = _build_override_map(overrides)
 
     # Create run record
-    inputs_hash = _compute_hash({
+    _compute_hash({
         "scope": [str(a["asset_id"]) for a in scope_assets],
         "overrides": {k: {kk: str(vv) for kk, vv in v.items()} for k, v in override_map.items()},
     })
@@ -383,7 +382,7 @@ def _resolve_assumptions(
                WHERE a.asset_id = %s""",
             (asset_id,),
         )
-        deal = cur.fetchone()
+        cur.fetchone()  # deal row used for ownership context
         # Default 100% ownership if no specific percentage available
 
     # Apply overrides
