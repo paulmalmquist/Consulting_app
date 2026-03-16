@@ -115,7 +115,7 @@ def delete_scenario(*, scenario_id: UUID) -> None:
 
 _ASSET_COLS = """sa.id, sa.scenario_id, sa.asset_id, sa.source_fund_id,
     sa.source_investment_id, sa.added_at,
-    a.asset_name, a.asset_type,
+    a.name AS asset_name, a.asset_type,
     f.name AS fund_name"""
 
 
@@ -128,7 +128,7 @@ def list_scenario_assets(*, scenario_id: UUID) -> list[dict]:
             JOIN repe_asset a ON a.asset_id = sa.asset_id
             LEFT JOIN repe_fund f ON f.fund_id = sa.source_fund_id
             WHERE sa.scenario_id = %s
-            ORDER BY a.asset_name
+            ORDER BY a.name
             """,
             (str(scenario_id),),
         )
@@ -205,7 +205,7 @@ def list_available_assets(
 
         cur.execute(
             f"""
-            SELECT a.asset_id, a.asset_name, a.asset_type,
+            SELECT a.asset_id, a.name AS asset_name, a.asset_type,
                    d.fund_id AS source_fund_id,
                    d.deal_id AS source_investment_id,
                    f.name AS fund_name
@@ -213,7 +213,7 @@ def list_available_assets(
             LEFT JOIN repe_deal d ON d.deal_id = a.deal_id
             LEFT JOIN repe_fund f ON f.fund_id = d.fund_id
             WHERE 1=1 {exclude_clause} {tenant_clause}
-            ORDER BY f.name, a.asset_name
+            ORDER BY f.name, a.name
             """,
             params,
         )

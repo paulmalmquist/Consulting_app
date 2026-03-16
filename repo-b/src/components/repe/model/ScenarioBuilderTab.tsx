@@ -11,6 +11,7 @@ interface ScenarioBuilderTabProps {
   onAddAsset: (asset: AvailableAsset) => Promise<void>;
   onRemoveAsset: (assetId: string) => Promise<void>;
   onAddAll: () => Promise<void>;
+  onOpenAsset?: (assetId: string) => void;
   readOnly?: boolean;
 }
 
@@ -21,6 +22,7 @@ export function ScenarioBuilderTab({
   onAddAsset,
   onRemoveAsset,
   onAddAll,
+  onOpenAsset,
   readOnly,
 }: ScenarioBuilderTabProps) {
   const [search, setSearch] = useState("");
@@ -170,7 +172,13 @@ export function ScenarioBuilderTab({
                       className="border-b border-bm-border/20 transition-colors hover:bg-bm-surface/20"
                     >
                       <td className="px-3 py-2.5 font-medium text-bm-text">
-                        {sa.asset_name || sa.asset_id.slice(0, 8)}
+                        <button
+                          type="button"
+                          onClick={() => onOpenAsset?.(sa.asset_id)}
+                          className="text-left hover:text-bm-accent transition-colors underline decoration-bm-border/40 underline-offset-2 hover:decoration-bm-accent/60"
+                        >
+                          {sa.asset_name || sa.asset_id.slice(0, 8)}
+                        </button>
                       </td>
                       <td className="px-3 py-2.5 text-bm-muted2">
                         {sa.asset_type || "—"}
@@ -259,9 +267,11 @@ export function ScenarioBuilderTab({
 
         {filtered.length === 0 ? (
           <p className="py-4 text-center text-sm text-bm-muted2">
-            {availableAssets.length === 0
+            {availableAssets.length === 0 && scenarioAssets.length > 0
               ? "All assets are already in this scenario."
-              : "No matching assets found."}
+              : availableAssets.length === 0
+                ? "No assets found. Check that funds and assets are seeded in this environment."
+                : "No matching assets found."}
           </p>
         ) : (
           <div className="max-h-[480px] overflow-y-auto">

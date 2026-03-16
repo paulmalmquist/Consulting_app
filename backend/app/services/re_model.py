@@ -102,11 +102,46 @@ def create_model(
         cur.execute(
             """
             INSERT INTO re_model_scenarios (model_id, name, description, is_base)
-            VALUES (%s, 'Base', 'Default base scenario', true)
+            VALUES (%s, 'Base Case', 'Current portfolio assumptions as of latest reporting quarter', true)
             ON CONFLICT (model_id, name) DO NOTHING
+            RETURNING id
             """,
             (str(model["model_id"]),),
         )
+        base_row = cur.fetchone()
+
+        # Auto-populate Base Case with all active assets for the fund/environment
+        if base_row:
+            base_scenario_id = str(base_row["id"])
+            if fund_id:
+                # Fund-scoped: add all assets from this fund's deals
+                cur.execute(
+                    """
+                    INSERT INTO re_model_scenario_assets (scenario_id, asset_id, source_fund_id, source_investment_id)
+                    SELECT %s, a.asset_id, d.fund_id, d.deal_id
+                    FROM repe_asset a
+                    JOIN repe_deal d ON d.deal_id = a.deal_id
+                    WHERE d.fund_id = %s
+                    ON CONFLICT (scenario_id, asset_id) DO NOTHING
+                    """,
+                    (base_scenario_id, str(fund_id)),
+                )
+            elif env_id:
+                # Environment-scoped: add all assets for funds in this environment's business
+                cur.execute(
+                    """
+                    INSERT INTO re_model_scenario_assets (scenario_id, asset_id, source_fund_id, source_investment_id)
+                    SELECT %s, a.asset_id, d.fund_id, d.deal_id
+                    FROM repe_asset a
+                    JOIN repe_deal d ON d.deal_id = a.deal_id
+                    JOIN repe_fund f ON f.fund_id = d.fund_id
+                    WHERE f.business_id IN (
+                        SELECT business_id FROM env_business_bindings WHERE env_id = %s
+                    )
+                    ON CONFLICT (scenario_id, asset_id) DO NOTHING
+                    """,
+                    (base_scenario_id, str(env_id)),
+                )
 
         return model
 

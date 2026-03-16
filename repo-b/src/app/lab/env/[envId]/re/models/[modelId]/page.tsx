@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 
@@ -13,6 +13,7 @@ import { ScenarioBuilderTab } from "@/components/repe/model/ScenarioBuilderTab";
 import { ScenarioOverridesPanel } from "@/components/repe/model/ScenarioOverridesPanel";
 import { ScenarioResultsPanel } from "@/components/repe/model/ScenarioResultsPanel";
 import { ScenarioComparePanel } from "@/components/repe/model/ScenarioComparePanel";
+import { AssetModelingDrawer } from "@/components/repe/model/AssetModelingDrawer";
 import {
   listModelScenarios,
   createModelScenario,
@@ -47,9 +48,22 @@ export default function ModelWorkspacePage() {
   const [availableAssets, setAvailableAssets] = useState<AvailableAsset[]>([]);
   const [overrides, setOverrides] = useState<ScenarioOverride[]>([]);
 
+  // Asset modeling drawer
+  const [drawerAssetId, setDrawerAssetId] = useState<string | null>(null);
+
   // UI state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const activeScenario = useMemo(
+    () => scenarios.find((s) => s.id === activeScenarioId) ?? null,
+    [scenarios, activeScenarioId],
+  );
+
+  const drawerAsset = useMemo(
+    () => (drawerAssetId ? scenarioAssets.find((sa) => sa.asset_id === drawerAssetId) ?? null : null),
+    [drawerAssetId, scenarioAssets],
+  );
 
   // ── Load model + scenarios on mount ──
   useEffect(() => {
@@ -69,7 +83,6 @@ export default function ModelWorkspacePage() {
       if (scenariosRes.status === "fulfilled") {
         const sc = scenariosRes.value;
         setScenarios(sc);
-        // Auto-select Base scenario
         const base = sc.find((s) => s.is_base) ?? sc[0];
         if (base) setActiveScenarioId(base.id);
       }
@@ -80,6 +93,7 @@ export default function ModelWorkspacePage() {
   // ── Load scenario data when active scenario changes ──
   useEffect(() => {
     if (!activeScenarioId || !envId) return;
+    setDrawerAssetId(null); // Close drawer on scenario switch
 
     Promise.allSettled([
       listScenarioAssets(activeScenarioId),
@@ -165,7 +179,6 @@ export default function ModelWorkspacePage() {
           source_fund_id: asset.source_fund_id || undefined,
           source_investment_id: asset.source_investment_id || undefined,
         });
-        // Merge in display fields from the available asset
         const enriched: ScenarioAsset = {
           ...added,
           asset_name: added.asset_name || asset.asset_name || "",
@@ -203,11 +216,12 @@ export default function ModelWorkspacePage() {
             },
           ]);
         }
+        if (drawerAssetId === assetId) setDrawerAssetId(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to remove asset");
       }
     },
-    [activeScenarioId, scenarioAssets],
+    [activeScenarioId, scenarioAssets, drawerAssetId],
   );
 
   const handleAddAllAssets = useCallback(async () => {
@@ -258,6 +272,27 @@ export default function ModelWorkspacePage() {
     <section className="space-y-5" data-testid="model-workspace">
       <ModelHeader model={model} onStatusChange={handleStatusChange} />
 
+      {/* Scenario metadata strip */}
+      {activeScenario && (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border border-bm-border/40 bg-bm-surface/10 px-4 py-2.5 text-xs">
+          <span className="text-bm-muted2">
+            Scenario: <span className="font-medium text-bm-text">{activeScenario.name}</span>
+          </span>
+          <span className="text-bm-muted2">
+            Type: <span className="text-bm-text">{activeScenario.is_base ? "Base Case" : "Custom"}</span>
+          </span>
+          <span className="text-bm-muted2">
+            Created: <span className="text-bm-text">{new Date(activeScenario.created_at).toLocaleDateString()}</span>
+          </span>
+          <span className="text-bm-muted2">
+            Assets: <span className="font-mono text-bm-text">{scenarioAssets.length}</span>
+          </span>
+          <span className="text-bm-muted2">
+            Overrides: <span className="font-mono text-bm-text">{overrides.length}</span>
+          </span>
+        </div>
+      )}
+
       {isArchived && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
           This model is archived and read-only. No changes can be made.
@@ -288,6 +323,7 @@ export default function ModelWorkspacePage() {
               onAddAsset={handleAddAsset}
               onRemoveAsset={handleRemoveAsset}
               onAddAll={handleAddAllAssets}
+              onOpenAsset={setDrawerAssetId}
               readOnly={isArchived}
             />
           )}
@@ -333,6 +369,19 @@ export default function ModelWorkspacePage() {
           )}
         </div>
       </div>
+
+      {/* Asset Modeling Drawer */}
+      {activeScenarioId && (
+        <AssetModelingDrawer
+          open={!!drawerAssetId}
+          onClose={() => setDrawerAssetId(null)}
+          scenarioId={activeScenarioId}
+          asset={drawerAsset}
+          overrides={overrides}
+          onOverridesChange={setOverrides}
+          readOnly={isArchived}
+        />
+      )}
 
       {error && (
         <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
