@@ -8,31 +8,83 @@ import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 import { resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
 
 type NavItem = { href: string; label: string };
+type NavGroup = { domain: string; items: NavItem[] };
 
 function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function navItems(base: string): NavItem[] {
+function navGroups(base: string): NavGroup[] {
   return [
-    { href: base, label: "Command Center" },
-    { href: `${base}/markets`, label: "Markets" },
-    { href: `${base}/accounts`, label: "Accounts" },
-    { href: `${base}/projects`, label: "Projects" },
-    { href: `${base}/forecast`, label: "Forecast" },
-    { href: `${base}/revenue`, label: "Revenue & CI" },
-    { href: `${base}/resources`, label: "Resources" },
-    { href: `${base}/timecards`, label: "Timecards" },
-    { href: `${base}/satisfaction`, label: "Client Satisfaction" },
-    { href: `${base}/adoption`, label: "Tech Adoption" },
-    { href: `${base}/risk`, label: "Delivery Risk" },
-    { href: `${base}/closeout`, label: "Closeout" },
-    { href: `${base}/reports`, label: "Reports" },
-    { href: `${base}/ai-query`, label: "AI Query" },
-    { href: `${base}/ai-briefing`, label: "AI Briefing" },
-    { href: `${base}/documents`, label: "Documents" },
-    { href: `${base}/audit`, label: "Audit" },
-    { href: `${base}/configuration`, label: "Configuration" },
+    {
+      domain: "Command",
+      items: [
+        { href: base, label: "Command Center" },
+        { href: `${base}/ai-briefing`, label: "AI Briefing" },
+        { href: `${base}/ai-query`, label: "AI Query" },
+      ],
+    },
+    {
+      domain: "Portfolio",
+      items: [
+        { href: `${base}/markets`, label: "Markets" },
+        { href: `${base}/accounts`, label: "Accounts" },
+        { href: `${base}/projects`, label: "Projects" },
+        { href: `${base}/pipeline`, label: "Pipeline" },
+      ],
+    },
+    {
+      domain: "Financials",
+      items: [
+        { href: `${base}/revenue`, label: "Revenue & CI" },
+        { href: `${base}/forecast`, label: "Forecast" },
+        { href: `${base}/backlog`, label: "Backlog" },
+        { href: `${base}/fee-variance`, label: "Fee Variance" },
+      ],
+    },
+    {
+      domain: "Delivery",
+      items: [
+        { href: `${base}/risk`, label: "Delivery Risk" },
+        { href: `${base}/closeout`, label: "Closeout" },
+        { href: `${base}/schedule`, label: "Schedule Health" },
+        { href: `${base}/project-status`, label: "Project Status" },
+      ],
+    },
+    {
+      domain: "Resources",
+      items: [
+        { href: `${base}/resources`, label: "Resources" },
+        { href: `${base}/timecards`, label: "Timecards" },
+        { href: `${base}/utilization`, label: "Utilization" },
+        { href: `${base}/capacity`, label: "Capacity Planning" },
+      ],
+    },
+    {
+      domain: "Client",
+      items: [
+        { href: `${base}/satisfaction`, label: "Client Satisfaction" },
+        { href: `${base}/strategic-accounts`, label: "Strategic Accounts" },
+        { href: `${base}/relationship-health`, label: "Relationship Health" },
+      ],
+    },
+    {
+      domain: "Operations",
+      items: [
+        { href: `${base}/adoption`, label: "Tech Adoption" },
+        { href: `${base}/process-compliance`, label: "Process Compliance" },
+        { href: `${base}/operational-signals`, label: "Operational Signals" },
+      ],
+    },
+    {
+      domain: "Governance",
+      items: [
+        { href: `${base}/reports`, label: "Reports" },
+        { href: `${base}/documents`, label: "Documents" },
+        { href: `${base}/audit`, label: "Audit" },
+        { href: `${base}/configuration`, label: "Configuration" },
+      ],
+    },
   ];
 }
 
@@ -49,7 +101,7 @@ export default function PdsEnterpriseShell({
   const { environment, businessId, loading, error, requestId, retry } = useDomainEnv();
   const base = `/lab/env/${envId}/pds`;
   const homeHref = isAdmin ? "/admin" : `/lab/env/${envId}`;
-  const items = navItems(base);
+  const groups = navGroups(base);
   const envLabel = environment?.client_name || "Stone PDS";
   const templateKey =
     resolveWorkspaceTemplateKey({
@@ -81,17 +133,17 @@ export default function PdsEnterpriseShell({
 
   return (
     <div className="space-y-4">
-      <section className="rounded-[30px] border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,rgba(232,191,104,0.14),transparent_42%),linear-gradient(135deg,#0f171f,#0a0f14)] p-5">
+      <section className="rounded-[30px] border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,hsl(var(--pds-gold)/0.14),transparent_42%),linear-gradient(135deg,#0f171f,#0a0f14)] p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-3">
-              <div className="rounded-2xl border border-[#e8bf68]/20 bg-[#e8bf68]/10 p-2 text-[#efcf8b]">
+              <div className="rounded-2xl border border-pds-gold/20 bg-pds-gold/10 p-2 text-pds-goldSoft">
                 <HardHat size={18} />
               </div>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl font-semibold">{envLabel}</h1>
-                  <span className="inline-flex items-center rounded-full border border-[#e8bf68]/20 px-2.5 py-1 text-xs text-[#d9ba7b]">
+                  <span className="inline-flex items-center rounded-full border border-pds-gold/20 px-2.5 py-1 text-xs text-pds-goldText">
                     PDS Enterprise OS
                   </span>
                 </div>
@@ -115,20 +167,28 @@ export default function PdsEnterpriseShell({
 
       <div className="grid gap-4 xl:grid-cols-[250px,1fr]">
         <aside className="rounded-[28px] border border-bm-border/70 bg-bm-surface/20 p-3" data-testid="pds-sidebar">
-          <p className="mb-3 px-1 text-xs uppercase tracking-[0.16em] text-bm-muted2">Navigation</p>
-          <nav className="space-y-1.5">
-            {items.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`block rounded-2xl border px-3 py-2.5 text-sm transition ${
-                  isActive(pathname, item.href)
-                    ? "border-[#e8bf68]/50 bg-[#e8bf68]/10 text-[#f2d492]"
-                    : "border-bm-border/70 hover:bg-bm-surface/35"
-                }`}
-              >
-                {item.label}
-              </Link>
+          <nav className="max-h-[calc(100vh-200px)] space-y-0.5 overflow-y-auto scrollbar-hide">
+            {groups.map((group) => (
+              <div key={group.domain} className="mb-3">
+                <p className="mb-1.5 px-3 pt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-bm-muted2/70">
+                  {group.domain}
+                </p>
+                <div className="space-y-0.5">
+                  {group.items.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`block rounded-xl border px-3 py-2 pl-5 text-[13px] transition ${
+                        isActive(pathname, item.href)
+                          ? "border-pds-gold/50 bg-pds-gold/10 text-pds-goldText"
+                          : "border-transparent hover:bg-pds-gold/5 hover:text-pds-goldSoft"
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
             ))}
           </nav>
         </aside>

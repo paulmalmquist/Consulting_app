@@ -7,6 +7,7 @@ import {
   formatCurrency,
   formatPercent,
   healthBadgeClasses,
+  signalDotClass,
   reasonLabel,
 } from "@/components/pds-enterprise/pdsEnterprise";
 
@@ -75,6 +76,7 @@ export function PdsPerformanceTable({ table }: { table: PdsV2PerformanceTable })
                 <tr key={row.entity_id} className="border-b border-bm-border/40 last:border-b-0">
                   <td className="py-4 pr-4 align-top">
                     <div className="flex flex-wrap items-center gap-2">
+                      <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${signalDotClass(row.health_status)}`} />
                       {row.href ? (
                         <Link href={row.href} className="font-medium text-bm-text hover:underline">
                           {row.entity_label}

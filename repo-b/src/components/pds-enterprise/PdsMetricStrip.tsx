@@ -2,7 +2,7 @@
 import React from "react";
 
 import type { PdsV2MetricCard } from "@/lib/bos-api";
-import { formatCurrency, formatNumber, toneClasses } from "@/components/pds-enterprise/pdsEnterprise";
+import { formatCurrency, formatNumber, toneClasses, accentStripeClass } from "@/components/pds-enterprise/pdsEnterprise";
 
 function renderMetric(metric: PdsV2MetricCard): string {
   if (metric.unit === "usd") return formatCurrency(metric.value);
@@ -24,14 +24,16 @@ function renderDelta(metric: PdsV2MetricCard): string | null {
 
 export function PdsMetricStrip({ metrics }: { metrics: PdsV2MetricCard[] }) {
   return (
-    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7" data-testid="pds-metric-strip">
+    <section className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7" data-testid="pds-metric-strip">
       {metrics.map((metric) => (
-        <article key={metric.key} className={`rounded-3xl border p-4 ${toneClasses(metric.tone)}`}>
-          <p className="text-[11px] uppercase tracking-[0.16em] text-current/75">{metric.label}</p>
-          <p className="mt-3 text-2xl font-semibold">{renderMetric(metric)}</p>
-          <div className="mt-3 flex items-center justify-between gap-3 text-xs text-current/80">
-            <span>{renderComparison(metric) || "Management baseline"}</span>
-            {renderDelta(metric) ? <span>{renderDelta(metric)}</span> : null}
+        <article key={metric.key} className={`relative overflow-hidden rounded-2xl border p-4 ${toneClasses(metric.tone)}`}>
+          <div className={`absolute left-0 top-0 h-full w-1 ${accentStripeClass(metric.tone)}`} />
+          <div className="pl-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-current/75">{metric.label}</p>
+            <p className="mt-2 text-2xl font-semibold">{renderMetric(metric)}</p>
+            <p className="mt-2 text-xs text-current/70">
+              {renderComparison(metric) || "Management baseline"}
+            </p>
           </div>
         </article>
       ))}

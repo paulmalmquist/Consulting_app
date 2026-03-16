@@ -4,202 +4,345 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 
-import type { ReModel, ReModelScope, ReModelOverride, Asset } from "@/components/repe/model/types";
+import type { ReModel } from "@/components/repe/model/types";
 import { apiFetch } from "@/components/repe/model/types";
 import { ModelHeader } from "@/components/repe/model/ModelHeader";
 import { ModelTabBar, type TabKey } from "@/components/repe/model/ModelTabBar";
-import { ModelOverviewTab } from "@/components/repe/model/ModelOverviewTab";
-import { AssetsTab } from "@/components/repe/model/AssetsTab";
-import { AssetSurgeryDrawer } from "@/components/repe/model/AssetSurgeryDrawer";
-import { FundImpactTab } from "@/components/repe/model/FundImpactTab";
-import { MonteCarloTab } from "@/components/repe/model/MonteCarloTab";
+import { ScenarioSidebar } from "@/components/repe/model/ScenarioSidebar";
+import { ScenarioBuilderTab } from "@/components/repe/model/ScenarioBuilderTab";
+import { ScenarioOverridesPanel } from "@/components/repe/model/ScenarioOverridesPanel";
+import { ScenarioResultsPanel } from "@/components/repe/model/ScenarioResultsPanel";
+import { ScenarioComparePanel } from "@/components/repe/model/ScenarioComparePanel";
+import {
+  listModelScenarios,
+  createModelScenario,
+  cloneModelScenario,
+  deleteModelScenario,
+  listScenarioAssets,
+  addScenarioAsset,
+  removeScenarioAsset,
+  listAvailableAssets,
+  listScenarioOverrides,
+} from "@/lib/bos-api";
+import type {
+  ModelScenario,
+  ScenarioAsset,
+  AvailableAsset,
+  ScenarioOverride,
+} from "@/lib/bos-api";
 
 export default function ModelWorkspacePage() {
   const params = useParams();
   const modelId = params.modelId as string;
   const { envId } = useReEnv();
 
+  // Core state
   const [model, setModel] = useState<ReModel | null>(null);
-  const [scope, setScope] = useState<ReModelScope[]>([]);
-  const [overrides, setOverrides] = useState<ReModelOverride[]>([]);
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [activeTab, setActiveTab] = useState<TabKey>("overview");
-  const [surgeryAssetId, setSurgeryAssetId] = useState<string | null>(null);
+  const [scenarios, setScenarios] = useState<ModelScenario[]>([]);
+  const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>("builder");
+
+  // Scenario-scoped state
+  const [scenarioAssets, setScenarioAssets] = useState<ScenarioAsset[]>([]);
+  const [availableAssets, setAvailableAssets] = useState<AvailableAsset[]>([]);
+  const [overrides, setOverrides] = useState<ScenarioOverride[]>([]);
+
+  // UI state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [mcRunning, setMcRunning] = useState(false);
 
+  // ── Load model + scenarios on mount ──
   useEffect(() => {
     if (!modelId || !envId) return;
     setLoading(true);
+    setError(null);
+
     Promise.allSettled([
       apiFetch<ReModel>(`/api/re/v2/models/${modelId}`),
-      apiFetch<ReModelScope[]>(`/api/re/v2/models/${modelId}/scope`).catch(() => []),
-      apiFetch<ReModelOverride[]>(`/api/re/v2/models/${modelId}/overrides`).catch(() => []),
-      fetch(`/api/re/v2/assets?env_id=${envId}&limit=500`).then((r) => r.json()).catch(() => []),
-    ]).then(([modelRes, scopeRes, overridesRes, assetsRes]) => {
-      if (modelRes.status === "fulfilled") setModel(modelRes.value);
-      else setError("Failed to load model");
-      if (scopeRes.status === "fulfilled") setScope(scopeRes.value as ReModelScope[]);
-      if (overridesRes.status === "fulfilled") setOverrides(overridesRes.value as ReModelOverride[]);
-      if (assetsRes.status === "fulfilled") setAssets(Array.isArray(assetsRes.value) ? assetsRes.value : []);
+      listModelScenarios(modelId),
+    ]).then(([modelRes, scenariosRes]) => {
+      if (modelRes.status === "fulfilled") {
+        setModel(modelRes.value);
+      } else {
+        setError("Failed to load model");
+      }
+      if (scenariosRes.status === "fulfilled") {
+        const sc = scenariosRes.value;
+        setScenarios(sc);
+        // Auto-select Base scenario
+        const base = sc.find((s) => s.is_base) ?? sc[0];
+        if (base) setActiveScenarioId(base.id);
+      }
       setLoading(false);
     });
   }, [modelId, envId]);
 
-  const handleStatusChange = useCallback(async (newStatus: string) => {
-    try {
-      const updated = await apiFetch<ReModel>(`/api/re/v2/models/${modelId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      setModel(updated);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update model");
-    }
-  }, [modelId]);
+  // ── Load scenario data when active scenario changes ──
+  useEffect(() => {
+    if (!activeScenarioId || !envId) return;
 
-  const handleRunModel = useCallback(async () => {
-    if (scope.length === 0) {
-      setError("Cannot run model: Add at least one asset to scope before running. Use the Assets tab to add assets.");
-      return;
-    }
-    try {
-      setError(null);
-      const res = await fetch(`/api/re/v2/models/${modelId}/run`, { method: "POST" });
-      if (!res.ok) {
-        const { error } = await res.json().catch(() => ({ error: "Unknown error" }));
-        setError(error || "Failed to run model");
+    Promise.allSettled([
+      listScenarioAssets(activeScenarioId),
+      listAvailableAssets(activeScenarioId, envId),
+      listScenarioOverrides(activeScenarioId),
+    ]).then(([assetsRes, availRes, ovRes]) => {
+      if (assetsRes.status === "fulfilled") setScenarioAssets(assetsRes.value);
+      if (availRes.status === "fulfilled") setAvailableAssets(availRes.value);
+      if (ovRes.status === "fulfilled") setOverrides(ovRes.value);
+    });
+  }, [activeScenarioId, envId]);
+
+  // ── Handlers: Model status ──
+  const handleStatusChange = useCallback(
+    async (newStatus: string) => {
+      try {
+        const updated = await apiFetch<ReModel>(`/api/re/v2/models/${modelId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newStatus }),
+        });
+        setModel(updated);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to update model");
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to run model");
-    }
-  }, [modelId, scope]);
+    },
+    [modelId],
+  );
 
-  const handleRunMonteCarlo = useCallback(async () => {
-    if (scope.length === 0) {
-      setError("Cannot run Monte Carlo: Add at least one asset to scope first.");
-      return;
-    }
-    setMcRunning(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/re/v2/models/${modelId}/monte-carlo`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ simulations: 1000, seed: 42 }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: "Unknown error" }));
-        setError(data.error || "Monte Carlo simulation failed");
+  // ── Handlers: Scenario CRUD ──
+  const handleCreateScenario = useCallback(
+    async (name: string) => {
+      try {
+        const created = await createModelScenario(modelId, { name });
+        setScenarios((prev) => [...prev, created]);
+        setActiveScenarioId(created.id);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to create scenario");
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Monte Carlo simulation failed");
-    } finally {
-      setMcRunning(false);
+    },
+    [modelId],
+  );
+
+  const handleCloneScenario = useCallback(
+    async (scenarioId: string) => {
+      const source = scenarios.find((s) => s.id === scenarioId);
+      const newName = `${source?.name || "Scenario"} (copy)`;
+      try {
+        const cloned = await cloneModelScenario(scenarioId, newName);
+        setScenarios((prev) => [...prev, cloned]);
+        setActiveScenarioId(cloned.id);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to clone scenario");
+      }
+    },
+    [scenarios],
+  );
+
+  const handleDeleteScenario = useCallback(
+    async (scenarioId: string) => {
+      try {
+        await deleteModelScenario(scenarioId);
+        setScenarios((prev) => prev.filter((s) => s.id !== scenarioId));
+        if (activeScenarioId === scenarioId) {
+          const remaining = scenarios.filter((s) => s.id !== scenarioId);
+          const base = remaining.find((s) => s.is_base) ?? remaining[0];
+          setActiveScenarioId(base?.id ?? null);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to delete scenario");
+      }
+    },
+    [activeScenarioId, scenarios],
+  );
+
+  // ── Handlers: Scenario Assets ──
+  const handleAddAsset = useCallback(
+    async (asset: AvailableAsset) => {
+      if (!activeScenarioId) return;
+      try {
+        const added = await addScenarioAsset(activeScenarioId, {
+          asset_id: asset.asset_id,
+          source_fund_id: asset.source_fund_id || undefined,
+          source_investment_id: asset.source_investment_id || undefined,
+        });
+        // Merge in display fields from the available asset
+        const enriched: ScenarioAsset = {
+          ...added,
+          asset_name: added.asset_name || asset.asset_name || "",
+          asset_type: added.asset_type || asset.asset_type || undefined,
+          fund_name: added.fund_name || asset.fund_name || undefined,
+        };
+        setScenarioAssets((prev) => [...prev, enriched]);
+        setAvailableAssets((prev) =>
+          prev.filter((a) => a.asset_id !== asset.asset_id),
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to add asset");
+      }
+    },
+    [activeScenarioId],
+  );
+
+  const handleRemoveAsset = useCallback(
+    async (assetId: string) => {
+      if (!activeScenarioId) return;
+      try {
+        await removeScenarioAsset(activeScenarioId, assetId);
+        const removed = scenarioAssets.find((sa) => sa.asset_id === assetId);
+        setScenarioAssets((prev) => prev.filter((sa) => sa.asset_id !== assetId));
+        if (removed) {
+          setAvailableAssets((prev) => [
+            ...prev,
+            {
+              asset_id: removed.asset_id,
+              asset_name: removed.asset_name,
+              asset_type: removed.asset_type,
+              source_fund_id: removed.source_fund_id,
+              source_investment_id: removed.source_investment_id,
+              fund_name: removed.fund_name,
+            },
+          ]);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to remove asset");
+      }
+    },
+    [activeScenarioId, scenarioAssets],
+  );
+
+  const handleAddAllAssets = useCallback(async () => {
+    if (!activeScenarioId) return;
+    for (const asset of availableAssets) {
+      try {
+        const added = await addScenarioAsset(activeScenarioId, {
+          asset_id: asset.asset_id,
+          source_fund_id: asset.source_fund_id || undefined,
+          source_investment_id: asset.source_investment_id || undefined,
+        });
+        const enriched: ScenarioAsset = {
+          ...added,
+          asset_name: added.asset_name || asset.asset_name || "",
+          asset_type: added.asset_type || asset.asset_type || undefined,
+          fund_name: added.fund_name || asset.fund_name || undefined,
+        };
+        setScenarioAssets((prev) => [...prev, enriched]);
+      } catch {
+        // Skip duplicates silently
+      }
     }
-  }, [modelId, scope]);
+    setAvailableAssets([]);
+  }, [activeScenarioId, availableAssets]);
 
-  const handleTabChange = useCallback((tab: TabKey) => {
-    setError(null);
-    setActiveTab(tab);
-  }, []);
-
-  const handleOpenSurgery = useCallback((assetId: string) => {
-    setSurgeryAssetId(assetId);
-    setActiveTab("surgery");
-  }, []);
-
-  const surgeryAsset = surgeryAssetId ? assets.find((a) => a.asset_id === surgeryAssetId) ?? null : null;
   const isArchived = model?.status === "archived";
-  const businessId = typeof window !== "undefined" ? window.localStorage.getItem("bos_business_id") || "" : "";
-  const currentQuarter = `${new Date().getFullYear()}Q${Math.floor(new Date().getMonth() / 3) + 1}`;
 
   if (loading) {
     return <div className="p-6 text-sm text-bm-muted2">Loading model...</div>;
   }
 
   if (!model) {
-    return <div className="p-6 text-sm text-red-300">Model not found.</div>;
+    return (
+      <div className="m-6 space-y-3 rounded-xl border border-bm-border/30 bg-bm-surface/20 p-6">
+        <h2 className="text-lg font-semibold text-bm-text">Unable to load model</h2>
+        <p className="text-sm text-red-300">{error || "Model not found."}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90"
+        >
+          Retry
+        </button>
+      </div>
+    );
   }
 
   return (
     <section className="space-y-5" data-testid="model-workspace">
       <ModelHeader model={model} onStatusChange={handleStatusChange} />
 
-      <ModelTabBar activeTab={activeTab} onChange={handleTabChange} />
-
       {isArchived && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
-          This model is archived and read-only. No changes can be made to scope, assumptions, or surgery overrides.
+          This model is archived and read-only. No changes can be made.
         </div>
       )}
 
-      {activeTab === "overview" && (
-        <ModelOverviewTab
-          model={model}
-          scope={scope}
-          overrides={overrides}
-          onRunModel={handleRunModel}
-          onRunMonteCarlo={handleRunMonteCarlo}
-          mcRunning={mcRunning}
-        />
-      )}
-
-      {activeTab === "assets" && (
-        <AssetsTab
-          modelId={modelId}
-          scope={scope}
-          assets={assets}
-          onScopeChange={setScope}
-          onOpenSurgery={handleOpenSurgery}
+      <div className="flex gap-4">
+        {/* Scenario Sidebar */}
+        <ScenarioSidebar
+          scenarios={scenarios}
+          activeScenarioId={activeScenarioId}
+          onSelect={setActiveScenarioId}
+          onCreate={handleCreateScenario}
+          onClone={handleCloneScenario}
+          onDelete={handleDeleteScenario}
           readOnly={isArchived}
         />
-      )}
 
-      {activeTab === "surgery" && !surgeryAssetId && (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-6 text-center">
-          <p className="text-sm text-bm-muted2">
-            Select an asset from the Assets tab and click &ldquo;Surgery&rdquo; to open the asset surgery workspace.
-          </p>
+        {/* Main Content */}
+        <div className="flex-1 space-y-4 min-w-0">
+          <ModelTabBar activeTab={activeTab} onChange={setActiveTab} />
+
+          {activeTab === "builder" && activeScenarioId && (
+            <ScenarioBuilderTab
+              scenarioAssets={scenarioAssets}
+              availableAssets={availableAssets}
+              overrides={overrides}
+              onAddAsset={handleAddAsset}
+              onRemoveAsset={handleRemoveAsset}
+              onAddAll={handleAddAllAssets}
+              readOnly={isArchived}
+            />
+          )}
+
+          {activeTab === "assumptions" && activeScenarioId && (
+            <ScenarioOverridesPanel
+              scenarioId={activeScenarioId}
+              scenarioAssets={scenarioAssets}
+              overrides={overrides}
+              onOverridesChange={setOverrides}
+              readOnly={isArchived}
+            />
+          )}
+
+          {activeTab === "results" && activeScenarioId && (
+            <ScenarioResultsPanel
+              scenarioId={activeScenarioId}
+              assetCount={scenarioAssets.length}
+            />
+          )}
+
+          {activeTab === "compare" && (
+            <ScenarioComparePanel
+              modelId={modelId}
+              scenarios={scenarios}
+            />
+          )}
+
+          {!activeScenarioId && (
+            <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-8 text-center">
+              <p className="text-sm text-bm-muted2">
+                No scenarios found. Create a scenario to get started.
+              </p>
+              {!isArchived && (
+                <button
+                  onClick={() => handleCreateScenario("Base Case")}
+                  className="mt-3 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90"
+                >
+                  Create Base Case
+                </button>
+              )}
+            </div>
+          )}
         </div>
-      )}
-
-      {activeTab === "fund-impact" && (
-        <FundImpactTab
-          modelId={modelId}
-          scopeCount={scope.length}
-          onRunModel={handleRunModel}
-        />
-      )}
-
-      {activeTab === "monte-carlo" && (
-        <MonteCarloTab
-          modelId={modelId}
-          scopeCount={scope.length}
-          envId={envId}
-          businessId={businessId}
-          primaryFundId={model.fund_id}
-          quarter={currentQuarter}
-          onError={setError}
-        />
-      )}
-
-      {/* Surgery Drawer (overlays all tabs) */}
-      <AssetSurgeryDrawer
-        open={!!surgeryAssetId}
-        onClose={() => setSurgeryAssetId(null)}
-        modelId={modelId}
-        asset={surgeryAsset}
-        overrides={overrides}
-        onOverrideChange={setOverrides}
-        readOnly={isArchived}
-      />
+      </div>
 
       {error && (
         <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
           {error}
+          <button
+            onClick={() => setError(null)}
+            className="ml-2 text-xs underline hover:no-underline"
+          >
+            dismiss
+          </button>
         </div>
       )}
     </section>

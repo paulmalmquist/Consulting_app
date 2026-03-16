@@ -1,19 +1,17 @@
 "use client";
 
 import {
-  Layers,
   Building2,
-  Wrench,
+  Sliders,
   BarChart3,
-  Activity,
+  GitCompare,
 } from "lucide-react";
 
 export const TABS = [
-  { key: "overview", label: "Overview", icon: Layers },
-  { key: "assets", label: "Assets", icon: Building2 },
-  { key: "surgery", label: "Asset Surgery", icon: Wrench },
-  { key: "fund-impact", label: "Fund Impact", icon: BarChart3 },
-  { key: "monte-carlo", label: "Monte Carlo", icon: Activity },
+  { key: "builder", label: "Scenario Builder", icon: Building2 },
+  { key: "assumptions", label: "Assumptions", icon: Sliders },
+  { key: "results", label: "Results", icon: BarChart3 },
+  { key: "compare", label: "Compare", icon: GitCompare },
 ] as const;
 
 export type TabKey = (typeof TABS)[number]["key"];

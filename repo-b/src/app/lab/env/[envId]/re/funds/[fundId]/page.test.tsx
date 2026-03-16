@@ -58,6 +58,16 @@ vi.mock("@/components/repe/FundDeleteDialog", () => ({
   FundDeleteDialog: ({ open }: { open: boolean }) => (open ? <div data-testid="fund-delete-dialog" /> : null),
 }));
 
+vi.mock("recharts", async () => {
+  const actual = await vi.importActual<typeof import("recharts")>("recharts");
+  return {
+    ...actual,
+    ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+      <div style={{ width: 800, height: 400 }}>{children}</div>
+    ),
+  };
+});
+
 vi.mock("@/lib/bos-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/bos-api")>("@/lib/bos-api");
   return {
@@ -286,8 +296,9 @@ describe("fund detail narrative dashboard", () => {
       await screen.findByTestId("fund-health-summary"),
       await screen.findByTestId("kpi-group-capital"),
       await screen.findByTestId("kpi-group-performance"),
-      await screen.findByTestId("fund-value-creation"),
       await screen.findByTestId("portfolio-snapshot"),
+      await screen.findByTestId("fund-value-creation"),
+      await screen.findByTestId("portfolio-allocation"),
       await screen.findByTestId("performance-drivers"),
       await screen.findByTestId("capital-activity"),
       await screen.findByTestId("exposure-insights"),
@@ -307,6 +318,20 @@ describe("fund detail narrative dashboard", () => {
 
     expect(screen.getByRole("menuitem", { name: "Export Excel Workbook" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Delete Fund" })).toBeInTheDocument();
+  });
+
+  it("renders the portfolio snapshot and allocation context from seeded rollups", async () => {
+    renderPage();
+
+    const snapshot = await screen.findByTestId("portfolio-snapshot");
+    expect(within(snapshot).getByText("Assets")).toBeInTheDocument();
+    expect(snapshot).toHaveTextContent("21");
+    expect(snapshot).toHaveTextContent("94.4%");
+    expect(snapshot).toHaveTextContent("$18.6M");
+
+    const allocation = await screen.findByTestId("portfolio-allocation");
+    expect(allocation).toHaveTextContent("Industrial");
+    expect(allocation).toHaveTextContent("100.0%");
   });
 
   it("expands an investment row to show asset-level metrics", async () => {

@@ -7,9 +7,12 @@ import { useRouter } from "next/navigation";
 import {
   Bar,
   CartesianGrid,
+  Cell,
   ComposedChart,
   Legend,
   Line,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -20,10 +23,7 @@ import { FundDeleteDialog } from "@/components/repe/FundDeleteDialog";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { useToast } from "@/components/ui/Toast";
 import {
-  AXIS_TICK_STYLE,
   CHART_COLORS,
-  GRID_STYLE,
-  TOOLTIP_STYLE,
   fmtCompact,
 } from "@/components/charts/chart-theme";
 import {
@@ -150,7 +150,147 @@ function fmtLineCode(code: string): string {
 type HeaderMetric = {
   label: string;
   value: string;
+  ratio?: number | null;
+  barColor?: string;
 };
+
+type PortfolioSnapshotMetric = {
+  label: string;
+  value: string;
+};
+
+type FundOverviewData = {
+  rollup: FundValuationRollup | null;
+  irrTimeline: IrrTimelinePoint[];
+  capitalTimeline: CapitalTimelinePoint[];
+  irrContrib: IrrContributionItem[];
+  loading: boolean;
+};
+
+const FUND_DASHBOARD_COLORS = {
+  primary: "#3B82F6",
+  primarySoft: "#DBEAFE",
+  realized: "#059669",
+  realizedSoft: "#D1FAE5",
+  unrealized: "#7DD3FC",
+  grid: "#E5E7EB",
+  axis: "#6B7280",
+  card: "#F8FAFC",
+  cardInset: "#FFFFFF",
+  cardHover: "#EFF6FF",
+  border: "#E2E8F0",
+  muted: "#64748B",
+  text: "#0F172A",
+} as const;
+
+const FUND_PANEL_CLASS =
+  "rounded-[22px] border border-[#E2E8F0] bg-[#F8FAFC] shadow-[0_1px_2px_rgba(0,0,0,0.05)]";
+
+function toFiniteNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function clampPercent(value: number): number {
+  return Math.max(0, Math.min(100, value));
+}
+
+function getRatioOfBase(value: unknown, base: unknown): number | null {
+  const numerator = toFiniteNumber(value);
+  const denominator = toFiniteNumber(base);
+  if (numerator === null || denominator === null || denominator <= 0) return null;
+  return numerator / denominator;
+}
+
+function weightedAverageRollup(
+  rows: ReV2FundInvestmentRollupRow[],
+  valueSelector: (row: ReV2FundInvestmentRollupRow) => unknown
+): number | null {
+  let weightedTotal = 0;
+  let totalWeight = 0;
+
+  for (const row of rows) {
+    const value = toFiniteNumber(valueSelector(row));
+    if (value === null) continue;
+    const weight = Math.max(
+      toFiniteNumber(row.fund_nav_contribution) ??
+        toFiniteNumber(row.total_asset_value) ??
+        toFiniteNumber(row.committed_capital) ??
+        0,
+      1
+    );
+    weightedTotal += value * weight;
+    totalWeight += weight;
+  }
+
+  return totalWeight > 0 ? weightedTotal / totalWeight : null;
+}
+
+function sumRollupMetric(
+  rows: ReV2FundInvestmentRollupRow[],
+  valueSelector: (row: ReV2FundInvestmentRollupRow) => unknown
+): number | null {
+  const total = rows.reduce((sum, row) => sum + (toFiniteNumber(valueSelector(row)) ?? 0), 0);
+  return total > 0 ? total : null;
+}
+
+function buildPortfolioSnapshotMetrics({
+  rollup,
+  investmentRollup,
+  fundState,
+}: {
+  rollup: FundValuationRollup | null;
+  investmentRollup: ReV2FundInvestmentRollupRow[];
+  fundState: ReV2FundQuarterState | null;
+}): PortfolioSnapshotMetric[] {
+  const assets =
+    rollup?.summary.asset_count ??
+    investmentRollup.reduce((sum, row) => sum + Number(row.asset_count || 0), 0);
+  const markets = new Set(
+    investmentRollup
+      .map((row) => row.primary_market)
+      .filter((value): value is string => Boolean(value))
+  ).size;
+  const occupancy =
+    rollup?.summary.weighted_avg_occupancy ?? weightedAverageRollup(investmentRollup, (row) => row.weighted_occupancy);
+  const ltv =
+    rollup?.summary.weighted_avg_ltv ?? weightedAverageRollup(investmentRollup, (row) => row.computed_ltv);
+  const avgIrr = weightedAverageRollup(investmentRollup, (row) => row.gross_irr) ?? toFiniteNumber(fundState?.gross_irr);
+  const portfolioNoi =
+    rollup?.summary.total_noi ?? sumRollupMetric(investmentRollup, (row) => row.total_noi);
+
+  return [
+    { label: "Assets", value: assets > 0 ? assets.toLocaleString() : "—" },
+    { label: "Markets", value: markets > 0 ? markets.toLocaleString() : "—" },
+    { label: "Occupancy", value: occupancy != null ? fmtFlexiblePercent(occupancy) : "—" },
+    { label: "Average LTV", value: ltv != null ? fmtFlexiblePercent(ltv) : "—" },
+    { label: "Average IRR", value: avgIrr != null ? fmtPercent(avgIrr) : "—" },
+    { label: "Portfolio NOI", value: portfolioNoi != null ? fmtMoney(portfolioNoi) : "—" },
+  ];
+}
+
+function OverviewChartSkeleton() {
+  return (
+    <div className="flex h-full w-full animate-pulse flex-col justify-between rounded-[18px] border border-[#E5E7EB] bg-white p-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="space-y-2">
+          <div className="h-3 w-20 rounded-full bg-slate-200" />
+          <div className="h-5 w-44 rounded-full bg-slate-200" />
+        </div>
+        <div className="h-4 w-28 rounded-full bg-slate-200" />
+      </div>
+      <div className="mt-5 flex h-full items-end gap-4">
+        {[96, 132, 112, 158, 138, 170].map((height, index) => (
+          <div key={`${height}-${index}`} className="flex flex-1 items-end gap-2">
+            <div className="w-5 rounded-t-[10px] bg-slate-200/90" style={{ height }} />
+            <div className="w-5 rounded-t-[10px] bg-slate-200/60" style={{ height: Math.max(64, height - 30) }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function NarrativeSectionHeading({
   eyebrow,
@@ -162,12 +302,12 @@ function NarrativeSectionHeading({
   description?: string;
 }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-2">
+    <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-bm-muted2">{eyebrow}</p>
-        <h2 className="mt-1 text-lg font-semibold tracking-tight text-bm-text">{title}</h2>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">{eyebrow}</p>
+        <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.02em] text-[#0F172A]">{title}</h2>
       </div>
-      {description ? <p className="max-w-2xl text-sm text-bm-muted2">{description}</p> : null}
+      {description ? <p className="max-w-2xl text-sm leading-6 text-[#64748B]">{description}</p> : null}
     </div>
   );
 }
@@ -180,9 +320,9 @@ function NarrativeEmptyState({
   detail: string;
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-bm-border px-4 py-6 text-center">
-      <p className="text-sm text-bm-muted2">{title}</p>
-      <p className="mt-1 text-xs text-bm-muted2">{detail}</p>
+    <div className="rounded-[18px] border border-dashed border-[#CBD5E1] bg-white px-4 py-6 text-center">
+      <p className="text-sm text-[#475569]">{title}</p>
+      <p className="mt-1 text-xs text-[#64748B]">{detail}</p>
     </div>
   );
 }
@@ -197,21 +337,31 @@ function KpiGroupCard({
   testId: string;
 }) {
   return (
-    <div
-      className="rounded-xl border border-bm-border/60 bg-bm-surface/25 p-4 shadow-[0_16px_34px_-26px_rgba(15,23,42,0.52)]"
-      data-testid={testId}
-    >
-      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-bm-muted2">{title}</p>
-      <dl className="mt-4 space-y-3">
+    <div className={`${FUND_PANEL_CLASS} p-5`} data-testid={testId}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#64748B]">{title}</p>
+      <dl className="mt-3 space-y-2">
         {metrics.map((metric) => (
           <div
             key={metric.label}
-            className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4 border-b border-bm-border/20 pb-3 last:border-b-0 last:pb-0"
+            className="rounded-[16px] border border-transparent bg-white px-4 py-3 transition-[background-color,border-color,transform] duration-200 hover:border-[#DBEAFE] hover:bg-[#EFF6FF]"
           >
-            <dt className="text-sm text-bm-muted">{metric.label}</dt>
-            <dd className="text-right font-display text-xl font-semibold leading-none tracking-tight text-bm-text tabular-nums">
-              {metric.value}
-            </dd>
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4">
+              <dt className="text-[12px] uppercase tracking-[0.04em] text-[#6B7280]">{metric.label}</dt>
+              <dd className="text-right text-[20px] font-semibold leading-none tracking-[-0.02em] text-[#0F172A] tabular-nums transition-all duration-300">
+                {metric.value}
+              </dd>
+            </div>
+            {metric.ratio != null ? (
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#E2E8F0]">
+                <div
+                  className="h-full rounded-full transition-[width] duration-500"
+                  style={{
+                    width: `${Math.max(6, clampPercent(metric.ratio * 100))}%`,
+                    backgroundColor: metric.barColor ?? FUND_DASHBOARD_COLORS.primary,
+                  }}
+                />
+              </div>
+            ) : null}
           </div>
         ))}
       </dl>
@@ -219,68 +369,138 @@ function KpiGroupCard({
   );
 }
 
-function FundValueCreationCard({ data }: { data: ValueCreationPoint[] }) {
+function PortfolioSnapshotRow({
+  metrics,
+  loading,
+}: {
+  metrics: PortfolioSnapshotMetric[];
+  loading: boolean;
+}) {
   return (
-    <div
-      className="rounded-[22px] border border-bm-border/70 bg-bm-surface/20 p-5 shadow-[0_18px_42px_-30px_rgba(15,23,42,0.55)]"
-      data-testid="fund-value-creation"
-    >
+    <div className={`${FUND_PANEL_CLASS} p-5`} data-testid="portfolio-snapshot">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#64748B]">Portfolio Snapshot</p>
+          <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.02em] text-[#0F172A]">Portfolio Snapshot</h2>
+        </div>
+        <p className="max-w-2xl text-sm leading-6 text-[#64748B]">
+          Current scale, leverage, occupancy, and income stay visible without forcing more scroll.
+        </p>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {loading
+          ? Array.from({ length: 6 }).map((_, index) => (
+              <div
+                key={`snapshot-skeleton-${index}`}
+                className="animate-pulse rounded-[18px] border border-[#E5E7EB] bg-white px-4 py-3"
+              >
+                <div className="h-3 w-20 rounded-full bg-slate-200" />
+                <div className="mt-3 h-7 w-24 rounded-full bg-slate-200" />
+              </div>
+            ))
+          : metrics.map((metric) => (
+              <div
+                key={metric.label}
+                className="rounded-[18px] border border-[#E5E7EB] bg-white px-4 py-3 transition-[background-color,border-color] duration-200 hover:border-[#DBEAFE] hover:bg-[#EFF6FF]"
+              >
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#64748B]">{metric.label}</p>
+                <p className="mt-2 text-[24px] font-semibold tracking-[-0.03em] text-[#0F172A] tabular-nums transition-all duration-300">
+                  {metric.value}
+                </p>
+              </div>
+            ))}
+      </div>
+    </div>
+  );
+}
+
+function FundValueCreationCard({
+  data,
+  loading,
+}: {
+  data: ValueCreationPoint[];
+  loading: boolean;
+}) {
+  return (
+    <div className={`${FUND_PANEL_CLASS} p-5`} data-testid="fund-value-creation">
       <NarrativeSectionHeading
         eyebrow="Value Creation"
         title="Fund Value Creation"
         description="Tracks deployed capital against realized and unrealized value so the fund's progress reads at a glance."
       />
-      <div className="mt-5 h-[320px]">
-        {data.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} margin={{ top: 12, right: 16, left: 0, bottom: 0 }}>
-              <CartesianGrid vertical={false} {...GRID_STYLE} />
-              <XAxis
-                dataKey="quarter"
-                tick={AXIS_TICK_STYLE}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={AXIS_TICK_STYLE}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(value: number) => fmtCompact(value)}
-                width={70}
-              />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                formatter={(value: number, name: string) => [fmtCompact(value), name]}
-                labelStyle={{ color: "hsl(210, 24%, 94%)", fontWeight: 600 }}
-              />
-              <Legend wrapperStyle={{ fontSize: 11, color: "hsl(215, 12%, 72%)" }} />
-              <Bar
-                dataKey="distributions"
-                name="Realized Value"
-                stackId="value"
-                fill={CHART_COLORS.noi}
-                radius={[4, 4, 0, 0]}
-                maxBarSize={42}
-              />
-              <Bar
-                dataKey="nav"
-                name="Unrealized Value"
-                stackId="value"
-                fill={CHART_COLORS.revenue}
-                radius={[4, 4, 0, 0]}
-                maxBarSize={42}
-              />
-              <Line
-                type="monotone"
-                dataKey="calledCapital"
-                name="Called Capital"
-                stroke={CHART_COLORS.scenario[0]}
-                strokeWidth={2.5}
-                dot={{ r: 2, fill: CHART_COLORS.scenario[0] }}
-                activeDot={{ r: 4 }}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
+      <div className="mt-4 overflow-x-auto">
+        {loading ? (
+          <div className="h-[220px] min-w-[640px] md:min-w-0 md:h-[260px] lg:h-[300px] xl:h-[340px]">
+            <OverviewChartSkeleton />
+          </div>
+        ) : data.length > 0 ? (
+          <div className="h-[220px] min-w-[640px] md:min-w-0 md:h-[260px] lg:h-[300px] xl:h-[340px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart
+                data={data}
+                margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
+                barCategoryGap={28}
+              >
+                <CartesianGrid vertical={false} stroke={FUND_DASHBOARD_COLORS.grid} strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="quarter"
+                  tick={{ fontSize: 12, fill: FUND_DASHBOARD_COLORS.axis }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 12, fill: FUND_DASHBOARD_COLORS.axis }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(value: number) => fmtCompact(value)}
+                  width={70}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#FFFFFF",
+                    border: `1px solid ${FUND_DASHBOARD_COLORS.grid}`,
+                    borderRadius: 14,
+                    boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)",
+                    color: FUND_DASHBOARD_COLORS.text,
+                  }}
+                  formatter={(value: number, name: string) => [fmtMoney(value), name]}
+                  labelFormatter={(label) => `Quarter ${label}`}
+                  labelStyle={{ color: FUND_DASHBOARD_COLORS.text, fontWeight: 600 }}
+                />
+                <Legend
+                  align="right"
+                  verticalAlign="top"
+                  height={28}
+                  wrapperStyle={{ fontSize: 11, color: FUND_DASHBOARD_COLORS.axis, paddingBottom: 8 }}
+                />
+                <Bar
+                  dataKey="distributions"
+                  name="Realized Value"
+                  stackId="value"
+                  fill={FUND_DASHBOARD_COLORS.realized}
+                  radius={[6, 6, 0, 0]}
+                  barSize={32}
+                />
+                <Bar
+                  dataKey="nav"
+                  name="Unrealized Value"
+                  stackId="value"
+                  fill={FUND_DASHBOARD_COLORS.unrealized}
+                  radius={[6, 6, 0, 0]}
+                  barSize={32}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="calledCapital"
+                  name="Called Capital"
+                  stroke={FUND_DASHBOARD_COLORS.primary}
+                  strokeWidth={2.5}
+                  dot={{ r: 2.5, fill: FUND_DASHBOARD_COLORS.primary }}
+                  activeDot={{ r: 4 }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
           <NarrativeEmptyState
             title="Value-creation history will appear after quarter-close data is available."
@@ -306,35 +526,149 @@ function HorizontalInsightBar({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-3 text-sm">
-        <span className="truncate text-bm-text">{label}</span>
-        <span className="shrink-0 font-medium tabular-nums text-bm-muted">{valueLabel}</span>
+        <span className="truncate text-[#0F172A]">{label}</span>
+        <span className="shrink-0 font-medium tabular-nums text-[#64748B]">{valueLabel}</span>
       </div>
-      <div className="h-2.5 overflow-hidden rounded-full bg-bm-surface/40">
+      <div className="h-2.5 overflow-hidden rounded-full bg-[#E2E8F0]">
         <div className="h-full rounded-full" style={{ width: `${Math.min(Math.max(pct, 3), 100)}%`, backgroundColor: color }} />
       </div>
     </div>
   );
 }
 
-function PerformanceDriversCard({ drivers }: { drivers: PerformanceDriver[] }) {
+function PortfolioAllocationCard({
+  rows,
+  loading,
+}: {
+  rows: ExposureDatum[];
+  loading: boolean;
+}) {
+  const donutColors = [
+    FUND_DASHBOARD_COLORS.primary,
+    FUND_DASHBOARD_COLORS.realized,
+    "#0EA5E9",
+    "#F59E0B",
+    "#8B5CF6",
+    "#14B8A6",
+  ];
+  const totalValue = rows.reduce((sum, row) => sum + row.value, 0);
+
   return (
-    <div
-      className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.5)]"
-      data-testid="performance-drivers"
-    >
+    <div className={`${FUND_PANEL_CLASS} flex h-full flex-col p-5`} data-testid="portfolio-allocation">
+      <NarrativeSectionHeading
+        eyebrow="Allocation"
+        title="Portfolio Allocation"
+        description="Sector weights provide context for where current value creation is concentrated."
+      />
+      <div className="mt-4 flex-1">
+        {loading ? (
+          <div className="h-[220px] md:h-[260px] lg:h-[300px] xl:h-[340px]">
+            <OverviewChartSkeleton />
+          </div>
+        ) : rows.length > 0 ? (
+          <div className="grid gap-4 xl:grid-rows-[minmax(0,1fr)_auto]">
+            <div className="relative h-[220px] md:h-[260px] lg:h-[300px] xl:h-[220px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#FFFFFF",
+                      border: `1px solid ${FUND_DASHBOARD_COLORS.grid}`,
+                      borderRadius: 14,
+                      boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)",
+                      color: FUND_DASHBOARD_COLORS.text,
+                    }}
+                    formatter={(value: number, _name: string, item: { payload?: ExposureDatum }) => [
+                      `${fmtMoney(value)} • ${item.payload?.pct.toFixed(1) ?? "0.0"}%`,
+                      item.payload?.label ?? "Allocation",
+                    ]}
+                  />
+                  <Pie
+                    data={rows}
+                    dataKey="value"
+                    nameKey="label"
+                    innerRadius={58}
+                    outerRadius={88}
+                    paddingAngle={2}
+                    stroke="#FFFFFF"
+                    strokeWidth={3}
+                  >
+                    {rows.map((row, index) => (
+                      <Cell key={`${row.label}-${index}`} fill={donutColors[index % donutColors.length]} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#64748B]">Total Value</span>
+                <span className="mt-1 text-[26px] font-semibold tracking-[-0.03em] text-[#0F172A] tabular-nums">
+                  {fmtMoney(totalValue)}
+                </span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {rows.map((row, index) => (
+                <div
+                  key={row.label}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[16px] border border-[#E5E7EB] bg-white px-4 py-3 transition-[background-color,border-color] duration-200 hover:border-[#DBEAFE] hover:bg-[#EFF6FF]"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: donutColors[index % donutColors.length] }}
+                    />
+                    <span className="truncate text-sm text-[#0F172A]">{row.label}</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-[#0F172A] tabular-nums">{row.pct.toFixed(1)}%</p>
+                    <p className="text-xs text-[#64748B] tabular-nums">{fmtMoney(row.value)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <NarrativeEmptyState
+            title="Allocation will populate after sector or market rollups are available."
+            detail="The panel uses existing portfolio weights, so no new data model is required."
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PerformanceDriversCard({
+  drivers,
+  loading,
+}: {
+  drivers: PerformanceDriver[];
+  loading: boolean;
+}) {
+  return (
+    <div className={`${FUND_PANEL_CLASS} p-5`} data-testid="performance-drivers">
       <NarrativeSectionHeading
         eyebrow="Drivers"
         title="Performance Drivers"
         description="Investment-level attribution highlights where current fund NAV is being built."
       />
       <div className="mt-4">
-        {drivers.length > 0 ? (
+        {loading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={`driver-skeleton-${index}`} className="animate-pulse rounded-[18px] border border-[#E5E7EB] bg-white px-4 py-4">
+                <div className="h-4 w-40 rounded-full bg-slate-200" />
+                <div className="mt-3 h-2.5 rounded-full bg-slate-200" />
+              </div>
+            ))}
+          </div>
+        ) : drivers.length > 0 ? (
           <div className="space-y-4">
             {drivers.map((driver) => (
-              <div key={driver.investmentId} className="space-y-2">
+              <div key={driver.investmentId} className="space-y-2 rounded-[18px] border border-[#E5E7EB] bg-white px-4 py-4 transition-[background-color,border-color] duration-200 hover:border-[#DBEAFE] hover:bg-[#EFF6FF]">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-sm font-medium text-bm-text">{driver.investmentName}</p>
-                  <div className="flex items-center gap-4 text-xs tabular-nums text-bm-muted">
+                  <p className="text-sm font-medium text-[#0F172A]">{driver.investmentName}</p>
+                  <div className="flex items-center gap-4 text-xs tabular-nums text-[#64748B]">
                     <span>IRR: {driver.irr != null ? fmtPercent(driver.irr) : "—"}</span>
                     <span>NAV Contribution: {driver.navContributionPct.toFixed(1)}%</span>
                   </div>
@@ -343,7 +677,7 @@ function PerformanceDriversCard({ drivers }: { drivers: PerformanceDriver[] }) {
                   label="Relative contribution"
                   valueLabel={fmtMoney(driver.navContributionValue)}
                   pct={driver.barPct}
-                  color={CHART_COLORS.noi}
+                  color={FUND_DASHBOARD_COLORS.realized}
                 />
               </div>
             ))}
@@ -371,8 +705,8 @@ function ExposureCard({
   color: string;
 }) {
   return (
-    <div className="rounded-xl border border-bm-border/60 bg-bm-surface/15 p-4">
-      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-bm-muted2">{title}</p>
+    <div className="rounded-[18px] border border-[#E5E7EB] bg-white p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#64748B]">{title}</p>
       <div className="mt-4">
         {rows.length > 0 ? (
           <div className="space-y-3">
@@ -395,6 +729,189 @@ function ExposureCard({
       </div>
     </div>
   );
+}
+
+function CapitalActivityCard({
+  capitalTimeline,
+  loading,
+}: {
+  capitalTimeline: CapitalTimelinePoint[];
+  loading: boolean;
+}) {
+  const maxCapitalBase = Math.max(...capitalTimeline.map((point) => Number(point.total_called || 0)), 1);
+
+  return (
+    <div className={`${FUND_PANEL_CLASS} p-5`} data-testid="capital-activity">
+      <NarrativeSectionHeading
+        eyebrow="Capital Activity"
+        title="Capital Activity Timeline"
+        description="Cumulative capital movement by quarter keeps deployment and returned capital legible."
+      />
+      <div className="mt-4">
+        {loading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={`capital-skeleton-${index}`} className="animate-pulse rounded-[18px] border border-[#E5E7EB] bg-white px-4 py-4">
+                <div className="h-3 w-16 rounded-full bg-slate-200" />
+                <div className="mt-3 h-2.5 rounded-full bg-slate-200" />
+                <div className="mt-3 h-2.5 rounded-full bg-slate-200" />
+              </div>
+            ))}
+          </div>
+        ) : capitalTimeline.length > 0 ? (
+          <div className="space-y-3">
+            {capitalTimeline.map((point) => (
+              <div
+                key={point.quarter}
+                className="rounded-[18px] border border-[#E5E7EB] bg-white px-4 py-4 transition-[background-color,border-color] duration-200 hover:border-[#DBEAFE] hover:bg-[#EFF6FF]"
+              >
+                <div className="flex items-start gap-3 text-sm">
+                  <span className="w-16 shrink-0 pt-1 text-xs font-medium text-[#64748B]">{point.quarter}</span>
+                  <div className="flex-1 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <span className="w-24 shrink-0 text-[11px] uppercase tracking-[0.12em] text-[#64748B]">Capital Called</span>
+                      <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#E2E8F0]">
+                        <div
+                          className="h-full rounded-full transition-[width] duration-500"
+                          style={{
+                            width: `${Math.min(100, (Number(point.total_called) / maxCapitalBase) * 100)}%`,
+                            backgroundColor: FUND_DASHBOARD_COLORS.primary,
+                          }}
+                        />
+                      </div>
+                      <span className="w-20 text-right font-semibold tabular-nums text-[#0F172A]">{fmtMoney(point.total_called)}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="w-24 shrink-0 text-[11px] uppercase tracking-[0.12em] text-[#64748B]">Distributed</span>
+                      <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#E2E8F0]">
+                        <div
+                          className="h-full rounded-full transition-[width] duration-500"
+                          style={{
+                            width: `${Math.min(100, (Number(point.total_distributed) / maxCapitalBase) * 100)}%`,
+                            backgroundColor: FUND_DASHBOARD_COLORS.realized,
+                          }}
+                        />
+                      </div>
+                      <span className="w-20 text-right font-semibold tabular-nums text-[#0F172A]">{fmtMoney(point.total_distributed)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <NarrativeEmptyState
+            title="Capital activity will populate after quarter-close runs or capital ledger entries."
+            detail="Each closed quarter adds cumulative called capital and returned capital to the timeline."
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function useFundOverviewData({
+  fund,
+  envId,
+  businessId,
+  fundId,
+  quarter,
+}: {
+  fund: RepeFundDetail["fund"] | undefined;
+  envId: string;
+  businessId: string | undefined;
+  fundId: string;
+  quarter: string;
+}): FundOverviewData {
+  const seededOverviewRetryRef = useRef(false);
+  const [rollup, setRollup] = useState<FundValuationRollup | null>(null);
+  const [irrTimeline, setIrrTimeline] = useState<IrrTimelinePoint[]>([]);
+  const [capitalTimeline, setCapitalTimeline] = useState<CapitalTimelinePoint[]>([]);
+  const [irrContrib, setIrrContrib] = useState<IrrContributionItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!fund?.fund_id) {
+      setRollup(null);
+      setIrrTimeline([]);
+      setCapitalTimeline([]);
+      setIrrContrib([]);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchOverviewData = async () => {
+      const [nextRollup, nextIrrTimeline, nextCapitalTimeline, nextIrrContrib] = await Promise.all([
+        getFundValuationRollup(fund.fund_id, quarter).catch(() => null),
+        getIrrTimeline({ fund_id: fundId, env_id: envId, business_id: businessId || fund.business_id }).catch(() => []),
+        getCapitalTimeline({ fund_id: fundId, env_id: envId, business_id: businessId || fund.business_id }).catch(() => []),
+        getIrrContribution({ fund_id: fundId, env_id: envId, business_id: businessId || fund.business_id, quarter }).catch(() => []),
+      ]);
+
+      return {
+        nextRollup,
+        nextIrrTimeline,
+        nextCapitalTimeline,
+        nextIrrContrib,
+      };
+    };
+
+    const applyOverviewData = (nextData: {
+      nextRollup: FundValuationRollup | null;
+      nextIrrTimeline: IrrTimelinePoint[];
+      nextCapitalTimeline: CapitalTimelinePoint[];
+      nextIrrContrib: IrrContributionItem[];
+    }) => {
+      setRollup(nextData.nextRollup);
+      setIrrTimeline(nextData.nextIrrTimeline);
+      setCapitalTimeline(nextData.nextCapitalTimeline);
+      setIrrContrib(nextData.nextIrrContrib);
+    };
+
+    async function loadOverview() {
+      setLoading(true);
+
+      try {
+        const initial = await fetchOverviewData();
+        if (cancelled) return;
+        applyOverviewData(initial);
+
+        const needsSeedRetry = Boolean(businessId) &&
+          !seededOverviewRetryRef.current &&
+          (
+            !initial.nextRollup ||
+            initial.nextRollup.summary.asset_count === 0 ||
+            initial.nextIrrTimeline.length === 0 ||
+            initial.nextCapitalTimeline.length === 0 ||
+            initial.nextIrrContrib.length === 0
+          );
+
+        if (!needsSeedRetry || !businessId) return;
+
+        seededOverviewRetryRef.current = true;
+        try {
+          await seedReV2Data({ fund_id: fundId, business_id: businessId });
+        } catch {
+          return;
+        }
+
+        const retried = await fetchOverviewData();
+        if (cancelled) return;
+        applyOverviewData(retried);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void loadOverview();
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId, envId, fund?.business_id, fund?.fund_id, fundId, quarter]);
+
+  return { rollup, irrTimeline, capitalTimeline, irrContrib, loading };
 }
 
 const TABS = [
@@ -521,10 +1038,50 @@ export default function FundDetailPage({
   const latestTerms = terms[0];
   const investmentCount = investmentRollup.length || investments.length || deals.length;
   const assetCount = investmentRollup.reduce((sum, row) => sum + Number(row.asset_count || 0), 0);
+  const overviewData = useFundOverviewData({
+    fund,
+    envId: params.envId,
+    businessId: businessId ?? undefined,
+    fundId: params.fundId,
+    quarter,
+  });
+  const overviewExposureInsights = useMemo(
+    () => buildExposureInsights(investmentRollup),
+    [investmentRollup]
+  );
+  const overviewPerformanceDrivers = useMemo(
+    () => buildPerformanceDrivers(overviewData.irrContrib, fundState?.portfolio_nav ?? overviewData.rollup?.summary.total_equity ?? null),
+    [fundState?.portfolio_nav, overviewData.irrContrib, overviewData.rollup?.summary.total_equity]
+  );
+  const portfolioSnapshotMetrics = useMemo(
+    () =>
+      buildPortfolioSnapshotMetrics({
+        rollup: overviewData.rollup,
+        investmentRollup,
+        fundState,
+      }),
+    [fundState, investmentRollup, overviewData.rollup]
+  );
+  const committedCapital = toFiniteNumber(fundState?.total_committed);
   const capitalMetrics: HeaderMetric[] = [
-    { label: "Committed", value: fmtMoney(fundState?.total_committed) },
-    { label: "Called", value: fmtMoney(fundState?.total_called) },
-    { label: "Distributed", value: fmtMoney(fundState?.total_distributed) },
+    {
+      label: "Committed",
+      value: fmtMoney(fundState?.total_committed),
+      ratio: committedCapital && committedCapital > 0 ? 1 : null,
+      barColor: FUND_DASHBOARD_COLORS.primarySoft,
+    },
+    {
+      label: "Called",
+      value: fmtMoney(fundState?.total_called),
+      ratio: getRatioOfBase(fundState?.total_called, fundState?.total_committed),
+      barColor: FUND_DASHBOARD_COLORS.primary,
+    },
+    {
+      label: "Distributed",
+      value: fmtMoney(fundState?.total_distributed),
+      ratio: getRatioOfBase(fundState?.total_distributed, fundState?.total_committed),
+      barColor: FUND_DASHBOARD_COLORS.realized,
+    },
   ];
   const performanceMetrics: HeaderMetric[] = [
     { label: "NAV", value: fmtMoney(fundState?.portfolio_nav) },
@@ -580,16 +1137,6 @@ export default function FundDetailPage({
     if (fund?.target_size) {
       items.push(`Target ${fmtMoney(fund.target_size)}`);
     }
-    const topGeography = fund?.target_geographies_json?.[0];
-    if (topGeography) {
-      items.push(topGeography);
-    }
-    const gpName = typeof fund?.metadata_json?.gp_entity_name === "string"
-      ? fund.metadata_json.gp_entity_name
-      : null;
-    if (gpName) {
-      items.push(gpName);
-    }
     return items;
   }, [fund]);
 
@@ -597,10 +1144,10 @@ export default function FundDetailPage({
     () =>
       buildFundHealthSummary({
         fundState,
-        exposureInsights: buildExposureInsights(investmentRollup),
-        performanceDrivers: [],
+        exposureInsights: overviewExposureInsights,
+        performanceDrivers: overviewPerformanceDrivers,
       }),
-    [fundState, investmentRollup]
+    [fundState, overviewExposureInsights, overviewPerformanceDrivers]
   );
 
   useEffect(() => {
@@ -675,29 +1222,21 @@ export default function FundDetailPage({
   }
 
   return (
-    <section className="flex flex-col gap-4" data-testid="re-fund-detail">
-      <div
-        className="rounded-[24px] border border-bm-border/30 bg-bm-surface/35 p-5 shadow-[0_22px_48px_-36px_rgba(15,23,42,0.6)]"
-        data-testid="fund-overview-header"
-      >
+    <section className="mx-auto flex w-full max-w-[1500px] flex-col gap-4" data-testid="re-fund-detail">
+      <div className={`${FUND_PANEL_CLASS} px-5 pb-[18px] pt-[20px]`} data-testid="fund-overview-header">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Fund</p>
-            <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-bm-text sm:text-[2.35rem]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Fund</p>
+            <h1 className="mt-2 text-[32px] font-semibold tracking-[-0.02em] text-[#0F172A]">
               {fund?.name || "—"}
             </h1>
-            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-bm-muted">
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px] text-[#6B7280]">
               {metadataItems.map((item, index) => (
                 <span key={`${item}-${index}`} className="inline-flex items-center gap-3">
-                  {index > 0 ? <span className="text-bm-muted2">•</span> : null}
+                  {index > 0 ? <span className="text-[#94A3B8]">•</span> : null}
                   <span>{item}</span>
                 </span>
               ))}
-              {lastCloseQuarter ? (
-                <span className="inline-flex items-center rounded-full border border-green-500/25 bg-green-500/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-green-300">
-                  Last Close {lastCloseQuarter}
-                </span>
-              ) : null}
             </div>
           </div>
 
@@ -706,26 +1245,26 @@ export default function FundDetailPage({
               type="button"
               onClick={() => setLineageOpen(true)}
               title="View entity lineage"
-              className="inline-flex items-center gap-1 rounded-md border border-bm-border/30 px-3 py-2 text-sm text-bm-muted transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text"
+              className="inline-flex items-center gap-1 rounded-xl border border-[#CBD5E1] bg-white px-3 py-2 text-sm text-[#475569] transition-colors duration-150 hover:border-[#BFDBFE] hover:bg-[#EFF6FF] hover:text-[#0F172A]"
             >
-              <GitBranch className="h-3.5 w-3.5 text-bm-muted" strokeWidth={1.5} />
+              <GitBranch className="h-3.5 w-3.5 text-[#64748B]" strokeWidth={1.5} />
               Lineage
             </button>
             <div className="relative" ref={actionsMenuRef}>
               <button
                 type="button"
                 onClick={() => setActionsOpen((open) => !open)}
-                className="inline-flex items-center gap-1.5 rounded-md border border-bm-border/30 px-3 py-2 text-sm text-bm-text transition-colors duration-100 hover:bg-bm-surface/20"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#CBD5E1] bg-white px-3 py-2 text-sm text-[#0F172A] transition-colors duration-150 hover:border-[#BFDBFE] hover:bg-[#EFF6FF]"
                 aria-haspopup="menu"
                 aria-expanded={actionsOpen}
               >
-                <MoreHorizontal className="h-4 w-4 text-bm-muted" strokeWidth={1.5} />
+                <MoreHorizontal className="h-4 w-4 text-[#64748B]" strokeWidth={1.5} />
                 Actions
-                <ChevronDown className="h-3.5 w-3.5 text-bm-muted" strokeWidth={1.5} />
+                <ChevronDown className="h-3.5 w-3.5 text-[#64748B]" strokeWidth={1.5} />
               </button>
               {actionsOpen ? (
                 <div
-                  className="absolute right-0 top-full z-50 mt-2 min-w-[220px] rounded-xl border border-bm-border/30 bg-bm-surface/95 p-1.5 shadow-[0_24px_40px_-30px_rgba(15,23,42,0.8)]"
+                  className="absolute right-0 top-full z-50 mt-2 min-w-[220px] rounded-2xl border border-[#E2E8F0] bg-white p-1.5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.22)]"
                   role="menu"
                 >
                   <button
@@ -733,7 +1272,7 @@ export default function FundDetailPage({
                     role="menuitem"
                     onClick={handleExportWorkbook}
                     disabled={!envId || !businessId}
-                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-bm-text transition-colors duration-100 hover:bg-bm-surface/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#0F172A] transition-colors duration-100 hover:bg-[#EFF6FF] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Export Excel Workbook
                   </button>
@@ -741,7 +1280,7 @@ export default function FundDetailPage({
                     type="button"
                     role="menuitem"
                     onClick={() => setActionsOpen(false)}
-                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-bm-text transition-colors duration-100 hover:bg-bm-surface/20"
+                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#0F172A] transition-colors duration-100 hover:bg-[#EFF6FF]"
                   >
                     Download LP Report (PDF)
                   </button>
@@ -749,11 +1288,11 @@ export default function FundDetailPage({
                     type="button"
                     role="menuitem"
                     onClick={() => setActionsOpen(false)}
-                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-bm-text transition-colors duration-100 hover:bg-bm-surface/20"
+                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#0F172A] transition-colors duration-100 hover:bg-[#EFF6FF]"
                   >
                     Download Waterfall (.xlsx)
                   </button>
-                  <div className="my-1 border-t border-bm-border/20" />
+                  <div className="my-1 border-t border-[#E2E8F0]" />
                   <button
                     type="button"
                     role="menuitem"
@@ -761,7 +1300,7 @@ export default function FundDetailPage({
                       setDeleteDialogOpen(true);
                       setActionsOpen(false);
                     }}
-                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-300 transition-colors duration-100 hover:bg-red-500/10"
+                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-red-600 transition-colors duration-100 hover:bg-red-50"
                   >
                     Delete Fund
                   </button>
@@ -771,43 +1310,44 @@ export default function FundDetailPage({
           </div>
         </div>
 
-        <div className="mt-5 border-t border-bm-border/20 pt-4" data-testid="fund-health-summary">
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-            <div>
-              <div className="flex flex-wrap items-center gap-3">
-                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Fund Health</p>
-                <span
-                  className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${
-                    headerHealthSummary.label === "Strong"
-                      ? "bg-green-500/15 text-green-300"
-                      : headerHealthSummary.label === "Stable"
-                        ? "bg-sky-500/15 text-sky-300"
-                        : "bg-amber-500/15 text-amber-300"
-                  }`}
-                >
-                  {headerHealthSummary.label}
+        <div className="mt-4 border-t border-[#E2E8F0] pt-4" data-testid="fund-health-summary">
+          <div className="grid gap-3 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-start">
+            <span
+              className={`inline-flex h-fit rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${
+                headerHealthSummary.label === "Strong"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : headerHealthSummary.label === "Stable"
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-amber-100 text-amber-700"
+              }`}
+            >
+              {headerHealthSummary.label}
+            </span>
+            <p className="text-sm leading-6 text-[#475569] line-clamp-2">
+              {headerHealthSummary.headline}. {headerHealthSummary.detail}
+            </p>
+            <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.08em] text-[#64748B]">
+              {lastCloseQuarter ? (
+                <span className="rounded-full border border-[#D1FAE5] bg-[#ECFDF5] px-2.5 py-1 font-semibold text-[#047857]">
+                  Last Close {lastCloseQuarter}
                 </span>
-              </div>
-              <p className="mt-3 text-base font-medium text-bm-text">{headerHealthSummary.headline}</p>
-              <p className="mt-2 text-sm leading-6 text-bm-muted2">{headerHealthSummary.detail}</p>
+              ) : null}
+              {latestTerms?.preferred_return_rate != null ? (
+                <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 font-semibold">
+                  Pref {fmtPercent(latestTerms.preferred_return_rate)}
+                </span>
+              ) : null}
+              {latestTerms?.carry_rate != null ? (
+                <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 font-semibold">
+                  Carry {fmtPercent(latestTerms.carry_rate)}
+                </span>
+              ) : null}
+              {latestTerms?.waterfall_style ? (
+                <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 font-semibold capitalize">
+                  {latestTerms.waterfall_style}
+                </span>
+              ) : null}
             </div>
-
-            {latestTerms ? (
-              <dl className="grid gap-3 rounded-xl border border-bm-border/30 bg-bm-surface/20 p-4 text-sm sm:grid-cols-3 xl:grid-cols-1">
-                <div>
-                  <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Pref Return</dt>
-                  <dd className="mt-1 font-semibold tabular-nums text-bm-text">{fmtPercent(latestTerms.preferred_return_rate)}</dd>
-                </div>
-                <div>
-                  <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Carry</dt>
-                  <dd className="mt-1 font-semibold tabular-nums text-bm-text">{fmtPercent(latestTerms.carry_rate)}</dd>
-                </div>
-                <div>
-                  <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Waterfall</dt>
-                  <dd className="mt-1 font-semibold capitalize text-bm-text">{latestTerms.waterfall_style || "—"}</dd>
-                </div>
-              </dl>
-            ) : null}
           </div>
         </div>
       </div>
@@ -817,33 +1357,38 @@ export default function FundDetailPage({
         <KpiGroupCard title="Performance" metrics={performanceMetrics} testId="kpi-group-performance" />
       </div>
 
+      <PortfolioSnapshotRow metrics={portfolioSnapshotMetrics} loading={overviewData.loading} />
+
       {covenantAlerts.length > 0 && (
         <div
-          className="flex items-center gap-3 rounded-lg border border-amber-500/60 bg-amber-500/10 px-5 py-3"
+          className="flex items-center gap-3 rounded-[18px] border border-amber-200 bg-amber-50 px-5 py-3"
           data-testid="covenant-alert-banner"
         >
-          <AlertTriangle className="h-4 w-4 text-amber-400" strokeWidth={1.5} />
+          <AlertTriangle className="h-4 w-4 text-amber-500" strokeWidth={1.5} />
           <div className="flex-1">
-            <p className="text-sm font-medium text-amber-300">
+            <p className="text-sm font-medium text-amber-900">
               {covenantAlerts.length} investment{covenantAlerts.length > 1 ? "s" : ""} approaching covenant breach
             </p>
-            <p className="text-xs text-amber-400/80 mt-0.5">
+            <p className="mt-0.5 text-xs text-amber-700">
               {covenantAlerts.map((a) => (a as Record<string, unknown>).investment_name as string || a.reason || "Investment").join(", ")}
             </p>
           </div>
         </div>
       )}
 
-      <div className="flex flex-wrap gap-1 rounded-lg border border-bm-border/20 bg-bm-surface/40 p-1" data-testid="fund-tabs">
+      <div
+        className="sticky top-4 z-20 flex flex-wrap gap-1 rounded-[18px] border border-[#E2E8F0] bg-white/90 p-1 shadow-[0_1px_2px_rgba(0,0,0,0.05)] backdrop-blur md:top-6 xl:top-8"
+        data-testid="fund-tabs"
+      >
         {TABS.map((label) => (
           <button
             key={label}
             type="button"
             onClick={() => setTab(label)}
-            className={`rounded-md px-2.5 py-1.5 font-mono text-xs transition-colors duration-100 ${
+            className={`rounded-[14px] border-b-2 px-3 py-2 text-sm transition-colors duration-150 ${
               tab === label
-                ? "bg-bm-surface/30 text-bm-text"
-                : "text-bm-muted hover:bg-bm-surface/20 hover:text-bm-text"
+                ? "border-[#3B82F6] bg-[#EFF6FF] font-semibold text-[#0F172A]"
+                : "border-transparent text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
             }`}
             data-testid={`tab-${label.toLowerCase().replace(/[^a-z]/g, "-")}`}
           >
@@ -857,14 +1402,11 @@ export default function FundDetailPage({
         <OverviewTab
           investments={investments}
           investmentRollup={investmentRollup}
-          deals={deals}
-          scenarios={scenarios}
           fund={fund}
           fundState={fundState}
           envId={params.envId}
-          businessId={businessId ?? undefined}
-          fundId={params.fundId}
           quarter={quarter}
+          overviewData={overviewData}
         />
       )}
       {tab === "Asset Variance" && envId && businessId && (
@@ -950,63 +1492,63 @@ function InvestmentRow({
   return (
     <>
       <tr
-        className="cursor-pointer select-none hover:bg-bm-surface/20"
+        className="cursor-pointer select-none transition-colors duration-150 hover:bg-[#EFF6FF]"
         onClick={handleToggle}
         data-testid={`investment-row-${inv.investment_id}`}
       >
         <td className="px-4 py-3">
           <div className="flex items-start gap-2">
-            <span className="mt-0.5 text-xs text-bm-muted2">{open ? "▾" : "▸"}</span>
+            <span className="mt-0.5 text-xs text-[#94A3B8]">{open ? "▾" : "▸"}</span>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <Link
                   href={`/lab/env/${envId}/re/investments/${inv.investment_id}`}
-                  className="font-medium text-bm-accent hover:underline"
+                  className="font-medium text-[#2563EB] hover:underline"
                   onClick={(event) => event.stopPropagation()}
                 >
                   {inv.name}
                 </Link>
-                <span className="inline-flex rounded-full border border-bm-border/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-bm-muted2">
+                <span className="inline-flex rounded-full border border-[#E2E8F0] bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#64748B]">
                   {investmentType}
                 </span>
                 {rollup?.asset_count ? (
-                  <span className="inline-flex rounded-full border border-bm-border/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-bm-muted2">
+                  <span className="inline-flex rounded-full border border-[#E2E8F0] bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#64748B]">
                     {rollup.asset_count} Assets
                   </span>
                 ) : null}
                 {missingQuarterStates > 0 ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] text-amber-300">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
                     <AlertTriangle className="h-3 w-3" strokeWidth={1.5} />
                     {missingQuarterStates} missing
                   </span>
                 ) : null}
               </div>
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-bm-muted2">
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#64748B]">
                 <span className="capitalize">{rollup?.stage || inv.stage || "—"}</span>
                 {rollup?.sponsor ? <span>{rollup.sponsor}</span> : null}
               </div>
             </div>
           </div>
         </td>
-        <td className="px-4 py-3 text-sm text-bm-muted2">{propertyType !== "—" ? propertyType : <span className="text-bm-muted2/50">No type</span>}</td>
-        <td className="px-4 py-3 text-sm text-bm-muted2">{row.market || <span className="text-bm-muted2/50">No market</span>}</td>
-        <td className="px-4 py-3 text-right text-sm tabular-nums">{row.equityInvested != null ? fmtMoney(row.equityInvested) : "—"}</td>
-        <td className="px-4 py-3 text-right text-sm tabular-nums">{row.currentValue != null ? fmtMoney(row.currentValue) : <span className="text-bm-muted2/50 text-xs">No valuation</span>}</td>
-        <td className="px-4 py-3 text-right text-sm tabular-nums">{row.irr != null ? fmtPercent(row.irr) : <span className="text-bm-muted2/50 text-xs">Pending</span>}</td>
-        <td className="px-4 py-3 text-right text-sm tabular-nums">{row.noi != null ? fmtMoney(row.noi) : <span className="text-bm-muted2/50 text-xs">No operating data</span>}</td>
-        <td className="px-4 py-3 text-right text-sm tabular-nums">{fmtFlexiblePercent(row.occupancy) !== "—" ? fmtFlexiblePercent(row.occupancy) : <span className="text-bm-muted2/50 text-xs">—</span>}</td>
-        <td className="px-4 py-3 text-right text-sm tabular-nums">{fmtFlexiblePercent(row.ltv) !== "—" ? fmtFlexiblePercent(row.ltv) : <span className="text-bm-muted2/50 text-xs">No debt data</span>}</td>
+        <td className="px-4 py-3 text-sm text-[#475569]">{propertyType !== "—" ? propertyType : <span className="text-slate-400">No type</span>}</td>
+        <td className="px-4 py-3 text-sm text-[#475569]">{row.market || <span className="text-slate-400">No market</span>}</td>
+        <td className="px-4 py-3 text-right text-sm tabular-nums text-[#0F172A]">{row.equityInvested != null ? fmtMoney(row.equityInvested) : "—"}</td>
+        <td className="px-4 py-3 text-right text-sm tabular-nums text-[#0F172A]">{row.currentValue != null ? fmtMoney(row.currentValue) : <span className="text-slate-400 text-xs">No valuation</span>}</td>
+        <td className="px-4 py-3 text-right text-sm tabular-nums text-[#0F172A]">{row.irr != null ? fmtPercent(row.irr) : <span className="text-slate-400 text-xs">Pending</span>}</td>
+        <td className="px-4 py-3 text-right text-sm tabular-nums text-[#0F172A]">{row.noi != null ? fmtMoney(row.noi) : <span className="text-slate-400 text-xs">No operating data</span>}</td>
+        <td className="px-4 py-3 text-right text-sm tabular-nums text-[#0F172A]">{fmtFlexiblePercent(row.occupancy) !== "—" ? fmtFlexiblePercent(row.occupancy) : <span className="text-slate-400 text-xs">—</span>}</td>
+        <td className="px-4 py-3 text-right text-sm tabular-nums text-[#0F172A]">{fmtFlexiblePercent(row.ltv) !== "—" ? fmtFlexiblePercent(row.ltv) : <span className="text-slate-400 text-xs">No debt data</span>}</td>
       </tr>
       {open ? (
         <tr>
-          <td colSpan={9} className="bg-bm-surface/10 px-0 py-0">
+          <td colSpan={9} className="bg-[#F8FAFC] px-0 py-0">
             {loading ? (
-              <div className="px-8 py-3 text-xs text-bm-muted2">Loading assets...</div>
+              <div className="px-8 py-3 text-xs text-[#64748B]">Loading assets...</div>
             ) : loadError ? (
-              <div className="px-12 py-3 text-xs text-amber-300">{loadError}</div>
+              <div className="px-12 py-3 text-xs text-amber-700">{loadError}</div>
             ) : assets && assets.length > 0 ? (
               <table className="w-full text-sm">
-                <thead className="bg-bm-surface/20 text-left text-[10px] uppercase tracking-[0.12em] text-bm-muted2">
+                <thead className="bg-white text-left text-[10px] uppercase tracking-[0.12em] text-[#64748B]">
                   <tr>
                     <th className="pl-12 pr-4 py-2 font-medium">Asset</th>
                     <th className="px-4 py-2 font-medium">Type</th>
@@ -1019,43 +1561,43 @@ function InvestmentRow({
                     <th className="px-4 py-2 font-medium text-right">LTV</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-bm-border/30">
+                <tbody className="divide-y divide-[#E5E7EB]">
                   {assets.map((asset) => (
-                    <tr key={asset.asset_id} className="hover:bg-bm-surface/20">
+                    <tr key={asset.asset_id} className="transition-colors duration-150 hover:bg-[#EFF6FF]">
                       <td className="pl-12 pr-4 py-2 font-medium text-sm">
-                        <Link href={`/lab/env/${envId}/re/assets/${asset.asset_id}`} className="text-bm-accent hover:underline">
+                        <Link href={`/lab/env/${envId}/re/assets/${asset.asset_id}`} className="text-[#2563EB] hover:underline">
                           {asset.name}
                         </Link>
                         {(asset.units || asset.city || asset.state) ? (
-                          <p className="mt-1 text-xs text-bm-muted2">
+                          <p className="mt-1 text-xs text-[#64748B]">
                             {asset.units ? `${Number(asset.units).toLocaleString()} sf` : "—"}
                             {asset.city ? ` · ${asset.city}` : ""}
                             {asset.state ? `, ${asset.state}` : ""}
                           </p>
                         ) : null}
                       </td>
-                      <td className="px-4 py-2 text-xs text-bm-muted2">
+                      <td className="px-4 py-2 text-xs text-[#64748B]">
                         {labelFn(PROPERTY_TYPE_LABELS, asset.property_type || asset.asset_type || "")}
                       </td>
-                      <td className="px-4 py-2 text-xs text-bm-muted2">
+                      <td className="px-4 py-2 text-xs text-[#64748B]">
                         {asset.market || asset.msa || "—"}
                       </td>
-                      <td className="px-4 py-2 text-right text-xs text-bm-muted2 tabular-nums">
+                      <td className="px-4 py-2 text-right text-xs text-[#64748B] tabular-nums">
                         {asset.cost_basis ? fmtMoney(asset.cost_basis) : "—"}
                       </td>
-                      <td className="px-4 py-2 text-right text-xs text-bm-muted2 tabular-nums">
+                      <td className="px-4 py-2 text-right text-xs text-[#64748B] tabular-nums">
                         {asset.asset_value ? fmtMoney(asset.asset_value) : "—"}
                       </td>
-                      <td className="px-4 py-2 text-right text-xs text-bm-muted2 tabular-nums">
+                      <td className="px-4 py-2 text-right text-xs text-[#64748B] tabular-nums">
                         {asset.nav ? fmtMoney(asset.nav) : "—"}
                       </td>
-                      <td className="px-4 py-2 text-right text-xs text-bm-muted2 tabular-nums">
+                      <td className="px-4 py-2 text-right text-xs text-[#64748B] tabular-nums">
                         {asset.noi ? fmtMoney(asset.noi) : "—"}
                       </td>
-                      <td className="px-4 py-2 text-right text-xs text-bm-muted2 tabular-nums">
+                      <td className="px-4 py-2 text-right text-xs text-[#64748B] tabular-nums">
                         {fmtFlexiblePercent(asset.occupancy)}
                       </td>
-                      <td className="px-4 py-2 text-right text-xs text-bm-muted2 tabular-nums">
+                      <td className="px-4 py-2 text-right text-xs text-[#64748B] tabular-nums">
                         {asset.asset_value && asset.debt_balance
                           ? fmtFlexiblePercent(Number(asset.debt_balance) / Math.max(Number(asset.asset_value), 1))
                           : "—"}
@@ -1065,7 +1607,7 @@ function InvestmentRow({
                 </tbody>
               </table>
             ) : (
-              <div className="px-12 py-3 text-xs text-amber-300">
+              <div className="px-12 py-3 text-xs text-amber-700">
                 No assets linked to this investment. Run the integrity repair endpoint to backfill the invariant.
               </div>
             )}
@@ -1076,95 +1618,19 @@ function InvestmentRow({
   );
 }
 
-function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, fundState, envId, businessId, fundId, quarter }: {
+function OverviewTab({ investments, investmentRollup, fund, fundState, envId, quarter, overviewData }: {
   investments: ReV2Investment[];
   investmentRollup: ReV2FundInvestmentRollupRow[];
-  deals: RepeDeal[];
-  scenarios: ReV2Scenario[];
   fund: RepeFundDetail["fund"] | undefined;
   fundState: ReV2FundQuarterState | null;
   envId: string;
-  businessId: string | undefined;
-  fundId: string;
   quarter: string;
+  overviewData: FundOverviewData;
 }) {
   const rollupById = useMemo(
     () => new Map(investmentRollup.map((row) => [row.investment_id, row])),
     [investmentRollup]
   );
-  const nonBaseScenarioCount = scenarios.filter((scenario) => !scenario.is_base).length;
-  const seededOverviewRetryRef = useRef(false);
-
-  const [rollup, setRollup] = useState<FundValuationRollup | null>(null);
-  const [irrTimeline, setIrrTimeline] = useState<IrrTimelinePoint[]>([]);
-  const [capitalTimeline, setCapitalTimeline] = useState<CapitalTimelinePoint[]>([]);
-  const [irrContrib, setIrrContrib] = useState<IrrContributionItem[]>([]);
-
-  useEffect(() => {
-    if (!fund?.fund_id) return;
-    let cancelled = false;
-
-    const fetchOverviewData = async () => {
-      const [nextRollup, nextIrrTimeline, nextCapitalTimeline, nextIrrContrib] = await Promise.all([
-        getFundValuationRollup(fund.fund_id, quarter).catch(() => null),
-        getIrrTimeline({ fund_id: fundId, env_id: envId, business_id: businessId || fund.business_id }).catch(() => []),
-        getCapitalTimeline({ fund_id: fundId, env_id: envId, business_id: businessId || fund.business_id }).catch(() => []),
-        getIrrContribution({ fund_id: fundId, env_id: envId, business_id: businessId || fund.business_id, quarter }).catch(() => []),
-      ]);
-      return {
-        nextRollup,
-        nextIrrTimeline,
-        nextCapitalTimeline,
-        nextIrrContrib,
-      };
-    };
-
-    const applyOverviewData = (nextData: {
-      nextRollup: FundValuationRollup | null;
-      nextIrrTimeline: IrrTimelinePoint[];
-      nextCapitalTimeline: CapitalTimelinePoint[];
-      nextIrrContrib: IrrContributionItem[];
-    }) => {
-      setRollup(nextData.nextRollup);
-      setIrrTimeline(nextData.nextIrrTimeline);
-      setCapitalTimeline(nextData.nextCapitalTimeline);
-      setIrrContrib(nextData.nextIrrContrib);
-    };
-
-    async function loadOverview() {
-      const initial = await fetchOverviewData();
-      if (cancelled) return;
-      applyOverviewData(initial);
-
-      const needsSeedRetry = Boolean(businessId) &&
-        !seededOverviewRetryRef.current &&
-        (
-          !initial.nextRollup ||
-          initial.nextRollup.summary.asset_count === 0 ||
-          initial.nextIrrTimeline.length === 0 ||
-          initial.nextCapitalTimeline.length === 0 ||
-          initial.nextIrrContrib.length === 0
-        );
-
-      if (!needsSeedRetry || !businessId) return;
-
-      seededOverviewRetryRef.current = true;
-      try {
-        await seedReV2Data({ fund_id: fundId, business_id: businessId });
-      } catch {
-        return;
-      }
-
-      const retried = await fetchOverviewData();
-      if (cancelled) return;
-      applyOverviewData(retried);
-    }
-
-    void loadOverview();
-    return () => {
-      cancelled = true;
-    };
-  }, [businessId, envId, fund?.business_id, fund?.fund_id, fundId, quarter]);
 
   const displayInvestments = investments.length > 0
     ? investments
@@ -1177,18 +1643,17 @@ function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, fu
         created_at: row.created_at || "",
       } as ReV2Investment));
 
-  const investmentCount = displayInvestments.length || investmentRollup.length || deals.length;
   const valueCreationSeries = useMemo(
-    () => mergeValueCreationSeries(irrTimeline, capitalTimeline),
-    [capitalTimeline, irrTimeline]
+    () => mergeValueCreationSeries(overviewData.irrTimeline, overviewData.capitalTimeline),
+    [overviewData.capitalTimeline, overviewData.irrTimeline]
   );
   const exposureInsights = useMemo(
     () => buildExposureInsights(investmentRollup),
     [investmentRollup]
   );
   const performanceDrivers = useMemo(
-    () => buildPerformanceDrivers(irrContrib, fundState?.portfolio_nav ?? rollup?.summary.total_equity ?? null),
-    [fundState?.portfolio_nav, irrContrib, rollup?.summary.total_equity]
+    () => buildPerformanceDrivers(overviewData.irrContrib, fundState?.portfolio_nav ?? overviewData.rollup?.summary.total_equity ?? null),
+    [fundState?.portfolio_nav, overviewData.irrContrib, overviewData.rollup?.summary.total_equity]
   );
   const portfolioRows = useMemo(
     () => buildPortfolioTableRows(displayInvestments, rollupById),
@@ -1202,156 +1667,51 @@ function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, fu
       })),
     [exposureInsights.sector]
   );
-  const maxCapitalBase = Math.max(...capitalTimeline.map((point) => Number(point.total_called || 0)), 1);
+  const geographicExposureRows = useMemo(
+    () => exposureInsights.geography,
+    [exposureInsights.geography]
+  );
+  const allocationRows = sectorExposureRows.length > 0 ? sectorExposureRows : geographicExposureRows;
 
   return (
-    <div className="space-y-5">
-      <FundValueCreationCard data={valueCreationSeries} />
-
-      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <div
-          className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.5)]"
-          data-testid="portfolio-snapshot"
-        >
-          <NarrativeSectionHeading
-            eyebrow="Portfolio Snapshot"
-            title="Portfolio Snapshot"
-            description="A quick look at scale, leverage, and income generation across the current portfolio."
-          />
-          {rollup && rollup.summary.asset_count > 0 ? (
-            <>
-              <div className="mt-4 grid grid-cols-2 gap-3 text-sm lg:grid-cols-4">
-                <div className="rounded-xl border border-bm-border/50 bg-bm-surface/15 p-4">
-                  <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Portfolio Value</p>
-                  <p className="mt-2 text-xl font-semibold tabular-nums text-bm-text">{fmtMoney(rollup.summary.total_portfolio_value)}</p>
-                </div>
-                <div className="rounded-xl border border-bm-border/50 bg-bm-surface/15 p-4">
-                  <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Total Equity</p>
-                  <p className="mt-2 text-xl font-semibold tabular-nums text-bm-text">{fmtMoney(rollup.summary.total_equity)}</p>
-                </div>
-                <div className="rounded-xl border border-bm-border/50 bg-bm-surface/15 p-4">
-                  <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Weighted Avg Cap Rate</p>
-                  <p className="mt-2 text-xl font-semibold tabular-nums text-bm-text">
-                    {rollup.summary.weighted_avg_cap_rate != null
-                      ? `${(rollup.summary.weighted_avg_cap_rate * 100).toFixed(2)}%`
-                      : "—"}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-bm-border/50 bg-bm-surface/15 p-4">
-                  <p className="text-xs uppercase tracking-[0.08em] text-bm-muted2">Weighted Avg LTV</p>
-                  <p className="mt-2 text-xl font-semibold tabular-nums text-bm-text">
-                    {rollup.summary.weighted_avg_ltv != null
-                      ? `${(rollup.summary.weighted_avg_ltv * 100).toFixed(1)}%`
-                      : "—"}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-bm-muted2">
-                <span>{rollup.summary.asset_count} assets across {investmentCount} investments</span>
-                <span>Total NOI: {fmtMoney(rollup.summary.total_noi)}</span>
-                <span>Scenarios: {nonBaseScenarioCount}</span>
-              </div>
-            </>
-          ) : (
-            <div className="mt-4">
-              <NarrativeEmptyState
-                title="Portfolio rollup data will appear after valuation outputs are available."
-                detail="The snapshot section summarizes value, equity, cap rate, and leverage from the current quarter."
-              />
-            </div>
-          )}
-        </div>
-
-        <PerformanceDriversCard drivers={performanceDrivers} />
+    <div className="space-y-4">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
+        <FundValueCreationCard data={valueCreationSeries} loading={overviewData.loading} />
+        <PortfolioAllocationCard rows={allocationRows} loading={overviewData.loading} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <div
-          className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.5)]"
-          data-testid="capital-activity"
-        >
-          <NarrativeSectionHeading
-            eyebrow="Capital Activity"
-            title="Capital Activity Timeline"
-            description="Cumulative capital movement by quarter keeps deployment and returned capital legible."
-          />
-          <div className="mt-4">
-            {capitalTimeline.length > 0 ? (
-              <div className="space-y-3">
-                {capitalTimeline.map((point) => (
-                  <div key={point.quarter} className="flex items-start gap-3 text-sm">
-                    <span className="w-16 shrink-0 pt-1 text-xs text-bm-muted2">{point.quarter}</span>
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-3">
-                        <span className="w-24 shrink-0 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Capital Called</span>
-                        <div className="h-3 flex-1 overflow-hidden rounded-full bg-bm-surface/40">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${Math.min(100, (Number(point.total_called) / maxCapitalBase) * 100)}%`,
-                              backgroundColor: CHART_COLORS.scenario[0],
-                            }}
-                          />
-                        </div>
-                        <span className="w-20 text-right font-medium tabular-nums text-bm-text">{fmtMoney(point.total_called)}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="w-24 shrink-0 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Capital Returned</span>
-                        <div className="h-3 flex-1 overflow-hidden rounded-full bg-bm-surface/40">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${Math.min(100, (Number(point.total_distributed) / maxCapitalBase) * 100)}%`,
-                              backgroundColor: CHART_COLORS.noi,
-                            }}
-                          />
-                        </div>
-                        <span className="w-20 text-right font-medium tabular-nums text-bm-text">{fmtMoney(point.total_distributed)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <NarrativeEmptyState
-                title="Capital activity will populate after quarter-close runs or capital ledger entries."
-                detail="Each closed quarter adds cumulative called capital and returned capital to the timeline."
-              />
-            )}
-          </div>
-        </div>
+        <PerformanceDriversCard drivers={performanceDrivers} loading={overviewData.loading} />
+        <CapitalActivityCard capitalTimeline={overviewData.capitalTimeline} loading={overviewData.loading} />
+      </div>
 
-        <div
-          className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.5)]"
-          data-testid="exposure-insights"
-        >
-          <NarrativeSectionHeading
-            eyebrow="Exposure"
-            title="Exposure Insights"
-            description="Composition is weighted by current NAV contribution, falling back to current value when NAV weights are unavailable."
+      <div className={`${FUND_PANEL_CLASS} p-5`} data-testid="exposure-insights">
+        <NarrativeSectionHeading
+          eyebrow="Exposure"
+          title="Exposure Insights"
+          description="Composition is weighted by current NAV contribution, falling back to current value when NAV weights are unavailable."
+        />
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          <ExposureCard
+            title="Sector Allocation"
+            rows={sectorExposureRows}
+            emptyLabel="No sector allocation is available yet."
+            color={FUND_DASHBOARD_COLORS.primary}
           />
-          <div className="mt-4 grid gap-4 xl:grid-cols-2">
-            <ExposureCard
-              title="Sector Allocation"
-              rows={sectorExposureRows}
-              emptyLabel="No sector allocation is available yet."
-              color={CHART_COLORS.revenue}
-            />
-            <ExposureCard
-              title="Geographic Exposure"
-              rows={exposureInsights.geography}
-              emptyLabel="No geographic exposure is available yet."
-              color={CHART_COLORS.scenario[0]}
-            />
-          </div>
+          <ExposureCard
+            title="Geographic Exposure"
+            rows={geographicExposureRows}
+            emptyLabel="No geographic exposure is available yet."
+            color={FUND_DASHBOARD_COLORS.realized}
+          />
         </div>
       </div>
 
       <div
-        className="rounded-xl border border-bm-border/70 bg-bm-surface/20 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.5)]"
+        className={`${FUND_PANEL_CLASS} overflow-hidden`}
         data-testid="portfolio-holdings"
       >
-        <div className="border-b border-bm-border/30 px-5 py-4">
+        <div className="border-b border-[#E5E7EB] px-5 py-4">
           <NarrativeSectionHeading
             eyebrow="Portfolio Assets"
             title="Portfolio Assets"
@@ -1362,7 +1722,7 @@ function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, fu
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-bm-border/40 bg-bm-surface/15 text-left text-xs uppercase tracking-[0.12em] text-bm-muted2">
+                <tr className="border-b border-[#E5E7EB] bg-white text-left text-xs uppercase tracking-[0.12em] text-[#64748B]">
                   <th className="px-4 py-3 font-medium">Investment</th>
                   <th className="px-4 py-3 font-medium">Property Type</th>
                   <th className="px-4 py-3 font-medium">Market</th>
@@ -1374,7 +1734,7 @@ function OverviewTab({ investments, investmentRollup, deals, scenarios, fund, fu
                   <th className="px-4 py-3 font-medium text-right">LTV</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-bm-border/30">
+              <tbody className="divide-y divide-[#E5E7EB]">
                 {portfolioRows.map((row) => (
                   <InvestmentRow
                     key={row.investment.investment_id}

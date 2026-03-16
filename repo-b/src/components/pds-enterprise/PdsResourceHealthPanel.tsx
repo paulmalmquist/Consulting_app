@@ -23,7 +23,13 @@ export function PdsResourceHealthPanel({
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <div className="space-y-3">
           {resources.map((item) => (
-            <article key={item.resource_id} className="rounded-2xl border border-bm-border/60 bg-[#101922] p-4">
+            <article key={item.resource_id} className={`rounded-2xl border p-4 ${
+              item.delinquent_timecards > 0
+                ? "border-pds-signalRed/50 bg-pds-signalRed/5"
+                : Number(item.utilization_pct) < 0.5
+                  ? "border-pds-signalYellow/40 bg-pds-signalYellow/5"
+                  : "border-bm-border/60 bg-[#101922]"
+            }`}>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h4 className="font-semibold">{item.resource_name}</h4>
@@ -46,7 +52,11 @@ export function PdsResourceHealthPanel({
         </div>
         <div className="space-y-3">
           {timecards.map((item, index) => (
-            <article key={`${item.resource_id || item.resource_name}-${index}`} className="rounded-2xl border border-bm-border/60 bg-[#101922] p-4">
+            <article key={`${item.resource_id || item.resource_name}-${index}`} className={`rounded-2xl border p-4 ${
+              item.delinquent_count > 0
+                ? "border-pds-signalRed/50 bg-pds-signalRed/5"
+                : "border-bm-border/60 bg-[#101922]"
+            }`}>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h4 className="font-semibold">{item.resource_name}</h4>

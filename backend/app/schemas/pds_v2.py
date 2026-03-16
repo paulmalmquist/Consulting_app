@@ -183,6 +183,31 @@ class PdsV2ReportPacketRequest(BaseModel):
     actor: str | None = None
 
 
+class PdsV2PipelineDealOut(BaseModel):
+    deal_id: UUID
+    deal_name: str
+    account_name: str | None = None
+    stage: str
+    deal_value: Decimal = Decimal("0")
+    probability_pct: Decimal = Decimal("0")
+    expected_close_date: date | None = None
+    owner_name: str | None = None
+
+
+class PdsV2PipelineStageOut(BaseModel):
+    stage: str
+    count: int = 0
+    weighted_value: Decimal = Decimal("0")
+    unweighted_value: Decimal = Decimal("0")
+
+
+class PdsV2PipelineSummaryOut(BaseModel):
+    stages: list[PdsV2PipelineStageOut] = Field(default_factory=list)
+    deals: list[PdsV2PipelineDealOut] = Field(default_factory=list)
+    total_pipeline_value: Decimal = Decimal("0")
+    total_weighted_value: Decimal = Decimal("0")
+
+
 class PdsV2ReportPacketOut(BaseModel):
     packet_type: str
     generated_at: datetime

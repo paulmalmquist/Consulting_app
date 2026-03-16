@@ -58,17 +58,31 @@ export function formatDate(value?: string | null): string {
 }
 
 export function toneClasses(tone?: string): string {
-  if (tone === "danger") return "border-red-500/30 bg-red-500/10 text-red-100";
-  if (tone === "warn") return "border-amber-400/30 bg-amber-400/10 text-amber-100";
-  if (tone === "positive") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-100";
-  return "border-bm-border/70 bg-bm-surface/30 text-bm-text";
+  if (tone === "danger") return "border-pds-signalRed/30 bg-pds-signalRed/10 text-red-100";
+  if (tone === "warn") return "border-pds-signalOrange/30 bg-pds-signalOrange/10 text-amber-100";
+  if (tone === "positive") return "border-pds-signalGreen/30 bg-pds-signalGreen/10 text-emerald-100";
+  return "border-pds-divider bg-pds-card/30 text-bm-text";
+}
+
+export function accentStripeClass(tone?: string): string {
+  if (tone === "danger") return "bg-pds-signalRed";
+  if (tone === "warn") return "bg-pds-signalOrange";
+  if (tone === "positive") return "bg-pds-signalGreen";
+  return "bg-pds-gold/40";
+}
+
+export function signalDotClass(status?: string): string {
+  if (status === "red") return "bg-pds-signalRed";
+  if (status === "orange") return "bg-pds-signalOrange";
+  if (status === "yellow") return "bg-pds-signalYellow";
+  return "bg-pds-signalGreen";
 }
 
 export function healthBadgeClasses(status?: string): string {
-  if (status === "red") return "bg-red-500/15 text-red-200";
-  if (status === "orange") return "bg-orange-400/15 text-orange-200";
-  if (status === "yellow") return "bg-amber-400/15 text-amber-200";
-  return "bg-emerald-500/15 text-emerald-200";
+  if (status === "red") return "bg-pds-signalRed/15 text-red-200";
+  if (status === "orange") return "bg-pds-signalOrange/15 text-orange-200";
+  if (status === "yellow") return "bg-pds-signalYellow/15 text-amber-200";
+  return "bg-pds-signalGreen/15 text-emerald-200";
 }
 
 export function reasonLabel(reason: string): string {

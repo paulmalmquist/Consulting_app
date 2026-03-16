@@ -16,7 +16,7 @@ type Props = {
 
 function buttonClass(active: boolean): string {
   return active
-    ? "border-[#e8bf68]/60 bg-[#e8bf68]/15 text-[#f5d89b]"
+    ? "border-pds-gold/60 bg-pds-gold/15 text-pds-goldText"
     : "border-bm-border/70 bg-bm-surface/25 text-bm-text hover:bg-bm-surface/40";
 }
 

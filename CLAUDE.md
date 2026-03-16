@@ -18,7 +18,7 @@ intent_tags: njlllllllll
   - ops
 triggers:
   - CLAUDE.md
-  - Winston
+  - Winston`
   - Business Machine
 entrypoint: true
 handoff_to:

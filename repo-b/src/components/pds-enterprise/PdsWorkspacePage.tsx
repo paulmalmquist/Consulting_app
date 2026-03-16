@@ -19,6 +19,7 @@ import { PdsResourceHealthPanel } from "@/components/pds-enterprise/PdsResourceH
 import { PdsForecastPanel } from "@/components/pds-enterprise/PdsForecastPanel";
 import { PdsSatisfactionCloseoutPanel } from "@/components/pds-enterprise/PdsSatisfactionCloseoutPanel";
 import { PdsExecutiveBriefingPanel } from "@/components/pds-enterprise/PdsExecutiveBriefingPanel";
+import { PdsInterventionQueue } from "@/components/pds-enterprise/PdsInterventionQueue";
 
 type PdsWorkspaceSection =
   | "performance"
@@ -27,6 +28,7 @@ type PdsWorkspaceSection =
   | "forecast"
   | "satisfactionCloseout"
   | "briefing"
+  | "interventionQueue"
   | "reportPacket";
 
 type ModuleNote = {
@@ -45,6 +47,15 @@ type Props = {
   moduleNotes?: ModuleNote[];
   reportPacketType?: string;
 };
+
+function PdsSectionHeader({ label, title }: { label: string; title: string }) {
+  return (
+    <div className="mt-2">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-pds-gold/70">{label}</p>
+      <h3 className="text-lg font-semibold text-bm-text">{title}</h3>
+    </div>
+  );
+}
 
 function ReportPacketPanel({ packet }: { packet: PdsV2ReportPacket }) {
   return (
@@ -134,7 +145,7 @@ export function PdsWorkspacePage({
 
   if (error && !commandCenter) {
     return (
-      <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-6 text-sm text-red-200">
+      <div className="rounded-3xl border border-pds-signalRed/30 bg-pds-signalRed/10 p-6 text-sm text-red-200">
         {error}
       </div>
     );
@@ -143,15 +154,15 @@ export function PdsWorkspacePage({
   if (!commandCenter) return null;
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-[28px] border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,rgba(232,191,104,0.14),transparent_45%),linear-gradient(145deg,#111820,#0b1015)] p-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="max-w-3xl space-y-2">
-            <p className="text-xs uppercase tracking-[0.18em] text-[#c3a15f]">PDS Enterprise OS</p>
-            <h2 className="text-3xl font-semibold text-bm-text">{title}</h2>
-            <p className="text-sm text-bm-muted2">{description}</p>
+    <div className="space-y-4">
+      <section className="rounded-[28px] border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,hsl(var(--pds-gold)/0.14),transparent_45%),linear-gradient(145deg,#111820,#0b1015)] p-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-3xl space-y-1">
+            <p className="text-xs uppercase tracking-[0.18em] text-pds-gold">PDS Enterprise OS</p>
+            <h2 className="text-2xl font-semibold text-bm-text">{title}</h2>
+            {description ? <p className="text-sm text-bm-muted2">{description}</p> : null}
           </div>
-          <div className="rounded-2xl border border-[#e8bf68]/20 bg-black/10 px-4 py-3 text-sm text-[#eadbb2]">
+          <div className="rounded-2xl border border-pds-gold/20 bg-black/10 px-4 py-2.5 text-sm text-pds-goldText">
             Market vs account is a first-class operating switch. Revenue, staffing, client health, and closeout move with the same lens.
           </div>
         </div>
@@ -160,10 +171,10 @@ export function PdsWorkspacePage({
       {moduleNotes.length ? (
         <section className="grid gap-3 lg:grid-cols-3">
           {moduleNotes.map((note) => (
-            <article key={`${note.label}-${note.title}`} className="rounded-3xl border border-bm-border/70 bg-bm-surface/20 p-4">
-              <p className="text-xs uppercase tracking-[0.16em] text-bm-muted2">{note.label}</p>
-              <h3 className="mt-1 text-lg font-semibold">{note.title}</h3>
-              <p className="mt-2 text-sm text-bm-muted2">{note.body}</p>
+            <article key={`${note.label}-${note.title}`} className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-bm-muted2">{note.label}</p>
+              <h3 className="mt-1 text-base font-semibold">{note.title}</h3>
+              <p className="mt-1 text-xs text-bm-muted2">{note.body}</p>
             </article>
           ))}
         </section>
@@ -179,37 +190,65 @@ export function PdsWorkspacePage({
         onRolePresetChange={setRolePreset}
       />
 
-      <PdsMetricStrip metrics={commandCenter.metrics_strip} />
-
-      {sections.includes("performance") || sections.includes("briefing") ? (
-        <div className={`grid gap-4 ${sections.includes("performance") && sections.includes("briefing") ? "xl:grid-cols-[1.35fr,0.95fr]" : ""}`}>
-          {sections.includes("performance") ? <PdsPerformanceTable table={commandCenter.performance_table} /> : null}
-          {sections.includes("briefing") ? <PdsExecutiveBriefingPanel briefing={commandCenter.briefing} /> : null}
-        </div>
+      {sections.includes("interventionQueue") ? (
+        <PdsInterventionQueue commandCenter={commandCenter} />
       ) : null}
 
-      {sections.includes("deliveryRisk") || sections.includes("resourceHealth") ? (
-        <div className={`grid gap-4 ${sections.includes("deliveryRisk") && sections.includes("resourceHealth") ? "xl:grid-cols-[1.2fr,1fr]" : ""}`}>
-          {sections.includes("deliveryRisk") ? <PdsDeliveryRiskPanel items={commandCenter.delivery_risk} /> : null}
-          {sections.includes("resourceHealth") ? (
-            <PdsResourceHealthPanel resources={commandCenter.resource_health} timecards={commandCenter.timecard_health} />
-          ) : null}
-        </div>
+      {sections.includes("performance") ? (
+        <>
+          <PdsSectionHeader label="Financial Signals" title="Revenue, CI, Backlog & Forecast" />
+          <PdsMetricStrip metrics={commandCenter.metrics_strip} />
+        </>
+      ) : (
+        <PdsMetricStrip metrics={commandCenter.metrics_strip} />
+      )}
+
+      {sections.includes("performance") ? (
+        <>
+          <PdsSectionHeader label="Portfolio Performance" title="Market Operating View" />
+          <PdsPerformanceTable table={commandCenter.performance_table} />
+        </>
       ) : null}
 
-      {sections.includes("forecast") || sections.includes("satisfactionCloseout") ? (
-        <div className={`grid gap-4 ${sections.includes("forecast") && sections.includes("satisfactionCloseout") ? "xl:grid-cols-[1.05fr,1fr]" : ""}`}>
-          {sections.includes("forecast") ? <PdsForecastPanel points={commandCenter.forecast_points} /> : null}
-          {sections.includes("satisfactionCloseout") ? (
-            <PdsSatisfactionCloseoutPanel satisfaction={commandCenter.satisfaction} closeout={commandCenter.closeout} />
-          ) : null}
-        </div>
+      {sections.includes("deliveryRisk") ? (
+        <>
+          <PdsSectionHeader label="Delivery Risk" title="Projects Requiring Intervention" />
+          <PdsDeliveryRiskPanel items={commandCenter.delivery_risk} />
+        </>
+      ) : null}
+
+      {sections.includes("resourceHealth") ? (
+        <>
+          <PdsSectionHeader label="Resource Signals" title="Staffing Pressure & Submission Discipline" />
+          <PdsResourceHealthPanel resources={commandCenter.resource_health} timecards={commandCenter.timecard_health} />
+        </>
+      ) : null}
+
+      {sections.includes("satisfactionCloseout") ? (
+        <>
+          <PdsSectionHeader label="Client Health" title="Satisfaction & Closeout Status" />
+          <PdsSatisfactionCloseoutPanel satisfaction={commandCenter.satisfaction} closeout={commandCenter.closeout} />
+        </>
+      ) : null}
+
+      {sections.includes("forecast") ? (
+        <>
+          <PdsSectionHeader label="Forecast" title="Forecast Trend" />
+          <PdsForecastPanel points={commandCenter.forecast_points} />
+        </>
+      ) : null}
+
+      {sections.includes("briefing") ? (
+        <>
+          <PdsSectionHeader label="AI Executive Briefing" title="Management Intelligence" />
+          <PdsExecutiveBriefingPanel briefing={commandCenter.briefing} />
+        </>
       ) : null}
 
       {sections.includes("reportPacket") && reportPacket ? <ReportPacketPanel packet={reportPacket} /> : null}
 
       {error ? (
-        <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+        <div className="rounded-2xl border border-pds-signalOrange/30 bg-pds-signalOrange/10 px-4 py-3 text-sm text-amber-100">
           {error}
         </div>
       ) : null}

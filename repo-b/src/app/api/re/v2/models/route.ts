@@ -23,12 +23,14 @@ export async function GET(request: Request) {
 
   try {
     const res = await pool.query(
-      `SELECT m.model_id::text, m.fund_id::text, m.name, m.description, m.status,
-              m.strategy_type, m.created_by, m.created_at::text,
+      `SELECT m.model_id::text, m.primary_fund_id::text, m.env_id::text,
+              m.name, m.description, m.status, m.model_type, m.strategy_type,
+              m.created_by, m.created_at::text,
               f.name AS fund_name
        FROM re_model m
-       JOIN repe_fund f ON f.fund_id = m.fund_id
+       LEFT JOIN repe_fund f ON f.fund_id = m.primary_fund_id
        WHERE f.business_id = $1::uuid
+          OR m.env_id IN (SELECT env_id FROM env_business_bindings WHERE business_id = $1::uuid)
        ORDER BY m.created_at DESC`,
       [businessId]
     );

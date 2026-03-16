@@ -201,14 +201,8 @@ export default function ReModelsPage() {
     } as const;
 
     try {
-      await createCrossFundModel(payload);
-      await loadModels(funds);
-      setNewName("");
-      setNewDesc("");
-      setNewModelType("scenario");
-      setNewStrategy("equity");
-      setNewFundId(selectedFund?.fund_id ?? funds[0]?.fund_id ?? "");
-      setSuccess(`Created "${payload.name}" and refreshed the models list.`);
+      const created = await createCrossFundModel(payload);
+      window.location.assign(`${basePath}/models/${created.model_id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create model");
     } finally {

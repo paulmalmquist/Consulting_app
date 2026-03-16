@@ -541,3 +541,22 @@ CREATE INDEX IF NOT EXISTS idx_pds_client_satisfaction_snapshot_lookup
 
 CREATE INDEX IF NOT EXISTS idx_pds_closeout_snapshot_lookup
   ON pds_closeout_snapshot (env_id, business_id, horizon, snapshot_date DESC);
+
+-- Pipeline deals for business development tracking
+CREATE TABLE IF NOT EXISTS pds_pipeline_deals (
+  deal_id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  env_id               uuid NOT NULL REFERENCES app.environments(env_id) ON DELETE CASCADE,
+  business_id          uuid NOT NULL REFERENCES business(business_id) ON DELETE CASCADE,
+  account_id           uuid REFERENCES pds_accounts(account_id) ON DELETE SET NULL,
+  deal_name            text NOT NULL,
+  stage                text NOT NULL DEFAULT 'prospect',
+  deal_value           numeric(14,2),
+  probability_pct      numeric(5,2) DEFAULT 0,
+  expected_close_date  date,
+  owner_name           text,
+  created_at           timestamptz NOT NULL DEFAULT now(),
+  updated_at           timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_pds_pipeline_deals_lookup
+  ON pds_pipeline_deals (env_id, business_id, stage);

@@ -911,6 +911,31 @@ export interface PdsV2ReportPacket {
   narrative?: string | null;
 }
 
+export interface PdsV2PipelineDeal {
+  deal_id: string;
+  deal_name: string;
+  account_name?: string | null;
+  stage: string;
+  deal_value: number;
+  probability_pct: number;
+  expected_close_date?: string | null;
+  owner_name?: string | null;
+}
+
+export interface PdsV2PipelineStage {
+  stage: string;
+  count: number;
+  weighted_value: number;
+  unweighted_value: number;
+}
+
+export interface PdsV2PipelineSummary {
+  stages: PdsV2PipelineStage[];
+  deals: PdsV2PipelineDeal[];
+  total_pipeline_value: number;
+  total_weighted_value: number;
+}
+
 export interface PdsV2CommandCenter {
   env_id: string;
   business_id: string;
@@ -1279,6 +1304,15 @@ export function getPdsCommandCenter(
       horizon: options?.horizon,
       role_preset: options?.role_preset,
     },
+  });
+}
+
+export function getPdsPipeline(
+  envId: string,
+  options?: { business_id?: string },
+): Promise<PdsV2PipelineSummary> {
+  return bosFetch("/api/pds/v2/pipeline", {
+    params: { env_id: envId, business_id: options?.business_id },
   });
 }
 

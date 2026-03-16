@@ -1,13 +1,84 @@
 export interface ReModel {
   model_id: string;
-  fund_id: string;
+  primary_fund_id: string | null;
+  fund_id?: string | null;
+  env_id: string | null;
   name: string;
   description: string | null;
   status: string;
+  model_type: string | null;
   strategy_type: string | null;
   created_by: string | null;
   approved_at: string | null;
   created_at: string;
+}
+
+export interface ModelScenario {
+  id: string;
+  model_id: string;
+  name: string;
+  description: string | null;
+  is_base: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScenarioAsset {
+  id: string;
+  scenario_id: string;
+  asset_id: string;
+  source_fund_id: string | null;
+  source_investment_id: string | null;
+  added_at: string;
+  asset_name: string;
+  asset_type: string | null;
+  fund_name: string | null;
+}
+
+export interface ScenarioOverride {
+  id: string;
+  scenario_id: string;
+  scope_type: string;
+  scope_id: string;
+  key: string;
+  value_json: unknown;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScenarioRunResult {
+  run_id: string;
+  scenario_id: string;
+  model_id: string;
+  status: string;
+  assets_processed: number;
+  summary: ScenarioSummary;
+}
+
+export interface ScenarioSummary {
+  asset_count: number;
+  total_noi_cash: number;
+  total_noi_gaap: number;
+  avg_noi_cash_per_asset: number;
+  avg_noi_gaap_per_asset: number;
+  total_revenue: number;
+  total_expense: number;
+  period_count: number;
+  by_fund: Record<string, { fund_name: string; noi_cash: number; noi_gaap: number; asset_count: number }>;
+}
+
+export interface ScenarioComparison {
+  scenarios: Array<{
+    scenario_id: string;
+    scenario_name: string;
+    run_id: string;
+    summary: ScenarioSummary;
+  }>;
+  comparison: Array<{
+    base_scenario: string;
+    compare_scenario: string;
+    variance: Record<string, { base: number; compare: number; delta: number; delta_pct: number }>;
+  }> | null;
 }
 
 export interface ReModelScope {

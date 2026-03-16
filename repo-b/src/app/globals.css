@@ -35,6 +35,19 @@
     --bm-warning: 38 85% 50%;
     --bm-danger: 0 72% 48%;
     --bm-focus-ring: var(--accent);
+
+    /* PDS Enterprise OS palette */
+    --pds-bg-primary: 213 39% 8%;
+    --pds-bg-panel: 217 33% 9%;
+    --pds-bg-card: 215 26% 15%;
+    --pds-divider: 213 18% 22%;
+    --pds-gold: 41 64% 54%;
+    --pds-gold-soft: 43 71% 68%;
+    --pds-gold-text: 43 76% 76%;
+    --pds-signal-green: 137 61% 49%;
+    --pds-signal-yellow: 43 87% 62%;
+    --pds-signal-orange: 28 86% 62%;
+    --pds-signal-red: 4 80% 63%;
   }
 
   html[data-theme="light"] {

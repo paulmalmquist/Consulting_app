@@ -16,6 +16,7 @@ from app.schemas.pds_v2 import (
     PdsV2DeliveryRiskItemOut,
     PdsV2ForecastPointOut,
     PdsV2PerformanceTableOut,
+    PdsV2PipelineSummaryOut,
     PdsV2ReportPacketOut,
     PdsV2ReportPacketRequest,
     PdsV2ResourceHealthItemOut,
@@ -361,6 +362,32 @@ def build_report_packet(req: PdsV2ReportPacketRequest, request: Request):
             detail=str(exc),
             action="pds.v2.report_packet.failed",
             context={"env_id": req.env_id, "packet_type": req.packet_type},
+        )
+
+
+@router.get("/pipeline", response_model=PdsV2PipelineSummaryOut)
+def get_pipeline(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return PdsV2PipelineSummaryOut(
+            **enterprise_svc.get_pipeline_summary(
+                env_id=resolved_env_id,
+                business_id=resolved_business_id,
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="pds.v2.pipeline.failed",
+            context={"env_id": env_id},
         )
 
 

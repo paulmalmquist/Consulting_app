@@ -19,7 +19,8 @@ export async function GET(
 
   try {
     const res = await pool.query(
-      `SELECT model_id::text, fund_id::text, name, description, status,
+      `SELECT model_id::text, primary_fund_id::text, env_id::text,
+              name, description, status, model_type, strategy_type,
               created_by, approved_at::text, approved_by, created_at::text
        FROM re_model
        WHERE model_id = $1::uuid`,
@@ -56,7 +57,8 @@ export async function PATCH(
        SET status = $2,
            approved_at = CASE WHEN $2 = 'approved' THEN now() ELSE approved_at END
        WHERE model_id = $1::uuid
-       RETURNING model_id::text, fund_id::text, name, description, status,
+       RETURNING model_id::text, primary_fund_id::text, env_id::text,
+                 name, description, status, model_type, strategy_type,
                  created_by, approved_at::text, approved_by, created_at::text`,
       [params.modelId, status]
     );
