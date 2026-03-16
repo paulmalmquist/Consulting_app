@@ -49,6 +49,7 @@ from app.routes import (
     winston_demo,
     query_engine,
     opportunity_engine,
+    psychrag,
 )
 from app.routes.ai import router as ai_router
 from app.routes.ai_gateway import router as ai_gateway_router
@@ -65,6 +66,7 @@ from app.routes import re_query
 from app.routes import semantic_catalog, analytics
 from app.routes import pds_revenue, pds_utilization, pds_satisfaction, pds_adoption, pds_accounts_v2
 from app.routes import pds_query, pds_chat, pds_analytics
+from app.routes import cre_work_packages
 
 app = FastAPI(title="Business OS API", version="0.1.0")
 
@@ -165,6 +167,7 @@ app.include_router(re_uw_links.router)
 app.include_router(re_pipeline.router)
 app.include_router(re_geography.router)
 app.include_router(re_intelligence.router)
+app.include_router(cre_work_packages.router)
 app.include_router(pds.router)
 app.include_router(pds_v2.router)
 app.include_router(pds_executive.router)
@@ -182,6 +185,7 @@ app.include_router(medoffice.router)
 app.include_router(winston_demo.router)
 app.include_router(query_engine.router)
 app.include_router(opportunity_engine.router)
+app.include_router(psychrag.router)
 app.include_router(website_content.router)
 app.include_router(website_rankings.router)
 app.include_router(website_analytics.router)
