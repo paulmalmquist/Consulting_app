@@ -197,8 +197,9 @@ def get_capacity_demand(
     months_ahead: int = 6,
 ) -> dict[str, Any]:
     """Supply vs demand for rolling months ahead."""
+    # months_ahead must come FIRST in params (used in generate_series before WHERE clause)
     emp_clauses = ["e.env_id = %s::uuid", "e.business_id = %s::uuid", "e.is_active = true"]
-    emp_params: list[Any] = [env_id, business_id, months_ahead]
+    emp_params: list[Any] = [months_ahead, env_id, business_id]
 
     if region:
         emp_clauses.append("e.region = %s")
@@ -207,7 +208,7 @@ def get_capacity_demand(
     where_emp = " AND ".join(emp_clauses)
 
     assign_clauses = ["a.env_id = %s::uuid", "a.business_id = %s::uuid"]
-    assign_params: list[Any] = [env_id, business_id, months_ahead]
+    assign_params: list[Any] = [months_ahead, env_id, business_id]
 
     if region:
         assign_clauses.append("e2.region = %s")
