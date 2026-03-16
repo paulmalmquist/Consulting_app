@@ -6,6 +6,7 @@ from app.connectors.cre.hud_fmr import CONNECTOR as HUD_FMR_CONNECTOR
 from app.connectors.cre.hud_usps_crosswalk import CONNECTOR as HUD_USPS_CONNECTOR
 from app.connectors.cre.kalshi_markets import CONNECTOR as KALSHI_CONNECTOR
 from app.connectors.cre.noaa_storm_events import CONNECTOR as NOAA_CONNECTOR
+from app.connectors.cre.county_assessor import CONNECTOR as COUNTY_ASSESSOR_CONNECTOR
 from app.connectors.cre.tiger_geography import CONNECTOR as TIGER_CONNECTOR
 
 _CONNECTORS = {
@@ -16,6 +17,7 @@ _CONNECTORS = {
     HUD_USPS_CONNECTOR.source_key: HUD_USPS_CONNECTOR,
     NOAA_CONNECTOR.source_key: NOAA_CONNECTOR,
     KALSHI_CONNECTOR.source_key: KALSHI_CONNECTOR,
+    COUNTY_ASSESSOR_CONNECTOR.source_key: COUNTY_ASSESSOR_CONNECTOR,
 }
 
 

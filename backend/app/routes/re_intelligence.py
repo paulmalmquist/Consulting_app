@@ -285,3 +285,74 @@ def list_quality_checks(
     except Exception as exc:
         raise _to_http(exc)
 
+
+# ---------------------------------------------------------------------------
+# Owner unmasking + entity matching endpoints (Phase 2)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/owner-graph/{entity_id}")
+def get_owner_graph(
+    entity_id: UUID,
+    env_id: UUID = Query(...),
+    max_depth: int = Query(5, ge=1, le=10),
+):
+    """Return the ownership network graph for an entity."""
+    from app.services import re_owner_unmasking
+    try:
+        return re_owner_unmasking.get_owner_graph(
+            entity_id=entity_id, env_id=env_id, max_depth=max_depth,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/owner-unmasking/report/{property_id}")
+def get_unmasking_report(
+    property_id: UUID,
+    env_id: UUID = Query(...),
+    max_depth: int = Query(5, ge=1, le=10),
+):
+    """Trace beneficial owners for a property."""
+    from app.services import re_owner_unmasking
+    try:
+        return re_owner_unmasking.get_unmasking_report(
+            property_id=property_id, env_id=env_id, max_depth=max_depth,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/entity-matching/run")
+def run_entity_matching(
+    env_id: UUID = Query(...),
+    business_id: UUID = Query(...),
+    entity_type: str | None = Query(None),
+    dry_run: bool = Query(False),
+):
+    """Run fuzzy entity matching and generate resolution candidates."""
+    from app.services import re_entity_matching
+    try:
+        return re_entity_matching.run_entity_matching(
+            env_id=env_id, business_id=business_id,
+            entity_type=entity_type, dry_run=dry_run,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/community-detection/run")
+def run_community_detection(
+    env_id: UUID = Query(...),
+    business_id: UUID = Query(...),
+    resolution: float = Query(1.0, ge=0.1, le=5.0),
+):
+    """Run Louvain community detection on the entity relationship graph."""
+    from app.services import re_owner_unmasking
+    try:
+        return re_owner_unmasking.detect_communities(
+            env_id=env_id, business_id=business_id, resolution=resolution,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+

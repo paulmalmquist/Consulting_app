@@ -22,6 +22,8 @@ python-multipart==0.0.20
 # CRE Intelligence connectors
 pyshp>=2.3.0
 usaddress>=0.5.10
+rapidfuzz>=3.0
+networkx>=3.0
 
 # AI Gateway + RAG
 openai>=1.30
