@@ -20,7 +20,7 @@ _ROLE_TARGETS: dict[str, tuple[float, float]] = {
     "executive":      (40, 50),
 }
 
-# Available hours multiplier: weeks × weekly hours × billable fraction
+# Available hours multiplier: ~4.33 weeks/month × 90% billable fraction
 _AVAIL_FACTOR = 4.33 * 0.90  # applied to standard_hours_per_week
 
 
@@ -62,29 +62,31 @@ def get_utilization_summary(
         clauses.append("e.role_level = %s")
         params.append(role_level)
     if governance_track and governance_track != "all":
-        clauses.append("t.governance_track = %s")
+        clauses.append("p.governance_track = %s")
         params.append(governance_track)
     if date_from:
-        clauses.append("t.period >= %s::date")
+        clauses.append("t.work_date >= %s::date")
         params.append(date_from)
     if date_to:
-        clauses.append("t.period <= %s::date")
+        clauses.append("t.work_date <= %s::date")
         params.append(date_to)
 
     where = " AND ".join(clauses)
+
+    join_project = "LEFT JOIN pds_analytics_projects p ON p.project_id = t.project_id AND p.env_id = t.env_id AND p.business_id = t.business_id" if governance_track and governance_track != "all" else ""
 
     with get_cursor() as cur:
         cur.execute(
             f"""
             SELECT
-                t.period,
+                date_trunc('month', t.work_date)::date AS period,
                 COUNT(DISTINCT t.employee_id)            AS headcount,
-                SUM(t.billable_hours)                    AS total_billable,
+                SUM(t.hours) FILTER (WHERE t.is_billable) AS total_billable,
                 SUM(e.standard_hours_per_week * {_AVAIL_FACTOR}) AS total_available,
                 CASE
                     WHEN SUM(e.standard_hours_per_week * {_AVAIL_FACTOR}) > 0
                     THEN ROUND(
-                        SUM(t.billable_hours)
+                        SUM(t.hours) FILTER (WHERE t.is_billable)
                         / SUM(e.standard_hours_per_week * {_AVAIL_FACTOR}) * 100, 2
                     )
                     ELSE 0
@@ -93,9 +95,10 @@ def get_utilization_summary(
             JOIN pds_analytics_employees e
                 ON e.employee_id = t.employee_id
                 AND e.env_id = t.env_id AND e.business_id = t.business_id
+            {join_project}
             WHERE {where}
-            GROUP BY t.period
-            ORDER BY t.period
+            GROUP BY date_trunc('month', t.work_date)::date
+            ORDER BY period
             """,
             params,
         )
@@ -128,10 +131,10 @@ def get_utilization_heatmap(
         clauses.append("e.role_level = %s")
         params.append(role_level)
     if date_from:
-        clauses.append("t.period >= %s::date")
+        clauses.append("t.work_date >= %s::date")
         params.append(date_from)
     if date_to:
-        clauses.append("t.period <= %s::date")
+        clauses.append("t.work_date <= %s::date")
         params.append(date_to)
 
     where = " AND ".join(clauses)
@@ -141,15 +144,15 @@ def get_utilization_heatmap(
             f"""
             SELECT
                 e.employee_id,
-                e.employee_name,
+                e.full_name AS employee_name,
                 e.role_level,
-                t.period,
-                SUM(t.billable_hours) AS billable_hours,
+                date_trunc('month', t.work_date)::date AS period,
+                SUM(t.hours) FILTER (WHERE t.is_billable) AS billable_hours,
                 e.standard_hours_per_week * {_AVAIL_FACTOR} AS available_hours,
                 CASE
                     WHEN e.standard_hours_per_week * {_AVAIL_FACTOR} > 0
                     THEN ROUND(
-                        SUM(t.billable_hours)
+                        SUM(t.hours) FILTER (WHERE t.is_billable)
                         / (e.standard_hours_per_week * {_AVAIL_FACTOR}) * 100, 2
                     )
                     ELSE 0
@@ -159,9 +162,9 @@ def get_utilization_heatmap(
                 ON e.employee_id = t.employee_id
                 AND e.env_id = t.env_id AND e.business_id = t.business_id
             WHERE {where}
-            GROUP BY e.employee_id, e.employee_name, e.role_level,
-                     e.standard_hours_per_week, t.period
-            ORDER BY e.employee_name, t.period
+            GROUP BY e.employee_id, e.full_name, e.role_level,
+                     e.standard_hours_per_week, date_trunc('month', t.work_date)::date
+            ORDER BY e.full_name, period
             """,
             params,
         )
@@ -194,16 +197,15 @@ def get_capacity_demand(
     months_ahead: int = 6,
 ) -> dict[str, Any]:
     """Supply vs demand for rolling months ahead."""
-    clauses = ["e.env_id = %s::uuid", "e.business_id = %s::uuid"]
-    params: list[Any] = [env_id, business_id]
+    emp_clauses = ["e.env_id = %s::uuid", "e.business_id = %s::uuid", "e.is_active = true"]
+    emp_params: list[Any] = [env_id, business_id, months_ahead]
 
     if region:
-        clauses.append("e.region = %s")
-        params.append(region)
+        emp_clauses.append("e.region = %s")
+        emp_params.append(region)
 
-    where_emp = " AND ".join(clauses)
+    where_emp = " AND ".join(emp_clauses)
 
-    # Reuse same base params for assignments query
     assign_clauses = ["a.env_id = %s::uuid", "a.business_id = %s::uuid"]
     assign_params: list[Any] = [env_id, business_id, months_ahead]
 
@@ -214,7 +216,6 @@ def get_capacity_demand(
     where_assign = " AND ".join(assign_clauses)
 
     with get_cursor() as cur:
-        # Supply: headcount x standard hours per month
         cur.execute(
             f"""
             SELECT
@@ -228,27 +229,24 @@ def get_capacity_demand(
                 interval '1 month'
             ) AS gs(month)
             WHERE {where_emp}
-              AND e.status = 'active'
             GROUP BY gs.month
             ORDER BY gs.month
             """,
-            params + [months_ahead],
+            emp_params,
         )
         supply_rows = cur.fetchall()
 
-        # Demand: confirmed assignments + pipeline-weighted
+        # Demand: allocation_pct × available hours per month
         cur.execute(
             f"""
             SELECT
                 gs.month::date AS month,
                 SUM(
-                    CASE WHEN a.status = 'confirmed'
-                         THEN a.allocated_hours
-                         ELSE a.allocated_hours * COALESCE(a.pipeline_weight, 0.5)
-                    END
+                    a.allocation_pct / 100.0
+                    * e2.standard_hours_per_week * {_AVAIL_FACTOR}
                 ) AS demand_hours
             FROM pds_analytics_assignments a
-            LEFT JOIN pds_analytics_employees e2
+            JOIN pds_analytics_employees e2
                 ON e2.employee_id = a.employee_id
                 AND e2.env_id = a.env_id AND e2.business_id = a.business_id
             CROSS JOIN generate_series(
@@ -257,8 +255,8 @@ def get_capacity_demand(
                 interval '1 month'
             ) AS gs(month)
             WHERE {where_assign}
-              AND a.start_date <= (gs.month + interval '1 month')
-              AND a.end_date >= gs.month
+              AND (a.start_date IS NULL OR a.start_date <= (gs.month + interval '1 month')::date)
+              AND (a.end_date IS NULL OR a.end_date >= gs.month::date)
             GROUP BY gs.month
             ORDER BY gs.month
             """,
@@ -300,7 +298,7 @@ def get_bench(
     role_level: str | None = None,
 ) -> dict[str, Any]:
     """Employees with total allocation_pct < 50% or no active assignments."""
-    clauses = ["e.env_id = %s::uuid", "e.business_id = %s::uuid", "e.status = 'active'"]
+    clauses = ["e.env_id = %s::uuid", "e.business_id = %s::uuid", "e.is_active = true"]
     params: list[Any] = [env_id, business_id]
 
     if region:
@@ -317,12 +315,12 @@ def get_bench(
             f"""
             SELECT
                 e.employee_id,
-                e.employee_name,
+                e.full_name AS employee_name,
                 e.role_level,
                 e.region,
                 COALESCE(alloc.total_allocation_pct, 0) AS allocation_pct,
                 ROUND(100 - COALESCE(alloc.total_allocation_pct, 0), 2) AS availability_pct,
-                alloc.assignment_count
+                COALESCE(alloc.assignment_count, 0) AS assignment_count
             FROM pds_analytics_employees e
             LEFT JOIN LATERAL (
                 SELECT
@@ -331,13 +329,13 @@ def get_bench(
                 FROM pds_analytics_assignments a
                 WHERE a.employee_id = e.employee_id
                   AND a.env_id = e.env_id AND a.business_id = e.business_id
-                  AND a.status = 'confirmed'
-                  AND a.start_date <= CURRENT_DATE
-                  AND a.end_date >= CURRENT_DATE
+                  AND (a.start_date IS NULL OR a.start_date <= CURRENT_DATE)
+                  AND (a.end_date IS NULL OR a.end_date >= CURRENT_DATE)
             ) alloc ON true
             WHERE {where}
               AND COALESCE(alloc.total_allocation_pct, 0) < 50
             ORDER BY COALESCE(alloc.total_allocation_pct, 0) ASC
+            LIMIT 100
             """,
             params,
         )
@@ -357,7 +355,7 @@ def get_utilization_distribution(
     region: str | None = None,
     role_level: str | None = None,
 ) -> dict[str, Any]:
-    """Histogram bins of utilization for current and trailing 3 months."""
+    """Histogram bins of utilization for trailing 3 months."""
     clauses = ["t.env_id = %s::uuid", "t.business_id = %s::uuid"]
     params: list[Any] = [env_id, business_id]
 
@@ -376,10 +374,10 @@ def get_utilization_distribution(
             WITH employee_util AS (
                 SELECT
                     t.employee_id,
-                    t.period,
+                    date_trunc('month', t.work_date)::date AS period,
                     CASE
                         WHEN e.standard_hours_per_week * {_AVAIL_FACTOR} > 0
-                        THEN SUM(t.billable_hours)
+                        THEN SUM(t.hours) FILTER (WHERE t.is_billable)
                              / (e.standard_hours_per_week * {_AVAIL_FACTOR}) * 100
                         ELSE 0
                     END AS utilization_pct
@@ -388,8 +386,8 @@ def get_utilization_distribution(
                     ON e.employee_id = t.employee_id
                     AND e.env_id = t.env_id AND e.business_id = t.business_id
                 WHERE {where}
-                  AND t.period >= (date_trunc('month', CURRENT_DATE) - interval '3 months')::date
-                GROUP BY t.employee_id, t.period, e.standard_hours_per_week
+                  AND t.work_date >= (date_trunc('month', CURRENT_DATE) - interval '3 months')::date
+                GROUP BY t.employee_id, date_trunc('month', t.work_date)::date, e.standard_hours_per_week
             ),
             binned AS (
                 SELECT
@@ -404,7 +402,7 @@ def get_utilization_distribution(
                 bin_floor,
                 CASE
                     WHEN bin_floor >= 110 THEN '110%%+'
-                    ELSE bin_floor::int || '%%–' || (bin_floor::int + 10) || '%%'
+                    ELSE bin_floor::int || '%%\u2013' || (bin_floor::int + 10) || '%%'
                 END AS bin_label,
                 employee_count
             FROM binned
