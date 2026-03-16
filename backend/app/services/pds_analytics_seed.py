@@ -288,6 +288,7 @@ def _seed_accounts(cur, env_str: str, biz_str: str, rng, n: int) -> list[dict]:
                    contract_start_date = EXCLUDED.contract_start_date,
                    contract_end_date = EXCLUDED.contract_end_date,
                    region = EXCLUDED.region
+               RETURNING account_id
             """,
             (
                 account_id, env_str, biz_str,
@@ -298,6 +299,8 @@ def _seed_accounts(cur, env_str: str, biz_str: str, rng, n: int) -> list[dict]:
                 region,
             ),
         )
+        row = cur.fetchone()
+        account_id = str(row["account_id"]) if row else account_id
         accounts.append({
             "account_id": account_id,
             "tier": tier,
