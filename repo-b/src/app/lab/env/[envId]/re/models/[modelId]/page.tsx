@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
+import { Play, Copy, GitCompare, Loader2 } from "lucide-react";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 
 import type { ReModel } from "@/components/repe/model/types";
@@ -24,6 +25,7 @@ import {
   removeScenarioAsset,
   listAvailableAssets,
   listScenarioOverrides,
+  runScenarioV2,
 } from "@/lib/bos-api";
 import type {
   ModelScenario,
@@ -37,23 +39,19 @@ export default function ModelWorkspacePage() {
   const modelId = params.modelId as string;
   const { envId } = useReEnv();
 
-  // Core state
   const [model, setModel] = useState<ReModel | null>(null);
   const [scenarios, setScenarios] = useState<ModelScenario[]>([]);
   const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("builder");
 
-  // Scenario-scoped state
   const [scenarioAssets, setScenarioAssets] = useState<ScenarioAsset[]>([]);
   const [availableAssets, setAvailableAssets] = useState<AvailableAsset[]>([]);
   const [overrides, setOverrides] = useState<ScenarioOverride[]>([]);
 
-  // Asset modeling drawer
   const [drawerAssetId, setDrawerAssetId] = useState<string | null>(null);
-
-  // UI state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [runningScenario, setRunningScenario] = useState(false);
 
   const activeScenario = useMemo(
     () => scenarios.find((s) => s.id === activeScenarioId) ?? null,
@@ -65,21 +63,17 @@ export default function ModelWorkspacePage() {
     [drawerAssetId, scenarioAssets],
   );
 
-  // ── Load model + scenarios on mount ──
+  // Load model + scenarios
   useEffect(() => {
     if (!modelId || !envId) return;
     setLoading(true);
     setError(null);
-
     Promise.allSettled([
       apiFetch<ReModel>(`/api/re/v2/models/${modelId}`),
       listModelScenarios(modelId),
     ]).then(([modelRes, scenariosRes]) => {
-      if (modelRes.status === "fulfilled") {
-        setModel(modelRes.value);
-      } else {
-        setError("Failed to load model");
-      }
+      if (modelRes.status === "fulfilled") setModel(modelRes.value);
+      else setError("Failed to load model");
       if (scenariosRes.status === "fulfilled") {
         const sc = scenariosRes.value;
         setScenarios(sc);
@@ -90,11 +84,10 @@ export default function ModelWorkspacePage() {
     });
   }, [modelId, envId]);
 
-  // ── Load scenario data when active scenario changes ──
+  // Load scenario data
   useEffect(() => {
     if (!activeScenarioId || !envId) return;
-    setDrawerAssetId(null); // Close drawer on scenario switch
-
+    setDrawerAssetId(null);
     Promise.allSettled([
       listScenarioAssets(activeScenarioId),
       listAvailableAssets(activeScenarioId, envId),
@@ -106,123 +99,111 @@ export default function ModelWorkspacePage() {
     });
   }, [activeScenarioId, envId]);
 
-  // ── Handlers: Model status ──
-  const handleStatusChange = useCallback(
-    async (newStatus: string) => {
-      try {
-        const updated = await apiFetch<ReModel>(`/api/re/v2/models/${modelId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: newStatus }),
-        });
-        setModel(updated);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to update model");
-      }
-    },
-    [modelId],
-  );
+  // Handlers
+  const handleStatusChange = useCallback(async (newStatus: string) => {
+    try {
+      const updated = await apiFetch<ReModel>(`/api/re/v2/models/${modelId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      setModel(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update model");
+    }
+  }, [modelId]);
 
-  // ── Handlers: Scenario CRUD ──
-  const handleCreateScenario = useCallback(
-    async (name: string) => {
-      try {
-        const created = await createModelScenario(modelId, { name });
-        setScenarios((prev) => [...prev, created]);
-        setActiveScenarioId(created.id);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to create scenario");
-      }
-    },
-    [modelId],
-  );
+  const handleCreateScenario = useCallback(async (name: string) => {
+    try {
+      const created = await createModelScenario(modelId, { name });
+      setScenarios((prev) => [...prev, created]);
+      setActiveScenarioId(created.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create scenario");
+    }
+  }, [modelId]);
 
-  const handleCloneScenario = useCallback(
-    async (scenarioId: string) => {
-      const source = scenarios.find((s) => s.id === scenarioId);
-      const newName = `${source?.name || "Scenario"} (copy)`;
-      try {
-        const cloned = await cloneModelScenario(scenarioId, newName);
-        setScenarios((prev) => [...prev, cloned]);
-        setActiveScenarioId(cloned.id);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to clone scenario");
-      }
-    },
-    [scenarios],
-  );
+  const handleCloneScenario = useCallback(async (scenarioId: string) => {
+    const source = scenarios.find((s) => s.id === scenarioId);
+    const newName = `${source?.name || "Scenario"} (copy)`;
+    try {
+      const cloned = await cloneModelScenario(scenarioId, newName);
+      setScenarios((prev) => [...prev, cloned]);
+      setActiveScenarioId(cloned.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to clone scenario");
+    }
+  }, [scenarios]);
 
-  const handleDeleteScenario = useCallback(
-    async (scenarioId: string) => {
-      try {
-        await deleteModelScenario(scenarioId);
-        setScenarios((prev) => prev.filter((s) => s.id !== scenarioId));
-        if (activeScenarioId === scenarioId) {
-          const remaining = scenarios.filter((s) => s.id !== scenarioId);
-          const base = remaining.find((s) => s.is_base) ?? remaining[0];
-          setActiveScenarioId(base?.id ?? null);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to delete scenario");
+  const handleDeleteScenario = useCallback(async (scenarioId: string) => {
+    try {
+      await deleteModelScenario(scenarioId);
+      setScenarios((prev) => prev.filter((s) => s.id !== scenarioId));
+      if (activeScenarioId === scenarioId) {
+        const remaining = scenarios.filter((s) => s.id !== scenarioId);
+        const base = remaining.find((s) => s.is_base) ?? remaining[0];
+        setActiveScenarioId(base?.id ?? null);
       }
-    },
-    [activeScenarioId, scenarios],
-  );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete scenario");
+    }
+  }, [activeScenarioId, scenarios]);
 
-  // ── Handlers: Scenario Assets ──
-  const handleAddAsset = useCallback(
-    async (asset: AvailableAsset) => {
-      if (!activeScenarioId) return;
-      try {
-        const added = await addScenarioAsset(activeScenarioId, {
-          asset_id: asset.asset_id,
-          source_fund_id: asset.source_fund_id || undefined,
-          source_investment_id: asset.source_investment_id || undefined,
-        });
-        const enriched: ScenarioAsset = {
-          ...added,
-          asset_name: added.asset_name || asset.asset_name || "",
-          asset_type: added.asset_type || asset.asset_type || undefined,
-          fund_name: added.fund_name || asset.fund_name || undefined,
-        };
-        setScenarioAssets((prev) => [...prev, enriched]);
-        setAvailableAssets((prev) =>
-          prev.filter((a) => a.asset_id !== asset.asset_id),
-        );
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to add asset");
-      }
-    },
-    [activeScenarioId],
-  );
+  const handleRunScenario = useCallback(async () => {
+    if (!activeScenarioId || scenarioAssets.length === 0) return;
+    setRunningScenario(true);
+    try {
+      await runScenarioV2(activeScenarioId);
+      setActiveTab("results");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Scenario run failed");
+    } finally {
+      setRunningScenario(false);
+    }
+  }, [activeScenarioId, scenarioAssets.length]);
 
-  const handleRemoveAsset = useCallback(
-    async (assetId: string) => {
-      if (!activeScenarioId) return;
-      try {
-        await removeScenarioAsset(activeScenarioId, assetId);
-        const removed = scenarioAssets.find((sa) => sa.asset_id === assetId);
-        setScenarioAssets((prev) => prev.filter((sa) => sa.asset_id !== assetId));
-        if (removed) {
-          setAvailableAssets((prev) => [
-            ...prev,
-            {
-              asset_id: removed.asset_id,
-              asset_name: removed.asset_name,
-              asset_type: removed.asset_type,
-              source_fund_id: removed.source_fund_id,
-              source_investment_id: removed.source_investment_id,
-              fund_name: removed.fund_name,
-            },
-          ]);
-        }
-        if (drawerAssetId === assetId) setDrawerAssetId(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to remove asset");
+  const handleAddAsset = useCallback(async (asset: AvailableAsset) => {
+    if (!activeScenarioId) return;
+    try {
+      const added = await addScenarioAsset(activeScenarioId, {
+        asset_id: asset.asset_id,
+        source_fund_id: asset.source_fund_id || undefined,
+        source_investment_id: asset.source_investment_id || undefined,
+      });
+      const enriched: ScenarioAsset = {
+        ...added,
+        asset_name: added.asset_name || asset.asset_name || "",
+        asset_type: added.asset_type || asset.asset_type || undefined,
+        fund_name: added.fund_name || asset.fund_name || undefined,
+      };
+      setScenarioAssets((prev) => [...prev, enriched]);
+      setAvailableAssets((prev) => prev.filter((a) => a.asset_id !== asset.asset_id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add asset");
+    }
+  }, [activeScenarioId]);
+
+  const handleRemoveAsset = useCallback(async (assetId: string) => {
+    if (!activeScenarioId) return;
+    try {
+      await removeScenarioAsset(activeScenarioId, assetId);
+      const removed = scenarioAssets.find((sa) => sa.asset_id === assetId);
+      setScenarioAssets((prev) => prev.filter((sa) => sa.asset_id !== assetId));
+      if (removed) {
+        setAvailableAssets((prev) => [...prev, {
+          asset_id: removed.asset_id,
+          asset_name: removed.asset_name,
+          asset_type: removed.asset_type,
+          source_fund_id: removed.source_fund_id,
+          source_investment_id: removed.source_investment_id,
+          fund_name: removed.fund_name,
+        }]);
       }
-    },
-    [activeScenarioId, scenarioAssets, drawerAssetId],
-  );
+      if (drawerAssetId === assetId) setDrawerAssetId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove asset");
+    }
+  }, [activeScenarioId, scenarioAssets, drawerAssetId]);
 
   const handleAddAllAssets = useCallback(async () => {
     if (!activeScenarioId) return;
@@ -233,34 +214,33 @@ export default function ModelWorkspacePage() {
           source_fund_id: asset.source_fund_id || undefined,
           source_investment_id: asset.source_investment_id || undefined,
         });
-        const enriched: ScenarioAsset = {
+        setScenarioAssets((prev) => [...prev, {
           ...added,
           asset_name: added.asset_name || asset.asset_name || "",
           asset_type: added.asset_type || asset.asset_type || undefined,
           fund_name: added.fund_name || asset.fund_name || undefined,
-        };
-        setScenarioAssets((prev) => [...prev, enriched]);
-      } catch {
-        // Skip duplicates silently
-      }
+        }]);
+      } catch { /* skip duplicates */ }
     }
     setAvailableAssets([]);
   }, [activeScenarioId, availableAssets]);
 
   const isArchived = model?.status === "archived";
+  const modifiedAssetCount = useMemo(() => {
+    const assetIds = new Set(overrides.filter((o) => o.scope_type === "asset").map((o) => o.scope_id));
+    return assetIds.size;
+  }, [overrides]);
 
-  if (loading) {
-    return <div className="p-6 text-sm text-bm-muted2">Loading model...</div>;
-  }
+  if (loading) return <div className="p-6 text-xs text-bm-muted2">Loading model...</div>;
 
   if (!model) {
     return (
-      <div className="m-6 space-y-3 rounded-xl border border-bm-border/30 bg-bm-surface/20 p-6">
-        <h2 className="text-lg font-semibold text-bm-text">Unable to load model</h2>
-        <p className="text-sm text-red-300">{error || "Model not found."}</p>
+      <div className="m-6 space-y-3 rounded-lg border border-bm-border/30 bg-bm-surface/10 p-6">
+        <h2 className="text-sm font-semibold text-bm-text">Unable to load model</h2>
+        <p className="text-xs text-red-300">{error || "Model not found."}</p>
         <button
           onClick={() => window.location.reload()}
-          className="rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90"
+          className="rounded bg-bm-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-bm-accent/90"
         >
           Retry
         </button>
@@ -269,38 +249,74 @@ export default function ModelWorkspacePage() {
   }
 
   return (
-    <section className="space-y-5" data-testid="model-workspace">
+    <section className="space-y-4" data-testid="model-workspace">
       <ModelHeader model={model} onStatusChange={handleStatusChange} />
 
-      {/* Scenario metadata strip */}
+      {/* ── Scenario Header Strip ── */}
       {activeScenario && (
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border border-bm-border/40 bg-bm-surface/10 px-4 py-2.5 text-xs">
-          <span className="text-bm-muted2">
-            Scenario: <span className="font-medium text-bm-text">{activeScenario.name}</span>
-          </span>
-          <span className="text-bm-muted2">
-            Type: <span className="text-bm-text">{activeScenario.is_base ? "Base Case" : "Custom"}</span>
-          </span>
-          <span className="text-bm-muted2">
-            Created: <span className="text-bm-text">{new Date(activeScenario.created_at).toLocaleDateString()}</span>
-          </span>
-          <span className="text-bm-muted2">
-            Assets: <span className="font-mono text-bm-text">{scenarioAssets.length}</span>
-          </span>
-          <span className="text-bm-muted2">
-            Overrides: <span className="font-mono text-bm-text">{overrides.length}</span>
-          </span>
+        <div className="flex items-center justify-between rounded-lg border border-bm-border/40 bg-bm-surface/8 px-4 py-2">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
+            <div>
+              <span className="text-bm-muted">Scenario</span>{" "}
+              <span className="font-medium text-bm-text">{activeScenario.name}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${
+                activeScenario.is_base ? "bg-blue-400" : "bg-amber-400"
+              }`} />
+              <span className="text-bm-muted2">{activeScenario.is_base ? "Base Case" : "Custom"}</span>
+            </div>
+            <div className="text-bm-muted2">
+              {new Date(activeScenario.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </div>
+            <div className="flex gap-3 tabular-nums text-bm-muted2">
+              <span>{scenarioAssets.length} assets</span>
+              <span>{overrides.length} overrides</span>
+              {modifiedAssetCount > 0 && (
+                <span className="text-blue-400">{modifiedAssetCount} modified</span>
+              )}
+            </div>
+          </div>
+
+          {/* Actions */}
+          {!isArchived && (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleRunScenario}
+                disabled={runningScenario || scenarioAssets.length === 0}
+                className="inline-flex items-center gap-1 rounded bg-bm-accent px-2.5 py-1 text-[10px] font-medium text-white hover:bg-bm-accent/90 disabled:opacity-40"
+              >
+                {runningScenario ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />}
+                {runningScenario ? "Running..." : "Run"}
+              </button>
+              {activeScenarioId && !activeScenario.is_base && (
+                <button
+                  onClick={() => handleCloneScenario(activeScenarioId)}
+                  className="inline-flex items-center gap-1 rounded border border-bm-border/40 px-2 py-1 text-[10px] text-bm-muted2 hover:bg-bm-surface/20 hover:text-bm-text"
+                >
+                  <Copy size={10} />
+                  Clone
+                </button>
+              )}
+              <button
+                onClick={() => setActiveTab("compare")}
+                className="inline-flex items-center gap-1 rounded border border-bm-border/40 px-2 py-1 text-[10px] text-bm-muted2 hover:bg-bm-surface/20 hover:text-bm-text"
+              >
+                <GitCompare size={10} />
+                Compare
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       {isArchived && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
-          This model is archived and read-only. No changes can be made.
+        <div className="rounded border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-300">
+          This model is archived and read-only.
         </div>
       )}
 
       <div className="flex gap-4">
-        {/* Scenario Sidebar */}
         <ScenarioSidebar
           scenarios={scenarios}
           activeScenarioId={activeScenarioId}
@@ -311,7 +327,6 @@ export default function ModelWorkspacePage() {
           readOnly={isArchived}
         />
 
-        {/* Main Content */}
         <div className="flex-1 space-y-4 min-w-0">
           <ModelTabBar activeTab={activeTab} onChange={setActiveTab} />
 
@@ -353,14 +368,12 @@ export default function ModelWorkspacePage() {
           )}
 
           {!activeScenarioId && (
-            <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-8 text-center">
-              <p className="text-sm text-bm-muted2">
-                No scenarios found. Create a scenario to get started.
-              </p>
+            <div className="rounded-lg border border-bm-border/50 bg-bm-surface/10 p-8 text-center">
+              <p className="text-xs text-bm-muted2">No scenarios found. Create a scenario to get started.</p>
               {!isArchived && (
                 <button
                   onClick={() => handleCreateScenario("Base Case")}
-                  className="mt-3 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90"
+                  className="mt-3 rounded bg-bm-accent px-4 py-1.5 text-xs font-medium text-white hover:bg-bm-accent/90"
                 >
                   Create Base Case
                 </button>
@@ -370,7 +383,6 @@ export default function ModelWorkspacePage() {
         </div>
       </div>
 
-      {/* Asset Modeling Drawer */}
       {activeScenarioId && (
         <AssetModelingDrawer
           open={!!drawerAssetId}
@@ -384,14 +396,9 @@ export default function ModelWorkspacePage() {
       )}
 
       {error && (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
+        <div className="rounded border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs text-red-300">
           {error}
-          <button
-            onClick={() => setError(null)}
-            className="ml-2 text-xs underline hover:no-underline"
-          >
-            dismiss
-          </button>
+          <button onClick={() => setError(null)} className="ml-2 text-[10px] underline hover:no-underline">dismiss</button>
         </div>
       )}
     </section>

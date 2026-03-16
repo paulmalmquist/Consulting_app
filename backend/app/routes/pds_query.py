@@ -6,6 +6,8 @@ PDS SQL agent, validation, and execution.
 from __future__ import annotations
 
 import logging
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -92,7 +94,11 @@ async def pds_query(request: Request, req: QueryRequest):
             )
             rows = cur.fetchall()
 
-        results = [dict(r) for r in rows]
+        results = [
+            {k: (v.isoformat() if isinstance(v, (date, datetime)) else float(v) if isinstance(v, Decimal) else v)
+             for k, v in dict(r).items()}
+            for r in rows
+        ]
 
         return QueryResponse(
             domain="pds",

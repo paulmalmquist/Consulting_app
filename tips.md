@@ -1616,3 +1616,48 @@ Scenario seed UUIDs: `a0000001-*` for funds, `b0000001-*` for deals, `c0000001-*
 ### Comparison
 
 The v2 comparison reads from structured output tables (not JSONB blobs), computes deltas on IRR/MOIC/DPI/RVPI/TVPI/NAV, and includes by-asset attribution showing NOI and equity CF deltas per asset. The first selected scenario is always the base reference.
+
+## Institutional Scenario UX Patterns
+
+### Baseline-vs-Override Display
+
+Every editable assumption field shows three values: base (placeholder), scenario (current input), and delta (computed inline). Use the `placeholder` from the field catalog as the base value. When a field is modified, show a `MODIFIED` badge and a base/scenario/delta strip below the input in 9px text. Color deltas green for positive, red for negative. Unmodified fields render in subdued border/background; modified fields get `border-blue-500/40 bg-blue-500/5`. This lets analysts scan instantly for what changed.
+
+The "Show Modified Only" toggle filters all sections to only display fields with overrides or drafts. This is critical for scenarios with 73+ fields — analysts shouldn't scroll through 6 sections looking for the 3 things they changed.
+
+Per-field reset (X button) and per-section reset ("Reset" in section header) must both work alongside the global "Reset All" in the footer. The per-field reset calls `deleteScenarioOverride` for saved overrides and removes the draft entry.
+
+### Workbench Layout
+
+The Asset Modeling Drawer uses `max-w-7xl` with a two-column layout: left column for assumptions (scrollable), right column for live consequences (sticky). The right column is 340px fixed width with `overflow-y-auto` and `sticky top-0` for the content container.
+
+Assumptions are organized in collapsible sections (not tabs). Sections have a header with chevron, label, modified count badge, and section-level reset. This is more scannable than tabs because you can see multiple sections and their modification state simultaneously.
+
+### Valuation Bridge
+
+The valuation bridge shows a waterfall from Base Value through NOI Change, Cap Rate Impact, Capex Change, Debt/Refi Change to Scenario Value. Base and total rows get `bg-bm-surface/20 font-medium`; delta rows get conditional green/red coloring. This appears in both the live preview panel (asset level) and the comparison drilldown (driver level).
+
+### Multi-Level Comparison Drilldown
+
+The comparison panel implements a 3-level drill: Fund Summary → Asset Attribution → Driver Bridge. State is tracked with `drillLevel` (fund/asset/driver) and `drillAssetId`. A breadcrumb shows the current drill path with clickable levels. The "Back" button navigates up one level.
+
+Level A (Fund): Table of return metric deltas (IRR, MOIC, DPI, RVPI, TVPI, NAV) with base/scenario/delta columns. Drill prompt at bottom leads to Level B.
+
+Level B (Asset): Table with per-asset NOI and equity CF comparisons. Each row is clickable to drill to Level C. Includes a bar chart with positive/negative coloring per asset.
+
+Level C (Driver): Bridge decomposition of the equity cashflow delta for a single asset: NOI Change, Cap Rate Impact, Timing/Sale, Capex Change, Debt/Refi. Summary cards show base vs scenario values.
+
+### Visual Language
+
+- Blue for interaction/modified state (not amber — amber reads as warning, blue reads as analytical selection)
+- Emerald for positive deltas, red for negative deltas
+- `text-[9px]` for metadata, `text-[10px]` for labels, `text-xs` for values
+- `tabular-nums` on all numeric cells
+- `tracking-[0.1em]` on uppercase section labels
+- Borders at `/30` to `/50` opacity — never full opacity
+- `bg-bm-surface/5` to `/10` for card backgrounds — deeper than `/20` looks like startup cards
+- No emoji, no decorative icons except functional ones (chevrons, X, play)
+
+### Scenario Header Actions
+
+The scenario header strip shows: name, type (dot + label), created date, asset count, override count, modified asset count. Actions on the right: Run (primary accent button), Clone (border button), Compare (border button). Run navigates to results tab on success. Clone creates a copy and switches to it.

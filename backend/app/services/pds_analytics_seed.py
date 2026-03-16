@@ -197,12 +197,22 @@ def seed_pds_analytics(
     """Seed all PDS analytics tables with synthetic data.
 
     Returns dict with counts of created entities.
+    Idempotent: skips if analytics employees already exist for this env/business.
     """
     rng = np.random.default_rng(42)
     random.seed(42)
 
     env_str = str(env_id)
     biz_str = str(business_id)
+
+    # Idempotency check — skip if already seeded
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(*) AS cnt FROM pds_analytics_employees WHERE env_id = %s::uuid AND business_id = %s::uuid",
+            (env_str, biz_str),
+        )
+        if int((cur.fetchone() or {}).get("cnt") or 0) > 0:
+            return {"status": "already_seeded"}
 
     today = date.today()
     seed_start = date(today.year - 1, today.month, 1)  # 18 months back

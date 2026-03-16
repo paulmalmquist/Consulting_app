@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { Save, RotateCcw } from "lucide-react";
+import { Save, RotateCcw, ChevronDown, ChevronRight, Eye, EyeOff, X } from "lucide-react";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { Button } from "@/components/ui/Button";
 import {
@@ -81,16 +81,16 @@ const OVERRIDE_FIELDS: OverrideField[] = [
   { key: "capex_override_q", label: "Capex Override (quarterly)", unit: "$", step: 10000 },
 ];
 
-const TABS = [
+const SECTIONS = [
   { key: "operating", label: "Operating", fields: OPERATING_FIELDS },
   { key: "expense", label: "Expenses", fields: EXPENSE_FIELDS },
-  { key: "capital", label: "Capital", fields: CAPITAL_FIELDS },
+  { key: "capital", label: "Capital Plan", fields: CAPITAL_FIELDS },
   { key: "debt", label: "Debt", fields: DEBT_FIELDS },
   { key: "exit", label: "Exit", fields: EXIT_FIELDS },
   { key: "overrides", label: "Overrides", fields: OVERRIDE_FIELDS },
 ] as const;
 
-type TabKey = (typeof TABS)[number]["key"];
+type SectionKey = (typeof SECTIONS)[number]["key"];
 
 /* ── Component ── */
 
@@ -113,16 +113,17 @@ export function AssetModelingDrawer({
   onOverridesChange,
   readOnly,
 }: AssetModelingDrawerProps) {
-  const [activeTab, setActiveTab] = useState<TabKey>("operating");
+  const [collapsed, setCollapsed] = useState<Set<SectionKey>>(new Set());
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showModifiedOnly, setShowModifiedOnly] = useState(false);
 
-  // Reset drafts when asset changes
   useEffect(() => {
     setDrafts({});
-    setActiveTab("operating");
+    setCollapsed(new Set());
     setError(null);
+    setShowModifiedOnly(false);
   }, [asset?.asset_id]);
 
   const assetOverrides = useMemo(() => {
@@ -136,7 +137,6 @@ export function AssetModelingDrawer({
     return map;
   }, [asset, overrides]);
 
-  // Live preview hook
   const { preview, loading: previewLoading, error: previewError } = useAssetPreview(
     open ? scenarioId : null,
     asset?.asset_id ?? null,
@@ -152,11 +152,35 @@ export function AssetModelingDrawer({
     return typeof val === "number" ? String(val) : typeof val === "string" ? val : "";
   };
 
+  const getBaseValue = (field: OverrideField): string => {
+    return field.placeholder || "—";
+  };
+
+  const isFieldModified = (key: string): boolean => {
+    return assetOverrides.has(key) || drafts[key] !== undefined;
+  };
+
   const setDraft = (key: string, value: string) => {
     setDrafts((prev) => ({ ...prev, [key]: value }));
   };
 
+  const clearFieldOverride = useCallback(async (key: string) => {
+    const existing = assetOverrides.get(key);
+    if (existing) {
+      try {
+        await deleteScenarioOverride(existing.id);
+        onOverridesChange(overrides.filter((o) => o.id !== existing.id));
+      } catch { /* swallow */ }
+    }
+    setDrafts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, [assetOverrides, overrides, onOverridesChange]);
+
   const hasDrafts = Object.keys(drafts).length > 0;
+  const overrideCount = assetOverrides.size;
 
   const handleSave = useCallback(async () => {
     if (!asset || !hasDrafts) return;
@@ -167,7 +191,6 @@ export function AssetModelingDrawer({
       for (const [key, rawValue] of Object.entries(drafts)) {
         const numValue = rawValue === "" ? null : parseFloat(rawValue);
         if (numValue === null || isNaN(numValue)) {
-          // Remove override
           const existing = assetOverrides.get(key);
           if (existing) {
             await deleteScenarioOverride(existing.id);
@@ -197,7 +220,7 @@ export function AssetModelingDrawer({
     }
   }, [asset, drafts, overrides, assetOverrides, scenarioId, onOverridesChange, hasDrafts]);
 
-  const handleReset = useCallback(async () => {
+  const handleResetAll = useCallback(async () => {
     if (!asset) return;
     setSaving(true);
     setError(null);
@@ -219,8 +242,38 @@ export function AssetModelingDrawer({
     }
   }, [asset, overrides, onOverridesChange]);
 
-  const activeFields = TABS.find((t) => t.key === activeTab)?.fields ?? [];
-  const overrideCount = assetOverrides.size;
+  const handleResetSection = useCallback(async (fields: readonly OverrideField[]) => {
+    if (!asset) return;
+    setSaving(true);
+    try {
+      const keysInSection = new Set(fields.map((f) => f.key));
+      const toDelete = overrides.filter(
+        (o) => o.scope_type === "asset" && o.scope_id === asset.asset_id && keysInSection.has(o.key),
+      );
+      for (const ov of toDelete) {
+        await deleteScenarioOverride(ov.id);
+      }
+      onOverridesChange(overrides.filter((o) => !toDelete.some((d) => d.id === o.id)));
+      setDrafts((prev) => {
+        const next = { ...prev };
+        for (const k of keysInSection) delete next[k];
+        return next;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reset section");
+    } finally {
+      setSaving(false);
+    }
+  }, [asset, overrides, onOverridesChange]);
+
+  const toggleCollapse = (key: SectionKey) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   if (!asset) return null;
 
@@ -230,12 +283,12 @@ export function AssetModelingDrawer({
       onClose={onClose}
       title={asset.asset_name || asset.asset_id.slice(0, 8)}
       subtitle={[asset.asset_type, asset.fund_name].filter(Boolean).join(" · ")}
-      width="max-w-6xl"
+      width="max-w-7xl"
       footer={
         !readOnly ? (
           <>
             {overrideCount > 0 && (
-              <Button variant="ghost" size="sm" onClick={handleReset} disabled={saving}>
+              <Button variant="ghost" size="sm" onClick={handleResetAll} disabled={saving}>
                 <RotateCcw size={13} className="mr-1" />
                 Reset All ({overrideCount})
               </Button>
@@ -252,103 +305,175 @@ export function AssetModelingDrawer({
         ) : undefined
       }
     >
-      {/* Two-column layout: Assumptions (left) + Live Preview (right) */}
-      <div className="flex gap-5">
-        {/* Left: Assumptions Form */}
-        <div className="flex-1 min-w-0">
-          {/* Tab bar */}
-          <div className="mb-4 flex gap-1 overflow-x-auto rounded-lg border border-bm-border/50 bg-bm-surface/10 p-0.5">
-            {TABS.map((tab) => {
-              const tabOverrides = [...assetOverrides.entries()].filter(
-                ([k]) => tab.fields.some((f) => f.key === k),
-              ).length;
-              return (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`relative whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                    activeTab === tab.key
-                      ? "bg-bm-surface/50 text-bm-text"
-                      : "text-bm-muted2 hover:bg-bm-surface/30 hover:text-bm-text"
-                  }`}
-                >
-                  {tab.label}
-                  {tabOverrides > 0 && (
-                    <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-500/20 text-[9px] text-amber-300">
-                      {tabOverrides}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+      <div className="flex gap-0 h-full">
+        {/* ── Left Column: Assumptions ── */}
+        <div className="flex-1 min-w-0 overflow-y-auto pr-5">
+          {/* Toolbar */}
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase tracking-[0.12em] text-bm-muted2">
+                Assumptions
+              </span>
+              {overrideCount > 0 && (
+                <span className="rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-blue-400">
+                  {overrideCount} modified
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setShowModifiedOnly((p) => !p)}
+              className="flex items-center gap-1 rounded px-2 py-1 text-[10px] text-bm-muted2 transition-colors hover:bg-bm-surface/30 hover:text-bm-text"
+            >
+              {showModifiedOnly ? <EyeOff size={11} /> : <Eye size={11} />}
+              {showModifiedOnly ? "Show All" : "Modified Only"}
+            </button>
           </div>
 
           {error && (
-            <div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 p-2 text-xs text-red-200">
+            <div className="mb-3 rounded border border-red-500/40 bg-red-500/10 p-2 text-xs text-red-200">
               {error}
             </div>
           )}
 
-          {/* Fields grid */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {activeFields.map((field) => {
-              const hasOverride = assetOverrides.has(field.key);
-              const currentValue = getValue(field.key);
-              const isDraft = drafts[field.key] !== undefined;
+          {/* Collapsible Sections */}
+          <div className="space-y-1">
+            {SECTIONS.map((section) => {
+              const sectionModified = section.fields.filter((f) => isFieldModified(f.key)).length;
+              const isCollapsed = collapsed.has(section.key);
+              const visibleFields = showModifiedOnly
+                ? section.fields.filter((f) => isFieldModified(f.key))
+                : section.fields;
+
+              if (showModifiedOnly && visibleFields.length === 0) return null;
 
               return (
-                <label key={field.key} className="space-y-1">
-                  <span className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
-                    {field.label}
-                    <span className="text-[10px] font-normal normal-case tracking-normal text-bm-muted">
-                      ({field.unit})
+                <div key={section.key} className="rounded-lg border border-bm-border/30">
+                  {/* Section Header */}
+                  <button
+                    onClick={() => toggleCollapse(section.key)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-bm-surface/15"
+                  >
+                    {isCollapsed ? <ChevronRight size={12} className="text-bm-muted" /> : <ChevronDown size={12} className="text-bm-muted" />}
+                    <span className="flex-1 text-[11px] font-medium uppercase tracking-[0.1em] text-bm-muted2">
+                      {section.label}
                     </span>
-                    {hasOverride && !isDraft && (
-                      <span className="rounded-full bg-amber-500/20 px-1 text-[9px] text-amber-300">
-                        set
+                    {sectionModified > 0 && (
+                      <span className="rounded-full bg-blue-500/15 px-1.5 text-[9px] tabular-nums text-blue-400">
+                        {sectionModified}
                       </span>
                     )}
-                    {isDraft && (
-                      <span className="rounded-full bg-bm-accent/20 px-1 text-[9px] text-bm-accent">
-                        edited
-                      </span>
+                    {sectionModified > 0 && !readOnly && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleResetSection(section.fields); }}
+                        className="rounded px-1 py-0.5 text-[9px] text-bm-muted2 transition-colors hover:bg-bm-surface/30 hover:text-bm-text"
+                        title="Reset section to base"
+                      >
+                        Reset
+                      </button>
                     )}
-                  </span>
-                  <input
-                    type={field.unit === "date" ? "date" : "number"}
-                    step={field.step}
-                    className={`w-full rounded-md border px-3 py-1.5 text-sm tabular-nums outline-none transition-colors disabled:opacity-40 ${
-                      hasOverride || isDraft
-                        ? "border-amber-500/40 bg-amber-500/5 focus:border-amber-500/60"
-                        : "border-bm-border/70 bg-bm-surface/18 focus:border-bm-border-strong/70"
-                    }`}
-                    placeholder={field.placeholder || "—"}
-                    value={currentValue}
-                    onChange={(e) => setDraft(field.key, e.target.value)}
-                    disabled={readOnly}
-                  />
-                </label>
+                  </button>
+
+                  {/* Section Fields */}
+                  {!isCollapsed && (
+                    <div className="border-t border-bm-border/20 px-3 pb-3 pt-2">
+                      <div className="space-y-2">
+                        {visibleFields.map((field) => {
+                          const hasOverride = assetOverrides.has(field.key);
+                          const currentValue = getValue(field.key);
+                          const isDraft = drafts[field.key] !== undefined;
+                          const modified = hasOverride || isDraft;
+                          const baseVal = getBaseValue(field);
+                          const scenarioVal = currentValue || baseVal;
+
+                          return (
+                            <div key={field.key} className="group">
+                              {/* Field label row */}
+                              <div className="mb-0.5 flex items-center gap-1.5">
+                                <span className="text-[10px] text-bm-muted2">
+                                  {field.label}
+                                </span>
+                                <span className="text-[9px] text-bm-muted">
+                                  {field.unit}
+                                </span>
+                                {modified && (
+                                  <span className="rounded bg-blue-500/15 px-1 text-[8px] font-medium text-blue-400">
+                                    MODIFIED
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Input + base/delta row */}
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type={field.unit === "date" ? "date" : "number"}
+                                  step={field.step}
+                                  className={`w-full rounded border px-2 py-1 text-xs tabular-nums outline-none transition-colors disabled:opacity-40 ${
+                                    modified
+                                      ? "border-blue-500/40 bg-blue-500/5 text-bm-text focus:border-blue-500/60"
+                                      : "border-bm-border/50 bg-bm-surface/10 text-bm-muted2 focus:border-bm-border-strong/70 focus:text-bm-text"
+                                  }`}
+                                  placeholder={baseVal}
+                                  value={currentValue}
+                                  onChange={(e) => setDraft(field.key, e.target.value)}
+                                  disabled={readOnly}
+                                />
+
+                                {/* Per-field reset */}
+                                {modified && !readOnly && (
+                                  <button
+                                    onClick={() => clearFieldOverride(field.key)}
+                                    className="shrink-0 rounded p-0.5 text-bm-muted2 opacity-0 transition-opacity hover:text-bm-text group-hover:opacity-100"
+                                    title="Reset to base"
+                                  >
+                                    <X size={11} />
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Base / Scenario / Delta strip */}
+                              {modified && field.unit !== "date" && (
+                                <div className="mt-0.5 flex gap-3 text-[9px] tabular-nums">
+                                  <span className="text-bm-muted">
+                                    Base: <span className="text-bm-muted2">{baseVal}{field.unit === "%" ? "%" : field.unit === "bps" ? " bps" : ""}</span>
+                                  </span>
+                                  <span className="text-bm-muted">
+                                    Scenario: <span className="text-blue-400">{scenarioVal}{field.unit === "%" ? "%" : field.unit === "bps" ? " bps" : ""}</span>
+                                  </span>
+                                  {currentValue && baseVal !== "—" && !isNaN(parseFloat(currentValue)) && !isNaN(parseFloat(baseVal)) && (
+                                    <span className={`font-medium ${
+                                      parseFloat(currentValue) - parseFloat(baseVal) > 0 ? "text-emerald-400" :
+                                      parseFloat(currentValue) - parseFloat(baseVal) < 0 ? "text-red-400" : "text-bm-muted"
+                                    }`}>
+                                      {(parseFloat(currentValue) - parseFloat(baseVal)) >= 0 ? "+" : ""}
+                                      {(parseFloat(currentValue) - parseFloat(baseVal)).toFixed(2)}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
-
-          {activeFields.length === 0 && (
-            <p className="py-8 text-center text-sm text-bm-muted2">
-              No fields available for this tab.
-            </p>
-          )}
         </div>
 
-        {/* Right: Live Preview Panel */}
-        <div className="w-80 flex-shrink-0 border-l border-bm-border/30 pl-5">
-          <h3 className="mb-3 text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
-            Live Projections
-          </h3>
-          <AssetPreviewPanel
-            preview={preview}
-            loading={previewLoading}
-            error={previewError}
-          />
+        {/* ── Right Column: Live Consequences (sticky) ── */}
+        <div className="w-[340px] shrink-0 border-l border-bm-border/30 pl-5 overflow-y-auto">
+          <div className="sticky top-0">
+            <h3 className="mb-3 text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
+              Projected Impact
+            </h3>
+            <AssetPreviewPanel
+              preview={preview}
+              loading={previewLoading}
+              error={previewError}
+            />
+          </div>
         </div>
       </div>
     </SlideOver>

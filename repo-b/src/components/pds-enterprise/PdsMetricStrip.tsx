@@ -29,9 +29,9 @@ export function PdsMetricStrip({ metrics }: { metrics: PdsV2MetricCard[] }) {
         <article key={metric.key} className={`relative overflow-hidden rounded-2xl border p-4 ${toneClasses(metric.tone)}`}>
           <div className={`absolute left-0 top-0 h-full w-1 ${accentStripeClass(metric.tone)}`} />
           <div className="pl-3">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-current/75">{metric.label}</p>
-            <p className="mt-2 text-2xl font-semibold">{renderMetric(metric)}</p>
-            <p className="mt-2 text-xs text-current/70">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/80 font-medium">{metric.label}</p>
+            <p className="mt-2 text-2xl font-semibold text-white">{renderMetric(metric)}</p>
+            <p className="mt-2 text-xs text-white/65">
               {renderComparison(metric) || "Management baseline"}
             </p>
           </div>

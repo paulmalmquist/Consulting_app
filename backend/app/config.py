@@ -112,6 +112,15 @@ LANGFUSE_PUBLIC_KEY: str = os.getenv("LANGFUSE_PUBLIC_KEY", "")
 LANGFUSE_SECRET_KEY: str = os.getenv("LANGFUSE_SECRET_KEY", "")
 LANGFUSE_HOST: str = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
 
+# ── PsychRAG clinical module ────────────────────────────────────────
+ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+PSYCHRAG_ANTHROPIC_MODEL: str = os.getenv("PSYCHRAG_ANTHROPIC_MODEL", "")
+PSYCHRAG_OPENAI_MODEL_FALLBACK: str = os.getenv("PSYCHRAG_OPENAI_MODEL_FALLBACK", "gpt-4o")
+PSYCHRAG_EMBEDDING_MODEL: str = os.getenv("PSYCHRAG_EMBEDDING_MODEL", "text-embedding-3-large")
+PSYCHRAG_EMBEDDING_DIMENSION: int = int(os.getenv("PSYCHRAG_EMBEDDING_DIMENSION", "3072"))
+PSYCHRAG_TOP_K: int = int(os.getenv("PSYCHRAG_TOP_K", "5"))
+PSYCHRAG_SUPPORT_EMAIL: str = os.getenv("PSYCHRAG_SUPPORT_EMAIL", "support@example.com")
+
 _db_validated = False
 
 

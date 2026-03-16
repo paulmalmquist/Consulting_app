@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -33,6 +35,19 @@ class ChatRequest(BaseModel):
     business_id: str
 
 
+def _json_default(obj: object) -> str:
+    """Custom JSON serializer for date/datetime/Decimal objects."""
+    if isinstance(obj, (date, datetime)):
+        return obj.isoformat()
+    if isinstance(obj, Decimal):
+        return format(obj, "f")
+    return str(obj)
+
+
+def _safe_dumps(data: object) -> str:
+    return json.dumps(data, default=_json_default)
+
+
 SUGGESTED_QUESTIONS = [
     "What's our firm-wide utilization this quarter?",
     "Show revenue trend, budget vs actual",
@@ -52,7 +67,7 @@ def _sse_text(text: str) -> str:
 
 def _sse_data(data: dict[str, Any]) -> str:
     """Format as Vercel AI SDK data."""
-    return f"2:{json.dumps([data])}\n"
+    return f"2:{_safe_dumps([data])}\n"
 
 
 async def _stream_chat(req: ChatRequest):
@@ -127,7 +142,7 @@ async def _stream_chat(req: ChatRequest):
                 "data": results[:100],
                 "title": agent_result.intent,
             }
-            yield _sse_text(f"<!--CHART_START-->{json.dumps(chart_config)}<!--CHART_END-->\n\n")
+            yield _sse_text(f"<!--CHART_START-->{_safe_dumps(chart_config)}<!--CHART_END-->\n\n")
 
         # Emit data
         if results:

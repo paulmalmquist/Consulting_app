@@ -1,4 +1,4 @@
----
+--- 
 id: claude-router
 kind: router
 status: active

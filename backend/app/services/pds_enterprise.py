@@ -178,6 +178,25 @@ def _delete_snapshot_horizon(cur, table: str, env_id: UUID, business_id: UUID, s
 def ensure_enterprise_workspace(*, env_id: UUID, business_id: UUID, actor: str = "system") -> dict[str, Any]:
     seeded = seed_enterprise_workspace(env_id=env_id, business_id=business_id, actor=actor)
     refreshed = refresh_snapshots(env_id=env_id, business_id=business_id, actor=actor)
+
+    # Auto-seed analytics tables (370-series) if they exist and are empty
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM pds_analytics_employees WHERE env_id = %s::uuid AND business_id = %s::uuid",
+                (str(env_id), str(business_id)),
+            )
+            analytics_count = int((cur.fetchone() or {}).get("cnt") or 0)
+        if analytics_count == 0:
+            import logging as _logging
+            _logging.getLogger(__name__).info("Auto-seeding PDS analytics tables (370-series)")
+            from app.services.pds_analytics_seed import seed_pds_analytics
+            analytics_result = seed_pds_analytics(env_id=env_id, business_id=business_id)
+            seeded["analytics"] = analytics_result
+    except Exception:
+        import logging as _logging
+        _logging.getLogger(__name__).warning("PDS analytics tables not yet migrated — skipping analytics seed")
+
     return {"seeded": seeded, "refreshed": refreshed}
 
 
@@ -618,33 +637,39 @@ def seed_enterprise_workspace(*, env_id: UUID, business_id: UUID, actor: str = "
                     ),
                 )
 
-        # --- Pipeline deals seed ---
-        cur.execute(
-            "SELECT COUNT(*) AS cnt FROM pds_pipeline_deals WHERE env_id = %s::uuid AND business_id = %s::uuid",
-            (str(env_id), str(business_id)),
-        )
-        if int((cur.fetchone() or {}).get("cnt") or 0) == 0:
-            pipeline_deals = [
-                ("Northeast Medical Campus Expansion", account_list[0]["account_id"], "prospect", Decimal("2400000"), Decimal("15"), today + timedelta(days=90), "Dana Park"),
-                ("Southeast Office Renovation", account_list[1]["account_id"], "prospect", Decimal("850000"), Decimal("20"), today + timedelta(days=75), "Avery Cole"),
-                ("City Hall Renovation Phase II", account_list[2]["account_id"], "pursuit", Decimal("3200000"), Decimal("45"), today + timedelta(days=60), "Jordan Hale"),
-                ("Public Safety Training Center", account_list[1]["account_id"], "pursuit", Decimal("1750000"), Decimal("50"), today + timedelta(days=45), "Morgan Ruiz"),
-                ("Meridian Clinic Network Fit-out", account_list[0]["account_id"], "pursuit", Decimal("1100000"), Decimal("40"), today + timedelta(days=55), "Dana Park"),
-                ("South Florida Data Center", account_list[0]["account_id"], "won", Decimal("4100000"), Decimal("85"), today + timedelta(days=30), "Avery Cole"),
-                ("Northeast Lab Consolidation", account_list[2]["account_id"], "won", Decimal("1950000"), Decimal("90"), today + timedelta(days=20), "Sam Rivera"),
-                ("City Civic Water Treatment", account_list[2]["account_id"], "converted", Decimal("2800000"), Decimal("100"), today - timedelta(days=15), "Jordan Hale"),
-                ("Stone Healthcare Central Plant", account_list[0]["account_id"], "converted", Decimal("3600000"), Decimal("100"), today - timedelta(days=30), "Avery Cole"),
-                ("Mid-Atlantic School Modernization", account_list[1]["account_id"], "prospect", Decimal("1200000"), Decimal("10"), today + timedelta(days=120), "Jordan Hale"),
-            ]
-            for deal_name, account_id, stage, deal_value, probability, close_date, owner in pipeline_deals:
-                cur.execute(
-                    """
-                    INSERT INTO pds_pipeline_deals
-                    (env_id, business_id, account_id, deal_name, stage, deal_value, probability_pct, expected_close_date, owner_name)
-                    VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (str(env_id), str(business_id), str(account_id), deal_name, stage, str(deal_value), str(probability), close_date, owner),
-                )
+        # --- Pipeline deals seed (wrapped in try/catch for graceful degradation
+        # when pds_pipeline_deals table hasn't been migrated yet) ---
+        try:
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM pds_pipeline_deals WHERE env_id = %s::uuid AND business_id = %s::uuid",
+                (str(env_id), str(business_id)),
+            )
+            if int((cur.fetchone() or {}).get("cnt") or 0) == 0:
+                pipeline_deals = [
+                    ("Northeast Medical Campus Expansion", account_list[0]["account_id"], "prospect", Decimal("2400000"), Decimal("15"), today + timedelta(days=90), "Dana Park"),
+                    ("Southeast Office Renovation", account_list[1]["account_id"], "prospect", Decimal("850000"), Decimal("20"), today + timedelta(days=75), "Avery Cole"),
+                    ("City Hall Renovation Phase II", account_list[2]["account_id"], "pursuit", Decimal("3200000"), Decimal("45"), today + timedelta(days=60), "Jordan Hale"),
+                    ("Public Safety Training Center", account_list[1]["account_id"], "pursuit", Decimal("1750000"), Decimal("50"), today + timedelta(days=45), "Morgan Ruiz"),
+                    ("Meridian Clinic Network Fit-out", account_list[0]["account_id"], "pursuit", Decimal("1100000"), Decimal("40"), today + timedelta(days=55), "Dana Park"),
+                    ("South Florida Data Center", account_list[0]["account_id"], "won", Decimal("4100000"), Decimal("85"), today + timedelta(days=30), "Avery Cole"),
+                    ("Northeast Lab Consolidation", account_list[2]["account_id"], "won", Decimal("1950000"), Decimal("90"), today + timedelta(days=20), "Sam Rivera"),
+                    ("City Civic Water Treatment", account_list[2]["account_id"], "converted", Decimal("2800000"), Decimal("100"), today - timedelta(days=15), "Jordan Hale"),
+                    ("Stone Healthcare Central Plant", account_list[0]["account_id"], "converted", Decimal("3600000"), Decimal("100"), today - timedelta(days=30), "Avery Cole"),
+                    ("Mid-Atlantic School Modernization", account_list[1]["account_id"], "prospect", Decimal("1200000"), Decimal("10"), today + timedelta(days=120), "Jordan Hale"),
+                ]
+                for deal_name, account_id, stage, deal_value, probability, close_date, owner in pipeline_deals:
+                    cur.execute(
+                        """
+                        INSERT INTO pds_pipeline_deals
+                        (env_id, business_id, account_id, deal_name, stage, deal_value, probability_pct, expected_close_date, owner_name)
+                        VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (str(env_id), str(business_id), str(account_id), deal_name, stage, str(deal_value), str(probability), close_date, owner),
+                    )
+        except Exception:
+            # pds_pipeline_deals table may not exist yet — skip gracefully
+            import logging as _logging
+            _logging.getLogger(__name__).warning("pds_pipeline_deals table not found — skipping pipeline seed")
 
     return {"projects": len(projects)}
 
@@ -1678,39 +1703,43 @@ def get_pipeline_summary(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
     deals: list[dict[str, Any]] = []
     total_pipeline = Decimal("0")
     total_weighted = Decimal("0")
-    with get_cursor() as cur:
-        cur.execute(
-            """
-            SELECT d.deal_id, d.deal_name, a.account_name, d.stage,
-                   d.deal_value, d.probability_pct, d.expected_close_date, d.owner_name
-            FROM pds_pipeline_deals d
-            LEFT JOIN pds_accounts a ON a.account_id = d.account_id
-            WHERE d.env_id = %s::uuid AND d.business_id = %s::uuid
-            ORDER BY d.deal_value DESC NULLS LAST
-            """,
-            (str(env_id), str(business_id)),
-        )
-        for row in cur.fetchall():
-            deal_value = Decimal(str(row.get("deal_value") or 0))
-            prob = Decimal(str(row.get("probability_pct") or 0))
-            weighted = _q(deal_value * prob / Decimal("100"))
-            stage_key = (row.get("stage") or "prospect").lower()
-            if stage_key in stage_map:
-                stage_map[stage_key]["count"] += 1
-                stage_map[stage_key]["unweighted_value"] += deal_value
-                stage_map[stage_key]["weighted_value"] += weighted
-            total_pipeline += deal_value
-            total_weighted += weighted
-            deals.append({
-                "deal_id": row["deal_id"],
-                "deal_name": row["deal_name"],
-                "account_name": row.get("account_name"),
-                "stage": row["stage"],
-                "deal_value": deal_value,
-                "probability_pct": prob,
-                "expected_close_date": row.get("expected_close_date"),
-                "owner_name": row.get("owner_name"),
-            })
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT d.deal_id, d.deal_name, a.account_name, d.stage,
+                       d.deal_value, d.probability_pct, d.expected_close_date, d.owner_name
+                FROM pds_pipeline_deals d
+                LEFT JOIN pds_accounts a ON a.account_id = d.account_id
+                WHERE d.env_id = %s::uuid AND d.business_id = %s::uuid
+                ORDER BY d.deal_value DESC NULLS LAST
+                """,
+                (str(env_id), str(business_id)),
+            )
+            for row in cur.fetchall():
+                deal_value = Decimal(str(row.get("deal_value") or 0))
+                prob = Decimal(str(row.get("probability_pct") or 0))
+                weighted = _q(deal_value * prob / Decimal("100"))
+                stage_key = (row.get("stage") or "prospect").lower()
+                if stage_key in stage_map:
+                    stage_map[stage_key]["count"] += 1
+                    stage_map[stage_key]["unweighted_value"] += deal_value
+                    stage_map[stage_key]["weighted_value"] += weighted
+                total_pipeline += deal_value
+                total_weighted += weighted
+                deals.append({
+                    "deal_id": row["deal_id"],
+                    "deal_name": row["deal_name"],
+                    "account_name": row.get("account_name"),
+                    "stage": row["stage"],
+                    "deal_value": deal_value,
+                    "probability_pct": prob,
+                    "expected_close_date": row.get("expected_close_date"),
+                    "owner_name": row.get("owner_name"),
+                })
+    except Exception:
+        import logging as _logging
+        _logging.getLogger(__name__).warning("pds_pipeline_deals table not found — returning empty pipeline")
     return {
         "stages": [stage_map[s] for s in stages_order],
         "deals": deals,
