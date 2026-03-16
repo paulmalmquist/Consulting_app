@@ -51,7 +51,6 @@ def get_project_health(*, env_id: str, business_id: str, project_id: str) -> dic
         schedule_score = min(100, schedule_score)
 
         # Budget health (32.5%)
-        budget = float(row["total_budget"] or 0)
         actual_cost = float(row["actual_cost"] or 0)
         actual_rev = float(row["actual_revenue"] or 0)
         cpi = actual_rev / max(actual_cost, 1)
@@ -123,7 +122,6 @@ def get_evm(*, env_id: str, business_id: str, project_id: str) -> dict[str, Any]
             return {"error": "Project not found"}
 
         bac = float(proj["total_budget"] or 0)
-        pct = float(proj["percent_complete"] or 0) / 100
 
         # Monthly actuals
         cur.execute(
@@ -271,7 +269,6 @@ def get_client_lifetime_value(*, env_id: str, business_id: str) -> dict[str, Any
         else:
             retention_years = 1.5
 
-        acv = float(r["annual_contract_value"] or 0)
         total_fees = float(r["total_fees"] or 0)
 
         # Years as client

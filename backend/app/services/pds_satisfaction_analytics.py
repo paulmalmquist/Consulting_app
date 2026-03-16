@@ -190,11 +190,6 @@ def get_by_account(
 
     where = " AND ".join(clauses)
 
-    # Build LEAST across dimension columns for lowest-scoring dimension
-    dim_case_parts = ", ".join(
-        f"'{d}', latest.avg_{d}" for d in _DIMENSIONS
-    )
-
     with get_cursor() as cur:
         cur.execute(
             f"""

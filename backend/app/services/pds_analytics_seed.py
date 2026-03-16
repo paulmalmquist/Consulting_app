@@ -14,7 +14,6 @@ import math
 import random
 import uuid
 from datetime import date, timedelta
-from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
@@ -521,10 +520,6 @@ def _seed_timecards(
                 d += timedelta(days=1)
                 continue
 
-            # Seasonal adjustment
-            q = (d.month - 1) // 3 + 1
-            seasonal = SEASONALITY[q]
-
             # December reduction, July/August reduction
             month_adj = 1.0
             if d.month == 12:
@@ -710,9 +705,6 @@ def _seed_nps(
         for acc in accounts:
             n_responses = random.randint(1, 3)
             acc_proj_list = acct_projects.get(acc["account_id"], [])
-
-            # Higher-revenue accounts trend slightly higher NPS
-            revenue_boost = min(2, acc["acv"] / 500_000)
 
             for _ in range(n_responses):
                 # NPS mixture model: 51% Promoter, 26% Passive, 23% Detractor
