@@ -29,7 +29,7 @@ def get_project_health(*, env_id: str, business_id: str, project_id: str) -> dic
             return {"error": "Project not found"}
 
         # Schedule health (27.5%)
-        planned_pct = row["percent_complete"] or 0
+        planned_pct = float(row["percent_complete"] or 0)
         # Approximate planned percent based on time elapsed
         if row["start_date"] and row["planned_end_date"]:
             import datetime

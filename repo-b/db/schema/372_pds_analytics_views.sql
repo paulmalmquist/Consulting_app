@@ -178,17 +178,15 @@ SELECT
   env_id,
   business_id,
   account_id,
-  date_trunc('quarter', survey_date)::date                    AS quarter,
-  COUNT(*)                                                     AS total_responses,
-  COUNT(*) FILTER (WHERE nps_score >= 9)                       AS promoters,
-  COUNT(*) FILTER (WHERE nps_score BETWEEN 7 AND 8)            AS passives,
-  COUNT(*) FILTER (WHERE nps_score <= 6)                       AS detractors,
+  COUNT(*)                                                     AS response_count,
+  MAX(survey_date)                                             AS last_survey_date,
+  ROUND(AVG(overall_satisfaction), 2)                         AS avg_satisfaction,
   ROUND(
     (COUNT(*) FILTER (WHERE nps_score >= 9)::numeric / NULLIF(COUNT(*), 0) * 100)
     - (COUNT(*) FILTER (WHERE nps_score <= 6)::numeric / NULLIF(COUNT(*), 0) * 100)
-  , 1)                                                         AS nps_score
+  , 1)                                                         AS nps
 FROM pds_nps_responses
 WHERE nps_score IS NOT NULL
-GROUP BY env_id, business_id, account_id, date_trunc('quarter', survey_date)::date;
+GROUP BY env_id, business_id, account_id;
 
-COMMENT ON VIEW v_pds_nps_summary IS 'Quarterly NPS: promoter% - detractor% per account';
+COMMENT ON VIEW v_pds_nps_summary IS 'Per-account NPS summary: promoter% - detractor%, avg satisfaction, response count, last survey date';
