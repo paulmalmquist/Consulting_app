@@ -49,6 +49,10 @@ _ENTITY_KEYWORDS: dict[str, tuple[str, ...]] = {
     "deal": ("deal", "investment"),
     "model": ("model", "scenario"),
     "pipeline_deal": ("pipeline", "deal"),
+    "portfolio": ("portfolio",),
+    "loan": ("loan", "obligation"),
+    "policy": ("policy", "underwriting"),
+    "borrower": ("borrower", "counterparty"),
 }
 
 

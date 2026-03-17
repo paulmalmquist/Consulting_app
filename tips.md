@@ -1528,6 +1528,43 @@ Tools are registered in `backend/app/mcp/tools/repe_investor_tools.py` and loade
 - Run `npm run test:instructions` after changing routing rules, triggers, or the example fixture set.
 - Use `status: archived` plus `entrypoint: false` for legacy prompt docs that must remain in the repo for history but should no longer act like alternate execution entrypoints.
 
+## Prompt-to-Skill Normalization (March 2026)
+
+- Prefer a skill wrapper over a loose prompt file when both exist. Keep the long prompt as reference context, not as the first execution entrypoint.
+- The prompt shape that keeps working in this repo is: owning surface, current state, missing state, exact files, ordered phases, verification, and explicit non-goals.
+- The prompt shape that keeps needing correction is: "fix everything", mixed architecture plus implementation plus deploy in one pass, or any doc that skips data/seed/entity-resolution details.
+- Root bootstrap markdown (`BOOTSTRAP.md`, `TOOLS.md`, `IDENTITY.md`, `USER.md`, `SOUL.md`, `HEARTBEAT.md`) now maps to `skills/winston-session-bootstrap/SKILL.md`.
+- `META_PROMPT_CHAT_WORKSPACE.md` now maps to `skills/winston-chat-workspace/SKILL.md`.
+- `prompts/dashboard-composition-engine.md`, `prompts/composition-engine-v2.md`, `prompts/llm-intent-data-validation-query-transparency.md`, and `prompts/fix-dashboard-entity-ids.md` now map to `skills/winston-dashboard-composition/SKILL.md`.
+- `docs/WINSTON_AGENTIC_PROMPT.md` now maps to `skills/winston-agentic-build/SKILL.md`.
+- `docs/WINSTON_BEHAVIOR_GUARDRAILS_PROMPT.md`, `docs/plans/CLAUDE_CODE_FIX_ALL_AUDIT_ISSUES.md`, and the archived fix/meta prompts now map to `skills/winston-remediation-playbook/SKILL.md`.
+- `docs/WINSTON_DOCUMENT_ASSET_CREATION_PROMPT.md` now maps to `skills/winston-document-pipeline/SKILL.md`.
+- `docs/WINSTON_LATENCY_OPTIMIZATION_PROMPT.md` and `docs/WINSTON_RERANKING_AND_MODEL_DISPATCH_PROMPT.md` now map to `skills/winston-performance-architecture/SKILL.md`.
+- `docs/WINSTON_CREDIT_DECISIONING_PROMPT.md` plus `.skills/credit-decisioning/SKILL.md` now map to `skills/winston-credit-environment/SKILL.md`.
+- `PDS_META_PROMPTS.md`, `PDS_report.md`, `PDS_EXECUTIVE_GAP_ANALYSIS.md`, and `PDS_P0_DEPLOYMENT_RUNBOOK.md` now map to `skills/winston-pds-delivery/SKILL.md`.
+- When creating a new prompt in this repo, start from the latest corrective doc in the lineage, not the oldest aspirational prompt.
+
+## Consumer Credit Decisioning Environment (March 2026)
+
+The credit decisioning environment is the second domain surface after REPE. It implements three architectural layers not present in REPE: (1) Deny-by-Default Walled Garden, (2) Chain-of-Thought Orchestration, (3) Format Locks.
+
+**Key files:**
+- Schema: `repo-b/db/schema/274_credit_core.sql` (origination), `275_credit_object_model.sql` (portfolio/loan/borrower), `277_credit_workflow.sql` (corpus/policy/decision/audit)
+- Backend routes: `backend/app/routes/credit.py` (v1 origination), `backend/app/routes/credit_v2.py` (v2 consumer credit — 26 endpoints at `/api/credit/v2`)
+- Service: `backend/app/services/credit_decisioning.py` — core engine with `evaluate_loan()`, corpus ops, format lock validation, seeder
+- MCP tools: `backend/app/mcp/tools/credit_tools.py` (18 tools: 12 read + 6 write), schemas at `backend/app/mcp/schemas/credit_tools.py`
+- Frontend: 8 pages under `repo-b/src/app/lab/env/[envId]/credit/` (hub, portfolio detail, loan detail, decisions, exceptions, corpus, policies, audit)
+- AI behavior contract: `.skills/credit-decisioning/SKILL.md`
+- System prompt: `_CREDIT_DOMAIN_BLOCK` in `backend/app/services/ai_gateway.py`
+
+**Data model hierarchy:** Business → Environment → Portfolio → Loan → Loan Event. Borrowers linked to loans. Policies per portfolio. Decision logs are immutable (no UPDATE, no updated_at).
+
+**MCP tool pattern:** Same as REPE — two-phase writes (`confirmed=false/true`), scope resolution via `_scope_value()`, environment/business auto-resolved from context.
+
+**Request routing:** `_CREDIT_WRITE_RE` and `_CREDIT_POLICY_RE` patterns in `request_router.py` route credit queries to Lane C with `temperature=0.0` (deterministic decisioning).
+
+**Seeder:** `POST /api/credit/v2/seed` creates 4 corpus documents, 1 portfolio, 10 borrowers, 10 loans, decision policy, runs evaluate on all loans, creates scenarios.
+
 ## Reusable REPE Index Page Patterns (Fund Portfolio UX Upgrade, March 2026)
 
 **RepeIndexScaffold + table class constants** — The standard pattern for REPE index/list pages. Import `RepeIndexScaffold`, `reIndexTableShellClass`, `reIndexTableClass`, `reIndexTableHeadRowClass`, `reIndexTableBodyClass`, `reIndexTableRowClass`, `reIndexPrimaryCellClass`, `reIndexSecondaryCellClass`, `reIndexNumericCellClass`, `reIndexActionClass`, `reIndexControlLabelClass`, `reIndexInputClass` from `@/components/repe/RepeIndexScaffold`. This gives consistent table styling, filter bar styling, and page scaffolding across funds, assets, models, and other index pages.

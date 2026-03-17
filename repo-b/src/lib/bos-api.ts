@@ -1656,6 +1656,201 @@ export function createCreditCase(body: {
   });
 }
 
+// ── Credit Decisioning v2 ────────────────────────────────────────────
+
+export interface CreditPortfolio {
+  portfolio_id: string;
+  env_id: string;
+  business_id: string;
+  name: string;
+  product_type: string;
+  origination_channel: string;
+  servicer: string | null;
+  status: string;
+  vintage_quarter: string | null;
+  loan_count: number;
+  total_upb: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreditLoan {
+  loan_id: string;
+  env_id: string;
+  business_id: string;
+  portfolio_id: string;
+  borrower_id: string;
+  loan_ref: string;
+  origination_date: string | null;
+  original_balance: string;
+  current_balance: string;
+  interest_rate: string | null;
+  term_months: number | null;
+  loan_status: string;
+  delinquency_bucket: string;
+  risk_grade: string | null;
+  borrower_ref: string | null;
+  fico_at_origination: number | null;
+  created_at: string;
+}
+
+export interface CreditDecisionLog {
+  decision_log_id: string;
+  loan_id: string | null;
+  policy_id: string;
+  decision: string;
+  explanation: string;
+  rules_evaluated_json: Record<string, unknown>[];
+  citation_chain_json: Record<string, unknown>[];
+  chain_status: string;
+  schema_valid: boolean;
+  decided_by: string;
+  decided_at: string;
+  latency_ms: number | null;
+  policy_name: string | null;
+  loan_ref: string | null;
+  borrower_ref: string | null;
+}
+
+export interface CreditException {
+  exception_id: string;
+  loan_id: string | null;
+  decision_log_id: string;
+  route_to: string;
+  priority: string;
+  reason: string;
+  failing_rules_json: Record<string, unknown>[];
+  status: string;
+  resolution: string | null;
+  resolution_note: string | null;
+  sla_deadline: string | null;
+  opened_at: string;
+  resolved_at: string | null;
+  loan_ref: string | null;
+  borrower_ref: string | null;
+}
+
+export interface CreditCorpusDocument {
+  document_id: string;
+  document_ref: string;
+  title: string;
+  document_type: string;
+  passage_count: number;
+  status: string;
+  ingested_at: string;
+}
+
+export interface CreditEnvironmentSnapshot {
+  portfolio_count: number;
+  total_upb: string;
+  total_loan_count: number;
+  dq_30plus_rate: string;
+  dq_60plus_rate: string;
+  dq_90plus_rate: string;
+  exception_queue_depth: number;
+  corpus_document_count: number;
+  policy_count: number;
+  decision_count: number;
+}
+
+// v2 context
+export function getCreditV2Context(envId: string, businessId?: string) {
+  return bosFetch<{ env_id: string; business_id: string; credit_initialized: boolean }>("/api/credit/v2/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function initCreditV2Context(envId: string, businessId?: string) {
+  return bosFetch("/api/credit/v2/context/init", {
+    method: "POST",
+    body: JSON.stringify({ env_id: envId, business_id: businessId }),
+  });
+}
+
+// Portfolios
+export function listCreditPortfolios(envId: string, businessId?: string): Promise<CreditPortfolio[]> {
+  return bosFetch("/api/credit/v2/portfolios", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getCreditPortfolio(envId: string, portfolioId: string, businessId?: string): Promise<CreditPortfolio> {
+  return bosFetch(`/api/credit/v2/portfolios/${portfolioId}`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+// Loans
+export function listCreditLoans(envId: string, portfolioId: string, businessId?: string): Promise<CreditLoan[]> {
+  return bosFetch(`/api/credit/v2/portfolios/${portfolioId}/loans`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getCreditLoan(envId: string, loanId: string, businessId?: string): Promise<CreditLoan> {
+  return bosFetch(`/api/credit/v2/loans/${loanId}`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+// Decisions
+export function listCreditDecisions(envId: string, businessId?: string): Promise<CreditDecisionLog[]> {
+  return bosFetch("/api/credit/v2/decisions", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+// Exceptions
+export function listCreditExceptions(envId: string, businessId?: string, status?: string): Promise<CreditException[]> {
+  return bosFetch("/api/credit/v2/exceptions", {
+    params: { env_id: envId, business_id: businessId, status },
+  });
+}
+
+export function resolveCreditException(envId: string, exceptionId: string, body: { resolution: string; resolution_note?: string }, businessId?: string) {
+  return bosFetch(`/api/credit/v2/exceptions/${exceptionId}/resolve`, {
+    method: "PATCH",
+    params: { env_id: envId, business_id: businessId },
+    body: JSON.stringify(body),
+  });
+}
+
+// Corpus
+export function listCreditCorpus(envId: string, businessId?: string): Promise<CreditCorpusDocument[]> {
+  return bosFetch("/api/credit/v2/corpus", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function searchCreditCorpus(envId: string, query: string, businessId?: string) {
+  return bosFetch("/api/credit/v2/corpus/search", {
+    params: { env_id: envId, business_id: businessId, query },
+  });
+}
+
+// Snapshot
+export function getCreditSnapshot(envId: string, businessId?: string): Promise<CreditEnvironmentSnapshot> {
+  return bosFetch("/api/credit/v2/snapshot", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+// Seed
+export function seedCreditDemo(envId: string, businessId?: string) {
+  return bosFetch("/api/credit/v2/seed", {
+    method: "POST",
+    body: JSON.stringify({ env_id: envId, business_id: businessId }),
+  });
+}
+
+// Evaluate
+export function evaluateCreditLoan(envId: string, loanId: string, businessId?: string) {
+  return bosFetch("/api/credit/v2/evaluate", {
+    method: "POST",
+    body: JSON.stringify({ env_id: envId, business_id: businessId, loan_id: loanId }),
+  });
+}
+
 // ── Legal Ops Command ────────────────────────────────────────────────
 
 export interface LegalMatter {

@@ -44,6 +44,7 @@ from app.routes import (
     pds_v2,
     pds_executive,
     credit,
+    credit_v2,
     legal_ops,
     medoffice,
     winston_demo,
@@ -182,6 +183,7 @@ app.include_router(pds_query.router)
 app.include_router(pds_chat.router)
 app.include_router(pds_analytics.router)
 app.include_router(credit.router)
+app.include_router(credit_v2.router)
 app.include_router(legal_ops.router)
 app.include_router(medoffice.router)
 app.include_router(winston_demo.router)

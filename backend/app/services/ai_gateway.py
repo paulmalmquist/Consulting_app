@@ -246,6 +246,47 @@ Engineering constraints are critical. The system must remain lightweight and avo
 
 The final deliverable must include ingestion scripts for Polymarket and Kalshi, a normalized database schema, a signal detection engine, integration with the Business Machine dashboard, and an alerting mechanism that surfaces narrative shifts and macro signals in real time. The end result should be a continuously updating prediction market intelligence feed embedded inside the Novendor Business Machine that allows the company to monitor emerging technological and economic narratives and respond strategically before those narratives reach mainstream awareness."""
 
+_CREDIT_DOMAIN_BLOCK = """
+## Credit Decisioning Domain
+
+You are operating inside a consumer credit decisioning environment. In addition to the standard rules above, the following constraints are absolute:
+
+### Layer 1 — Deny-by-Default Walled Garden
+- NEVER use general knowledge to answer questions about credit policy, underwriting criteria, or regulatory requirements.
+- ONLY reference documents that exist in the environment's corpus (cc_corpus_document / cc_corpus_passage).
+- Every factual assertion about policy, procedure, or regulation MUST include a citation: document_ref + passage_ref + excerpt.
+- If the corpus does not contain the answer, say so explicitly. Do NOT guess.
+- When the user asks about underwriting criteria, search the corpus first using credit.search_corpus before answering.
+
+### Layer 2 — Chain-of-Thought Orchestration
+- When evaluating a loan or answering a policy question, decompose the query into sub-questions.
+- For each sub-question, retrieve the relevant corpus passage and validate it answers the sub-question directly.
+- Show your reasoning: "Per [document_ref] section [passage_ref]: [excerpt]. Therefore: [conclusion]."
+- Every decision produced by credit.evaluate_loan includes a full reasoning chain in the audit record.
+
+### Layer 3 — Format Locks
+- Decisioning outputs are schema-validated. Do NOT rephrase or summarize the structured output in a way that loses the rule-by-rule evaluation.
+- Present the decision, then the rules evaluated (with PASS/FAIL for each), then the explanation, then the citations.
+- Exception queue items must include: the failing rules, the gap between threshold and observed, and the recommended action from policy.
+- Adverse action reasons must use ECOA-compliant codes from the corpus.
+
+### Data Model
+- The hierarchy is: Business → Environment → Portfolio → Loan → Loan Event
+- Borrowers are linked to loans. Servicers are linked to portfolios.
+- Decisioning runs against a portfolio's active policy.
+- The exception queue holds loans that could not be auto-decided.
+- The audit trail is immutable and append-only.
+
+### Tool Routing
+- Portfolio questions → credit.list_portfolios, credit.get_portfolio
+- Loan questions → credit.list_loans, credit.get_loan
+- "Run decisioning" / "evaluate this loan" → credit.evaluate_loan
+- Policy questions → credit.search_corpus FIRST, then credit.list_policies
+- Exception queue → credit.list_exceptions
+- Audit/compliance questions → credit.list_audit_records, credit.get_decision
+- "What does the policy say about X" → credit.search_corpus (NEVER answer from general knowledge)
+"""
+
 _MUTATION_RULES_BLOCK = """
 ## Mutation Rules — Two-Phase Write Flow
 
@@ -306,10 +347,21 @@ def _is_novendor_environment(*, environment_name: str | None, environment_id: st
     return any("novendor" in value.lower() for value in haystacks)
 
 
-def _build_system_prompt_for_context(*, environment_name: str | None, environment_id: str | None) -> str:
+def _is_credit_environment(*, environment_name: str | None, environment_id: str | None, industry: str | None = None, credit_initialized: bool = False) -> bool:
+    if credit_initialized:
+        return True
+    if industry and industry.lower() in ("consumer_credit", "credit"):
+        return True
+    haystacks = [environment_name or "", environment_id or ""]
+    return any("credit" in value.lower() for value in haystacks)
+
+
+def _build_system_prompt_for_context(*, environment_name: str | None, environment_id: str | None, industry: str | None = None, credit_initialized: bool = False) -> str:
     base = _build_system_prompt()
     if _is_novendor_environment(environment_name=environment_name, environment_id=environment_id):
-        return base + "\n\n" + _NOVENDOR_PREDICTION_MARKET_PROMPT
+        base += "\n\n" + _NOVENDOR_PREDICTION_MARKET_PROMPT
+    if _is_credit_environment(environment_name=environment_name, environment_id=environment_id, industry=industry, credit_initialized=credit_initialized):
+        base += "\n\n" + _CREDIT_DOMAIN_BLOCK
     return base
 
 
@@ -2672,6 +2724,12 @@ async def run_gateway_stream(
         environment_id=normalized_envelope.ui.active_environment_id,
     ):
         _dynamic_parts.append(_NOVENDOR_PREDICTION_MARKET_PROMPT)
+    if _is_credit_environment(
+        environment_name=normalized_envelope.ui.active_environment_name,
+        environment_id=normalized_envelope.ui.active_environment_id,
+        industry=getattr(normalized_envelope.ui, "industry", None),
+    ):
+        _dynamic_parts.append(_CREDIT_DOMAIN_BLOCK)
     _dynamic_parts.append(context_block)
     if rag_context:
         _dynamic_parts.append(rag_context)

@@ -104,6 +104,20 @@ _REPE_SCENARIO_RE = re.compile(
     r"\b(cap\s*rate|irr|tvpi|noi|nav|fund|impact)\b.*\b(sell|exit|disposition|sale\s*scenario|waterfall|stress|what\s*if)\b",
     re.IGNORECASE,
 )
+# Credit decisioning write patterns → Lane C (deterministic, tools + RAG)
+_CREDIT_WRITE_RE = re.compile(
+    r"\b(create|add|evaluate|ingest|resolve|run)\b[\s\w]{0,40}\b(portfolio|loan|borrower|policy|corpus|exception|decisioning)\b|"
+    r"\bnew\s+(portfolio|loan|policy|borrower)\b|"
+    r"\b(approve|decline)\b",
+    re.IGNORECASE,
+)
+# Credit policy / corpus queries → Lane C with RAG
+_CREDIT_POLICY_RE = re.compile(
+    r"\b(what does the policy say|underwriting criteria|credit policy|regulatory|compliance|"
+    r"adverse action|what are the rules for|exception handling|SLA|"
+    r"fico|dti|ltv|delinquency|charge.off|prepayment)\b",
+    re.IGNORECASE,
+)
 
 
 def classify_request(
@@ -242,6 +256,37 @@ def classify_request(
             rag_max_tokens=0,
             history_max_tokens=1500,
             needs_structured_retrieval=True,
+        )
+
+    # Credit write requests → Lane C (deterministic, tools enabled)
+    if _CREDIT_WRITE_RE.search(message) and not _WRITE_EXCLUDE_RE.search(message):
+        return RouteDecision(
+            lane="C",
+            skip_rag=False,
+            skip_tools=False,
+            max_tool_rounds=3,
+            max_tokens=2048,
+            temperature=0.0,
+            is_write=True,
+            model=OPENAI_CHAT_MODEL_FAST,
+            rag_top_k=3,
+            rag_max_tokens=1500,
+            history_max_tokens=2000,
+        )
+
+    # Credit policy / corpus queries → Lane C with RAG (walled garden)
+    if _CREDIT_POLICY_RE.search(message):
+        return RouteDecision(
+            lane="C",
+            skip_rag=False,
+            skip_tools=False,
+            max_tool_rounds=2,
+            max_tokens=1536,
+            temperature=0.0,
+            model=OPENAI_CHAT_MODEL_FAST,
+            rag_top_k=5,
+            rag_max_tokens=2000,
+            history_max_tokens=2000,
         )
 
     # Analytical

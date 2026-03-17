@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoVendor.ai — Credit Decisioning Environment</title>
+<style>
+  :root {
+    --navy: #0B1D3A;
+    --accent: #1B6B93;
+    --accent-light: #E8F4F8;
+    --dark: #1a1a2e;
+    --surface: #0f0f23;
+    --surface2: #16162a;
+    --surface3: #1e1e36;
+    --border: #2a2a4a;
+    --text: #e0e0f0;
+    --muted: #8888aa;
+    --green: #22c55e;
+    --green-dim: #16a34a33;
+    --red: #ef4444;
+    --red-dim: #dc262633;
+    --amber: #f59e0b;
+    --amber-dim: #d9770633;
+    --blue: #3b82f6;
+    --blue-dim: #2563eb33;
+    --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--dark);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: linear-gradient(135deg, var(--navy) 0%, #0d2847 100%);
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .header h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+  .header .subtitle { font-size: 12px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 999px; font-size: 11px;
+    font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .badge-green { background: var(--green-dim); color: var(--green); border: 1px solid #22c55e44; }
+  .badge-amber { background: var(--amber-dim); color: var(--amber); border: 1px solid #f59e0b44; }
+  .badge-red { background: var(--red-dim); color: var(--red); border: 1px solid #ef444444; }
+  .badge-blue { background: var(--blue-dim); color: var(--blue); border: 1px solid #3b82f644; }
+  .badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* ── Layout ── */
+  .container { max-width: 1440px; margin: 0 auto; padding: 24px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .full-width { margin-bottom: 24px; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .card-header h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+  .card-body { padding: 20px; }
+  .card-body-flush { padding: 0; }
+
+  /* ── Layer Badges ── */
+  .layer-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 4px; font-size: 10px;
+    font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .layer-1 { background: #7c3aed22; color: #a78bfa; border: 1px solid #7c3aed44; }
+  .layer-2 { background: #0891b222; color: #22d3ee; border: 1px solid #0891b244; }
+  .layer-3 { background: #c2410c22; color: #fb923c; border: 1px solid #c2410c44; }
+
+  /* ── KPI Strip ── */
+  .kpi-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    text-align: center;
+  }
+  .kpi-value { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px; }
+  .kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* ── Application Form ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .form-group input, .form-group select {
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: var(--mono);
+  }
+  .form-group input:focus, .form-group select:focus {
+    outline: none; border-color: var(--accent);
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    cursor: pointer; border: none; transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: #1a7aa8; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--text); }
+  .btn-sm { padding: 6px 12px; font-size: 11px; }
+
+  /* ── Decision Result ── */
+  .decision-result {
+    border-radius: 10px;
+    padding: 20px;
+    margin-top: 16px;
+  }
+  .decision-approve { background: var(--green-dim); border: 1px solid #22c55e44; }
+  .decision-decline { background: var(--red-dim); border: 1px solid #ef444444; }
+  .decision-exception { background: var(--amber-dim); border: 1px solid #f59e0b44; }
+  .decision-result h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+
+  /* ── Rule Evaluation Table ── */
+  .rule-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .rule-table th {
+    text-align: left; padding: 8px 12px; font-size: 10px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .rule-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 12px; }
+  .rule-pass { color: var(--green); }
+  .rule-fail { color: var(--red); }
+
+  /* ── Chain of Thought ── */
+  .cot-step {
+    padding: 12px 16px; border-left: 3px solid var(--border);
+    margin-bottom: 8px; margin-left: 12px;
+    background: var(--surface2); border-radius: 0 8px 8px 0;
+    font-size: 12px;
+  }
+  .cot-step.active { border-left-color: var(--accent); }
+  .cot-step.complete { border-left-color: var(--green); }
+  .cot-step .step-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+    font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .cot-step .step-body { color: var(--muted); font-family: var(--mono); font-size: 11px; line-height: 1.6; }
+
+  /* ── Citation Chain ── */
+  .citation {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 10px 14px; background: var(--surface2); border-radius: 8px;
+    margin-bottom: 6px; font-size: 12px;
+  }
+  .citation-num {
+    flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%;
+    background: var(--accent); color: white; display: flex; align-items: center;
+    justify-content: center; font-size: 11px; font-weight: 700;
+  }
+  .citation-doc { color: var(--accent); font-weight: 600; }
+  .citation-excerpt { color: var(--muted); font-style: italic; margin-top: 2px; }
+
+  /* ── Format Lock Output ── */
+  .format-lock-output {
+    background: var(--surface3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px; font-family: var(--mono);
+    font-size: 11px; line-height: 1.6; overflow-x: auto;
+    max-height: 400px; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-word;
+    color: #a0a0c0;
+  }
+  .json-key { color: #a78bfa; }
+  .json-string { color: #22d3ee; }
+  .json-number { color: #fb923c; }
+  .json-bool { color: #f472b6; }
+  .json-null { color: #888; }
+
+  /* ── Audit Timeline ── */
+  .audit-entry {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+  }
+  .audit-entry:last-child { border-bottom: none; }
+  .audit-icon {
+    flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+  }
+  .audit-meta { font-size: 11px; color: var(--muted); }
+
+  /* ── Corpus Panel ── */
+  .corpus-doc {
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .corpus-doc:last-child { border-bottom: none; }
+  .corpus-doc-title { font-weight: 600; font-size: 13px; }
+  .corpus-doc-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .corpus-doc-type {
+    padding: 2px 8px; border-radius: 4px; font-size: 10px;
+    background: var(--surface3); color: var(--muted); border: 1px solid var(--border);
+  }
+
+  /* ── Exception Queue ── */
+  .exception-row {
+    display: grid; grid-template-columns: auto 1fr auto auto auto;
+    gap: 12px; align-items: center;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .exception-row:last-child { border-bottom: none; }
+
+  /* ── Animations ── */
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeIn 0.3s ease-out; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .processing { animation: pulse 1s ease-in-out infinite; }
+
+  /* ── Tabs ── */
+  .tab-bar { display: flex; gap: 2px; padding: 4px; background: var(--surface2); border-radius: 8px; margin-bottom: 16px; }
+  .tab {
+    padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    cursor: pointer; color: var(--muted); transition: all 0.15s;
+    border: none; background: transparent;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { background: var(--accent); color: white; }
+
+  /* ── Responsive ── */
+  @media (max-width: 1200px) { .grid-3 { grid-template-columns: 1fr; } .kpi-strip { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } .kpi-strip { grid-template-columns: 1fr 1fr; } .form-grid { grid-template-columns: 1fr; } }
+
+  .hidden { display: none; }
+  .mt-16 { margin-top: 16px; }
+  .mb-8 { margin-bottom: 8px; }
+  .text-center { text-align: center; }
+  .gap-8 { gap: 8px; }
+  .flex { display: flex; }
+  .items-center { align-items: center; }
+  .justify-between { justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- HEADER                                                         -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="header">
+  <div class="header-left">
+    <div>
+      <h1>Credit Decisioning Environment</h1>
+      <div class="subtitle">NoVendor.ai — The Underwriting Standard for AI</div>
+    </div>
+  </div>
+  <div class="flex items-center gap-8">
+    <span class="layer-tag layer-1">Layer 1: Walled Garden</span>
+    <span class="layer-tag layer-2">Layer 2: Chain of Thought</span>
+    <span class="layer-tag layer-3">Layer 3: Format Lock</span>
+    <span class="badge badge-green">Environment Active</span>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- KPI STRIP                                                      -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="kpi-strip">
+  <div class="kpi">
+    <div class="kpi-value" style="color: var(--text);" id="kpi-decisions">0</div>
+    <div class="kpi-label">Decisions Logged</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value" style="color: var(--green);" id="kpi-approved">0</div>
+    <div class="kpi-label">Auto-Approved</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value" style="color: var(--red);" id="kpi-declined">0</div>
+    <div class="kpi-label">Auto-Declined</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value" style="color: var(--amber);" id="kpi-exceptions">0</div>
+    <div class="kpi-label">Exception Queue</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value" style="color: var(--blue);" id="kpi-citations">0</div>
+    <div class="kpi-label">Citation Chains</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- MAIN TABS                                                      -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="tab-bar">
+  <button class="tab active" onclick="switchTab('decisioning')">Decisioning Engine</button>
+  <button class="tab" onclick="switchTab('corpus')">Walled Garden Corpus</button>
+  <button class="tab" onclick="switchTab('audit')">Audit Trail</button>
+  <button class="tab" onclick="switchTab('exceptions')">Exception Queue</button>
+  <button class="tab" onclick="switchTab('format')">Format Lock Inspector</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- TAB: DECISIONING ENGINE                                        -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="tab-decisioning">
+  <div class="grid-3">
+
+    <!-- Application Input -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Loan Application</h2>
+        <span class="layer-tag layer-1">Walled Garden</span>
+      </div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>FICO Score</label>
+            <input type="number" id="input-fico" value="705" min="300" max="850">
+          </div>
+          <div class="form-group">
+            <label>DTI Ratio</label>
+            <input type="number" id="input-dti" value="0.38" step="0.01" min="0" max="1">
+          </div>
+          <div class="form-group">
+            <label>LTV Ratio</label>
+            <input type="number" id="input-ltv" value="0.85" step="0.01" min="0" max="2">
+          </div>
+          <div class="form-group">
+            <label>Requested Amount</label>
+            <input type="number" id="input-amount" value="32000" step="1000">
+          </div>
+          <div class="form-group">
+            <label>Income Verified</label>
+            <select id="input-income-verified">
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Product Type</label>
+            <select id="input-product">
+              <option value="auto">Auto Loan</option>
+              <option value="personal">Personal Loan</option>
+              <option value="mortgage">Mortgage</option>
+            </select>
+          </div>
+        </div>
+        <div class="mt-16">
+          <button class="btn btn-primary" style="width: 100%;" onclick="runDecisioning()" id="btn-decide">
+            Run Decisioning Engine
+          </button>
+        </div>
+        <div id="decision-result" class="hidden"></div>
+      </div>
+    </div>
+
+    <!-- Chain of Thought -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Chain-of-Thought Trace</h2>
+        <span class="layer-tag layer-2">CoT Orchestration</span>
+      </div>
+      <div class="card-body" id="cot-panel">
+        <div style="text-align: center; padding: 40px 0; color: var(--muted); font-size: 13px;">
+          Submit an application to see the reasoning chain.
+        </div>
+      </div>
+    </div>
+
+    <!-- Citation Chain -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Citation Chain</h2>
+        <span class="layer-tag layer-1">Walled Garden</span>
+      </div>
+      <div class="card-body" id="citation-panel">
+        <div style="text-align: center; padding: 40px 0; color: var(--muted); font-size: 13px;">
+          Citations will appear after decisioning.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Rule Evaluation Table -->
+  <div class="card full-width" id="rules-card" style="display: none;">
+    <div class="card-header">
+      <h2>Rule-by-Rule Evaluation</h2>
+      <div class="flex items-center gap-8">
+        <span class="layer-tag layer-2">CoT Step 3: Validate</span>
+        <span class="layer-tag layer-3">Format Lock</span>
+      </div>
+    </div>
+    <div class="card-body-flush">
+      <table class="rule-table" id="rules-table">
+        <thead>
+          <tr>
+            <th>Rule ID</th>
+            <th>Description</th>
+            <th>Attribute</th>
+            <th>Threshold</th>
+            <th>Observed</th>
+            <th>Result</th>
+            <th>Source Document</th>
+          </tr>
+        </thead>
+        <tbody id="rules-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- TAB: WALLED GARDEN CORPUS                                      -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="tab-corpus" class="hidden">
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header">
+        <h2>Approved Document Corpus</h2>
+        <span class="badge badge-green">4 Active Documents</span>
+      </div>
+      <div class="card-body-flush" id="corpus-list"></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <h2>Walled Garden Enforcement</h2>
+        <span class="layer-tag layer-1">Layer 1</span>
+      </div>
+      <div class="card-body">
+        <div style="font-size: 13px; line-height: 1.8;">
+          <div class="mb-8"><strong style="color: var(--green);">PERMITTED:</strong></div>
+          <div style="color: var(--muted); margin-bottom: 16px;">
+            Assertions traced to specific passages in approved corpus documents.
+            Each assertion requires a citation chain with document ID, passage reference,
+            and exact excerpt. Chain status must be COMPLETE.
+          </div>
+          <div class="mb-8"><strong style="color: var(--red);">DENIED BY DEFAULT:</strong></div>
+          <div style="color: var(--muted); margin-bottom: 16px;">
+            Internet sources, training knowledge, interpolation between documents,
+            best guesses, probabilistic confidence without deterministic validation,
+            any assertion where the citation chain is PARTIAL or BROKEN.
+          </div>
+          <div class="mb-8"><strong style="color: var(--amber);">ENFORCEMENT:</strong></div>
+          <div style="color: var(--muted);">
+            If evidence is insufficient, the system returns a structured INSUFFICIENT_EVIDENCE
+            refusal with the nearest match and reason for rejection. The refusal itself is
+            logged as an immutable audit record.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- TAB: AUDIT TRAIL                                               -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="tab-audit" class="hidden">
+  <div class="card full-width">
+    <div class="card-header">
+      <h2>Immutable Audit Records</h2>
+      <div class="flex items-center gap-8">
+        <span class="layer-tag layer-2">Chain of Thought</span>
+        <span id="audit-count" class="badge badge-blue">0 Records</span>
+      </div>
+    </div>
+    <div class="card-body" id="audit-list">
+      <div style="text-align: center; padding: 40px 0; color: var(--muted); font-size: 13px;">
+        Run the decisioning engine to generate audit records.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- TAB: EXCEPTION QUEUE                                           -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="tab-exceptions" class="hidden">
+  <div class="card full-width">
+    <div class="card-header">
+      <h2>Exception Queue</h2>
+      <div class="flex items-center gap-8">
+        <span class="layer-tag layer-2">CoT Orchestration</span>
+        <span id="exception-count" class="badge badge-amber">0 Open</span>
+      </div>
+    </div>
+    <div class="card-body" id="exception-list">
+      <div style="text-align: center; padding: 40px 0; color: var(--muted); font-size: 13px;">
+        Exception-routed decisions will appear here.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- TAB: FORMAT LOCK INSPECTOR                                     -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="tab-format" class="hidden">
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header">
+        <h2>Format Lock: CreditDecisionOutput_v1</h2>
+        <span class="layer-tag layer-3">Layer 3</span>
+      </div>
+      <div class="card-body">
+        <div style="font-size: 12px; color: var(--muted); margin-bottom: 12px;">
+          Every decisioning output is validated against this schema before delivery.
+          If validation fails, the output is rejected and escalated.
+        </div>
+        <div class="format-lock-output" id="format-schema">Waiting for a decision to inspect...</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <h2>Schema Validation Result</h2>
+        <span id="schema-valid-badge" class="badge badge-green">Valid</span>
+      </div>
+      <div class="card-body">
+        <div style="font-size: 12px; color: var(--muted); margin-bottom: 12px;">
+          Raw format-locked JSON output from the last decision.
+        </div>
+        <div class="format-lock-output" id="format-output">Waiting for a decision...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<script>
+// ════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════
+const state = {
+  decisions: [],
+  exceptions: [],
+  auditRecords: [],
+  totalCitations: 0,
+};
+
+// ════════════════════════════════════════════════════════════════════
+// WALLED GARDEN CORPUS (simulated)
+// ════════════════════════════════════════════════════════════════════
+const CORPUS = [
+  {
+    document_id: "POL-2025-042",
+    title: "Auto Loan Underwriting Policy v3.1",
+    document_type: "policy",
+    effective_from: "2025-01-01",
+    status: "active",
+    passages: [
+      { passage_ref: "section_4.2.1", section_path: "4 > Automated Decisioning > 4.2 Auto-Approval",
+        content_text: "Applications with FICO >= 720, DTI <= 36%, verified income, and LTV <= 80% are eligible for automated approval without manual review." },
+      { passage_ref: "section_4.3.1", section_path: "4 > Automated Decisioning > 4.3 Exception Routing",
+        content_text: "Applications with FICO between 660 and 719, or DTI between 36% and 45%, must be routed to a senior underwriter for manual review within 24 hours." },
+      { passage_ref: "section_4.4.1", section_path: "4 > Automated Decisioning > 4.4 Auto-Decline",
+        content_text: "Applications with FICO below 620 or DTI exceeding 50% are automatically declined. Adverse action notice must cite the specific failing attributes." },
+      { passage_ref: "section_5.1.1", section_path: "5 > LTV Limits > 5.1 Standard",
+        content_text: "Maximum LTV for auto-approval is 80%. LTV between 80% and 95% requires exception approval. LTV above 95% is auto-declined." },
+    ]
+  },
+  {
+    document_id: "REG-2025-008",
+    title: "ECOA Adverse Action Compliance Guide",
+    document_type: "regulatory_guidance",
+    effective_from: "2025-01-15",
+    status: "active",
+    passages: [
+      { passage_ref: "section_2.1", section_path: "2 > Required Disclosures",
+        content_text: "Adverse action notices must identify the specific reasons for denial. Generic statements are insufficient. Each reason must reference a measurable attribute." },
+      { passage_ref: "section_2.3", section_path: "2 > Reason Codes",
+        content_text: "Standard adverse action reason codes: AA01 (insufficient credit score), AA02 (excessive debt-to-income ratio), AA03 (insufficient collateral), AA04 (unverified income)." },
+    ]
+  },
+  {
+    document_id: "PROC-2025-015",
+    title: "Exception Queue Operating Procedures",
+    document_type: "procedure",
+    effective_from: "2025-02-01",
+    status: "active",
+    passages: [
+      { passage_ref: "section_3.1", section_path: "3 > SLA Requirements",
+        content_text: "All exception-routed applications must receive a human decision within 24 hours of routing. Critical-priority exceptions require 4-hour response." },
+      { passage_ref: "section_3.4", section_path: "3 > Resolution Documentation",
+        content_text: "Exception resolutions must document: the original system recommendation, the human override rationale, and the specific policy section authorizing the override." },
+    ]
+  },
+  {
+    document_id: "MEMO-2025-003",
+    title: "Q1 2025 Credit Committee Guidance Memo",
+    document_type: "internal_memo",
+    effective_from: "2025-03-01",
+    status: "active",
+    passages: [
+      { passage_ref: "section_1.2", section_path: "1 > Portfolio Targets",
+        content_text: "Target FICO range for new originations: 660-820. Target weighted average FICO: 720. Target DTI ceiling: 40%. Exceptions above 40% DTI require VP approval." },
+    ]
+  },
+];
+
+// ════════════════════════════════════════════════════════════════════
+// DECISION POLICY (from corpus)
+// ════════════════════════════════════════════════════════════════════
+const POLICY = {
+  policy_id: "pol-001",
+  name: "Standard Auto Underwriting v3.1",
+  version_no: 3,
+  rules: [
+    {
+      rule_id: "R001",
+      description: "Auto-approve prime borrowers",
+      condition: { fico_min: 720, dti_max: 0.36, income_verified: true, ltv_max: 0.80 },
+      action: "auto_approve",
+      explanation_template: "Approved: FICO {fico} >= 720, DTI {dti} <= 36%, income verified, LTV {ltv} <= 80%",
+      source_document_ref: "POL-2025-042",
+      source_passage_ref: "section_4.2.1",
+    },
+    {
+      rule_id: "R002",
+      description: "Exception route near-prime / elevated DTI",
+      condition: { fico_min: 660, dti_max: 0.45, ltv_max: 0.95 },
+      action: "exception_route",
+      route_to: "senior_underwriter",
+      explanation_template: "Routed: FICO {fico} in near-prime range or DTI {dti} elevated. Requires manual review per Policy 4.3.1.",
+      source_document_ref: "POL-2025-042",
+      source_passage_ref: "section_4.3.1",
+    },
+    {
+      rule_id: "R003",
+      description: "Auto-decline subprime / excessive DTI",
+      condition: { fico_min: 0, dti_max: 0.50, ltv_max: 1.00 },
+      action: "auto_decline",
+      explanation_template: "Declined: FICO {fico} below 620 or DTI {dti} exceeds 50% or LTV {ltv} exceeds 100%. See Policy 4.4.1.",
+      adverse_action_codes: ["AA01", "AA02"],
+      source_document_ref: "POL-2025-042",
+      source_passage_ref: "section_4.4.1",
+    },
+  ]
+};
+
+// ════════════════════════════════════════════════════════════════════
+// DECISIONING ENGINE
+// ════════════════════════════════════════════════════════════════════
+function runDecisioning() {
+  const btn = document.getElementById("btn-decide");
+  btn.disabled = true;
+  btn.textContent = "Processing...";
+
+  const fico = parseFloat(document.getElementById("input-fico").value);
+  const dti = parseFloat(document.getElementById("input-dti").value);
+  const ltv = parseFloat(document.getElementById("input-ltv").value);
+  const amount = parseFloat(document.getElementById("input-amount").value);
+  const incomeVerified = document.getElementById("input-income-verified").value === "true";
+  const product = document.getElementById("input-product").value;
+
+  const borrower = { fico_at_origination: fico, dti_at_origination: dti, ltv_at_origination: ltv, requested_amount: amount, income_verified: incomeVerified, product_type: product };
+
+  // Simulate latency (the system deliberately slows down)
+  const startTime = performance.now();
+
+  // Step 1: Show CoT decomposition
+  showCotStep(1, "DECOMPOSE", `Breaking query into ${POLICY.rules.length} sub-queries, one per policy rule...`);
+
+  setTimeout(() => {
+    showCotStep(2, "RETRIEVE", `Searching walled garden corpus for ${POLICY.rules.length} source documents...`);
+
+    setTimeout(() => {
+      // Evaluate rules
+      const evaluation = evaluateRules(borrower);
+
+      showCotStep(3, "VALIDATE", `Validated ${evaluation.rulesEvaluated.length} rules. ${evaluation.passCount} PASS, ${evaluation.failCount} FAIL. Chain status: ${evaluation.chainStatus}`);
+
+      setTimeout(() => {
+        showCotStep(4, "SYNTHESIZE", `Decision: ${evaluation.decision.toUpperCase()}. Explanation rendered from policy template.`);
+
+        setTimeout(() => {
+          const latencyMs = Math.round(performance.now() - startTime);
+          showCotStep(5, "AUDIT", `Immutable audit record created. Latency: ${latencyMs}ms. ${evaluation.citations.length} citations logged.`);
+
+          // Build full decision record
+          const record = buildDecisionRecord(borrower, evaluation, latencyMs);
+
+          // Update state
+          state.decisions.push(record);
+          state.totalCitations += evaluation.citations.length;
+          if (record.decision === "exception_route") {
+            state.exceptions.push(buildException(record));
+          }
+          state.auditRecords.push(buildAuditRecord(record, evaluation, latencyMs));
+
+          // Update UI
+          showDecisionResult(record);
+          showRulesTable(evaluation.rulesEvaluated);
+          showCitations(evaluation.citations);
+          updateKPIs();
+          updateAuditTab();
+          updateExceptionTab();
+          updateFormatTab(record);
+          updateCorpusTab();
+
+          btn.disabled = false;
+          btn.textContent = "Run Decisioning Engine";
+        }, 200);
+      }, 250);
+    }, 300);
+  }, 350);
+}
+
+function evaluateRules(borrower) {
+  const rulesEvaluated = [];
+  const citations = [];
+  let decision = null;
+  let explanation = "";
+  let failingRules = [];
+  let passCount = 0;
+  let failCount = 0;
+
+  for (const rule of POLICY.rules) {
+    const cond = rule.condition;
+    let pass = true;
+    const details = {};
+
+    if (cond.fico_min !== undefined && borrower.fico_at_origination < cond.fico_min) { pass = false; details.fico = "FAIL"; } else { details.fico = "PASS"; }
+    if (cond.dti_max !== undefined && borrower.dti_at_origination > cond.dti_max) { pass = false; details.dti = "FAIL"; } else { details.dti = "PASS"; }
+    if (cond.ltv_max !== undefined && borrower.ltv_at_origination > cond.ltv_max) { pass = false; details.ltv = "FAIL"; } else { details.ltv = "PASS"; }
+    if (cond.income_verified !== undefined && borrower.income_verified !== cond.income_verified) { pass = false; details.income = "FAIL"; } else { details.income = "PASS"; }
+
+    if (pass) passCount++; else failCount++;
+
+    rulesEvaluated.push({
+      rule_id: rule.rule_id,
+      description: rule.description,
+      condition: cond,
+      observed: { fico: borrower.fico_at_origination, dti: borrower.dti_at_origination, ltv: borrower.ltv_at_origination, income_verified: borrower.income_verified },
+      details,
+      result: pass ? "PASS" : "FAIL",
+      action: rule.action,
+      source_document_ref: rule.source_document_ref,
+      source_passage_ref: rule.source_passage_ref,
+    });
+
+    citations.push({
+      step: citations.length + 1,
+      document_ref: rule.source_document_ref,
+      passage_ref: rule.source_passage_ref,
+      document_title: CORPUS.find(d => d.document_id === rule.source_document_ref)?.title || "",
+      excerpt: CORPUS.find(d => d.document_id === rule.source_document_ref)?.passages.find(p => p.passage_ref === rule.source_passage_ref)?.content_text || "",
+      relevance: "DIRECT",
+    });
+
+    if (pass && !decision) {
+      decision = rule.action;
+      explanation = rule.explanation_template
+        .replace("{fico}", borrower.fico_at_origination)
+        .replace("{dti}", (borrower.dti_at_origination * 100).toFixed(0) + "%")
+        .replace("{ltv}", (borrower.ltv_at_origination * 100).toFixed(0) + "%");
+    }
+
+    if (!pass) {
+      failingRules.push(rule);
+    }
+  }
+
+  if (!decision) {
+    decision = "auto_decline";
+    explanation = `Declined: No policy rule satisfied. FICO ${borrower.fico_at_origination}, DTI ${(borrower.dti_at_origination*100).toFixed(0)}%, LTV ${(borrower.ltv_at_origination*100).toFixed(0)}%.`;
+  }
+
+  return { decision, explanation, rulesEvaluated, citations, failingRules, passCount, failCount, chainStatus: "COMPLETE" };
+}
+
+// ════════════════════════════════════════════════════════════════════
+// UI RENDERERS
+// ════════════════════════════════════════════════════════════════════
+
+function showCotStep(num, label, body) {
+  const panel = document.getElementById("cot-panel");
+  if (num === 1) panel.innerHTML = "";
+
+  const step = document.createElement("div");
+  step.className = "cot-step complete fade-in";
+  step.innerHTML = `
+    <div class="step-header">
+      <span style="color: var(--green);">&#10003;</span>
+      Step ${num}: ${label}
+    </div>
+    <div class="step-body">${body}</div>
+  `;
+  panel.appendChild(step);
+}
+
+function showDecisionResult(record) {
+  const el = document.getElementById("decision-result");
+  el.classList.remove("hidden");
+  const cls = record.decision === "auto_approve" ? "decision-approve" : record.decision === "auto_decline" ? "decision-decline" : "decision-exception";
+  const icon = record.decision === "auto_approve" ? "&#10003;" : record.decision === "auto_decline" ? "&#10007;" : "&#9888;";
+  const label = record.decision.replace(/_/g, " ").toUpperCase();
+
+  el.innerHTML = `
+    <div class="decision-result ${cls} fade-in">
+      <h3>${icon} ${label}</h3>
+      <div style="font-size: 13px; margin-bottom: 8px;">${record.explanation}</div>
+      <div style="font-size: 11px; color: var(--muted);">
+        Latency: ${record.latency_ms}ms | Citations: ${record.citation_chain.length} | Chain: ${record.chain_status} | Format Lock: ${record.format_lock}
+      </div>
+    </div>
+  `;
+}
+
+function showRulesTable(rules) {
+  document.getElementById("rules-card").style.display = "block";
+  const tbody = document.getElementById("rules-tbody");
+  tbody.innerHTML = rules.map(r => `
+    <tr class="fade-in">
+      <td style="font-weight: 600;">${r.rule_id}</td>
+      <td style="font-family: var(--sans);">${r.description}</td>
+      <td>${Object.keys(r.condition).join(", ")}</td>
+      <td>${Object.entries(r.condition).map(([k,v]) => `${k}: ${v}`).join("; ")}</td>
+      <td>${Object.entries(r.observed).map(([k,v]) => `${k}: ${v}`).join("; ")}</td>
+      <td class="${r.result === 'PASS' ? 'rule-pass' : 'rule-fail'}" style="font-weight: 700;">${r.result}</td>
+      <td style="color: var(--accent);">${r.source_document_ref} / ${r.source_passage_ref}</td>
+    </tr>
+  `).join("");
+}
+
+function showCitations(citations) {
+  const panel = document.getElementById("citation-panel");
+  panel.innerHTML = citations.map(c => `
+    <div class="citation fade-in">
+      <div class="citation-num">${c.step}</div>
+      <div>
+        <div class="citation-doc">${c.document_ref} / ${c.passage_ref}</div>
+        <div style="font-size: 11px; color: var(--text); margin: 2px 0;">${c.document_title}</div>
+        <div class="citation-excerpt">"${c.excerpt.substring(0, 120)}..."</div>
+        <div style="margin-top: 4px;"><span class="badge badge-green" style="font-size: 9px;">DIRECT</span></div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function updateKPIs() {
+  document.getElementById("kpi-decisions").textContent = state.decisions.length;
+  document.getElementById("kpi-approved").textContent = state.decisions.filter(d => d.decision === "auto_approve").length;
+  document.getElementById("kpi-declined").textContent = state.decisions.filter(d => d.decision === "auto_decline").length;
+  document.getElementById("kpi-exceptions").textContent = state.exceptions.length;
+  document.getElementById("kpi-citations").textContent = state.totalCitations;
+}
+
+function updateAuditTab() {
+  const list = document.getElementById("audit-list");
+  document.getElementById("audit-count").textContent = state.auditRecords.length + " Records";
+  list.innerHTML = state.auditRecords.slice().reverse().map(a => `
+    <div class="audit-entry fade-in">
+      <div class="audit-icon" style="background: ${a.decision === 'auto_approve' ? 'var(--green-dim)' : a.decision === 'auto_decline' ? 'var(--red-dim)' : 'var(--amber-dim)'}; color: ${a.decision === 'auto_approve' ? 'var(--green)' : a.decision === 'auto_decline' ? 'var(--red)' : 'var(--amber)'};">
+        ${a.decision === 'auto_approve' ? '&#10003;' : a.decision === 'auto_decline' ? '&#10007;' : '&#9888;'}
+      </div>
+      <div style="flex: 1;">
+        <div style="font-size: 13px; font-weight: 600;">${a.decision.replace(/_/g, " ").toUpperCase()}</div>
+        <div class="audit-meta">${a.explanation.substring(0, 80)}...</div>
+        <div class="audit-meta" style="margin-top: 4px;">
+          5 reasoning steps | ${a.citations} citations | ${a.latency_ms}ms |
+          Chain: <span style="color: var(--green);">${a.chain_status}</span> |
+          Format: <span style="color: var(--green);">${a.format_lock}</span> |
+          Schema: <span style="color: var(--green);">VALID</span>
+        </div>
+      </div>
+      <div>
+        <span class="badge badge-blue" style="font-size: 9px;">${a.audit_id.substring(0, 8)}</span>
+      </div>
+    </div>
+  `).join("");
+}
+
+function updateExceptionTab() {
+  const list = document.getElementById("exception-list");
+  document.getElementById("exception-count").textContent = state.exceptions.length + " Open";
+  if (state.exceptions.length === 0) {
+    list.innerHTML = '<div style="text-align: center; padding: 40px 0; color: var(--muted); font-size: 13px;">No exceptions in queue.</div>';
+    return;
+  }
+  list.innerHTML = state.exceptions.map(e => `
+    <div class="exception-row fade-in">
+      <span class="badge badge-amber" style="font-size: 9px;">${e.priority.toUpperCase()}</span>
+      <div>
+        <div style="font-size: 13px; font-weight: 600;">Loan ${e.loan_ref}</div>
+        <div style="font-size: 11px; color: var(--muted);">${e.reason.substring(0, 100)}</div>
+      </div>
+      <div style="font-size: 11px; color: var(--muted);">Route: ${e.route_to}</div>
+      <div style="font-size: 11px; color: var(--amber);">SLA: 24h</div>
+      <span class="badge badge-amber" style="font-size: 9px;">OPEN</span>
+    </div>
+  `).join("");
+}
+
+function updateFormatTab(record) {
+  const schema = {
+    "$schema": "CreditDecisionOutput_v1",
+    "required_fields": Object.keys(record).filter(k => !["reasoning_steps"].includes(k)),
+    "valid_decisions": ["auto_approve", "auto_decline", "exception_route", "manual_approve", "manual_decline", "insufficient_evidence"],
+    "citation_chain_required": true,
+    "chain_status_must_be": "COMPLETE",
+    "schema_validation": "ENFORCED",
+    "malformed_output_handling": "REJECT_AND_ESCALATE",
+    "max_retries": 2,
+  };
+  document.getElementById("format-schema").innerHTML = syntaxHighlight(JSON.stringify(schema, null, 2));
+
+  const cleanRecord = { ...record };
+  delete cleanRecord.reasoning_steps;
+  document.getElementById("format-output").innerHTML = syntaxHighlight(JSON.stringify(cleanRecord, null, 2));
+}
+
+function updateCorpusTab() {
+  const list = document.getElementById("corpus-list");
+  list.innerHTML = CORPUS.map(d => `
+    <div class="corpus-doc">
+      <div>
+        <div class="corpus-doc-title">${d.title}</div>
+        <div class="corpus-doc-meta">${d.document_id} | Effective: ${d.effective_from} | ${d.passages.length} passages</div>
+      </div>
+      <span class="corpus-doc-type">${d.document_type}</span>
+    </div>
+  `).join("");
+}
+
+function syntaxHighlight(json) {
+  return json.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"([^"]+)"(?=\s*:)/g, '<span class="json-key">"$1"</span>')
+    .replace(/:\s*"([^"]*)"/g, ': <span class="json-string">"$1"</span>')
+    .replace(/:\s*(\d+\.?\d*)/g, ': <span class="json-number">$1</span>')
+    .replace(/:\s*(true|false)/g, ': <span class="json-bool">$1</span>')
+    .replace(/:\s*(null)/g, ': <span class="json-null">$1</span>');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// RECORD BUILDERS
+// ════════════════════════════════════════════════════════════════════
+
+function buildDecisionRecord(borrower, evaluation, latencyMs) {
+  return {
+    decision_log_id: crypto.randomUUID(),
+    loan_id: "LN-" + String(1000 + state.decisions.length).padStart(4, "0"),
+    policy_id: POLICY.policy_id,
+    policy_version: POLICY.version_no,
+    decision: evaluation.decision,
+    rules_evaluated: evaluation.rulesEvaluated,
+    explanation: evaluation.explanation,
+    adverse_action_reasons: evaluation.decision === "auto_decline" ? ["AA01", "AA02"] : [],
+    input_snapshot: borrower,
+    citation_chain: evaluation.citations,
+    chain_status: evaluation.chainStatus,
+    decided_by: "system",
+    decided_at: new Date().toISOString(),
+    format_lock: "CreditDecisionOutput_v1",
+    schema_valid: true,
+    latency_ms: latencyMs,
+    reasoning_steps: 5,
+  };
+}
+
+function buildException(record) {
+  return {
+    exception_id: crypto.randomUUID(),
+    loan_ref: record.loan_id,
+    decision_log_id: record.decision_log_id,
+    route_to: "senior_underwriter",
+    priority: "high",
+    reason: record.explanation,
+    status: "open",
+  };
+}
+
+function buildAuditRecord(record, evaluation, latencyMs) {
+  return {
+    audit_id: crypto.randomUUID(),
+    decision: record.decision,
+    explanation: record.explanation,
+    citations: evaluation.citations.length,
+    latency_ms: latencyMs,
+    chain_status: evaluation.chainStatus,
+    format_lock: record.format_lock,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+// ════════════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ════════════════════════════════════════════════════════════════════
+
+function switchTab(name) {
+  document.querySelectorAll("[id^='tab-']").forEach(el => el.classList.add("hidden"));
+  document.getElementById("tab-" + name).classList.remove("hidden");
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  event.target.classList.add("active");
+}
+
+// Init corpus tab
+updateCorpusTab();
+</script>
+</body>
+</html>

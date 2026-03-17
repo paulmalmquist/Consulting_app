@@ -39,6 +39,7 @@ def _register_all_tools():
     from app.mcp.tools.repe_analysis_tools import register_repe_analysis_tools
     from app.mcp.tools.repe_platform_tools import register_repe_platform_tools
     from app.mcp.tools.query_tools import register_query_tools
+    from app.mcp.tools.credit_tools import register_credit_tools
 
     register_meta_tools()
     register_business_tools()
@@ -63,6 +64,7 @@ def _register_all_tools():
     register_repe_analysis_tools()
     register_repe_platform_tools()
     register_query_tools()
+    register_credit_tools()
 
 
 def _make_response(req_id, result=None, error=None):
