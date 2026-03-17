@@ -143,8 +143,6 @@ def create_loan_file(
         b = cur.fetchone()
         borrower_id = b["borrower_id"]
 
-        # 2. Generate upload token
-        token_placeholder = str(UUID(int=0))  # temp, will update after file creation
         # 3. Create loan file
         cur.execute(
             """
