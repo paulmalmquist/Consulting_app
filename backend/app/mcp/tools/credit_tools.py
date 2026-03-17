@@ -27,7 +27,6 @@ from app.mcp.schemas.credit_tools import (
 )
 from app.mcp.tools.repe_tools import (
     _confirmation_summary,
-    _ctx_scope,
     _require_uuid,
     _scope_entity_id,
     _scope_entity_type,

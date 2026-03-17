@@ -1207,7 +1207,6 @@ def get_environment_snapshot(*, env_id: UUID, business_id: UUID) -> dict:
 
 def seed_credit_demo(*, env_id: UUID, business_id: UUID) -> dict:
     """Create a full demo credit environment with corpus, portfolios, loans, policies, and decisions."""
-    import random
     import uuid as _uuid
 
     _NS = _uuid.UUID("cc000000-0001-0001-0001-000000000001")
@@ -1219,7 +1218,7 @@ def seed_credit_demo(*, env_id: UUID, business_id: UUID) -> dict:
     init_credit_context(env_id=env_id, business_id=business_id)
 
     # ── Corpus documents ──
-    doc1 = ingest_document(
+    ingest_document(
         env_id=env_id, business_id=business_id,
         document_ref="POL-2025-042",
         title="Auto Loan Underwriting Policy v3.1",
@@ -1237,7 +1236,7 @@ def seed_credit_demo(*, env_id: UUID, business_id: UUID) -> dict:
         ],
     )
 
-    doc2 = ingest_document(
+    ingest_document(
         env_id=env_id, business_id=business_id,
         document_ref="REG-2025-008",
         title="ECOA Adverse Action Compliance Guide",
@@ -1251,7 +1250,7 @@ def seed_credit_demo(*, env_id: UUID, business_id: UUID) -> dict:
         ],
     )
 
-    doc3 = ingest_document(
+    ingest_document(
         env_id=env_id, business_id=business_id,
         document_ref="PROC-2025-015",
         title="Exception Queue Operating Procedures",
@@ -1265,7 +1264,7 @@ def seed_credit_demo(*, env_id: UUID, business_id: UUID) -> dict:
         ],
     )
 
-    doc4 = ingest_document(
+    ingest_document(
         env_id=env_id, business_id=business_id,
         document_ref="MEMO-2025-003",
         title="Q1 2025 Credit Committee Guidance Memo",
