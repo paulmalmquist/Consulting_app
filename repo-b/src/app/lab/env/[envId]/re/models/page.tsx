@@ -12,7 +12,8 @@ import {
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import { useRepeBasePath } from "@/lib/repe-context";
-import { PlusCircle, Archive, CheckCircle2, FileEdit, Copy, ExternalLink } from "lucide-react";
+import { Archive, Lock, FileEdit, Copy, ExternalLink, PlusCircle } from "lucide-react";
+import { CircularCreateButton } from "@/components/ui/CircularCreateButton";
 import { Dialog } from "@/components/ui/Dialog";
 import {
   RepeIndexScaffold,
@@ -57,9 +58,17 @@ const VALID_STRATEGIES = new Set<string>(STRATEGY_OPTIONS.map((option) => option
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "border-zinc-500/40 bg-zinc-500/10 text-zinc-400",
+  official_base_case: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
   approved: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
   active: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
   archived: "border-zinc-600/30 bg-zinc-700/10 text-zinc-500",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  draft: "Draft",
+  official_base_case: "Official Base Case",
+  approved: "Official Base Case",
+  archived: "Archived",
 };
 
 /* ── Helpers ────────────────────────────────────────────────────── */
@@ -391,15 +400,11 @@ export default function ReModelsPage() {
       subtitle="Cross-fund scenario models"
       className="w-full"
       action={
-        <button
-          type="button"
+        <CircularCreateButton
+          tooltip="New Model"
           onClick={() => setDialogOpen(true)}
-          className={reIndexActionClass}
           data-testid="new-model-btn"
-        >
-          <PlusCircle size={14} />
-          New Model
-        </button>
+        />
       }
     >
       <section className="space-y-6" data-testid="re-models-page">
@@ -466,9 +471,9 @@ export default function ReModelsPage() {
                       </span>
                     </td>
                     <td className="px-3 py-3 align-middle">
-                      <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] capitalize ${STATUS_STYLES[m.status] || STATUS_STYLES.draft}`}>
-                        {m.status === "approved" ? <CheckCircle2 size={10} /> : m.status === "archived" ? <Archive size={10} /> : <FileEdit size={10} />}
-                        {m.status}
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] ${STATUS_STYLES[m.status] || STATUS_STYLES.draft}`}>
+                        {m.status === "official_base_case" || m.status === "approved" ? <Lock size={10} /> : m.status === "archived" ? <Archive size={10} /> : <FileEdit size={10} />}
+                        {STATUS_LABELS[m.status] || m.status}
                       </span>
                     </td>
                     <td className={`px-3 py-3 align-middle ${reIndexSecondaryCellClass}`}>

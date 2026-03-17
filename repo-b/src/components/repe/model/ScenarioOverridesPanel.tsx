@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
-import { ChevronDown, ChevronRight, RotateCcw, Save } from "lucide-react";
+import { useState, useCallback, useMemo, useRef } from "react";
+import { ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
 import type { ScenarioAsset, ScenarioOverride } from "@/lib/bos-api";
 import {
   setScenarioOverride,
@@ -22,6 +22,7 @@ interface ScenarioOverridesPanelProps {
   scenarioAssets: ScenarioAsset[];
   overrides: ScenarioOverride[];
   onOverridesChange: (overrides: ScenarioOverride[]) => void;
+  onOverrideSaved?: () => void;
   readOnly?: boolean;
 }
 
@@ -30,12 +31,15 @@ export function ScenarioOverridesPanel({
   scenarioAssets,
   overrides,
   onOverridesChange,
+  onOverrideSaved,
   readOnly,
 }: ScenarioOverridesPanelProps) {
   const [expandedAsset, setExpandedAsset] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<Record<string, Record<string, string>>>({});
+  // Track in-flight values during blur-save to avoid echoing stale state
+  const [localValues, setLocalValues] = useState<Record<string, Record<string, string>>>({});
+  const savingFieldRef = useRef<Set<string>>(new Set());
 
   const overridesByAsset = useMemo(() => {
     const map = new Map<string, Map<string, ScenarioOverride>>();
@@ -48,68 +52,99 @@ export function ScenarioOverridesPanel({
     return map;
   }, [overrides]);
 
-  const getOverrideValue = (assetId: string, key: string): string => {
-    const draft = drafts[assetId]?.[key];
-    if (draft !== undefined) return draft;
+  const getDisplayValue = (assetId: string, key: string): string => {
+    // Show local edit value if present
+    const local = localValues[assetId]?.[key];
+    if (local !== undefined) return local;
     const ov = overridesByAsset.get(assetId)?.get(key);
     if (!ov) return "";
     const val = ov.value_json;
     return typeof val === "number" ? String(val) : typeof val === "string" ? val : "";
   };
 
-  const setDraft = (assetId: string, key: string, value: string) => {
-    setDrafts((prev) => ({
+  const setLocalValue = (assetId: string, key: string, value: string) => {
+    setLocalValues((prev) => ({
       ...prev,
       [assetId]: { ...prev[assetId], [key]: value },
     }));
   };
 
-  const handleSaveAsset = useCallback(
-    async (assetId: string) => {
-      const assetDrafts = drafts[assetId];
-      if (!assetDrafts || Object.keys(assetDrafts).length === 0) return;
+  const handleBlurSave = useCallback(
+    async (assetId: string, key: string, rawValue: string) => {
+      const fieldKey = `${assetId}:${key}`;
+      if (savingFieldRef.current.has(fieldKey)) return;
 
+      const numValue = rawValue === "" ? null : parseFloat(rawValue);
+      const existing = overridesByAsset.get(assetId)?.get(key);
+
+      // Skip if value hasn't actually changed
+      if (numValue === null && !existing) return;
+      if (existing && numValue !== null && !isNaN(numValue)) {
+        const existingVal = typeof existing.value_json === "number" ? existing.value_json : null;
+        if (existingVal === numValue) {
+          // Clear local value, no change needed
+          setLocalValues((prev) => {
+            const next = { ...prev };
+            if (next[assetId]) {
+              const { [key]: _, ...rest } = next[assetId];
+              next[assetId] = rest;
+              if (Object.keys(next[assetId]).length === 0) delete next[assetId];
+            }
+            return next;
+          });
+          return;
+        }
+      }
+
+      savingFieldRef.current.add(fieldKey);
       setSaving(true);
       setError(null);
+
       try {
         const newOverrides = [...overrides];
-        for (const [key, rawValue] of Object.entries(assetDrafts)) {
-          const numValue = rawValue === "" ? null : parseFloat(rawValue);
-          if (numValue === null || isNaN(numValue)) {
-            // Remove override if cleared
-            const existing = overridesByAsset.get(assetId)?.get(key);
-            if (existing) {
-              await deleteScenarioOverride(existing.id);
-              const idx = newOverrides.findIndex((o) => o.id === existing.id);
-              if (idx >= 0) newOverrides.splice(idx, 1);
-            }
-          } else {
-            const saved = await setScenarioOverride(scenarioId, {
-              scope_type: "asset",
-              scope_id: assetId,
-              key,
-              value_json: numValue,
-            });
-            const idx = newOverrides.findIndex(
-              (o) => o.scope_type === "asset" && o.scope_id === assetId && o.key === key,
-            );
-            if (idx >= 0) newOverrides[idx] = saved;
-            else newOverrides.push(saved);
+
+        if (numValue === null || isNaN(numValue)) {
+          // Remove override
+          if (existing) {
+            await deleteScenarioOverride(existing.id);
+            const idx = newOverrides.findIndex((o) => o.id === existing.id);
+            if (idx >= 0) newOverrides.splice(idx, 1);
           }
+        } else {
+          // Set/update override
+          const saved = await setScenarioOverride(scenarioId, {
+            scope_type: "asset",
+            scope_id: assetId,
+            key,
+            value_json: numValue,
+          });
+          const idx = newOverrides.findIndex(
+            (o) => o.scope_type === "asset" && o.scope_id === assetId && o.key === key,
+          );
+          if (idx >= 0) newOverrides[idx] = saved;
+          else newOverrides.push(saved);
         }
+
         onOverridesChange(newOverrides);
-        setDrafts((prev) => {
+        // Clear local value for this field
+        setLocalValues((prev) => {
           const next = { ...prev };
-          delete next[assetId];
+          if (next[assetId]) {
+            const { [key]: _, ...rest } = next[assetId];
+            next[assetId] = rest;
+            if (Object.keys(next[assetId]).length === 0) delete next[assetId];
+          }
           return next;
         });
+        onOverrideSaved?.();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to save overrides");
+        setError(err instanceof Error ? err.message : "Failed to save override");
       } finally {
+        savingFieldRef.current.delete(fieldKey);
         setSaving(false);
       }
     },
-    [scenarioId, drafts, overrides, overridesByAsset, onOverridesChange],
+    [scenarioId, overrides, overridesByAsset, onOverridesChange, onOverrideSaved],
   );
 
   const handleResetAsset = useCallback(
@@ -128,18 +163,19 @@ export function ScenarioOverridesPanel({
             (o) => !(o.scope_type === "asset" && o.scope_id === assetId),
           ),
         );
-        setDrafts((prev) => {
+        setLocalValues((prev) => {
           const next = { ...prev };
           delete next[assetId];
           return next;
         });
+        onOverrideSaved?.();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to reset overrides");
       } finally {
         setSaving(false);
       }
     },
-    [overrides, onOverridesChange],
+    [overrides, onOverridesChange, onOverrideSaved],
   );
 
   const handleResetAll = useCallback(async () => {
@@ -148,13 +184,14 @@ export function ScenarioOverridesPanel({
     try {
       await apiResetAll(scenarioId);
       onOverridesChange([]);
-      setDrafts({});
+      setLocalValues({});
+      onOverrideSaved?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to reset all overrides");
     } finally {
       setSaving(false);
     }
-  }, [scenarioId, onOverridesChange]);
+  }, [scenarioId, onOverridesChange, onOverrideSaved]);
 
   if (scenarioAssets.length === 0) {
     return (
@@ -169,9 +206,14 @@ export function ScenarioOverridesPanel({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
-          Assumption Overrides
-        </h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
+            Assumption Overrides
+          </h3>
+          {saving && (
+            <span className="text-[10px] text-bm-muted2 animate-pulse">Saving...</span>
+          )}
+        </div>
         {!readOnly && overrides.length > 0 && (
           <button
             onClick={handleResetAll}
@@ -190,11 +232,14 @@ export function ScenarioOverridesPanel({
         </div>
       )}
 
+      <p className="text-[10px] text-bm-muted2">
+        Changes auto-save on blur and trigger recalculation automatically.
+      </p>
+
       <div className="space-y-1">
         {scenarioAssets.map((sa) => {
           const isExpanded = expandedAsset === sa.asset_id;
           const assetOverrideCount = overridesByAsset.get(sa.asset_id)?.size || 0;
-          const hasDrafts = !!drafts[sa.asset_id] && Object.keys(drafts[sa.asset_id]).length > 0;
 
           return (
             <div
@@ -234,33 +279,24 @@ export function ScenarioOverridesPanel({
                           step={ok.step}
                           className="w-full rounded-md border border-bm-border/70 bg-bm-surface/18 px-3 py-1.5 text-sm tabular-nums outline-none transition-colors focus:border-bm-border-strong/70 disabled:opacity-40"
                           placeholder={ok.unit === "%" ? "0" : "—"}
-                          value={getOverrideValue(sa.asset_id, ok.key)}
-                          onChange={(e) => setDraft(sa.asset_id, ok.key, e.target.value)}
+                          value={getDisplayValue(sa.asset_id, ok.key)}
+                          onChange={(e) => setLocalValue(sa.asset_id, ok.key, e.target.value)}
+                          onBlur={(e) => handleBlurSave(sa.asset_id, ok.key, e.target.value)}
                           disabled={readOnly}
                         />
                       </label>
                     ))}
                   </div>
 
-                  {!readOnly && (
-                    <div className="flex justify-end gap-2 pt-1">
-                      {assetOverrideCount > 0 && (
-                        <button
-                          onClick={() => handleResetAsset(sa.asset_id)}
-                          disabled={saving}
-                          className="inline-flex items-center gap-1 rounded-md border border-bm-border/50 px-2.5 py-1.5 text-xs text-bm-muted2 hover:bg-bm-surface/30 disabled:opacity-40"
-                        >
-                          <RotateCcw size={11} />
-                          Reset
-                        </button>
-                      )}
+                  {!readOnly && assetOverrideCount > 0 && (
+                    <div className="flex justify-end pt-1">
                       <button
-                        onClick={() => handleSaveAsset(sa.asset_id)}
-                        disabled={saving || !hasDrafts}
-                        className="inline-flex items-center gap-1 rounded-md bg-bm-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-bm-accent/90 disabled:opacity-40"
+                        onClick={() => handleResetAsset(sa.asset_id)}
+                        disabled={saving}
+                        className="inline-flex items-center gap-1 rounded-md border border-bm-border/50 px-2.5 py-1.5 text-xs text-bm-muted2 hover:bg-bm-surface/30 disabled:opacity-40"
                       >
-                        <Save size={11} />
-                        {saving ? "Saving..." : "Save"}
+                        <RotateCcw size={11} />
+                        Reset
                       </button>
                     </div>
                   )}

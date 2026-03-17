@@ -655,6 +655,12 @@ export async function POST(request: Request) {
              occupancy = COALESCE(repe_property_asset.occupancy, EXCLUDED.occupancy)`,
           [assetId, tmpl.type, units, tmpl.market, tmpl.city, tmpl.state, tmpl.msa, noi, Math.round(occ * 10000) / 10000]
         );
+        await pool.query(
+          `UPDATE repe_asset
+           SET cost_basis = COALESCE(cost_basis, $2)
+           WHERE asset_id = $1::uuid`,
+          [assetId, costBasis]
+        );
         propSeeded++;
       }
       results.push(`Seeded property asset details for ${propSeeded} assets`);
@@ -716,7 +722,180 @@ export async function POST(request: Request) {
       results.push(`Seeded loan details for ${loanSeeded} assets`);
     }
 
-    // 10c. Seed default waterfall definition if missing
+    // 10c. Seed ownership attribution and historical exits so the base scenario
+    // has a coherent realized/unrealized bridge at the asset level.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS re_asset_realization (
+        realization_id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        asset_id              uuid NOT NULL REFERENCES repe_asset(asset_id) ON DELETE CASCADE,
+        fund_id               uuid NOT NULL REFERENCES repe_fund(fund_id) ON DELETE CASCADE,
+        deal_id               uuid NOT NULL REFERENCES repe_deal(deal_id) ON DELETE CASCADE,
+        realization_type      text NOT NULL DEFAULT 'historical_sale',
+        sale_date             date,
+        gross_sale_price      numeric(28,12),
+        sale_costs            numeric(28,12) NOT NULL DEFAULT 0,
+        debt_payoff           numeric(28,12) NOT NULL DEFAULT 0,
+        net_sale_proceeds     numeric(28,12),
+        ownership_percent     numeric(18,12),
+        attributable_proceeds numeric(28,12),
+        source                text NOT NULL DEFAULT 'seed',
+        notes                 text,
+        created_at            timestamptz NOT NULL DEFAULT now(),
+        UNIQUE (asset_id, realization_type)
+      )
+    `);
+
+    {
+      const assetEconomicsRes = await pool.query(
+        `SELECT
+           a.asset_id::text,
+           a.deal_id::text,
+           a.name AS asset_name,
+           a.jv_id::text,
+           COALESCE(a.cost_basis::float8, d.invested_capital::float8, 25000000) AS cost_basis,
+           COALESCE(qs.asset_value::float8, 0) AS asset_value,
+           COALESCE(qs.debt_balance::float8, 0) AS debt_balance,
+           COALESCE(j.ownership_percent::float8, 1.0) AS ownership_percent
+         FROM repe_asset a
+         JOIN repe_deal d ON d.deal_id = a.deal_id
+         LEFT JOIN re_jv j ON j.jv_id = a.jv_id
+         LEFT JOIN re_asset_quarter_state qs
+           ON qs.asset_id = a.asset_id
+          AND qs.quarter = $2
+          AND qs.scenario_id IS NULL
+         WHERE d.fund_id = $1::uuid
+         ORDER BY d.name, a.name`,
+        [fund_id, quarter]
+      );
+
+      const assetEconomics = assetEconomicsRes.rows as Array<{
+        asset_id: string;
+        deal_id: string;
+        asset_name: string;
+        jv_id: string | null;
+        cost_basis: number;
+        asset_value: number;
+        debt_balance: number;
+        ownership_percent: number;
+      }>;
+
+      let jvSeeded = 0;
+      const ownershipByAsset = new Map<string, number>();
+      for (let index = 0; index < assetEconomics.length; index += 1) {
+        const asset = assetEconomics[index];
+        let ownershipPercent = asset.ownership_percent || 1;
+        if (!asset.jv_id) {
+          const seededOwnership = index % 3 === 0 ? 0.72 : index % 3 === 1 ? 0.85 : 1.0;
+          ownershipPercent = seededOwnership;
+          if (seededOwnership < 0.999) {
+            const jvId = randomUUID();
+            await pool.query(
+              `INSERT INTO re_jv (jv_id, investment_id, legal_name, ownership_percent, gp_percent, lp_percent, status)
+               VALUES ($1::uuid, $2::uuid, $3, $4, 0.1, 0.9, 'active')
+               ON CONFLICT (jv_id) DO NOTHING`,
+              [jvId, asset.deal_id, `${asset.asset_name} Venture`, seededOwnership]
+            );
+            await pool.query(
+              `UPDATE repe_asset
+               SET jv_id = COALESCE(jv_id, $2::uuid)
+               WHERE asset_id = $1::uuid`,
+              [asset.asset_id, jvId]
+            );
+            jvSeeded++;
+          }
+        }
+        ownershipByAsset.set(asset.asset_id, ownershipPercent);
+      }
+      results.push(`Seeded ownership attribution for ${jvSeeded} assets via JV records`);
+
+      const disposedAssets = assetEconomics.slice(-Math.min(2, assetEconomics.length));
+      let realizationSeeded = 0;
+      for (let index = 0; index < disposedAssets.length; index += 1) {
+        const asset = disposedAssets[index];
+        const ownershipPercent = ownershipByAsset.get(asset.asset_id) || 1;
+        const grossSalePrice = Math.round(Math.max(asset.asset_value, asset.cost_basis * 1.08) * (1.05 + index * 0.03));
+        const saleCosts = Math.round(grossSalePrice * 0.025);
+        const debtPayoff = Math.round(Math.max(asset.debt_balance, 0));
+        const netSaleProceeds = Math.max(grossSalePrice - saleCosts - debtPayoff, 0);
+        const attributableProceeds = Math.round(netSaleProceeds * ownershipPercent);
+        const saleDate = index === 0 ? "2025-06-30" : "2025-11-15";
+
+        await pool.query(
+          `UPDATE repe_asset
+           SET asset_status = 'exited'
+           WHERE asset_id = $1::uuid`,
+          [asset.asset_id]
+        );
+        await pool.query(
+          `UPDATE repe_deal
+           SET stage = 'exited',
+               realized_distributions = GREATEST(COALESCE(realized_distributions, 0), $2)
+           WHERE deal_id = $1::uuid`,
+          [asset.deal_id, attributableProceeds]
+        );
+        await pool.query(
+          `UPDATE re_investment_quarter_state
+           SET nav = 0,
+               unrealized_value = 0,
+               realized_distributions = GREATEST(COALESCE(realized_distributions, 0), $3)
+           WHERE investment_id = $1::uuid
+             AND quarter = $2
+             AND scenario_id IS NULL`,
+          [asset.deal_id, quarter, attributableProceeds]
+        );
+        await pool.query(
+          `UPDATE re_asset_quarter_state
+           SET asset_value = 0,
+               nav = 0,
+               debt_balance = 0,
+               debt_service = 0,
+               occupancy = 0
+           WHERE asset_id = $1::uuid
+             AND quarter = $2
+             AND scenario_id IS NULL`,
+          [asset.asset_id, quarter]
+        );
+        await pool.query(
+          `INSERT INTO re_asset_realization (
+             realization_id, asset_id, fund_id, deal_id, realization_type, sale_date,
+             gross_sale_price, sale_costs, debt_payoff, net_sale_proceeds,
+             ownership_percent, attributable_proceeds, source, notes
+           ) VALUES (
+             $1::uuid, $2::uuid, $3::uuid, $4::uuid, 'historical_sale', $5::date,
+             $6, $7, $8, $9,
+             $10, $11, 'seed', $12
+           )
+           ON CONFLICT (asset_id, realization_type) DO UPDATE SET
+             sale_date = EXCLUDED.sale_date,
+             gross_sale_price = EXCLUDED.gross_sale_price,
+             sale_costs = EXCLUDED.sale_costs,
+             debt_payoff = EXCLUDED.debt_payoff,
+             net_sale_proceeds = EXCLUDED.net_sale_proceeds,
+             ownership_percent = EXCLUDED.ownership_percent,
+             attributable_proceeds = EXCLUDED.attributable_proceeds,
+             source = EXCLUDED.source,
+             notes = EXCLUDED.notes`,
+          [
+            randomUUID(),
+            asset.asset_id,
+            fund_id,
+            asset.deal_id,
+            saleDate,
+            grossSalePrice,
+            saleCosts,
+            debtPayoff,
+            netSaleProceeds,
+            ownershipPercent,
+            attributableProceeds,
+            `Seeded historical exit for ${asset.asset_name}`,
+          ]
+        );
+        realizationSeeded++;
+      }
+      results.push(`Seeded ${realizationSeeded} historical asset realizations for disposed assets`);
+    }
+
+    // 10d. Seed default waterfall definition if missing
     const wfCheck = await pool.query(
       `SELECT definition_id::text FROM re_waterfall_definition WHERE fund_id = $1::uuid AND is_active = true LIMIT 1`,
       [fund_id]

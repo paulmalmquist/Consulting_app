@@ -1,12 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { Play, Loader2, ChevronDown, ChevronRight } from "lucide-react";
-import {
-  runScenarioV2,
-  getRunAssetCashflows,
-  getRunReturnMetrics,
-} from "@/lib/bos-api";
+import { useState } from "react";
+import { RefreshCw, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import type { AssetCashflow, ReturnMetricsRow } from "@/lib/bos-api";
 import {
   LineChart,
@@ -19,10 +14,16 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import type { RunResult, RecalcStatus } from "@/hooks/useAutoRecalc";
 
 interface ScenarioResultsPanelProps {
   scenarioId: string;
   assetCount: number;
+  result: RunResult | null;
+  status: RecalcStatus;
+  lastUpdatedAt: Date | null;
+  onManualRecalc: () => void;
+  recalcError: string | null;
 }
 
 function formatCurrency(val: number): string {
@@ -47,47 +48,28 @@ function formatQuarter(dateStr: string): string {
   return `Q${q} ${d.getFullYear().toString().slice(2)}`;
 }
 
-interface RunResult {
-  run_id: string;
-  summary: Record<string, unknown>;
-  cashflows: AssetCashflow[];
-  metrics: ReturnMetricsRow[];
+function formatRelativeTime(date: Date): string {
+  const diffMs = Date.now() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 10) return "just now";
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  return `${Math.floor(diffMin / 60)}h ago`;
 }
 
 export function ScenarioResultsPanel({
   scenarioId,
   assetCount,
+  result,
+  status,
+  lastUpdatedAt,
+  onManualRecalc,
+  recalcError,
 }: ScenarioResultsPanelProps) {
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<RunResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [expandedAsset, setExpandedAsset] = useState<string | null>(null);
 
-  const handleRun = useCallback(async () => {
-    if (assetCount === 0) {
-      setError("Add at least one asset to the scenario before running.");
-      return;
-    }
-    setRunning(true);
-    setError(null);
-    try {
-      const runResult = await runScenarioV2(scenarioId);
-      const [cashflows, metrics] = await Promise.all([
-        getRunAssetCashflows(runResult.run_id),
-        getRunReturnMetrics(runResult.run_id),
-      ]);
-      setResult({
-        run_id: runResult.run_id,
-        summary: runResult.summary || {},
-        cashflows,
-        metrics,
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Scenario run failed");
-    } finally {
-      setRunning(false);
-    }
-  }, [scenarioId, assetCount]);
+  const isRecalculating = status === "recalculating";
 
   // Group cashflows by asset
   const assetGroups = result
@@ -109,44 +91,99 @@ export function ScenarioResultsPanel({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
-          Scenario Results
-        </h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
+            Scenario Results
+          </h3>
+          {lastUpdatedAt && (
+            <span className="text-[10px] text-bm-muted2">
+              Updated {formatRelativeTime(lastUpdatedAt)}
+            </span>
+          )}
+          {status === "dirty" && (
+            <span className="inline-flex items-center gap-1 text-[10px] text-amber-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+              Pending
+            </span>
+          )}
+        </div>
         <button
-          onClick={handleRun}
-          disabled={running || assetCount === 0}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90 disabled:opacity-40"
+          onClick={onManualRecalc}
+          disabled={isRecalculating || assetCount === 0}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-bm-border/50 px-4 py-2 text-sm text-bm-muted2 hover:bg-bm-surface/20 hover:text-bm-text disabled:opacity-40"
         >
-          {running ? (
+          {isRecalculating ? (
             <Loader2 size={14} className="animate-spin" />
           ) : (
-            <Play size={14} />
+            <RefreshCw size={14} />
           )}
-          {running ? "Running..." : "Run Scenario"}
+          {isRecalculating ? "Recalculating..." : "Recalculate"}
         </button>
       </div>
 
-      {error && (
+      {recalcError && (
         <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
-          {error}
+          {recalcError}
         </div>
       )}
 
-      {!result && !running && !error && (
+      {/* Loading skeleton when no results yet */}
+      {!result && isRecalculating && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+            {Array.from({ length: 7 }).map((_, i) => (
+              <div key={i} className="rounded-lg border border-bm-border/50 bg-bm-surface/10 p-3">
+                <div className="h-3 w-16 rounded bg-bm-surface/20 animate-pulse" />
+                <div className="mt-2 h-6 w-20 rounded bg-bm-surface/20 animate-pulse" />
+              </div>
+            ))}
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+                <div className="h-3 w-24 rounded bg-bm-surface/20 animate-pulse mb-3" />
+                <div className="h-[200px] rounded bg-bm-surface/10 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!result && !isRecalculating && !recalcError && (
         <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-8 text-center">
           <p className="text-sm text-bm-muted2">
-            Click &ldquo;Run Scenario&rdquo; to execute the deterministic modeling pipeline.
+            Results will appear automatically when assumptions are configured.
           </p>
           {assetCount === 0 && (
             <p className="mt-1 text-xs text-amber-400">
               Add assets in the Scenario Builder tab first.
             </p>
           )}
+          {assetCount > 0 && (
+            <button
+              onClick={onManualRecalc}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90"
+            >
+              <RefreshCw size={14} />
+              Calculate Now
+            </button>
+          )}
         </div>
       )}
 
       {result && (
-        <>
+        <div className={`relative ${isRecalculating ? "opacity-60" : ""} transition-opacity`}>
+          {/* Recalculating overlay */}
+          {isRecalculating && (
+            <div className="absolute inset-0 z-10 flex items-start justify-center pt-8">
+              <span className="inline-flex items-center gap-2 rounded-full bg-bm-surface/90 border border-bm-border/50 px-4 py-2 text-xs text-bm-accent shadow-lg">
+                <Loader2 size={12} className="animate-spin" />
+                Recalculating...
+              </span>
+            </div>
+          )}
+
           {/* Return Metrics KPI Strip */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
             {[
@@ -184,7 +221,7 @@ export function ScenarioResultsPanel({
 
           {/* Fund-Level Metrics Detail */}
           {fundMetrics.length > 0 && (
-            <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+            <div className="mt-4 rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
               <h4 className="mb-2 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
                 Fund Return Metrics
               </h4>
@@ -205,7 +242,7 @@ export function ScenarioResultsPanel({
 
           {/* NOI + Equity CF Charts */}
           {periodTotals.length > 0 && (
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
               <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
                 <h4 className="mb-2 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
                   NOI Projection
@@ -247,7 +284,7 @@ export function ScenarioResultsPanel({
 
           {/* Per-Asset Summary Table */}
           {assetMetricsList.length > 0 && (
-            <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+            <div className="mt-4 rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
               <h4 className="mb-2 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
                 Asset-Level Results
               </h4>
@@ -287,7 +324,7 @@ export function ScenarioResultsPanel({
 
           {/* Expandable Per-Asset Cash Flows */}
           {Object.keys(assetGroups).length > 0 && (
-            <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
+            <div className="mt-4 rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
               <h4 className="mb-2 text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
                 Detailed Cash Flows
               </h4>
@@ -360,7 +397,7 @@ export function ScenarioResultsPanel({
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );

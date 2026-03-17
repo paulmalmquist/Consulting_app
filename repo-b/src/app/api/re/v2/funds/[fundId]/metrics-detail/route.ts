@@ -1,4 +1,5 @@
 import { getPool } from "@/lib/server/db";
+import { computeFundBaseScenario } from "@/lib/server/reBaseScenario";
 
 export const runtime = "nodejs";
 
@@ -23,31 +24,50 @@ export async function GET(
   const quarter = searchParams.get("quarter") || "2026Q1";
 
   try {
-    const metricsRes = await pool.query(
-      `SELECT
-         id::text, run_id::text, fund_id::text, quarter,
-         gross_irr::float8, net_irr::float8,
-         gross_tvpi::float8, net_tvpi::float8,
-         dpi::float8, rvpi::float8,
-         cash_on_cash::float8, gross_net_spread::float8,
-         inputs_missing
-       FROM re_fund_metrics_qtr
-       WHERE fund_id = $1::uuid AND quarter = $2
-       ORDER BY created_at DESC LIMIT 1`,
-      [params.fundId, quarter]
-    );
+    const baseScenario = await computeFundBaseScenario({
+      pool,
+      fundId: params.fundId,
+      quarter,
+      liquidationMode: "current_state",
+    });
 
-    const bridgeRes = await pool.query(
-      `SELECT
-         id::text, run_id::text, fund_id::text, quarter,
-         gross_return::float8, mgmt_fees::float8,
-         fund_expenses::float8, carry_shadow::float8,
-         net_return::float8
-       FROM re_gross_net_bridge_qtr
-       WHERE fund_id = $1::uuid AND quarter = $2
-       ORDER BY created_at DESC LIMIT 1`,
-      [params.fundId, quarter]
-    );
+    const paidInCapital = baseScenario.summary.paid_in_capital;
+    const cashOnCash =
+      paidInCapital > 0
+        ? baseScenario.summary.distributed_capital / paidInCapital
+        : null;
+    const grossNetSpread =
+      baseScenario.summary.gross_irr != null && baseScenario.summary.net_irr != null
+        ? baseScenario.summary.gross_irr - baseScenario.summary.net_irr
+        : null;
+
+    const metrics = {
+      id: `base-scenario-${params.fundId}-${quarter}`,
+      run_id: `base-scenario-${quarter}`,
+      fund_id: params.fundId,
+      quarter,
+      gross_irr: baseScenario.summary.gross_irr,
+      net_irr: baseScenario.summary.net_irr,
+      gross_tvpi: baseScenario.summary.tvpi,
+      net_tvpi: baseScenario.summary.net_tvpi,
+      dpi: baseScenario.summary.dpi,
+      rvpi: baseScenario.summary.rvpi,
+      cash_on_cash: cashOnCash,
+      gross_net_spread: grossNetSpread,
+      inputs_missing: null,
+    };
+
+    const bridge = {
+      id: `base-scenario-bridge-${params.fundId}-${quarter}`,
+      run_id: `base-scenario-${quarter}`,
+      fund_id: params.fundId,
+      quarter,
+      gross_return: baseScenario.summary.gross_irr ?? 0,
+      mgmt_fees: baseScenario.summary.management_fees,
+      fund_expenses: baseScenario.summary.fund_expenses,
+      carry_shadow: baseScenario.summary.carry_shadow,
+      net_return: baseScenario.summary.net_irr ?? 0,
+    };
 
     // Benchmark comparison (NCREIF ODCE for this quarter)
     let benchmark = null;
@@ -60,8 +80,7 @@ export async function GET(
       );
       if (bmRes.rows[0]) {
         const bm = bmRes.rows[0];
-        const m = metricsRes.rows[0];
-        const fundNetReturn = m?.net_irr ?? null;
+        const fundNetReturn = metrics.net_irr ?? null;
         const alpha = fundNetReturn != null && bm.total_return != null
           ? fundNetReturn - bm.total_return
           : null;
@@ -76,8 +95,8 @@ export async function GET(
     }
 
     return Response.json({
-      metrics: metricsRes.rows[0] || null,
-      bridge: bridgeRes.rows[0] || null,
+      metrics,
+      bridge,
       benchmark,
     });
   } catch (err) {

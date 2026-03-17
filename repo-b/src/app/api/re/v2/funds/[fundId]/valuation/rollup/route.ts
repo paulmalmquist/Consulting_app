@@ -1,4 +1,5 @@
 import { getPool } from "@/lib/server/db";
+import { computeFundBaseScenario } from "@/lib/server/reBaseScenario";
 
 export const runtime = "nodejs";
 
@@ -33,99 +34,73 @@ export async function GET(
     const scenarioClause = scenarioId
       ? "AND qs.scenario_id = $3::uuid"
       : "AND qs.scenario_id IS NULL";
-    const values = scenarioId
-      ? [params.fundId, quarter, scenarioId]
-      : [params.fundId, quarter];
-
-    // Aggregate latest quarter state per asset
-    const res = await pool.query(
-      `WITH latest_qs AS (
-         SELECT DISTINCT ON (qs.asset_id)
-           qs.asset_id,
-           qs.noi::float8,
-           qs.asset_value::float8,
-           qs.nav::float8,
-           qs.debt_balance::float8,
-           qs.debt_service::float8,
-           qs.occupancy::float8,
-           qs.valuation_method,
-           a.name AS asset_name,
-           pa.property_type
-         FROM re_asset_quarter_state qs
-         JOIN repe_asset a ON a.asset_id = qs.asset_id
-         JOIN repe_deal d ON d.deal_id = a.deal_id
-         LEFT JOIN repe_property_asset pa ON pa.asset_id = a.asset_id
-         WHERE d.fund_id = $1::uuid
-           AND qs.quarter = $2
-           ${scenarioClause}
-         ORDER BY qs.asset_id, qs.created_at DESC
-       )
-       SELECT
-         COUNT(*)::int AS asset_count,
-         COALESCE(SUM(asset_value), 0)::float8 AS total_portfolio_value,
-         COALESCE(SUM(nav), 0)::float8 AS total_equity,
-         COALESCE(SUM(debt_balance), 0)::float8 AS total_debt,
-         COALESCE(SUM(noi), 0)::float8 AS total_noi,
-         CASE
-           WHEN SUM(asset_value) > 0 THEN (SUM(noi) * 4 / SUM(asset_value))::float8
-           ELSE NULL
-         END AS weighted_avg_cap_rate,
-         CASE
-           WHEN SUM(asset_value) > 0 THEN (SUM(debt_balance) / SUM(asset_value))::float8
-           ELSE NULL
-         END AS weighted_avg_ltv,
-         CASE
-           WHEN SUM(asset_value) > 0
-           THEN (SUM(occupancy * asset_value) / NULLIF(SUM(asset_value), 0))::float8
-           ELSE NULL
-         END AS weighted_avg_occupancy
-       FROM latest_qs`,
-      values
-    );
-
-    // Also get per-asset breakdown
-    const breakdownRes = await pool.query(
+    const values = scenarioId ? [params.fundId, quarter, scenarioId] : [params.fundId, quarter];
+    const baseScenario = await computeFundBaseScenario({
+      pool,
+      fundId: params.fundId,
+      quarter,
+      scenarioId,
+      liquidationMode: "current_state",
+    });
+    const occupancyRes = await pool.query(
       `WITH latest_qs AS (
          SELECT DISTINCT ON (qs.asset_id)
            qs.asset_id::text,
-           a.name AS asset_name,
-           pa.property_type,
-           qs.noi::float8,
-           qs.asset_value::float8,
-           qs.nav::float8,
-           qs.debt_balance::float8,
-           qs.occupancy::float8,
-           qs.valuation_method
+           qs.occupancy::float8
          FROM re_asset_quarter_state qs
          JOIN repe_asset a ON a.asset_id = qs.asset_id
          JOIN repe_deal d ON d.deal_id = a.deal_id
-         LEFT JOIN repe_property_asset pa ON pa.asset_id = a.asset_id
          WHERE d.fund_id = $1::uuid
            AND qs.quarter = $2
            ${scenarioClause}
          ORDER BY qs.asset_id, qs.created_at DESC
        )
-       SELECT * FROM latest_qs ORDER BY asset_value DESC NULLS LAST`,
+       SELECT * FROM latest_qs`,
       values
     );
 
-    const summary = res.rows[0];
+    const occupancyByAsset = new Map<string, number>(
+      occupancyRes.rows.map((row) => [String(row.asset_id), Number(row.occupancy || 0)])
+    );
+    const activeAssets = baseScenario.assets.filter((asset) => asset.status_category === "active");
+    const totalPortfolioValue = activeAssets.reduce((sum, asset) => sum + asset.attributable_gross_value, 0);
+    const totalDebt = activeAssets.reduce((sum, asset) => sum + asset.debt_balance * asset.ownership_percent, 0);
+    const totalNoi = activeAssets.reduce((sum, asset) => sum + asset.attributable_noi, 0);
+    const weightedAvgOccupancy =
+      totalPortfolioValue > 0
+        ? activeAssets.reduce((sum, asset) => {
+            const occupancy = occupancyByAsset.get(asset.asset_id) || 0;
+            return sum + occupancy * asset.attributable_gross_value;
+          }, 0) / totalPortfolioValue
+        : null;
 
     return Response.json({
       fund_id: params.fundId,
       quarter,
       scenario_id: scenarioId ?? null,
       summary: {
-        asset_count: summary.asset_count,
-        total_portfolio_value: summary.total_portfolio_value,
-        total_equity: summary.total_equity,
-        total_debt: summary.total_debt,
-        total_noi: summary.total_noi,
-        weighted_avg_cap_rate: summary.weighted_avg_cap_rate,
-        weighted_avg_ltv: summary.weighted_avg_ltv,
-        weighted_avg_occupancy: summary.weighted_avg_occupancy,
+        asset_count: baseScenario.assets.length,
+        total_portfolio_value: totalPortfolioValue,
+        total_equity: baseScenario.summary.attributable_nav,
+        total_debt: totalDebt,
+        total_noi: totalNoi,
+        weighted_avg_cap_rate: totalPortfolioValue > 0 ? (totalNoi * 4) / totalPortfolioValue : null,
+        weighted_avg_ltv: totalPortfolioValue > 0 ? totalDebt / totalPortfolioValue : null,
+        weighted_avg_occupancy: weightedAvgOccupancy,
       },
-      assets: breakdownRes.rows,
+      assets: baseScenario.assets
+        .map((asset) => ({
+          asset_id: asset.asset_id,
+          asset_name: asset.asset_name,
+          property_type: asset.property_type,
+          noi: asset.attributable_noi,
+          asset_value: asset.attributable_gross_value,
+          nav: asset.attributable_nav,
+          debt_balance: asset.debt_balance * asset.ownership_percent,
+          occupancy: occupancyByAsset.get(asset.asset_id) ?? null,
+          valuation_method: asset.valuation_method,
+        }))
+        .sort((left, right) => Number(right.asset_value || 0) - Number(left.asset_value || 0)),
     });
   } catch (err) {
     console.error("[re/v2/funds/valuation/rollup] error", err);

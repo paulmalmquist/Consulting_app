@@ -1,3 +1,5 @@
+export type ModelStatus = "draft" | "official_base_case" | "archived";
+
 export interface ReModel {
   model_id: string;
   primary_fund_id: string | null;
@@ -5,7 +7,7 @@ export interface ReModel {
   env_id: string | null;
   name: string;
   description: string | null;
-  status: string;
+  status: ModelStatus;
   model_type: string | null;
   strategy_type: string | null;
   created_by: string | null;
@@ -161,8 +163,12 @@ export interface AssetPeriod {
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(path, options);
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as { error?: string }).error || `HTTP ${res.status}`);
+    const err = await res.json().catch(() => ({})) as Record<string, unknown>;
+    const errorCode = err.error_code as string | undefined;
+    const message = (err.message ?? err.error ?? `HTTP ${res.status}`) as string;
+    const error = new Error(message);
+    if (errorCode) (error as Error & { errorCode?: string }).errorCode = errorCode;
+    throw error;
   }
   return res.json();
 }

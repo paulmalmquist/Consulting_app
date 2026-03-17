@@ -5893,6 +5893,150 @@ export type ScenarioComputeResult = {
   snapshot_id?: string;
 };
 
+export type BaseScenarioLiquidationMode = "current_state" | "hypothetical_sale";
+
+export type BaseScenarioAssetContribution = {
+  asset_id: string;
+  asset_name: string;
+  investment_id: string;
+  investment_name: string;
+  asset_status: string | null;
+  status_category: "active" | "disposed" | "pipeline";
+  property_type: string | null;
+  market: string | null;
+  valuation_method: string | null;
+  ownership_percent: number;
+  attributable_equity_basis: number;
+  gross_asset_value: number;
+  debt_balance: number;
+  net_asset_value: number;
+  attributable_gross_value: number;
+  attributable_nav: number;
+  attributable_noi: number;
+  attributable_net_cash_flow: number;
+  gross_sale_price: number;
+  sale_costs: number;
+  debt_payoff: number;
+  net_sale_proceeds: number;
+  attributable_realized_proceeds: number;
+  attributable_hypothetical_proceeds: number;
+  current_value_contribution: number;
+  realized_gain_loss: number;
+  unrealized_gain_loss: number;
+  has_sale_assumption: boolean;
+  sale_assumption_id: number | null;
+  sale_date: string | null;
+  source: string;
+  notes: string[];
+};
+
+export type BaseScenarioWaterfallAllocation = {
+  return_of_capital: number;
+  preferred_return: number;
+  catch_up: number;
+  split: number;
+  total: number;
+};
+
+export type BaseScenarioPartnerAllocation = {
+  partner_id: string;
+  name: string;
+  partner_type: string;
+  committed: number;
+  contributed: number;
+  distributed: number;
+  nav_share: number;
+  dpi: number | null;
+  rvpi: number | null;
+  tvpi: number | null;
+  irr: number | null;
+  waterfall_allocation: BaseScenarioWaterfallAllocation;
+};
+
+export type BaseScenarioTierSummary = {
+  tier_code: string;
+  tier_label: string;
+  lp_amount: number;
+  gp_amount: number;
+  total_amount: number;
+  remaining_after: number;
+};
+
+export type BaseScenarioBridgeRow = {
+  label: string;
+  amount: number;
+  kind: "base" | "positive" | "negative" | "total";
+};
+
+export type FundBaseScenario = {
+  fund_id: string;
+  fund_name: string | null;
+  quarter: string;
+  scenario_id: string | null;
+  liquidation_mode: BaseScenarioLiquidationMode;
+  as_of_date: string;
+  summary: {
+    active_assets: number;
+    disposed_assets: number;
+    pipeline_assets: number;
+    attributable_nav: number;
+    attributable_unrealized_nav: number;
+    hypothetical_asset_value: number;
+    realized_proceeds: number;
+    retained_realized_cash: number;
+    current_distributable_proceeds: number;
+    remaining_value: number;
+    total_value: number;
+    paid_in_capital: number;
+    distributed_capital: number;
+    total_committed: number;
+    dpi: number | null;
+    rvpi: number | null;
+    tvpi: number | null;
+    gross_irr: number | null;
+    net_irr: number | null;
+    net_tvpi: number | null;
+    unrealized_gain_loss: number;
+    realized_gain_loss: number;
+    management_fees: number;
+    fund_expenses: number;
+    carry_shadow: number;
+    lp_historical_distributed: number;
+    gp_historical_distributed: number;
+    lp_liquidation_allocation: number;
+    gp_liquidation_allocation: number;
+    promote_earned: number;
+    preferred_return_shortfall: number;
+    preferred_return_excess: number;
+  };
+  value_composition: {
+    historical_realized_proceeds: number;
+    retained_realized_cash: number;
+    attributable_unrealized_nav: number;
+    hypothetical_liquidation_value: number;
+    remaining_value: number;
+    total_value: number;
+  };
+  waterfall: {
+    definition_id: string | null;
+    waterfall_type: string;
+    total_liquidation_value: number;
+    lp_total: number;
+    gp_total: number;
+    promote_total: number;
+    tiers: BaseScenarioTierSummary[];
+    partner_allocations: BaseScenarioPartnerAllocation[];
+  };
+  bridge: BaseScenarioBridgeRow[];
+  assets: BaseScenarioAssetContribution[];
+  assumptions: {
+    ownership_model: string;
+    realized_allocation_method: string;
+    liquidation_mode: BaseScenarioLiquidationMode;
+    notes: string[];
+  };
+};
+
 export type WaterfallAllocation = {
   return_of_capital?: string;
   preferred_return?: string;
@@ -5960,6 +6104,25 @@ export function deleteSaleAssumption(assumptionId: number): Promise<void> {
   });
 }
 
+export function getFundBaseScenario(params: {
+  fund_id: string;
+  quarter: string;
+  scenario_id?: string;
+  liquidation_mode?: BaseScenarioLiquidationMode;
+}): Promise<FundBaseScenario> {
+  return directFetch(`/api/re/v2/funds/${params.fund_id}/base-scenario`, {
+    params: {
+      quarter: params.quarter,
+      scenario_id: params.scenario_id,
+      liquidation_mode: params.liquidation_mode,
+    },
+  });
+}
+
+function toScenarioMetricString(value: number | null | undefined): string | undefined {
+  return value == null ? undefined : String(value);
+}
+
 export function computeScenarioMetrics(
   fundId: string,
   body: {
@@ -5969,9 +6132,54 @@ export function computeScenarioMetrics(
     business_id: string;
   },
 ): Promise<ScenarioComputeResult> {
-  return bosFetch(`/api/re/v2/funds/${fundId}/scenario-compute`, {
-    method: "POST",
-    body: JSON.stringify(body),
+  return Promise.all([
+    getFundBaseScenario({
+      fund_id: fundId,
+      quarter: body.quarter,
+      liquidation_mode: "current_state",
+    }),
+    getFundBaseScenario({
+      fund_id: fundId,
+      quarter: body.quarter,
+      scenario_id: body.scenario_id,
+      liquidation_mode: "hypothetical_sale",
+    }),
+  ]).then(([baseScenario, scenario]) => {
+    const saleCount = new Set(
+      scenario.assets
+        .map((asset) => asset.sale_assumption_id)
+        .filter((assumptionId): assumptionId is number => assumptionId != null)
+    ).size;
+    const totalSaleProceeds = scenario.assets.reduce((sum, asset) => {
+      if (!asset.has_sale_assumption) return sum;
+      return sum + asset.attributable_hypothetical_proceeds;
+    }, 0);
+
+    return {
+      scenario_id: body.scenario_id,
+      fund_id: fundId,
+      quarter: body.quarter,
+      base_gross_irr: toScenarioMetricString(baseScenario.summary.gross_irr),
+      scenario_gross_irr: toScenarioMetricString(scenario.summary.gross_irr),
+      irr_delta:
+        baseScenario.summary.gross_irr != null && scenario.summary.gross_irr != null
+          ? String(scenario.summary.gross_irr - baseScenario.summary.gross_irr)
+          : undefined,
+      base_gross_tvpi: toScenarioMetricString(baseScenario.summary.tvpi),
+      scenario_gross_tvpi: toScenarioMetricString(scenario.summary.tvpi),
+      tvpi_delta:
+        baseScenario.summary.tvpi != null && scenario.summary.tvpi != null
+          ? String(scenario.summary.tvpi - baseScenario.summary.tvpi)
+          : undefined,
+      scenario_net_irr: toScenarioMetricString(scenario.summary.net_irr),
+      scenario_net_tvpi: toScenarioMetricString(scenario.summary.net_tvpi),
+      scenario_dpi: toScenarioMetricString(scenario.summary.dpi),
+      scenario_rvpi: toScenarioMetricString(scenario.summary.rvpi),
+      carry_estimate: String(scenario.summary.promote_earned),
+      total_sale_proceeds: String(totalSaleProceeds),
+      sale_count: saleCount,
+      snapshot_id: scenario.scenario_id ?? body.scenario_id,
+    };
   });
 }
 

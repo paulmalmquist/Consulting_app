@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowUpCircle, DatabaseZap, FileUp, Plus, RefreshCcw } from "lucide-react";
+import { CircularCreateButton } from "@/components/ui/CircularCreateButton";
 import { useRepeBasePath, useRepeContext } from "@/lib/repe-context";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 import {
@@ -396,10 +397,8 @@ export default function CapitalCallsPage() {
         description="Track issuance, collection progress, outstanding balances, and investor funding status."
         actions={
           <>
-            <OperationsActionButton
-              label="New Capital Call"
-              icon={<Plus className="h-4 w-4" />}
-              variant="primary"
+            <CircularCreateButton
+              tooltip="New Capital Call"
               onClick={() => setActiveAction(activeAction === "new-call" ? null : "new-call")}
             />
             <OperationsActionButton

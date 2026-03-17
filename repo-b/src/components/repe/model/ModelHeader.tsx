@@ -1,10 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Archive, ChevronRight } from "lucide-react";
+import { Lock, Unlock, Archive, ChevronRight } from "lucide-react";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import type { ReModel } from "./types";
+
+const STATUS_DISPLAY: Record<string, { label: string; classes: string }> = {
+  draft: {
+    label: "Draft",
+    classes: "bg-bm-accent/10 text-bm-accent border-bm-accent/30",
+  },
+  official_base_case: {
+    label: "Official Base Case",
+    classes: "bg-green-500/10 text-green-400 border-green-500/30",
+  },
+  archived: {
+    label: "Archived",
+    classes: "bg-bm-surface/40 text-bm-muted2 border-bm-border/50",
+  },
+};
 
 export function ModelHeader({
   model,
@@ -14,6 +29,8 @@ export function ModelHeader({
   onStatusChange: (status: string) => void;
 }) {
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [lockOpen, setLockOpen] = useState(false);
+  const display = STATUS_DISPLAY[model.status] ?? STATUS_DISPLAY.draft;
 
   return (
     <>
@@ -30,25 +47,35 @@ export function ModelHeader({
           )}
         </div>
         <div className="flex items-center gap-2">
+          {/* Status Badge */}
           <span
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs ${
-              model.status === "approved"
-                ? "bg-green-500/10 text-green-400 border border-green-500/30"
-                : model.status === "archived"
-                  ? "bg-bm-surface/40 text-bm-muted2 border border-bm-border/50"
-                  : "bg-bm-accent/10 text-bm-accent border border-bm-accent/30"
-            }`}
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs border ${display.classes}`}
           >
-            {model.status}
+            {model.status === "official_base_case" && <Lock size={10} />}
+            {display.label}
           </span>
+
+          {/* Draft → Set as Official Base Case */}
           {model.status === "draft" && (
             <button
-              onClick={() => onStatusChange("approved")}
+              onClick={() => setLockOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-500"
             >
-              <CheckCircle2 size={12} /> Approve
+              <Lock size={12} /> Set as Official Base Case
             </button>
           )}
+
+          {/* Official Base Case → Return to Draft */}
+          {model.status === "official_base_case" && (
+            <button
+              onClick={() => onStatusChange("draft")}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-bm-border px-3 py-1.5 text-xs text-bm-muted2 hover:bg-bm-surface/40 hover:text-bm-text"
+            >
+              <Unlock size={12} /> Return to Draft
+            </button>
+          )}
+
+          {/* Archive (not available when already archived) */}
           {model.status !== "archived" && (
             <button
               onClick={() => setArchiveOpen(true)}
@@ -60,6 +87,36 @@ export function ModelHeader({
         </div>
       </div>
 
+      {/* Lock Confirmation Dialog */}
+      <Dialog
+        open={lockOpen}
+        onOpenChange={setLockOpen}
+        title="Set as Official Base Case"
+        description={`Lock "${model.name}" as the Official Base Case? This will prevent edits to scope and assumptions.`}
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setLockOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                onStatusChange("official_base_case");
+                setLockOpen(false);
+              }}
+              className="bg-green-600 text-white hover:bg-green-500"
+            >
+              Lock as Base Case
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-bm-muted2">
+          You can return to Draft later if changes are needed.
+        </p>
+      </Dialog>
+
+      {/* Archive Confirmation Dialog */}
       <Dialog
         open={archiveOpen}
         onOpenChange={setArchiveOpen}

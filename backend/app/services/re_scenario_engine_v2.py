@@ -53,18 +53,32 @@ def run_scenario(*, scenario_id: UUID) -> dict:
 
     override_map = _build_override_map(overrides)
 
-    # Create run record
-    _compute_hash({
-        "scope": [str(a["asset_id"]) for a in scope_assets],
-        "overrides": {k: {kk: str(vv) for kk, vv in v.items()} for k, v in override_map.items()},
+    # Compute input hash for idempotency
+    input_hash = _compute_hash({
+        "scope": sorted(str(a["asset_id"]) for a in scope_assets),
+        "overrides": {k: {kk: str(vv) for kk, vv in sorted(v.items())} for k, v in sorted(override_map.items())},
     })
 
+    # Check if latest run for this scenario already has the same input hash
     with get_cursor() as cur:
         cur.execute(
-            """INSERT INTO re_model_run (model_id, status, started_at, triggered_by)
-               VALUES (%s, 'in_progress', now(), 'api')
+            """SELECT id, status, result_summary
+               FROM re_model_run
+               WHERE model_id = %s AND input_hash = %s AND status = 'completed'
+               ORDER BY started_at DESC LIMIT 1""",
+            (model_id, input_hash),
+        )
+        cached = cur.fetchone()
+        if cached:
+            return _build_result_from_cached(cached, scenario_id, model_id, scope_assets)
+
+    # Create run record
+    with get_cursor() as cur:
+        cur.execute(
+            """INSERT INTO re_model_run (model_id, status, started_at, triggered_by, input_hash)
+               VALUES (%s, 'in_progress', now(), 'api', %s)
                RETURNING id""",
-            (model_id,),
+            (model_id, input_hash),
         )
         run_id = str(cur.fetchone()["id"])
 
@@ -982,3 +996,16 @@ def _parse_date(value) -> date | None:
 
 def _compute_hash(data: dict) -> str:
     return hashlib.sha256(json.dumps(data, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def _build_result_from_cached(cached_run: dict, scenario_id: UUID, model_id: str, scope_assets: list[dict]) -> dict:
+    """Return a result dict from a cached run record (idempotent hit)."""
+    summary = cached_run.get("result_summary") or {}
+    return {
+        "run_id": str(cached_run["id"]),
+        "scenario_id": str(scenario_id),
+        "model_id": model_id,
+        "status": "success",
+        "assets_processed": len(scope_assets),
+        "summary": summary,
+    }

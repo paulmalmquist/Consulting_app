@@ -54,6 +54,7 @@ This file is the human-facing registry for every routed markdown doc in the repo
 | `winston-dashboard-composition` | `skill` | `active` | `repo-b, backend` | `yes` | `skills/winston-dashboard-composition/SKILL.md` |
 | `winston-agentic-build` | `skill` | `active` | `backend, repo-b` | `yes` | `skills/winston-agentic-build/SKILL.md` |
 | `winston-remediation-playbook` | `skill` | `active` | `docs, backend, repo-b` | `yes` | `skills/winston-remediation-playbook/SKILL.md` |
+| `winston-prompt-normalization` | `skill` | `active` | `docs, cross-repo` | `yes` | `skills/winston-prompt-normalization/SKILL.md` |
 | `winston-document-pipeline` | `skill` | `active` | `backend, repo-b` | `yes` | `skills/winston-document-pipeline/SKILL.md` |
 | `winston-performance-architecture` | `skill` | `active` | `backend, repo-b` | `yes` | `skills/winston-performance-architecture/SKILL.md` |
 | `winston-credit-environment` | `skill` | `active` | `backend, repo-b, supabase` | `yes` | `skills/winston-credit-environment/SKILL.md` |

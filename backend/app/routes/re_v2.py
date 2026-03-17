@@ -121,6 +121,31 @@ def _log(action: str, msg: str, **ctx):
     emit_log(level="info", service="backend", action=action, message=msg, context=ctx)
 
 
+def _assert_model_unlocked(model_id: UUID) -> None:
+    """Raise 409 Conflict if model is locked (official_base_case or archived)."""
+    if re_model.is_model_locked(model_id=model_id):
+        raise HTTPException(
+            409,
+            {"error_code": "MODEL_LOCKED", "message": "Model is locked. Return to Draft before making changes."},
+        )
+
+
+# ── Health Check ──────────────────────────────────────────────────────────────
+
+
+@router.get("/health/schema")
+def check_schema_health():
+    """Quick check whether core RE tables exist."""
+    try:
+        with get_cursor() as cur:
+            cur.execute("SELECT 1 FROM re_model LIMIT 0")
+        return {"ready": True}
+    except psycopg.errors.UndefinedTable:
+        return {"ready": False, "error_code": "SCHEMA_NOT_MIGRATED", "message": "Run migration 270 to initialize."}
+    except Exception:
+        return {"ready": False, "error_code": "UNKNOWN", "message": "Unexpected error checking schema."}
+
+
 # ── Environment Portfolio KPIs ────────────────────────────────────────────────
 
 @router.get(
@@ -748,9 +773,12 @@ def get_model(model_id: UUID):
 @router.patch("/models/{model_id}", response_model=ReModelOut)
 def patch_model(model_id: UUID, body: ReModelPatchRequest):
     try:
-        if body.status == "approved":
-            row = re_model.approve_model(model_id=model_id)
-            _log("re.model.approved", f"Model {model_id} approved")
+        if body.status in ("approved", "official_base_case"):
+            row = re_model.set_official_base_case(model_id=model_id)
+            _log("re.model.official_base_case", f"Model {model_id} set as Official Base Case")
+        elif body.status == "draft":
+            row = re_model.unset_official_base_case(model_id=model_id)
+            _log("re.model.draft", f"Model {model_id} returned to Draft")
         elif body.status == "archived":
             row = re_model.archive_model(model_id=model_id)
             _log("re.model.archived", f"Model {model_id} archived")
@@ -776,6 +804,7 @@ def list_model_scope(model_id: UUID):
 
 @router.post("/models/{model_id}/scope", response_model=ReModelScopeOut, status_code=201)
 def add_model_scope(model_id: UUID, body: ReModelScopeInput):
+    _assert_model_unlocked(model_id)
     try:
         row = re_model.add_model_scope(
             model_id=model_id,
@@ -790,6 +819,7 @@ def add_model_scope(model_id: UUID, body: ReModelScopeInput):
 
 @router.delete("/models/{model_id}/scope/{scope_type}/{scope_node_id}", status_code=204)
 def remove_model_scope(model_id: UUID, scope_type: str, scope_node_id: UUID):
+    _assert_model_unlocked(model_id)
     try:
         re_model.remove_model_scope(
             model_id=model_id,
@@ -812,6 +842,7 @@ def list_model_overrides(model_id: UUID):
 
 @router.post("/models/{model_id}/overrides", response_model=ReModelOverrideOut, status_code=201)
 def set_model_override(model_id: UUID, body: ReModelOverrideInput):
+    _assert_model_unlocked(model_id)
     try:
         row = re_model.set_model_override(model_id=model_id, payload=body.model_dump())
         _log("re.model.override.set", f"Override set for model {model_id}: {body.key}")

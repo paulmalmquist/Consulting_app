@@ -11,6 +11,7 @@ export function Dialog({
   description,
   children,
   footer,
+  className,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -18,6 +19,7 @@ export function Dialog({
   description?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  className?: string;
 }) {
   if (!open) return null;
 
@@ -36,7 +38,8 @@ export function Dialog({
       <div
         className={cn(
           "relative w-full max-w-lg rounded-lg bm-glass p-6",
-          "shadow-bm-card"
+          "shadow-bm-card",
+          className,
         )}
       >
         <div className="flex items-start justify-between gap-4">

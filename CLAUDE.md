@@ -69,6 +69,7 @@ notes:
 | dashboard composition, intent parsing, query transparency, blank widgets, entity_ids | `skills/winston-dashboard-composition/SKILL.md` |
 | REPE write tools, mutation flow, AdvancedDrawer, live status | `skills/winston-agentic-build/SKILL.md` |
 | behavior guardrails, post-mortem, audit remediation, fix-all regressions | `skills/winston-remediation-playbook/SKILL.md` |
+| prompt normalization, convert meta prompt to skill, instruction cleanup, retire legacy prompt | `skills/winston-prompt-normalization/SKILL.md` |
 | attached document ingestion, document-to-asset creation, extraction pipeline | `skills/winston-document-pipeline/SKILL.md` |
 | latency, reranking, model dispatch, prompt budget, performance architecture | `skills/winston-performance-architecture/SKILL.md` |
 | credit decisioning, walled garden, chain-of-thought, format lock, consumer credit AI, credit underwriting, corpus, citation chain | `.skills/credit-decisioning/SKILL.md` |
@@ -129,6 +130,7 @@ notes:
 - `fix blank dashboard widgets when entity_ids disappear` -> `skills/winston-dashboard-composition/SKILL.md`
 - `add REPE write tools and live status feedback` -> `skills/winston-agentic-build/SKILL.md`
 - `post-mortem why Winston lost the plot on writes` -> `skills/winston-remediation-playbook/SKILL.md`
+- `scan our meta prompts and convert the durable ones into skills` -> `skills/winston-prompt-normalization/SKILL.md`
 - `turn an attached document into an asset record` -> `skills/winston-document-pipeline/SKILL.md`
 - `reduce Winston latency and improve reranking` -> `skills/winston-performance-architecture/SKILL.md`
 - `build the credit decisioning MCP tools` -> `skills/winston-credit-environment/SKILL.md` with `.skills/credit-decisioning/SKILL.md` as support

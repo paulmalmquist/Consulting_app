@@ -3,6 +3,7 @@
 import Link from "next/link";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ChevronDown, GitBranch, MoreHorizontal } from "lucide-react";
+import { CircularCreateButton } from "@/components/ui/CircularCreateButton";
 import { useRouter } from "next/navigation";
 import {
   Bar,
@@ -48,13 +49,11 @@ import {
   ReV2EntityLineageResponse,
   ReV2InvestmentAsset,
   getFiNOIVariance,
-  getFiFundMetrics,
   getFiLoans,
   getFiCovenantResults,
   getFiWatchlist,
   getLpSummary,
   FiVarianceResult,
-  FiFundMetricsResult,
   FiLoan,
   FiCovenantResult,
   FiWatchlistEvent,
@@ -72,6 +71,8 @@ import {
   type IrrContributionItem,
   type ModelPreviewResult,
   type ModelPreviewAssumption,
+  getFundBaseScenario,
+  type FundBaseScenario,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
@@ -917,6 +918,7 @@ function useFundOverviewData({
 const TABS = [
   "Overview",
   "Performance",
+  "Scenarios",
   "Asset Variance",
   "LP Summary",
 ] as const;
@@ -936,6 +938,7 @@ export default function FundDetailPage({
   const [investments, setInvestments] = useState<ReV2Investment[]>([]);
   const [investmentRollup, setInvestmentRollup] = useState<ReV2FundInvestmentRollupRow[]>([]);
   const [fundState, setFundState] = useState<ReV2FundQuarterState | null>(null);
+  const [baseScenario, setBaseScenario] = useState<FundBaseScenario | null>(null);
   const [scenarios, setScenarios] = useState<ReV2Scenario[]>([]);
   const [lineage, setLineage] = useState<ReV2EntityLineageResponse | null>(null);
   const [lineageOpen, setLineageOpen] = useState(false);
@@ -955,16 +958,18 @@ export default function FundDetailPage({
     setLineageLoading(true);
     setLineageError(null);
     try {
-      const [fs, sc, rollup, lineageData] = await Promise.all([
+      const [fs, sc, rollup, lineageData, baseScenarioData] = await Promise.all([
         getReV2FundQuarterState(params.fundId, quarter).catch(() => null),
         listReV2Scenarios(params.fundId).catch(() => []),
         getReV2FundInvestmentRollup(params.fundId, quarter).catch(() => []),
         getReV2FundLineage(params.fundId, quarter).catch(() => null),
+        getFundBaseScenario({ fund_id: params.fundId, quarter }).catch(() => null),
       ]);
       setFundState(fs);
       setScenarios(sc);
       setInvestmentRollup(rollup);
       setLineage(lineageData);
+      setBaseScenario(baseScenarioData);
       // Fetch covenant alerts for banner
       if (envId && businessId) {
         getFiWatchlist({ env_id: envId, business_id: businessId, fund_id: params.fundId, quarter })
@@ -1062,33 +1067,35 @@ export default function FundDetailPage({
       }),
     [fundState, investmentRollup, overviewData.rollup]
   );
-  const committedCapital = toFiniteNumber(fundState?.total_committed);
+  const committedCapital = toFiniteNumber(baseScenario?.summary.total_committed) ?? toFiniteNumber(fundState?.total_committed);
+  const paidInCapital = toFiniteNumber(baseScenario?.summary.paid_in_capital) ?? toFiniteNumber(fundState?.total_called);
+  const distributedCapital = toFiniteNumber(baseScenario?.summary.distributed_capital) ?? toFiniteNumber(fundState?.total_distributed);
   const capitalMetrics: HeaderMetric[] = [
     {
       label: "Committed",
-      value: fmtMoney(fundState?.total_committed),
+      value: fmtMoney(baseScenario?.summary.total_committed ?? fundState?.total_committed),
       ratio: committedCapital && committedCapital > 0 ? 1 : null,
       barColor: FUND_DASHBOARD_COLORS.primarySoft,
     },
     {
-      label: "Called",
-      value: fmtMoney(fundState?.total_called),
-      ratio: getRatioOfBase(fundState?.total_called, fundState?.total_committed),
+      label: "Paid-In",
+      value: fmtMoney(baseScenario?.summary.paid_in_capital ?? fundState?.total_called),
+      ratio: getRatioOfBase(paidInCapital, committedCapital),
       barColor: FUND_DASHBOARD_COLORS.primary,
     },
     {
       label: "Distributed",
-      value: fmtMoney(fundState?.total_distributed),
-      ratio: getRatioOfBase(fundState?.total_distributed, fundState?.total_committed),
+      value: fmtMoney(baseScenario?.summary.distributed_capital ?? fundState?.total_distributed),
+      ratio: getRatioOfBase(distributedCapital, paidInCapital ?? committedCapital),
       barColor: FUND_DASHBOARD_COLORS.realized,
     },
   ];
   const performanceMetrics: HeaderMetric[] = [
-    { label: "NAV", value: fmtMoney(fundState?.portfolio_nav) },
-    { label: "DPI", value: fmtMultiple(fundState?.dpi) },
-    { label: "TVPI", value: fmtMultiple(fundState?.tvpi) },
-    { label: "Gross IRR", value: fmtPercent(fundState?.gross_irr) },
-    { label: "Net IRR", value: fmtPercent(fundState?.net_irr) },
+    { label: "Remaining Value", value: fmtMoney(baseScenario?.summary.remaining_value ?? fundState?.portfolio_nav) },
+    { label: "DPI", value: fmtMultiple(baseScenario?.summary.dpi ?? fundState?.dpi) },
+    { label: "TVPI", value: fmtMultiple(baseScenario?.summary.tvpi ?? fundState?.tvpi) },
+    { label: "Gross IRR", value: fmtPercent(baseScenario?.summary.gross_irr ?? fundState?.gross_irr) },
+    { label: "Net IRR", value: fmtPercent(baseScenario?.summary.net_irr ?? fundState?.net_irr) },
   ];
 
   const handleDeleteFund = useCallback(async () => {
@@ -1404,6 +1411,7 @@ export default function FundDetailPage({
           investmentRollup={investmentRollup}
           fund={fund}
           fundState={fundState}
+          baseScenario={baseScenario}
           envId={params.envId}
           quarter={quarter}
           overviewData={overviewData}
@@ -1412,12 +1420,21 @@ export default function FundDetailPage({
       {tab === "Asset Variance" && envId && businessId && (
         <VarianceTab envId={envId} businessId={businessId} fundId={params.fundId} quarter={quarter} />
       )}
-      {tab === "Performance" && envId && businessId && (
+      {tab === "Performance" && (
         <ReturnsTab
+          baseScenario={baseScenario}
+          loading={loading}
+        />
+      )}
+      {tab === "Scenarios" && envId && businessId && (
+        <ScenariosTab
           envId={envId}
           businessId={businessId}
           fundId={params.fundId}
           quarter={quarter}
+          deals={deals}
+          scenarios={scenarios}
+          onScenariosChange={setScenarios}
         />
       )}
       {tab === "LP Summary" && envId && businessId && (
@@ -1618,11 +1635,49 @@ function InvestmentRow({
   );
 }
 
-function OverviewTab({ investments, investmentRollup, fund, fundState, envId, quarter, overviewData }: {
+function BaseScenarioSummaryCard({ baseScenario }: { baseScenario: FundBaseScenario | null }) {
+  if (!baseScenario) return null;
+
+  const summaryMetrics = [
+    { label: "Active Assets", value: String(baseScenario.summary.active_assets) },
+    { label: "Disposed Assets", value: String(baseScenario.summary.disposed_assets) },
+    { label: "Attributable NAV", value: fmtMoney(baseScenario.summary.attributable_nav) },
+    { label: "Realized Proceeds", value: fmtMoney(baseScenario.summary.realized_proceeds) },
+    { label: "Paid-In Capital", value: fmtMoney(baseScenario.summary.paid_in_capital) },
+    { label: "Distributed Capital", value: fmtMoney(baseScenario.summary.distributed_capital) },
+    { label: "TVPI", value: fmtMultiple(baseScenario.summary.tvpi) },
+    { label: "Gross IRR", value: fmtPercent(baseScenario.summary.gross_irr) },
+  ];
+
+  return (
+    <div className={`${FUND_PANEL_CLASS} p-5`} data-testid="base-scenario-summary">
+      <NarrativeSectionHeading
+        eyebrow="Base Scenario"
+        title="Current Fund Economics"
+        description="Current fund returns bridge realized exits, active asset marks, ownership attribution, and the configured waterfall."
+      />
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {summaryMetrics.map((metric) => (
+          <div key={metric.label} className="rounded-[18px] border border-[#E2E8F0] bg-white p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#64748B]">
+              {metric.label}
+            </p>
+            <p className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[#0F172A]">
+              {metric.value}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OverviewTab({ investments, investmentRollup, fund, fundState, baseScenario, envId, quarter, overviewData }: {
   investments: ReV2Investment[];
   investmentRollup: ReV2FundInvestmentRollupRow[];
   fund: RepeFundDetail["fund"] | undefined;
   fundState: ReV2FundQuarterState | null;
+  baseScenario: FundBaseScenario | null;
   envId: string;
   quarter: string;
   overviewData: FundOverviewData;
@@ -1675,6 +1730,8 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, envId, qu
 
   return (
     <div className="space-y-4">
+      <BaseScenarioSummaryCard baseScenario={baseScenario} />
+
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
         <FundValueCreationCard data={valueCreationSeries} loading={overviewData.loading} />
         <PortfolioAllocationCard rows={allocationRows} loading={overviewData.loading} />
@@ -1922,22 +1979,6 @@ function VarianceTab({ envId, businessId, fundId, quarter }: {
 
 // ── Returns Tab ─────────────────────────────────────────────────────────────
 
-function fmtBps(v: number | null | undefined): string {
-  if (v === null || v === undefined || Number.isNaN(v)) return "—";
-  return `${Math.round(v)}bps`;
-}
-
-function fmtSignedBps(v: number | null | undefined): string {
-  if (v === null || v === undefined || Number.isNaN(v)) return "—";
-  const rounded = Math.round(v);
-  return `${rounded > 0 ? "+" : rounded < 0 ? "-" : ""}${Math.abs(rounded)}bps`;
-}
-
-function fmtSignedMultiple(v: number | null | undefined): string {
-  if (v === null || v === undefined || Number.isNaN(v)) return "—";
-  return `${v > 0 ? "+" : v < 0 ? "-" : ""}${Math.abs(v).toFixed(2)}x`;
-}
-
 function PerformanceMetric({
   label,
   value,
@@ -1960,279 +2001,240 @@ function PerformanceMetric({
   );
 }
 
-type BridgeBar = {
-  label: string;
-  valueLabel: string;
-  detailLabel?: string;
-  startLevel: number;
-  endLevel: number;
-  color: string;
-};
-
-function GrossNetBridgeWaterfall({ bars }: { bars: BridgeBar[] }) {
-  const scaleMax = Math.max(...bars.flatMap((bar) => [bar.startLevel, bar.endLevel]), 0) * 1.15 || 1;
-  const count = bars.length;
-  const columnWidth = 100 / count;
-  const barWidth = 10;
-
+function ReturnsSummaryCard({
+  title,
+  rows,
+  testId,
+}: {
+  title: string;
+  rows: Array<{ label: string; value: string; tone?: "positive" | "negative" | "neutral" }>;
+  testId: string;
+}) {
   return (
-    <div className="relative h-40">
-      {bars.slice(0, -1).map((bar, index) => {
-        const nextBar = bars[index + 1];
-        const nextCenter = index * columnWidth + columnWidth + columnWidth / 2;
-        const currentCenter = index * columnWidth + columnWidth / 2;
-        const connectorLevel = bar.endLevel;
-        return (
-          <div
-            key={`connector-${bar.label}`}
-            className="absolute border-t border-dashed border-slate-300"
-            style={{
-              left: `${currentCenter + barWidth / 2}%`,
-              width: `${Math.max(nextCenter - currentCenter - barWidth, 0)}%`,
-              bottom: `${(connectorLevel / scaleMax) * 100}%`,
-            }}
-          />
-        );
-      })}
-
-      {bars.map((bar, index) => {
-        const topLevel = Math.max(bar.startLevel, bar.endLevel);
-        const bottomLevel = Math.min(bar.startLevel, bar.endLevel);
-        const barHeight = Math.max(((topLevel - bottomLevel) / scaleMax) * 100, 6);
-        const left = index * columnWidth + (columnWidth - barWidth) / 2;
-        const center = left + barWidth / 2;
-        return (
-          <div key={bar.label}>
-            <div
-              className="absolute text-center"
-              style={{
-                left: `${Math.max(center - 9, 0)}%`,
-                width: "18%",
-                bottom: `${(topLevel / scaleMax) * 100 + 6}%`,
-              }}
+    <div className="rounded-xl border border-slate-200 bg-white p-5" data-testid={testId}>
+      <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+        {title}
+      </h3>
+      <div className="mt-4 space-y-3">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-center justify-between gap-4 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
+            <span className="text-sm text-slate-500">{row.label}</span>
+            <span
+              className={`text-sm font-semibold tabular-nums ${
+                row.tone === "positive"
+                  ? "text-emerald-600"
+                  : row.tone === "negative"
+                    ? "text-rose-600"
+                    : "text-slate-900"
+              }`}
             >
-              <p className="text-xs font-semibold tracking-tight text-slate-900">{bar.valueLabel}</p>
-              {bar.detailLabel ? (
-                <p className="mt-1 text-[10px] leading-snug text-slate-400">{bar.detailLabel}</p>
-              ) : null}
-            </div>
-            <div
-              className="absolute rounded-t-md"
-              style={{
-                left: `${left}%`,
-                width: `${barWidth}%`,
-                bottom: `${(bottomLevel / scaleMax) * 100}%`,
-                height: `${barHeight}%`,
-                backgroundColor: bar.color,
-              }}
-            />
-            <div
-              className="absolute text-center"
-              style={{
-                left: `${Math.max(center - 9, 0)}%`,
-                width: "18%",
-                bottom: "-8%",
-              }}
-            >
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">
-                {bar.label}
-              </p>
-            </div>
+              {row.value}
+            </span>
           </div>
-        );
-      })}
+        ))}
+      </div>
     </div>
   );
 }
 
-function ReturnsTab({ envId, businessId, fundId, quarter }: {
-  envId: string; businessId: string; fundId: string; quarter: string;
+function ReturnsTab({ baseScenario, loading }: {
+  baseScenario: FundBaseScenario | null;
+  loading: boolean;
 }) {
-  const [data, setData] = useState<FiFundMetricsResult | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    getFiFundMetrics({ env_id: envId, business_id: businessId, fund_id: fundId, quarter })
-      .then(setData)
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
-  }, [envId, businessId, fundId, quarter]);
-
-  if (loading) return <div className="p-4 text-sm text-bm-muted2">Loading return metrics...</div>;
-  if (!data?.metrics) {
+  if (loading && !baseScenario) return <div className="p-4 text-sm text-bm-muted2">Loading return metrics...</div>;
+  if (!baseScenario) {
     return (
       <div className="rounded-lg border border-slate-200 bg-white p-8 text-center" data-testid="returns-empty">
         <div className="text-3xl">📊</div>
         <div className="mt-4 space-y-1">
-          <p className="text-sm font-medium text-slate-900">No return metrics available yet</p>
-          <p className="text-xs text-slate-500">Fund performance requires a Quarter Close calculation.</p>
-          <p className="text-xs text-slate-500">Last Close: Never</p>
+          <p className="text-sm font-medium text-slate-900">No base scenario is available yet</p>
+          <p className="text-xs text-slate-500">Fund performance appears once the asset and capital ledgers are available.</p>
         </div>
       </div>
     );
   }
 
-  const m = data.metrics;
-  const b = data.bridge;
-  const bm = (data as FiFundMetricsResult & {
-    benchmark?: { benchmark_name: string; quarter: string; total_return: number; alpha: number | null };
-  }).benchmark;
-
-  const grossIrr = Number(m.gross_irr || 0);
-  const netIrr = Number(m.net_irr || 0);
-  const grossTvpi = Number(m.gross_tvpi || 0);
-  const netTvpi = Number(m.net_tvpi || 0);
-  const totalDragBps = Math.max(Math.round((grossIrr - netIrr) * 10000), 0);
-  const totalDeductionValue = Math.max(
-    Number(b?.gross_return || 0) - Number(b?.net_return || 0),
-    0
-  );
-  const mgmtFees = Number(b?.mgmt_fees || 375000);
-  const fundExpenses = Number(b?.fund_expenses || 255000);
-  let carryShadow = Number(b?.carry_shadow || 0);
-  if (!(carryShadow > 0) && totalDeductionValue > 0) {
-    carryShadow = Math.max(totalDeductionValue - mgmtFees - fundExpenses, 0);
-  }
-  if (!(carryShadow > 0) && totalDragBps > 0) {
-    carryShadow = 960000;
-  }
-
-  const deductionBasis = mgmtFees + fundExpenses + carryShadow;
-  const mgmtFeeBps =
-    deductionBasis > 0 ? Math.round((mgmtFees / deductionBasis) * totalDragBps) : 23;
-  const fundExpenseBps =
-    deductionBasis > 0 ? Math.round((fundExpenses / deductionBasis) * totalDragBps) : 16;
-  const carryBps = Math.max(totalDragBps - mgmtFeeBps - fundExpenseBps, 0);
-
-  const grossPercent = grossIrr * 100;
-  const afterMgmt = Math.max(grossPercent - mgmtFeeBps / 100, 0);
-  const afterExpenses = Math.max(afterMgmt - fundExpenseBps / 100, 0);
-  const netPercent = netIrr * 100;
-
-  const bridgeBars: BridgeBar[] = [
-    {
-      label: "Gross IRR",
-      valueLabel: fmtPercent(m.gross_irr),
-      startLevel: 0,
-      endLevel: grossPercent,
-      color: "#38BDF8",
-    },
-    {
-      label: "Mgmt Fees",
-      valueLabel: `-${fmtBps(mgmtFeeBps)}`,
-      detailLabel: fmtMoney(mgmtFees),
-      startLevel: grossPercent,
-      endLevel: afterMgmt,
-      color: "#F87171",
-    },
-    {
-      label: "Fund Expenses",
-      valueLabel: `-${fmtBps(fundExpenseBps)}`,
-      detailLabel: fmtMoney(fundExpenses),
-      startLevel: afterMgmt,
-      endLevel: afterExpenses,
-      color: "#F87171",
-    },
-    {
-      label: "Carry (Shadow)",
-      valueLabel: `-${fmtBps(carryBps)}`,
-      detailLabel: fmtMoney(carryShadow),
-      startLevel: afterExpenses,
-      endLevel: netPercent,
-      color: "#F87171",
-    },
-    {
-      label: "Net IRR",
-      valueLabel: fmtPercent(m.net_irr),
-      startLevel: 0,
-      endLevel: netPercent,
-      color: "#34D399",
-    },
+  const summary = baseScenario.summary;
+  const valueCompositionRows = [
+    { label: "Historical Realized Proceeds", value: fmtMoney(baseScenario.value_composition.historical_realized_proceeds), tone: "positive" as const },
+    { label: "Retained Realized Cash", value: fmtMoney(baseScenario.value_composition.retained_realized_cash), tone: "positive" as const },
+    { label: "Attributable Unrealized NAV", value: fmtMoney(baseScenario.value_composition.attributable_unrealized_nav) },
+    { label: "Current Distributable Proceeds", value: fmtMoney(summary.current_distributable_proceeds) },
+    { label: "Remaining Value", value: fmtMoney(baseScenario.value_composition.remaining_value) },
+    { label: "Total Value", value: fmtMoney(baseScenario.value_composition.total_value) },
   ];
+  const returnsRows = [
+    { label: "Paid-In Capital", value: fmtMoney(summary.paid_in_capital) },
+    { label: "Distributed Capital", value: fmtMoney(summary.distributed_capital) },
+    { label: "DPI", value: fmtMultiple(summary.dpi) },
+    { label: "RVPI", value: fmtMultiple(summary.rvpi) },
+    { label: "TVPI", value: fmtMultiple(summary.tvpi) },
+    { label: "Gross IRR", value: fmtPercent(summary.gross_irr) },
+    { label: "Net IRR", value: fmtPercent(summary.net_irr) },
+    { label: "Net TVPI", value: fmtMultiple(summary.net_tvpi) },
+  ];
+  const waterfallRows = [
+    { label: "LP Historical Distributions", value: fmtMoney(summary.lp_historical_distributed) },
+    { label: "GP Historical Distributions", value: fmtMoney(summary.gp_historical_distributed) },
+    { label: "LP Liquidation Allocation", value: fmtMoney(summary.lp_liquidation_allocation) },
+    { label: "GP Liquidation Allocation", value: fmtMoney(summary.gp_liquidation_allocation) },
+    { label: "Promote Earned", value: fmtMoney(summary.promote_earned), tone: summary.promote_earned > 0 ? "positive" as const : "neutral" as const },
+    { label: "Preferred Return Shortfall", value: fmtMoney(summary.preferred_return_shortfall), tone: summary.preferred_return_shortfall > 0 ? "negative" as const : "neutral" as const },
+  ];
+  const sortedAssets = [...baseScenario.assets].sort((left, right) => {
+    const statusRank = { active: 0, disposed: 1, pipeline: 2 } as const;
+    const leftRank = statusRank[left.status_category];
+    const rightRank = statusRank[right.status_category];
+    if (leftRank !== rightRank) return leftRank - rightRank;
+    return right.current_value_contribution - left.current_value_contribution;
+  });
 
   return (
-    <div data-testid="returns-section">
-      <div className="border-b border-slate-200 pt-4 pb-3" data-testid="returns-kpis">
-        <div className="overflow-x-auto">
-          <div className="flex min-w-[1040px] flex-nowrap gap-5">
-            <PerformanceMetric label="Cash-on-Cash" value={fmtPercent(m.cash_on_cash)} />
-            <PerformanceMetric
-              label="Gross IRR"
-              value={fmtPercent(m.gross_irr)}
-              context="↑ +160bps vs. 2022 vintage median"
-            />
-            <PerformanceMetric
-              label="Net IRR"
-              value={fmtPercent(m.net_irr)}
-              context={`as of ${quarter}`}
-            />
-            <PerformanceMetric
-              label="G→N Spread"
-              value={fmtBps(totalDragBps)}
-              context="Target carry: 200-300bps ✓"
-            />
-            <PerformanceMetric label="Gross TVPI" value={fmtMultiple(m.gross_tvpi)} />
-            <PerformanceMetric label="Net TVPI" value={fmtMultiple(m.net_tvpi)} />
-            <PerformanceMetric label="DPI" value={fmtMultiple(m.dpi)} />
-            <PerformanceMetric label="RVPI" value={fmtMultiple(m.rvpi)} />
+    <div className="space-y-4" data-testid="returns-section">
+      <div className="rounded-xl border border-slate-200 bg-white p-5" data-testid="returns-kpis">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-semibold tracking-tight text-slate-900">Base Scenario Returns</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              As of {baseScenario.as_of_date}, current fund returns reflect realized exits, active asset marks, ownership attribution, and the fund waterfall.
+            </p>
+          </div>
+          <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
+            {summary.active_assets} active / {summary.disposed_assets} disposed / {summary.pipeline_assets} pipeline
+          </div>
+        </div>
+        <div className="mt-4 overflow-x-auto">
+          <div className="flex min-w-[980px] flex-nowrap gap-5">
+            <PerformanceMetric label="Paid-In" value={fmtMoney(summary.paid_in_capital)} />
+            <PerformanceMetric label="Distributed" value={fmtMoney(summary.distributed_capital)} />
+            <PerformanceMetric label="Remaining Value" value={fmtMoney(summary.remaining_value)} />
+            <PerformanceMetric label="DPI" value={fmtMultiple(summary.dpi)} />
+            <PerformanceMetric label="RVPI" value={fmtMultiple(summary.rvpi)} />
+            <PerformanceMetric label="TVPI" value={fmtMultiple(summary.tvpi)} />
+            <PerformanceMetric label="Gross IRR" value={fmtPercent(summary.gross_irr)} context={`Net IRR ${fmtPercent(summary.net_irr)}`} />
+            <PerformanceMetric label="Promote" value={fmtMoney(summary.promote_earned)} context={baseScenario.waterfall.waterfall_type} />
           </div>
         </div>
       </div>
 
-      <div className="mt-5 grid gap-6 lg:grid-cols-2">
-        <div
-          className="h-[240px] max-w-[520px] rounded-lg border border-slate-100 bg-white p-6"
-          data-testid="gross-net-comparison"
-        >
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
-            Gross Vs Net Comparison
-          </h3>
-          <div className="overflow-hidden rounded-lg">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
-                  <th className="px-3 py-2 font-medium">Metric</th>
-                  <th className="px-3 py-2 font-medium text-right">Gross</th>
-                  <th className="px-3 py-2 font-medium text-right">Net</th>
-                  <th className="px-3 py-2 font-medium text-right">Drag</th>
+      <div className="grid gap-4 xl:grid-cols-3">
+        <ReturnsSummaryCard
+          title="Value Composition"
+          rows={valueCompositionRows}
+          testId="value-composition-card"
+        />
+        <ReturnsSummaryCard
+          title="Fund Returns"
+          rows={returnsRows}
+          testId="fund-returns-card"
+        />
+        <ReturnsSummaryCard
+          title="Waterfall Allocation"
+          rows={waterfallRows}
+          testId="waterfall-allocation-card"
+        />
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-5" data-testid="value-bridge-table">
+        <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+          Value Bridge
+        </h3>
+        <div className="mt-4 overflow-hidden rounded-lg border border-slate-100">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-400">
+              <tr>
+                <th className="px-4 py-3 font-medium">Bridge Step</th>
+                <th className="px-4 py-3 font-medium text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {baseScenario.bridge.map((row) => (
+                <tr key={row.label}>
+                  <td className="px-4 py-3 text-slate-600">{row.label}</td>
+                  <td
+                    className={`px-4 py-3 text-right font-medium tabular-nums ${
+                      row.kind === "negative"
+                        ? "text-rose-600"
+                        : row.kind === "positive" || row.kind === "total"
+                          ? "text-emerald-600"
+                          : "text-slate-900"
+                    }`}
+                  >
+                    {fmtMoney(row.amount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
+        <div className="rounded-xl border border-slate-200 bg-white p-5" data-testid="asset-contribution-table">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                Asset Contribution Bridge
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Asset-level marks and realizations are ownership-adjusted before they enter the fund waterfall.
+              </p>
+            </div>
+            <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
+              {baseScenario.assumptions.liquidation_mode === "hypothetical_sale" ? "Hypothetical Sale" : "Current State"}
+            </div>
+          </div>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[860px] text-sm">
+              <thead className="border-b border-slate-200 text-left text-xs uppercase tracking-[0.12em] text-slate-400">
+                <tr>
+                  <th className="px-3 py-3 font-medium">Asset</th>
+                  <th className="px-3 py-3 font-medium">Status</th>
+                  <th className="px-3 py-3 font-medium text-right">Ownership</th>
+                  <th className="px-3 py-3 font-medium text-right">Attributable NAV</th>
+                  <th className="px-3 py-3 font-medium text-right">Realized Proceeds</th>
+                  <th className="px-3 py-3 font-medium text-right">Hypothetical Sale</th>
+                  <th className="px-3 py-3 font-medium text-right">Current Value</th>
                 </tr>
               </thead>
-              <tbody>
-                {[
-                  {
-                    metric: "IRR",
-                    gross: fmtPercent(m.gross_irr),
-                    net: fmtPercent(m.net_irr),
-                    drag: fmtSignedBps(-totalDragBps),
-                  },
-                  {
-                    metric: "TVPI",
-                    gross: fmtMultiple(m.gross_tvpi),
-                    net: fmtMultiple(m.net_tvpi),
-                    drag: fmtSignedMultiple(netTvpi - grossTvpi),
-                  },
-                  {
-                    metric: "DPI",
-                    gross: fmtMultiple(m.dpi),
-                    net: "—",
-                    drag: "—",
-                  },
-                  {
-                    metric: "Cash-on-Cash",
-                    gross: fmtPercent(m.cash_on_cash),
-                    net: "—",
-                    drag: "—",
-                  },
-                ].map((row, index) => (
-                  <tr
-                    key={row.metric}
-                    className={index % 2 === 0 ? "bg-slate-50" : "bg-white"}
-                  >
-                    <td className="px-3 py-3 font-medium text-slate-700">{row.metric}</td>
-                    <td className="px-3 py-3 text-right text-slate-900 tabular-nums">{row.gross}</td>
-                    <td className="px-3 py-3 text-right text-slate-900 tabular-nums">{row.net}</td>
-                    <td className="px-3 py-3 text-right text-slate-500 tabular-nums">{row.drag}</td>
+              <tbody className="divide-y divide-slate-100">
+                {sortedAssets.map((asset) => (
+                  <tr key={asset.asset_id}>
+                    <td className="px-3 py-3">
+                      <div>
+                        <p className="font-medium text-slate-900">{asset.asset_name}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {asset.investment_name}
+                          {asset.market ? ` · ${asset.market}` : ""}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                        asset.status_category === "active"
+                          ? "bg-blue-50 text-blue-700"
+                          : asset.status_category === "disposed"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-amber-50 text-amber-700"
+                      }`}>
+                        {asset.status_category}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-right tabular-nums text-slate-600">
+                      {fmtFlexiblePercent(asset.ownership_percent)}
+                    </td>
+                    <td className="px-3 py-3 text-right tabular-nums text-slate-900">
+                      {fmtMoney(asset.attributable_nav)}
+                    </td>
+                    <td className="px-3 py-3 text-right tabular-nums text-slate-900">
+                      {fmtMoney(asset.attributable_realized_proceeds)}
+                    </td>
+                    <td className="px-3 py-3 text-right tabular-nums text-slate-900">
+                      {asset.has_sale_assumption ? fmtMoney(asset.attributable_hypothetical_proceeds) : "—"}
+                    </td>
+                    <td className="px-3 py-3 text-right tabular-nums font-medium text-slate-900">
+                      {fmtMoney(asset.current_value_contribution)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -2240,45 +2242,49 @@ function ReturnsTab({ envId, businessId, fundId, quarter }: {
           </div>
         </div>
 
-        <div
-          className="h-[240px] rounded-lg border border-slate-100 bg-white p-6"
-          data-testid="gross-net-bridge"
-        >
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
-            Gross → Net Bridge
-          </h3>
-          <GrossNetBridgeWaterfall bars={bridgeBars} />
-        </div>
-      </div>
+        <div className="space-y-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-5" data-testid="waterfall-tier-results">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Waterfall Tier Results
+            </h3>
+            <div className="mt-4 overflow-hidden rounded-lg border border-slate-100">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-400">
+                  <tr>
+                    <th className="px-3 py-3 font-medium">Tier</th>
+                    <th className="px-3 py-3 font-medium text-right">LP</th>
+                    <th className="px-3 py-3 font-medium text-right">GP</th>
+                    <th className="px-3 py-3 font-medium text-right">Remaining</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {baseScenario.waterfall.tiers.map((tier) => (
+                    <tr key={tier.tier_code}>
+                      <td className="px-3 py-3 text-slate-600">{tier.tier_label}</td>
+                      <td className="px-3 py-3 text-right tabular-nums text-slate-900">{fmtMoney(tier.lp_amount)}</td>
+                      <td className="px-3 py-3 text-right tabular-nums text-slate-900">{fmtMoney(tier.gp_amount)}</td>
+                      <td className="px-3 py-3 text-right tabular-nums text-slate-500">{fmtMoney(tier.remaining_after)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-      {bm ? (
-        <div
-          className="mt-5 rounded-lg border border-slate-100 bg-white p-6"
-          data-testid="benchmark-comparison"
-        >
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
-            Vs Benchmark
-          </h3>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">Fund Net IRR</p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">{fmtPercent(m.net_irr)}</p>
-            </div>
-            <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">
-                {bm.benchmark_name.replace("_", " ")}
-              </p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">{fmtPercent(bm.total_return)}</p>
-            </div>
-            <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">Alpha</p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">
-                {bm.alpha != null ? fmtSignedBps(bm.alpha * 10000) : "—"}
-              </p>
+          <div className="rounded-xl border border-slate-200 bg-white p-5" data-testid="base-scenario-assumptions">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Modeling Conventions
+            </h3>
+            <div className="mt-4 space-y-3 text-sm text-slate-600">
+              <p>{baseScenario.assumptions.ownership_model}</p>
+              <p>{baseScenario.assumptions.realized_allocation_method}</p>
+              {baseScenario.assumptions.notes.map((note) => (
+                <p key={note}>{note}</p>
+              ))}
             </div>
           </div>
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
@@ -2703,14 +2709,11 @@ function ScenariosTab({ envId, businessId, fundId, quarter, deals, scenarios, on
 
       {/* Sticky Footer */}
       <div className="sticky bottom-0 z-10 rounded-xl border border-bm-border/70 bg-bm-surface p-3 flex items-center justify-end gap-3 shadow-xl" data-testid="model-footer">
-        <button
-          type="button"
+        <CircularCreateButton
+          tooltip="New Model"
           onClick={handleNewScenario}
           disabled={creating}
-          className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40 disabled:opacity-50"
-        >
-          + New Model
-        </button>
+        />
         <button
           type="button"
           className="rounded-lg border border-bm-accent/60 px-4 py-2 text-sm font-medium text-bm-accent hover:bg-bm-accent/10"

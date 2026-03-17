@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowDownCircle, DatabaseZap, FileUp, PlayCircle, Plus, RefreshCcw } from "lucide-react";
+import { CircularCreateButton } from "@/components/ui/CircularCreateButton";
 import { runFinWaterfall } from "@/lib/bos-api";
 import { useRepeBasePath, useRepeContext } from "@/lib/repe-context";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
@@ -420,10 +421,8 @@ export default function DistributionsPage() {
         description="Track declared distributions, allocations, payout status, and partner cash movement."
         actions={
           <>
-            <OperationsActionButton
-              label="New Distribution"
-              icon={<Plus className="h-4 w-4" />}
-              variant="primary"
+            <CircularCreateButton
+              tooltip="New Distribution"
               onClick={() => setActiveAction(activeAction === "new-distribution" ? null : "new-distribution")}
             />
             <OperationsActionButton

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
-import { Play, Copy, GitCompare, Loader2 } from "lucide-react";
+import { Copy, GitCompare, RefreshCw, Loader2 } from "lucide-react";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 
 import type { ReModel } from "@/components/repe/model/types";
@@ -15,6 +15,8 @@ import { ScenarioOverridesPanel } from "@/components/repe/model/ScenarioOverride
 import { ScenarioResultsPanel } from "@/components/repe/model/ScenarioResultsPanel";
 import { ScenarioComparePanel } from "@/components/repe/model/ScenarioComparePanel";
 import { AssetModelingDrawer } from "@/components/repe/model/AssetModelingDrawer";
+import { SchemaNotReady } from "@/components/repe/model/SchemaNotReady";
+import { useAutoRecalc } from "@/hooks/useAutoRecalc";
 import {
   listModelScenarios,
   createModelScenario,
@@ -25,7 +27,6 @@ import {
   removeScenarioAsset,
   listAvailableAssets,
   listScenarioOverrides,
-  runScenarioV2,
 } from "@/lib/bos-api";
 import type {
   ModelScenario,
@@ -33,6 +34,16 @@ import type {
   AvailableAsset,
   ScenarioOverride,
 } from "@/lib/bos-api";
+
+function formatRelativeTime(date: Date): string {
+  const diffMs = Date.now() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 10) return "just now";
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  return `${Math.floor(diffMin / 60)}h ago`;
+}
 
 export default function ModelWorkspacePage() {
   const params = useParams();
@@ -51,7 +62,7 @@ export default function ModelWorkspacePage() {
   const [drawerAssetId, setDrawerAssetId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [runningScenario, setRunningScenario] = useState(false);
+  const [schemaError, setSchemaError] = useState(false);
 
   const activeScenario = useMemo(
     () => scenarios.find((s) => s.id === activeScenarioId) ?? null,
@@ -72,8 +83,17 @@ export default function ModelWorkspacePage() {
       apiFetch<ReModel>(`/api/re/v2/models/${modelId}`),
       listModelScenarios(modelId),
     ]).then(([modelRes, scenariosRes]) => {
-      if (modelRes.status === "fulfilled") setModel(modelRes.value);
-      else setError("Failed to load model");
+      if (modelRes.status === "fulfilled") {
+        setModel(modelRes.value);
+      } else {
+        const reason = modelRes.reason;
+        const msg = reason instanceof Error ? reason.message : String(reason);
+        if (msg.includes("SCHEMA_NOT_MIGRATED") || msg.includes("schema not migrated")) {
+          setSchemaError(true);
+        } else {
+          setError("Failed to load model");
+        }
+      }
       if (scenariosRes.status === "fulfilled") {
         const sc = scenariosRes.value;
         setScenarios(sc);
@@ -98,6 +118,24 @@ export default function ModelWorkspacePage() {
       if (ovRes.status === "fulfilled") setOverrides(ovRes.value);
     });
   }, [activeScenarioId, envId]);
+
+  const isLocked = model?.status === "archived" || model?.status === "official_base_case";
+  const isArchived = model?.status === "archived";
+
+  // Auto-recalc hook
+  const {
+    triggerRecalc,
+    manualRecalc,
+    status: recalcStatus,
+    result: recalcResult,
+    lastUpdatedAt,
+    error: recalcError,
+  } = useAutoRecalc(activeScenarioId, !isLocked && scenarioAssets.length > 0);
+
+  const modifiedAssetCount = useMemo(() => {
+    const assetIds = new Set(overrides.filter((o) => o.scope_type === "asset").map((o) => o.scope_id));
+    return assetIds.size;
+  }, [overrides]);
 
   // Handlers
   const handleStatusChange = useCallback(async (newStatus: string) => {
@@ -149,19 +187,6 @@ export default function ModelWorkspacePage() {
     }
   }, [activeScenarioId, scenarios]);
 
-  const handleRunScenario = useCallback(async () => {
-    if (!activeScenarioId || scenarioAssets.length === 0) return;
-    setRunningScenario(true);
-    try {
-      await runScenarioV2(activeScenarioId);
-      setActiveTab("results");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Scenario run failed");
-    } finally {
-      setRunningScenario(false);
-    }
-  }, [activeScenarioId, scenarioAssets.length]);
-
   const handleAddAsset = useCallback(async (asset: AvailableAsset) => {
     if (!activeScenarioId) return;
     try {
@@ -178,10 +203,11 @@ export default function ModelWorkspacePage() {
       };
       setScenarioAssets((prev) => [...prev, enriched]);
       setAvailableAssets((prev) => prev.filter((a) => a.asset_id !== asset.asset_id));
+      triggerRecalc();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add asset");
     }
-  }, [activeScenarioId]);
+  }, [activeScenarioId, triggerRecalc]);
 
   const handleRemoveAsset = useCallback(async (assetId: string) => {
     if (!activeScenarioId) return;
@@ -200,10 +226,11 @@ export default function ModelWorkspacePage() {
         }]);
       }
       if (drawerAssetId === assetId) setDrawerAssetId(null);
+      triggerRecalc();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to remove asset");
     }
-  }, [activeScenarioId, scenarioAssets, drawerAssetId]);
+  }, [activeScenarioId, scenarioAssets, drawerAssetId, triggerRecalc]);
 
   const handleAddAllAssets = useCallback(async () => {
     if (!activeScenarioId) return;
@@ -223,15 +250,14 @@ export default function ModelWorkspacePage() {
       } catch { /* skip duplicates */ }
     }
     setAvailableAssets([]);
-  }, [activeScenarioId, availableAssets]);
-
-  const isArchived = model?.status === "archived";
-  const modifiedAssetCount = useMemo(() => {
-    const assetIds = new Set(overrides.filter((o) => o.scope_type === "asset").map((o) => o.scope_id));
-    return assetIds.size;
-  }, [overrides]);
+    triggerRecalc();
+  }, [activeScenarioId, availableAssets, triggerRecalc]);
 
   if (loading) return <div className="p-6 text-xs text-bm-muted2">Loading model...</div>;
+
+  if (schemaError) {
+    return <SchemaNotReady onRetry={() => window.location.reload()} />;
+  }
 
   if (!model) {
     return (
@@ -276,40 +302,99 @@ export default function ModelWorkspacePage() {
                 <span className="text-blue-400">{modifiedAssetCount} modified</span>
               )}
             </div>
+            {recalcResult && scenarioAssets.length > 1 && (
+              <div className="flex gap-3 border-l border-bm-border/30 pl-3 ml-1 tabular-nums text-[10px]">
+                <span className="text-bm-muted2">
+                  NOI{" "}
+                  <span className="text-bm-text font-medium">
+                    {(() => {
+                      const noi = Number(recalcResult.summary?.total_noi ?? 0);
+                      return Math.abs(noi) >= 1_000_000
+                        ? `$${(noi / 1_000_000).toFixed(1)}M`
+                        : `$${(noi / 1_000).toFixed(0)}K`;
+                    })()}
+                  </span>
+                </span>
+                {(() => {
+                  const fundRow = recalcResult.metrics.find((m) => m.scope_type === "fund");
+                  return fundRow?.gross_irr != null ? (
+                    <span className="text-bm-muted2">
+                      IRR{" "}
+                      <span className="text-bm-accent font-medium">
+                        {(fundRow.gross_irr * 100).toFixed(1)}%
+                      </span>
+                    </span>
+                  ) : null;
+                })()}
+                {(() => {
+                  const fundRow = recalcResult.metrics.find((m) => m.scope_type === "fund");
+                  return fundRow?.gross_moic != null ? (
+                    <span className="text-bm-muted2">
+                      MOIC{" "}
+                      <span className="text-bm-text font-medium">
+                        {fundRow.gross_moic.toFixed(2)}x
+                      </span>
+                    </span>
+                  ) : null;
+                })()}
+              </div>
+            )}
           </div>
 
+          {/* Recalc Status */}
+          {recalcStatus === "dirty" && (
+            <span className="inline-flex items-center gap-1 text-[10px] text-amber-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+              Pending recalculation
+            </span>
+          )}
+          {recalcStatus === "recalculating" && (
+            <span className="inline-flex items-center gap-1 text-[10px] text-bm-accent">
+              <Loader2 size={10} className="animate-spin" />
+              Updating...
+            </span>
+          )}
+          {recalcStatus === "idle" && lastUpdatedAt && (
+            <span className="text-[10px] text-bm-muted2">
+              Updated {formatRelativeTime(lastUpdatedAt)}
+            </span>
+          )}
+
           {/* Actions */}
-          {!isArchived && (
-            <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={manualRecalc}
+              disabled={recalcStatus === "recalculating" || scenarioAssets.length === 0 || isLocked}
+              className="inline-flex items-center gap-1 rounded border border-bm-border/40 px-2.5 py-1 text-[10px] text-bm-muted2 hover:bg-bm-surface/20 hover:text-bm-text disabled:opacity-40"
+            >
+              {recalcStatus === "recalculating" ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+              Recalculate
+            </button>
+            {activeScenarioId && !activeScenario.is_base && !isLocked && (
               <button
-                onClick={handleRunScenario}
-                disabled={runningScenario || scenarioAssets.length === 0}
-                className="inline-flex items-center gap-1 rounded bg-bm-accent px-2.5 py-1 text-[10px] font-medium text-white hover:bg-bm-accent/90 disabled:opacity-40"
-              >
-                {runningScenario ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />}
-                {runningScenario ? "Running..." : "Run"}
-              </button>
-              {activeScenarioId && !activeScenario.is_base && (
-                <button
-                  onClick={() => handleCloneScenario(activeScenarioId)}
-                  className="inline-flex items-center gap-1 rounded border border-bm-border/40 px-2 py-1 text-[10px] text-bm-muted2 hover:bg-bm-surface/20 hover:text-bm-text"
-                >
-                  <Copy size={10} />
-                  Clone
-                </button>
-              )}
-              <button
-                onClick={() => setActiveTab("compare")}
+                onClick={() => handleCloneScenario(activeScenarioId)}
                 className="inline-flex items-center gap-1 rounded border border-bm-border/40 px-2 py-1 text-[10px] text-bm-muted2 hover:bg-bm-surface/20 hover:text-bm-text"
               >
-                <GitCompare size={10} />
-                Compare
+                <Copy size={10} />
+                Clone
               </button>
-            </div>
-          )}
+            )}
+            <button
+              onClick={() => setActiveTab("compare")}
+              className="inline-flex items-center gap-1 rounded border border-bm-border/40 px-2 py-1 text-[10px] text-bm-muted2 hover:bg-bm-surface/20 hover:text-bm-text"
+            >
+              <GitCompare size={10} />
+              Compare
+            </button>
+          </div>
         </div>
       )}
 
+      {model.status === "official_base_case" && (
+        <div className="rounded border border-green-500/30 bg-green-500/5 px-3 py-2 text-xs text-green-300">
+          This model is the Official Base Case and is locked from edits.
+        </div>
+      )}
       {isArchived && (
         <div className="rounded border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-300">
           This model is archived and read-only.
@@ -324,7 +409,7 @@ export default function ModelWorkspacePage() {
           onCreate={handleCreateScenario}
           onClone={handleCloneScenario}
           onDelete={handleDeleteScenario}
-          readOnly={isArchived}
+          readOnly={isLocked}
         />
 
         <div className="flex-1 space-y-4 min-w-0">
@@ -339,7 +424,7 @@ export default function ModelWorkspacePage() {
               onRemoveAsset={handleRemoveAsset}
               onAddAll={handleAddAllAssets}
               onOpenAsset={setDrawerAssetId}
-              readOnly={isArchived}
+              readOnly={isLocked}
             />
           )}
 
@@ -349,7 +434,8 @@ export default function ModelWorkspacePage() {
               scenarioAssets={scenarioAssets}
               overrides={overrides}
               onOverridesChange={setOverrides}
-              readOnly={isArchived}
+              onOverrideSaved={triggerRecalc}
+              readOnly={isLocked}
             />
           )}
 
@@ -357,6 +443,11 @@ export default function ModelWorkspacePage() {
             <ScenarioResultsPanel
               scenarioId={activeScenarioId}
               assetCount={scenarioAssets.length}
+              result={recalcResult}
+              status={recalcStatus}
+              lastUpdatedAt={lastUpdatedAt}
+              onManualRecalc={manualRecalc}
+              recalcError={recalcError}
             />
           )}
 
@@ -370,7 +461,7 @@ export default function ModelWorkspacePage() {
           {!activeScenarioId && (
             <div className="rounded-lg border border-bm-border/50 bg-bm-surface/10 p-8 text-center">
               <p className="text-xs text-bm-muted2">No scenarios found. Create a scenario to get started.</p>
-              {!isArchived && (
+              {!isLocked && (
                 <button
                   onClick={() => handleCreateScenario("Base Case")}
                   className="mt-3 rounded bg-bm-accent px-4 py-1.5 text-xs font-medium text-white hover:bg-bm-accent/90"
@@ -391,7 +482,7 @@ export default function ModelWorkspacePage() {
           asset={drawerAsset}
           overrides={overrides}
           onOverridesChange={setOverrides}
-          readOnly={isArchived}
+          readOnly={isLocked}
         />
       )}
 

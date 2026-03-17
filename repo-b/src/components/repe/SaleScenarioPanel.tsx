@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   createSaleAssumption,
   computeScenarioMetrics,
@@ -53,6 +53,24 @@ export default function SaleScenarioPanel({ fundId, scenarioId, deals, envId, bu
     saleDate?: string;
   }>({});
   const [computeError, setComputeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setError(null);
+    listSaleAssumptions(fundId, scenarioId)
+      .then((rows) => {
+        if (!cancelled) setAssumptions(rows);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setAssumptions([]);
+          setError(err instanceof Error ? err.message : "Failed to load sale assumptions");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fundId, scenarioId]);
 
   async function handleAddSale() {
     const newErrors: typeof fieldErrors = {};

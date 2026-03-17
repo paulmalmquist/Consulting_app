@@ -108,41 +108,6 @@ def create_model(
             """,
             (str(model["model_id"]),),
         )
-        base_row = cur.fetchone()
-
-        # Auto-populate Base Case with all active assets for the fund/environment
-        if base_row:
-            base_scenario_id = str(base_row["id"])
-            if fund_id:
-                # Fund-scoped: add all assets from this fund's deals
-                cur.execute(
-                    """
-                    INSERT INTO re_model_scenario_assets (scenario_id, asset_id, source_fund_id, source_investment_id)
-                    SELECT %s, a.asset_id, d.fund_id, d.deal_id
-                    FROM repe_asset a
-                    JOIN repe_deal d ON d.deal_id = a.deal_id
-                    WHERE d.fund_id = %s
-                    ON CONFLICT (scenario_id, asset_id) DO NOTHING
-                    """,
-                    (base_scenario_id, str(fund_id)),
-                )
-            elif env_id:
-                # Environment-scoped: add all assets for funds in this environment's business
-                cur.execute(
-                    """
-                    INSERT INTO re_model_scenario_assets (scenario_id, asset_id, source_fund_id, source_investment_id)
-                    SELECT %s, a.asset_id, d.fund_id, d.deal_id
-                    FROM repe_asset a
-                    JOIN repe_deal d ON d.deal_id = a.deal_id
-                    JOIN repe_fund f ON f.fund_id = d.fund_id
-                    WHERE f.business_id IN (
-                        SELECT business_id FROM env_business_bindings WHERE env_id = %s
-                    )
-                    ON CONFLICT (scenario_id, asset_id) DO NOTHING
-                    """,
-                    (base_scenario_id, str(env_id)),
-                )
-
         return model
 
 
@@ -190,11 +155,20 @@ def update_model(*, model_id: UUID, payload: dict) -> dict:
 
 
 def approve_model(*, model_id: UUID) -> dict:
+    """Legacy alias — routes to set_official_base_case for backward compat."""
+    return set_official_base_case(model_id=model_id)
+
+
+def set_official_base_case(*, model_id: UUID) -> dict:
+    """Promote model to Official Base Case — locks edits."""
     with get_cursor() as cur:
         cur.execute(
             f"""
             UPDATE re_model
-            SET status = 'approved', approved_at = now(), updated_at = now()
+            SET status = 'official_base_case',
+                approved_at = COALESCE(approved_at, now()),
+                locked_at = COALESCE(locked_at, now()),
+                updated_at = now()
             WHERE model_id = %s
             RETURNING {_MODEL_COLS}
             """,
@@ -206,25 +180,40 @@ def approve_model(*, model_id: UUID) -> dict:
         return row
 
 
-def lock_model(*, model_id: UUID) -> dict:
-    """Lock a model (set locked_at). Model must have a model_type set."""
+def unset_official_base_case(*, model_id: UUID) -> dict:
+    """Return model from Official Base Case to Draft — unlocks edits."""
     with get_cursor() as cur:
         cur.execute(
             f"""
             UPDATE re_model
-            SET status = 'approved', approved_at = COALESCE(approved_at, now()),
-                locked_at = now(), updated_at = now()
-            WHERE model_id = %s AND locked_at IS NULL
+            SET status = 'draft', locked_at = NULL, updated_at = now()
+            WHERE model_id = %s AND status = 'official_base_case'
             RETURNING {_MODEL_COLS}
             """,
             (str(model_id),),
         )
         row = cur.fetchone()
         if not row:
-            raise LookupError(f"Model {model_id} not found or already locked")
-        if not row.get("model_type") or row["model_type"] == "scenario":
-            raise ValueError("Set model_type before locking (e.g. underwriting_io, forecast)")
+            raise LookupError(f"Model {model_id} not found or not in Official Base Case state")
         return row
+
+
+def is_model_locked(*, model_id: UUID) -> bool:
+    """Check if model is in a locked state (official_base_case or archived)."""
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT status FROM re_model WHERE model_id = %s",
+            (str(model_id),),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise LookupError(f"Model {model_id} not found")
+        return row["status"] in ("official_base_case", "archived")
+
+
+def lock_model(*, model_id: UUID) -> dict:
+    """Lock a model (set locked_at). Model must have a model_type set."""
+    return set_official_base_case(model_id=model_id)
 
 
 def archive_model(*, model_id: UUID) -> dict:
