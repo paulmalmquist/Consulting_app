@@ -33,7 +33,7 @@ export default function BorrowerUploadPortalPage() {
     setError(null);
     try {
       const data = await getDocCompletionPortal(token);
-      if ((data as Record<string, unknown>).error === "token_expired") {
+      if ((data as unknown as Record<string, unknown>).error === "token_expired") {
         setError("This upload link has expired. Please contact your loan officer for a new link.");
         setPortal(null);
       } else {
