@@ -70,7 +70,9 @@ describe("RE models page create flow", () => {
 
     render(<ReModelsPage />);
 
-    await screen.findByText("No models yet. Create one below.");
+    // Wait for empty state, then open the create dialog
+    await screen.findByText("No models yet");
+    await user.click(screen.getByTestId("empty-create-model-btn"));
 
     await user.type(screen.getByTestId("model-name-input"), "New Model");
     await user.type(screen.getByTestId("model-desc-input"), "Underwritten base case");
@@ -101,7 +103,9 @@ describe("RE models page create flow", () => {
 
     render(<ReModelsPage />);
 
-    await screen.findByText("No models yet. Create one below.");
+    // Wait for empty state, then open the create dialog
+    await screen.findByText("No models yet");
+    await user.click(screen.getByTestId("empty-create-model-btn"));
     await user.click(screen.getByTestId("create-model-btn"));
 
     expect(await screen.findByText("Model name is required.")).toBeInTheDocument();
@@ -111,7 +115,11 @@ describe("RE models page create flow", () => {
   test("surfaces the no-funds state and disables create", async () => {
     mockListReV1Funds.mockResolvedValueOnce([]);
 
+    const user = userEvent.setup();
     render(<ReModelsPage />);
+
+    // Open the create dialog via the header button
+    await user.click(await screen.findByTestId("new-model-btn"));
 
     expect(await screen.findByText("No funds are available in this environment. Create a fund before creating a model.")).toBeInTheDocument();
     expect(screen.getByTestId("create-model-btn")).toBeDisabled();

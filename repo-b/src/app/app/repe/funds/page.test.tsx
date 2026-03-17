@@ -18,10 +18,17 @@ vi.mock("@/lib/repe-context", () => ({
   useRepeBasePath: () => "/lab/env/test-env/re",
 }));
 
+const mockGetCapitalActivity = vi.fn();
+const mockGetAssetMapPoints = vi.fn();
+const mockDeleteRepeFund = vi.fn();
+
 vi.mock("@/lib/bos-api", () => ({
   listReV1Funds: (...args: unknown[]) => mockListReV1Funds(...args),
   getReV2EnvironmentPortfolioKpis: (...args: unknown[]) =>
     mockGetReV2EnvironmentPortfolioKpis(...args),
+  getCapitalActivity: (...args: unknown[]) => mockGetCapitalActivity(...args),
+  getAssetMapPoints: (...args: unknown[]) => mockGetAssetMapPoints(...args),
+  deleteRepeFund: (...args: unknown[]) => mockDeleteRepeFund(...args),
 }));
 
 const MOCK_FUNDS = [
@@ -83,6 +90,8 @@ describe("REPE funds page", () => {
       initializeWorkspace: vi.fn(),
     });
     mockListReV1Funds.mockResolvedValue([]);
+    mockGetCapitalActivity.mockResolvedValue({ summary: {}, series: [] });
+    mockGetAssetMapPoints.mockResolvedValue([]);
     mockGetReV2EnvironmentPortfolioKpis.mockResolvedValue({
       env_id: "test-env",
       business_id: "test-biz",
