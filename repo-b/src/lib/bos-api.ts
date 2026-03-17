@@ -3943,7 +3943,7 @@ export function getModel(modelId: string): Promise<ReV2Model> {
 
 // Model Scenarios
 export function listModelScenarios(modelId: string): Promise<ModelScenario[]> {
-  return directFetch(`/api/re/v2/models/${modelId}/scenarios`);
+  return bosFetch(`/api/re/v2/models/${modelId}/scenarios`);
 }
 
 export function createModelScenario(modelId: string, body: {
@@ -3959,7 +3959,7 @@ export function createModelScenario(modelId: string, body: {
 }
 
 export function getModelScenario(scenarioId: string): Promise<ModelScenario> {
-  return directFetch(`/api/re/v2/model-scenarios/${scenarioId}`);
+  return bosFetch(`/api/re/v2/model-scenarios/${scenarioId}`);
 }
 
 export function cloneModelScenario(scenarioId: string, newName: string): Promise<ModelScenario> {
@@ -4031,7 +4031,7 @@ export function runScenario(scenarioId: string): Promise<ScenarioRunResult> {
 }
 
 export function getModelRun(runId: string): Promise<ModelRunDetail> {
-  return directFetch(`/api/re/v2/model-runs/${runId}`);
+  return bosFetch(`/api/re/v2/model-runs/${runId}`);
 }
 
 export function compareScenarios(modelId: string, scenarioIds: string[]): Promise<ScenarioCompareResult> {
