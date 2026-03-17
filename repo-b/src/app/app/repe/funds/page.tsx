@@ -10,7 +10,13 @@ import {
   ReV2EnvironmentPortfolioKpis,
   listReV1Funds,
   RepeFund,
+  getCapitalActivity,
+  getAssetMapPoints,
+  type CapitalActivityResponse,
+  type AssetMapResponse,
 } from "@/lib/bos-api";
+import { CapitalActivityCard } from "@/components/repe/portfolio/CapitalActivityCard";
+import { PortfolioAssetMap } from "@/components/repe/portfolio/PortfolioAssetMap";
 import { FundDeleteDialog } from "@/components/repe/FundDeleteDialog";
 import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
@@ -88,6 +94,11 @@ function RepeFundsPageContent() {
   const [deletingFundId, setDeletingFundId] = useState<string | null>(null);
   const [sortCol, setSortCol] = useState<SortColumn | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [capitalActivity, setCapitalActivity] = useState<CapitalActivityResponse | null>(null);
+  const [capitalActivityLoading, setCapitalActivityLoading] = useState(true);
+  const [capitalActivityHorizon, setCapitalActivityHorizon] = useState<"12m" | "24m" | "all">("24m");
+  const [assetMap, setAssetMap] = useState<AssetMapResponse | null>(null);
+  const [assetMapLoading, setAssetMapLoading] = useState(true);
   const quarter = pickCurrentQuarter();
 
   const strategyFilter = searchParams.get("strategy") || "All";
@@ -138,6 +149,33 @@ function RepeFundsPageContent() {
   useEffect(() => {
     void refreshPortfolioKpis();
   }, [refreshPortfolioKpis]);
+
+  // Fetch capital activity for overview chart
+  useEffect(() => {
+    if (!businessId && !environmentId) return;
+    setCapitalActivityLoading(true);
+    getCapitalActivity({
+      env_id: environmentId || undefined,
+      business_id: businessId || undefined,
+      horizon: capitalActivityHorizon,
+    })
+      .then(setCapitalActivity)
+      .catch(() => setCapitalActivity(null))
+      .finally(() => setCapitalActivityLoading(false));
+  }, [businessId, environmentId, capitalActivityHorizon]);
+
+  // Fetch asset map points for overview map
+  useEffect(() => {
+    if (!businessId && !environmentId) return;
+    setAssetMapLoading(true);
+    getAssetMapPoints({
+      env_id: environmentId || undefined,
+      business_id: businessId || undefined,
+    })
+      .then(setAssetMap)
+      .catch(() => setAssetMap(null))
+      .finally(() => setAssetMapLoading(false));
+  }, [businessId, environmentId]);
 
   const strategies = useMemo(() => {
     const set = new Set<string>();
@@ -319,7 +357,22 @@ function RepeFundsPageContent() {
             + New Fund
           </Link>
         }
-        metrics={<KpiStrip variant="band" kpis={kpis} />}
+        metrics={
+          <>
+            <KpiStrip variant="band" kpis={kpis} />
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <CapitalActivityCard
+                data={capitalActivity}
+                loading={capitalActivityLoading}
+                onHorizonChange={setCapitalActivityHorizon}
+              />
+              <PortfolioAssetMap
+                data={assetMap}
+                loading={assetMapLoading}
+              />
+            </div>
+          </>
+        }
         controls={
           <div className="flex flex-wrap items-end gap-x-3 gap-y-3 border-b border-bm-border/20 pb-5">
             <label className={reIndexControlLabelClass}>

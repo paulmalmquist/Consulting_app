@@ -92,8 +92,8 @@ export function buildRepeNavGroups({
       icon: Users,
       items: [
         { href: `${base}/investors`, label: "Investors", isBase: false, icon: Users },
-        { href: `${base}/capital-calls`, label: "Capital Calls", isBase: false, icon: ArrowUpCircle },
-        { href: `${base}/distributions`, label: "Distributions", isBase: false, icon: ArrowDownCircle },
+        { href: `${base}/capital-calls`, label: "Capital Call Ops", isBase: false, icon: ArrowUpCircle },
+        { href: `${base}/distributions`, label: "Distribution Ops", isBase: false, icon: ArrowDownCircle },
         { href: `${base}/fees`, label: "Fees", isBase: false, icon: WalletCards },
       ],
     },

@@ -47,12 +47,23 @@ This file is the human-facing registry for every routed markdown doc in the repo
 | `sync-winston` | `agent` | `active` | `scripts, cross-repo` | `yes` | `agents/sync.md` |
 | `feature-dev` | `skill` | `active` | `backend, repo-b, repo-c, scripts, orchestration` | `yes` | `.skills/feature-dev/SKILL.md` |
 | `research-ingest` | `skill` | `active` | `docs, cross-repo` | `yes` | `.skills/research-ingest/SKILL.md` |
+| `credit-decisioning` | `skill` | `active` | `backend, repo-b` | `yes` | `.skills/credit-decisioning/SKILL.md` |
 | `winston-router` | `skill` | `active` | `cross-repo` | `yes` | `skills/winston-router/SKILL.md` |
+| `winston-session-bootstrap` | `skill` | `active` | `cross-repo` | `yes` | `skills/winston-session-bootstrap/SKILL.md` |
+| `winston-chat-workspace` | `skill` | `active` | `repo-b, backend` | `yes` | `skills/winston-chat-workspace/SKILL.md` |
+| `winston-dashboard-composition` | `skill` | `active` | `repo-b, backend` | `yes` | `skills/winston-dashboard-composition/SKILL.md` |
+| `winston-agentic-build` | `skill` | `active` | `backend, repo-b` | `yes` | `skills/winston-agentic-build/SKILL.md` |
+| `winston-remediation-playbook` | `skill` | `active` | `docs, backend, repo-b` | `yes` | `skills/winston-remediation-playbook/SKILL.md` |
+| `winston-document-pipeline` | `skill` | `active` | `backend, repo-b` | `yes` | `skills/winston-document-pipeline/SKILL.md` |
+| `winston-performance-architecture` | `skill` | `active` | `backend, repo-b` | `yes` | `skills/winston-performance-architecture/SKILL.md` |
+| `winston-credit-environment` | `skill` | `active` | `backend, repo-b, supabase` | `yes` | `skills/winston-credit-environment/SKILL.md` |
+| `winston-pds-delivery` | `skill` | `active` | `backend, repo-b, docs` | `yes` | `skills/winston-pds-delivery/SKILL.md` |
 | `winston-agentic-prompt` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/WINSTON_AGENTIC_PROMPT.md` |
 | `winston-behavior-guardrails` | `prompt` | `active` | `docs, backend` | `yes` | `docs/WINSTON_BEHAVIOR_GUARDRAILS_PROMPT.md` |
 | `winston-document-asset-creation` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/WINSTON_DOCUMENT_ASSET_CREATION_PROMPT.md` |
 | `winston-latency-optimization` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/WINSTON_LATENCY_OPTIMIZATION_PROMPT.md` |
 | `winston-reranking-model-dispatch` | `prompt` | `active` | `docs, backend` | `yes` | `docs/WINSTON_RERANKING_AND_MODEL_DISPATCH_PROMPT.md` |
+| `winston-credit-decisioning-prompt` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/WINSTON_CREDIT_DECISIONING_PROMPT.md` |
 
 ## Supporting And Registry Docs
 

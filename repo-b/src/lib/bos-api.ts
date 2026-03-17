@@ -4740,6 +4740,10 @@ export type ReV2Model = {
   approved_by?: string;
   created_at: string;
   updated_at?: string;
+  scenario_count?: number;
+  last_run_at?: string | null;
+  last_run_status?: string | null;
+  scope_count?: number;
 };
 
 export type ModelScenario = {
@@ -7620,4 +7624,287 @@ export function getPdsAccount360(envId: string, businessId: string, accountId: s
 
 export function seedPdsAnalytics(envId: string, businessId?: string): Promise<{ status: string; counts: Record<string, number> }> {
   return bosFetch("/api/pds/v2/seed-analytics", { method: "POST", params: { env_id: envId, business_id: businessId } });
+}
+
+// ---------------------------------------------------------------------------
+// Document Completion Agent
+// ---------------------------------------------------------------------------
+
+export interface DcDocRequirement {
+  requirement_id: string;
+  doc_type: string;
+  display_name: string;
+  is_required: boolean;
+  status: string;
+  notes: string | null;
+  uploaded_at: string | null;
+  accepted_at: string | null;
+  rejected_at: string | null;
+  waived_at: string | null;
+  created_at: string;
+}
+
+export interface DcBorrower {
+  borrower_id: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  mobile: string | null;
+  preferred_channel: string;
+  timezone: string;
+  consent_sms: boolean;
+  consent_email: boolean;
+  created_at: string;
+}
+
+export interface DcMessageEvent {
+  message_event_id: string;
+  channel: string;
+  message_type: string;
+  subject: string | null;
+  content_snapshot: string;
+  external_message_id: string | null;
+  sent_at: string | null;
+  delivered_at: string | null;
+  opened_at: string | null;
+  failed_at: string | null;
+  failure_reason: string | null;
+  created_at: string;
+}
+
+export interface DcUploadEvent {
+  upload_event_id: string;
+  requirement_id: string;
+  filename: string;
+  file_type: string;
+  file_size_bytes: number | null;
+  upload_status: string;
+  created_at: string;
+}
+
+export interface DcEscalationEvent {
+  escalation_event_id: string;
+  reason: string;
+  priority: string;
+  assigned_to: string | null;
+  status: string;
+  resolution_note: string | null;
+  triggered_at: string;
+  resolved_at: string | null;
+}
+
+export interface DcLoanFile {
+  loan_file_id: string;
+  env_id: string;
+  business_id: string;
+  external_application_id: string;
+  loan_type: string;
+  loan_stage: string;
+  status: string;
+  assigned_processor_id: string | null;
+  followup_count: number;
+  max_followups: number;
+  opened_at: string;
+  completed_at: string | null;
+  escalated_at: string | null;
+  last_activity_at: string;
+  last_outreach_at: string | null;
+  created_at: string;
+  borrower: DcBorrower | null;
+  requirements: DcDocRequirement[];
+  messages: DcMessageEvent[];
+  uploads: DcUploadEvent[];
+  escalations: DcEscalationEvent[];
+  total_required: number;
+  total_received: number;
+  total_missing: number;
+}
+
+export interface DcLoanFileListItem {
+  loan_file_id: string;
+  external_application_id: string;
+  borrower_name: string;
+  loan_type: string;
+  status: string;
+  total_required: number;
+  total_received: number;
+  total_missing: number;
+  assigned_processor_id: string | null;
+  escalation_status: string | null;
+  last_activity_at: string;
+  last_outreach_at: string | null;
+  opened_at: string;
+}
+
+export interface DcDashboardStats {
+  total_active: number;
+  waiting_on_borrower: number;
+  escalated: number;
+  completed_today: number;
+  avg_completion_hours: number | null;
+  total_messages_sent: number;
+  borrower_response_rate: number | null;
+}
+
+export interface DcPortalDoc {
+  requirement_id: string;
+  doc_type: string;
+  display_name: string;
+  status: string;
+}
+
+export interface DcPortalFile {
+  external_application_id: string;
+  loan_type: string;
+  lender_name: string;
+  borrower_first_name: string;
+  requirements: DcPortalDoc[];
+}
+
+export interface DcAuditLogEntry {
+  audit_log_id: string;
+  entity_type: string;
+  entity_id: string;
+  action: string;
+  actor_type: string;
+  actor_id: string | null;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+}
+
+// ── Doc Completion API Functions ──
+
+export function listDocCompletionFiles(envId: string, businessId?: string, status?: string): Promise<DcLoanFileListItem[]> {
+  return bosFetch("/api/doc-completion/v1/files", { params: { env_id: envId, business_id: businessId, status } });
+}
+
+export function getDocCompletionFile(envId: string, fileId: string, businessId?: string): Promise<DcLoanFile> {
+  return bosFetch(`/api/doc-completion/v1/files/${fileId}`, { params: { env_id: envId, business_id: businessId } });
+}
+
+export function createDocCompletionApplication(envId: string, body: Record<string, unknown>, businessId?: string): Promise<Record<string, unknown>> {
+  return bosFetch("/api/doc-completion/v1/applications", {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId },
+    body: JSON.stringify({ ...body, env_id: envId, business_id: businessId }),
+  });
+}
+
+export function getDocCompletionStats(envId: string, businessId?: string): Promise<DcDashboardStats> {
+  return bosFetch("/api/doc-completion/v1/dashboard/stats", { params: { env_id: envId, business_id: businessId } });
+}
+
+export function sendDocCompletionOutreach(envId: string, fileId: string, body?: { channel?: string; message?: string; sent_by?: string }, businessId?: string): Promise<Record<string, unknown>[]> {
+  return bosFetch(`/api/doc-completion/v1/files/${fileId}/outreach`, {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId },
+    body: JSON.stringify(body || {}),
+  });
+}
+
+export function acceptDocRequirement(envId: string, fileId: string, reqId: string, businessId?: string): Promise<Record<string, unknown>> {
+  return bosFetch(`/api/doc-completion/v1/files/${fileId}/docs/${reqId}/accept`, {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function rejectDocRequirement(envId: string, fileId: string, reqId: string, notes?: string, businessId?: string): Promise<Record<string, unknown>> {
+  return bosFetch(`/api/doc-completion/v1/files/${fileId}/docs/${reqId}/reject`, {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId, notes },
+  });
+}
+
+export function waiveDocRequirement(envId: string, fileId: string, reqId: string, businessId?: string): Promise<Record<string, unknown>> {
+  return bosFetch(`/api/doc-completion/v1/files/${fileId}/docs/${reqId}/waive`, {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function resolveDocEscalation(envId: string, fileId: string, escId: string, body: { resolution_note?: string; status?: string }, businessId?: string): Promise<Record<string, unknown>> {
+  return bosFetch(`/api/doc-completion/v1/files/${fileId}/escalations/${escId}/resolve`, {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId },
+    body: JSON.stringify(body),
+  });
+}
+
+export function getDocCompletionAuditLog(envId: string, fileId: string, businessId?: string): Promise<DcAuditLogEntry[]> {
+  return bosFetch(`/api/doc-completion/v1/files/${fileId}/audit`, { params: { env_id: envId, business_id: businessId } });
+}
+
+export function getDocCompletionPortal(token: string): Promise<DcPortalFile> {
+  return bosFetch(`/api/doc-completion/v1/portal/${token}`, {});
+}
+
+export function uploadDocCompletionPortal(token: string, formData: FormData): Promise<Record<string, unknown>> {
+  return bosFetch(`/api/doc-completion/v1/portal/${token}/upload`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+/* ─── Portfolio Overview: Capital Activity + Asset Map ──────────────── */
+
+export interface CapitalActivitySummary {
+  total_contributed: string;
+  total_distributed: string;
+  net_capital_movement: string;
+}
+
+export interface CapitalActivityPeriod {
+  period: string;
+  contributions: number;
+  distributions: number;
+}
+
+export interface CapitalActivityResponse {
+  summary: CapitalActivitySummary;
+  series: CapitalActivityPeriod[];
+}
+
+export function getCapitalActivity(params: {
+  env_id?: string;
+  business_id?: string;
+  horizon?: "12m" | "24m" | "all";
+  grain?: "monthly" | "quarterly";
+  fund_id?: string;
+}): Promise<CapitalActivityResponse> {
+  return bosFetch("/api/re/v2/funds/capital-activity", { params });
+}
+
+export interface AssetMapPoint {
+  asset_id: string;
+  deal_id: string;
+  name: string;
+  status: "owned" | "pipeline";
+  fund_name: string;
+  property_type: string | null;
+  market: string | null;
+  city: string | null;
+  state: string | null;
+  lat: string;
+  lon: string;
+  cost_basis: string | null;
+}
+
+export interface AssetMapSummary {
+  owned_assets: number;
+  pipeline_assets: number;
+  markets: number;
+}
+
+export interface AssetMapResponse {
+  summary: AssetMapSummary;
+  points: AssetMapPoint[];
+}
+
+export function getAssetMapPoints(params: {
+  env_id?: string;
+  business_id?: string;
+  status?: "owned" | "pipeline" | "all";
+}): Promise<AssetMapResponse> {
+  return bosFetch("/api/re/v2/funds/asset-map", { params });
 }

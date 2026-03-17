@@ -57,8 +57,8 @@ describe("radar utils", () => {
       }),
     ])[0];
 
-    const brokerFilters: DealRadarFilters = { fund: null, strategy: null, sector: null, stage: null, q: "annie case" };
-    const sponsorFilters: DealRadarFilters = { fund: null, strategy: null, sector: null, stage: null, q: "canyon sponsor" };
+    const brokerFilters: DealRadarFilters = { fund: null, strategy: null, sector: null, stage: null, dateRange: "all", q: "annie case" };
+    const sponsorFilters: DealRadarFilters = { fund: null, strategy: null, sector: null, stage: null, dateRange: "all", q: "canyon sponsor" };
 
     expect(matchesDealRadarFilters(node, brokerFilters)).toBe(true);
     expect(matchesDealRadarFilters(node, sponsorFilters)).toBe(true);

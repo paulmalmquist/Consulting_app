@@ -1,4 +1,4 @@
---- 
+---
 id: claude-router
 kind: router
 status: active
@@ -6,7 +6,7 @@ source_of_truth: true
 topic: global-routing
 owners:
   - cross-repo
-intent_tags: njlllllllll
+intent_tags:
   - build
   - bugfix
   - research
@@ -63,7 +63,17 @@ notes:
 
 | Intent | Primary target |
 |---|---|
+| bootstrap, session startup, repo identity, working directory sanity check | `skills/winston-session-bootstrap/SKILL.md` |
 | implementation, bug fix, endpoint, page, component | `.skills/feature-dev/SKILL.md` |
+| chat workspace, response blocks, inline charts/tables, conversational transforms | `skills/winston-chat-workspace/SKILL.md` |
+| dashboard composition, intent parsing, query transparency, blank widgets, entity_ids | `skills/winston-dashboard-composition/SKILL.md` |
+| REPE write tools, mutation flow, AdvancedDrawer, live status | `skills/winston-agentic-build/SKILL.md` |
+| behavior guardrails, post-mortem, audit remediation, fix-all regressions | `skills/winston-remediation-playbook/SKILL.md` |
+| attached document ingestion, document-to-asset creation, extraction pipeline | `skills/winston-document-pipeline/SKILL.md` |
+| latency, reranking, model dispatch, prompt budget, performance architecture | `skills/winston-performance-architecture/SKILL.md` |
+| credit decisioning, walled garden, chain-of-thought, format lock, consumer credit AI, credit underwriting, corpus, citation chain | `.skills/credit-decisioning/SKILL.md` |
+| credit environment build, credit workspace implementation, credit MCP tools | `skills/winston-credit-environment/SKILL.md` with `.skills/credit-decisioning/SKILL.md` as support |
+| PDS platform build, PDS prompt sequence, executive automation, JLL PDS analytics | `skills/winston-pds-delivery/SKILL.md` |
 | architecture, audit, repo mapping, plan | `agents/architect.md` |
 | Winston or Novendor routing, harness selection, Telegram command surface | `skills/winston-router/SKILL.md` |
 | repo sync, fetch, pull, dirty-tree checks | `agents/sync.md` |
@@ -72,18 +82,24 @@ notes:
 | schema, SQL, migrations, ETL, seeds | `agents/data.md` |
 | research ingestion from `docs/research/*` | `.skills/research-ingest/SKILL.md` |
 | business-side Novendor commands | `agents/operations.md`, `agents/outreach.md`, `agents/proposals.md`, `agents/content.md`, `agents/demo.md` |
-| explicit prompt or playbook request | selected `docs/WINSTON_*PROMPT*.md` |
+| explicit prompt or playbook request | matching normalized skill when one exists; otherwise selected `docs/WINSTON_*PROMPT*.md` |
 
 ## Owning-Surface Map
 
 | Surface | Owner | Typical downstream docs |
 |---|---|---|
+| root bootstrap markdown (`BOOTSTRAP.md`, `TOOLS.md`, `IDENTITY.md`, `USER.md`, `SOUL.md`, `HEARTBEAT.md`) | Winston session bootstrap | `winston-session-bootstrap`, `winston-router` |
 | `repo-b/` | Next.js frontend and direct-DB handlers | `feature-dev`, `qa-winston`, `data-winston` |
 | `backend/` | FastAPI Business OS APIs and MCP server | `feature-dev`, `architect-winston`, `qa-winston`, `data-winston` |
 | `repo-c/` | Demo Lab backend | `feature-dev`, `qa-winston` |
+| `META_PROMPT_CHAT_WORKSPACE.md` | Winston chat workspace brief | `winston-chat-workspace`, `feature-dev` |
+| `prompts/` | Dashboard composition prompt lineage | `winston-dashboard-composition`, `feature-dev` |
+| `repo-b/src/app/lab/env/[envId]/credit/`, `backend/app/services/credit*.py`, `backend/app/routes/credit*.py` | Consumer credit decisioning surface | `credit-decisioning`, `feature-dev`, `data-winston` |
+| `repo-b/db/schema/274_*`, `repo-b/db/schema/275_*`, `repo-b/db/schema/277_*` | Credit schema and data contracts | `data-winston`, `credit-decisioning` |
 | `repo-b/db/schema/`, `supabase/` | SQL-first schema and data contracts | `data-winston`, `feature-dev` |
 | `orchestration/`, `scripts/` | operational tooling and agent workflows | `commander-winston`, `sync-winston`, `deploy-winston`, `feature-dev` |
-| `docs/` | prompts, playbooks, references | explicit prompt docs or `architect-winston` |
+| `PDS_*.md`, `docs/plans/PDS_*` | PDS staged delivery prompt set | `winston-pds-delivery`, `architect-winston` |
+| `docs/` | normalized skills, prompt references, and playbooks | matching skill, explicit prompt reference, or `architect-winston` |
 | external Novendor workspaces | business-side workstreams | `operations`, `outreach`, `proposals`, `content`, `demo` |
 
 ## Dispatch Algorithm
@@ -102,10 +118,26 @@ notes:
 
 - Stay in `CLAUDE.md` and ask one clarifying question when the request spans multiple surfaces and no dominant intent wins.
 - Do not send the user to an archived doc as a primary route.
+- Prefer a normalized skill over a raw prompt doc when both exist; keep the raw prompt doc as reference material.
 - If a user explicitly names a legacy prompt, open it as reference but route active execution through the current primary doc.
 - Use `docs/instruction-index.md` when the route is unclear or a new routed doc must be registered.
 
 ## Concrete Routing Examples
+
+- `bootstrap a new Winston repo-local session` -> `skills/winston-session-bootstrap/SKILL.md`
+- `build the full-screen chat workspace with inline charts` -> `skills/winston-chat-workspace/SKILL.md`
+- `fix blank dashboard widgets when entity_ids disappear` -> `skills/winston-dashboard-composition/SKILL.md`
+- `add REPE write tools and live status feedback` -> `skills/winston-agentic-build/SKILL.md`
+- `post-mortem why Winston lost the plot on writes` -> `skills/winston-remediation-playbook/SKILL.md`
+- `turn an attached document into an asset record` -> `skills/winston-document-pipeline/SKILL.md`
+- `reduce Winston latency and improve reranking` -> `skills/winston-performance-architecture/SKILL.md`
+- `build the credit decisioning MCP tools` -> `skills/winston-credit-environment/SKILL.md` with `.skills/credit-decisioning/SKILL.md` as support
+- `evaluate a loan against the underwriting policy` -> `.skills/credit-decisioning/SKILL.md`
+- `what does the auto loan policy say about DTI limits` -> `.skills/credit-decisioning/SKILL.md` (walled garden query)
+- `add a document to the credit corpus` -> `.skills/credit-decisioning/SKILL.md`
+- `build the credit portfolio detail page` -> `.skills/feature-dev/SKILL.md` with `skills/winston-credit-environment/SKILL.md` as reference
+- `deploy the credit schema migrations` -> `agents/data.md`
+- `execute PDS phase 8 for AI query` -> `skills/winston-pds-delivery/SKILL.md`
 
 - `Review backend/app/routes/nv_ai_copilot.py and explain how it fits the repo` -> `agents/architect.md`
 - `Implement a loading fix in repo-b/src/app/lab/env/[envId]/page.tsx` -> `.skills/feature-dev/SKILL.md` with `agents/builder.md` as support
@@ -117,5 +149,5 @@ notes:
 - `run QA on the REPE regression path` -> `agents/qa.md`
 - `add a migration in repo-b/db/schema and coordinate the backfill` -> `agents/data.md`
 - `/propose a scope for this client` -> `agents/operations.md`
-- `open the latency optimization prompt` -> `docs/WINSTON_LATENCY_OPTIMIZATION_PROMPT.md`
+- `open the latency optimization prompt` -> `skills/winston-performance-architecture/SKILL.md` with `docs/WINSTON_LATENCY_OPTIMIZATION_PROMPT.md` as reference
 - `help me improve the frontend and backend together` -> stay in `CLAUDE.md` and ask one clarifying question

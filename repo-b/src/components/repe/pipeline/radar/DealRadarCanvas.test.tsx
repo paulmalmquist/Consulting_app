@@ -59,12 +59,13 @@ describe("DealRadarCanvas", () => {
     fireEvent.mouseEnter(nodeButton);
 
     expect(screen.getAllByText("Phoenix Logistics Center").length).toBeGreaterThan(1);
-    expect(screen.getByText(/Target IRR/i)).toBeInTheDocument();
+    expect(screen.getByText(/Est\. Size/i)).toBeInTheDocument();
+    expect(screen.getByText(/Lead Partner/i)).toBeInTheDocument();
 
     fireEvent.click(nodeButton);
     expect(onSelectDeal).toHaveBeenCalledWith("deal-1");
 
     fireEvent.keyDown(window, { key: "Escape" });
-    expect(screen.queryByText(/Target IRR/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Est\. Size/i)).not.toBeInTheDocument();
   });
 });

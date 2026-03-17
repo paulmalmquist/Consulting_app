@@ -36,6 +36,35 @@ export const RADAR_STAGE_LABELS: Record<DealRadarStage, string> = {
   ready: "Execution Ready",
 };
 
+/** The 4 visual rings shown on the executive radar (outer → inner). */
+export type DisplayRing = "sourced" | "underwriting" | "ic" | "execution";
+
+export const DISPLAY_RING_ORDER: DisplayRing[] = ["sourced", "underwriting", "ic", "execution"];
+
+export const DISPLAY_RING_LABELS: Record<DisplayRing, string> = {
+  sourced: "Sourced",
+  underwriting: "Underwriting",
+  ic: "Investment Committee",
+  execution: "Execution Ready",
+};
+
+/** Map the 7 pipeline stages to 4 display rings. */
+export function stageToDisplayRing(stage: DealRadarStage): DisplayRing {
+  switch (stage) {
+    case "sourced":
+      return "sourced";
+    case "screening":
+    case "loi":
+    case "dd":
+      return "underwriting";
+    case "ic":
+      return "ic";
+    case "closing":
+    case "ready":
+      return "execution";
+  }
+}
+
 export const RADAR_MODE_LABELS: Record<DealRadarMode, string> = {
   stage: "Stage",
   capital: "Capital",
@@ -439,11 +468,25 @@ export function buildDealRadarNodes(deals: PipelineDealSummary[]): DealRadarNode
   });
 }
 
+function dateRangeCutoff(range: string | null | undefined): Date | null {
+  if (!range || range === "all") return null;
+  const now = new Date();
+  if (range === "30d") return new Date(now.getTime() - 30 * 86400000);
+  if (range === "90d") return new Date(now.getTime() - 90 * 86400000);
+  if (range === "ytd") return new Date(now.getFullYear(), 0, 1);
+  return null;
+}
+
 export function matchesDealRadarFilters(node: DealRadarNode, filters: DealRadarFilters): boolean {
   if (filters.fund && (node.fundId || "__unassigned__") !== filters.fund) return false;
   if (filters.strategy && node.strategy !== filters.strategy) return false;
   if (filters.sector && node.sector !== filters.sector) return false;
   if (filters.stage && node.stage !== filters.stage) return false;
+  const cutoff = dateRangeCutoff(filters.dateRange);
+  if (cutoff && node.lastUpdatedAt) {
+    const updated = parseIsoDate(node.lastUpdatedAt);
+    if (updated && updated < cutoff) return false;
+  }
   if (filters.q.trim()) {
     const needle = filters.q.trim().toLowerCase();
     if (!node.searchText.includes(needle)) return false;
@@ -579,24 +622,30 @@ export function summarizeDealRadar(
   };
 }
 
-function scaleNodeSize(value: number, minValue: number, maxValue: number): number {
-  if (maxValue <= minValue) return 22;
-  const normalized = (Math.sqrt(Math.max(value, 1)) - Math.sqrt(Math.max(minValue, 1))) /
-    (Math.sqrt(Math.max(maxValue, 1)) - Math.sqrt(Math.max(minValue, 1)));
-  return clamp(16 + normalized * 18, 16, 34);
+/** Deal-size tiers: <$50M small, $50-150M medium, >$150M large. */
+export function dealSizeTier(value: number): "small" | "medium" | "large" {
+  if (value >= 150_000_000) return "large";
+  if (value >= 50_000_000) return "medium";
+  return "small";
+}
+
+function scaleNodeSize(value: number, _minValue: number, _maxValue: number): number {
+  const tier = dealSizeTier(value);
+  return tier === "large" ? 32 : tier === "medium" ? 24 : 17;
 }
 
 function cellGeometry(sector: DealRadarSector, stage: DealRadarStage) {
   const sectorIndex = RADAR_SECTOR_ORDER.indexOf(sector);
-  const stageIndex = RADAR_STAGE_ORDER.indexOf(stage);
+  const ring = stageToDisplayRing(stage);
+  const ringIndex = DISPLAY_RING_ORDER.indexOf(ring);
   const wedgeAngle = 360 / RADAR_SECTOR_ORDER.length;
   const outerRadius = 452;
-  const coreRadius = 86;
-  const band = (outerRadius - coreRadius) / RADAR_STAGE_ORDER.length;
-  const angleStart = -90 - wedgeAngle / 2 + sectorIndex * wedgeAngle + 5;
-  const angleEnd = angleStart + wedgeAngle - 10;
-  const radiusOuter = outerRadius - stageIndex * band - 8;
-  const radiusInner = radiusOuter - band + 16;
+  const coreRadius = 120; // larger core for center summary panel
+  const band = (outerRadius - coreRadius) / DISPLAY_RING_ORDER.length;
+  const angleStart = -90 - wedgeAngle / 2 + sectorIndex * wedgeAngle + 4;
+  const angleEnd = angleStart + wedgeAngle - 8;
+  const radiusOuter = outerRadius - ringIndex * band - 6;
+  const radiusInner = radiusOuter - band + 12;
   return { angleStart, angleEnd, radiusInner, radiusOuter };
 }
 
@@ -634,13 +683,34 @@ function makeCellSlots(count: number, sector: DealRadarSector, stage: DealRadarS
   return slots;
 }
 
+/** Deterministic jitter seed from string key. */
+function jitterSeed(key: string): number {
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    hash = ((hash << 5) - hash + key.charCodeAt(i)) | 0;
+  }
+  return (hash & 0x7fffffff) / 0x7fffffff; // 0-1
+}
+
 function resolveCellCollisions(
   nodes: DealRadarLayoutNode[],
   sector: DealRadarSector,
   stage: DealRadarStage,
 ) {
   const { angleStart, angleEnd, radiusInner, radiusOuter } = cellGeometry(sector, stage);
-  const adjusted = [...nodes];
+  // Phase 1: Apply ±3° angle and ±6px radius jitter per node
+  const jittered = nodes.map((node) => {
+    const seed = jitterSeed(node.key);
+    const seed2 = jitterSeed(node.key + "_r");
+    const polar = toPolar(node.x, node.y);
+    const jitteredAngle = clamp(polar.angle + (seed - 0.5) * 6, angleStart, angleEnd);
+    const jitteredRadius = clamp(polar.radius + (seed2 - 0.5) * 12, radiusInner, radiusOuter);
+    const pt = toCartesian(jitteredAngle, jitteredRadius);
+    return { ...node, x: pt.x, y: pt.y };
+  });
+
+  // Phase 2: Push apart any remaining overlaps
+  const adjusted = [...jittered];
   for (let pass = 0; pass < 3; pass += 1) {
     for (let i = 0; i < adjusted.length; i += 1) {
       for (let j = i + 1; j < adjusted.length; j += 1) {
@@ -649,12 +719,12 @@ function resolveCellCollisions(
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        const minDistance = (a.size + b.size) / 2 + 6;
+        const minDistance = (a.size + b.size) / 2 + 4;
         if (distance >= minDistance) continue;
 
         const polar = toPolar(b.x, b.y);
-        const nextAngle = clamp(polar.angle + (j % 2 === 0 ? 2.5 : -2.5), angleStart, angleEnd);
-        const nextRadius = clamp(polar.radius + (pass % 2 === 0 ? 8 : -8), radiusInner, radiusOuter);
+        const nextAngle = clamp(polar.angle + (j % 2 === 0 ? 2.0 : -2.0), angleStart, angleEnd);
+        const nextRadius = clamp(polar.radius + (pass % 2 === 0 ? 6 : -6), radiusInner, radiusOuter);
         const nextPoint = toCartesian(nextAngle, nextRadius);
         adjusted[j] = { ...b, ...nextPoint };
       }
@@ -722,35 +792,35 @@ export function computeRadarLayout(
   return layout;
 }
 
+/** Signal colors for the executive radar: blue = active, amber = attention, red = risk. */
+export const SIGNAL_BLUE = "#4a90d9";
+export const SIGNAL_AMBER = "#d4a24e";
+export const SIGNAL_RED = "#d0605b";
+
+export type SignalColor = "blue" | "amber" | "red";
+
+/** Determine the operational signal color for a deal node. */
+export function getSignalColor(node: DealRadarNode): SignalColor {
+  if (node.alerts.includes("capital_gap") || node.riskScore >= 74) return "red";
+  if (
+    node.alerts.includes("stale") ||
+    node.alerts.includes("missing_diligence") ||
+    node.alerts.includes("concentration") ||
+    node.riskScore >= 54
+  ) {
+    return "amber";
+  }
+  return "blue";
+}
+
+export function getSignalHex(signal: SignalColor): string {
+  return { blue: SIGNAL_BLUE, amber: SIGNAL_AMBER, red: SIGNAL_RED }[signal];
+}
+
+/** Legacy mode-color function kept for compatibility with list/panel views. */
 export function getModeColor(node: DealRadarNode, mode: DealRadarMode): string {
-  if (mode === "stage") {
-    return {
-      sourced: "#7b8598",
-      screening: "#4f8fd9",
-      loi: "#d8a845",
-      dd: "#d07a3d",
-      ic: "#8a69d8",
-      closing: "#3fb5a5",
-      ready: "#7ad39a",
-    }[node.stage];
-  }
-  if (mode === "capital") {
-    const rank = clamp((node.equityRequired ?? node.headlinePrice ?? 0) / 60000000, 0.15, 1);
-    return rank > 0.75 ? "#d1a15a" : rank > 0.45 ? "#a7b4ca" : "#6b778d";
-  }
-  if (mode === "risk") {
-    if (node.riskScore >= 74) return "#d96e5d";
-    if (node.riskScore >= 54) return "#d7a454";
-    return "#7db9a5";
-  }
-  if (mode === "fit") {
-    if (node.fitScore >= 75) return "#6fc29a";
-    if (node.fitScore >= 50) return "#d2b068";
-    return "#be6872";
-  }
-  if (node.marketScore >= 75) return "#7ab5e2";
-  if (node.marketScore >= 55) return "#a2afc7";
-  return "#6a788f";
+  // Executive radar always uses signal colors regardless of mode
+  return getSignalHex(getSignalColor(node));
 }
 
 export function getSectorEmphasis(
@@ -876,4 +946,22 @@ export function buildDealRecommendations(
   }
 
   return recommendations.slice(0, 3);
+}
+
+/** Data for the center summary panel inside the radar. */
+export interface RadarCenterSummary {
+  dealCount: number;
+  totalValue: string;
+  executionReady: number;
+  underwriting: number;
+}
+
+export function buildRadarCenterSummary(nodes: DealRadarNode[]): RadarCenterSummary {
+  const totalValue = nodes.reduce((sum, n) => sum + (n.headlinePrice || n.equityRequired || 0), 0);
+  return {
+    dealCount: nodes.length,
+    totalValue: formatMoney(totalValue),
+    executionReady: nodes.filter((n) => stageToDisplayRing(n.stage) === "execution").length,
+    underwriting: nodes.filter((n) => stageToDisplayRing(n.stage) === "underwriting").length,
+  };
 }

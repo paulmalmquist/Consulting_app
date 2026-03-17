@@ -24,7 +24,7 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   sale: "Sale",
   partial_sale: "Partial Sale",
   refinance: "Refinance",
-  operating_dist: "Operating Distribution",
+  operating_distribution: "Operating Distribution",
 };
 
 const PAYOUT_TYPE_LABELS: Record<string, string> = {
@@ -166,7 +166,7 @@ export default function DistributionDetailPage() {
           href={`${basePath}/distributions`}
           className="mb-2 inline-flex items-center gap-1 text-xs text-bm-muted2 hover:text-bm-text"
         >
-          <ArrowLeft className="h-3 w-3" /> All Distributions
+          <ArrowLeft className="h-3 w-3" /> Distribution Operations
         </Link>
         <div className="flex items-center gap-3">
           <h2 className="font-display text-xl font-semibold text-bm-text">

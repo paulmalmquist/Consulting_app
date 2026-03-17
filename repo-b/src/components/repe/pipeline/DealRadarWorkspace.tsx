@@ -19,6 +19,7 @@ import { DealRadarCanvas } from "@/components/repe/pipeline/radar/DealRadarCanva
 import { RadarSummaryPanel } from "@/components/repe/pipeline/radar/RadarSummaryPanel";
 import { DealGeoWorkspace } from "@/components/repe/pipeline/geo/DealGeoWorkspace";
 import type {
+  DealRadarDateRange,
   DealRadarDetailBundle,
   DealRadarFilters,
   DealRadarMode,
@@ -61,12 +62,17 @@ function readMode(value: string | null): DealRadarMode {
     : "stage";
 }
 
+function readDateRange(value: string | null): DealRadarDateRange {
+  return value === "30d" || value === "90d" || value === "ytd" ? value : "all";
+}
+
 function readFilters(searchParams: Pick<URLSearchParams, "get">): DealRadarFilters {
   return {
     fund: searchParams.get("fund"),
     strategy: searchParams.get("strategy"),
     sector: searchParams.get("sector"),
     stage: searchParams.get("stage"),
+    dateRange: readDateRange(searchParams.get("dateRange")),
     q: searchParams.get("q") ?? "",
   };
 }
@@ -100,7 +106,7 @@ function FilterFields({
   onChange: (key: keyof DealRadarFilters, value: string | null) => void;
 }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
       <Select value={filters.fund ?? ""} onChange={(event) => onChange("fund", event.target.value || null)}>
         <option value="">All Funds</option>
         {fundOptions.map((option) => (
@@ -124,6 +130,12 @@ function FilterFields({
         {Object.entries(RADAR_STAGE_LABELS).map(([value, label]) => (
           <option key={value} value={value}>{label}</option>
         ))}
+      </Select>
+      <Select value={filters.dateRange} onChange={(event) => onChange("dateRange", event.target.value === "all" ? null : event.target.value)}>
+        <option value="all">All Time</option>
+        <option value="30d">Last 30 Days</option>
+        <option value="90d">Last 90 Days</option>
+        <option value="ytd">Year to Date</option>
       </Select>
     </div>
   );

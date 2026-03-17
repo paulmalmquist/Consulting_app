@@ -48,6 +48,7 @@ function navItems(domain: DomainSlug, base: string): NavItem[] {
     return [
       { href: base, label: "Home" },
       { href: `${base}/cases`, label: "Cases" },
+      { href: `${base}/doc-completion`, label: "Doc Completion" },
     ];
   }
   if (domain === "legal") {

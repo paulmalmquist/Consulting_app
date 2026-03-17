@@ -98,11 +98,14 @@ export interface PipelineContactSummary {
   role?: string | null;
 }
 
+export type DealRadarDateRange = "30d" | "90d" | "ytd" | "all";
+
 export interface DealRadarFilters {
   fund: string | null;
   strategy: string | null;
   sector: string | null;
   stage: string | null;
+  dateRange: DealRadarDateRange;
   q: string;
 }
 

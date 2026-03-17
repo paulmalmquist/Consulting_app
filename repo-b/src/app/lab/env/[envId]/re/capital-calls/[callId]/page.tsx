@@ -54,8 +54,8 @@ const CALL_STATUS_COLORS: Record<string, string> = {
 
 const CONTRIB_STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-500/10 text-yellow-400",
-  received: "bg-green-500/10 text-green-400",
-  overdue: "bg-red-500/10 text-red-400",
+  collected: "bg-green-500/10 text-green-400",
+  failed: "bg-red-500/10 text-red-400",
   waived: "bg-gray-500/10 text-gray-400",
 };
 
@@ -144,7 +144,7 @@ export default function CapitalCallDetailPage() {
           href={`${basePath}/capital-calls`}
           className="mb-2 inline-flex items-center gap-1 text-xs text-bm-muted2 hover:text-bm-text"
         >
-          <ArrowLeft className="h-3 w-3" /> All Capital Calls
+          <ArrowLeft className="h-3 w-3" /> Capital Call Operations
         </Link>
         <div className="flex items-center gap-3">
           <h2 className="font-display text-xl font-semibold text-bm-text">
