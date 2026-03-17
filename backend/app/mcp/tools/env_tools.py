@@ -240,6 +240,7 @@ def register_env_tools():
         input_model=EnvGetInput,
         handler=_env_get,
         audit_policy=secret_audit,
+        tags=frozenset({"env", "core"}),
     ))
 
     registry.register(ToolDef(
@@ -250,4 +251,5 @@ def register_env_tools():
         input_model=EnvSetInput,
         handler=_env_set,
         audit_policy=secret_audit,
+        tags=frozenset({"env", "core", "write"}),
     ))

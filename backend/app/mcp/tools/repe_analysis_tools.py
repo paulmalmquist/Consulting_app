@@ -91,6 +91,7 @@ def _compare_waterfall_runs(ctx: McpContext, inp: CompareWaterfallRunsInput) -> 
             LEFT JOIN re_partner p ON p.partner_id = wrr.partner_id
             WHERE wrr.run_id = ANY(%s::uuid[])
             ORDER BY wrr.tier_code, p.name
+            LIMIT 500
             """,
             ([inp.run_id_a, inp.run_id_b],),
         )
@@ -250,6 +251,7 @@ def register_repe_analysis_tools():
         permission="read",
         input_model=CompareWaterfallRunsInput,
         handler=_compare_waterfall_runs,
+        tags=frozenset({"repe", "analysis"}),
     ))
 
     registry.register(ToolDef(
@@ -259,4 +261,5 @@ def register_repe_analysis_tools():
         permission="read",
         input_model=NoiVarianceInput,
         handler=_noi_variance,
+        tags=frozenset({"repe", "analysis"}),
     ))

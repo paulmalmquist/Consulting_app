@@ -117,6 +117,7 @@ def register_re_model_tools():
         permission="read",
         input_model=ModelsGetInput,
         handler=_models_get,
+        tags=frozenset({"repe", "model"}),
     ))
     registry.register(ToolDef(
         name="models.create",
@@ -125,6 +126,7 @@ def register_re_model_tools():
         permission="write",
         input_model=ModelsCreateInput,
         handler=_models_create,
+        tags=frozenset({"repe", "model", "write"}),
     ))
     registry.register(ToolDef(
         name="models.list",
@@ -133,6 +135,7 @@ def register_re_model_tools():
         permission="read",
         input_model=ModelsListInput,
         handler=_models_list,
+        tags=frozenset({"repe", "model"}),
     ))
     registry.register(ToolDef(
         name="scenarios.list",
@@ -141,6 +144,7 @@ def register_re_model_tools():
         permission="read",
         input_model=ScenariosListInput,
         handler=_scenarios_list,
+        tags=frozenset({"repe", "model"}),
     ))
     registry.register(ToolDef(
         name="scenarios.create",
@@ -149,6 +153,7 @@ def register_re_model_tools():
         permission="write",
         input_model=ScenariosCreateInput,
         handler=_scenarios_create,
+        tags=frozenset({"repe", "model", "write"}),
     ))
     registry.register(ToolDef(
         name="scenarios.clone",
@@ -157,6 +162,7 @@ def register_re_model_tools():
         permission="write",
         input_model=ScenariosCloneInput,
         handler=_scenarios_clone,
+        tags=frozenset({"repe", "model", "write"}),
     ))
     registry.register(ToolDef(
         name="scenarios.get",
@@ -165,6 +171,7 @@ def register_re_model_tools():
         permission="read",
         input_model=ScenariosGetInput,
         handler=_scenarios_get,
+        tags=frozenset({"repe", "model"}),
     ))
     registry.register(ToolDef(
         name="scenarios.set_overrides",
@@ -173,6 +180,7 @@ def register_re_model_tools():
         permission="write",
         input_model=ScenariosSetOverridesInput,
         handler=_scenarios_set_overrides,
+        tags=frozenset({"repe", "model", "write"}),
     ))
     registry.register(ToolDef(
         name="scenarios.run",
@@ -181,6 +189,7 @@ def register_re_model_tools():
         permission="write",
         input_model=ScenariosRunInput,
         handler=_scenarios_run,
+        tags=frozenset({"repe", "model", "write"}),
     ))
     registry.register(ToolDef(
         name="runs.get",
@@ -189,6 +198,7 @@ def register_re_model_tools():
         permission="read",
         input_model=RunsGetInput,
         handler=_runs_get,
+        tags=frozenset({"repe", "model"}),
     ))
     registry.register(ToolDef(
         name="scenarios.compare",
@@ -197,4 +207,5 @@ def register_re_model_tools():
         permission="read",
         input_model=ScenariosCompareInput,
         handler=_scenarios_compare,
+        tags=frozenset({"repe", "model"}),
     ))

@@ -154,6 +154,7 @@ def register_git_tools():
         permission="read",
         input_model=GitDiffInput,
         handler=_git_diff,
+        tags=frozenset({"infra"}),
     ))
 
     registry.register(ToolDef(
@@ -163,4 +164,5 @@ def register_git_tools():
         permission="write",
         input_model=GitCommitInput,
         handler=_git_commit,
+        tags=frozenset({"infra"}),
     ))

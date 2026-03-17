@@ -370,11 +370,22 @@ def _sanitize_tool_name(name: str) -> str:
 
 
 _cached_tools: tuple[list[dict], dict[str, str]] | None = None
+_cached_tools_by_lane: dict[frozenset[str], tuple[list[dict], dict[str, str]]] = {}
+
+# Tag sets per lane — controls which tools are sent to the LLM.
+# Lane A uses skip_tools=True (no tools at all), so is not listed here.
+_LANE_B_TAGS: set[str] = {"core", "meta", "repe", "finance", "env", "business"}
+_LANE_C_TAGS: set[str] = {"core", "meta", "repe", "finance", "analysis", "model", "ops",
+                           "investor", "workflow", "platform", "env", "business",
+                           "document", "report"}
+_LANE_C_CREDIT_TAGS: set[str] = {"core", "meta", "credit", "env", "business", "document"}
+# Lane D gets all tools (no tag filter).
 
 
 def _reset_tool_cache() -> None:
     global _cached_tools
     _cached_tools = None
+    _cached_tools_by_lane.clear()
 
 
 def _strip_schema(schema: dict) -> dict:
@@ -401,6 +412,7 @@ def _strip_schema(schema: dict) -> dict:
 
 
 def _build_openai_tools() -> tuple[list[dict], dict[str, str]]:
+    """Build the full (unfiltered) tool list. Used by Lane D and as fallback."""
     global _cached_tools
     if _cached_tools is not None:
         return _cached_tools
@@ -427,6 +439,63 @@ def _build_openai_tools() -> tuple[list[dict], dict[str, str]]:
         )
     _cached_tools = (tools, name_map)
     return _cached_tools
+
+
+def _build_openai_tools_for_lane(
+    *, lane: str, is_write: bool, is_credit: bool
+) -> tuple[list[dict], dict[str, str]]:
+    """Return a lane-filtered tool list to reduce token overhead.
+
+    Lane A uses skip_tools=True so never calls this.
+    Lane B gets a focused subset (~20 tools).
+    Lane C gets a broader subset (~50 tools), with credit variant.
+    Lane D gets the full set (delegates to _build_openai_tools).
+    """
+    if lane == "D":
+        return _build_openai_tools()
+
+    # Determine which tag set to use
+    if lane == "B":
+        tag_set = _LANE_B_TAGS
+    elif is_credit:
+        tag_set = _LANE_C_CREDIT_TAGS
+    else:
+        tag_set = _LANE_C_TAGS
+
+    # Cache key includes lane, write flag, and credit flag
+    cache_key = frozenset({f"lane={lane}", f"write={is_write}", f"credit={is_credit}"})
+    if cache_key in _cached_tools_by_lane:
+        return _cached_tools_by_lane[cache_key]
+
+    tools = []
+    name_map: dict[str, str] = {}
+    for tool_def in registry.list_all():
+        if tool_def.name.startswith("codex."):
+            continue
+        if tool_def.handler is None:
+            continue
+        # Skip tools without matching tags
+        if not (tool_def.tags & tag_set):
+            continue
+        # Skip write tools when not in write mode
+        if "write" in tool_def.tags and not is_write:
+            continue
+        clean_schema = _strip_schema(tool_def.input_schema)
+        safe_name = _sanitize_tool_name(tool_def.name)
+        name_map[safe_name] = tool_def.name
+        tools.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": safe_name,
+                    "description": tool_def.description[:200],
+                    "parameters": clean_schema,
+                },
+            }
+        )
+
+    _cached_tools_by_lane[cache_key] = (tools, name_map)
+    return (tools, name_map)
 
 
 def _json_safe(value: Any) -> Any:
@@ -2724,11 +2793,12 @@ async def run_gateway_stream(
         environment_id=normalized_envelope.ui.active_environment_id,
     ):
         _dynamic_parts.append(_NOVENDOR_PREDICTION_MARKET_PROMPT)
-    if _is_credit_environment(
+    _is_credit = _is_credit_environment(
         environment_name=normalized_envelope.ui.active_environment_name,
         environment_id=normalized_envelope.ui.active_environment_id,
         industry=getattr(normalized_envelope.ui, "industry", None),
-    ):
+    )
+    if _is_credit:
         _dynamic_parts.append(_CREDIT_DOMAIN_BLOCK)
     _dynamic_parts.append(context_block)
     if rag_context:
@@ -2852,7 +2922,9 @@ async def run_gateway_stream(
         emit_log(level="warning", service="backend", action="ai.gateway.context_trimmed",
                  message=f"Context window guard: trimmed history to fit {_headroom} token budget")
 
-    openai_tools, tool_name_map = _build_openai_tools()
+    openai_tools, tool_name_map = _build_openai_tools_for_lane(
+        lane=route.lane, is_write=route.is_write, is_credit=_is_credit,
+    )
     if route.skip_tools:
         emit_log(
             level="info",
@@ -2862,6 +2934,13 @@ async def run_gateway_stream(
             context={"instructions": visible_context_policy["instructions"]},
         )
         openai_tools = []
+    else:
+        emit_log(
+            level="info",
+            service="backend",
+            action="ai.gateway.tool_filter",
+            message=f"Lane {route.lane}: {len(openai_tools)} tools (write={route.is_write}, credit={_is_credit})",
+        )
     ctx = McpContext(
         actor=actor,
         token_valid=True,
@@ -3370,6 +3449,10 @@ async def run_gateway_stream(
     timings["model_ms"] = int((time.time() - model_start) * 1000)
     if first_token_time is not None:
         timings["ttft_ms"] = int((first_token_time - model_start) * 1000)
+    timings["tool_execution_ms"] = sum(
+        t.get("duration_ms", 0) for t in tool_timeline if isinstance(t, dict)
+    )
+    timings["tools_sent"] = len(openai_tools)
     timings["total_ms"] = elapsed_ms
 
     # Track RAG as data source

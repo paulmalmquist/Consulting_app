@@ -52,6 +52,7 @@ def register_meta_tools():
         permission="read",
         input_model=HealthCheckInput,
         handler=_health_check,
+        tags=frozenset({"meta", "core"}),
     ))
     registry.register(ToolDef(
         name="bm.describe_system",
@@ -60,6 +61,7 @@ def register_meta_tools():
         permission="read",
         input_model=DescribeSystemInput,
         handler=_describe_system,
+        tags=frozenset({"meta", "core"}),
     ))
     registry.register(ToolDef(
         name="bm.list_tools",
@@ -68,4 +70,5 @@ def register_meta_tools():
         permission="read",
         input_model=ListToolsInput,
         handler=_list_tools,
+        tags=frozenset({"meta", "core"}),
     ))

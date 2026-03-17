@@ -390,6 +390,7 @@ def register_credit_tools() -> None:
             name=name, description=desc, module="credit",
             permission="read", input_model=inp_model,
             audit_policy=policy, handler=handler,
+            tags=frozenset({"credit"}),
         ))
 
     # Write tools
@@ -405,4 +406,5 @@ def register_credit_tools() -> None:
             name=name, description=desc, module="credit",
             permission="write", input_model=inp_model,
             audit_policy=policy, handler=handler,
+            tags=frozenset({"credit", "write"}),
         ))

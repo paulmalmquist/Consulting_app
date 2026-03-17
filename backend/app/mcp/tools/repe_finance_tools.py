@@ -935,6 +935,7 @@ def register_repe_finance_tools():
         permission="read",
         input_model=RunSaleScenarioInput,
         handler=_run_sale_scenario,
+        tags=frozenset({"repe", "finance"}),
     ))
 
     registry.register(ToolDef(
@@ -944,6 +945,7 @@ def register_repe_finance_tools():
         permission="read",
         input_model=RunWaterfallInput,
         handler=_run_waterfall,
+        tags=frozenset({"repe", "finance"}),
     ))
 
     registry.register(ToolDef(
@@ -953,6 +955,7 @@ def register_repe_finance_tools():
         permission="read",
         input_model=FundMetricsInput,
         handler=_fund_metrics,
+        tags=frozenset({"repe", "finance"}),
     ))
 
     registry.register(ToolDef(
@@ -962,6 +965,7 @@ def register_repe_finance_tools():
         permission="read",
         input_model=StressCapRateInput,
         handler=_stress_cap_rate,
+        tags=frozenset({"repe", "finance"}),
     ))
 
     registry.register(ToolDef(
@@ -971,6 +975,7 @@ def register_repe_finance_tools():
         permission="read",
         input_model=CompareScenariosInput,
         handler=_compare_scenarios,
+        tags=frozenset({"repe", "finance"}),
     ))
 
     registry.register(ToolDef(
@@ -980,6 +985,7 @@ def register_repe_finance_tools():
         permission="read",
         input_model=LpSummaryInput,
         handler=_lp_summary,
+        tags=frozenset({"repe", "finance"}),
     ))
 
     registry.register(ToolDef(
@@ -989,6 +995,7 @@ def register_repe_finance_tools():
         permission="read",
         input_model=MonteCarloWaterfallInput,
         handler=_monte_carlo_waterfall,
+        tags=frozenset({"repe", "finance"}),
     ))
 
     registry.register(ToolDef(
@@ -998,6 +1005,7 @@ def register_repe_finance_tools():
         permission="read",
         input_model=PortfolioWaterfallInput,
         handler=_portfolio_waterfall,
+        tags=frozenset({"repe", "finance"}),
     ))
 
     registry.register(ToolDef(
@@ -1007,6 +1015,7 @@ def register_repe_finance_tools():
         permission="read",
         input_model=DealGeoScoreInput,
         handler=_deal_geo_score,
+        tags=frozenset({"repe", "finance"}),
     ))
 
     registry.register(ToolDef(
@@ -1016,6 +1025,7 @@ def register_repe_finance_tools():
         permission="read",
         input_model=PipelineRadarInput,
         handler=_pipeline_radar,
+        tags=frozenset({"repe", "finance"}),
     ))
 
     registry.register(ToolDef(
@@ -1025,6 +1035,7 @@ def register_repe_finance_tools():
         permission="read",
         input_model=ListScenarioTemplatesInput,
         handler=_list_scenario_templates,
+        tags=frozenset({"repe", "finance"}),
     ))
 
     registry.register(ToolDef(
@@ -1034,6 +1045,7 @@ def register_repe_finance_tools():
         permission="read",
         input_model=GenerateWaterfallMemoInput,
         handler=_generate_waterfall_memo,
+        tags=frozenset({"repe", "finance"}),
     ))
 
     registry.register(ToolDef(
@@ -1043,6 +1055,7 @@ def register_repe_finance_tools():
         permission="read",
         input_model=CapitalCallImpactInput,
         handler=_capital_call_impact,
+        tags=frozenset({"repe", "finance"}),
     ))
 
     registry.register(ToolDef(
@@ -1052,6 +1065,7 @@ def register_repe_finance_tools():
         permission="read",
         input_model=ClawbackRiskInput,
         handler=_clawback_risk,
+        tags=frozenset({"repe", "finance"}),
     ))
 
     registry.register(ToolDef(
@@ -1061,6 +1075,7 @@ def register_repe_finance_tools():
         permission="read",
         input_model=UwVsActualWaterfallInput,
         handler=_uw_vs_actual_waterfall,
+        tags=frozenset({"repe", "finance"}),
     ))
 
     registry.register(ToolDef(
@@ -1070,6 +1085,7 @@ def register_repe_finance_tools():
         permission="read",
         input_model=SensitivityMatrixInput,
         handler=_sensitivity_matrix,
+        tags=frozenset({"repe", "finance"}),
     ))
 
     registry.register(ToolDef(
@@ -1079,4 +1095,5 @@ def register_repe_finance_tools():
         permission="read",
         input_model=ConstructionWaterfallInput,
         handler=_construction_waterfall,
+        tags=frozenset({"repe", "finance"}),
     ))

@@ -5,7 +5,7 @@ import psycopg.rows
 from contextlib import contextmanager
 from psycopg_pool import ConnectionPool
 
-from app.config import require_database_url
+from app.config import require_database_url, DB_PREPARE_THRESHOLD
 
 _pool: ConnectionPool | None = None
 
@@ -17,7 +17,7 @@ def _get_pool() -> ConnectionPool:
             require_database_url(),
             min_size=2,
             max_size=10,
-            kwargs={"prepare_threshold": None, "row_factory": psycopg.rows.dict_row},
+            kwargs={"prepare_threshold": DB_PREPARE_THRESHOLD, "row_factory": psycopg.rows.dict_row},
         )
         atexit.register(_pool.close)
     return _pool

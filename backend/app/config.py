@@ -10,6 +10,9 @@ def _clean_env_value(value: str | None) -> str:
 
 
 DATABASE_URL: str = _clean_env_value(os.getenv("DATABASE_URL", ""))
+# psycopg3 prepare_threshold: number of executions before using prepared statements.
+# Set to 0 or leave unset to disable (required for PgBouncer transaction mode).
+DB_PREPARE_THRESHOLD: int | None = int(os.getenv("DB_PREPARE_THRESHOLD", "0")) or None
 SUPABASE_URL: str = _clean_env_value(os.getenv("SUPABASE_URL", ""))
 SUPABASE_SERVICE_ROLE_KEY: str = _clean_env_value(os.getenv("SUPABASE_SERVICE_ROLE_KEY", ""))
 STORAGE_BUCKET: str = _clean_env_value(os.getenv("STORAGE_BUCKET", "documents")) or "documents"

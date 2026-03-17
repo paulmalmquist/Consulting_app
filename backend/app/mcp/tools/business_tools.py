@@ -90,6 +90,7 @@ def register_business_tools():
         permission="read",
         input_model=ListTemplatesInput,
         handler=_list_templates,
+        tags=frozenset({"business", "core"}),
     ))
     registry.register(ToolDef(
         name="business.create",
@@ -98,6 +99,7 @@ def register_business_tools():
         permission="write",
         input_model=CreateBusinessInput,
         handler=_create_business,
+        tags=frozenset({"business", "core", "write"}),
     ))
     registry.register(ToolDef(
         name="business.apply_template",
@@ -106,6 +108,7 @@ def register_business_tools():
         permission="write",
         input_model=ApplyTemplateInput,
         handler=_apply_template,
+        tags=frozenset({"business", "core", "write"}),
     ))
     registry.register(ToolDef(
         name="business.apply_custom",
@@ -114,6 +117,7 @@ def register_business_tools():
         permission="write",
         input_model=ApplyCustomInput,
         handler=_apply_custom,
+        tags=frozenset({"business", "core", "write"}),
     ))
     registry.register(ToolDef(
         name="business.get",
@@ -122,6 +126,7 @@ def register_business_tools():
         permission="read",
         input_model=GetBusinessInput,
         handler=_get_business,
+        tags=frozenset({"business", "core"}),
     ))
     registry.register(ToolDef(
         name="business.list_departments",
@@ -130,6 +135,7 @@ def register_business_tools():
         permission="read",
         input_model=ListDepartmentsInput,
         handler=_list_departments,
+        tags=frozenset({"business", "core"}),
     ))
     registry.register(ToolDef(
         name="business.list_capabilities",
@@ -138,4 +144,5 @@ def register_business_tools():
         permission="read",
         input_model=ListCapabilitiesInput,
         handler=_list_capabilities,
+        tags=frozenset({"business", "core"}),
     ))

@@ -313,6 +313,7 @@ def register_repe_workflow_tools():
         permission="read",
         input_model=ListCapitalCallsInput,
         handler=_list_capital_calls,
+        tags=frozenset({"repe", "workflow"}),
     ))
 
     registry.register(ToolDef(
@@ -322,6 +323,7 @@ def register_repe_workflow_tools():
         permission="read",
         input_model=GetCapitalCallInput,
         handler=_get_capital_call,
+        tags=frozenset({"repe", "workflow"}),
     ))
 
     registry.register(ToolDef(
@@ -331,6 +333,7 @@ def register_repe_workflow_tools():
         permission="read",
         input_model=ListDistributionsInput,
         handler=_list_distributions,
+        tags=frozenset({"repe", "workflow"}),
     ))
 
     registry.register(ToolDef(
@@ -340,4 +343,5 @@ def register_repe_workflow_tools():
         permission="read",
         input_model=GetDistributionInput,
         handler=_get_distribution,
+        tags=frozenset({"repe", "workflow"}),
     ))

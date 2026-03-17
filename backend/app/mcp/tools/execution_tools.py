@@ -72,6 +72,7 @@ def register_execution_tools():
         permission="write",
         input_model=RunExecutionInput,
         handler=_run_execution,
+        tags=frozenset({"infra"}),
     ))
     registry.register(ToolDef(
         name="executions.list",
@@ -80,6 +81,7 @@ def register_execution_tools():
         permission="read",
         input_model=ListExecutionsInput,
         handler=_list_executions,
+        tags=frozenset({"infra"}),
     ))
     registry.register(ToolDef(
         name="executions.get",
@@ -88,4 +90,5 @@ def register_execution_tools():
         permission="read",
         input_model=GetExecutionInput,
         handler=_get_execution,
+        tags=frozenset({"infra"}),
     ))

@@ -68,4 +68,5 @@ def register_query_tools():
         permission="read",
         input_model=NlQueryInput,
         handler=_nl_query,
+        tags=frozenset({"infra"}),
     ))

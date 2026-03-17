@@ -31,6 +31,7 @@ def register_metrics_tools():
         permission="read",
         input_model=MetricsDefinitionsInput,
         handler=_metrics_definitions,
+        tags=frozenset({"repe", "core"}),
     ))
     registry.register(ToolDef(
         name="metrics.query",
@@ -39,4 +40,5 @@ def register_metrics_tools():
         permission="read",
         input_model=MetricsQueryInput,
         handler=_metrics_query,
+        tags=frozenset({"repe", "core"}),
     ))

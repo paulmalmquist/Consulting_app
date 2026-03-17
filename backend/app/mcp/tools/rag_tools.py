@@ -65,5 +65,6 @@ def register_rag_tools() -> None:
                 max_output_bytes_to_log=10000,
             ),
             handler=_rag_search,
+            tags=frozenset({"document"}),
         )
     )

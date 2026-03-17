@@ -142,9 +142,43 @@ export function loadHistory(contextKey: CommandContextKey): CommandMessage[] {
   return loadHistoryState(contextKey).messages;
 }
 
+const MAX_HISTORY_MESSAGES = 100;
+const MAX_WATERFALL_RUNS = 20;
+const MAX_HISTORY_BYTES = 2_000_000; // 2 MB
+const COMPACT_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function compactMessages(messages: CommandMessage[]): CommandMessage[] {
+  // Keep only the most recent messages
+  let trimmed = messages.length > MAX_HISTORY_MESSAGES
+    ? messages.slice(-MAX_HISTORY_MESSAGES)
+    : [...messages];
+
+  // Strip heavy fields from messages older than 24 hours
+  const cutoff = Date.now() - COMPACT_AGE_MS;
+  trimmed = trimmed.map((msg) => {
+    if (msg.createdAt < cutoff && (msg.responseBlocks || msg.structuredResult || msg.messageMeta)) {
+      const { responseBlocks: _rb, structuredResult: _sr, messageMeta: _mm, ...rest } = msg;
+      return rest;
+    }
+    return msg;
+  });
+
+  return trimmed;
+}
+
 export function persistHistoryState(contextKey: CommandContextKey, state: CommandHistoryState) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(historyStorageKey(contextKey), JSON.stringify(state));
+  const compacted: CommandHistoryState = {
+    messages: compactMessages(state.messages),
+    waterfallRuns: state.waterfallRuns.slice(-MAX_WATERFALL_RUNS),
+  };
+  let json = JSON.stringify(compacted);
+  // If still over budget, drop oldest messages until under limit
+  while (json.length > MAX_HISTORY_BYTES && compacted.messages.length > 10) {
+    compacted.messages = compacted.messages.slice(Math.ceil(compacted.messages.length * 0.2));
+    json = JSON.stringify(compacted);
+  }
+  window.localStorage.setItem(historyStorageKey(contextKey), json);
 }
 
 export function persistHistory(contextKey: CommandContextKey, messages: CommandMessage[]) {

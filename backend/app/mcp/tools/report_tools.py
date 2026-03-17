@@ -59,6 +59,7 @@ def register_report_tools():
         permission="write",
         input_model=ReportsCreateInput,
         handler=_reports_create,
+        tags=frozenset({"report"}),
     ))
     registry.register(ToolDef(
         name="reports.list",
@@ -67,6 +68,7 @@ def register_report_tools():
         permission="read",
         input_model=ReportsListInput,
         handler=_reports_list,
+        tags=frozenset({"report"}),
     ))
     registry.register(ToolDef(
         name="reports.get",
@@ -75,6 +77,7 @@ def register_report_tools():
         permission="read",
         input_model=ReportsGetInput,
         handler=_reports_get,
+        tags=frozenset({"report"}),
     ))
     registry.register(ToolDef(
         name="reports.run",
@@ -83,6 +86,7 @@ def register_report_tools():
         permission="write",
         input_model=ReportsRunInput,
         handler=_reports_run,
+        tags=frozenset({"report"}),
     ))
     registry.register(ToolDef(
         name="reports.explain",
@@ -91,4 +95,5 @@ def register_report_tools():
         permission="read",
         input_model=ReportsExplainInput,
         handler=_reports_explain,
+        tags=frozenset({"report"}),
     ))

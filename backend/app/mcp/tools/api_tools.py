@@ -98,4 +98,5 @@ def register_api_tools():
         permission="read",  # Even POST/PUT are "read" permission since they go through backend
         input_model=ApiCallInput,
         handler=_api_call,
+        tags=frozenset({"infra"}),
     ))

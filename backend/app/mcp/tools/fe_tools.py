@@ -126,6 +126,7 @@ def register_fe_tools():
         permission="write",
         input_model=FeEditInput,
         handler=_fe_edit,
+        tags=frozenset({"infra"}),
     ))
 
     registry.register(ToolDef(
@@ -135,4 +136,5 @@ def register_fe_tools():
         permission="read",
         input_model=FeRunInput,
         handler=_fe_run,
+        tags=frozenset({"infra"}),
     ))

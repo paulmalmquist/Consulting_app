@@ -72,6 +72,7 @@ def _list_investors(ctx: McpContext, inp: ListInvestorsInput) -> dict:
             WHERE {where}
             GROUP BY p.partner_id
             ORDER BY p.name
+            LIMIT 200
             """,
             params,
         )
@@ -114,6 +115,7 @@ def _get_investor_summary(ctx: McpContext, inp: GetInvestorSummaryInput) -> dict
             JOIN repe_fund f ON f.fund_id = pc.fund_id
             WHERE pc.partner_id = %s
             ORDER BY f.name
+            LIMIT 200
             """,
             (str(inp.partner_id),),
         )
@@ -132,6 +134,7 @@ def _get_investor_summary(ctx: McpContext, inp: GetInvestorSummaryInput) -> dict
             JOIN repe_fund f ON f.fund_id = pqm.fund_id
             WHERE pqm.partner_id = %s AND pqm.quarter = %s AND pqm.scenario_id IS NULL
             ORDER BY f.name
+            LIMIT 200
             """,
             (str(inp.partner_id), inp.quarter),
         )
@@ -343,6 +346,7 @@ def register_repe_investor_tools():
         permission="read",
         input_model=ListInvestorsInput,
         handler=_list_investors,
+        tags=frozenset({"repe", "investor"}),
     ))
 
     registry.register(ToolDef(
@@ -352,6 +356,7 @@ def register_repe_investor_tools():
         permission="read",
         input_model=GetInvestorSummaryInput,
         handler=_get_investor_summary,
+        tags=frozenset({"repe", "investor"}),
     ))
 
     registry.register(ToolDef(
@@ -361,6 +366,7 @@ def register_repe_investor_tools():
         permission="read",
         input_model=ListCapitalActivityInput,
         handler=_list_capital_activity,
+        tags=frozenset({"repe", "investor"}),
     ))
 
     registry.register(ToolDef(
@@ -370,4 +376,5 @@ def register_repe_investor_tools():
         permission="read",
         input_model=NavRollforwardInput,
         handler=_nav_rollforward,
+        tags=frozenset({"repe", "investor"}),
     ))

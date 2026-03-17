@@ -105,6 +105,7 @@ def register_document_tools():
         permission="write",
         input_model=InitUploadInput,
         handler=_init_upload,
+        tags=frozenset({"document", "write"}),
     ))
     registry.register(ToolDef(
         name="documents.complete_upload",
@@ -113,6 +114,7 @@ def register_document_tools():
         permission="write",
         input_model=CompleteUploadInput,
         handler=_complete_upload,
+        tags=frozenset({"document", "write"}),
     ))
     registry.register(ToolDef(
         name="documents.list",
@@ -121,6 +123,7 @@ def register_document_tools():
         permission="read",
         input_model=ListDocumentsInput,
         handler=_list_documents,
+        tags=frozenset({"document"}),
     ))
     registry.register(ToolDef(
         name="documents.get_versions",
@@ -129,6 +132,7 @@ def register_document_tools():
         permission="read",
         input_model=GetVersionsInput,
         handler=_get_versions,
+        tags=frozenset({"document"}),
     ))
     registry.register(ToolDef(
         name="documents.get_download_url",
@@ -137,6 +141,7 @@ def register_document_tools():
         permission="read",
         input_model=GetDownloadUrlInput,
         handler=_get_download_url,
+        tags=frozenset({"document"}),
     ))
     registry.register(ToolDef(
         name="documents.tag",
@@ -145,4 +150,5 @@ def register_document_tools():
         permission="write",
         input_model=TagDocumentInput,
         handler=_tag_document,
+        tags=frozenset({"document", "write"}),
     ))

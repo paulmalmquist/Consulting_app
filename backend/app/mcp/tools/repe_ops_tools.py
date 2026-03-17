@@ -97,6 +97,7 @@ def _period_close_status(ctx: McpContext, inp: PeriodCloseStatusInput) -> dict:
             JOIN repe_fund f ON f.fund_id = fqs.fund_id
             WHERE f.business_id = %s AND fqs.scenario_id IS NULL
             ORDER BY fqs.fund_id, fqs.quarter DESC
+            LIMIT 200
             """,
             (inp.business_id,),
         )
@@ -168,6 +169,7 @@ def _fund_quarter_detail(ctx: McpContext, inp: FundQuarterStateInput) -> dict:
                 WHERE fund_id = %s AND run_type = 'QUARTER_CLOSE'
               )
             ORDER BY a.name
+            LIMIT 200
             """,
             (inp.quarter, inp.fund_id),
         )
@@ -183,6 +185,7 @@ def _fund_quarter_detail(ctx: McpContext, inp: FundQuarterStateInput) -> dict:
             WHERE fund_id = %s AND run_type = 'QUARTER_CLOSE'
               AND metadata_json->>'quarter' = %s
             ORDER BY started_at DESC
+            LIMIT 50
             """,
             (inp.fund_id, inp.quarter),
         )
@@ -236,6 +239,7 @@ def _list_fee_schedule(ctx: McpContext, inp: ListFeeScheduleInput) -> dict:
             JOIN repe_fund f ON f.fund_id = fp.fund_id
             WHERE {where}
             ORDER BY f.name, fp.fee_basis
+            LIMIT 200
             """,
             params,
         )
@@ -307,6 +311,7 @@ def _compute_fees(ctx: McpContext, inp: ComputeFeesInput) -> dict:
             FROM re_fee_policy
             WHERE fund_id = %s
             ORDER BY fee_basis
+            LIMIT 50
             """,
             (inp.fund_id,),
         )
@@ -321,6 +326,7 @@ def _compute_fees(ctx: McpContext, inp: ComputeFeesInput) -> dict:
             FROM re_fee_accrual_qtr
             WHERE fund_id = %s AND quarter = %s
             ORDER BY fee_basis
+            LIMIT 50
             """,
             (inp.fund_id, inp.quarter),
         )
@@ -374,6 +380,7 @@ def register_repe_ops_tools():
         permission="read",
         input_model=PeriodCloseStatusInput,
         handler=_period_close_status,
+        tags=frozenset({"repe", "ops"}),
     ))
 
     registry.register(ToolDef(
@@ -383,6 +390,7 @@ def register_repe_ops_tools():
         permission="read",
         input_model=FundQuarterStateInput,
         handler=_fund_quarter_detail,
+        tags=frozenset({"repe", "ops"}),
     ))
 
     registry.register(ToolDef(
@@ -392,6 +400,7 @@ def register_repe_ops_tools():
         permission="read",
         input_model=ListFeeScheduleInput,
         handler=_list_fee_schedule,
+        tags=frozenset({"repe", "ops"}),
     ))
 
     registry.register(ToolDef(
@@ -401,4 +410,5 @@ def register_repe_ops_tools():
         permission="read",
         input_model=ComputeFeesInput,
         handler=_compute_fees,
+        tags=frozenset({"repe", "ops"}),
     ))

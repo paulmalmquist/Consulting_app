@@ -377,6 +377,7 @@ def register_repe_tools() -> None:
             input_model=ListFundsInput,
             audit_policy=policy,
             handler=_list_funds,
+            tags=frozenset({"repe", "core"}),
         )
     )
     registry.register(
@@ -390,6 +391,7 @@ def register_repe_tools() -> None:
             input_model=GetFundInput,
             audit_policy=policy,
             handler=_get_fund,
+            tags=frozenset({"repe", "core"}),
         )
     )
     registry.register(
@@ -404,6 +406,7 @@ def register_repe_tools() -> None:
             input_model=ListDealsInput,
             audit_policy=policy,
             handler=_list_deals,
+            tags=frozenset({"repe", "core"}),
         )
     )
     registry.register(
@@ -418,6 +421,7 @@ def register_repe_tools() -> None:
             input_model=ListAssetsInput,
             audit_policy=policy,
             handler=_list_assets,
+            tags=frozenset({"repe", "core"}),
         )
     )
     registry.register(
@@ -431,6 +435,7 @@ def register_repe_tools() -> None:
             input_model=GetAssetInput,
             audit_policy=policy,
             handler=_get_asset,
+            tags=frozenset({"repe", "core"}),
         )
     )
     registry.register(
@@ -446,6 +451,7 @@ def register_repe_tools() -> None:
             input_model=GetEnvironmentSnapshotInput,
             audit_policy=policy,
             handler=_get_environment_snapshot,
+            tags=frozenset({"repe", "core"}),
         )
     )
 
@@ -464,6 +470,7 @@ def register_repe_tools() -> None:
             input_model=CreateFundInput,
             audit_policy=write_policy,
             handler=_create_fund,
+            tags=frozenset({"repe", "core", "write"}),
         )
     )
     registry.register(
@@ -478,6 +485,7 @@ def register_repe_tools() -> None:
             input_model=CreateDealInput,
             audit_policy=write_policy,
             handler=_create_deal,
+            tags=frozenset({"repe", "core", "write"}),
         )
     )
     registry.register(
@@ -492,5 +500,6 @@ def register_repe_tools() -> None:
             input_model=CreateAssetInput,
             audit_policy=write_policy,
             handler=_create_asset,
+            tags=frozenset({"repe", "core", "write"}),
         )
     )

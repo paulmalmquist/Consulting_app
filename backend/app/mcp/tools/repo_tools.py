@@ -162,6 +162,7 @@ def register_repo_tools():
         permission="read",
         input_model=SearchFilesInput,
         handler=_search_files,
+        tags=frozenset({"infra"}),
     ))
     registry.register(ToolDef(
         name="repo.read_file",
@@ -170,4 +171,5 @@ def register_repo_tools():
         permission="read",
         input_model=ReadFileInput,
         handler=_read_file,
+        tags=frozenset({"infra"}),
     ))

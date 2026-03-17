@@ -77,4 +77,5 @@ def register_db_tools():
         input_model=DbUpsertInput,
         handler=_db_upsert,
         audit_policy=db_audit,
+        tags=frozenset({"infra"}),
     ))

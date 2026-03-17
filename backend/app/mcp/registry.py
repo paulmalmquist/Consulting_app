@@ -28,6 +28,7 @@ class ToolDef:
     output_model: Type[BaseModel] | None = None
     audit_policy: AuditPolicy = field(default_factory=AuditPolicy)
     handler: Callable | None = None
+    tags: frozenset[str] = field(default_factory=frozenset)
 
     @property
     def input_schema(self) -> dict:
@@ -65,6 +66,10 @@ class ToolRegistry:
 
     def list_by_module(self, module: str) -> list[ToolDef]:
         return [t for t in self._tools.values() if t.module == module]
+
+    def list_by_tags(self, include: set[str]) -> list[ToolDef]:
+        """Return tools whose tags overlap with *include*."""
+        return [t for t in self._tools.values() if t.tags & include]
 
     def describe_all(self) -> list[dict]:
         return [

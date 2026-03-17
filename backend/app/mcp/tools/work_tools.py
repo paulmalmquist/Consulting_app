@@ -197,6 +197,7 @@ def register_work_tools():
         permission="read",
         input_model=ListWorkItemsInput,
         handler=_list_items,
+        tags=frozenset({"work"}),
     ))
     registry.register(ToolDef(
         name="work.get_item",
@@ -205,6 +206,7 @@ def register_work_tools():
         permission="read",
         input_model=GetWorkItemInput,
         handler=_get_item,
+        tags=frozenset({"work"}),
     ))
     registry.register(ToolDef(
         name="work.search_resolutions",
@@ -213,6 +215,7 @@ def register_work_tools():
         permission="read",
         input_model=SearchResolutionsInput,
         handler=_search_resolutions,
+        tags=frozenset({"work"}),
     ))
     registry.register(ToolDef(
         name="work.list_audit_events",
@@ -221,6 +224,7 @@ def register_work_tools():
         permission="read",
         input_model=ListAuditEventsInput,
         handler=_list_audit_events,
+        tags=frozenset({"work"}),
     ))
 
     # Write tools
@@ -231,6 +235,7 @@ def register_work_tools():
         permission="write",
         input_model=CreateWorkItemInput,
         handler=_create_item,
+        tags=frozenset({"work", "write"}),
     ))
     registry.register(ToolDef(
         name="work.add_comment",
@@ -239,6 +244,7 @@ def register_work_tools():
         permission="write",
         input_model=AddCommentInput,
         handler=_add_comment,
+        tags=frozenset({"work", "write"}),
     ))
     registry.register(ToolDef(
         name="work.update_status",
@@ -247,6 +253,7 @@ def register_work_tools():
         permission="write",
         input_model=UpdateStatusInput,
         handler=_update_status,
+        tags=frozenset({"work", "write"}),
     ))
     registry.register(ToolDef(
         name="work.resolve_item",
@@ -255,4 +262,5 @@ def register_work_tools():
         permission="write",
         input_model=ResolveItemInput,
         handler=_resolve_item,
+        tags=frozenset({"work", "write"}),
     ))

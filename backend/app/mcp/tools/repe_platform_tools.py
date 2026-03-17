@@ -252,6 +252,7 @@ def register_repe_platform_tools():
         permission="read",
         input_model=ListApprovalsInput,
         handler=_list_approvals,
+        tags=frozenset({"repe", "platform"}),
     ))
 
     registry.register(ToolDef(
@@ -261,6 +262,7 @@ def register_repe_platform_tools():
         permission="write",
         input_model=SaveAnalysisInput,
         handler=_save_analysis,
+        tags=frozenset({"repe", "platform", "write"}),
     ))
 
     registry.register(ToolDef(
@@ -270,6 +272,7 @@ def register_repe_platform_tools():
         permission="read",
         input_model=ListSavedAnalysesInput,
         handler=_list_saved_analyses,
+        tags=frozenset({"repe", "platform"}),
     ))
 
     registry.register(ToolDef(
@@ -279,4 +282,5 @@ def register_repe_platform_tools():
         permission="read",
         input_model=ListDocumentsInput,
         handler=_list_documents,
+        tags=frozenset({"repe", "platform"}),
     ))
