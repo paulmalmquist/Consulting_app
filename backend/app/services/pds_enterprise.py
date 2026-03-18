@@ -19,6 +19,30 @@ def _q(value: Any) -> Decimal:
     return pds_core._q(value)
 
 
+def _ensure_workspace_lazy(*, env_id: UUID, business_id: UUID) -> None:
+    """Fast-path workspace check: only runs full ensure if snapshots don't exist yet.
+
+    This avoids the expensive refresh_snapshots() call on every read request.
+    Full refresh should happen via the /seed or /refresh-snapshots endpoints.
+    """
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT 1 FROM pds_market_performance_snapshot WHERE env_id = %s::uuid AND business_id = %s::uuid LIMIT 1",
+            (str(env_id), str(business_id)),
+        )
+        if cur.fetchone() is not None:
+            return  # Snapshots exist — skip expensive seeding
+    # Cold workspace — run full initialization with advisory lock
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT pg_try_advisory_xact_lock(hashtext(%s))",
+            (f"pds_enterprise:{env_id}:{business_id}",),
+        )
+        got_lock = cur.fetchone()
+        if got_lock and got_lock.get("pg_try_advisory_xact_lock"):
+            ensure_enterprise_workspace(env_id=env_id, business_id=business_id)
+
+
 def _coerce_date(value: Any) -> date | None:
     return pds_core._coerce_date(value)
 
@@ -1364,7 +1388,7 @@ def _forecast_rows(*, env_id: UUID, business_id: UUID, horizon: str, entity_type
 
 
 def get_performance_table(*, env_id: UUID, business_id: UUID, lens: str, horizon: str) -> dict[str, Any]:
-    ensure_enterprise_workspace(env_id=env_id, business_id=business_id)
+    _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
     normalized_lens = normalize_lens(lens)
     normalized_horizon = normalize_horizon(horizon)
     table_by_lens = {
@@ -1489,7 +1513,7 @@ def get_performance_table(*, env_id: UUID, business_id: UUID, lens: str, horizon
 
 
 def get_delivery_risk(*, env_id: UUID, business_id: UUID, horizon: str) -> list[dict[str, Any]]:
-    ensure_enterprise_workspace(env_id=env_id, business_id=business_id)
+    _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
     rows = _latest_snapshot_rows("pds_project_health_snapshot", env_id=env_id, business_id=business_id, horizon=normalize_horizon(horizon))
     projects = {row["project_id"]: row for row in pds_core.list_projects(env_id=env_id, business_id=business_id, limit=200)}
     entity_rows = _load_rows_by_table(env_id=env_id, business_id=business_id)
@@ -1522,7 +1546,7 @@ def get_delivery_risk(*, env_id: UUID, business_id: UUID, horizon: str) -> list[
 
 
 def get_resource_health(*, env_id: UUID, business_id: UUID, horizon: str) -> list[dict[str, Any]]:
-    ensure_enterprise_workspace(env_id=env_id, business_id=business_id)
+    _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
     rows = _latest_snapshot_rows("pds_resource_utilization_snapshot", env_id=env_id, business_id=business_id, horizon=normalize_horizon(horizon))
     entity_rows = _load_rows_by_table(env_id=env_id, business_id=business_id)
     resources = {row["resource_id"]: row for row in entity_rows["resources"]}
@@ -1550,7 +1574,7 @@ def get_resource_health(*, env_id: UUID, business_id: UUID, horizon: str) -> lis
 
 
 def get_timecard_health(*, env_id: UUID, business_id: UUID, horizon: str) -> list[dict[str, Any]]:
-    ensure_enterprise_workspace(env_id=env_id, business_id=business_id)
+    _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
     rows = _latest_snapshot_rows("pds_timecard_health_snapshot", env_id=env_id, business_id=business_id, horizon=normalize_horizon(horizon))
     entity_rows = _load_rows_by_table(env_id=env_id, business_id=business_id)
     resources = {row["resource_id"]: row for row in entity_rows["resources"]}
@@ -1572,7 +1596,7 @@ def get_timecard_health(*, env_id: UUID, business_id: UUID, horizon: str) -> lis
 
 
 def get_forecast(*, env_id: UUID, business_id: UUID, horizon: str, lens: str) -> list[dict[str, Any]]:
-    ensure_enterprise_workspace(env_id=env_id, business_id=business_id)
+    _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
     normalized_lens = normalize_lens(lens)
     entity_type = normalized_lens if normalized_lens != "resource" else "market"
     rows = _forecast_rows(env_id=env_id, business_id=business_id, horizon=normalize_horizon(horizon), entity_type=entity_type)
@@ -1601,7 +1625,7 @@ def get_forecast(*, env_id: UUID, business_id: UUID, horizon: str, lens: str) ->
 
 
 def get_satisfaction(*, env_id: UUID, business_id: UUID, horizon: str) -> list[dict[str, Any]]:
-    ensure_enterprise_workspace(env_id=env_id, business_id=business_id)
+    _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
     rows = _latest_snapshot_rows("pds_client_satisfaction_snapshot", env_id=env_id, business_id=business_id, horizon=normalize_horizon(horizon))
     entity_rows = _load_rows_by_table(env_id=env_id, business_id=business_id)
     accounts = {row["account_id"]: row for row in entity_rows["accounts"]}
@@ -1628,7 +1652,7 @@ def get_satisfaction(*, env_id: UUID, business_id: UUID, horizon: str) -> list[d
 
 
 def get_closeout(*, env_id: UUID, business_id: UUID, horizon: str) -> list[dict[str, Any]]:
-    ensure_enterprise_workspace(env_id=env_id, business_id=business_id)
+    _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
     rows = _latest_snapshot_rows("pds_closeout_snapshot", env_id=env_id, business_id=business_id, horizon=normalize_horizon(horizon))
     projects = {row["project_id"]: row for row in pds_core.list_projects(env_id=env_id, business_id=business_id, limit=200)}
     items = []
@@ -1655,12 +1679,30 @@ def get_closeout(*, env_id: UUID, business_id: UUID, horizon: str) -> list[dict[
     return items[:8]
 
 
-def get_executive_briefing(*, env_id: UUID, business_id: UUID, lens: str, horizon: str, role_preset: str) -> dict[str, Any]:
-    performance_table = get_performance_table(env_id=env_id, business_id=business_id, lens=lens, horizon=horizon)
-    delivery_risk = get_delivery_risk(env_id=env_id, business_id=business_id, horizon=horizon)
-    resources = get_resource_health(env_id=env_id, business_id=business_id, horizon=horizon)
-    satisfaction = get_satisfaction(env_id=env_id, business_id=business_id, horizon=horizon)
-    closeout = get_closeout(env_id=env_id, business_id=business_id, horizon=horizon)
+def get_executive_briefing(
+    *,
+    env_id: UUID,
+    business_id: UUID,
+    lens: str,
+    horizon: str,
+    role_preset: str,
+    performance_table: dict[str, Any] | None = None,
+    delivery_risk: list[dict[str, Any]] | None = None,
+    resources: list[dict[str, Any]] | None = None,
+    satisfaction: list[dict[str, Any]] | None = None,
+    closeout: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    # Accept pre-fetched data from get_command_center to avoid duplicate queries
+    if performance_table is None:
+        performance_table = get_performance_table(env_id=env_id, business_id=business_id, lens=lens, horizon=horizon)
+    if delivery_risk is None:
+        delivery_risk = get_delivery_risk(env_id=env_id, business_id=business_id, horizon=horizon)
+    if resources is None:
+        resources = get_resource_health(env_id=env_id, business_id=business_id, horizon=horizon)
+    if satisfaction is None:
+        satisfaction = get_satisfaction(env_id=env_id, business_id=business_id, horizon=horizon)
+    if closeout is None:
+        closeout = get_closeout(env_id=env_id, business_id=business_id, horizon=horizon)
 
     top_row = performance_table["rows"][0] if performance_table["rows"] else None
     risk_names = ", ".join(item["project_name"] for item in delivery_risk[:2]) or "no immediate interventions"
@@ -1694,7 +1736,7 @@ def get_executive_briefing(*, env_id: UUID, business_id: UUID, lens: str, horizo
 
 def get_pipeline_summary(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
     """Return pipeline stages and deals for the PDS pipeline module."""
-    ensure_enterprise_workspace(env_id=env_id, business_id=business_id)
+    _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
     stages_order = ["prospect", "pursuit", "won", "converted"]
     stage_map: dict[str, dict[str, Any]] = {
         s: {"stage": s, "count": 0, "weighted_value": Decimal("0"), "unweighted_value": Decimal("0")}
@@ -1750,16 +1792,7 @@ def get_pipeline_summary(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
 
 def get_command_center(*, env_id: UUID, business_id: UUID, lens: str, horizon: str, role_preset: str) -> dict[str, Any]:
     environment = _fetch_environment(env_id)
-    # Use advisory lock to serialize workspace initialization per tenant,
-    # preventing deadlocks when concurrent requests hit this endpoint.
-    with get_cursor() as cur:
-        cur.execute(
-            "SELECT pg_try_advisory_xact_lock(hashtext(%s))",
-            (f"pds_enterprise:{env_id}:{business_id}",),
-        )
-        got_lock = cur.fetchone()
-        if got_lock and got_lock.get("pg_try_advisory_xact_lock"):
-            ensure_enterprise_workspace(env_id=env_id, business_id=business_id)
+    _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
     performance_table = get_performance_table(env_id=env_id, business_id=business_id, lens=lens, horizon=horizon)
     delivery_risk = get_delivery_risk(env_id=env_id, business_id=business_id, horizon=horizon)
     resource_health = get_resource_health(env_id=env_id, business_id=business_id, horizon=horizon)
@@ -1767,7 +1800,11 @@ def get_command_center(*, env_id: UUID, business_id: UUID, lens: str, horizon: s
     forecast = get_forecast(env_id=env_id, business_id=business_id, horizon=horizon, lens=lens)
     satisfaction = get_satisfaction(env_id=env_id, business_id=business_id, horizon=horizon)
     closeout = get_closeout(env_id=env_id, business_id=business_id, horizon=horizon)
-    briefing = get_executive_briefing(env_id=env_id, business_id=business_id, lens=lens, horizon=horizon, role_preset=role_preset)
+    briefing = get_executive_briefing(
+        env_id=env_id, business_id=business_id, lens=lens, horizon=horizon, role_preset=role_preset,
+        performance_table=performance_table, delivery_risk=delivery_risk,
+        resources=resource_health, satisfaction=satisfaction, closeout=closeout,
+    )
 
     fee_plan = sum(_q(row.get("fee_plan")) for row in performance_table["rows"])
     fee_actual = sum(_q(row.get("fee_actual")) for row in performance_table["rows"])
