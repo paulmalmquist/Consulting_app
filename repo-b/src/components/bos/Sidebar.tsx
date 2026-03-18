@@ -26,6 +26,7 @@ const FINANCE_MODULE_LINKS: Array<{ section: string; label: string; href: string
   { section: "Deals", label: "Scenario Lab", href: "/app/finance/scenarios" },
   { section: "Deals", label: "Healthcare / MSO", href: "/app/finance/healthcare" },
   { section: "Asset Mgmt", label: "Construction Finance", href: "/app/finance/construction" },
+  { section: "Asset Mgmt", label: "Capital Projects", href: "/app/capital-projects" },
   { section: "Controls", label: "Legal Economics", href: "/app/finance/legal" },
   { section: "Controls", label: "Security & ACL", href: "/app/finance/security" },
 ];

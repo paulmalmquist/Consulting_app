@@ -8116,3 +8116,91 @@ export function getAssetMapPoints(params: {
 }): Promise<AssetMapResponse> {
   return bosFetch("/api/re/v2/funds/asset-map", { params });
 }
+
+
+// ── Capital Projects API ──────────────────────────────────────────
+
+import type {
+  CpPortfolioSummary,
+  CpProjectDashboard,
+  CpDailyLog,
+  CpMeeting,
+  CpDrawing,
+  CpPayApp,
+  CpBudgetSummary,
+  CpChangeOrder,
+  CpContract,
+  CpRisk,
+  CpRfi,
+  CpSubmittal,
+  CpPunchItem,
+  CpScheduleSnapshot,
+} from "@/types/capital-projects";
+
+function _cpParams(envId?: string, businessId?: string): Record<string, string | undefined> {
+  return { env_id: envId, business_id: businessId };
+}
+
+export function getCpPortfolio(envId?: string, businessId?: string): Promise<CpPortfolioSummary> {
+  return bosFetch("/api/capital-projects/v1/portfolio", { params: _cpParams(envId, businessId) });
+}
+
+export function listCpProjects(envId?: string, businessId?: string): Promise<Record<string, unknown>[]> {
+  return bosFetch("/api/capital-projects/v1/projects", { params: _cpParams(envId, businessId) });
+}
+
+export function getCpProjectDashboard(projectId: string, envId?: string, businessId?: string): Promise<CpProjectDashboard> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/dashboard`, { params: _cpParams(envId, businessId) });
+}
+
+export function getCpProjectBudget(projectId: string, envId?: string, businessId?: string): Promise<CpBudgetSummary> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/budget`, { params: _cpParams(envId, businessId) });
+}
+
+export function listCpCommitments(projectId: string, envId?: string, businessId?: string): Promise<CpContract[]> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/commitments`, { params: _cpParams(envId, businessId) });
+}
+
+export function listCpChangeOrders(projectId: string, envId?: string, businessId?: string): Promise<CpChangeOrder[]> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/change-orders`, { params: _cpParams(envId, businessId) });
+}
+
+export function listCpMilestones(projectId: string, envId?: string, businessId?: string): Promise<CpScheduleSnapshot[]> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/milestones`, { params: _cpParams(envId, businessId) });
+}
+
+export function listCpRisks(projectId: string, envId?: string, businessId?: string): Promise<CpRisk[]> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/risks`, { params: _cpParams(envId, businessId) });
+}
+
+export function listCpRfis(projectId: string, envId?: string, businessId?: string): Promise<CpRfi[]> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/rfis`, { params: _cpParams(envId, businessId) });
+}
+
+export function listCpSubmittals(projectId: string, envId?: string, businessId?: string): Promise<CpSubmittal[]> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/submittals`, { params: _cpParams(envId, businessId) });
+}
+
+export function listCpPunchItems(projectId: string, envId?: string, businessId?: string): Promise<CpPunchItem[]> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/punch-items`, { params: _cpParams(envId, businessId) });
+}
+
+export function listCpDailyLogs(projectId: string, envId?: string, businessId?: string): Promise<CpDailyLog[]> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/daily-logs`, { params: _cpParams(envId, businessId) });
+}
+
+export function listCpMeetings(projectId: string, envId?: string, businessId?: string): Promise<CpMeeting[]> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/meetings`, { params: _cpParams(envId, businessId) });
+}
+
+export function listCpDrawings(projectId: string, envId?: string, businessId?: string): Promise<CpDrawing[]> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/drawings`, { params: _cpParams(envId, businessId) });
+}
+
+export function listCpPayApps(projectId: string, envId?: string, businessId?: string): Promise<CpPayApp[]> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/pay-apps`, { params: _cpParams(envId, businessId) });
+}
+
+export function approveCpPayApp(projectId: string, payAppId: string, envId?: string, businessId?: string): Promise<CpPayApp> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/pay-apps/${payAppId}/approve`, { method: "POST", params: _cpParams(envId, businessId) });
+}

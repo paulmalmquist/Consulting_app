@@ -149,6 +149,7 @@ _GET_CURSOR_TARGETS = [
     "app.services.re_model_run.get_cursor",
     "app.services.re_intelligence.get_cursor",
     "app.services.opportunity_engine.get_cursor",
+    "app.services.capital_projects.get_cursor",
 ]
 
 
