@@ -7,7 +7,7 @@ All IDs are deterministic via uuid5 for idempotency.
 from __future__ import annotations
 
 import uuid
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 from typing import Any
 from uuid import UUID

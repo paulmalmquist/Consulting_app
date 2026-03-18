@@ -93,7 +93,7 @@ export function DevScenarioComparison({
               <tr key={m.key} className="h-9">
                 <td className="pr-4 text-bm-muted2">{m.label}</td>
                 {data.scenarios.map((s, i) => {
-                  const val = (s as Record<string, unknown>)[m.key] as string | null;
+                  const val = (s as unknown as Record<string, unknown>)[m.key] as string | null;
                   const delta = i > 0
                     ? data.deltas.find((d) => d.scenario_label === s.scenario_label)
                     : null;

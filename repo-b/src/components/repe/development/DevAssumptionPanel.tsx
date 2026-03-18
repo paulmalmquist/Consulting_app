@@ -170,7 +170,7 @@ export function DevAssumptionPanel({
       {current && (
         <div className="grid grid-cols-2 gap-3">
           {outputFields.map((f) => {
-            const val = (current as Record<string, unknown>)[f.key] as string | null;
+            const val = (current as unknown as Record<string, unknown>)[f.key] as string | null;
             return (
               <div
                 key={f.key}
@@ -200,7 +200,7 @@ export function DevAssumptionPanel({
             </h4>
             <div className="space-y-2">
               {group.fields.map((f) => {
-                const val = (current as Record<string, unknown>)[f.key] as string | null;
+                const val = (current as unknown as Record<string, unknown>)[f.key] as string | null;
                 const isEditing = editingField === f.key;
                 return (
                   <div key={f.key} className="flex items-center justify-between gap-3">

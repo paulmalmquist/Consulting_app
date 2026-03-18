@@ -2,7 +2,7 @@
 
 import type { DevFundImpactResponse } from "@/lib/bos-api";
 
-function fmtMoney(val: string | undefined): string {
+function fmtMoney(val: string | null | undefined): string {
   if (!val) return "—";
   const n = parseFloat(val);
   if (isNaN(n)) return "—";
@@ -11,21 +11,21 @@ function fmtMoney(val: string | undefined): string {
   return `$${n.toFixed(0)}`;
 }
 
-function fmtPct(val: string | undefined): string {
+function fmtPct(val: string | null | undefined): string {
   if (!val) return "—";
   const n = parseFloat(val);
   if (isNaN(n)) return "—";
   return `${(n * 100).toFixed(2)}%`;
 }
 
-function fmtRatio(val: string | undefined): string {
+function fmtRatio(val: string | null | undefined): string {
   if (!val) return "—";
   const n = parseFloat(val);
   if (isNaN(n)) return "—";
   return `${n.toFixed(2)}x`;
 }
 
-function fmtPctRaw(val: string | undefined): string {
+function fmtPctRaw(val: string | null | undefined): string {
   if (!val) return "—";
   return `${parseFloat(val).toFixed(1)}%`;
 }

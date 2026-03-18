@@ -11,7 +11,6 @@ from typing import Any
 from uuid import UUID
 
 from app.db import get_cursor
-from app.observability.logger import emit_log
 
 
 # ── Helpers ────────────────────────────────────────────────────────
