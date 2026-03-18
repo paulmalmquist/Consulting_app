@@ -19,13 +19,13 @@ from app.services.dev_asset_bridge import _recalculate_outputs
 # Deterministic UUID namespace
 _DEV_NS = uuid.UUID("d3e4f5a6-0004-0040-0004-000000000004")
 
-# Meridian asset IDs (from fixtures/winston_demo/meridian_demo_seed.json)
+# Meridian asset IDs (live DB: repe_asset table, a1b2c3d4-9001 series)
 _ASSET_IDS = {
-    "aurora":    UUID("9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f301"),
-    "cedar":     UUID("9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f302"),
-    "northgate": UUID("9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f303"),
-    "meridian":  UUID("9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f304"),
-    "foundry":   UUID("9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f305"),
+    "aurora":    UUID("a1b2c3d4-9001-0001-0001-000000000001"),  # Parkview Residences
+    "cedar":     UUID("a1b2c3d4-9001-0001-0002-000000000001"),  # Heritage Senior Living
+    "northgate": UUID("a1b2c3d4-9001-0001-0003-000000000001"),  # Campus Edge Apartments
+    "meridian":  UUID("a1b2c3d4-9001-0001-0004-000000000001"),  # Meridian Medical Plaza
+    "foundry":   UUID("a1b2c3d4-9001-0001-0005-000000000001"),  # Gateway Distribution Center
 }
 
 
