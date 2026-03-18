@@ -20,9 +20,13 @@ import { PdsForecastPanel } from "@/components/pds-enterprise/PdsForecastPanel";
 import { PdsSatisfactionCloseoutPanel } from "@/components/pds-enterprise/PdsSatisfactionCloseoutPanel";
 import { PdsExecutiveBriefingPanel } from "@/components/pds-enterprise/PdsExecutiveBriefingPanel";
 import { PdsInterventionQueue } from "@/components/pds-enterprise/PdsInterventionQueue";
+import { PdsSignalsStrip } from "@/components/pds-enterprise/PdsSignalsStrip";
+import { PdsMarketLeaderboard } from "@/components/pds-enterprise/PdsMarketLeaderboard";
 
-type PdsWorkspaceSection =
+export type PdsWorkspaceSection =
   | "performance"
+  | "leaderboard"
+  | "signals"
   | "deliveryRisk"
   | "resourceHealth"
   | "forecast"
@@ -39,7 +43,7 @@ type ModuleNote = {
 
 type Props = {
   title: string;
-  description: string;
+  description?: string;
   defaultLens?: PdsV2Lens;
   defaultHorizon?: PdsV2Horizon;
   defaultRolePreset?: PdsV2RolePreset;
@@ -50,16 +54,16 @@ type Props = {
 
 function PdsSectionHeader({ label, title }: { label: string; title: string }) {
   return (
-    <div className="mt-2">
+    <div className="mt-1">
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-pds-gold/70">{label}</p>
-      <h3 className="text-lg font-semibold text-bm-text">{title}</h3>
+      <h3 className="text-base font-semibold text-bm-text">{title}</h3>
     </div>
   );
 }
 
 function ReportPacketPanel({ packet }: { packet: PdsV2ReportPacket }) {
   return (
-    <section className="rounded-3xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="pds-report-packet-panel">
+    <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="pds-report-packet-panel">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.16em] text-bm-muted2">Report Packet</p>
@@ -70,7 +74,7 @@ function ReportPacketPanel({ packet }: { packet: PdsV2ReportPacket }) {
       <p className="mt-4 text-sm text-bm-muted2">{packet.narrative || "Narrative pending."}</p>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {packet.sections.map((section, index) => (
-          <article key={`${section.key || section.title || index}`} className="rounded-2xl border border-bm-border/60 bg-[#101922] p-4">
+          <article key={`${section.key || section.title || index}`} className="rounded-xl border border-bm-border/60 bg-[#101922] p-3">
             <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">{String(section.key || "section")}</p>
             <h4 className="mt-1 font-semibold">{String(section.title || "Section")}</h4>
           </article>
@@ -140,12 +144,12 @@ export function PdsWorkspacePage({
   }, [businessId, envId, horizon, lens, rolePreset, reportPacketType]);
 
   if (loading && !commandCenter) {
-    return <div className="rounded-3xl border border-bm-border/70 bg-bm-surface/20 p-6 text-sm text-bm-muted2">Loading PDS enterprise command center...</div>;
+    return <div className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-4 text-sm text-bm-muted2">Loading PDS enterprise command center...</div>;
   }
 
   if (error && !commandCenter) {
     return (
-      <div className="rounded-3xl border border-pds-signalRed/30 bg-pds-signalRed/10 p-6 text-sm text-red-200">
+      <div className="rounded-2xl border border-pds-signalRed/30 bg-pds-signalRed/10 p-4 text-sm text-red-200">
         {error}
       </div>
     );
@@ -154,32 +158,34 @@ export function PdsWorkspacePage({
   if (!commandCenter) return null;
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-[28px] border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,hsl(var(--pds-gold)/0.14),transparent_45%),linear-gradient(145deg,#111820,#0b1015)] p-4">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-          <div className="max-w-3xl space-y-1">
-            <p className="text-xs uppercase tracking-[0.18em] text-pds-gold">PDS Enterprise OS</p>
-            <h2 className="text-2xl font-semibold text-bm-text">{title}</h2>
-            {description ? <p className="text-sm text-bm-muted2">{description}</p> : null}
+    <div className="space-y-3">
+      {/* Compressed header row */}
+      <section className="rounded-xl border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,hsl(var(--pds-gold)/0.10),transparent_40%),linear-gradient(145deg,#111820,#0b1015)] px-4 py-3">
+        <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-baseline gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-semibold text-bm-text">{title}</h2>
+                <span className="rounded-full border border-pds-gold/20 px-2 py-0.5 text-[10px] font-medium text-pds-goldText">
+                  PDS Enterprise OS
+                </span>
+              </div>
+              {description ? <p className="text-xs text-bm-muted2 mt-0.5">{description}</p> : null}
+            </div>
           </div>
-          <div className="rounded-2xl border border-pds-gold/20 bg-black/10 px-4 py-2.5 text-sm text-pds-goldText">
-            Market vs account is a first-class operating switch. Revenue, staffing, client health, and closeout move with the same lens.
-          </div>
+          {moduleNotes.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {moduleNotes.map((note) => (
+                <div key={`${note.label}-${note.title}`} className="rounded-lg border border-bm-border/50 bg-bm-surface/15 px-3 py-1.5 text-xs text-bm-muted2">
+                  <span className="font-medium text-bm-text">{note.title}</span> — {note.body}
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       </section>
 
-      {moduleNotes.length ? (
-        <section className="grid gap-3 lg:grid-cols-3">
-          {moduleNotes.map((note) => (
-            <article key={`${note.label}-${note.title}`} className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-bm-muted2">{note.label}</p>
-              <h3 className="mt-1 text-base font-semibold">{note.title}</h3>
-              <p className="mt-1 text-xs text-bm-muted2">{note.body}</p>
-            </article>
-          ))}
-        </section>
-      ) : null}
-
+      {/* Operating lens + controls */}
       <PdsLensToolbar
         lens={lens}
         horizon={horizon}
@@ -190,10 +196,16 @@ export function PdsWorkspacePage({
         onRolePresetChange={setRolePreset}
       />
 
+      {/* Signals strip */}
+      {sections.includes("signals") ? (
+        <PdsSignalsStrip commandCenter={commandCenter} />
+      ) : null}
+
       {sections.includes("interventionQueue") ? (
         <PdsInterventionQueue commandCenter={commandCenter} />
       ) : null}
 
+      {/* Financial summary cards */}
       {sections.includes("performance") ? (
         <>
           <PdsSectionHeader label="Financial Signals" title="Revenue, CI, Backlog & Forecast" />
@@ -203,7 +215,16 @@ export function PdsWorkspacePage({
         <PdsMetricStrip metrics={commandCenter.metrics_strip} />
       )}
 
-      {sections.includes("performance") ? (
+      {/* Market leaderboard */}
+      {sections.includes("leaderboard") ? (
+        <>
+          <PdsSectionHeader label="Market Leaderboard" title="Ranked Operating View" />
+          <PdsMarketLeaderboard rows={commandCenter.performance_table.rows} />
+        </>
+      ) : null}
+
+      {/* Legacy performance table (for non-market pages) */}
+      {sections.includes("performance") && !sections.includes("leaderboard") ? (
         <>
           <PdsSectionHeader label="Portfolio Performance" title="Market Operating View" />
           <PdsPerformanceTable table={commandCenter.performance_table} />
@@ -248,7 +269,7 @@ export function PdsWorkspacePage({
       {sections.includes("reportPacket") && reportPacket ? <ReportPacketPanel packet={reportPacket} /> : null}
 
       {error ? (
-        <div className="rounded-2xl border border-pds-signalOrange/30 bg-pds-signalOrange/10 px-4 py-3 text-sm text-amber-100">
+        <div className="rounded-xl border border-pds-signalOrange/30 bg-pds-signalOrange/10 px-3 py-2 text-sm text-amber-100">
           {error}
         </div>
       ) : null}

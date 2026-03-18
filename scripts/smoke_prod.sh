@@ -37,7 +37,7 @@ test_endpoint() {
         echo "  URL: $url"
         echo "  Response: $body"
         FAILURES=$((FAILURES + 1))
-        return 1
+        return 0
     fi
 
     if [ "$check_json" = "true" ]; then
@@ -45,7 +45,7 @@ test_endpoint() {
             echo "FAIL (invalid JSON)"
             echo "  Response: $body"
             FAILURES=$((FAILURES + 1))
-            return 1
+            return 0
         fi
     fi
 
@@ -53,24 +53,28 @@ test_endpoint() {
     return 0
 }
 
+resolve_smoke_env_id() {
+    curl -fsS "$PROD_BASE_URL/v1/environments" | jq -r '.environments[0].env_id // empty'
+}
+
 # ── Critical tests ────────────────────────────────────────────────────
 
 # Test 1: Frontend root
 test_endpoint "Frontend root" "$PROD_BASE_URL/" 200 false
 
-# Test 2: Health check via proxy
-test_endpoint "Health check (/v1/health)" "$PROD_BASE_URL/v1/health" 200 true
+# Test 2: BOS health check via same-origin proxy
+test_endpoint "Health check (/bos/v1/health)" "$PROD_BASE_URL/bos/v1/health" 200 true
 
 echo ""
 echo "========================================="
-echo "Backend API Endpoints (real DB)"
+echo "Backend API Endpoints via BOS Proxy (real DB)"
 echo "========================================="
 
 # Test 3: Templates endpoint (real DB)
-test_endpoint "Templates GET (/api/templates)" "$PROD_BASE_URL/api/templates" 200 true
+test_endpoint "Templates GET (/bos/api/templates)" "$PROD_BASE_URL/bos/api/templates" 200 true
 
 # Test 4: Departments catalog (real DB)
-test_endpoint "Departments GET (/api/departments)" "$PROD_BASE_URL/api/departments" 200 true
+test_endpoint "Departments GET (/bos/api/departments)" "$PROD_BASE_URL/bos/api/departments" 200 true
 
 echo ""
 echo "========================================="
@@ -80,14 +84,22 @@ echo "========================================="
 # Test 5: Environments endpoint (real DB)
 test_endpoint "Environments GET (/v1/environments)" "$PROD_BASE_URL/v1/environments" 200 true
 
+SMOKE_ENV_ID="$(resolve_smoke_env_id)"
+if [ -z "$SMOKE_ENV_ID" ]; then
+    echo "Resolving smoke-test env_id ... FAIL"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "Using smoke-test env_id: $SMOKE_ENV_ID"
+fi
+
 # Test 6: Audit endpoint (real DB)
-test_endpoint "Audit list (/v1/audit)" "$PROD_BASE_URL/v1/audit" 200 true
+test_endpoint "Audit list (/v1/audit?env_id=...)" "$PROD_BASE_URL/v1/audit?env_id=$SMOKE_ENV_ID" 200 true
 
 # Test 7: Queue endpoint (real DB)
-test_endpoint "Queue list (/v1/queue)" "$PROD_BASE_URL/v1/queue" 200 true
+test_endpoint "Queue list (/v1/queue?env_id=...)" "$PROD_BASE_URL/v1/queue?env_id=$SMOKE_ENV_ID" 200 true
 
 # Test 8: Metrics endpoint (real DB)
-test_endpoint "Metrics (/v1/metrics)" "$PROD_BASE_URL/v1/metrics" 200 true
+test_endpoint "Metrics (/v1/metrics?env_id=...)" "$PROD_BASE_URL/v1/metrics?env_id=$SMOKE_ENV_ID" 200 true
 
 # Summary
 echo ""
@@ -100,11 +112,11 @@ if [ $FAILURES -eq 0 ]; then
     echo ""
     echo "Infrastructure verified:"
     echo "  - Frontend: Deployed and serving"
-    echo "  - Health check: Responding"
-    echo "  - Templates: Real DB data"
-    echo "  - Departments: Real DB data"
+    echo "  - BOS proxy: Responding"
+    echo "  - Templates: Real DB data via /bos/api/templates"
+    echo "  - Departments: Real DB data via /bos/api/departments"
     echo "  - Lab environments: Real DB data"
-    echo "  - Lab audit/queue/metrics: Real DB data"
+    echo "  - Lab audit/queue/metrics: Real DB data for env_id $SMOKE_ENV_ID"
     exit 0
 else
     echo "$FAILURES test(s) failed"

@@ -87,3 +87,45 @@ Patterns and conventions discovered during Deal Radar refactors.
 - Base-scenario economics should be assembled in this order: asset actuals or assumptions -> asset gross and net value -> ownership-adjusted fund share -> realized and unrealized fund pools -> waterfall tiers -> DPI/RVPI/TVPI/IRR outputs.
 - Do not roll fund value from gross asset values. Use attributable asset economics only: JV ownership when present, explicit `re_asset_realization` events for disposed assets, and scenario sale assumptions for hypothetical liquidation.
 - Seeded REPE funds should include a mix of active and disposed assets, explicit asset cost basis, coherent debt balances, and at least a few sub-100% ownership cases so base-scenario TVPI and waterfall outputs reconcile back to believable asset-level inputs.
+
+## Operating-System Page Layout
+
+Patterns for high-density "regional COO command center" style pages.
+
+### Header Density
+- Compress the header: `px-4 py-3`, `text-xl` title, single-line description. Module notes go inline as compact chips, not as separate cards below.
+- The PDS Enterprise OS badge is a small pill next to the title, not a separate row.
+- Remove marketing/explanatory hero boxes. Replace with operational signals.
+
+### Signals Strip
+- Place a horizontal strip of computed operational signals immediately below the header and lens control. Each signal is a compact pill: icon + one-line message + color encoding.
+- Compute signals from backend data: count markets below plan, staffing pressure regions, backlog coverage ratio, red project count, delinquent timecards.
+- Signal tones: danger (red, threshold-based), warn (amber), positive (green), neutral (gray).
+- Signals should be the first thing visible after the lens control — they answer "what needs my attention right now?"
+
+### Segmented Control for Operating Lens
+- The management lens (Market / Account / Project / Resource) is the **primary** page control — render it as a large segmented control (`inline-flex rounded-xl border p-1` with `rounded-lg px-5 py-2` buttons), not small pills buried inside a card.
+- Horizon (MTD/QTD/YTD/Forecast) and role preset are **secondary** controls — render them smaller on the same row, right-aligned.
+- No section headers or card wrappers around controls. They're structural, not content.
+
+### Financial Cards with Context
+- Metric strip cards show: label, value, **% variance vs plan inline**, and a delta arrow with trend value.
+- Use `tabular-nums` for all numeric values.
+- Inline variance color: `text-red-300` if < -5%, `text-amber-300` if < 0%, `text-emerald-300` if >= 0%.
+- Compact card sizing: `rounded-xl p-3`, `text-xl` value (not `text-2xl`).
+
+### Leaderboard Table
+- For any "market" or "account" lens page, prefer a sortable leaderboard over the raw performance table.
+- Columns: entity name, revenue, revenue vs plan (%), CI, backlog, forecast, utilization, risk score.
+- Risk score is computed client-side from variance %, red project count, client risk accounts, and utilization. Render with a `PdsRiskBadge` component.
+- Default sort: risk score descending (worst first).
+- Clickable entity names link to the drill page.
+
+### Spacing
+- Use `space-y-3` between sections (not `space-y-4`).
+- Section headers: `text-base font-semibold` (not `text-lg`), with `mt-1` gap.
+- Overall goal: increase visible information above the fold by 40-60%.
+
+### Risk Encoding
+- Use a reusable `PdsRiskBadge` component with 4 levels: critical (red, >= 80), high (orange, >= 60), moderate (amber, >= 40), low (green, < 40).
+- Badge has a colored dot + text label in a small pill.

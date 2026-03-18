@@ -32,12 +32,17 @@ This file is the human-facing registry for every routed markdown doc in the repo
 | ID | Kind | Status | Owners | Entry | Path |
 |---|---|---|---|---|---|
 | `claude-router` | `router` | `active` | `cross-repo` | `yes` | `CLAUDE.md` |
+| `ai-copilot-winston` | `agent` | `active` | `backend, repo-b` | `yes` | `agents/ai-copilot.md` |
 | `architect-winston` | `agent` | `active` | `cross-repo` | `yes` | `agents/architect.md` |
+| `bos-domain-winston` | `agent` | `active` | `backend` | `yes` | `agents/bos-domain.md` |
 | `builder-winston` | `agent` | `active` | `repo-b, backend, cross-repo` | `yes` | `agents/builder.md` |
 | `commander-winston` | `agent` | `active` | `orchestration, scripts, cross-repo` | `yes` | `agents/commander.md` |
 | `data-winston` | `agent` | `active` | `backend, repo-b, supabase` | `yes` | `agents/data.md` |
 | `deploy-winston` | `agent` | `active` | `scripts, cross-repo` | `yes` | `agents/deploy.md` |
 | `dispatcher-winston` | `agent` | `active` | `cross-repo` | `yes` | `agents/dispatcher.md` |
+| `frontend-winston` | `agent` | `active` | `repo-b` | `yes` | `agents/frontend.md` |
+| `lab-environment-winston` | `agent` | `active` | `repo-c, repo-b, excel-addin` | `yes` | `agents/lab-environment.md` |
+| `mcp-winston` | `agent` | `active` | `backend, orchestration` | `yes` | `agents/mcp.md` |
 | `novendor-content` | `agent` | `active` | `cross-repo` | `yes` | `agents/content.md` |
 | `novendor-demo` | `agent` | `active` | `cross-repo` | `yes` | `agents/demo.md` |
 | `novendor-operations` | `agent` | `active` | `cross-repo` | `yes` | `agents/operations.md` |

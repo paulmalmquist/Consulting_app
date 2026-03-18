@@ -72,6 +72,11 @@ notes:
 | prompt normalization, convert meta prompt to skill, instruction cleanup, retire legacy prompt | `skills/winston-prompt-normalization/SKILL.md` |
 | attached document ingestion, document-to-asset creation, extraction pipeline | `skills/winston-document-pipeline/SKILL.md` |
 | latency, reranking, model dispatch, prompt budget, performance architecture | `skills/winston-performance-architecture/SKILL.md` |
+| shared Next.js UI, app shell, component fixes, proxy routes, client integration glue | `agents/frontend.md` |
+| Business OS FastAPI routes, schemas, services, and non-AI domain logic | `agents/bos-domain.md` |
+| Demo Lab environments, industry templates, repo-c APIs, lab pages, uploads, pipeline, Excel touchpoints | `agents/lab-environment.md` |
+| AI gateway, prompt policy, RAG, assistant behavior, model routing, response rendering | `agents/ai-copilot.md` |
+| MCP registry, tool schemas, permissions, audit policy, planner and tool-context contracts | `agents/mcp.md` |
 | credit decisioning, walled garden, chain-of-thought, format lock, consumer credit AI, credit underwriting, corpus, citation chain | `.skills/credit-decisioning/SKILL.md` |
 | credit environment build, credit workspace implementation, credit MCP tools | `skills/winston-credit-environment/SKILL.md` with `.skills/credit-decisioning/SKILL.md` as support |
 | PDS platform build, PDS prompt sequence, executive automation, JLL PDS analytics | `skills/winston-pds-delivery/SKILL.md` |
@@ -90,9 +95,12 @@ notes:
 | Surface | Owner | Typical downstream docs |
 |---|---|---|
 | root bootstrap markdown (`BOOTSTRAP.md`, `TOOLS.md`, `IDENTITY.md`, `USER.md`, `SOUL.md`, `HEARTBEAT.md`) | Winston session bootstrap | `winston-session-bootstrap`, `winston-router` |
-| `repo-b/` | Next.js frontend and direct-DB handlers | `feature-dev`, `qa-winston`, `data-winston` |
-| `backend/` | FastAPI Business OS APIs and MCP server | `feature-dev`, `architect-winston`, `qa-winston`, `data-winston` |
-| `repo-c/` | Demo Lab backend | `feature-dev`, `qa-winston` |
+| `repo-b/` | Shared Next.js UI, app shell, and direct-DB handlers | `agents/frontend.md`, `feature-dev`, `qa-winston`, `data-winston` |
+| `repo-b/src/app/lab/`, `repo-b/src/lib/lab/`, `repo-b/src/app/api/v1/`, `excel-addin/` | Demo Lab frontend, environment workflows, and Excel touchpoints | `agents/lab-environment.md`, `feature-dev`, `qa-winston` |
+| `backend/app/mcp/` | MCP registry, tools, schemas, audit, and permissions | `agents/mcp.md`, `qa-winston` |
+| `backend/app/services/ai_gateway.py`, `backend/app/services/ai_conversations.py`, `backend/app/services/assistant_blocks.py`, `repo-b/src/components/copilot/`, `repo-b/src/components/winston/` | AI gateway, RAG, assistant behavior, and response rendering | `agents/ai-copilot.md`, `feature-dev`, `qa-winston` |
+| `backend/` | FastAPI Business OS APIs and domain services outside MCP and AI-specialist slices | `agents/bos-domain.md`, `feature-dev`, `architect-winston`, `qa-winston`, `data-winston` |
+| `repo-c/` | Demo Lab backend and environment provisioning | `agents/lab-environment.md`, `feature-dev`, `qa-winston` |
 | `META_PROMPT_CHAT_WORKSPACE.md` | Winston chat workspace brief | `winston-chat-workspace`, `feature-dev` |
 | `prompts/` | Dashboard composition prompt lineage | `winston-dashboard-composition`, `feature-dev` |
 | `repo-b/src/app/lab/env/[envId]/credit/`, `backend/app/services/credit*.py`, `backend/app/routes/credit*.py` | Consumer credit decisioning surface | `credit-decisioning`, `feature-dev`, `data-winston` |
@@ -143,6 +151,11 @@ notes:
 
 - `Review backend/app/routes/nv_ai_copilot.py and explain how it fits the repo` -> `agents/architect.md`
 - `Implement a loading fix in repo-b/src/app/lab/env/[envId]/page.tsx` -> `.skills/feature-dev/SKILL.md` with `agents/builder.md` as support
+- `Fix the shared shell layout in repo-b/src/app/app/reports/page.tsx` -> `agents/frontend.md`
+- `Update a FastAPI service in backend/app/services/reports.py` -> `agents/bos-domain.md`
+- `Change how lab environments map industry templates and pipeline defaults` -> `agents/lab-environment.md`
+- `Tune assistant response rendering and RAG behavior for Winston copilot` -> `agents/ai-copilot.md`
+- `Add a new MCP tool schema and registry entry` -> `agents/mcp.md`
 - `/research compare assistant routing approaches` -> `agents/architect.md`
 - `ingest research: docs/research/2026-03-11-irr-libs.md` -> `.skills/research-ingest/SKILL.md`
 - `use Codex CLI for this Winston bug` -> `skills/winston-router/SKILL.md`

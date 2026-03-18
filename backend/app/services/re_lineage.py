@@ -85,6 +85,7 @@ def list_fund_investment_rollup(
     scenario_id: UUID | None = None,
 ) -> list[dict]:
     clause, extra = _quarter_state_clause(scenario_id, "s")
+    asset_clause, asset_extra = _quarter_state_clause(scenario_id, "aqs")
     with get_cursor() as cur:
         cur.execute(
             f"""
@@ -93,6 +94,8 @@ def list_fund_investment_rollup(
                 d.name,
                 d.deal_type,
                 d.stage,
+                d.sponsor,
+                d.target_close_date,
                 s.id AS quarter_state_id,
                 s.run_id,
                 s.nav,
@@ -101,8 +104,26 @@ def list_fund_investment_rollup(
                 s.cash_balance,
                 s.effective_ownership_percent,
                 s.fund_nav_contribution,
+                s.gross_irr,
+                s.net_irr,
+                s.equity_multiple,
+                s.committed_capital,
+                s.invested_capital,
+                s.realized_distributions,
+                s.unrealized_value,
                 s.inputs_hash,
-                s.created_at
+                s.created_at,
+                agg.asset_count,
+                agg.total_noi,
+                agg.total_revenue,
+                agg.total_asset_value,
+                agg.total_debt,
+                agg.weighted_occupancy,
+                agg.computed_ltv,
+                agg.computed_dscr,
+                agg.missing_quarter_state_count,
+                agg.sector_mix,
+                agg.primary_market
             FROM repe_deal d
             LEFT JOIN LATERAL (
                 SELECT *
@@ -111,10 +132,49 @@ def list_fund_investment_rollup(
                 ORDER BY s.created_at DESC
                 LIMIT 1
             ) s ON true
+            LEFT JOIN LATERAL (
+                SELECT
+                    COUNT(*)::int AS asset_count,
+                    COALESCE(SUM(aqs.noi), 0) AS total_noi,
+                    COALESCE(SUM(aqs.revenue), 0) AS total_revenue,
+                    COALESCE(SUM(aqs.asset_value), 0) AS total_asset_value,
+                    COALESCE(SUM(aqs.debt_balance), 0) AS total_debt,
+                    CASE WHEN SUM(aqs.asset_value) > 0
+                         THEN SUM(aqs.occupancy * aqs.asset_value) / SUM(aqs.asset_value)
+                         ELSE NULL END AS weighted_occupancy,
+                    CASE WHEN SUM(aqs.asset_value) > 0
+                         THEN SUM(aqs.debt_balance) / SUM(aqs.asset_value)
+                         ELSE NULL END AS computed_ltv,
+                    CASE WHEN SUM(aqs.debt_service) > 0
+                         THEN SUM(aqs.noi) / SUM(aqs.debt_service)
+                         ELSE NULL END AS computed_dscr,
+                    COUNT(*) FILTER (WHERE aqs.id IS NULL)::int AS missing_quarter_state_count,
+                    (SELECT jsonb_object_agg(pt, cnt) FROM (
+                        SELECT pa2.property_type AS pt, COUNT(*)::int AS cnt
+                        FROM repe_asset a2
+                        LEFT JOIN repe_property_asset pa2 ON pa2.asset_id = a2.asset_id
+                        WHERE a2.deal_id = d.deal_id AND pa2.property_type IS NOT NULL
+                        GROUP BY pa2.property_type
+                    ) sub) AS sector_mix,
+                    (SELECT pa3.market FROM repe_asset a3
+                     LEFT JOIN repe_property_asset pa3 ON pa3.asset_id = a3.asset_id
+                     WHERE a3.deal_id = d.deal_id AND pa3.market IS NOT NULL
+                     GROUP BY pa3.market ORDER BY COUNT(*) DESC LIMIT 1
+                    ) AS primary_market
+                FROM repe_asset a
+                LEFT JOIN LATERAL (
+                    SELECT *
+                    FROM re_asset_quarter_state aqs
+                    WHERE aqs.asset_id = a.asset_id AND aqs.quarter = %s AND {asset_clause}
+                    ORDER BY aqs.created_at DESC
+                    LIMIT 1
+                ) aqs ON true
+                WHERE a.deal_id = d.deal_id
+            ) agg ON true
             WHERE d.fund_id = %s
             ORDER BY d.name
             """,
-            [quarter, *extra, str(fund_id)],
+            [quarter, *extra, quarter, *asset_extra, str(fund_id)],
         )
         return cur.fetchall()
 
@@ -139,10 +199,12 @@ def list_investment_assets(
                 a.asset_type,
                 a.name,
                 pa.property_type,
+                pa.units,
+                pa.market,
                 s.id AS quarter_state_id,
                 s.run_id,
                 s.noi,
-                s.net_cash_flow,
+                s.occupancy,
                 s.debt_balance,
                 s.asset_value,
                 s.nav,
@@ -185,10 +247,12 @@ def list_jv_assets(
                 a.asset_type,
                 a.name,
                 pa.property_type,
+                pa.units,
+                pa.market,
                 s.id AS quarter_state_id,
                 s.run_id,
                 s.noi,
-                s.net_cash_flow,
+                s.occupancy,
                 s.debt_balance,
                 s.asset_value,
                 s.nav,

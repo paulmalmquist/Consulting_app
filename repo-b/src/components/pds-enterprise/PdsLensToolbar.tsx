@@ -14,12 +14,6 @@ type Props = {
   onRolePresetChange: (rolePreset: PdsV2RolePreset) => void;
 };
 
-function buttonClass(active: boolean): string {
-  return active
-    ? "border-pds-gold/60 bg-pds-gold/15 text-pds-goldText"
-    : "border-bm-border/70 bg-bm-surface/25 text-bm-text hover:bg-bm-surface/40";
-}
-
 export function PdsLensToolbar({
   lens,
   horizon,
@@ -30,60 +24,64 @@ export function PdsLensToolbar({
   onRolePresetChange,
 }: Props) {
   return (
-    <section className="rounded-3xl border border-bm-border/70 bg-bm-surface/20 p-4">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="space-y-3">
-          <div>
-            <p className="text-xs uppercase tracking-[0.16em] text-bm-muted2">Management Lens</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {PDS_LENSES.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => onLensChange(item.key)}
-                  className={`rounded-full border px-4 py-2 text-sm font-medium transition ${buttonClass(lens === item.key)}`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.16em] text-bm-muted2">Date Horizon</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {PDS_HORIZONS.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => onHorizonChange(item.key)}
-                  className={`rounded-full border px-4 py-2 text-sm font-medium transition ${buttonClass(horizon === item.key)}`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-col gap-2 xl:items-end">
-          <label className="text-xs uppercase tracking-[0.16em] text-bm-muted2" htmlFor="pds-role-preset">
-            Role Preset
-          </label>
-          <select
-            id="pds-role-preset"
-            value={rolePreset}
-            onChange={(event) => onRolePresetChange(event.target.value as PdsV2RolePreset)}
-            className="rounded-2xl border border-bm-border/70 bg-[#0f1820] px-4 py-2 text-sm text-bm-text outline-none"
+    <section className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between" data-testid="pds-lens-toolbar">
+      {/* Primary segmented control — Operating Lens */}
+      <div className="inline-flex rounded-xl border border-bm-border/70 bg-bm-surface/20 p-1">
+        {PDS_LENSES.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => onLensChange(item.key)}
+            className={`rounded-lg px-5 py-2 text-sm font-semibold transition ${
+              lens === item.key
+                ? "bg-pds-gold/20 text-pds-goldText shadow-sm border border-pds-gold/40"
+                : "border border-transparent text-bm-muted2 hover:text-bm-text hover:bg-bm-surface/40"
+            }`}
           >
-            {PDS_ROLE_PRESETS.map((preset) => (
-              <option key={preset.key} value={preset.key}>
-                {preset.label}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-bm-muted2">
-            {generatedAt ? `Updated ${new Date(generatedAt).toLocaleString()}` : "Using latest snapshot package"}
-          </p>
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Secondary controls row */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Horizon pills */}
+        <div className="inline-flex rounded-lg border border-bm-border/50 bg-bm-surface/15 p-0.5">
+          {PDS_HORIZONS.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => onHorizonChange(item.key)}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                horizon === item.key
+                  ? "bg-pds-gold/15 text-pds-goldText border border-pds-gold/30"
+                  : "border border-transparent text-bm-muted2 hover:text-bm-text"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
+
+        {/* Role preset */}
+        <select
+          id="pds-role-preset"
+          value={rolePreset}
+          onChange={(event) => onRolePresetChange(event.target.value as PdsV2RolePreset)}
+          className="rounded-lg border border-bm-border/50 bg-bm-surface/15 px-3 py-1.5 text-xs font-medium text-bm-text outline-none"
+          aria-label="Role Preset"
+        >
+          {PDS_ROLE_PRESETS.map((preset) => (
+            <option key={preset.key} value={preset.key}>
+              {preset.label}
+            </option>
+          ))}
+        </select>
+
+        {/* Timestamp */}
+        <span className="text-[11px] text-bm-muted2">
+          {generatedAt ? `Updated ${new Date(generatedAt).toLocaleString()}` : "Latest snapshot"}
+        </span>
       </div>
     </section>
   );

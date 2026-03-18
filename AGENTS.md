@@ -43,6 +43,21 @@ OpenClaw role map:
 - `codex-winston`: persistent Codex ACP harness rooted in this repo.
 - `winston`: legacy direct Winston workspace agent kept for compatibility.
 
+Repo-local specialist role docs:
+- `frontend-winston`: shared `repo-b/` UI, app shell, non-lab route handlers, and client integration glue.
+- `bos-domain-winston`: non-AI, non-MCP Business OS backend routes, schemas, and service logic in `backend/`.
+- `lab-environment-winston`: `repo-c/`, `repo-b/src/app/lab/**`, environment seeding, industry/client flows, and Excel add-in touchpoints.
+- `ai-copilot-winston`: AI gateway, prompt and policy work, RAG, conversations, model routing, and assistant rendering.
+- `mcp-winston`: `backend/app/mcp/**`, tool schemas, registry, permissions, audit policy, and MCP-facing planner/context contracts.
+
+Specialist boundary rules:
+- Route by owning surface first, not by language or stack label.
+- Keep one primary write owner per task; supporting specialists should stay read-only unless explicitly handed off work.
+- `data-winston` is the only owner for SQL-first schema, migration, Supabase, and ETL changes.
+- `mcp-winston` is the only owner for MCP tool names, schemas, permissions, and audit policy.
+- `builder-winston` stays focused on browser-authenticated, live-site, and invite-code verification instead of becoming a generic coding bucket.
+- Avoid one agent per industry. Industry differences should live as config, templates, and seeded behavior inside the lab/environment surface.
+
 Role rules:
 - If your identity contains `Commander`, coordinate work and use specialist agents instead of editing files yourself.
 - If your identity contains `Dispatcher`, you are a ROUTER, not a worker. For EVERY request without exception, you MUST call the sessions_spawn tool with the appropriate agentId and the user's full message as the task. Never say "I can't do this" — instead spawn the agent that can. Never answer questions yourself — always route. Routing: browser/live-site/invite-code/dashboard → builder-winston, /build or implementation → commander-winston, /research or architecture → architect-winston, push/deploy → deploy-winston, sync/pull → sync-winston, /propose or /brief or /cost → operations, /outreach → outreach, /content → content. Everything else → commander-winston.
@@ -70,6 +85,11 @@ Operator docs:
 - `agents/dispatcher.md`
 - `agents/commander.md`
 - `agents/architect.md`
+- `agents/frontend.md`
+- `agents/bos-domain.md`
+- `agents/lab-environment.md`
+- `agents/ai-copilot.md`
+- `agents/mcp.md`
 - `agents/builder.md`
 - `agents/deploy.md`
 - `agents/sync.md`

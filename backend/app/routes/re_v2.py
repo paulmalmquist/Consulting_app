@@ -1541,3 +1541,152 @@ def compare_scenarios_v2(model_id: UUID, body: ReScenarioCompareRequest):
         return re_scenario_engine_v2.compare_scenarios(scenario_ids=body.scenario_ids)
     except Exception as exc:
         raise _to_http(exc)
+
+
+@router.get("/system/financial-health")
+def financial_health_check(
+    fund_id: UUID | None = Query(None),
+    quarter: str | None = Query(None),
+):
+    """Diagnostic endpoint: detect missing financial data across the REPE pipeline."""
+    if not quarter:
+        from datetime import datetime as _dt, timezone as _tz
+        now = _dt.now(_tz.utc)
+        q = (now.month - 1) // 3 + 1
+        quarter = f"{now.year}Q{q}"
+
+    diagnostics: dict = {"quarter": quarter, "checks": {}}
+    with get_cursor() as cur:
+        fund_filter = "AND d.fund_id = %s" if fund_id else ""
+        fund_params: list = [str(fund_id)] if fund_id else []
+
+        # Assets missing operating data (no quarter state)
+        cur.execute(
+            f"""
+            SELECT a.asset_id, a.name
+            FROM repe_asset a
+            JOIN repe_deal d ON d.deal_id = a.deal_id
+            LEFT JOIN re_asset_quarter_state qs
+                ON qs.asset_id = a.asset_id AND qs.quarter = %s AND qs.scenario_id IS NULL
+            WHERE qs.id IS NULL {fund_filter}
+            ORDER BY a.name
+            """,
+            [quarter, *fund_params],
+        )
+        missing_state = cur.fetchall()
+        diagnostics["checks"]["assets_missing_quarter_state"] = {
+            "count": len(missing_state),
+            "assets": [{"asset_id": str(r["asset_id"]), "name": r["name"]} for r in missing_state[:20]],
+        }
+
+        # Assets with quarter state but zero NOI
+        cur.execute(
+            f"""
+            SELECT a.asset_id, a.name, qs.noi
+            FROM repe_asset a
+            JOIN repe_deal d ON d.deal_id = a.deal_id
+            JOIN re_asset_quarter_state qs
+                ON qs.asset_id = a.asset_id AND qs.quarter = %s AND qs.scenario_id IS NULL
+            WHERE (qs.noi IS NULL OR qs.noi = 0) {fund_filter}
+            ORDER BY a.name
+            """,
+            [quarter, *fund_params],
+        )
+        missing_noi = cur.fetchall()
+        diagnostics["checks"]["assets_missing_noi"] = {
+            "count": len(missing_noi),
+            "assets": [{"asset_id": str(r["asset_id"]), "name": r["name"]} for r in missing_noi[:20]],
+        }
+
+        # Assets missing valuation
+        cur.execute(
+            f"""
+            SELECT a.asset_id, a.name, qs.asset_value
+            FROM repe_asset a
+            JOIN repe_deal d ON d.deal_id = a.deal_id
+            JOIN re_asset_quarter_state qs
+                ON qs.asset_id = a.asset_id AND qs.quarter = %s AND qs.scenario_id IS NULL
+            WHERE (qs.asset_value IS NULL OR qs.asset_value = 0) {fund_filter}
+            ORDER BY a.name
+            """,
+            [quarter, *fund_params],
+        )
+        missing_val = cur.fetchall()
+        diagnostics["checks"]["assets_missing_valuation"] = {
+            "count": len(missing_val),
+            "assets": [{"asset_id": str(r["asset_id"]), "name": r["name"]} for r in missing_val[:20]],
+        }
+
+        # Assets missing debt data
+        cur.execute(
+            f"""
+            SELECT a.asset_id, a.name, qs.debt_balance
+            FROM repe_asset a
+            JOIN repe_deal d ON d.deal_id = a.deal_id
+            JOIN re_asset_quarter_state qs
+                ON qs.asset_id = a.asset_id AND qs.quarter = %s AND qs.scenario_id IS NULL
+            WHERE (qs.debt_balance IS NULL OR qs.debt_balance = 0) {fund_filter}
+            ORDER BY a.name
+            """,
+            [quarter, *fund_params],
+        )
+        missing_debt = cur.fetchall()
+        diagnostics["checks"]["assets_missing_debt"] = {
+            "count": len(missing_debt),
+            "assets": [{"asset_id": str(r["asset_id"]), "name": r["name"]} for r in missing_debt[:20]],
+        }
+
+        # Investments missing quarter state
+        cur.execute(
+            f"""
+            SELECT d.deal_id AS investment_id, d.name
+            FROM repe_deal d
+            LEFT JOIN re_investment_quarter_state iqs
+                ON iqs.investment_id = d.deal_id AND iqs.quarter = %s AND iqs.scenario_id IS NULL
+            WHERE iqs.id IS NULL {fund_filter}
+            ORDER BY d.name
+            """,
+            [quarter, *fund_params],
+        )
+        missing_inv = cur.fetchall()
+        diagnostics["checks"]["investments_missing_quarter_state"] = {
+            "count": len(missing_inv),
+            "investments": [{"investment_id": str(r["investment_id"]), "name": r["name"]} for r in missing_inv[:20]],
+        }
+
+        # Funds missing quarter state
+        fund_where = "WHERE f.fund_id = %s" if fund_id else ""
+        cur.execute(
+            f"""
+            SELECT f.fund_id, f.name
+            FROM repe_fund f
+            LEFT JOIN re_fund_quarter_state fqs
+                ON fqs.fund_id = f.fund_id AND fqs.quarter = %s AND fqs.scenario_id IS NULL
+            {fund_where}
+            AND fqs.id IS NULL
+            ORDER BY f.name
+            """,
+            [quarter, *fund_params],
+        )
+        missing_fund = cur.fetchall()
+        diagnostics["checks"]["funds_missing_quarter_state"] = {
+            "count": len(missing_fund),
+            "funds": [{"fund_id": str(r["fund_id"]), "name": r["name"]} for r in missing_fund[:20]],
+        }
+
+        # Scenarios check
+        if fund_id:
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM re_scenario WHERE fund_id = %s AND status = 'active'",
+                [str(fund_id)],
+            )
+            sc = cur.fetchone()
+            diagnostics["checks"]["active_scenarios"] = sc["cnt"] if sc else 0
+
+    # Overall health
+    total_issues = sum(
+        v["count"] for v in diagnostics["checks"].values() if isinstance(v, dict) and "count" in v
+    )
+    diagnostics["status"] = "healthy" if total_issues == 0 else "degraded"
+    diagnostics["total_issues"] = total_issues
+    return diagnostics
