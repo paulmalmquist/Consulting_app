@@ -1698,3 +1698,41 @@ Level C (Driver): Bridge decomposition of the equity cashflow delta for a single
 ### Scenario Header Actions
 
 The scenario header strip shows: name, type (dot + label), created date, asset count, override count, modified asset count. Actions on the right: Run (primary accent button), Clone (border button), Compare (border button). Run navigates to results tab on success. Clone creates a copy and switches to it.
+
+---
+
+## Cross-Domain Bridge Pattern (Development ↔ REPE)
+
+### Bridge Architecture
+When connecting two independent domains (e.g., PDS projects → REPE assets), use a dedicated bridge table (`dev_project_asset_link`) rather than adding FKs to existing tables. This keeps both domains clean and the bridge disposable.
+
+### Bridge Service Rules
+- Bridge service reads from both domains but **writes only to bridge tables** (dev_*, not re_* or pds_*)
+- Calculated outputs (yield_on_cost, stabilized_value, IRR, MOIC) live in the bridge assumption set, not in the asset quarter state
+- Use `_recalculate_outputs()` on every assumption update — never let derived fields go stale
+- For IRR approximation: `(stabilized_value / TDC) ^ (1 / years) - 1` is acceptable for display; use XIRR with cashflow stream for precision
+
+### Seed Data Coherence
+- Use `uuid5(namespace, descriptive_name)` for deterministic, idempotent seed IDs
+- Every seed function must use `ON CONFLICT DO NOTHING` for re-runnability
+- Construction budgets must add up: `hard + soft + contingency + financing = total_development_cost`
+- Cap rates must be in 4.5–6.5% range, IRRs in 8–18%, construction loans at 70–80% LTC
+- Draw schedules should use bell-curve distribution (not uniform) — front/back are lighter
+
+### Cross-Domain Query Pattern
+When JOINing across domains (dev_project_asset_link → pds_analytics_projects → repe_asset → repe_deal → repe_fund → re_fund_quarter_state), always use LEFT JOINs and handle nulls gracefully. Missing quarter state should return `data_status: "no_quarter_state"`, not 500.
+
+### Navigation Extension Pattern
+To add a new section to REPE sidebar: import icon from lucide-react, add item to the appropriate nav group in `buildRepeNavGroups()`, create page at `/app/lab/env/[envId]/re/{section}/page.tsx`. The RepeWorkspaceShell auto-detects new routes.
+
+### System Integration Checklist for New Domains
+When adding a new domain that bridges existing ones, check these integration points:
+1. **Accounting**: Does this produce financial events that should post to GL?
+2. **AI/Winston**: Should the copilot be able to query this data? Add intent patterns.
+3. **Documents**: Will documents link to these entities? Use entity_link pattern.
+4. **Tasks**: Should events trigger task creation? Define event → task rules.
+5. **Compliance**: Are mutations auditable? Call `emit_log()` on writes.
+6. **Reporting**: Should this data appear in dashboards? Add widget archetypes.
+7. **Scenarios**: Can this data feed scenario overrides? Map fields to re_model_override keys.
+8. **Excel**: Should users edit this in Excel? Ensure BM_PULL/BM_PUSH work against the tables.
+9. **MCP**: Should Winston automate workflows? Register tools in the MCP registry.

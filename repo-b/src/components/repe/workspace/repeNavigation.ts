@@ -8,6 +8,7 @@ import {
   Building2,
   CalendarCheck2,
   CheckCircle2,
+  Construction,
   FileBarChart,
   FileText,
   Landmark,
@@ -84,6 +85,7 @@ export function buildRepeNavGroups({
         { href: base, label: "Funds", isBase: true, icon: Landmark, matchPrefixes: [`${base}/capital`] },
         { href: `${base}/deals`, label: "Investments", isBase: false, icon: TrendingUp },
         { href: `${base}/assets`, label: "Assets", isBase: false, icon: Building2 },
+        { href: `${base}/development`, label: "Development", isBase: false, icon: Construction },
       ],
     },
     {

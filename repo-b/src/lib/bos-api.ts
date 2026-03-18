@@ -8204,3 +8204,168 @@ export function listCpPayApps(projectId: string, envId?: string, businessId?: st
 export function approveCpPayApp(projectId: string, payAppId: string, envId?: string, businessId?: string): Promise<CpPayApp> {
   return bosFetch(`/api/capital-projects/v1/projects/${projectId}/pay-apps/${payAppId}/approve`, { method: "POST", params: _cpParams(envId, businessId) });
 }
+
+// ── Development Bridge API ──────────────────────────────────────
+
+export interface DevPortfolioKpis {
+  total_development_budget: string;
+  total_committed: string;
+  total_spent: string;
+  total_forecast: string;
+  contingency_remaining_pct: string;
+  contingency_remaining_abs: string;
+  projects_on_track: number;
+  projects_at_risk: number;
+  projects_delayed: number;
+  avg_yield_on_cost: string;
+  avg_projected_irr: string;
+}
+
+export interface DevProjectRow {
+  link_id: string;
+  project_name: string;
+  asset_name: string;
+  property_type: string | null;
+  market: string | null;
+  link_type: string;
+  status: string;
+  stage: string;
+  total_development_cost: string;
+  percent_complete: string;
+  health: string;
+  projected_irr: string;
+  yield_on_cost: string;
+  projected_moic: string;
+}
+
+export interface DevSpendTrend {
+  month: string;
+  total_drawn: string;
+}
+
+export interface DevPortfolioResponse {
+  kpis: DevPortfolioKpis;
+  projects: DevProjectRow[];
+  spend_trend: DevSpendTrend[];
+}
+
+export interface DevAssumptionSet {
+  assumption_set_id: string;
+  link_id: string;
+  scenario_label: string;
+  is_base: boolean;
+  hard_cost: string | null;
+  soft_cost: string | null;
+  contingency: string | null;
+  financing_cost: string | null;
+  total_development_cost: string | null;
+  construction_start: string | null;
+  construction_end: string | null;
+  lease_up_start: string | null;
+  lease_up_months: number | null;
+  stabilization_date: string | null;
+  stabilized_occupancy: string | null;
+  stabilized_noi: string | null;
+  exit_cap_rate: string | null;
+  construction_loan_amt: string | null;
+  construction_loan_rate: string | null;
+  perm_loan_amt: string | null;
+  perm_loan_rate: string | null;
+  yield_on_cost: string | null;
+  stabilized_value: string | null;
+  projected_irr: string | null;
+  projected_moic: string | null;
+}
+
+export interface DevProjectDetailResponse {
+  link_id: string;
+  pds_execution: {
+    project_name: string;
+    project_type: string | null;
+    stage: string;
+    market: string | null;
+    budget: string;
+    percent_complete: string;
+    start_date: string | null;
+    planned_end_date: string | null;
+    fee_type: string | null;
+    fee_percentage: string | null;
+  };
+  assumptions: DevAssumptionSet[];
+  fund_impact: Record<string, unknown>;
+  asset: {
+    asset_id: string;
+    name: string | null;
+    property_type: string | null;
+    market: string | null;
+    units: number | null;
+    noi_annual: string | null;
+    occupancy_rate: string | null;
+  };
+}
+
+export interface DevScenarioComparisonResponse {
+  scenarios: DevAssumptionSet[];
+  deltas: Record<string, string>[];
+}
+
+export interface DevFundImpactResponse {
+  fund_id: string;
+  fund_name: string | null;
+  asset_name: string | null;
+  fund_nav?: string;
+  fund_gross_irr?: string;
+  fund_net_irr?: string;
+  fund_tvpi?: string;
+  fund_dpi?: string;
+  scenarios: (DevAssumptionSet & { nav_contribution_pct?: string })[];
+  data_status?: string;
+}
+
+function _devParams(envId?: string, businessId?: string): Record<string, string> {
+  const p: Record<string, string> = {};
+  if (envId) p.env_id = envId;
+  if (businessId) p.business_id = businessId;
+  return p;
+}
+
+export function getDevPortfolio(envId: string, businessId?: string): Promise<DevPortfolioResponse> {
+  return bosFetch("/api/dev/v1/portfolio", { params: _devParams(envId, businessId) });
+}
+
+export function getDevProjectDetail(linkId: string, envId: string): Promise<DevProjectDetailResponse> {
+  return bosFetch(`/api/dev/v1/projects/${linkId}`, { params: { env_id: envId } });
+}
+
+export function getDevAssumptions(linkId: string): Promise<DevAssumptionSet[]> {
+  return bosFetch(`/api/dev/v1/projects/${linkId}/assumptions`);
+}
+
+export function updateDevAssumptions(
+  linkId: string,
+  assumptionSetId: string,
+  body: Partial<DevAssumptionSet>,
+): Promise<DevAssumptionSet> {
+  return bosFetch(`/api/dev/v1/projects/${linkId}/assumptions/${assumptionSetId}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getDevScenarioImpact(linkId: string): Promise<DevScenarioComparisonResponse> {
+  return bosFetch(`/api/dev/v1/projects/${linkId}/scenario-impact`);
+}
+
+export function getDevFundImpact(linkId: string): Promise<DevFundImpactResponse> {
+  return bosFetch(`/api/dev/v1/projects/${linkId}/fund-impact`);
+}
+
+export function getDevDraws(linkId: string, scenarioLabel?: string): Promise<Record<string, unknown>[]> {
+  const params: Record<string, string> = {};
+  if (scenarioLabel) params.scenario_label = scenarioLabel;
+  return bosFetch(`/api/dev/v1/projects/${linkId}/draws`, { params });
+}
+
+export function seedDevBridge(envId: string, businessId?: string): Promise<{ status: string; counts: Record<string, number> }> {
+  return bosFetch("/api/dev/v1/seed", { method: "POST", params: _devParams(envId, businessId) });
+}
