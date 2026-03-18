@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import AssistantShell, { type AssistantStage } from "@/components/commandbar/AssistantShell";
@@ -707,19 +708,17 @@ export default function GlobalCommandBar() {
         type="button"
         data-testid="global-commandbar-toggle"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="fixed bottom-5 right-5 z-[55] inline-flex h-10 items-center justify-center gap-2 rounded-full border border-bm-border/50 bg-bm-surface/90 pl-3 pr-4 text-sm font-medium text-bm-text shadow-bm-card backdrop-blur-md transition-all duration-150 hover:border-bm-accent/40 hover:shadow-bm-glow"
+        className="fixed bottom-5 right-5 z-[55] relative inline-flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-bm-border/50 bg-bm-surface/90 shadow-bm-card backdrop-blur-md transition-all duration-150 hover:scale-[1.02] hover:border-bm-accent/40 hover:shadow-bm-glow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bm-accent/50"
         aria-label="Open Winston command center"
-        title="Winston (Cmd+K)"
       >
-        <svg className="h-4 w-4 text-bm-accent" viewBox="0 0 16 16" fill="none">
-          <path
-            d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.414 1.414M11.536 11.536l1.414 1.414M3.05 12.95l1.414-1.414M11.536 4.464l1.414-1.414"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-        </svg>
-        Winston
+        <Image
+          src="/winstonpic.png"
+          alt=""
+          fill
+          sizes="56px"
+          className="object-cover"
+          priority
+        />
       </button>
 
       <AssistantShell
