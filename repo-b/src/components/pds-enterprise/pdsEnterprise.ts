@@ -27,23 +27,38 @@ export function toNumber(value: string | number | null | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+export function safeDivide(a: number, b: number, fallback = 0): number {
+  if (b === 0 || !Number.isFinite(b)) return fallback;
+  const result = a / b;
+  return Number.isFinite(result) ? result : fallback;
+}
+
 export function formatCurrency(value: string | number | null | undefined): string {
+  const num = toNumber(value);
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 0,
-  }).format(toNumber(value));
+  }).format(num);
 }
 
 export function formatNumber(value: string | number | null | undefined, digits = 0): string {
+  const num = toNumber(value);
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: digits,
     minimumFractionDigits: digits,
-  }).format(toNumber(value));
+  }).format(num);
 }
 
 export function formatPercent(value: string | number | null | undefined, digits = 0): string {
-  return `${formatNumber(toNumber(value) * 100, digits)}%`;
+  const num = toNumber(value);
+  return `${formatNumber(num * 100, digits)}%`;
+}
+
+/** Format a value that is already a percentage (e.g. 35.11 → "35%"), not a ratio. */
+export function formatPercentRaw(value: string | number | null | undefined, digits = 0): string {
+  const num = toNumber(value);
+  return `${formatNumber(num, digits)}%`;
 }
 
 export function formatDate(value?: string | null): string {

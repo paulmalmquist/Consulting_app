@@ -1750,7 +1750,16 @@ def get_pipeline_summary(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
 
 def get_command_center(*, env_id: UUID, business_id: UUID, lens: str, horizon: str, role_preset: str) -> dict[str, Any]:
     environment = _fetch_environment(env_id)
-    ensure_enterprise_workspace(env_id=env_id, business_id=business_id)
+    # Use advisory lock to serialize workspace initialization per tenant,
+    # preventing deadlocks when concurrent requests hit this endpoint.
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT pg_try_advisory_xact_lock(hashtext(%s))",
+            (f"pds_enterprise:{env_id}:{business_id}",),
+        )
+        got_lock = cur.fetchone()
+        if got_lock and got_lock.get("pg_try_advisory_xact_lock"):
+            ensure_enterprise_workspace(env_id=env_id, business_id=business_id)
     performance_table = get_performance_table(env_id=env_id, business_id=business_id, lens=lens, horizon=horizon)
     delivery_risk = get_delivery_risk(env_id=env_id, business_id=business_id, horizon=horizon)
     resource_health = get_resource_health(env_id=env_id, business_id=business_id, horizon=horizon)

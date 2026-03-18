@@ -43,6 +43,16 @@ function parseCharts(text: string): { cleanText: string; charts: ChartConfig[] }
   return { cleanText, charts };
 }
 
+const TOOLTIP_STYLE = { background: "#1f2937", border: "1px solid #374151", borderRadius: "6px" };
+const PCT_FIELDS = /pct|percent|utilization|rate|compliance|margin|growth/i;
+
+function fmtTooltipValue(value: unknown, name?: string): string {
+  if (typeof value !== "number") return String(value ?? "");
+  const isPct = name && PCT_FIELDS.test(name);
+  const rounded = Number(value.toFixed(2));
+  return isPct ? `${rounded}%` : rounded.toLocaleString("en-US");
+}
+
 function DynamicChart({ config }: { config: ChartConfig }) {
   const { type, data, x, y, label, values, labels, title } = config;
 
@@ -57,7 +67,7 @@ function DynamicChart({ config }: { config: ChartConfig }) {
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis dataKey={x} tick={{ fill: "#9ca3af", fontSize: 11 }} />
             <YAxis tick={{ fill: "#9ca3af", fontSize: 11 }} />
-            <Tooltip contentStyle={{ background: "#1f2937", border: "1px solid #374151", borderRadius: "6px" }} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: unknown, name: string) => fmtTooltipValue(v, name)} />
             <Line type="monotone" dataKey={y} stroke="#3b82f6" strokeWidth={2} dot={{ fill: "#3b82f6", r: 3 }} />
           </LineChart>
         ) : type === "bar" && x && y ? (
@@ -65,7 +75,7 @@ function DynamicChart({ config }: { config: ChartConfig }) {
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis dataKey={x} tick={{ fill: "#9ca3af", fontSize: 11 }} />
             <YAxis tick={{ fill: "#9ca3af", fontSize: 11 }} />
-            <Tooltip contentStyle={{ background: "#1f2937", border: "1px solid #374151", borderRadius: "6px" }} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: unknown, name: string) => fmtTooltipValue(v, name)} />
             <Bar dataKey={y} fill="#3b82f6" />
           </BarChart>
         ) : type === "scatter" && x && y ? (
@@ -73,7 +83,7 @@ function DynamicChart({ config }: { config: ChartConfig }) {
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis type="number" dataKey={x} tick={{ fill: "#9ca3af", fontSize: 11 }} />
             <YAxis type="number" dataKey={y} tick={{ fill: "#9ca3af", fontSize: 11 }} />
-            <Tooltip contentStyle={{ background: "#1f2937", border: "1px solid #374151", borderRadius: "6px" }} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: unknown, name: string) => fmtTooltipValue(v, name)} />
             <Scatter data={data} fill="#3b82f6" />
           </ScatterChart>
         ) : type === "donut" && values && labels ? (
@@ -83,7 +93,7 @@ function DynamicChart({ config }: { config: ChartConfig }) {
                 <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
               ))}
             </Pie>
-            <Tooltip contentStyle={{ background: "#1f2937", border: "1px solid #374151", borderRadius: "6px" }} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: unknown, name: string) => fmtTooltipValue(v, name)} />
           </PieChart>
         ) : (
           <div className="flex h-full items-center justify-center text-zinc-500 text-sm">Unsupported chart type</div>

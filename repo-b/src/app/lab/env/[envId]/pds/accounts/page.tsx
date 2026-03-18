@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 import { bosFetch } from "@/lib/bos-api";
-import { formatCurrency, formatPercent } from "@/components/pds-enterprise/pdsEnterprise";
+import { formatCurrency, formatPercentRaw } from "@/components/pds-enterprise/pdsEnterprise";
 import { RagBadge } from "@/components/pds-enterprise/RagBadge";
 import { AccountHealthDonut } from "@/components/pds-enterprise/AccountHealthDonut";
 import { QuadrantScatter } from "@/components/pds-enterprise/QuadrantScatter";
@@ -185,11 +185,12 @@ export default function PdsAccountsPage() {
           </div>
           <div className="rounded-xl border border-zinc-700 bg-zinc-800/40 p-4">
             <div className="text-xs text-zinc-400">Portfolio Margin</div>
-            <div className="text-xl font-bold text-zinc-100">{formatPercent(overview.portfolio_margin)}</div>
+            <div className="text-xl font-bold text-zinc-100">{formatPercentRaw(overview.portfolio_margin, 1)}</div>
           </div>
           <div className="rounded-xl border border-zinc-700 bg-zinc-800/40 p-4">
-            <div className="text-xs text-zinc-400">Health</div>
+            <div className="text-xs text-zinc-400">Health Distribution</div>
             <AccountHealthDonut green={overview.health_green} amber={overview.health_amber} red={overview.health_red} size={80} />
+            <div className="mt-1 text-xs text-zinc-500">{overview.health_green + overview.health_amber + overview.health_red} accounts</div>
           </div>
         </div>
 
@@ -253,7 +254,7 @@ export default function PdsAccountsPage() {
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div><span className="text-zinc-500">Revenue: </span><span className="text-zinc-300">{formatCurrency(r.revenue)}</span></div>
-                <div><span className="text-zinc-500">Margin: </span><span className="text-zinc-300">{formatPercent(r.margin)}</span></div>
+                <div><span className="text-zinc-500">Margin: </span><span className="text-zinc-300">{formatPercentRaw(r.margin, 1)}</span></div>
                 <div><span className="text-zinc-500">Accounts: </span><span className="text-zinc-300">{r.account_count}</span></div>
                 <div><span className="text-zinc-500">vs Budget: </span><span className={r.budget_vs_actual_pct >= 0 ? "text-green-400" : "text-red-400"}>{r.budget_vs_actual_pct.toFixed(1)}%</span></div>
               </div>
@@ -283,7 +284,7 @@ export default function PdsAccountsPage() {
             <h3 className="text-sm font-medium text-zinc-300">P&L Summary</h3>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div><span className="text-zinc-500">YTD Revenue: </span><span className="text-zinc-200">{formatCurrency(account360.ytd_revenue)}</span></div>
-              <div><span className="text-zinc-500">Avg Margin: </span><span className="text-zinc-200">{formatPercent(account360.avg_margin)}</span></div>
+              <div><span className="text-zinc-500">Avg Margin: </span><span className="text-zinc-200">{formatPercentRaw(account360.avg_margin, 1)}</span></div>
               <div><span className="text-zinc-500">Contract Value: </span><span className="text-zinc-200">{formatCurrency(account360.annual_contract_value)}</span></div>
               <div><span className="text-zinc-500">Renewal: </span><span className="text-zinc-200">{account360.contract_end_date || "N/A"}</span></div>
             </div>

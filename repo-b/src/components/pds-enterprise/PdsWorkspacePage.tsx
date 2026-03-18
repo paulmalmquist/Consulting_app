@@ -209,22 +209,22 @@ export function PdsWorkspacePage({
       {sections.includes("performance") ? (
         <>
           <PdsSectionHeader label="Financial Signals" title="Revenue, CI, Backlog & Forecast" />
-          <PdsMetricStrip metrics={commandCenter.metrics_strip} />
+          <PdsMetricStrip metrics={commandCenter.metrics_strip ?? []} />
         </>
       ) : (
-        <PdsMetricStrip metrics={commandCenter.metrics_strip} />
+        <PdsMetricStrip metrics={commandCenter.metrics_strip ?? []} />
       )}
 
       {/* Market leaderboard */}
       {sections.includes("leaderboard") ? (
         <>
           <PdsSectionHeader label="Market Leaderboard" title="Ranked Operating View" />
-          <PdsMarketLeaderboard rows={commandCenter.performance_table.rows} />
+          <PdsMarketLeaderboard rows={commandCenter.performance_table?.rows ?? []} />
         </>
       ) : null}
 
       {/* Legacy performance table (for non-market pages) */}
-      {sections.includes("performance") && !sections.includes("leaderboard") ? (
+      {sections.includes("performance") && !sections.includes("leaderboard") && commandCenter.performance_table ? (
         <>
           <PdsSectionHeader label="Portfolio Performance" title="Market Operating View" />
           <PdsPerformanceTable table={commandCenter.performance_table} />
@@ -234,32 +234,32 @@ export function PdsWorkspacePage({
       {sections.includes("deliveryRisk") ? (
         <>
           <PdsSectionHeader label="Delivery Risk" title="Projects Requiring Intervention" />
-          <PdsDeliveryRiskPanel items={commandCenter.delivery_risk} />
+          <PdsDeliveryRiskPanel items={commandCenter.delivery_risk ?? []} />
         </>
       ) : null}
 
       {sections.includes("resourceHealth") ? (
         <>
           <PdsSectionHeader label="Resource Signals" title="Staffing Pressure & Submission Discipline" />
-          <PdsResourceHealthPanel resources={commandCenter.resource_health} timecards={commandCenter.timecard_health} />
+          <PdsResourceHealthPanel resources={commandCenter.resource_health ?? []} timecards={commandCenter.timecard_health ?? []} />
         </>
       ) : null}
 
       {sections.includes("satisfactionCloseout") ? (
         <>
           <PdsSectionHeader label="Client Health" title="Satisfaction & Closeout Status" />
-          <PdsSatisfactionCloseoutPanel satisfaction={commandCenter.satisfaction} closeout={commandCenter.closeout} />
+          <PdsSatisfactionCloseoutPanel satisfaction={commandCenter.satisfaction ?? []} closeout={commandCenter.closeout ?? []} />
         </>
       ) : null}
 
       {sections.includes("forecast") ? (
         <>
           <PdsSectionHeader label="Forecast" title="Forecast Trend" />
-          <PdsForecastPanel points={commandCenter.forecast_points} />
+          <PdsForecastPanel points={commandCenter.forecast_points ?? []} />
         </>
       ) : null}
 
-      {sections.includes("briefing") ? (
+      {sections.includes("briefing") && commandCenter.briefing ? (
         <>
           <PdsSectionHeader label="AI Executive Briefing" title="Management Intelligence" />
           <PdsExecutiveBriefingPanel briefing={commandCenter.briefing} />
