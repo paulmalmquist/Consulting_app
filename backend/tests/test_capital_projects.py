@@ -7,8 +7,6 @@ import os
 import sys
 from decimal import Decimal
 
-import pytest
-
 # Ensure the backend package is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/test")
@@ -130,8 +128,6 @@ class TestPayAppComputation:
 
     def test_g702_fields_computed_correctly(self):
         """AIA G702 math: total_completed_stored, retainage, payment due."""
-        from app.services.capital_projects import _q
-
         wc_prev = Decimal("420000")
         wc_this = Decimal("580000")
         sm_prev = Decimal("35000")

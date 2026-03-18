@@ -7,10 +7,8 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Request
-from fastapi.responses import JSONResponse
 
-from app.observability.logger import emit_log
-from app.routes.domain_common import classify_domain_error, domain_error_response, get_request_id
+from app.routes.domain_common import classify_domain_error, domain_error_response
 from app.schemas.capital_projects import (
     CpDailyLogCreate,
     CpDrawingCreate,

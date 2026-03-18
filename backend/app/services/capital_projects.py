@@ -7,7 +7,7 @@ Delegates to pds_svc for existing PDS entities.
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -58,7 +58,6 @@ def compute_schedule_health(milestones: list[dict[str, Any]]) -> str:
     if not milestones:
         return "green"
     max_slip = 0
-    today = date.today()
     for m in milestones:
         baseline = m.get("baseline_date")
         current = m.get("current_date")
@@ -154,7 +153,6 @@ def get_portfolio_summary(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
     for row in rows:
         open_items = int(row.get("open_rfis", 0)) + int(row.get("open_submittals", 0)) + int(row.get("open_punch_items", 0))
         health = _build_health(row, open_items=open_items)
-        variance = _q(row.get("approved_budget")) - _q(row.get("forecast_at_completion"))
 
         projects.append({
             "project_id": str(row["project_id"]),
