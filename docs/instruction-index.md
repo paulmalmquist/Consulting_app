@@ -60,9 +60,11 @@ This file is the human-facing registry for every routed markdown doc in the repo
 | `winston-agentic-build` | `skill` | `active` | `backend, repo-b` | `yes` | `skills/winston-agentic-build/SKILL.md` |
 | `winston-remediation-playbook` | `skill` | `active` | `docs, backend, repo-b` | `yes` | `skills/winston-remediation-playbook/SKILL.md` |
 | `winston-prompt-normalization` | `skill` | `active` | `docs, cross-repo` | `yes` | `skills/winston-prompt-normalization/SKILL.md` |
+| `winston-ai-architecture` | `skill` | `active` | `backend, repo-b, docs` | `yes` | `skills/winston-ai-architecture/SKILL.md` |
 | `winston-document-pipeline` | `skill` | `active` | `backend, repo-b` | `yes` | `skills/winston-document-pipeline/SKILL.md` |
 | `winston-performance-architecture` | `skill` | `active` | `backend, repo-b` | `yes` | `skills/winston-performance-architecture/SKILL.md` |
 | `winston-credit-environment` | `skill` | `active` | `backend, repo-b, supabase` | `yes` | `skills/winston-credit-environment/SKILL.md` |
+| `winston-development-bridge` | `skill` | `active` | `backend, repo-b, supabase` | `yes` | `skills/winston-development-bridge/SKILL.md` |
 | `winston-pds-delivery` | `skill` | `active` | `backend, repo-b, docs` | `yes` | `skills/winston-pds-delivery/SKILL.md` |
 | `winston-agentic-prompt` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/WINSTON_AGENTIC_PROMPT.md` |
 | `winston-behavior-guardrails` | `prompt` | `active` | `docs, backend` | `yes` | `docs/WINSTON_BEHAVIOR_GUARDRAILS_PROMPT.md` |
@@ -70,6 +72,7 @@ This file is the human-facing registry for every routed markdown doc in the repo
 | `winston-latency-optimization` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/WINSTON_LATENCY_OPTIMIZATION_PROMPT.md` |
 | `winston-reranking-model-dispatch` | `prompt` | `active` | `docs, backend` | `yes` | `docs/WINSTON_RERANKING_AND_MODEL_DISPATCH_PROMPT.md` |
 | `winston-credit-decisioning-prompt` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/WINSTON_CREDIT_DECISIONING_PROMPT.md` |
+| `winston-sales-intelligence-prompt` | `prompt` | `active` | `docs, cross-repo` | `yes` | `docs/WINSTON_SALES_INTELLIGENCE_PROMPT.md` |
 
 ## Supporting And Registry Docs
 

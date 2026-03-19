@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { cn } from "@/lib/cn";
 import { ArrowRight, Settings, Trash2 } from "lucide-react";
 import type { Environment } from "@/components/EnvProvider";
 import { Badge } from "@/components/ui/Badge";
@@ -18,6 +19,8 @@ export function EnvironmentCard({
   onOpen,
   onSettings,
   onDelete,
+  variant = "default",
+  rowIndex = 0,
 }: {
   env: Environment;
   status: EnvironmentStatus;
@@ -25,6 +28,8 @@ export function EnvironmentCard({
   onOpen: (envId: string) => void;
   onSettings: (envId: string) => void;
   onDelete: (envId: string) => void;
+  variant?: "default" | "controlTower";
+  rowIndex?: number;
 }) {
   const industry = env.industry_type || env.industry;
   const industryVisual = getIndustryIcon(industry);
@@ -38,6 +43,110 @@ export function EnvironmentCard({
       : industry === "credit_risk_hub"
       ? "credit"
       : (industry || "general").replace(/_/g, "-");
+
+  if (variant === "controlTower") {
+    return (
+      <article
+        className={cn(
+          "group grid cursor-pointer gap-4 px-5 py-5 text-left transition-[background-color,box-shadow,transform] duration-panel focus-within:bg-bm-surface/92 hover:-translate-y-[1px] hover:shadow-[0_18px_28px_-30px_rgba(5,9,14,0.95)]",
+          "md:grid-cols-[minmax(0,1.3fr)_minmax(220px,1fr)_auto] md:items-center",
+          rowIndex % 2 === 0 ? "bg-bm-surface/84" : "bg-bm-surface/72"
+        )}
+        data-testid={`env-card-${env.env_id}`}
+        onClick={() => onOpen(env.env_id)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onOpen(env.env_id);
+          }
+        }}
+        role="button"
+        tabIndex={0}
+      >
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-3">
+            <span
+              className={cn(
+                "inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.08em] font-medium",
+                statusVisual.pillClass
+              )}
+            >
+              {healthLabel}
+            </span>
+            <div className="min-w-0">
+              <h3 className="truncate text-[15px] font-semibold text-bm-text">{env.client_name}</h3>
+              <p className="mt-1 text-sm text-bm-muted md:hidden">
+                {compactIndustry} · {formatEnvId(env.env_id)} · {formatMetaDate(env.created_at)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="hidden min-w-0 items-center gap-2.5 text-sm text-bm-muted md:flex">
+          <IndustryIcon
+            className="h-4 w-4 shrink-0 text-bm-muted2"
+            data-testid={industryVisual.testId}
+            strokeWidth={1.5}
+          />
+          <Badge variant="default" className="shrink-0 border-bm-border/14 bg-bm-surface2/55 px-1.5 py-0 text-[9px] text-bm-muted">
+            {compactIndustry}
+          </Badge>
+          <span className="truncate font-mono text-[12px] text-bm-muted">Env {formatEnvId(env.env_id)}</span>
+          <span aria-hidden className="text-bm-muted2">•</span>
+          <span className="truncate text-bm-muted">{formatMetaDate(env.created_at)}</span>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 md:justify-end">
+          <div className="min-w-0 md:text-right">
+            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-bm-muted2">Last Active</p>
+            <p className="text-sm font-medium text-bm-text">{formatRelative(lastActivity)}</p>
+          </div>
+
+          <div
+            className="flex shrink-0 items-center gap-2"
+            data-testid={`env-actions-${env.env_id}`}
+          >
+            <button
+              type="button"
+              className="rounded-md border border-transparent bg-bm-surface2/55 p-2 text-bm-muted transition-[background-color,color,transform] duration-panel hover:scale-[1.03] hover:bg-bm-surface2/85 hover:text-bm-text"
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpen(env.env_id);
+              }}
+              aria-label={`Open ${env.client_name}`}
+              data-testid={`env-open-${env.env_id}`}
+            >
+              <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.6} />
+            </button>
+            <button
+              type="button"
+              className="rounded-md border border-transparent bg-bm-surface2/55 p-2 text-bm-muted transition-[background-color,color,transform] duration-panel hover:scale-[1.03] hover:bg-bm-surface2/85 hover:text-bm-text"
+              onClick={(event) => {
+                event.stopPropagation();
+                onSettings(env.env_id);
+              }}
+              aria-label={`Settings for ${env.client_name}`}
+              data-testid={`env-settings-${env.env_id}`}
+            >
+              <Settings className="h-3.5 w-3.5" strokeWidth={1.6} />
+            </button>
+            <button
+              type="button"
+              className="rounded-md border border-transparent bg-bm-surface2/45 p-2 text-bm-muted/80 transition-[background-color,color,transform] duration-panel hover:scale-[1.03] hover:bg-bm-surface2/85 hover:text-bm-danger"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete(env.env_id);
+              }}
+              aria-label={`Delete ${env.client_name}`}
+              data-testid={`env-delete-${env.env_id}`}
+            >
+              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.6} />
+            </button>
+          </div>
+        </div>
+      </article>
+    );
+  }
 
   return (
     <article
@@ -133,6 +242,11 @@ function formatMetaDate(value?: string): string {
     month: "short",
     year: "numeric",
   });
+}
+
+function formatEnvId(value?: string): string {
+  if (!value) return "—";
+  return value.length > 8 ? value.slice(0, 8) : value;
 }
 
 function formatRelative(value?: string): string {

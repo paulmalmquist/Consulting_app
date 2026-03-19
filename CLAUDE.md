@@ -15,7 +15,7 @@ intent_tags:
   - sync
   - data
   - docs
-  - ops
+  - ops 
 triggers:
   - CLAUDE.md
   - Winston`
@@ -88,6 +88,7 @@ notes:
 | site audit, design review, tour paulmalmquist.com, mobile audit, site performance, REPE usefulness, PDS usefulness, AI synchronicity | `skills/site-audit/SKILL.md` |
 | schema, SQL, migrations, ETL, seeds | `agents/data.md` |
 | research ingestion from `docs/research/*` | `.skills/research-ingest/SKILL.md` |
+| CRM lookup, prospect enrichment, contact record, Apollo search, add to CRM, find contact, is [company] in Apollo, track outreach | `docs/WINSTON_SALES_INTELLIGENCE_PROMPT.md` with `agents/outreach.md` as support |
 | business-side Novendor commands | `agents/operations.md`, `agents/outreach.md`, `agents/proposals.md`, `agents/content.md`, `agents/demo.md` |
 | explicit prompt or playbook request | matching normalized skill when one exists; otherwise selected `docs/WINSTON_*PROMPT*.md` |
 
@@ -149,6 +150,10 @@ notes:
 - `build the credit portfolio detail page` -> `.skills/feature-dev/SKILL.md` with `skills/winston-credit-environment/SKILL.md` as reference
 - `deploy the credit schema migrations` -> `agents/data.md`
 - `execute PDS phase 8 for AI query` -> `skills/winston-pds-delivery/SKILL.md`
+- `is Branford Castle Partners in Apollo` -> `docs/WINSTON_SALES_INTELLIGENCE_PROMPT.md`
+- `add James Reddington to CRM` -> `docs/WINSTON_SALES_INTELLIGENCE_PROMPT.md`
+- `find the CFO of [REPE firm]` -> `docs/WINSTON_SALES_INTELLIGENCE_PROMPT.md`
+- `look up [person] at [company]` -> `docs/WINSTON_SALES_INTELLIGENCE_PROMPT.md`
 
 - `Review backend/app/routes/nv_ai_copilot.py and explain how it fits the repo` -> `agents/architect.md`
 - `Implement a loading fix in repo-b/src/app/lab/env/[envId]/page.tsx` -> `.skills/feature-dev/SKILL.md` with `agents/builder.md` as support

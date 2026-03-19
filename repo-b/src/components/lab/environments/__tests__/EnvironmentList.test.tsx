@@ -75,6 +75,29 @@ describe("EnvironmentList", () => {
     expect(screen.getByTestId("env-sort")).toHaveValue("name");
   });
 
+  test("control tower variant preserves controls and exposes the cockpit headers", async () => {
+    render(
+      <EnvironmentList
+        variant="controlTower"
+        environments={[envA, envB]}
+        onOpen={() => {}}
+        onSettings={() => {}}
+        onDelete={() => {}}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Archived" }));
+
+    expect(await screen.findByRole("heading", { name: "Environment Queue" })).toBeInTheDocument();
+    expect(screen.getByText("METADATA")).toBeInTheDocument();
+    expect(screen.getByText("LAST ACTIVE")).toBeInTheDocument();
+    expect(screen.getByText(/Env env-2/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId("env-search"), { target: { value: "healthcare" } });
+    expect(await screen.findByText("Beta")).toBeInTheDocument();
+    expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
+  });
+
   test("renders a single-column row list with column headers", async () => {
     render(
       <EnvironmentList

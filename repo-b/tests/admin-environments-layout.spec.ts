@@ -76,9 +76,39 @@ test.describe("admin environment card layout", () => {
     await page.route("**/v1/environments", async (route) => {
       await route.fulfill({ json: { environments } });
     });
+    await page.route("**/api/ai/gateway/health", async (route) => {
+      await route.fulfill({ json: { enabled: true, model: "gpt-5.4" } });
+    });
 
     await page.goto("/admin");
     await expect(page.getByRole("heading", { name: "Control Tower" })).toBeVisible();
+    await expect(page.getByText("System Status")).toBeVisible();
+    await expect(page.getByText("Active Environments")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Environment Queue" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Operational Alerts" })).toBeVisible();
+    await expect(page.getByText("Recent Activity")).toBeVisible();
+
+    const titleBox = await page.getByRole("heading", { name: "Control Tower" }).boundingBox();
+    const statusBox = await page.getByText("System Status").boundingBox();
+    const metricBox = await page.getByText("Active Environments").boundingBox();
+    const queueBox = await page.getByRole("heading", { name: "Environment Queue" }).boundingBox();
+    const alertsBox = await page.getByRole("heading", { name: "Operational Alerts" }).boundingBox();
+    const activityBox = await page.getByText("Recent Activity").boundingBox();
+
+    expect(titleBox).not.toBeNull();
+    expect(statusBox).not.toBeNull();
+    expect(metricBox).not.toBeNull();
+    expect(queueBox).not.toBeNull();
+    expect(alertsBox).not.toBeNull();
+    expect(activityBox).not.toBeNull();
+
+    if (titleBox && statusBox && metricBox && queueBox && alertsBox && activityBox) {
+      expect(statusBox.y).toBeGreaterThan(titleBox.y);
+      expect(metricBox.y).toBeGreaterThan(statusBox.y);
+      expect(queueBox.y).toBeGreaterThan(metricBox.y);
+      expect(alertsBox.y).toBeGreaterThan(metricBox.y);
+      expect(activityBox.y).toBeGreaterThan(queueBox.y);
+    }
 
     for (const env of environments.slice(0, 3)) {
       const card = page.getByTestId(`env-card-${env.env_id}`);

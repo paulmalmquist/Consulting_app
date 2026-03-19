@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { Database } from "lucide-react";
 import type { Environment } from "@/components/EnvProvider";
+import { cn } from "@/lib/cn";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
@@ -22,11 +23,13 @@ export function EnvironmentList({
   onOpen,
   onSettings,
   onDelete,
+  variant = "default",
 }: {
   environments: Environment[];
   onOpen: (envId: string) => void;
   onSettings: (envId: string) => void;
   onDelete: (envId: string) => void;
+  variant?: "default" | "controlTower";
 }) {
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("created");
@@ -107,7 +110,12 @@ export function EnvironmentList({
 
   if (dedupedEnvironments.length === 0) {
     return (
-      <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-6">
+      <div className={cn(
+        "rounded-lg border p-6",
+        variant === "controlTower"
+          ? "border-bm-border/10 bg-bm-surface/76"
+          : "border-bm-border/20 bg-bm-surface/40"
+      )}>
         <div className="flex min-h-[320px] items-center justify-center">
           <div className="max-w-sm text-center" data-testid="env-empty-state">
             <Database className="mx-auto h-8 w-8 text-bm-muted" strokeWidth={1} />
@@ -125,6 +133,122 @@ export function EnvironmentList({
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (variant === "controlTower") {
+    return (
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Environments</p>
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-bm-text">Environment Queue</h2>
+              <p className="text-sm leading-relaxed text-bm-muted">
+                Scan live status, open active workspaces, and manage environment operations with low-noise controls.
+              </p>
+            </div>
+            <p className="text-sm text-bm-muted2">
+              {filtered.length} shown of {dedupedEnvironments.length}
+            </p>
+          </div>
+        </div>
+
+        <section className="rounded-xl border border-bm-border/10 bg-bm-surface/76 p-4">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <div className="grid gap-3 md:grid-cols-3">
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search environments, schemas, or industries..."
+                data-testid="env-search"
+                className="h-10 border-bm-border/14 bg-bm-surface/92 px-3.5 text-sm placeholder:text-bm-muted2 focus-visible:border-bm-accent/45 focus-visible:shadow-none"
+              />
+              <Select
+                value={sectorFilter}
+                onChange={(e) => setSectorFilter(e.target.value)}
+                data-testid="env-sector-filter"
+                className="h-10 w-full cursor-pointer appearance-none border-bm-border/14 bg-bm-surface/92 px-3.5 text-sm focus-visible:border-bm-accent/45 focus-visible:shadow-none"
+              >
+                <option value="all">Sector: All</option>
+                {sectors.map((s) => (
+                  <option key={s} value={s}>{humanIndustry(s)}</option>
+                ))}
+              </Select>
+              <Select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortKey)}
+                data-testid="env-sort"
+                className="h-10 w-full cursor-pointer appearance-none border-bm-border/14 bg-bm-surface/92 px-3.5 text-sm focus-visible:border-bm-accent/45 focus-visible:shadow-none"
+              >
+                <option value="created">Sort: Created</option>
+                <option value="name">Sort: Name</option>
+                <option value="last_activity">Sort: Last Activity</option>
+              </Select>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2" data-testid="env-filters">
+              {FILTERS.map((filter) => {
+                const active = activeFilters.includes(filter.key);
+                return (
+                  <button
+                    key={filter.key}
+                    type="button"
+                    onClick={() => toggleFilter(filter.key)}
+                    className={cn(
+                      "rounded-full border px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] transition-[background-color,border-color,color] duration-panel",
+                      active
+                        ? "border-bm-accent/22 bg-bm-surface/96 text-bm-text"
+                        : "border-bm-border/12 bg-bm-surface/60 text-bm-muted hover:border-bm-border/24 hover:text-bm-text"
+                    )}
+                  >
+                    {filter.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-xl border border-bm-border/10 bg-bm-surface/82 shadow-[0_18px_34px_-32px_rgba(5,9,14,0.95)]">
+          <div className="hidden border-b border-bm-border/8 bg-bm-surface/92 px-5 py-3 md:block">
+            <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(220px,1fr)_auto] gap-4 font-mono text-[10px] uppercase tracking-[0.16em] text-bm-muted2">
+              <div className="grid grid-cols-[108px_minmax(0,1fr)] gap-3">
+                <span>STATUS</span>
+                <span>ENVIRONMENT</span>
+              </div>
+              <span>METADATA</span>
+              <div className="flex items-center justify-end gap-8">
+                <span>LAST ACTIVE</span>
+                <span className="w-[116px] text-right">ACTIONS</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col" data-testid="env-list">
+            {filtered.map((env, index) => {
+              const status: EnvironmentStatus = statusFromFlags(env.is_active);
+              return (
+                <EnvironmentCard
+                  key={env.env_id}
+                  env={env}
+                  status={status}
+                  stats={{ last_activity: env.created_at } satisfies EnvironmentStats}
+                  onOpen={onOpen}
+                  onSettings={onSettings}
+                  onDelete={onDelete}
+                  variant="controlTower"
+                  rowIndex={index}
+                />
+              );
+            })}
+            {filtered.length === 0 ? (
+              <div className="px-4 py-10 text-center">
+                <p className="text-sm text-bm-muted2">No environments match current filters.</p>
+              </div>
+            ) : null}
+          </div>
+        </section>
+      </section>
     );
   }
 
@@ -197,7 +321,7 @@ export function EnvironmentList({
           <span>ACTIONS</span>
         </div>
         <div className="flex flex-col" data-testid="env-list">
-          {filtered.map((env) => {
+          {filtered.map((env, index) => {
             const status: EnvironmentStatus = statusFromFlags(env.is_active);
             return (
               <EnvironmentCard
@@ -208,6 +332,7 @@ export function EnvironmentList({
                 onOpen={onOpen}
                 onSettings={onSettings}
                 onDelete={onDelete}
+                rowIndex={index}
               />
             );
           })}

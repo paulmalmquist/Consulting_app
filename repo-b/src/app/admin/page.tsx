@@ -4,13 +4,14 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useEnv } from "@/components/EnvProvider";
 import { apiFetch } from "@/lib/api";
+import { ControlTowerAlertsPanel } from "@/components/admin/ControlTowerAlertsPanel";
+import { ControlTowerMetrics } from "@/components/admin/ControlTowerMetrics";
 import { CreateEnvironmentPanel } from "@/components/lab/environments/CreateEnvironmentPanel";
 import { EnvironmentList } from "@/components/lab/environments/EnvironmentList";
 import { EnvironmentSettingsModal } from "@/components/lab/environments/EnvironmentSettingsModal";
 import { type Industry } from "@/components/lab/environments/constants";
-import { MetricCard } from "@/components/ui/MetricCard";
 import { ActivityFeed, type ActivityItem } from "@/components/ui/ActivityFeed";
-import { InsightRail, type InsightSection } from "@/components/ui/InsightRail";
+import { type InsightSection } from "@/components/ui/InsightRail";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { SystemStatusBanner } from "@/components/admin/SystemStatusBanner";
@@ -30,7 +31,7 @@ function formatRelative(dateStr?: string): string {
 
 export default function AdminPage() {
   const router = useRouter();
-  const { environments, refresh, selectEnv } = useEnv();
+  const { environments, refresh, selectEnv, loading } = useEnv();
   const [selectedSettingsId, setSelectedSettingsId] = useState<string | null>(null);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [showProvision, setShowProvision] = useState(false);
@@ -179,86 +180,72 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Header + CTA */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="font-display text-xl font-semibold text-bm-text">Control Tower</h1>
-          <p className="mt-1 text-sm text-bm-muted2">
-            Operational readiness across all business environments.
-          </p>
-        </div>
-        <Button onClick={() => setShowProvision(true)}>
-          + New Environment
-        </Button>
-      </div>
+    <div className="flex flex-col gap-8">
+      <section className="rounded-xl border border-bm-border/10 bg-[linear-gradient(180deg,hsl(var(--bm-surface)/0.92),hsl(var(--bm-bg-2)/0.86))] px-6 py-6 shadow-[0_20px_38px_-34px_rgba(5,9,14,0.95)]">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+          <div className="min-w-0 flex-1">
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Operations Command</p>
+            <h1 className="mt-2 font-display text-[2rem] font-semibold tracking-tight text-bm-text">
+              Control Tower
+            </h1>
+            <p className="mt-2 max-w-3xl text-base leading-relaxed text-bm-muted">
+              Operational readiness across all business environments with fast visibility into live status, recent provisioning, and follow-up signals.
+            </p>
+            <SystemStatusBanner
+              status={gateway.status}
+              lastChecked={gateway.lastChecked}
+              className="mt-6"
+            />
+          </div>
 
-      {/* System Status Banner */}
-      <SystemStatusBanner status={gateway.status} lastChecked={gateway.lastChecked} />
+          <div className="shrink-0">
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => setShowProvision(true)}
+              className="border-bm-border/20 bg-bm-surface/68 px-4 hover:border-bm-accent/40 hover:bg-bm-surface/86"
+            >
+              + New Environment
+            </Button>
+          </div>
+        </div>
+      </section>
 
-      {/* KPI Metric Cards */}
-      <div className="grid grid-cols-2 gap-3 border-b border-bm-border/15 pb-4 sm:grid-cols-3 lg:grid-cols-5">
-        <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-3">
-          <MetricCard
-            label="Active Environments"
-            value={String(activeCount)}
-            delta={recentCount > 0 ? { value: `+${recentCount} / 7d`, direction: "up" } : undefined}
-            status="success"
-          />
-        </div>
-        <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-3">
-          <MetricCard
-            label="Total Environments"
-            value={String(environments.length)}
-          />
-        </div>
-        <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-3">
-          <MetricCard
-            label="Industries"
-            value={String(industryCount)}
-          />
-        </div>
-        <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-3">
-          <MetricCard
-            label="AI Gateway"
-            value={gateway.status === "checking" ? "…" : gateway.status === "operational" ? "Online" : "Offline"}
-            status={gateway.status === "operational" ? "success" : gateway.status === "degraded" ? "danger" : "neutral"}
-          />
-        </div>
-        <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-3">
-          <MetricCard
-            label="Recent (7d)"
-            value={String(recentCount)}
-            delta={recentCount > 0 ? { value: `${recentCount} new`, direction: "up" } : undefined}
-          />
-        </div>
-      </div>
+      <ControlTowerMetrics
+        activeCount={activeCount}
+        totalCount={environments.length}
+        industryCount={industryCount}
+        recentCount={recentCount}
+        gatewayStatus={gateway.status}
+        loading={loading}
+      />
 
       {/* Main Content Grid */}
-      <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr),280px]">
-        <div className="flex flex-col gap-4">
-          <EnvironmentList
-            environments={environments}
-            onOpen={openEnvironment}
-            onSettings={setSelectedSettingsId}
-            onDelete={deleteEnvironment}
-          />
-
-          <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-3">
-            <ActivityFeed items={activityItems} maxItems={6} title="Recent Activity" />
-          </div>
+      <div className="grid gap-8 2xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0">
+          {loading ? (
+            <ControlTowerEnvironmentSkeleton />
+          ) : (
+            <EnvironmentList
+              variant="controlTower"
+              environments={environments}
+              onOpen={openEnvironment}
+              onSettings={setSelectedSettingsId}
+              onDelete={deleteEnvironment}
+            />
+          )}
         </div>
 
-        <div className="hidden 2xl:block">
-          <div className="sticky top-20">
-            <InsightRail sections={insightSections} />
+        <div className="min-w-0">
+          <div className="2xl:sticky 2xl:top-24">
+            <ControlTowerAlertsPanel sections={insightSections} />
           </div>
         </div>
       </div>
 
-      <div className="2xl:hidden">
-        <InsightRail sections={insightSections} />
-      </div>
+      <section className="rounded-xl border border-bm-border/10 bg-bm-surface/68 p-5 opacity-90">
+        <ActivityFeed items={activityItems} maxItems={6} title="Recent Activity" />
+      </section>
 
       {/* Provision Dialog */}
       <Dialog
@@ -309,5 +296,65 @@ export default function AdminPage() {
         }}
       />
     </div>
+  );
+}
+
+function ControlTowerEnvironmentSkeleton() {
+  return (
+    <section className="flex flex-col gap-4" aria-hidden="true">
+      <div className="space-y-2">
+        <div className="h-3 w-28 animate-pulse rounded bg-bm-surface/80" />
+        <div className="h-7 w-48 animate-pulse rounded bg-bm-surface/85" />
+        <div className="h-4 w-80 max-w-full animate-pulse rounded bg-bm-surface/70" />
+      </div>
+
+      <div className="rounded-xl border border-bm-border/10 bg-bm-surface/76 p-4">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="h-10 animate-pulse rounded-lg bg-bm-surface2/90" />
+            <div className="h-10 animate-pulse rounded-lg bg-bm-surface2/90" />
+            <div className="h-10 animate-pulse rounded-lg bg-bm-surface2/90" />
+          </div>
+          <div className="flex gap-2">
+            <div className="h-8 w-20 animate-pulse rounded-full bg-bm-surface2/80" />
+            <div className="h-8 w-20 animate-pulse rounded-full bg-bm-surface2/80" />
+            <div className="h-8 w-20 animate-pulse rounded-full bg-bm-surface2/80" />
+          </div>
+        </div>
+      </div>
+
+      <section className="overflow-hidden rounded-xl border border-bm-border/10 bg-bm-surface/82 shadow-[0_18px_34px_-32px_rgba(5,9,14,0.95)]">
+        <div className="hidden border-b border-bm-border/8 px-5 py-3 md:block">
+          <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(220px,1fr)_auto] gap-4">
+            <div className="h-3 w-40 animate-pulse rounded bg-bm-surface2/85" />
+            <div className="h-3 w-20 animate-pulse rounded bg-bm-surface2/75" />
+            <div className="justify-self-end h-3 w-28 animate-pulse rounded bg-bm-surface2/75" />
+          </div>
+        </div>
+        <div className="flex flex-col">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div
+              key={index}
+              className="grid gap-4 border-b border-bm-border/6 px-5 py-5 md:grid-cols-[minmax(0,1.3fr)_minmax(220px,1fr)_auto]"
+            >
+              <div className="space-y-3">
+                <div className="h-6 w-20 animate-pulse rounded-full bg-bm-surface2/90" />
+                <div className="h-5 w-56 max-w-full animate-pulse rounded bg-bm-surface2/80" />
+              </div>
+              <div className="space-y-3">
+                <div className="h-4 w-48 max-w-full animate-pulse rounded bg-bm-surface2/75" />
+                <div className="h-4 w-40 max-w-full animate-pulse rounded bg-bm-surface2/65" />
+              </div>
+              <div className="flex items-center justify-end gap-3">
+                <div className="h-4 w-16 animate-pulse rounded bg-bm-surface2/65" />
+                <div className="h-8 w-8 animate-pulse rounded bg-bm-surface2/85" />
+                <div className="h-8 w-8 animate-pulse rounded bg-bm-surface2/85" />
+                <div className="h-8 w-8 animate-pulse rounded bg-bm-surface2/85" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </section>
   );
 }
