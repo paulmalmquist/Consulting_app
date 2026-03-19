@@ -187,17 +187,17 @@ describe("REPE funds page", () => {
 
     await screen.findByText("Alpha Growth Fund IV");
 
-    // investing pill should have success colors
+    // investing pill should have blue colors
     const investingPill = screen.getByText("investing");
-    expect(investingPill.className).toContain("text-bm-success");
+    expect(investingPill.className).toContain("text-blue-400");
 
     // fundraising pill should have accent colors
     const fundraisingPill = screen.getByText("fundraising");
     expect(fundraisingPill.className).toContain("text-bm-accent");
 
-    // harvesting pill should have purple colors
+    // harvesting pill should have amber colors
     const harvestingPill = screen.getByText("harvesting");
-    expect(harvestingPill.className).toContain("text-purple-400");
+    expect(harvestingPill.className).toContain("text-amber-400");
   });
 
   test("sorting by vintage toggles order", async () => {
