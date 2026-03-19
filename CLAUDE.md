@@ -85,6 +85,7 @@ notes:
 | repo sync, fetch, pull, dirty-tree checks | `agents/sync.md` |
 | push, deploy, CI, Railway, Vercel, production verification | `agents/deploy.md` |
 | QA, regression, smoke test, validation | `agents/qa.md` |
+| site audit, design review, tour paulmalmquist.com, mobile audit, site performance, REPE usefulness, PDS usefulness, AI synchronicity | `skills/site-audit/SKILL.md` |
 | schema, SQL, migrations, ETL, seeds | `agents/data.md` |
 | research ingestion from `docs/research/*` | `.skills/research-ingest/SKILL.md` |
 | business-side Novendor commands | `agents/operations.md`, `agents/outreach.md`, `agents/proposals.md`, `agents/content.md`, `agents/demo.md` |
