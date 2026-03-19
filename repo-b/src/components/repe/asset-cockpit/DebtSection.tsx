@@ -5,7 +5,6 @@ import type {
   ReV2AssetQuarterState,
   ReV2AssetPeriod,
 } from "@/lib/bos-api";
-import { directFetch } from "@/lib/bos-api";
 import { KpiStrip } from "./KpiStrip";
 import { TrendLineChart } from "@/components/charts";
 import { CHART_COLORS } from "@/components/charts/chart-theme";
@@ -57,7 +56,8 @@ export default function DebtSection({ financialState, periods, assetId }: Props)
 
   useEffect(() => {
     if (!assetId) return;
-    directFetch<CovenantData>(`/api/re/v2/assets/${assetId}/covenants`)
+    fetch(`/api/re/v2/assets/${assetId}/covenants`)
+      .then((r) => r.json())
       .then(setCovenantData)
       .catch(() => {});
   }, [assetId]);
