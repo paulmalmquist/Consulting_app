@@ -13,7 +13,6 @@ from uuid import UUID
 from app.config import AI_GATEWAY_ENABLED, OPENAI_API_KEY, OPENAI_CHAT_MODEL_STANDARD
 from app.db import get_cursor
 from app.observability.logger import emit_log
-from app.services import documents as doc_svc
 from app.services.rag_indexer import semantic_search, RetrievedChunk
 from app.services.text_extractor import extract_text
 

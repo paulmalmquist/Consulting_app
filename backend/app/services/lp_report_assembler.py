@@ -6,9 +6,6 @@ and asset highlights into a structured LP report object.
 from __future__ import annotations
 
 import json
-import uuid
-from decimal import Decimal
-from typing import Any
 from uuid import UUID
 
 from app.config import AI_GATEWAY_ENABLED, OPENAI_API_KEY, OPENAI_CHAT_MODEL_STANDARD
