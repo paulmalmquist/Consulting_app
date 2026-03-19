@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type {
   ReV2AssetQuarterState,
   ReV2AssetPeriod,
 } from "@/lib/bos-api";
+import { directFetch } from "@/lib/bos-api";
 import { KpiStrip } from "./KpiStrip";
 import { TrendLineChart } from "@/components/charts";
 import { CHART_COLORS } from "@/components/charts/chart-theme";
@@ -13,12 +15,53 @@ import SecondaryMetric from "./shared/SecondaryMetric";
 import { BRIEFING_CONTAINER, BRIEFING_CARD } from "./shared/briefing-colors";
 import { getMockLoanDetails } from "./mock-data";
 
+interface CovenantDef {
+  covenant_type: string;
+  threshold: number;
+  comparator: string;
+}
+
+interface CovenantResult {
+  dscr: number | null;
+  ltv: number | null;
+  debt_yield: number | null;
+  pass: boolean;
+  headroom: number | null;
+  breached: boolean;
+  quarter: string;
+}
+
+interface LoanCovenant {
+  loan_id: string;
+  loan_name: string;
+  upb: number;
+  rate: number;
+  maturity_date: string | null;
+  covenants: CovenantDef[];
+  latest_result: CovenantResult | null;
+}
+
+interface CovenantData {
+  asset_id: string;
+  loans: LoanCovenant[];
+}
+
 interface Props {
   financialState: ReV2AssetQuarterState | null;
   periods: ReV2AssetPeriod[];
+  assetId?: string;
 }
 
-export default function DebtSection({ financialState, periods }: Props) {
+export default function DebtSection({ financialState, periods, assetId }: Props) {
+  const [covenantData, setCovenantData] = useState<CovenantData | null>(null);
+
+  useEffect(() => {
+    if (!assetId) return;
+    directFetch<CovenantData>(`/api/re/v2/assets/${assetId}/covenants`)
+      .then(setCovenantData)
+      .catch(() => {});
+  }, [assetId]);
+
   const debtTrendData = periods
     .filter((p) => p.debt_balance != null)
     .map((p) => ({
@@ -151,6 +194,89 @@ export default function DebtSection({ financialState, periods }: Props) {
           <SecondaryMetric label="Loan Type" value={loan.loan_type} />
         </div>
       </div>
+
+      {/* Covenant Status Panel */}
+      {covenantData && covenantData.loans.length > 0 && (
+        <div className={BRIEFING_CARD}>
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2 mb-3">
+            Covenant Status
+          </h3>
+          <div className="space-y-3">
+            {covenantData.loans.map((ln) => (
+              <div key={ln.loan_id} className="rounded-lg border border-slate-200 dark:border-white/10 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-bm-text">{ln.loan_name}</span>
+                  {ln.latest_result && (
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+                      ln.latest_result.breached
+                        ? "bg-red-500/10 text-red-400"
+                        : "bg-green-500/10 text-green-400"
+                    }`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${ln.latest_result.breached ? "bg-red-400" : "bg-green-400"}`} />
+                      {ln.latest_result.breached ? "BREACH" : "PASS"}
+                    </span>
+                  )}
+                </div>
+                {ln.covenants.length > 0 && (
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-bm-muted2">
+                        <th className="text-left py-1">Metric</th>
+                        <th className="text-right py-1">Threshold</th>
+                        <th className="text-right py-1">Current</th>
+                        <th className="text-right py-1">Headroom</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ln.covenants.map((cov) => {
+                        const r = ln.latest_result;
+                        let current: number | null = null;
+                        if (r) {
+                          if (cov.covenant_type === "DSCR") current = r.dscr;
+                          else if (cov.covenant_type === "LTV") current = r.ltv;
+                          else if (cov.covenant_type === "DEBT_YIELD") current = r.debt_yield;
+                        }
+                        const headroom = current != null ? current - cov.threshold : null;
+                        const isBreached = headroom != null && (
+                          (cov.comparator === ">=" && headroom < 0) ||
+                          (cov.comparator === "<=" && headroom > 0)
+                        );
+                        return (
+                          <tr key={cov.covenant_type} className="border-t border-slate-100 dark:border-white/5">
+                            <td className="py-1.5 text-bm-text">{cov.covenant_type}</td>
+                            <td className="py-1.5 text-right text-bm-muted2">
+                              {cov.comparator} {cov.covenant_type === "LTV" ? `${(cov.threshold * 100).toFixed(1)}%` : cov.threshold.toFixed(2)}
+                            </td>
+                            <td className={`py-1.5 text-right font-medium ${isBreached ? "text-red-400" : "text-bm-text"}`}>
+                              {current != null
+                                ? cov.covenant_type === "LTV"
+                                  ? `${(current * 100).toFixed(1)}%`
+                                  : current.toFixed(2)
+                                : "—"}
+                            </td>
+                            <td className={`py-1.5 text-right ${isBreached ? "text-red-400" : headroom != null && Math.abs(headroom) < cov.threshold * 0.1 ? "text-amber-400" : "text-green-400"}`}>
+                              {headroom != null
+                                ? cov.covenant_type === "LTV"
+                                  ? `${(headroom * 100).toFixed(1)}%`
+                                  : headroom.toFixed(2)
+                                : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+                {ln.latest_result?.quarter && (
+                  <p className="mt-1.5 text-[10px] text-bm-muted2">
+                    Last tested: {ln.latest_result.quarter}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

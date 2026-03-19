@@ -624,6 +624,10 @@ async def _run_repe_fast_path(
         INTENT_LIST_DOCUMENTS,
         INTENT_SAVED_ANALYSES,
         INTENT_TRANSFORM_RESULT,
+        INTENT_COVENANT_CHECK,
+        INTENT_DDQ_DRAFT,
+        INTENT_LP_REPORT,
+        INTENT_ISSUE_NOTICES,
     )
     from app.mcp.auth import McpContext
 
@@ -1370,6 +1374,80 @@ async def _run_repe_fast_path(
         elif family == INTENT_BRIEFING_GENERATE:
             yield _sse("status", {"message": "Generating executive briefing...", "stage": "briefing", "progress": 0.3})
             text = "Executive briefing generation is available at **Briefings → Generate**. The briefing wizard will walk you through period selection, KPI snapshots, and AI-generated narratives."
+            yield _sse("token", {"text": text})
+            collected_text_parts.append(text)
+
+        elif family == INTENT_COVENANT_CHECK:
+            yield _sse("status", {"message": "Checking covenant compliance...", "stage": "compute", "progress": 0.3})
+            tool_params: dict[str, Any] = {
+                "env_id": scenario.env_id,
+                "business_id": scenario.business_id,
+            }
+            if scenario.asset_id:
+                tool_params["asset_id"] = scenario.asset_id
+                result = await _exec_fast_tool(
+                    ctx, "finance.check_covenant_compliance", tool_params,
+                    tool_timeline, data_sources,
+                )
+            else:
+                if scenario.fund_id:
+                    tool_params["fund_id"] = scenario.fund_id
+                result = await _exec_fast_tool(
+                    ctx, "finance.list_covenant_alerts", tool_params,
+                    tool_timeline, data_sources,
+                )
+            card = _build_covenant_card(result, scenario)
+            yield _sse("structured_result", {"result_type": "covenant_compliance", "card": card})
+            blocks = legacy_structured_result_to_blocks("covenant_compliance", card)
+            response_blocks.extend(blocks)
+            for block in blocks:
+                yield _sse("response_block", {"block": block})
+
+        elif family == INTENT_DDQ_DRAFT:
+            yield _sse("status", {"message": "Processing DDQ — extracting questions and searching document corpus...", "stage": "compute", "progress": 0.2})
+            text = (
+                "DDQ drafting requires a document upload. Please upload the DDQ document and I'll:\n"
+                "1. Extract all questions from the document\n"
+                "2. Search your fund's document corpus for answers\n"
+                "3. Draft responses with source citations\n"
+                "4. Flag questions that need your direct input\n\n"
+                "You can upload a DDQ via the **Documents** tab on any fund page, then ask me to process it."
+            )
+            yield _sse("token", {"text": text})
+            collected_text_parts.append(text)
+
+        elif family == INTENT_LP_REPORT:
+            yield _sse("status", {"message": "Assembling LP report...", "stage": "compute", "progress": 0.2})
+            if scenario.fund_id:
+                result = await _exec_fast_tool(
+                    ctx, "finance.assemble_lp_report", {
+                        "fund_id": scenario.fund_id,
+                        "quarter": scenario.quarter or "2026Q1",
+                        "env_id": scenario.env_id,
+                        "business_id": scenario.business_id,
+                    },
+                    tool_timeline, data_sources,
+                )
+                card = _build_lp_report_card(result, scenario)
+                yield _sse("structured_result", {"result_type": "lp_report", "card": card})
+                blocks = legacy_structured_result_to_blocks("lp_report", card)
+                response_blocks.extend(blocks)
+                for block in blocks:
+                    yield _sse("response_block", {"block": block})
+            else:
+                text = "To generate an LP report, please navigate to a fund page or specify which fund you'd like the report for."
+                yield _sse("token", {"text": text})
+                collected_text_parts.append(text)
+
+        elif family == INTENT_ISSUE_NOTICES:
+            yield _sse("status", {"message": "Preparing notice generation...", "stage": "compute", "progress": 0.2})
+            text = (
+                "To generate capital call or distribution notices, I need:\n"
+                "1. The fund (navigate to a fund page or specify the fund name)\n"
+                "2. The capital call or distribution event to issue notices for\n\n"
+                "Once on a fund's **Capital** tab, click **Issue Notices** next to the relevant event, "
+                "or tell me the specific call/distribution details."
+            )
             yield _sse("token", {"text": text})
             collected_text_parts.append(text)
 
@@ -2418,6 +2496,85 @@ def _build_saved_analyses_card(result: dict, scenario) -> dict:
             ],
         },
         "actions": [],
+    }
+
+
+def _build_covenant_card(result: dict, scenario) -> dict:
+    """Build a summary card for covenant compliance check."""
+    if "loans" in result:
+        # Asset-level compliance check
+        total = result.get("total_covenants", 0)
+        breaches = result.get("total_breaches", 0)
+        loans = result.get("loans", [])
+        return {
+            "title": "Covenant Compliance",
+            "subtitle": f"{total} covenants tested \u2022 {breaches} breach{'es' if breaches != 1 else ''}",
+            "metrics": [
+                {"label": "Total Covenants", "value": str(total), "delta": None},
+                {"label": "Breaches", "value": str(breaches), "delta": f"-{breaches}" if breaches else None},
+                {"label": "NOI", "value": f"${result.get('noi', 0):,.0f}", "delta": None},
+                {"label": "Asset Value", "value": f"${result.get('asset_value', 0):,.0f}", "delta": None},
+            ],
+            "parameters": {
+                "Quarter": result.get("quarter", scenario.quarter or "N/A"),
+                "Loans": str(len(loans)),
+            },
+            "rows": [
+                {
+                    "loan": loan.get("loan_name", "Unknown"),
+                    "dscr": f"{loan['metrics']['dscr']:.2f}x" if loan.get("metrics", {}).get("dscr") else "N/A",
+                    "ltv": f"{loan['metrics']['ltv']:.1%}" if loan.get("metrics", {}).get("ltv") else "N/A",
+                    "status": "BREACH" if any(not c["passed"] for c in loan.get("covenants", [])) else "PASS",
+                }
+                for loan in loans
+            ],
+        }
+    else:
+        # Portfolio-level alerts
+        alerts = result.get("alerts", [])
+        return {
+            "title": "Covenant Alerts",
+            "subtitle": f"{len(alerts)} active alert{'s' if len(alerts) != 1 else ''}",
+            "metrics": [
+                {"label": "Total Alerts", "value": str(len(alerts)), "delta": None},
+                {"label": "Critical", "value": str(sum(1 for a in alerts if a.get("severity") == "critical")), "delta": None},
+                {"label": "Breaches", "value": str(sum(1 for a in alerts if a.get("severity") == "breach")), "delta": None},
+                {"label": "Warnings", "value": str(sum(1 for a in alerts if a.get("severity") == "warning")), "delta": None},
+            ],
+            "rows": [
+                {
+                    "loan": a.get("loan_name", "Unknown"),
+                    "metric": a.get("metric", ""),
+                    "current": f"{a['current_value']:.2f}" if a.get("current_value") is not None else "N/A",
+                    "threshold": f"{a['threshold']:.2f}" if a.get("threshold") is not None else "N/A",
+                    "severity": a.get("severity", ""),
+                }
+                for a in alerts[:20]
+            ],
+        }
+
+
+def _build_lp_report_card(result: dict, scenario) -> dict:
+    """Build a summary card for an assembled LP report."""
+    fund_summary = result.get("fund_summary", {})
+    return {
+        "title": f"LP Report — {result.get('fund_name', 'Fund')}",
+        "subtitle": f"Quarter {result.get('quarter', scenario.quarter or 'N/A')}",
+        "metrics": [
+            {"label": "Net IRR", "value": f"{fund_summary.get('net_irr', 0):.1%}", "delta": None},
+            {"label": "TVPI", "value": f"{fund_summary.get('tvpi', 0):.2f}x", "delta": None},
+            {"label": "DPI", "value": f"{fund_summary.get('dpi', 0):.2f}x", "delta": None},
+            {"label": "NAV", "value": f"${fund_summary.get('nav', 0):,.0f}", "delta": None},
+        ],
+        "parameters": {
+            "Investors": str(len(result.get("investor_statements", []))),
+            "Assets": str(len(result.get("asset_highlights", []))),
+            "Status": result.get("status", "draft"),
+        },
+        "actions": [
+            {"label": "Download Report", "action": "download_lp_report", "params": {"report_id": str(result.get("report_id", ""))}},
+            {"label": "Generate GP Narrative", "action": "generate_narrative", "params": {}},
+        ],
     }
 
 

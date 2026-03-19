@@ -49,6 +49,12 @@ INTENT_LIST_APPROVALS = "list_approvals"
 INTENT_LIST_DOCUMENTS = "list_documents"
 INTENT_SAVED_ANALYSES = "saved_analyses"
 
+# ── Covenant & compliance intent families ──────────────────────────────────
+INTENT_COVENANT_CHECK = "covenant_check"
+INTENT_DDQ_DRAFT = "ddq_draft"
+INTENT_LP_REPORT = "lp_report"
+INTENT_ISSUE_NOTICES = "issue_notices"
+
 # ── Analytics portal intent families ────────────────────────────────────────
 INTENT_ANALYTICS_QUERY = "analytics_query"
 INTENT_KNOWLEDGE_SEARCH = "knowledge_search"
@@ -199,6 +205,38 @@ _CHART_INTENT_RE = re.compile(
     r"(?:budget|actual)\s+vs\s+(?:budget|actual)|"
     r"side\s+by\s+side"
     r")\b",
+    re.IGNORECASE,
+)
+
+# ── Covenant & compliance patterns ────────────────────────────────────────
+_COVENANT_RE = re.compile(
+    r"\b(covenant|breach|dscr\s+(?:risk|exposure|compliance|check|status|test)|"
+    r"ltv\s+(?:risk|exposure|compliance|check|status|test)|"
+    r"debt\s+(?:yield\s+)?(?:compliance|covenant|exposure|risk|check)|"
+    r"(?:loan|lender)\s+(?:compliance|covenant|requirement)|"
+    r"covenant\s+(?:exposure|risk|status|compliance|check|test|breach|violation)|"
+    r"(?:any|check|what.s?\s+(?:our|the))\s+(?:covenant|breach|compliance)\s+(?:risk|exposure|status)?)\b",
+    re.IGNORECASE,
+)
+_DDQ_RE = re.compile(
+    r"\b(/ddq|ddq|due\s+diligence\s+questionnaire|fill\s+(?:out|in)\s+(?:this\s+)?(?:ddq|questionnaire)|"
+    r"help\s+(?:me\s+)?(?:with|fill|answer)\s+(?:this\s+)?(?:ddq|questionnaire)|"
+    r"draft\s+(?:ddq|questionnaire)\s+(?:answers?|responses?))\b",
+    re.IGNORECASE,
+)
+_LP_REPORT_RE = re.compile(
+    r"\b((?:generate|compile|create|build|prepare|draft)\s+(?:the\s+)?(?:q\d\s+)?(?:lp\s+)?(?:quarterly\s+)?report|"
+    r"quarterly\s+(?:lp\s+)?report|"
+    r"lp\s+report|"
+    r"q[1-4]\s+(?:\d{4}\s+)?(?:lp\s+)?report|"
+    r"(?:investor|lp)\s+(?:quarterly\s+)?(?:report|letter|update))\b",
+    re.IGNORECASE,
+)
+_ISSUE_NOTICES_RE = re.compile(
+    r"\b((?:issue|send|generate|prepare|draft)\s+(?:capital\s+call|distribution)\s+(?:notices?|letters?)|"
+    r"(?:capital\s+call|distribution)\s+(?:notices?|letters?)|"
+    r"(?:notify|alert)\s+(?:the\s+)?(?:lps?|investors?|partners?)\s+(?:about|of|for)\s+(?:the\s+)?(?:call|distribution)|"
+    r"prepare\s+(?:the\s+)?(?:call|distribution)\s+(?:notices?|letters?))\b",
     re.IGNORECASE,
 )
 
@@ -679,6 +717,40 @@ def classify_repe_intent(
     elif br_score > 0.5 and scores.get(INTENT_GENERATE_DASHBOARD, 0) > 0.5 and "dashboard" not in msg.lower():
         scores[INTENT_GENERATE_DASHBOARD] *= 0.3
     scores[INTENT_BRIEFING_GENERATE] = min(br_score, 1.0)
+
+    # ── Covenant check ──────────────────────────────────────────────────
+    cov_score = 0.0
+    if _COVENANT_RE.search(msg):
+        cov_score += 0.90
+    if page_type in ("asset", "investment"):
+        cov_score += 0.05
+    scores[INTENT_COVENANT_CHECK] = min(cov_score, 1.0)
+
+    # ── DDQ draft ───────────────────────────────────────────────────────
+    ddq_score = 0.0
+    if _DDQ_RE.search(msg):
+        ddq_score += 0.92
+    scores[INTENT_DDQ_DRAFT] = min(ddq_score, 1.0)
+
+    # ── LP report ───────────────────────────────────────────────────────
+    lpr_score = 0.0
+    if _LP_REPORT_RE.search(msg):
+        lpr_score += 0.90
+    # Suppress LP summary if LP report is stronger
+    if lpr_score > 0.5 and scores.get(INTENT_LP_SUMMARY, 0) > 0.5:
+        scores[INTENT_LP_SUMMARY] *= 0.3
+    scores[INTENT_LP_REPORT] = min(lpr_score, 1.0)
+
+    # ── Issue notices ───────────────────────────────────────────────────
+    notice_score = 0.0
+    if _ISSUE_NOTICES_RE.search(msg):
+        notice_score += 0.90
+    # Suppress capital call workflow if notice intent is stronger
+    if notice_score > 0.5 and scores.get(INTENT_CAPITAL_CALL_WORKFLOW, 0) > 0.5:
+        scores[INTENT_CAPITAL_CALL_WORKFLOW] *= 0.3
+    if notice_score > 0.5 and scores.get(INTENT_DISTRIBUTION_WORKFLOW, 0) > 0.5:
+        scores[INTENT_DISTRIBUTION_WORKFLOW] *= 0.3
+    scores[INTENT_ISSUE_NOTICES] = min(notice_score, 1.0)
 
     # ── Pick best intent ───────────────────────────────────────────────
     if not scores:

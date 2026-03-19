@@ -363,6 +363,7 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
         <DebtSection
           financialState={financialState}
           periods={periods}
+          assetId={params.assetId}
         />
       )}
 

@@ -11,6 +11,9 @@ from app.mcp.schemas.document_tools import (
     GetVersionsInput,
     GetDownloadUrlInput,
     TagDocumentInput,
+    ProcessDdqInput,
+    ExtractOperatingStatementInput,
+    ConfirmExtractionInput,
 )
 from app.services import documents as doc_svc
 
@@ -97,6 +100,75 @@ def _tag_document(ctx: McpContext, inp: TagDocumentInput) -> dict:
     return {"ok": True, "action": inp.action, "tag": inp.tag}
 
 
+def _process_ddq(ctx: McpContext, inp: ProcessDdqInput) -> dict:
+    from app.services.ddq_workflow import process_ddq
+    from uuid import UUID
+
+    result = process_ddq(
+        document_id=inp.document_id,
+        fund_id=inp.fund_id,
+        business_id=UUID(inp.business_id),
+        env_id=inp.env_id,
+    )
+    return result
+
+
+def _extract_operating_statement(ctx: McpContext, inp: ExtractOperatingStatementInput) -> dict:
+    from app.services.extraction import service as extraction_service
+    from app.services.extraction_writeback import preview_writeback
+    from uuid import UUID
+
+    # Determine profile based on document classification
+    from app.db import get_cursor
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT dv.version_id FROM app.document_versions dv WHERE dv.document_id = %s ORDER BY version_number DESC LIMIT 1",
+            (str(inp.document_id),),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise LookupError(f"Document {inp.document_id} not found")
+        version_id = row["version_id"]
+
+    # Use t12_multifamily as default; caller can specify via document tags
+    profile = "t12_multifamily"
+    ed = extraction_service.init_extraction(inp.document_id, UUID(str(version_id)), profile)
+    result = extraction_service.run_extraction(UUID(str(ed["id"])))
+
+    # Preview write-back against asset data
+    preview = preview_writeback(
+        extracted_document_id=UUID(str(ed["id"])),
+        asset_id=inp.asset_id,
+        env_id=inp.env_id,
+        business_id=inp.business_id,
+    )
+
+    return {
+        "extracted_document_id": str(ed["id"]),
+        "status": result.get("extracted_document", {}).get("status", "completed"),
+        "fields": [
+            {
+                "field_key": f["field_key"],
+                "value": f.get("field_value_json"),
+                "confidence": f.get("confidence"),
+            }
+            for f in result.get("fields", [])
+        ],
+        "preview": preview,
+    }
+
+
+def _confirm_extraction(ctx: McpContext, inp: ConfirmExtractionInput) -> dict:
+    from app.services.extraction_writeback import confirm_writeback
+
+    confirm_writeback(
+        extracted_document_id=inp.extracted_document_id,
+        asset_id=inp.asset_id,
+        approved_fields=inp.approved_fields,
+    )
+    return {"ok": True, "fields_written": len(inp.approved_fields)}
+
+
 def register_document_tools():
     registry.register(ToolDef(
         name="documents.init_upload",
@@ -151,4 +223,31 @@ def register_document_tools():
         input_model=TagDocumentInput,
         handler=_tag_document,
         tags=frozenset({"document", "write"}),
+    ))
+    registry.register(ToolDef(
+        name="documents.process_ddq",
+        description="Process a DDQ document: extract questions, search fund document corpus via RAG, draft answers with citations, flag questions needing GP input",
+        module="documents",
+        permission="read",
+        input_model=ProcessDdqInput,
+        handler=_process_ddq,
+        tags=frozenset({"document", "repe", "analysis"}),
+    ))
+    registry.register(ToolDef(
+        name="documents.extract_operating_statement",
+        description="Extract structured financial data (NOI, occupancy, rent roll) from a T-12 or operating statement document and preview write-back to asset record",
+        module="documents",
+        permission="read",
+        input_model=ExtractOperatingStatementInput,
+        handler=_extract_operating_statement,
+        tags=frozenset({"document", "repe", "write"}),
+    ))
+    registry.register(ToolDef(
+        name="documents.confirm_extraction",
+        description="Confirm and write extracted financial data from a document to an asset record",
+        module="documents",
+        permission="write",
+        input_model=ConfirmExtractionInput,
+        handler=_confirm_extraction,
+        tags=frozenset({"document", "repe", "write"}),
     ))

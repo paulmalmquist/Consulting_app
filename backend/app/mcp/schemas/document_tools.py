@@ -49,3 +49,27 @@ class TagDocumentInput(BaseModel):
     tag: str
     action: str = Field("add", description="'add' or 'remove'")
     confirm: bool = Field(False, description="Must be true to execute write")
+
+
+class ProcessDdqInput(BaseModel):
+    model_config = {"extra": "ignore"}
+    document_id: UUID = Field(description="DDQ document to process")
+    fund_id: UUID = Field(description="Fund to search document corpus for")
+    env_id: str = Field(description="Environment ID")
+    business_id: str = Field(description="Business ID")
+
+
+class ExtractOperatingStatementInput(BaseModel):
+    model_config = {"extra": "ignore"}
+    document_id: UUID = Field(description="Document to extract financial data from")
+    asset_id: UUID = Field(description="Target asset for extracted data")
+    env_id: str = Field(description="Environment ID")
+    business_id: str = Field(description="Business ID")
+
+
+class ConfirmExtractionInput(BaseModel):
+    model_config = {"extra": "ignore"}
+    extracted_document_id: UUID = Field(description="Extraction result to confirm")
+    asset_id: UUID = Field(description="Target asset for write-back")
+    approved_fields: list[str] = Field(description="List of field keys to write back")
+    confirm: bool = Field(False, description="Must be true to execute write")
