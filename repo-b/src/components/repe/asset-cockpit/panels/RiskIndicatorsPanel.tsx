@@ -10,15 +10,15 @@ interface Props {
 }
 
 const SEVERITY_STYLES: Record<RiskSeverity, string> = {
-  high: "bg-red-500/10 text-red-600 dark:text-red-400",
-  medium: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  low: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  high:   "bg-bm-danger/[0.10] text-bm-danger",
+  medium: "bg-bm-warning/[0.10] text-bm-warning",
+  low:    "bg-bm-border/[0.10] text-bm-muted",
 };
 
 const SEVERITY_DOT: Record<RiskSeverity, string> = {
-  high: "bg-red-500",
-  medium: "bg-amber-500",
-  low: "bg-blue-500",
+  high:   "bg-bm-danger",
+  medium: "bg-bm-warning",
+  low:    "bg-bm-borderStrong",
 };
 
 export default function RiskIndicatorsPanel({ financialState }: Props) {

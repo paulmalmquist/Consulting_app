@@ -4,15 +4,15 @@
 
 @layer base {
   :root {
-    /* Winston cinematic tokens — Deep Electric Blue */
-    --accent: 216 74% 55%;
-    --accent-alt: 216 74% 55%;
-    --accent-glow: 54, 120, 224;
+    /* Winston cinematic tokens — Restrained Slate Blue */
+    --accent: 216 52% 48%;
+    --accent-alt: 216 52% 48%;
+    --accent-glow: 46, 100, 185;
     --bg-base: 216 31% 6%;
     --bg-elevated: 217 29% 9%;
     --bg-panel: 216 22% 11%;
     --border-subtle: 0 0% 100%;
-    --border-accent: 216 74% 55%;
+    --border-accent: 216 52% 48%;
 
     /* Semantic tokens (HSL triplets: "H S L") */
     --bm-bg: var(--bg-base);
@@ -51,14 +51,14 @@
   }
 
   html[data-theme="light"] {
-    --accent: 216 74% 55%;
-    --accent-alt: 216 74% 55%;
-    --accent-glow: 54, 120, 224;
+    --accent: 216 52% 48%;
+    --accent-alt: 216 52% 48%;
+    --accent-glow: 46, 100, 185;
     --bg-base: 210 33% 97%;
     --bg-elevated: 0 0% 100%;
     --bg-panel: 0 0% 100%;
     --border-subtle: 220 13% 91%;
-    --border-accent: 216 74% 55%;
+    --border-accent: 216 52% 48%;
 
     --bm-bg: var(--bg-base);
     --bm-bg-2: 220 22% 94%;

@@ -107,7 +107,7 @@ export function RepeSidebarNav({
                           className={cn(
                             "group flex items-center gap-3 rounded-[18px] border-l-2 px-3 py-2.5 text-[14px] leading-5 transition-colors duration-fast",
                             active
-                              ? "border-l-bm-accent bg-bm-surface/28 font-semibold text-bm-text"
+                              ? "border-l-bm-accent bg-bm-surface/35 font-semibold text-bm-text"
                               : "border-l-transparent text-bm-muted hover:bg-bm-surface/12 hover:text-bm-text",
                           )}
                         >

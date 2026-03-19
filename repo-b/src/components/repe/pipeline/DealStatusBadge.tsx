@@ -1,14 +1,14 @@
 "use client";
 
 const STATUS_STYLES: Record<string, string> = {
-  sourced: "bg-gray-500/20 text-gray-300 border-gray-500/40",
-  screening: "bg-blue-500/20 text-blue-300 border-blue-500/40",
-  loi: "bg-yellow-500/20 text-yellow-300 border-yellow-500/40",
-  dd: "bg-orange-500/20 text-orange-300 border-orange-500/40",
-  ic: "bg-purple-500/20 text-purple-300 border-purple-500/40",
-  closing: "bg-teal-500/20 text-teal-300 border-teal-500/40",
-  closed: "bg-green-500/20 text-green-300 border-green-500/40",
-  dead: "bg-red-500/20 text-red-300 border-red-500/40",
+  sourced:   "bg-bm-border/[0.08] text-bm-muted border-bm-border/30",
+  screening: "bg-bm-accent/[0.08] text-bm-accent border-bm-accent/20",
+  loi:       "bg-bm-warning/[0.10] text-bm-warning border-bm-warning/25",
+  dd:        "bg-bm-warning/[0.14] text-bm-warning border-bm-warning/30",
+  ic:        "bg-bm-accent/[0.12] text-bm-accent border-bm-accent/25",
+  closing:   "bg-bm-success/[0.10] text-bm-success border-bm-success/25",
+  closed:    "bg-bm-success/[0.14] text-bm-success border-bm-success/30",
+  dead:      "bg-bm-danger/[0.08] text-bm-danger border-bm-danger/20",
 };
 
 const STATUS_LABELS: Record<string, string> = {

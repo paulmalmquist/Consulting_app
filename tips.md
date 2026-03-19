@@ -474,7 +474,21 @@ Before changing code, identify:
 - the smallest relevant test command to run after the change
 ```
 
-## 10. Fast Sanity Commands
+## 10. Color System Governance (Design Pass Lessons)
+
+When doing a color correction pass on this dashboard:
+
+- **Prefer CSS variable references over hardcoded rgba for app-shell surfaces.** Two styling systems coexist: `bm-*` semantic tokens and hardcoded `rgba(15,23,42,0.82)` inline gradients (slate-900 territory). The hardcoded values drift from token values when themes change. Always use `dark:bg-bm-surface/[0.92]` over `dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),...)]` for surfaces that belong to the app shell.
+
+- **Electric blue at full saturation (74% S) reads as interactive UI signal, not brand.** Using it for active nav borders and icons competes with data. Reducing to ~52% S keeps the selected state clearly visible while reducing visual noise. Change `--accent` in both `:root` and `html[data-theme="light"]` simultaneously — both share the same variable.
+
+- **Deal lifecycle stages are sequence states, not severity levels.** Using a 8-hue rainbow (teal, purple, yellow, orange, blue, gray, green, red) for pipeline stages adds noise without semantic meaning. Map them to 3–4 existing semantic tokens: `bm-muted` (sourced), `bm-accent` (active evaluation), `bm-warning` (caution stages), `bm-success` (closed), `bm-danger` (dead). The palette stays narrow and meaningful.
+
+- **"Low" severity colored blue reads as interactive, not informational.** In `RiskIndicatorsPanel`, `bg-blue-500/10 text-blue-600` for low risk signals "click me" rather than "minor note." Use `bm-muted / bm-border` for low-severity items to keep the accent color exclusively interactive.
+
+- **`briefing-colors.ts` is the right place to centralize dark-mode surface tokens for the asset cockpit.** All cockpit panels import `BRIEFING_CONTAINER` and `BRIEFING_CARD` from this file. Fixing the two constants there propagates to 14 files automatically — no need to touch individual panels.
+
+## 11. Fast Sanity Commands
 
 ```bash
 make db:verify
