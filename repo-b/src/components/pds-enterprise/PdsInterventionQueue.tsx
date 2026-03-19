@@ -20,10 +20,10 @@ type InterventionItem = {
 };
 
 const CATEGORY_BADGE: Record<InterventionItem["category"], { label: string; className: string }> = {
-  delivery: { label: "Delivery", className: "bg-pds-signalRed/15 text-red-200" },
-  timecard: { label: "Timecard", className: "bg-pds-signalOrange/15 text-orange-200" },
-  satisfaction: { label: "Client", className: "bg-pds-signalYellow/15 text-amber-200" },
-  closeout: { label: "Closeout", className: "bg-pds-signalOrange/15 text-orange-200" },
+  delivery: { label: "Delivery", className: "bg-pds-signalRed/15 text-pds-signalRed" },
+  timecard: { label: "Timecard", className: "bg-pds-signalOrange/15 text-pds-signalOrange" },
+  satisfaction: { label: "Client", className: "bg-pds-signalYellow/15 text-pds-signalYellow" },
+  closeout: { label: "Closeout", className: "bg-pds-signalOrange/15 text-pds-signalOrange" },
 };
 
 function computeInterventions(cc: PdsV2CommandCenter): InterventionItem[] {

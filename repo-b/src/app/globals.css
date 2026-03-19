@@ -80,6 +80,19 @@
     --bm-warning: 38 85% 45%;
     --bm-danger: 0 72% 44%;
     --bm-focus-ring: var(--accent);
+
+    /* PDS Enterprise OS palette — light overrides */
+    --pds-bg-primary: 210 33% 97%;
+    --pds-bg-panel: 0 0% 100%;
+    --pds-bg-card: 220 20% 96%;
+    --pds-divider: 220 13% 88%;
+    --pds-gold: 41 64% 44%;
+    --pds-gold-soft: 41 52% 38%;
+    --pds-gold-text: 41 55% 30%;
+    --pds-signal-green: 142 64% 34%;
+    --pds-signal-yellow: 43 87% 42%;
+    --pds-signal-orange: 28 86% 42%;
+    --pds-signal-red: 4 80% 44%;
   }
 
   html {

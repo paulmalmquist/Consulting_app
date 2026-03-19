@@ -149,7 +149,7 @@ export function PdsWorkspacePage({
 
   if (error && !commandCenter) {
     return (
-      <div className="rounded-2xl border border-pds-signalRed/30 bg-pds-signalRed/10 p-4 text-sm text-red-200">
+      <div className="rounded-2xl border border-pds-signalRed/30 bg-pds-signalRed/10 p-4 text-sm text-pds-signalRed">
         {error}
       </div>
     );
@@ -160,7 +160,7 @@ export function PdsWorkspacePage({
   return (
     <div className="space-y-3">
       {/* Compressed header row */}
-      <section className="rounded-xl border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,hsl(var(--pds-gold)/0.10),transparent_40%),linear-gradient(145deg,#111820,#0b1015)] px-4 py-3">
+      <section className="rounded-xl border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,hsl(var(--pds-gold)/0.10),transparent_40%)] bg-bm-surface/[0.92] px-4 py-3">
         <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-baseline gap-3">
             <div>
@@ -269,7 +269,7 @@ export function PdsWorkspacePage({
       {sections.includes("reportPacket") && reportPacket ? <ReportPacketPanel packet={reportPacket} /> : null}
 
       {error ? (
-        <div className="rounded-xl border border-pds-signalOrange/30 bg-pds-signalOrange/10 px-3 py-2 text-sm text-amber-100">
+        <div className="rounded-xl border border-pds-signalOrange/30 bg-pds-signalOrange/10 px-3 py-2 text-sm text-pds-signalOrange">
           {error}
         </div>
       ) : null}

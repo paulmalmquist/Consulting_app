@@ -39,19 +39,19 @@ export function PdsMetricStrip({ metrics }: { metrics: PdsV2MetricCard[] }) {
           <article key={metric.key} className={`relative overflow-hidden rounded-xl border p-3 ${toneClasses(metric.tone)}`}>
             <div className={`absolute left-0 top-0 h-full w-1 ${accentStripeClass(metric.tone)}`} />
             <div className="pl-3">
-              <p className="text-[10px] uppercase tracking-[0.16em] text-white/70 font-medium">{metric.label}</p>
+              <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2 font-medium">{metric.label}</p>
               <div className="mt-1 flex items-baseline gap-2">
-                <p className="text-xl font-semibold text-white tabular-nums">{renderMetric(metric)}</p>
+                <p className="text-xl font-semibold text-bm-text tabular-nums">{renderMetric(metric)}</p>
                 {vPct !== null ? (
-                  <span className={`text-xs font-medium tabular-nums ${vPct < -0.03 ? "text-red-300" : vPct < 0 ? "text-amber-300" : "text-emerald-300"}`}>
+                  <span className={`text-xs font-medium tabular-nums ${vPct < -0.03 ? "text-pds-signalRed" : vPct < 0 ? "text-pds-signalOrange" : "text-pds-signalGreen"}`}>
                     {vPct >= 0 ? "+" : ""}{formatPercent(vPct, 1)}
                   </span>
                 ) : null}
               </div>
-              <div className="mt-1 flex items-center gap-2 text-[11px] text-white/55">
+              <div className="mt-1 flex items-center gap-2 text-[11px] text-bm-muted2">
                 <span>{renderComparison(metric) || "Management baseline"}</span>
                 {delta ? (
-                  <span className={`font-medium ${toNumber(metric.delta_value) >= 0 ? "text-emerald-300/80" : "text-red-300/80"}`}>
+                  <span className={`font-medium ${toNumber(metric.delta_value) >= 0 ? "text-pds-signalGreen" : "text-pds-signalRed"}`}>
                     {toNumber(metric.delta_value) >= 0 ? "\u25B2" : "\u25BC"} {delta}
                   </span>
                 ) : null}

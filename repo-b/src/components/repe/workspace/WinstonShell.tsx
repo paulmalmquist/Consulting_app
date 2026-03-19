@@ -25,6 +25,7 @@ import { usePathname } from "next/navigation";
 import { X, Menu, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { MobileBottomNav, type MobileNavItem } from "./MobileBottomNav";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export interface WinstonShellProps {
   /** Nav list rendered in the left sidebar column */
@@ -99,6 +100,7 @@ export function WinstonShell({
 
         {/* Right side: optional action + context rail toggle */}
         <div className="ml-auto flex items-center gap-2 shrink-0">
+          <ThemeToggle />
           {headerAction}
           {hasRail && (
             <button
@@ -264,6 +266,9 @@ export function WinstonShell({
         <aside className="hidden xl:block min-w-0" aria-label="Sidebar navigation">
           {/* Sticky within the grid column */}
           <div className="sticky top-8 space-y-6">
+            <div className="flex justify-end px-1">
+              <ThemeToggle />
+            </div>
             {sidebar}
           </div>
         </aside>

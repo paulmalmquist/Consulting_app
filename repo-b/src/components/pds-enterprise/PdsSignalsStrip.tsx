@@ -11,9 +11,9 @@ type Signal = {
 };
 
 const TONE_STYLES: Record<Signal["tone"], string> = {
-  danger: "border-pds-signalRed/30 bg-pds-signalRed/8 text-red-200",
-  warn: "border-pds-signalOrange/30 bg-pds-signalOrange/8 text-amber-200",
-  positive: "border-pds-signalGreen/20 bg-pds-signalGreen/8 text-emerald-200",
+  danger: "border-pds-signalRed/30 bg-pds-signalRed/8 text-pds-signalRed",
+  warn: "border-pds-signalOrange/30 bg-pds-signalOrange/8 text-pds-signalOrange",
+  positive: "border-pds-signalGreen/20 bg-pds-signalGreen/8 text-pds-signalGreen",
   neutral: "border-bm-border/50 bg-bm-surface/20 text-bm-muted2",
 };
 

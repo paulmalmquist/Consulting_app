@@ -158,7 +158,7 @@ export function PdsMarketLeaderboard({
                     ) : null}
                   </td>
                   <td className="py-2.5 pr-3 text-right tabular-nums">{formatCurrency(row.fee_actual)}</td>
-                  <td className={`py-2.5 pr-3 text-right tabular-nums font-medium ${vPct < -0.05 ? "text-red-300" : vPct < 0 ? "text-amber-300" : "text-emerald-300"}`}>
+                  <td className={`py-2.5 pr-3 text-right tabular-nums font-medium ${vPct < -0.05 ? "text-pds-signalRed" : vPct < 0 ? "text-pds-signalOrange" : "text-pds-signalGreen"}`}>
                     {vPct >= 0 ? "+" : ""}{formatPercent(vPct, 1)}
                   </td>
                   <td className="py-2.5 pr-3 text-right tabular-nums">{formatCurrency(row.ci_actual)}</td>

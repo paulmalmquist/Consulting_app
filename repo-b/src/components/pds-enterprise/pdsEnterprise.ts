@@ -73,9 +73,9 @@ export function formatDate(value?: string | null): string {
 }
 
 export function toneClasses(tone?: string): string {
-  if (tone === "danger") return "border-pds-signalRed/30 bg-pds-signalRed/10 text-red-100";
-  if (tone === "warn") return "border-pds-signalOrange/30 bg-pds-signalOrange/10 text-amber-100";
-  if (tone === "positive") return "border-pds-signalGreen/30 bg-pds-signalGreen/10 text-emerald-100";
+  if (tone === "danger") return "border-pds-signalRed/30 bg-pds-signalRed/10 text-pds-signalRed";
+  if (tone === "warn") return "border-pds-signalOrange/30 bg-pds-signalOrange/10 text-pds-signalOrange";
+  if (tone === "positive") return "border-pds-signalGreen/30 bg-pds-signalGreen/10 text-pds-signalGreen";
   return "border-pds-divider bg-pds-card/30 text-bm-text";
 }
 
@@ -94,10 +94,10 @@ export function signalDotClass(status?: string): string {
 }
 
 export function healthBadgeClasses(status?: string): string {
-  if (status === "red") return "bg-pds-signalRed/15 text-red-200";
-  if (status === "orange") return "bg-pds-signalOrange/15 text-orange-200";
-  if (status === "yellow") return "bg-pds-signalYellow/15 text-amber-200";
-  return "bg-pds-signalGreen/15 text-emerald-200";
+  if (status === "red") return "bg-pds-signalRed/15 text-pds-signalRed";
+  if (status === "orange") return "bg-pds-signalOrange/15 text-pds-signalOrange";
+  if (status === "yellow") return "bg-pds-signalYellow/15 text-pds-signalYellow";
+  return "bg-pds-signalGreen/15 text-pds-signalGreen";
 }
 
 export function reasonLabel(reason: string): string {

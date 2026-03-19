@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Building2, HardHat } from "lucide-react";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 import { resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
+import ThemeToggle from "@/components/ThemeToggle";
 
 type NavItem = { href: string; label: string };
 type NavGroup = { domain: string; items: NavItem[] };
@@ -118,7 +119,7 @@ export default function PdsEnterpriseShell({
     return (
       <div className="rounded-3xl border border-bm-border/70 bg-bm-surface/20 p-6" data-testid="pds-context-error">
         <h2 className="text-lg font-semibold">Unable to load PDS enterprise workspace</h2>
-        <p className="mt-2 text-sm text-red-300">{error}</p>
+        <p className="mt-2 text-sm text-pds-signalRed">{error}</p>
         {requestId ? <p className="mt-2 text-xs text-bm-muted2">Request ID: {requestId}</p> : null}
         <button
           type="button"
@@ -133,7 +134,7 @@ export default function PdsEnterpriseShell({
 
   return (
     <div className="space-y-4">
-      <section className="rounded-[30px] border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,hsl(var(--pds-gold)/0.14),transparent_42%),linear-gradient(135deg,#0f171f,#0a0f14)] p-5">
+      <section className="rounded-[30px] border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,hsl(var(--pds-gold)/0.10),transparent_42%)] bg-bm-surface/[0.92] p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-3">
@@ -159,9 +160,12 @@ export default function PdsEnterpriseShell({
               <span>Template {templateKey}</span>
             </div>
           </div>
-          <Link href={homeHref} className="rounded-full border border-bm-border/70 px-4 py-2 text-sm hover:bg-bm-surface/40">
-            Home
-          </Link>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Link href={homeHref} className="rounded-full border border-bm-border/70 px-4 py-2 text-sm hover:bg-bm-surface/40">
+              Home
+            </Link>
+          </div>
         </div>
       </section>
 

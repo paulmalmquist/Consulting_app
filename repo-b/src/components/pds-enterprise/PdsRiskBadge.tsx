@@ -4,11 +4,11 @@ import React from "react";
 type RiskLevel = "critical" | "high" | "moderate" | "low" | "green";
 
 const RISK_CONFIG: Record<RiskLevel, { bg: string; text: string; label: string }> = {
-  critical: { bg: "bg-pds-signalRed/20 border-pds-signalRed/40", text: "text-red-200", label: "Critical" },
-  high: { bg: "bg-pds-signalOrange/20 border-pds-signalOrange/40", text: "text-orange-200", label: "High" },
-  moderate: { bg: "bg-pds-signalYellow/20 border-pds-signalYellow/40", text: "text-amber-200", label: "Moderate" },
-  low: { bg: "bg-pds-signalGreen/15 border-pds-signalGreen/30", text: "text-emerald-200", label: "Low" },
-  green: { bg: "bg-pds-signalGreen/15 border-pds-signalGreen/30", text: "text-emerald-200", label: "On Track" },
+  critical: { bg: "bg-pds-signalRed/20 border-pds-signalRed/40", text: "text-pds-signalRed", label: "Critical" },
+  high: { bg: "bg-pds-signalOrange/20 border-pds-signalOrange/40", text: "text-pds-signalOrange", label: "High" },
+  moderate: { bg: "bg-pds-signalYellow/20 border-pds-signalYellow/40", text: "text-pds-signalYellow", label: "Moderate" },
+  low: { bg: "bg-pds-signalGreen/15 border-pds-signalGreen/30", text: "text-pds-signalGreen", label: "Low" },
+  green: { bg: "bg-pds-signalGreen/15 border-pds-signalGreen/30", text: "text-pds-signalGreen", label: "On Track" },
 };
 
 export function deriveRiskLevel(score: number): RiskLevel {
