@@ -58,10 +58,10 @@ function fmtMoney(v: string | number | null | undefined): string {
 const STATUS_OPTIONS = ["All", "fundraising", "investing", "harvesting", "closed"] as const;
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
-  fundraising: { bg: "bg-bm-accent/15", text: "text-bm-accent", dot: "bg-bm-accent" },
-  investing: { bg: "bg-bm-success/15", text: "text-bm-success", dot: "bg-bm-success" },
-  harvesting: { bg: "bg-purple-500/15", text: "text-purple-400", dot: "bg-purple-400" },
-  closed: { bg: "bg-bm-muted2/15", text: "text-bm-muted2", dot: "bg-bm-muted2" },
+  fundraising: { bg: "bg-bm-accent/20", text: "text-bm-accent", dot: "bg-bm-accent" },
+  investing: { bg: "bg-blue-500/15", text: "text-blue-400", dot: "bg-blue-400" },
+  harvesting: { bg: "bg-amber-500/15", text: "text-amber-400", dot: "bg-amber-400" },
+  closed: { bg: "bg-bm-muted2/10", text: "text-bm-muted2", dot: "bg-bm-muted2" },
 };
 
 const FUND_TYPE_LABELS: Record<string, string> = {
@@ -82,6 +82,8 @@ const STATUS_ORDER: Record<string, number> = {
 };
 
 function RepeFundsPageContent() {
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => { setMounted(true); }, []);
   const { businessId, environmentId, loading, contextError, initializeWorkspace } = useRepeContext();
   const basePath = useRepeBasePath();
   const router = useRouter();
@@ -254,6 +256,7 @@ function RepeFundsPageContent() {
         label: "Total Committed",
         value: fmtMoney(portfolioKpis?.total_commitments),
         delta: portfolioKpis ? { value: `${filteredFunds.filter((f) => f.target_size && Number(f.target_size) > 0).length} funds with targets`, tone: "neutral" as const } : undefined,
+        className: "[&_p:last-of-type]:text-[36px] [&_p:last-of-type]:font-bold",
       },
       {
         label: "Portfolio NAV",
@@ -347,11 +350,19 @@ function RepeFundsPageContent() {
 
   const sortableThClass = "px-4 py-3 font-medium cursor-pointer select-none transition-colors hover:text-bm-text";
 
+  const headerSubtitle = portfolioKpis?.total_commitments
+    ? `${fmtMoney(portfolioKpis.total_commitments)} Total Commitments · As of ${quarter.replace("Q", " Q")}`
+    : `Fund portfolio · As of ${quarter.replace("Q", " Q")}`;
+
   return (
     <>
+      <div
+        className="transition-all duration-500 ease-out"
+        style={{ opacity: mounted ? 1 : 0, transform: mounted ? "translateY(0)" : "translateY(10px)" }}
+      >
       <RepeIndexScaffold
-        title="Funds"
-        subtitle="Portfolio of funds in this environment."
+        title="Fund Portfolio"
+        subtitle={headerSubtitle}
         action={
           <Link href={`${basePath}/funds/new`} className={reIndexActionClass} data-testid="btn-new-fund">
             + New Fund
@@ -547,6 +558,7 @@ function RepeFundsPageContent() {
           )}
         </section>
       </RepeIndexScaffold>
+      </div>
       <FundDeleteDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
