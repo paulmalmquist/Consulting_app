@@ -57,6 +57,3 @@ export function InvoiceUploader({ onUpload, disabled }: InvoiceUploaderProps) {
     </div>
   );
 }
-v>
-  );
-}

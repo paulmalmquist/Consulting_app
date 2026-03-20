@@ -123,6 +123,3 @@ export function DrawEditor({ lineItems, editable, onSave }: DrawEditorProps) {
     </div>
   );
 }
-v>
-  );
-}

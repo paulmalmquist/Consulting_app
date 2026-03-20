@@ -396,6 +396,3 @@ export default function DrawDetailPage({ params }: { params: { projectId: string
     </div>
   );
 }
-v>
-  );
-}

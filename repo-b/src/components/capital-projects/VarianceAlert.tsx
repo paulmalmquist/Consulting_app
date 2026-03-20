@@ -53,6 +53,3 @@ export function VarianceAlert({ flags }: { flags: DrawVarianceFlag[] }) {
     </div>
   );
 }
-v>
-  );
-}

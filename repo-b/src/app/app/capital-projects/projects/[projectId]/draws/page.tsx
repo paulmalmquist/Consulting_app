@@ -156,6 +156,3 @@ export default function DrawListPage({ params }: { params: { projectId: string }
     </div>
   );
 }
-v>
-  );
-}

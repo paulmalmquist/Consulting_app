@@ -98,6 +98,3 @@ export function InvoiceMatchReview({ invoiceLines, drawLines, onOverride, onConf
     </div>
   );
 }
-v>
-  );
-}

@@ -167,6 +167,3 @@ export default function InvoiceListPage({ params }: { params: { projectId: strin
     </div>
   );
 }
-v>
-  );
-}

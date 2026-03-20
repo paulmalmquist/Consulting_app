@@ -61,6 +61,3 @@ export function DrawTimeline({ draws }: { draws: CpDrawRequest[] }) {
     </div>
   );
 }
-v>
-  );
-}
