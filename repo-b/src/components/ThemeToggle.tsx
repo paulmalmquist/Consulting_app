@@ -16,14 +16,13 @@ type ThemeToggleProps = {
 
 function ModeIcon({ mode }: { mode: ThemeMode }) {
   if (mode === "light") {
-    return <Sun className="h-4 w-4" strokeWidth={1.5} />;
+    return <Sun className="h-4 w-4" data-testid="theme-icon-sun" strokeWidth={1.5} />;
   }
-  return <Moon className="h-4 w-4" strokeWidth={1.5} />;
+  return <Moon className="h-4 w-4" data-testid="theme-icon-moon" strokeWidth={1.5} />;
 }
 
 export default function ThemeToggle({ className }: ThemeToggleProps) {
   const [mode, setMode] = useState<ThemeMode>("dark");
-  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const stored = getStoredThemeMode();
@@ -37,55 +36,28 @@ export default function ThemeToggle({ className }: ThemeToggleProps) {
     persistThemeMode(next);
   };
 
+  const nextMode: ThemeMode = mode === "light" ? "dark" : "light";
+  const ariaLabel = mode === "light" ? "Switch to dark mode" : "Switch to light mode";
+
   return (
-    <div className={cn("relative", className)}>
-      <button
-        type="button"
-        data-testid="theme-toggle"
-        aria-label="Toggle appearance"
-        aria-expanded={open}
-        onClick={() => setOpen((previous) => !previous)}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-bm-border/40 bg-bm-surface/40 text-bm-muted transition-colors duration-100 hover:bg-bm-surface/20 hover:text-bm-text"
+    <button
+      type="button"
+      data-testid="theme-toggle"
+      aria-label={ariaLabel}
+      onClick={() => setThemeMode(nextMode)}
+      className={cn(
+        "inline-flex h-8 w-8 items-center justify-center rounded-md border border-bm-border/40 bg-bm-surface/40 text-bm-muted transition-[background-color,color,border-color] duration-150 hover:bg-bm-surface/20 hover:text-bm-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bm-accent/40",
+        className
+      )}
+    >
+      <span
+        className={cn(
+          "inline-flex items-center justify-center transition-transform duration-150 ease-out",
+          mode === "light" ? "rotate-0" : "-rotate-12"
+        )}
       >
         <ModeIcon mode={mode} />
-      </button>
-
-      <div
-        className={cn(
-          "pointer-events-none absolute right-0 top-10 z-50 w-48 translate-x-2 rounded-lg border border-bm-border/20 bg-bm-surface/95 p-3 opacity-0 backdrop-blur-sm transition-[transform,opacity] duration-100",
-          open && "pointer-events-auto translate-x-0 opacity-100"
-        )}
-        role="dialog"
-        aria-label="Theme controls"
-      >
-        <p className="bm-section-label">Mode</p>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setThemeMode("dark")}
-            className={cn(
-              "rounded-md border px-3 py-2 text-xs font-medium transition-colors duration-100",
-              mode === "dark"
-                ? "border-bm-accent/55 bg-bm-accent/12 text-bm-text"
-                : "border-bm-border/30 text-bm-muted hover:bg-bm-surface/20 hover:text-bm-text"
-            )}
-          >
-            Dark
-          </button>
-          <button
-            type="button"
-            onClick={() => setThemeMode("light")}
-            className={cn(
-              "rounded-md border px-3 py-2 text-xs font-medium transition-colors duration-100",
-              mode === "light"
-                ? "border-bm-accent/55 bg-bm-accent/12 text-bm-text"
-                : "border-bm-border/30 text-bm-muted hover:bg-bm-surface/20 hover:text-bm-text"
-            )}
-          >
-            Light
-          </button>
-        </div>
-      </div>
-    </div>
+      </span>
+    </button>
   );
 }

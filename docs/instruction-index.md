@@ -73,6 +73,7 @@ This file is the human-facing registry for every routed markdown doc in the repo
 | `winston-reranking-model-dispatch` | `prompt` | `active` | `docs, backend` | `yes` | `docs/WINSTON_RERANKING_AND_MODEL_DISPATCH_PROMPT.md` |
 | `winston-credit-decisioning-prompt` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/WINSTON_CREDIT_DECISIONING_PROMPT.md` |
 | `winston-sales-intelligence` | `skill` | `active` | `docs, cross-repo` | `yes` | `skills/winston-sales-intelligence/SKILL.md` |
+| `winston-demo-generator` | `skill` | `active` | `docs, cross-repo` | `yes` | `skills/winston-demo-generator/SKILL.md` |
 | `winston-sales-intelligence-prompt` | `prompt` | `active` | `docs, cross-repo` | `no` | `docs/WINSTON_SALES_INTELLIGENCE_PROMPT.md` |
 
 ## Supporting And Registry Docs
@@ -81,6 +82,7 @@ This file is the human-facing registry for every routed markdown doc in the repo
 |---|---|---|---|---|---|
 | `instruction-index` | `reference` | `active` | `docs, cross-repo` | `no` | `docs/instruction-index.md` |
 | `meta-prompt-chat-workspace` | `prompt` | `active` | `repo-b, backend` | `no` | `META_PROMPT_CHAT_WORKSPACE.md` |
+| `demo-features-meta-prompts` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/plans/DEMO_FEATURES_META_PROMPTS.md` |
 
 ## Archived Prompt References
 

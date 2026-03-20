@@ -6,9 +6,17 @@ export function resolveThemeMode(value: string | null | undefined): ThemeMode {
   return value === "light" ? "light" : "dark";
 }
 
+export function getSystemThemeMode(): ThemeMode {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return "dark";
+  }
+  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+
 export function getStoredThemeMode(): ThemeMode {
   if (typeof window === "undefined") return "dark";
-  return resolveThemeMode(window.localStorage.getItem(THEME_STORAGE_KEY));
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  return stored === null ? getSystemThemeMode() : resolveThemeMode(stored);
 }
 
 export function applyThemeMode(mode: ThemeMode) {
