@@ -1,0 +1,115 @@
+# LATEST.md — Autonomous Intelligence Manifest
+## Updated by: morning-ops-digest (7:30 AM weekdays)
+## Read this file first in any new coding session.
+
+> This manifest is machine-readable. It points to the most recent output from every scheduled task. A coding agent can read this one file and know the current state of all intelligence, operations, and test results.
+
+---
+
+## Production Status
+
+| System | Status | Last checked |
+|---|---|---|
+| paulmalmquist.com | UNKNOWN | [pending first ops run] |
+| novendor.ai | Placeholder ("Launching Soon") | 2026-03-19 |
+| Supabase | UNKNOWN | [pending first ops run] |
+| Vercel deploys | UNKNOWN | [pending first ops run] |
+
+## Latest AI Test Results
+
+| File | Date | Pass rate |
+|---|---|---|
+| `docs/ai-testing/` | [pending] | [pending first nightly test] |
+
+**Bug 0 status:** OPEN — raw tool call spam confirmed in production 2026-03-19. Fix spec in `META_PROMPT_CHAT_WORKSPACE.md` Bug 0 section.
+
+## Latest Code Quality
+
+| File | Date | Overall score |
+|---|---|---|
+| `docs/ops-reports/code-quality/` | [pending] | [pending first Saturday sweep] |
+
+## Latest Feature Radar
+
+| File | Date | Top pick |
+|---|---|---|
+| `docs/feature-radar/` | 2026-03-19 | [check file for details] |
+
+## Latest Competitor Intelligence
+
+| File | Date | Top opportunity |
+|---|---|---|
+| `docs/competitor-research/daily-summary/` | 2026-03-19 | [check file for details] |
+
+## Latest Sales Signals
+
+| File | Date | Top prospect |
+|---|---|---|
+| `docs/sales-signals/` | 2026-03-19 | [check file for details] |
+
+## Active Meta Prompts (Build Directives)
+
+| Meta Prompt | Status | Priority |
+|---|---|---|
+| `META_PROMPT_CHAT_WORKSPACE.md` | Active | Bug 0 (execution narration) → then chat workspace → then response blocks |
+| `META_PROMPT_VISUAL_RESUME.md` | Active — needs career data | Build resume lab environment |
+
+## Active Bugs
+
+| Bug | Severity | Status | Location |
+|---|---|---|---|
+| Bug 0: Tool call spam in AI UI | CRITICAL | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
+| Bug 1: Waterfall amounts unformatted | HIGH | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
+| Bug 2: Pref return / carry $0 | HIGH | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
+| Bug 3: Capital snapshots need manual click | MEDIUM | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
+| Bug 4: Reports default to wrong fund | MEDIUM | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
+| Bug 5: UW vs Actual all dashes | MEDIUM | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
+
+## Scheduled Task Index
+
+| Time | Task ID | Output folder |
+|---|---|---|
+| 1:00 AM | nightly-ops-validator (pending) | `docs/ops-reports/regression/` |
+| 2:00 AM | (overnight window) | |
+| 3:00 AM Sat | weekly-code-quality-sweep | `docs/ops-reports/code-quality/` |
+| 6:00 AM | novendor-market-scanner | `docs/market-intel/` |
+| 6:10 AM | novendor-market-scanner | |
+| 7:00 AM | morning-business-intel-brief | `docs/daily-intel/` |
+| 7:00 AM | novendor-competitor-deconstruction | |
+| 7:30 AM | morning-ops-digest | `docs/ops-reports/digests/` + updates THIS FILE |
+| 8:00 AM | competitor-reverse-engineering | `docs/competitor-research/` |
+| 8:00 AM | novendor-deal-opportunity-miner | |
+| 9:00 AM | linkedin-content-generator | `docs/linkedin-content/` |
+| 9:00 AM | novendor-workflow-replacement-builder | |
+| 10:00 AM | novendor-demo-product-improvement | |
+| 10:30 AM | deploy-smoke-test | `docs/ops-reports/deploy/` |
+| 11:00 AM | website-evolution-engine | `docs/site-improvements/` |
+| 11:00 AM | novendor-narrative-distribution | |
+| 12:00 PM | product-feature-radar | `docs/feature-radar/` |
+| 12:00 PM | noon-feature-ideas | `docs/feature-ideas/` |
+| 1:00 PM | midday-production-health | `docs/ops-reports/site-health/` |
+| 2:00 PM | demo-idea-generator | `docs/demo-ideas/` |
+| 4:00 PM | sales-signal-discovery | `docs/sales-signals/` |
+| 6:00 PM | competitor-tracker | `docs/competitor-tracking/` |
+| 11:00 PM | winston-ai-feature-tester | `docs/ai-testing/` |
+| 11:59 PM | tour-my-site-for-health | |
+
+## Capability Inventory
+
+**`docs/CAPABILITY_INVENTORY.md`** — Single source of truth for what's already built. 258 pages, 208 services, 31 MCP tool categories, 32 lab environments.
+
+All suggestion-generating tasks (feature-radar, demo-ideas, site-improvements, competitor-research) MUST read this file before recommending new builds. If a capability is already deployed, suggest an enhancement — not a duplicate.
+
+## How to Use This File
+
+1. **Starting a coding session?** Read this file first. Check the bug list and production status.
+2. **Building a new feature?** Check `docs/CAPABILITY_INVENTORY.md` and the feature radar before starting.
+3. **Fixing a bug?** Check the AI test results and deploy smoke test for latest regression status.
+4. **Doing cleanup?** Check the code quality sweep for the prioritized list.
+5. **Preparing for a sales call?** Check sales signals, competitor positioning, and demo ideas.
+6. **Writing content?** Check LinkedIn content and site improvements for the latest angles.
+7. **Suggesting new features?** Read `docs/CAPABILITY_INVENTORY.md` FIRST to avoid recommending things that already exist.
+
+---
+
+*This file is updated automatically by the morning-ops-digest task at 7:30 AM weekdays. Manual edits are fine but will be overwritten on next run.*

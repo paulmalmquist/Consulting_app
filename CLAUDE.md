@@ -89,6 +89,7 @@ notes:
 | schema, SQL, migrations, ETL, seeds | `agents/data.md` |
 | research ingestion from `docs/research/*` | `.skills/research-ingest/SKILL.md` |
 | CRM lookup, prospect enrichment, contact record, Apollo search, add to CRM, find contact, is [company] in Apollo, track outreach | `skills/winston-sales-intelligence/SKILL.md` with `docs/WINSTON_SALES_INTELLIGENCE_PROMPT.md` as reference and `agents/outreach.md` as support |
+| demo idea generation, demo script, demo pipeline, demo concepts for Winston sales, what should we demo, demo for this week | `skills/winston-demo-generator/SKILL.md` |
 | business-side Novendor commands | `agents/operations.md`, `agents/outreach.md`, `agents/proposals.md`, `agents/content.md`, `agents/demo.md` |
 | explicit prompt or playbook request | matching normalized skill when one exists; otherwise selected `docs/WINSTON_*PROMPT*.md` |
 
@@ -112,6 +113,60 @@ notes:
 | `PDS_*.md`, `docs/plans/PDS_*` | PDS staged delivery prompt set | `winston-pds-delivery`, `architect-winston` |
 | `docs/` | normalized skills, prompt references, and playbooks | matching skill, explicit prompt reference, or `architect-winston` |
 | external Novendor workspaces | business-side workstreams | `operations`, `outreach`, `proposals`, `content`, `demo` |
+
+## Autonomous Intelligence Directory
+
+22+ scheduled tasks run daily and write structured outputs to `docs/`. **Any coding agent should check relevant intelligence folders before starting work** — they contain competitor findings, feature ideas, test results, and production health data that directly inform implementation decisions.
+
+### Quick Bootstrap
+
+Read `docs/LATEST.md` first — it's a machine-readable manifest updated every morning with pointers to the most recent output from every scheduled task. One file, full situational awareness.
+
+### Capability Inventory
+
+Read `docs/CAPABILITY_INVENTORY.md` before suggesting new features or builds. It catalogs every deployed capability (258 pages, 208 services, 31 MCP tool categories, 32 lab environments). **If a capability already exists, suggest an enhancement — not a duplicate build.** All suggestion-generating scheduled tasks must cross-reference this file.
+
+### Intelligence Folder Map
+
+| Folder | Updated | What's in it | When to consult |
+|---|---|---|---|
+| `docs/LATEST.md` | Daily 7:30 AM | Manifest of all latest task outputs with dates and 1-line summaries | **Always — read this first in any new session** |
+| `docs/CAPABILITY_INVENTORY.md` | Daily 7:30 AM | What's already built: 258 pages, 208 services, 31 MCP categories, 32 environments | **Before suggesting ANY new feature or build** |
+| `docs/daily-intel/` | Daily 7 AM | AI/REPE market news, newsletter summaries, strategic implications | Before any positioning or feature prioritization work |
+| `docs/feature-radar/` | Daily 12 PM | Prioritized feature ideas with market signals and implementation scores | Before starting any new feature build |
+| `docs/competitor-research/daily-summary/` | Daily 8 AM | Competitor capabilities, Winston gaps, positioning opportunities | Before building features competitors already ship |
+| `docs/competitor-research/product-opportunities/` | Daily 8 AM | Feature-by-feature comparison vs. Yardi, Juniper Square, etc. | When deciding what to build next |
+| `docs/competitor-research/positioning-opportunities/` | Daily 8 AM | Messaging gaps and counter-positioning angles | Before writing any marketing copy or proposals |
+| `docs/ops-reports/regression/` | Daily 2 AM | Nightly test results, DB health, deploy status | Before any deploy or after seeing test failures |
+| `docs/ops-reports/deploy/` | Daily 10:30 AM | Post-deploy smoke test results, Bug 0 regression status | After any production deploy |
+| `docs/ops-reports/code-quality/` | Weekly Saturday | Dead code, test gaps, CLAUDE.md violations, tech debt scorecard | Before cleanup sprints or Monday planning |
+| `docs/ops-reports/digests/` | Daily 7:30 AM | Consolidated morning digest of all overnight results | Quick situational check at start of any session |
+| `docs/ai-testing/` | Daily 11 PM | Winston AI feature test pass/fail report with screenshots | Before touching any AI gateway or chat code |
+| `docs/ai-test-cases/` | As needed | Structured test fixtures with prompts, rubrics, and pass criteria | When writing new AI features or fixing AI bugs |
+| `docs/sales-signals/` | Daily 4 PM | Qualified prospects with outreach angles | Before outreach or proposal work |
+| `docs/sales-positioning/` | Daily 8 AM | Sharp counter-positioning angles vs. each competitor | Before any sales call, email, or deck |
+| `docs/site-improvements/` | Daily 11 AM | Page-by-page website positioning audit with suggested copy | Before any frontend marketing changes |
+| `docs/linkedin-content/` | Daily 9 AM | 3 ready-to-post LinkedIn posts with hooks and positioning | When Paul asks for content or outreach |
+| `docs/demo-ideas/` | Daily 2 PM | Demo scripts with build status and persona targeting | Before building demos or preparing for sales calls |
+
+### Meta Prompts (Build Directives)
+
+| File | What it drives | Status |
+|---|---|---|
+| `META_PROMPT_CHAT_WORKSPACE.md` | Chat workspace + 6 confirmed bugs (Bug 0 = execution narration) | Active — primary build target |
+| `META_PROMPT_VISUAL_RESUME.md` | Visual resume lab environment + AI assistant | Active — needs career data filled in |
+
+### Agent Context Rule
+
+When starting implementation work, a coding agent SHOULD:
+1. Read `docs/LATEST.md` for situational awareness (30 seconds)
+2. Read `docs/CAPABILITY_INVENTORY.md` to know what's already built — never suggest rebuilding existing capabilities
+3. Check `docs/feature-radar/` for the latest feature priority scores if building a new feature
+4. Check `docs/ai-testing/` for the latest test results if touching AI code
+5. Check `docs/ops-reports/code-quality/` if doing cleanup or refactoring
+6. Check `docs/competitor-research/product-opportunities/` if the feature overlaps with a competitor capability
+
+This is not optional busywork — these files contain real production data (test failures, competitor capabilities, market signals) that prevent wasted effort and duplicated work.
 
 ## Dispatch Algorithm
 
@@ -154,6 +209,9 @@ notes:
 - `add James Reddington to CRM` -> `skills/winston-sales-intelligence/SKILL.md`
 - `find the CFO of [REPE firm]` -> `skills/winston-sales-intelligence/SKILL.md`
 - `look up [person] at [company]` -> `skills/winston-sales-intelligence/SKILL.md`
+- `generate today's Winston demo ideas` -> `skills/winston-demo-generator/SKILL.md`
+- `what demos should we run for [persona]` -> `skills/winston-demo-generator/SKILL.md`
+- `give me a demo script for the CFO` -> `skills/winston-demo-generator/SKILL.md`
 
 - `Review backend/app/routes/nv_ai_copilot.py and explain how it fits the repo` -> `agents/architect.md`
 - `Implement a loading fix in repo-b/src/app/lab/env/[envId]/page.tsx` -> `.skills/feature-dev/SKILL.md` with `agents/builder.md` as support
