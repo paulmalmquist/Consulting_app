@@ -1,7 +1,7 @@
 """Tests for invoice matcher — cost code matching, confidence, and thresholds."""
 from decimal import Decimal
 
-from app.services.invoice_matcher import _find_best_match, AUTO_MATCH_THRESHOLD, MatchCandidate
+from app.services.invoice_matcher import _find_best_match, AUTO_MATCH_THRESHOLD
 
 
 def _make_draw_lines(codes_and_descs: list[tuple[str, str]]) -> list[dict]:

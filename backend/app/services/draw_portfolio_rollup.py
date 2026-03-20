@@ -129,9 +129,9 @@ def get_budget_vs_actual(
         "project_id": str(project_id),
         "lines": lines,
         "totals": {
-            "approved_budget": str(sum(_d(l["approved_budget"]) for l in lines)),
-            "committed": str(sum(_d(l["committed"]) for l in lines)),
-            "total_drawn": str(sum(_d(l["total_drawn"]) for l in lines)),
-            "balance_remaining": str(sum(_d(l["balance_remaining"]) for l in lines)),
+            "approved_budget": str(sum(_d(row["approved_budget"]) for row in lines)),
+            "committed": str(sum(_d(row["committed"]) for row in lines)),
+            "total_drawn": str(sum(_d(row["total_drawn"]) for row in lines)),
+            "balance_remaining": str(sum(_d(row["balance_remaining"]) for row in lines)),
         },
     }

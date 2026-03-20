@@ -96,7 +96,7 @@ def _parse_text(raw_text: str) -> ExtractedInvoice:
             pass
 
     # Vendor name (first prominent text line, heuristic)
-    lines = [l.strip() for l in raw_text.split("\n") if l.strip() and len(l.strip()) > 3]
+    lines = [ln.strip() for ln in raw_text.split("\n") if ln.strip() and len(ln.strip()) > 3]
     if lines:
         result.vendor_name = lines[0][:100]
 

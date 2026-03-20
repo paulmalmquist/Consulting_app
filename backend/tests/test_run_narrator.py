@@ -1,9 +1,6 @@
 """Tests for RunNarrator — execution step deduplication and clean error surfaces."""
-import pytest
-
 from app.services.run_narrator import (
     CLEAN_ERROR_MESSAGE,
-    TOOL_STEP_MAP,
     RunNarrator,
 )
 

@@ -39,7 +39,6 @@ from app.services.assistant_blocks import (
     error_block,
     legacy_structured_result_to_blocks,
     markdown_block,
-    tool_activity_block,
 )
 
 # ── Singleton OpenAI client (reuse HTTP connection pool) ──────────

@@ -16,7 +16,6 @@ try:
     from reportlab.lib.pagesizes import LETTER
     from reportlab.lib.units import inch
     from reportlab.pdfgen import canvas
-    from reportlab.lib import colors
     HAS_REPORTLAB = True
 except ModuleNotFoundError:
     HAS_REPORTLAB = False
