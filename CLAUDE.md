@@ -90,6 +90,7 @@ notes:
 | research ingestion from `docs/research/*` | `.skills/research-ingest/SKILL.md` |
 | CRM lookup, prospect enrichment, contact record, Apollo search, add to CRM, find contact, is [company] in Apollo, track outreach | `skills/winston-sales-intelligence/SKILL.md` with `docs/WINSTON_SALES_INTELLIGENCE_PROMPT.md` as reference and `agents/outreach.md` as support |
 | demo idea generation, demo script, demo pipeline, demo concepts for Winston sales, what should we demo, demo for this week | `skills/winston-demo-generator/SKILL.md` |
+| autonomous loop setup, self-improving environment, autonomous coding schedule, set up autonomous improvement | `skills/winston-autonomous-loop/SKILL.md` |
 | business-side Novendor commands | `agents/operations.md`, `agents/outreach.md`, `agents/proposals.md`, `agents/content.md`, `agents/demo.md` |
 | explicit prompt or playbook request | matching normalized skill when one exists; otherwise selected `docs/WINSTON_*PROMPT*.md` |
 
