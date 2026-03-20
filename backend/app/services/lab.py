@@ -110,6 +110,9 @@ def create_environment(
         elif ind in ("medical_office_backoffice", "medical"):
             from app.services import medoffice as medoffice_svc
             medoffice_svc.seed_demo_workspace(env_id=UUID(str(env_id)), business_id=UUID(str(business_id)))
+        elif ind in ("visual_resume", "resume"):
+            from app.services import resume as resume_svc
+            resume_svc.seed_demo_workspace(env_id=UUID(str(env_id)), business_id=UUID(str(business_id)))
 
         # Step 6: Update environment row with business_id and repe_initialized
         with get_cursor() as cur:

@@ -162,6 +162,7 @@ export type AssistantCitationItem = {
 
 export type AssistantToolActivityItem = {
   tool_name: string;
+  label?: string;
   status: "running" | "completed" | "failed" | string;
   summary: string;
   duration_ms?: number | null;

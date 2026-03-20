@@ -27,6 +27,7 @@ export const industries = [
   "ai_copilot",
   "engagement_output",
   "execution_pattern_intel",
+  "visual_resume",
 ] as const;
 
 export type Industry = (typeof industries)[number];
@@ -69,6 +70,7 @@ const INDUSTRY_DISPLAY_MAP: Record<string, string> = {
   ai_copilot: "AI Discovery Copilot",
   engagement_output: "Engagement Output Center",
   execution_pattern_intel: "Execution Pattern Intelligence",
+  visual_resume: "Visual Resume",
 };
 
 export function statusFromFlags(isActive: boolean): EnvironmentStatus {
@@ -200,6 +202,11 @@ export function isExecutionPatternIntelEnvironment(industry?: string | null): bo
   return key === "execution_pattern_intel" || key === "pattern_intel";
 }
 
+export function isVisualResumeEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "visual_resume" || key === "resume";
+}
+
 export function resolveEnvironmentOpenPath(args: {
   envId: string;
   industry?: string | null;
@@ -234,6 +241,7 @@ export function resolveEnvironmentOpenPath(args: {
   if (isAiCopilotEnvironment(args.industry)) return `/lab/env/${args.envId}/copilot`;
   if (isEngagementOutputEnvironment(args.industry)) return `/lab/env/${args.envId}/outputs`;
   if (isExecutionPatternIntelEnvironment(args.industry)) return `/lab/env/${args.envId}/pattern-intel`;
+  if (isVisualResumeEnvironment(args.industry)) return `/lab/env/${args.envId}/resume`;
   return `/lab/env/${args.envId}`;
 }
 

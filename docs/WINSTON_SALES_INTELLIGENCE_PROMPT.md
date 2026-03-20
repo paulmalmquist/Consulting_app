@@ -23,12 +23,15 @@ triggers:
   - sales intelligence
   - who have we contacted
   - what's the status on [company]
-entrypoint: true
+entrypoint: false
 handoff_to:
+  - winston-sales-intelligence
   - novendor-outreach
   - novendor-operations
-when_to_use: "Use when the task involves finding, adding, updating, or tracking a prospect or contact. Winston (Supabase) is the CRM. Web research is the enrichment source."
-when_not_to_use: "Do not use for writing the outreach message itself — hand that to novendor-outreach once the contact record is in place."
+when_to_use: "Reference document loaded by skills/winston-sales-intelligence/SKILL.md. Contains canonical SQL templates, table schemas, engagement stage definitions, and operator guardrails."
+when_not_to_use: "Do not use as a primary entrypoint — route through skills/winston-sales-intelligence/SKILL.md instead."
+notes:
+  - Demoted to reference on 2026-03-19 — execution owned by skills/winston-sales-intelligence/SKILL.md
 surface_paths:
   - docs/sales-signals/
   - docs/

@@ -7375,6 +7375,112 @@ export function getOpportunityEngineContext(envId: string, businessId?: string):
   });
 }
 
+// ── Resume Environment ─────────────────────────────────────────────
+
+export function getResumeContext(envId: string, businessId?: string): Promise<DomainContext> {
+  return bosFetch("/api/resume/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export type ResumeRole = {
+  role_id: string;
+  env_id: string;
+  business_id: string;
+  company: string;
+  division: string | null;
+  title: string;
+  location: string | null;
+  start_date: string;
+  end_date: string | null;
+  role_type: string;
+  industry: string | null;
+  summary: string | null;
+  highlights: string[];
+  technologies: string[];
+  sort_order: number;
+  created_at: string;
+};
+
+export type ResumeSkill = {
+  skill_id: string;
+  env_id: string;
+  business_id: string;
+  name: string;
+  category: string;
+  proficiency: number;
+  years_used: number | null;
+  context: string | null;
+  current: boolean;
+  created_at: string;
+};
+
+export type ResumeProject = {
+  project_id: string;
+  env_id: string;
+  business_id: string;
+  name: string;
+  client: string | null;
+  role_id: string | null;
+  status: string;
+  summary: string | null;
+  impact: string | null;
+  technologies: string[];
+  metrics: Array<{ label: string; value: string }>;
+  url: string | null;
+  sort_order: number;
+  created_at: string;
+};
+
+export type ResumeCareerSummary = {
+  total_years: number;
+  total_roles: number;
+  total_companies: number;
+  total_skills: number;
+  total_projects: number;
+  education: string;
+  location: string;
+  current_title: string;
+  current_company: string;
+};
+
+export type ResumeSkillMatrix = {
+  category: string;
+  avg_proficiency: number;
+  skill_count: number;
+  max_proficiency: number;
+};
+
+export function listResumeRoles(envId: string, businessId?: string): Promise<ResumeRole[]> {
+  return bosFetch("/api/resume/v1/roles", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listResumeSkills(envId: string, businessId?: string, category?: string): Promise<ResumeSkill[]> {
+  return bosFetch("/api/resume/v1/skills", {
+    params: { env_id: envId, business_id: businessId, category },
+  });
+}
+
+export function listResumeProjects(envId: string, businessId?: string): Promise<ResumeProject[]> {
+  return bosFetch("/api/resume/v1/projects", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getResumeCareerSummary(envId: string, businessId?: string): Promise<ResumeCareerSummary> {
+  return bosFetch("/api/resume/v1/career-summary", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getResumeSkillMatrix(envId: string, businessId?: string): Promise<ResumeSkillMatrix[]> {
+  return bosFetch("/api/resume/v1/skill-matrix", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
 export function getOpportunityDashboard(params: {
   env_id: string;
   business_id?: string;

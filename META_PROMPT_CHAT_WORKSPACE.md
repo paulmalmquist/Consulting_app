@@ -1,3 +1,30 @@
+---
+id: meta-prompt-chat-workspace
+kind: prompt
+status: active
+source_of_truth: false
+topic: chat-workspace-delivery
+owners:
+  - repo-b
+  - backend
+intent_tags:
+  - build
+  - chat
+  - analytics
+triggers: []
+entrypoint: false
+handoff_to:
+  - winston-chat-workspace
+when_to_use: "Reference document loaded by skills/winston-chat-workspace/SKILL.md. Contains production state observations (2026-03-14), 6 confirmed bugs (Bug 0 = execution narration regression added 2026-03-19), 5 build priorities, and full file summary for chat workspace delivery."
+when_not_to_use: "Do not use as a primary entrypoint — route through skills/winston-chat-workspace/SKILL.md instead."
+surface_paths:
+  - repo-b/src/app/
+  - repo-b/src/components/commandbar/
+  - backend/app/services/
+notes:
+  - Demoted to reference on 2026-03-19 — execution owned by skills/winston-chat-workspace/SKILL.md
+---
+
 # Meta Prompt — Winston Chat Workspace + Live Bug Fixes
 ## For a coding agent. Read this in full before touching any file.
 
@@ -37,6 +64,131 @@
 - Assets page: 33 assets, filters by fund/sector/state/MSA, NOI + occupancy columns populated
 
 ### Confirmed Bugs (Fix These First — They Are Visible to Every User)
+
+#### Bug 0: Raw Tool Call Spam Exposed in AI Chat UI ⚠️ REGRESSION — Fix Before Any Other Work
+**Observed:** 2026-03-19 (live snafu — confirmed in production)
+**Location:** Winston chat workspace / any AI response surface
+**Symptom:** Raw MCP tool call names, retry attempts, validation errors, and internal identifiers are rendered directly in the UI. Users see noise like:
+```
+repe.get_asset
+repe.get_asset
+repe.get_asset failed
+validation error for GetAssetInput asset_id invalid UUID
+```
+**Required behavior:** Users should see a clean narrated step progression:
+```
+→ Fetching assets
+→ Resolving asset details
+→ Done
+```
+**Design principle:** The UI must reflect INTENT, not IMPLEMENTATION. Users see what the system is doing — not how.
+
+**Step model to implement:**
+```typescript
+interface ExecutionStep {
+  id: string;
+  label: string;                             // human-readable
+  status: "pending" | "running" | "completed" | "failed";
+  progress?: number;
+  message?: string;
+  duration_ms?: number;
+}
+```
+
+**Tool → step mapping layer** (add to `repo-b/src/lib/winston/types.ts` or a new `stepMap.ts`):
+```typescript
+const TOOL_STEP_MAP: Record<string, string> = {
+  "repe.get_asset":            "Fetching assets",
+  "repe.get_assets_batch":     "Fetching assets",
+  "repe.list_assets":          "Fetching assets",
+  "repe.get_fund":             "Loading fund data",
+  "repe.list_funds":           "Loading fund data",
+  "repe.list_deals":           "Fetching pipeline",
+  "finance.fund_metrics":      "Computing fund metrics",
+  "finance.lp_summary":        "Preparing LP summary",
+  "finance.run_waterfall":     "Running waterfall",
+  "finance.stress_cap_rate":   "Running stress test",
+  "rag.search":                "Searching documents",
+  "documents.list":            "Fetching documents",
+  "metrics.query":             "Querying metrics",
+  "reports.list":              "Loading reports",
+};
+```
+
+**Deduplication rules:**
+- Repeated calls to the same tool → ONE step (do not create new step on repeat)
+- Retry attempts → invisible to user
+- If retry succeeds → no error shown
+- If all retries fail → ONE clean error: `"Some data could not be retrieved"` (never expose raw validation message)
+
+**Backend: `RunNarrator` class in `backend/app/services/run_narrator.py`** (CREATE):
+```python
+class RunNarrator:
+    def __init__(self, emit_fn):
+        self._active_steps: dict[str, ExecutionStep] = {}
+        self._emit = emit_fn
+
+    def on_tool_call(self, tool_name: str):
+        step_label = TOOL_STEP_MAP.get(tool_name, "Processing")
+        step_id = _label_to_id(step_label)
+        if step_id not in self._active_steps:
+            step = ExecutionStep(id=step_id, label=step_label, status="running")
+            self._active_steps[step_id] = step
+            self._emit("tool_activity", step.dict())
+
+    def on_tool_success(self, tool_name: str):
+        step_id = _label_to_id(TOOL_STEP_MAP.get(tool_name, "Processing"))
+        if step_id in self._active_steps:
+            self._active_steps[step_id].status = "completed"
+            self._emit("tool_activity", self._active_steps[step_id].dict())
+
+    def on_tool_error(self, tool_name: str, retry_count: int, max_retries: int):
+        if retry_count < max_retries:
+            return  # silent — retry in progress
+        step_id = _label_to_id(TOOL_STEP_MAP.get(tool_name, "Processing"))
+        if step_id in self._active_steps:
+            self._active_steps[step_id].status = "failed"
+            self._active_steps[step_id].message = "Some data could not be retrieved"
+            self._emit("tool_activity", self._active_steps[step_id].dict())
+```
+
+**Wire into:** `backend/app/services/ai_gateway.py` — replace raw tool_call event emission with `RunNarrator.on_tool_call()` calls.
+
+**Frontend: `StepRenderer` component in `repo-b/src/components/winston/blocks/ToolActivityBlock.tsx`** (CREATE or REWRITE):
+- Show only ONE active step at a time
+- Replace step text as system progresses (no vertical list of logs)
+- Completed steps shown subtly stacked above (opacity 50%, smaller text)
+- Animate transition between steps (fade or slide)
+- Debug mode toggle: hidden `<details>` element or dev-tools-only panel showing raw tool names, timings, and errors
+
+**Existing asset to reuse:** `repo-b/src/components/commandbar/ExecutionTimeline.tsx` — understand its current rendering before creating a new component; extend rather than duplicate.
+
+**UX sketch:**
+```
+[completed, subtle]  ✓ Loading fund data
+[completed, subtle]  ✓ Fetching assets
+[active, prominent]  ↻ Computing fund metrics...
+```
+
+**Debug mode** (default OFF, toggled by `?debug=1` query param or dev localStorage key):
+- Expands a collapsible panel showing raw tool names, retry counts, durations, raw errors
+- Never shown to production users by default
+
+**Test cases (must pass before marking complete):**
+1. 10 sequential `repe.get_asset` calls → user sees ONE "Fetching assets" step
+2. Tool retries then succeeds → no error shown to user
+3. Tool fails after all retries → user sees `"Some data could not be retrieved"` — not raw validation message
+4. Mixed tool types → correct step label transitions in order
+5. Long execution → user always sees an active step (never blank)
+
+**Files to touch:**
+- `backend/app/services/run_narrator.py` — CREATE
+- `backend/app/services/ai_gateway.py` — wire RunNarrator into tool execution loop
+- `repo-b/src/components/winston/blocks/ToolActivityBlock.tsx` — CREATE/REWRITE as StepRenderer
+- `repo-b/src/lib/winston/types.ts` — add `ExecutionStep` type + `TOOL_STEP_MAP`
+- `repo-b/src/lib/commandbar/assistantApi.ts` — ensure `tool_activity` events update step state (not append raw logs)
+
+---
 
 #### Bug 1: Waterfall Breakdown Dollar Amounts Unformatted
 **Location:** LP Summary tab → Waterfall Breakdown section, fund detail page
@@ -398,7 +550,7 @@ Check `re_loan` or similar table in the schema files.
 | `repo-b/src/components/winston/blocks/ChatTableBlock.tsx` | Inline generic table |
 | `repo-b/src/components/winston/blocks/KpiGroupBlock.tsx` | KPI summary strip |
 | `repo-b/src/components/winston/blocks/CitationsBlock.tsx` | Citation chips |
-| `repo-b/src/components/winston/blocks/ToolActivityBlock.tsx` | Tool status indicator |
+| `repo-b/src/components/winston/blocks/ToolActivityBlock.tsx` | StepRenderer — narrated execution steps (Bug 0) |
 | `repo-b/src/components/winston/blocks/EntityLinkBlock.tsx` | Entity created/updated link |
 | `repo-b/src/components/winston/blocks/ExportActionBlock.tsx` | Export button |
 | `repo-b/src/lib/winston/types.ts` | AssistantResponseBlock type definitions |
@@ -408,7 +560,8 @@ Check `re_loan` or similar table in the schema files.
 
 | File | Change |
 |---|---|
-| `backend/app/services/ai_gateway.py` | Emit `response_block` for analytical queries; add `_build_chart_block()` / `_build_table_block()` |
+| `backend/app/services/run_narrator.py` | CREATE — RunNarrator class, tool→step mapping, deduplication, clean error surface (Bug 0) |
+| `backend/app/services/ai_gateway.py` | Wire RunNarrator into tool execution loop (Bug 0); emit `response_block` for analytical queries; add `_build_chart_block()` / `_build_table_block()` |
 | `backend/app/services/repe_intent.py` | Add dimension extraction; add `INTENT_TRANSFORM_RESULT` family |
 | `backend/app/services/repe_session.py` | Add `last_query_intent` + `last_result_rows` to session state |
 | `repo-b/src/lib/commandbar/assistantApi.ts` | Verify `response_block` events populate `message.responseBlocks` |
@@ -442,6 +595,14 @@ make quality          # lint-strict + typecheck + test-frontend (CI-aligned, run
 ```
 
 ### Acceptance Criteria by Priority
+
+**Bug 0 (Execution Narration — fix this first):**
+- Send any multi-tool query → user sees `→ Fetching assets` style steps, NOT raw `repe.get_asset` tool names
+- 10 sequential `repe.get_asset` calls → ONE "Fetching assets" step shown (no duplicates)
+- Tool retries then succeeds → zero error shown to user
+- Tool fails after all retries → user sees `"Some data could not be retrieved"` — never raw validation text
+- Debug mode toggle (`?debug=1`) → raw tool names + timings visible in collapsible panel
+- Test case fixture at `docs/ai-test-cases/execution-narration-spec.md` defines full rubric — nightly tester uses this
 
 **Priority 1 (Chat Workspace):**
 - Navigate to `/app/winston` → full-screen chat renders

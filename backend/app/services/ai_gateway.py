@@ -25,6 +25,7 @@ from app.services.assistant_scope import (
     resolve_visible_context_policy,
 )
 from app.services.repe_intent import classify_repe_intent
+from app.services.run_narrator import RunNarrator
 from app.services.repe_scenario_schema import build_clarification_question, resolve_scenario_params
 from app.services.repe_session import get_session, summarize_waterfall_run, update_session
 from app.services.cost_tracker import estimate_cost
@@ -246,6 +247,30 @@ Engineering constraints are critical. The system must remain lightweight and avo
 
 The final deliverable must include ingestion scripts for Polymarket and Kalshi, a normalized database schema, a signal detection engine, integration with the Business Machine dashboard, and an alerting mechanism that surfaces narrative shifts and macro signals in real time. The end result should be a continuously updating prediction market intelligence feed embedded inside the Novendor Business Machine that allows the company to monitor emerging technological and economic narratives and respond strategically before those narratives reach mainstream awareness."""
 
+_RESUME_DOMAIN_BLOCK = """
+## Visual Resume Domain
+
+You are operating inside a Visual Resume environment for Paul Malmquist. You are Paul's professional representative and should speak about him in the third person.
+
+Rules:
+- Be specific: name companies, years, technologies — not vague generalities.
+- When asked "what can he do?" → return a structured skills breakdown by category, not a paragraph.
+- When asked about timeline → use the resume.list_roles tool and present dates clearly.
+- When asked to compare experiences → present a side-by-side comparison.
+- When asked about duration at a company → compute the exact years and months.
+- Be confident but not boastful. Let the data speak.
+- Only reference information from the resume tools. Do not invent references or contacts.
+- For contact: paul@novendor.com, paulmalmquist.com
+
+Key facts:
+- 11+ years in data platform engineering and investment management technology
+- Current: Director, AI Data Platform & Analytics at JLL (PDS Americas) + Founder of Novendor
+- Previous: VP at Kayne Anderson Real Estate ($4B+ AUM REPE firm)
+- Education: B.A., Brown University
+- Location: Lake Worth, FL
+- Built Winston AI Platform: 83 MCP tools, full REPE domain coverage
+"""
+
 _CREDIT_DOMAIN_BLOCK = """
 ## Credit Decisioning Domain
 
@@ -347,6 +372,13 @@ def _is_novendor_environment(*, environment_name: str | None, environment_id: st
     return any("novendor" in value.lower() for value in haystacks)
 
 
+def _is_resume_environment(*, environment_name: str | None, environment_id: str | None, industry: str | None = None) -> bool:
+    if industry and industry.lower() in ("visual_resume", "resume"):
+        return True
+    haystacks = [environment_name or "", environment_id or ""]
+    return any("resume" in value.lower() for value in haystacks)
+
+
 def _is_credit_environment(*, environment_name: str | None, environment_id: str | None, industry: str | None = None, credit_initialized: bool = False) -> bool:
     if credit_initialized:
         return True
@@ -362,6 +394,8 @@ def _build_system_prompt_for_context(*, environment_name: str | None, environmen
         base += "\n\n" + _NOVENDOR_PREDICTION_MARKET_PROMPT
     if _is_credit_environment(environment_name=environment_name, environment_id=environment_id, industry=industry, credit_initialized=credit_initialized):
         base += "\n\n" + _CREDIT_DOMAIN_BLOCK
+    if _is_resume_environment(environment_name=environment_name, environment_id=environment_id, industry=industry):
+        base += "\n\n" + _RESUME_DOMAIN_BLOCK
     return base
 
 
@@ -379,6 +413,7 @@ _LANE_C_TAGS: set[str] = {"core", "meta", "repe", "finance", "analysis", "model"
                            "investor", "workflow", "platform", "env", "business",
                            "document", "report"}
 _LANE_C_CREDIT_TAGS: set[str] = {"core", "meta", "credit", "env", "business", "document"}
+_LANE_C_RESUME_TAGS: set[str] = {"core", "meta", "resume", "env", "business"}
 # Lane D gets all tools (no tag filter).
 
 
@@ -442,7 +477,7 @@ def _build_openai_tools() -> tuple[list[dict], dict[str, str]]:
 
 
 def _build_openai_tools_for_lane(
-    *, lane: str, is_write: bool, is_credit: bool
+    *, lane: str, is_write: bool, is_credit: bool, is_resume: bool = False
 ) -> tuple[list[dict], dict[str, str]]:
     """Return a lane-filtered tool list to reduce token overhead.
 
@@ -457,13 +492,15 @@ def _build_openai_tools_for_lane(
     # Determine which tag set to use
     if lane == "B":
         tag_set = _LANE_B_TAGS
+    elif is_resume:
+        tag_set = _LANE_C_RESUME_TAGS
     elif is_credit:
         tag_set = _LANE_C_CREDIT_TAGS
     else:
         tag_set = _LANE_C_TAGS
 
     # Cache key includes lane, write flag, and credit flag
-    cache_key = frozenset({f"lane={lane}", f"write={is_write}", f"credit={is_credit}"})
+    cache_key = frozenset({f"lane={lane}", f"write={is_write}", f"credit={is_credit}", f"resume={is_resume}"})
     if cache_key in _cached_tools_by_lane:
         return _cached_tools_by_lane[cache_key]
 
@@ -2957,6 +2994,13 @@ async def run_gateway_stream(
     )
     if _is_credit:
         _dynamic_parts.append(_CREDIT_DOMAIN_BLOCK)
+    _is_resume = _is_resume_environment(
+        environment_name=normalized_envelope.ui.active_environment_name,
+        environment_id=normalized_envelope.ui.active_environment_id,
+        industry=getattr(normalized_envelope.ui, "industry", None),
+    )
+    if _is_resume:
+        _dynamic_parts.append(_RESUME_DOMAIN_BLOCK)
     _dynamic_parts.append(context_block)
     if rag_context:
         _dynamic_parts.append(rag_context)
@@ -3080,7 +3124,7 @@ async def run_gateway_stream(
                  message=f"Context window guard: trimmed history to fit {_headroom} token budget")
 
     openai_tools, tool_name_map = _build_openai_tools_for_lane(
-        lane=route.lane, is_write=route.is_write, is_credit=_is_credit,
+        lane=route.lane, is_write=route.is_write, is_credit=_is_credit, is_resume=_is_resume,
     )
     if route.skip_tools:
         emit_log(
@@ -3111,6 +3155,7 @@ async def run_gateway_stream(
     tool_call_count = 0
     _fallback_used = False
     _failed_tool_names: set[str] = set()  # A11: track hallucinated/failed tool names to avoid loops
+    narrator = RunNarrator()
     tool_calls_log: list[dict[str, Any]] = []
     tool_timeline: list[dict[str, Any]] = []
     data_sources: list[dict[str, Any]] = []
@@ -3283,6 +3328,13 @@ async def run_gateway_stream(
         tool_names = [t["tool_name"] for t in tool_tasks]
         yield _sse("status", {"message": f"Looking up {', '.join(t.replace('repe.', '').replace('_', ' ') for t in tool_names)}..."})
 
+        # Register tool calls with narrator (emit narrated steps for new logical steps)
+        for t in tool_tasks:
+            narrated_block = narrator.on_tool_call(t["tool_name"])
+            if narrated_block:
+                response_blocks.append(narrated_block)
+                yield _sse("response_block", {"block": narrated_block})
+
         # Execute all tool calls concurrently
         async def _run_tool(task: dict[str, Any]) -> dict[str, Any]:
             t_name = task["tool_name"]
@@ -3411,19 +3463,18 @@ async def run_gateway_stream(
                     "pending_confirmation": is_pending_confirmation,
                 },
             )
-            activity_block = tool_activity_block(
-                [
-                    _tool_activity_item(
-                        tool_name=tool_name,
-                        summary=result_summary,
-                        duration_ms=tool_duration_ms,
-                        status="completed" if tool_success else "failed",
-                        is_write=bool(is_write_tool),
-                    )
-                ]
+            # Emit narrated step update (deduplicated, human-friendly labels)
+            narrated_update = narrator.on_tool_result(
+                tool_name,
+                success=tool_success,
+                duration_ms=tool_duration_ms,
+                error_msg=tool_error_msg,
+                is_retry=tool_name in _failed_tool_names and tool_success,
+                is_final_retry=not tool_success,
             )
-            response_blocks.append(activity_block)
-            yield _sse("response_block", {"block": activity_block})
+            if narrated_update:
+                response_blocks.append(narrated_update)
+                yield _sse("response_block", {"block": narrated_update})
             if is_pending_confirmation:
                 confirm_block = confirmation_block(
                     action=tool_result.get("action", tool_name),

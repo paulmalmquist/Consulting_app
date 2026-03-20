@@ -1,0 +1,23 @@
+{
+  "skill_name": "meta-prompt",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Add a new MCP write tool called repe.update_deal that lets Winston update deal status and expected close date. Wire it through the system prompt, router, and frontend confirmation modal.",
+      "expected_output": "A concern-aware build plan that catches: capability/registry alignment (register tool BEFORE prompt), write/mutation safety (two-phase confirmation, _WRITE_RE tightening), schema coherence (deal status state machine), prompt coherence (conditional injection), debug drawer visibility, deployment ceremony, and the correct implementation sequence. Should NOT just jump to coding.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "The fund overview dashboard is showing blank widgets for some users. The composition logic looks correct but entity_ids are missing from the API response. Fix this.",
+      "expected_output": "A plan that identifies this as a data hydration bug (not composition), traces the entity resolution path, checks schema/seed alignment, distinguishes between structural rendering and data population, and includes smoke test verification with actual curl output showing hydrated data.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Build a new credit portfolio detail page at repo-b/src/app/lab/env/[envId]/credit/portfolio/[portfolioId]/page.tsx that shows loan-level performance metrics and risk scoring.",
+      "expected_output": "A plan that triggers credit decisioning guardrails (walled garden, chain-of-thought, format locks), identifies surface ownership (feature-dev with credit-environment as reference), checks schema for credit portfolio tables, confirms API routes exist before building UI, and includes the examiner test. Should also identify the correct API pattern (Pattern A or B) and run baseline tests first.",
+      "files": []
+    }
+  ]
+}

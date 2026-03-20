@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eval Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&family=Lora:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #faf9f5;
+      --surface: #ffffff;
+      --border: #e8e6dc;
+      --text: #141413;
+      --text-muted: #b0aea5;
+      --accent: #d97757;
+      --accent-hover: #c4613f;
+      --green: #788c5d;
+      --green-bg: #eef2e8;
+      --red: #c44;
+      --red-bg: #fceaea;
+      --header-bg: #141413;
+      --header-text: #faf9f5;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Lora', Georgia, serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .header h1 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    .header .instructions {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin-top: 0.25rem;
+    }
+    .header .progress {
+      font-size: 0.875rem;
+      opacity: 0.8;
+      text-align: right;
+    }
+
+    /* ---- Main content ---- */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* ---- Sections ---- */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      flex-shrink: 0;
+    }
+    .section-header {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.75rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .section-body {
+      padding: 1rem;
+    }
+
+    /* ---- Config badge ---- */
+    .config-badge {
+      display: inline-block;
+      padding: 0.2rem 0.625rem;
+      border-radius: 9999px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-left: 0.75rem;
+      vertical-align: middle;
+    }
+    .config-badge.config-primary {
+      background: rgba(33, 150, 243, 0.12);
+      color: #1976d2;
+    }
+    .config-badge.config-baseline {
+      background: rgba(255, 193, 7, 0.15);
+      color: #f57f17;
+    }
+
+    /* ---- Prompt ---- */
+    .prompt-text {
+      white-space: pre-wrap;
+      font-size: 0.9375rem;
+      line-height: 1.6;
+    }
+
+    /* ---- Outputs ---- */
+    .output-file {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .output-file + .output-file {
+      margin-top: 1rem;
+    }
+    .output-file-header {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .output-file-header .dl-btn {
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-decoration: none;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+    .output-file-header .dl-btn:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+    .output-file-content {
+      padding: 0.75rem;
+      overflow-x: auto;
+    }
+    .output-file-content pre {
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+    .output-file-content img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+    }
+    .output-file-content iframe {
+      width: 100%;
+      height: 600px;
+      border: none;
+    }
+    .output-file-content table {
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+      width: 100%;
+    }
+    .output-file-content table td,
+    .output-file-content table th {
+      border: 1px solid var(--border);
+      padding: 0.375rem 0.5rem;
+      text-align: left;
+    }
+    .output-file-content table th {
+      background: var(--bg);
+      font-weight: 600;
+    }
+    .output-file-content .download-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+    .output-file-content .download-link:hover {
+      background: var(--border);
+    }
+    .empty-state {
+      color: var(--text-muted);
+      font-style: italic;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    /* ---- Feedback ---- */
+    .prev-feedback {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.625rem 0.75rem;
+      margin-top: 0.75rem;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .prev-feedback-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.25rem;
+      color: var(--text-muted);
+    }
+    .feedback-textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.9375rem;
+      line-height: 1.5;
+      resize: vertical;
+      color: var(--text);
+    }
+    .feedback-textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .feedback-status {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      min-height: 1.1em;
+    }
+
+    /* ---- Grades (collapsible) ---- */
+    .grades-toggle {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .grades-toggle:hover {
+      color: var(--accent);
+    }
+    .grades-toggle .arrow {
+      margin-right: 0.5rem;
+      transition: transform 0.15s;
+      font-size: 0.75rem;
+    }
+    .grades-toggle .arrow.open {
+      transform: rotate(90deg);
+    }
+    .grades-content {
+      display: none;
+      margin-top: 0.75rem;
+    }
+    .grades-content.open {
+      display: block;
+    }
+    .grades-summary {
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .grade-badge {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .grade-pass { background: var(--green-bg); color: var(--green); }
+    .grade-fail { background: var(--red-bg); color: var(--red); }
+    .assertion-list {
+      list-style: none;
+    }
+    .assertion-item {
+      padding: 0.625rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8125rem;
+    }
+    .assertion-item:last-child { border-bottom: none; }
+    .assertion-status {
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    .assertion-status.pass { color: var(--green); }
+    .assertion-status.fail { color: var(--red); }
+    .assertion-evidence {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
+      padding-left: 1.5rem;
+    }
+
+    /* ---- View tabs ---- */
+    .view-tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 2rem;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .view-tab {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .view-tab:hover { color: var(--text); }
+    .view-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .view-panel { display: none; }
+    .view-panel.active { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+    /* ---- Benchmark view ---- */
+    .benchmark-view {
+      padding: 1.5rem 2rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .benchmark-table {
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.8125rem;
+      width: 100%;
+      margin-bottom: 1.5rem;
+    }
+    .benchmark-table th, .benchmark-table td {
+      padding: 0.625rem 0.75rem;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+    .benchmark-table th {
+      font-family: 'Poppins', sans-serif;
+      background: var(--header-bg);
+      color: var(--header-text);
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .benchmark-table tr:hover { background: var(--bg); }
+    .benchmark-table tr.benchmark-row-with { background: rgba(33, 150, 243, 0.06); }
+    .benchmark-table tr.benchmark-row-without { background: rgba(255, 193, 7, 0.06); }
+    .benchmark-table tr.benchmark-row-with:hover { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-without:hover { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-table tr.benchmark-row-avg { font-weight: 600; border-top: 2px solid var(--border); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-with { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-without { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-delta-positive { color: var(--green); font-weight: 600; }
+    .benchmark-delta-negative { color: var(--red); font-weight: 600; }
+    .benchmark-notes {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+    .benchmark-notes h3 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+    }
+    .benchmark-notes ul {
+      list-style: disc;
+      padding-left: 1.25rem;
+    }
+    .benchmark-notes li {
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      margin-bottom: 0.375rem;
+    }
+    .benchmark-empty {
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 3rem;
+    }
+
+    /* ---- Navigation ---- */
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .nav-btn:hover:not(:disabled) {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .nav-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .done-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .done-btn:hover {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .done-btn.ready {
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+    }
+    .done-btn.ready:hover {
+      background: var(--accent-hover);
+    }
+    /* ---- Done overlay ---- */
+    .done-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+    .done-overlay.visible {
+      display: flex;
+    }
+    .done-card {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 2rem 3rem;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+    }
+    .done-card h2 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .done-card p {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    .done-card .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+    .done-card button {
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    .done-card button:hover {
+      background: var(--bg);
+    }
+    /* ---- Toast ---- */
+    .toast {
+      position: fixed;
+      bottom: 5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 0.625rem 1.25rem;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 200;
+    }
+    .toast.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" style="height:100vh; display:flex; flex-direction:column;">
+    <div class="header">
+      <div>
+        <h1>Eval Review: <span id="skill-name"></span></h1>
+        <div class="instructions">Review each output and leave feedback below. Navigate with arrow keys or buttons. When done, copy feedback and paste into Claude Code.</div>
+      </div>
+      <div class="progress" id="progress"></div>
+    </div>
+
+    <!-- View tabs (only shown when benchmark data exists) -->
+    <div class="view-tabs" id="view-tabs" style="display:none;">
+      <button class="view-tab active" onclick="switchView('outputs')">Outputs</button>
+      <button class="view-tab" onclick="switchView('benchmark')">Benchmark</button>
+    </div>
+
+    <!-- Outputs panel (qualitative review) -->
+    <div class="view-panel active" id="panel-outputs">
+    <div class="main">
+      <!-- Prompt -->
+      <div class="section">
+        <div class="section-header">Prompt <span class="config-badge" id="config-badge" style="display:none;"></span></div>
+        <div class="section-body">
+          <div class="prompt-text" id="prompt-text"></div>
+        </div>
+      </div>
+
+      <!-- Outputs -->
+      <div class="section">
+        <div class="section-header">Output</div>
+        <div class="section-body" id="outputs-body">
+          <div class="empty-state">No output files found</div>
+        </div>
+      </div>
+
+      <!-- Previous Output (collapsible) -->
+      <div class="section" id="prev-outputs-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="togglePrevOutputs()">
+            <span class="arrow" id="prev-outputs-arrow">&#9654;</span>
+            Previous Output
+          </div>
+        </div>
+        <div class="grades-content" id="prev-outputs-content"></div>
+      </div>
+
+      <!-- Grades (collapsible) -->
+      <div class="section" id="grades-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="toggleGrades()">
+            <span class="arrow" id="grades-arrow">&#9654;</span>
+            Formal Grades
+          </div>
+        </div>
+        <div class="grades-content" id="grades-content"></div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="section">
+        <div class="section-header">Your Feedback</div>
+        <div class="section-body">
+          <textarea
+            class="feedback-textarea"
+            id="feedback"
+            placeholder="What do you think of this output? Any issues, suggestions, or things that look great?"
+          ></textarea>
+          <div class="feedback-status" id="feedback-status"></div>
+          <div class="prev-feedback" id="prev-feedback" style="display:none;">
+            <div class="prev-feedback-label">Previous feedback</div>
+            <div id="prev-feedback-text"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav" id="outputs-nav">
+      <button class="nav-btn" id="prev-btn" onclick="navigate(-1)">&#8592; Previous</button>
+      <button class="done-btn" id="done-btn" onclick="showDoneDialog()">Submit All Reviews</button>
+      <button class="nav-btn" id="next-btn" onclick="navigate(1)">Next &#8594;</button>
+    </div>
+    </div><!-- end panel-outputs -->
+
+    <!-- Benchmark panel (quantitative stats) -->
+    <div class="view-panel" id="panel-benchmark">
+      <div class="benchmark-view" id="benchmark-content">
+        <div class="benchmark-empty">No benchmark data available. Run a benchmark to see quantitative results here.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Done overlay -->
+  <div class="done-overlay" id="done-overlay">
+    <div class="done-card">
+      <h2>Review Complete</h2>
+      <p>Your feedback has been saved. Go back to your Claude Code session and tell Claude you're done reviewing.</p>
+      <div class="btn-row">
+        <button onclick="closeDoneDialog()">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ---- Embedded data (injected by generate_review.py) ----
+    const EMBEDDED_DATA = {"skill_name": "meta-prompt", "runs": [{"id": "eval-1-write-tool-with_skill", "prompt": "Add a new MCP write tool called repe.update_deal that lets Winston update deal status and expected close date. Wire it through the system prompt, router, and frontend confirmation modal.", "eval_id": 1, "outputs": [{"name": "build-plan.md", "type": "text", "content": "# Build Plan: repe.update_deal Write Tool\n\n**Task:** Add a new MCP write tool called `repe.update_deal` that lets Winston update deal status and expected close date. Wire it through the system prompt, router, and frontend confirmation modal.\n\n**Phase 1: Concern Scan**\n\n---\n\n## 1. Surface Ownership\n\n**Applicable \u2014 MCP write tool integrates multiple surfaces:**\n\nThis task touches four surfaces with distinct ownership:\n\n- **MCP Registry & Tools** (`backend/app/mcp/`): Register `repe.update_deal` schema, implement tool handler, enforce confirmation gate. Owner: `agents/mcp.md`\n- **AI Gateway & System Prompt** (`backend/app/services/ai_gateway.py`, `_SYSTEM_PROMPT`): Conditionally inject mutation rules declaring the update_deal capability. Owner: `agents/ai-copilot.md`\n- **Router Pattern** (in `ai_gateway.py` or router service): Add pattern to `_WRITE_RE` to route \"update deal\" intent to write lane. Owner: `agents/ai-copilot.md`\n- **Shared Next.js UI** (`repo-b/src/app/`): Build confirmation modal UI component for deal updates. Owner: `agents/frontend.md`\n\n**Coordination:** Primary write owner is `agents/mcp.md` (registry + tool). Secondary writers: `agents/ai-copilot.md` (prompt + router), `agents/frontend.md` (confirmation modal). No two agents edit the same file.\n\n**Test commands:**\n- `make test-backend` (MCP tool tests, prompt injection validation)\n- `make test-frontend` (confirmation modal component tests)\n\n**Deploy targets:** Railway (backend), Vercel (frontend).\n\n---\n\n## 2. Capability/Registry Alignment\n\n**Applicable \u2014 This is the highest-risk concern. Critical ordering required:**\n\n**The failure mode:** System prompt declares `repe.update_deal` capability. Tool is never registered. Winston hallucinates success. Deal data becomes unreliable.\n\n**Implementation sequence (non-negotiable order):**\n\n1. **MCP Registry First:** Register `repe.update_deal` schema in `backend/app/mcp/registry.py` or registry table, including:\n   - Input schema: `deal_id: str`, `status: str`, `expected_close_date: str (ISO 8601, optional)`, `confirmed: bool = False`\n   - Output schema: `success: bool`, `pending_confirmation: bool`, `confirmation_token: str (if pending)`, `updated_deal: Deal object (if success)`\n   - Confirmation behavior: If `confirmed=False`, return `{ \"pending_confirmation\": true, \"confirmation_token\": \"xyz\", \"message\": \"Ready to update deal...\" }`\n\n2. **Validation at startup:** `ai_gateway.py` must verify at initialization: \"If `_WRITE_RE` matches 'update deal', is `repe.update_deal` registered?\" If not, suppress the mutation block.\n\n3. **System Prompt Only After Registry:** Add mutation rules to `_SYSTEM_PROMPT` conditionally (only if tool is registered):\n   - \"You can update a deal's status and expected close date using the `repe.update_deal` tool.\"\n   - Include instruction: \"If the user asks to update a deal, first present the change, ask for confirmation, and if approved, call the tool with `confirmed=True`.\"\n\n4. **Router Pattern:** Add to `_WRITE_RE`: pattern that matches \"update deal\", \"change deal status\", \"set close date\", etc. Validate that when matched, `repe.update_deal` is in the registry.\n\n5. **Frontend Confirmation Modal Last:** Build UI only after the full backend flow is wired.\n\n**Validation:** Before deploying, check:\n- [ ] `backend/app/mcp/registry.py` or registry table contains `repe.update_deal` entry\n- [ ] `ai_gateway.py::run_gateway_stream()` has conditional injection: `if 'repe.update_deal' in registry: inject_mutation_rules()`\n- [ ] `_WRITE_RE` pattern tested against registry at startup\n- [ ] Debug drawer will show tool event for `repe.update_deal` when called\n\n---\n\n## 3. Write/Mutation Safety\n\n**Applicable \u2014 This is a write operation. Two-phase confirmation flow is mandatory:**\n\n**Tool Implementation (`backend/app/mcp/tools/repe_update_deal.py` or registry handler):**\n\n```\nInput: {\n  \"deal_id\": \"...\",\n  \"status\": \"...\",  # Validate against allowed states\n  \"expected_close_date\": \"2026-06-30\" (optional),\n  \"confirmed\": false  # Default to False\n}\n\nIf confirmed == False:\n  Return {\n    \"pending_confirmation\": true,\n    \"confirmation_token\": \"<randomly-generated-token>\",\n    \"proposed_change\": {\n      \"deal_id\": \"...\",\n      \"current_status\": \"...\",\n      \"new_status\": \"...\",\n      \"current_close_date\": \"...\",\n      \"new_close_date\": \"...\"\n    },\n    \"message\": \"Ready to update deal X from [old] to [new]. Click 'Confirm' to proceed.\"\n  }\n\nIf confirmed == True:\n  Validate confirmation_token (for security)\n  Update database\n  Emit event to app.event_log (audit trail)\n  Return {\n    \"success\": true,\n    \"updated_deal\": { full deal object with new fields }\n  }\n```\n\n**Router Pattern (`_WRITE_RE` in `ai_gateway.py`):**\n\nMust be tight. Exclude analytical framings:\n- \u2705 MATCH: \"update deal status\", \"change the close date\", \"set X to Y\"\n- \u274c REJECT: \"what's the deal status\", \"show me updated deals\", \"compare deal statuses\"\n\n**Frontend Confirmation Modal (`repo-b/src/components/`)**:\n\n- Receives pending_confirmation event from Winston response\n- Displays proposed change (current \u2192 new state)\n- Two buttons: \"Confirm\" (re-send with `confirmed=True`) and \"Cancel\"\n- On confirm, show loading state\n- On success, update local deal record and close modal\n- On error, show error message with retry option\n\n**Debug Drawer (`AdvancedDrawer`):**\n\n- Mark `repe.update_deal` tool calls with distinct visual badge: \"Write Permission \u2014 Deal Update\"\n- If state is `pending_confirmation`, show inline: \"Awaiting user confirmation\"\n- On confirm click, show the re-sent tool call with `confirmed=True`\n- Show audit event emitted to `app.event_log`\n\n**Graceful Degradation:**\n\nIf `repe.update_deal` is unavailable at runtime (registry empty, tool crashed):\n- Winston response: \"Deal update operations are currently unavailable. Please contact support.\"\n- No silent failures. No hallucinated updates.\n\n**Validation:**\n- [ ] Tool accepts `confirmed: bool = False` parameter\n- [ ] Tool returns `pending_confirmation` when `confirmed=False`\n- [ ] Confirmation token is random and validated on re-submission\n- [ ] Frontend modal receives pending event and renders confirmation UI\n- [ ] Debug drawer shows \"Write Permission \u2014 Deal Update\" badge\n- [ ] Audit event emitted to `app.event_log` on successful update\n- [ ] Error recovery: if tool returns error, system prompt instructs model NOT to invent results\n\n---\n\n## 4. Schema, Seed & Migration Coherence\n\n**Applicable \u2014 Update operation requires schema understanding. No schema changes needed, but must align with existing:**\n\n**Schema Assumptions:**\n\nThe task assumes a `deals` table (or equivalent) in one of:\n- REPE data model: `repe_deal` table (if REPE is schema owner)\n- Finance engine: `fin_deal` table (if finance owns deals)\n\n**Before implementation:**\n\n1. Check `repo-b/db/schema/` and `supabase/` for:\n   - Does `repe_deal` exist? Does it have `status` and `expected_close_date` columns?\n   - Are column names canonical (per tips.md)? (e.g., `deal_status` vs `status`, `fin_expected_close_date` vs `expected_close_date`)\n   - Is there a state machine for deal status transitions (e.g., `PROSPECT \u2192 ACTIVE \u2192 CLOSED \u2192 ARCHIVED`)? If so, validate against allowed transitions in the tool.\n\n2. **No new schema required** if columns already exist.\n\n3. **If columns are missing:** Create migration file (e.g., `repo-b/db/schema/280_add_deal_update_fields.sql`) with:\n   - Column definitions\n   - NOT NULL constraints and defaults\n   - Check constraints for status validation\n\n4. **Seed alignment:** If new test deals are needed, update `repo-b/db/seeds/` to populate sample deals with status and close_date values.\n\n5. **API Response Alignment:** The endpoint that serves deal data (e.g., `GET /api/re/v2/deals/{deal_id}`) must include `status` and `expected_close_date` in its response schema. Update response schema if needed.\n\n6. **UI Rendering:** Deal cards/tables that display status and close date must handle both pre- and post-update values. No stale rendering after mutation.\n\n**State Machine Enforcement:**\n\nValidate deal status transitions at the API layer (tool handler), not just UI:\n- Return HTTP 409 if user attempts invalid transition (e.g., `CLOSED \u2192 PROSPECT`)\n- Tool handler must enforce: only certain status values are allowed (`PROSPECT`, `ACTIVE`, `CLOSED`, `ARCHIVED`)\n\n**Validation:**\n- [ ] `repo-b/db/schema/` shows `status` and `expected_close_date` columns exist on deal table\n- [ ] Column names match canonical naming (check tips.md)\n- [ ] State machine (allowed status values) is documented\n- [ ] Tool handler enforces state machine (rejects invalid transitions)\n- [ ] `GET /api/re/v2/deals/{deal_id}` returns updated fields in response\n- [ ] Deal UI component renders current status/close_date after mutation\n\n---\n\n## 5. Dashboard Composition & Data Hydration\n\n**Not applicable \u2014 This task does not affect dashboard rendering or widget composition.**\n\nDashboard composition updates deal data reactively when the `repe.update_deal` tool succeeds (real-time update propagation), but does not introduce new dashboard logic, widgets, or entity hydration paths. If a dashboard surfaces deal status and close date, it will automatically show the updated values after the mutation succeeds and the deal record is refreshed. No composition or hydration changes needed.\n\n---\n\n## 6. Chat Workspace & Response Blocks\n\n**Not applicable \u2014 This task does not introduce new response block types or chat session state contracts.**\n\nThe chat workspace will route \"update deal\" queries to the write lane via `_WRITE_RE` and render the confirmation modal as a standard interaction block. No new block types, session fields, or analytical follow-up behavior required. Chat works as designed.\n\n---\n\n## 7. AI Architecture & Path Clarity\n\n**Applicable \u2014 This task affects the Production Copilot path only:**\n\n**Path:** Production copilot (gateway routing + RAG + tool-calling)\n\n**Scope:**\n- User asks Winston to update a deal status or close date in the copilot chat.\n- Gateway routes the intent to the write lane (via `_WRITE_RE` match).\n- System prompt declares the `repe.update_deal` capability.\n- Tool is called with `confirmed=False`.\n- Frontend renders confirmation modal.\n- User confirms.\n- Tool is re-called with `confirmed=True`.\n- Deal is updated in the database.\n- Audit event is emitted.\n\n**Out of scope:** Document indexing/RAG pipeline, Demo-lab chat, Public assistant, Developer orchestration. None of these paths surface deal-update capabilities.\n\n**Validation:**\n- [ ] `_WRITE_RE` routes \"update deal\" to write lane\n- [ ] System prompt declares capability ONLY for production copilot path\n- [ ] Tool is available in production copilot registry only (not demo lab or public assistant)\n\n---\n\n## 8. Performance & Latency\n\n**Not applicable \u2014 This task does not optimize latency or model routing.**\n\nThe `repe.update_deal` tool adds a single synchronous database write operation. Expected latency: 100\u2013300ms for the database update. This is acceptable for a write operation and does not breach any performance benchmarks (Winston full response <8000ms).\n\nIf latency benchmarks are exceeded after deployment, separate performance work will be needed (see `skills/winston-performance-architecture/SKILL.md`).\n\n---\n\n## 9. Credit Decisioning (Deny-by-Default)\n\n**Not applicable \u2014 This task does not touch consumer credit decisioning, underwriting, or the credit environment.**\n\nDeal updates are REPE/commercial real estate concerns, not consumer credit.\n\n---\n\n## 10. PDS Delivery Sequencing\n\n**Not applicable \u2014 This task does not involve PDS platform features, executive analytics, or construction/development surfaces.**\n\n---\n\n## 11. Prompt & Behavior Coherence\n\n**Applicable \u2014 System prompt, router, and tool registry must stay in sync:**\n\n**Requirement 1: Conditional Mutation Rule Injection**\n\nIn `ai_gateway.py::run_gateway_stream()`:\n\n```python\ndef inject_system_prompt_mutations():\n    capabilities = []\n\n    if mcp_registry.has_tool('repe.update_deal'):\n        capabilities.append(\"\"\"\n        You can update a deal's status and expected close date using the repe.update_deal tool.\n        When the user asks to update a deal:\n        1. Summarize the proposed change (deal ID, current status, new status, new close date if any)\n        2. Ask: \"Should I update this deal?\"\n        3. Wait for explicit confirmation\n        4. If confirmed, call repe.update_deal with confirmed=True\n        \"\"\")\n\n    # Only inject if capabilities list is non-empty\n    if capabilities:\n        return SYSTEM_PROMPT + \"\\n\\n## Mutation Capabilities\\n\" + \"\\n\".join(capabilities)\n    else:\n        return SYSTEM_PROMPT\n```\n\n**Requirement 2: Router Pattern Validation**\n\nAt startup, validate that `_WRITE_RE` patterns have corresponding tools:\n\n```python\nWRITE_PATTERNS = {\n    r\"(update|change|set).*deal\\s+(status|close date)\": \"repe.update_deal\",\n    # ... other write patterns\n}\n\ndef validate_write_registry():\n    for pattern, tool_name in WRITE_PATTERNS.items():\n        if not mcp_registry.has_tool(tool_name):\n            logger.warning(f\"Write pattern '{pattern}' has no registered tool '{tool_name}'\")\n            # Optionally: disable this pattern at runtime\n```\n\n**Requirement 3: No Contradictory Instructions**\n\nVerify system prompt does not have conflicting instructions:\n- Does NOT say \"call with EMPTY params\" AND \"ALWAYS confirm params first\"\n- Does NOT say \"you can update deals\" while mutation rules are suppressed\n- Clear, consistent: \"Confirm before calling\" (not a mix of confirmation and non-confirmation)\n\n**Validation:**\n- [ ] `ai_gateway.py` conditionally injects mutation rules only if `repe.update_deal` is registered\n- [ ] `_WRITE_RE` pattern \"update deal\" is validated against registry at startup\n- [ ] System prompt has clear, non-contradictory confirmation instructions\n- [ ] If tool becomes unavailable at runtime, mutation rules are not in the prompt\n\n---\n\n## 12. Deployment Ceremony\n\n**Applicable \u2014 This task will result in a multi-surface deployment. Mandatory sequence:**\n\n**Files to be changed:**\n\n1. `backend/app/mcp/registry.py` (or registry table): Register `repe.update_deal`\n2. `backend/app/mcp/tools/repe_update_deal.py`: Implement tool handler\n3. `backend/app/services/ai_gateway.py`: Add conditional mutation rule injection + router pattern\n4. `repo-b/src/components/ConfirmationModal.tsx` (or similar): Build confirmation modal UI\n5. Possibly `repo-b/db/schema/` if schema changes are needed (unlikely for this task)\n\n**Deployment sequence:**\n\n1. Inspect git status and branch: `git status`\n2. Run baseline tests for both surfaces BEFORE writing code:\n   - `make test-backend` (should pass)\n   - `make test-frontend` (should pass)\n3. Implement changes (see Phase 2 sequence below)\n4. `make test-backend` after MCP + gateway changes \u2192 PASS required\n5. `make test-frontend` after modal changes \u2192 PASS required\n6. `git add backend/app/mcp/registry.py backend/app/mcp/tools/repe_update_deal.py backend/app/services/ai_gateway.py repo-b/src/components/ConfirmationModal.tsx` (specific files only, no `-A`)\n7. `git commit -m \"feat(mcp): add repe.update_deal write tool with confirmation flow\"` (conventional format)\n8. `git push origin main`\n9. Monitor GitHub Actions CI: must pass\n10. Monitor Railway deployment (backend) and Vercel deployment (frontend)\n11. If schema changed: `make db:migrate && make db:verify`\n12. **Smoke test:**\n    - `curl -X POST https://paulmalmquist.com/api/re/v2/deals/xyz/update -H \"Content-Type: application/json\" -d '{\"status\": \"ACTIVE\"}' -w \"\\n%{http_code}\\n\"`\n    - Expected: HTTP 200 with deal object (or HTTP 202 if async confirmation flow)\n13. **Browser verification:**\n    - Navigate to paulmalmquist.com\n    - Open copilot chat\n    - Ask: \"Update deal XYZ status to ACTIVE\"\n    - Confirm: Pending confirmation modal appears, shows proposed change, \"Confirm\" button works\n    - Result: Deal status updates, confirmation modal closes, copilot confirms success\n\n**Stop immediately on:** git conflicts, failing tests, failed CI, failed deploy, failed smoke test. Do not proceed.\n\n---\n\n## 13. Security & Auditability\n\n**Applicable \u2014 Deal updates are state-changing actions. Audit events required:**\n\n**Rules:**\n\n1. **Immutable Event Log:** Every successful `repe.update_deal` call must emit an entry to `app.event_log`:\n   - `event_type`: \"deal_updated\"\n   - `actor_id`: User/AI system ID\n   - `target_id`: Deal ID\n   - `old_state`: `{ \"status\": \"...\", \"expected_close_date\": \"...\" }`\n   - `new_state`: `{ \"status\": \"...\", \"expected_close_date\": \"...\" }`\n   - `timestamp`: UTC\n   - `confirmation_token`: (for audit trail of approval)\n\n2. **State Transition Validation:** Enforce in the tool handler (service layer), not just UI:\n   - Only allowed status values are permitted (whitelist: `PROSPECT`, `ACTIVE`, `CLOSED`, `ARCHIVED`)\n   - Certain transitions may be forbidden (e.g., `CLOSED` cannot revert to `PROSPECT`)\n   - Return HTTP 409 Conflict if an invalid transition is attempted\n\n3. **No Soft Deletes / Immutability:** Deal status updates are appended to event log. The deal record itself is updated (mutable), but the event log is immutable history.\n\n4. **Confirmation Token Security:** Token generated server-side, random, single-use. Validate on re-submission to prevent replay attacks.\n\n**Validation:**\n- [ ] `app.event_log` table has entries for every deal update\n- [ ] Event includes: actor_id, target_id, old_state, new_state, timestamp\n- [ ] Tool handler validates allowed status values and transitions\n- [ ] HTTP 409 returned for invalid state transitions (not silently ignored)\n- [ ] Confirmation token is random and single-use\n- [ ] Audit log is immutable (no updates/deletes once written)\n\n---\n\n## 14. Visualization & UI Conventions\n\n**Applicable \u2014 Confirmation modal and deal status display must follow conventions:**\n\n**Confirmation Modal:**\n\n- Use consistent Winston card styling: `rounded-xl p-4 bg-slate-50 dark:bg-slate-900`\n- Header: \"Confirm Deal Update\" (bold, `text-lg font-semibold`)\n- Show current and proposed state in a compact table:\n  ```\n  Field                | Current       | New\n  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  Status               | [old_status]  | [new_status]\n  Expected Close Date  | [old_date]    | [new_date]\n  ```\n- Buttons: \"Confirm\" (blue), \"Cancel\" (gray), side-by-side, `space-x-2`\n- No white flash on load; use dark theme consistently\n- Mobile: stack vertically at <390px; no horizontal scroll\n\n**Deal Status Display (in dashboards/tables):**\n\n- Use `PdsRiskBadge` or similar badge component for status:\n  - `PROSPECT`: gray\n  - `ACTIVE`: blue (operational signal color)\n  - `CLOSED`: green\n  - `ARCHIVED`: gray (muted)\n- Close date in `tabular-nums` font for alignment in tables\n- Format: ISO 8601 display (e.g., \"2026-06-30\"), not locale-dependent\n\n**Spacing & Typography:**\n\n- Modal content: `space-y-3` between sections\n- Section headers: `text-base font-semibold`\n- Consistent with existing Financial cards: compact, `rounded-xl p-3`\n\n**Validation:**\n- [ ] Confirmation modal uses Winston card styling\n- [ ] Current/proposed state displayed in clear, readable format\n- [ ] Status badge uses appropriate color per convention\n- [ ] Close date uses `tabular-nums` in tables\n- [ ] No white flash on dark theme load\n- [ ] Modal responsive at 390px mobile\n\n---\n\n## Phase 2: Implementation Sequence\n\nOnce the concern scan is complete and signed off, Phase 2 execution follows this order:\n\n### Step 1: ORIENTING (Baseline Check)\n- Confirm surface ownership: MCP (`backend/app/mcp/`), AI Copilot (`backend/app/services/ai_gateway.py`), Frontend (`repo-b/src/components/`)\n- Run baseline tests: `make test-backend` and `make test-frontend` (should pass before any changes)\n- Read CLAUDE.md routing to confirm multi-surface coordination model\n\n### Step 2: IMPLEMENTING (Registry First)\n1. **MCP Registry** (`backend/app/mcp/registry.py` or table)\n   - Register `repe.update_deal` with input schema, output schema, confirmation behavior\n   - Include validation constraints (allowed status values)\n\n2. **Tool Handler** (`backend/app/mcp/tools/repe_update_deal.py`)\n   - Implement confirmation gate: return `pending_confirmation` if `confirmed=False`\n   - Implement state machine validation: reject invalid status transitions\n   - Emit audit event to `app.event_log` on successful update\n   - Return deal object on success\n\n3. **AI Gateway** (`backend/app/services/ai_gateway.py`)\n   - Add `inject_system_prompt_mutations()` function with conditional rule injection\n   - Add router pattern validation at startup\n   - Confirm `_WRITE_RE` matches \"update deal\" intent\n\n4. **Frontend Modal** (`repo-b/src/components/ConfirmationModal.tsx`)\n   - Listen for `pending_confirmation` response blocks\n   - Render proposed change (current \u2192 new)\n   - \"Confirm\" button re-sends with `confirmed=True`\n   - \"Cancel\" button closes modal\n   - Error handling for tool failures\n\n### Step 3: TESTING\n- `make test-backend`: All MCP tool tests pass, registry validation passes, prompt injection tests pass\n- `make test-frontend`: Confirmation modal component renders, confirm/cancel handlers work\n- Paste full terminal output (last 30 lines) for each command\n- Exit code 0 required\n\n### Step 4: DEPLOYING\n- `git add <specific files>` (never `-A`)\n- Conventional commit message: `feat(mcp): add repe.update_deal write tool with confirmation flow`\n- `git push origin main`\n- Monitor CI and deployment pipelines\n\n### Step 5: VERIFYING\n- Curl smoke test: `POST /api/re/v2/deals/{deal_id}/update` with status change, HTTP 200 expected\n- Browser navigation to paulmalmquist.com, copilot chat, ask to update deal, confirm modal appears\n- Screenshot of live confirmation modal and successful update\n- Check `app.event_log` for audit entry\n\n---\n\n## Sign-Off Checklist\n\nBefore handing off to Phase 2, confirm:\n\n- [x] Concern 1 (Surface Ownership): Four surfaces identified, coordination model clear\n- [x] Concern 2 (Capability/Registry Alignment): Non-negotiable registry-first ordering documented\n- [x] Concern 3 (Write/Mutation Safety): Two-phase confirmation flow specified, tool signature detailed\n- [x] Concern 4 (Schema/Seed/Migration): Schema assumptions documented, no new migrations needed (verify in implementation)\n- [x] Concern 5 (Dashboard Composition): Not applicable \u2014 reactive updates only\n- [x] Concern 6 (Chat Workspace): Not applicable \u2014 standard interaction block\n- [x] Concern 7 (AI Architecture): Production copilot path only\n- [x] Concern 8 (Performance/Latency): Not applicable \u2014 write latency acceptable\n- [x] Concern 9 (Credit Decisioning): Not applicable \u2014 REPE deal, not consumer credit\n- [x] Concern 10 (PDS Delivery): Not applicable \u2014 no PDS scope\n- [x] Concern 11 (Prompt/Behavior Coherence): Conditional injection + router validation required\n- [x] Concern 12 (Deployment Ceremony): Mandatory sequence documented, multi-surface coordination specified\n- [x] Concern 13 (Security/Auditability): Audit log entries required, state machine validation enforced\n- [x] Concern 14 (Visualization/UI): Confirmation modal and deal status badge conventions specified\n\n**This build plan is complete and ready for Phase 2 implementation.**\n"}], "grading": null}, {"id": "eval-2-blank-widgets-with_skill", "prompt": "The fund overview dashboard is showing blank widgets for some users. The composition logic looks correct but entity_ids are missing from the API response. Fix this.", "eval_id": 2, "outputs": [{"name": "build-plan.md", "type": "text", "content": "# Build Plan: Fund Overview Dashboard Blank Widgets (entity_ids Missing)\n\n**Task:** The fund overview dashboard is showing blank widgets for some users. The composition logic looks correct but entity_ids are missing from the API response. Fix this.\n\n**Generated:** 2026-03-19\n**Phase:** 1 \u2014 Concern Scan (Pre-Implementation Plan)\n\n---\n\n## Phase 1: Concern Scan \u2014 Walking All Concern Families\n\nFor each concern family, this plan explicitly states either \"Not applicable\" or \"Applicable \u2014 [what to do]\".\n\n---\n\n### 1. Surface Ownership\n\n**Applicable \u2014 This task touches two surfaces.**\n\nPrimary surface: **Frontend** (`repo-b/src/app/`) \u2014 the fund overview dashboard composition and widget rendering.\n\nSecondary surface: **Business OS API** (`backend/app/routes/`, `backend/app/services/`) \u2014 the API endpoints serving fund data and entity references.\n\n**Action Required:**\n- Primary write owner: **frontend agent** (dashboard widget hydration, rendering logic)\n- Coordinating owner: **bos-domain agent** (API response schema and entity_ids data contract)\n- Test commands: `make test-frontend` for dashboard rendering; `make test-backend` for API response integrity\n- Deploy targets: Vercel (frontend), Railway (backend)\n- Ownership rule: Frontend owns the dashboard composition and rendering; BOS domain owns the API contract. Do not let both edit the response schema. Designate one owner.\n\n**No file edits in lab-environment, credit-decisioning, or other surfaces.**\n\n---\n\n### 2. Capability/Registry Alignment\n\n**Not applicable \u2014 This is a data hydration bug, not a capability declaration.** The system prompt does not claim new capabilities. The fund overview dashboard is an existing read surface that references existing entities. No new write tools, read tools, or capability declarations are involved. No registry changes needed.\n\n---\n\n### 3. Write/Mutation Safety\n\n**Not applicable \u2014 This task is read-only.** Fund overview is a data retrieval and rendering operation. No data is created, updated, or deleted. No write tools, confirmation flows, or mutation safety gates are in scope. No _WRITE_RE router pattern changes needed.\n\n---\n\n### 4. Schema, Seed & Migration Coherence\n\n**Not applicable \u2014 This is not a schema change.** The issue is that entity_ids are missing from the API *response*, not that the database schema is broken. The columns likely exist in the database; the problem is in the API data-access layer or response construction.\n\n**However, note the data-coherence principle:**\n- Empty data in the UI means missing seed/context or incomplete data hydration, not a UI bug.\n- This is a hydration issue: the dashboard composition logic is correct, but the data contract is incomplete.\n- Verify the API schema (what columns are being selected and returned) before assuming the database schema is correct.\n\n**Validation:** After the fix, confirm that the API response includes entity_ids for all entities the dashboard widget references.\n\n---\n\n### 5. Dashboard Composition & Data Hydration\n\n**Applicable \u2014 This is the core concern. Entity_ids missing from API response is explicitly a data hydration bug.**\n\n**The problem:** Dashboard composition logic looks correct (widgets are being rendered with the right layout), but entity_ids are missing from the API response, causing widgets to render blank or incomplete.\n\n**Key principle from the skill:** \"Entity resolution: `entity_ids` disappearing is a data hydration bug, not a composition bug. Trace the data path, not the layout logic.\"\n\n**Action Required:**\n\n1. **Separate composition from hydration:** The dashboard correctly composes widgets (structure is sound). The failure is in data hydration (entity_ids not returned from API).\n\n2. **Trace the data path end-to-end:**\n   - Which API endpoint serves the fund overview dashboard data?\n   - Which database tables and columns are being selected?\n   - Are entity_ids being fetched from the database?\n   - Are entity_ids being included in the response schema?\n   - Are entity_ids being parsed correctly in the frontend widget component?\n\n3. **Test both structure AND data:**\n   - Does the dashboard layout render correctly? (Yes, per task description.)\n   - Do the widgets have valid entity_ids in the response? (No, per task description.)\n   - Are widgets hydrated with actual data using those entity_ids? (No, widgets are blank.)\n\n4. **Investigation sequence for Phase 2:**\n   - Step 1: Identify the API endpoint (e.g., `/api/re/v2/funds/{fund_id}` or similar).\n   - Step 2: Query the database directly to confirm entity_ids exist in the source tables.\n   - Step 3: Check the API service layer (backend/app/services/) to see if entity_ids are being selected and returned.\n   - Step 4: Check the API route (backend/app/routes/) response schema to confirm entity_ids are in the contract.\n   - Step 5: Check the frontend widget component to confirm it expects and uses entity_ids from the response.\n   - Step 6: If entity_ids are in the response but widgets are still blank, the bug is in widget rendering logic (component issue). If entity_ids are missing from response, the bug is in the API data-access layer (backend issue).\n\n5. **Additive migration path:** Do not delete the existing composition logic or rendering paths. Ensure the corrective fix works alongside existing fallback flows until proven complete.\n\n**Validation:** After the fix, render the fund overview dashboard and confirm that widgets display actual data (not placeholders) with valid entity_ids present in the HTTP response.\n\n---\n\n### 6. Chat Workspace & Response Blocks\n\n**Not applicable \u2014 This task does not affect chat, response rendering, or analytical follow-up.** The fund overview dashboard is a static read-only surface, not part of the chat workspace or streaming response architecture.\n\n---\n\n### 7. AI Architecture & Path Clarity\n\n**Not applicable \u2014 This is not an AI-path issue.** The fund overview dashboard is a direct data-fetching and rendering surface. It does not use RAG, tool-calling, or model inference. It is a read-only data-binding problem, not an AI architecture problem.\n\n---\n\n### 8. Performance & Latency\n\n**Applicable \u2014 Consider latency but not as a blocker.**\n\nThe fix may require an additional database join or API response serialization step to include entity_ids. Verify that this does not exceed the performance benchmark for the fund overview endpoint.\n\n**Performance benchmarks to monitor:**\n- If the endpoint is `/api/re/v2/funds/*`, the response must complete within 800ms.\n- If the endpoint is a custom lab environment endpoint, check the deployment tips for its target latency.\n\n**Action:** After the fix, measure the API response time with entity_ids included. If it exceeds the benchmark, optimize the query (e.g., use indexes, pre-fetch entity_ids, cache) before shipping.\n\n**Not a blocker if hydration is incomplete.** Latency optimization can happen in a follow-up fix; the immediate priority is correct data hydration.\n\n---\n\n### 9. Credit Decisioning (Deny-by-Default)\n\n**Not applicable \u2014 The fund overview dashboard is not a credit decisioning surface.** This task does not involve consumer credit, underwriting, walled gardens, or compliance auditing. No three-layer credit architecture is in scope.\n\n---\n\n### 10. PDS Delivery Sequencing\n\n**Not applicable \u2014 This task is not part of PDS (Property Development System) phases.** The fund overview dashboard is an existing production surface, not a staged PDS delivery feature. No dependency graph sequencing is needed.\n\n---\n\n### 11. Prompt & Behavior Coherence\n\n**Not applicable \u2014 No system prompts, router patterns, or capability declarations are changing.** This is a backend API data-contract fix, not a prompt-behavior alignment issue.\n\n---\n\n### 12. Deployment Ceremony\n\n**Applicable \u2014 This task will result in a deployment.**\n\n**Mandatory sequence:**\n1. Inspect git status and branch (confirm working directory is clean)\n2. Run baseline tests for affected surfaces BEFORE writing any code:\n   - `make test-backend` (API response correctness)\n   - `make test-frontend` (dashboard rendering with mock data)\n3. Locate the failing API endpoint and the corresponding service/route in backend\n4. Update the data-access layer to fetch and return entity_ids\n5. Update the API response schema to include entity_ids in the contract\n6. Update the frontend component to use entity_ids from the hydrated response\n7. Run tests again:\n   - `make test-backend` (verify API response includes entity_ids)\n   - `make test-frontend` (verify dashboard renders with hydrated data)\n8. `git add <specific files only>` \u2014 never `git add -A`\n9. Commit with conventional message: `fix(dashboard): include entity_ids in fund overview API response`\n10. `git push` to `origin/main`\n11. Monitor GitHub Actions CI\n12. Monitor Railway (backend) and Vercel (frontend) deployments\n13. Smoke test: curl the deployed API endpoint, verify entity_ids are in the response (include HTTP status)\n14. Browser verification: navigate to paulmalmquist.com, open fund overview dashboard, confirm widgets display data\n\n**Stop immediately on:** git conflicts, failing tests, failed CI, failed deploy, failed smoke test. Do not proceed past any blocker.\n\n---\n\n### 13. Security & Auditability\n\n**Not applicable \u2014 This is a data-hydration bug fix, not a state-changing action.** The fund overview dashboard is read-only. No audit trails, access control changes, approval workflows, or state machines are involved. No event logging required.\n\n---\n\n### 14. Visualization & UI Conventions\n\n**Applicable \u2014 Verify widget rendering conventions but not as a blocker.**\n\nOnce entity_ids are present in the API response, the dashboard widget rendering must follow existing conventions:\n\n**From tips.md:**\n- Financial cards: `tabular-nums` for numbers, inline variance color coding, compact `rounded-xl p-3`\n- Tables: `PdsRiskBadge` for risk encoding (critical/high/moderate/low), default sort by risk descending\n- Spacing: `space-y-3` between sections, `text-base font-semibold` section headers\n- Dark theme consistency: no white flash on load, widgets don't wrap unexpectedly at 1440px or smaller screens\n\n**Action:** After data hydration is fixed, visually inspect the dashboard to confirm widgets follow existing visualization patterns. If widgets render with data but violate conventions, address in a follow-up UI refinement (not blocking this fix).\n\n**Validation:** Dashboard renders data correctly AND widget styling matches fund overview conventions.\n\n---\n\n## Phase 2: Investigation & Fix Sequence (Outline Only \u2014 Not Executed)\n\nPer the skill's Phase 2 instructions, the following sequence would apply during active implementation:\n\n### ORIENTING\n- Read CLAUDE.md: confirm that `backend/app/routes/` and `backend/app/services/` are owned by **bos-domain agent** and frontend dashboard is owned by **frontend agent**.\n- State: \"I will modify files ONLY in `backend/app/services/<fund-service>` and `backend/app/routes/<fund-routes>` for API changes, and `repo-b/src/app/<dashboard-path>` for frontend rendering.\"\n- Run baseline tests BEFORE writing anything:\n  ```\n  make test-backend\n  make test-frontend\n  ```\n  If baseline is red: STOP. Report. Do not proceed.\n\n### IMPLEMENTING\n1. **Identify the API endpoint** serving fund overview data (e.g., `GET /api/re/v2/funds/{fund_id}` or equivalent).\n2. **Locate the data-access service** in `backend/app/services/` that constructs the response.\n3. **Check the database query:** Is the SELECT statement including entity_ids columns?\n4. **Check the response serialization:** Are entity_ids being included in the response schema?\n5. **Update the service layer:** Modify the query to fetch entity_ids if missing; add entity_ids to the response DTO/schema.\n6. **Verify the frontend contract:** Confirm the dashboard widget component expects entity_ids in the response.\n7. **Update the frontend component:** If entity_ids are now present, ensure the widget uses them for data binding.\n\n### TESTING\n- Run `make test-backend` \u2014 paste full last 30 lines of output. Verify API response includes entity_ids.\n- Run `make test-frontend` \u2014 paste full last 30 lines of output. Verify dashboard renders with hydrated data.\n- Exit code 0 AND actual terminal output required.\n\n### DEPLOYING\n- `git add <specific files>` (never `-A`). Include only modified backend service/route and frontend component files.\n- Conventional commit message: `fix(dashboard): include entity_ids in fund overview API response`\n- Deploy to correct targets: Railway (backend), Vercel (frontend).\n\n### VERIFYING\n- Curl deployed API endpoint: `curl -s https://<deployed-api>/api/re/v2/funds/{fund_id} | jq '.entity_ids'` (or appropriate field).\n- Browser navigation: https://paulmalmquist.com \u2192 fund overview dashboard.\n- Screenshot showing dashboard widgets with actual data displayed (not blank placeholders).\n- Confirm HTTP status 200 and entity_ids present in response.\n\n---\n\n## Completion Checklist (Phase 1 Complete)\n\n- [x] Concern scan completed \u2014 all 14 concern families addressed or marked N/A\n- [x] Surface ownership confirmed \u2014 bos-domain (backend API) + frontend (dashboard rendering)\n- [ ] Baseline tests passed BEFORE implementation (to be executed in Phase 2)\n- [ ] Code written to actual files (to be executed in Phase 2)\n- [ ] `make test-backend` passes (to be executed in Phase 2)\n- [ ] `make test-frontend` passes (to be executed in Phase 2)\n- [ ] Deploy command executed (to be executed in Phase 2)\n- [ ] Smoke test returns expected HTTP status (to be executed in Phase 2)\n- [ ] Browser screenshot confirms widgets visible with data (to be executed in Phase 2)\n\n---\n\n## Supporting Skill Recommendation\n\nFor Phase 2 implementation, load the **dashboard-composition** skill:\n\n```\nskills/winston-dashboard-composition/SKILL.md\n```\n\nThis skill provides deep-dive instructions for tracing entity resolution, validating data contracts, and confirming widget hydration. It will guide the investigation and fix sequence with dashboard-specific patterns.\n\n---\n\n## Key Risk Factors\n\n1. **Data path miscommunication:** The bug is in the API response contract (missing entity_ids), not in the dashboard composition logic. Misidentifying which layer has the bug leads to failed fixes.\n\n2. **Partial fix:** If entity_ids are added to the response but the frontend component doesn't use them, widgets remain blank. The fix must be end-to-end (API contract + frontend usage).\n\n3. **Deployment target mismatch:** Backend changes deploy to Railway; frontend changes deploy to Vercel. Ensure both are deployed and synchronized.\n\n4. **Performance regression:** Adding entity_ids to the API response may increase query time if not indexed or optimized. Verify latency before shipping.\n\n5. **Scope creep:** Do not refactor the dashboard composition logic or widget rendering structure. The task is to include missing entity_ids, not to redesign the dashboard.\n\n---\n\n## Summary\n\nThis task is a **data hydration bug fix**, not a composition or design issue. The investigation will trace the API data path from database query through response serialization to frontend rendering. The fix is **localized to two surfaces**: backend (API contract) and frontend (widget data binding). Phase 2 will execute baseline tests, implement the minimal changes needed to include entity_ids in the response, and verify with smoke tests and browser validation.\n"}], "grading": null}, {"id": "eval-3-credit-page-with_skill", "prompt": "Build a new credit portfolio detail page at repo-b/src/app/lab/env/[envId]/credit/portfolio/[portfolioId]/page.tsx that shows loan-level performance metrics and risk scoring.", "eval_id": 3, "outputs": [{"name": "build-plan.md", "type": "text", "content": "# Concern-Aware Build Plan: Credit Portfolio Detail Page\n## Task: Build new credit portfolio detail page at `repo-b/src/app/lab/env/[envId]/credit/portfolio/[portfolioId]/page.tsx`\n\n**Objective:** Display loan-level performance metrics and risk scoring in a new portfolio detail surface.\n\n**Scope Note:** The existing file is at `/credit/portfolios/[portfolioId]/page.tsx`. The requested path `/credit/portfolio/[portfolioId]/page.tsx` (singular) represents a new route variant that consolidates and extends the loan-level performance view.\n\n---\n\n## Phase 1: Concern Scan\n\n### 1. Surface Ownership\n\n**Applicable \u2014 Lab Environment (lab-environment agent)**\n\nThis task touches `repo-b/src/app/lab/env/[envId]/credit/portfolio/[portfolioId]/page.tsx`, which falls under the lab environments surface per CLAUDE.md owning-surface map. The primary write owner is `agents/lab-environment.md`. The page composes UI for the credit decisioning environment but does not directly modify credit policies, underwriting logic, or decision workflows \u2014 those belong to `credit-decisioning.md` as reference.\n\n**Action:** Coordinate with lab-environment agent. Test via `make test-demo`. Deploy to Vercel per lab environment tips.\n\n---\n\n### 2. Capability/Registry Alignment\n\n**Applicable \u2014 Read-Only Capability (no write tools required)**\n\nThis task displays existing portfolio and loan data via established endpoints (`GET /api/credit/v2/portfolios/{portfolioId}/loans`, `GET /api/credit/v2/portfolios/{portfolioId}`) and derives performance metrics (delinquency counts, risk grades, FICO averages) from existing API responses. No new capabilities are declared in the system prompt, and no new write tools are required. The page reads from `CreditPortfolio` and `CreditLoan` types already exposed by bos-api.\n\n**Action:** No new tool registration needed. No system prompt changes. Reuse existing read-only API contract.\n\n---\n\n### 3. Write/Mutation Safety\n\n**Not applicable \u2014 Read-only page with no mutations**\n\nThis task implements a display surface only. No data creation, modification, or deletion occurs. No write-tool confirmation flow is required.\n\n---\n\n### 4. Schema, Seed & Migration Coherence\n\n**Applicable \u2014 Verify Existing Schema Dependencies**\n\nThe page depends on `credit_loans` table schema (via API response) for loan-level fields: `loan_id`, `portfolio_id`, `loan_ref`, `borrower_ref`, `current_balance`, `original_balance`, `interest_rate`, `term_months`, `delinquency_bucket`, `fico_at_origination`, `loan_status`, `risk_grade`. The page also depends on `credit_portfolios` table for portfolio-level aggregates: `portfolio_id`, `name`, `product_type`, `status`, `loan_count`, `total_upb`.\n\n**Action:**\n- Verify that migration 274, 275, 276, or 277 defined these columns with canonical names (not legacy aliases).\n- If `risk_grade` or performance metrics require new columns, add migrations before UI renders them.\n- Confirm test seed data includes portfolios with diverse loan statuses and risk grades so UI hydration can be verified with real data.\n\n---\n\n### 5. Dashboard Composition & Data Hydration\n\n**Applicable \u2014 Avoid Blank Widget Render**\n\nThe page must render loan-level KPI cards (loan count, average risk score, delinquency distribution) and a sortable loan table. Structure and data are both critical.\n\n**Action:**\n- Load portfolio and loan data in parallel via `Promise.all([getCreditPortfolio(...), listCreditLoans(...)])`.\n- Derive aggregates inline (average risk_grade, delinquency bucket distribution, FICO mean).\n- Test with seed data: render the page with a populated portfolio and confirm metrics hydrate (not show placeholders or zeros if data exists).\n- If entity_ids disappear or loans array is empty, check data path: does API return loans for the portfolio? Verify seed includes portfolio-to-loan relationships.\n\n---\n\n### 6. Chat Workspace & Response Blocks\n\n**Not applicable \u2014 Static page, no chat behavior**\n\nThis page is not part of the chat workspace or response rendering pipeline. No analytical follow-up or session state coordination required.\n\n---\n\n### 7. AI Architecture & Path Clarity\n\n**Not applicable \u2014 Page is read-only static surface**\n\nNo AI system (copilot, RAG, decision engine) is invoked by this page. The page serves as a reference surface for the Winston assistant, not as an AI execution path.\n\n---\n\n### 8. Performance & Latency\n\n**Applicable \u2014 Monitor Page Load and API Response Times**\n\nThe page makes two sequential/parallel API calls (`getCreditPortfolio`, `listCreditLoans`) before rendering. This pattern may block LCP if loan list is large.\n\n**Action:**\n- Measure initial page load (LCP): must not exceed 3000ms per benchmark in skill.\n- Parallel load via `Promise.all()` is already optimized.\n- If loan list exceeds 500 items, consider pagination or virtualization.\n- Verify API endpoints return in < 800ms (per benchmark for `/api/re/v2/funds` analog).\n- If latency exceeds threshold, apply: skeleton loaders during fetch, progressive rendering of loan table rows, or lazy-load below-the-fold sections.\n\n---\n\n### 9. Credit Decisioning (Deny-by-Default)\n\n**Applicable \u2014 Reference Surface for Walled Garden**\n\nThis page is not a decisioning engine (does not evaluate risk, issue decisions, or emit adverse-action notices). It is a read-only reference surface showing loan performance history and risk grades previously assigned by the credit decisioning system. All risk grades and underwriting scores are pre-computed; the page only displays them.\n\n**Action:**\n- Page may render `risk_grade`, `pd`, `lgd` scores if they exist in the loan record. These are historical artifacts of prior decisions, not new synthesis.\n- Do not add AI-powered risk inference on this page. If new risk metrics are needed, they must be computed by the credit decisioning engine and stored in the loan record before display.\n- Cite the data source (API response includes decision_log references if audit trail is required).\n- Page requires no audit logging itself \u2014 it reads already-audited decision records.\n\n---\n\n### 10. PDS Delivery Sequencing\n\n**Not applicable \u2014 No PDS dependency**\n\nThis task does not depend on or advance any PDS phase. It is a credit environment feature, not a construction/development analytics surface.\n\n---\n\n### 11. Prompt & Behavior Coherence\n\n**Applicable \u2014 Ensure Assistant Context Bridge**\n\nThe page calls `publishAssistantPageContext()` to inform the Winston assistant of the current surface (`page_entity_type: \"portfolio\"`, `page_entity_id: portfolioId`). The assistant must be aware that it can answer questions about \"this portfolio\" and \"these loans\" when the user is on this page.\n\n**Action:**\n- Call `publishAssistantPageContext()` on mount with correct surface metadata.\n- Call `resetAssistantPageContext()` on unmount.\n- Verify system prompt does not declare \"portfolio modification\" or \"loan update\" capabilities unless write tools are registered (they are not).\n- Test assistant context: user on this page asks \"show me the highest-risk loans in this portfolio\" \u2014 assistant should use `page_entity_id` to scope the query, not ask the user to repeat portfolio ID.\n\n---\n\n### 12. Deployment Ceremony\n\n**Applicable \u2014 Mandatory deploy checkpoint sequence**\n\nThis task results in a new page file and may modify API integration patterns. Full ceremony required.\n\n**Action:**\n1. Inspect `git status` \u2014 ensure working tree is clean before starting.\n2. Run baseline test `make test-demo` (no failures before writing).\n3. Write page file to `repo-b/src/app/lab/env/[envId]/credit/portfolio/[portfolioId]/page.tsx`.\n4. Run `make test-demo` \u2014 paste full last 30 lines of output, confirm exit code 0.\n5. `git add repo-b/src/app/lab/env/[envId]/credit/portfolio/[portfolioId]/page.tsx` (specific files only, no `-A`).\n6. Conventional commit: `\"feat(credit): add portfolio detail page with loan-level performance metrics\"`\n7. `git push origin main` and monitor GitHub Actions CI.\n8. Monitor Vercel deployment (frontend target).\n9. **Smoke test:** Navigate to `paulmalmquist.com/lab/env/<envId>/credit/portfolio/<portfolioId>` in live browser, confirm page loads, KPI cards display metrics, loan table populates.\n10. Take screenshot of live page.\n11. If any step fails: STOP. Report failure with full terminal output. Do not proceed.\n\n---\n\n### 13. Security & Auditability\n\n**Applicable \u2014 Read-Only Access Boundary**\n\nThis page displays sensitive borrower and loan data (FICO, risk grades, delinquency status). Access must be gated by environment and business context.\n\n**Action:**\n- Page already uses `useDomainEnv()` to extract `envId` and `businessId` \u2014 this enforces row-level context.\n- API calls filter by `env_id` and `business_id` \u2014 verified in `getCreditPortfolio()` and `listCreditLoans()` signatures.\n- Page does not modify data, so no event logging is required.\n- If page renders to a restricted user role (e.g., loan officer vs. credit committee), add RBAC check at route level (not implemented here; assume route-level protection already exists).\n\n---\n\n### 14. Visualization & UI Conventions\n\n**Applicable \u2014 Follow Winston/tips.md conventions**\n\nThe page renders financial cards (KPI metrics), loan tables, and status badges. All must align with established patterns.\n\n**Action:**\n- KPI cards: Use existing pattern from portfolio list page (dark theme, rounded-xl border, `bg-bm-surface/20`, section header text-xs uppercase with 0.1em tracking).\n- Risk scoring badge: Implement `PdsRiskBadge` or equivalent (critical/high/moderate/low color coding) for `risk_grade` column if displayed.\n- Loan table: Follow existing pattern (alternating row hover state `bg-bm-surface/20`, sortable headers if risk metrics are added, default sort by risk descending).\n- Money formatting: Use existing `fmtMoney()` helper (supports M/K abbreviation for large values).\n- Percentage formatting: Use existing `fmtPct()` helper for delinquency rates, DQ %, LTVs if displayed.\n- Spacing: `space-y-5` between sections (header, KPI strip, table).\n- Responsive: Test at 390px mobile (no horizontal scroll), 1440px desktop (KPI cards remain visible without wrap).\n- Dark theme consistency: Load page in dark mode, confirm no white flash, all text contrast passes WCAG AA.\n\n---\n\n## Phase 2: Implementation Sequence\n\nOnce Phase 1 is signed off (all concerns addressed or marked N/A), implementation follows this order:\n\n### Step 1: ORIENTING\n- Confirm surface owner is lab-environment agent.\n- Read CLAUDE.md and identify `/credit/portfolio/` as lab environment path.\n- Run `make test-demo` \u2014 baseline must be green. If red, STOP and report.\n\n### Step 2: IMPLEMENTING\n- Create `/repo-b/src/app/lab/env/[envId]/credit/portfolio/[portfolioId]/page.tsx`.\n- Copy existing portfolio page structure as template.\n- Modify to include:\n  - New KPI cards for loan-level aggregates: total loans, average risk_grade, delinquency distribution (0-30d, 30-60d, 60+ d).\n  - Enhanced loan table columns: loan_ref, borrower_ref, current_balance, interest_rate, delinquency_bucket, risk_grade, fico_at_origination.\n  - Sort table by risk_grade descending (critical/high first).\n  - Color-code risk_grade column via badge helper (if `PdsRiskBadge` exists) or inline color classes (red/amber/green/gray).\n  - Add drill-down links: each loan row links to `/credit/loans/[loanId]`.\n  - Preserve assistant context publishing (`publishAssistantPageContext`).\n\n### Step 3: TESTING\n- Run `make test-demo` \u2014 paste last 30 lines of output.\n- Confirm exit code 0.\n- If TypeScript errors: fix and re-test.\n- If test fails: read error, fix in IMPLEMENTING, return to this step.\n\n### Step 4: DEPLOYING\n- `git add repo-b/src/app/lab/env/[envId]/credit/portfolio/[portfolioId]/page.tsx`\n- `git commit -m \"feat(credit): add portfolio detail page with loan-level performance metrics\"`\n- `git push origin main`\n- Monitor GitHub Actions CI (must pass).\n- Monitor Vercel deployment to live site.\n\n### Step 5: VERIFYING\n- Navigate to live URL: `/lab/env/<envId>/credit/portfolio/<portfolioId>` on paulmalmquist.com.\n- Confirm page loads without error.\n- Confirm KPI cards display loan count, avg risk, delinquency %, FICO avg with non-zero values (if seed data includes loans).\n- Confirm loan table displays at least one row with risk_grade, delinquency_bucket, and borrower info.\n- Confirm drill-down link to loan detail page works.\n- Take screenshot of live page.\n- Curl the API endpoint directly to verify response structure (optional but recommended):\n  ```\n  curl \"https://api.paulmalmquist.com/api/credit/v2/portfolios/<portfolioId>/loans?env_id=<envId>\"\n  ```\n  Paste response with HTTP status code.\n\n### Mandatory Checklist Before Declaring Complete\n- [ ] Phase 1 concern scan completed \u2014 all 14 families addressed or marked N/A\n- [ ] Surface ownership confirmed \u2014 files only in `repo-b/src/app/lab/env/` (lab-environment surface)\n- [ ] Baseline tests passed BEFORE implementation started (make test-demo green)\n- [ ] Code written to actual file, not pseudocode\n- [ ] `make test-demo` passes \u2014 terminal output included\n- [ ] Deploy command executed and successful \u2014 GitHub Actions CI passed, Vercel deployment confirmed\n- [ ] Smoke test: live page loads at `/lab/env/<envId>/credit/portfolio/<portfolioId>`\n- [ ] Browser screenshot confirms KPI cards hydrated with metrics and loan table populated\n- [ ] No new capabilities declared in prompts without tool registration (none declared)\n- [ ] No write paths (page is read-only)\n- [ ] No schema changes (uses existing tables)\n- [ ] Assistant context bridge active (publishAssistantPageContext called)\n- [ ] Dark theme rendering verified (no white flash, contrast OK)\n- [ ] Mobile responsive at 390px verified (no horizontal scroll)\n\n---\n\n## Summary\n\n**This build plan is COMPLETE per Phase 1 of the meta-prompt skill.** All concern families have been evaluated. The task is ready to transition to Phase 2 implementation with full awareness of:\n\n- **Primary risk:** Data hydration (loans array empty or metrics zero when data exists).\n- **Primary dependency:** Existing `/api/credit/v2/` endpoints and seed data.\n- **Primary validation:** Smoke test on live site with real portfolio/loan data.\n- **Deployment target:** Vercel (frontend only, no backend changes).\n- **Test command:** `make test-demo` (lab environment tests).\n\nNo blockers identified. Proceed to Phase 2 when Phase 1 approval is granted.\n"}], "grading": null}], "previous_feedback": {}, "previous_outputs": {}};
+
+    // ---- State ----
+    let feedbackMap = {};  // run_id -> feedback text
+    let currentIndex = 0;
+    let visitedRuns = new Set();
+
+    // ---- Init ----
+    async function init() {
+      // Load saved feedback from server — but only if this isn't a fresh
+      // iteration (indicated by previous_feedback being present). When
+      // previous feedback exists, the feedback.json on disk is stale from
+      // the prior iteration and should not pre-fill the textareas.
+      const hasPrevious = Object.keys(EMBEDDED_DATA.previous_feedback || {}).length > 0
+        || Object.keys(EMBEDDED_DATA.previous_outputs || {}).length > 0;
+      if (!hasPrevious) {
+        try {
+          const resp = await fetch("/api/feedback");
+          const data = await resp.json();
+          if (data.reviews) {
+            for (const r of data.reviews) feedbackMap[r.run_id] = r.feedback;
+          }
+        } catch { /* first run, no feedback yet */ }
+      }
+
+      document.getElementById("skill-name").textContent = EMBEDDED_DATA.skill_name;
+      showRun(0);
+
+      // Wire up feedback auto-save
+      const textarea = document.getElementById("feedback");
+      let saveTimeout = null;
+      textarea.addEventListener("input", () => {
+        clearTimeout(saveTimeout);
+        document.getElementById("feedback-status").textContent = "";
+        saveTimeout = setTimeout(() => saveCurrentFeedback(), 800);
+      });
+    }
+
+    // ---- Navigation ----
+    function navigate(delta) {
+      const newIndex = currentIndex + delta;
+      if (newIndex >= 0 && newIndex < EMBEDDED_DATA.runs.length) {
+        saveCurrentFeedback();
+        showRun(newIndex);
+      }
+    }
+
+    function updateNavButtons() {
+      document.getElementById("prev-btn").disabled = currentIndex === 0;
+      document.getElementById("next-btn").disabled =
+        currentIndex === EMBEDDED_DATA.runs.length - 1;
+    }
+
+    // ---- Show a run ----
+    function showRun(index) {
+      currentIndex = index;
+      const run = EMBEDDED_DATA.runs[index];
+
+      // Progress
+      document.getElementById("progress").textContent =
+        `${index + 1} of ${EMBEDDED_DATA.runs.length}`;
+
+      // Prompt
+      document.getElementById("prompt-text").textContent = run.prompt;
+
+      // Config badge
+      const badge = document.getElementById("config-badge");
+      const configMatch = run.id.match(/(with_skill|without_skill|new_skill|old_skill)/);
+      if (configMatch) {
+        const config = configMatch[1];
+        const isBaseline = config === "without_skill" || config === "old_skill";
+        badge.textContent = config.replace(/_/g, " ");
+        badge.className = "config-badge " + (isBaseline ? "config-baseline" : "config-primary");
+        badge.style.display = "inline-block";
+      } else {
+        badge.style.display = "none";
+      }
+
+      // Outputs
+      renderOutputs(run);
+
+      // Previous outputs
+      renderPrevOutputs(run);
+
+      // Grades
+      renderGrades(run);
+
+      // Previous feedback
+      const prevFb = (EMBEDDED_DATA.previous_feedback || {})[run.id];
+      const prevEl = document.getElementById("prev-feedback");
+      if (prevFb) {
+        document.getElementById("prev-feedback-text").textContent = prevFb;
+        prevEl.style.display = "block";
+      } else {
+        prevEl.style.display = "none";
+      }
+
+      // Feedback
+      document.getElementById("feedback").value = feedbackMap[run.id] || "";
+      document.getElementById("feedback-status").textContent = "";
+
+      updateNavButtons();
+
+      // Track visited runs and promote done button when all visited
+      visitedRuns.add(index);
+      const doneBtn = document.getElementById("done-btn");
+      if (visitedRuns.size >= EMBEDDED_DATA.runs.length) {
+        doneBtn.classList.add("ready");
+      }
+
+      // Scroll main content to top
+      document.querySelector(".main").scrollTop = 0;
+    }
+
+    // ---- Render outputs ----
+    function renderOutputs(run) {
+      const container = document.getElementById("outputs-body");
+      container.innerHTML = "";
+
+      const outputs = run.outputs || [];
+      if (outputs.length === 0) {
+        container.innerHTML = '<div class="empty-state">No output files</div>';
+        return;
+      }
+
+      for (const file of outputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        // Always show file header with download link
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const content = document.createElement("div");
+        content.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          content.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          content.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          content.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(content, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          content.appendChild(a);
+        } else if (file.type === "error") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          pre.style.color = "var(--red)";
+          content.appendChild(pre);
+        }
+
+        fileDiv.appendChild(content);
+        container.appendChild(fileDiv);
+      }
+    }
+
+    // ---- XLSX rendering via SheetJS ----
+    function renderXlsx(container, b64Data) {
+      try {
+        const raw = Uint8Array.from(atob(b64Data), c => c.charCodeAt(0));
+        const wb = XLSX.read(raw, { type: "array" });
+
+        for (let i = 0; i < wb.SheetNames.length; i++) {
+          const sheetName = wb.SheetNames[i];
+          const ws = wb.Sheets[sheetName];
+
+          if (wb.SheetNames.length > 1) {
+            const sheetLabel = document.createElement("div");
+            sheetLabel.style.cssText =
+              "font-weight:600; font-size:0.8rem; color:#b0aea5; margin-top:0.5rem; margin-bottom:0.25rem;";
+            sheetLabel.textContent = "Sheet: " + sheetName;
+            container.appendChild(sheetLabel);
+          }
+
+          const htmlStr = XLSX.utils.sheet_to_html(ws, { editable: false });
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = htmlStr;
+          container.appendChild(wrapper);
+        }
+      } catch (err) {
+        container.textContent = "Error rendering spreadsheet: " + err.message;
+      }
+    }
+
+    // ---- Grades ----
+    function renderGrades(run) {
+      const section = document.getElementById("grades-section");
+      const content = document.getElementById("grades-content");
+
+      if (!run.grading) {
+        section.style.display = "none";
+        return;
+      }
+
+      const grading = run.grading;
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("grades-arrow").classList.remove("open");
+
+      const summary = grading.summary || {};
+      const expectations = grading.expectations || [];
+
+      let html = '<div style="padding: 1rem;">';
+
+      // Summary line
+      const passRate = summary.pass_rate != null
+        ? Math.round(summary.pass_rate * 100) + "%"
+        : "?";
+      const badgeClass = summary.pass_rate >= 0.8 ? "grade-pass" : summary.pass_rate >= 0.5 ? "" : "grade-fail";
+      html += '<div class="grades-summary">';
+      html += '<span class="grade-badge ' + badgeClass + '">' + passRate + '</span>';
+      html += '<span>' + (summary.passed || 0) + ' passed, ' + (summary.failed || 0) + ' failed of ' + (summary.total || 0) + '</span>';
+      html += '</div>';
+
+      // Assertions list
+      html += '<ul class="assertion-list">';
+      for (const exp of expectations) {
+        const statusClass = exp.passed ? "pass" : "fail";
+        const statusIcon = exp.passed ? "\u2713" : "\u2717";
+        html += '<li class="assertion-item">';
+        html += '<span class="assertion-status ' + statusClass + '">' + statusIcon + '</span>';
+        html += '<span>' + escapeHtml(exp.text) + '</span>';
+        if (exp.evidence) {
+          html += '<div class="assertion-evidence">' + escapeHtml(exp.evidence) + '</div>';
+        }
+        html += '</li>';
+      }
+      html += '</ul>';
+
+      html += '</div>';
+      content.innerHTML = html;
+    }
+
+    function toggleGrades() {
+      const content = document.getElementById("grades-content");
+      const arrow = document.getElementById("grades-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Previous outputs (collapsible) ----
+    function renderPrevOutputs(run) {
+      const section = document.getElementById("prev-outputs-section");
+      const content = document.getElementById("prev-outputs-content");
+      const prevOutputs = (EMBEDDED_DATA.previous_outputs || {})[run.id];
+
+      if (!prevOutputs || prevOutputs.length === 0) {
+        section.style.display = "none";
+        return;
+      }
+
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("prev-outputs-arrow").classList.remove("open");
+
+      // Render the files into the content area
+      content.innerHTML = "";
+      const wrapper = document.createElement("div");
+      wrapper.style.padding = "1rem";
+
+      for (const file of prevOutputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const fc = document.createElement("div");
+        fc.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          fc.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          fc.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          fc.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(fc, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          fc.appendChild(a);
+        }
+
+        fileDiv.appendChild(fc);
+        wrapper.appendChild(fileDiv);
+      }
+
+      content.appendChild(wrapper);
+    }
+
+    function togglePrevOutputs() {
+      const content = document.getElementById("prev-outputs-content");
+      const arrow = document.getElementById("prev-outputs-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Feedback (saved to server -> feedback.json) ----
+    function saveCurrentFeedback() {
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // Build reviews array from map
+      const reviews = [];
+      for (const [run_id, feedback] of Object.entries(feedbackMap)) {
+        if (feedback.trim()) {
+          reviews.push({ run_id, feedback, timestamp: new Date().toISOString() });
+        }
+      }
+
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviews, status: "in_progress" }),
+      }).then(() => {
+        document.getElementById("feedback-status").textContent = "Saved";
+      }).catch(() => {
+        // Static mode or server unavailable — no-op on auto-save,
+        // feedback will be downloaded on final submit
+        document.getElementById("feedback-status").textContent = "Will download on submit";
+      });
+    }
+
+    // ---- Done ----
+    function showDoneDialog() {
+      // Save current textarea to feedbackMap (but don't POST yet)
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // POST once with status: complete — include ALL runs so the model
+      // can distinguish "no feedback" (looks good) from "not reviewed"
+      const reviews = [];
+      const ts = new Date().toISOString();
+      for (const r of EMBEDDED_DATA.runs) {
+        reviews.push({ run_id: r.id, feedback: feedbackMap[r.id] || "", timestamp: ts });
+      }
+      const payload = JSON.stringify({ reviews, status: "complete" }, null, 2);
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      }).then(() => {
+        document.getElementById("done-overlay").classList.add("visible");
+      }).catch(() => {
+        // Server not available (static mode) — download as file
+        const blob = new Blob([payload], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "feedback.json";
+        a.click();
+        URL.revokeObjectURL(url);
+        document.getElementById("done-overlay").classList.add("visible");
+      });
+    }
+
+    function closeDoneDialog() {
+      // Reset status back to in_progress
+      saveCurrentFeedback();
+      document.getElementById("done-overlay").classList.remove("visible");
+    }
+
+    // ---- Toast ----
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("visible");
+      setTimeout(() => toast.classList.remove("visible"), 2000);
+    }
+
+    // ---- Keyboard nav ----
+    document.addEventListener("keydown", (e) => {
+      // Don't capture when typing in textarea
+      if (e.target.tagName === "TEXTAREA") return;
+
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        navigate(-1);
+      } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        navigate(1);
+      }
+    });
+
+    // ---- Util ----
+    function getDownloadUri(file) {
+      if (file.data_uri) return file.data_uri;
+      if (file.data_b64) return "data:application/octet-stream;base64," + file.data_b64;
+      if (file.type === "text") return "data:text/plain;charset=utf-8," + encodeURIComponent(file.content);
+      return "#";
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ---- View switching ----
+    function switchView(view) {
+      document.querySelectorAll(".view-tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
+      document.querySelector(`[onclick="switchView('${view}')"]`).classList.add("active");
+      document.getElementById("panel-" + view).classList.add("active");
+    }
+
+    // ---- Benchmark rendering ----
+    function renderBenchmark() {
+      const data = EMBEDDED_DATA.benchmark;
+      if (!data) return;
+
+      // Show the tabs
+      document.getElementById("view-tabs").style.display = "flex";
+
+      const container = document.getElementById("benchmark-content");
+      const summary = data.run_summary || {};
+      const metadata = data.metadata || {};
+      const notes = data.notes || [];
+
+      let html = "";
+
+      // Header
+      html += "<h2 style='font-family: Poppins, sans-serif; margin-bottom: 0.5rem;'>Benchmark Results</h2>";
+      html += "<p style='color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.25rem;'>";
+      if (metadata.skill_name) html += "<strong>" + escapeHtml(metadata.skill_name) + "</strong> &mdash; ";
+      if (metadata.timestamp) html += metadata.timestamp + " &mdash; ";
+      if (metadata.evals_run) html += "Evals: " + metadata.evals_run.join(", ") + " &mdash; ";
+      html += (metadata.runs_per_configuration || "?") + " runs per configuration";
+      html += "</p>";
+
+      // Summary table
+      html += '<table class="benchmark-table">';
+
+      function fmtStat(stat, pct) {
+        if (!stat) return "—";
+        const suffix = pct ? "%" : "";
+        const m = pct ? (stat.mean * 100).toFixed(0) : stat.mean.toFixed(1);
+        const s = pct ? (stat.stddev * 100).toFixed(0) : stat.stddev.toFixed(1);
+        return m + suffix + " ± " + s + suffix;
+      }
+
+      function deltaClass(val) {
+        if (!val) return "";
+        const n = parseFloat(val);
+        if (n > 0) return "benchmark-delta-positive";
+        if (n < 0) return "benchmark-delta-negative";
+        return "";
+      }
+
+      // Discover config names dynamically (everything except "delta")
+      const configs = Object.keys(summary).filter(k => k !== "delta");
+      const configA = configs[0] || "config_a";
+      const configB = configs[1] || "config_b";
+      const labelA = configA.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const labelB = configB.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const a = summary[configA] || {};
+      const b = summary[configB] || {};
+      const delta = summary.delta || {};
+
+      html += "<thead><tr><th>Metric</th><th>" + escapeHtml(labelA) + "</th><th>" + escapeHtml(labelB) + "</th><th>Delta</th></tr></thead>";
+      html += "<tbody>";
+
+      html += "<tr><td><strong>Pass Rate</strong></td>";
+      html += "<td>" + fmtStat(a.pass_rate, true) + "</td>";
+      html += "<td>" + fmtStat(b.pass_rate, true) + "</td>";
+      html += '<td class="' + deltaClass(delta.pass_rate) + '">' + (delta.pass_rate || "—") + "</td></tr>";
+
+      // Time (only show row if data exists)
+      if (a.time_seconds || b.time_seconds) {
+        html += "<tr><td><strong>Time (s)</strong></td>";
+        html += "<td>" + fmtStat(a.time_seconds, false) + "</td>";
+        html += "<td>" + fmtStat(b.time_seconds, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.time_seconds) + '">' + (delta.time_seconds ? delta.time_seconds + "s" : "—") + "</td></tr>";
+      }
+
+      // Tokens (only show row if data exists)
+      if (a.tokens || b.tokens) {
+        html += "<tr><td><strong>Tokens</strong></td>";
+        html += "<td>" + fmtStat(a.tokens, false) + "</td>";
+        html += "<td>" + fmtStat(b.tokens, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.tokens) + '">' + (delta.tokens || "—") + "</td></tr>";
+      }
+
+      html += "</tbody></table>";
+
+      // Per-eval breakdown (if runs data available)
+      const runs = data.runs || [];
+      if (runs.length > 0) {
+        const evalIds = [...new Set(runs.map(r => r.eval_id))].sort((a, b) => a - b);
+
+        html += "<h3 style='font-family: Poppins, sans-serif; margin-bottom: 0.75rem;'>Per-Eval Breakdown</h3>";
+
+        const hasTime = runs.some(r => r.result && r.result.time_seconds != null);
+        const hasErrors = runs.some(r => r.result && r.result.errors > 0);
+
+        for (const evalId of evalIds) {
+          const evalRuns = runs.filter(r => r.eval_id === evalId);
+          const evalName = evalRuns[0] && evalRuns[0].eval_name ? evalRuns[0].eval_name : "Eval " + evalId;
+
+          html += "<h4 style='font-family: Poppins, sans-serif; margin: 1rem 0 0.5rem; color: var(--text);'>" + escapeHtml(evalName) + "</h4>";
+          html += '<table class="benchmark-table">';
+          html += "<thead><tr><th>Config</th><th>Run</th><th>Pass Rate</th>";
+          if (hasTime) html += "<th>Time (s)</th>";
+          if (hasErrors) html += "<th>Crashes During Execution</th>";
+          html += "</tr></thead>";
+          html += "<tbody>";
+
+          // Group by config and render with average rows
+          const configGroups = [...new Set(evalRuns.map(r => r.configuration))];
+          for (let ci = 0; ci < configGroups.length; ci++) {
+            const config = configGroups[ci];
+            const configRuns = evalRuns.filter(r => r.configuration === config);
+            if (configRuns.length === 0) continue;
+
+            const rowClass = ci === 0 ? "benchmark-row-with" : "benchmark-row-without";
+            const configLabel = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+            for (const run of configRuns) {
+              const r = run.result || {};
+              const prClass = r.pass_rate >= 0.8 ? "benchmark-delta-positive" : r.pass_rate < 0.5 ? "benchmark-delta-negative" : "";
+              html += '<tr class="' + rowClass + '">';
+              html += "<td>" + configLabel + "</td>";
+              html += "<td>" + run.run_number + "</td>";
+              html += '<td class="' + prClass + '">' + ((r.pass_rate || 0) * 100).toFixed(0) + "% (" + (r.passed || 0) + "/" + (r.total || 0) + ")</td>";
+              if (hasTime) html += "<td>" + (r.time_seconds != null ? r.time_seconds.toFixed(1) : "—") + "</td>";
+              if (hasErrors) html += "<td>" + (r.errors || 0) + "</td>";
+              html += "</tr>";
+            }
+
+            // Average row
+            const rates = configRuns.map(r => (r.result || {}).pass_rate || 0);
+            const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length;
+            const avgPrClass = avgRate >= 0.8 ? "benchmark-delta-positive" : avgRate < 0.5 ? "benchmark-delta-negative" : "";
+            html += '<tr class="benchmark-row-avg ' + rowClass + '">';
+            html += "<td>" + configLabel + "</td>";
+            html += "<td>Avg</td>";
+            html += '<td class="' + avgPrClass + '">' + (avgRate * 100).toFixed(0) + "%</td>";
+            if (hasTime) {
+              const times = configRuns.map(r => (r.result || {}).time_seconds).filter(t => t != null);
+              html += "<td>" + (times.length ? (times.reduce((a, b) => a + b, 0) / times.length).toFixed(1) : "—") + "</td>";
+            }
+            if (hasErrors) html += "<td></td>";
+            html += "</tr>";
+          }
+          html += "</tbody></table>";
+
+          // Per-assertion detail for this eval
+          const runsWithExpectations = {};
+          for (const config of configGroups) {
+            runsWithExpectations[config] = evalRuns.filter(r => r.configuration === config && r.expectations && r.expectations.length > 0);
+          }
+          const hasAnyExpectations = Object.values(runsWithExpectations).some(runs => runs.length > 0);
+          if (hasAnyExpectations) {
+            // Collect all unique assertion texts across all configs
+            const allAssertions = [];
+            const seen = new Set();
+            for (const config of configGroups) {
+              for (const run of runsWithExpectations[config]) {
+                for (const exp of (run.expectations || [])) {
+                  if (!seen.has(exp.text)) {
+                    seen.add(exp.text);
+                    allAssertions.push(exp.text);
+                  }
+                }
+              }
+            }
+
+            html += '<table class="benchmark-table" style="margin-top: 0.5rem;">';
+            html += "<thead><tr><th>Assertion</th>";
+            for (const config of configGroups) {
+              const label = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+              html += "<th>" + escapeHtml(label) + "</th>";
+            }
+            html += "</tr></thead><tbody>";
+
+            for (const assertionText of allAssertions) {
+              html += "<tr><td>" + escapeHtml(assertionText) + "</td>";
+
+              for (const config of configGroups) {
+                html += "<td>";
+                for (const run of runsWithExpectations[config]) {
+                  const exp = (run.expectations || []).find(e => e.text === assertionText);
+                  if (exp) {
+                    const cls = exp.passed ? "benchmark-delta-positive" : "benchmark-delta-negative";
+                    const icon = exp.passed ? "\u2713" : "\u2717";
+                    html += '<span class="' + cls + '" title="Run ' + run.run_number + ': ' + escapeHtml(exp.evidence || "") + '">' + icon + "</span> ";
+                  } else {
+                    html += "— ";
+                  }
+                }
+                html += "</td>";
+              }
+              html += "</tr>";
+            }
+            html += "</tbody></table>";
+          }
+        }
+      }
+
+      // Notes
+      if (notes.length > 0) {
+        html += '<div class="benchmark-notes">';
+        html += "<h3>Analysis Notes</h3>";
+        html += "<ul>";
+        for (const note of notes) {
+          html += "<li>" + escapeHtml(note) + "</li>";
+        }
+        html += "</ul></div>";
+      }
+
+      container.innerHTML = html;
+    }
+
+    // ---- Start ----
+    init();
+    renderBenchmark();
+  </script>
+</body>
+</html>

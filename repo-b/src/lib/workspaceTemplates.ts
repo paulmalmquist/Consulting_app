@@ -20,6 +20,7 @@ export const workspaceTemplateRegistry = {
   case_factory: { label: "Case Study Factory", openPath: "case-factory" },
   ai_copilot: { label: "AI Discovery Copilot", openPath: "copilot" },
   engagement_output: { label: "Engagement Output Center", openPath: "outputs" },
+  visual_resume: { label: "Visual Resume", openPath: "resume" },
 } as const;
 
 export type KnownWorkspaceTemplateKey = keyof typeof workspaceTemplateRegistry;
@@ -61,6 +62,7 @@ export function resolveWorkspaceTemplateKey(input: WorkspaceTemplateInput): stri
   if (industryKey === "case_factory") return "case_factory";
   if (industryKey === "ai_copilot") return "ai_copilot";
   if (industryKey === "engagement_output") return "engagement_output";
+  if (industryKey === "visual_resume" || industryKey === "resume") return "visual_resume";
   return null;
 }
 

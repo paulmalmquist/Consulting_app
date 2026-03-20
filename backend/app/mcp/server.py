@@ -43,6 +43,7 @@ def _register_all_tools():
     from app.mcp.tools.covenant_tools import register_covenant_tools
     from app.mcp.tools.lp_report_tools import register_lp_report_tools
     from app.mcp.tools.notice_tools import register_notice_tools
+    from app.mcp.tools.resume_tools import register_resume_tools
 
     register_meta_tools()
     register_business_tools()
@@ -71,6 +72,7 @@ def _register_all_tools():
     register_covenant_tools()
     register_lp_report_tools()
     register_notice_tools()
+    register_resume_tools()
 
 
 def _make_response(req_id, result=None, error=None):
