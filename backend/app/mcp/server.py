@@ -44,6 +44,9 @@ def _register_all_tools():
     from app.mcp.tools.lp_report_tools import register_lp_report_tools
     from app.mcp.tools.notice_tools import register_notice_tools
     from app.mcp.tools.resume_tools import register_resume_tools
+    from app.mcp.tools.governance_tools import register_governance_tools
+    from app.mcp.tools.ir_tools import register_ir_tools
+    from app.mcp.tools.rate_sensitivity_tools import register_rate_sensitivity_tools
 
     register_meta_tools()
     register_business_tools()
@@ -73,6 +76,9 @@ def _register_all_tools():
     register_lp_report_tools()
     register_notice_tools()
     register_resume_tools()
+    register_governance_tools()
+    register_ir_tools()
+    register_rate_sensitivity_tools()
 
 
 def _make_response(req_id, result=None, error=None):

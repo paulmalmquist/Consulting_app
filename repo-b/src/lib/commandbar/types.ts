@@ -240,6 +240,16 @@ export type AssistantResponseBlock =
       title?: string | null;
       message: string;
       recoverable: boolean;
+    }
+  | {
+      type: "grounding_badge";
+      block_id: string;
+      score: number;
+      label: string;
+      label_text: string;
+      tool_count: number;
+      firm_data_tools: number;
+      sources?: Array<{ tool_name: string; is_firm_data: boolean }>;
     };
 
 export type CommandContext = {

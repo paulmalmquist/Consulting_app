@@ -91,4 +91,23 @@ def execute_tool(
                     f"Audit persistence failed for {tool.name}: {audit_err}"
                 ) from audit_err
 
+    # ── Best-effort governance decision logging ─────────────────
+    try:
+        from app.services.governance import record_decision
+
+        record_decision(
+            business_id=business_id,
+            actor=ctx.actor,
+            decision_type="tool_call",
+            tool_name=tool.name,
+            input_summary=raw_input,
+            output_summary=output if success else {},
+            latency_ms=latency_ms,
+            success=success,
+            error_message=error_message,
+            tags=list(tool.tags) if tool.tags else [],
+        )
+    except Exception:
+        pass  # governance logging is best-effort
+
     return output

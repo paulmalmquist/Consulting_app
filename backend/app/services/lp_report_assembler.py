@@ -60,12 +60,14 @@ def assemble_lp_report(
         investor_metrics = cur.fetchall()
 
         # Asset highlights — quarter state for all assets in the fund
+        # re_asset_quarter_state has no fund_id; join through repe_asset → repe_deal
         cur.execute(
             """
             SELECT aqs.*, a.name AS asset_name, a.asset_type
             FROM re_asset_quarter_state aqs
             JOIN repe_asset a ON a.asset_id = aqs.asset_id
-            WHERE aqs.fund_id = %s AND aqs.quarter = %s
+            JOIN repe_deal d ON d.deal_id = a.deal_id
+            WHERE d.fund_id = %s AND aqs.quarter = %s AND aqs.scenario_id IS NULL
             ORDER BY a.name
             """,
             (str(fund_id), quarter),

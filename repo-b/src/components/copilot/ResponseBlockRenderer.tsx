@@ -242,6 +242,10 @@ export default function ResponseBlockRenderer({
     );
   }
 
+  if (block.type === "grounding_badge") {
+    return null; // Rendered by winston/ResponseBlockRenderer
+  }
+
   return (
     <section className="rounded-2xl border border-red-400/40 bg-red-500/10 p-4">
       <h3 className="text-sm font-semibold text-bm-text">{block.title || "Assistant error"}</h3>

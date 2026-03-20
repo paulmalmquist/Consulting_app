@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Construction,
   FileBarChart,
+  FileEdit,
   FileText,
   Landmark,
   LayoutDashboard,
@@ -18,6 +19,7 @@ import {
   Radar,
   ReceiptText,
   Scale,
+  Shield,
   Sparkles,
   TrendingUp,
   Users,
@@ -97,6 +99,7 @@ export function buildRepeNavGroups({
         { href: `${base}/capital-calls`, label: "Capital Call Ops", isBase: false, icon: ArrowUpCircle },
         { href: `${base}/distributions`, label: "Distribution Ops", isBase: false, icon: ArrowDownCircle },
         { href: `${base}/fees`, label: "Fees", isBase: false, icon: WalletCards },
+        { href: `${base}/ir-review`, label: "IR Review", isBase: false, icon: FileEdit },
       ],
     },
     {
@@ -144,6 +147,7 @@ export function buildRepeNavGroups({
           icon: CheckCircle2,
           matchPrefixes: [`${base}/controls`],
         },
+        { href: `${base}/ai-audit`, label: "AI Audit", isBase: false, icon: Shield },
       ],
     },
     {

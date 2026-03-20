@@ -10,6 +10,7 @@ import ToolActivityBlock from "./blocks/ToolActivityBlock";
 import WorkflowResultBlock from "./blocks/WorkflowResultBlock";
 import ConfirmationBlock from "./blocks/ConfirmationBlock";
 import ErrorBlock from "./blocks/ErrorBlock";
+import GroundingBadge from "./blocks/GroundingBadge";
 
 export default function ResponseBlockRenderer({
   block,
@@ -53,6 +54,9 @@ export default function ResponseBlockRenderer({
 
     case "error":
       return <ErrorBlock block={block} onRetry={onRetry} />;
+
+    case "grounding_badge":
+      return <GroundingBadge block={block} />;
 
     default:
       return null;

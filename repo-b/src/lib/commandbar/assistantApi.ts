@@ -1121,6 +1121,23 @@ export async function streamAi(input: {
               logSSE("citation", parsed, `chunk=${parsed.chunk_id || parsed.doc_id || "unknown"} score=${parsed.score || "?"}`);
               continue;
             }
+            else if (currentEvent === "grounding") {
+              // D5 Accuracy Scorecard: emit grounding badge as a response block
+              const groundingBlock = {
+                type: "grounding_badge" as const,
+                block_id: `grounding-${Date.now()}`,
+                score: parsed.score ?? 0,
+                label: parsed.label ?? "low",
+                label_text: parsed.label_text ?? "",
+                tool_count: parsed.tool_count ?? 0,
+                firm_data_tools: parsed.firm_data_tools ?? 0,
+                sources: parsed.sources ?? [],
+              };
+              debug.responseBlocks?.push(groundingBlock);
+              logSSE("grounding", { score: parsed.score, label: parsed.label }, `Grounding: ${parsed.label} (${parsed.score})`);
+              input.onResponseBlock?.(groundingBlock);
+              continue;
+            }
             else if (currentEvent === "done") {
               debug.done = parsed;
               // Extract structured trace from done event

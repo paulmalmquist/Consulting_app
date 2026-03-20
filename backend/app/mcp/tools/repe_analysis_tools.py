@@ -12,6 +12,7 @@ from app.mcp.registry import ToolDef, registry
 from app.mcp.schemas.repe_analysis_tools import (
     CompareWaterfallRunsInput,
     NoiVarianceInput,
+    ScanPortfolioUwVsActualInput,
 )
 from app.observability.logger import emit_log
 
@@ -238,6 +239,51 @@ def _noi_variance(ctx: McpContext, inp: NoiVarianceInput) -> dict:
     })
 
 
+def _scan_portfolio_uw_vs_actual(ctx: McpContext, inp: ScanPortfolioUwVsActualInput) -> dict:
+    from app.services.re_uw_vs_actual import compute_portfolio_scorecard
+
+    scorecard = compute_portfolio_scorecard(
+        fund_id=inp.fund_id,
+        quarter=inp.quarter,
+        baseline=inp.baseline,
+    )
+
+    threshold = Decimal(str(inp.threshold_bps)) / Decimal("10000")
+    flagged = []
+    for row in scorecard.get("rows", []):
+        delta = row.get("delta_irr")
+        if delta is not None and abs(delta) >= threshold:
+            risk = "high" if abs(delta) >= Decimal("0.03") else "medium"
+            flagged.append({
+                **row,
+                "risk_flag": risk,
+                "abs_delta_irr": abs(delta),
+            })
+        elif row.get("uw_irr") is None:
+            flagged.append({**row, "risk_flag": "no_baseline", "abs_delta_irr": None})
+
+    flagged.sort(key=lambda r: r.get("abs_delta_irr") or Decimal("0"), reverse=True)
+
+    emit_log(
+        level="info",
+        service="mcp",
+        action="repe.scan_portfolio_uw_vs_actual",
+        message=f"Scanned {len(scorecard.get('rows', []))} investments, flagged {len(flagged)}",
+        context={"fund_id": str(inp.fund_id), "threshold_bps": inp.threshold_bps},
+    )
+
+    return _serialize({
+        "fund_id": str(inp.fund_id),
+        "quarter": inp.quarter,
+        "baseline": inp.baseline,
+        "threshold_bps": inp.threshold_bps,
+        "scanned": len(scorecard.get("rows", [])),
+        "flagged": len(flagged),
+        "results": flagged,
+        "summary": scorecard.get("summary", {}),
+    })
+
+
 # ── Registration ───────────────────────────────────────────────────────────────
 
 
@@ -262,4 +308,14 @@ def register_repe_analysis_tools():
         input_model=NoiVarianceInput,
         handler=_noi_variance,
         tags=frozenset({"repe", "analysis"}),
+    ))
+
+    registry.register(ToolDef(
+        name="repe.scan_portfolio_uw_vs_actual",
+        description="Scan all portfolio investments and return a ranked list of those with IRR variance exceeding a threshold vs their locked underwriting model. Returns risk flags and delta metrics.",
+        module="bm",
+        permission="read",
+        input_model=ScanPortfolioUwVsActualInput,
+        handler=_scan_portfolio_uw_vs_actual,
+        tags=frozenset({"repe", "analysis", "underwriting", "portfolio"}),
     ))
