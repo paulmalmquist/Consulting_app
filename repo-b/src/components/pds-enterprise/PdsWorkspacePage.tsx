@@ -196,29 +196,27 @@ export function PdsWorkspacePage({
         onRolePresetChange={setRolePreset}
       />
 
-      {/* Signals strip */}
-      {sections.includes("signals") ? (
-        <PdsSignalsStrip commandCenter={commandCenter} />
-      ) : null}
-
+      {/* 1. Top Issues — first read (what needs attention right now) */}
       {sections.includes("interventionQueue") ? (
         <PdsInterventionQueue commandCenter={commandCenter} />
       ) : null}
 
-      {/* Financial summary cards */}
+      {/* 2. KPI cards — second read (how are we performing) */}
       {sections.includes("performance") ? (
-        <>
-          <PdsSectionHeader label="Financial Signals" title="Revenue, CI, Backlog & Forecast" />
-          <PdsMetricStrip metrics={commandCenter.metrics_strip ?? []} />
-        </>
+        <PdsMetricStrip metrics={commandCenter.metrics_strip ?? []} />
       ) : (
         <PdsMetricStrip metrics={commandCenter.metrics_strip ?? []} />
       )}
 
-      {/* Market leaderboard */}
+      {/* Signals strip — compact operational context */}
+      {sections.includes("signals") ? (
+        <PdsSignalsStrip commandCenter={commandCenter} />
+      ) : null}
+
+      {/* 3. Market table — main analysis surface */}
       {sections.includes("leaderboard") ? (
         <>
-          <PdsSectionHeader label="Market Leaderboard" title="Ranked Operating View" />
+          <PdsSectionHeader label="Market Analysis" title="Operating Performance by Market" />
           <PdsMarketLeaderboard rows={commandCenter.performance_table?.rows ?? []} />
         </>
       ) : null}
@@ -231,6 +229,12 @@ export function PdsWorkspacePage({
         </>
       ) : null}
 
+      {/* 4. Action Center — execution (who to talk to, what to do) */}
+      {sections.includes("resourceHealth") ? (
+        <PdsResourceHealthPanel resources={commandCenter.resource_health ?? []} timecards={commandCenter.timecard_health ?? []} />
+      ) : null}
+
+      {/* Delivery Risk — projects requiring intervention */}
       {sections.includes("deliveryRisk") ? (
         <>
           <PdsSectionHeader label="Delivery Risk" title="Projects Requiring Intervention" />
@@ -238,13 +242,7 @@ export function PdsWorkspacePage({
         </>
       ) : null}
 
-      {sections.includes("resourceHealth") ? (
-        <>
-          <PdsSectionHeader label="Resource Signals" title="Staffing Pressure & Submission Discipline" />
-          <PdsResourceHealthPanel resources={commandCenter.resource_health ?? []} timecards={commandCenter.timecard_health ?? []} />
-        </>
-      ) : null}
-
+      {/* Client Health */}
       {sections.includes("satisfactionCloseout") ? (
         <>
           <PdsSectionHeader label="Client Health" title="Satisfaction & Closeout Status" />
@@ -252,6 +250,7 @@ export function PdsWorkspacePage({
         </>
       ) : null}
 
+      {/* Forecast */}
       {sections.includes("forecast") ? (
         <>
           <PdsSectionHeader label="Forecast" title="Forecast Trend" />
@@ -259,6 +258,7 @@ export function PdsWorkspacePage({
         </>
       ) : null}
 
+      {/* AI Briefing */}
       {sections.includes("briefing") && commandCenter.briefing ? (
         <>
           <PdsSectionHeader label="AI Executive Briefing" title="Management Intelligence" />

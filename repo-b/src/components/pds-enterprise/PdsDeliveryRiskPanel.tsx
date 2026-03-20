@@ -3,59 +3,62 @@ import React from "react";
 
 import Link from "next/link";
 import type { PdsV2DeliveryRiskItem } from "@/lib/bos-api";
-import { healthBadgeClasses, reasonLabel } from "@/components/pds-enterprise/pdsEnterprise";
+import { reasonLabel } from "@/components/pds-enterprise/pdsEnterprise";
+
+const SEVERITY_BORDER: Record<string, string> = {
+  red: "border-l-pds-signalRed/60",
+  orange: "border-l-pds-signalOrange/50",
+};
+
+const SEVERITY_DOT: Record<string, string> = {
+  red: "bg-pds-signalRed",
+  orange: "bg-pds-signalOrange",
+};
 
 export function PdsDeliveryRiskPanel({ items }: { items: PdsV2DeliveryRiskItem[] }) {
   return (
-    <section className="rounded-3xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="pds-delivery-risk-panel">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-bm-muted2">Delivery Risk</p>
-          <h3 className="text-xl font-semibold">Projects Requiring Intervention</h3>
-        </div>
-        <p className="text-sm text-bm-muted2">Intervene where schedule, commercial exposure, or closeout pressure is building.</p>
-      </div>
-      <div className="mt-4 space-y-3">
+    <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="pds-delivery-risk-panel">
+      <div className="mt-3 space-y-2">
         {items.length ? (
           items.map((item) => (
-            <article key={item.project_id} className="rounded-2xl border border-bm-border/60 bg-[#101922] p-4">
+            <article
+              key={item.project_id}
+              className={`rounded-xl border border-bm-border/50 border-l-2 ${SEVERITY_BORDER[item.severity] || "border-l-bm-border/60"} bg-pds-card/30 p-3`}
+            >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link href={item.href} className="text-base font-semibold text-bm-text hover:underline">
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${SEVERITY_DOT[item.severity] || "bg-bm-muted2"}`} />
+                    <Link href={item.href} className="text-sm font-semibold text-bm-text hover:text-pds-goldText hover:underline">
                       {item.project_name}
                     </Link>
-                    <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${healthBadgeClasses(item.severity)}`}>
-                      {item.severity}
-                    </span>
                   </div>
-                  <p className="mt-1 text-sm text-bm-muted2">
-                    {[item.account_name, item.market_name].filter(Boolean).join(" · ") || "Portfolio delivery watch"}
+                  <p className="mt-0.5 ml-4 text-xs text-bm-muted2">
+                    {[item.account_name, item.market_name].filter(Boolean).join(" \u00B7 ")}
                   </p>
                 </div>
-                <div className="text-right text-sm text-bm-muted2">
-                  <p>Owner: {item.recommended_owner || "Operations lead"}</p>
-                  <p className="mt-1">{item.issue_summary}</p>
+                <p className="text-xs text-bm-muted2">Owner: {item.recommended_owner || "Operations lead"}</p>
+              </div>
+              {item.issue_summary && (
+                <p className="mt-2 ml-4 text-xs text-bm-muted2">{item.issue_summary}</p>
+              )}
+              <div className="mt-2 ml-4 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap gap-1">
+                  {item.reason_codes.map((reason) => (
+                    <span key={`${item.project_id}-${reason}`} className="rounded-md bg-bm-surface/40 px-2 py-0.5 text-[10px] text-bm-muted2">
+                      {reasonLabel(reason)}
+                    </span>
+                  ))}
                 </div>
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-bm-muted2">
-                {item.reason_codes.map((reason) => (
-                  <span key={`${item.project_id}-${reason}`} className="rounded-full bg-bm-surface/40 px-2 py-1">
-                    {reasonLabel(reason)}
-                  </span>
-                ))}
-              </div>
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <p className="text-sm text-bm-text">{item.recommended_action}</p>
-                <Link href={item.href} className="rounded-full border border-bm-border/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] hover:bg-bm-surface/40">
-                  Open Project
-                </Link>
+                {item.recommended_action && (
+                  <span className="text-[11px] font-medium text-pds-signalGreen">{item.recommended_action}</span>
+                )}
               </div>
             </article>
           ))
         ) : (
-          <p className="rounded-2xl border border-bm-border/60 bg-[#101922] p-4 text-sm text-bm-muted2">
-            No projects are currently in orange or red intervention status.
+          <p className="rounded-xl border border-bm-border/60 bg-pds-card/30 p-4 text-sm text-bm-muted2">
+            No projects requiring intervention.
           </p>
         )}
       </div>

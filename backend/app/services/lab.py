@@ -333,17 +333,34 @@ def decide_queue_item(work_item_id: UUID, decision: str, reason: str | None = No
 def list_audit_items(env_id: str | None = None) -> list[dict]:
     """Return audit events formatted for the Lab UI."""
     with get_cursor() as cur:
+        params: tuple[str, ...] = ()
+        where_clause = ""
+        if env_id:
+            cur.execute(
+                """SELECT business_id
+                   FROM app.environments
+                   WHERE env_id = %s::uuid""",
+                (str(env_id),),
+            )
+            env_row = cur.fetchone()
+            business_id = env_row["business_id"] if env_row else None
+            if not business_id:
+                return []
+            where_clause = "WHERE business_id = %s::uuid"
+            params = (str(business_id),)
         cur.execute(
-            """SELECT audit_event_id as id,
-                      created_at as at,
-                      actor,
-                      action,
-                      COALESCE(object_type, 'system') as entity_type,
-                      COALESCE(object_id::text, '') as entity_id,
-                      COALESCE(input_redacted, '{}'::jsonb) as details
-               FROM app.audit_events
-               ORDER BY created_at DESC
-               LIMIT 100"""
+            f"""SELECT audit_event_id as id,
+                       created_at as at,
+                       actor,
+                       action,
+                       COALESCE(object_type, 'system') as entity_type,
+                       COALESCE(object_id::text, '') as entity_id,
+                       COALESCE(input_redacted, '{{}}'::jsonb) as details
+                FROM app.audit_events
+                {where_clause}
+                ORDER BY created_at DESC
+                LIMIT 100""",
+            params,
         )
         return cur.fetchall()
 

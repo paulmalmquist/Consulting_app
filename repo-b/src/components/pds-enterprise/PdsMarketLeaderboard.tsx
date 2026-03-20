@@ -119,6 +119,14 @@ export function PdsMarketLeaderboard({
     });
   }, [rows, filter, sortKey, sortDir]);
 
+  // Identify top 2 worst rows for subtle highlight (only when sorted by risk)
+  const highlightIds = useMemo(() => {
+    if (sortKey !== "risk_score" || sortDir !== "desc") return new Set<string>();
+    return new Set(
+      sorted.filter((r) => riskScore(r) >= 30).slice(0, 2).map((r) => r.entity_id)
+    );
+  }, [sorted, sortKey, sortDir]);
+
   return (
     <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-3" data-testid="pds-market-leaderboard">
       <div className="overflow-x-auto">
@@ -141,7 +149,7 @@ export function PdsMarketLeaderboard({
               const risk = riskScore(row);
               const riskLvl = deriveRiskLevel(risk);
               return (
-                <tr key={row.entity_id} className="border-b border-bm-border/30 last:border-b-0 hover:bg-bm-surface/30 transition">
+                <tr key={row.entity_id} className={`border-b border-bm-border/30 last:border-b-0 hover:bg-bm-surface/30 transition ${highlightIds.has(row.entity_id) ? "bg-pds-signalOrange/[0.04]" : ""}`}>
                   <td className="py-2.5 pr-3">
                     <div className="flex items-center gap-2">
                       <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${signalDotClass(row.health_status)}`} />

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useRepeContext } from "@/lib/repe-context";
 import { listCpDraws, createCpDraw } from "@/lib/bos-api";
 import type { CpDrawRequest } from "@/types/capital-projects";
-import { cn } from "@/components/ui/cn";
+import { cn } from "@/lib/cn";
 
 function formatMoney(value?: string | number | null): string {
   const amount = Number(value ?? 0);
@@ -154,5 +154,8 @@ export default function DrawListPage({ params }: { params: { projectId: string }
         </div>
       )}
     </div>
+  );
+}
+v>
   );
 }

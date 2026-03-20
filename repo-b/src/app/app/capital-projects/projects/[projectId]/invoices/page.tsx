@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRepeContext } from "@/lib/repe-context";
 import { listCpInvoices, uploadCpInvoice } from "@/lib/bos-api";
 import type { CpInvoice } from "@/types/capital-projects";
-import { cn } from "@/components/ui/cn";
+import { cn } from "@/lib/cn";
 
 function formatMoney(value?: string | number | null): string {
   const amount = Number(value ?? 0);
@@ -165,5 +165,8 @@ export default function InvoiceListPage({ params }: { params: { projectId: strin
         </div>
       )}
     </div>
+  );
+}
+v>
   );
 }

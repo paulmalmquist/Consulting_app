@@ -187,6 +187,9 @@ const FUND_DASHBOARD_COLORS = {
 const FUND_PANEL_CLASS =
   "rounded-[22px] border border-[#E2E8F0] bg-[#F8FAFC] shadow-[0_1px_2px_rgba(0,0,0,0.05)]";
 
+const INSTITUTIONAL_PANEL_CLASS =
+  "rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] shadow-[0_1px_2px_rgba(0,0,0,0.04)]";
+
 function toFiniteNumber(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
@@ -647,47 +650,67 @@ function PerformanceDriversCard({
   loading: boolean;
 }) {
   return (
-    <div className={`${FUND_PANEL_CLASS} p-5`} data-testid="performance-drivers">
+    <div className={`${INSTITUTIONAL_PANEL_CLASS} p-4`} data-testid="performance-drivers">
       <NarrativeSectionHeading
         eyebrow="Drivers"
         title="Performance Drivers"
         description="Investment-level attribution highlights where current fund NAV is being built."
       />
-      <div className="mt-4">
+      <div className="mt-3">
         {loading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div key={`driver-skeleton-${index}`} className="animate-pulse rounded-[18px] border border-[#E5E7EB] bg-white px-4 py-4">
-                <div className="h-4 w-40 rounded-full bg-slate-200" />
-                <div className="mt-3 h-2.5 rounded-full bg-slate-200" />
+          <div className="divide-y divide-[#E5E7EB] rounded-md border border-[#E5E7EB] bg-white">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={`driver-skeleton-${index}`} className="animate-pulse px-3 py-2.5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="h-3.5 w-32 rounded bg-slate-200" />
+                  <div className="h-3 w-16 rounded bg-slate-200" />
+                </div>
+                <div className="mt-2 h-[5px] w-full rounded-sm bg-slate-100" />
               </div>
             ))}
           </div>
         ) : drivers.length > 0 ? (
-          <div className="space-y-4">
+          <div className="divide-y divide-[#E5E7EB] rounded-md border border-[#E5E7EB] bg-white">
             {drivers.map((driver) => (
-              <div key={driver.investmentId} className="space-y-2 rounded-[18px] border border-[#E5E7EB] bg-white px-4 py-4 transition-[background-color,border-color] duration-200 hover:border-[#DBEAFE] hover:bg-[#EFF6FF]">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-sm font-medium text-[#0F172A]">{driver.investmentName}</p>
-                  <div className="flex items-center gap-4 text-xs tabular-nums text-[#64748B]">
-                    <span>IRR: {driver.irr != null ? fmtPercent(driver.irr) : "—"}</span>
-                    <span>NAV Contribution: {driver.navContributionPct.toFixed(1)}%</span>
+              <div
+                key={driver.investmentId}
+                className="grid grid-cols-[1fr_auto] items-center gap-x-4 px-3 py-2.5 transition-colors duration-150 hover:bg-[#F1F5F9]"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-baseline gap-3">
+                    <p className="truncate text-[13px] font-medium leading-5 text-[#0F172A]">
+                      {driver.investmentName}
+                    </p>
+                    <span className="shrink-0 text-[11px] tabular-nums text-[#94A3B8]">
+                      {driver.irr != null ? fmtPercent(driver.irr) : "\u2014"} IRR
+                    </span>
+                    <span className="shrink-0 text-[11px] tabular-nums text-[#94A3B8]">
+                      {driver.navContributionPct.toFixed(1)}% NAV
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-[5px] overflow-hidden rounded-sm bg-[#F1F5F9]">
+                    <div
+                      className="h-full rounded-sm transition-[width] duration-500"
+                      style={{
+                        width: `${Math.min(Math.max(driver.barPct, 2), 100)}%`,
+                        backgroundColor: FUND_DASHBOARD_COLORS.realized,
+                      }}
+                    />
                   </div>
                 </div>
-                <HorizontalInsightBar
-                  label="Relative contribution"
-                  valueLabel={fmtMoney(driver.navContributionValue)}
-                  pct={driver.barPct}
-                  color={FUND_DASHBOARD_COLORS.realized}
-                />
+                <span className="text-[13px] font-semibold tabular-nums text-[#0F172A]">
+                  {fmtMoney(driver.navContributionValue)}
+                </span>
               </div>
             ))}
           </div>
         ) : (
-          <NarrativeEmptyState
-            title="Contribution data populates after capital calls and quarter-close runs."
-            detail="This panel stays investment-level to avoid overstating asset-level attribution precision."
-          />
+          <div className="[&>div]:rounded-md">
+            <NarrativeEmptyState
+              title="Contribution data populates after capital calls and quarter-close runs."
+              detail="This panel stays investment-level to avoid overstating asset-level attribution precision."
+            />
+          </div>
         )}
       </div>
     </div>
@@ -742,69 +765,112 @@ function CapitalActivityCard({
   const maxCapitalBase = Math.max(...capitalTimeline.map((point) => Number(point.total_called || 0)), 1);
 
   return (
-    <div className={`${FUND_PANEL_CLASS} p-5`} data-testid="capital-activity">
+    <div className={`${INSTITUTIONAL_PANEL_CLASS} p-4`} data-testid="capital-activity">
       <NarrativeSectionHeading
         eyebrow="Capital Activity"
         title="Capital Activity Timeline"
         description="Cumulative capital movement by quarter keeps deployment and returned capital legible."
       />
-      <div className="mt-4">
+      <div className="mt-2 flex items-center gap-4 text-[10px] text-[#94A3B8]">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2 w-2 rounded-sm" style={{ backgroundColor: FUND_DASHBOARD_COLORS.primary }} />
+          Called
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2 w-2 rounded-sm" style={{ backgroundColor: FUND_DASHBOARD_COLORS.realized }} />
+          Distributed
+        </span>
+      </div>
+      <div className="mt-3">
         {loading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={`capital-skeleton-${index}`} className="animate-pulse rounded-[18px] border border-[#E5E7EB] bg-white px-4 py-4">
-                <div className="h-3 w-16 rounded-full bg-slate-200" />
-                <div className="mt-3 h-2.5 rounded-full bg-slate-200" />
-                <div className="mt-3 h-2.5 rounded-full bg-slate-200" />
-              </div>
-            ))}
-          </div>
-        ) : capitalTimeline.length > 0 ? (
-          <div className="space-y-3">
-            {capitalTimeline.map((point) => (
-              <div
-                key={point.quarter}
-                className="rounded-[18px] border border-[#E5E7EB] bg-white px-4 py-4 transition-[background-color,border-color] duration-200 hover:border-[#DBEAFE] hover:bg-[#EFF6FF]"
-              >
-                <div className="flex items-start gap-3 text-sm">
-                  <span className="w-16 shrink-0 pt-1 text-xs font-medium text-[#64748B]">{point.quarter}</span>
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <span className="w-24 shrink-0 text-[11px] uppercase tracking-[0.12em] text-[#64748B]">Capital Called</span>
-                      <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#E2E8F0]">
-                        <div
-                          className="h-full rounded-full transition-[width] duration-500"
-                          style={{
-                            width: `${Math.min(100, (Number(point.total_called) / maxCapitalBase) * 100)}%`,
-                            backgroundColor: FUND_DASHBOARD_COLORS.primary,
-                          }}
-                        />
-                      </div>
-                      <span className="w-20 text-right font-semibold tabular-nums text-[#0F172A]">{fmtMoney(point.total_called)}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="w-24 shrink-0 text-[11px] uppercase tracking-[0.12em] text-[#64748B]">Distributed</span>
-                      <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#E2E8F0]">
-                        <div
-                          className="h-full rounded-full transition-[width] duration-500"
-                          style={{
-                            width: `${Math.min(100, (Number(point.total_distributed) / maxCapitalBase) * 100)}%`,
-                            backgroundColor: FUND_DASHBOARD_COLORS.realized,
-                          }}
-                        />
-                      </div>
-                      <span className="w-20 text-right font-semibold tabular-nums text-[#0F172A]">{fmtMoney(point.total_distributed)}</span>
-                    </div>
+          <div className="divide-y divide-[#E5E7EB] rounded-md border border-[#E5E7EB] bg-white">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={`capital-skeleton-${index}`} className="animate-pulse px-3 py-2">
+                <div className="flex items-center gap-3">
+                  <div className="h-3 w-14 rounded bg-slate-200" />
+                  <div className="flex-1 space-y-1">
+                    <div className="h-[5px] rounded-sm bg-slate-100" />
+                    <div className="h-[5px] w-3/4 rounded-sm bg-slate-100" />
                   </div>
+                  <div className="h-3 w-14 rounded bg-slate-200" />
                 </div>
               </div>
             ))}
           </div>
+        ) : capitalTimeline.length > 0 ? (
+          <>
+            <div className="divide-y divide-[#E5E7EB] rounded-md border border-[#E5E7EB] bg-white">
+              {capitalTimeline.map((point) => (
+                <div
+                  key={point.quarter}
+                  className="grid grid-cols-[3rem_1fr_4.5rem] items-center gap-x-3 px-3 py-2 transition-colors duration-150 hover:bg-[#F1F5F9]"
+                >
+                  <span className="text-[11px] font-semibold tabular-nums text-[#64748B]">
+                    {point.quarter}
+                  </span>
+                  <div className="space-y-1">
+                    <div className="h-[5px] overflow-hidden rounded-sm bg-[#F1F5F9]">
+                      <div
+                        className="h-full rounded-sm transition-[width] duration-500"
+                        style={{
+                          width: `${Math.min(100, (Number(point.total_called) / maxCapitalBase) * 100)}%`,
+                          backgroundColor: FUND_DASHBOARD_COLORS.primary,
+                        }}
+                      />
+                    </div>
+                    <div className="h-[5px] overflow-hidden rounded-sm bg-[#F1F5F9]">
+                      <div
+                        className="h-full rounded-sm transition-[width] duration-500"
+                        style={{
+                          width: `${Math.min(100, (Number(point.total_distributed) / maxCapitalBase) * 100)}%`,
+                          backgroundColor: FUND_DASHBOARD_COLORS.realized,
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-0.5 text-right">
+                    <p className="text-[11px] font-semibold tabular-nums leading-4 text-[#0F172A]">
+                      {fmtMoney(point.total_called)}
+                    </p>
+                    <p className="text-[11px] tabular-nums leading-4 text-[#059669]">
+                      {fmtMoney(point.total_distributed)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {(() => {
+              const lastPoint = capitalTimeline[capitalTimeline.length - 1];
+              const called = Number(lastPoint.total_called || 0);
+              const distributed = Number(lastPoint.total_distributed || 0);
+              if (called <= 0) return null;
+              const distPct = Math.round((distributed / called) * 100);
+              return (
+                <div className="mt-3 rounded-md bg-[#F1F5F9] px-3 py-2">
+                  <div className="flex items-center justify-between text-[10px] text-[#64748B]">
+                    <span>{distPct}% returned of capital called</span>
+                    <span className="tabular-nums">{fmtMoney(distributed)} / {fmtMoney(called)}</span>
+                  </div>
+                  <div className="mt-1 h-1 overflow-hidden rounded-sm bg-[#E2E8F0]">
+                    <div
+                      className="h-full rounded-sm"
+                      style={{
+                        width: `${Math.min(distPct, 100)}%`,
+                        backgroundColor: FUND_DASHBOARD_COLORS.realized,
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
+          </>
         ) : (
-          <NarrativeEmptyState
-            title="Capital activity will populate after quarter-close runs or capital ledger entries."
-            detail="Each closed quarter adds cumulative called capital and returned capital to the timeline."
-          />
+          <div className="[&>div]:rounded-md">
+            <NarrativeEmptyState
+              title="Capital activity will populate after quarter-close runs or capital ledger entries."
+              detail="Each closed quarter adds cumulative called capital and returned capital to the timeline."
+            />
+          </div>
         )}
       </div>
     </div>
@@ -1737,7 +1803,7 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
         <PortfolioAllocationCard rows={allocationRows} loading={overviewData.loading} />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid items-start gap-3 xl:grid-cols-2">
         <PerformanceDriversCard drivers={performanceDrivers} loading={overviewData.loading} />
         <CapitalActivityCard capitalTimeline={overviewData.capitalTimeline} loading={overviewData.loading} />
       </div>

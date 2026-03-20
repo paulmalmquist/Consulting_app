@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/components/ui/cn";
+import { cn } from "@/lib/cn";
 import type { CpDrawLineItem } from "@/types/capital-projects";
 
 function formatMoney(value?: string | number | null): string {
@@ -121,5 +121,8 @@ export function DrawEditor({ lineItems, editable, onSave }: DrawEditorProps) {
         </table>
       </div>
     </div>
+  );
+}
+v>
   );
 }

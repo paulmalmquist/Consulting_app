@@ -16,9 +16,20 @@ import {
   isCreditEnvironment,
   isLegalOpsEnvironment,
   isMedicalBackofficeEnvironment,
+  isVisualResumeEnvironment,
   resolveEnvironmentOpenPath,
 } from "@/components/lab/environments/constants";
-import { listReV1Funds, getReV2FundQuarterState, ReV2FundQuarterState } from "@/lib/bos-api";
+import {
+  listReV1Funds,
+  getReV2FundQuarterState,
+  getResumeCareerSummary,
+  listResumeProjects,
+  listResumeRoles,
+  type ResumeCareerSummary,
+  type ResumeProject,
+  type ResumeRole,
+  type ReV2FundQuarterState,
+} from "@/lib/bos-api";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -67,7 +78,11 @@ type ContentStats = {
   total: number;
 };
 
-type KPI = { label: string; value: string | number };
+type KPI = {
+  label: string;
+  value: string | number;
+  helper?: string;
+};
 
 type RepeRollupSummary = Pick<ReV2FundQuarterState, "portfolio_nav" | "tvpi" | "dpi"> & {
   weighted_ltv: null;
@@ -105,54 +120,54 @@ function buildRepeKpis(fundCount: number, summary: RepeRollupSummary | null): KP
 function getStaticKpiConfig(industry: string): KPI[] {
   if (isRepeEnvironment(industry)) {
     return [
-      { label: "Active Funds", value: "0" },
-      { label: "Portfolio NAV", value: "—" },
-      { label: "TVPI", value: "—" },
-      { label: "DPI", value: "—" },
-      { label: "Weighted LTV", value: "—" },
+      { label: "Active Funds", value: "0", helper: "Create your first fund to populate this workspace." },
+      { label: "Portfolio NAV", value: "$0", helper: "No portfolio positions have been loaded yet." },
+      { label: "TVPI", value: "N/A", helper: "Performance multiples appear after fund and asset data is loaded." },
+      { label: "DPI", value: "N/A", helper: "Distribution metrics will show once quarter data is available." },
+      { label: "Weighted LTV", value: "N/A", helper: "No debt metrics available for this environment yet." },
     ];
   }
   if (isPdsEnvironment(industry)) {
     return [
-      { label: "Approved Budget", value: "—" },
-      { label: "Committed", value: "—" },
-      { label: "Spent", value: "—" },
-      { label: "EAC", value: "—" },
-      { label: "Variance", value: "—" },
-      { label: "Top Risks", value: "—" },
+      { label: "Approved Budget", value: "N/A", helper: "No budget baseline has been seeded yet." },
+      { label: "Committed", value: "N/A", helper: "Commitments will appear after projects are initialized." },
+      { label: "Spent", value: "N/A", helper: "Cost data has not been loaded for this environment yet." },
+      { label: "EAC", value: "N/A", helper: "Forecasts appear after project financials are available." },
+      { label: "Variance", value: "N/A", helper: "Variance analysis is waiting on a seeded budget and spend." },
+      { label: "Top Risks", value: "N/A", helper: "Risk signals show up once projects and issues are created." },
     ];
   }
   if (isCreditEnvironment(industry)) {
     return [
-      { label: "Active Cases", value: "—" },
-      { label: "Watchlist Cases", value: "—" },
-      { label: "Breaches", value: "—" },
-      { label: "Approved Amount", value: "—" },
-      { label: "Workout Exposure", value: "—" },
+      { label: "Active Cases", value: "0", helper: "No credit cases have been created yet." },
+      { label: "Watchlist Cases", value: "0", helper: "Watchlist activity appears once cases are triaged." },
+      { label: "Breaches", value: "0", helper: "No covenant or policy breaches are recorded yet." },
+      { label: "Approved Amount", value: "$0", helper: "Approvals appear after the first decision is made." },
+      { label: "Workout Exposure", value: "$0", helper: "Workout exposure will populate after distressed cases exist." },
     ];
   }
   if (isLegalOpsEnvironment(industry)) {
     return [
-      { label: "Open Matters", value: "—" },
-      { label: "Deadlines (30d)", value: "—" },
-      { label: "Litigation Exposure", value: "—" },
-      { label: "Legal Spend YTD", value: "—" },
+      { label: "Open Matters", value: "0", helper: "No legal matters have been seeded yet." },
+      { label: "Deadlines (30d)", value: "0", helper: "Upcoming deadlines appear once matters and contracts exist." },
+      { label: "Litigation Exposure", value: "$0", helper: "Exposure is empty until litigation records are loaded." },
+      { label: "Legal Spend YTD", value: "$0", helper: "Spend tracking starts when invoice and matter data exists." },
     ];
   }
   if (isMedicalBackofficeEnvironment(industry)) {
     return [
-      { label: "Properties", value: "—" },
-      { label: "Tenants", value: "—" },
-      { label: "A/R Outstanding", value: "—" },
-      { label: "Compliance Alerts", value: "—" },
-      { label: "Work Orders Open", value: "—" },
+      { label: "Properties", value: "0", helper: "No properties have been added to this environment yet." },
+      { label: "Tenants", value: "0", helper: "Tenant counts appear after the first lease records are loaded." },
+      { label: "A/R Outstanding", value: "$0", helper: "Receivables will populate once billing data is available." },
+      { label: "Compliance Alerts", value: "0", helper: "Alerts appear after inspections and compliance checks run." },
+      { label: "Work Orders Open", value: "0", helper: "No work orders have been created yet." },
     ];
   }
   return [
-    { label: "Documents", value: "—" },
-    { label: "Work Items", value: "—" },
-    { label: "Pending Approvals", value: "—" },
-    { label: "Approval Rate", value: "—" },
+    { label: "Documents", value: "0", helper: "No documents yet — upload resume or portfolio." },
+    { label: "Work Items", value: "0", helper: "No work items yet — create your first project." },
+    { label: "Pending Approvals", value: "0", helper: "No approval queue is active for this environment yet." },
+    { label: "Approval Rate", value: "No metrics available", helper: "Metrics will appear once this workspace has activity." },
   ];
 }
 
@@ -170,16 +185,113 @@ function buildWebsiteKpis(summary: WebsiteAnalyticsSummary): KPI[] {
 
 function getConsultingKpis(): KPI[] {
   return [
-    { label: "Weighted Pipeline", value: "—" },
-    { label: "Forecast (90d)", value: "—" },
-    { label: "Revenue MTD", value: "—" },
-    { label: "Close Rate (90d)", value: "—" },
-    { label: "Outreach (30d)", value: "—" },
-    { label: "Meetings (30d)", value: "—" },
+    { label: "Weighted Pipeline", value: "N/A", helper: "No pipeline has been seeded for this consulting workspace yet." },
+    { label: "Forecast (90d)", value: "N/A", helper: "Forecasting unlocks once opportunities and stages are loaded." },
+    { label: "Revenue MTD", value: "$0", helper: "Revenue appears after work and invoice activity is tracked." },
+    { label: "Close Rate (90d)", value: "N/A", helper: "Close rate requires at least one qualified opportunity." },
+    { label: "Outreach (30d)", value: "0", helper: "No outreach activity has been logged yet." },
+    { label: "Meetings (30d)", value: "0", helper: "Meeting counts show up after client activity is logged." },
   ];
 }
 
+function buildResumeKpis({
+  summary,
+  projects,
+  roles,
+}: {
+  summary: ResumeCareerSummary | null;
+  projects: ResumeProject[];
+  roles: ResumeRole[];
+}): KPI[] {
+  return [
+    {
+      label: "Experience Summary",
+      value: summary ? `${summary.total_years} yrs` : "No metrics yet",
+      helper: summary
+        ? `${summary.total_roles} roles across ${summary.total_companies} companies`
+        : "Add roles to generate an experience summary.",
+    },
+    {
+      label: "Projects / Experience",
+      value: projects.length,
+      helper:
+        projects.length > 0
+          ? `${roles.length} experience entries and case studies are indexed.`
+          : "No projects yet — create your first project or experience entry.",
+    },
+    {
+      label: "Resume / Portfolio",
+      value: "Not uploaded",
+      helper: "No documents yet — upload resume or portfolio.",
+    },
+    {
+      label: "Skills",
+      value: summary?.total_skills ?? 0,
+      helper:
+        summary?.total_skills
+          ? "Skills inventory is available to the assistant."
+          : "No skills inventory yet — seed or add skills to populate this view.",
+    },
+    {
+      label: "Current Role",
+      value: summary?.current_title || "Not set",
+      helper: summary?.current_company || "Add a current role to personalize this environment.",
+    },
+  ];
+}
+
+function buildResumeActivity({
+  summary,
+  roles,
+  projects,
+}: {
+  summary: ResumeCareerSummary | null;
+  roles: ResumeRole[];
+  projects: ResumeProject[];
+}): AuditEvent[] {
+  const items: AuditEvent[] = [];
+  if (summary) {
+    items.push({
+      id: "resume-seeded",
+      at: roles[roles.length - 1]?.created_at || new Date().toISOString(),
+      actor: "system",
+      action: `Resume workspace ready with ${summary.total_roles} roles and ${summary.total_projects} projects`,
+      entity_type: "resume_workspace",
+    });
+  }
+  if (projects[0]) {
+    items.push({
+      id: `resume-project-${projects[0].project_id}`,
+      at: projects[0].created_at,
+      actor: "system",
+      action: `Project indexed: ${projects[0].name}`,
+      entity_type: "resume_project",
+    });
+  }
+  const currentRole = [...roles].reverse().find((role) => role.end_date === null) || roles[roles.length - 1];
+  if (currentRole) {
+    items.push({
+      id: `resume-role-${currentRole.role_id}`,
+      at: currentRole.created_at,
+      actor: "system",
+      action: `Current role surfaced: ${currentRole.title}`,
+      entity_type: "resume_role",
+    });
+  }
+  return items
+    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+    .slice(0, 6);
+}
+
 function getQuickActions(industry: string, envId: string): Array<{ label: string; href: string }> {
+  if (isVisualResumeEnvironment(industry)) {
+    return [
+      { label: "Open Visual Resume", href: `/lab/env/${envId}/resume` },
+      { label: "Resume / Portfolio", href: `/lab/env/${envId}/documents` },
+      { label: "Upload Resume", href: "/lab/upload" },
+      { label: "Review Projects", href: `/lab/env/${envId}/resume` },
+    ];
+  }
   if (isConsultingEnvironment(industry)) {
     return [
       { label: "Opportunity Engine", href: `/lab/env/${envId}/opportunity-engine` },
@@ -255,12 +367,16 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
   const [retrying, setRetrying] = useState(false);
   const [repeFundCount, setRepeFundCount] = useState<number>(0);
   const [repeSummary, setRepeSummary] = useState<RepeRollupSummary | null>(null);
+  const [resumeSummary, setResumeSummary] = useState<ResumeCareerSummary | null>(null);
+  const [resumeProjects, setResumeProjects] = useState<ResumeProject[]>([]);
+  const [resumeRoles, setResumeRoles] = useState<ResumeRole[]>([]);
 
   const router = useRouter();
   const env = environments.find((e) => e.env_id === params.envId);
   const industry = env?.industry_type || env?.industry || "";
   const businessId = env?.business_id;
   const isWebsite = isWebsiteEnvironment(industry);
+  const isResume = isVisualResumeEnvironment(industry);
 
   useEffect(() => {
     selectEnv(params.envId);
@@ -310,6 +426,31 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
       .then(setDepartments)
       .catch(() => null);
   }, [businessId, params.envId]);
+
+  useEffect(() => {
+    if (!isResume) {
+      setResumeSummary(null);
+      setResumeProjects([]);
+      setResumeRoles([]);
+      return;
+    }
+    const bid = businessId || undefined;
+    Promise.all([
+      getResumeCareerSummary(params.envId, bid),
+      listResumeProjects(params.envId, bid),
+      listResumeRoles(params.envId, bid),
+    ])
+      .then(([summary, projects, roles]) => {
+        setResumeSummary(summary);
+        setResumeProjects(projects);
+        setResumeRoles(roles);
+      })
+      .catch(() => {
+        setResumeSummary(null);
+        setResumeProjects([]);
+        setResumeRoles([]);
+      });
+  }, [isResume, params.envId, businessId]);
 
   // Load website-specific analytics
   useEffect(() => {
@@ -399,13 +540,27 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
   const isConsulting = isConsultingEnvironment(industry);
 
   const kpis: KPI[] =
-    isConsulting
+    isResume
+      ? buildResumeKpis({ summary: resumeSummary, projects: resumeProjects, roles: resumeRoles })
+      : isConsulting
       ? getConsultingKpis()
       : isWebsite && analyticsSummary
       ? buildWebsiteKpis(analyticsSummary)
       : isRepe
       ? buildRepeKpis(repeFundCount, repeSummary)
       : getStaticKpiConfig(industry);
+
+  const recentActivity = (() => {
+    if (!isResume) return auditEvents;
+    const combined = [...auditEvents, ...buildResumeActivity({ summary: resumeSummary, roles: resumeRoles, projects: resumeProjects })];
+    const deduped = new Map<string, AuditEvent>();
+    combined.forEach((event) => {
+      if (!deduped.has(event.id)) deduped.set(event.id, event);
+    });
+    return [...deduped.values()]
+      .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+      .slice(0, 6);
+  })();
 
   const quickActions = [
     { label: "Executive Command Center", href: `/lab/env/${params.envId}/ecc` },
@@ -453,6 +608,9 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
               <CardContent className="py-4">
                 <p className="text-xs text-bm-muted2 uppercase tracking-[0.1em]">{kpi.label}</p>
                 <p className="text-2xl font-semibold mt-1 truncate">{kpi.value}</p>
+                {kpi.helper ? (
+                  <p className="mt-2 text-xs leading-relaxed text-bm-muted min-h-[2.5rem]">{kpi.helper}</p>
+                ) : null}
               </CardContent>
             </Card>
           ))}
@@ -532,11 +690,15 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
           <h2 className="text-xs uppercase tracking-[0.12em] text-bm-muted2 mb-3">Recent Activity</h2>
           <Card>
             <CardContent>
-              {auditEvents.length === 0 ? (
-                <p className="text-sm text-bm-muted py-4 text-center">No recent activity.</p>
+              {recentActivity.length === 0 ? (
+                <p className="text-sm text-bm-muted py-4 text-center">
+                  {isResume
+                    ? "No recent activity yet. Resume roles, projects, and uploads will appear here as they are added."
+                    : "No recent activity yet."}
+                </p>
               ) : (
                 <ul className="divide-y divide-bm-border/40">
-                  {auditEvents.map((event) => (
+                  {recentActivity.map((event) => (
                     <li key={event.id} className="py-2.5 text-sm">
                       <span className="font-medium text-bm-text">{event.action}</span>
                       <span className="text-bm-muted"> · {event.actor}</span>

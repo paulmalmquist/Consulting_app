@@ -140,6 +140,7 @@ _(This section is appended by the research-architect after each successful inges
 - The OpenClaw gateway is managed through the launchd service again on this machine. Use `openclaw gateway stop` and `openclaw gateway start` for reloads instead of killing the port manually.
 - Proposal approvals currently use Lobster approval gates and staged handoff files rather than Telegram-native host-exec approval buttons. This build does not expose a first-class Telegram `execApprovals` surface like Discord.
 - If an old Telegram DM session keeps reporting `openai/gpt-5.1-codex` after the Codex-first cutover, send `/reset` in that chat so the dispatcher session picks up the new model config.
+- Visual Resume environments can have meaningful data in `resume_roles`, `resume_skills`, and `resume_projects` even when the generic `/lab/env/[envId]` shell looks empty. If the page shows blank admin-style KPI cards, check whether the env is `visual_resume` and surface the resume summary/projects/roles instead of relying on generic document/work-item placeholders.
 - Audit note (2026-03-14): legacy direct-DB Next routes in `repo-b/src/app/api/re/v1/*` and `repo-b/src/app/api/v1/environments/*` should reuse `repo-b/src/lib/server/db.ts` and shared query helpers instead of re-declaring file-local `getPool()` / `resolveBusinessId()` logic.
 - Audit note (2026-03-14): Lab/Data Studio pages under `repo-b/src/app/lab/env/[envId]/...` have repeated `API_BASE` + `qs()` + account-bootstrap fetch patterns. New pages in that surface should land on a shared hook/client, not another page-local copy.
 - Audit note (2026-03-14): assistant response rendering is now split across both `repo-b/src/components/copilot/` and `repo-b/src/components/winston/`. Before adding a third assistant surface, extract shared response blocks or add mirrored tests so charts/tables/confirmations do not drift silently.
@@ -1750,3 +1751,73 @@ When adding a new domain that bridges existing ones, check these integration poi
 7. **Scenarios**: Can this data feed scenario overrides? Map fields to re_model_override keys.
 8. **Excel**: Should users edit this in Excel? Ensure BM_PULL/BM_PUSH work against the tables.
 9. **MCP**: Should Winston automate workflows? Register tools in the MCP registry.
+
+---
+
+## Executive Command Surface Design (PDS Redesign Lessons)
+
+When converting a data-heavy dashboard into an executive decision surface:
+
+### Color severity must be earned, not default
+- **Critical (red)**: Reserve for genuinely critical items. If >30% of cards are red, nothing is critical.
+- **Warning (amber/orange)**: The default severity for items needing attention.
+- **Neutral (gray/dim border)**: The default for all non-problem states.
+- Never use colored background fills for KPI cards. Use neutral backgrounds with a left accent stripe to communicate tone. The value itself should dominate — not the card's background color.
+
+### Layout hierarchy maps to decision sequence
+The order of sections must match how a leader scans a page:
+1. **What's wrong right now?** (Top issues strip — 3-5 bullets max)
+2. **How are we performing?** (KPI diagnostics — neutral cards, small variance indicators)
+3. **Where specifically?** (Market table — sortable, worst-first, subtle row highlights)
+4. **Who do I talk to?** (Action center — name + issue + impact + suggested action)
+5. **Deep context** (AI briefing, forecast, client health — below the fold)
+
+### The "action card" format
+Resource/staffing cards become decision-ready when they contain four fields:
+- **Name**: Who
+- **Issue**: What's wrong (e.g., "Low utilization (43%) + 2 delinquent timecards")
+- **Impact**: Why it matters (e.g., "CI miss risk")
+- **Action**: What to do (e.g., "Review allocation")
+
+Without the impact and action fields, a resource card is just data — not a decision surface.
+
+### Signal strips should be compact, not chatty
+- Remove "all clear" signals (green checkmarks). Leaders scan for problems, not confirmations.
+- Collapse similar items (e.g., 6 delinquent timecards across 3 resources → one line).
+- Use terse labels: "3 markets below plan" not "⚠ 3 markets are currently below revenue plan".
+- No background fill — border-only pills at ~11px font keep the strip visually subordinate.
+
+### The `toneClasses()` pattern
+A shared function that maps tone → CSS classes is the right architecture, but it must default to neutral:
+```
+danger  → neutral bg + red accent stripe (not red bg)
+warn    → neutral bg + orange accent stripe
+positive → neutral bg + green accent stripe
+default → neutral bg + gold accent stripe
+```
+The previous version used `bg-pds-signalRed/10` for danger, creating a wall of red cards when multiple KPIs were below plan.
+
+## WinstonShell Layout System (Sidebar + Content Grid)
+
+### Sidebar width is set in one place
+`WinstonShell.tsx` defines the desktop sidebar width via CSS Grid column templates:
+```
+xl:grid-cols-[288px_minmax(0,1fr)]           // without rail
+xl:grid-cols-[288px_minmax(0,1fr)_280px]     // with rail
+```
+`RepeSidebarNav.tsx` has no width — it inherits from the grid column. To change sidebar width, only edit the grid template values in WinstonShell.
+
+### Content centering within CSS Grid cells
+To constrain main content width without breaking the grid:
+```
+<main className="... xl:max-w-[1320px] xl:mx-auto">
+```
+The `xl:` prefix keeps mobile/tablet full-width. The `mx-auto` centers within the `minmax(0,1fr)` cell. This only visually activates when the viewport is wide enough that the grid cell exceeds 1320px (roughly 1920px+ viewport).
+
+### Workspace name text handling
+Use `line-clamp-2 leading-snug` instead of `truncate` for primary identity labels (workspace name). This allows 2-line wrapping with ellipsis only at line 2, keeping the name readable. Reserve `truncate` for nav item labels where single-line clip is acceptable.
+
+### Responsive breakpoint ownership
+- Mobile (<768px): single column, drawer sidebar (`w-72`), bottom nav
+- Tablet (768-1279px): compact icon rail (`76px`), no right rail
+- Desktop (>=1280px): full sidebar (`288px`), optional right rail (`280px`), content max-width

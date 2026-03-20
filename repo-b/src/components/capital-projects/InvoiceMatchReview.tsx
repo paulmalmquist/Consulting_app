@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/components/ui/cn";
+import { cn } from "@/lib/cn";
 import type { CpInvoiceLineItem, CpDrawLineItem } from "@/types/capital-projects";
 
 function confidenceColor(confidence: number): string {
@@ -96,5 +96,8 @@ export function InvoiceMatchReview({ invoiceLines, drawLines, onOverride, onConf
         })}
       </div>
     </div>
+  );
+}
+v>
   );
 }

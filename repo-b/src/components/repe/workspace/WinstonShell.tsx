@@ -4,7 +4,7 @@
  * WinstonShell — The One Layout System
  *
  * Three structural zones:
- *   Desktop (≥ 1280px):  | Sidebar 240px | Main 900–1fr | Context Rail 300px |
+ *   Desktop (≥ 1280px):  | Sidebar 288px | Main (max 1320px, centered) | Context Rail 280px |
  *   Tablet  (768–1279px): | Compact icon rail | Main full-width | Rail as right sheet |
  *   Mobile  (< 768px):   | Main full-width | Bottom nav | Rail / Winston as bottom sheet |
  *
@@ -247,8 +247,8 @@ export function WinstonShell({
           /* Desktop grid */
           "xl:grid xl:gap-8 xl:px-8 xl:py-8",
           hasRail
-            ? "xl:grid-cols-[220px_minmax(0,1fr)_280px]"
-            : "xl:grid-cols-[220px_minmax(0,1fr)]",
+            ? "xl:grid-cols-[288px_minmax(0,1fr)_280px]"
+            : "xl:grid-cols-[288px_minmax(0,1fr)]",
           /* Mobile: padding-bottom for bottom nav */
           hasMobileNav && "pb-20 md:pb-0 xl:pb-0"
         )}
@@ -274,7 +274,7 @@ export function WinstonShell({
         </aside>
 
         {/* ── Main workspace ── */}
-        <main className="min-w-0 px-4 py-4 md:px-0 md:py-0 xl:px-0 xl:py-0">
+        <main className="min-w-0 px-4 py-4 md:px-0 md:py-0 xl:px-0 xl:py-0 xl:max-w-[1320px] xl:mx-auto">
           {children}
         </main>
 

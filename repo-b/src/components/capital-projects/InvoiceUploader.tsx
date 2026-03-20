@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { cn } from "@/components/ui/cn";
+import { cn } from "@/lib/cn";
 
 interface InvoiceUploaderProps {
   onUpload: (files: File[]) => Promise<void>;
@@ -55,5 +55,8 @@ export function InvoiceUploader({ onUpload, disabled }: InvoiceUploaderProps) {
       </label>
       <p className="mt-2 text-[10px] text-bm-muted2">PDF, PNG, or JPEG — OCR will extract invoice data automatically</p>
     </div>
+  );
+}
+v>
   );
 }

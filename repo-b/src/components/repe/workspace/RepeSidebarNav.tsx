@@ -33,7 +33,7 @@ export function RepeSidebarNav({
 
   return (
     <div
-      className="rounded-[30px] border border-bm-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-3.5 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.8)]"
+      className="rounded-[30px] border border-bm-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-4 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.8)]"
       data-testid="repe-sidebar"
     >
       <nav
@@ -41,7 +41,7 @@ export function RepeSidebarNav({
         data-testid="repe-left-nav"
         aria-label="REPE navigation"
       >
-        <div className="rounded-[22px] border border-bm-border/60 bg-bm-surface/20 px-3.5 py-3">
+        <div className="rounded-[22px] border border-bm-border/60 bg-bm-surface/20 px-4 py-3.5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-bm-muted2">
             Workspace
           </p>
@@ -50,7 +50,7 @@ export function RepeSidebarNav({
               <Building2 size={16} className="text-bm-muted2" aria-hidden="true" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-bm-text">{envLabel}</p>
+              <p className="line-clamp-2 text-sm font-semibold leading-snug text-bm-text">{envLabel}</p>
               <p className="text-[11px] text-bm-muted2">Real Estate Private Equity</p>
             </div>
             <Landmark size={14} className="shrink-0 text-bm-muted2" aria-hidden="true" />

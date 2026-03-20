@@ -180,6 +180,33 @@ def test_health_includes_content_count(monkeypatch):
     assert health["crm_count"] == 8
 
 
+def test_lab_audit_scopes_to_environment_business(monkeypatch):
+    from app.services import lab as lab_svc
+
+    fake_cur = SimpleCursor()
+    fake_cur.push([{"business_id": BUSINESS_ID}])  # env -> business lookup
+    fake_cur.push(
+        [
+            {
+                "id": str(uuid4()),
+                "at": "2026-03-20T16:00:00Z",
+                "actor": "system",
+                "action": "resume.seeded",
+                "entity_type": "resume_workspace",
+                "entity_id": "",
+                "details": {},
+            }
+        ]
+    )
+    monkeypatch.setattr(lab_svc, "get_cursor", lambda: cursor_ctx(fake_cur))
+
+    rows = lab_svc.list_audit_items(ENV_ID)
+
+    assert len(rows) == 1
+    assert "FROM app.environments" in fake_cur.queries[0]
+    assert "WHERE business_id = %s::uuid" in fake_cur.queries[1]
+
+
 def test_floyorker_seeder_creates_ranking_lists(monkeypatch):
     from app.services import website_seeder as seeder
 

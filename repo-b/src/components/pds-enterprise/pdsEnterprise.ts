@@ -72,10 +72,11 @@ export function formatDate(value?: string | null): string {
   }).format(parsed);
 }
 
+/** Diagnostic card style: neutral base, severity communicated via accent stripe only. */
 export function toneClasses(tone?: string): string {
-  if (tone === "danger") return "border-pds-signalRed/30 bg-pds-signalRed/10 text-pds-signalRed";
-  if (tone === "warn") return "border-pds-signalOrange/30 bg-pds-signalOrange/10 text-pds-signalOrange";
-  if (tone === "positive") return "border-pds-signalGreen/30 bg-pds-signalGreen/10 text-pds-signalGreen";
+  if (tone === "danger") return "border-pds-signalRed/20 bg-pds-card/30 text-bm-text";
+  if (tone === "warn") return "border-pds-signalOrange/20 bg-pds-card/30 text-bm-text";
+  if (tone === "positive") return "border-pds-signalGreen/20 bg-pds-card/30 text-bm-text";
   return "border-pds-divider bg-pds-card/30 text-bm-text";
 }
 

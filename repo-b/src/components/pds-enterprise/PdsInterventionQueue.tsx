@@ -1,7 +1,6 @@
 "use client";
 import React from "react";
 
-import Link from "next/link";
 import type {
   PdsV2CommandCenter,
   PdsV2DeliveryRiskItem,
@@ -19,11 +18,18 @@ type InterventionItem = {
   href?: string;
 };
 
-const CATEGORY_BADGE: Record<InterventionItem["category"], { label: string; className: string }> = {
-  delivery: { label: "Delivery", className: "bg-pds-signalRed/15 text-pds-signalRed" },
-  timecard: { label: "Timecard", className: "bg-pds-signalOrange/15 text-pds-signalOrange" },
-  satisfaction: { label: "Client", className: "bg-pds-signalYellow/15 text-pds-signalYellow" },
-  closeout: { label: "Closeout", className: "bg-pds-signalOrange/15 text-pds-signalOrange" },
+const CATEGORY_LABEL: Record<InterventionItem["category"], string> = {
+  delivery: "Delivery",
+  timecard: "Timecard",
+  satisfaction: "Client",
+  closeout: "Closeout",
+};
+
+const CATEGORY_DOT: Record<InterventionItem["category"], string> = {
+  delivery: "bg-pds-signalRed",
+  timecard: "bg-pds-signalOrange",
+  satisfaction: "bg-pds-signalYellow",
+  closeout: "bg-pds-signalOrange",
 };
 
 function computeInterventions(cc: PdsV2CommandCenter): InterventionItem[] {
@@ -49,8 +55,8 @@ function computeInterventions(cc: PdsV2CommandCenter): InterventionItem[] {
         id: `timecard-${t.resource_id || t.resource_name}`,
         category: "timecard",
         priority: t.delinquent_count >= 3 ? 4 : 3,
-        title: `Timecard delinquency — ${t.resource_name}`,
-        detail: `${t.delinquent_count} delinquent submissions, ${t.overdue_hours} overdue hours`,
+        title: `${t.resource_name}`,
+        detail: `${t.delinquent_count} delinquent timecard${t.delinquent_count > 1 ? "s" : ""}`,
       });
     });
 
@@ -61,8 +67,8 @@ function computeInterventions(cc: PdsV2CommandCenter): InterventionItem[] {
         id: `satisfaction-${s.account_id}`,
         category: "satisfaction",
         priority: s.risk_state === "red" ? 4 : 3,
-        title: `Client risk — ${s.account_name}`,
-        detail: `Score ${Number(s.average_score).toFixed(1)}, trend ${Number(s.trend_delta) >= 0 ? "+" : ""}${Number(s.trend_delta).toFixed(1)}`,
+        title: s.account_name,
+        detail: `Client score ${Number(s.average_score).toFixed(1)}`,
       });
     });
 
@@ -73,49 +79,66 @@ function computeInterventions(cc: PdsV2CommandCenter): InterventionItem[] {
         id: `closeout-${c.project_id}`,
         category: "closeout",
         priority: c.blocker_count >= 2 ? 4 : 3,
-        title: `Delayed closeout — ${c.project_name}`,
-        detail: `${c.blocker_count} blockers, ${c.closeout_aging_days} days aging`,
+        title: c.project_name,
+        detail: `${c.blocker_count} blocker${c.blocker_count !== 1 ? "s" : ""}, ${c.closeout_aging_days}d aging`,
         href: c.href,
       });
     });
 
-  return items.sort((a, b) => b.priority - a.priority).slice(0, 8);
+  return items.sort((a, b) => b.priority - a.priority).slice(0, 5);
 }
 
 export function PdsInterventionQueue({ commandCenter }: { commandCenter: PdsV2CommandCenter }) {
   const items = computeInterventions(commandCenter);
   if (!items.length) return null;
 
+  // Group timecards into a single line if multiple
+  const timecardItems = items.filter((i) => i.category === "timecard");
+  const otherItems = items.filter((i) => i.category !== "timecard");
+
   return (
-    <section className="rounded-3xl border border-pds-signalRed/20 bg-pds-signalRed/5 p-4" data-testid="pds-intervention-queue">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-pds-signalRed/70">Intervention Queue</p>
-          <h3 className="text-lg font-semibold">Highest Priority Actions</h3>
-        </div>
-        <p className="text-xs text-bm-muted2">{items.length} items requiring attention</p>
+    <section
+      className="rounded-xl border border-pds-signalOrange/20 bg-pds-card/40 px-4 py-3"
+      data-testid="pds-intervention-queue"
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-pds-signalOrange text-sm">&#9888;</span>
+        <h3 className="text-sm font-semibold text-bm-text">
+          {items.length} issue{items.length !== 1 ? "s" : ""} need attention
+        </h3>
       </div>
-      <div className="mt-3 space-y-2">
-        {items.map((item) => {
-          const badge = CATEGORY_BADGE[item.category];
-          const inner = (
-            <div className="flex items-start gap-3 rounded-xl border border-bm-border/40 bg-bm-surface/20 px-4 py-3 transition hover:bg-bm-surface/30">
-              <span className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${badge.className}`}>
-                {badge.label}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{item.title}</p>
-                <p className="mt-0.5 text-xs text-bm-muted2">{item.detail}</p>
-              </div>
-            </div>
-          );
-          return item.href ? (
-            <Link key={item.id} href={item.href}>{inner}</Link>
-          ) : (
-            <div key={item.id}>{inner}</div>
-          );
-        })}
-      </div>
+      <ul className="mt-2 space-y-1.5">
+        {otherItems.map((item) => (
+          <li key={item.id} className="flex items-start gap-2 text-sm">
+            <span className={`mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${CATEGORY_DOT[item.category]}`} />
+            <span className="text-bm-text">
+              <span className="font-medium">{item.title}</span>
+              <span className="text-bm-muted2"> — {item.detail}</span>
+            </span>
+          </li>
+        ))}
+        {timecardItems.length > 0 && (
+          <li className="flex items-start gap-2 text-sm">
+            <span className={`mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${CATEGORY_DOT.timecard}`} />
+            <span className="text-bm-text">
+              {timecardItems.length === 1 ? (
+                <>
+                  <span className="font-medium">{timecardItems[0].title}</span>
+                  <span className="text-bm-muted2"> — {timecardItems[0].detail}</span>
+                </>
+              ) : (
+                <>
+                  <span className="font-medium">{timecardItems.reduce((s, t) => {
+                    const count = parseInt(t.detail) || 1;
+                    return s + count;
+                  }, 0)} delinquent timecards</span>
+                  <span className="text-bm-muted2"> across {timecardItems.length} resources</span>
+                </>
+              )}
+            </span>
+          </li>
+        )}
+      </ul>
     </section>
   );
 }

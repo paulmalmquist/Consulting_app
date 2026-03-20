@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/components/ui/cn";
+import { cn } from "@/lib/cn";
 import type { CpDrawRequest } from "@/types/capital-projects";
 
 function statusColor(status: string): string {
@@ -59,5 +59,8 @@ export function DrawTimeline({ draws }: { draws: CpDrawRequest[] }) {
         </div>
       ))}
     </div>
+  );
+}
+v>
   );
 }

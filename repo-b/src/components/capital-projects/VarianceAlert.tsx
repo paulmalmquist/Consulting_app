@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/components/ui/cn";
+import { cn } from "@/lib/cn";
 import type { DrawVarianceFlag } from "@/types/capital-projects";
 
 function severityStyles(severity: string) {
@@ -51,5 +51,8 @@ export function VarianceAlert({ flags }: { flags: DrawVarianceFlag[] }) {
         ))}
       </div>
     </div>
+  );
+}
+v>
   );
 }

@@ -15,7 +15,7 @@ import {
   generateCpG702,
 } from "@/lib/bos-api";
 import type { CpDrawRequest, CpDrawLineItem, DrawVarianceFlag } from "@/types/capital-projects";
-import { cn } from "@/components/ui/cn";
+import { cn } from "@/lib/cn";
 
 function formatMoney(value?: string | number | null): string {
   const amount = Number(value ?? 0);
@@ -394,5 +394,8 @@ export default function DrawDetailPage({ params }: { params: { projectId: string
         </div>
       )}
     </div>
+  );
+}
+v>
   );
 }

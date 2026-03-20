@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/components/ui/cn";
+import { cn } from "@/lib/cn";
 import type { DrawStatus } from "@/types/capital-projects";
 
 interface ApprovalWorkflowProps {
@@ -68,5 +68,8 @@ export function ApprovalWorkflow({
       )}
       {status === "submitted_to_lender" && btn("Mark as Funded", "funded", onMarkFunded, "cyan")}
     </div>
+  );
+}
+v>
   );
 }
