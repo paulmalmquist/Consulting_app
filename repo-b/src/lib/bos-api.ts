@@ -8357,8 +8357,13 @@ export function markCpDrawFunded(projectId: string, drawId: string, envId?: stri
   return bosFetch(`/api/capital-projects/v1/projects/${projectId}/draws/${drawId}/mark-funded`, { method: "POST", params: _cpParams(envId, businessId) });
 }
 
-export function generateCpG702(projectId: string, drawId: string, envId?: string, businessId?: string): Promise<Blob> {
-  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/draws/${drawId}/generate-g702`, { method: "POST", params: _cpParams(envId, businessId), rawResponse: true }) as Promise<Blob>;
+export async function generateCpG702(projectId: string, drawId: string, envId?: string, businessId?: string): Promise<Blob> {
+  const params = _cpParams(envId, businessId);
+  const qs = Object.entries(params).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v!)}`).join("&");
+  const url = `${_bosConfig.origin}${_bosConfig.proxyPrefix}/api/capital-projects/v1/projects/${projectId}/draws/${drawId}/generate-g702${qs ? `?${qs}` : ""}`;
+  const res = await fetch(url, { method: "POST", credentials: "include" });
+  if (!res.ok) throw new Error(`G702 generation failed: ${res.status}`);
+  return res.blob();
 }
 
 export function uploadCpInvoice(projectId: string, file: File, drawRequestId?: string, envId?: string, businessId?: string): Promise<{ invoice: import("@/types/capital-projects").CpInvoice; ocr: Record<string, unknown>; match_result: Record<string, unknown> | null }> {
