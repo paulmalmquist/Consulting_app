@@ -8311,6 +8311,102 @@ export function approveCpPayApp(projectId: string, payAppId: string, envId?: str
   return bosFetch(`/api/capital-projects/v1/projects/${projectId}/pay-apps/${payAppId}/approve`, { method: "POST", params: _cpParams(envId, businessId) });
 }
 
+export function getCpPayAppVarianceAnalysis(projectId: string, envId?: string, businessId?: string): Promise<import("@/types/capital-projects").VarianceAnalysis> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/pay-apps/variance-analysis`, { params: _cpParams(envId, businessId) });
+}
+
+// ── Draw Management ─────────────────────────────────────────────
+
+export function createCpDraw(projectId: string, body: { title?: string; billing_period_start?: string; billing_period_end?: string }, envId?: string, businessId?: string): Promise<import("@/types/capital-projects").CpDrawRequest> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/draws`, { method: "POST", body: JSON.stringify(body), params: _cpParams(envId, businessId) });
+}
+
+export function listCpDraws(projectId: string, envId?: string, businessId?: string): Promise<import("@/types/capital-projects").CpDrawRequest[]> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/draws`, { params: _cpParams(envId, businessId) });
+}
+
+export function getCpDraw(projectId: string, drawId: string, envId?: string, businessId?: string): Promise<import("@/types/capital-projects").CpDrawRequest> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/draws/${drawId}`, { params: _cpParams(envId, businessId) });
+}
+
+export function updateCpDrawLineItems(projectId: string, drawId: string, items: Array<{ line_item_id: string; current_draw: string; materials_stored: string; override_reason?: string }>, envId?: string, businessId?: string): Promise<import("@/types/capital-projects").CpDrawRequest> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/draws/${drawId}/line-items`, { method: "PUT", body: JSON.stringify({ items }), params: _cpParams(envId, businessId) });
+}
+
+export function submitCpDraw(projectId: string, drawId: string, envId?: string, businessId?: string): Promise<import("@/types/capital-projects").CpDrawRequest> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/draws/${drawId}/submit`, { method: "POST", params: _cpParams(envId, businessId) });
+}
+
+export function approveCpDraw(projectId: string, drawId: string, actor: string, envId?: string, businessId?: string): Promise<import("@/types/capital-projects").CpDrawRequest> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/draws/${drawId}/approve`, { method: "POST", body: JSON.stringify({ actor }), params: _cpParams(envId, businessId) });
+}
+
+export function rejectCpDraw(projectId: string, drawId: string, actor: string, rejection_reason: string, envId?: string, businessId?: string): Promise<import("@/types/capital-projects").CpDrawRequest> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/draws/${drawId}/reject`, { method: "POST", body: JSON.stringify({ actor, rejection_reason }), params: _cpParams(envId, businessId) });
+}
+
+export function requestCpDrawRevision(projectId: string, drawId: string, envId?: string, businessId?: string): Promise<import("@/types/capital-projects").CpDrawRequest> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/draws/${drawId}/request-revision`, { method: "POST", params: _cpParams(envId, businessId) });
+}
+
+export function submitCpDrawToLender(projectId: string, drawId: string, actor: string, envId?: string, businessId?: string): Promise<import("@/types/capital-projects").CpDrawRequest> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/draws/${drawId}/submit-to-lender`, { method: "POST", body: JSON.stringify({ actor }), params: _cpParams(envId, businessId) });
+}
+
+export function markCpDrawFunded(projectId: string, drawId: string, envId?: string, businessId?: string): Promise<import("@/types/capital-projects").CpDrawRequest> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/draws/${drawId}/mark-funded`, { method: "POST", params: _cpParams(envId, businessId) });
+}
+
+export function generateCpG702(projectId: string, drawId: string, envId?: string, businessId?: string): Promise<Blob> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/draws/${drawId}/generate-g702`, { method: "POST", params: _cpParams(envId, businessId), rawResponse: true }) as Promise<Blob>;
+}
+
+export function uploadCpInvoice(projectId: string, file: File, drawRequestId?: string, envId?: string, businessId?: string): Promise<{ invoice: import("@/types/capital-projects").CpInvoice; ocr: Record<string, unknown>; match_result: Record<string, unknown> | null }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (envId) formData.append("env_id", envId);
+  if (businessId) formData.append("business_id", businessId);
+  if (drawRequestId) formData.append("draw_request_id", drawRequestId);
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/invoices/upload`, { method: "POST", body: formData });
+}
+
+export function listCpInvoices(projectId: string, envId?: string, businessId?: string): Promise<import("@/types/capital-projects").CpInvoice[]> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/invoices`, { params: _cpParams(envId, businessId) });
+}
+
+export function getCpInvoice(invoiceId: string, envId?: string, businessId?: string): Promise<import("@/types/capital-projects").CpInvoice> {
+  return bosFetch(`/api/capital-projects/v1/invoices/${invoiceId}`, { params: _cpParams(envId, businessId) });
+}
+
+export function overrideCpInvoiceMatch(invoiceId: string, body: { invoice_line_id: string; draw_line_item_id: string; actor?: string }, envId?: string, businessId?: string): Promise<unknown> {
+  return bosFetch(`/api/capital-projects/v1/invoices/${invoiceId}/match-override`, { method: "POST", body: JSON.stringify(body), params: _cpParams(envId, businessId) });
+}
+
+export function assignCpInvoiceToDraw(invoiceId: string, drawRequestId: string, envId?: string, businessId?: string): Promise<import("@/types/capital-projects").CpInvoice> {
+  return bosFetch(`/api/capital-projects/v1/invoices/${invoiceId}/assign-to-draw`, { method: "POST", body: JSON.stringify({ draw_request_id: drawRequestId }), params: _cpParams(envId, businessId) });
+}
+
+export function createCpInspection(projectId: string, body: { inspector_name: string; inspection_date: string; inspection_type?: string; draw_request_id?: string; overall_pct_complete?: number; findings?: string; passed?: boolean }, envId?: string, businessId?: string): Promise<import("@/types/capital-projects").CpInspection> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/inspections`, { method: "POST", body: JSON.stringify(body), params: _cpParams(envId, businessId) });
+}
+
+export function listCpInspections(projectId: string, envId?: string, businessId?: string): Promise<import("@/types/capital-projects").CpInspection[]> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/inspections`, { params: _cpParams(envId, businessId) });
+}
+
+export function getCpDrawPortfolioSummary(envId?: string, businessId?: string): Promise<import("@/types/capital-projects").DrawPortfolioSummary> {
+  return bosFetch(`/api/capital-projects/v1/draw-portfolio-summary`, { params: _cpParams(envId, businessId) });
+}
+
+export function getCpBudgetVsActual(projectId: string, envId?: string, businessId?: string): Promise<import("@/types/capital-projects").BudgetVsActual> {
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/budget-vs-actual`, { params: _cpParams(envId, businessId) });
+}
+
+export function getCpDrawAudit(projectId: string, drawRequestId?: string, envId?: string, businessId?: string): Promise<import("@/types/capital-projects").CpDrawAuditEntry[]> {
+  const params = { ..._cpParams(envId, businessId), ...(drawRequestId ? { draw_request_id: drawRequestId } : {}) };
+  return bosFetch(`/api/capital-projects/v1/projects/${projectId}/draw-audit`, { params });
+}
+
 // ── Development Bridge API ──────────────────────────────────────
 
 export interface DevPortfolioKpis {

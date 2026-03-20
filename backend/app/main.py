@@ -71,6 +71,7 @@ from app.routes import pds_query, pds_chat, pds_analytics
 from app.routes import cre_work_packages
 from app.routes import cre_submission
 from app.routes import capital_projects
+from app.routes import cp_draws
 from app.routes import dev_bridge
 from app.routes import resume
 
@@ -187,6 +188,7 @@ app.include_router(pds_query.router)
 app.include_router(pds_chat.router)
 app.include_router(pds_analytics.router)
 app.include_router(capital_projects.router)
+app.include_router(cp_draws.router)
 app.include_router(dev_bridge.router)
 app.include_router(resume.router)
 app.include_router(credit.router)

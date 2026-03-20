@@ -16,6 +16,8 @@ import {
   listCpMeetings,
   listCpDrawings,
   listCpPayApps,
+  getCpPayAppVarianceAnalysis,
+  listCpDraws,
 } from "@/lib/bos-api";
 import { useRepeContext } from "@/lib/repe-context";
 import type {
@@ -32,12 +34,15 @@ import type {
   CpMeeting,
   CpDrawing,
   CpPayApp,
+  VarianceAnalysis,
+  VarianceFlag,
+  CpDrawRequest,
 } from "@/types/capital-projects";
 
 const TABS = [
   "Overview", "Financials", "Schedule", "Risks & Issues",
   "RFIs", "Submittals", "Punch List", "Daily Logs",
-  "Meetings", "Drawings", "Pay Apps", "Reports",
+  "Meetings", "Drawings", "Pay Apps", "Draws", "Reports",
 ] as const;
 type TabKey = (typeof TABS)[number];
 
@@ -96,6 +101,9 @@ export default function CpProjectDetailPage({ params }: { params: { projectId: s
   const [meetings, setMeetings] = useState<CpMeeting[]>([]);
   const [drawings, setDrawings] = useState<CpDrawing[]>([]);
   const [payApps, setPayApps] = useState<CpPayApp[]>([]);
+  const [draws, setDraws] = useState<CpDrawRequest[]>([]);
+  const [varianceAnalysis, setVarianceAnalysis] = useState<VarianceAnalysis | null>(null);
+  const [varianceLoading, setVarianceLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -121,8 +129,9 @@ export default function CpProjectDetailPage({ params }: { params: { projectId: s
       listCpMeetings(params.projectId, eid, bid).catch(() => []),
       listCpDrawings(params.projectId, eid, bid).catch(() => []),
       listCpPayApps(params.projectId, eid, bid).catch(() => []),
+      listCpDraws(params.projectId, eid, bid).catch(() => []),
     ])
-      .then(([dash, bud, cos, ctrs, rsk, rfi, sub, pnch, mls, dlg, mtg, drw, pa]) => {
+      .then(([dash, bud, cos, ctrs, rsk, rfi, sub, pnch, mls, dlg, mtg, drw, pa, drs]) => {
         if (cancelled) return;
         setDashboard(dash);
         if (bud) setBudget(bud);
@@ -137,6 +146,7 @@ export default function CpProjectDetailPage({ params }: { params: { projectId: s
         setMeetings(mtg as CpMeeting[]);
         setDrawings(drw as CpDrawing[]);
         setPayApps(pa as CpPayApp[]);
+        setDraws(drs as CpDrawRequest[]);
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load project");
@@ -147,6 +157,16 @@ export default function CpProjectDetailPage({ params }: { params: { projectId: s
 
     return () => { cancelled = true; };
   }, [params.projectId, eid, bid]);
+
+  // Lazy-load variance analysis when Pay Apps tab is selected
+  useEffect(() => {
+    if (tab !== "Pay Apps" || varianceAnalysis || varianceLoading) return;
+    setVarianceLoading(true);
+    getCpPayAppVarianceAnalysis(params.projectId, eid, bid)
+      .then((data) => setVarianceAnalysis(data))
+      .catch(() => {}) // Graceful degradation — variance panel just won't show
+      .finally(() => setVarianceLoading(false));
+  }, [tab, params.projectId, eid, bid, varianceAnalysis, varianceLoading]);
 
   const kpis = useMemo(() => {
     if (!dashboard) return [];
@@ -691,36 +711,212 @@ export default function CpProjectDetailPage({ params }: { params: { projectId: s
 
         {/* ─── PAY APPS ─── */}
         {!loading && !error && tab === "Pay Apps" && (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {/* ── Variance Detection Engine Panel ── */}
+            {varianceLoading && (
+              <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+                <p className="text-sm text-blue-300">Running variance detection engine (4 rules)...</p>
+              </div>
+            )}
+            {varianceAnalysis && (varianceAnalysis.flag_count_critical > 0 || varianceAnalysis.flag_count_warning > 0) && (
+              <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.12em] text-amber-300 font-medium">Variance Detection Engine</p>
+                    <p className="text-sm text-bm-muted mt-0.5">
+                      Analyzed {varianceAnalysis.pay_app_count} pay application(s) across 4 rules
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-semibold text-amber-300">{formatMoney(varianceAnalysis.total_amount_at_risk)}</p>
+                    <p className="text-xs text-bm-muted2">Amount at Risk</p>
+                  </div>
+                </div>
+                {/* Severity Summary */}
+                <div className="flex gap-3">
+                  {varianceAnalysis.flag_count_critical > 0 && (
+                    <span className="rounded-full border border-rose-500/50 bg-rose-500/10 px-3 py-1 text-xs font-medium text-rose-300">
+                      {varianceAnalysis.flag_count_critical} Critical
+                    </span>
+                  )}
+                  {varianceAnalysis.flag_count_warning > 0 && (
+                    <span className="rounded-full border border-amber-500/50 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300">
+                      {varianceAnalysis.flag_count_warning} Warning
+                    </span>
+                  )}
+                  {varianceAnalysis.flag_count_info > 0 && (
+                    <span className="rounded-full border border-blue-500/50 bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-300">
+                      {varianceAnalysis.flag_count_info} Info
+                    </span>
+                  )}
+                </div>
+                {/* Individual Flags */}
+                <div className="space-y-2">
+                  {varianceAnalysis.flags.map((flag: VarianceFlag, idx: number) => {
+                    const severityStyle = flag.severity === "critical"
+                      ? "border-rose-500/40 bg-rose-500/5"
+                      : flag.severity === "warning"
+                      ? "border-amber-500/30 bg-amber-500/5"
+                      : "border-blue-500/30 bg-blue-500/5";
+                    const ruleLabels: Record<string, string> = {
+                      overbill_detection: "Overbill",
+                      retainage_audit: "Retainage",
+                      percent_complete_crosscheck: "% Complete",
+                      cumulative_overrun: "Cumulative Overrun",
+                    };
+                    return (
+                      <div key={`flag-${idx}`} className={`rounded-lg border ${severityStyle} px-4 py-3`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                                flag.severity === "critical" ? "bg-rose-500/20 text-rose-300" :
+                                flag.severity === "warning" ? "bg-amber-500/20 text-amber-300" :
+                                "bg-blue-500/20 text-blue-300"
+                              }`}>
+                                {flag.severity}
+                              </span>
+                              <span className="text-xs font-medium text-bm-muted">
+                                {ruleLabels[flag.rule] || flag.rule.replace(/_/g, " ")}
+                              </span>
+                              {flag.pay_app_number != null && (
+                                <span className="text-xs text-bm-muted2">Pay App #{flag.pay_app_number}</span>
+                              )}
+                            </div>
+                            <p className="text-sm">{flag.message}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-semibold tabular-nums">{formatMoney(flag.amount_at_risk)}</p>
+                            <p className="text-[10px] text-bm-muted2">at risk</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Rules Applied */}
+                <div className="border-t border-bm-border/30 pt-2">
+                  <p className="text-[10px] uppercase tracking-[0.1em] text-bm-muted2">
+                    Rules: {varianceAnalysis.rules_applied.map(r => r.replace(/_/g, " ")).join(" · ")}
+                  </p>
+                </div>
+              </div>
+            )}
+            {varianceAnalysis && varianceAnalysis.flag_count_critical === 0 && varianceAnalysis.flag_count_warning === 0 && (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full border border-emerald-500/50 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-300">
+                    All Clear
+                  </span>
+                  <p className="text-sm text-emerald-300">
+                    Variance detection engine found no issues across {varianceAnalysis.pay_app_count} pay application(s).
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* ── Pay Application List ── */}
             <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2 mb-2">Pay Applications ({payApps.length})</p>
             {payApps.length === 0 ? <p className="text-sm text-bm-muted2">No pay applications.</p> : (
               <div className="space-y-3">
-                {payApps.map((pa) => (
-                  <div key={pa.pay_app_id} className="rounded-lg border border-bm-border/50 p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <span className="font-medium">Pay App #{pa.pay_app_number}</span>
-                        {pa.contract_number && <span className="ml-2 text-xs text-bm-muted2">Contract: {pa.contract_number}</span>}
-                        {pa.vendor_name && <span className="ml-2 text-xs text-bm-muted2">· {pa.vendor_name}</span>}
+                {payApps.map((pa) => {
+                  // Find flags for this specific pay app from variance analysis
+                  const paFlags = varianceAnalysis?.pay_apps?.find(v => v.pay_app_id === pa.pay_app_id);
+                  const hasCritical = (paFlags?.flag_count_critical ?? 0) > 0;
+                  const hasWarning = (paFlags?.flag_count_warning ?? 0) > 0;
+                  return (
+                    <div key={pa.pay_app_id} className={`rounded-lg border p-4 ${
+                      hasCritical ? "border-rose-500/40 bg-rose-500/5" :
+                      hasWarning ? "border-amber-500/30 bg-amber-500/5" :
+                      "border-bm-border/50"
+                    }`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">Pay App #{pa.pay_app_number}</span>
+                          {pa.contract_number && <span className="text-xs text-bm-muted2">Contract: {pa.contract_number}</span>}
+                          {pa.vendor_name && <span className="text-xs text-bm-muted2">· {pa.vendor_name}</span>}
+                          {hasCritical && (
+                            <span className="rounded-full border border-rose-500/50 bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-300">
+                              {paFlags!.flag_count_critical} variance flag{paFlags!.flag_count_critical > 1 ? "s" : ""}
+                            </span>
+                          )}
+                          {!hasCritical && hasWarning && (
+                            <span className="rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                              {paFlags!.flag_count_warning} warning{paFlags!.flag_count_warning > 1 ? "s" : ""}
+                            </span>
+                          )}
+                        </div>
+                        <span className={`rounded-full border px-2 py-0.5 text-xs ${statusBadge(pa.status)}`}>{pa.status}</span>
                       </div>
-                      <span className={`rounded-full border px-2 py-0.5 text-xs ${statusBadge(pa.status)}`}>{pa.status}</span>
+                      {pa.billing_period_start && (
+                        <p className="text-xs text-bm-muted2 mb-2">Period: {formatDate(pa.billing_period_start)} – {formatDate(pa.billing_period_end)}</p>
+                      )}
+                      <div className="grid gap-2 grid-cols-2 md:grid-cols-4 text-sm">
+                        <div><span className="text-bm-muted2">Scheduled Value:</span> {formatMoney(pa.scheduled_value)}</div>
+                        <div><span className="text-bm-muted2">Completed + Stored:</span> {formatMoney(pa.total_completed_stored)}</div>
+                        <div><span className="text-bm-muted2">Retainage ({Number(pa.retainage_pct).toFixed(0)}%):</span> {formatMoney(pa.retainage_amount)}</div>
+                        <div className="font-semibold"><span className="text-bm-muted2">Current Due:</span> {formatMoney(pa.current_payment_due)}</div>
+                      </div>
+                      <div className="mt-2 flex gap-4 text-xs text-bm-muted2">
+                        {pa.submitted_date && <span>Submitted: {formatDate(pa.submitted_date)}</span>}
+                        {pa.approved_date && <span>Approved: {formatDate(pa.approved_date)}</span>}
+                        {pa.paid_date && <span>Paid: {formatDate(pa.paid_date)}</span>}
+                      </div>
                     </div>
-                    {pa.billing_period_start && (
-                      <p className="text-xs text-bm-muted2 mb-2">Period: {formatDate(pa.billing_period_start)} – {formatDate(pa.billing_period_end)}</p>
-                    )}
-                    <div className="grid gap-2 grid-cols-2 md:grid-cols-4 text-sm">
-                      <div><span className="text-bm-muted2">Scheduled Value:</span> {formatMoney(pa.scheduled_value)}</div>
-                      <div><span className="text-bm-muted2">Completed + Stored:</span> {formatMoney(pa.total_completed_stored)}</div>
-                      <div><span className="text-bm-muted2">Retainage ({Number(pa.retainage_pct).toFixed(0)}%):</span> {formatMoney(pa.retainage_amount)}</div>
-                      <div className="font-semibold"><span className="text-bm-muted2">Current Due:</span> {formatMoney(pa.current_payment_due)}</div>
-                    </div>
-                    <div className="mt-2 flex gap-4 text-xs text-bm-muted2">
-                      {pa.submitted_date && <span>Submitted: {formatDate(pa.submitted_date)}</span>}
-                      {pa.approved_date && <span>Approved: {formatDate(pa.approved_date)}</span>}
-                      {pa.paid_date && <span>Paid: {formatDate(pa.paid_date)}</span>}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── DRAWS ─── */}
+        {!loading && !error && tab === "Draws" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Draw Requests ({draws.length})</p>
+              <Link href={`/app/capital-projects/projects/${params.projectId}/draws`} className="text-xs text-bm-accent hover:underline">
+                Open Draw Management &rarr;
+              </Link>
+            </div>
+            {draws.length === 0 ? (
+              <p className="text-sm text-bm-muted">No draw requests. <Link href={`/app/capital-projects/projects/${params.projectId}/draws`} className="text-bm-accent hover:underline">Create one</Link>.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-bm-border/40">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-bm-border/40 bg-bm-surface/40">
+                      <th className="px-3 py-2 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Draw #</th>
+                      <th className="px-3 py-2 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Status</th>
+                      <th className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">This Draw</th>
+                      <th className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Amount Due</th>
+                      <th className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Variances</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {draws.map(dr => (
+                      <tr key={dr.draw_request_id} className="border-b border-bm-border/20 hover:bg-bm-surface/30">
+                        <td className="px-3 py-2">
+                          <Link href={`/app/capital-projects/projects/${params.projectId}/draws/${dr.draw_request_id}`} className="font-mono text-bm-accent hover:underline">
+                            #{dr.draw_number}
+                          </Link>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`inline-block rounded-md border px-2 py-0.5 text-xs font-medium ${statusBadge(dr.status)}`}>
+                            {dr.status.replace(/_/g, " ")}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono">{formatMoney(dr.total_current_draw)}</td>
+                        <td className="px-3 py-2 text-right font-mono font-medium">{formatMoney(dr.total_amount_due)}</td>
+                        <td className="px-3 py-2 text-right">
+                          {(dr.variance_count ?? 0) > 0 ? (
+                            <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-300">{dr.variance_count}</span>
+                          ) : <span className="text-xs text-bm-muted2">—</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

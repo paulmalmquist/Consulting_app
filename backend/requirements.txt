@@ -25,6 +25,10 @@ usaddress>=0.5.10
 rapidfuzz>=3.0
 networkx>=3.0
 
+# OCR / Invoice processing
+pytesseract>=0.3.10
+Pillow>=10.0.0
+
 # AI Gateway + RAG
 openai>=1.30
 tiktoken>=0.7

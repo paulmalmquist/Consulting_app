@@ -5,6 +5,7 @@ import {
   HeartPulse,
   Layers,
   Scale,
+  User,
   type LucideIcon,
 } from "lucide-react";
 
@@ -52,6 +53,9 @@ export function getIndustryIcon(industry?: string | null): IndustryVisual {
   }
   if (key === "construction") {
     return { icon: HardHat, label: "Construction", testId: "industry-icon-construction" };
+  }
+  if (key === "visual_resume" || key === "resume") {
+    return { icon: User, label: "Visual Resume", testId: "industry-icon-visual_resume" };
   }
   return {
     icon: Layers,

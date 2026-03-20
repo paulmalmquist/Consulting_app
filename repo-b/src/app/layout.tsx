@@ -5,7 +5,38 @@ import Providers from "@/components/Providers";
 
 export const metadata: Metadata = {
   title: "Winston",
-  description: "Institutional business intelligence platform"
+  description:
+    "AI execution environment for real estate private equity, project delivery, and institutional operations. Fund reporting, waterfall logic, capital activity, and portfolio monitoring.",
+  openGraph: {
+    title: "Winston — AI Execution Environment",
+    description:
+      "Fund reporting, waterfall logic, capital activity, and portfolio monitoring. Built for institutional operations.",
+    siteName: "Winston",
+    type: "website",
+    url: "https://paulmalmquist.com",
+    images: [
+      {
+        url: "/og-winston.png",
+        width: 1200,
+        height: 630,
+        alt: "Winston — AI Execution Environment for Institutional Operations",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Winston — AI Execution Environment",
+    description:
+      "Fund reporting, waterfall logic, capital activity, and portfolio monitoring. Built for institutional operations.",
+    images: ["/og-winston.png"],
+  },
+  icons: {
+    icon: "/favicon.ico",
+  },
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export const viewport: Viewport = {

@@ -17,6 +17,7 @@ from app.schemas.capital_projects import (
 )
 from app.services import env_context
 from app.services import capital_projects as cp_svc
+from app.services import pay_app_variance as variance_svc
 from app.services import pds as pds_svc
 
 router = APIRouter(prefix="/api/capital-projects/v1", tags=["capital-projects"])
@@ -295,6 +296,36 @@ def create_pay_app(request: Request, project_id: UUID, body: CpPayAppCreate, env
     except Exception as exc:
         status, code = classify_domain_error(exc)
         return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="cp.pay_apps.create")
+
+
+# ── Pay App Variance Detection (must come before parameterized pay-app routes) ──
+
+@router.get("/projects/{project_id}/pay-apps/variance-analysis")
+def get_pay_app_variance_analysis(
+    request: Request,
+    project_id: UUID,
+    env_id: str | None = Query(default=None),
+    business_id: UUID | None = Query(default=None),
+):
+    """Run 4-rule variance detection engine across all pay apps for a project.
+
+    Rules applied:
+      1. Overbill Detection — billed amount vs scheduled value
+      2. Retainage Calculation Audit — validates retainage math
+      3. Percent-Complete Cross-Check — billed % vs project progress
+      4. Cumulative Overrun Detection — total billings vs approved budget
+    """
+    try:
+        eid, bid = _resolve(request, env_id, business_id)
+        return variance_svc.analyze_pay_app_variances(
+            project_id=project_id, env_id=eid, business_id=bid,
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code,
+            detail=str(exc), action="cp.pay_apps.variance_analysis",
+        )
 
 
 @router.post("/projects/{project_id}/pay-apps/{pay_app_id}/approve")

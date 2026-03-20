@@ -307,3 +307,231 @@ export interface CpScheduleSnapshot {
   is_critical: boolean;
   is_on_critical_path: boolean;
 }
+
+// ── Pay App Variance Detection ─────────────────────────────────
+
+export type VarianceSeverity = "critical" | "warning" | "info";
+
+export interface VarianceFlag {
+  rule: string;
+  severity: VarianceSeverity;
+  amount_at_risk: string;
+  message: string;
+  details: Record<string, string | number>;
+  pay_app_id: string | null;
+  pay_app_number: number | null;
+  vendor_name: string | null;
+}
+
+export interface PayAppVarianceResult {
+  pay_app_id: string;
+  pay_app_number: number;
+  vendor_name: string | null;
+  contract_number: string | null;
+  flags: VarianceFlag[];
+  total_amount_at_risk: string;
+  flag_count_critical: number;
+  flag_count_warning: number;
+  flag_count_info: number;
+}
+
+export interface VarianceAnalysis {
+  project_id: string;
+  pay_app_count: number;
+  total_amount_at_risk: string;
+  flag_count_critical: number;
+  flag_count_warning: number;
+  flag_count_info: number;
+  flags: VarianceFlag[];
+  pay_apps: PayAppVarianceResult[];
+  cumulative_overrun: VarianceFlag | null;
+  rules_applied: string[];
+}
+
+// ── Draw Management ─────────────────────────────────────────────
+
+export type DrawStatus = "draft" | "pending_review" | "revision_requested" | "approved" | "submitted_to_lender" | "funded" | "rejected";
+export type InvoiceOcrStatus = "pending" | "processing" | "completed" | "failed";
+export type InvoiceStatus = "uploaded" | "verified" | "assigned" | "rejected";
+export type MatchStatus = "unmatched" | "auto_matched" | "manually_matched" | "disputed";
+
+export interface CpDrawLineItem {
+  line_item_id: string;
+  draw_request_id: string;
+  cost_code: string;
+  description: string;
+  contract_id: string | null;
+  vendor_id: string | null;
+  scheduled_value: string;
+  previous_draws: string;
+  current_draw: string;
+  materials_stored: string;
+  total_completed: string;
+  percent_complete: string;
+  retainage_pct: string;
+  retainage_amount: string;
+  balance_to_finish: string;
+  variance_flag: boolean;
+  variance_reason: string | null;
+  override_reason: string | null;
+  created_at: string;
+}
+
+export interface CpDrawRequest {
+  draw_request_id: string;
+  project_id: string;
+  draw_number: number;
+  title: string | null;
+  billing_period_start: string | null;
+  billing_period_end: string | null;
+  total_previous_draws: string;
+  total_current_draw: string;
+  total_materials_stored: string;
+  total_retainage_held: string;
+  total_amount_due: string;
+  status: DrawStatus;
+  submitted_at: string | null;
+  approved_at: string | null;
+  approved_by: string | null;
+  submitted_to_lender_at: string | null;
+  funded_at: string | null;
+  rejected_at: string | null;
+  rejection_reason: string | null;
+  variance_flags_json: DrawVarianceFlag[];
+  variance_amount_at_risk: string;
+  lender_reference: string | null;
+  g702_storage_key: string | null;
+  line_items?: CpDrawLineItem[];
+  invoices?: CpInvoice[];
+  inspections?: CpInspection[];
+  line_item_count?: number;
+  invoice_count?: number;
+  inspection_count?: number;
+  variance_count?: number;
+  created_at: string;
+}
+
+export interface CpInvoiceLineItem {
+  invoice_line_id: string;
+  invoice_id: string;
+  line_number: number;
+  description: string | null;
+  cost_code: string | null;
+  quantity: string | null;
+  unit_price: string | null;
+  amount: string;
+  match_confidence: string;
+  matched_draw_line_id: string | null;
+  match_strategy: string | null;
+  match_status: string;
+}
+
+export interface CpInvoice {
+  invoice_id: string;
+  project_id: string;
+  draw_request_id: string | null;
+  vendor_id: string | null;
+  contract_id: string | null;
+  invoice_number: string | null;
+  invoice_date: string | null;
+  total_amount: string;
+  ocr_status: InvoiceOcrStatus;
+  ocr_confidence: string;
+  match_status: MatchStatus;
+  match_confidence: string;
+  matched_cost_code: string | null;
+  file_name: string | null;
+  status: InvoiceStatus;
+  line_items?: CpInvoiceLineItem[];
+  created_at: string;
+}
+
+export interface CpInspection {
+  inspection_id: string;
+  project_id: string;
+  draw_request_id: string | null;
+  inspector_name: string;
+  inspection_date: string;
+  inspection_type: string;
+  overall_pct_complete: string | null;
+  findings: string | null;
+  recommendations: string | null;
+  passed: boolean | null;
+  photo_urls: string[];
+  created_at: string;
+}
+
+export interface DrawVarianceFlag {
+  rule: string;
+  severity: VarianceSeverity;
+  amount_at_risk: string;
+  message: string;
+  details: Record<string, string | number>;
+  line_item_id?: string;
+  cost_code?: string;
+}
+
+export interface DrawVarianceAnalysis {
+  draw_request_id: string;
+  draw_number: number;
+  total_amount_at_risk: string;
+  flag_count_critical: number;
+  flag_count_warning: number;
+  flag_count_info: number;
+  flags: DrawVarianceFlag[];
+  flagged_line_count: number;
+  total_line_count: number;
+  rules_applied: string[];
+}
+
+export interface DrawPortfolioProject {
+  project_id: string;
+  project_name: string;
+  total_draws: number;
+  total_drawn: string;
+  total_retainage: string;
+  latest_draw_number: number | null;
+  latest_status: DrawStatus | null;
+}
+
+export interface DrawPortfolioSummary {
+  total_projects: number;
+  total_draws: number;
+  total_drawn_amount: string;
+  total_retainage: string;
+  pending_draws: number;
+  projects: DrawPortfolioProject[];
+}
+
+export interface CpDrawAuditEntry {
+  audit_id: string;
+  entity_type: string;
+  entity_id: string;
+  action: string;
+  previous_state: Record<string, unknown> | null;
+  new_state: Record<string, unknown> | null;
+  actor: string;
+  hitl_approval: boolean;
+  created_at: string;
+}
+
+export interface BudgetVsActualLine {
+  cost_code: string;
+  description: string;
+  approved_budget: string;
+  committed: string;
+  total_drawn: string;
+  balance_remaining: string;
+  percent_drawn: string;
+}
+
+export interface BudgetVsActual {
+  project_id: string;
+  lines: BudgetVsActualLine[];
+  totals: {
+    approved_budget: string;
+    committed: string;
+    total_drawn: string;
+    balance_remaining: string;
+  };
+}

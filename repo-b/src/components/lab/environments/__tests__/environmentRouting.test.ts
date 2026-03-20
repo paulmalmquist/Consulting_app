@@ -55,4 +55,9 @@ describe("environment open routing", () => {
     expect(resolveEnvironmentOpenPath({ envId: "e", industry: "ai_copilot" })).toBe("/lab/env/e/copilot");
     expect(resolveEnvironmentOpenPath({ envId: "e", industry: "engagement_output" })).toBe("/lab/env/e/outputs");
   });
+
+  test("routes Visual Resume environments into the resume workspace", () => {
+    expect(resolveEnvironmentOpenPath({ envId: "env-resume", industry: "visual_resume" })).toBe("/lab/env/env-resume/resume");
+    expect(resolveEnvironmentOpenPath({ envId: "env-resume", industry: "resume" })).toBe("/lab/env/env-resume/resume");
+  });
 });

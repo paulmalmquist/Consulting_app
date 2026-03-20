@@ -42,6 +42,8 @@ export function EnvironmentCard({
       ? "repe"
       : industry === "credit_risk_hub"
       ? "credit"
+      : industry === "visual_resume" || industry === "resume"
+      ? "resume"
       : (industry || "general").replace(/_/g, "-");
 
   if (variant === "controlTower") {

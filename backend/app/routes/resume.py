@@ -18,7 +18,13 @@ from app.services import env_context
 router = APIRouter(prefix="/api/resume/v1", tags=["resume"])
 
 
-def _resolve_context(request: Request, env_id: str | None, business_id: UUID | None):
+def _resolve_context(
+    request: Request,
+    env_id: str | None,
+    business_id: UUID | None,
+    *,
+    ensure_seeded: bool = True,
+):
     ctx = env_context.resolve_env_business_context(
         request=request,
         env_id=env_id,
@@ -26,7 +32,14 @@ def _resolve_context(request: Request, env_id: str | None, business_id: UUID | N
         allow_create=True,
         create_slug_prefix="resume",
     )
-    return UUID(ctx.env_id), UUID(ctx.business_id), ctx
+    resolved_env_id = UUID(ctx.env_id)
+    resolved_business_id = UUID(ctx.business_id)
+    if ensure_seeded:
+        resume_svc.seed_demo_workspace(
+            env_id=resolved_env_id,
+            business_id=resolved_business_id,
+        )
+    return resolved_env_id, resolved_business_id, ctx
 
 
 @router.get("/context", response_model=ResumeContextOut)
@@ -120,7 +133,12 @@ def get_skill_matrix(request: Request, env_id: str = Query(...), business_id: UU
 @router.post("/seed")
 def seed_resume(request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None)):
     try:
-        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(
+            request,
+            env_id,
+            business_id,
+            ensure_seeded=False,
+        )
         return resume_svc.seed_demo_workspace(env_id=resolved_env_id, business_id=resolved_business_id)
     except Exception as exc:
         status, code = classify_domain_error(exc)
