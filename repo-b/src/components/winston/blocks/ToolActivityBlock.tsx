@@ -23,13 +23,13 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 };
 
 export default function ToolActivityBlock({ block }: { block: ToolBlock }) {
-  const items = block.items || [];
-  if (items.length === 0) return null;
-
   const searchParams = useSearchParams();
   const debugMode =
     searchParams.get("debug") === "1" ||
     (typeof window !== "undefined" && localStorage.getItem("winston_debug") === "1");
+
+  const items = block.items || [];
+  if (items.length === 0) return null;
 
   // Find the last running item (active step)
   const activeIdx = items.findLastIndex((i) => i.status === "running");
