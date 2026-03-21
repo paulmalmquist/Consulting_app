@@ -25,7 +25,7 @@ from app.services.assistant_scope import (
     resolve_visible_context_policy,
 )
 from app.services.repe_intent import classify_repe_intent
-from app.services.run_narrator import RunNarrator
+from app.services.run_narrator import CLEAN_ERROR_MESSAGE, RunNarrator
 from app.services.repe_scenario_schema import build_clarification_question, resolve_scenario_params
 from app.services.repe_session import get_session, summarize_waterfall_run, update_session
 from app.services.cost_tracker import estimate_cost
@@ -3323,9 +3323,12 @@ async def run_gateway_stream(
                 "raw_args": raw_args,
             })
 
-        # Emit status for tool execution
-        tool_names = [t["tool_name"] for t in tool_tasks]
-        yield _sse("status", {"message": f"Looking up {', '.join(t.replace('repe.', '').replace('_', ' ') for t in tool_names)}..."})
+        # Emit status for tool execution (use narrator labels, not raw tool names)
+        from app.services.run_narrator import TOOL_STEP_MAP
+        narrated_labels = list(dict.fromkeys(
+            TOOL_STEP_MAP.get(t["tool_name"], "Processing") for t in tool_tasks
+        ))
+        yield _sse("status", {"message": f"{', '.join(narrated_labels)}..."})
 
         # Register tool calls with narrator (emit narrated steps for new logical steps)
         for t in tool_tasks:
@@ -3449,14 +3452,18 @@ async def run_gateway_stream(
             )
             is_write_tool = tool_def and tool_def.permission == "write" if tool_def else False
 
+            # Include narrator label so frontend never needs to show raw tool names
+            _narrated_label = TOOL_STEP_MAP.get(tool_name, "Processing")
             yield _sse(
                 "tool_call",
                 {
                     "tool_name": tool_name,
+                    "label": _narrated_label,
                     "args": raw_args,
                     "result_preview": _preview(tool_result, max_chars=400),
                     "duration_ms": tool_duration_ms,
                     "success": tool_success,
+                    "error": None if tool_success else CLEAN_ERROR_MESSAGE,
                     "row_count": row_count,
                     "is_write": is_write_tool,
                     "pending_confirmation": is_pending_confirmation,

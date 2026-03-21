@@ -272,8 +272,9 @@ export default function WinstonChatWorkspace() {
               ...prev.tools,
               {
                 tool_name: event.tool_name,
+                label: event.label || "Processing",
                 status: event.success === false ? "failed" : "completed",
-                summary: event.result_preview || "",
+                summary: event.success === false ? "Some data could not be retrieved" : (event.label || "Done"),
                 duration_ms: event.duration_ms,
                 is_write: event.is_write,
               },

@@ -86,7 +86,7 @@ export default function ChatContextPanel({ state }: { state: ContextPanelState }
                     }`}
                   />
                   <span className="text-[11px] text-bm-text font-mono truncate">
-                    {tool.tool_name}
+                    {tool.label || tool.tool_name}
                   </span>
                 </div>
                 {typeof tool.duration_ms === "number" && (

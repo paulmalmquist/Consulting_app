@@ -39,6 +39,8 @@ export type DiagnosticsCheck = {
 
 export type AssistantToolEvent = {
   tool_name: string;
+  /** Human-readable label from RunNarrator (e.g. "Fetching assets"). Never show tool_name to users. */
+  label?: string;
   args?: unknown;
   result_preview?: string;
   result?: unknown;
@@ -1063,10 +1065,12 @@ export async function streamAi(input: {
               answer += `\n[Error: ${parsed.message}]`;
               input.onError?.(parsed.message, parsed);
             }
-            // FastAPI tool_call event — surface as status
+            // FastAPI tool_call event — surface narrated label as status (Bug 0 fix: never expose raw tool names)
             else if (currentEvent === "tool_call" && parsed.tool_name) {
+              const narratedLabel = parsed.label || "Processing";
               debug.toolCalls.push({
                 tool_name: parsed.tool_name,
+                label: narratedLabel,
                 args: parsed.args,
                 result_preview: parsed.result_preview,
                 duration_ms: parsed.duration_ms,
@@ -1075,10 +1079,9 @@ export async function streamAi(input: {
                 is_write: parsed.is_write,
                 pending_confirmation: parsed.pending_confirmation,
               });
-              const successStr = parsed.success ? "OK" : `FAIL${parsed.error ? `: ${parsed.error}` : ""}`;
-              logSSE("tool_call", parsed, `${parsed.tool_name} → ${successStr} (${parsed.duration_ms || 0}ms, ${parsed.row_count ?? "?"} rows)`);
-              const label = parsed.tool_name.replace(/^repe\./, "").replace(/_/g, " ");
-              input.onStatus?.(`Looking up ${label}...`);
+              const successStr = parsed.success ? "OK" : `FAIL`;
+              logSSE("tool_call", parsed, `${narratedLabel} → ${successStr} (${parsed.duration_ms || 0}ms, ${parsed.row_count ?? "?"} rows)`);
+              input.onStatus?.(`${narratedLabel}...`);
               input.onToolActivity?.(debug.toolCalls[debug.toolCalls.length - 1]);
               continue;
             }
