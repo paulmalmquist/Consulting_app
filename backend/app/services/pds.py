@@ -197,10 +197,10 @@ def create_project(*, env_id: UUID, business_id: UUID, payload: dict) -> dict:
             """
             INSERT INTO pds_projects
             (env_id, business_id, program_id, project_code, name, description, sector, project_type, stage, status,
-             project_manager, start_date, target_end_date, approved_budget, contingency_budget,
+             project_manager, start_date, target_end_date, approved_budget, forecast_at_completion, contingency_budget,
              contingency_remaining, next_milestone_date, currency_code, created_by, updated_by)
             VALUES
-            (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING *
             """,
             (
@@ -218,6 +218,7 @@ def create_project(*, env_id: UUID, business_id: UUID, payload: dict) -> dict:
                 payload.get("start_date"),
                 payload.get("target_end_date"),
                 _q(payload.get("approved_budget")),
+                _q(payload.get("forecast_at_completion")) or _q(payload.get("approved_budget")),
                 _q(payload.get("contingency_budget")),
                 _q(payload.get("contingency_budget")),
                 payload.get("next_milestone_date"),
@@ -2989,36 +2990,94 @@ def seed_demo_workspace(*, env_id: UUID, business_id: UUID, actor: str = "system
             _ensure_phase2_demo_records(env_id=env_id, business_id=business_id, project_ids=existing_ids[:2], actor=actor)
             return {"seeded": False, "project_ids": [str(project_id) for project_id in existing_ids], "phase2_backfilled": True}
 
-    project_a = create_project(
-        env_id=env_id,
-        business_id=business_id,
-        payload={
+    # 8 projects with varied stages, budgets, and risk profiles
+    project_specs = [
+        {
             "name": "Downtown Tower Renovation",
             "stage": "construction",
             "project_manager": "A. Thompson",
             "approved_budget": Decimal("24500000"),
+            "forecast_at_completion": Decimal("26200000"),  # 7% over — stress
             "contingency_budget": Decimal("1250000"),
-            "next_milestone_date": date.today(),
-            "currency_code": "USD",
-            "created_by": actor,
         },
-    )
-    project_b = create_project(
-        env_id=env_id,
-        business_id=business_id,
-        payload={
+        {
             "name": "Riverside Mixed Use Phase II",
             "stage": "preconstruction",
             "project_manager": "L. Morgan",
             "approved_budget": Decimal("18250000"),
+            "forecast_at_completion": Decimal("17800000"),  # Under budget — healthy
             "contingency_budget": Decimal("910000"),
-            "next_milestone_date": date.today(),
-            "currency_code": "USD",
-            "created_by": actor,
         },
-    )
+        {
+            "name": "Federal Campus Consolidation",
+            "stage": "construction",
+            "project_manager": "D. Washington",
+            "approved_budget": Decimal("34800000"),
+            "forecast_at_completion": Decimal("36500000"),  # 5% over
+            "contingency_budget": Decimal("1740000"),
+        },
+        {
+            "name": "Midwest Distribution Center",
+            "stage": "construction",
+            "project_manager": "K. Okonkwo",
+            "approved_budget": Decimal("12600000"),
+            "forecast_at_completion": Decimal("12200000"),  # Under budget
+            "contingency_budget": Decimal("630000"),
+        },
+        {
+            "name": "Texas Refinery Turnaround",
+            "stage": "construction",
+            "project_manager": "M. Santos",
+            "approved_budget": Decimal("8900000"),
+            "forecast_at_completion": Decimal("10200000"),  # 15% over — red
+            "contingency_budget": Decimal("445000"),
+        },
+        {
+            "name": "BioTech Lab Expansion",
+            "stage": "preconstruction",
+            "project_manager": "T. Yamamoto",
+            "approved_budget": Decimal("5200000"),
+            "forecast_at_completion": Decimal("5100000"),  # Slightly under
+            "contingency_budget": Decimal("260000"),
+        },
+        {
+            "name": "Southeast Medical Complex",
+            "stage": "closeout",
+            "project_manager": "C. Patel",
+            "approved_budget": Decimal("21000000"),
+            "forecast_at_completion": Decimal("21800000"),  # 4% over
+            "contingency_budget": Decimal("1050000"),
+        },
+        {
+            "name": "Public Safety Training Center",
+            "stage": "construction",
+            "project_manager": "R. Nguyen",
+            "approved_budget": Decimal("3200000"),
+            "forecast_at_completion": Decimal("3100000"),  # Under budget
+            "contingency_budget": Decimal("160000"),
+        },
+    ]
 
-    for project in (project_a, project_b):
+    created_projects = []
+    for spec in project_specs:
+        project = create_project(
+            env_id=env_id,
+            business_id=business_id,
+            payload={
+                **spec,
+                "next_milestone_date": date.today(),
+                "currency_code": "USD",
+                "created_by": actor,
+            },
+        )
+        created_projects.append(project)
+
+    # Per-project change orders, risks, and surveys
+    change_order_amounts = [
+        Decimal("125000"), Decimal("85000"), Decimal("310000"), Decimal("45000"),
+        Decimal("220000"), Decimal("30000"), Decimal("175000"), Decimal("25000"),
+    ]
+    for index, project in enumerate(created_projects):
         pid = UUID(str(project["project_id"]))
         create_budget_baseline(
             env_id=env_id,
@@ -3028,8 +3087,8 @@ def seed_demo_workspace(*, env_id: UUID, business_id: UUID, actor: str = "system
                 "period": f"{date.today().year}-{date.today().month:02d}",
                 "approved_budget": Decimal(project["approved_budget"]),
                 "lines": [
-                    {"cost_code": "01", "line_label": "General Conditions", "approved_amount": Decimal("3500000")},
-                    {"cost_code": "02", "line_label": "Structural", "approved_amount": Decimal("6400000")},
+                    {"cost_code": "01", "line_label": "General Conditions", "approved_amount": Decimal(project["approved_budget"]) * Decimal("0.14")},
+                    {"cost_code": "02", "line_label": "Structural", "approved_amount": Decimal(project["approved_budget"]) * Decimal("0.26")},
                 ],
                 "created_by": actor,
             },
@@ -3040,8 +3099,8 @@ def seed_demo_workspace(*, env_id: UUID, business_id: UUID, actor: str = "system
             project_id=pid,
             payload={
                 "change_order_ref": f"CO-{str(pid)[:8]}",
-                "amount_impact": Decimal("125000"),
-                "schedule_impact_days": 7,
+                "amount_impact": change_order_amounts[index % len(change_order_amounts)],
+                "schedule_impact_days": 7 + (index * 3),
                 "approval_required": True,
                 "created_by": actor,
             },
@@ -3051,33 +3110,39 @@ def seed_demo_workspace(*, env_id: UUID, business_id: UUID, actor: str = "system
             business_id=business_id,
             project_id=pid,
             payload={
-                "risk_title": "Long lead electrical gear delivery",
-                "probability": Decimal("0.45"),
-                "impact_amount": Decimal("275000"),
-                "impact_days": 21,
+                "risk_title": ["Long lead electrical gear delivery", "Permitting delay risk", "Subcontractor capacity constraint",
+                               "Material price escalation", "Weather delay exposure", "Design coordination gap",
+                               "Inspection backlog", "Supply chain disruption"][index % 8],
+                "probability": Decimal("0.45") + (Decimal(index % 3) * Decimal("0.1")),
+                "impact_amount": Decimal("275000") + (Decimal(index) * Decimal("50000")),
+                "impact_days": 14 + (index * 5),
                 "mitigation_owner": "Procurement Lead",
                 "status": "open",
                 "created_by": actor,
             },
         )
+        survey_scores = [Decimal("4.2"), Decimal("3.5"), Decimal("4.6"), Decimal("3.9"),
+                         Decimal("2.8"), Decimal("4.4"), Decimal("3.7"), Decimal("4.1")]
         create_survey_response(
             env_id=env_id,
             business_id=business_id,
             project_id=pid,
             payload={
-                "vendor_name": "Prime Build Co",
+                "vendor_name": ["Prime Build Co", "Atlas Construction", "Horizon Builders", "Summit GC",
+                                "Pinnacle Constructors", "Vanguard CM", "Keystone Builders", "Apex Contractors"][index % 8],
                 "respondent_type": "contractor",
-                "score": Decimal("4.2"),
-                "responses_json": {"on_time": "0.88", "punch_speed": "0.79"},
+                "score": survey_scores[index % len(survey_scores)],
+                "responses_json": {"on_time": str(Decimal("0.88") - (Decimal(index) * Decimal("0.04"))), "punch_speed": "0.79"},
                 "created_by": actor,
             },
         )
 
+    project_ids = [UUID(str(p["project_id"])) for p in created_projects]
     _ensure_phase2_demo_records(
         env_id=env_id,
         business_id=business_id,
-        project_ids=[UUID(str(project_a["project_id"])), UUID(str(project_b["project_id"]))],
+        project_ids=project_ids[:2],
         actor=actor,
     )
 
-    return {"seeded": True, "project_ids": [str(project_a["project_id"]), str(project_b["project_id"])]}
+    return {"seeded": True, "project_ids": [str(pid) for pid in project_ids]}

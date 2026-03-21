@@ -22,7 +22,7 @@ export function PdsExecutiveBriefingPanel({ briefing }: { briefing: PdsV2Briefin
     <section className="rounded-3xl border border-pds-gold/30 bg-[radial-gradient(circle_at_top_left,hsl(var(--pds-gold)/0.18),transparent_58%),linear-gradient(160deg,#171208,#101922)] p-5" data-testid="pds-executive-briefing-panel">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-pds-gold">AI Executive Briefing</p>
+          <p className="text-xs uppercase tracking-[0.16em] text-pds-gold">Exec Briefing</p>
           <h3 className="text-xl font-semibold text-pds-goldSoft">{briefing.headline}</h3>
         </div>
         <p className="text-sm text-pds-goldText/80">

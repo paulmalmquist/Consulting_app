@@ -15,7 +15,8 @@ ALTER TABLE pds_accounts
   ADD COLUMN IF NOT EXISTS governance_track text,
   ADD COLUMN IF NOT EXISTS annual_contract_value numeric(15,2),
   ADD COLUMN IF NOT EXISTS contract_start_date date,
-  ADD COLUMN IF NOT EXISTS contract_end_date date;
+  ADD COLUMN IF NOT EXISTS contract_end_date date,
+  ADD COLUMN IF NOT EXISTS region text;
 
 COMMENT ON COLUMN pds_accounts.tier IS 'Enterprise, Mid-Market, or SMB';
 COMMENT ON COLUMN pds_accounts.governance_track IS 'variable or dedicated';

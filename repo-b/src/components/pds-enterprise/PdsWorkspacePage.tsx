@@ -258,10 +258,10 @@ export function PdsWorkspacePage({
         </>
       ) : null}
 
-      {/* AI Briefing */}
+      {/* Exec Briefing */}
       {sections.includes("briefing") && commandCenter.briefing ? (
         <>
-          <PdsSectionHeader label="AI Executive Briefing" title="Management Intelligence" />
+          <PdsSectionHeader label="Exec Briefing" title="Management Intelligence" />
           <PdsExecutiveBriefingPanel briefing={commandCenter.briefing} />
         </>
       ) : null}

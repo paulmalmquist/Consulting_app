@@ -1,10 +1,13 @@
-import { PdsPlaceholderPage } from "@/components/pds-enterprise/PdsPlaceholderPage";
+import { PdsWorkspacePage } from "@/components/pds-enterprise/PdsWorkspacePage";
 
 export default function ProcessCompliancePage() {
   return (
-    <PdsPlaceholderPage
+    <PdsWorkspacePage
       title="Process Compliance"
       description="Monitor adherence to operational standards including timecard discipline, closeout procedures, and reporting cadence."
+      defaultLens="resource"
+      defaultHorizon="YTD"
+      sections={["resourceHealth", "satisfactionCloseout"]}
     />
   );
 }

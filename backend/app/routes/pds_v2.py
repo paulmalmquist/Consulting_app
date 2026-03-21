@@ -10,11 +10,13 @@ from app.schemas.pds_v2 import (
     PdsLens,
     PdsRolePreset,
     PdsV2BriefingOut,
+    PdsV2BusinessLineOut,
     PdsV2CloseoutItemOut,
     PdsV2CommandCenterOut,
     PdsV2ContextOut,
     PdsV2DeliveryRiskItemOut,
     PdsV2ForecastPointOut,
+    PdsV2LeaderCoverageOut,
     PdsV2PerformanceTableOut,
     PdsV2PipelineSummaryOut,
     PdsV2ReportPacketOut,
@@ -391,6 +393,72 @@ def get_pipeline(
         )
 
 
+@router.get("/business-lines", response_model=list[PdsV2BusinessLineOut])
+def get_business_lines(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        enterprise_svc._ensure_workspace_lazy(env_id=resolved_env_id, business_id=resolved_business_id)  # noqa: SLF001
+        from app.db import get_cursor
+
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT * FROM pds_business_lines WHERE env_id = %s::uuid AND business_id = %s::uuid ORDER BY sort_order",
+                (str(resolved_env_id), str(resolved_business_id)),
+            )
+            return [PdsV2BusinessLineOut(**row) for row in cur.fetchall()]
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code, detail=str(exc),
+            action="pds.v2.business_lines.failed", context={"env_id": env_id},
+        )
+
+
+@router.get("/leader-coverage", response_model=list[PdsV2LeaderCoverageOut])
+def get_leader_coverage(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+    market_id: UUID | None = Query(default=None),
+    business_line_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        enterprise_svc._ensure_workspace_lazy(env_id=resolved_env_id, business_id=resolved_business_id)  # noqa: SLF001
+        from app.db import get_cursor
+
+        sql = """
+            SELECT lc.*, r.full_name AS resource_name, m.market_name, bl.line_name AS business_line_name
+            FROM pds_leader_coverage lc
+            JOIN pds_resources r ON r.resource_id = lc.resource_id
+            JOIN pds_markets m ON m.market_id = lc.market_id
+            JOIN pds_business_lines bl ON bl.business_line_id = lc.business_line_id
+            WHERE lc.env_id = %s::uuid AND lc.business_id = %s::uuid AND lc.effective_to IS NULL
+        """
+        params: list = [str(resolved_env_id), str(resolved_business_id)]
+        if market_id:
+            sql += " AND lc.market_id = %s::uuid"
+            params.append(str(market_id))
+        if business_line_id:
+            sql += " AND lc.business_line_id = %s::uuid"
+            params.append(str(business_line_id))
+        sql += " ORDER BY bl.sort_order, m.market_name"
+
+        with get_cursor() as cur:
+            cur.execute(sql, tuple(params))
+            return [PdsV2LeaderCoverageOut(**row) for row in cur.fetchall()]
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code, detail=str(exc),
+            action="pds.v2.leader_coverage.failed", context={"env_id": env_id},
+        )
+
+
 @router.post("/seed-analytics")
 def seed_analytics(
     request: Request,
@@ -416,5 +484,71 @@ def seed_analytics(
             code=code,
             detail=str(exc),
             action="pds.v2.seed_analytics.failed",
+            context={"env_id": env_id},
+        )
+
+
+@router.get("/diagnostics")
+def get_diagnostics(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    """Return row counts for all PDS fact and snapshot tables — enables quick verification."""
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        from app.db import get_cursor
+
+        fact_tables = [
+            "pds_fee_revenue_plan", "pds_fee_revenue_actual",
+            "pds_gaap_revenue_plan", "pds_gaap_revenue_actual",
+            "pds_ci_plan", "pds_ci_actual",
+            "pds_backlog_fact", "pds_billing_fact",
+            "pds_collection_fact", "pds_writeoff_fact",
+        ]
+        snapshot_tables = [
+            "pds_market_performance_snapshot", "pds_account_performance_snapshot",
+            "pds_project_health_snapshot", "pds_resource_utilization_snapshot",
+            "pds_timecard_health_snapshot", "pds_forecast_snapshot",
+            "pds_client_satisfaction_snapshot", "pds_closeout_snapshot",
+        ]
+        entity_tables = [
+            "pds_regions", "pds_markets", "pds_clients", "pds_accounts",
+            "pds_resources", "pds_projects", "pds_pipeline_deals",
+        ]
+
+        counts: dict[str, int] = {}
+        with get_cursor() as cur:
+            for table in fact_tables + snapshot_tables + entity_tables:
+                try:
+                    cur.execute(
+                        f"SELECT COUNT(*) AS cnt FROM {table} WHERE env_id = %s::uuid AND business_id = %s::uuid",
+                        (str(resolved_env_id), str(resolved_business_id)),
+                    )
+                    counts[table] = int((cur.fetchone() or {}).get("cnt") or 0)
+                except Exception:
+                    counts[table] = -1  # table may not exist
+
+        all_zero_snapshots = [
+            t for t in snapshot_tables if counts.get(t, 0) == 0
+        ]
+
+        return {
+            "env_id": str(resolved_env_id),
+            "business_id": str(resolved_business_id),
+            "fact_tables": {t: counts.get(t, 0) for t in fact_tables},
+            "snapshot_tables": {t: counts.get(t, 0) for t in snapshot_tables},
+            "entity_tables": {t: counts.get(t, 0) for t in entity_tables},
+            "all_zero_snapshots": all_zero_snapshots,
+            "healthy": len(all_zero_snapshots) == 0 and all(counts.get(t, 0) > 0 for t in fact_tables),
+        }
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="pds.v2.diagnostics.failed",
             context={"env_id": env_id},
         )

@@ -3,7 +3,7 @@ import { PdsWorkspacePage } from "@/components/pds-enterprise/PdsWorkspacePage";
 export default function PdsHomePage() {
   return (
     <PdsWorkspacePage
-      title="Command Center"
+      title="Home"
       description="Run Stone PDS from the management questions that matter: which markets are missing plan, which accounts are slipping, where delivery needs intervention, and which teams need staffing or timecard action."
       defaultLens="market"
       defaultHorizon="YTD"

@@ -8,9 +8,9 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
-PdsLens = Literal["market", "account", "project", "resource"]
+PdsLens = Literal["market", "account", "project", "resource", "business_line"]
 PdsHorizon = Literal["MTD", "QTD", "YTD", "Forecast"]
-PdsRolePreset = Literal["executive", "market_leader", "account_director", "project_lead"]
+PdsRolePreset = Literal["executive", "market_leader", "account_director", "project_lead", "business_line_leader"]
 
 
 class PdsV2ContextOut(BaseModel):
@@ -65,6 +65,29 @@ class PdsV2PerformanceTableOut(BaseModel):
     horizon: PdsHorizon
     columns: list[str] = Field(default_factory=list)
     rows: list[PdsV2PerformanceRowOut] = Field(default_factory=list)
+
+
+class PdsV2BusinessLineOut(BaseModel):
+    business_line_id: UUID
+    line_code: str
+    line_name: str
+    line_category: str | None = None
+    sort_order: int = 0
+    is_active: bool = True
+
+
+class PdsV2LeaderCoverageOut(BaseModel):
+    leader_coverage_id: UUID
+    resource_id: UUID
+    resource_name: str
+    market_id: UUID
+    market_name: str
+    business_line_id: UUID
+    business_line_name: str
+    coverage_role: str
+    effective_from: date
+    effective_to: date | None = None
+    is_primary: bool = True
 
 
 class PdsV2DeliveryRiskItemOut(BaseModel):

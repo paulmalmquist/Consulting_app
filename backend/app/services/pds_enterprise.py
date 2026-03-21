@@ -10,9 +10,9 @@ from app.db import get_cursor
 from app.services import pds as pds_core
 from app.services.workspace_templates import resolve_workspace_template_key
 
-VALID_LENSES = {"market", "account", "project", "resource"}
+VALID_LENSES = {"market", "account", "project", "resource", "business_line"}
 VALID_HORIZONS = {"MTD", "QTD", "YTD", "Forecast"}
-VALID_ROLE_PRESETS = {"executive", "market_leader", "account_director", "project_lead"}
+VALID_ROLE_PRESETS = {"executive", "market_leader", "account_director", "project_lead", "business_line_leader"}
 
 
 def _q(value: Any) -> Decimal:
@@ -58,6 +58,8 @@ def normalize_lens(lens: str | None, role_preset: str | None = None) -> str:
     role = normalize_role_preset(role_preset)
     if role == "market_leader":
         return "market"
+    if role == "business_line_leader":
+        return "business_line"
     if role == "account_director":
         return "account"
     if role == "project_lead":
@@ -221,6 +223,24 @@ def ensure_enterprise_workspace(*, env_id: UUID, business_id: UUID, actor: str =
         import logging as _logging
         _logging.getLogger(__name__).warning("PDS analytics tables not yet migrated — skipping analytics seed")
 
+    # Auto-seed business lines + leader coverage (412-series) if they exist and are empty
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM pds_business_lines WHERE env_id = %s::uuid AND business_id = %s::uuid",
+                (str(env_id), str(business_id)),
+            )
+            bl_count = int((cur.fetchone() or {}).get("cnt") or 0)
+        if bl_count == 0:
+            import logging as _logging
+            _logging.getLogger(__name__).info("Auto-seeding PDS business lines (412-series)")
+            from app.services.pds_business_line_seed import seed_business_lines
+            bl_result = seed_business_lines(env_id=env_id, business_id=business_id)
+            seeded["business_lines"] = bl_result
+    except Exception:
+        import logging as _logging
+        _logging.getLogger(__name__).warning("PDS business_lines table not yet migrated — skipping BL seed")
+
     return {"seeded": seeded, "refreshed": refreshed}
 
 
@@ -242,6 +262,9 @@ def seed_enterprise_workspace(*, env_id: UUID, business_id: UUID, actor: str = "
             for region_code, region_name, leader in [
                 ("SE", "Southeast", "Morgan Ruiz"),
                 ("NE", "Northeast", "Dana Park"),
+                ("MW", "Midwest", "Taylor Chen"),
+                ("SC", "South Central", "Riley Brooks"),
+                ("NW", "Northwest", "Casey Martinez"),
             ]:
                 cur.execute(
                     """
@@ -268,6 +291,10 @@ def seed_enterprise_workspace(*, env_id: UUID, business_id: UUID, actor: str = "
                 ("SFL", "South Florida", "Healthcare", region_map.get("SE"), "Avery Cole"),
                 ("MAPS", "Mid-Atlantic Public Sector", "Public Sector", region_map.get("SE"), "Jordan Hale"),
                 ("NEH", "Northeast Healthcare", "Healthcare", region_map.get("NE"), "Sam Rivera"),
+                ("NCR", "National Capital Region", "Federal", region_map.get("NE"), "Dana Park"),
+                ("MWC", "Midwest Corporate", "Corporate", region_map.get("MW"), "Taylor Chen"),
+                ("TXE", "Texas Energy", "Energy", region_map.get("SC"), "Riley Brooks"),
+                ("PNW", "Pacific Northwest", "Life Sciences", region_map.get("NW"), "Casey Martinez"),
             ]
             for code, name, sector, region_id, leader in seed_markets:
                 cur.execute(
@@ -304,6 +331,10 @@ def seed_enterprise_workspace(*, env_id: UUID, business_id: UUID, actor: str = "
                 ("STONE", "Stone Strategic Clients", "Construction Management", "strategic"),
                 ("MERH", "Meridian Health Partners", "Healthcare", "strategic"),
                 ("CITY", "City Development Authority", "Public Sector", "priority"),
+                ("APEX", "Apex Federal Systems", "Federal", "strategic"),
+                ("LKWD", "Lakewood Industrial Group", "Corporate", "priority"),
+                ("PTRN", "Petron Energy Holdings", "Energy", "strategic"),
+                ("CSCD", "Cascade BioTech Campus", "Life Sciences", "priority"),
             ]:
                 cur.execute(
                     """
@@ -328,8 +359,15 @@ def seed_enterprise_workspace(*, env_id: UUID, business_id: UUID, actor: str = "
         if not account_rows:
             seed_accounts = [
                 ("STONE-HC", "Stone Healthcare Accounts", client_list[0]["client_id"], market_list[0]["market_id"], "Avery Cole"),
-                ("MER-HOSP", "Meridian Hospital Program", client_list[1]["client_id"], market_list[2]["market_id"], "Dana Park"),
+                ("MER-HOSP", "Meridian Hospital Program", client_list[1]["client_id"], market_list[2 % len(market_list)]["market_id"], "Dana Park"),
                 ("CITY-CIV", "City Civic Infrastructure", client_list[2]["client_id"], market_list[1]["market_id"], "Jordan Hale"),
+                ("APEX-FED", "Apex Federal Campus Program", client_list[3 % len(client_list)]["client_id"], market_list[3 % len(market_list)]["market_id"], "Dana Park"),
+                ("LKWD-IND", "Lakewood Industrial Retrofit", client_list[4 % len(client_list)]["client_id"], market_list[4 % len(market_list)]["market_id"], "Taylor Chen"),
+                ("PTRN-ENG", "Petron Energy Campus", client_list[5 % len(client_list)]["client_id"], market_list[5 % len(market_list)]["market_id"], "Riley Brooks"),
+                ("CSCD-BIO", "Cascade BioTech Expansion", client_list[6 % len(client_list)]["client_id"], market_list[6 % len(market_list)]["market_id"], "Casey Martinez"),
+                ("STONE-FL", "Stone South Florida Program", client_list[0]["client_id"], market_list[0]["market_id"], "Avery Cole"),
+                ("MER-NE", "Meridian Northeast Clinics", client_list[1]["client_id"], market_list[2 % len(market_list)]["market_id"], "Sam Rivera"),
+                ("CITY-MW", "City Midwest Development", client_list[2]["client_id"], market_list[4 % len(market_list)]["market_id"], "Taylor Chen"),
             ]
             for code, name, client_id, market_id, owner in seed_accounts:
                 cur.execute(
@@ -352,10 +390,21 @@ def seed_enterprise_workspace(*, env_id: UUID, business_id: UUID, actor: str = "
             (str(env_id), str(business_id)),
         )
         if int((cur.fetchone() or {}).get("cnt") or 0) == 0:
+            owner_names = [
+                ("Avery Cole", "avery.cole@stonepds.local"),
+                ("Dana Park", "dana.park@stonepds.local"),
+                ("Jordan Hale", "jordan.hale@stonepds.local"),
+                ("Dana Park", "dana.park@stonepds.local"),
+                ("Taylor Chen", "taylor.chen@stonepds.local"),
+                ("Riley Brooks", "riley.brooks@stonepds.local"),
+                ("Casey Martinez", "casey.martinez@stonepds.local"),
+                ("Avery Cole", "avery.cole@stonepds.local"),
+                ("Sam Rivera", "sam.rivera@stonepds.local"),
+                ("Taylor Chen", "taylor.chen@stonepds.local"),
+            ]
             owner_rows = [
-                (account_list[0]["account_id"], "Avery Cole", "Account Director", "avery.cole@stonepds.local", True),
-                (account_list[1]["account_id"], "Dana Park", "Account Director", "dana.park@stonepds.local", True),
-                (account_list[2]["account_id"], "Jordan Hale", "Account Director", "jordan.hale@stonepds.local", True),
+                (account_list[i]["account_id"], owner_names[i][0], "Account Director", owner_names[i][1], True)
+                for i in range(min(len(account_list), len(owner_names)))
             ]
             for account_id, owner_name, owner_role, owner_email, is_primary in owner_rows:
                 cur.execute(
@@ -403,10 +452,16 @@ def seed_enterprise_workspace(*, env_id: UUID, business_id: UUID, actor: str = "
             resources = [
                 ("PM-101", "A. Thompson", "Project Executive", market_list[0]["market_id"], "executive"),
                 ("PM-102", "L. Morgan", "Senior Project Manager", market_list[1]["market_id"], "market_leader"),
-                ("PM-103", "C. Patel", "Project Manager", market_list[2]["market_id"], "project_lead"),
+                ("PM-103", "C. Patel", "Project Manager", market_list[2 % len(market_list)]["market_id"], "project_lead"),
                 ("PM-104", "R. Nguyen", "Project Manager", market_list[0]["market_id"], "project_lead"),
                 ("RS-201", "S. Alvarez", "Scheduling Lead", market_list[1]["market_id"], "project_lead"),
-                ("RS-202", "J. Kim", "Cost Manager", market_list[2]["market_id"], "account_director"),
+                ("RS-202", "J. Kim", "Cost Manager", market_list[2 % len(market_list)]["market_id"], "account_director"),
+                ("PM-105", "D. Washington", "Project Executive", market_list[3 % len(market_list)]["market_id"], "executive"),
+                ("PM-106", "K. Okonkwo", "Senior Project Manager", market_list[4 % len(market_list)]["market_id"], "market_leader"),
+                ("PM-107", "M. Santos", "Project Manager", market_list[5 % len(market_list)]["market_id"], "project_lead"),
+                ("RS-203", "T. Yamamoto", "Cost Manager", market_list[6 % len(market_list)]["market_id"], "account_director"),
+                ("RS-204", "E. Larsson", "Scheduling Lead", market_list[3 % len(market_list)]["market_id"], "project_lead"),
+                ("PM-108", "N. Gupta", "Project Manager", market_list[4 % len(market_list)]["market_id"], "project_lead"),
             ]
             for code, full_name, title, home_market_id, role_preset in resources:
                 cur.execute(
@@ -524,23 +579,37 @@ def seed_enterprise_workspace(*, env_id: UUID, business_id: UUID, actor: str = "
             )
             if int((cur.fetchone() or {}).get("cnt") or 0) != 0:
                 continue
+            # Per-project financial profiles: (base_fee, plan_miss_pct, ci_plan_margin, ci_actual_margin, collection_rate, writeoff_base)
+            _fin_profiles = [
+                (Decimal("425000"), Decimal("-0.07"), Decimal("0.18"), Decimal("0.15"), Decimal("0.96"), Decimal("3500")),
+                (Decimal("490000"), Decimal("0.02"), Decimal("0.20"), Decimal("0.22"), Decimal("0.88"), Decimal("18000")),
+                (Decimal("680000"), Decimal("-0.12"), Decimal("0.18"), Decimal("0.14"), Decimal("0.94"), Decimal("8500")),
+                (Decimal("310000"), Decimal("0.04"), Decimal("0.20"), Decimal("0.21"), Decimal("0.97"), Decimal("2000")),
+                (Decimal("220000"), Decimal("-0.15"), Decimal("0.16"), Decimal("0.11"), Decimal("0.85"), Decimal("22000")),
+                (Decimal("145000"), Decimal("0.01"), Decimal("0.22"), Decimal("0.23"), Decimal("0.98"), Decimal("1500")),
+                (Decimal("520000"), Decimal("-0.04"), Decimal("0.18"), Decimal("0.17"), Decimal("0.93"), Decimal("5000")),
+                (Decimal("95000"), Decimal("0.03"), Decimal("0.19"), Decimal("0.20"), Decimal("0.96"), Decimal("2500")),
+            ]
+            _seasonality = [Decimal("0.85"), Decimal("0.92"), Decimal("1.00"), Decimal("1.05"), Decimal("1.08"), Decimal("1.02")]
+
             for month_offset in range(-2, 4):
                 period_date = _first_of_month(today, month_offset)
+                season_mult = _seasonality[(month_offset + 2) % len(_seasonality)]
                 for index, project in enumerate(projects):
                     market_id = market_list[index % len(market_list)]["market_id"]
                     account_id = account_list[index % len(account_list)]["account_id"]
                     project_id = project["project_id"]
-                    base_fee = Decimal("425000") + (Decimal(index) * Decimal("65000"))
-                    plan_amount = base_fee + (Decimal(month_offset) * Decimal("18000"))
-                    actual_amount = plan_amount - (Decimal("35000") if month_offset <= 0 and index == 1 else Decimal("5000"))
+                    fp = _fin_profiles[index % len(_fin_profiles)]
+                    plan_amount = (fp[0] + (Decimal(month_offset) * Decimal("18000"))) * season_mult
+                    actual_amount = plan_amount * (Decimal("1") + fp[1])
                     gaap_plan = plan_amount * Decimal("0.94")
                     gaap_actual = actual_amount * Decimal("0.95")
-                    ci_plan = plan_amount * Decimal("0.18")
-                    ci_actual = actual_amount * Decimal("0.15")
+                    ci_plan = plan_amount * fp[2]
+                    ci_actual = actual_amount * fp[3]
                     backlog = plan_amount * Decimal("4.6") if month_offset >= 0 else plan_amount * Decimal("3.4")
                     billing = actual_amount * Decimal("0.92")
-                    collection = billing * (Decimal("0.96") if index != 1 else Decimal("0.88"))
-                    writeoff = Decimal("18000") if index == 1 and month_offset <= 0 else Decimal("3500")
+                    collection = billing * fp[4]
+                    writeoff = fp[5] if month_offset <= 0 else Decimal("3500")
                     values = {
                         "pds_fee_revenue_plan": plan_amount,
                         "pds_fee_revenue_actual": actual_amount,
@@ -637,10 +706,23 @@ def seed_enterprise_workspace(*, env_id: UUID, business_id: UUID, actor: str = "
             (str(env_id), str(business_id)),
         )
         if int((cur.fetchone() or {}).get("cnt") or 0) == 0:
+            # Satisfaction scores: varied distribution across accounts
+            # Some strong (4.5+), some mid (3.8-4.2), some at-risk (<3.5)
+            satisfaction_profiles = [
+                (Decimal("4.6"), Decimal("0.2"), "green"),   # Strong performer
+                (Decimal("3.2"), Decimal("-0.6"), "red"),    # At risk — declining
+                (Decimal("4.1"), Decimal("0.1"), "green"),   # Solid
+                (Decimal("4.4"), Decimal("0.3"), "green"),   # Strong
+                (Decimal("3.7"), Decimal("-0.2"), "yellow"), # Watch list
+                (Decimal("4.8"), Decimal("0.1"), "green"),   # Top performer
+                (Decimal("3.4"), Decimal("-0.4"), "red"),    # At risk
+                (Decimal("4.2"), Decimal("0.0"), "green"),   # Stable
+                (Decimal("3.9"), Decimal("0.2"), "green"),   # Improving
+                (Decimal("2.9"), Decimal("-0.8"), "red"),    # Critical — needs intervention
+            ]
             for index, account in enumerate(account_list):
-                average_score = Decimal("4.5") - (Decimal(index) * Decimal("0.8"))
-                trend_delta = Decimal("-0.6") if index == 1 else Decimal("0.2")
-                risk_state = "red" if average_score < Decimal("3.5") else "green"
+                profile = satisfaction_profiles[index % len(satisfaction_profiles)]
+                average_score, trend_delta, risk_state = profile
                 cur.execute(
                     """
                     INSERT INTO pds_satisfaction_rollups
@@ -669,17 +751,27 @@ def seed_enterprise_workspace(*, env_id: UUID, business_id: UUID, actor: str = "
                 (str(env_id), str(business_id)),
             )
             if int((cur.fetchone() or {}).get("cnt") or 0) == 0:
+                _al = account_list  # shorthand
                 pipeline_deals = [
-                    ("Northeast Medical Campus Expansion", account_list[0]["account_id"], "prospect", Decimal("2400000"), Decimal("15"), today + timedelta(days=90), "Dana Park"),
-                    ("Southeast Office Renovation", account_list[1]["account_id"], "prospect", Decimal("850000"), Decimal("20"), today + timedelta(days=75), "Avery Cole"),
-                    ("City Hall Renovation Phase II", account_list[2]["account_id"], "pursuit", Decimal("3200000"), Decimal("45"), today + timedelta(days=60), "Jordan Hale"),
-                    ("Public Safety Training Center", account_list[1]["account_id"], "pursuit", Decimal("1750000"), Decimal("50"), today + timedelta(days=45), "Morgan Ruiz"),
-                    ("Meridian Clinic Network Fit-out", account_list[0]["account_id"], "pursuit", Decimal("1100000"), Decimal("40"), today + timedelta(days=55), "Dana Park"),
-                    ("South Florida Data Center", account_list[0]["account_id"], "won", Decimal("4100000"), Decimal("85"), today + timedelta(days=30), "Avery Cole"),
-                    ("Northeast Lab Consolidation", account_list[2]["account_id"], "won", Decimal("1950000"), Decimal("90"), today + timedelta(days=20), "Sam Rivera"),
-                    ("City Civic Water Treatment", account_list[2]["account_id"], "converted", Decimal("2800000"), Decimal("100"), today - timedelta(days=15), "Jordan Hale"),
-                    ("Stone Healthcare Central Plant", account_list[0]["account_id"], "converted", Decimal("3600000"), Decimal("100"), today - timedelta(days=30), "Avery Cole"),
-                    ("Mid-Atlantic School Modernization", account_list[1]["account_id"], "prospect", Decimal("1200000"), Decimal("10"), today + timedelta(days=120), "Jordan Hale"),
+                    # Prospects (10-25%)
+                    ("Northeast Medical Campus Expansion", _al[0]["account_id"], "prospect", Decimal("2400000"), Decimal("15"), today + timedelta(days=90), "Dana Park"),
+                    ("Southeast Office Renovation", _al[1 % len(_al)]["account_id"], "prospect", Decimal("850000"), Decimal("20"), today + timedelta(days=75), "Avery Cole"),
+                    ("Mid-Atlantic School Modernization", _al[2 % len(_al)]["account_id"], "prospect", Decimal("1200000"), Decimal("10"), today + timedelta(days=120), "Jordan Hale"),
+                    ("Cascade Research Annex", _al[6 % len(_al)]["account_id"], "prospect", Decimal("1800000"), Decimal("20"), today + timedelta(days=100), "Casey Martinez"),
+                    # Pursuits (30-50%)
+                    ("City Hall Renovation Phase II", _al[2 % len(_al)]["account_id"], "pursuit", Decimal("3200000"), Decimal("45"), today + timedelta(days=60), "Jordan Hale"),
+                    ("Public Safety Training Center", _al[3 % len(_al)]["account_id"], "pursuit", Decimal("1750000"), Decimal("50"), today + timedelta(days=45), "Dana Park"),
+                    ("Meridian Clinic Network Fit-out", _al[8 % len(_al)]["account_id"], "pursuit", Decimal("1100000"), Decimal("40"), today + timedelta(days=55), "Sam Rivera"),
+                    ("Lakewood Warehouse Modernization", _al[4 % len(_al)]["account_id"], "pursuit", Decimal("2100000"), Decimal("35"), today + timedelta(days=65), "Taylor Chen"),
+                    ("Petron Refinery Controls Upgrade", _al[5 % len(_al)]["account_id"], "pursuit", Decimal("4500000"), Decimal("30"), today + timedelta(days=70), "Riley Brooks"),
+                    # Won (70-90%)
+                    ("South Florida Data Center", _al[7 % len(_al)]["account_id"], "won", Decimal("4100000"), Decimal("85"), today + timedelta(days=30), "Avery Cole"),
+                    ("Northeast Lab Consolidation", _al[8 % len(_al)]["account_id"], "won", Decimal("1950000"), Decimal("90"), today + timedelta(days=20), "Sam Rivera"),
+                    ("Federal Campus Phase III", _al[3 % len(_al)]["account_id"], "won", Decimal("5200000"), Decimal("80"), today + timedelta(days=25), "Dana Park"),
+                    # Converted (100%)
+                    ("City Civic Water Treatment", _al[9 % len(_al)]["account_id"], "converted", Decimal("2800000"), Decimal("100"), today - timedelta(days=15), "Taylor Chen"),
+                    ("Stone Healthcare Central Plant", _al[0]["account_id"], "converted", Decimal("3600000"), Decimal("100"), today - timedelta(days=30), "Avery Cole"),
+                    ("Midwest Distribution Hub", _al[4 % len(_al)]["account_id"], "converted", Decimal("1400000"), Decimal("100"), today - timedelta(days=10), "Taylor Chen"),
                 ]
                 for deal_name, account_id, stage, deal_value, probability, close_date, owner in pipeline_deals:
                     cur.execute(
@@ -724,6 +816,8 @@ def _load_rows_by_table(*, env_id: UUID, business_id: UUID) -> dict[str, list[di
         "permits": "SELECT * FROM pds_permits WHERE env_id = %s::uuid AND business_id = %s::uuid ORDER BY created_at",
         "change_orders": "SELECT * FROM pds_change_orders WHERE env_id = %s::uuid AND business_id = %s::uuid ORDER BY created_at",
         "milestones": "SELECT * FROM pds_milestones WHERE env_id = %s::uuid AND business_id = %s::uuid ORDER BY created_at",
+        "business_lines": "SELECT * FROM pds_business_lines WHERE env_id = %s::uuid AND business_id = %s::uuid ORDER BY sort_order",
+        "leader_coverage": "SELECT * FROM pds_leader_coverage WHERE env_id = %s::uuid AND business_id = %s::uuid AND effective_to IS NULL ORDER BY market_id, business_line_id",
     }
     rows: dict[str, list[dict[str, Any]]] = {}
     with get_cursor() as cur:
@@ -926,7 +1020,7 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
         forecast_base = fee_actual or fee_plan
         writeoff = _sum_amount(rows["writeoffs"], field="amount", start=date(today.year, 1, 1), end=today, entity_key="account_id", entity_id=account_id)
         satisfaction = _avg_value(rows["survey_rollups"], field="average_score", entity_key="account_id", entity_id=account_id)
-        red_projects = len([project for project in projects if project.get("account_id") == account_id and _q(project.get("risk_score")) >= Decimal("50000")])
+        red_projects = len([project for project in projects if project.get("account_id") == account_id and _q(project.get("risk_score")) >= Decimal("50")])
         collections = _sum_amount(rows["collections"], field="amount", start=date(today.year, 1, 1), end=today, entity_key="account_id", entity_id=account_id)
         billings = _sum_amount(rows["billing"], field="amount", start=date(today.year, 1, 1), end=today, entity_key="account_id", entity_id=account_id)
         collections_lag = _q(billings - collections)
@@ -948,6 +1042,7 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
             start_date, end_date = _date_window(horizon, today)
             for table in [
                 "pds_market_performance_snapshot",
+                "pds_business_line_performance_snapshot",
                 "pds_account_performance_snapshot",
                 "pds_project_health_snapshot",
                 "pds_resource_utilization_snapshot",
@@ -971,7 +1066,7 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
                 ci_plan = _sum_amount(rows["ci_plan"], field="amount", start=start_date, end=end_date, entity_key="market_id", entity_id=market_id)
                 ci_actual = _sum_amount(rows["ci_actual"], field="amount", start=start_date, end=end_date, entity_key="market_id", entity_id=market_id)
                 backlog = _sum_latest_value(rows["backlog"], entity_key="market_id", entity_id=market_id)
-                red_projects = len([project for project in projects if project.get("market_id") == market_id and _q(project.get("risk_score")) >= Decimal("50000")])
+                red_projects = len([project for project in projects if project.get("market_id") == market_id and _q(project.get("risk_score")) >= Decimal("50")])
                 client_risk_accounts = len([account for account in rows["accounts"] if account.get("market_id") == market_id and account_score_map.get(account["account_id"], Decimal("0")) >= Decimal("50")])
                 resource_ids = [resource["resource_id"] for resource in rows["resources"] if resource.get("home_market_id") == market_id]
                 assigned_hours = Decimal("0")
@@ -1060,6 +1155,56 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
                     ),
                 )
 
+            # ── Business line snapshots ──────────────────────────
+            for bl in rows.get("business_lines", []):
+                bl_id = bl["business_line_id"]
+                bl_fee_plan = _sum_amount(rows["fee_plan"], field="amount", start=start_date, end=end_date, entity_key="business_line_id", entity_id=bl_id)
+                bl_fee_actual = _sum_amount(rows["fee_actual"], field="amount", start=start_date, end=end_date, entity_key="business_line_id", entity_id=bl_id)
+                bl_gaap_plan = _sum_amount(rows["gaap_plan"], field="amount", start=start_date, end=end_date, entity_key="business_line_id", entity_id=bl_id)
+                bl_gaap_actual = _sum_amount(rows["gaap_actual"], field="amount", start=start_date, end=end_date, entity_key="business_line_id", entity_id=bl_id)
+                bl_ci_plan = _sum_amount(rows["ci_plan"], field="amount", start=start_date, end=end_date, entity_key="business_line_id", entity_id=bl_id)
+                bl_ci_actual = _sum_amount(rows["ci_actual"], field="amount", start=start_date, end=end_date, entity_key="business_line_id", entity_id=bl_id)
+                bl_backlog = _sum_latest_value(rows["backlog"], entity_key="business_line_id", entity_id=bl_id)
+                bl_red = len([p for p in projects if p.get("business_line_id") == bl_id and _q(p.get("risk_score")) >= Decimal("50")])
+                bl_reason_codes: list[str] = []
+                if bl_fee_actual < bl_fee_plan:
+                    bl_reason_codes.append("FEE_PLAN_MISS")
+                if bl_red > 0:
+                    bl_reason_codes.append("RED_PROJECTS")
+                bl_health = "red" if bl_red > 1 else "yellow" if bl_reason_codes else "green"
+                bl_forecast = (bl_fee_actual or bl_fee_plan) * Decimal("3.02")
+                cur.execute(
+                    """
+                    INSERT INTO pds_business_line_performance_snapshot
+                    (env_id, business_id, business_line_id, snapshot_date, horizon,
+                     fee_plan, fee_actual, gaap_plan, gaap_actual, ci_plan, ci_actual,
+                     backlog, forecast, red_projects, client_risk_accounts,
+                     utilization_pct, timecard_compliance_pct, satisfaction_score,
+                     health_status, reason_codes_json, explainability_json)
+                    VALUES
+                    (%s::uuid, %s::uuid, %s::uuid, %s, %s,
+                     %s, %s, %s, %s, %s, %s,
+                     %s, %s, %s, %s,
+                     %s, %s, %s,
+                     %s, %s::jsonb, %s::jsonb)
+                    ON CONFLICT (env_id, business_id, snapshot_date, horizon, business_line_id)
+                    DO UPDATE SET fee_plan = EXCLUDED.fee_plan, fee_actual = EXCLUDED.fee_actual,
+                      gaap_plan = EXCLUDED.gaap_plan, gaap_actual = EXCLUDED.gaap_actual,
+                      ci_plan = EXCLUDED.ci_plan, ci_actual = EXCLUDED.ci_actual,
+                      backlog = EXCLUDED.backlog, forecast = EXCLUDED.forecast,
+                      red_projects = EXCLUDED.red_projects, health_status = EXCLUDED.health_status,
+                      reason_codes_json = EXCLUDED.reason_codes_json, explainability_json = EXCLUDED.explainability_json
+                    """,
+                    (
+                        str(env_id), str(business_id), str(bl_id), snapshot_date, horizon,
+                        str(bl_fee_plan), str(bl_fee_actual), str(bl_gaap_plan), str(bl_gaap_actual), str(bl_ci_plan), str(bl_ci_actual),
+                        str(bl_backlog), str(_q(bl_forecast)), bl_red, 0,
+                        str(Decimal("0")), str(Decimal("0")), str(Decimal("0")),
+                        bl_health, _serialize_list(bl_reason_codes),
+                        _serialize_json({"line_name": bl.get("line_name"), "line_code": bl.get("line_code")}),
+                    ),
+                )
+
             for account in rows["accounts"]:
                 account_id = account["account_id"]
                 fee_plan = _sum_amount(rows["fee_plan"], field="amount", start=start_date, end=end_date, entity_key="account_id", entity_id=account_id)
@@ -1072,7 +1217,7 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
                 collections = _sum_amount(rows["collections"], field="amount", start=start_date, end=end_date, entity_key="account_id", entity_id=account_id)
                 billings = _sum_amount(rows["billing"], field="amount", start=start_date, end=end_date, entity_key="account_id", entity_id=account_id)
                 writeoff = _sum_amount(rows["writeoffs"], field="amount", start=start_date, end=end_date, entity_key="account_id", entity_id=account_id)
-                red_projects = len([project for project in projects if project.get("account_id") == account_id and _q(project.get("risk_score")) >= Decimal("50000")])
+                red_projects = len([project for project in projects if project.get("account_id") == account_id and _q(project.get("risk_score")) >= Decimal("50")])
                 satisfaction_rollup = next((row for row in rows["survey_rollups"] if row.get("account_id") == account_id), None)
                 satisfaction_score = _q((satisfaction_rollup or {}).get("average_score"))
                 account_score = account_score_map.get(account_id, Decimal("0"))
@@ -1302,6 +1447,38 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
                     ),
                 )
 
+            # Pipeline → Forecast integration: add weighted pipeline value to base lookups
+            try:
+                cur.execute(
+                    "SELECT account_id, deal_value, probability_pct FROM pds_pipeline_deals WHERE env_id = %s::uuid AND business_id = %s::uuid AND stage IN ('prospect', 'pursuit', 'won')",
+                    (str(env_id), str(business_id)),
+                )
+                pipeline_rows = cur.fetchall()
+                # Build account → weighted pipeline value
+                pipeline_by_account: dict[UUID, Decimal] = {}
+                for prow in pipeline_rows:
+                    acct_id = prow.get("account_id")
+                    if acct_id:
+                        weighted = _q(prow.get("deal_value")) * (_q(prow.get("probability_pct")) / Decimal("100"))
+                        pipeline_by_account[acct_id] = pipeline_by_account.get(acct_id, Decimal("0")) + weighted
+                # Add pipeline contribution to account base lookup
+                for acct_id, weighted_val in pipeline_by_account.items():
+                    # Spread pipeline across 3 forecast months
+                    monthly_contribution = weighted_val / Decimal("3")
+                    account_base_lookup[acct_id] = account_base_lookup.get(acct_id, Decimal("0")) + monthly_contribution
+                # Roll up to market via account → market mapping
+                account_market_map: dict[UUID, UUID] = {}
+                for account in rows["accounts"]:
+                    if account.get("market_id"):
+                        account_market_map[account["account_id"]] = account["market_id"]
+                for acct_id, weighted_val in pipeline_by_account.items():
+                    mkt_id = account_market_map.get(acct_id)
+                    if mkt_id:
+                        monthly_contribution = weighted_val / Decimal("3")
+                        market_base_lookup[mkt_id] = market_base_lookup.get(mkt_id, Decimal("0")) + monthly_contribution
+            except Exception:
+                pass  # pds_pipeline_deals may not exist yet
+
             _insert_forecast_rows(
                 cur,
                 env_id=env_id,
@@ -1393,6 +1570,7 @@ def get_performance_table(*, env_id: UUID, business_id: UUID, lens: str, horizon
     normalized_horizon = normalize_horizon(horizon)
     table_by_lens = {
         "market": "pds_market_performance_snapshot",
+        "business_line": "pds_business_line_performance_snapshot",
         "account": "pds_account_performance_snapshot",
         "project": "pds_project_health_snapshot",
         "resource": "pds_resource_utilization_snapshot",
@@ -1410,6 +1588,40 @@ def get_performance_table(*, env_id: UUID, business_id: UUID, lens: str, horizon
                     "entity_id": row["market_id"],
                     "entity_label": market_names.get(row["market_id"]) or "Market",
                     "owner_label": (next((item for item in entities["markets"] if item["market_id"] == row["market_id"]), {}) or {}).get("leader_name"),
+                    "health_status": row.get("health_status") or "green",
+                    "fee_plan": _q(row.get("fee_plan")),
+                    "fee_actual": _q(row.get("fee_actual")),
+                    "fee_variance": _q(row.get("fee_actual")) - _q(row.get("fee_plan")),
+                    "gaap_plan": _q(row.get("gaap_plan")),
+                    "gaap_actual": _q(row.get("gaap_actual")),
+                    "gaap_variance": _q(row.get("gaap_actual")) - _q(row.get("gaap_plan")),
+                    "ci_plan": _q(row.get("ci_plan")),
+                    "ci_actual": _q(row.get("ci_actual")),
+                    "ci_variance": _q(row.get("ci_actual")) - _q(row.get("ci_plan")),
+                    "backlog": _q(row.get("backlog")),
+                    "forecast": _q(row.get("forecast")),
+                    "red_projects": int(row.get("red_projects") or 0),
+                    "client_risk_accounts": int(row.get("client_risk_accounts") or 0),
+                    "satisfaction_score": _q(row.get("satisfaction_score")),
+                    "utilization_pct": _q(row.get("utilization_pct")),
+                    "timecard_compliance_pct": _q(row.get("timecard_compliance_pct")),
+                    "reason_codes": list(row.get("reason_codes_json") or []),
+                    "href": f"/lab/env/{env_id}/pds/markets",
+                }
+                for row in rows
+            ],
+        }
+    if normalized_lens == "business_line":
+        bl_names = {row["business_line_id"]: row.get("line_name") for row in entities.get("business_lines", [])}
+        return {
+            "lens": normalized_lens,
+            "horizon": normalized_horizon,
+            "columns": ["Business Line", "Fee", "GAAP", "CI", "Backlog", "Forecast", "Risk"],
+            "rows": [
+                {
+                    "entity_id": row["business_line_id"],
+                    "entity_label": bl_names.get(row["business_line_id"]) or "Business Line",
+                    "owner_label": None,
                     "health_status": row.get("health_status") or "green",
                     "fee_plan": _q(row.get("fee_plan")),
                     "fee_actual": _q(row.get("fee_actual")),

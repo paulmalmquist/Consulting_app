@@ -520,6 +520,39 @@ PDS_ANALYTICS_TABLES: list[Table] = [
             Column("onboarding_completion_pct", "numeric", "Onboarding completion percentage"),
         ],
     ),
+    Table(
+        name="pds_business_lines",
+        description="Business line (service line) dimension — Project Management, Construction Management, etc.",
+        pk="business_line_id",
+        columns=[
+            Column("business_line_id", "uuid", "Primary key"),
+            Column("env_id", "uuid", "Environment ID"),
+            Column("business_id", "uuid", "Business ID — tenant isolation"),
+            Column("line_code", "text", "Short code: PM, DM, CM, COST, DESIGN, MSP, LOC, LDA, TETRIS"),
+            Column("line_name", "text", "Full name: Project Management, Development Management, etc."),
+            Column("line_category", "text", "delivery | advisory | specialty"),
+            Column("sort_order", "int", "Display order"),
+            Column("is_active", "boolean", "Whether business line is active"),
+        ],
+    ),
+    Table(
+        name="pds_leader_coverage",
+        description="Bridge table: employee × market × business_line coverage with effective dates. Models the JLL operating grain where leader = coverage combination.",
+        pk="leader_coverage_id",
+        parent_fk="resource_id → pds_resources, market_id → pds_markets, business_line_id → pds_business_lines",
+        columns=[
+            Column("leader_coverage_id", "uuid", "Primary key"),
+            Column("env_id", "uuid", "Environment ID"),
+            Column("business_id", "uuid", "Business ID — tenant isolation"),
+            Column("resource_id", "uuid", "FK to pds_resources — the leader/employee"),
+            Column("market_id", "uuid", "FK to pds_markets — covered market"),
+            Column("business_line_id", "uuid", "FK to pds_business_lines — covered service line"),
+            Column("coverage_role", "text", "leader | deputy | interim"),
+            Column("effective_from", "date", "Coverage start date"),
+            Column("effective_to", "date", "Coverage end date (NULL = current)"),
+            Column("is_primary", "boolean", "Primary leader for this market+BL combination"),
+        ],
+    ),
 ]
 
 # ── PDS Analytics Views ──────────────────────────────────────────

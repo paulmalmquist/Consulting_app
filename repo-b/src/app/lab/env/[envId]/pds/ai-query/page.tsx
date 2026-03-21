@@ -205,15 +205,15 @@ export default function PdsAiQueryPage() {
   return (
     <div className="flex h-[calc(100vh-280px)] flex-col">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-zinc-100">AI Query</h1>
-        <p className="text-sm text-zinc-400">Ask questions about your PDS data in natural language.</p>
+        <h1 className="text-2xl font-bold text-zinc-100">Custom Query</h1>
+        <p className="text-sm text-zinc-400">Ask custom questions about your PDS data in natural language.</p>
       </div>
 
       {/* Message area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 rounded-lg border border-zinc-700 bg-zinc-900/50 p-4">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full space-y-6">
-            <p className="text-zinc-500 text-sm">Ask a question or pick a suggestion below</p>
+            <p className="text-zinc-500 text-sm">Ask a custom question or pick a suggestion below</p>
             <div className="flex flex-wrap justify-center gap-2">
               {suggestions.map((q, i) => (
                 <button
@@ -267,7 +267,7 @@ export default function PdsAiQueryPage() {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about revenue, utilization, NPS, accounts..."
+          placeholder="Ask a custom question about revenue, utilization, NPS, accounts..."
           className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
           disabled={isStreaming}
         />

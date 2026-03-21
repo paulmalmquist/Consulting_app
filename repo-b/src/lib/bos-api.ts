@@ -763,9 +763,32 @@ export interface OpportunityDashboard {
   run_history: OpportunityModelRun[];
 }
 
-export type PdsV2Lens = "market" | "account" | "project" | "resource";
+export type PdsV2Lens = "market" | "account" | "project" | "resource" | "business_line";
 export type PdsV2Horizon = "MTD" | "QTD" | "YTD" | "Forecast";
-export type PdsV2RolePreset = "executive" | "market_leader" | "account_director" | "project_lead";
+export type PdsV2RolePreset = "executive" | "market_leader" | "account_director" | "project_lead" | "business_line_leader";
+
+export interface PdsV2BusinessLine {
+  business_line_id: string;
+  line_code: string;
+  line_name: string;
+  line_category: string | null;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface PdsV2LeaderCoverage {
+  leader_coverage_id: string;
+  resource_id: string;
+  resource_name: string;
+  market_id: string;
+  market_name: string;
+  business_line_id: string;
+  business_line_name: string;
+  coverage_role: string;
+  effective_from: string;
+  effective_to: string | null;
+  is_primary: boolean;
+}
 
 export interface PdsV2Context extends DomainContext {
   workspace_template_key: string;

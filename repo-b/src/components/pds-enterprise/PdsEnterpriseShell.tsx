@@ -8,10 +8,18 @@ import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 import { resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
 import ThemeToggle from "@/components/ThemeToggle";
 
-type NavItem = { href: string; label: string };
+type NavItem = {
+  href: string;
+  label: string;
+  exact?: boolean;
+  tone?: "default" | "special";
+};
 type NavGroup = { domain: string; items: NavItem[] };
 
-function isActive(pathname: string, href: string): boolean {
+function isActive(pathname: string, href: string, exact = false): boolean {
+  if (exact) {
+    return pathname === href;
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -20,9 +28,8 @@ function navGroups(base: string): NavGroup[] {
     {
       domain: "Command",
       items: [
-        { href: base, label: "Command Center" },
-        { href: `${base}/ai-briefing`, label: "AI Briefing" },
-        { href: `${base}/ai-query`, label: "AI Query" },
+        { href: base, label: "Home", exact: true },
+        { href: `${base}/ai-briefing`, label: "Exec Briefing" },
       ],
     },
     {
@@ -84,6 +91,12 @@ function navGroups(base: string): NavGroup[] {
         { href: `${base}/documents`, label: "Documents" },
         { href: `${base}/audit`, label: "Audit" },
         { href: `${base}/configuration`, label: "Configuration" },
+      ],
+    },
+    {
+      domain: "Special Tools",
+      items: [
+        { href: `${base}/ai-query`, label: "Custom Query", tone: "special" },
       ],
     },
   ];
@@ -178,19 +191,28 @@ export default function PdsEnterpriseShell({
                   {group.domain}
                 </p>
                 <div className="space-y-0.5">
-                  {group.items.map((item) => (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`block rounded-xl border px-3 py-2 pl-5 text-[13px] transition ${
-                        isActive(pathname, item.href)
-                          ? "border-pds-gold/50 bg-pds-gold/10 text-pds-goldText"
-                          : "border-transparent hover:bg-pds-gold/5 hover:text-pds-goldSoft"
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
-                  ))}
+                  {group.items.map((item) => {
+                    const active = isActive(pathname, item.href, item.exact);
+                    const inactiveClass =
+                      item.tone === "special"
+                        ? "border-pds-gold/15 bg-pds-gold/5 text-pds-goldText hover:bg-pds-gold/10 hover:text-pds-goldSoft"
+                        : "border-transparent hover:bg-pds-gold/5 hover:text-pds-goldSoft";
+
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        aria-current={active ? "page" : undefined}
+                        className={`block rounded-xl border px-3 py-2 pl-5 text-[13px] transition ${
+                          active
+                            ? "border-pds-gold/50 bg-pds-gold/10 text-pds-goldText"
+                            : inactiveClass
+                        }`}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
             ))}

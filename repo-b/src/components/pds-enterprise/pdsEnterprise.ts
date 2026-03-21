@@ -2,6 +2,7 @@ import type { PdsV2Horizon, PdsV2Lens, PdsV2RolePreset } from "@/lib/bos-api";
 
 export const PDS_LENSES: Array<{ key: PdsV2Lens; label: string }> = [
   { key: "market", label: "Market" },
+  { key: "business_line", label: "Business Line" },
   { key: "account", label: "Account" },
   { key: "project", label: "Project" },
   { key: "resource", label: "Resource" },
@@ -17,6 +18,7 @@ export const PDS_HORIZONS: Array<{ key: PdsV2Horizon; label: string }> = [
 export const PDS_ROLE_PRESETS: Array<{ key: PdsV2RolePreset; label: string }> = [
   { key: "executive", label: "Executive" },
   { key: "market_leader", label: "Market Leader" },
+  { key: "business_line_leader", label: "Business Line Leader" },
   { key: "account_director", label: "Account Director" },
   { key: "project_lead", label: "Project Lead" },
 ];
