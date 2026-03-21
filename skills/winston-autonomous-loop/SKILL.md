@@ -22,6 +22,24 @@ A fully wired autonomous system with these layers:
 
 Read `references/architecture.md` for the full timing diagram, model tier assignments, and data flow between tasks.
 
+## Guardrails (REQUIRED for every domain)
+
+Read `references/guardrails.md` for the full guardrail specification. Every task created by this skill MUST include these controls. Summary:
+
+**Turn Budgets:** Every task has a hard tool-call limit. Intelligence scanners: 8-10. Analysis tasks: 10-12. Coding sessions: 25. Follow-up: 15. Watchdog: 10. Exceeding budget = stop and document.
+
+**Loop Detection:** If any task reads the same file >2 times or edits the same file >3 times, it must stop immediately. It is looping.
+
+**Impact Statements:** Every task output MUST end with an Impact Statement answering: "What changed in the system as a result of this run?" If the answer is "nothing" — say so honestly. The efficiency tracker scores this.
+
+**Fail Fast:** Any task that encounters an error it can't resolve in 2 attempts must stop, document the error, and let the next task in the chain handle it.
+
+**Novelty Check:** Suggestion-generating tasks must check the last 3 days of their own output folder before writing. If today's output repeats previous days, say so. Don't manufacture ideas from stale signals.
+
+**Cost Justification:** Coding sessions (Opus) must include a "Was this worth Opus?" assessment. If the task was trivial, note it so the weekly audit can downgrade the model tier.
+
+**Governance Layer:** The efficiency tracker (daily) and watchdog (daily) and weekly audit (Saturday) form a three-tier governance system that scores every task and recommends retirements, prompt refinements, and priority overrides.
+
 ## Setup Process
 
 When triggered, follow these steps in order:
@@ -84,8 +102,12 @@ Create tasks in this order, using the timing template from `references/architect
 - **{domain}-deploy-verify** — Verify yesterday's coding push. Hit endpoints, check for regressions. Write to `docs/ops-reports/{domain}/`. [sonnet/low]
 - **{domain}-digest** — Read all overnight + verification results, update the domain section in LATEST.md and refresh the domain capability inventory. [sonnet/medium]
 
+#### Evening Tier (governance)
+- **{domain}-efficiency-tracker** — Score every task output from today on actionability (1-5), novelty (1-5), dedup compliance (1-5), cost justification (1-5). Flag underperformers. Write to `docs/ops-reports/{domain}-efficiency/`. [sonnet/low]
+- **{domain}-watchdog** — Fast pipeline health check: missing outputs, stale files, coding session health, git status, repeat failures. Write to `docs/ops-reports/{domain}-watchdog/`. [sonnet/low]
+
 #### Weekly (self-assessment)
-- **{domain}-weekly-audit** — Saturday deep audit. Review all coding sessions, task output quality, dedup compliance, and suggest improvements. Follow the weekly-code-quality-sweep pattern from `references/weekly-audit-prompt.md`. [opus/high]
+- **{domain}-weekly-audit** — Saturday deep audit. Review all coding sessions, task output quality, dedup compliance, efficiency scores, watchdog alerts, and suggest improvements. Follow the weekly-code-quality-sweep pattern from `references/weekly-audit-prompt.md`. [opus/high]
 
 ### Step 5: Wire Into CLAUDE.md
 

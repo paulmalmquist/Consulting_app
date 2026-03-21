@@ -24,11 +24,15 @@ MIDDAY — analyze + prioritize
    1:00 PM  {domain}-improvement-audit       [sonnet/medium]
 
 AFTERNOON — act on intelligence
-   3:00 PM  {domain}-coding-session          [opus/high + plan mode]
-   5:00 PM  {domain}-coding-followup         [opus/high]
+   3:00 PM  {domain}-coding-session          [opus/high + plan mode]  max 25 turns
+   5:00 PM  {domain}-coding-followup         [opus/high]              max 15 turns
+
+EVENING — governance
+   6:30 PM  {domain}-efficiency-tracker      [sonnet/low]             max 10 turns
+   8:00 PM  {domain}-watchdog                [sonnet/low]             max 10 turns
 
 SATURDAY — self-assessment
-   4:00 AM  {domain}-weekly-audit            [opus/high]
+   4:00 AM  {domain}-weekly-audit            [opus/high]              max 30 turns
 ```
 
 ## Data Flow
@@ -53,11 +57,16 @@ coding-session → code changes + git push
                      ↓
 coding-followup → fixes/completions + git push
                 → docs/ops-reports/coding-sessions/{domain}-followup-{date}.md
+                     ↓
+efficiency-tracker → docs/ops-reports/{domain}-efficiency/{date}.md
+                     ↓
+watchdog ──────→ docs/ops-reports/{domain}-watchdog/{date}.md
                      ↓ (next morning)
 deploy-verify ─→ verifies the push worked
 digest ────────→ updates LATEST.md with results
                      ↓ (Saturday)
 weekly-audit ──→ docs/ops-reports/{domain}-audit/{date}.md
+               → reads efficiency scores + watchdog reports
                → recommendations for next week
 ```
 
