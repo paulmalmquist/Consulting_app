@@ -10,7 +10,7 @@
 
 | System | Status | Last checked |
 |---|---|---|
-| paulmalmquist.com | UNKNOWN | [pending first ops run] |
+| paulmalmquist.com | UP — login page rendering | 2026-03-21 |
 | novendor.ai | Placeholder ("Launching Soon") | 2026-03-19 |
 | Supabase | UNKNOWN | [pending first ops run] |
 | Vercel deploys | UNKNOWN | [pending first ops run] |
@@ -19,21 +19,23 @@
 
 | File | Date | Pass rate |
 |---|---|---|
-| `docs/ai-testing/` | [pending] | [pending first nightly test] |
+| `docs/ai-testing/2026-03-20.md` | 2026-03-20 | N/A — 0/6 ran, Chrome extension disconnected 2 days |
 
-**Bug 0 status:** OPEN — raw tool call spam confirmed in production 2026-03-19. Fix spec in `META_PROMPT_CHAT_WORKSPACE.md` Bug 0 section.
+**Bug 0 status:** OPEN — raw tool call spam confirmed in production 2026-03-19. Fix spec in `META_PROMPT_CHAT_WORKSPACE.md` Bug 0 section. No commits addressed it this week.
 
 ## Latest Code Quality
 
 | File | Date | Overall score |
 |---|---|---|
-| `docs/ops-reports/code-quality/` | [pending] | [pending first Saturday sweep] |
+| `docs/ops-reports/code-quality/2026-03-21.md` | 2026-03-21 | C+ (first Saturday sweep) |
+
+**Key findings:** 76 commits, 39 feature / 37 fix (near 1:1 ratio). Hardcoded API key needs rotation. Coding agent not running ruff/tsc before commits.
 
 ## Latest Feature Radar
 
 | File | Date | Top pick |
 |---|---|---|
-| `docs/feature-radar/` | 2026-03-19 | [check file for details] |
+| `docs/feature-radar/` | 2026-03-19 | AI Decision Audit Trail (EU AI Act compliance, priority 9/10) |
 
 ## Latest Competitor Intelligence
 
@@ -45,7 +47,13 @@
 
 | File | Date | Top prospect |
 |---|---|---|
-| `docs/sales-signals/` | 2026-03-19 | [check file for details] |
+| `docs/sales-signals/` | 2026-03-19 | Allegro Real Estate (UK, greenfield, debut fund) |
+
+## Latest Daily Digest
+
+| File | Date |
+|---|---|
+| `docs/ops-reports/digests/winston-daily-brief-2026-03-21.md` | 2026-03-21 |
 
 ## Active Meta Prompts (Build Directives)
 
@@ -112,4 +120,4 @@ All suggestion-generating tasks (feature-radar, demo-ideas, site-improvements, c
 
 ---
 
-*This file is updated automatically by the morning-ops-digest task at 7:30 AM weekdays. Manual edits are fine but will be overwritten on next run.*
+*Last updated: 2026-03-21 by morning-ops-digest. Manual edits are fine but will be overwritten on next run.*
