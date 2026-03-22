@@ -1,0 +1,80 @@
+{
+  "$schema": "Zone Intelligence Brief output schema",
+  "type": "object",
+  "properties": {
+    "zone_slug": {"type": "string", "description": "e.g. wpb-downtown"},
+    "zone_name": {"type": "string"},
+    "run_date": {"type": "string", "format": "date"},
+    "signals": {
+      "type": "object",
+      "properties": {
+        "transaction_velocity": {
+          "score": "number (1-10)",
+          "trend": "accelerating | stable | decelerating",
+          "comps": "array of {address, price, price_per_unit, price_per_sf, cap_rate, date, buyer_type}"
+        },
+        "distress_level": {
+          "score": "number (1-10)",
+          "trend": "increasing | stable | decreasing",
+          "lis_pendens_count": "integer",
+          "nod_count": "integer",
+          "notes": "string"
+        },
+        "supply_risk": {
+          "score": "number (1-10)",
+          "trend": "increasing | stable | decreasing",
+          "permits_ytd": "integer",
+          "units_pipeline": "integer",
+          "major_projects": "array of {name, units, status, expected_delivery}"
+        },
+        "rent_growth": {
+          "score": "number (1-10)",
+          "trailing_12mo": "decimal (e.g. 0.034 = 3.4%)",
+          "by_class": {
+            "class_a": "decimal",
+            "class_b": "decimal",
+            "class_c": "decimal"
+          },
+          "concession_level": "string (none | light | moderate | heavy)"
+        },
+        "demand_drivers": {
+          "score": "number (1-10)",
+          "employment_trend": "growing | stable | contracting",
+          "major_moves": "array of {employer, action, jobs_affected}",
+          "migration_trend": "inflow | stable | outflow"
+        },
+        "capital_availability": {
+          "score": "number (1-10)",
+          "agency_volume_delta": "decimal (YoY change)",
+          "bank_appetite": "expanding | stable | tightening",
+          "cmbs_delinquency_rate": "decimal"
+        },
+        "regulatory_favorability": {
+          "score": "number (1-10)",
+          "rent_control_risk": "none | proposed | enacted",
+          "oz_status": "active | expired | not_applicable",
+          "tax_reassessment_risk": "low | medium | high"
+        }
+      }
+    },
+    "composite_acquisition_score": {"type": "number", "description": "Weighted score 1-10"},
+    "score_delta_vs_last_run": {"type": "number", "description": "Change from previous rotation"},
+    "key_findings": {
+      "type": "array",
+      "items": {
+        "finding": "string",
+        "category": "string (matches signal category)",
+        "significance": "high | medium | low",
+        "source": "string (URL or citation)"
+      }
+    },
+    "feature_gaps_identified": {
+      "type": "array",
+      "items": {
+        "gap": "string (what the research needed but couldn't do)",
+        "category": "data_source | calculation | visualization | model | workflow",
+        "impact": "number (1-10)"
+      }
+    }
+  }
+}

@@ -1,6 +1,0 @@
-Widget types: trend_line
-Metrics: NOI
-Group by: None
-Time grain: quarterly
-Entity type: asset
-Archetype: custom

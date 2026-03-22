@@ -1,0 +1,88 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-03-22",
+  "signal_weights": {
+    "equities": {
+      "price_momentum": 0.20,
+      "fundamental_quality": 0.20,
+      "positioning_risk": 0.15,
+      "catalyst_density": 0.20,
+      "volatility_regime": 0.10,
+      "cross_vertical_relevance": 0.15
+    },
+    "crypto": {
+      "onchain_activity": 0.20,
+      "market_microstructure": 0.15,
+      "ecosystem_development": 0.15,
+      "token_economics": 0.20,
+      "regulatory_exposure": 0.15,
+      "cross_vertical_relevance": 0.15
+    },
+    "derivatives": {
+      "volatility_surface": 0.25,
+      "flow_positioning": 0.25,
+      "strategy_suitability": 0.30,
+      "risk_reward_ratio": 0.20
+    },
+    "macro": {
+      "policy_direction": 0.25,
+      "rate_trajectory": 0.20,
+      "liquidity_conditions": 0.20,
+      "cross_asset_signal": 0.15,
+      "cross_vertical_relevance": 0.20
+    }
+  },
+  "regime_adjustments": {
+    "RISK_ON_MOMENTUM": {
+      "boost": ["price_momentum", "catalyst_density", "onchain_activity"],
+      "dampen": ["positioning_risk"],
+      "multiplier": 1.2
+    },
+    "RISK_ON_BROADENING": {
+      "boost": ["fundamental_quality", "ecosystem_development"],
+      "dampen": ["price_momentum"],
+      "multiplier": 1.0
+    },
+    "RISK_OFF_DEFENSIVE": {
+      "boost": ["positioning_risk", "volatility_regime", "regulatory_exposure"],
+      "dampen": ["catalyst_density"],
+      "multiplier": 0.8
+    },
+    "RISK_OFF_PANIC": {
+      "boost": ["positioning_risk", "volatility_regime", "market_microstructure"],
+      "dampen": ["fundamental_quality", "ecosystem_development"],
+      "multiplier": 0.6
+    },
+    "TRANSITION_UP": {
+      "boost": ["price_momentum", "liquidity_conditions", "onchain_activity"],
+      "dampen": [],
+      "multiplier": 1.1
+    },
+    "TRANSITION_DOWN": {
+      "boost": ["positioning_risk", "token_economics"],
+      "dampen": ["price_momentum"],
+      "multiplier": 0.9
+    },
+    "RANGE_BOUND": {
+      "boost": ["volatility_regime", "strategy_suitability"],
+      "dampen": ["price_momentum"],
+      "multiplier": 1.0
+    }
+  },
+  "composite_score_interpretation": {
+    "8.0_to_10.0": "Strong conviction — multiple signals aligned, high priority",
+    "6.0_to_7.9": "Moderate conviction — some signals supportive, worth monitoring",
+    "4.0_to_5.9": "Neutral — mixed signals, no clear edge",
+    "2.0_to_3.9": "Cautious — headwinds identified, defensive positioning",
+    "0.0_to_1.9": "Avoid — significant risks flagged"
+  },
+  "feature_card_priority_weights": {
+    "impact": 0.35,
+    "frequency_across_segments": 0.25,
+    "inverse_effort": 0.15,
+    "cross_vertical_multiplier": 1.5,
+    "recency_boost_days": 21,
+    "recency_boost_amount": 0.1,
+    "deferred_threshold_days": 30
+  }
+}

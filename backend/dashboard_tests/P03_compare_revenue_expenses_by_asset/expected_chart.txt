@@ -1,6 +1,0 @@
-Widget types: bar_chart
-Metrics: RENT, TOTAL_OPEX
-Group by: asset
-Time grain: None
-Entity type: asset
-Archetype: custom

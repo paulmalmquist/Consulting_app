@@ -1,0 +1,21 @@
+{
+  "version": "1.0.0",
+  "engine": "market-rotation-engine",
+  "created_at": "2026-03-22",
+  "current_regime": "RISK_OFF_DEFENSIVE",
+  "regime_updated_at": "2026-03-22",
+  "total_rotations": 1,
+  "total_feature_cards": 0,
+  "total_prompts_generated": 0,
+  "rotations": [],
+  "regime_history": [
+    {
+      "from": "RISK_ON_MOMENTUM",
+      "to": "RISK_OFF_DEFENSIVE",
+      "changed_at": "2026-03-22",
+      "trigger": "SPX broke 200-day MA after four consecutive weekly losses; VIX elevated at 26.78; HY spreads widening to 3.20%; DXY strengthening to ~99.5-100; BTC-SPX correlation rebounding from decoupling low",
+      "confidence": "high"
+    }
+  ],
+  "notes": "Rotation log is append-only. Each rotation adds an entry to the rotations array. Regime changes are logged in regime_history."
+}

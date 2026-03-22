@@ -164,7 +164,7 @@ export default function LabEnvironmentShell({ envId, children, isAdmin = false }
     };
   }, [mobileSidebarOpen]);
 
-  const isDomainRoute = new RegExp(`^/lab/env/${envId}/(re|pds|credit|legal|medical|consulting|opportunity-engine|ecc|demo|documents|definitions|resume)(/|$)`).test(pathname);
+  const isDomainRoute = new RegExp(`^/lab/env/${envId}/(re|pds|credit|legal|medical|consulting|opportunity-engine|ecc|demo|documents|definitions|resume|markets)(/|$)`).test(pathname);
   const homeHref = isAdmin ? "/admin" : `/lab/env/${envId}`;
   if (isDomainRoute) {
     return <>{children}</>;

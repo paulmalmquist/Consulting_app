@@ -1,6 +1,0 @@
-Widget types: metrics_strip, trend_line, waterfall
-Metrics: NOI
-Group by: None
-Time grain: None
-Entity type: asset
-Archetype: executive_summary

@@ -1,9 +1,0 @@
-{
-  "fast_intents": ["ui_refactor", "file_move", "test_fix"],
-  "deep_intents": ["schema_change", "business_logic_update", "mcp_contract_update", "infra_change"],
-  "optional_intents": ["documentation", "analytics_query"],
-  "model_alias_env": {
-    "fast": "CODEX_MODEL_FAST",
-    "deep": "CODEX_MODEL_DEEP"
-  }
-}
