@@ -1,487 +1,268 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
+import { useTrainingWorkspace } from "@/components/consulting/local-training/useTrainingWorkspace";
+import { EmptyState, TonePill, fmtCurrency, fmtDate, fmtTime } from "@/components/consulting/local-training/ui";
 import { Button } from "@/components/ui/Button";
-import { Card, CardContent } from "@/components/ui/Card";
-import { MetricCard } from "@/components/ui/MetricCard";
-import { InsightRail, type InsightSection } from "@/components/ui/InsightRail";
-import { QuickActions, type QuickAction } from "@/components/ui/QuickActions";
-import {
-  fetchClients,
-  fetchLatestMetrics,
-  fetchLeads,
-  fetchOutreachLog,
-  fetchPipelineKanban,
-  fetchProposals,
-  seedConsultingWorkspace,
-  type Lead,
-  type MetricsSnapshot,
-} from "@/lib/cro-api";
+import { Card, CardContent, CardTitle } from "@/components/ui/Card";
 
-type WorkspaceDiagnostics = {
-  lead_count: number;
-  open_pipeline_cards: number;
-  outreach_count: number;
-  proposal_count: number;
-  client_count: number;
-};
-
-function fmtCurrency(n: number | null | undefined): string {
-  if (n === null || n === undefined || isNaN(n)) return "$0";
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
-function fmtPct(n: number | null | undefined): string {
-  if (n === null || n === undefined || isNaN(n)) return "—";
-  return `${(n * 100).toFixed(1)}%`;
-}
-
-function formatError(err: unknown): string {
-  if (!(err instanceof Error)) {
-    return "Consulting API unreachable. Backend service is not available.";
-  }
-  const msg = err.message.replace(/\s*\(req:\s*[a-zA-Z0-9_-]+\)\s*$/, "");
-  if (msg.includes("Network error")) {
-    return "Consulting API unreachable. Backend service is not available.";
-  }
-  return msg || "Consulting API unreachable. Backend service is not available.";
-}
-
-function LeadStatus({ lead }: { lead: Lead }) {
-  if (lead.disqualified_at) {
-    return (
-      <span className="text-xs bg-bm-danger/10 text-bm-danger px-1.5 py-0.5 rounded">
-        Disqualified
-      </span>
-    );
-  }
-  if (lead.qualified_at) {
-    return (
-      <span className="text-xs bg-bm-success/10 text-bm-success px-1.5 py-0.5 rounded">
-        Qualified
-      </span>
-    );
-  }
-  return null;
-}
-
-export default function ConsultingCommandCenter({
-  params,
-}: {
-  params: { envId: string };
-}) {
-  const {
-    businessId,
-    error: contextError,
-    loading: contextLoading,
-    ready,
-  } = useConsultingEnv();
-  const [metrics, setMetrics] = useState<MetricsSnapshot | null>(null);
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [diagnostics, setDiagnostics] = useState<WorkspaceDiagnostics | null>(null);
-  const [diagnosticsReliable, setDiagnosticsReliable] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [dataError, setDataError] = useState<string | null>(null);
-  const [seeding, setSeeding] = useState(false);
-
-  const base = `/lab/env/${params.envId}/consulting`;
-
-  const loadWorkspace = useCallback(async () => {
-    if (!businessId) {
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setDataError(null);
-    try {
-      const [
-        leadsResult,
-        outreachResult,
-        proposalsResult,
-        clientsResult,
-        kanbanResult,
-        metricsResult,
-      ] = await Promise.allSettled([
-        fetchLeads(params.envId, businessId),
-        fetchOutreachLog(params.envId, businessId),
-        fetchProposals(params.envId, businessId),
-        fetchClients(params.envId, businessId),
-        fetchPipelineKanban(params.envId, businessId),
-        fetchLatestMetrics(params.envId, businessId),
-      ]);
-
-      if (leadsResult.status !== "fulfilled") {
-        throw leadsResult.reason;
-      }
-
-      const nextLeads = leadsResult.value;
-      const outreachLog =
-        outreachResult.status === "fulfilled" ? outreachResult.value : [];
-      const proposals =
-        proposalsResult.status === "fulfilled" ? proposalsResult.value : [];
-      const clients =
-        clientsResult.status === "fulfilled" ? clientsResult.value : [];
-      const kanban =
-        kanbanResult.status === "fulfilled"
-          ? kanbanResult.value
-          : { columns: [], total_pipeline: 0, weighted_pipeline: 0 };
-      const latestMetrics =
-        metricsResult.status === "fulfilled" ? metricsResult.value : null;
-
-      const openPipelineCards = kanban.columns.reduce(
-        (total, column) => total + column.cards.length,
-        0,
-      );
-
-      setLeads(nextLeads);
-      setMetrics(latestMetrics);
-      setDiagnostics({
-        lead_count: nextLeads.length,
-        open_pipeline_cards: openPipelineCards,
-        outreach_count: outreachLog.length,
-        proposal_count: proposals.length,
-        client_count: clients.length,
-      });
-      setDiagnosticsReliable(
-        outreachResult.status === "fulfilled" &&
-          proposalsResult.status === "fulfilled" &&
-          clientsResult.status === "fulfilled" &&
-          kanbanResult.status === "fulfilled",
-      );
-    } catch (err) {
-      setLeads([]);
-      setMetrics(null);
-      setDiagnostics(null);
-      setDiagnosticsReliable(false);
-      setDataError(formatError(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [businessId, params.envId]);
-
-  useEffect(() => {
-    if (!ready) return;
-    void loadWorkspace();
-  }, [loadWorkspace, ready]);
-
-  const m = metrics;
-  const isLoading = contextLoading || (ready && loading);
-  const topLeads = useMemo(
-    () =>
-      [...leads]
-        .sort((a, b) => {
-          if (b.lead_score !== a.lead_score) return b.lead_score - a.lead_score;
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        })
-        .slice(0, 5),
-    [leads],
+function Metric({ label, value, sublabel }: { label: string; value: string | number; sublabel?: string }) {
+  return (
+    <Card>
+      <CardContent className="py-4">
+        <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">{label}</p>
+        <p className="mt-1 text-2xl font-semibold text-bm-text">{value}</p>
+        {sublabel ? <p className="mt-1 text-xs text-bm-muted2">{sublabel}</p> : null}
+      </CardContent>
+    </Card>
   );
-  const canSeed = Boolean(
-    diagnosticsReliable &&
-    diagnostics &&
-      diagnostics.lead_count === 0 &&
-      diagnostics.open_pipeline_cards === 0 &&
-      diagnostics.outreach_count === 0 &&
-      diagnostics.proposal_count === 0 &&
-      diagnostics.client_count === 0,
-  );
-  const bannerMessage = contextError
-    ? contextError === "Environment not bound to a business."
-      ? "This environment is not bound to a business, so CRM data cannot be loaded."
-      : contextError
-    : dataError;
+}
 
-  const quickActions = useMemo<QuickAction[]>(
+export default function ConsultingCommandCenter({ params }: { params: { envId: string } }) {
+  const { businessId, ready, loading: contextLoading, error: contextError } = useConsultingEnv();
+  const { workspace, loading, mutating, error, seed } = useTrainingWorkspace(params.envId, businessId, ready);
+  const nextEvent = workspace?.summary.next_event ?? null;
+  const mobile = workspace?.summary.mobile_dashboard;
+  const eventPerformance = workspace?.reports.event_performance ?? [];
+
+  const commandLinks = useMemo(
     () => [
-      { label: "Add Lead", href: `${base}/outreach` },
-      { label: "Log Outreach", href: `${base}/outreach` },
-      { label: "Create Proposal", href: `${base}/proposals` },
-      { label: "Convert to Client", href: `${base}/clients` },
-      { label: "View Pipeline", href: `${base}/pipeline` },
-      { label: "Revenue Dashboard", href: `${base}/revenue` },
+      { href: `/lab/env/${params.envId}/consulting/contacts`, label: "Contacts" },
+      { href: `/lab/env/${params.envId}/consulting/events`, label: "Events" },
+      { href: `/lab/env/${params.envId}/consulting/partners`, label: "Venues" },
+      { href: `/lab/env/${params.envId}/consulting/tasks`, label: "Tasks" },
+      { href: `/lab/env/${params.envId}/consulting/reports`, label: "Reports" },
     ],
-    [base],
+    [params.envId],
   );
 
-  const seedWorkspace = useCallback(async () => {
-    if (!businessId || !canSeed) return;
-    setSeeding(true);
-    setDataError(null);
-    try {
-      await seedConsultingWorkspace({ env_id: params.envId, business_id: businessId });
-      await loadWorkspace();
-    } catch (err) {
-      setDataError(formatError(err));
-    } finally {
-      setSeeding(false);
-    }
-  }, [businessId, canSeed, loadWorkspace, params.envId]);
+  if (contextLoading || loading) {
+    return <div className="h-64 rounded-2xl border border-bm-border/60 bg-bm-surface/20 animate-pulse" />;
+  }
 
-  const insightSections = useMemo<InsightSection[]>(() => {
-    const sections: InsightSection[] = [];
-
-    if (m && m.open_opportunities > 0) {
-      sections.push({
-        title: "Pipeline Health",
-        items: [
-          {
-            id: "open-deals",
-            severity: m.open_opportunities > 10 ? "info" : "warning",
-            label: `${m.open_opportunities} open deals`,
-            detail: `Weighted: ${fmtCurrency(m.weighted_pipeline)}`,
-            action: { label: "Pipeline", href: `${base}/pipeline` },
-          },
-          ...(m.won_count_90d > 0
-            ? [
-                {
-                  id: "won-90d",
-                  severity: "info" as const,
-                  label: `${m.won_count_90d} won (90d)`,
-                  detail: `Close rate: ${fmtPct(m.close_rate_90d)}`,
-                },
-              ]
-            : []),
-          ...(m.lost_count_90d > 0
-            ? [
-                {
-                  id: "lost-90d",
-                  severity: "warning" as const,
-                  label: `${m.lost_count_90d} lost (90d)`,
-                  detail: "Review lost deal patterns",
-                  action: { label: "Review", href: `${base}/pipeline` },
-                },
-              ]
-            : []),
-        ],
-      });
-    }
-
-    sections.push({
-      title: "Outreach Performance",
-      items: [
-        {
-          id: "outreach-volume",
-          severity: m && m.outreach_count_30d > 0 ? "info" : "critical",
-          label: `${m?.outreach_count_30d ?? 0} outreach (30d)`,
-          detail: m ? `Response rate: ${fmtPct(m.response_rate_30d)}` : "No data yet",
-          action: { label: "Outreach", href: `${base}/outreach` },
-        },
-        {
-          id: "meetings",
-          severity: m && m.meetings_30d > 0 ? "info" : "warning",
-          label: `${m?.meetings_30d ?? 0} meetings (30d)`,
-          detail: "Scheduled meetings this period",
-        },
-      ],
-    });
-
-    return sections;
-  }, [m, base]);
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="h-28 rounded-lg border border-bm-border/60 bg-bm-surface/60 animate-pulse"
-          />
-        ))}
-      </div>
-    );
+  if (contextError) {
+    return <EmptyState title="Environment unavailable" body={contextError} />;
   }
 
   return (
-    <div className="space-y-6">
-      {bannerMessage ? (
-        <div className="rounded-lg border border-bm-danger/35 bg-bm-danger/10 px-4 py-3 text-sm text-bm-text">
-          {bannerMessage}
-        </div>
+    <div className="space-y-6 pb-24 md:pb-6">
+      {error ? (
+        <div className="rounded-xl border border-bm-danger/35 bg-bm-danger/10 px-4 py-3 text-sm text-bm-text">{error}</div>
       ) : null}
 
-      <div>
-        <p className="bm-section-label mb-3">Revenue Overview</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <MetricCard
-            label="Weighted Pipeline"
-            value={fmtCurrency(m?.weighted_pipeline)}
-            size="large"
-            status={m && m.weighted_pipeline > 0 ? "success" : "neutral"}
-          />
-          <MetricCard
-            label="Forecast (90d)"
-            value={fmtCurrency(m?.forecast_90d)}
-            size="large"
-          />
-          <MetricCard
-            label="Revenue MTD"
-            value={fmtCurrency(m?.revenue_mtd)}
-            size="large"
-            status={m && m.revenue_mtd > 0 ? "success" : "neutral"}
-          />
-          <MetricCard
-            label="Close Rate (90d)"
-            value={fmtPct(m?.close_rate_90d)}
-            size="large"
-          />
-          <MetricCard
-            label="Outreach (30d)"
-            value={String(m?.outreach_count_30d ?? 0)}
-            size="large"
-          />
-          <MetricCard
-            label="Active Engagements"
-            value={String(m?.active_engagements ?? 0)}
-            size="large"
-          />
-        </div>
-      </div>
-
-      <div>
-        <p className="bm-section-label mb-3">Execution Snapshot</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <MetricCard label="Open Deals" value={String(m?.open_opportunities ?? 0)} size="compact" />
-          <MetricCard label="Active Clients" value={String(m?.active_clients ?? 0)} size="compact" />
-          <MetricCard label="Avg Deal Size" value={fmtCurrency(m?.avg_deal_size)} size="compact" />
-          <MetricCard
-            label="Won (90d)"
-            value={String(m?.won_count_90d ?? 0)}
-            size="compact"
-            status={m && m.won_count_90d > 0 ? "success" : "neutral"}
-          />
-          <MetricCard
-            label="Lost (90d)"
-            value={String(m?.lost_count_90d ?? 0)}
-            size="compact"
-            status={m && m.lost_count_90d > 0 ? "warning" : "neutral"}
-          />
-          <MetricCard label="Revenue QTD" value={fmtCurrency(m?.revenue_qtd)} size="compact" />
-        </div>
-      </div>
-
-      {canSeed ? (
-        <Card>
-          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-4 md:p-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-2">
+            <TonePill label="Novendor Local AI Classes CRM" tone="info" />
             <div>
-              <p className="text-sm font-medium">No consulting CRM records found.</p>
-              <p className="text-sm text-bm-muted mt-1">
-                This environment is empty across leads, outreach, proposals, clients, and pipeline.
+              <h2 className="text-2xl font-semibold text-bm-text">Founder-ready command center for local events</h2>
+              <p className="mt-2 max-w-3xl text-sm text-bm-muted2">
+                Manage beginner-friendly AI classes across Lake Worth Beach and West Palm Beach: contacts, venues, events, outreach, check-in, and follow-up from the same mobile-friendly workspace.
               </p>
             </div>
-            <Button onClick={() => void seedWorkspace()} disabled={!businessId || seeding}>
-              {seeding ? "Seeding..." : "Seed Consulting Workspace"}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => void seed()} disabled={mutating || Boolean(workspace?.contacts.length)}>
+              {workspace?.contacts.length ? "Seeded" : mutating ? "Seeding..." : "Seed realistic data"}
             </Button>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <div>
-        <p className="bm-section-label mb-3">Lead Intake</p>
-        <div className="grid gap-4 xl:grid-cols-[1.4fr,1fr]">
-          <Card>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium">Top Leads</p>
-                  <p className="text-xs text-bm-muted2 mt-1">
-                    Highest-scoring leads in this environment
-                  </p>
-                </div>
-                <div className="flex gap-2 text-xs">
-                  <Link
-                    href={`${base}/outreach`}
-                    className="rounded-md border border-bm-border/70 px-2 py-1 text-bm-text hover:bg-bm-surface/50"
-                  >
-                    All Leads
-                  </Link>
-                  <Link
-                    href={`${base}/pipeline`}
-                    className="rounded-md border border-bm-border/70 px-2 py-1 text-bm-text hover:bg-bm-surface/50"
-                  >
-                    Pipeline
-                  </Link>
-                  <Link
-                    href={`${base}/outreach`}
-                    className="rounded-md border border-bm-border/70 px-2 py-1 text-bm-text hover:bg-bm-surface/50"
-                  >
-                    Add Lead
-                  </Link>
-                </div>
-              </div>
-
-              {topLeads.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-bm-border/70 px-4 py-5 text-sm text-bm-muted2">
-                  No leads yet.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {topLeads.map((lead) => (
-                    <div
-                      key={lead.lead_profile_id}
-                      className="rounded-lg border border-bm-border/60 px-3 py-3"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{lead.company_name}</p>
-                          <p className="text-xs text-bm-muted2 mt-1">
-                            {lead.lead_source || "Unknown source"} · {lead.stage_label || "No stage"}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold">{lead.lead_score}</span>
-                          <LeadStatus lead={lead} />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="space-y-3">
-              <p className="text-sm font-medium">Workspace Verification</p>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-lg border border-bm-border/60 px-3 py-3">
-                  <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Leads</p>
-                  <p className="mt-1 text-xl font-semibold">{diagnostics?.lead_count ?? 0}</p>
-                </div>
-                <div className="rounded-lg border border-bm-border/60 px-3 py-3">
-                  <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Open Deals</p>
-                  <p className="mt-1 text-xl font-semibold">{diagnostics?.open_pipeline_cards ?? 0}</p>
-                </div>
-                <div className="rounded-lg border border-bm-border/60 px-3 py-3">
-                  <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Outreach</p>
-                  <p className="mt-1 text-xl font-semibold">{diagnostics?.outreach_count ?? 0}</p>
-                </div>
-                <div className="rounded-lg border border-bm-border/60 px-3 py-3">
-                  <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Proposals</p>
-                  <p className="mt-1 text-xl font-semibold">{diagnostics?.proposal_count ?? 0}</p>
-                </div>
-              </div>
-              <div className="rounded-lg border border-bm-border/60 px-3 py-3 text-sm">
-                <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Clients</p>
-                <p className="mt-1 text-xl font-semibold">{diagnostics?.client_count ?? 0}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      <div className="grid xl:grid-cols-[1fr,320px] gap-6">
-        <QuickActions actions={quickActions} title="Quick Actions" />
-        <div className="hidden xl:block">
-          <div className="sticky top-20">
-            <InsightRail sections={insightSections} />
+            <Link href={`/lab/env/${params.envId}/consulting/events`} className="inline-flex rounded-lg border border-bm-border px-3 py-2 text-sm text-bm-text hover:bg-bm-surface/30">
+              Open check-in
+            </Link>
           </div>
         </div>
-      </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 md:flex md:flex-wrap">
+          {commandLinks.map((item) => (
+            <Link key={item.href} href={item.href} className="rounded-xl border border-bm-border/70 bg-bm-bg px-3 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30">
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {!workspace ? (
+        <EmptyState title="Seed the local training CRM" body="No event CRM records exist yet for this environment. Use the seed action above to load a realistic South Florida operating dataset." />
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
+            <Metric label="Next Event" value={nextEvent ? fmtDate(nextEvent.event_date) : "—"} sublabel={nextEvent ? nextEvent.event_name : "Seed data to begin"} />
+            <Metric label="Contacts" value={workspace.seed_summary.contacts} sublabel={`${workspace.summary.contacts_added_this_month} added this month`} />
+            <Metric label="Follow-ups due" value={workspace.summary.followups_due} sublabel="Registrations awaiting nurture" />
+            <Metric label="Open tasks" value={workspace.tasks.filter((task) => task.status !== "done").length} sublabel="Phone quick actions included" />
+            <Metric label="Campaigns live" value={workspace.campaigns.filter((campaign) => campaign.status === "active").length} sublabel="Channel performance tracked" />
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[1.25fr,0.95fr]">
+            <Card>
+              <CardContent className="py-5">
+                <CardTitle>Dashboard 1 — CRM command center</CardTitle>
+                {nextEvent ? (
+                  <div className="mt-4 space-y-3 rounded-xl border border-bm-border/70 bg-bm-bg p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-bm-text">{nextEvent.event_name}</p>
+                        <p className="mt-1 text-sm text-bm-muted2">
+                          {fmtDate(nextEvent.event_date)} · {fmtTime(nextEvent.event_start_time)} – {fmtTime(nextEvent.event_end_time)} · {nextEvent.venue_name}
+                        </p>
+                      </div>
+                      <TonePill label={nextEvent.event_status} tone={nextEvent.event_status === "scheduled" ? "warning" : "success"} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+                      <div><span className="text-bm-muted2">Target</span><p className="font-semibold">{nextEvent.target_capacity ?? "—"}</p></div>
+                      <div><span className="text-bm-muted2">Registrations</span><p className="font-semibold">{nextEvent.actual_registrations}</p></div>
+                      <div><span className="text-bm-muted2">Ticket</span><p className="font-semibold">{fmtCurrency(nextEvent.ticket_price_standard)}</p></div>
+                      <div><span className="text-bm-muted2">Theme</span><p className="font-semibold">{nextEvent.event_type}</p></div>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div className="rounded-xl border border-bm-border/70 bg-bm-bg p-4">
+                    <h3 className="text-sm font-semibold text-bm-text">Recent activity feed</h3>
+                    <div className="mt-3 space-y-3">
+                      {workspace.summary.recent_activity.slice(0, 5).map((activity) => (
+                        <div key={activity.id} className="border-l-2 border-bm-accent/60 pl-3">
+                          <p className="text-sm font-medium text-bm-text">{activity.subject ?? activity.activity_type}</p>
+                          <p className="text-xs text-bm-muted2">{fmtDate(activity.activity_date)} · {activity.channel ?? "manual"} · {activity.outcome ?? "pending"}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-bm-border/70 bg-bm-bg p-4">
+                    <h3 className="text-sm font-semibold text-bm-text">Venue outreach status</h3>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {Object.entries(workspace.summary.venue_outreach_status).map(([status, count]) => (
+                        <TonePill key={status} label={`${status}: ${count}`} tone={status === "preferred" ? "success" : status === "qualified" ? "info" : "default"} />
+                      ))}
+                    </div>
+                    <p className="mt-3 text-xs text-bm-muted2">Preferred venues and partner pipeline are tracked separately so venue fit, cost, and relationship stage stay auditable.</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="py-5">
+                <CardTitle>Dashboard 4 — Mobile quick dashboard</CardTitle>
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-xl border border-bm-border/70 bg-bm-bg p-4">
+                    <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Today&apos;s tasks</p>
+                    <div className="mt-2 space-y-2">
+                      {mobile?.today_tasks.slice(0, 4).map((task) => (
+                        <div key={task.id} className="flex items-center justify-between gap-2 rounded-lg bg-bm-surface/20 px-3 py-2">
+                          <div>
+                            <p className="text-sm font-medium text-bm-text">{task.task_name}</p>
+                            <p className="text-xs text-bm-muted2">{task.priority} · due {fmtDate(task.due_date)}</p>
+                          </div>
+                          <TonePill label={task.status} tone={task.status === "in_progress" ? "warning" : "default"} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-bm-border/70 bg-bm-bg p-4">
+                    <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Recent registrations</p>
+                    <div className="mt-2 space-y-2">
+                      {mobile?.recent_registrations.map((registration) => (
+                        <div key={registration.registration_id} className="flex items-center justify-between gap-2 rounded-lg bg-bm-surface/20 px-3 py-2">
+                          <div>
+                            <p className="text-sm font-medium text-bm-text">{registration.contact_name}</p>
+                            <p className="text-xs text-bm-muted2">{registration.event_name}</p>
+                          </div>
+                          <TonePill label={registration.payment_status} tone={registration.payment_status === "paid" ? "success" : "warning"} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[1.1fr,0.9fr]">
+            <Card>
+              <CardContent className="py-5">
+                <CardTitle>Current-state inventory and target architecture</CardTitle>
+                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">What existed</p>
+                    <div className="mt-3 space-y-3">
+                      {workspace.inventory.existing_objects.map((row) => (
+                        <div key={row.object} className="rounded-xl border border-bm-border/70 bg-bm-bg p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-semibold text-bm-text">{row.object}</p>
+                            <TonePill label={String(row.usable_as_is)} tone={row.usable_as_is === true ? "success" : row.usable_as_is === false ? "danger" : "warning"} />
+                          </div>
+                          <p className="mt-1 text-xs text-bm-muted2">{row.purpose}</p>
+                          <p className="mt-2 text-xs text-bm-text">Action: {row.action}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Target architecture</p>
+                    <div className="mt-3 space-y-2">
+                      {Object.entries(workspace.architecture).map(([key, value]) => (
+                        <div key={key} className="rounded-xl border border-bm-border/70 bg-bm-bg px-3 py-2 text-sm">
+                          <span className="font-medium text-bm-text">{key}</span>
+                          <p className="text-xs text-bm-muted2">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="py-5">
+                <CardTitle>QA receipts</CardTitle>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <Metric label="Orphans" value={workspace.qa.orphan_records} />
+                  <Metric label="Bad statuses" value={workspace.qa.impossible_status_rows} />
+                  <Metric label="Duplicate emails" value={workspace.qa.duplicate_contact_emails.length} />
+                  <Metric label="Registration sync" value={workspace.qa.registration_count_matches_events ? "OK" : "Mismatch"} />
+                </div>
+                <div className="mt-4 rounded-xl border border-bm-border/70 bg-bm-bg p-4">
+                  <p className="text-sm font-semibold text-bm-text">Mobile issues fixed in this build</p>
+                  <ul className="mt-2 space-y-2 text-sm text-bm-muted2">
+                    {workspace.inventory.mobile_problems_before_build.map((item) => (
+                      <li key={item} className="list-disc ml-5">{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardContent className="py-5">
+              <CardTitle>Dashboard 2 — Event performance</CardTitle>
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {eventPerformance.map((event) => (
+                  <div key={event.event_id} className="rounded-xl border border-bm-border/70 bg-bm-bg p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-bm-text">{event.event_name}</p>
+                        <p className="mt-1 text-xs text-bm-muted2">Regs {event.registrations} · Attendance {event.attendance}</p>
+                      </div>
+                      <TonePill label={event.capacity_utilization ? `${event.capacity_utilization}% cap` : "—"} tone="info" />
+                    </div>
+                    <div className="mt-3 text-xs text-bm-muted2">
+                      Repeat attendees: {event.repeat_attendance} · Feedback: {event.feedback_score ?? "—"}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                      {Object.entries(event.channel_conversion).slice(0, 3).map(([channel, count]) => (
+                        <TonePill key={channel} label={`${channel}: ${count}`} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

@@ -65,6 +65,15 @@ from app.schemas.consulting import (
     TriggerSignalCreateRequest,
     TriggerSignalOut,
 )
+from app.schemas.local_training import (
+    LocalTrainingActivityCreateRequest,
+    LocalTrainingCheckInRequest,
+    LocalTrainingContactCreateRequest,
+    LocalTrainingEventCreateRequest,
+    LocalTrainingRegistrationUpsertRequest,
+    LocalTrainingSeedRequest,
+    LocalTrainingTaskStatusRequest,
+)
 from app.services import (
     cro_clients,
     cro_engagements,
@@ -77,6 +86,7 @@ from app.services import (
     cro_seed,
     cro_loops,
     cro_strategic_outreach,
+    local_training_crm,
 )
 
 router = APIRouter(prefix="/api/consulting", tags=["consulting-revenue-os"])
@@ -695,6 +705,99 @@ def seed_consulting_environment(body: SeedRequest):
         result = cro_seed.seed_consulting_environment(env_id=body.env_id, business_id=body.business_id)
         _log("cro.seed.completed", "Consulting environment seeded")
         return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Local training CRM ───────────────────────────────────────────────────────
+
+@router.get("/local-training/workspace")
+def get_local_training_workspace(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return local_training_crm.get_workspace(env_id=env_id, business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/local-training/seed", status_code=201)
+def seed_local_training_workspace(body: LocalTrainingSeedRequest):
+    try:
+        result = local_training_crm.seed_local_training_workspace(
+            env_id=body.env_id,
+            business_id=body.business_id,
+        )
+        _log("cro.local_training.seeded", "Local training CRM workspace seeded")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/local-training/contacts", status_code=201)
+def create_local_training_contact(body: LocalTrainingContactCreateRequest):
+    try:
+        return local_training_crm.create_contact(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            payload=body.model_dump(mode="json"),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/local-training/events", status_code=201)
+def create_local_training_event(body: LocalTrainingEventCreateRequest):
+    try:
+        return local_training_crm.create_event(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            payload=body.model_dump(mode="json"),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/local-training/activities", status_code=201)
+def create_local_training_activity(body: LocalTrainingActivityCreateRequest):
+    try:
+        return local_training_crm.create_activity(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            payload=body.model_dump(mode="json"),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/local-training/registrations", status_code=201)
+def upsert_local_training_registration(body: LocalTrainingRegistrationUpsertRequest):
+    try:
+        return local_training_crm.create_registration(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            payload=body.model_dump(mode="json"),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch("/local-training/registrations/{registration_id}/check-in")
+def check_in_local_training_registration(registration_id: UUID, body: LocalTrainingCheckInRequest):
+    try:
+        return local_training_crm.check_in_registration(
+            registration_id=registration_id,
+            attended_flag=body.attended_flag,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch("/local-training/tasks/{task_id}")
+def update_local_training_task(task_id: UUID, body: LocalTrainingTaskStatusRequest):
+    try:
+        return local_training_crm.toggle_task(task_id=task_id, status=body.status)
     except Exception as exc:
         raise _to_http(exc)
 

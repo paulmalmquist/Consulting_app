@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
+import { MobileBottomNav, type MobileNavItem } from "@/components/repe/workspace/MobileBottomNav";
 
 function isActive(pathname: string, href: string, isBase: boolean): boolean {
   if (isBase) {
@@ -29,13 +30,27 @@ export default function ConsultingWorkspaceShell({
   const navItems = useMemo(
     () => [
       { href: base, label: "Command Center", isBase: true },
-      { href: `${base}/pipeline`, label: "Pipeline", isBase: false },
-      { href: `${base}/outreach`, label: "Outreach", isBase: false },
+      { href: `${base}/contacts`, label: "Contacts", isBase: false },
+      { href: `${base}/events`, label: "Events", isBase: false },
+      { href: `${base}/partners`, label: "Partners & Venues", isBase: false },
+      { href: `${base}/campaigns`, label: "Campaigns", isBase: false },
+      { href: `${base}/tasks`, label: "Tasks", isBase: false },
+      { href: `${base}/reports`, label: "Reports", isBase: false },
+      { href: `${base}/pipeline`, label: "Legacy Pipeline", isBase: false },
+      { href: `${base}/outreach`, label: "Legacy Outreach", isBase: false },
       { href: `${base}/strategic-outreach`, label: "Strategic Outreach", isBase: false },
-      { href: `${base}/proposals`, label: "Proposals", isBase: false },
       { href: `${base}/clients`, label: "Clients", isBase: false },
       { href: `${base}/loops`, label: "Loop Intelligence", isBase: false },
-      { href: `${base}/authority`, label: "Authority", isBase: false },
+    ],
+    [base],
+  );
+  const mobileNavItems = useMemo<MobileNavItem[]>(
+    () => [
+      { href: `${base}/contacts`, label: "Contacts", icon: "investors", matchPrefix: true },
+      { href: `${base}/events`, label: "Events", icon: "funds", matchPrefix: true },
+      { href: base, label: "Home", icon: "winston", matchPrefix: false },
+      { href: `${base}/tasks`, label: "Tasks", icon: "pipeline", matchPrefix: true },
+      { href: `${base}/reports`, label: "Reports", icon: "reports", matchPrefix: true },
     ],
     [base],
   );
@@ -103,24 +118,24 @@ export default function ConsultingWorkspaceShell({
               Home
             </Link>
             <Link
-              href={`${base}/outreach/new`}
+              href={`${base}/contacts`}
               className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
             >
-              + Lead
+              + Contact
             </Link>
             <Link
-              href={`${base}/proposals/new`}
+              href={`${base}/events`}
               className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
             >
-              + Proposal
+              + Event
             </Link>
           </div>
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-[200px,1fr]">
+      <div className="grid gap-4 lg:grid-cols-[220px,1fr]">
         <aside
-          className="rounded-xl border border-bm-border/70 bg-bm-bg p-3 h-fit"
+          className="hidden rounded-xl border border-bm-border/70 bg-bm-bg p-3 h-fit lg:block"
           data-testid="consulting-sidebar"
         >
           <nav className="space-y-1.5" data-testid="consulting-left-nav">
@@ -139,8 +154,9 @@ export default function ConsultingWorkspaceShell({
             ))}
           </nav>
         </aside>
-        <div>{children}</div>
+        <div className="pb-20 md:pb-0">{children}</div>
       </div>
+      <MobileBottomNav items={mobileNavItems} />
     </div>
   );
 }
