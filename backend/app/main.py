@@ -73,7 +73,7 @@ from app.routes import cre_submission
 from app.routes import capital_projects
 from app.routes import cp_draws
 from app.routes import dev_bridge
-from app.routes import resume
+from app.routes import resume, resume_chat
 
 app = FastAPI(title="Business OS API", version="0.1.0")
 
@@ -191,6 +191,7 @@ app.include_router(capital_projects.router)
 app.include_router(cp_draws.router)
 app.include_router(dev_bridge.router)
 app.include_router(resume.router)
+app.include_router(resume_chat.router)
 app.include_router(credit.router)
 app.include_router(credit_v2.router)
 app.include_router(doc_completion.router)

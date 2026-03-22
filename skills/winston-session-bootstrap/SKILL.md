@@ -60,6 +60,14 @@ Use this skill to normalize the repo-local starting context, then hand off quick
 - Repo identity, cwd, and research-tier rules are durable startup context; they should not be re-explained in downstream prompts.
 - Good startup prompting here is short: repo, user expectation, operating stance, then handoff.
 
+## GitHub Auth Setup
+
+Before any session that may need to push (autonomous coding, deploy, etc.):
+```bash
+source scripts/setup-gh-auth.sh
+```
+This installs the `gh` CLI (if missing) and authenticates using the PAT in `githubpat.txt`. Idempotent — safe to run every session.
+
 ## Exit Condition
 
 - State the active repo context in one sentence.

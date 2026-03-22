@@ -8,9 +8,12 @@ from app.routes.domain_common import classify_domain_error, domain_error_respons
 from app.schemas.resume import (
     ResumeCareerSummaryOut,
     ResumeContextOut,
+    ResumeDeploymentOut,
     ResumeProjectOut,
     ResumeRoleOut,
     ResumeSkillOut,
+    ResumeSystemComponentOut,
+    ResumeSystemStatsOut,
 )
 from app.services import resume as resume_svc
 from app.services import env_context
@@ -128,6 +131,36 @@ def get_skill_matrix(request: Request, env_id: str = Query(...), business_id: UU
     except Exception as exc:
         status, code = classify_domain_error(exc)
         return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="resume.skill_matrix.failed")
+
+
+@router.get("/system-components", response_model=list[ResumeSystemComponentOut])
+def list_system_components(request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None)):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return [ResumeSystemComponentOut(**row) for row in resume_svc.list_system_components(env_id=resolved_env_id, business_id=resolved_business_id)]
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="resume.system_components.list_failed")
+
+
+@router.get("/deployments", response_model=list[ResumeDeploymentOut])
+def list_deployments(request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None)):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return [ResumeDeploymentOut(**row) for row in resume_svc.list_deployments(env_id=resolved_env_id, business_id=resolved_business_id)]
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="resume.deployments.list_failed")
+
+
+@router.get("/system-stats", response_model=ResumeSystemStatsOut)
+def get_system_stats(request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None)):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return ResumeSystemStatsOut(**resume_svc.get_system_stats(env_id=resolved_env_id, business_id=resolved_business_id))
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="resume.system_stats.failed")
 
 
 @router.post("/seed")

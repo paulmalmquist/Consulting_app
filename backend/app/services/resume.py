@@ -352,6 +352,251 @@ _PROJECTS = [
 ]
 
 
+# ── New queries (system components, deployments, stats) ──────────
+
+def list_system_components(*, env_id: UUID, business_id: UUID) -> list[dict]:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT * FROM resume_system_components
+            WHERE env_id = %s::uuid AND business_id = %s::uuid
+            ORDER BY sort_order
+            """,
+            (str(env_id), str(business_id)),
+        )
+        return cur.fetchall()
+
+
+def list_deployments(*, env_id: UUID, business_id: UUID) -> list[dict]:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT d.*, r.company, r.title, r.start_date, r.end_date, r.location
+            FROM resume_deployments d
+            LEFT JOIN resume_roles r ON r.role_id = d.role_id
+            WHERE d.env_id = %s::uuid AND d.business_id = %s::uuid
+            ORDER BY d.sort_order
+            """,
+            (str(env_id), str(business_id)),
+        )
+        return cur.fetchall()
+
+
+def get_system_stats(*, env_id: UUID, business_id: UUID) -> dict:
+    """Compute live system metrics from resume data."""
+    roles = list_roles(env_id=env_id, business_id=business_id)
+    projects = list_projects(env_id=env_id, business_id=business_id)
+
+    # Count active systems
+    active_count = sum(1 for p in projects if p["status"] == "active")
+
+    return {
+        "properties_managed": 500,
+        "pipelines_built": 12,
+        "hours_saved_monthly": 240,
+        "performance_gain_pct": 100,
+        "mcp_tools": 83,
+        "active_systems": active_count,
+        "total_roles": len(roles),
+        "total_projects": len(projects),
+        "system_status": "active",
+    }
+
+
+# ── Seed data: system components ─────────────────────────────────
+
+_SYSTEM_COMPONENTS = [
+    # Data Platform layer
+    {
+        "layer": "data_platform",
+        "name": "Databricks Lakehouse",
+        "description": "Unified analytics platform with Delta Lake for ACID transactions, Unity Catalog for governance, and Medallion architecture (Bronze/Silver/Gold).",
+        "tools": json.dumps(["Databricks", "Delta Lake", "Unity Catalog", "PySpark"]),
+        "outcomes": json.dumps(["500+ properties integrated", "75% reduction in manual reconciliation", "10-day reporting acceleration"]),
+        "connections": json.dumps([{"target_layer": "investment_engine", "label": "feeds"}, {"target_layer": "ai_layer", "label": "embeddings"}]),
+        "icon_key": "database",
+        "sort_order": 1,
+    },
+    {
+        "layer": "data_platform",
+        "name": "Azure Data Lake",
+        "description": "Cloud-scale data storage with ADLS Gen2, Logic Apps for orchestration, and DevOps CI/CD pipelines.",
+        "tools": json.dumps(["Azure Data Lake", "Logic Apps", "Azure DevOps", "Azure Functions"]),
+        "outcomes": json.dumps(["Automated ingestion from 6+ source systems", "Zero-downtime deployments"]),
+        "connections": json.dumps([{"target_layer": "investment_engine", "label": "stores"}]),
+        "icon_key": "cloud",
+        "sort_order": 2,
+    },
+    {
+        "layer": "data_platform",
+        "name": "PostgreSQL + pgvector",
+        "description": "Production database with vector search for RAG, advanced SQL, and psycopg3 async driver.",
+        "tools": json.dumps(["PostgreSQL", "pgvector", "psycopg3"]),
+        "outcomes": json.dumps(["83 MCP tool operations", "Sub-second vector similarity search"]),
+        "connections": json.dumps([{"target_layer": "ai_layer", "label": "vector store"}]),
+        "icon_key": "server",
+        "sort_order": 3,
+    },
+    # AI Layer
+    {
+        "layer": "ai_layer",
+        "name": "LLM Gateway",
+        "description": "Multi-model AI gateway routing between Claude, GPT-4, and specialized models with intent classification and prompt policy.",
+        "tools": json.dumps(["Claude API", "OpenAI API", "FastAPI", "SSE Streaming"]),
+        "outcomes": json.dumps(["Dynamic model selection per query type", "Real-time streaming responses"]),
+        "connections": json.dumps([{"target_layer": "bi_layer", "label": "generates"}]),
+        "icon_key": "brain",
+        "sort_order": 4,
+    },
+    {
+        "layer": "ai_layer",
+        "name": "RAG Pipeline",
+        "description": "Retrieval-augmented generation with pgvector embeddings, hybrid semantic/keyword search, and domain-scoped retrieval.",
+        "tools": json.dumps(["pgvector", "OpenAI Embeddings", "Hybrid Retrieval"]),
+        "outcomes": json.dumps(["Grounded responses from structured data", "Domain-scoped context windows"]),
+        "connections": json.dumps([{"target_layer": "governance", "label": "audit trail"}]),
+        "icon_key": "search",
+        "sort_order": 5,
+    },
+    {
+        "layer": "ai_layer",
+        "name": "MCP Tool Framework",
+        "description": "83 model-context-protocol tools with lane-based access control, audit policy, and structured output schemas.",
+        "tools": json.dumps(["MCP Protocol", "Pydantic Schemas", "Lane Access Control"]),
+        "outcomes": json.dumps(["83 production tools", "Full audit trail on every invocation"]),
+        "connections": json.dumps([{"target_layer": "governance", "label": "policy enforcement"}]),
+        "icon_key": "tool",
+        "sort_order": 6,
+    },
+    # Investment Engine
+    {
+        "layer": "investment_engine",
+        "name": "Waterfall Distribution Engine",
+        "description": "Python-based waterfall calculation engine replacing Excel models for LP/GP fund distributions and scenario analysis.",
+        "tools": json.dumps(["Python", "SQL", "Scenario Analysis"]),
+        "outcomes": json.dumps(["~100x performance improvement", "Near-instant fund distribution scenarios"]),
+        "connections": json.dumps([{"target_layer": "bi_layer", "label": "outputs"}]),
+        "icon_key": "calculator",
+        "sort_order": 7,
+    },
+    {
+        "layer": "investment_engine",
+        "name": "Fund Portfolio Analytics",
+        "description": "Real-time fund performance tracking with IRR/TVPI/DPI calculations, LP communications, and DDQ automation.",
+        "tools": json.dumps(["Python", "SQL", "Power BI", "DAX"]),
+        "outcomes": json.dumps(["50% DDQ response time reduction", "$4B+ AUM coverage"]),
+        "connections": json.dumps([{"target_layer": "bi_layer", "label": "metrics"}]),
+        "icon_key": "chart",
+        "sort_order": 8,
+    },
+    {
+        "layer": "investment_engine",
+        "name": "Deal Pipeline Intelligence",
+        "description": "Geographic deal radar with tract-level analysis, acquisition scoring, and pipeline workflow automation.",
+        "tools": json.dumps(["PostGIS", "Leaflet", "Python", "SQL"]),
+        "outcomes": json.dumps(["13 geographic analysis layers", "Automated pipeline workflows"]),
+        "connections": json.dumps([{"target_layer": "bi_layer", "label": "visualizes"}]),
+        "icon_key": "map",
+        "sort_order": 9,
+    },
+    # BI Layer
+    {
+        "layer": "bi_layer",
+        "name": "Power BI Semantic Layer",
+        "description": "Governed semantic models in Tabular Editor with DAX calculations, self-service analytics, and automated data refreshes.",
+        "tools": json.dumps(["Power BI", "Tabular Editor", "DAX", "XMLA"]),
+        "outcomes": json.dumps(["50% reduction in ad-hoc reporting requests", "Self-service analytics for 6 business verticals"]),
+        "connections": json.dumps([{"target_layer": "governance", "label": "governed by"}]),
+        "icon_key": "bar-chart",
+        "sort_order": 10,
+    },
+    {
+        "layer": "bi_layer",
+        "name": "AI Dashboard Composer",
+        "description": "Natural-language dashboard generation: user describes a report, system composes widget specs and renders interactive dashboards.",
+        "tools": json.dumps(["Recharts", "React", "Intent Classification", "SSE"]),
+        "outcomes": json.dumps(["7-widget dashboards generated in <2 seconds", "Natural language to dashboard"]),
+        "connections": json.dumps([]),
+        "icon_key": "layout",
+        "sort_order": 11,
+    },
+    # Governance Layer
+    {
+        "layer": "governance",
+        "name": "Data Governance Framework",
+        "description": "Automated SQL-driven data governance with reconciliation checks, lineage tracking, and quality monitoring.",
+        "tools": json.dumps(["SQL", "Unity Catalog", "dbt", "Custom Validators"]),
+        "outcomes": json.dumps(["75% reduction in manual reconciliation", "Automated data quality monitoring"]),
+        "connections": json.dumps([]),
+        "icon_key": "shield",
+        "sort_order": 12,
+    },
+    {
+        "layer": "governance",
+        "name": "Audit & Access Control",
+        "description": "Lane-based access control for MCP tools, full audit trails, and environment-scoped permissions.",
+        "tools": json.dumps(["MCP Audit Policy", "Environment Scoping", "RBAC"]),
+        "outcomes": json.dumps(["Every AI tool invocation logged", "Environment-isolated data access"]),
+        "connections": json.dumps([]),
+        "icon_key": "lock",
+        "sort_order": 13,
+    },
+]
+
+_DEPLOYMENTS = [
+    {
+        "sort_order": 1,
+        "deployment_name": "JPMC BI Service Line Deployment",
+        "system_type": "bi_service_line",
+        "problem": "No dedicated BI or data engineering capability on the JPMC national account — ad-hoc Excel and manual reporting only.",
+        "architecture": "Tableau + SQL Server + PowerPivot + VBA automation",
+        "before_state": json.dumps({"reporting": "Manual Excel", "data_accuracy": "Unvalidated", "delivery": "Ad-hoc analyst work"}),
+        "after_state": json.dumps({"reporting": "Automated Tableau dashboards", "data_accuracy": "SQL-validated pipelines", "delivery": "Repeatable BI service line"}),
+        "status": "completed",
+    },
+    {
+        "sort_order": 2,
+        "deployment_name": "Real Estate Data Automation Platform",
+        "system_type": "data_warehouse",
+        "problem": "160+ hours/month of manual data entry from partner accounting systems across 500+ properties.",
+        "architecture": "Azure Logic Apps + PySpark + Power BI + VBA pipelines",
+        "before_state": json.dumps({"manual_hours": "160+ hrs/month", "error_rate": "High manual errors", "pipeline_coverage": "None automated"}),
+        "after_state": json.dumps({"manual_hours": "Near zero", "error_rate": "95% error reduction", "pipeline_coverage": "Full automation"}),
+        "status": "completed",
+    },
+    {
+        "sort_order": 3,
+        "deployment_name": "REPE Investment Data Warehouse",
+        "system_type": "data_warehouse",
+        "problem": "No centralized data warehouse across DealCloud, MRI, Yardi, and Excel — fragmented reporting for a $4B+ AUM firm.",
+        "architecture": "Databricks + Azure Data Lake + PySpark + Power BI semantic layer",
+        "before_state": json.dumps({"ddq_response": "2+ weeks", "reporting_cycle": "Manual, delayed 10+ days", "reconciliation": "Fully manual", "data_sources": "Siloed across 6+ systems"}),
+        "after_state": json.dumps({"ddq_response": "1 week (-50%)", "reporting_cycle": "Accelerated 10 days", "reconciliation": "75% automated", "data_sources": "Unified warehouse"}),
+        "status": "completed",
+    },
+    {
+        "sort_order": 4,
+        "deployment_name": "PDS AI Analytics Platform",
+        "system_type": "ai_platform",
+        "problem": "Analyst-dependent reporting workflows across 10+ client accounts with no standardized methodologies.",
+        "architecture": "Databricks + Delta Lake + Unity Catalog + OpenAI + LangChain",
+        "before_state": json.dumps({"methodology": "Per-analyst, inconsistent", "reporting": "Manual build per client", "ai_capability": "None"}),
+        "after_state": json.dumps({"methodology": "Standardized across 10+ accounts", "reporting": "Automated pipelines", "ai_capability": "Conversational AI wrappers"}),
+        "status": "active",
+    },
+    {
+        "sort_order": 5,
+        "deployment_name": "Winston AI Execution Platform",
+        "system_type": "full_stack_platform",
+        "problem": "No AI execution environment purpose-built for REPE investment management workflows.",
+        "architecture": "Next.js 14 + FastAPI + PostgreSQL + Claude/OpenAI + MCP + SSE",
+        "before_state": json.dumps({"ai_tools": "None purpose-built", "demo_environments": "None", "domain_coverage": "Generic tools only"}),
+        "after_state": json.dumps({"ai_tools": "83 MCP tools", "demo_environments": "33 live environments", "domain_coverage": "Full REPE vertical"}),
+        "status": "active",
+    },
+]
+
+
 def seed_demo_workspace(*, env_id: UUID, business_id: UUID, actor: str = "system") -> dict:
     """Idempotent seed of Paul Malmquist's resume data."""
     with get_cursor() as cur:
@@ -403,6 +648,44 @@ def seed_demo_workspace(*, env_id: UUID, business_id: UUID, actor: str = "system
                     str(env_id), str(business_id),
                     p["name"], p["client"], p["status"], p["summary"], p["impact"],
                     p["technologies"], p["metrics"], p.get("url"), p["sort_order"],
+                ),
+            )
+
+    # Seed system components
+    with get_cursor() as cur:
+        for sc in _SYSTEM_COMPONENTS:
+            cur.execute(
+                """
+                INSERT INTO resume_system_components
+                (env_id, business_id, layer, name, description, tools, outcomes, connections, icon_key, sort_order)
+                VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s, %s)
+                """,
+                (
+                    str(env_id), str(business_id),
+                    sc["layer"], sc["name"], sc["description"],
+                    sc["tools"], sc["outcomes"], sc["connections"],
+                    sc["icon_key"], sc["sort_order"],
+                ),
+            )
+
+    # Seed deployments (link to role_ids by sort_order)
+    with get_cursor() as cur:
+        for dep in _DEPLOYMENTS:
+            # Match deployment to role by sort_order index
+            dep_role_id = role_ids[dep["sort_order"] - 1] if dep["sort_order"] <= len(role_ids) else None
+            cur.execute(
+                """
+                INSERT INTO resume_deployments
+                (env_id, business_id, role_id, deployment_name, system_type,
+                 problem, architecture, before_state, after_state, status, sort_order)
+                VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s)
+                """,
+                (
+                    str(env_id), str(business_id), dep_role_id,
+                    dep["deployment_name"], dep["system_type"],
+                    dep["problem"], dep["architecture"],
+                    dep["before_state"], dep["after_state"],
+                    dep["status"], dep["sort_order"],
                 ),
             )
 

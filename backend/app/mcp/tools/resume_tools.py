@@ -6,9 +6,11 @@ from app.mcp.registry import AuditPolicy, ToolDef, registry
 from app.mcp.schemas.resume_tools import (
     GetResumeProjectInput,
     GetResumeRoleInput,
+    ListResumeDeploymentsInput,
     ListResumeProjectsInput,
     ListResumeRolesInput,
     ListResumeSkillsInput,
+    ListResumeSystemComponentsInput,
     ResumeCareerSummaryInput,
     ResumeSkillMatrixInput,
 )
@@ -71,6 +73,20 @@ _AUDIT = AuditPolicy(
     max_output_bytes_to_log=10000,
 )
 
+def _list_system_components(ctx: McpContext, inp: ListResumeSystemComponentsInput) -> dict:
+    env_id, bid = _resolve_ids(inp, ctx)
+    rows = resume_svc.list_system_components(env_id=env_id, business_id=bid)
+    if inp.layer:
+        rows = [r for r in rows if r["layer"] == inp.layer]
+    return {"components": _serialize(rows), "total": len(rows)}
+
+
+def _list_deployments(ctx: McpContext, inp: ListResumeDeploymentsInput) -> dict:
+    env_id, bid = _resolve_ids(inp, ctx)
+    rows = resume_svc.list_deployments(env_id=env_id, business_id=bid)
+    return {"deployments": _serialize(rows), "total": len(rows)}
+
+
 _TOOLS = [
     ("resume.list_roles", "List all career roles ordered by start date. Optionally filter by company name.", ListResumeRolesInput, _list_roles),
     ("resume.get_role", "Get full detail for a specific career role including achievements and technologies.", GetResumeRoleInput, _get_role),
@@ -79,6 +95,8 @@ _TOOLS = [
     ("resume.get_project", "Get full detail for a specific project including technologies, metrics, and impact.", GetResumeProjectInput, _get_project),
     ("resume.career_summary", "Get computed career KPIs: total years, companies, skills count, education, current role.", ResumeCareerSummaryInput, _career_summary),
     ("resume.skill_matrix", "Get skills grouped by category with average proficiency for radar chart visualization.", ResumeSkillMatrixInput, _skill_matrix),
+    ("resume.list_system_components", "List architecture components grouped by layer (data_platform, ai_layer, investment_engine, bi_layer, governance). Shows tools and outcomes for each component.", ListResumeSystemComponentsInput, _list_system_components),
+    ("resume.list_deployments", "List system deployments — each role reframed as a technology deployment with problem, architecture, and before/after metrics.", ListResumeDeploymentsInput, _list_deployments),
 ]
 
 

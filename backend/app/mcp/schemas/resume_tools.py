@@ -53,3 +53,16 @@ class ResumeSkillMatrixInput(BaseModel):
     model_config = {"extra": "forbid"}
     scope: ToolScopeInput | None = None
     resolved_scope: ResolvedScopeInput | None = None
+
+
+class ListResumeSystemComponentsInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    layer: str | None = Field(default=None, description="Filter: data_platform, ai_layer, investment_engine, bi_layer, governance")
+    scope: ToolScopeInput | None = None
+    resolved_scope: ResolvedScopeInput | None = None
+
+
+class ListResumeDeploymentsInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    scope: ToolScopeInput | None = None
+    resolved_scope: ResolvedScopeInput | None = None

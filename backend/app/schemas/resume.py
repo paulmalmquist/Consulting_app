@@ -74,3 +74,52 @@ class ResumeCareerSummaryOut(BaseModel):
     location: str
     current_title: str
     current_company: str
+
+
+class ResumeSystemComponentOut(BaseModel):
+    component_id: UUID
+    env_id: UUID
+    business_id: UUID
+    layer: str
+    name: str
+    description: str | None = None
+    tools: list[str] = Field(default_factory=list)
+    outcomes: list[str] = Field(default_factory=list)
+    connections: list[dict[str, Any]] = Field(default_factory=list)
+    icon_key: str | None = None
+    sort_order: int = 0
+    created_at: datetime
+
+
+class ResumeDeploymentOut(BaseModel):
+    deployment_id: UUID
+    env_id: UUID
+    business_id: UUID
+    role_id: UUID | None = None
+    deployment_name: str
+    system_type: str
+    problem: str | None = None
+    architecture: str | None = None
+    before_state: dict[str, Any] = Field(default_factory=dict)
+    after_state: dict[str, Any] = Field(default_factory=dict)
+    status: str = "completed"
+    sort_order: int = 0
+    created_at: datetime
+    # Joined from role
+    company: str | None = None
+    title: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    location: str | None = None
+
+
+class ResumeSystemStatsOut(BaseModel):
+    properties_managed: int
+    pipelines_built: int
+    hours_saved_monthly: int
+    performance_gain_pct: int
+    mcp_tools: int
+    active_systems: int
+    total_roles: int
+    total_projects: int
+    system_status: str = "active"

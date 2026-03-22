@@ -7504,6 +7504,74 @@ export function getResumeSkillMatrix(envId: string, businessId?: string): Promis
   });
 }
 
+// ── Resume OS types ─────────────────────────────────────────────
+
+export type ResumeSystemComponent = {
+  component_id: string;
+  env_id: string;
+  business_id: string;
+  layer: string;
+  name: string;
+  description: string | null;
+  tools: string[];
+  outcomes: string[];
+  connections: Array<{ target_layer: string; label: string }>;
+  icon_key: string | null;
+  sort_order: number;
+  created_at: string;
+};
+
+export type ResumeDeployment = {
+  deployment_id: string;
+  env_id: string;
+  business_id: string;
+  role_id: string | null;
+  deployment_name: string;
+  system_type: string;
+  problem: string | null;
+  architecture: string | null;
+  before_state: Record<string, string>;
+  after_state: Record<string, string>;
+  status: string;
+  sort_order: number;
+  created_at: string;
+  company: string | null;
+  title: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  location: string | null;
+};
+
+export type ResumeSystemStats = {
+  properties_managed: number;
+  pipelines_built: number;
+  hours_saved_monthly: number;
+  performance_gain_pct: number;
+  mcp_tools: number;
+  active_systems: number;
+  total_roles: number;
+  total_projects: number;
+  system_status: string;
+};
+
+export function listResumeSystemComponents(envId: string, businessId?: string): Promise<ResumeSystemComponent[]> {
+  return bosFetch("/api/resume/v1/system-components", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listResumeDeployments(envId: string, businessId?: string): Promise<ResumeDeployment[]> {
+  return bosFetch("/api/resume/v1/deployments", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getResumeSystemStats(envId: string, businessId?: string): Promise<ResumeSystemStats> {
+  return bosFetch("/api/resume/v1/system-stats", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
 export function getOpportunityDashboard(params: {
   env_id: string;
   business_id?: string;

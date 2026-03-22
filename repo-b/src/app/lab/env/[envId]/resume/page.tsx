@@ -2,33 +2,33 @@
 
 import { useEffect, useState } from "react";
 import {
-  listResumeRoles,
   listResumeProjects,
-  getResumeCareerSummary,
-  getResumeSkillMatrix,
-  ResumeRole,
-  ResumeProject,
-  ResumeCareerSummary,
-  ResumeSkillMatrix,
+  listResumeSystemComponents,
+  listResumeDeployments,
+  getResumeSystemStats,
+  type ResumeProject,
+  type ResumeSystemComponent,
+  type ResumeDeployment,
+  type ResumeSystemStats,
 } from "@/lib/bos-api";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 import {
   publishAssistantPageContext,
   resetAssistantPageContext,
 } from "@/lib/commandbar/appContextBridge";
-import ResumeKpiStrip from "@/components/resume/ResumeKpiStrip";
-import CareerTimeline from "@/components/resume/CareerTimeline";
-import SkillsRadar from "@/components/resume/SkillsRadar";
-import ExperienceBreakdown from "@/components/resume/ExperienceBreakdown";
+import { PerspectiveProvider } from "@/components/resume/PerspectiveContext";
+import SystemHero from "@/components/resume/SystemHero";
+import SystemArchitectureMap from "@/components/resume/SystemArchitectureMap";
+import DeploymentCards from "@/components/resume/DeploymentCards";
 import ProjectShowcase from "@/components/resume/ProjectShowcase";
-import ResumeStarterPrompts from "@/components/resume/ResumeStarterPrompts";
+import SystemChat from "@/components/resume/SystemChat";
 
-export default function ResumeDashboardPage() {
+export default function ResumeOsPage() {
   const { envId, businessId } = useDomainEnv();
-  const [roles, setRoles] = useState<ResumeRole[]>([]);
   const [projects, setProjects] = useState<ResumeProject[]>([]);
-  const [summary, setSummary] = useState<ResumeCareerSummary | null>(null);
-  const [matrix, setMatrix] = useState<ResumeSkillMatrix[]>([]);
+  const [components, setComponents] = useState<ResumeSystemComponent[]>([]);
+  const [deployments, setDeployments] = useState<ResumeDeployment[]>([]);
+  const [stats, setStats] = useState<ResumeSystemStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,18 +47,18 @@ export default function ResumeDashboardPage() {
       setError(null);
       try {
         const bid = businessId || undefined;
-        const [r, p, s, m] = await Promise.all([
-          listResumeRoles(envId, bid),
+        const [p, sc, d, s] = await Promise.all([
           listResumeProjects(envId, bid),
-          getResumeCareerSummary(envId, bid),
-          getResumeSkillMatrix(envId, bid),
+          listResumeSystemComponents(envId, bid),
+          listResumeDeployments(envId, bid),
+          getResumeSystemStats(envId, bid),
         ]);
-        setRoles(r);
         setProjects(p);
-        setSummary(s);
-        setMatrix(m);
+        setComponents(sc);
+        setDeployments(d);
+        setStats(s);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load resume data");
+        setError(e instanceof Error ? e.message : "Failed to load system data");
       } finally {
         setLoading(false);
       }
@@ -69,7 +69,13 @@ export default function ResumeDashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="animate-pulse text-bm-muted2">Loading resume data...</div>
+        <div className="flex items-center gap-3">
+          <span className="relative flex h-3 w-3">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75" />
+            <span className="relative inline-flex h-3 w-3 rounded-full bg-sky-500" />
+          </span>
+          <span className="text-sm text-bm-muted2">Initializing system...</span>
+        </div>
       </div>
     );
   }
@@ -83,32 +89,14 @@ export default function ResumeDashboardPage() {
   }
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="mb-2">
-        <h1 className="text-2xl font-bold">Paul Malmquist</h1>
-        <p className="text-sm text-bm-muted2">
-          {summary?.current_title} &middot; {summary?.current_company} &middot; {summary?.location}
-        </p>
+    <PerspectiveProvider>
+      <div className="space-y-6">
+        <SystemHero stats={stats} />
+        {components.length > 0 && <SystemArchitectureMap components={components} />}
+        {deployments.length > 0 && <DeploymentCards deployments={deployments} />}
+        {projects.length > 0 && <ProjectShowcase projects={projects} />}
+        <SystemChat envId={envId} businessId={businessId} />
       </div>
-
-      {/* KPI Strip */}
-      {summary && <ResumeKpiStrip summary={summary} />}
-
-      {/* Career Timeline — full width hero */}
-      {roles.length > 0 && <CareerTimeline roles={roles} />}
-
-      {/* Skills Radar + Experience Breakdown — side by side */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        {matrix.length > 0 && <SkillsRadar matrix={matrix} />}
-        {roles.length > 0 && <ExperienceBreakdown roles={roles} />}
-      </div>
-
-      {/* Projects */}
-      {projects.length > 0 && <ProjectShowcase projects={projects} />}
-
-      {/* Starter Prompts */}
-      <ResumeStarterPrompts onSelect={() => {}} />
-    </div>
+    </PerspectiveProvider>
   );
 }

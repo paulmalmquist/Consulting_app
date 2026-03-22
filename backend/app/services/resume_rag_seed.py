@@ -117,6 +117,79 @@ Leadership style:
 """
 
 
+_SYSTEM_ARCHITECTURE = """
+PAUL MALMQUIST — SYSTEM ARCHITECTURE OVERVIEW
+
+Paul's systems follow a 5-layer architecture pattern, refined across multiple enterprise deployments:
+
+1. DATA PLATFORM LAYER
+   - Databricks Lakehouse with Delta Lake, Unity Catalog, and Medallion architecture
+   - Azure Data Lake (ADLS Gen2) with Logic Apps orchestration
+   - PostgreSQL + pgvector for production AI workloads
+   - Key outcome: 500+ properties integrated, 75% reconciliation reduction
+
+2. AI LAYER
+   - Multi-model LLM gateway routing between Claude and GPT-4
+   - RAG pipeline with pgvector embeddings and hybrid retrieval
+   - 83 MCP tools with lane-based access control and full audit trail
+   - Key outcome: Domain-specific AI tools, not generic chatbots
+
+3. INVESTMENT ENGINE
+   - Python waterfall distribution engine (~100x faster than Excel)
+   - Fund portfolio analytics with IRR/TVPI/DPI calculations
+   - Deal pipeline intelligence with geographic tract-level analysis
+   - Key outcome: 50% DDQ response time reduction, $4B+ AUM coverage
+
+4. BI LAYER
+   - Power BI semantic layer with Tabular Editor and DAX
+   - AI dashboard composer: natural language to interactive dashboards
+   - Recharts-based React visualizations for web delivery
+   - Key outcome: 50% reduction in ad-hoc reporting requests
+
+5. GOVERNANCE LAYER
+   - Automated SQL-driven data governance framework
+   - Lane-based access control for AI tool invocations
+   - Full audit trail on every MCP tool call
+   - Key outcome: Environment-isolated data access, compliance-ready
+"""
+
+_DEPLOYMENT_HISTORY = """
+PAUL MALMQUIST — DEPLOYMENT HISTORY
+
+Each role in Paul's career represents a system deployment with measurable before/after transformation:
+
+DEPLOYMENT 1: JPMC BI Service Line (JLL, 2014-2018)
+- Problem: No dedicated BI capability on the national account
+- Architecture: Tableau + SQL Server + PowerPivot + VBA
+- Before: Manual Excel, unvalidated data, ad-hoc analyst work
+- After: Automated dashboards, SQL-validated pipelines, repeatable service line
+- Recognition: Best Innovation of the Quarter
+
+DEPLOYMENT 2: Real Estate Data Automation (Kayne Anderson, 2018-2021)
+- Problem: 160+ hours/month manual data entry across 500+ properties
+- Architecture: Azure Logic Apps + PySpark + Power BI + VBA pipelines
+- Before: 160+ hrs/month manual, high errors, no automation
+- After: Near-zero manual hours, 95% error reduction, full automation
+
+DEPLOYMENT 3: REPE Investment Data Warehouse (Kayne Anderson, 2021-2025)
+- Problem: Fragmented reporting across 6+ systems for $4B+ AUM firm
+- Architecture: Databricks + Azure Data Lake + PySpark + Power BI semantic layer
+- Before: 2+ week DDQ response, 10+ day delayed reporting, fully manual reconciliation
+- After: 1-week DDQ (-50%), 10-day reporting acceleration, 75% automated reconciliation
+
+DEPLOYMENT 4: PDS AI Analytics Platform (JLL, 2025-Present)
+- Problem: Analyst-dependent workflows across 10+ client accounts
+- Architecture: Databricks + Delta Lake + Unity Catalog + OpenAI + LangChain
+- Before: Per-analyst methodology, manual reporting per client, no AI
+- After: Standardized across 10+ accounts, automated pipelines, conversational AI
+
+DEPLOYMENT 5: Winston AI Execution Platform (Novendor, 2024-Present)
+- Problem: No purpose-built AI environment for REPE workflows
+- Architecture: Next.js 14 + FastAPI + PostgreSQL + Claude/OpenAI + MCP + SSE
+- Before: No purpose-built tools, no demo environments, generic AI only
+- After: 83 MCP tools, 33 live demo environments, full REPE vertical coverage
+"""
+
 RESUME_RAG_DOCUMENTS = [
     {
         "name": "Paul Malmquist — Career Overview",
@@ -147,6 +220,18 @@ RESUME_RAG_DOCUMENTS = [
         "text": _TECHNICAL_PHILOSOPHY,
         "entity_type": "resume",
         "content_type_hint": "philosophy",
+    },
+    {
+        "name": "System Architecture Overview",
+        "text": _SYSTEM_ARCHITECTURE,
+        "entity_type": "resume",
+        "content_type_hint": "architecture",
+    },
+    {
+        "name": "Deployment History",
+        "text": _DEPLOYMENT_HISTORY,
+        "entity_type": "resume",
+        "content_type_hint": "deployment_history",
     },
 ]
 

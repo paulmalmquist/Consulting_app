@@ -45,6 +45,7 @@ Before writing any code:
 
 ## Step 6: Commit and Push
 
+0. **Set up git auth first:** Run `source scripts/setup-gh-auth.sh` — installs gh CLI and authenticates using the PAT in `githubpat.txt`. Idempotent, safe to run every session.
 1. Stage only the files you changed (never `git add -A`)
 2. Write a clear commit message
 3. Include `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
