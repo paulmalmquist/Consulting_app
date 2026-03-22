@@ -662,10 +662,14 @@ def classify_repe_intent(
     # ── Generate dashboard ────────────────────────────────────────────
     dash_score = 0.0
     _has_chart_keywords = bool(_CHART_INTENT_RE.search(msg))
-    if _DASHBOARD_RE.search(msg):
+    _has_explicit_dashboard = bool(_DASHBOARD_RE.search(msg))
+    if _has_explicit_dashboard:
         dash_score += 0.90
     elif _has_chart_keywords:
-        dash_score += 0.90
+        # Chart keywords alone get a moderate score — data queries with chart
+        # language should route to analytics_query (which fetches data via SQL)
+        # rather than dashboard composer (which only creates empty layout specs).
+        dash_score += 0.65
     # Suppress if a specific engine-level intent scored higher
     # BUT do NOT suppress when the user explicitly used chart language
     if not _has_chart_keywords:
@@ -681,16 +685,25 @@ def classify_repe_intent(
     aq_score = 0.0
     if _ANALYTICS_QUERY_RE.search(msg):
         aq_score += 0.70
-    # Suppress if a finance-specific intent already matched strongly
-    if any(scores.get(k, 0) > 0.7 for k in (
+    # Chart keywords imply the user wants data (SQL) + visualization — boost analytics
+    # so the SQL agent fetches real data instead of an empty dashboard shell.
+    if _has_chart_keywords and not _has_explicit_dashboard:
+        aq_score = max(aq_score, 0.88)
+    # Suppress if a finance-specific intent already matched strongly.
+    # NOTE: INTENT_GENERATE_DASHBOARD only suppresses analytics when the user
+    # explicitly asked for a "dashboard" or "report" (not just chart keywords).
+    _aq_suppress_intents = [
         INTENT_RUN_SALE_SCENARIO, INTENT_RUN_WATERFALL, INTENT_FUND_METRICS,
-        INTENT_GENERATE_DASHBOARD, INTENT_PIPELINE_RADAR,
+        INTENT_PIPELINE_RADAR,
         INTENT_LIST_INVESTORS, INTENT_LIST_CAPITAL_ACTIVITY, INTENT_NAV_ROLLFORWARD,
         INTENT_CAPITAL_CALL_WORKFLOW, INTENT_DISTRIBUTION_WORKFLOW,
         INTENT_PERIOD_CLOSE, INTENT_FEE_SCHEDULE, INTENT_WATERFALL_COMPARE,
         INTENT_NOI_VARIANCE, INTENT_LIST_APPROVALS, INTENT_LIST_DOCUMENTS,
         INTENT_SAVED_ANALYSES,
-    )):
+    ]
+    if _has_explicit_dashboard:
+        _aq_suppress_intents.append(INTENT_GENERATE_DASHBOARD)
+    if any(scores.get(k, 0) > 0.7 for k in _aq_suppress_intents):
         aq_score *= 0.2
     scores[INTENT_ANALYTICS_QUERY] = min(aq_score, 1.0)
 
