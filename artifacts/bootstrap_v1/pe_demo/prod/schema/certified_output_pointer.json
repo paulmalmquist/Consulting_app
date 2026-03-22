@@ -1,0 +1,28 @@
+{
+  "foreign_keys": [
+    {
+      "column": "tenant_id",
+      "ref_column": "tenant_id",
+      "ref_table": "tenant"
+    },
+    {
+      "column": "certification_id",
+      "ref_column": "certification_id",
+      "ref_table": "certification"
+    },
+    {
+      "column": "run_id",
+      "ref_column": "run_id",
+      "ref_table": "run"
+    }
+  ],
+  "grain": "one pointer per certified output",
+  "immutability": "append_only",
+  "primary_key": [
+    "certified_output_pointer_id"
+  ],
+  "required_lineage": [
+    "run_id"
+  ],
+  "table_name": "certified_output_pointer"
+}

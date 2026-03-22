@@ -1,0 +1,15 @@
+{
+  "foreign_keys": [
+    {
+      "column": "tenant_id",
+      "ref_column": "tenant_id",
+      "ref_table": "tenant"
+    }
+  ],
+  "grain": "one row per tenant environment",
+  "immutability": "mutable_status",
+  "primary_key": [
+    "environment_id"
+  ],
+  "table_name": "environment"
+}

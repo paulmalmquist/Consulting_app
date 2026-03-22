@@ -1,0 +1,17 @@
+{
+  "capabilities_in_scope": [
+    "accounting",
+    "cashflow",
+    "waterfall"
+  ],
+  "checklist_version": "v1",
+  "steps": [
+    "Confirm dataset_version is certified or explicitly marked candidate.",
+    "Confirm rule_version is certified or explicitly marked candidate.",
+    "Validate required lineage fields on all outputs.",
+    "Run capability invariants at error severity; all must pass.",
+    "Run parity checks where parity_mode is required.",
+    "Register certified_output_pointer entries for nlq_allowed outputs.",
+    "Record certification decision with references to run_id, dataset_version_id, rule_version_id."
+  ]
+}

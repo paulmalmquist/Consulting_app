@@ -1,0 +1,20 @@
+{
+  "foreign_keys": [
+    {
+      "column": "tenant_id",
+      "ref_column": "tenant_id",
+      "ref_table": "tenant"
+    },
+    {
+      "column": "deal_id",
+      "ref_column": "deal_id",
+      "ref_table": "deal"
+    }
+  ],
+  "grain": "one row per asset",
+  "immutability": "scd2",
+  "primary_key": [
+    "asset_id"
+  ],
+  "table_name": "asset"
+}
