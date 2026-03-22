@@ -177,7 +177,7 @@ def seed_local_training_workspace(*, env_id: str, business_id: UUID) -> dict[str
         "registrations_seeded": 0,
         "feedback_seeded": 0,
     }
-    rng = random.Random(20260322)
+    _rng = random.Random(20260322)  # noqa: F841 — seeded RNG for future deterministic generation
 
     with get_cursor() as cur:
         tenant_id = resolve_tenant_id(cur, business_id)
