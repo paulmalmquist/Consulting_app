@@ -19,54 +19,17 @@ This spec was the source of a real production snafu: the Winston AI tool was exp
 
 ## Test Prompt to Send to Winston Chat
 
+**IMPORTANT: This must be a realistic USER query, not an implementation spec. The AI tester sends this directly to the production Winston chat UI. Internal specs should NEVER be pasted into the chat.**
+
 ```
-You are working inside a production-grade AI-assisted application with:
-- FastAPI backend
-- MCP tool execution layer
-- Next.js frontend
-- Streaming responses (SSE or similar)
-
-The current system exposes raw tool execution logs directly to the UI, including:
-- repeated tool calls (e.g., repe.get_asset)
-- retry attempts
-- validation errors
-- internal identifiers
-- technical error messages
-
-This is NOT acceptable for a user-facing product.
-
-Your task is to implement a structured execution narration layer that:
-1. hides low-level technical noise
-2. groups actions into meaningful steps
-3. streams a clean, human-readable progression
-4. preserves debuggability separately
-
-Transform this experience:
-  repe.get_asset
-  repe.get_asset
-  repe.get_asset failed
-  validation error...
-
-Into this:
-  → Fetching assets
-  → Resolving asset details
-  → Ranking by square footage
-  → Done
-
-Introduce a structured step model where each step has:
-- id
-- label (human readable)
-- status: pending | running | completed | failed
-- optional progress
-- optional message
-- optional duration
-
-Create a mapping layer that translates tool calls into steps. Multiple tool calls of the same type should map to ONE step. Retries should not be visible. If a retry succeeds, no error is shown. If all retries fail, show ONE clean error.
-
-The frontend should show only ONE active step at a time, replacing step text as the system progresses.
-
-What files do I need to create or modify? Give me the implementation plan.
+Compare the top 3 assets by NOI across all funds, and show me which ones have the highest cap rate improvement over the last 4 quarters.
 ```
+
+This prompt tests execution narration because it requires multiple tool calls (asset lookup, NOI data, cap rate history) that should be narrated cleanly to the user rather than exposed as raw tool spam.
+
+## DO NOT SEND (Internal Reference Only)
+
+The full implementation spec for the execution narration layer lives in `META_PROMPT_CHAT_WORKSPACE.md` under Bug 0. It is reference material for the coding agent, NOT a test prompt.
 
 ---
 
