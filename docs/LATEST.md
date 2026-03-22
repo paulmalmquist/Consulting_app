@@ -10,7 +10,7 @@
 
 | System | Status | Last checked |
 |---|---|---|
-| paulmalmquist.com | UP — login page rendering | 2026-03-21 |
+| paulmalmquist.com | UP — login page rendering | 2026-03-22 |
 | novendor.ai | Placeholder ("Launching Soon") | 2026-03-19 |
 | Supabase | UNKNOWN | [pending first ops run] |
 | Vercel deploys | UNKNOWN | [pending first ops run] |
@@ -19,9 +19,11 @@
 
 | File | Date | Pass rate |
 |---|---|---|
-| `docs/ai-testing/2026-03-20.md` | 2026-03-20 | N/A — 0/6 ran, Chrome extension disconnected 2 days |
+| `docs/ai-testing/2026-03-21.md` | 2026-03-21 | 16.7% — 1/6 passed. Chrome extension reconnected. repe_fast_path pipeline critically broken (empty dashboards). |
 
-**Bug 0 status:** OPEN — raw tool call spam confirmed in production 2026-03-19. Fix spec in `META_PROMPT_CHAT_WORKSPACE.md` Bug 0 section. No commits addressed it this week.
+**Bug 0 status:** FIX COMMITTED (unpushed) — commit `658bb74` on local main fixes raw tool call spam across 4 files. Needs `git push origin main` after removing stale `.git/index.lock`.
+
+**NEW — Fast-path pipeline broken:** `repe_fast_path` (Lane F) returns 0 tokens, 0 tools for all data queries. Creates empty dashboard shells. This is now the top priority — it breaks the core demo flow.
 
 ## Latest Code Quality
 
@@ -49,11 +51,23 @@
 |---|---|---|
 | `docs/sales-signals/` | 2026-03-19 | Allegro Real Estate (UK, greenfield, debut fund) |
 
+## Latest Efficiency Report
+
+| File | Date | Summary |
+|---|---|---|
+| `docs/ops-reports/efficiency/2026-03-21.md` | 2026-03-21 | First run. 14/17 tasks KEEP, 3 REFINE. Top: code quality sweep (20/20), demo ideas (19/20). Bottom: coding followup (9/20 — make conditional). |
+
+## Latest Watchdog Report
+
+| File | Date | Status |
+|---|---|---|
+| `docs/ops-reports/watchdog/2026-03-21.md` | 2026-03-21 | HEALTHY — all 10 task categories produced output. Git index.lock stale. |
+
 ## Latest Daily Digest
 
 | File | Date |
 |---|---|
-| `docs/ops-reports/digests/winston-daily-brief-2026-03-21.md` | 2026-03-21 |
+| `docs/ops-reports/digests/winston-daily-brief-2026-03-22.md` | 2026-03-22 |
 
 ## Active Meta Prompts (Build Directives)
 
@@ -66,7 +80,8 @@
 
 | Bug | Severity | Status | Location |
 |---|---|---|---|
-| Bug 0: Tool call spam in AI UI | CRITICAL | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
+| Bug 0: Tool call spam in AI UI | CRITICAL | FIX COMMITTED (unpushed `658bb74`) | `META_PROMPT_CHAT_WORKSPACE.md` |
+| NEW: repe_fast_path empty dashboards | CRITICAL | OPEN | `docs/ai-testing/2026-03-21.md` |
 | Bug 1: Waterfall amounts unformatted | HIGH | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
 | Bug 2: Pref return / carry $0 | HIGH | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
 | Bug 3: Capital snapshots need manual click | MEDIUM | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
@@ -120,4 +135,4 @@ All suggestion-generating tasks (feature-radar, demo-ideas, site-improvements, c
 
 ---
 
-*Last updated: 2026-03-21 by morning-ops-digest. Manual edits are fine but will be overwritten on next run.*
+*Last updated: 2026-03-22 by morning-ops-digest. Manual edits are fine but will be overwritten on next run.*
