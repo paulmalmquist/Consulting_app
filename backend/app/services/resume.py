@@ -5,7 +5,23 @@ import json
 from datetime import date
 from uuid import UUID
 
+import psycopg
+
 from app.db import get_cursor
+
+
+def _table_exists(table_name: str) -> bool:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = 'public' AND table_name = %s
+            LIMIT 1
+            """,
+            (table_name,),
+        )
+        return bool(cur.fetchone())
 
 
 # ── Queries ───────────────────────────────────────────────────────────
@@ -355,31 +371,43 @@ _PROJECTS = [
 # ── New queries (system components, deployments, stats) ──────────
 
 def list_system_components(*, env_id: UUID, business_id: UUID) -> list[dict]:
-    with get_cursor() as cur:
-        cur.execute(
-            """
-            SELECT * FROM resume_system_components
-            WHERE env_id = %s::uuid AND business_id = %s::uuid
-            ORDER BY sort_order
-            """,
-            (str(env_id), str(business_id)),
-        )
-        return cur.fetchall()
+    if not _table_exists("resume_system_components"):
+        return []
+
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT * FROM resume_system_components
+                WHERE env_id = %s::uuid AND business_id = %s::uuid
+                ORDER BY sort_order
+                """,
+                (str(env_id), str(business_id)),
+            )
+            return cur.fetchall()
+    except psycopg.errors.UndefinedTable:
+        return []
 
 
 def list_deployments(*, env_id: UUID, business_id: UUID) -> list[dict]:
-    with get_cursor() as cur:
-        cur.execute(
-            """
-            SELECT d.*, r.company, r.title, r.start_date, r.end_date, r.location
-            FROM resume_deployments d
-            LEFT JOIN resume_roles r ON r.role_id = d.role_id
-            WHERE d.env_id = %s::uuid AND d.business_id = %s::uuid
-            ORDER BY d.sort_order
-            """,
-            (str(env_id), str(business_id)),
-        )
-        return cur.fetchall()
+    if not _table_exists("resume_deployments"):
+        return []
+
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT d.*, r.company, r.title, r.start_date, r.end_date, r.location
+                FROM resume_deployments d
+                LEFT JOIN resume_roles r ON r.role_id = d.role_id
+                WHERE d.env_id = %s::uuid AND d.business_id = %s::uuid
+                ORDER BY d.sort_order
+                """,
+                (str(env_id), str(business_id)),
+            )
+            return cur.fetchall()
+    except psycopg.errors.UndefinedTable:
+        return []
 
 
 def get_system_stats(*, env_id: UUID, business_id: UUID) -> dict:
@@ -651,43 +679,45 @@ def seed_demo_workspace(*, env_id: UUID, business_id: UUID, actor: str = "system
                 ),
             )
 
-    # Seed system components
-    with get_cursor() as cur:
-        for sc in _SYSTEM_COMPONENTS:
-            cur.execute(
-                """
-                INSERT INTO resume_system_components
-                (env_id, business_id, layer, name, description, tools, outcomes, connections, icon_key, sort_order)
-                VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s, %s)
-                """,
-                (
-                    str(env_id), str(business_id),
-                    sc["layer"], sc["name"], sc["description"],
-                    sc["tools"], sc["outcomes"], sc["connections"],
-                    sc["icon_key"], sc["sort_order"],
-                ),
-            )
+    # Seed system components only when the extended resume tables exist.
+    if _table_exists("resume_system_components"):
+        with get_cursor() as cur:
+            for sc in _SYSTEM_COMPONENTS:
+                cur.execute(
+                    """
+                    INSERT INTO resume_system_components
+                    (env_id, business_id, layer, name, description, tools, outcomes, connections, icon_key, sort_order)
+                    VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s, %s)
+                    """,
+                    (
+                        str(env_id), str(business_id),
+                        sc["layer"], sc["name"], sc["description"],
+                        sc["tools"], sc["outcomes"], sc["connections"],
+                        sc["icon_key"], sc["sort_order"],
+                    ),
+                )
 
-    # Seed deployments (link to role_ids by sort_order)
-    with get_cursor() as cur:
-        for dep in _DEPLOYMENTS:
-            # Match deployment to role by sort_order index
-            dep_role_id = role_ids[dep["sort_order"] - 1] if dep["sort_order"] <= len(role_ids) else None
-            cur.execute(
-                """
-                INSERT INTO resume_deployments
-                (env_id, business_id, role_id, deployment_name, system_type,
-                 problem, architecture, before_state, after_state, status, sort_order)
-                VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s)
-                """,
-                (
-                    str(env_id), str(business_id), dep_role_id,
-                    dep["deployment_name"], dep["system_type"],
-                    dep["problem"], dep["architecture"],
-                    dep["before_state"], dep["after_state"],
-                    dep["status"], dep["sort_order"],
-                ),
-            )
+    # Seed deployments (link to role_ids by sort_order) only when the table exists.
+    if _table_exists("resume_deployments"):
+        with get_cursor() as cur:
+            for dep in _DEPLOYMENTS:
+                # Match deployment to role by sort_order index
+                dep_role_id = role_ids[dep["sort_order"] - 1] if dep["sort_order"] <= len(role_ids) else None
+                cur.execute(
+                    """
+                    INSERT INTO resume_deployments
+                    (env_id, business_id, role_id, deployment_name, system_type,
+                     problem, architecture, before_state, after_state, status, sort_order)
+                    VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s)
+                    """,
+                    (
+                        str(env_id), str(business_id), dep_role_id,
+                        dep["deployment_name"], dep["system_type"],
+                        dep["problem"], dep["architecture"],
+                        dep["before_state"], dep["after_state"],
+                        dep["status"], dep["sort_order"],
+                    ),
+                )
 
     # Seed RAG documents (best-effort — won't fail the seed if RAG is unavailable)
     rag_chunks = 0
