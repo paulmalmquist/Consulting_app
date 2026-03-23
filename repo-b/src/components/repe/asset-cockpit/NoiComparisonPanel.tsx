@@ -18,6 +18,7 @@ import type { TooltipProps } from "recharts";
 import type { NameType, ValueType } from "recharts/types/component/DefaultTooltipContent";
 import { CHART_COLORS, TOOLTIP_STYLE, AXIS_TICK_STYLE, GRID_STYLE } from "@/components/charts/chart-theme";
 
+import { fmtMoney, fmtPct } from '@/lib/format-utils';
 type EntityType = "asset" | "investment" | "fund";
 type ComparisonMode = "yoy" | "budget" | "pro_forma" | "scenario";
 type Resolution = "monthly" | "quarterly" | "annual";
@@ -83,19 +84,6 @@ const RESOLUTION_OPTIONS: Array<{ key: Resolution; label: string }> = [
   { key: "quarterly", label: "Quarterly" },
   { key: "annual", label: "Annual" },
 ];
-
-function fmtMoney(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) return "—";
-  if (Math.abs(value) >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(2)}B`;
-  if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
-  return `$${value.toFixed(0)}`;
-}
-
-function fmtPct(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) return "—";
-  return `${(value * 100).toFixed(1)}%`;
-}
 
 function hashCode(value: string): number {
   let hash = 0;

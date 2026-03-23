@@ -11,6 +11,7 @@ import iconUrl from "leaflet/dist/images/marker-icon.png";
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
 import shadowUrl from "leaflet/dist/images/marker-shadow.png";
 
+import { fmtMoney } from '@/lib/format-utils';
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconUrl: typeof iconUrl === "string" ? iconUrl : (iconUrl as { src: string }).src,
@@ -35,16 +36,6 @@ function makeIcon(status: string): L.DivIcon {
       <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/>
     </svg>`,
   });
-}
-
-function fmtMoney(v: string | number | null | undefined): string {
-  if (v == null) return "--";
-  const n = Number(v);
-  if (Number.isNaN(n) || !n) return "--";
-  if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-  if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
 }
 
 /* Auto-fit bounds to data */

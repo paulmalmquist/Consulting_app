@@ -12,6 +12,7 @@ import {
 } from "@/lib/bos-api";
 import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
 import { KpiStrip } from "@/components/repe/asset-cockpit/KpiStrip";
+import { fmtMoney, fmtPct } from '@/lib/format-utils';
 import {
   RepeIndexScaffold,
   reIndexActionClass,
@@ -40,24 +41,6 @@ function pickCurrentQuarter(): string {
   const now = new Date();
   const q = Math.ceil((now.getUTCMonth() + 1) / 3);
   return `${now.getUTCFullYear()}Q${q}`;
-}
-
-function fmtMoney(v: number | string | null | undefined): string {
-  if (v == null) return "—";
-  const n = Number(v);
-  if (Number.isNaN(n) || !n) return "—";
-  if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-  if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
-function fmtPct(v: number | string | null | undefined): string {
-  if (v == null) return "—";
-  const n = Number(v);
-  if (Number.isNaN(n)) return "—";
-  if (n <= 1 && n >= 0) return `${(n * 100).toFixed(1)}%`;
-  return `${n.toFixed(1)}%`;
 }
 
 function DataHealthDot({ missing }: { missing: number | undefined }) {

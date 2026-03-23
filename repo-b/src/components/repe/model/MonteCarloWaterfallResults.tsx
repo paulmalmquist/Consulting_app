@@ -3,15 +3,7 @@
 import React from "react";
 import type { MonteCarloWaterfallResponse } from "@/lib/bos-api";
 
-function fmtMoney(value: number | string | null | undefined) {
-  const numeric = Number(value ?? 0);
-  if (!Number.isFinite(numeric)) return "—";
-  if (Math.abs(numeric) >= 1_000_000_000) return `$${(numeric / 1_000_000_000).toFixed(2)}B`;
-  if (Math.abs(numeric) >= 1_000_000) return `$${(numeric / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(numeric) >= 1_000) return `$${(numeric / 1_000).toFixed(0)}K`;
-  return `$${numeric.toFixed(0)}`;
-}
-
+import { fmtMoney } from '@/lib/format-utils';
 function fmtMetric(value: number | string | null | undefined, kind: "money" | "pct" | "multiple") {
   const numeric = Number(value ?? 0);
   if (!Number.isFinite(numeric)) return "—";

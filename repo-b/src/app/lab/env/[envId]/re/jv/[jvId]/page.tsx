@@ -17,19 +17,10 @@ import {
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import { EntityLineagePanel } from "@/components/repe/EntityLineagePanel";
 
+import { fmtMoney } from '@/lib/format-utils';
 function pickQ(): string {
   const d = new Date();
   return `${d.getUTCFullYear()}Q${Math.floor(d.getUTCMonth() / 3) + 1}`;
-}
-
-function fmtMoney(v: number | string | null | undefined): string {
-  if (v == null) return "$0";
-  const n = Number(v);
-  if (!n) return "$0";
-  if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
-  if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
 }
 
 export default function JvHomePage({

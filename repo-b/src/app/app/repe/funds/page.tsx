@@ -23,6 +23,7 @@ import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/co
 import { KpiStrip, type KpiDef } from "@/components/repe/asset-cockpit/KpiStrip";
 import { StateCard } from "@/components/ui/StateCard";
 import { useToast } from "@/components/ui/Toast";
+import { fmtMoney } from '@/lib/format-utils';
 import {
   RepeIndexScaffold,
   reIndexActionClass,
@@ -42,17 +43,6 @@ function pickCurrentQuarter(): string {
   const now = new Date();
   const q = Math.ceil((now.getUTCMonth() + 1) / 3);
   return `${now.getUTCFullYear()}Q${q}`;
-}
-
-function fmtMoney(v: string | number | null | undefined): string {
-  if (v == null) return "—";
-  const n = Number(v);
-  if (Number.isNaN(n)) return "—";
-  if (n === 0) return "$0";
-  if (Math.abs(n) >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B`;
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
 }
 
 const STATUS_OPTIONS = ["All", "fundraising", "investing", "harvesting", "closed"] as const;

@@ -12,6 +12,7 @@ import iconUrl from "leaflet/dist/images/marker-icon.png";
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
 import shadowUrl from "leaflet/dist/images/marker-shadow.png";
 
+import { fmtMoney } from '@/lib/format-utils';
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconUrl: typeof iconUrl === "string" ? iconUrl : (iconUrl as { src: string }).src,
@@ -49,16 +50,6 @@ function makeIcon(status: string): L.DivIcon {
 /* ------------------------------------------------------------------ */
 /* Format helpers                                                       */
 /* ------------------------------------------------------------------ */
-function fmtMoney(v: number | string | null | undefined): string {
-  if (v == null) return "--";
-  const n = Number(v);
-  if (Number.isNaN(n) || !n) return "--";
-  if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-  if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
 /* ------------------------------------------------------------------ */
 /* Types                                                                */
 /* ------------------------------------------------------------------ */

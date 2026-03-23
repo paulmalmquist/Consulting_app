@@ -17,6 +17,7 @@ import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import { KpiStrip } from "@/components/repe/asset-cockpit/KpiStrip";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
+import { fmtMoney, fmtMultiple } from '@/lib/format-utils';
 import {
   RepeIndexScaffold,
   reIndexActionClass,
@@ -35,26 +36,9 @@ function pickCurrentQuarter(): string {
   return `${now.getUTCFullYear()}Q${q}`;
 }
 
-function fmtMoney(v: string | number | undefined | null): string {
-  if (v == null) return "$0";
-  const n = Number(v);
-  if (isNaN(n) || n === 0) return "$0";
-  if (Math.abs(n) >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B`;
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
 function fmtMoneyOrDash(v: string | number | undefined | null): string {
   if (v == null) return "—";
   return fmtMoney(v);
-}
-
-function fmtMultiple(v: string | number | undefined | null): string {
-  if (v == null) return "—";
-  const n = Number(v);
-  if (isNaN(n)) return "—";
-  return `${n.toFixed(2)}x`;
 }
 
 type FundRow = RepeFund & { state?: ReV2FundQuarterState | null };

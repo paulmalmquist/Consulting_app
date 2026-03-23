@@ -3,17 +3,8 @@
 import React, { FormEvent, useEffect, useState } from "react";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 
+import { fmtMoney } from '@/lib/format-utils';
 const API_BASE = process.env.NEXT_PUBLIC_BOS_API_URL || "http://localhost:8000";
-
-function fmtMoney(value?: string | number | null): string {
-  if (value === null || value === undefined) return "$0";
-  const n = Number(value);
-  if (Number.isNaN(n)) return "$0";
-  if (Math.abs(n) >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B`;
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
 
 function severityBadge(level: string) {
   const base = "inline-block rounded-full px-2 py-0.5 text-xs font-medium";

@@ -9,14 +9,10 @@ import {
 } from "@/lib/bos-api";
 import { Button } from "@/components/ui/Button";
 
+import { fmtMoney } from '@/lib/format-utils';
 type Props = {
   loan: FiLoan;
 };
-
-function fmtMoney(v: number | null | undefined): string {
-  if (v == null) return "—";
-  return `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 export function AmortizationViewer({ loan }: Props) {
   const [schedule, setSchedule] = useState<AmortizationRow[]>([]);

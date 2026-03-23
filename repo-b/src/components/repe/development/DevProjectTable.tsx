@@ -14,6 +14,7 @@ import {
 import type { DevProjectRow } from "@/lib/bos-api";
 import { cn } from "@/lib/cn";
 
+import { fmtMoney, fmtPct } from '@/lib/format-utils';
 const healthBadge: Record<string, { bg: string; text: string; label: string }> = {
   on_track: { bg: "bg-emerald-500/15", text: "text-emerald-400", label: "On Track" },
   at_risk: { bg: "bg-amber-500/15", text: "text-amber-400", label: "At Risk" },
@@ -26,20 +27,6 @@ const linkTypeBadge: Record<string, string> = {
   value_add: "Value-Add",
   repositioning: "Repositioning",
 };
-
-function fmtMoney(val: string): string {
-  const n = parseFloat(val);
-  if (isNaN(n) || n === 0) return "$0";
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
-function fmtPct(val: string): string {
-  const n = parseFloat(val);
-  if (isNaN(n)) return "—";
-  return `${(n * 100).toFixed(1)}%`;
-}
 
 export function DevProjectTable({
   projects,

@@ -3,20 +3,7 @@
 import React from "react";
 import type { PortfolioWaterfallResponse } from "@/lib/bos-api";
 
-function fmtMoney(value: string | number | null | undefined) {
-  const numeric = Number(value ?? 0);
-  if (!Number.isFinite(numeric)) return "—";
-  if (Math.abs(numeric) >= 1_000_000_000) return `$${(numeric / 1_000_000_000).toFixed(2)}B`;
-  if (Math.abs(numeric) >= 1_000_000) return `$${(numeric / 1_000_000).toFixed(1)}M`;
-  return `$${numeric.toFixed(0)}`;
-}
-
-function fmtPct(value: string | number | null | undefined) {
-  const numeric = Number(value ?? 0);
-  if (!Number.isFinite(numeric)) return "—";
-  return `${(numeric * 100).toFixed(2)}%`;
-}
-
+import { fmtMoney, fmtPct } from '@/lib/format-utils';
 export function PortfolioWaterfallSummary({ result }: { result: PortfolioWaterfallResponse }) {
   return (
     <section className="rounded-xl border border-bm-border/70 bg-bm-surface/25 p-4">

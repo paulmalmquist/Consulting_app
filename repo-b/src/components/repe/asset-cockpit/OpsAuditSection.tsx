@@ -19,16 +19,7 @@ import type { WaterfallItem } from "@/components/charts/WaterfallChart";
 import { EntityLineagePanel } from "@/components/repe/EntityLineagePanel";
 import RepeEntityDocuments from "@/components/repe/RepeEntityDocuments";
 
-function fmtMoney(v: number | string | null | undefined): string {
-  if (v == null) return "—";
-  const n = Number(v);
-  if (Number.isNaN(n) || !n) return "—";
-  if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-  if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
+import { fmtMoney } from '@/lib/format-utils';
 interface Props {
   assetId: string;
   quarter: string;

@@ -9,17 +9,7 @@ import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/co
 import { KpiStrip, type KpiDef } from "@/components/repe/asset-cockpit/KpiStrip";
 import { StateCard } from "@/components/ui/StateCard";
 
-function fmtMoney(v: string | number | null | undefined): string {
-  if (v == null) return "\u2014";
-  const n = Number(v);
-  if (Number.isNaN(n)) return "\u2014";
-  if (n === 0) return "$0";
-  if (Math.abs(n) >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B`;
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
+import { fmtMoney } from '@/lib/format-utils';
 const EVENT_TYPE_LABELS: Record<string, string> = {
   sale: "Sale",
   partial_sale: "Partial Sale",

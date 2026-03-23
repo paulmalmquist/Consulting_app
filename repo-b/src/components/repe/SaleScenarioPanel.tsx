@@ -14,6 +14,7 @@ import { MetricCard } from "@/components/ui/MetricCard";
 import { Button } from "@/components/ui/Button";
 import { StateCard } from "@/components/ui/StateCard";
 
+import { fmtMoney, fmtPct } from '@/lib/format-utils';
 type Props = {
   fundId: string;
   scenarioId: string;
@@ -22,18 +23,6 @@ type Props = {
   businessId: string;
   quarter: string;
 };
-
-function fmtPct(v: string | null | undefined): string {
-  if (!v) return "—";
-  const n = parseFloat(v);
-  return isNaN(n) ? "—" : `${(n * 100).toFixed(2)}%`;
-}
-
-function fmtMoney(v: string | null | undefined): string {
-  if (!v) return "—";
-  const n = parseFloat(v);
-  return isNaN(n) ? "—" : `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
-}
 
 export default function SaleScenarioPanel({ fundId, scenarioId, deals, envId, businessId, quarter }: Props) {
   const [selectedDealId, setSelectedDealId] = useState("");

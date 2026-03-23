@@ -20,6 +20,7 @@ import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import DealStatusBadge from "@/components/repe/pipeline/DealStatusBadge";
 import ActivityTimeline from "@/components/repe/pipeline/ActivityTimeline";
 
+import { fmtDate, fmtMoney, fmtMultiple, fmtNumber, fmtPct } from '@/lib/format-utils';
 /* ------------------------------------------------------------------ */
 /* Types                                                                */
 /* ------------------------------------------------------------------ */
@@ -72,47 +73,6 @@ type Activity = {
 /* ------------------------------------------------------------------ */
 /* Format helpers                                                       */
 /* ------------------------------------------------------------------ */
-function fmtMoney(v: number | string | null | undefined): string {
-  if (v == null) return "--";
-  const n = Number(v);
-  if (Number.isNaN(n) || !n) return "--";
-  if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-  if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
-function fmtPct(v: number | string | null | undefined): string {
-  if (v == null) return "--";
-  const n = Number(v);
-  if (Number.isNaN(n)) return "--";
-  if (n > 0 && n <= 1) return `${(n * 100).toFixed(1)}%`;
-  return `${n.toFixed(1)}%`;
-}
-
-function fmtMultiple(v: number | string | null | undefined): string {
-  if (v == null) return "--";
-  const n = Number(v);
-  if (Number.isNaN(n)) return "--";
-  return `${n.toFixed(2)}x`;
-}
-
-function fmtNumber(v: number | string | null | undefined): string {
-  if (v == null) return "--";
-  const n = Number(v);
-  if (Number.isNaN(n)) return "--";
-  return n.toLocaleString();
-}
-
-function fmtDate(v: string | null | undefined): string {
-  if (!v) return "--";
-  return new Date(v).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
 const STRATEGY_LABELS: Record<string, string> = {
   core: "Core",
   core_plus: "Core Plus",

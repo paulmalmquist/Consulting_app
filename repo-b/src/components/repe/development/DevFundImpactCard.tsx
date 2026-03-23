@@ -2,22 +2,7 @@
 
 import type { DevFundImpactResponse } from "@/lib/bos-api";
 
-function fmtMoney(val: string | null | undefined): string {
-  if (!val) return "—";
-  const n = parseFloat(val);
-  if (isNaN(n)) return "—";
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
-function fmtPct(val: string | null | undefined): string {
-  if (!val) return "—";
-  const n = parseFloat(val);
-  if (isNaN(n)) return "—";
-  return `${(n * 100).toFixed(2)}%`;
-}
-
+import { fmtMoney, fmtPct } from '@/lib/format-utils';
 function fmtRatio(val: string | null | undefined): string {
   if (!val) return "—";
   const n = parseFloat(val);

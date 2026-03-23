@@ -6,31 +6,7 @@ import { reIndexInputClass } from "@/components/repe/RepeIndexScaffold";
 import type { DevAssumptionSet } from "@/lib/bos-api";
 import { updateDevAssumptions } from "@/lib/bos-api";
 
-function fmtMoney(val: string | null): string {
-  if (!val) return "$0";
-  const n = parseFloat(val);
-  if (isNaN(n)) return "$0";
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
-function fmtPct(val: string | null): string {
-  if (!val) return "—";
-  const n = parseFloat(val);
-  if (isNaN(n)) return "—";
-  return `${(n * 100).toFixed(2)}%`;
-}
-
-function fmtDate(val: string | null): string {
-  if (!val) return "—";
-  return new Date(val + "T00:00:00").toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
+import { fmtDate, fmtMoney, fmtPct } from '@/lib/format-utils';
 type FieldGroup = {
   title: string;
   fields: { key: string; label: string; format: "money" | "pct" | "date" | "int"; editable?: boolean }[];

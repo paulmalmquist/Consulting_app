@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { fmtBps, fmtMoney, fmtPct } from '@/lib/format-utils';
 import {
   computeAssetValuation,
   saveAssetValuation,
@@ -81,23 +82,6 @@ const DEFAULT_INPUTS: ValuationInputs = {
   weight_dcf: 0.5,
   hold_years: 10,
 };
-
-function fmtMoney(v: number | null | undefined): string {
-  if (v == null) return "—";
-  if (Math.abs(v) >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
-  if (Math.abs(v) >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
-  if (Math.abs(v) >= 1e3) return `$${(v / 1e3).toFixed(0)}K`;
-  return `$${v.toFixed(0)}`;
-}
-
-function fmtPct(v: number | null | undefined): string {
-  if (v == null) return "—";
-  return `${(v * 100).toFixed(2)}%`;
-}
-
-function fmtBps(v: number): string {
-  return `${v > 0 ? "+" : ""}${v} bps`;
-}
 
 function LeverInput({
   label,

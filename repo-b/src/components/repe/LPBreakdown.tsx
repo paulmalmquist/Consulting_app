@@ -8,20 +8,11 @@ import {
 } from "@/lib/bos-api";
 import { Button } from "@/components/ui/Button";
 
+import { fmtMoney, fmtMultiple } from '@/lib/format-utils';
 type Props = {
   fundId: string;
   quarter: string;
 };
-
-function fmtMoney(v: number | null | undefined): string {
-  if (v == null) return "—";
-  return `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
-
-function fmtMultiple(v: number | null | undefined): string {
-  if (v == null) return "—";
-  return `${Number(v).toFixed(2)}x`;
-}
 
 export function LPBreakdown({ fundId, quarter }: Props) {
   const [snapshots, setSnapshots] = useState<CapitalAccountSnapshot[]>([]);

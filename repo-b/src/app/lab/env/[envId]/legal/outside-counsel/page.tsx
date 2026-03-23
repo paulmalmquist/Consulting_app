@@ -4,15 +4,7 @@ import React, { FormEvent, useEffect, useState } from "react";
 import { createLegalFirm, listLegalFirms, LegalFirm } from "@/lib/bos-api";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 
-function fmtMoney(value?: string | number | null): string {
-  if (value === null || value === undefined) return "$0";
-  const n = Number(value);
-  if (Number.isNaN(n)) return "$0";
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
+import { fmtMoney } from '@/lib/format-utils';
 function ratingStars(rating?: string | null): string {
   if (!rating) return "—";
   const n = Number(rating);

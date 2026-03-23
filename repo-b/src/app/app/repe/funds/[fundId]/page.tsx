@@ -21,25 +21,11 @@ import RepeEntityDocuments from "@/components/repe/RepeEntityDocuments";
 import { KpiStrip, type KpiDef } from "@/components/repe/asset-cockpit/KpiStrip";
 import { useRepeBasePath, useRepeContext } from "@/lib/repe-context";
 
+import { fmtMoney, fmtMultiple } from '@/lib/format-utils';
 function pickCurrentQuarter(): string {
   const d = new Date();
   const q = Math.floor(d.getUTCMonth() / 3) + 1;
   return `${d.getUTCFullYear()}Q${q}`;
-}
-
-function fmtMoney(v: string | number | null | undefined): string {
-  if (v === null || v === undefined) return "$0";
-  const n = Number(v);
-  if (Number.isNaN(n) || n === 0) return "$0";
-  if (Math.abs(n) >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(2)}B`;
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
-function fmtMultiple(v: string | number | null | undefined): string {
-  if (v === null || v === undefined) return "—";
-  return `${Number(v).toFixed(2)}x`;
 }
 
 function fmtPercent(v: string | number | null | undefined): string {

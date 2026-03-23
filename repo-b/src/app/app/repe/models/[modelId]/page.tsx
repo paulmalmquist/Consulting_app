@@ -27,16 +27,7 @@ import {
 } from "@/lib/bos-api";
 import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
 
-function fmtMoney(v: number | string | null | undefined): string {
-  if (v == null) return "—";
-  const n = Number(v);
-  if (!n) return "$0";
-  if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
-  if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
+import { fmtMoney } from '@/lib/format-utils';
 const TABS = ["Scope", "Assumptions", "Results", "Fund Impact"] as const;
 type Tab = (typeof TABS)[number];
 

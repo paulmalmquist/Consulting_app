@@ -32,6 +32,7 @@ import { useRepeBasePath, useRepeContext } from "@/lib/repe-context";
 import { DataQualityBadge } from "@/components/repe/sustainability/DataQualityBadge";
 import { RegulatoryRiskBadge } from "@/components/repe/sustainability/RegulatoryRiskBadge";
 
+import { fmtMoney, fmtNumber, fmtPct } from '@/lib/format-utils';
 const SECTIONS = [
   { key: "overview", label: "Overview" },
   { key: "portfolio-footprint", label: "Portfolio Footprint" },
@@ -59,27 +60,6 @@ function currentQuarter(): string {
 
 function currentYear(): number {
   return new Date().getUTCFullYear();
-}
-
-function fmtNumber(value: unknown, digits = 1): string {
-  if (value === null || value === undefined || value === "") return "—";
-  const num = Number(value);
-  if (Number.isNaN(num)) return "—";
-  return num.toLocaleString(undefined, { maximumFractionDigits: digits, minimumFractionDigits: 0 });
-}
-
-function fmtMoney(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
-  const num = Number(value);
-  if (Number.isNaN(num)) return "—";
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(num);
-}
-
-function fmtPct(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
-  const num = Number(value);
-  if (Number.isNaN(num)) return "—";
-  return `${(num <= 1 ? num * 100 : num).toFixed(1)}%`;
 }
 
 function downloadJson(filename: string, payload: unknown) {

@@ -5,16 +5,7 @@ import React, { useEffect, useState } from "react";
 import { listLegalLitigation, LegalLitigationCase } from "@/lib/bos-api";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 
-function fmtMoney(value?: string | number | null): string {
-  if (value === null || value === undefined) return "$0";
-  const n = Number(value);
-  if (Number.isNaN(n)) return "$0";
-  if (Math.abs(n) >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B`;
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
+import { fmtMoney } from '@/lib/format-utils';
 function statusBadge(status: string) {
   const base = "inline-block rounded-full px-2 py-0.5 text-xs font-medium";
   if (status === "open") return <span className={`${base} bg-red-500/15 text-red-400`}>Open</span>;

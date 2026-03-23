@@ -126,6 +126,15 @@ export function PipeIcon(props: IconProps) {
   );
 }
 
+export function TrendingUpIcon(props: IconProps) {
+  return (
+    <svg {...defaultProps(props)}>
+      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+      <polyline points="16 7 22 7 22 13" />
+    </svg>
+  );
+}
+
 export function SparklesIcon(props: IconProps) {
   return (
     <svg {...defaultProps(props)}>
@@ -329,6 +338,7 @@ const NAV_ICON_MAP: Record<string, React.FC<IconProps>> = {
   audit: ClipboardCheckIcon,
   metrics: BarChart3Icon,
   ai: SparklesIcon,
+  "market-intelligence": TrendingUpIcon,
 };
 
 export function NavIcon({ navKey, ...props }: IconProps & { navKey: string }) {

@@ -46,6 +46,7 @@ export default function AppShell({
       { id: "uploads", href: "/lab/upload", label: "Uploads", navKey: "uploads", group: "operations" },
       { id: "chat", href: "/lab/chat", label: "Chat", navKey: "chat", group: "intelligence" },
       { id: "metrics", href: "/lab/metrics", label: "Metrics", navKey: "metrics", group: "intelligence" },
+      { id: "market-intelligence", href: "/lab/market-intelligence", label: "Market Intelligence", navKey: "market-intelligence", group: "intelligence" },
       { id: "audit", href: "/lab/audit", label: "Audit", navKey: "audit", group: "system" },
       { id: "ai", href: "/lab/ai", label: "AI", navKey: "ai", group: "intelligence" },
       { id: "ai-audit", href: "/lab/ai-audit", label: "AI Audit", navKey: "ai-audit", group: "system" },

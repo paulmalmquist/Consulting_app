@@ -3,19 +3,10 @@
 import { useState, useEffect } from "react";
 import { getAssetComps, type PropertyComp } from "@/lib/bos-api";
 
+import { fmtMoney, fmtPct } from '@/lib/format-utils';
 type Props = {
   assetId: string;
 };
-
-function fmtMoney(v: number | null | undefined): string {
-  if (v == null) return "—";
-  return `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
-
-function fmtPct(v: number | null | undefined): string {
-  if (v == null) return "—";
-  return `${(Number(v) * 100).toFixed(2)}%`;
-}
 
 export function PropertyComps({ assetId }: Props) {
   const [comps, setComps] = useState<PropertyComp[]>([]);

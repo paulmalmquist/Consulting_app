@@ -10,19 +10,11 @@ import {
   CreditDecisionLog,
 } from "@/lib/bos-api";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
+import { fmtMoney } from '@/lib/format-utils';
 import {
   publishAssistantPageContext,
   resetAssistantPageContext,
 } from "@/lib/commandbar/appContextBridge";
-
-function fmtMoney(value?: string | number | null): string {
-  if (value === null || value === undefined) return "$0";
-  const n = Number(value);
-  if (Number.isNaN(n)) return "$0";
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
 
 function decisionColor(decision: string): string {
   if (decision === "auto_approve") return "text-green-400";

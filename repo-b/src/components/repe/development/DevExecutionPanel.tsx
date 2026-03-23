@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/cn";
 
+import { fmtDate, fmtMoney } from '@/lib/format-utils';
 interface PdsExecution {
   project_name: string;
   project_type: string | null;
@@ -24,21 +25,6 @@ const stageBadge: Record<string, { bg: string; text: string }> = {
   completed: { bg: "bg-green-500/15", text: "text-green-400" },
   active: { bg: "bg-indigo-500/15", text: "text-indigo-400" },
 };
-
-function fmtMoney(val: string): string {
-  const n = parseFloat(val);
-  if (isNaN(n) || n === 0) return "$0";
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  return `$${n.toFixed(0)}`;
-}
-
-function fmtDate(val: string | null): string {
-  if (!val) return "—";
-  return new Date(val + "T00:00:00").toLocaleDateString("en-US", {
-    month: "short",
-    year: "numeric",
-  });
-}
 
 export function DevExecutionPanel({
   execution,

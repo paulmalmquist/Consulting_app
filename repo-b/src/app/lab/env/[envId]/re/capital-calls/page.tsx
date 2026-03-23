@@ -26,6 +26,7 @@ import {
 } from "@/components/repe/operations/OperationsWorkspace";
 import { StateCard } from "@/components/ui/StateCard";
 
+import { fmtMoney } from '@/lib/format-utils';
 type FundOption = {
   repe_fund_id: string | null;
   fin_fund_id: string | null;
@@ -134,16 +135,6 @@ const STATUS_LABELS: Record<string, string> = {
   fully_funded: "Fully Funded",
   overdue: "Overdue",
 };
-
-function fmtMoney(value: string | number | null | undefined): string {
-  const numeric = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(numeric)) return "$0";
-  if (numeric === 0) return "$0";
-  if (Math.abs(numeric) >= 1_000_000_000) return `$${(numeric / 1_000_000_000).toFixed(1)}B`;
-  if (Math.abs(numeric) >= 1_000_000) return `$${(numeric / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(numeric) >= 1_000) return `$${(numeric / 1_000).toFixed(0)}K`;
-  return `$${numeric.toFixed(0)}`;
-}
 
 function fmtPercent(value: string | number | null | undefined): string {
   const numeric = typeof value === "number" ? value : Number(value);

@@ -30,6 +30,7 @@ import QuarterlyBarChart from "@/components/charts/QuarterlyBarChart";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 import StatementTable from "@/components/repe/statements/StatementTable";
 
+import { fmtDate, fmtMoney, fmtPct } from '@/lib/format-utils';
 type AnalysisPeriod = "quarterly" | "ttm" | "annual";
 type ComparisonMode = "yoy" | "budget" | "scenario";
 type SupportingTab = "assets" | "documents" | "logs" | "attachments";
@@ -72,34 +73,11 @@ const STAGE_LABELS: Record<string, string> = {
   exited: "Exited",
 };
 
-function fmtMoney(v: number | string | null | undefined): string {
-  if (v == null) return "—";
-  const n = Number(v);
-  if (Number.isNaN(n)) return "—";
-  if (Math.abs(n) >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B`;
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
-function fmtPct(v: number | string | null | undefined, decimals = 1): string {
-  if (v == null) return "—";
-  const n = Number(v);
-  if (Number.isNaN(n)) return "—";
-  if (n <= 1 && n >= 0) return `${(n * 100).toFixed(decimals)}%`;
-  return `${n.toFixed(decimals)}%`;
-}
-
 function fmtX(v: number | string | null | undefined): string {
   if (v == null) return "—";
   const n = Number(v);
   if (Number.isNaN(n)) return "—";
   return `${n.toFixed(2)}x`;
-}
-
-function fmtDate(v: string | null | undefined): string {
-  if (!v) return "—";
-  return v.slice(0, 10);
 }
 
 function holdPeriodLabel(acquisitionDate?: string | null): string {
@@ -247,7 +225,6 @@ function latestComparableDelta(rows: DerivedSeriesPoint[]): number | null {
 function buildReturnsLogRows(history: ReV2InvestmentHistoryPoint[]) {
   return [...history].sort((a, b) => compareQuarter(a.quarter, b.quarter)).reverse();
 }
-
 
 function SegmentToggle<T extends string>({
   label,

@@ -3,20 +3,7 @@
 import { KpiStrip, type KpiDef } from "@/components/repe/asset-cockpit/KpiStrip";
 import type { DevPortfolioKpis } from "@/lib/bos-api";
 
-function fmtMoney(val: string | number): string {
-  const n = typeof val === "string" ? parseFloat(val) : val;
-  if (isNaN(n) || n === 0) return "$0";
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
-function fmtPct(val: string | number): string {
-  const n = typeof val === "string" ? parseFloat(val) : val;
-  if (isNaN(n)) return "0%";
-  return `${(n * 100).toFixed(1)}%`;
-}
-
+import { fmtMoney, fmtPct } from '@/lib/format-utils';
 function fmtPctRaw(val: string | number): string {
   const n = typeof val === "string" ? parseFloat(val) : val;
   if (isNaN(n)) return "0%";

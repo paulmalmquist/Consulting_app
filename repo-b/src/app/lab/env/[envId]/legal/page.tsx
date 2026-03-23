@@ -9,25 +9,7 @@ import {
 } from "@/lib/bos-api";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 
-function fmtMoney(value?: string | number | null): string {
-  if (value === null || value === undefined) return "$0";
-  const n = Number(value);
-  if (Number.isNaN(n)) return "$0";
-  if (Math.abs(n) >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B`;
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
-function fmtDate(d?: string | null): string {
-  if (!d) return "—";
-  try {
-    return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  } catch {
-    return d;
-  }
-}
-
+import { fmtDate, fmtMoney } from '@/lib/format-utils';
 function riskBadge(level: string) {
   const base = "inline-block rounded-full px-2 py-0.5 text-xs font-medium";
   if (level === "high") return <span className={`${base} bg-red-500/15 text-red-400`}>High</span>;

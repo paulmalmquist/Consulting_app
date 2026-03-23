@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import WinstonInstitutionalShell from "@/components/winston/WinstonInstitutionalShell";
+import { fmtMoney, fmtPct } from '@/lib/format-utils';
 import {
   applyWinstonScenario,
   askWinston,
@@ -31,15 +32,6 @@ const CHECKLIST = [
   "Approve change",
   "Show audit log entry",
 ];
-
-function fmtMoney(value: number) {
-  const sign = value < 0 ? "-" : "";
-  return `${sign}$${Math.abs(value).toLocaleString()}`;
-}
-
-function fmtPct(value: number) {
-  return `${(value * 100).toFixed(1)}%`;
-}
 
 export default function WinstonDemoPage({ params }: { params: { envId: string } }) {
   const envId = params.envId;

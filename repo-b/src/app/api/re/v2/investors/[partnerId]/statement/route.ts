@@ -1,5 +1,6 @@
 import { getPool } from "@/lib/server/db";
 
+import { fmtDate, fmtMoney, fmtPct } from '@/lib/format-utils';
 export const runtime = "nodejs";
 
 export async function OPTIONS() {
@@ -15,37 +16,11 @@ function fmtMoneyFull(val: string | number | null): string {
   return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function fmtMoney(val: string | number | null): string {
-  if (val === null || val === undefined) return "$0";
-  const n = typeof val === "string" ? parseFloat(val) : val;
-  if (isNaN(n)) return "$0";
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `$${Math.round(n / 1_000).toLocaleString()}K`;
-  return `$${Math.round(n).toLocaleString()}`;
-}
-
-function fmtPct(val: string | number | null): string {
-  if (val === null || val === undefined) return "\u2014";
-  const n = typeof val === "string" ? parseFloat(val) : val;
-  if (isNaN(n)) return "\u2014";
-  return `${(n * 100).toFixed(1)}%`;
-}
-
 function fmtMult(val: string | number | null): string {
   if (val === null || val === undefined) return "\u2014";
   const n = typeof val === "string" ? parseFloat(val) : val;
   if (isNaN(n)) return "\u2014";
   return `${n.toFixed(2)}x`;
-}
-
-function fmtDate(val: string | null): string {
-  if (!val) return "\u2014";
-  try {
-    const d = new Date(val);
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  } catch {
-    return val;
-  }
 }
 
 function quarterLabel(quarter: string): string {

@@ -5,19 +5,7 @@ import { Plus, X, Wrench, Search } from "lucide-react";
 import type { Asset, ReModelScope } from "./types";
 import { apiFetch } from "./types";
 
-function fmtMoney(v: number | null | undefined): string {
-  if (v == null) return "—";
-  if (Math.abs(v) >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
-  if (Math.abs(v) >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
-  if (Math.abs(v) >= 1e3) return `$${(v / 1e3).toFixed(0)}K`;
-  return `$${v.toFixed(0)}`;
-}
-
-function fmtPct(v: number | null | undefined): string {
-  if (v == null) return "—";
-  return `${(v * 100).toFixed(1)}%`;
-}
-
+import { fmtMoney, fmtPct } from '@/lib/format-utils';
 export function AssetsTab({
   modelId,
   scope,
