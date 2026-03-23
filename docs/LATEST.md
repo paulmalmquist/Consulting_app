@@ -20,6 +20,7 @@
 - **Stone PDS:** DEGRADED — missing `pds_business_lines` table blocks Home, Markets, Projects pages; 2 PASS, 6 FAIL
 - **Meridian Capital:** DEGRADED — fund IRR/TVPI data contradiction; intent fix committed but not deployed; AI analytics broken in production
 - **MSA Rotation Engine:** BLOCKED — pipeline cold start, Phase 1 sweep has never run; 5 feature cards queued (3 prompted, 2 specced, 0 built)
+- **Market Intelligence Engine:** PROVISIONED — 34 segments seeded, regime classified as RISK_OFF_DEFENSIVE, frontend page built, 8 fin-* tasks live. First real research sweep pending.
 - **Resume:** UP — last confirmed healthy 2026-03-21
 
 ## Latest AI Test Results
@@ -74,7 +75,7 @@
 
 | File | Date |
 |---|---|
-| `docs/ops-reports/digests/winston-daily-brief-2026-03-23.md` | 2026-03-23 |
+| `docs/ops-reports/digests/winston-daily-brief-2026-03-24.md` | 2026-03-24 |
 
 ## Active Meta Prompts (Build Directives)
 
@@ -143,6 +144,17 @@ All suggestion-generating tasks (feature-radar, demo-ideas, site-improvements, c
 - **Latest digest:** `docs/msa-digests/msa-digest-2026-03-22.md`
 - **Expected first zone (when unblocked):** Miami — Wynwood/Edgewater
 
+## Market Rotation Engine
+
+- **Regime:** RISK_OFF_DEFENSIVE (high confidence, classified 2026-03-22)
+- **Trigger:** SPX broke 200-day MA; VIX 26.78; HY spreads 320 bps; DXY ~99.5; BTC-SPX correlation rebounding
+- **Segments:** 34 active (16 equities, 8 crypto, 4 derivatives, 6 macro) — all awaiting first rotation
+- **Pipeline status:** PROVISIONED — schema 419 applied, segments seeded, 8 fin-* tasks scheduled, frontend built
+- **First rotation targets (by overdue ratio):** BTC On-Chain Regime, ETH Ecosystem Health, Equity Options Flow, Crypto Derivatives Flow
+- **Feature cards:** 0 (pipeline hasn't produced research briefs yet)
+- **Latest digest:** `docs/market-digests/` (awaiting first rotation digest)
+- **Cross-vertical alerts:** Rate environment feeding into REPE cap rate models; credit spread widening relevant to credit decisioning module
+
 ---
 
 ## How to Use This File
@@ -157,4 +169,4 @@ All suggestion-generating tasks (feature-radar, demo-ideas, site-improvements, c
 
 ---
 
-*Last updated: 2026-03-22 by morning-ops-digest. Manual edits are fine but will be overwritten on next run.*
+*Last updated: 2026-03-24 by Cowork session. Manual edits are fine but will be overwritten on next run.*
