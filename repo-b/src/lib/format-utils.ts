@@ -168,9 +168,10 @@ export function fmtText(v: unknown): string {
 /**
  * Format a number with commas: "1,234,567"
  */
-export function fmtNumber(v: number | string | null | undefined): string {
+export function fmtNumber(v: number | string | null | undefined, decimals?: number): string {
   if (v == null) return '—';
   const n = Number(v);
   if (Number.isNaN(n)) return '—';
+  if (decimals != null) return n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   return n.toLocaleString('en-US');
 }
