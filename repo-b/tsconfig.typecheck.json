@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "next-env.d.ts",
+    "src/app/layout.tsx",
+    "src/app/api/market-intelligence/landing/route.ts",
+    "src/app/api/re/**/*.ts",
+    "src/app/lab/env/[envId]/page.tsx",
+    "src/app/lab/env/[envId]/markets/page.tsx",
+    "src/app/lab/env/[envId]/re/**/*.tsx",
+    "src/components/EnvProvider.tsx",
+    "src/components/lab/environments/constants.ts",
+    "src/components/market/RegimeClassifierWidget.tsx",
+    "src/components/repe/**/*.tsx",
+    "src/components/ui/Button.tsx",
+    "src/components/ui/Card.tsx",
+    "src/components/ui/buttonVariants.ts",
+    "src/lib/api.ts",
+    "src/lib/bos-api.ts",
+    "src/lib/repe/**/*.ts",
+    "src/lib/server/**/*.ts",
+    "src/lib/market-intelligence/**/*.ts",
+    "src/lib/supabase-client.ts"
+  ]
+}
