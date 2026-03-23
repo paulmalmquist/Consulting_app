@@ -32,6 +32,13 @@ export function getPool(): Pool | null {
   }
 }
 
+/** Parse a numeric DB value that may arrive as string, number, or null. */
+export function parseNumber(v: unknown): number | null {
+  if (v == null) return null;
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function resolveBusinessId(
   pool: Pool,
   envId: string | null,
