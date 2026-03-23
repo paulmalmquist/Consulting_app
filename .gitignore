@@ -8,7 +8,7 @@
 .angular/
 
 # Node modules and dependency files
-/node_modules/
+node_modules/
 /package-lock.json
 /yarn.lock
 
@@ -68,6 +68,9 @@ openaikey.txt
 # OS files
 .DS_Store
 .vercel
+
+# Claude local settings
+.claude/
 
 # Local test/runtime artifacts
 artifacts/
