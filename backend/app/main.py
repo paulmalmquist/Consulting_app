@@ -74,7 +74,6 @@ from app.routes import capital_projects
 from app.routes import cp_draws
 from app.routes import dev_bridge
 from app.routes import resume, resume_chat
-from app.routes import market_regime
 
 app = FastAPI(title="Business OS API", version="0.1.0")
 
@@ -221,4 +220,3 @@ app.include_router(nv_engagement_output.router)
 app.include_router(epi_routes.router)
 app.include_router(semantic_catalog.router)
 app.include_router(analytics.router)
-app.include_router(market_regime.router)

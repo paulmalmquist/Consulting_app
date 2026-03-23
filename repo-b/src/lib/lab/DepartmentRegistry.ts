@@ -98,7 +98,6 @@ const INDUSTRY_DEPARTMENT_MAP: Record<string, LabDepartmentKey[]> = {
   website: ["projects", "content", "rankings", "analytics", "crm", "accounting", "reporting", "documents"],
   consulting: ["pipeline", "outreach", "proposals", "clients", "authority", "revenue", "crm", "documents"],
   visual_resume: ["executive", "projects", "analytics", "documents"],
-  market_rotation: ["executive", "analytics", "reporting"],
 };
 
 const DEFAULT_DEPARTMENT_BY_INDUSTRY: Record<string, LabDepartmentKey> = {
@@ -136,7 +135,6 @@ const DEFAULT_DEPARTMENT_BY_INDUSTRY: Record<string, LabDepartmentKey> = {
   website: "content",
   consulting: "pipeline",
   visual_resume: "executive",
-  market_rotation: "executive",
 };
 
 const GENERAL_DEPARTMENTS: LabDepartmentKey[] = [

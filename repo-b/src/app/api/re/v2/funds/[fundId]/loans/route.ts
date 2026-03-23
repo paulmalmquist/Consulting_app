@@ -1,26 +1,39 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getRepeWorkspace } from "@/lib/server/repe";
+import { getPool } from "@/lib/server/db";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
+export async function OPTIONS() {
+  return new Response(null, { status: 200, headers: { Allow: "GET, OPTIONS" } });
+}
+
+/**
+ * GET /api/re/v2/funds/[fundId]/loans
+ *
+ * Returns all loans associated with a fund.
+ */
 export async function GET(
-  request: NextRequest,
+  _request: Request,
   { params }: { params: { fundId: string } }
 ) {
+  const pool = getPool();
+  if (!pool) return Response.json([]);
+
   try {
-    const { searchParams } = new URL(request.url);
-    const workspace = await getRepeWorkspace({
-      envId: searchParams.get("env_id") || "a1b2c3d4-0001-0001-0003-000000000001",
-      businessId: searchParams.get("business_id"),
-      fundId: params.fundId,
-      quarter: searchParams.get("quarter"),
-    });
-    return NextResponse.json(workspace.loans);
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Loan query failed" },
-      { status: 400 }
+    const res = await pool.query(
+      `SELECT
+         id::text, fund_id::text, investment_id::text, asset_id::text,
+         loan_name, upb::float8, rate_type, rate::float8,
+         spread::float8, maturity::text, amort_type,
+         created_at::text
+       FROM re_loan
+       WHERE fund_id = $1::uuid
+       ORDER BY loan_name`,
+      [params.fundId]
     );
+
+    return Response.json(res.rows);
+  } catch (err) {
+    console.error("[re/v2/funds/[id]/loans] DB error", err);
+    return Response.json([]);
   }
 }

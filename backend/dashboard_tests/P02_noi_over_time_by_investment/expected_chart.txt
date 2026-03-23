@@ -1,0 +1,6 @@
+Widget types: trend_line
+Metrics: NOI
+Group by: investment
+Time grain: quarterly
+Entity type: investment
+Archetype: custom

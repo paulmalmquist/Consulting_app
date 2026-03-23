@@ -1,65 +1,67 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import { resolveEnvironmentTemplateKey } from "@/components/lab/environments/constants";
+import { resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
 
-export type DemoEnvironment = {
+export type Environment = {
   env_id: string;
-  client_name?: string | null;
-  business_id?: string | null;
-  industry?: string | null;
-  industry_type?: string | null;
+  client_name: string;
+  industry: string;
+  industry_type?: string;
   workspace_template_key?: string | null;
-  [key: string]: unknown;
+  schema_name: string;
+  notes?: string | null;
+  is_active: boolean;
+  created_at?: string;
+  business_id?: string | null;
+  repe_initialized?: boolean;
 };
 
 type EnvContextValue = {
-  environments: DemoEnvironment[];
-  selectedEnv: DemoEnvironment | null;
+  environments: Environment[];
+  selectedEnv: Environment | null;
   selectEnv: (envId: string) => void;
   refresh: () => Promise<void>;
   loading: boolean;
 };
 
 const EnvContext = createContext<EnvContextValue | undefined>(undefined);
+
 const STORAGE_KEY = "demo_lab_env_id";
 
 export function EnvProvider({ children }: { children: React.ReactNode }) {
-  const [environments, setEnvironments] = useState<DemoEnvironment[]>([]);
+  const [environments, setEnvironments] = useState<Environment[]>([]);
   const [selectedEnvId, setSelectedEnvId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = async () => {
     setLoading(true);
     try {
-      const response = await apiFetch<{ environments?: DemoEnvironment[] }>("/v1/environments");
-      const nextEnvironments = (response.environments || []).map((environment) => ({
-        ...environment,
-        industry_type: environment.industry_type || environment.industry,
+      const data = await apiFetch<{ environments: Environment[] }>(
+        "/v1/environments"
+      );
+      const normalized = (data.environments || []).map((env) => ({
+        ...env,
+        industry_type: env.industry_type || env.industry,
         workspace_template_key:
-          environment.workspace_template_key ||
-          resolveEnvironmentTemplateKey({
-            workspaceTemplateKey: environment.workspace_template_key,
-            industry: environment.industry,
-            industryType: environment.industry_type,
+          env.workspace_template_key ||
+          resolveWorkspaceTemplateKey({
+            workspaceTemplateKey: env.workspace_template_key,
+            industry: env.industry,
+            industryType: env.industry_type,
           }),
       }));
-      setEnvironments(nextEnvironments);
-
-      const storedEnvId =
-        typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
-      const validStoredEnvId = nextEnvironments.some((environment) => environment.env_id === storedEnvId)
-        ? storedEnvId
+      setEnvironments(normalized);
+      const stored = localStorage.getItem(STORAGE_KEY);
+      const nextId = normalized.find((env) => env.env_id === stored)
+        ? stored
         : null;
-      setSelectedEnvId(validStoredEnvId);
-
-      if (typeof window !== "undefined") {
-        if (validStoredEnvId) {
-          window.localStorage.setItem(STORAGE_KEY, validStoredEnvId);
-        } else {
-          window.localStorage.removeItem(STORAGE_KEY);
-        }
+      setSelectedEnvId(nextId);
+      if (nextId) {
+        localStorage.setItem(STORAGE_KEY, nextId);
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
       }
     } catch {
       setEnvironments([]);
@@ -69,36 +71,28 @@ export function EnvProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    void refresh();
+    refresh();
   }, []);
 
   const selectEnv = (envId: string) => {
     setSelectedEnvId(envId);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, envId);
-    }
+    localStorage.setItem(STORAGE_KEY, envId);
   };
 
   const selectedEnv = useMemo(
-    () => environments.find((environment) => environment.env_id === selectedEnvId) || null,
+    () => environments.find((env) => env.env_id === selectedEnvId) || null,
     [environments, selectedEnvId]
   );
 
   const value = useMemo(
-    () => ({
-      environments,
-      selectedEnv,
-      selectEnv,
-      refresh,
-      loading,
-    }),
+    () => ({ environments, selectedEnv, selectEnv, refresh, loading }),
     [environments, selectedEnv, loading]
   );
 
   return <EnvContext.Provider value={value}>{children}</EnvContext.Provider>;
 }
 
-export function useEnv(): EnvContextValue {
+export function useEnv() {
   const context = useContext(EnvContext);
   if (!context) {
     throw new Error("useEnv must be used within EnvProvider");

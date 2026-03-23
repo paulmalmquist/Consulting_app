@@ -43,20 +43,14 @@ CREATE INDEX IF NOT EXISTS idx_pds_collection_bl
 CREATE INDEX IF NOT EXISTS idx_pds_writeoff_bl
   ON pds_writeoff_fact (business_line_id) WHERE business_line_id IS NOT NULL;
 
-DO $$
-BEGIN
-  IF to_regclass('public.pds_pipeline_deals') IS NOT NULL THEN
-    CREATE INDEX IF NOT EXISTS idx_pds_pipeline_bl
-      ON pds_pipeline_deals (business_line_id) WHERE business_line_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_pds_pipeline_bl
+  ON pds_pipeline_deals (business_line_id) WHERE business_line_id IS NOT NULL;
 
-    CREATE INDEX IF NOT EXISTS idx_pds_pipeline_market
-      ON pds_pipeline_deals (market_id) WHERE market_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_pds_pipeline_market
+  ON pds_pipeline_deals (market_id) WHERE market_id IS NOT NULL;
 
-    CREATE INDEX IF NOT EXISTS idx_pds_pipeline_owner
-      ON pds_pipeline_deals (owner_resource_id) WHERE owner_resource_id IS NOT NULL;
-  END IF;
-END
-$$;
+CREATE INDEX IF NOT EXISTS idx_pds_pipeline_owner
+  ON pds_pipeline_deals (owner_resource_id) WHERE owner_resource_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_pds_revenue_entries_bl
   ON pds_revenue_entries (env_id, business_id, business_line_id) WHERE business_line_id IS NOT NULL;

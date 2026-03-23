@@ -1,10 +1,10 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "ES2017",
     "lib": [
       "dom",
       "dom.iterable",
-      "es2022"
+      "esnext"
     ],
     "allowJs": false,
     "skipLibCheck": true,
@@ -17,11 +17,6 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
     "baseUrl": ".",
     "paths": {
       "@/*": [
@@ -29,30 +24,21 @@
       ]
     },
     "types": [
-      "node"
+      "vitest/globals"
+    ],
+    "plugins": [
+      {
+        "name": "next"
+      }
     ]
   },
-  "exclude": [
-    "node_modules",
-    ".next"
-  ],
   "include": [
     "next-env.d.ts",
-    ".next/types/**/*.ts",
-    "src/app/layout.tsx",
-    "src/app/api/market-intelligence/landing/route.ts",
-    "src/app/lab/env/[envId]/page.tsx",
-    "src/app/lab/env/[envId]/markets/page.tsx",
-    "src/components/EnvProvider.tsx",
-    "src/components/lab/environments/constants.ts",
-    "src/components/market/RegimeClassifierWidget.tsx",
-    "src/components/ui/Button.tsx",
-    "src/components/ui/Card.tsx",
-    "src/components/ui/buttonVariants.ts",
-    "src/lib/api.ts",
-    "src/lib/bos-api.ts",
-    "src/lib/lab/DepartmentRegistry.ts",
-    "src/lib/market-intelligence/**/*.ts",
-    "src/lib/supabase-client.ts"
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
   ]
 }

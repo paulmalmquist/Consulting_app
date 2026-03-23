@@ -1,0 +1,6 @@
+Widget types: trend_line, trend_line, comparison_table
+Metrics: NOI, OCCUPANCY
+Group by: None
+Time grain: None
+Entity type: asset
+Archetype: custom

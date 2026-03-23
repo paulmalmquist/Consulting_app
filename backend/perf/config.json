@@ -1,0 +1,50 @@
+{
+  "version": "1.0.0",
+  "endpoints": {
+    "ai_ask": "/api/ai/ask",
+    "metrics_query": "/api/metrics/query"
+  },
+  "data_tiers": {
+    "S": {
+      "target_rows": 1000,
+      "business_count": 3,
+      "ai_scope": { "max_files": 8, "max_bytes": 120000 },
+      "thresholds": {
+        "metrics": { "p95_ms": 250, "p99_ms": 500, "error_rate": 0.01 },
+        "ai": { "p95_ms": 2500, "p99_ms": 12000, "error_rate": 0.02 }
+      }
+    },
+    "M": {
+      "target_rows": 100000,
+      "business_count": 30,
+      "ai_scope": { "max_files": 12, "max_bytes": 250000 },
+      "thresholds": {
+        "metrics": { "p95_ms": 600, "p99_ms": 1200, "error_rate": 0.01 },
+        "ai": { "p95_ms": 5000, "p99_ms": 12000, "error_rate": 0.02 }
+      }
+    },
+    "L": {
+      "target_rows": 1000000,
+      "business_count": 120,
+      "ai_scope": { "max_files": 18, "max_bytes": 450000 },
+      "thresholds": {
+        "metrics": { "p95_ms": 1200, "p99_ms": 2400, "error_rate": 0.01 },
+        "ai": { "p95_ms": 8000, "p99_ms": 12000, "error_rate": 0.02 }
+      }
+    }
+  },
+  "concurrency_profiles": {
+    "steady_5": { "vus": 5, "duration": "2m" },
+    "steady_20": { "vus": 20, "duration": "3m" },
+    "steady_50": { "vus": 50, "duration": "5m" },
+    "burst_100": { "vus": 100, "duration": "60s" },
+    "soak_20": { "vus": 20, "duration": "30m" },
+    "smoke_5": { "vus": 5, "duration": "30s" }
+  },
+  "failure_modes": [
+    "sidecar_unavailable",
+    "invalid_business_id",
+    "oversized_prompt",
+    "empty_metric_keys"
+  ]
+}

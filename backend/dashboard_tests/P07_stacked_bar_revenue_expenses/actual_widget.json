@@ -1,0 +1,47 @@
+{
+  "name": "Dashboard",
+  "archetype": "custom",
+  "widgets": [
+    {
+      "id": "freeform_0",
+      "type": "bar_chart",
+      "config": {
+        "entity_type": "asset",
+        "quarter": null,
+        "scenario": "actual",
+        "metrics": [
+          {
+            "key": "RENT"
+          },
+          {
+            "key": "OTHER_INCOME"
+          },
+          {
+            "key": "EGI"
+          },
+          {
+            "key": "TOTAL_OPEX"
+          }
+        ],
+        "title": "Revenue vs OTHER_INCOME",
+        "stacked": true,
+        "format": "dollar"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 4
+      }
+    }
+  ],
+  "entity_scope": {
+    "entity_type": "asset",
+    "env_id": "a1b2c3d4-0001-0001-0003-000000000001",
+    "business_id": "a1b2c3d4-0001-0001-0001-000000000001",
+    "fund_id": null
+  },
+  "quarter": null,
+  "prompt": "Stacked bar chart of revenue vs expenses by month",
+  "density": "comfortable"
+}

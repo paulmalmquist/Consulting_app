@@ -1,0 +1,1 @@
+Scatter plot of occupancy vs NOI by asset

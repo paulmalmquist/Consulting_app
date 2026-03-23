@@ -1,0 +1,6 @@
+Widget types: metrics_strip, statement_table, waterfall
+Metrics: 
+Group by: None
+Time grain: None
+Entity type: asset
+Archetype: underwriting_dashboard

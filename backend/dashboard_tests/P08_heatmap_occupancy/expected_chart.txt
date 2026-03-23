@@ -1,0 +1,6 @@
+Widget types: sensitivity_heat
+Metrics: OCCUPANCY
+Group by: asset
+Time grain: None
+Entity type: asset
+Archetype: custom

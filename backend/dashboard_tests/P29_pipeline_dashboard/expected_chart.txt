@@ -1,0 +1,6 @@
+Widget types: pipeline_bar, comparison_table
+Metrics: 
+Group by: None
+Time grain: None
+Entity type: asset
+Archetype: executive_summary

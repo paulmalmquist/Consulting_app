@@ -17,7 +17,6 @@ import {
   isLegalOpsEnvironment,
   isMedicalBackofficeEnvironment,
   isVisualResumeEnvironment,
-  isMarketRotationEnvironment,
   resolveEnvironmentOpenPath,
 } from "@/components/lab/environments/constants";
 import {
@@ -285,14 +284,6 @@ function buildResumeActivity({
 }
 
 function getQuickActions(industry: string, envId: string): Array<{ label: string; href: string }> {
-  if (isMarketRotationEnvironment(industry)) {
-    return [
-      { label: "Open Market Intelligence", href: `/lab/env/${envId}/markets` },
-      { label: "View Segments", href: `/lab/env/${envId}/markets` },
-      { label: "Intel Briefs", href: `/lab/env/${envId}/markets` },
-      { label: "Feature Pipeline", href: `/lab/env/${envId}/markets` },
-    ];
-  }
   if (isVisualResumeEnvironment(industry)) {
     return [
       { label: "Open Visual Resume", href: `/lab/env/${envId}/resume` },

@@ -1,0 +1,34 @@
+[
+  {
+    "id": "mixed_lookup_routes",
+    "subject": "mixed",
+    "action": "lookup",
+    "non_trivial": false,
+    "prompt": "Identify the route files responsible for AI ask and semantic metrics query endpoints.",
+    "retrieval_query": "/api/ai/ask"
+  },
+  {
+    "id": "mixed_aggregation_cross",
+    "subject": "mixed",
+    "action": "aggregation",
+    "non_trivial": true,
+    "prompt": "Summarize how metrics and AI retrieval each aggregate information across modules and the key limitations in each path.",
+    "retrieval_query": "metrics_semantic"
+  },
+  {
+    "id": "mixed_comparison_context",
+    "subject": "mixed",
+    "action": "comparison",
+    "non_trivial": true,
+    "prompt": "Compare request logging and diagnostics behavior between /api/ai/ask and /api/metrics/query.",
+    "retrieval_query": "request_completed"
+  },
+  {
+    "id": "mixed_decision_support",
+    "subject": "mixed",
+    "action": "decision_support",
+    "non_trivial": true,
+    "prompt": "Design a minimal plan to improve answer accuracy while preserving latency across AI ask and semantic metrics query paths.",
+    "retrieval_query": "retrieve_snippets"
+  }
+]
