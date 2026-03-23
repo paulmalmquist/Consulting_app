@@ -3,7 +3,7 @@
  * Reads PG_POOLER_URL (preferred) or DATABASE_URL and returns a pg Pool.
  * Safe to call repeatedly — pool is created once and reused.
  */
-import { Pool } from "pg";
+import { Pool, type PoolClient } from "pg";
 
 let _pool: Pool | null = null;
 
@@ -37,6 +37,50 @@ export function parseNumber(v: unknown): number | null {
   if (v == null) return null;
   const n = typeof v === "number" ? v : Number(v);
   return Number.isFinite(n) ? n : null;
+}
+
+/** Parse a date DB value into an ISO string or null. */
+export function parseDate(v: unknown): string | null {
+  if (v == null) return null;
+  const d = v instanceof Date ? v : new Date(String(v));
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/** Require a non-null string, throw if missing. */
+export function requireString(v: unknown, label = "value"): string {
+  if (typeof v === "string" && v.length > 0) return v;
+  throw new Error(`Missing required string: ${label}`);
+}
+
+/** Acquire a client from the pool, run fn, then release. */
+export async function withClient<T>(
+  fn: (client: PoolClient) => Promise<T>
+): Promise<T> {
+  const pool = getPool();
+  if (!pool) throw new Error("Database pool not available");
+  const client = await pool.connect();
+  try {
+    return await fn(client);
+  } finally {
+    client.release();
+  }
+}
+
+/** Run fn inside a BEGIN/COMMIT transaction (ROLLBACK on error). */
+export async function withTransaction<T>(
+  fn: (client: PoolClient) => Promise<T>
+): Promise<T> {
+  return withClient(async (client) => {
+    await client.query("BEGIN");
+    try {
+      const result = await fn(client);
+      await client.query("COMMIT");
+      return result;
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    }
+  });
 }
 
 export async function resolveBusinessId(
