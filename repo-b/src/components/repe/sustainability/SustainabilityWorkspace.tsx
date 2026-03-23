@@ -32,7 +32,24 @@ import { useRepeBasePath, useRepeContext } from "@/lib/repe-context";
 import { DataQualityBadge } from "@/components/repe/sustainability/DataQualityBadge";
 import { RegulatoryRiskBadge } from "@/components/repe/sustainability/RegulatoryRiskBadge";
 
-import { fmtMoney, fmtNumber, fmtPct } from '@/lib/format-utils';
+import {
+  fmtMoney as _fmtMoney,
+  fmtNumber as _fmtNumber,
+  fmtPct as _fmtPct,
+} from '@/lib/format-utils';
+
+function fmtNumber(value: unknown, digits = 1): string {
+  return _fmtNumber(value as number | string | null | undefined, digits);
+}
+
+function fmtMoney(value: unknown): string {
+  return _fmtMoney(value as number | string | null | undefined);
+}
+
+function fmtPct(value: unknown): string {
+  return _fmtPct(value as number | string | null | undefined);
+}
+
 const SECTIONS = [
   { key: "overview", label: "Overview" },
   { key: "portfolio-footprint", label: "Portfolio Footprint" },
