@@ -17,21 +17,21 @@
 
 ## Environment Health
 
-- **Stone PDS:** DEGRADED — missing `pds_business_lines` table blocks Home, Markets, Projects pages; 2 PASS, 6 FAIL
-- **Meridian Capital:** DEGRADED — fund IRR/TVPI data contradiction; intent fix committed but not deployed; AI analytics broken in production
-- **MSA Rotation Engine:** BLOCKED — pipeline cold start, Phase 1 sweep has never run; 5 feature cards queued (3 prompted, 2 specced, 0 built)
+- **Stone PDS:** DEGRADED — `pds_business_lines` migration deployed 2026-03-23; 6 PASS, 2 FAIL (Revenue & CI, Resources — null guard fixes needed); chat backbone functional, rendering incomplete
+- **Meridian Capital:** DEGRADED — intent fix deployed and confirmed; routing works but SQL generation failing (39ms "couldn't generate SQL"); distributions/variance data gaps remain; AI test pass rate 33% (2/6)
+- **MSA Rotation Engine:** OPERATIONAL — first brief ran today (Miami—Wynwood/Edgewater, score 7.0/10); 9 feature cards (5 prompted, 4 specced, 0 built); frontend env still building
 - **Market Intelligence Engine:** PROVISIONED — 34 segments seeded, regime classified as RISK_OFF_DEFENSIVE, frontend page built, 8 fin-* tasks live. First real research sweep pending.
-- **Resume:** UP — last confirmed healthy 2026-03-21
+- **Resume:** UNCONFIRMED — last confirmed healthy 2026-03-21
 
 ## Latest AI Test Results
 
 | File | Date | Pass rate |
 |---|---|---|
-| `docs/ai-testing/2026-03-22.md` | 2026-03-22 | 16.7% — 1/6 passed. repe_fast_path still broken in production (fix committed, not deployed). Chat pipeline now explicit config error vs. silent fail. |
+| `docs/ai-testing/2026-03-23.md` | 2026-03-23 | 33.3% — 2/6 passed. Intent fix deployed; routing correct but SQL generation now failing on NOI queries. Error recovery speed improved 10.9s→164ms. |
 
 **Bug 0 status:** FIXED — commit `658bb74` pushed; no raw tool names in conversation body per 2026-03-21 smoke test.
 
-**Fast-path fix committed, NOT deployed:** `repe_intent.py` commit `e6c9f0a` lowers chart-keyword dashboard score 0.90→0.65, boosts analytics to 0.88. Recovers Tests 2, 3, 4 once deployed. P0 action today.
+**Next P0:** SQL generation failure in `repe_fast_path` analytics lane — "couldn't generate SQL" for NOI/asset queries. Fix routing confirmed working; SQL prompt/schema context is the next layer to debug.
 
 ## Latest Code Quality
 
@@ -45,13 +45,13 @@
 
 | File | Date | Top pick |
 |---|---|---|
-| `docs/feature-radar/2026-03-22.md` | 2026-03-22 | Predictive Investor Comm Parsing (enhancement, Signal 4/5 — Juniper Square shipping same feature post-$1.1B raise) |
+| `docs/feature-radar/2026-03-23-noon.md` | 2026-03-23 | Deal Room Mode — 1M token context toggle for whole-deal ingestion; GPT-5.4 forcing function; HIGH priority |
 
 ## Latest Competitor Intelligence
 
 | File | Date | Top opportunity |
 |---|---|---|
-| `docs/competitor-research/daily-summary/2026-03-22.md` | 2026-03-22 | Dealpath AI Studio (Medium-High threat); ARGUS portfolio scenarios (Medium, direct overlap); Autodesk ACC→Forma rebrand March 24 |
+| `docs/competitor-research/daily-summary/2026-03-23.md` | 2026-03-23 | Juniper Square HIGH threat (JunieAI live + Tenor Digital acquisition for private credit); Yardi Virtuoso AI maturing; Cherre Data Observability UI gap |
 
 ## Latest Sales Signals
 
@@ -89,9 +89,9 @@
 | Bug | Severity | Status | Location |
 |---|---|---|---|
 | Bug 0: Tool call spam in AI UI | CRITICAL | FIXED — commit `658bb74` deployed | `META_PROMPT_CHAT_WORKSPACE.md` |
-| repe_fast_path empty dashboards | CRITICAL | FIX COMMITTED not deployed — `e6c9f0a` in `repe_intent.py` | `docs/ai-testing/2026-03-22.md` |
-| Stone PDS: missing `pds_business_lines` | CRITICAL | OPEN — migration needed, blocks 3+ pages | `docs/env-tasks/stone-pds/health/health-2026-03-22.md` |
-| Meridian: fund IRR/TVPI data contradiction | HIGH | OPEN — -98.9% IRR vs 14-17% per-asset | `docs/env-tasks/meridian/health/health-2026-03-22.md` |
+| repe_fast_path SQL generation failure | CRITICAL | OPEN — routing fixed; SQL generation fails on NOI queries (39ms "couldn't generate SQL") | `docs/ai-testing/2026-03-23.md` |
+| Stone PDS: Revenue & CI null guard | HIGH | OPEN — `pds/revenue/page.tsx` calls `.map()` on undefined; one-line fix | `docs/env-tasks/stone-pds/health/health-2026-03-23.md` |
+| Stone PDS: Resources null guard | HIGH | OPEN — `pds/resources/page.tsx` calls `.length` on undefined; one-line fix | `docs/env-tasks/stone-pds/health/health-2026-03-23.md` |
 | Raw internal fund UUIDs exposed to users | HIGH | OPEN | `docs/ai-testing/2026-03-22.md` |
 | Bug 1: Waterfall amounts unformatted | HIGH | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
 | Bug 2: Pref return / carry $0 | HIGH | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
@@ -136,13 +136,12 @@ All suggestion-generating tasks (feature-radar, demo-ideas, site-improvements, c
 
 ## MSA Rotation Engine
 
-- **Last rotation:** None — pipeline cold start (Phase 1 `msa-research-sweep` has never run)
-- **Pipeline status:** ⚠️ BLOCKED — all 14 zones have `last_rotated_at = NULL`, `msa_zone_intel_brief` table empty (0 rows confirmed 2026-03-23)
-- **Feature backlog:** 5 cards total — 3 prompted (ready to build), 2 specced, 0 built
-- **Top blocker card:** `b1620471-msa-research-sweep-runner.md` (Priority 72) — build this first; it unblocks the entire pipeline
-- **Next cards:** County Assessor Connector (65), Sub-MSA Score Calculator (60)
-- **Latest digest:** `docs/msa-digests/msa-digest-2026-03-22.md`
-- **Expected first zone (when unblocked):** Miami — Wynwood/Edgewater
+- **Last rotation:** Miami — Wynwood/Edgewater on 2026-03-24 — Score 7.0/10 (first run, Tier 1, mixed-use)
+- **Pipeline status:** OPERATIONAL — brief ran, intelligence populated, feature cards generating
+- **Feature backlog:** 9 cards total — 5 prompted (ready to build), 4 specced, 0 built
+- **Today's zone:** Miami — Wynwood/Edgewater (composite score 7.0/10; high transaction velocity, rent growth; supply risk the main drag)
+- **Top card to build:** Supply Pipeline Delivery Schedule visualization (Priority 49/100)
+- **Latest intel:** `docs/msa-intel/miami-wynwood-2026-03-24.md`
 
 ## Market Rotation Engine
 
@@ -169,4 +168,4 @@ All suggestion-generating tasks (feature-radar, demo-ideas, site-improvements, c
 
 ---
 
-*Last updated: 2026-03-24 by Cowork session. Manual edits are fine but will be overwritten on next run.*
+*Last updated: 2026-03-24 07:30 AM by morning-ops-digest. Manual edits are fine but will be overwritten on next run.*
