@@ -107,9 +107,9 @@ export default function PdsSatisfactionPage() {
       ]);
 
       setNpsSummary(npsRes);
-      setDrivers(driversRes.drivers);
-      setAtRisk(riskRes.accounts);
-      setVerbatims(verbRes.verbatims);
+      setDrivers(driversRes.drivers ?? []);
+      setAtRisk(riskRes.accounts ?? []);
+      setVerbatims(verbRes.verbatims ?? []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load satisfaction data");
     } finally {

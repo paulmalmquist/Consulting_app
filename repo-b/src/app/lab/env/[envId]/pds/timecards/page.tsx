@@ -73,9 +73,9 @@ export default function PdsTimecardsPage() {
         bosFetch<{ employees: BenchEmployee[] }>("/api/pds/v2/utilization/bench", { params }),
       ]);
 
-      setDistribution(distRes.bins);
-      setOvertime(distRes.overtime_alerts);
-      setBench(benchRes.employees);
+      setDistribution(distRes.bins ?? []);
+      setOvertime(distRes.overtime_alerts ?? []);
+      setBench(benchRes.employees ?? []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load timecard data");
     } finally {

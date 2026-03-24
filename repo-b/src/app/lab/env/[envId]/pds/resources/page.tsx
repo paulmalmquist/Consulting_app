@@ -73,9 +73,9 @@ export default function PdsResourcesPage() {
       ]);
 
       setKpi(hmRes.kpi);
-      setHeatmap(hmRes.rows);
-      setHeatmapMonths(hmRes.months);
-      setCapacityDemand(cdRes.rows);
+      setHeatmap(hmRes.rows ?? []);
+      setHeatmapMonths(hmRes.months ?? []);
+      setCapacityDemand(cdRes.rows ?? []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load utilization data");
     } finally {
