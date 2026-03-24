@@ -25,6 +25,7 @@ const mockGetIrrTimeline = vi.fn();
 const mockGetCapitalTimeline = vi.fn();
 const mockGetIrrContribution = vi.fn();
 const mockGetFundBaseScenario = vi.fn();
+const mockGetFundExposureInsights = vi.fn();
 
 class ResizeObserverMock {
   observe() {}
@@ -90,10 +91,40 @@ vi.mock("@/lib/bos-api", async () => {
     getCapitalTimeline: (...args: unknown[]) => mockGetCapitalTimeline(...args),
     getIrrContribution: (...args: unknown[]) => mockGetIrrContribution(...args),
     getFundBaseScenario: (...args: unknown[]) => mockGetFundBaseScenario(...args),
+    getFundExposureInsights: (...args: unknown[]) => mockGetFundExposureInsights(...args),
   };
 });
 
 describe("fund detail narrative dashboard", () => {
+  function makeExposurePayload(overrides?: Record<string, unknown>) {
+    return {
+      fund_id: "fund-1",
+      quarter: "2026Q1",
+      scenario_id: null,
+      sector_allocation: [
+        { label: "industrial", value: 180_000_000, pct: 100, source_count: 2 },
+      ],
+      geographic_allocation: [
+        { label: "Dallas", value: 180_000_000, pct: 100, source_count: 2 },
+      ],
+      total_weight: 180_000_000,
+      sector_summary: {
+        total_weight: 180_000_000,
+        classified_weight: 180_000_000,
+        unclassified_weight: 0,
+        coverage_pct: 100,
+      },
+      geographic_summary: {
+        total_weight: 180_000_000,
+        classified_weight: 180_000_000,
+        unclassified_weight: 0,
+        coverage_pct: 100,
+      },
+      weighting_basis_used: "mixed",
+      ...overrides,
+    };
+  }
+
   function renderPage() {
     return render(
       <ToastProvider>
@@ -265,6 +296,8 @@ describe("fund detail narrative dashboard", () => {
         irr_contribution: "145000000",
       },
     ]);
+
+    mockGetFundExposureInsights.mockResolvedValue(makeExposurePayload());
 
     mockGetFundBaseScenario.mockResolvedValue({
       fund_id: "fund-1",
@@ -512,7 +545,9 @@ describe("fund detail narrative dashboard", () => {
     renderPage();
 
     const snapshot = await screen.findByTestId("portfolio-snapshot");
-    expect(within(snapshot).getByText("Assets")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(within(snapshot).getByText("Assets")).toBeInTheDocument();
+    });
     expect(snapshot).toHaveTextContent("21");
     expect(snapshot).toHaveTextContent("94.4%");
     expect(snapshot).toHaveTextContent("$18.6M");
@@ -520,6 +555,62 @@ describe("fund detail narrative dashboard", () => {
     const allocation = await screen.findByTestId("portfolio-allocation");
     expect(allocation).toHaveTextContent("Industrial");
     expect(allocation).toHaveTextContent("100.0%");
+  });
+
+  it("renders partial exposure coverage instead of false empty states", async () => {
+    mockGetFundExposureInsights.mockResolvedValueOnce(makeExposurePayload({
+      sector_allocation: [
+        { label: "industrial", value: 180_000_000, pct: 78.2609, source_count: 2 },
+        { label: "Unclassified", value: 50_000_000, pct: 21.7391, source_count: 1 },
+      ],
+      geographic_allocation: [
+        { label: "Dallas", value: 180_000_000, pct: 78.2609, source_count: 2 },
+        { label: "Unknown", value: 50_000_000, pct: 21.7391, source_count: 1 },
+      ],
+      total_weight: 230_000_000,
+      sector_summary: {
+        total_weight: 230_000_000,
+        classified_weight: 180_000_000,
+        unclassified_weight: 50_000_000,
+        coverage_pct: 78.2609,
+      },
+      geographic_summary: {
+        total_weight: 230_000_000,
+        classified_weight: 180_000_000,
+        unclassified_weight: 50_000_000,
+        coverage_pct: 78.2609,
+      },
+    }));
+
+    renderPage();
+
+    const exposure = await screen.findByTestId("exposure-insights");
+    expect(exposure).toHaveTextContent("Coverage: 78% classified");
+    expect(exposure).toHaveTextContent("Industrial");
+    expect(exposure).toHaveTextContent("Unclassified");
+    expect(screen.queryByText("No sector allocation is available yet.")).not.toBeInTheDocument();
+    expect(screen.queryByText("No geographic exposure is available yet.")).not.toBeInTheDocument();
+  });
+
+  it("shows a loading skeleton while exposure data is still resolving", async () => {
+    let resolveExposure: ((value: ReturnType<typeof makeExposurePayload>) => void) | null = null;
+    mockGetFundExposureInsights.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveExposure = resolve as (value: ReturnType<typeof makeExposurePayload>) => void;
+      })
+    );
+
+    renderPage();
+
+    const exposure = await screen.findByTestId("exposure-insights");
+    expect(within(exposure).getByTestId("exposure-insights-loading")).toBeInTheDocument();
+    expect(within(exposure).queryByText("No sector allocation is available yet.")).not.toBeInTheDocument();
+
+    resolveExposure?.(makeExposurePayload());
+
+    await waitFor(() => {
+      expect(within(exposure).queryByTestId("exposure-insights-loading")).not.toBeInTheDocument();
+    });
   });
 
   it("expands an investment row to show asset-level metrics", async () => {
