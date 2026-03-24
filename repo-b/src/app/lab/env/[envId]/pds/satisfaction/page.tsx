@@ -106,7 +106,7 @@ export default function PdsSatisfactionPage() {
         bosFetch<{ verbatims: Verbatim[] }>("/api/pds/v2/satisfaction/verbatims", { params }),
       ]);
 
-      setNpsSummary(npsRes);
+      setNpsSummary(npsRes ? { ...npsRes, trend: npsRes.trend ?? [] } : null);
       setDrivers(driversRes.drivers ?? []);
       setAtRisk(riskRes.accounts ?? []);
       setVerbatims(verbRes.verbatims ?? []);
@@ -168,9 +168,9 @@ export default function PdsSatisfactionPage() {
         {/* NPS Trend */}
         <div className="col-span-2 rounded-lg border border-zinc-700 bg-zinc-800/40 p-4">
           <h2 className="mb-4 text-sm font-medium text-zinc-300">NPS Trend by Quarter</h2>
-          {npsSummary && npsSummary.trend.length > 0 ? (
+          {npsSummary && (npsSummary.trend ?? []).length > 0 ? (
             <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={npsSummary.trend}>
+              <LineChart data={npsSummary.trend ?? []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis dataKey="quarter" tick={{ fill: "#9ca3af", fontSize: 12 }} />
                 <YAxis
