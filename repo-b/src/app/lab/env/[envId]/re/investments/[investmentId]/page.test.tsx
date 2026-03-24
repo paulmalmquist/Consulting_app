@@ -49,6 +49,14 @@ vi.mock("@/components/repe/RepeEntityDocuments", () => ({
   default: () => <div data-testid="attachments-panel" />,
 }));
 
+vi.mock("lucide-react", () => ({
+  AlertTriangle: () => <span data-testid="icon-alert-triangle" />,
+  ChevronDown: () => <span data-testid="icon-chevron-down" />,
+  GitBranch: () => <span data-testid="icon-git-branch" />,
+  MoreHorizontal: () => <span data-testid="icon-more-horizontal" />,
+  Sparkles: () => <span data-testid="icon-sparkles" />,
+}));
+
 vi.mock("@/lib/bos-api", () => ({
   getReV2Investment: (...args: unknown[]) => mockGetReV2Investment(...args),
   getRepeFund: (...args: unknown[]) => mockGetRepeFund(...args),

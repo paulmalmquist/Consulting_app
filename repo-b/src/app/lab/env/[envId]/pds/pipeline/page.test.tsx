@@ -196,7 +196,7 @@ describe("PDS pipeline page", () => {
     expect(await screen.findByText("Deals in Motion")).toBeInTheDocument();
     expect(screen.getByText("Deals Requiring Attention")).toBeInTheDocument();
     expect(screen.getByText("Close Timeline")).toBeInTheDocument();
-    expect(screen.getByText("Petron Refinery Controls Upgrade")).toBeInTheDocument();
+    expect(screen.getAllByText("Petron Refinery Controls Upgrade").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("All Pipeline Deals")).toBeInTheDocument();
   });
 });
