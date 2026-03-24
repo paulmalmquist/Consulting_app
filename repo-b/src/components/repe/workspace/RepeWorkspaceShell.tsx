@@ -24,6 +24,7 @@ import {
   getActiveRepeGroupKey,
   isRepePathActive,
 } from "@/components/repe/workspace/repeNavigation";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const STAGE_OPTIONS = [
   { value: "sourcing", label: "Sourced" },
@@ -565,6 +566,7 @@ function TopUtilityNav({
           {link.label}
         </Link>
       ))}
+      {showAll && <ThemeToggle />}
     </nav>
   );
 }
@@ -741,12 +743,12 @@ export default function RepeWorkspaceShell({
         businessId={businessId}
         base={base}
       />
-      <div className="space-y-8 xl:space-y-10">
+      <div className="space-y-4 xl:space-y-5">
         <TopUtilityNav
           pathname={pathname}
           base={base}
           homeHref={homeHref}
-          className="hidden items-center justify-end gap-5 xl:flex"
+          className="hidden items-center justify-end gap-4 xl:flex"
           testId="repe-utility-nav"
         />
         {children}

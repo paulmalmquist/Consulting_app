@@ -33,7 +33,7 @@ export function RepeSidebarNav({
 
   return (
     <div
-      className="rounded-[30px] border border-bm-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-4 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.8)]"
+      className="rounded-2xl border border-bm-border/50 bg-bm-surface/[0.04] p-3.5 shadow-none"
       data-testid="repe-sidebar"
     >
       <nav
@@ -41,7 +41,7 @@ export function RepeSidebarNav({
         data-testid="repe-left-nav"
         aria-label="REPE navigation"
       >
-        <div className="rounded-[22px] border border-bm-border/60 bg-bm-surface/20 px-4 py-3.5">
+        <div className="rounded-xl border border-bm-border/40 bg-bm-surface/15 px-3.5 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-bm-muted2">
             Workspace
           </p>
@@ -185,7 +185,7 @@ export function RepeSidebarCompactRail({
 
   return (
     <div
-      className="rounded-[26px] border border-bm-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.01))] px-2 py-3 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.8)]"
+      className="rounded-2xl border border-bm-border/50 bg-bm-surface/[0.04] px-2 py-3 shadow-none"
       data-testid="repe-sidebar-compact"
       aria-label="Compact sidebar navigation"
     >

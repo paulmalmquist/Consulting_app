@@ -49,13 +49,13 @@ export function RepeIndexScaffold({
   className?: string;
 }) {
   return (
-    <section className={cn("space-y-7", className)}>
-      <div className={cn(metrics ? "space-y-5" : "space-y-0")}>
-        <div className="flex flex-col gap-4 rounded-xl border border-bm-border/10 bg-bm-surface/[0.02] px-5 py-3.5 lg:flex-row lg:items-center lg:justify-between">
+    <section className={cn("space-y-5", className)}>
+      <div className={cn(metrics ? "space-y-3" : "space-y-0")}>
+        <div className="flex flex-col gap-3 rounded-xl border border-bm-border/10 bg-bm-surface/[0.02] px-5 py-2.5 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <h1 className="text-2xl font-semibold tracking-tight text-bm-text">{title}</h1>
             {subtitle ? (
-              <div className="mt-1 text-sm font-medium text-bm-muted2">{subtitle}</div>
+              <div className="mt-0.5 text-sm font-medium text-bm-muted2">{subtitle}</div>
             ) : null}
           </div>
           {action ? <div className="shrink-0">{action}</div> : null}
@@ -63,7 +63,7 @@ export function RepeIndexScaffold({
         {metrics}
       </div>
 
-      {controls ? <div className="space-y-5">{controls}{children}</div> : children}
+      {controls ? <div className="space-y-4">{controls}{children}</div> : children}
     </section>
   );
 }

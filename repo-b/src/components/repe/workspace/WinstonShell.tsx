@@ -242,10 +242,10 @@ export function WinstonShell({
         className={cn(
           "mx-auto flex-1 w-full max-w-[2200px]",
           /* Tablet grid */
-          "md:grid md:gap-6 md:px-6 md:py-4",
+          "md:grid md:gap-5 md:px-5 md:py-3",
           hasTabletSidebar ? "md:grid-cols-[76px_minmax(0,1fr)]" : "md:grid-cols-[minmax(0,1fr)]",
           /* Desktop grid */
-          "xl:grid xl:gap-6 xl:px-8 xl:py-4",
+          "xl:grid xl:gap-5 xl:px-6 xl:py-2",
           hasRail
             ? "xl:grid-cols-[288px_minmax(0,1fr)_280px]"
             : "xl:grid-cols-[288px_minmax(0,1fr)]",
@@ -264,17 +264,13 @@ export function WinstonShell({
 
         {/* ── Left sidebar — desktop only ── */}
         <aside className="hidden xl:block min-w-0" aria-label="Sidebar navigation">
-          {/* Sticky within the grid column */}
-          <div className="sticky top-8 space-y-6">
-            <div className="flex justify-end px-1">
-              <ThemeToggle />
-            </div>
+          <div className="sticky top-4">
             {sidebar}
           </div>
         </aside>
 
         {/* ── Main workspace ── */}
-        <main className="min-w-0 px-4 py-4 md:px-0 md:py-0 xl:px-0 xl:py-0">
+        <main className="min-w-0 px-4 py-4 md:px-0 md:py-0 xl:px-0 xl:py-0 xl:border-l xl:border-bm-border/[0.06] xl:pl-5">
           {children}
         </main>
 

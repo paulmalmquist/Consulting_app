@@ -47,3 +47,11 @@ Lessons from building institutional-grade investment analysis surfaces.
 
 - When removing per-row text labels (e.g., "Capital Called" / "Distributed") in favor of color-coded bars, add a minimal legend near the section heading: `text-[10px]` with small color chips.
 - This recovers scanability while saving ~24px per row.
+
+## Shell Layout Density (March 2026)
+
+- The WinstonShell three-column grid uses `xl:gap-5 xl:px-6 xl:py-2` — tighter than the original `gap-6 px-8 py-4`. Premium finance UIs earn density; extra padding reads as template filler.
+- The ThemeToggle belongs in the top-right utility nav cluster (after Home/Funds/Investments/Assets), not floating above the sidebar. Grouping controls into one horizontal system reduces visual fragmentation.
+- Sidebar docking: use `rounded-2xl` with `shadow-none` and lighter border opacity (`border-bm-border/50`) to make the sidebar read as structural navigation, not a floating card. Heavy `rounded-[30px]` + deep shadows feel consumer-grade.
+- A faint left border on the main content pane (`xl:border-l xl:border-bm-border/[0.06]`) creates sidebar–content separation without a visible divider line.
+- RepeIndexScaffold: `space-y-5` between sections, `space-y-3` between title block and KPI strip, `py-2.5` on the title container. The gap between title and first data element is where "airy" pages lose credibility.
