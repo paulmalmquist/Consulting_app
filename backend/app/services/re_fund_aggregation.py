@@ -121,7 +121,7 @@ def compute(*, fin_fund_id: str, quarter: str) -> dict:
         loan_stats = cur.fetchone()
         if loan_stats and loan_stats.get("total_upb"):
             total_upb = _d(loan_stats["total_upb"])
-            weighted_avg_coupon = _d(loan_stats.get("avg_rate") or 0)
+            _weighted_avg_coupon = _d(loan_stats.get("avg_rate") or 0)
 
         # Count active covenant alerts
         cur.execute(
@@ -137,7 +137,7 @@ def compute(*, fin_fund_id: str, quarter: str) -> dict:
             (fin_fund_id, quarter),
         )
         alert = cur.fetchone()
-        watchlist_count = alert.get("alert_count", 0) if alert else 0
+        _watchlist_count = alert.get("alert_count", 0) if alert else 0
 
         # Compute IO exposure percentage
         if total_upb > 0:
@@ -152,7 +152,7 @@ def compute(*, fin_fund_id: str, quarter: str) -> dict:
             )
             io_result = cur.fetchone()
             io_upb = _d(io_result.get("io_upb") or 0) if io_result else Decimal(0)
-            io_exposure_pct = (io_upb / total_upb).quantize(FOUR_PLACES, ROUND_HALF_UP)
+            _io_exposure_pct = (io_upb / total_upb).quantize(FOUR_PLACES, ROUND_HALF_UP)
 
     # Get waterfall snapshot ID
     waterfall_snapshot_id = str(ws["waterfall_snapshot_id"]) if ws else None

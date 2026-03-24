@@ -2086,10 +2086,8 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
   quarter: string;
   overviewData: FundOverviewData;
 }) {
-  // For debt funds, show debt-specific overview
-  if (fund?.strategy === "debt") {
-    return <DebtOverviewTab envId={envId} businessId={businessId || ""} fundId={fund.fund_id} quarter={quarter} fundState={fundState} />;
-  }
+  const isDebtFund = fund?.strategy === "debt";
+
   const rollupById = useMemo(
     () => new Map(investmentRollup.map((row) => [row.investment_id, row])),
     [investmentRollup]
@@ -2177,6 +2175,10 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
     quarter,
     sectorExposureRows.length,
   ]);
+
+  if (isDebtFund) {
+    return <DebtOverviewTab envId={envId} businessId={businessId || ""} fundId={fund!.fund_id} quarter={quarter} fundState={fundState} />;
+  }
 
   return (
     <div className="space-y-4">
