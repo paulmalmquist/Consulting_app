@@ -205,7 +205,7 @@ function StageColumn({
         </div>
         <div className="text-right text-xs text-bm-muted2">
           <div>{formatCurrency(summary?.unweighted_value ?? 0)}</div>
-          <div className="mt-1">{summary?.avg_days_in_stage ? `${Math.round(summary.avg_days_in_stage)}d avg` : "New stage"}</div>
+          <div className="mt-1">{summary?.avg_days_in_stage ? `${Math.round(Number(summary.avg_days_in_stage))}d avg` : "New stage"}</div>
         </div>
       </div>
       <div className="mt-4 flex-1 space-y-3">
