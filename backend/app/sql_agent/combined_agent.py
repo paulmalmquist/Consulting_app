@@ -140,3 +140,66 @@ async def run_agent(
         python_fn=data.get("python_fn"),
         params=data.get("params", {}),
     )
+
+
+async def generate_sql(
+    message: str,
+    *,
+    catalog: str,
+    business_id: str,
+    quarter: str | None = None,
+) -> dict[str, Any]:
+    """Generate SQL from a natural-language message using the combined agent.
+
+    This is the entry point called from ai_gateway.py for the INTENT_ANALYTICS_QUERY
+    fast-path lane.  It re-uses the existing LLM prompt in _SYSTEM but injects the
+    caller-supplied catalog (which may include dynamic DB metadata from
+    catalog_text_dynamic) instead of the static default.
+
+    Returns a plain dict so callers can do result.get("sql", "").
+    """
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY not configured")
+
+    import openai
+
+    client = openai.AsyncOpenAI(api_key=OPENAI_API_KEY)
+
+    # Use the caller-supplied catalog (may be enriched with live DB metadata).
+    system = _SYSTEM.format(catalog=catalog)
+
+    user_msg = message
+    if quarter:
+        user_msg += f"\n\n(Current quarter: {quarter}, business_id will be provided as parameter)"
+
+    create_kwargs = sanitize_params(
+        OPENAI_CHAT_MODEL_STANDARD,
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user_msg},
+        ],
+        max_tokens=1024,
+        temperature=0,
+    )
+
+    response = await asyncio.wait_for(
+        client.chat.completions.create(**create_kwargs),
+        timeout=30.0,
+    )
+
+    content = (response.choices[0].message.content or "{}").strip()
+    # Strip markdown fences if the model wrapped the JSON in a code block
+    if content.startswith("```"):
+        content = content.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+    try:
+        data: dict[str, Any] = json.loads(content)
+    except json.JSONDecodeError:
+        logger.error("generate_sql: agent returned non-JSON: %s", content[:300])
+        return {"sql": None, "route": "sql", "intent": "", "entity_type": "asset", "params": {}}
+
+    logger.info(
+        "generate_sql: route=%s entity=%s sql_len=%d",
+        data.get("route"), data.get("entity_type"), len(data.get("sql") or ""),
+    )
+    return data
