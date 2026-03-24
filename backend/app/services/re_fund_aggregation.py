@@ -102,6 +102,58 @@ def compute(*, fin_fund_id: str, quarter: str) -> dict:
                 "clawback_exposure": str(ws["clawback_exposure"]),
             }
 
+    # Debt-specific metrics (for debt funds)
+    total_upb = Decimal(0)
+    weighted_avg_coupon = Decimal(0)
+    watchlist_count = 0
+    io_exposure_pct = Decimal(0)
+
+    with get_cursor() as cur:
+        # Compute total UPB and weighted coupon across loan book
+        cur.execute(
+            """
+            SELECT SUM(upb) as total_upb, AVG(rate) as avg_rate, COUNT(*) as loan_count
+            FROM re_loan
+            WHERE fund_id = (SELECT fund_id FROM repe_fund WHERE fin_fund_id = %s LIMIT 1)
+            """,
+            (fin_fund_id,),
+        )
+        loan_stats = cur.fetchone()
+        if loan_stats and loan_stats.get("total_upb"):
+            total_upb = _d(loan_stats["total_upb"])
+            weighted_avg_coupon = _d(loan_stats.get("avg_rate") or 0)
+
+        # Count active covenant alerts
+        cur.execute(
+            """
+            SELECT COUNT(*) as alert_count
+            FROM re_loan_watchlist_event
+            WHERE loan_id IN (
+                SELECT id FROM re_loan
+                WHERE fund_id = (SELECT fund_id FROM repe_fund WHERE fin_fund_id = %s LIMIT 1)
+            )
+            AND quarter = %s
+            """,
+            (fin_fund_id, quarter),
+        )
+        alert = cur.fetchone()
+        watchlist_count = alert.get("alert_count", 0) if alert else 0
+
+        # Compute IO exposure percentage
+        if total_upb > 0:
+            cur.execute(
+                """
+                SELECT SUM(upb) as io_upb
+                FROM re_loan
+                WHERE fund_id = (SELECT fund_id FROM repe_fund WHERE fin_fund_id = %s LIMIT 1)
+                AND amort_type = 'interest_only'
+                """,
+                (fin_fund_id,),
+            )
+            io_result = cur.fetchone()
+            io_upb = _d(io_result.get("io_upb") or 0) if io_result else Decimal(0)
+            io_exposure_pct = (io_upb / total_upb).quantize(FOUR_PLACES, ROUND_HALF_UP)
+
     # Get waterfall snapshot ID
     waterfall_snapshot_id = str(ws["waterfall_snapshot_id"]) if ws else None
     asset_state_ids = [str(s["id"]) for s in states]

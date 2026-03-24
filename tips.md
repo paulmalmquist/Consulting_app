@@ -147,6 +147,7 @@ _(This section is appended by the research-architect after each successful inges
 - Audit note (2026-03-14): assistant response rendering is now split across both `repo-b/src/components/copilot/` and `repo-b/src/components/winston/`. Before adding a third assistant surface, extract shared response blocks or add mirrored tests so charts/tables/confirmations do not drift silently.
 - REPE sidebar UX source of truth now lives in `repo-b/src/components/repe/workspace/repeNavigation.ts`. Desktop grouped nav, tablet compact icon rail, and mobile quick-nav all derive from that config; if you change section order or labels, update that file and `repo-b/src/components/repe/workspace/__tests__/repeNavigation.test.ts` together.
 - RE create/list flows are easy to break when the page mixes a legacy direct-DB Next route with the canonical BOS API contract. For models, the durable contract is `env_id` + `primary_fund_id` on `/api/re/v2/models`; validate inline before submit, disable only during the in-flight save, and refetch the list from that same source of truth after success instead of hand-appending a stale payload.
+- Fund detail exposure on `repo-b/src/app/lab/env/[envId]/re/funds/[fundId]/page.tsx` should come from `/api/re/v2/funds/[fundId]/exposure` backed by `repo-b/src/lib/server/reFundExposure.ts`, not from page-local guesses off `sector_mix` and `primary_market`. The durable rollup uses asset-level `attributable_nav` with fallbacks to `current_value_contribution` and non-disposed `attributable_equity_basis`, and it preserves `Unclassified` / `Unknown` buckets plus coverage metadata instead of collapsing to a false empty state.
 
 ## 1. Repo Inventory
 
@@ -1822,3 +1823,27 @@ Use `line-clamp-2 leading-snug` instead of `truncate` for primary identity label
 - Mobile (<768px): single column, drawer sidebar (`w-72`), bottom nav
 - Tablet (768-1279px): compact icon rail (`76px`), no right rail
 - Desktop (>=1280px): full sidebar (`288px`), optional right rail (`280px`), content max-width
+
+## Environment Immersive Layout Mode
+
+### Problem: "App inside a card inside an admin shell"
+When an environment page (e.g. Trading Lab) renders inside the standard `AppShell` + `LabEnvironmentShell` layout, the environment's themed surface gets boxed inside multiple layers of padding, borders, and light backgrounds. This creates a "website inside a website" effect that breaks immersion.
+
+### Root cause layers
+1. `AppShell.tsx` → `<main className="flex-1 p-6">` adds padding around all child content
+2. `LabEnvironmentShell.tsx` → wraps children in a `grid gap-4 lg:grid-cols-[240px,1fr]` with a sidebar, rounded borders, and `space-y-4`
+3. The parent `<div className="min-h-screen bg-bm-bg">` in AppShell provides a light background that shows through padding gaps
+
+### Solution pattern: two escape hatches
+1. **`LabEnvironmentShell.tsx` → `isDomainRoute` regex**: Add the route segment (e.g. `markets`) to the domain route regex so the page bypasses the department tab bar and sidebar grid entirely, rendering `{children}` directly.
+2. **`AppShell.tsx` → `isImmersiveRoute` check**: Detect immersive environment routes and strip `p-6` from the `<main>` element so the environment background reaches edge-to-edge. Keep sidebar and header for navigation, but let the environment own the workspace canvas.
+
+### Implementation checklist for new immersive environments
+- Add route segment to `isDomainRoute` regex in `LabEnvironmentShell.tsx` (line ~167)
+- Add route segment to `isImmersiveRoute` regex in `AppShell.tsx` (line ~32)
+- Environment page root: use `flex-1 flex flex-col min-h-full` instead of `min-h-screen`
+- Environment page manages its own padding internally (`p-6` inside its own sections)
+- Status/error notices: use intentional banner components, not bare text
+
+### Key principle
+The shell should **frame** the environment, not **compete** with it. From the right edge of the sidebar onward, the entire canvas should belong to the environment's theme.

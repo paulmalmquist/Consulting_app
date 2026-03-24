@@ -46,11 +46,14 @@ commands:
   - /cost
 notes:
   - Global routing lives here. Downstream docs should link back instead of repeating repo-wide dispatch tables.
+  - Use `PORTABILITY.MD` when a request touches client forkability, white-labeling, tenant packs, or new-client spin-up.
 ---
 
 # CLAUDE Router Contract
 
 `CLAUDE.md` is the canonical router for repo-local prompt behavior. It decides which downstream `agents/*.md`, `skills/*.md`, `.skills/*.md`, or selected `docs/*.md` file should own the next step.
+
+When a request touches client portability or white-labeling, keep the three-layer split from `PORTABILITY.MD` in view: `platform core`, `environment package`, and `client config`.
 
 ## Routing Precedence
 
@@ -91,6 +94,7 @@ notes:
 | CRM lookup, prospect enrichment, contact record, Apollo search, add to CRM, find contact, is [company] in Apollo, track outreach | `skills/winston-sales-intelligence/SKILL.md` with `docs/WINSTON_SALES_INTELLIGENCE_PROMPT.md` as reference and `agents/outreach.md` as support |
 | demo idea generation, demo script, demo pipeline, demo concepts for Winston sales, what should we demo, demo for this week | `skills/winston-demo-generator/SKILL.md` |
 | autonomous loop setup, self-improving environment, autonomous coding schedule, set up autonomous improvement | `skills/winston-autonomous-loop/SKILL.md` |
+| portability, forkability, white-labeling, tenant pack, client pack, environment package, capability pack, hardcode audit, clone Winston for a client | `agents/architect.md` with `PORTABILITY.MD` as reference |
 | business-side Novendor commands | `agents/operations.md`, `agents/outreach.md`, `agents/proposals.md`, `agents/content.md`, `agents/demo.md` |
 | explicit prompt or playbook request | matching normalized skill when one exists; otherwise selected `docs/WINSTON_*PROMPT*.md` |
 
@@ -114,6 +118,15 @@ notes:
 | `PDS_*.md`, `docs/plans/PDS_*` | PDS staged delivery prompt set | `winston-pds-delivery`, `architect-winston` |
 | `docs/` | normalized skills, prompt references, and playbooks | matching skill, explicit prompt reference, or `architect-winston` |
 | external Novendor workspaces | business-side workstreams | `operations`, `outreach`, `proposals`, `content`, `demo` |
+
+## Portability Guardrails
+
+- Classify meaningful work as `platform core`, `environment package`, or `client config` before spreading behavior across shared code.
+- Keep source-system quirks in adapters, mappings, and sync layers; shared UI and business logic should depend on canonical contracts.
+- Treat branding, module labels, prompts, report wrappers, email copy, URLs, and role templates as overridable unless the request is explicitly repo-internal only.
+- Prefer capability flags and environment manifests over scattered per-client conditionals in routes, components, or services.
+- New-client onboarding should trend toward `load config + bind secrets + run bootstrap`, not repo-wide source edits.
+- If a request is specifically about forkability or transferability, route planning to `agents/architect.md`; for implementation, keep the owning surface but still use `PORTABILITY.MD` as a design constraint.
 
 ## Autonomous Intelligence Directory
 
@@ -213,6 +226,9 @@ This is not optional busywork — these files contain real production data (test
 - `generate today's Winston demo ideas` -> `skills/winston-demo-generator/SKILL.md`
 - `what demos should we run for [persona]` -> `skills/winston-demo-generator/SKILL.md`
 - `give me a demo script for the CFO` -> `skills/winston-demo-generator/SKILL.md`
+- `audit Winston so it can be forked cleanly for a new client` -> `agents/architect.md` with `PORTABILITY.MD` as reference
+- `design a client pack or tenant pack model` -> `agents/architect.md` with `PORTABILITY.MD` as reference
+- `remove hardcoded Winston branding from the shared UI` -> `.skills/feature-dev/SKILL.md` with `agents/frontend.md` and `PORTABILITY.MD` as reference
 
 - `Review backend/app/routes/nv_ai_copilot.py and explain how it fits the repo` -> `agents/architect.md`
 - `Implement a loading fix in repo-b/src/app/lab/env/[envId]/page.tsx` -> `.skills/feature-dev/SKILL.md` with `agents/builder.md` as support

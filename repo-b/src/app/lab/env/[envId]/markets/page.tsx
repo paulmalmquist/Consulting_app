@@ -172,7 +172,7 @@ export default function TradingLabPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 p-6">
+      <div className="flex-1 bg-gray-900 p-6">
         <div className="space-y-4">
           <div className="h-8 bg-gray-800 rounded w-48 animate-pulse" />
           <div className="h-32 bg-gray-800 rounded animate-pulse" />
@@ -187,14 +187,19 @@ export default function TradingLabPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 font-sans">
+    <div className="flex-1 flex flex-col bg-gray-900 text-gray-100 font-sans min-h-full">
       {/* Header */}
       <div className="border-b border-gray-800 px-6 py-4 bg-gray-900 sticky top-0 z-10">
         <h1 className="text-2xl font-bold text-green-400 font-mono">
           WINSTON TRADING LAB
           <span className="text-xs text-gray-500 ml-4">ENV: {envId || "—"}</span>
         </h1>
-        {notice && <div className="mt-2 text-sm text-red-400">{notice}</div>}
+        {notice && (
+          <div className="mt-2 flex items-center gap-2 bg-red-900/30 border border-red-800/50 rounded px-3 py-1.5 text-xs text-red-300 font-mono">
+            <span className="inline-block w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+            {notice}
+          </div>
+        )}
       </div>
 
       {/* Command Header (Stats Row) */}

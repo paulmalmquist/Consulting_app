@@ -29,6 +29,7 @@ export default function AppShell({
   const pathname = usePathname();
   const { selectedEnv } = useEnv();
   const isDomainRoute = /^\/lab\/env\/[^/]+\/(re|pds|credit|legal|medical|consulting|opportunity-engine)(\/|$)/.test(pathname);
+  const isImmersiveRoute = /^\/lab\/env\/[^/]+\/markets(\/|$)/.test(pathname);
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
@@ -187,7 +188,7 @@ export default function AppShell({
             </button>
           </div>
         </header>
-        <main className="flex-1 p-6">{children}</main>
+        <main className={cn("flex-1", isImmersiveRoute ? "overflow-y-auto" : "p-6")}>{children}</main>
       </div>
     </div>
   );

@@ -521,7 +521,7 @@ function FundValueCreationCard({
                     color: FUND_DASHBOARD_COLORS.text,
                   }}
                   formatter={(value: number, name: string) => [fmtMoney(value), name]}
-                  labelFormatter={(label) => `Quarter ${label}`}
+                  labelFormatter={(label: string | number) => `Quarter ${label}`}
                   labelStyle={{ color: FUND_DASHBOARD_COLORS.text, fontWeight: 600 }}
                 />
                 <Legend
@@ -1159,14 +1159,25 @@ function useFundOverviewData({
   return { rollup, irrTimeline, capitalTimeline, irrContrib, exposure, loading };
 }
 
-const TABS = [
+const EQUITY_TABS = [
   "Overview",
   "Performance",
   "Scenarios",
   "Asset Variance",
   "LP Summary",
 ] as const;
-type TabKey = (typeof TABS)[number];
+
+const DEBT_TABS = [
+  "Overview",
+  "Loan Book",
+  "Covenant Health",
+  "Maturity & Rate",
+  "LP Summary",
+] as const;
+
+type EquityTabKey = (typeof EQUITY_TABS)[number];
+type DebtTabKey = (typeof DEBT_TABS)[number];
+type TabKey = EquityTabKey | DebtTabKey;
 
 export default function FundDetailPage({
   params,
@@ -1472,6 +1483,9 @@ export default function FundDetailPage({
     );
   }
 
+  // Compute active tab set based on fund strategy
+  const TABS = fund?.strategy === "debt" ? DEBT_TABS : EQUITY_TABS;
+
   return (
     <section className="mx-auto flex w-full max-w-[1500px] flex-col gap-4" data-testid="re-fund-detail">
       <div className={`${FUND_PANEL_CLASS} px-5 pb-[18px] pt-[20px]`} data-testid="fund-overview-header">
@@ -1657,6 +1671,7 @@ export default function FundDetailPage({
           fundState={fundState}
           baseScenario={baseScenario}
           envId={params.envId}
+          businessId={businessId}
           quarter={quarter}
           overviewData={overviewData}
         />
@@ -1683,6 +1698,30 @@ export default function FundDetailPage({
       )}
       {tab === "LP Summary" && envId && businessId && (
         <LpSummaryTab
+          envId={envId}
+          businessId={businessId}
+          fundId={params.fundId}
+          quarter={quarter}
+        />
+      )}
+      {tab === "Loan Book" && envId && businessId && (
+        <LoanBookTab
+          envId={envId}
+          businessId={businessId}
+          fundId={params.fundId}
+          quarter={quarter}
+        />
+      )}
+      {tab === "Covenant Health" && envId && businessId && (
+        <CovenantHealthTab
+          envId={envId}
+          businessId={businessId}
+          fundId={params.fundId}
+          quarter={quarter}
+        />
+      )}
+      {tab === "Maturity & Rate" && envId && businessId && (
+        <MaturityRateTab
           envId={envId}
           businessId={businessId}
           fundId={params.fundId}
@@ -1879,6 +1918,126 @@ function InvestmentRow({
   );
 }
 
+// ── Debt Overview Tab ───────────────────────────────────────────────────────
+
+function DebtOverviewTab({ envId, businessId, fundId, quarter, fundState }: {
+  envId: string; businessId: string; fundId: string; quarter: string; fundState: ReV2FundQuarterState | null;
+}) {
+  const [loans, setLoans] = useState<FiLoan[]>([]);
+  const [covenantAlerts, setCovenantAlerts] = useState<FiWatchlistEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      getFiLoans({ env_id: envId, business_id: businessId, fund_id: fundId }),
+      getFiWatchlist({ env_id: envId, business_id: businessId, fund_id: fundId, quarter }),
+    ])
+      .then(([lns, wl]) => {
+        setLoans(lns);
+        setCovenantAlerts(wl);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [envId, businessId, fundId, quarter]);
+
+  if (loading) return <div className="p-4 text-sm text-bm-muted2">Loading debt metrics...</div>;
+
+  // Calculate debt metrics
+  const totalUpb = loans.reduce((sum, loan) => sum + (loan.upb || 0), 0);
+  const weightedCoupon = loans.length > 0
+    ? loans.reduce((sum, loan) => sum + (loan.upb || 0) * (loan.rate || 0), 0) / totalUpb
+    : 0;
+  const watchlistCount = covenantAlerts.length;
+
+  const debtMetrics = [
+    { label: "Total UPB", value: fmtMoney(totalUpb) },
+    { label: "Weighted Avg Coupon", value: fmtPercent(weightedCoupon) },
+    { label: "Weighted Avg DSCR", value: fundState?.weighted_dscr ? Number(fundState.weighted_dscr).toFixed(2) : "—" },
+    { label: "Portfolio LTV", value: fundState?.weighted_ltv ? fmtPercent(fundState.weighted_ltv) : "—" },
+    { label: "Loan Count", value: String(loans.length) },
+    { label: "Watchlist Alerts", value: String(watchlistCount) },
+  ];
+
+  return (
+    <div className="space-y-4" data-testid="debt-overview-section">
+      {/* Debt Metrics */}
+      <div className={`${FUND_PANEL_CLASS} p-5`}>
+        <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-bm-muted2">
+          Debt Portfolio Snapshot
+        </h3>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {debtMetrics.map((metric) => (
+            <div key={metric.label} className="rounded-[18px] border border-[#E2E8F0] bg-white p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#64748B]">
+                {metric.label}
+              </p>
+              <p className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[#0F172A]">
+                {metric.value}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Rate Type Composition */}
+      {loans.length > 0 && (
+        <div className={`${FUND_PANEL_CLASS} p-5`}>
+          <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-bm-muted2">
+            Rate Type Mix
+          </h3>
+          <div className="mt-4 flex gap-4">
+            {[
+              { type: "fixed", color: "#3B82F6" },
+              { type: "floating", color: "#8B5CF6" },
+            ].map(({ type, color }) => {
+              const count = loans.filter((l) => l.rate_type === type).length;
+              const pct = count > 0 ? (count / loans.length * 100).toFixed(1) : "0";
+              return (
+                <div key={type} className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: color }} />
+                  <span className="text-sm capitalize">{type}: {pct}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Maturity Profile */}
+      {loans.length > 0 && (
+        <div className={`${FUND_PANEL_CLASS} p-5`}>
+          <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-bm-muted2">
+            Maturity Profile (UPB by Year)
+          </h3>
+          <div className="mt-4 space-y-2 text-sm">
+            {/* Group loans by maturity year */}
+            {(() => {
+              const byYear: Record<string, number> = {};
+              loans.forEach((loan) => {
+                if (loan.maturity) {
+                  const year = new Date(loan.maturity).getFullYear().toString();
+                  byYear[year] = (byYear[year] || 0) + (loan.upb || 0);
+                }
+              });
+              return Object.entries(byYear)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([year, upb]) => (
+                  <div key={year} className="flex items-center justify-between">
+                    <span className="text-bm-muted2">{year}</span>
+                    <span className="font-medium">{fmtMoney(upb)}</span>
+                  </div>
+                ));
+            })()}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Base Scenario Summary Card ──────────────────────────────────────────────
+
 function BaseScenarioSummaryCard({ baseScenario }: { baseScenario: FundBaseScenario | null }) {
   if (!baseScenario) return null;
 
@@ -1916,16 +2075,21 @@ function BaseScenarioSummaryCard({ baseScenario }: { baseScenario: FundBaseScena
   );
 }
 
-function OverviewTab({ investments, investmentRollup, fund, fundState, baseScenario, envId, quarter, overviewData }: {
+function OverviewTab({ investments, investmentRollup, fund, fundState, baseScenario, envId, businessId, quarter, overviewData }: {
   investments: ReV2Investment[];
   investmentRollup: ReV2FundInvestmentRollupRow[];
   fund: RepeFundDetail["fund"] | undefined;
   fundState: ReV2FundQuarterState | null;
   baseScenario: FundBaseScenario | null;
   envId: string;
+  businessId: string | null;
   quarter: string;
   overviewData: FundOverviewData;
 }) {
+  // For debt funds, show debt-specific overview
+  if (fund?.strategy === "debt") {
+    return <DebtOverviewTab envId={envId} businessId={businessId || ""} fundId={fund.fund_id} quarter={quarter} fundState={fundState} />;
+  }
   const rollupById = useMemo(
     () => new Map(investmentRollup.map((row) => [row.investment_id, row])),
     [investmentRollup]
@@ -2562,9 +2726,9 @@ function ReturnsTab({ baseScenario, loading }: {
   );
 }
 
-// ── Debt Surveillance Tab ───────────────────────────────────────────────────
+// ── Loan Book Tab ──────────────────────────────────────────────────────────
 
-function DebtSurveillanceTab({ envId, businessId, fundId, quarter }: {
+function LoanBookTab({ envId, businessId, fundId, quarter }: {
   envId: string; businessId: string; fundId: string; quarter: string;
 }) {
   const [loans, setLoans] = useState<FiLoan[]>([]);
@@ -2677,6 +2841,252 @@ function DebtSurveillanceTab({ envId, businessId, fundId, quarter }: {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Covenant Health Tab ────────────────────────────────────────────────────
+
+function CovenantHealthTab({ envId, businessId, fundId, quarter }: {
+  envId: string; businessId: string; fundId: string; quarter: string;
+}) {
+  const [covenantAlerts, setCovenantAlerts] = useState<FiWatchlistEvent[]>([]);
+  const [loans, setLoans] = useState<FiLoan[]>([]);
+  const [covenantResults, setCovenantResults] = useState<Record<string, FiCovenantResult[]>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      getFiWatchlist({ env_id: envId, business_id: businessId, fund_id: fundId, quarter }),
+      getFiLoans({ env_id: envId, business_id: businessId, fund_id: fundId }),
+    ])
+      .then(async ([alerts, lns]) => {
+        setCovenantAlerts(alerts);
+        setLoans(lns);
+        // Fetch covenant results for each loan
+        const results: Record<string, FiCovenantResult[]> = {};
+        await Promise.all(
+          lns.map(async (loan) => {
+            const r = await getFiCovenantResults(loan.id, quarter).catch(() => []);
+            results[loan.id] = r;
+          })
+        );
+        setCovenantResults(results);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [envId, businessId, fundId, quarter]);
+
+  if (loading) return <div className="p-4 text-sm text-bm-muted2">Loading covenant health...</div>;
+
+  const passingLoans = loans.filter((l) => {
+    const results = covenantResults[l.id] || [];
+    return results.length > 0 && results[0].pass === true;
+  }).length;
+  const watchLoans = loans.filter((l) => {
+    const alerts = covenantAlerts.filter((a) => (a as Record<string, unknown>).loan_id === l.id);
+    return alerts.length > 0;
+  }).length;
+  const breachLoans = loans.filter((l) => {
+    const results = covenantResults[l.id] || [];
+    return results.length > 0 && results[0].pass === false;
+  }).length;
+
+  return (
+    <div className="space-y-4" data-testid="covenant-health-section">
+      {/* Summary Strip */}
+      <div className={`${FUND_PANEL_CLASS} p-5 grid gap-3 sm:grid-cols-3`}>
+        <div className="rounded-[18px] border border-green-200 bg-green-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-green-600">Passing</p>
+          <p className="mt-2 text-2xl font-semibold text-green-900">{passingLoans}</p>
+        </div>
+        <div className="rounded-[18px] border border-amber-200 bg-amber-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-600">Watch</p>
+          <p className="mt-2 text-2xl font-semibold text-amber-900">{watchLoans}</p>
+        </div>
+        <div className="rounded-[18px] border border-red-200 bg-red-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-red-600">Breach</p>
+          <p className="mt-2 text-2xl font-semibold text-red-900">{breachLoans}</p>
+        </div>
+      </div>
+
+      {/* Watchlist Events */}
+      {covenantAlerts.length > 0 && (
+        <div className={`${FUND_PANEL_CLASS} p-5`}>
+          <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-bm-muted2">
+            Active Alerts
+          </h3>
+          <div className="mt-4 space-y-2">
+            {covenantAlerts
+              .sort((a, b) => {
+                const severityOrder = { CRITICAL: 0, HIGH: 1, MED: 2, LOW: 3 };
+                return (severityOrder[a.severity as keyof typeof severityOrder] ?? 4) -
+                       (severityOrder[b.severity as keyof typeof severityOrder] ?? 4);
+              })
+              .map((alert) => (
+                <div key={alert.id} className="rounded-lg border border-bm-border/50 bg-bm-surface/20 px-4 py-3 flex items-start gap-3">
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap flex-shrink-0 ${
+                    alert.severity === "CRITICAL" ? "bg-red-500/20 text-red-300" :
+                    alert.severity === "HIGH" ? "bg-red-500/10 text-red-200" :
+                    alert.severity === "MED" ? "bg-amber-500/20 text-amber-300" :
+                    "bg-yellow-500/20 text-yellow-300"
+                  }`}>{alert.severity}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{String((alert as Record<string, unknown>).loan_name || "Unknown Loan")}</p>
+                    <p className="text-xs text-bm-muted2 mt-0.5">{alert.reason}</p>
+                  </div>
+                  <span className="text-xs text-bm-muted2 whitespace-nowrap flex-shrink-0">{alert.quarter}</span>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {covenantAlerts.length === 0 && (
+        <div className={`${FUND_PANEL_CLASS} p-5 text-center`}>
+          <p className="text-sm text-bm-muted2">No active covenant alerts</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Maturity & Rate Tab ────────────────────────────────────────────────────
+
+function MaturityRateTab({ envId, businessId, fundId, quarter }: {
+  envId: string; businessId: string; fundId: string; quarter: string;
+}) {
+  const [loans, setLoans] = useState<FiLoan[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    getFiLoans({ env_id: envId, business_id: businessId, fund_id: fundId })
+      .then((lns) => setLoans(lns))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [envId, businessId, fundId]);
+
+  if (loading) return <div className="p-4 text-sm text-bm-muted2">Loading maturity & rate profile...</div>;
+
+  const totalUpb = loans.reduce((sum, loan) => sum + (loan.upb || 0), 0);
+
+  // Group by maturity year and rate type
+  const maturityByYear: Record<string, Record<string, number>> = {};
+  loans.forEach((loan) => {
+    if (loan.maturity) {
+      const year = new Date(loan.maturity).getFullYear().toString();
+      const rateType = loan.rate_type || "unknown";
+      if (!maturityByYear[year]) maturityByYear[year] = {};
+      maturityByYear[year][rateType] = (maturityByYear[year][rateType] || 0) + (loan.upb || 0);
+    }
+  });
+
+  // IO expiration timeline
+  const ioLoans = loans.filter((l) => l.io_period_months);
+
+  return (
+    <div className="space-y-4" data-testid="maturity-rate-section">
+      {/* Maturity Ladder */}
+      <div className={`${FUND_PANEL_CLASS} p-5`}>
+        <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-bm-muted2">
+          Maturity Ladder
+        </h3>
+        <div className="mt-4 space-y-3">
+          {Object.entries(maturityByYear)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([year, rateTypeMap]) => {
+              const yearTotal = Object.values(rateTypeMap).reduce((a, b) => a + b, 0);
+              const pct = totalUpb > 0 ? (yearTotal / totalUpb * 100).toFixed(1) : "0";
+              return (
+                <div key={year}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-medium">{year}</span>
+                    <span className="text-sm text-bm-muted2">{fmtMoney(yearTotal)} ({pct}%)</span>
+                  </div>
+                  <div className="flex h-6 gap-1 rounded-lg overflow-hidden bg-bm-surface/20">
+                    {Object.entries(rateTypeMap).map(([rateType, upb]) => (
+                      <div
+                        key={`${year}-${rateType}`}
+                        className="flex-1"
+                        style={{
+                          backgroundColor: rateType === "fixed" ? "#3B82F6" : "#8B5CF6",
+                          width: `${totalUpb > 0 ? (upb / totalUpb * 100) : 0}%`,
+                        }}
+                        title={`${rateType}: ${fmtMoney(upb)}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+        <div className="mt-4 flex gap-4 text-xs">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-blue-500" />
+            <span>Fixed</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-purple-500" />
+            <span>Floating</span>
+          </div>
+        </div>
+      </div>
+
+      {/* IO Expiration Timeline */}
+      {ioLoans.filter((l) => (l as Record<string, unknown>).origination_date && (l as Record<string, unknown>).io_period_months).length > 0 && (
+        <div className={`${FUND_PANEL_CLASS} p-5`}>
+          <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-bm-muted2">
+            IO Expiration Timeline
+          </h3>
+          <div className="mt-4 space-y-2 text-sm">
+            {ioLoans.map((loan) => {
+              const origDate = (loan as Record<string, unknown>).origination_date as string | undefined;
+              const ioPeriod = (loan as Record<string, unknown>).io_period_months as number | undefined;
+              if (!origDate || !ioPeriod) return null;
+              const ioExpDate = new Date(origDate);
+              ioExpDate.setMonth(ioExpDate.getMonth() + ioPeriod);
+              return (
+                <div key={loan.id} className="flex items-center justify-between py-2 border-b border-bm-border/30 last:border-0">
+                  <span className="font-medium">{loan.loan_name}</span>
+                  <span className="text-bm-muted2">{ioExpDate.toLocaleDateString()}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Refinancing Exposure */}
+      <div className={`${FUND_PANEL_CLASS} p-5`}>
+        <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-bm-muted2">
+          Refinancing Exposure
+        </h3>
+        <div className="mt-4 space-y-3 text-sm">
+          {(() => {
+            const now = new Date();
+            const in12m = new Date(now.getFullYear(), now.getMonth() + 12);
+            const in24m = new Date(now.getFullYear(), now.getMonth() + 24);
+
+            const within12m = loans.filter((l) => l.maturity && new Date(l.maturity) <= in12m);
+            const within24m = loans.filter((l) => l.maturity && new Date(l.maturity) <= in24m && new Date(l.maturity) > in12m);
+
+            const upb12m = within12m.reduce((sum, l) => sum + (l.upb || 0), 0);
+            const upb24m = within24m.reduce((sum, l) => sum + (l.upb || 0), 0);
+
+            return [
+              { label: "Within 12 months", upb: upb12m, pct: totalUpb > 0 ? (upb12m / totalUpb * 100).toFixed(1) : "0" },
+              { label: "12-24 months", upb: upb24m, pct: totalUpb > 0 ? (upb24m / totalUpb * 100).toFixed(1) : "0" },
+            ].map(({ label, upb, pct }) => (
+              <div key={label} className="flex items-center justify-between">
+                <span className="text-bm-muted2">{label}</span>
+                <span className="font-medium">{fmtMoney(upb)} ({pct}%)</span>
+              </div>
+            ));
+          })()}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1001,7 +1001,38 @@ function InvestmentBriefingPageContent({
       testId: "hero-metric-current-value",
     },
   ];
-  const outcomeMetrics = [
+  // For debt investments, show debt-specific outcome metrics
+  const isDebtInvestment = fundDetail?.fund?.strategy === "debt";
+  const outcomeMetrics = isDebtInvestment ? [
+    {
+      label: "UPB",
+      value: fmtMoney(quarterState?.debt_balance ?? totalDebt),
+      change: buildMoneyChange(asNumber(quarterState?.debt_balance ?? totalDebt), asNumber(operatingPair.prior?.debt_balance), priorOperatingQuarter, { inverse: true }),
+      testId: "outcome-metric-upb",
+    },
+    {
+      label: "Coupon",
+      value: fmtPct(quarterState?.debt_balance && quarterState.debt_balance > 0 && quarterState.noi ? Number(quarterState.noi) / Number(quarterState.debt_balance) : null),
+      testId: "outcome-metric-coupon",
+    },
+    {
+      label: "Maturity",
+      value: investment?.name ? "—" : "—", // Placeholder for maturity date from loan record
+      testId: "outcome-metric-maturity",
+    },
+    {
+      label: "DSCR",
+      value: fmtX(dscr),
+      change: quarterState?.noi != null && operatingPair.prior?.noi != null ? buildBpsChange(asNumber(dscr), asNumber(operatingPair.prior.noi / (quarterState.debt_service || 1)), priorOperatingQuarter) : undefined,
+      testId: "outcome-metric-dscr",
+    },
+    {
+      label: "LTV",
+      value: fmtPct(ltv),
+      change: buildBpsChange(ltv, priorLtv, priorOperatingQuarter, { inverse: true }),
+      testId: "outcome-metric-ltv",
+    },
+  ] : [
     {
       label: "NAV",
       value: fmtMoney(quarterState?.nav ?? fundNavContribution),
@@ -1281,8 +1312,8 @@ function InvestmentBriefingPageContent({
       <section className="space-y-4" data-testid="section-investment-outcome">
         <div>
           <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">{SECTION_ORDER.outcome}</p>
-          <h2 className="mt-1 text-xl font-semibold tracking-tight text-bm-text">Investment Outcome</h2>
-          <p className="mt-1 text-sm text-bm-muted2">Return metrics and leverage stay in their own band so outcomes read separately from operating drivers.</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight text-bm-text">{isDebtInvestment ? "Loan Performance" : "Investment Outcome"}</h2>
+          <p className="mt-1 text-sm text-bm-muted2">{isDebtInvestment ? "Loan metrics track UPB, coupon, DSCR, and maturity. Collateral performance follows in the Operating section." : "Return metrics and leverage stay in their own band so outcomes read separately from operating drivers."}</p>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_360px]">
@@ -1333,8 +1364,8 @@ function InvestmentBriefingPageContent({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">{SECTION_ORDER.operations}</p>
-            <h2 className="mt-1 text-xl font-semibold tracking-tight text-bm-text">Operating Performance</h2>
-            <p className="mt-1 text-sm text-bm-muted2">NOI, occupancy, and operating trend lines stay visually distinct from valuation and return outcomes.</p>
+            <h2 className="mt-1 text-xl font-semibold tracking-tight text-bm-text">{isDebtInvestment ? "Collateral Performance" : "Operating Performance"}</h2>
+            <p className="mt-1 text-sm text-bm-muted2">{isDebtInvestment ? "NOI, occupancy, and operating trends show collateral-level health and drive debt service coverage." : "NOI, occupancy, and operating trend lines stay visually distinct from valuation and return outcomes."}</p>
           </div>
           <div className="flex flex-wrap gap-3 shrink-0">
             <SegmentToggle
