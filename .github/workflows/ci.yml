@@ -15,6 +15,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-mass-deletion:
+    name: Check for mass deletions
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for mass deletion
+        run: |
+          # Count files deleted in this PR
+          deleted=$(git diff origin/${{ github.base_ref }}...HEAD --diff-filter=D --name-only | wc -l)
+          echo "Files deleted in this PR: $deleted"
+
+          if [[ $deleted -gt 100 ]]; then
+            echo "::error::Mass deletion detected! This PR deletes $deleted files."
+            echo ""
+            echo "First 20 deleted files:"
+            git diff origin/${{ github.base_ref }}...HEAD --diff-filter=D --name-only | head -20
+            exit 1
+          fi
+
   backend-lint:
     name: Backend Lint (backend)
     runs-on: ubuntu-latest

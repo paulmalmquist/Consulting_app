@@ -44,6 +44,22 @@ commands:
   - /ops_status
   - /brief
   - /cost
+
+## Mass Deletion Protection
+
+**Policy**: No commit or PR may delete >100 files without explicit review and approval.
+
+**Enforcement**:
+- `.githooks/pre-commit`: Blocks staged deletions >100 files before commit (local safety)
+- `.github/workflows/ci.yml` `check-mass-deletion` job: Fails PR if >100 files deleted (remote gate)
+
+**If you hit the limit**:
+1. Break the change into smaller commits (one logical refactor per commit)
+2. Document why the deletions are necessary in the commit message
+3. Request explicit review in the PR description
+
+**Exception process**: If a mass deletion is legitimate (e.g., removing a deprecated subsystem), add `[MASS_DELETE_APPROVED]` to the commit message AND include a link to a discussion/issue that approved the deletion.
+
 notes:
   - Global routing lives here. Downstream docs should link back instead of repeating repo-wide dispatch tables.
   - Use `PORTABILITY.MD` when a request touches client forkability, white-labeling, tenant packs, or new-client spin-up.

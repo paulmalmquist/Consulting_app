@@ -1,7 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
 branch="$(git branch --show-current)"
+
+# Block commits to protected branches
 if [[ "$branch" == "main" || "$branch" == "master" || "$branch" == "production" ]]; then
   echo "Blocked: commits to protected branch '$branch' are not allowed by orchestration policy." >&2
+  exit 1
+fi
+
+# Catch mass deletions (>100 files deleted in a single commit)
+deleted=$(git diff --cached --diff-filter=D --name-only | wc -l)
+if [[ $deleted -gt 100 ]]; then
+  echo "" >&2
+  echo "⚠️  MASS DELETION DETECTED: $deleted files staged for deletion" >&2
+  echo "" >&2
+  echo "Files being deleted:" >&2
+  git diff --cached --diff-filter=D --name-only | head -20 >&2
+  if [[ $deleted -gt 20 ]]; then
+    echo "... and $((deleted - 20)) more" >&2
+  fi
+  echo "" >&2
+  echo "To proceed, unstage and re-review your changes:" >&2
+  echo "  git reset HEAD <files>" >&2
+  echo "" >&2
   exit 1
 fi
