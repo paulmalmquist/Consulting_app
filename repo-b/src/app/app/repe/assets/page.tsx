@@ -50,7 +50,7 @@ const US_STATES = [
   "VA","WA","WV","WI","WY",
 ] as const;
 
-const STATUS_OPTIONS = ["All", "active", "disposed"] as const;
+const STATUS_OPTIONS = ["All", "active", "exited", "pipeline", "held"] as const;
 
 /* ── Asset Creation Modal ─────────────────────────────────────── */
 function AssetCreateModal({
@@ -513,7 +513,7 @@ function AssetsIndexContent() {
                         {asset.state || "—"}
                       </td>
                       <td className={`px-4 py-4 align-middle ${reIndexSecondaryCellClass}`}>
-                        {asset.units ? `${asset.units} units` : asset.square_feet ? `${(asset.square_feet / 1000).toFixed(0)}K SF` : "—"}
+                        {(asset.units && asset.units > 0) ? `${asset.units.toLocaleString()} units` : (asset.square_feet && asset.square_feet > 0) ? `${Math.max(1, Math.round(asset.square_feet / 1000))}K SF` : "—"}
                       </td>
                       <td className={`px-4 py-4 align-middle ${reIndexNumericCellClass}`}>
                         {fmtMoney(asset.latest_noi)}
@@ -525,7 +525,18 @@ function AssetsIndexContent() {
                         {fmtMoney(asset.latest_value)}
                       </td>
                       <td className="px-4 py-4 align-middle">
-                        <span className="inline-flex rounded-full border border-bm-border/60 bg-bm-surface/18 px-2.5 py-1 text-[11px] capitalize text-bm-muted2">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ${
+                          asset.status === "active"
+                            ? "border border-green-500/30 bg-green-500/10 text-green-400"
+                            : asset.status === "exited"
+                              ? "border border-amber-500/30 bg-amber-500/10 text-amber-400"
+                              : "border border-bm-border/60 bg-bm-surface/18 text-bm-muted2"
+                        }`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${
+                            asset.status === "active" ? "bg-green-400"
+                              : asset.status === "exited" ? "bg-amber-400"
+                              : "bg-bm-muted2"
+                          }`} />
                           {asset.status}
                         </span>
                       </td>

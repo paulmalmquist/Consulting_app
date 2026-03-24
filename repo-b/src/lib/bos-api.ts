@@ -5827,6 +5827,32 @@ export type ReV2AssetDetail = {
     env_id: string;
     business_id: string;
   };
+  /** Present only for exited assets — realization/sale data */
+  realization?: {
+    sale_date: string;
+    gross_sale_price: number;
+    sale_costs: number;
+    debt_payoff: number;
+    net_sale_proceeds: number;
+    ownership_percent: number;
+    realization_type: string;
+  };
+  /** Present only for exited assets — last meaningful quarter before exit zeroes */
+  exit_quarter_state?: {
+    quarter: string;
+    occupancy: number;
+    asset_value: number;
+    noi: number;
+    revenue: number;
+    opex: number;
+    debt_balance: number;
+    ltv: number;
+    dscr: number;
+    nav: number;
+    debt_service: number;
+    net_cash_flow: number;
+    capex: number;
+  };
 };
 
 export type ReV2AssetPeriod = {
@@ -6174,10 +6200,14 @@ export type BaseScenarioAssetContribution = {
   asset_name: string;
   investment_id: string;
   investment_name: string;
+  investment_type: string | null;
   asset_status: string | null;
   status_category: "active" | "disposed" | "pipeline";
   property_type: string | null;
   market: string | null;
+  city: string | null;
+  state: string | null;
+  msa: string | null;
   valuation_method: string | null;
   ownership_percent: number;
   attributable_equity_basis: number;
@@ -6311,6 +6341,42 @@ export type FundBaseScenario = {
   };
 };
 
+export type FundExposureAllocationRow = {
+  label: string;
+  value: number;
+  pct: number;
+  source_count: number;
+};
+
+export type FundExposureSummary = {
+  total_weight: number;
+  classified_weight: number;
+  unclassified_weight: number;
+  coverage_pct: number;
+};
+
+export type FundExposureInsights = {
+  fund_id: string;
+  quarter: string;
+  scenario_id: string | null;
+  sector_allocation: FundExposureAllocationRow[];
+  geographic_allocation: FundExposureAllocationRow[];
+  total_weight: number;
+  sector_summary: FundExposureSummary;
+  geographic_summary: FundExposureSummary;
+  weighting_basis_used: "current_nav" | "current_value" | "cost_basis" | "mixed" | "none";
+  debug?: {
+    assets_scanned: number;
+    investments_scanned: number;
+    nav_weight_rows: number;
+    current_value_fallback_rows: number;
+    cost_basis_fallback_rows: number;
+    skipped_zero_weight_rows: number;
+    missing_sector_rows: number;
+    missing_geography_rows: number;
+  };
+};
+
 export type WaterfallAllocation = {
   return_of_capital?: string;
   preferred_return?: string;
@@ -6389,6 +6455,19 @@ export function getFundBaseScenario(params: {
       quarter: params.quarter,
       scenario_id: params.scenario_id,
       liquidation_mode: params.liquidation_mode,
+    },
+  });
+}
+
+export function getFundExposureInsights(params: {
+  fund_id: string;
+  quarter: string;
+  scenario_id?: string;
+}): Promise<FundExposureInsights> {
+  return directFetch(`/api/re/v2/funds/${params.fund_id}/exposure`, {
+    params: {
+      quarter: params.quarter,
+      scenario_id: params.scenario_id,
     },
   });
 }

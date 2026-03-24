@@ -73,6 +73,9 @@ import {
   type ModelPreviewAssumption,
   getFundBaseScenario,
   type FundBaseScenario,
+  getFundExposureInsights,
+  type FundExposureInsights as FundExposureInsightsPayload,
+  type FundExposureSummary as FundExposureSummaryPayload,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
@@ -151,8 +154,15 @@ type FundOverviewData = {
   irrTimeline: IrrTimelinePoint[];
   capitalTimeline: CapitalTimelinePoint[];
   irrContrib: IrrContributionItem[];
+  exposure: FundExposureInsightsPayload | null;
   loading: boolean;
 };
+
+type ExposureDisplayRow = ExposureDatum & {
+  sourceCount: number;
+};
+
+type ExposureTabKey = "sector" | "geography";
 
 const FUND_DASHBOARD_COLORS = {
   primary: "#3B82F6",
@@ -169,6 +179,63 @@ const FUND_DASHBOARD_COLORS = {
   muted: "#64748B",
   text: "#0F172A",
 } as const;
+
+function formatExposureWeightingBasis(
+  basis: FundExposureInsightsPayload["weighting_basis_used"] | undefined
+): string {
+  switch (basis) {
+    case "current_nav":
+      return "current NAV contribution";
+    case "current_value":
+      return "current value";
+    case "cost_basis":
+      return "cost basis";
+    case "mixed":
+      return "current NAV contribution with fallback to current value and cost basis";
+    default:
+      return "current NAV contribution with fallback to current value and cost basis";
+  }
+}
+
+function toDisplayExposureRows(
+  rows: Array<{ label: string; value: number; pct: number; source_count?: number }>,
+  kind: ExposureTabKey
+): ExposureDisplayRow[] {
+  return rows.map((row) => ({
+    label:
+      kind === "sector" && row.label !== "Unclassified"
+        ? labelFn(PROPERTY_TYPE_LABELS, row.label) || fmtLineCode(row.label)
+        : row.label,
+    value: row.value,
+    pct: row.pct,
+    sourceCount: row.source_count ?? 0,
+  }));
+}
+
+function buildFallbackExposureSummary(rows: ExposureDatum[]): FundExposureSummaryPayload {
+  const totalWeight = rows.reduce((sum, row) => sum + row.value, 0);
+  const unclassifiedWeight = rows
+    .filter((row) => row.label === "Unclassified" || row.label === "Unknown")
+    .reduce((sum, row) => sum + row.value, 0);
+  const classifiedWeight = Math.max(0, totalWeight - unclassifiedWeight);
+
+  return {
+    total_weight: totalWeight,
+    classified_weight: classifiedWeight,
+    unclassified_weight: unclassifiedWeight,
+    coverage_pct: totalWeight > 0 ? (classifiedWeight / totalWeight) * 100 : 0,
+  };
+}
+
+function payloadToExposureInsights(payload: FundExposureInsightsPayload): {
+  sector: ExposureDatum[];
+  geography: ExposureDatum[];
+} {
+  return {
+    sector: payload.sector_allocation.map((row) => ({ label: row.label, value: row.value, pct: row.pct })),
+    geography: payload.geographic_allocation.map((row) => ({ label: row.label, value: row.value, pct: row.pct })),
+  };
+}
 
 const FUND_PANEL_CLASS =
   "rounded-[22px] border border-[#E2E8F0] bg-[#F8FAFC] shadow-[0_1px_2px_rgba(0,0,0,0.05)]";
@@ -703,20 +770,139 @@ function PerformanceDriversCard({
   );
 }
 
+function ExposureInsightsCard({
+  sectorRows,
+  geographicRows,
+  sectorSummary,
+  geographicSummary,
+  loading,
+  weightingBasisLabel,
+}: {
+  sectorRows: ExposureDisplayRow[];
+  geographicRows: ExposureDisplayRow[];
+  sectorSummary: FundExposureSummaryPayload;
+  geographicSummary: FundExposureSummaryPayload;
+  loading: boolean;
+  weightingBasisLabel: string;
+}) {
+  const [activeTab, setActiveTab] = useState<ExposureTabKey>("sector");
+  const activeRows = activeTab === "sector" ? sectorRows : geographicRows;
+  const activeSummary = activeTab === "sector" ? sectorSummary : geographicSummary;
+  const activeColor = activeTab === "sector" ? FUND_DASHBOARD_COLORS.primary : FUND_DASHBOARD_COLORS.realized;
+  const activeEmptyLabel =
+    activeTab === "sector"
+      ? "No sector allocation could be inferred from linked records."
+      : "No geographic exposure could be inferred from linked records.";
+
+  return (
+    <div className={`${FUND_PANEL_CLASS} p-5`} data-testid="exposure-insights">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Exposure</p>
+          <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.02em] text-[#0F172A]">Exposure Insights</h2>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-[#DBEAFE] bg-[#EFF6FF] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#2563EB]">
+            Coverage: {activeSummary.coverage_pct.toFixed(0)}% classified
+          </span>
+          <span className="rounded-full border border-[#E2E8F0] bg-white px-3 py-1 text-[11px] font-medium text-[#64748B]">
+            {fmtMoney(activeSummary.total_weight)} weighted
+          </span>
+        </div>
+      </div>
+      <p className="mt-2 max-w-3xl text-sm leading-6 text-[#64748B]">
+        Portfolio composition weighted by {weightingBasisLabel}.
+      </p>
+
+      <div className="mt-4 overflow-hidden rounded-[20px] border border-[#E5E7EB] bg-white">
+        <div className="flex flex-col gap-3 border-b border-[#E5E7EB] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="inline-flex w-fit rounded-full bg-[#F1F5F9] p-1">
+            {(["sector", "geography"] as ExposureTabKey[]).map((tab) => {
+              const selected = tab === activeTab;
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                    selected ? "bg-white text-[#0F172A] shadow-sm" : "text-[#64748B] hover:text-[#0F172A]"
+                  }`}
+                >
+                  {tab === "sector" ? "Sector" : "Geography"}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-[#64748B]">
+            {activeTab === "sector"
+              ? "Unclassified exposure is preserved in the mix when sector metadata is incomplete."
+              : "Unknown exposure is preserved in the mix when market or location metadata is incomplete."}
+          </p>
+        </div>
+
+        <div className="px-4 py-4">
+          {loading ? (
+            <div className="space-y-3" data-testid="exposure-insights-loading">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={`exposure-skeleton-${index}`} className="animate-pulse rounded-[16px] border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="h-3.5 w-32 rounded bg-slate-200" />
+                    <div className="h-3 w-24 rounded bg-slate-200" />
+                  </div>
+                  <div className="mt-2 h-[6px] rounded-full bg-slate-100" />
+                </div>
+              ))}
+            </div>
+          ) : activeRows.length > 0 ? (
+            <>
+              <div className="space-y-3">
+                {activeRows.map((row) => (
+                  <HorizontalInsightBar
+                    key={`${activeTab}-${row.label}`}
+                    label={row.label}
+                    valueLabel={`${row.pct.toFixed(1)}% • ${fmtMoney(row.value)}${row.sourceCount > 0 ? ` • ${row.sourceCount} ${row.sourceCount === 1 ? "record" : "records"}` : ""}`}
+                    pct={row.pct}
+                    color={activeColor}
+                  />
+                ))}
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                {[
+                  { label: "Classified", value: fmtMoney(activeSummary.classified_weight) },
+                  { label: activeTab === "sector" ? "Unclassified" : "Unknown", value: fmtMoney(activeSummary.unclassified_weight) },
+                  { label: "Coverage", value: `${activeSummary.coverage_pct.toFixed(1)}%` },
+                ].map((metric) => (
+                  <div key={`${activeTab}-${metric.label}`} className="rounded-[16px] border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#64748B]">{metric.label}</p>
+                    <p className="mt-1 text-sm font-semibold text-[#0F172A] tabular-nums">{metric.value}</p>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <NarrativeEmptyState
+              title={activeEmptyLabel}
+              detail="This section only stays empty when no sector or geography can be inferred from any linked portfolio records."
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ExposureCard({
-  title,
   rows,
   emptyLabel,
   color,
 }: {
-  title: string;
   rows: ExposureDatum[];
   emptyLabel: string;
   color: string;
 }) {
   return (
     <div className="rounded-[18px] border border-[#E5E7EB] bg-white p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#64748B]">{title}</p>
       <div className="mt-4">
         {rows.length > 0 ? (
           <div className="space-y-3">
@@ -881,6 +1067,7 @@ function useFundOverviewData({
   const [irrTimeline, setIrrTimeline] = useState<IrrTimelinePoint[]>([]);
   const [capitalTimeline, setCapitalTimeline] = useState<CapitalTimelinePoint[]>([]);
   const [irrContrib, setIrrContrib] = useState<IrrContributionItem[]>([]);
+  const [exposure, setExposure] = useState<FundExposureInsightsPayload | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -889,6 +1076,7 @@ function useFundOverviewData({
       setIrrTimeline([]);
       setCapitalTimeline([]);
       setIrrContrib([]);
+      setExposure(null);
       setLoading(false);
       return;
     }
@@ -896,11 +1084,12 @@ function useFundOverviewData({
     let cancelled = false;
 
     const fetchOverviewData = async () => {
-      const [nextRollup, nextIrrTimeline, nextCapitalTimeline, nextIrrContrib] = await Promise.all([
+      const [nextRollup, nextIrrTimeline, nextCapitalTimeline, nextIrrContrib, nextExposure] = await Promise.all([
         getFundValuationRollup(fund.fund_id, quarter).catch(() => null),
         getIrrTimeline({ fund_id: fundId, env_id: envId, business_id: businessId || fund.business_id }).catch(() => []),
         getCapitalTimeline({ fund_id: fundId, env_id: envId, business_id: businessId || fund.business_id }).catch(() => []),
         getIrrContribution({ fund_id: fundId, env_id: envId, business_id: businessId || fund.business_id, quarter }).catch(() => []),
+        getFundExposureInsights({ fund_id: fundId, quarter }).catch(() => null),
       ]);
 
       return {
@@ -908,6 +1097,7 @@ function useFundOverviewData({
         nextIrrTimeline,
         nextCapitalTimeline,
         nextIrrContrib,
+        nextExposure,
       };
     };
 
@@ -916,11 +1106,13 @@ function useFundOverviewData({
       nextIrrTimeline: IrrTimelinePoint[];
       nextCapitalTimeline: CapitalTimelinePoint[];
       nextIrrContrib: IrrContributionItem[];
+      nextExposure: FundExposureInsightsPayload | null;
     }) => {
       setRollup(nextData.nextRollup);
       setIrrTimeline(nextData.nextIrrTimeline);
       setCapitalTimeline(nextData.nextCapitalTimeline);
       setIrrContrib(nextData.nextIrrContrib);
+      setExposure(nextData.nextExposure);
     };
 
     async function loadOverview() {
@@ -964,7 +1156,7 @@ function useFundOverviewData({
     };
   }, [businessId, envId, fund?.business_id, fund?.fund_id, fundId, quarter]);
 
-  return { rollup, irrTimeline, capitalTimeline, irrContrib, loading };
+  return { rollup, irrTimeline, capitalTimeline, irrContrib, exposure, loading };
 }
 
 const TABS = [
@@ -1103,8 +1295,8 @@ export default function FundDetailPage({
     quarter,
   });
   const overviewExposureInsights = useMemo(
-    () => buildExposureInsights(investmentRollup),
-    [investmentRollup]
+    () => overviewData.exposure ? payloadToExposureInsights(overviewData.exposure) : buildExposureInsights(investmentRollup),
+    [investmentRollup, overviewData.exposure]
   );
   const overviewPerformanceDrivers = useMemo(
     () => buildPerformanceDrivers(overviewData.irrContrib, fundState?.portfolio_nav ?? overviewData.rollup?.summary.total_equity ?? null),
@@ -1754,9 +1946,13 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
     () => mergeValueCreationSeries(overviewData.irrTimeline, overviewData.capitalTimeline),
     [overviewData.capitalTimeline, overviewData.irrTimeline]
   );
-  const exposureInsights = useMemo(
+  const legacyExposureInsights = useMemo(
     () => buildExposureInsights(investmentRollup),
     [investmentRollup]
+  );
+  const exposureInsights = useMemo(
+    () => overviewData.exposure ? payloadToExposureInsights(overviewData.exposure) : legacyExposureInsights,
+    [legacyExposureInsights, overviewData.exposure]
   );
   const performanceDrivers = useMemo(
     () => buildPerformanceDrivers(overviewData.irrContrib, fundState?.portfolio_nav ?? overviewData.rollup?.summary.total_equity ?? null),
@@ -1767,18 +1963,56 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
     [displayInvestments, rollupById]
   );
   const sectorExposureRows = useMemo(
-    () =>
-      exposureInsights.sector.map((row) => ({
-        ...row,
-        label: labelFn(PROPERTY_TYPE_LABELS, row.label) || fmtLineCode(row.label),
-      })),
-    [exposureInsights.sector]
+    () => overviewData.exposure
+      ? toDisplayExposureRows(overviewData.exposure.sector_allocation, "sector")
+      : exposureInsights.sector.map((row) => ({
+          ...row,
+          label: labelFn(PROPERTY_TYPE_LABELS, row.label) || fmtLineCode(row.label),
+          sourceCount: 0,
+        })),
+    [exposureInsights.sector, overviewData.exposure]
   );
   const geographicExposureRows = useMemo(
-    () => exposureInsights.geography,
-    [exposureInsights.geography]
+    () => overviewData.exposure
+      ? toDisplayExposureRows(overviewData.exposure.geographic_allocation, "geography")
+      : exposureInsights.geography.map((row) => ({ ...row, sourceCount: 0 })),
+    [exposureInsights.geography, overviewData.exposure]
+  );
+  const sectorSummary = useMemo(
+    () => overviewData.exposure?.sector_summary ?? buildFallbackExposureSummary(sectorExposureRows),
+    [overviewData.exposure?.sector_summary, sectorExposureRows]
+  );
+  const geographicSummary = useMemo(
+    () => overviewData.exposure?.geographic_summary ?? buildFallbackExposureSummary(geographicExposureRows),
+    [geographicExposureRows, overviewData.exposure?.geographic_summary]
+  );
+  const weightingBasisLabel = useMemo(
+    () => formatExposureWeightingBasis(overviewData.exposure?.weighting_basis_used),
+    [overviewData.exposure?.weighting_basis_used]
   );
   const allocationRows = sectorExposureRows.length > 0 ? sectorExposureRows : geographicExposureRows;
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production" || overviewData.loading) return;
+    if (sectorExposureRows.length > 0 || geographicExposureRows.length > 0) return;
+
+    console.debug("[fund-detail][exposure] resolved empty", {
+      fundId: fund?.fund_id ?? null,
+      quarter,
+      payload: overviewData.exposure,
+      investmentRollupCount: investmentRollup.length,
+      legacyExposureInsights,
+    });
+  }, [
+    fund?.fund_id,
+    geographicExposureRows.length,
+    investmentRollup.length,
+    legacyExposureInsights,
+    overviewData.exposure,
+    overviewData.loading,
+    quarter,
+    sectorExposureRows.length,
+  ]);
 
   return (
     <div className="space-y-4">
@@ -1794,27 +2028,14 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
         <CapitalActivityCard capitalTimeline={overviewData.capitalTimeline} loading={overviewData.loading} />
       </div>
 
-      <div className={`${FUND_PANEL_CLASS} p-5`} data-testid="exposure-insights">
-        <NarrativeSectionHeading
-          eyebrow="Exposure"
-          title="Exposure Insights"
-          description="Composition is weighted by current NAV contribution, falling back to current value when NAV weights are unavailable."
-        />
-        <div className="mt-4 grid gap-4 xl:grid-cols-2">
-          <ExposureCard
-            title="Sector Allocation"
-            rows={sectorExposureRows}
-            emptyLabel="No sector allocation is available yet."
-            color={FUND_DASHBOARD_COLORS.primary}
-          />
-          <ExposureCard
-            title="Geographic Exposure"
-            rows={geographicExposureRows}
-            emptyLabel="No geographic exposure is available yet."
-            color={FUND_DASHBOARD_COLORS.realized}
-          />
-        </div>
-      </div>
+      <ExposureInsightsCard
+        sectorRows={sectorExposureRows}
+        geographicRows={geographicExposureRows}
+        sectorSummary={sectorSummary}
+        geographicSummary={geographicSummary}
+        loading={overviewData.loading}
+        weightingBasisLabel={weightingBasisLabel}
+      />
 
       <div
         className={`${FUND_PANEL_CLASS} overflow-hidden`}

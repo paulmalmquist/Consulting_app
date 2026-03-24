@@ -1,18 +1,19 @@
-# Market Rotation Selection — 2026-03-22
+# Market Rotation Selection — 2026-03-24
 
-**Generated:** 2026-03-22 (fin-rotation-scheduler)
-**Next step:** fin-research-sweep reads this file at 4:30 AM
+**Generated:** 2026-03-24T04:00 UTC
+**Scheduler:** fin-rotation-scheduler
+**Next consumer:** fin-research-sweep (4:30 AM)
 
 ---
 
 ## Selected Segments (4 of 4)
 
-| # | Segment ID | Segment Name | Category | Tier | Overdue Ratio |
-|---|---|---|---|---|---|
-| 1 | `cr-regime-btc` | BTC On-Chain Regime | crypto | 1 | ~2273x overdue |
-| 2 | `cr-regime-eth` | ETH Ecosystem Health | crypto | 1 | ~2273x overdue |
-| 3 | `dr-options-flow` | Equity Options Flow | derivatives | 1 | ~2273x overdue |
-| 4 | `dr-crypto-derivatives` | Crypto Derivatives Flow | derivatives | 1 | ~2273x overdue |
+| # | Segment ID | Segment Name | Category | Tier | Overdue Ratio | Cadence (days) |
+|---|---|---|---|---|---|---|
+| 1 | `eq-semi-ai-accel` | Semiconductor / AI Accelerators | equities | 1 | 758.1× | 3 |
+| 2 | `eq-factor-momentum` | Momentum Factor Screen | equities | 1 | 758.1× | 3 |
+| 3 | `eq-energy-transition` | Energy Transition / Grid | equities | 1 | 758.1× | 3 |
+| 4 | `cr-l1-alt` | Alt-L1 Platforms | crypto | 1 | 758.1× | 3 |
 
 ---
 
@@ -20,31 +21,41 @@
 
 | Category | Count | Segments |
 |---|---|---|
-| crypto | 2 | BTC On-Chain Regime, ETH Ecosystem Health |
-| derivatives | 2 | Equity Options Flow, Crypto Derivatives Flow |
+| equities | 3 | Semiconductor / AI Accelerators, Momentum Factor Screen, Energy Transition / Grid |
+| crypto | 1 | Alt-L1 Platforms |
+
+**Mix assessment:** Two-category spread. All four returned segments from the overdue query were selected. No macro/rates/credit/derivatives segments appeared in the top 4 — those categories may have longer cadences or were rotated more recently. fin-research-sweep should note if macro coverage is expected.
 
 ---
 
 ## Selection Notes
 
-- **All 4 segments are Tier 1** — highest-priority daily segments covering regime classification, on-chain health, and flow data.
-- **Overdue ratio of ~2273** for all segments indicates `last_rotated_at` was null (defaulted to 2020-01-01), meaning these segments have never been rotated. This is expected for a fresh database.
-- **Category coverage:** Two categories represented (crypto + derivatives). Equity, fixed income, macro, and other categories were not in the top 4 — they may have higher cadence_days or be absent from the active segment set. No heat triggers detected (overdue ratio is uniform across all returned segments; no anomalous signals available without historical data).
-- **`last_rotated_at` updated** to `now()` for all 4 segment IDs in `public.market_segments`.
+- All four segments had overdue ratios of ~758× as of 2026-03-24. Their `last_rotated_at` was previously stamped on 2026-03-22 (the prior run), and with a 3-day cadence they were due today.
+- All are **Tier 1**, which per task spec should always be included when overdue.
+- `rotation_priority_score` was 0.00 for all four — tiebreaking fell to query order (already sorted by overdue ratio DESC).
+- `last_rotated_at` and `updated_at` have been updated to `now()` for all four segment IDs.
 
 ---
 
 ## Heat Triggers
 
-No external heat triggers applied — selection was driven entirely by overdue ratio (all segments equally maximal). On subsequent runs, differential overdue ratios will allow tier and priority score to serve as tiebreakers.
+No external heat triggers applied. Selection driven by overdue ratio. Future runs may incorporate:
+- VIX spike flags (>25) to force macro/credit segments into the rotation
+- BTC 7-day drawdown >15% to elevate crypto tier-1 segments
+- Earnings calendar density to prioritize relevant equity sub-sectors
 
 ---
 
-## For fin-research-sweep
+## Segment Research Directives for fin-research-sweep
 
-Deep-dive research targets for 4:30 AM sweep:
+### 1. Semiconductor / AI Accelerators (`eq-semi-ai-accel`)
+Focus: NVDA, AMD, AVGO, MRVL, ASML supply chain dynamics; AI training vs. inference compute demand split; HBM memory constraints; China export control tail risk; datacenter CapEx trajectory from hyperscalers.
 
-1. **BTC On-Chain Regime** (`cr-regime-btc`) — on-chain metrics: NVT, MVRV, realized cap, miner flows, exchange inflows/outflows, HODLer behavior
-2. **ETH Ecosystem Health** (`cr-regime-eth`) — staking yields, L2 activity, DEX volume, gas trends, burn rate, validator economics
-3. **Equity Options Flow** (`dr-options-flow`) — put/call ratios, unusual options activity, term structure, skew, GEX (gamma exposure), major expiry positioning
-4. **Crypto Derivatives Flow** (`dr-crypto-derivatives`) — futures open interest, funding rates, liquidation heatmaps, perpetual vs. spot premium, options OI by strike
+### 2. Momentum Factor Screen (`eq-factor-momentum`)
+Focus: Current top-decile momentum names (12-1 month return); factor crowding signals; momentum crash risk given recent rate volatility; cross-asset momentum reads (equities + FX + commodities); sector rotation within the factor.
+
+### 3. Energy Transition / Grid (`eq-energy-transition`)
+Focus: Grid capex cycle (transformers, substations, long-lead equipment); utility-scale storage deployments; IRA credit transferability utilization; nuclear renaissance (SMR permitting pipeline); data center power demand as structural demand catalyst; policy risk around IRA modifications.
+
+### 4. Alt-L1 Platforms (`cr-l1-alt`)
+Focus: SOL, AVAX, SUI, APT relative performance vs. ETH; DEX volume market share shifts; stablecoin issuance on alt-L1s; fee revenue and token burn dynamics; validator/staker economics; developer activity trends.

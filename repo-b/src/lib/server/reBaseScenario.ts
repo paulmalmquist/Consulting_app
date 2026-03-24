@@ -23,6 +23,7 @@ type AssetRow = {
   asset_status: string | null;
   investment_id: string;
   investment_name: string;
+  investment_type: string | null;
   investment_stage: string | null;
   committed_capital: number | null;
   invested_capital: number | null;
@@ -30,6 +31,9 @@ type AssetRow = {
   cost_basis: number | null;
   property_type: string | null;
   market: string | null;
+  city: string | null;
+  state: string | null;
+  msa: string | null;
   ownership_percent: number | null;
   noi: number | null;
   net_cash_flow: number | null;
@@ -118,10 +122,14 @@ export type BaseScenarioAssetContribution = {
   asset_name: string;
   investment_id: string;
   investment_name: string;
+  investment_type: string | null;
   asset_status: string | null;
   status_category: "active" | "disposed" | "pipeline";
   property_type: string | null;
   market: string | null;
+  city: string | null;
+  state: string | null;
+  msa: string | null;
   valuation_method: string | null;
   ownership_percent: number;
   attributable_equity_basis: number;
@@ -999,6 +1007,7 @@ async function loadAssets(
        COALESCE(a.asset_status, 'active') AS asset_status,
        d.deal_id::text AS investment_id,
        d.name AS investment_name,
+       d.deal_type AS investment_type,
        d.stage AS investment_stage,
        d.committed_capital::float8,
        d.invested_capital::float8,
@@ -1006,6 +1015,9 @@ async function loadAssets(
        a.cost_basis::float8,
        pa.property_type,
        COALESCE(NULLIF(pa.msa, ''), NULLIF(pa.market, ''), NULLIF(pa.city, '')) AS market,
+       NULLIF(pa.city, '') AS city,
+       NULLIF(pa.state, '') AS state,
+       NULLIF(pa.msa, '') AS msa,
        COALESCE(j.ownership_percent::float8, 1.0) AS ownership_percent,
        lqs.noi,
        lqs.net_cash_flow,
@@ -1269,10 +1281,14 @@ function buildAssetContributions({
       asset_name: asset.asset_name,
       investment_id: asset.investment_id,
       investment_name: asset.investment_name,
+      investment_type: asset.investment_type,
       asset_status: asset.asset_status,
       status_category: statusCategory,
       property_type: asset.property_type,
       market: asset.market,
+      city: asset.city,
+      state: asset.state,
+      msa: asset.msa,
       valuation_method: asset.valuation_method,
       ownership_percent: roundRatio(ownershipPercent) || ownershipPercent,
       attributable_equity_basis: attributableEquityBasis,

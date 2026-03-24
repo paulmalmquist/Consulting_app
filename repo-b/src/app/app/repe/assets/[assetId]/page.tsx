@@ -35,6 +35,7 @@ import ValuationSection from "@/components/repe/asset-cockpit/ValuationSection";
 import DocumentsSection from "@/components/repe/asset-cockpit/DocumentsSection";
 import AuditSection from "@/components/repe/asset-cockpit/AuditSection";
 import { fmtMoney } from "@/components/repe/asset-cockpit/format-utils";
+import { resolveAssetMetrics } from "@/lib/resolve-exit-metrics";
 
 const SECTIONS = ["Cockpit", "Leasing", "Financials", "Debt", "Valuation", "Documents", "Audit"] as const;
 type SectionKey = (typeof SECTIONS)[number];
@@ -190,6 +191,7 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
 
   const { asset, property, investment, fund, env } = detail;
   const base = basePath || `/lab/env/${env.env_id}/re`;
+  const m = resolveAssetMetrics(detail, financialState);
 
   return (
     <section className="space-y-4" data-testid="re-asset-homepage">
@@ -216,12 +218,19 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
               <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
                 asset.status === "active"
                   ? "bg-green-500/15 text-green-400 border border-green-500/30"
-                  : asset.status === "archived"
-                    ? "bg-red-500/15 text-red-400 border border-red-500/30"
-                    : "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                  : asset.status === "exited"
+                    ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                    : asset.status === "written_off"
+                      ? "bg-red-500/15 text-red-400 border border-red-500/30"
+                      : asset.status === "archived"
+                        ? "bg-red-500/15 text-red-400 border border-red-500/30"
+                        : "bg-slate-500/15 text-slate-400 border border-slate-500/30"
               }`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${
-                  asset.status === "active" ? "bg-green-400" : asset.status === "archived" ? "bg-red-400" : "bg-amber-400"
+                  asset.status === "active" ? "bg-green-400"
+                    : asset.status === "exited" ? "bg-amber-400"
+                    : asset.status === "written_off" || asset.status === "archived" ? "bg-red-400"
+                    : "bg-slate-400"
                 }`} />
                 {asset.status}
               </span>
@@ -260,8 +269,14 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
                 <dd className="text-sm font-medium text-bm-text truncate">{fmtMoney(asset.cost_basis)}</dd>
               </div>
               <div>
-                <dt className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Current Value</dt>
-                <dd className="text-sm font-medium text-bm-text truncate">{fmtMoney(financialState?.asset_value)}</dd>
+                <dt className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">
+                  {m.isExited ? m.assetValue.label : "Current Value"}
+                </dt>
+                <dd className="text-sm font-medium text-bm-text truncate">
+                  {m.isExited
+                    ? (m.assetValue.value != null ? fmtMoney(m.assetValue.value) : "—")
+                    : fmtMoney(financialState?.asset_value)}
+                </dd>
               </div>
               <div>
                 <dt className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Property Type</dt>
@@ -271,10 +286,19 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
                 <dt className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Market</dt>
                 <dd className="text-sm font-medium text-bm-text truncate">{property.market ?? property.msa ?? "—"}</dd>
               </div>
-              <div>
-                <dt className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Square Feet</dt>
-                <dd className="text-sm font-medium text-bm-text truncate">{property.square_feet ? `${(Number(property.square_feet) / 1000).toFixed(0)}K SF` : "—"}</dd>
-              </div>
+              {m.isExited && m.saleDate ? (
+                <div>
+                  <dt className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Sale Date</dt>
+                  <dd className="text-sm font-medium text-bm-text truncate">
+                    {new Date(m.saleDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </dd>
+                </div>
+              ) : (
+                <div>
+                  <dt className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Square Feet</dt>
+                  <dd className="text-sm font-medium text-bm-text truncate">{property.square_feet ? `${(Number(property.square_feet) / 1000).toFixed(0)}K SF` : "—"}</dd>
+                </div>
+              )}
             </dl>
           </div>
 

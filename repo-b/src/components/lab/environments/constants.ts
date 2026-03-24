@@ -207,6 +207,11 @@ export function isVisualResumeEnvironment(industry?: string | null): boolean {
   return key === "visual_resume" || key === "resume";
 }
 
+export function isMarketRotationEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "market_rotation" || key === "market_intelligence" || key === "markets";
+}
+
 export function resolveEnvironmentOpenPath(args: {
   envId: string;
   industry?: string | null;
@@ -242,6 +247,7 @@ export function resolveEnvironmentOpenPath(args: {
   if (isEngagementOutputEnvironment(args.industry)) return `/lab/env/${args.envId}/outputs`;
   if (isExecutionPatternIntelEnvironment(args.industry)) return `/lab/env/${args.envId}/pattern-intel`;
   if (isVisualResumeEnvironment(args.industry)) return `/lab/env/${args.envId}/resume`;
+  if (isMarketRotationEnvironment(args.industry)) return `/lab/env/${args.envId}/markets`;
   return `/lab/env/${args.envId}`;
 }
 

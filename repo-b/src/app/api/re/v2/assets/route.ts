@@ -123,6 +123,11 @@ export async function GET(request: Request) {
          SELECT noi, occupancy, asset_value, quarter
          FROM re_asset_quarter_state
          WHERE asset_id = a.asset_id AND scenario_id IS NULL
+           -- For exited assets, skip post-exit quarters where metrics zeroed out
+           AND (
+             COALESCE(a.asset_status, 'active') NOT IN ('exited', 'written_off')
+             OR (COALESCE(noi, 0) != 0 OR COALESCE(occupancy, 0) != 0 OR COALESCE(asset_value, 0) != 0)
+           )
          ORDER BY quarter DESC LIMIT 1
        ) qs ON true
        ${whereClause}
