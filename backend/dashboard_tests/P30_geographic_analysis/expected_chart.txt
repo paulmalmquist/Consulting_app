@@ -1,6 +1,0 @@
-Widget types: geographic_map, comparison_table
-Metrics: 
-Group by: None
-Time grain: None
-Entity type: fund
-Archetype: executive_summary

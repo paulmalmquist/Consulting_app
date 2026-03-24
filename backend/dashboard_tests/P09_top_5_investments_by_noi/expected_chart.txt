@@ -1,6 +1,0 @@
-Widget types: bar_chart
-Metrics: NOI
-Group by: None
-Time grain: None
-Entity type: investment
-Archetype: custom

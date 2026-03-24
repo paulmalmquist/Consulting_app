@@ -1,6 +1,0 @@
-Widget types: metrics_strip, comparison_table, trend_line
-Metrics: NOI
-Group by: None
-Time grain: None
-Entity type: asset
-Archetype: watchlist

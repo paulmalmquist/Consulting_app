@@ -1,6 +1,0 @@
-Widget types: metrics_strip, statement_table, trend_line
-Metrics: 
-Group by: None
-Time grain: None
-Entity type: asset
-Archetype: operating_review

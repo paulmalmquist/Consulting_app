@@ -1,6 +1,0 @@
-Widget types: trend_line
-Metrics: NET_CASH_FLOW
-Group by: investment
-Time grain: quarterly
-Entity type: investment
-Archetype: custom

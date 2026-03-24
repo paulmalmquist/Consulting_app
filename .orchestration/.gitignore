@@ -1,7 +1,0 @@
-logs/*.json
-logs/*.jsonl
-!logs/.gitkeep
-sessions/*.json
-!sessions/.gitkeep
-locks/*.lock
-worktrees/

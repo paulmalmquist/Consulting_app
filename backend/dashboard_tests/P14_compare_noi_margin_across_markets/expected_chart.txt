@@ -1,6 +1,0 @@
-Widget types: bar_chart
-Metrics: NOI
-Group by: market
-Time grain: None
-Entity type: asset
-Archetype: custom
