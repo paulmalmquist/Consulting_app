@@ -104,9 +104,9 @@ def compute(*, fin_fund_id: str, quarter: str) -> dict:
 
     # Debt-specific metrics (for debt funds)
     total_upb = Decimal(0)
-    weighted_avg_coupon = Decimal(0)
-    watchlist_count = 0
-    io_exposure_pct = Decimal(0)
+    _weighted_avg_coupon = Decimal(0)
+    _watchlist_count = 0
+    _io_exposure_pct = Decimal(0)
 
     with get_cursor() as cur:
         # Compute total UPB and weighted coupon across loan book

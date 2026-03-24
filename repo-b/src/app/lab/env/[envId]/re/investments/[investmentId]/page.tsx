@@ -1001,6 +1001,15 @@ function InvestmentBriefingPageContent({
       testId: "hero-metric-current-value",
     },
   ];
+  const dscr =
+    quarterState?.debt_service && quarterState.debt_service > 0 && quarterState.noi != null
+      ? Number(quarterState.noi) / Number(quarterState.debt_service)
+      : null;
+  const debtYield =
+    quarterState?.debt_balance && quarterState.debt_balance > 0 && quarterState.noi != null
+      ? Number(quarterState.noi) / Number(quarterState.debt_balance)
+      : null;
+
   // For debt investments, show debt-specific outcome metrics
   const isDebtInvestment = fundDetail?.fund?.strategy === "debt";
   const outcomeMetrics = isDebtInvestment ? [
@@ -1098,14 +1107,6 @@ function InvestmentBriefingPageContent({
       supportingText: operatingPair.current?.occupancy == null ? "Occupancy feed will surface here once direct coverage is available." : undefined,
     },
   ];
-  const dscr =
-    quarterState?.debt_service && quarterState.debt_service > 0 && quarterState.noi != null
-      ? Number(quarterState.noi) / Number(quarterState.debt_service)
-      : null;
-  const debtYield =
-    quarterState?.debt_balance && quarterState.debt_balance > 0 && quarterState.noi != null
-      ? Number(quarterState.noi) / Number(quarterState.debt_balance)
-      : null;
 
   useEffect(() => {
     if (!investment || !resolvedQuarter) return;
