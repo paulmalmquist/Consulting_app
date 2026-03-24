@@ -6,6 +6,7 @@ import type {
   ReV2AssetPeriod,
   ReLeaseSummary,
 } from "@/lib/bos-api";
+import { resolveAssetMetrics, type ResolvedMetric } from "@/lib/resolve-exit-metrics";
 import { PROPERTY_TYPE_LABELS, label } from "@/lib/labels";
 import { QuarterlyBarChart, TrendLineChart } from "@/components/charts";
 import { CHART_COLORS } from "@/components/charts/chart-theme";
@@ -31,6 +32,18 @@ import ICReviewPanel from "./panels/ICReviewPanel";
 import SecondaryMetric from "./shared/SecondaryMetric";
 import { fmtSfPsf } from "./format-utils";
 
+/** Format a resolved metric value for display */
+function fmtResolved(m: ResolvedMetric, format: "money" | "pct" | "x" | "pctRaw"): string {
+  if (m.value == null) return "—";
+  switch (format) {
+    case "money": return fmtMoney(m.value);
+    case "pct": return fmtPct(m.value);
+    case "pctRaw": return `${(m.value * 100).toFixed(1)}%`;
+    case "x": return fmtX(m.value);
+    default: return String(m.value);
+  }
+}
+
 interface Props {
   detail: ReV2AssetDetail;
   financialState: ReV2AssetQuarterState | null;
@@ -48,131 +61,169 @@ export default function CockpitSection({
   leaseSummary,
 }: Props) {
   const { asset, property } = detail;
+  const m = resolveAssetMetrics(detail, financialState);
 
   // Prior quarter (second-to-last in sorted periods)
   const prior = periods.length >= 2 ? periods[periods.length - 2] : null;
 
-  // Cap rate from current quarter state
-  const capRate =
-    financialState?.asset_value && financialState?.noi
-      ? (Number(financialState.noi) * 4) / Number(financialState.asset_value)
-      : null;
-
-  // NOI Margin
-  const noiMargin =
-    financialState?.noi && financialState?.revenue
-      ? Number(financialState.noi) / Number(financialState.revenue)
-      : null;
+  // For exited assets, filter chart data to stop at the exit quarter
+  const exitQuarter = detail.exit_quarter_state?.quarter;
 
   // Bar chart data for Revenue/OpEx/NOI
-  const barData = periods.map((p) => ({
-    quarter: p.quarter,
-    revenue: Number(p.revenue ?? 0),
-    opex: Number(p.opex ?? 0),
-    noi: Number(p.noi ?? 0),
-  }));
+  const barData = periods
+    .filter((p) => !m.isExited || !exitQuarter || p.quarter <= exitQuarter)
+    .map((p) => ({
+      quarter: p.quarter,
+      revenue: Number(p.revenue ?? 0),
+      opex: Number(p.opex ?? 0),
+      noi: Number(p.noi ?? 0),
+    }));
 
   // Occupancy line data
-  const occData = periods.map((p) => ({
-    quarter: p.quarter,
-    occupancy: Number(p.occupancy ?? 0),
-  }));
+  const occData = periods
+    .filter((p) => !m.isExited || !exitQuarter || p.quarter <= exitQuarter)
+    .map((p) => ({
+      quarter: p.quarter,
+      occupancy: Number(p.occupancy ?? 0),
+    }));
 
   // Value trend data
-  const valueTrendData = periods.map((p) => ({
-    quarter: p.quarter,
-    value: Number(p.asset_value ?? 0),
-  }));
+  const valueTrendData = periods
+    .filter((p) => !m.isExited || !exitQuarter || p.quarter <= exitQuarter)
+    .map((p) => ({
+      quarter: p.quarter,
+      value: Number(p.asset_value ?? 0),
+    }));
 
   return (
     <div className="space-y-6" data-testid="asset-cockpit-section">
+      {/* ═══════════════════════════════════════════════════════════════ */}
+      {/*  EXIT BANNER — shown only for exited/sold assets               */}
+      {/* ═══════════════════════════════════════════════════════════════ */}
+      {m.isExited && m.exitBannerText && (
+        <div
+          className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] px-5 py-4"
+          data-testid="exit-banner"
+        >
+          <span className="mt-0.5 text-amber-400 text-lg">●</span>
+          <div>
+            <p className="text-sm font-medium text-amber-300">{m.exitBannerText}</p>
+            {m.holdPeriodMonths != null && (
+              <p className="mt-1 text-xs text-bm-muted2">
+                Hold period: {m.holdPeriodMonths} months
+                {asset.acquisition_date && ` (acquired ${new Date(asset.acquisition_date).toLocaleDateString("en-US", { month: "short", year: "numeric" })})`}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ═══════════════════════════════════════════════════════════════ */}
       {/*  POSITION SNAPSHOT                                             */}
       {/* ═══════════════════════════════════════════════════════════════ */}
       <section className="space-y-5">
         <SectionHeader
-          eyebrow="POSITION SNAPSHOT"
-          title="Asset Performance"
+          eyebrow={m.isExited ? "EXIT SNAPSHOT" : "POSITION SNAPSHOT"}
+          title={m.isExited ? "Realized Performance" : "Asset Performance"}
         />
 
         {/* Grouped Hero KPIs — 3 categories */}
         <div className={BRIEFING_CONTAINER}>
           {/* Operations */}
           <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2 mb-3">
-            Operations
+            {m.isExited ? "Operations at Exit" : "Operations"}
           </p>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <HeroMetricCard
-              label="Revenue"
-              value={fmtMoney(financialState?.revenue)}
+              label={m.revenue.label}
+              value={fmtResolved(m.revenue, "money")}
               accent={BRIEFING_COLORS.performance}
               testId="kpi-revenue"
             />
             <HeroMetricCard
-              label="NOI"
-              value={fmtMoney(financialState?.noi)}
+              label={m.noi.label}
+              value={fmtResolved(m.noi, "money")}
               accent={BRIEFING_COLORS.performance}
               testId="kpi-noi"
             />
             <HeroMetricCard
-              label="Occupancy"
-              value={fmtPct(financialState?.occupancy ?? occupancy)}
+              label={m.occupancy.label}
+              value={fmtResolved(m.occupancy, "pct")}
               accent={BRIEFING_COLORS.performance}
               testId="kpi-occupancy"
             />
             <HeroMetricCard
-              label="NOI Margin"
-              value={noiMargin != null ? `${(noiMargin * 100).toFixed(1)}%` : "—"}
+              label={m.noiMargin.label}
+              value={fmtResolved(m.noiMargin, "pctRaw")}
               accent={BRIEFING_COLORS.performance}
               testId="kpi-noi-margin"
             />
           </div>
 
-          {/* Value */}
+          {/* Value / Exit Economics */}
           <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2 mb-3 mt-6">
-            Value
+            {m.isExited ? "Exit Economics" : "Value"}
           </p>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className={`grid gap-4 sm:grid-cols-2 ${m.isExited && m.netProceeds ? "xl:grid-cols-4" : "xl:grid-cols-3"}`}>
             <HeroMetricCard
-              label="Asset Value"
-              value={fmtMoney(financialState?.asset_value)}
+              label={m.assetValue.label}
+              value={fmtResolved(m.assetValue, "money")}
               accent={BRIEFING_COLORS.capital}
               testId="kpi-asset-value"
             />
-            <HeroMetricCard
-              label="Cap Rate"
-              value={capRate != null ? `${(capRate * 100).toFixed(2)}%` : "—"}
-              accent={BRIEFING_COLORS.capital}
-              testId="kpi-cap-rate"
-            />
-            <HeroMetricCard
-              label="NAV"
-              value={fmtMoney(financialState?.nav)}
-              accent={BRIEFING_COLORS.capital}
-              testId="kpi-nav"
-            />
+            {m.isExited && m.netProceeds ? (
+              <HeroMetricCard
+                label={m.netProceeds.label}
+                value={fmtResolved(m.netProceeds, "money")}
+                accent={BRIEFING_COLORS.capital}
+                testId="kpi-net-proceeds"
+              />
+            ) : null}
+            {m.isExited && m.gainOnSale ? (
+              <HeroMetricCard
+                label={m.gainOnSale.label}
+                value={fmtResolved(m.gainOnSale, "money")}
+                accent={m.gainOnSale.value != null && m.gainOnSale.value >= 0 ? BRIEFING_COLORS.performance : BRIEFING_COLORS.risk}
+                testId="kpi-gain-on-sale"
+              />
+            ) : (
+              <HeroMetricCard
+                label={m.capRate.label}
+                value={m.capRate.value != null ? `${(m.capRate.value * 100).toFixed(2)}%` : "—"}
+                accent={BRIEFING_COLORS.capital}
+                testId="kpi-cap-rate"
+              />
+            )}
+            {!m.isExited && (
+              <HeroMetricCard
+                label={m.nav.label}
+                value={fmtResolved(m.nav, "money")}
+                accent={BRIEFING_COLORS.capital}
+                testId="kpi-nav"
+              />
+            )}
           </div>
 
-          {/* Capital */}
+          {/* Capital / Debt */}
           <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2 mb-3 mt-6">
-            Capital
+            {m.isExited ? "Capital at Exit" : "Capital"}
           </p>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <HeroMetricCard
-              label="Debt Balance"
-              value={fmtMoney(financialState?.debt_balance)}
+              label={m.debtBalance.label}
+              value={fmtResolved(m.debtBalance, "money")}
               accent={BRIEFING_COLORS.structure}
               testId="kpi-debt"
             />
             <HeroMetricCard
-              label="LTV"
-              value={fmtPct(financialState?.ltv)}
+              label={m.ltv.label}
+              value={fmtResolved(m.ltv, "pct")}
               accent={BRIEFING_COLORS.structure}
               testId="kpi-ltv"
             />
             <HeroMetricCard
-              label="DSCR"
-              value={fmtX(financialState?.dscr)}
+              label={m.dscr.label}
+              value={fmtResolved(m.dscr, "x")}
               accent={BRIEFING_COLORS.structure}
               testId="kpi-dscr"
             />

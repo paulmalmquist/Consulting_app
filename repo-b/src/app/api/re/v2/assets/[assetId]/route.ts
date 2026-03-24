@@ -88,6 +88,36 @@ export async function GET(
 
     const row = res.rows[0];
 
+    // For exited assets, fetch realization data and last meaningful quarter state
+    let realization: Record<string, unknown> | null = null;
+    let exitQuarterState: Record<string, unknown> | null = null;
+
+    if (row.asset_status === "exited") {
+      const [realRes, exitQsRes] = await Promise.all([
+        pool.query(
+          `SELECT sale_date, gross_sale_price, sale_costs, debt_payoff,
+                  net_sale_proceeds, ownership_percent, attributable_proceeds,
+                  realization_type, notes
+           FROM re_asset_realization
+           WHERE asset_id = $1::uuid
+           ORDER BY sale_date DESC LIMIT 1`,
+          [params.assetId]
+        ),
+        pool.query(
+          `SELECT quarter, occupancy, asset_value, noi, revenue, opex,
+                  debt_balance, ltv, dscr, nav, debt_service, debt_yield,
+                  net_cash_flow, capex
+           FROM re_asset_quarter_state
+           WHERE asset_id = $1::uuid
+             AND (occupancy > 0 OR asset_value > 0 OR noi > 0)
+           ORDER BY quarter DESC LIMIT 1`,
+          [params.assetId]
+        ),
+      ]);
+      if (realRes.rows[0]) realization = realRes.rows[0];
+      if (exitQsRes.rows[0]) exitQuarterState = exitQsRes.rows[0];
+    }
+
     return Response.json({
       asset: {
         asset_id: row.asset_id,
@@ -99,6 +129,35 @@ export async function GET(
         jv_id: row.jv_id,
         created_at: row.created_at,
       },
+      // Exit snapshot — only present for exited assets
+      ...(realization && {
+        realization: {
+          sale_date: realization.sale_date,
+          gross_sale_price: realization.gross_sale_price,
+          sale_costs: realization.sale_costs,
+          debt_payoff: realization.debt_payoff,
+          net_sale_proceeds: realization.net_sale_proceeds,
+          ownership_percent: realization.ownership_percent,
+          realization_type: realization.realization_type,
+        },
+      }),
+      ...(exitQuarterState && {
+        exit_quarter_state: {
+          quarter: exitQuarterState.quarter,
+          occupancy: exitQuarterState.occupancy,
+          asset_value: exitQuarterState.asset_value,
+          noi: exitQuarterState.noi,
+          revenue: exitQuarterState.revenue,
+          opex: exitQuarterState.opex,
+          debt_balance: exitQuarterState.debt_balance,
+          ltv: exitQuarterState.ltv,
+          dscr: exitQuarterState.dscr,
+          nav: exitQuarterState.nav,
+          debt_service: exitQuarterState.debt_service,
+          net_cash_flow: exitQuarterState.net_cash_flow,
+          capex: exitQuarterState.capex,
+        },
+      }),
       property: {
         property_type: row.property_type,
         units: row.units,

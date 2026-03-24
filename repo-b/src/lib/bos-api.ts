@@ -5827,6 +5827,32 @@ export type ReV2AssetDetail = {
     env_id: string;
     business_id: string;
   };
+  /** Present only for exited assets — realization/sale data */
+  realization?: {
+    sale_date: string;
+    gross_sale_price: number;
+    sale_costs: number;
+    debt_payoff: number;
+    net_sale_proceeds: number;
+    ownership_percent: number;
+    realization_type: string;
+  };
+  /** Present only for exited assets — last meaningful quarter before exit zeroes */
+  exit_quarter_state?: {
+    quarter: string;
+    occupancy: number;
+    asset_value: number;
+    noi: number;
+    revenue: number;
+    opex: number;
+    debt_balance: number;
+    ltv: number;
+    dscr: number;
+    nav: number;
+    debt_service: number;
+    net_cash_flow: number;
+    capex: number;
+  };
 };
 
 export type ReV2AssetPeriod = {
