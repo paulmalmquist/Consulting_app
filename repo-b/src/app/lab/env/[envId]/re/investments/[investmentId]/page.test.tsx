@@ -1,5 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import InvestmentSummaryPage from "@/app/lab/env/[envId]/re/investments/[investmentId]/page";
 
 const mockRouterReplace = vi.fn();
@@ -19,8 +20,12 @@ const mockListReV2ScenarioVersions = vi.fn();
 const mockPublishAssistantPageContext = vi.fn();
 const mockResetAssistantPageContext = vi.fn();
 
+// Stable router object — recreating the object each render would cause setQueryParams
+// (which depends on router) to change identity, re-triggering the data-fetch useEffect
+// and resetting the page to the loading state in the middle of tests.
+const stableRouter = { replace: mockRouterReplace };
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: mockRouterReplace }),
+  useRouter: () => stableRouter,
   useSearchParams: () => currentSearchParams,
 }));
 
@@ -212,7 +217,8 @@ describe("investment briefing page", () => {
 
     await screen.findByText("Generate Report");
     await screen.findByTestId("hero-insight");
-    fireEvent.click(await screen.findByRole("button", { name: "More actions" }));
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "More actions" }));
     await screen.findByText("View Lineage");
     await screen.findByText("Open Sustainability Module");
   });
