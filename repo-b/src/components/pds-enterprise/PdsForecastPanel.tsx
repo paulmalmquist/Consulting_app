@@ -6,18 +6,18 @@ import { formatCurrency, formatDate, formatPercent } from "@/components/pds-ente
 
 export function PdsForecastPanel({ points }: { points: PdsV2ForecastPoint[] }) {
   return (
-    <section className="rounded-3xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="pds-forecast-panel">
+    <section className="rounded-lg border border-slate-700/20 p-4" data-testid="pds-forecast-panel">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-bm-muted2">Forecast Trend</p>
-          <h3 className="text-xl font-semibold">Forecast Movement and Confidence</h3>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Forecast</p>
+          <h3 className="text-base font-semibold text-bm-text">Forecast Movement & Confidence</h3>
         </div>
-        <p className="text-sm text-bm-muted2">Track what moved, why it moved, and where overrides have entered the plan.</p>
+        <p className="text-xs text-slate-500">What moved, why, and where overrides entered the plan.</p>
       </div>
       <div className="mt-4 overflow-x-auto">
         <table className="min-w-full text-left text-sm">
-          <thead className="text-xs uppercase tracking-[0.12em] text-bm-muted2">
-            <tr className="border-b border-bm-border/50">
+          <thead className="text-[10px] uppercase tracking-[0.12em] text-slate-400">
+            <tr className="border-b border-slate-700/30">
               <th className="pb-3 pr-4 font-medium">Month</th>
               <th className="pb-3 pr-4 font-medium">Entity</th>
               <th className="pb-3 pr-4 font-medium">Current</th>
@@ -29,7 +29,7 @@ export function PdsForecastPanel({ points }: { points: PdsV2ForecastPoint[] }) {
           </thead>
           <tbody>
             {points.map((point) => (
-              <tr key={`${point.entity_id}-${point.forecast_month}`} className="border-b border-bm-border/40 last:border-b-0">
+              <tr key={`${point.entity_id}-${point.forecast_month}`} className="border-b border-slate-700/20 last:border-b-0">
                 <td className="py-4 pr-4">{formatDate(point.forecast_month)}</td>
                 <td className="py-4 pr-4">
                   <div className="font-medium">{point.entity_label}</div>

@@ -916,6 +916,102 @@ export interface PdsV2CloseoutItem {
   href: string;
 }
 
+export interface PdsV2AccountAlert {
+  key: string;
+  label: string;
+  count: number;
+  description?: string | null;
+  tone: string;
+}
+
+export interface PdsV2AccountDashboardRow {
+  account_id: string;
+  account_name: string;
+  owner_name?: string | null;
+  health_score: number;
+  health_band: "healthy" | "watch" | "at_risk";
+  trend: "improving" | "stable" | "deteriorating";
+  fee_plan: string | number;
+  fee_actual: string | number;
+  plan_variance_pct: string | number;
+  ytd_revenue: string | number;
+  staffing_score: number;
+  team_utilization_pct?: string | number | null;
+  overloaded_resources: number;
+  staffing_gap_resources: number;
+  timecard_compliance_pct?: string | number | null;
+  satisfaction_score?: string | number | null;
+  satisfaction_trend_delta?: string | number | null;
+  red_projects: number;
+  collections_lag: string | number;
+  writeoff_leakage: string | number;
+  reason_codes: string[];
+  primary_issue_code?: string | null;
+  impact_label?: string | null;
+  recommended_action?: string | null;
+  recommended_owner?: string | null;
+}
+
+export interface PdsV2AccountActionItem {
+  account_id: string;
+  account_name: string;
+  owner_name?: string | null;
+  health_score: number;
+  health_band: "healthy" | "watch" | "at_risk";
+  issue: string;
+  impact_label: string;
+  recommended_action: string;
+  recommended_owner?: string | null;
+  severity_rank: number;
+}
+
+export interface PdsV2AccountDashboard {
+  alerts: PdsV2AccountAlert[];
+  distribution: Record<string, number>;
+  accounts: PdsV2AccountDashboardRow[];
+  actions: PdsV2AccountActionItem[];
+}
+
+export interface PdsV2AccountPreviewProjectRisk {
+  project_id: string;
+  project_name: string;
+  severity: string;
+  risk_score: string | number;
+  issue_summary: string;
+  recommended_action?: string | null;
+  href: string;
+}
+
+export interface PdsV2AccountPreview {
+  account_id: string;
+  account_name: string;
+  owner_name?: string | null;
+  health_score: number;
+  health_band: "healthy" | "watch" | "at_risk";
+  trend: "improving" | "stable" | "deteriorating";
+  fee_plan: string | number;
+  fee_actual: string | number;
+  plan_variance_pct: string | number;
+  ytd_revenue: string | number;
+  score_breakdown: Record<string, string | number>;
+  team_utilization_pct?: string | number | null;
+  staffing_score: number;
+  overloaded_resources: number;
+  staffing_gap_resources: number;
+  timecard_compliance_pct?: string | number | null;
+  satisfaction_score?: string | number | null;
+  satisfaction_trend_delta?: string | number | null;
+  red_projects: number;
+  collections_lag: string | number;
+  writeoff_leakage: string | number;
+  primary_issue_code?: string | null;
+  impact_label?: string | null;
+  recommended_action?: string | null;
+  recommended_owner?: string | null;
+  reason_codes: string[];
+  top_project_risks: PdsV2AccountPreviewProjectRisk[];
+}
+
 export interface PdsV2Briefing {
   generated_at: string;
   lens: PdsV2Lens;
@@ -936,24 +1032,102 @@ export interface PdsV2ReportPacket {
 
 export interface PdsV2PipelineDeal {
   deal_id: string;
+  account_id?: string | null;
   deal_name: string;
   account_name?: string | null;
   stage: string;
-  deal_value: number;
-  probability_pct: number;
+  deal_value: number | string;
+  probability_pct: number | string;
   expected_close_date?: string | null;
   owner_name?: string | null;
+  notes?: string | null;
+  lost_reason?: string | null;
+  stage_entered_at?: string | null;
+  last_activity_at?: string | null;
+  days_in_stage: number;
+  days_to_close?: number | null;
+  health_state: "neutral" | "positive" | "warn" | "danger";
+  attention_reasons: string[];
+  is_closed: boolean;
+}
+
+export interface PdsV2PipelineMetric {
+  key: string;
+  label: string;
+  value?: number | string | null;
+  delta_value?: number | string | null;
+  delta_label?: string | null;
+  tone: "neutral" | "positive" | "warn" | "danger";
+  context?: string | null;
+  empty_hint?: string | null;
+}
+
+export interface PdsV2PipelineAttentionItem {
+  deal_id: string;
+  deal_name: string;
+  account_name?: string | null;
+  stage: string;
+  deal_value: number | string;
+  probability_pct: number | string;
+  expected_close_date?: string | null;
+  issue_type: string;
+  issue: string;
+  action: string;
+  tone: "neutral" | "positive" | "warn" | "danger";
 }
 
 export interface PdsV2PipelineStage {
   stage: string;
+  label?: string | null;
   count: number;
-  weighted_value: number;
-  unweighted_value: number;
+  weighted_value: number | string;
+  unweighted_value: number | string;
+  avg_days_in_stage?: number | string | null;
+  conversion_to_next_pct?: number | string | null;
+  dropoff_pct?: number | string | null;
+  tone: "neutral" | "positive" | "warn" | "danger";
+}
+
+export interface PdsV2PipelineTimelinePoint {
+  forecast_month: string;
+  unweighted_value: number | string;
+  weighted_value: number | string;
+  deal_count: number;
+}
+
+export interface PdsV2PipelineLookupOption {
+  value: string;
+  label: string;
+  meta?: string | null;
+}
+
+export interface PdsV2PipelineLookups {
+  accounts: PdsV2PipelineLookupOption[];
+  owners: PdsV2PipelineLookupOption[];
+  stages: PdsV2PipelineLookupOption[];
+}
+
+export interface PdsV2PipelineDealDetail {
+  deal: PdsV2PipelineDeal;
+  history: Array<{
+    stage_history_id: string;
+    from_stage?: string | null;
+    to_stage: string;
+    changed_at: string;
+    note?: string | null;
+  }>;
 }
 
 export interface PdsV2PipelineSummary {
+  has_deals: boolean;
+  empty_state_title?: string | null;
+  empty_state_body?: string | null;
+  required_fields: string[];
+  example_deal?: Record<string, unknown> | null;
+  metrics: PdsV2PipelineMetric[];
+  attention_items: PdsV2PipelineAttentionItem[];
   stages: PdsV2PipelineStage[];
+  timeline: PdsV2PipelineTimelinePoint[];
   deals: PdsV2PipelineDeal[];
   total_pipeline_value: number;
   total_weighted_value: number;
@@ -975,6 +1149,7 @@ export interface PdsV2CommandCenter {
   forecast_points: PdsV2ForecastPoint[];
   satisfaction: PdsV2SatisfactionItem[];
   closeout: PdsV2CloseoutItem[];
+  account_dashboard?: PdsV2AccountDashboard | null;
   briefing: PdsV2Briefing;
 }
 
@@ -1330,11 +1505,87 @@ export function getPdsCommandCenter(
   });
 }
 
+export function getPdsAccountPreview(
+  envId: string,
+  accountId: string,
+  options?: { business_id?: string; horizon?: PdsV2Horizon },
+): Promise<PdsV2AccountPreview> {
+  return bosFetch(`/api/pds/v2/accounts/${accountId}/preview`, {
+    params: {
+      env_id: envId,
+      business_id: options?.business_id,
+      horizon: options?.horizon,
+    },
+  });
+}
+
 export function getPdsPipeline(
   envId: string,
   options?: { business_id?: string },
 ): Promise<PdsV2PipelineSummary> {
   return bosFetch("/api/pds/v2/pipeline", {
+    params: { env_id: envId, business_id: options?.business_id },
+  });
+}
+
+export function getPdsPipelineLookups(
+  envId: string,
+  options?: { business_id?: string },
+): Promise<PdsV2PipelineLookups> {
+  return bosFetch("/api/pds/v2/pipeline/lookups", {
+    params: { env_id: envId, business_id: options?.business_id },
+  });
+}
+
+export function getPdsPipelineDeal(
+  envId: string,
+  dealId: string,
+  options?: { business_id?: string },
+): Promise<PdsV2PipelineDealDetail> {
+  return bosFetch(`/api/pds/v2/pipeline/deals/${dealId}`, {
+    params: { env_id: envId, business_id: options?.business_id },
+  });
+}
+
+export function createPdsPipelineDeal(body: {
+  env_id: string;
+  business_id?: string;
+  deal_name: string;
+  account_id?: string | null;
+  stage?: string;
+  deal_value: number | string;
+  probability_pct: number | string;
+  expected_close_date?: string | null;
+  owner_name?: string | null;
+  notes?: string | null;
+  lost_reason?: string | null;
+}): Promise<PdsV2PipelineDealDetail> {
+  return bosFetch("/api/pds/v2/pipeline/deals", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updatePdsPipelineDeal(
+  envId: string,
+  dealId: string,
+  body: {
+    deal_name?: string;
+    account_id?: string | null;
+    stage?: string;
+    deal_value?: number | string;
+    probability_pct?: number | string;
+    expected_close_date?: string | null;
+    owner_name?: string | null;
+    notes?: string | null;
+    lost_reason?: string | null;
+    transition_note?: string | null;
+  },
+  options?: { business_id?: string },
+): Promise<PdsV2PipelineDealDetail> {
+  return bosFetch(`/api/pds/v2/pipeline/deals/${dealId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
     params: { env_id: envId, business_id: options?.business_id },
   });
 }
@@ -5071,7 +5322,7 @@ export type SusEmissionFactorSet = SusEmissionFactorSetInput & {
 export type SusOverviewResponse = {
   quarter: string;
   year: number;
-  top_cards: Record<string, unknown>;
+  top_cards: Record<string, number | string | null>;
   audit_timestamp?: string | null;
   open_issues: number;
   context: Record<string, unknown>;
@@ -5079,9 +5330,9 @@ export type SusOverviewResponse = {
 
 export type SusPortfolioFootprintResponse = {
   scope: "fund" | "investment";
-  summary: Record<string, unknown>;
-  investment_rows: Array<Record<string, unknown>>;
-  asset_rows: Array<Record<string, unknown>>;
+  summary: Record<string, number | string | null>;
+  investment_rows: Array<Record<string, number | string | null>>;
+  asset_rows: Array<Record<string, number | string | null>>;
   issues: Array<Record<string, unknown>>;
 };
 
@@ -5089,9 +5340,9 @@ export type SusAssetDashboardResponse = {
   asset_id: string;
   not_applicable: boolean;
   reason?: string | null;
-  cards: Record<string, unknown>;
+  cards: Record<string, number | string | null>;
   trends: Record<string, unknown>;
-  utility_rows: Array<Record<string, unknown>>;
+  utility_rows: Array<Record<string, number | string | null>>;
   issues: Array<Record<string, unknown>>;
   profile: Record<string, unknown>;
   audit_timestamp?: string | null;
@@ -5116,9 +5367,9 @@ export type SusScenarioRunResponse = {
 
 export type SusProjectionResponse = {
   run: Record<string, unknown>;
-  asset_rows: Array<Record<string, unknown>>;
-  investment_rows: Array<Record<string, unknown>>;
-  fund_rows: Array<Record<string, unknown>>;
+  asset_rows: Array<Record<string, number | string | null>>;
+  investment_rows: Array<Record<string, number | string | null>>;
+  fund_rows: Array<Record<string, number | string | null>>;
 };
 
 export type SusReportPayload = {

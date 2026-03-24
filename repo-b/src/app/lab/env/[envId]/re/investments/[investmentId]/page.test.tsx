@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import InvestmentSummaryPage from "@/app/lab/env/[envId]/re/investments/[investmentId]/page";
 
 const mockRouterReplace = vi.fn();
@@ -170,17 +170,16 @@ describe("investment briefing page", () => {
   });
 
   test("renders the institutional briefing structure and hero metric order", async () => {
-    const { container } = render(
+    render(
       <InvestmentSummaryPage params={{ envId: "env-1", investmentId: "inv-1" }} />
     );
 
     await screen.findByText("Generate Report");
 
     const orderedSections = [
-      await screen.findByTestId("section-position-snapshot"),
+      await screen.findByTestId("section-investment-outcome"),
       await screen.findByTestId("section-operating-performance"),
-      await screen.findByTestId("section-investor-returns"),
-      await screen.findByTestId("section-capital-structure"),
+      await screen.findByTestId("section-financial-statements"),
       await screen.findByTestId("section-portfolio-exposure"),
       await screen.findByTestId("section-supporting-detail"),
     ];
@@ -192,10 +191,9 @@ describe("investment briefing page", () => {
     }
 
     const heroMetrics = [
-      await screen.findByTestId("hero-metric-nav"),
       await screen.findByTestId("hero-metric-gross-irr"),
       await screen.findByTestId("hero-metric-moic"),
-      await screen.findByTestId("hero-metric-noi"),
+      await screen.findByTestId("hero-metric-current-value"),
     ];
     for (let i = 1; i < heroMetrics.length; i += 1) {
       expect(
@@ -205,6 +203,8 @@ describe("investment briefing page", () => {
     }
 
     await screen.findByText("Generate Report");
+    await screen.findByTestId("hero-insight");
+    fireEvent.click(await screen.findByRole("button", { name: "More actions" }));
     await screen.findByText("View Lineage");
     await screen.findByText("Open Sustainability Module");
   });

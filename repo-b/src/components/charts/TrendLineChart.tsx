@@ -9,6 +9,7 @@ import {
   Tooltip,
   Legend,
   ReferenceLine,
+  ReferenceDot,
   ResponsiveContainer,
 } from "recharts";
 import {
@@ -33,6 +34,13 @@ export interface RefLineDef {
   color?: string;
 }
 
+export interface HighlightDef {
+  quarter: string;
+  value: number;
+  label?: string;
+  color?: string;
+}
+
 interface Props {
   /** Array of objects with a `quarter` key and numeric metric keys. */
   data: Record<string, unknown>[];
@@ -40,6 +48,8 @@ interface Props {
   lines: LineDef[];
   /** Optional horizontal reference lines (e.g. 95% occupancy target). */
   referenceLines?: RefLineDef[];
+  /** Optional highlighted points or annotations. */
+  highlights?: HighlightDef[];
   /** Height in pixels. Default 280. */
   height?: number;
   /** "dollar" → fmtCompact, "percent" → fmtPct, "number" → raw. Default "dollar". */
@@ -76,6 +86,7 @@ export default function TrendLineChart({
   data,
   lines,
   referenceLines,
+  highlights,
   height = 280,
   format = "dollar",
   showLegend = true,
@@ -131,6 +142,27 @@ export default function TrendLineChart({
             }
           />
         ))}
+        {highlights?.map((highlight, index) => (
+          <ReferenceDot
+            key={`${highlight.quarter}-${index}`}
+            x={highlight.quarter}
+            y={highlight.value}
+            r={4}
+            fill={highlight.color ?? CHART_COLORS.warning}
+            stroke="white"
+            strokeWidth={2}
+            label={
+              highlight.label
+                ? {
+                    value: highlight.label,
+                    position: "top",
+                    fill: highlight.color ?? CHART_COLORS.warning,
+                    fontSize: 10,
+                  }
+                : undefined
+            }
+          />
+        ))}
         {lines.map((l, i) => (
           <Line
             key={l.key}
@@ -141,6 +173,7 @@ export default function TrendLineChart({
             }
             strokeWidth={2}
             strokeDasharray={l.dashed ? "6 3" : undefined}
+            connectNulls
             dot={false}
             activeDot={{ r: 4 }}
           />

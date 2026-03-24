@@ -86,7 +86,7 @@ export function accentStripeClass(tone?: string): string {
   if (tone === "danger") return "bg-pds-signalRed";
   if (tone === "warn") return "bg-pds-signalOrange";
   if (tone === "positive") return "bg-pds-signalGreen";
-  return "bg-pds-gold/40";
+  return "bg-blue-500/40";
 }
 
 export function signalDotClass(status?: string): string {

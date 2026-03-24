@@ -13,6 +13,11 @@ from app.services.workspace_templates import resolve_workspace_template_key
 VALID_LENSES = {"market", "account", "project", "resource", "business_line"}
 VALID_HORIZONS = {"MTD", "QTD", "YTD", "Forecast"}
 VALID_ROLE_PRESETS = {"executive", "market_leader", "account_director", "project_lead", "business_line_leader"}
+PIPELINE_STAGE_ORDER = ["prospect", "pursuit", "negotiation", "won", "converted", "lost"]
+PIPELINE_BOARD_STAGES = ["prospect", "pursuit", "negotiation", "won", "converted"]
+PIPELINE_ACTIVE_STAGES = {"prospect", "pursuit", "negotiation", "won"}
+PIPELINE_WON_STAGES = {"won", "converted"}
+PIPELINE_CLOSED_STAGES = {"converted", "lost"}
 
 
 def _q(value: Any) -> Decimal:
@@ -186,6 +191,551 @@ def _avg_value(rows: Iterable[dict[str, Any]], *, field: str, entity_key: str, e
     if not values:
         return Decimal("0")
     return _q(sum(values) / Decimal(len(values)))
+
+
+def _clamp_decimal(value: Decimal, lower: Decimal = Decimal("0"), upper: Decimal = Decimal("100")) -> Decimal:
+    if value < lower:
+        return lower
+    if value > upper:
+        return upper
+    return value
+
+
+def _normalize_pct_100(value: Any) -> Decimal:
+    pct = _q(value)
+    if Decimal("0") <= pct <= Decimal("1.5"):
+        pct *= Decimal("100")
+    return _clamp_decimal(_q(pct))
+
+
+def _safe_avg(values: Iterable[Decimal]) -> Decimal:
+    items = list(values)
+    if not items:
+        return Decimal("0")
+    return _q(sum(items) / Decimal(len(items)))
+
+
+def _round_score(value: Decimal) -> int:
+    return int(_clamp_decimal(_q(value)).quantize(Decimal("1")))
+
+
+def _account_health_band(score: int | Decimal) -> str:
+    numeric = int(_q(score))
+    if numeric >= 75:
+        return "healthy"
+    if numeric >= 55:
+        return "watch"
+    return "at_risk"
+
+
+def _account_trend(current_score: int | Decimal, previous_score: int | Decimal | None) -> str:
+    if previous_score is None:
+        return "stable"
+    delta = _q(current_score) - _q(previous_score)
+    if delta >= Decimal("5"):
+        return "improving"
+    if delta <= Decimal("-5"):
+        return "deteriorating"
+    return "stable"
+
+
+def _issue_display_label(code: str | None) -> str:
+    if not code:
+        return "Stable"
+    return code.replace("_", " ").title()
+
+
+def _account_revenue_score(fee_actual: Decimal, fee_plan: Decimal) -> Decimal:
+    if fee_plan <= 0:
+        return Decimal("50")
+    return _clamp_decimal(_q((fee_actual / fee_plan) * Decimal("100")))
+
+
+def _account_staffing_score(
+    team_utilization_pct: Decimal | None,
+    overloaded_resources: int,
+    staffing_gap_resources: int,
+) -> Decimal:
+    if team_utilization_pct is None:
+        return Decimal("50")
+    return _clamp_decimal(
+        Decimal("100")
+        - abs(team_utilization_pct - Decimal("85")) * Decimal("2")
+        - (Decimal(overloaded_resources) * Decimal("15"))
+        - (Decimal(staffing_gap_resources) * Decimal("15"))
+    )
+
+
+def _account_timecard_score(timecard_compliance_pct: Decimal | None) -> Decimal:
+    if timecard_compliance_pct is None:
+        return Decimal("50")
+    return _clamp_decimal(timecard_compliance_pct)
+
+
+def _account_client_score(satisfaction_score: Decimal | None) -> Decimal:
+    if satisfaction_score is None or satisfaction_score <= 0:
+        return Decimal("50")
+    return _clamp_decimal(_q(((satisfaction_score - Decimal("3.0")) / Decimal("1.5")) * Decimal("100")))
+
+
+def _account_primary_issue_code(
+    *,
+    fee_plan: Decimal,
+    plan_variance_pct: Decimal,
+    staffing_score: Decimal,
+    overloaded_resources: int,
+    staffing_gap_resources: int,
+    timecard_compliance_pct: Decimal | None,
+    delinquent_timecards: int,
+    satisfaction_score: Decimal | None,
+    satisfaction_trend_delta: Decimal | None,
+    collections_lag: Decimal,
+    writeoff_leakage: Decimal,
+    red_projects: int,
+) -> str | None:
+    if fee_plan > 0 and plan_variance_pct < Decimal("-10"):
+        return "FEE_VARIANCE"
+    if staffing_score < Decimal("60") or overloaded_resources > 0 or staffing_gap_resources > 0:
+        return "STAFFING_PRESSURE"
+    if (timecard_compliance_pct is not None and timecard_compliance_pct < Decimal("90")) or delinquent_timecards > 0:
+        return "TIMECARD_LATE"
+    if satisfaction_score is not None and (satisfaction_score < Decimal("3.8") or (satisfaction_trend_delta or Decimal("0")) < 0):
+        return "SATISFACTION_DECLINE"
+    if collections_lag > Decimal("75000"):
+        return "COLLECTIONS_LAG"
+    if writeoff_leakage > Decimal("10000"):
+        return "REVENUE_LEAKAGE"
+    if red_projects > 0:
+        return "RED_PROJECTS"
+    return None
+
+
+def _account_issue_action(issue_code: str | None, owner_name: str | None = None) -> tuple[str, str | None]:
+    owner_fallback = owner_name or "Account Director"
+    if issue_code == "FEE_VARIANCE":
+        return "Review fee burn and reforecast the account plan.", owner_fallback
+    if issue_code == "STAFFING_PRESSURE":
+        return "Rebalance staffing coverage and resolve allocation pressure.", owner_fallback
+    if issue_code == "TIMECARD_LATE":
+        return "Escalate timecard cleanup before the next forecast lock.", owner_fallback
+    if issue_code == "SATISFACTION_DECLINE":
+        return "Schedule a client recovery touchpoint with the account team.", owner_fallback
+    if issue_code == "COLLECTIONS_LAG":
+        return "Review collections blockers and assign follow-up owners.", owner_fallback
+    if issue_code == "REVENUE_LEAKAGE":
+        return "Investigate writeoffs and close revenue leakage sources.", owner_fallback
+    if issue_code == "RED_PROJECTS":
+        return "Review the active risk projects and reset the intervention plan.", owner_fallback
+    return "Keep the account plan current and monitor weekly.", owner_fallback
+
+
+def _account_issue_impact_value(issue_code: str | None, row: dict[str, Any]) -> Decimal:
+    if issue_code == "FEE_VARIANCE":
+        return abs(_q(row.get("fee_actual")) - _q(row.get("fee_plan")))
+    if issue_code == "STAFFING_PRESSURE":
+        return Decimal(int(row.get("overloaded_resources") or 0) + int(row.get("staffing_gap_resources") or 0))
+    if issue_code == "TIMECARD_LATE":
+        return Decimal(int(row.get("delinquent_timecards") or 0))
+    if issue_code == "SATISFACTION_DECLINE":
+        score = _q(row.get("satisfaction_score"))
+        return Decimal("5") - score if score > 0 else Decimal("0")
+    if issue_code == "COLLECTIONS_LAG":
+        return _q(row.get("collections_lag"))
+    if issue_code == "REVENUE_LEAKAGE":
+        return _q(row.get("writeoff_leakage"))
+    if issue_code == "RED_PROJECTS":
+        return Decimal(int(row.get("red_projects") or 0))
+    return Decimal("0")
+
+
+def _account_severity_rank(issue_code: str | None, health_score: int, impact_value: Decimal) -> int:
+    issue_rank = {
+        "FEE_VARIANCE": 70,
+        "STAFFING_PRESSURE": 65,
+        "TIMECARD_LATE": 60,
+        "SATISFACTION_DECLINE": 55,
+        "COLLECTIONS_LAG": 50,
+        "REVENUE_LEAKAGE": 45,
+        "RED_PROJECTS": 40,
+    }.get(issue_code, 10)
+    return issue_rank + max(0, 100 - health_score) + int(_clamp_decimal(impact_value, upper=Decimal("25")))
+
+
+def _account_impact_label(issue_code: str | None, row: dict[str, Any]) -> str:
+    if issue_code == "FEE_VARIANCE":
+        gap = _q(row.get("fee_actual")) - _q(row.get("fee_plan"))
+        return f"${abs(int(gap)):,} gap vs plan"
+    if issue_code == "STAFFING_PRESSURE":
+        return (
+            f"{int(_q(row.get('team_utilization_pct') or 0))}% utilization, "
+            f"{int(row.get('overloaded_resources') or 0)} overloaded, "
+            f"{int(row.get('staffing_gap_resources') or 0)} gaps"
+        )
+    if issue_code == "TIMECARD_LATE":
+        return (
+            f"{int(_q(row.get('timecard_compliance_pct') or 0))}% submitted, "
+            f"{int(row.get('delinquent_timecards') or 0)} delinquent"
+        )
+    if issue_code == "SATISFACTION_DECLINE":
+        score = _q(row.get("satisfaction_score"))
+        trend = _q(row.get("satisfaction_trend_delta"))
+        return f"Score {score:.1f}, trend {trend:+.1f}"
+    if issue_code == "COLLECTIONS_LAG":
+        return f"${int(_q(row.get('collections_lag'))):,} in collections lag"
+    if issue_code == "REVENUE_LEAKAGE":
+        return f"${int(_q(row.get('writeoff_leakage'))):,} writeoff leakage"
+    if issue_code == "RED_PROJECTS":
+        return f"{int(row.get('red_projects') or 0)} active project risks"
+    return "Stable account"
+
+
+def _recent_snapshot_dates(table: str, *, env_id: UUID, business_id: UUID, horizon: str, limit: int = 2) -> list[date]:
+    with get_cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT DISTINCT snapshot_date
+            FROM {table}
+            WHERE env_id = %s::uuid
+              AND business_id = %s::uuid
+              AND horizon = %s
+            ORDER BY snapshot_date DESC
+            LIMIT %s
+            """,
+            (str(env_id), str(business_id), horizon, limit),
+        )
+        return [_coerce_date(row.get("snapshot_date")) for row in cur.fetchall() if _coerce_date(row.get("snapshot_date"))]
+
+
+def _snapshot_rows_for_date(
+    table: str,
+    *,
+    env_id: UUID,
+    business_id: UUID,
+    horizon: str,
+    snapshot_date: date | None,
+) -> list[dict[str, Any]]:
+    if snapshot_date is None:
+        return []
+    with get_cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT *
+            FROM {table}
+            WHERE env_id = %s::uuid
+              AND business_id = %s::uuid
+              AND horizon = %s
+              AND snapshot_date = %s
+            ORDER BY created_at DESC
+            """,
+            (str(env_id), str(business_id), horizon, snapshot_date),
+        )
+        return cur.fetchall()
+
+
+def _build_account_project_maps(entity_rows: dict[str, list[dict[str, Any]]]) -> tuple[dict[UUID, list[UUID]], dict[UUID, set[UUID]], dict[UUID, dict[str, Any]]]:
+    projects = entity_rows["projects"]
+    project_map = {row["project_id"]: row for row in projects}
+    project_ids_by_account: dict[UUID, list[UUID]] = {}
+    resource_ids_by_account: dict[UUID, set[UUID]] = {}
+    for project in projects:
+        account_id = project.get("account_id")
+        if account_id is None:
+            continue
+        project_ids_by_account.setdefault(account_id, []).append(project["project_id"])
+    for assignment in entity_rows["assignments"]:
+        project = project_map.get(assignment.get("project_id"))
+        if not project:
+            continue
+        account_id = project.get("account_id")
+        resource_id = assignment.get("resource_id")
+        if account_id is None or resource_id is None:
+            continue
+        resource_ids_by_account.setdefault(account_id, set()).add(resource_id)
+    return project_ids_by_account, resource_ids_by_account, project_map
+
+
+def _build_account_rows_from_snapshots(
+    *,
+    env_id: UUID,
+    business_id: UUID,
+    horizon: str,
+    snapshot_date: date | None,
+    entity_rows: dict[str, list[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    if snapshot_date is None:
+        return []
+
+    accounts = entity_rows["accounts"]
+    project_ids_by_account, resource_ids_by_account, project_map = _build_account_project_maps(entity_rows)
+    account_snapshots = {
+        row["account_id"]: row
+        for row in _snapshot_rows_for_date(
+            "pds_account_performance_snapshot",
+            env_id=env_id,
+            business_id=business_id,
+            horizon=horizon,
+            snapshot_date=snapshot_date,
+        )
+    }
+    resource_snapshots = {
+        row["resource_id"]: row
+        for row in _snapshot_rows_for_date(
+            "pds_resource_utilization_snapshot",
+            env_id=env_id,
+            business_id=business_id,
+            horizon=horizon,
+            snapshot_date=snapshot_date,
+        )
+    }
+    timecard_snapshots = {
+        row.get("resource_id"): row
+        for row in _snapshot_rows_for_date(
+            "pds_timecard_health_snapshot",
+            env_id=env_id,
+            business_id=business_id,
+            horizon=horizon,
+            snapshot_date=snapshot_date,
+        )
+        if row.get("resource_id") is not None
+    }
+    satisfaction_snapshots = {
+        row.get("account_id"): row
+        for row in _snapshot_rows_for_date(
+            "pds_client_satisfaction_snapshot",
+            env_id=env_id,
+            business_id=business_id,
+            horizon=horizon,
+            snapshot_date=snapshot_date,
+        )
+        if row.get("account_id") is not None
+    }
+    project_snapshots = _snapshot_rows_for_date(
+        "pds_project_health_snapshot",
+        env_id=env_id,
+        business_id=business_id,
+        horizon=horizon,
+        snapshot_date=snapshot_date,
+    )
+    project_risk_map: dict[UUID, list[dict[str, Any]]] = {}
+    for row in project_snapshots:
+        project = project_map.get(row.get("project_id"))
+        account_id = project.get("account_id") if project else None
+        if account_id is None:
+            continue
+        project_risk_map.setdefault(account_id, []).append(
+            {
+                **row,
+                "project_name": project.get("name") if project else "Project",
+            }
+        )
+
+    rows: list[dict[str, Any]] = []
+    for account in accounts:
+        account_id = account["account_id"]
+        snapshot = account_snapshots.get(account_id, {})
+        resource_ids = resource_ids_by_account.get(account_id, set())
+        resource_rows = [resource_snapshots[rid] for rid in resource_ids if rid in resource_snapshots]
+        timecard_rows = [timecard_snapshots[rid] for rid in resource_ids if rid in timecard_snapshots]
+        satisfaction_row = satisfaction_snapshots.get(account_id)
+        project_rows = sorted(
+            project_risk_map.get(account_id, []),
+            key=lambda item: _q(item.get("risk_score")),
+            reverse=True,
+        )
+
+        team_utilization_pct = _safe_avg([_normalize_pct_100(row.get("utilization_pct")) for row in resource_rows]) if resource_rows else None
+        overloaded_resources = sum(1 for row in resource_rows if bool(row.get("overload_flag")))
+        staffing_gap_resources = sum(1 for row in resource_rows if bool(row.get("staffing_gap_flag")))
+        timecard_compliance_pct = _safe_avg([_normalize_pct_100(row.get("submitted_pct")) for row in timecard_rows]) if timecard_rows else None
+        delinquent_timecards = sum(int(row.get("delinquent_count") or 0) for row in timecard_rows)
+
+        fee_plan = _q(snapshot.get("fee_plan"))
+        fee_actual = _q(snapshot.get("fee_actual"))
+        plan_variance_pct = _q(((fee_actual / fee_plan) - Decimal("1")) * Decimal("100")) if fee_plan > 0 else Decimal("0")
+        satisfaction_score = _q(satisfaction_row.get("average_score")) if satisfaction_row else None
+        if satisfaction_score is not None and satisfaction_score <= 0:
+            satisfaction_score = None
+        satisfaction_trend_delta = _q(satisfaction_row.get("trend_delta")) if satisfaction_row else None
+        red_projects = int(snapshot.get("red_projects") or 0)
+        if red_projects == 0:
+            red_projects = len([row for row in project_rows if row.get("severity") in {"orange", "red"}])
+
+        revenue_score = _account_revenue_score(fee_actual, fee_plan)
+        staffing_score = _account_staffing_score(team_utilization_pct, overloaded_resources, staffing_gap_resources)
+        timecard_score = _account_timecard_score(timecard_compliance_pct)
+        client_score = _account_client_score(satisfaction_score)
+        health_score = _round_score(
+            (revenue_score * Decimal("0.35"))
+            + (staffing_score * Decimal("0.25"))
+            + (timecard_score * Decimal("0.15"))
+            + (client_score * Decimal("0.25"))
+        )
+        health_band = _account_health_band(health_score)
+        reason_codes = list(snapshot.get("reason_codes_json") or [])
+
+        row = {
+            "account_id": account_id,
+            "account_name": account.get("account_name") or "Account",
+            "owner_name": account.get("owner_name"),
+            "health_score": health_score,
+            "health_band": health_band,
+            "trend": "stable",
+            "fee_plan": fee_plan,
+            "fee_actual": fee_actual,
+            "plan_variance_pct": plan_variance_pct,
+            "ytd_revenue": fee_actual,
+            "staffing_score": _round_score(staffing_score),
+            "team_utilization_pct": team_utilization_pct,
+            "overloaded_resources": overloaded_resources,
+            "staffing_gap_resources": staffing_gap_resources,
+            "timecard_compliance_pct": timecard_compliance_pct,
+            "delinquent_timecards": delinquent_timecards,
+            "satisfaction_score": satisfaction_score,
+            "satisfaction_trend_delta": satisfaction_trend_delta,
+            "red_projects": red_projects,
+            "collections_lag": _q(snapshot.get("collections_lag")),
+            "writeoff_leakage": _q(snapshot.get("writeoff_leakage")),
+            "reason_codes": reason_codes,
+            "revenue_score": _round_score(revenue_score),
+            "timecard_score": _round_score(timecard_score),
+            "client_score": _round_score(client_score),
+            "project_rows": project_rows,
+        }
+        primary_issue_code = _account_primary_issue_code(
+            fee_plan=fee_plan,
+            plan_variance_pct=plan_variance_pct,
+            staffing_score=staffing_score,
+            overloaded_resources=overloaded_resources,
+            staffing_gap_resources=staffing_gap_resources,
+            timecard_compliance_pct=timecard_compliance_pct,
+            delinquent_timecards=delinquent_timecards,
+            satisfaction_score=satisfaction_score,
+            satisfaction_trend_delta=satisfaction_trend_delta,
+            collections_lag=_q(snapshot.get("collections_lag")),
+            writeoff_leakage=_q(snapshot.get("writeoff_leakage")),
+            red_projects=red_projects,
+        )
+        recommended_action, recommended_owner = _account_issue_action(primary_issue_code, account.get("owner_name"))
+        impact_label = _account_impact_label(primary_issue_code, row)
+        impact_value = _account_issue_impact_value(primary_issue_code, row)
+        row.update(
+            {
+                "primary_issue_code": primary_issue_code,
+                "impact_label": impact_label,
+                "recommended_action": recommended_action,
+                "recommended_owner": recommended_owner,
+                "severity_rank": _account_severity_rank(primary_issue_code, health_score, impact_value),
+                "impact_value": impact_value,
+            }
+        )
+        rows.append(row)
+
+    return rows
+
+
+def _build_account_dashboard(
+    *,
+    env_id: UUID,
+    business_id: UUID,
+    horizon: str,
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
+    normalized_horizon = normalize_horizon(horizon)
+    entity_rows = _load_rows_by_table(env_id=env_id, business_id=business_id)
+    snapshot_dates = _recent_snapshot_dates(
+        "pds_account_performance_snapshot",
+        env_id=env_id,
+        business_id=business_id,
+        horizon=normalized_horizon,
+        limit=2,
+    )
+    latest_date = snapshot_dates[0] if snapshot_dates else None
+    previous_date = snapshot_dates[1] if len(snapshot_dates) > 1 else None
+    current_rows = _build_account_rows_from_snapshots(
+        env_id=env_id,
+        business_id=business_id,
+        horizon=normalized_horizon,
+        snapshot_date=latest_date,
+        entity_rows=entity_rows,
+    )
+    previous_rows = _build_account_rows_from_snapshots(
+        env_id=env_id,
+        business_id=business_id,
+        horizon=normalized_horizon,
+        snapshot_date=previous_date,
+        entity_rows=entity_rows,
+    )
+
+    previous_by_account = {row["account_id"]: row for row in previous_rows}
+    for row in current_rows:
+        previous = previous_by_account.get(row["account_id"])
+        row["trend"] = _account_trend(row["health_score"], previous["health_score"] if previous else None)
+
+    distribution = {
+        "healthy": len([row for row in current_rows if row["health_band"] == "healthy"]),
+        "watch": len([row for row in current_rows if row["health_band"] == "watch"]),
+        "at_risk": len([row for row in current_rows if row["health_band"] == "at_risk"]),
+    }
+    alerts = [
+        {
+            "key": "at_risk",
+            "label": "Accounts At Risk",
+            "count": distribution["at_risk"],
+            "description": "Health score below 55",
+            "tone": "danger",
+        },
+        {
+            "key": "missing_plan",
+            "label": "Missing Plan >10%",
+            "count": len([row for row in current_rows if _q(row.get("fee_plan")) > 0 and _q(row.get("plan_variance_pct")) < Decimal("-10")]),
+            "description": "Fee actual more than 10% below plan",
+            "tone": "warn",
+        },
+        {
+            "key": "staffing_issues",
+            "label": "Staffing Issues",
+            "count": len([
+                row for row in current_rows
+                if int(row.get("staffing_score") or 0) < 60
+                or (_q(row.get("timecard_compliance_pct") or 0) > 0 and _q(row.get("timecard_compliance_pct") or 0) < Decimal("90"))
+            ]),
+            "description": "Staffing pressure or late timecards",
+            "tone": "warn",
+        },
+    ]
+    action_candidates = [
+        row for row in current_rows
+        if row.get("primary_issue_code") is not None or row["health_band"] != "healthy"
+    ]
+    action_candidates.sort(
+        key=lambda row: (
+            int(row.get("severity_rank") or 0),
+            _q(row.get("impact_value")),
+            _q(row.get("fee_actual")),
+        ),
+        reverse=True,
+    )
+    actions = [
+        {
+            "account_id": row["account_id"],
+            "account_name": row["account_name"],
+            "owner_name": row.get("owner_name"),
+            "health_score": row["health_score"],
+            "health_band": row["health_band"],
+            "issue": _issue_display_label(row.get("primary_issue_code")),
+            "impact_label": row.get("impact_label") or "Stable account",
+            "recommended_action": row.get("recommended_action") or "Monitor weekly",
+            "recommended_owner": row.get("recommended_owner"),
+            "severity_rank": int(row.get("severity_rank") or 0),
+        }
+        for row in action_candidates[:6]
+    ]
+
+    return {
+        "alerts": alerts,
+        "distribution": distribution,
+        "accounts": current_rows,
+        "actions": actions,
+    }, current_rows, previous_rows
 
 
 def _delete_snapshot_horizon(cur, table: str, env_id: UUID, business_id: UUID, snapshot_date: date, horizon: str) -> None:
@@ -761,10 +1311,11 @@ def seed_enterprise_workspace(*, env_id: UUID, business_id: UUID, actor: str = "
                     # Pursuits (30-50%)
                     ("City Hall Renovation Phase II", _al[2 % len(_al)]["account_id"], "pursuit", Decimal("3200000"), Decimal("45"), today + timedelta(days=60), "Jordan Hale"),
                     ("Public Safety Training Center", _al[3 % len(_al)]["account_id"], "pursuit", Decimal("1750000"), Decimal("50"), today + timedelta(days=45), "Dana Park"),
-                    ("Meridian Clinic Network Fit-out", _al[8 % len(_al)]["account_id"], "pursuit", Decimal("1100000"), Decimal("40"), today + timedelta(days=55), "Sam Rivera"),
-                    ("Lakewood Warehouse Modernization", _al[4 % len(_al)]["account_id"], "pursuit", Decimal("2100000"), Decimal("35"), today + timedelta(days=65), "Taylor Chen"),
-                    ("Petron Refinery Controls Upgrade", _al[5 % len(_al)]["account_id"], "pursuit", Decimal("4500000"), Decimal("30"), today + timedelta(days=70), "Riley Brooks"),
-                    # Won (70-90%)
+                    # Negotiation (55-75%)
+                    ("Meridian Clinic Network Fit-out", _al[8 % len(_al)]["account_id"], "negotiation", Decimal("1100000"), Decimal("65"), today + timedelta(days=28), "Sam Rivera"),
+                    ("Lakewood Warehouse Modernization", _al[4 % len(_al)]["account_id"], "negotiation", Decimal("2100000"), Decimal("60"), today + timedelta(days=35), "Taylor Chen"),
+                    ("Petron Refinery Controls Upgrade", _al[5 % len(_al)]["account_id"], "negotiation", Decimal("4500000"), Decimal("55"), today + timedelta(days=42), "Riley Brooks"),
+                    # Won (75-90%)
                     ("South Florida Data Center", _al[7 % len(_al)]["account_id"], "won", Decimal("4100000"), Decimal("85"), today + timedelta(days=30), "Avery Cole"),
                     ("Northeast Lab Consolidation", _al[8 % len(_al)]["account_id"], "won", Decimal("1950000"), Decimal("90"), today + timedelta(days=20), "Sam Rivera"),
                     ("Federal Campus Phase III", _al[3 % len(_al)]["account_id"], "won", Decimal("5200000"), Decimal("80"), today + timedelta(days=25), "Dana Park"),
@@ -772,6 +1323,8 @@ def seed_enterprise_workspace(*, env_id: UUID, business_id: UUID, actor: str = "
                     ("City Civic Water Treatment", _al[9 % len(_al)]["account_id"], "converted", Decimal("2800000"), Decimal("100"), today - timedelta(days=15), "Taylor Chen"),
                     ("Stone Healthcare Central Plant", _al[0]["account_id"], "converted", Decimal("3600000"), Decimal("100"), today - timedelta(days=30), "Avery Cole"),
                     ("Midwest Distribution Hub", _al[4 % len(_al)]["account_id"], "converted", Decimal("1400000"), Decimal("100"), today - timedelta(days=10), "Taylor Chen"),
+                    # Lost
+                    ("Riverside Public Safety Retrofit", _al[1 % len(_al)]["account_id"], "lost", Decimal("950000"), Decimal("0"), today - timedelta(days=20), "Avery Cole"),
                 ]
                 for deal_name, account_id, stage, deal_value, probability, close_date, owner in pipeline_deals:
                     cur.execute(
@@ -779,9 +1332,22 @@ def seed_enterprise_workspace(*, env_id: UUID, business_id: UUID, actor: str = "
                         INSERT INTO pds_pipeline_deals
                         (env_id, business_id, account_id, deal_name, stage, deal_value, probability_pct, expected_close_date, owner_name)
                         VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s)
+                        RETURNING deal_id
                         """,
                         (str(env_id), str(business_id), str(account_id), deal_name, stage, str(deal_value), str(probability), close_date, owner),
                     )
+                    inserted = cur.fetchone()
+                    try:
+                        cur.execute(
+                            """
+                            INSERT INTO pds_pipeline_deal_stage_history
+                            (env_id, business_id, deal_id, from_stage, to_stage, changed_at, note)
+                            VALUES (%s::uuid, %s::uuid, %s::uuid, NULL, %s, %s, %s)
+                            """,
+                            (str(env_id), str(business_id), str(inserted["deal_id"]), stage, datetime.utcnow(), "Initial stage"),
+                        )
+                    except Exception:
+                        pass
         except Exception:
             # pds_pipeline_deals table may not exist yet — skip gracefully
             import logging as _logging
@@ -1207,6 +1773,12 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
 
             for account in rows["accounts"]:
                 account_id = account["account_id"]
+                account_project_ids = [project["project_id"] for project in projects if project.get("account_id") == account_id]
+                resource_ids = {
+                    assignment.get("resource_id")
+                    for assignment in rows["assignments"]
+                    if assignment.get("project_id") in account_project_ids and assignment.get("resource_id") is not None
+                }
                 fee_plan = _sum_amount(rows["fee_plan"], field="amount", start=start_date, end=end_date, entity_key="account_id", entity_id=account_id)
                 fee_actual = _sum_amount(rows["fee_actual"], field="amount", start=start_date, end=end_date, entity_key="account_id", entity_id=account_id)
                 gaap_plan = _sum_amount(rows["gaap_plan"], field="amount", start=start_date, end=end_date, entity_key="account_id", entity_id=account_id)
@@ -1220,6 +1792,57 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
                 red_projects = len([project for project in projects if project.get("account_id") == account_id and _q(project.get("risk_score")) >= Decimal("50")])
                 satisfaction_rollup = next((row for row in rows["survey_rollups"] if row.get("account_id") == account_id), None)
                 satisfaction_score = _q((satisfaction_rollup or {}).get("average_score"))
+                satisfaction_score_value = satisfaction_score if satisfaction_score > 0 else None
+
+                assigned_hours = Decimal("0")
+                capacity_hours = Decimal("0")
+                overloaded_resources = 0
+                staffing_gap_resources = 0
+                submitted_count = 0
+                total_timecards = 0
+                delinquent_timecards = 0
+                for resource_id in resource_ids:
+                    resource_assignments = [
+                        assignment for assignment in rows["assignments"]
+                        if assignment.get("resource_id") == resource_id and assignment.get("project_id") in account_project_ids
+                    ]
+                    resource_assigned = sum(Decimal("160") * _q(assignment.get("allocation_pct")) for assignment in resource_assignments)
+                    capacity = next((row for row in rows["capacity"] if row.get("resource_id") == resource_id), None)
+                    resource_capacity = _q((capacity or {}).get("capacity_hours"))
+                    resource_utilization = _q(resource_assigned / resource_capacity) if resource_capacity else Decimal("0")
+                    if resource_utilization > Decimal("1.05"):
+                        overloaded_resources += 1
+                    if Decimal("0") < resource_utilization < Decimal("0.70"):
+                        staffing_gap_resources += 1
+                    assigned_hours += resource_assigned
+                    capacity_hours += resource_capacity
+
+                    resource_timecards = [
+                        timecard for timecard in rows["timecards"]
+                        if timecard.get("resource_id") == resource_id
+                        and start_date <= (_coerce_date(timecard.get("week_ending")) or today) <= end_date
+                    ]
+                    submitted_count += sum(1 for timecard in resource_timecards if timecard.get("status") == "submitted")
+                    total_timecards += len(resource_timecards)
+                    delinquent_timecards += sum(1 for timecard in resource_timecards if timecard.get("status") != "submitted")
+
+                team_utilization_pct = _normalize_pct_100(_q(assigned_hours / capacity_hours)) if capacity_hours else None
+                timecard_compliance_pct = (
+                    _normalize_pct_100(_q(Decimal(submitted_count) / Decimal(total_timecards)))
+                    if total_timecards
+                    else None
+                )
+                revenue_score = _account_revenue_score(fee_actual, fee_plan)
+                staffing_score = _account_staffing_score(team_utilization_pct, overloaded_resources, staffing_gap_resources)
+                timecard_score = _account_timecard_score(timecard_compliance_pct)
+                client_score = _account_client_score(satisfaction_score_value)
+                health_score = _round_score(
+                    (revenue_score * Decimal("0.35"))
+                    + (staffing_score * Decimal("0.25"))
+                    + (timecard_score * Decimal("0.15"))
+                    + (client_score * Decimal("0.25"))
+                )
+                plan_variance_pct = _q(((fee_actual / fee_plan) - Decimal("1")) * Decimal("100")) if fee_plan > 0 else Decimal("0")
                 account_score = account_score_map.get(account_id, Decimal("0"))
                 reason_codes = []
                 if fee_actual < fee_plan:
@@ -1228,6 +1851,21 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
                     reason_codes.append("SATISFACTION_DECLINE")
                 if writeoff > Decimal("10000"):
                     reason_codes.append("REVENUE_LEAKAGE")
+                primary_issue_code = _account_primary_issue_code(
+                    fee_plan=fee_plan,
+                    plan_variance_pct=plan_variance_pct,
+                    staffing_score=staffing_score,
+                    overloaded_resources=overloaded_resources,
+                    staffing_gap_resources=staffing_gap_resources,
+                    timecard_compliance_pct=timecard_compliance_pct,
+                    delinquent_timecards=delinquent_timecards,
+                    satisfaction_score=satisfaction_score_value,
+                    satisfaction_trend_delta=_q((satisfaction_rollup or {}).get("trend_delta")) if satisfaction_rollup else None,
+                    collections_lag=_q(billings - collections),
+                    writeoff_leakage=writeoff,
+                    red_projects=red_projects,
+                )
+                recommended_action, recommended_owner = _account_issue_action(primary_issue_code, account.get("owner_name"))
                 account_base_lookup[account_id] = fee_actual or fee_plan
                 forecast_total = (fee_actual or fee_plan) * Decimal("3.05")
                 cur.execute(
@@ -1254,7 +1892,26 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
                         str(backlog), str(_q(forecast_total)), str(_q(billings - collections)), str(writeoff),
                         red_projects, str(satisfaction_score), str(account_score), _score_band(account_score),
                         _serialize_list(reason_codes),
-                        _serialize_json({"account_name": account.get("account_name"), "owner_name": account.get("owner_name")}),
+                        _serialize_json(
+                            {
+                                "account_name": account.get("account_name"),
+                                "owner_name": account.get("owner_name"),
+                                "team_utilization_pct": str(team_utilization_pct) if team_utilization_pct is not None else None,
+                                "timecard_compliance_pct": str(timecard_compliance_pct) if timecard_compliance_pct is not None else None,
+                                "overloaded_resources": overloaded_resources,
+                                "staffing_gap_resources": staffing_gap_resources,
+                                "delinquent_timecards": delinquent_timecards,
+                                "revenue_score": _round_score(revenue_score),
+                                "staffing_score": _round_score(staffing_score),
+                                "timecard_score": _round_score(timecard_score),
+                                "client_score": _round_score(client_score),
+                                "health_score": health_score,
+                                "health_band": _account_health_band(health_score),
+                                "primary_issue_code": primary_issue_code,
+                                "recommended_action": recommended_action,
+                                "recommended_owner": recommended_owner,
+                            }
+                        ),
                     ),
                 )
 
@@ -1450,7 +2107,7 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
             # Pipeline → Forecast integration: add weighted pipeline value to base lookups
             try:
                 cur.execute(
-                    "SELECT account_id, deal_value, probability_pct FROM pds_pipeline_deals WHERE env_id = %s::uuid AND business_id = %s::uuid AND stage IN ('prospect', 'pursuit', 'won')",
+                    "SELECT account_id, deal_value, probability_pct, stage FROM pds_pipeline_deals WHERE env_id = %s::uuid AND business_id = %s::uuid AND stage IN ('prospect', 'pursuit', 'negotiation', 'won')",
                     (str(env_id), str(business_id)),
                 )
                 pipeline_rows = cur.fetchall()
@@ -1459,7 +2116,7 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
                 for prow in pipeline_rows:
                     acct_id = prow.get("account_id")
                     if acct_id:
-                        weighted = _q(prow.get("deal_value")) * (_q(prow.get("probability_pct")) / Decimal("100"))
+                        weighted = _q(prow.get("deal_value")) * (_pipeline_probability_for_stage(prow.get("stage"), prow.get("probability_pct")) / Decimal("100"))
                         pipeline_by_account[acct_id] = pipeline_by_account.get(acct_id, Decimal("0")) + weighted
                 # Add pipeline contribution to account base lookup
                 for acct_id, weighted_val in pipeline_by_account.items():
@@ -1513,6 +2170,7 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
                 label_key="name",
             )
 
+    _upsert_pipeline_snapshot(env_id=env_id, business_id=business_id, snapshot_date=today)
     return {"ok": True, "snapshot_date": str(today)}
 
 
@@ -1946,56 +2604,674 @@ def get_executive_briefing(
     }
 
 
-def get_pipeline_summary(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
-    """Return pipeline stages and deals for the PDS pipeline module."""
-    _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
-    stages_order = ["prospect", "pursuit", "won", "converted"]
-    stage_map: dict[str, dict[str, Any]] = {
-        s: {"stage": s, "count": 0, "weighted_value": Decimal("0"), "unweighted_value": Decimal("0")}
-        for s in stages_order
+def _coerce_datetime(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time())
+    if isinstance(value, str):
+        candidate = value.strip()
+        if not candidate:
+            return None
+        try:
+            return datetime.fromisoformat(candidate.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    return None
+
+
+def _pipeline_stage_label(stage: str) -> str:
+    return {
+        "prospect": "Prospect",
+        "pursuit": "Pursuit",
+        "negotiation": "Negotiation",
+        "won": "Won",
+        "converted": "Converted",
+        "lost": "Lost",
+    }.get(stage, stage.replace("_", " ").title())
+
+
+def _normalize_pipeline_stage(stage: Any) -> str:
+    normalized = str(stage or "prospect").strip().lower()
+    if normalized not in PIPELINE_STAGE_ORDER:
+        raise ValueError(f"Unsupported pipeline stage: {stage}")
+    return normalized
+
+
+def _nonnegative_decimal(value: Any) -> Decimal:
+    return max(Decimal("0"), _q(value))
+
+
+def _pipeline_probability_for_stage(stage: str, probability_pct: Any) -> Decimal:
+    normalized_stage = _normalize_pipeline_stage(stage)
+    if normalized_stage == "converted":
+        return Decimal("100")
+    if normalized_stage == "lost":
+        return Decimal("0")
+    return _normalize_pct_100(probability_pct)
+
+
+def _pipeline_health_tone(*, stage: str, attention_reasons: list[str]) -> str:
+    if "overdue_close" in attention_reasons or "stalled" in attention_reasons:
+        return "danger"
+    if "low_probability_high_value" in attention_reasons or "closing_soon" in attention_reasons:
+        return "warn"
+    if stage in {"won", "converted"}:
+        return "positive"
+    return "neutral"
+
+
+def _pipeline_issue_copy(reason: str) -> tuple[str, str, str]:
+    if reason == "overdue_close":
+        return "overdue_close", "Close date is overdue.", "Update the close plan or push the deal forward."
+    if reason == "stalled":
+        return "stalled", "No recent activity on the deal.", "Re-engage the owner and refresh next steps."
+    if reason == "low_probability_high_value":
+        return "low_probability_high_value", "High value with low close probability.", "Reassess qualification or raise confidence with a concrete next action."
+    return "closing_soon", "Expected close is within 30 days.", "Confirm the close plan and owner commitments."
+
+
+def _pipeline_next_stage(stage: str) -> str | None:
+    transitions = {
+        "prospect": "pursuit",
+        "pursuit": "negotiation",
+        "negotiation": "won",
+        "won": "converted",
     }
-    deals: list[dict[str, Any]] = []
-    total_pipeline = Decimal("0")
-    total_weighted = Decimal("0")
+    return transitions.get(stage)
+
+
+def _pipeline_snapshot_rows(*, env_id: UUID, business_id: UUID, limit: int = 2) -> list[dict[str, Any]]:
     try:
         with get_cursor() as cur:
             cur.execute(
                 """
-                SELECT d.deal_id, d.deal_name, a.account_name, d.stage,
-                       d.deal_value, d.probability_pct, d.expected_close_date, d.owner_name
+                SELECT *
+                FROM pds_pipeline_snapshot_daily
+                WHERE env_id = %s::uuid
+                  AND business_id = %s::uuid
+                ORDER BY snapshot_date DESC
+                LIMIT %s
+                """,
+                (str(env_id), str(business_id), limit),
+            )
+            return cur.fetchall()
+    except Exception:
+        return []
+
+
+def _upsert_pipeline_snapshot(*, env_id: UUID, business_id: UUID, snapshot_date: date | None = None) -> None:
+    snapshot_date = snapshot_date or _today()
+    deals = _fetch_pipeline_deal_rows(env_id=env_id, business_id=business_id)
+    active_deals = [deal for deal in deals if deal["stage"] in PIPELINE_ACTIVE_STAGES]
+    total_pipeline = sum(_nonnegative_decimal(deal.get("deal_value")) for deal in active_deals)
+    total_weighted = sum(
+        _nonnegative_decimal(deal.get("deal_value")) * (_pipeline_probability_for_stage(deal["stage"], deal.get("probability_pct")) / Decimal("100"))
+        for deal in active_deals
+    )
+    won_count = sum(1 for deal in deals if deal["stage"] == "won")
+    converted_count = sum(1 for deal in deals if deal["stage"] == "converted")
+    lost_count = sum(1 for deal in deals if deal["stage"] == "lost")
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO pds_pipeline_snapshot_daily
+                (env_id, business_id, snapshot_date, total_pipeline_value, total_weighted_value,
+                 active_deal_count, won_count, converted_count, lost_count, updated_at)
+                VALUES
+                (%s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, now())
+                ON CONFLICT (env_id, business_id, snapshot_date)
+                DO UPDATE SET total_pipeline_value = EXCLUDED.total_pipeline_value,
+                  total_weighted_value = EXCLUDED.total_weighted_value,
+                  active_deal_count = EXCLUDED.active_deal_count,
+                  won_count = EXCLUDED.won_count,
+                  converted_count = EXCLUDED.converted_count,
+                  lost_count = EXCLUDED.lost_count,
+                  updated_at = now()
+                """,
+                (
+                    str(env_id),
+                    str(business_id),
+                    snapshot_date,
+                    str(_q(total_pipeline)),
+                    str(_q(total_weighted)),
+                    len(active_deals),
+                    won_count,
+                    converted_count,
+                    lost_count,
+                ),
+            )
+    except Exception:
+        pass
+
+
+def _fetch_pipeline_deal_rows(*, env_id: UUID, business_id: UUID) -> list[dict[str, Any]]:
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT d.deal_id, d.deal_name, d.account_id, a.account_name, d.stage,
+                       d.deal_value, d.probability_pct, d.expected_close_date, d.owner_name,
+                       d.notes, d.lost_reason, d.stage_entered_at, d.last_activity_at,
+                       d.created_at, d.updated_at
                 FROM pds_pipeline_deals d
                 LEFT JOIN pds_accounts a ON a.account_id = d.account_id
                 WHERE d.env_id = %s::uuid AND d.business_id = %s::uuid
-                ORDER BY d.deal_value DESC NULLS LAST
+                ORDER BY d.deal_value DESC NULLS LAST, d.created_at DESC
                 """,
                 (str(env_id), str(business_id)),
             )
-            for row in cur.fetchall():
-                deal_value = Decimal(str(row.get("deal_value") or 0))
-                prob = Decimal(str(row.get("probability_pct") or 0))
-                weighted = _q(deal_value * prob / Decimal("100"))
-                stage_key = (row.get("stage") or "prospect").lower()
-                if stage_key in stage_map:
-                    stage_map[stage_key]["count"] += 1
-                    stage_map[stage_key]["unweighted_value"] += deal_value
-                    stage_map[stage_key]["weighted_value"] += weighted
-                total_pipeline += deal_value
-                total_weighted += weighted
-                deals.append({
-                    "deal_id": row["deal_id"],
-                    "deal_name": row["deal_name"],
-                    "account_name": row.get("account_name"),
-                    "stage": row["stage"],
-                    "deal_value": deal_value,
-                    "probability_pct": prob,
-                    "expected_close_date": row.get("expected_close_date"),
-                    "owner_name": row.get("owner_name"),
-                })
+            return cur.fetchall()
     except Exception:
-        import logging as _logging
-        _logging.getLogger(__name__).warning("pds_pipeline_deals table not found — returning empty pipeline")
+        return []
+
+
+def _fetch_pipeline_history_rows(*, env_id: UUID, business_id: UUID, deal_id: UUID | None = None) -> list[dict[str, Any]]:
+    try:
+        with get_cursor() as cur:
+            sql = """
+                SELECT stage_history_id, deal_id, from_stage, to_stage, changed_at, note
+                FROM pds_pipeline_deal_stage_history
+                WHERE env_id = %s::uuid AND business_id = %s::uuid
+            """
+            params: list[Any] = [str(env_id), str(business_id)]
+            if deal_id is not None:
+                sql += " AND deal_id = %s::uuid"
+                params.append(str(deal_id))
+            sql += " ORDER BY changed_at DESC"
+            cur.execute(sql, tuple(params))
+            return cur.fetchall()
+    except Exception:
+        return []
+
+
+def _pipeline_reasons(*, stage: str, deal_value: Decimal, probability_pct: Decimal, expected_close_date: date | None, last_activity_at: datetime | None, today: date) -> list[str]:
+    reasons: list[str] = []
+    if stage in PIPELINE_CLOSED_STAGES:
+        return reasons
+    if expected_close_date:
+        days_to_close = (expected_close_date - today).days
+        if days_to_close < 0:
+            reasons.append("overdue_close")
+        elif days_to_close <= 30:
+            reasons.append("closing_soon")
+    if last_activity_at and (today - last_activity_at.date()).days >= 14:
+        reasons.append("stalled")
+    if deal_value >= Decimal("1000000") and probability_pct < Decimal("40"):
+        reasons.append("low_probability_high_value")
+    return reasons
+
+
+def _pipeline_deal_from_row(row: dict[str, Any], *, today: date) -> dict[str, Any]:
+    stage = _normalize_pipeline_stage(row.get("stage"))
+    stage_entered_at = _coerce_datetime(row.get("stage_entered_at")) or _coerce_datetime(row.get("updated_at")) or _coerce_datetime(row.get("created_at"))
+    last_activity_at = _coerce_datetime(row.get("last_activity_at")) or _coerce_datetime(row.get("updated_at")) or _coerce_datetime(row.get("created_at"))
+    deal_value = _nonnegative_decimal(row.get("deal_value"))
+    probability_pct = _pipeline_probability_for_stage(stage, row.get("probability_pct"))
+    expected_close_date = _coerce_date(row.get("expected_close_date"))
+    attention_reasons = _pipeline_reasons(
+        stage=stage,
+        deal_value=deal_value,
+        probability_pct=probability_pct,
+        expected_close_date=expected_close_date,
+        last_activity_at=last_activity_at,
+        today=today,
+    )
+    days_in_stage = max(0, (today - stage_entered_at.date()).days) if stage_entered_at else 0
+    days_to_close = (expected_close_date - today).days if expected_close_date else None
     return {
-        "stages": [stage_map[s] for s in stages_order],
+        "deal_id": row["deal_id"],
+        "deal_name": row["deal_name"],
+        "account_id": row.get("account_id"),
+        "account_name": row.get("account_name"),
+        "stage": stage,
+        "deal_value": deal_value,
+        "probability_pct": probability_pct,
+        "expected_close_date": expected_close_date,
+        "owner_name": row.get("owner_name"),
+        "notes": row.get("notes"),
+        "lost_reason": row.get("lost_reason"),
+        "stage_entered_at": stage_entered_at,
+        "last_activity_at": last_activity_at,
+        "days_in_stage": days_in_stage,
+        "days_to_close": days_to_close,
+        "health_state": _pipeline_health_tone(stage=stage, attention_reasons=attention_reasons),
+        "attention_reasons": attention_reasons,
+        "is_closed": stage in PIPELINE_CLOSED_STAGES,
+    }
+
+
+def _pipeline_stage_summaries(*, deals: list[dict[str, Any]], history_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    stage_map: dict[str, dict[str, Any]] = {
+        stage: {
+            "stage": stage,
+            "label": _pipeline_stage_label(stage),
+            "count": 0,
+            "weighted_value": Decimal("0"),
+            "unweighted_value": Decimal("0"),
+            "avg_days_in_stage": None,
+            "conversion_to_next_pct": None,
+            "dropoff_pct": None,
+            "tone": "neutral",
+        }
+        for stage in PIPELINE_STAGE_ORDER
+    }
+    durations: dict[str, list[Decimal]] = {stage: [] for stage in PIPELINE_STAGE_ORDER}
+    for deal in deals:
+        stage = deal["stage"]
+        if stage not in stage_map:
+            continue
+        weighted = _q(deal["deal_value"] * deal["probability_pct"] / Decimal("100"))
+        stage_map[stage]["count"] += 1
+        stage_map[stage]["unweighted_value"] += deal["deal_value"]
+        stage_map[stage]["weighted_value"] += weighted
+        if deal["days_in_stage"] is not None:
+            durations[stage].append(Decimal(int(deal["days_in_stage"])))
+        if stage in {"won", "converted"}:
+            stage_map[stage]["tone"] = "positive"
+        elif stage == "lost":
+            stage_map[stage]["tone"] = "danger"
+        elif any(reason in {"stalled", "overdue_close"} for reason in deal["attention_reasons"]):
+            stage_map[stage]["tone"] = "warn"
+
+    window_start = datetime.utcnow() - timedelta(days=180)
+    entered_counts: dict[str, int] = {stage: 0 for stage in PIPELINE_STAGE_ORDER}
+    transition_counts: dict[str, int] = {stage: 0 for stage in PIPELINE_STAGE_ORDER}
+    drop_counts: dict[str, int] = {stage: 0 for stage in PIPELINE_STAGE_ORDER}
+    for row in history_rows:
+        changed_at = _coerce_datetime(row.get("changed_at"))
+        if changed_at is None or changed_at < window_start:
+            continue
+        to_stage = _normalize_pipeline_stage(row.get("to_stage"))
+        entered_counts[to_stage] = entered_counts.get(to_stage, 0) + 1
+        from_stage = row.get("from_stage")
+        if from_stage:
+            normalized_from = _normalize_pipeline_stage(from_stage)
+            if to_stage == _pipeline_next_stage(normalized_from):
+                transition_counts[normalized_from] = transition_counts.get(normalized_from, 0) + 1
+            if to_stage == "lost":
+                drop_counts[normalized_from] = drop_counts.get(normalized_from, 0) + 1
+
+    for stage in PIPELINE_STAGE_ORDER:
+        if durations[stage]:
+            stage_map[stage]["avg_days_in_stage"] = _safe_avg(durations[stage])
+        entered = entered_counts.get(stage, 0)
+        if entered >= 3:
+            next_count = transition_counts.get(stage, 0)
+            drop_count = drop_counts.get(stage, 0)
+            if _pipeline_next_stage(stage):
+                stage_map[stage]["conversion_to_next_pct"] = _q(Decimal(next_count) / Decimal(entered) * Decimal("100"))
+            if drop_count > 0:
+                stage_map[stage]["dropoff_pct"] = _q(Decimal(drop_count) / Decimal(entered) * Decimal("100"))
+
+    return [stage_map[stage] for stage in PIPELINE_STAGE_ORDER]
+
+
+def _pipeline_attention_items(deals: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    priority = {
+        "overdue_close": 0,
+        "stalled": 1,
+        "low_probability_high_value": 2,
+        "closing_soon": 3,
+    }
+    items: list[tuple[int, Decimal, dict[str, Any]]] = []
+    for deal in deals:
+        if not deal["attention_reasons"]:
+            continue
+        reason = sorted(deal["attention_reasons"], key=lambda key: priority.get(key, 99))[0]
+        issue_type, issue, action = _pipeline_issue_copy(reason)
+        item = {
+            "deal_id": deal["deal_id"],
+            "deal_name": deal["deal_name"],
+            "account_name": deal.get("account_name"),
+            "stage": deal["stage"],
+            "deal_value": deal["deal_value"],
+            "probability_pct": deal["probability_pct"],
+            "expected_close_date": deal.get("expected_close_date"),
+            "issue_type": issue_type,
+            "issue": issue,
+            "action": action,
+            "tone": "danger" if reason in {"overdue_close", "stalled"} else "warn",
+        }
+        items.append((priority.get(reason, 99), -deal["deal_value"], item))
+    items.sort(key=lambda item: (item[0], item[1]))
+    return [item[2] for item in items[:9]]
+
+
+def _pipeline_timeline_points(deals: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    timeline: dict[date, dict[str, Any]] = {}
+    for deal in deals:
+        if deal["stage"] not in PIPELINE_ACTIVE_STAGES:
+            continue
+        expected_close = deal.get("expected_close_date")
+        if expected_close is None:
+            continue
+        forecast_month = date(expected_close.year, expected_close.month, 1)
+        bucket = timeline.setdefault(
+            forecast_month,
+            {
+                "forecast_month": forecast_month,
+                "unweighted_value": Decimal("0"),
+                "weighted_value": Decimal("0"),
+                "deal_count": 0,
+            },
+        )
+        bucket["unweighted_value"] += deal["deal_value"]
+        bucket["weighted_value"] += _q(deal["deal_value"] * deal["probability_pct"] / Decimal("100"))
+        bucket["deal_count"] += 1
+    return [timeline[key] for key in sorted(timeline.keys())]
+
+
+def _pipeline_metrics(*, deals: list[dict[str, Any]], env_id: UUID, business_id: UUID) -> list[dict[str, Any]]:
+    active_deals = [deal for deal in deals if deal["stage"] in PIPELINE_ACTIVE_STAGES]
+    total_pipeline = _q(sum(deal["deal_value"] for deal in active_deals))
+    total_weighted = _q(sum(deal["deal_value"] * deal["probability_pct"] / Decimal("100") for deal in active_deals))
+    won_count = sum(1 for deal in deals if deal["stage"] in PIPELINE_WON_STAGES)
+    lost_count = sum(1 for deal in deals if deal["stage"] == "lost")
+    win_rate = _q(Decimal(won_count) / Decimal(won_count + lost_count) * Decimal("100")) if (won_count + lost_count) > 0 else None
+
+    snapshot_rows = _pipeline_snapshot_rows(env_id=env_id, business_id=business_id, limit=2)
+    previous_snapshot = snapshot_rows[1] if len(snapshot_rows) > 1 else None
+
+    return [
+        {
+            "key": "total_pipeline",
+            "label": "Total Pipeline",
+            "value": total_pipeline,
+            "delta_value": _q(total_pipeline - _q(previous_snapshot.get("total_pipeline_value"))) if previous_snapshot else None,
+            "delta_label": "vs prior snapshot" if previous_snapshot else None,
+            "tone": "neutral",
+            "context": "Open value across prospect to won.",
+            "empty_hint": "Start by adding the first deal and expected close date.",
+        },
+        {
+            "key": "weighted_pipeline",
+            "label": "Weighted Pipeline",
+            "value": total_weighted,
+            "delta_value": _q(total_weighted - _q(previous_snapshot.get("total_weighted_value"))) if previous_snapshot else None,
+            "delta_label": "vs prior snapshot" if previous_snapshot else None,
+            "tone": "positive" if total_weighted > 0 else "neutral",
+            "context": "Probability-adjusted expected revenue.",
+            "empty_hint": "Probability turns raw pipeline into forecast value.",
+        },
+        {
+            "key": "active_deals",
+            "label": "Active Deals",
+            "value": len(active_deals),
+            "delta_value": len(active_deals) - int(previous_snapshot.get("active_deal_count") or 0) if previous_snapshot else None,
+            "delta_label": "vs prior snapshot" if previous_snapshot else None,
+            "tone": "neutral",
+            "context": "Prospect, pursuit, negotiation, and won.",
+            "empty_hint": "Create a deal to start the board.",
+        },
+        {
+            "key": "win_rate",
+            "label": "Win Rate",
+            "value": win_rate,
+            "delta_value": None,
+            "delta_label": None,
+            "tone": "positive" if win_rate and win_rate >= Decimal("50") else "warn" if win_rate is not None else "neutral",
+            "context": "Won plus converted over won plus converted plus lost.",
+            "empty_hint": "Win rate appears after there is enough closed outcome history.",
+        },
+    ]
+
+
+def _pipeline_example_deal() -> dict[str, Any]:
+    return {
+        "deal_name": "Northwest Medical Campus Refresh",
+        "account_name": "Stone Strategic Accounts",
+        "stage": "prospect",
+        "deal_value": Decimal("1200000"),
+        "probability_pct": Decimal("25"),
+        "expected_close_date": _today() + timedelta(days=45),
+        "owner_name": "Dana Park",
+    }
+
+
+def get_pipeline_lookups(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
+    _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
+    accounts: list[dict[str, Any]] = []
+    owners: list[dict[str, Any]] = []
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT account_id, account_name, owner_name
+                FROM pds_accounts
+                WHERE env_id = %s::uuid AND business_id = %s::uuid
+                ORDER BY account_name
+                """,
+                (str(env_id), str(business_id)),
+            )
+            accounts = [
+                {
+                    "value": str(row["account_id"]),
+                    "label": row["account_name"],
+                    "meta": row.get("owner_name"),
+                }
+                for row in cur.fetchall()
+            ]
+            cur.execute(
+                """
+                SELECT resource_id, full_name, title
+                FROM pds_resources
+                WHERE env_id = %s::uuid AND business_id = %s::uuid
+                ORDER BY full_name
+                """,
+                (str(env_id), str(business_id)),
+            )
+            owners = [
+                {
+                    "value": str(row["resource_id"]),
+                    "label": row["full_name"],
+                    "meta": row.get("title"),
+                }
+                for row in cur.fetchall()
+            ]
+    except Exception:
+        owners = []
+        accounts = []
+    return {
+        "accounts": accounts,
+        "owners": owners,
+        "stages": [
+            {"value": stage, "label": _pipeline_stage_label(stage), "meta": "Closed" if stage in PIPELINE_CLOSED_STAGES else "Active"}
+            for stage in PIPELINE_STAGE_ORDER
+        ],
+    }
+
+
+def get_pipeline_deal_detail(*, env_id: UUID, business_id: UUID, deal_id: UUID) -> dict[str, Any]:
+    _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
+    today = _today()
+    row = next((item for item in _fetch_pipeline_deal_rows(env_id=env_id, business_id=business_id) if item["deal_id"] == deal_id), None)
+    if row is None:
+        raise LookupError("Pipeline deal not found")
+    history = [
+        {
+            "stage_history_id": item["stage_history_id"],
+            "from_stage": item.get("from_stage"),
+            "to_stage": _normalize_pipeline_stage(item.get("to_stage")),
+            "changed_at": _coerce_datetime(item.get("changed_at")) or datetime.utcnow(),
+            "note": item.get("note"),
+        }
+        for item in _fetch_pipeline_history_rows(env_id=env_id, business_id=business_id, deal_id=deal_id)
+    ]
+    return {
+        "deal": _pipeline_deal_from_row(row, today=today),
+        "history": history,
+    }
+
+
+def create_pipeline_deal(*, env_id: UUID, business_id: UUID, payload: dict[str, Any]) -> dict[str, Any]:
+    _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
+    deal_name = str(payload.get("deal_name") or "").strip()
+    if not deal_name:
+        raise ValueError("Deal name is required")
+    stage = _normalize_pipeline_stage(payload.get("stage"))
+    deal_value = _nonnegative_decimal(payload.get("deal_value"))
+    probability_pct = _pipeline_probability_for_stage(stage, payload.get("probability_pct"))
+    expected_close_date = _coerce_date(payload.get("expected_close_date"))
+    owner_name = str(payload.get("owner_name") or "").strip() or None
+    notes = str(payload.get("notes") or "").strip() or None
+    lost_reason = str(payload.get("lost_reason") or "").strip() or None
+    account_id = payload.get("account_id")
+    if account_id is not None:
+        account_id = UUID(str(account_id))
+    changed_at = datetime.utcnow()
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO pds_pipeline_deals
+            (env_id, business_id, account_id, deal_name, stage, deal_value, probability_pct,
+             expected_close_date, owner_name, notes, lost_reason, stage_entered_at, last_activity_at)
+            VALUES
+            (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING deal_id
+            """,
+            (
+                str(env_id),
+                str(business_id),
+                str(account_id) if account_id else None,
+                deal_name,
+                stage,
+                str(deal_value),
+                str(probability_pct),
+                expected_close_date,
+                owner_name,
+                notes,
+                lost_reason if stage == "lost" else None,
+                changed_at,
+                changed_at,
+            ),
+        )
+        created = cur.fetchone()
+        cur.execute(
+            """
+            INSERT INTO pds_pipeline_deal_stage_history
+            (env_id, business_id, deal_id, from_stage, to_stage, changed_at, note)
+            VALUES (%s::uuid, %s::uuid, %s::uuid, NULL, %s, %s, %s)
+            """,
+            (
+                str(env_id),
+                str(business_id),
+                str(created["deal_id"]),
+                stage,
+                changed_at,
+                "Initial stage",
+            ),
+        )
+    _upsert_pipeline_snapshot(env_id=env_id, business_id=business_id)
+    return get_pipeline_deal_detail(env_id=env_id, business_id=business_id, deal_id=created["deal_id"])
+
+
+def update_pipeline_deal(*, env_id: UUID, business_id: UUID, deal_id: UUID, payload: dict[str, Any]) -> dict[str, Any]:
+    _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
+    rows = _fetch_pipeline_deal_rows(env_id=env_id, business_id=business_id)
+    current = next((item for item in rows if item["deal_id"] == deal_id), None)
+    if current is None:
+        raise LookupError("Pipeline deal not found")
+
+    next_stage = _normalize_pipeline_stage(payload["stage"]) if "stage" in payload else _normalize_pipeline_stage(current.get("stage"))
+    changed_at = datetime.utcnow()
+    updates: dict[str, Any] = {}
+
+    if "deal_name" in payload:
+        deal_name = str(payload.get("deal_name") or "").strip()
+        if not deal_name:
+            raise ValueError("Deal name is required")
+        updates["deal_name"] = deal_name
+    if "account_id" in payload:
+        updates["account_id"] = UUID(str(payload["account_id"])) if payload.get("account_id") else None
+    if "stage" in payload:
+        updates["stage"] = next_stage
+        updates["stage_entered_at"] = changed_at
+    if "deal_value" in payload:
+        updates["deal_value"] = _nonnegative_decimal(payload.get("deal_value"))
+
+    probability_source = payload.get("probability_pct") if "probability_pct" in payload else current.get("probability_pct")
+    if "probability_pct" in payload or "stage" in payload:
+        updates["probability_pct"] = _pipeline_probability_for_stage(next_stage, probability_source)
+    if "expected_close_date" in payload:
+        updates["expected_close_date"] = _coerce_date(payload.get("expected_close_date"))
+    if "owner_name" in payload:
+        updates["owner_name"] = str(payload.get("owner_name") or "").strip() or None
+    if "notes" in payload:
+        updates["notes"] = str(payload.get("notes") or "").strip() or None
+    if "lost_reason" in payload or "stage" in payload:
+        next_lost_reason = str(payload.get("lost_reason") or "").strip() or None
+        updates["lost_reason"] = next_lost_reason if next_stage == "lost" else None
+
+    updates["last_activity_at"] = changed_at
+    updates["updated_at"] = changed_at
+    set_columns = []
+    params: list[Any] = []
+    for key, value in updates.items():
+        set_columns.append(f"{key} = %s")
+        if isinstance(value, UUID):
+            params.append(str(value))
+        elif isinstance(value, Decimal):
+            params.append(str(value))
+        else:
+            params.append(value)
+    if set_columns:
+        params.extend([str(env_id), str(business_id), str(deal_id)])
+        with get_cursor() as cur:
+            cur.execute(
+                f"""
+                UPDATE pds_pipeline_deals
+                SET {", ".join(set_columns)}
+                WHERE env_id = %s::uuid
+                  AND business_id = %s::uuid
+                  AND deal_id = %s::uuid
+                """,
+                tuple(params),
+            )
+            if "stage" in updates and updates["stage"] != _normalize_pipeline_stage(current.get("stage")):
+                cur.execute(
+                    """
+                    INSERT INTO pds_pipeline_deal_stage_history
+                    (env_id, business_id, deal_id, from_stage, to_stage, changed_at, note)
+                    VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s)
+                    """,
+                    (
+                        str(env_id),
+                        str(business_id),
+                        str(deal_id),
+                        _normalize_pipeline_stage(current.get("stage")),
+                        updates["stage"],
+                        changed_at,
+                        str(payload.get("transition_note") or "").strip() or f"Moved to {_pipeline_stage_label(updates['stage'])}",
+                    ),
+                )
+
+    _upsert_pipeline_snapshot(env_id=env_id, business_id=business_id)
+    return get_pipeline_deal_detail(env_id=env_id, business_id=business_id, deal_id=deal_id)
+
+
+def get_pipeline_summary(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
+    """Return the board-first pipeline workspace model for the PDS pipeline module."""
+    _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
+    today = _today()
+    raw_rows = _fetch_pipeline_deal_rows(env_id=env_id, business_id=business_id)
+    deals = [_pipeline_deal_from_row(row, today=today) for row in raw_rows]
+    history_rows = _fetch_pipeline_history_rows(env_id=env_id, business_id=business_id)
+    total_pipeline = _q(sum(deal["deal_value"] for deal in deals if deal["stage"] in PIPELINE_ACTIVE_STAGES))
+    total_weighted = _q(
+        sum(deal["deal_value"] * deal["probability_pct"] / Decimal("100") for deal in deals if deal["stage"] in PIPELINE_ACTIVE_STAGES)
+    )
+    return {
+        "has_deals": bool(deals),
+        "empty_state_title": "No pipeline yet",
+        "empty_state_body": "Start the pipeline by creating a first deal with an account, stage, value, probability, close date, and owner.",
+        "required_fields": ["Deal", "Account", "Stage", "Value", "Probability", "Expected Close", "Owner"],
+        "example_deal": _pipeline_example_deal(),
+        "metrics": _pipeline_metrics(deals=deals, env_id=env_id, business_id=business_id),
+        "attention_items": _pipeline_attention_items(deals),
+        "stages": _pipeline_stage_summaries(deals=deals, history_rows=history_rows),
+        "timeline": _pipeline_timeline_points(deals),
         "deals": deals,
         "total_pipeline_value": total_pipeline,
         "total_weighted_value": total_weighted,
@@ -2005,18 +3281,21 @@ def get_pipeline_summary(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
 def get_command_center(*, env_id: UUID, business_id: UUID, lens: str, horizon: str, role_preset: str) -> dict[str, Any]:
     environment = _fetch_environment(env_id)
     _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
-    performance_table = get_performance_table(env_id=env_id, business_id=business_id, lens=lens, horizon=horizon)
-    delivery_risk = get_delivery_risk(env_id=env_id, business_id=business_id, horizon=horizon)
-    resource_health = get_resource_health(env_id=env_id, business_id=business_id, horizon=horizon)
-    timecard_health = get_timecard_health(env_id=env_id, business_id=business_id, horizon=horizon)
-    forecast = get_forecast(env_id=env_id, business_id=business_id, horizon=horizon, lens=lens)
-    satisfaction = get_satisfaction(env_id=env_id, business_id=business_id, horizon=horizon)
-    closeout = get_closeout(env_id=env_id, business_id=business_id, horizon=horizon)
+    normalized_lens = normalize_lens(lens, role_preset)
+    normalized_horizon = normalize_horizon(horizon)
+    performance_table = get_performance_table(env_id=env_id, business_id=business_id, lens=normalized_lens, horizon=normalized_horizon)
+    delivery_risk = get_delivery_risk(env_id=env_id, business_id=business_id, horizon=normalized_horizon)
+    resource_health = get_resource_health(env_id=env_id, business_id=business_id, horizon=normalized_horizon)
+    timecard_health = get_timecard_health(env_id=env_id, business_id=business_id, horizon=normalized_horizon)
+    forecast = get_forecast(env_id=env_id, business_id=business_id, horizon=normalized_horizon, lens=normalized_lens)
+    satisfaction = get_satisfaction(env_id=env_id, business_id=business_id, horizon=normalized_horizon)
+    closeout = get_closeout(env_id=env_id, business_id=business_id, horizon=normalized_horizon)
     briefing = get_executive_briefing(
-        env_id=env_id, business_id=business_id, lens=lens, horizon=horizon, role_preset=role_preset,
+        env_id=env_id, business_id=business_id, lens=normalized_lens, horizon=normalized_horizon, role_preset=role_preset,
         performance_table=performance_table, delivery_risk=delivery_risk,
         resources=resource_health, satisfaction=satisfaction, closeout=closeout,
     )
+    account_dashboard = None
 
     fee_plan = sum(_q(row.get("fee_plan")) for row in performance_table["rows"])
     fee_actual = sum(_q(row.get("fee_actual")) for row in performance_table["rows"])
@@ -2028,50 +3307,101 @@ def get_command_center(*, env_id: UUID, business_id: UUID, lens: str, horizon: s
     forecast_total = sum(_q(point.get("current_value")) for point in forecast)
     red_projects = len([item for item in delivery_risk if item["severity"] in {"orange", "red"}])
     client_risk_accounts = len([item for item in satisfaction if item["risk_state"] == "red"])
-
-    metrics_strip = [
-        {
-            "key": "fee_vs_plan",
-            "label": "Fee Revenue vs Plan",
-            "value": fee_actual,
-            "comparison_label": "Plan",
-            "comparison_value": fee_plan,
-            "delta_value": _q(fee_actual - fee_plan),
-            "tone": "danger" if fee_actual < fee_plan else "positive",
-            "unit": "usd",
-        },
-        {
-            "key": "gaap_vs_plan",
-            "label": "GAAP Revenue vs Plan",
-            "value": gaap_actual,
-            "comparison_label": "Plan",
-            "comparison_value": gaap_plan,
-            "delta_value": _q(gaap_actual - gaap_plan),
-            "tone": "danger" if gaap_actual < gaap_plan else "positive",
-            "unit": "usd",
-        },
-        {
-            "key": "ci_vs_plan",
-            "label": "CI vs Plan",
-            "value": ci_actual,
-            "comparison_label": "Plan",
-            "comparison_value": ci_plan,
-            "delta_value": _q(ci_actual - ci_plan),
-            "tone": "danger" if ci_actual < ci_plan else "positive",
-            "unit": "usd",
-        },
-        {"key": "backlog", "label": "Backlog", "value": backlog, "tone": "neutral", "unit": "usd"},
-        {"key": "forecast", "label": "Forecast", "value": forecast_total, "tone": "neutral", "unit": "usd"},
-        {"key": "red_projects", "label": "Red / At-Risk Projects", "value": red_projects, "tone": "danger"},
-        {"key": "client_risk_accounts", "label": "Client Risk Accounts", "value": client_risk_accounts, "tone": "warn"},
-    ]
+    if normalized_lens == "account":
+        account_dashboard, current_account_rows, previous_account_rows = _build_account_dashboard(
+            env_id=env_id,
+            business_id=business_id,
+            horizon=normalized_horizon,
+        )
+        previous_at_risk_count = len([row for row in previous_account_rows if row["health_band"] == "at_risk"])
+        current_at_risk_count = account_dashboard["distribution"].get("at_risk", 0)
+        current_avg_health = _safe_avg([Decimal(row["health_score"]) for row in current_account_rows]) if current_account_rows else Decimal("0")
+        previous_avg_health = _safe_avg([Decimal(row["health_score"]) for row in previous_account_rows]) if previous_account_rows else Decimal("0")
+        plan_attainment_pct = _q((fee_actual / fee_plan) * Decimal("100")) if fee_plan > 0 else Decimal("0")
+        metrics_strip = [
+            {
+                "key": "total_revenue_ytd",
+                "label": "Total Revenue (YTD)",
+                "value": fee_actual,
+                "comparison_label": "Plan",
+                "comparison_value": fee_plan,
+                "delta_value": _q(fee_actual - fee_plan),
+                "tone": "danger" if fee_plan > 0 and fee_actual < fee_plan else "positive",
+                "unit": "usd",
+            },
+            {
+                "key": "percent_vs_plan",
+                "label": "% vs Plan",
+                "value": plan_attainment_pct,
+                "comparison_label": "Target",
+                "comparison_value": Decimal("100"),
+                "delta_value": _q(plan_attainment_pct - Decimal("100")),
+                "tone": "danger" if plan_attainment_pct < Decimal("90") else "warn" if plan_attainment_pct < Decimal("100") else "positive",
+                "unit": "percent_raw",
+            },
+            {
+                "key": "at_risk_accounts",
+                "label": "At Risk Accounts",
+                "value": current_at_risk_count,
+                "comparison_label": "Prior",
+                "comparison_value": previous_at_risk_count,
+                "delta_value": current_at_risk_count - previous_at_risk_count,
+                "tone": "danger" if current_at_risk_count > 0 else "positive",
+            },
+            {
+                "key": "avg_account_health",
+                "label": "Avg Account Health Score",
+                "value": _round_score(current_avg_health),
+                "comparison_label": "Prior",
+                "comparison_value": _round_score(previous_avg_health),
+                "delta_value": _round_score(current_avg_health - previous_avg_health),
+                "tone": "danger" if current_avg_health < Decimal("55") else "warn" if current_avg_health < Decimal("75") else "positive",
+            },
+        ]
+    else:
+        metrics_strip = [
+            {
+                "key": "fee_vs_plan",
+                "label": "Fee Revenue vs Plan",
+                "value": fee_actual,
+                "comparison_label": "Plan",
+                "comparison_value": fee_plan,
+                "delta_value": _q(fee_actual - fee_plan),
+                "tone": "danger" if fee_actual < fee_plan else "positive",
+                "unit": "usd",
+            },
+            {
+                "key": "gaap_vs_plan",
+                "label": "GAAP Revenue vs Plan",
+                "value": gaap_actual,
+                "comparison_label": "Plan",
+                "comparison_value": gaap_plan,
+                "delta_value": _q(gaap_actual - gaap_plan),
+                "tone": "danger" if gaap_actual < gaap_plan else "positive",
+                "unit": "usd",
+            },
+            {
+                "key": "ci_vs_plan",
+                "label": "CI vs Plan",
+                "value": ci_actual,
+                "comparison_label": "Plan",
+                "comparison_value": ci_plan,
+                "delta_value": _q(ci_actual - ci_plan),
+                "tone": "danger" if ci_actual < ci_plan else "positive",
+                "unit": "usd",
+            },
+            {"key": "backlog", "label": "Backlog", "value": backlog, "tone": "neutral", "unit": "usd"},
+            {"key": "forecast", "label": "Forecast", "value": forecast_total, "tone": "neutral", "unit": "usd"},
+            {"key": "red_projects", "label": "Red / At-Risk Projects", "value": red_projects, "tone": "danger"},
+            {"key": "client_risk_accounts", "label": "Client Risk Accounts", "value": client_risk_accounts, "tone": "warn"},
+        ]
 
     return {
         "env_id": str(env_id),
         "business_id": str(business_id),
         "workspace_template_key": resolve_pds_workspace_template(environment),
-        "lens": normalize_lens(lens, role_preset),
-        "horizon": normalize_horizon(horizon),
+        "lens": normalized_lens,
+        "horizon": normalized_horizon,
         "role_preset": normalize_role_preset(role_preset),
         "generated_at": datetime.utcnow(),
         "metrics_strip": metrics_strip,
@@ -2082,7 +3412,68 @@ def get_command_center(*, env_id: UUID, business_id: UUID, lens: str, horizon: s
         "forecast_points": forecast,
         "satisfaction": satisfaction,
         "closeout": closeout,
+        "account_dashboard": account_dashboard,
         "briefing": briefing,
+    }
+
+
+def get_account_preview(*, env_id: UUID, business_id: UUID, account_id: UUID, horizon: str) -> dict[str, Any]:
+    _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
+    _dashboard, current_rows, _previous_rows = _build_account_dashboard(
+        env_id=env_id,
+        business_id=business_id,
+        horizon=horizon,
+    )
+    row = next((item for item in current_rows if item["account_id"] == account_id), None)
+    if row is None:
+        raise LookupError("Account preview not found")
+
+    top_project_risks = [
+        {
+            "project_id": project_row["project_id"],
+            "project_name": (project_row.get("project_name") or project_row.get("issue_summary") or "Project"),
+            "severity": project_row.get("severity") or "green",
+            "risk_score": _q(project_row.get("risk_score")),
+            "issue_summary": ", ".join((project_row.get("reason_codes_json") or [])[:2]) or "Project risk",
+            "recommended_action": project_row.get("recommended_action"),
+            "href": _project_href(env_id=env_id, project_id=project_row["project_id"]),
+        }
+        for project_row in row.get("project_rows", [])[:3]
+    ]
+
+    return {
+        "account_id": row["account_id"],
+        "account_name": row["account_name"],
+        "owner_name": row.get("owner_name"),
+        "health_score": row["health_score"],
+        "health_band": row["health_band"],
+        "trend": row["trend"],
+        "fee_plan": row["fee_plan"],
+        "fee_actual": row["fee_actual"],
+        "plan_variance_pct": row["plan_variance_pct"],
+        "ytd_revenue": row["ytd_revenue"],
+        "score_breakdown": {
+            "revenue_score": row["revenue_score"],
+            "staffing_score": row["staffing_score"],
+            "timecard_score": row["timecard_score"],
+            "client_score": row["client_score"],
+        },
+        "team_utilization_pct": row.get("team_utilization_pct"),
+        "staffing_score": row["staffing_score"],
+        "overloaded_resources": row["overloaded_resources"],
+        "staffing_gap_resources": row["staffing_gap_resources"],
+        "timecard_compliance_pct": row.get("timecard_compliance_pct"),
+        "satisfaction_score": row.get("satisfaction_score"),
+        "satisfaction_trend_delta": row.get("satisfaction_trend_delta"),
+        "red_projects": row["red_projects"],
+        "collections_lag": row["collections_lag"],
+        "writeoff_leakage": row["writeoff_leakage"],
+        "primary_issue_code": row.get("primary_issue_code"),
+        "impact_label": row.get("impact_label"),
+        "recommended_action": row.get("recommended_action"),
+        "recommended_owner": row.get("recommended_owner"),
+        "reason_codes": row.get("reason_codes") or [],
+        "top_project_risks": top_project_risks,
     }
 
 

@@ -7,7 +7,7 @@ export default function PdsHomePage() {
       description="Run Stone PDS from the management questions that matter: which markets are missing plan, which accounts are slipping, where delivery needs intervention, and which teams need staffing or timecard action."
       defaultLens="market"
       defaultHorizon="YTD"
-      sections={["interventionQueue", "performance", "deliveryRisk", "resourceHealth", "satisfactionCloseout", "forecast", "briefing"]}
+      sections={["interventionQueue", "performance", "signals", "varianceChart", "leaderboard", "resourceHealth", "deliveryRisk", "satisfactionCloseout", "forecast", "briefing"]}
       moduleNotes={[
         {
           label: "Portfolio",

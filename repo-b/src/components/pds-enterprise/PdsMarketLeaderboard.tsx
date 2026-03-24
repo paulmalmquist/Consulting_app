@@ -71,10 +71,10 @@ function SortHeader({
   const active = currentKey === sortKey;
   return (
     <th
-      className="cursor-pointer select-none pb-2 pr-3 text-right font-medium hover:text-pds-goldText"
+      className="cursor-pointer select-none pb-2 pr-3 text-right font-medium hover:text-blue-400"
       onClick={() => onSort(sortKey)}
     >
-      <span className={active ? "text-pds-goldText" : ""}>
+      <span className={active ? "text-blue-400" : ""}>
         {label}
         {active ? (currentDir === "asc" ? " \u25B2" : " \u25BC") : ""}
       </span>
@@ -85,9 +85,13 @@ function SortHeader({
 export function PdsMarketLeaderboard({
   rows,
   filter,
+  selectedMarketId,
+  onRowClick,
 }: {
   rows: PdsV2PerformanceRow[];
   filter?: string;
+  selectedMarketId?: string | null;
+  onRowClick?: (marketId: string) => void;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("risk_score");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -128,11 +132,11 @@ export function PdsMarketLeaderboard({
   }, [sorted, sortKey, sortDir]);
 
   return (
-    <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-3" data-testid="pds-market-leaderboard">
+    <section className="rounded-lg" data-testid="pds-market-leaderboard">
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
-          <thead className="text-[10px] uppercase tracking-[0.12em] text-bm-muted2">
-            <tr className="border-b border-bm-border/50">
+          <thead className="text-[10px] uppercase tracking-[0.12em] text-slate-400">
+            <tr className="border-b border-slate-700/30">
               <th className="pb-2 pr-3 font-medium text-left">Market</th>
               <SortHeader label="Revenue" sortKey="fee_actual" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
               <SortHeader label="Rev vs Plan" sortKey="fee_variance_pct" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
@@ -149,12 +153,22 @@ export function PdsMarketLeaderboard({
               const risk = riskScore(row);
               const riskLvl = deriveRiskLevel(risk);
               return (
-                <tr key={row.entity_id} className={`border-b border-bm-border/30 last:border-b-0 hover:bg-bm-surface/30 transition ${highlightIds.has(row.entity_id) ? "bg-pds-signalOrange/[0.04]" : ""}`}>
+                <tr
+                  key={row.entity_id}
+                  className={`border-b border-slate-700/20 last:border-b-0 hover:bg-slate-700/15 transition ${
+                    selectedMarketId === row.entity_id
+                      ? "bg-blue-500/[0.06]"
+                      : highlightIds.has(row.entity_id)
+                        ? "bg-red-500/[0.03]"
+                        : ""
+                  } ${onRowClick ? "cursor-pointer" : ""}`}
+                  onClick={() => onRowClick?.(row.entity_id)}
+                >
                   <td className="py-2.5 pr-3">
                     <div className="flex items-center gap-2">
                       <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${signalDotClass(row.health_status)}`} />
                       {row.href ? (
-                        <Link href={row.href} className="font-medium text-bm-text hover:text-pds-goldText hover:underline">
+                        <Link href={row.href} className="font-medium text-bm-text hover:text-blue-400 hover:underline">
                           {row.entity_label}
                         </Link>
                       ) : (
@@ -162,11 +176,11 @@ export function PdsMarketLeaderboard({
                       )}
                     </div>
                     {row.owner_label ? (
-                      <p className="ml-4 text-[11px] text-bm-muted2">{row.owner_label}</p>
+                      <p className="ml-4 text-[11px] text-slate-500">{row.owner_label}</p>
                     ) : null}
                   </td>
                   <td className="py-2.5 pr-3 text-right tabular-nums">{formatCurrency(row.fee_actual)}</td>
-                  <td className={`py-2.5 pr-3 text-right tabular-nums font-medium ${vPct < -0.05 ? "text-pds-signalRed" : vPct < 0 ? "text-pds-signalOrange" : "text-pds-signalGreen"}`}>
+                  <td className={`py-2.5 pr-3 text-right tabular-nums font-medium ${vPct < -0.05 ? "text-red-400" : vPct < 0 ? "text-amber-400" : "text-emerald-400"}`}>
                     {vPct >= 0 ? "+" : ""}{formatPercent(vPct, 1)}
                   </td>
                   <td className="py-2.5 pr-3 text-right tabular-nums">{formatCurrency(row.ci_actual)}</td>
@@ -183,7 +197,7 @@ export function PdsMarketLeaderboard({
             })}
             {sorted.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-6 text-center text-sm text-bm-muted2">
+                <td colSpan={8} className="py-6 text-center text-sm text-slate-500">
                   No markets match the current filter.
                 </td>
               </tr>

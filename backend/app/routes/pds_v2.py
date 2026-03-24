@@ -6,6 +6,7 @@ from fastapi import APIRouter, Query, Request
 
 from app.routes.domain_common import classify_domain_error, domain_error_response
 from app.schemas.pds_v2 import (
+    PdsV2AccountPreviewOut,
     PdsHorizon,
     PdsLens,
     PdsRolePreset,
@@ -18,6 +19,10 @@ from app.schemas.pds_v2 import (
     PdsV2ForecastPointOut,
     PdsV2LeaderCoverageOut,
     PdsV2PerformanceTableOut,
+    PdsV2PipelineDealCreateRequest,
+    PdsV2PipelineDealDetailOut,
+    PdsV2PipelineDealUpdateRequest,
+    PdsV2PipelineLookupsOut,
     PdsV2PipelineSummaryOut,
     PdsV2ReportPacketOut,
     PdsV2ReportPacketRequest,
@@ -220,6 +225,36 @@ def get_timecard_health(
         )
 
 
+@router.get("/accounts/{account_id}/preview", response_model=PdsV2AccountPreviewOut)
+def get_account_preview(
+    request: Request,
+    account_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+    horizon: PdsHorizon = Query(default="YTD"),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return PdsV2AccountPreviewOut(
+            **enterprise_svc.get_account_preview(
+                env_id=resolved_env_id,
+                business_id=resolved_business_id,
+                account_id=account_id,
+                horizon=horizon,
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="pds.v2.account_preview.failed",
+            context={"env_id": env_id, "account_id": str(account_id), "horizon": horizon},
+        )
+
+
 @router.get("/forecast", response_model=list[PdsV2ForecastPointOut])
 def get_forecast(
     request: Request,
@@ -367,6 +402,32 @@ def build_report_packet(req: PdsV2ReportPacketRequest, request: Request):
         )
 
 
+@router.get("/pipeline/lookups", response_model=PdsV2PipelineLookupsOut)
+def get_pipeline_lookups(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return PdsV2PipelineLookupsOut(
+            **enterprise_svc.get_pipeline_lookups(
+                env_id=resolved_env_id,
+                business_id=resolved_business_id,
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="pds.v2.pipeline_lookups.failed",
+            context={"env_id": env_id},
+        )
+
+
 @router.get("/pipeline", response_model=PdsV2PipelineSummaryOut)
 def get_pipeline(
     request: Request,
@@ -390,6 +451,87 @@ def get_pipeline(
             detail=str(exc),
             action="pds.v2.pipeline.failed",
             context={"env_id": env_id},
+        )
+
+
+@router.get("/pipeline/deals/{deal_id}", response_model=PdsV2PipelineDealDetailOut)
+def get_pipeline_deal(
+    deal_id: UUID,
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return PdsV2PipelineDealDetailOut(
+            **enterprise_svc.get_pipeline_deal_detail(
+                env_id=resolved_env_id,
+                business_id=resolved_business_id,
+                deal_id=deal_id,
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="pds.v2.pipeline_deal.failed",
+            context={"env_id": env_id, "deal_id": str(deal_id)},
+        )
+
+
+@router.post("/pipeline/deals", response_model=PdsV2PipelineDealDetailOut)
+def create_pipeline_deal(req: PdsV2PipelineDealCreateRequest, request: Request):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, req.env_id, req.business_id)
+        return PdsV2PipelineDealDetailOut(
+            **enterprise_svc.create_pipeline_deal(
+                env_id=resolved_env_id,
+                business_id=resolved_business_id,
+                payload=req.model_dump(exclude={"env_id", "business_id"}),
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="pds.v2.pipeline_deal_create.failed",
+            context={"env_id": req.env_id, "deal_name": req.deal_name},
+        )
+
+
+@router.patch("/pipeline/deals/{deal_id}", response_model=PdsV2PipelineDealDetailOut)
+def update_pipeline_deal(
+    deal_id: UUID,
+    req: PdsV2PipelineDealUpdateRequest,
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return PdsV2PipelineDealDetailOut(
+            **enterprise_svc.update_pipeline_deal(
+                env_id=resolved_env_id,
+                business_id=resolved_business_id,
+                deal_id=deal_id,
+                payload=req.model_dump(exclude_unset=True),
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="pds.v2.pipeline_deal_update.failed",
+            context={"env_id": env_id, "deal_id": str(deal_id)},
         )
 
 

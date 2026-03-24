@@ -34,7 +34,7 @@ export function PdsLensToolbar({
             onClick={() => onLensChange(item.key)}
             className={`rounded-lg px-5 py-2 text-sm font-semibold transition ${
               lens === item.key
-                ? "bg-pds-gold/20 text-pds-goldText shadow-sm border border-pds-gold/40"
+                ? "bg-pds-accent/20 text-pds-accentText shadow-sm border border-pds-accent/40"
                 : "border border-transparent text-bm-muted2 hover:text-bm-text hover:bg-bm-surface/40"
             }`}
           >
@@ -54,7 +54,7 @@ export function PdsLensToolbar({
               onClick={() => onHorizonChange(item.key)}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
                 horizon === item.key
-                  ? "bg-pds-gold/15 text-pds-goldText border border-pds-gold/30"
+                  ? "bg-pds-accent/15 text-pds-accentText border border-pds-accent/30"
                   : "border border-transparent text-bm-muted2 hover:text-bm-text"
               }`}
             >

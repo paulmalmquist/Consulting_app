@@ -22,10 +22,12 @@ import { PdsExecutiveBriefingPanel } from "@/components/pds-enterprise/PdsExecut
 import { PdsInterventionQueue } from "@/components/pds-enterprise/PdsInterventionQueue";
 import { PdsSignalsStrip } from "@/components/pds-enterprise/PdsSignalsStrip";
 import { PdsMarketLeaderboard } from "@/components/pds-enterprise/PdsMarketLeaderboard";
+import { PdsVarianceChart } from "@/components/pds-enterprise/PdsVarianceChart";
 
 export type PdsWorkspaceSection =
   | "performance"
   | "leaderboard"
+  | "varianceChart"
   | "signals"
   | "deliveryRisk"
   | "resourceHealth"
@@ -55,7 +57,7 @@ type Props = {
 function PdsSectionHeader({ label, title }: { label: string; title: string }) {
   return (
     <div className="mt-1">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-pds-gold/70">{label}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-bm-muted2">{label}</p>
       <h3 className="text-base font-semibold text-bm-text">{title}</h3>
     </div>
   );
@@ -102,6 +104,7 @@ export function PdsWorkspacePage({
   const [reportPacket, setReportPacket] = useState<PdsV2ReportPacket | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [performanceView, setPerformanceView] = useState<"chart" | "table">("chart");
 
   useEffect(() => {
     let cancelled = false;
@@ -157,16 +160,18 @@ export function PdsWorkspacePage({
 
   if (!commandCenter) return null;
 
+  const hasVarianceOrLeaderboard = sections.includes("varianceChart") || sections.includes("leaderboard");
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
       {/* Compressed header row */}
-      <section className="rounded-xl border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,hsl(var(--pds-gold)/0.10),transparent_40%)] bg-bm-surface/[0.92] px-4 py-3">
+      <section className="rounded-xl border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,hsl(var(--pds-accent)/0.08),transparent_40%)] bg-bm-surface/[0.92] px-4 py-3">
         <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-baseline gap-3">
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-semibold text-bm-text">{title}</h2>
-                <span className="rounded-full border border-pds-gold/20 px-2 py-0.5 text-[10px] font-medium text-pds-goldText">
+                <span className="rounded-full border border-pds-accent/20 px-2 py-0.5 text-[10px] font-medium text-pds-accentText">
                   PDS Enterprise OS
                 </span>
               </div>
@@ -196,7 +201,7 @@ export function PdsWorkspacePage({
         onRolePresetChange={setRolePreset}
       />
 
-      {/* 1. Top Issues — first read (what needs attention right now) */}
+      {/* 1. Critical Issues — first read (what needs attention right now) */}
       {sections.includes("interventionQueue") ? (
         <PdsInterventionQueue commandCenter={commandCenter} />
       ) : null}
@@ -213,23 +218,51 @@ export function PdsWorkspacePage({
         <PdsSignalsStrip commandCenter={commandCenter} />
       ) : null}
 
-      {/* 3. Market table — main analysis surface */}
-      {sections.includes("leaderboard") ? (
+      {/* 3. Performance Visual — chart/table toggle */}
+      {hasVarianceOrLeaderboard ? (
         <>
-          <PdsSectionHeader label="Market Analysis" title="Operating Performance by Market" />
-          <PdsMarketLeaderboard rows={commandCenter.performance_table?.rows ?? []} />
+          <div className="flex items-end justify-between gap-3">
+            <PdsSectionHeader label="Market Analysis" title="Operating Performance by Market" />
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setPerformanceView("chart")}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                  performanceView === "chart"
+                    ? "bg-pds-accent/15 text-pds-accentText border-pds-accent/30"
+                    : "border-transparent text-bm-muted2 hover:text-bm-text"
+                }`}
+              >
+                Chart
+              </button>
+              <button
+                onClick={() => setPerformanceView("table")}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                  performanceView === "table"
+                    ? "bg-pds-accent/15 text-pds-accentText border-pds-accent/30"
+                    : "border-transparent text-bm-muted2 hover:text-bm-text"
+                }`}
+              >
+                Table
+              </button>
+            </div>
+          </div>
+          {performanceView === "chart" ? (
+            <PdsVarianceChart rows={commandCenter.performance_table?.rows ?? []} />
+          ) : (
+            <PdsMarketLeaderboard rows={commandCenter.performance_table?.rows ?? []} />
+          )}
         </>
       ) : null}
 
-      {/* Legacy performance table (for non-market pages) */}
-      {sections.includes("performance") && !sections.includes("leaderboard") && commandCenter.performance_table ? (
+      {/* Legacy performance table (for non-market pages without chart/leaderboard) */}
+      {sections.includes("performance") && !hasVarianceOrLeaderboard && commandCenter.performance_table ? (
         <>
           <PdsSectionHeader label="Portfolio Performance" title="Market Operating View" />
           <PdsPerformanceTable table={commandCenter.performance_table} />
         </>
       ) : null}
 
-      {/* 4. Action Center — execution (who to talk to, what to do) */}
+      {/* 4. Root Cause — staffing & submission issues (promoted position) */}
       {sections.includes("resourceHealth") ? (
         <PdsResourceHealthPanel resources={commandCenter.resource_health ?? []} timecards={commandCenter.timecard_health ?? []} />
       ) : null}

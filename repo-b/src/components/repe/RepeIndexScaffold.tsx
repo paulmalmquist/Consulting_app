@@ -21,7 +21,7 @@ export const reIndexTableHeadRowClass =
 export const reIndexTableBodyClass = "divide-y divide-bm-border/30";
 
 export const reIndexTableRowClass =
-  "h-14 transition-colors duration-100 hover:bg-bm-surface/15";
+  "h-12 transition-colors duration-100 hover:bg-bm-surface/15";
 
 export const reIndexPrimaryCellClass =
   "text-[15px] font-semibold text-bm-text transition-colors duration-100 hover:text-bm-accent";
@@ -49,13 +49,13 @@ export function RepeIndexScaffold({
   className?: string;
 }) {
   return (
-    <section className={cn("space-y-9", className)}>
-      <div className={cn(metrics ? "space-y-7" : "space-y-0")}>
-        <div className="flex flex-col gap-4 rounded-xl border border-bm-border/20 bg-bm-surface/[0.04] px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
+    <section className={cn("space-y-7", className)}>
+      <div className={cn(metrics ? "space-y-5" : "space-y-0")}>
+        <div className="flex flex-col gap-4 rounded-xl border border-bm-border/10 bg-bm-surface/[0.02] px-5 py-3.5 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
-            <h1 className="text-3xl font-bold tracking-tight text-bm-text">{title}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-bm-text">{title}</h1>
             {subtitle ? (
-              <div className="mt-1.5 text-sm font-medium text-bm-muted2">{subtitle}</div>
+              <div className="mt-1 text-sm font-medium text-bm-muted2">{subtitle}</div>
             ) : null}
           </div>
           {action ? <div className="shrink-0">{action}</div> : null}

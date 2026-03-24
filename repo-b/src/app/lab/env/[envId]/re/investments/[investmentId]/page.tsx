@@ -1,8 +1,9 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AlertTriangle, ChevronDown, GitBranch, MoreHorizontal, Sparkles } from "lucide-react";
 import {
   getReV2FundQuarterState,
   getReV2Investment,
@@ -30,10 +31,12 @@ import QuarterlyBarChart from "@/components/charts/QuarterlyBarChart";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 import StatementTable from "@/components/repe/statements/StatementTable";
 
-import { fmtDate, fmtMoney, fmtPct } from '@/lib/format-utils';
+import { fmtDate, fmtMoney, fmtPct } from "@/lib/format-utils";
 type AnalysisPeriod = "quarterly" | "ttm" | "annual";
 type ComparisonMode = "yoy" | "budget" | "scenario";
 type SupportingTab = "assets" | "documents" | "logs" | "attachments";
+type TrendDirection = "up" | "down" | "flat";
+type MetricTone = "positive" | "caution" | "negative" | "neutral";
 
 type DerivedSeriesPoint = {
   quarter: string;
@@ -43,7 +46,29 @@ type DerivedSeriesPoint = {
   occupancy: number | null;
   asset_value: number;
   debt_balance: number;
+  plan_noi?: number | null;
+  variance_to_plan?: number | null;
   comparison_noi?: number | null;
+};
+
+type MetricChange = {
+  badge: string;
+  note: string;
+  direction: TrendDirection;
+  tone: MetricTone;
+};
+
+type InsightDescriptor = {
+  title: string;
+  body: string;
+  tone: MetricTone;
+};
+
+type ChartHighlight = {
+  quarter: string;
+  value: number;
+  label?: string;
+  color?: string;
 };
 
 const BRIEFING_COLORS = {
@@ -55,14 +80,12 @@ const BRIEFING_COLORS = {
   lineMuted: "#94A3B8",
 } as const;
 
-const SECTION_ORDER = [
-  "POSITION SNAPSHOT",
-  "OPERATING PERFORMANCE",
-  "INVESTOR RETURNS",
-  "CAPITAL STRUCTURE",
-  "PORTFOLIO EXPOSURE",
-  "SUPPORTING DETAIL",
-] as const;
+const SECTION_ORDER = {
+  outcome: "INVESTMENT OUTCOME",
+  operations: "OPERATING PERFORMANCE",
+  portfolio: "PORTFOLIO EXPOSURE",
+  supporting: "SUPPORTING DETAIL",
+} as const;
 
 const STAGE_LABELS: Record<string, string> = {
   sourcing: "Sourced",
@@ -114,6 +137,12 @@ function formatQuarterLabel(quarter: string): string {
   const parsed = parseQuarter(quarter);
   if (!parsed) return quarter;
   return `${parsed.year} Q${parsed.quarter}`;
+}
+
+function asNumber(value: number | string | null | undefined): number | null {
+  if (value == null) return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
 }
 
 function pickPrimaryLabel(values: Array<{ label: string; value: number }>): string {
@@ -200,18 +229,26 @@ function buildOperatingSeries(
             debt_balance: Number(point.debt_balance || 0),
           }));
 
-  if (comparison !== "yoy") {
-    return baseRows;
-  }
-
-  return baseRows.map((row, index) => {
-    const comparisonRow =
-      period === "annual"
-        ? baseRows[index - 1]
-        : baseRows[index - 4];
+  const rowsWithPlan = baseRows.map((row, index) => {
+    const planWindow = baseRows.slice(Math.max(0, index - 4), index);
+    const planNoi = planWindow.length
+      ? planWindow.reduce((sum, point) => sum + Number(point.noi || 0), 0) / planWindow.length
+      : null;
     return {
       ...row,
-      comparison_noi: comparisonRow?.noi ?? null,
+      plan_noi: planNoi,
+      variance_to_plan: planNoi != null && planNoi !== 0 ? (row.noi - planNoi) / planNoi : null,
+    };
+  });
+
+  return rowsWithPlan.map((row, index) => {
+    const comparisonRow =
+      period === "annual"
+        ? rowsWithPlan[index - 1]
+        : rowsWithPlan[index - 4];
+    return {
+      ...row,
+      comparison_noi: comparison === "yoy" ? comparisonRow?.noi ?? null : null,
     };
   });
 }
@@ -222,8 +259,234 @@ function latestComparableDelta(rows: DerivedSeriesPoint[]): number | null {
   return (latest.noi - latest.comparison_noi) / latest.comparison_noi;
 }
 
+function latestPlanVariance(rows: DerivedSeriesPoint[]): number | null {
+  const latest = rows.at(-1);
+  if (!latest || latest.plan_noi == null || latest.plan_noi === 0) return null;
+  return (latest.noi - latest.plan_noi) / latest.plan_noi;
+}
+
 function buildReturnsLogRows(history: ReV2InvestmentHistoryPoint[]) {
   return [...history].sort((a, b) => compareQuarter(a.quarter, b.quarter)).reverse();
+}
+
+function selectQuarterPair<T extends { quarter: string }>(
+  points: T[],
+  targetQuarter: string
+): { current: T | null; prior: T | null } {
+  const sorted = [...points].sort((a, b) => compareQuarter(a.quarter, b.quarter));
+  if (!sorted.length) return { current: null, prior: null };
+  const resolvedIndex = targetQuarter
+    ? sorted.findIndex((point) => point.quarter === targetQuarter)
+    : sorted.length - 1;
+  const currentIndex = resolvedIndex >= 0 ? resolvedIndex : sorted.length - 1;
+  return {
+    current: sorted[currentIndex] || null,
+    prior: currentIndex > 0 ? sorted[currentIndex - 1] : null,
+  };
+}
+
+function findComparableQuarterDelta(
+  points: ReV2InvestmentHistoryPoint[],
+  targetQuarter: string
+): number | null {
+  const sorted = [...points].sort((a, b) => compareQuarter(a.quarter, b.quarter));
+  const current =
+    sorted.find((point) => point.quarter === targetQuarter) ||
+    sorted.at(-1);
+  const parsed = current ? parseQuarter(current.quarter) : null;
+  if (!current || !parsed) return null;
+  const comparableQuarter = `${parsed.year - 1}Q${parsed.quarter}`;
+  const comparable = sorted.find((point) => point.quarter === comparableQuarter);
+  const currentNoi = asNumber(current.noi);
+  const comparableNoi = asNumber(comparable?.noi);
+  if (currentNoi == null || comparableNoi == null || comparableNoi === 0) return null;
+  return (currentNoi - comparableNoi) / comparableNoi;
+}
+
+function trendArrow(direction: TrendDirection): string {
+  switch (direction) {
+    case "up":
+      return "↑";
+    case "down":
+      return "↓";
+    default:
+      return "→";
+  }
+}
+
+function signedText(value: number, suffix = "", decimals = 1): string {
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+  return `${sign}${Math.abs(value).toFixed(decimals)}${suffix}`;
+}
+
+function formatSignedMoney(delta: number): string {
+  const sign = delta > 0 ? "+" : delta < 0 ? "-" : "";
+  return `${sign}${fmtMoney(Math.abs(delta))}`;
+}
+
+function formatSignedBps(delta: number): string {
+  return signedText(delta * 10000, " bps", 0);
+}
+
+function formatSignedMultiple(delta: number): string {
+  return signedText(delta, "x", 2);
+}
+
+function formatSignedRatioPercent(delta: number): string {
+  return signedText(delta * 100, "%", 1);
+}
+
+function classifyChange(direction: TrendDirection, inverse = false): MetricTone {
+  if (direction === "flat") return "neutral";
+  const improving = inverse ? direction === "down" : direction === "up";
+  return improving ? "positive" : "caution";
+}
+
+function buildChange(
+  current: number | null,
+  prior: number | null,
+  priorQuarter: string | null | undefined,
+  formatter: (delta: number, prior: number) => string,
+  options?: { inverse?: boolean; flatThreshold?: number }
+): MetricChange | null {
+  if (current == null || prior == null) return null;
+  const delta = current - prior;
+  const flatThreshold = options?.flatThreshold ?? 0.0001;
+  const direction: TrendDirection =
+    Math.abs(delta) <= flatThreshold ? "flat" : delta > 0 ? "up" : "down";
+  return {
+    badge: formatter(delta, prior),
+    note: `vs ${priorQuarter ? formatQuarterLabel(priorQuarter) : "prior period"}`,
+    direction,
+    tone: classifyChange(direction, options?.inverse),
+  };
+}
+
+function buildMoneyChange(
+  current: number | null,
+  prior: number | null,
+  priorQuarter: string | null | undefined,
+  options?: { inverse?: boolean }
+): MetricChange | null {
+  return buildChange(current, prior, priorQuarter, (delta) => formatSignedMoney(delta), {
+    inverse: options?.inverse,
+    flatThreshold: 10,
+  });
+}
+
+function buildRatioPercentChange(
+  current: number | null,
+  prior: number | null,
+  priorQuarter: string | null | undefined,
+  options?: { inverse?: boolean }
+): MetricChange | null {
+  if (prior == null || prior === 0) return null;
+  return buildChange(
+    current,
+    prior,
+    priorQuarter,
+    (delta, base) => formatSignedRatioPercent(delta / Math.abs(base)),
+    {
+      inverse: options?.inverse,
+      flatThreshold: Math.abs(prior) * 0.001,
+    }
+  );
+}
+
+function buildBpsChange(
+  current: number | null,
+  prior: number | null,
+  priorQuarter: string | null | undefined,
+  options?: { inverse?: boolean }
+): MetricChange | null {
+  return buildChange(current, prior, priorQuarter, (delta) => formatSignedBps(delta), {
+    inverse: options?.inverse,
+    flatThreshold: 0.0005,
+  });
+}
+
+function buildMultipleChange(
+  current: number | null,
+  prior: number | null,
+  priorQuarter: string | null | undefined
+): MetricChange | null {
+  return buildChange(current, prior, priorQuarter, (delta) => formatSignedMultiple(delta), {
+    flatThreshold: 0.005,
+  });
+}
+
+function buildInsightDescriptor({
+  grossIrr,
+  moic,
+  noiComparableDelta,
+  ltv,
+  currentValue,
+}: {
+  grossIrr: number | null;
+  moic: number | null;
+  noiComparableDelta: number | null;
+  ltv: number | null;
+  currentValue: number | null;
+}): InsightDescriptor {
+  if (grossIrr != null && moic != null && noiComparableDelta != null) {
+    if (noiComparableDelta >= 0.08 && grossIrr >= 0.1) {
+      return {
+        title: "Strong performance",
+        body: `Gross IRR is ${fmtPct(grossIrr)}, MOIC is ${fmtX(moic)}, and NOI is up ${fmtPct(noiComparableDelta)} versus the comparable prior period.`,
+        tone: "positive",
+      };
+    }
+
+    if (noiComparableDelta <= -0.04 || (ltv != null && ltv >= 0.65)) {
+      return {
+        title: "Pressure building",
+        body: `Gross IRR is ${fmtPct(grossIrr)}, but NOI is down ${fmtPct(Math.abs(noiComparableDelta))} year over year and leverage is sitting at ${fmtPct(ltv)} LTV.`,
+        tone: "caution",
+      };
+    }
+  }
+
+  if (currentValue != null && ltv != null) {
+    return {
+      title: "Performance is stable",
+      body: `Current value stands at ${fmtMoney(currentValue)} with leverage holding at ${fmtPct(ltv)} LTV.`,
+      tone: "neutral",
+    };
+  }
+
+  return {
+    title: "Investment update",
+    body: "Key return and operating signals will summarize here as more quarter states become available.",
+    tone: "neutral",
+  };
+}
+
+function buildNoiHighlights(rows: DerivedSeriesPoint[]): ChartHighlight[] {
+  const anomalies = rows
+    .filter(
+      (row) =>
+        row.plan_noi != null &&
+        row.plan_noi !== 0 &&
+        row.variance_to_plan != null &&
+        Math.abs(row.variance_to_plan) >= 0.05
+    )
+    .map((row) => ({
+      quarter: row.quarter,
+      value: row.noi,
+      label: `${row.variance_to_plan! >= 0 ? "Ahead" : "Below"} ${formatSignedRatioPercent(row.variance_to_plan!)}`,
+      color: row.variance_to_plan! >= 0 ? BRIEFING_COLORS.performance : "#D97706",
+      magnitude: Math.abs(row.variance_to_plan!),
+    }));
+
+  if (!anomalies.length) return [];
+
+  const latest = anomalies[anomalies.length - 1];
+  const largest = [...anomalies].sort((a, b) => b.magnitude - a.magnitude)[0];
+  const selected = [largest, latest].filter(
+    (item, index, all) => all.findIndex((candidate) => candidate.quarter === item.quarter) === index
+  );
+
+  return selected.map(({ magnitude, ...highlight }) => highlight);
 }
 
 function SegmentToggle<T extends string>({
@@ -265,46 +528,110 @@ function SegmentToggle<T extends string>({
   );
 }
 
-function SectionHeader({ title, eyebrow, description }: { title: string; eyebrow: string; description?: string }) {
+function TrendPill({ change }: { change: MetricChange | null }) {
+  if (!change) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2 dark:bg-white/[0.06]">
+        No prior period
+      </span>
+    );
+  }
+
+  const toneClass =
+    change.tone === "positive"
+      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-200"
+      : change.tone === "caution"
+        ? "bg-amber-50 text-amber-700 dark:bg-amber-500/12 dark:text-amber-200"
+        : change.tone === "negative"
+          ? "bg-rose-50 text-rose-700 dark:bg-rose-500/12 dark:text-rose-200"
+          : "bg-slate-100 text-slate-600 dark:bg-white/[0.06] dark:text-slate-300";
+
   return (
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">{eyebrow}</p>
-        <h2 className="mt-1 text-xl font-semibold tracking-tight text-bm-text">{title}</h2>
-      </div>
-      {description ? <p className="max-w-2xl text-sm text-bm-muted2">{description}</p> : null}
-    </div>
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${toneClass}`}>
+      {trendArrow(change.direction)} {change.badge}
+    </span>
   );
 }
 
-function HeroMetricCard({
+function MetricCard({
   label,
   value,
-  accent,
+  change,
+  supportingText,
+  variant = "default",
+  tone = "neutral",
   testId,
 }: {
   label: string;
   value: string;
-  accent: string;
-  testId: string;
+  change?: MetricChange | null;
+  supportingText?: string;
+  variant?: "default" | "hero";
+  tone?: MetricTone;
+  testId?: string;
 }) {
+  const resolvedTone = change?.tone ?? tone;
+  const palette =
+    resolvedTone === "positive"
+      ? "border-emerald-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(236,253,245,0.95))] dark:border-emerald-500/20 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.9),rgba(16,185,129,0.12))]"
+      : resolvedTone === "caution"
+        ? "border-amber-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(255,251,235,0.95))] dark:border-amber-500/20 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.9),rgba(245,158,11,0.12))]"
+        : resolvedTone === "negative"
+          ? "border-rose-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(255,241,242,0.95))] dark:border-rose-500/20 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.9),rgba(244,63,94,0.12))]"
+          : "border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,250,252,0.96))] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))]";
+
   return (
     <div
-      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_18px_44px_-30px_rgba(15,23,42,0.15)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.92))]"
+      className={`rounded-[24px] border px-4 ${variant === "hero" ? "py-4" : "py-3.5"} shadow-[0_18px_44px_-34px_rgba(15,23,42,0.16)] ${palette}`}
       data-testid={testId}
-      style={{ boxShadow: `0 18px 44px -30px ${accent}22` }}
     >
-      <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">{label}</p>
-      <p className="mt-4 text-3xl font-semibold tracking-tight text-bm-text tabular-nums">{value}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">{label}</p>
+          <p className={`mt-2 font-semibold tracking-tight text-bm-text tabular-nums ${variant === "hero" ? "text-[2rem]" : "text-[1.7rem]"}`}>
+            {value}
+          </p>
+        </div>
+        <TrendPill change={change ?? null} />
+      </div>
+      <p className="mt-2 text-xs text-bm-muted2">{supportingText || change?.note || "No prior quarter loaded."}</p>
     </div>
   );
 }
 
-function SecondaryMetric({ label, value }: { label: string; value: string }) {
+function MetadataChip({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-white/8 dark:bg-white/[0.02]">
-      <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">{label}</p>
-      <p className="mt-1 text-sm font-medium text-bm-text tabular-nums">{value}</p>
+    <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/75 px-3 py-1.5 text-sm shadow-[0_10px_24px_-20px_rgba(15,23,42,0.18)] dark:border-white/10 dark:bg-white/[0.04]">
+      <span className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">{label}</span>
+      <span className="font-medium text-bm-text">{value}</span>
+    </div>
+  );
+}
+
+function InsightBlock({ insight }: { insight: InsightDescriptor }) {
+  const Icon = insight.tone === "positive" ? Sparkles : AlertTriangle;
+  const palette =
+    insight.tone === "positive"
+      ? "border-emerald-200/80 bg-emerald-50/80 dark:border-emerald-500/20 dark:bg-emerald-500/10"
+      : insight.tone === "caution"
+        ? "border-amber-200/80 bg-amber-50/80 dark:border-amber-500/20 dark:bg-amber-500/10"
+        : "border-slate-200 bg-slate-50/90 dark:border-white/10 dark:bg-white/[0.04]";
+  const iconColor =
+    insight.tone === "positive"
+      ? "text-emerald-600 dark:text-emerald-300"
+      : insight.tone === "caution"
+        ? "text-amber-600 dark:text-amber-300"
+        : "text-slate-500 dark:text-slate-300";
+
+  return (
+    <div className={`flex items-start gap-3 rounded-[22px] border px-4 py-3.5 ${palette}`} data-testid="hero-insight">
+      <div className={`mt-0.5 rounded-full p-2 ${iconColor}`}>
+        <Icon className="h-4 w-4" strokeWidth={1.8} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-bm-text">{insight.title}</p>
+        <p className="mt-1 text-sm text-bm-muted2">{insight.body}</p>
+      </div>
     </div>
   );
 }
@@ -411,7 +738,7 @@ function InvestmentBriefingPageContent({
   const quarterParam = searchParams.get("quarter") || "";
 
   const [period, setPeriod] = useState<AnalysisPeriod>("quarterly");
-  const [comparison, setComparison] = useState<ComparisonMode>("yoy");
+  const [comparison, setComparison] = useState<ComparisonMode>("budget");
   const [supportingTab, setSupportingTab] = useState<SupportingTab>("assets");
 
   const [investment, setInvestment] = useState<ReV2Investment | null>(null);
@@ -426,7 +753,9 @@ function InvestmentBriefingPageContent({
   const [loadingBase, setLoadingBase] = useState(true);
   const [loadingQuarter, setLoadingQuarter] = useState(true);
   const [lineageOpen, setLineageOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
 
   const setQueryParams = useCallback(
     (updates: Record<string, string | undefined>) => {
@@ -513,6 +842,17 @@ function InvestmentBriefingPageContent({
     };
   }, [investment?.fund_id, params.investmentId, resolvedQuarter]);
 
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (!actionsMenuRef.current?.contains(event.target as Node)) {
+        setActionsOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
+
   const totalAssetValue = useMemo(
     () => assets.reduce((sum, asset) => sum + Number(asset.asset_value || 0), 0),
     [assets]
@@ -591,15 +931,31 @@ function InvestmentBriefingPageContent({
     [history?.returns_history]
   );
 
+  const operatingPair = useMemo(
+    () => selectQuarterPair(history?.operating_history || [], resolvedQuarter),
+    [history?.operating_history, resolvedQuarter]
+  );
+  const returnsPair = useMemo(
+    () => selectQuarterPair(history?.returns_history || [], resolvedQuarter),
+    [history?.returns_history, resolvedQuarter]
+  );
+
   const comparisonDelta = latestComparableDelta(operatingSeries);
+  const planVariance = latestPlanVariance(operatingSeries);
+  const latestOperatingPoint = operatingSeries.at(-1) || null;
+  const noiHighlights = useMemo(() => buildNoiHighlights(operatingSeries), [operatingSeries]);
+  const comparableNoiDelta = useMemo(
+    () => findComparableQuarterDelta(history?.operating_history || [], resolvedQuarter),
+    [history?.operating_history, resolvedQuarter]
+  );
   const comparisonSummary =
-    comparison === "yoy" && comparisonDelta != null
-      ? `Latest NOI is ${fmtPct(comparisonDelta)} versus the comparable prior period.`
+    comparison === "budget" && planVariance != null
+      ? `Latest NOI is ${planVariance >= 0 ? "ahead of" : "below"} the run-rate plan by ${fmtPct(Math.abs(planVariance))}.`
+      : comparison === "yoy" && comparisonDelta != null
+        ? `Latest NOI is ${comparisonDelta >= 0 ? "up" : "down"} ${fmtPct(Math.abs(comparisonDelta))} versus the comparable prior period.`
       : comparison === "scenario"
-        ? "Scenario controls are applied to the entire page when scenario-specific states exist."
-        : comparison === "budget"
-          ? "Budget comparison is reserved for future underwriting baselines."
-          : undefined;
+        ? "Scenario overlay stays ready for future versioned operating states."
+        : undefined;
 
   const currentFundNav = Number(fundState?.portfolio_nav || 0);
   const fundNavContribution = Number(
@@ -612,6 +968,113 @@ function InvestmentBriefingPageContent({
     ? `/lab/env/${params.envId}/re/sustainability?section=${assets[0] ? "asset-sustainability" : "portfolio-footprint"}&fundId=${investment.fund_id}&investmentId=${investment.investment_id}${assets[0] ? `&assetId=${assets[0].asset_id}` : ""}`
     : `/lab/env/${params.envId}/re/sustainability`;
   const reportHref = `/lab/env/${params.envId}/re/reports/uw-vs-actual/investment/${params.investmentId}?asof=${resolvedQuarter || history?.as_of_quarter || "2026Q1"}&baseline=IO`;
+  const priorOperatingQuarter = operatingPair.prior?.quarter || null;
+  const priorReturnsQuarter = returnsPair.prior?.quarter || null;
+  const priorLtv =
+    operatingPair.prior?.asset_value && operatingPair.prior.asset_value > 0
+      ? Number(operatingPair.prior.debt_balance || 0) / Number(operatingPair.prior.asset_value)
+      : null;
+  const heroInsight = buildInsightDescriptor({
+    grossIrr: asNumber(quarterState?.gross_irr),
+    moic: asNumber(quarterState?.equity_multiple),
+    noiComparableDelta: comparableNoiDelta,
+    ltv,
+    currentValue: currentValue || null,
+  });
+  const heroMetrics = [
+    {
+      label: "Gross IRR",
+      value: fmtPct(quarterState?.gross_irr),
+      change: buildBpsChange(asNumber(quarterState?.gross_irr), asNumber(returnsPair.prior?.gross_irr), priorReturnsQuarter),
+      testId: "hero-metric-gross-irr",
+    },
+    {
+      label: "MOIC",
+      value: fmtX(quarterState?.equity_multiple),
+      change: buildMultipleChange(asNumber(quarterState?.equity_multiple), asNumber(returnsPair.prior?.equity_multiple), priorReturnsQuarter),
+      testId: "hero-metric-moic",
+    },
+    {
+      label: "Current Value",
+      value: fmtMoney(currentValue),
+      change: buildMoneyChange(currentValue || null, asNumber(operatingPair.prior?.asset_value), priorOperatingQuarter),
+      testId: "hero-metric-current-value",
+    },
+  ];
+  const outcomeMetrics = [
+    {
+      label: "NAV",
+      value: fmtMoney(quarterState?.nav ?? fundNavContribution),
+      change: buildRatioPercentChange(asNumber(quarterState?.nav ?? fundNavContribution), asNumber(returnsPair.prior?.nav), priorReturnsQuarter),
+      testId: "outcome-metric-nav",
+    },
+    {
+      label: "Gross IRR",
+      value: fmtPct(quarterState?.gross_irr),
+      change: buildBpsChange(asNumber(quarterState?.gross_irr), asNumber(returnsPair.prior?.gross_irr), priorReturnsQuarter),
+      testId: "outcome-metric-gross-irr",
+    },
+    {
+      label: "MOIC",
+      value: fmtX(quarterState?.equity_multiple),
+      change: buildMultipleChange(asNumber(quarterState?.equity_multiple), asNumber(returnsPair.prior?.equity_multiple), priorReturnsQuarter),
+      testId: "outcome-metric-moic",
+    },
+    {
+      label: "Gross Value",
+      value: fmtMoney(currentValue),
+      change: buildMoneyChange(currentValue || null, asNumber(operatingPair.prior?.asset_value), priorOperatingQuarter),
+      testId: "outcome-metric-value",
+    },
+    {
+      label: "Debt",
+      value: fmtMoney(quarterState?.debt_balance ?? totalDebt),
+      change: buildMoneyChange(asNumber(quarterState?.debt_balance ?? totalDebt), asNumber(operatingPair.prior?.debt_balance), priorOperatingQuarter, { inverse: true }),
+      testId: "outcome-metric-debt",
+    },
+    {
+      label: "LTV",
+      value: fmtPct(ltv),
+      change: buildBpsChange(ltv, priorLtv, priorOperatingQuarter, { inverse: true }),
+      testId: "outcome-metric-ltv",
+    },
+  ];
+  const operatingMetrics = [
+    {
+      label: "NOI",
+      value: fmtMoney(quarterState?.noi ?? totalNoi),
+      change: buildRatioPercentChange(asNumber(quarterState?.noi ?? totalNoi), asNumber(operatingPair.prior?.noi), priorOperatingQuarter),
+      testId: "operating-metric-noi",
+      supportingText: comparisonSummary || undefined,
+    },
+    {
+      label: "Revenue",
+      value: fmtMoney(operatingPair.current?.revenue),
+      change: buildRatioPercentChange(asNumber(operatingPair.current?.revenue), asNumber(operatingPair.prior?.revenue), priorOperatingQuarter),
+      testId: "operating-metric-revenue",
+    },
+    {
+      label: "Expenses",
+      value: fmtMoney(operatingPair.current?.opex),
+      change: buildRatioPercentChange(asNumber(operatingPair.current?.opex), asNumber(operatingPair.prior?.opex), priorOperatingQuarter, { inverse: true }),
+      testId: "operating-metric-opex",
+    },
+    {
+      label: "Occupancy",
+      value: fmtPct(operatingPair.current?.occupancy),
+      change: buildBpsChange(asNumber(operatingPair.current?.occupancy), asNumber(operatingPair.prior?.occupancy), priorOperatingQuarter),
+      testId: "operating-metric-occupancy",
+      supportingText: operatingPair.current?.occupancy == null ? "Occupancy feed will surface here once direct coverage is available." : undefined,
+    },
+  ];
+  const dscr =
+    quarterState?.debt_service && quarterState.debt_service > 0 && quarterState.noi != null
+      ? Number(quarterState.noi) / Number(quarterState.debt_service)
+      : null;
+  const debtYield =
+    quarterState?.debt_balance && quarterState.debt_balance > 0 && quarterState.noi != null
+      ? Number(quarterState.noi) / Number(quarterState.debt_balance)
+      : null;
 
   useEffect(() => {
     if (!investment || !resolvedQuarter) return;
@@ -712,91 +1175,166 @@ function InvestmentBriefingPageContent({
   const contextStrategy = [investment.investment_type, fundDetail?.fund?.sub_strategy || fundDetail?.fund?.strategy]
     .filter(Boolean)
     .join(" – ");
+  const equityValue = currentValue - Number(quarterState?.debt_balance || totalDebt || 0);
 
   return (
-    <section className="space-y-8" data-testid="investment-briefing-page">
-      <header className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.18)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(9,14,28,0.92))] dark:shadow-[0_24px_60px_-40px_rgba(15,23,42,0.95)]">
-        <div className="flex flex-wrap items-start justify-between gap-6">
-          <div className="space-y-3 min-w-0">
-            <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.14em] text-bm-muted2">
-              <Link href={`/lab/env/${params.envId}/re/funds/${investment.fund_id}`} className="hover:text-bm-text">
-                {fundDetail?.fund?.name || "Fund"}
-              </Link>
-              <span>/</span>
-              <span className="text-bm-text">Investment Summary</span>
+    <section className="w-full max-w-[1520px] space-y-10 xl:border-l xl:border-slate-200/80 xl:pl-6 dark:border-white/10" data-testid="investment-briefing-page">
+      <header className="rounded-[30px] border border-slate-200 bg-[radial-gradient(circle_at_top_right,rgba(200,162,58,0.12),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.98))] px-5 py-5 shadow-[0_24px_60px_-42px_rgba(15,23,42,0.18)] dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_right,rgba(200,162,58,0.12),transparent_24%),linear-gradient(180deg,rgba(15,23,42,0.86),rgba(9,14,28,0.96))]">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(500px,0.9fr)]">
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-bm-muted2">
+                  <Link href={`/lab/env/${params.envId}/re/funds/${investment.fund_id}`} className="transition-colors hover:text-bm-text">
+                    {fundDetail?.fund?.name || "Fund"}
+                  </Link>
+                  <span className="opacity-40">/</span>
+                  <span>Investment Detail</span>
+                </div>
+                <h1 className="mt-2 text-[2rem] font-semibold tracking-[-0.025em] text-bm-text">{investment.name}</h1>
+                <p className="mt-2 text-sm text-bm-muted2">
+                  {contextStrategy || "Investment"} • {STAGE_LABELS[investment.stage] || investment.stage} • Acquired {fmtDate(investment.target_close_date)} • As of {formatQuarterLabel(resolvedQuarter)}
+                </p>
+              </div>
+
+              <div className="relative shrink-0" ref={actionsMenuRef}>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={reportHref}
+                    className="inline-flex items-center rounded-xl bg-slate-900 px-3.5 py-2 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
+                  >
+                    Generate Report
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setActionsOpen((open) => !open)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-bm-text transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
+                    aria-haspopup="menu"
+                    aria-expanded={actionsOpen}
+                  >
+                    <MoreHorizontal className="h-4 w-4 text-bm-muted2" strokeWidth={1.6} />
+                    More actions
+                    <ChevronDown className="h-3.5 w-3.5 text-bm-muted2" strokeWidth={1.6} />
+                  </button>
+                </div>
+                {actionsOpen ? (
+                  <div className="absolute right-0 top-full z-20 mt-2 min-w-[220px] rounded-2xl border border-slate-200 bg-white p-1.5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950" role="menu">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setLineageOpen(true);
+                        setActionsOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-bm-text transition hover:bg-slate-50 dark:hover:bg-white/[0.05]"
+                    >
+                      <GitBranch className="h-4 w-4 text-bm-muted2" strokeWidth={1.6} />
+                      View Lineage
+                    </button>
+                    <Link
+                      href={sustainabilityHref}
+                      role="menuitem"
+                      onClick={() => setActionsOpen(false)}
+                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-bm-text transition hover:bg-slate-50 dark:hover:bg-white/[0.05]"
+                    >
+                      <Sparkles className="h-4 w-4 text-bm-muted2" strokeWidth={1.6} />
+                      Open Sustainability Module
+                    </Link>
+                    <Link
+                      href={`/lab/env/${params.envId}/re/funds/${investment.fund_id}`}
+                      role="menuitem"
+                      onClick={() => setActionsOpen(false)}
+                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-bm-text transition hover:bg-slate-50 dark:hover:bg-white/[0.05]"
+                    >
+                      Open Fund Detail
+                    </Link>
+                  </div>
+                ) : null}
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-bm-text">{investment.name}</h1>
-              <p className="mt-2 text-sm text-bm-muted2">
-                {contextStrategy || "Investment"} • Acquired {fmtDate(investment.target_close_date)} • {STAGE_LABELS[investment.stage] || investment.stage} • As of {formatQuarterLabel(resolvedQuarter)}
-              </p>
+
+            <div className="flex flex-wrap gap-2.5">
+              <MetadataChip label="Type" value={investment.investment_type || "—"} />
+              <MetadataChip label="Vintage" value={fundDetail?.fund?.vintage_year ? String(fundDetail.fund.vintage_year) : "—"} />
+              <MetadataChip label="Market" value={primaryMarket} />
+              <MetadataChip label="Hold" value={holdPeriodLabel(investment.target_close_date)} />
             </div>
+
+            <InsightBlock insight={heroInsight} />
           </div>
 
-          <div className="shrink-0 min-w-[220px] space-y-3">
-            <div className="flex flex-wrap justify-end gap-2">
-              <Link
-                href={reportHref}
-                className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-bm-text shadow-[0_8px_18px_-16px_rgba(15,23,42,0.16)] hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
-              >
-                Generate Report
-              </Link>
-              <button
-                type="button"
-                onClick={() => setLineageOpen(true)}
-                className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-bm-text shadow-[0_8px_18px_-16px_rgba(15,23,42,0.16)] hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
-              >
-                View Lineage
-              </button>
-              <Link
-                href={sustainabilityHref}
-                className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-bm-text shadow-[0_8px_18px_-16px_rgba(15,23,42,0.16)] hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
-              >
-                Open Sustainability Module
-              </Link>
-            </div>
-
-            <dl className="mt-1 grid grid-cols-2 gap-x-6 gap-y-3">
-              {[
-                ["Acquisition", fmtMoney(totalCostBasis || investment.invested_capital)],
-                ["Current Value", fmtMoney(currentValue)],
-                ["Hold Period", holdPeriodLabel(investment.target_close_date)],
-                ["Market", primaryMarket],
-                ["Property Type", primaryPropertyType],
-              ].map(([label, value]) => (
-                <div key={label} className="min-w-0">
-                  <dt className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">{label}</dt>
-                  <dd className="mt-0.5 text-sm font-medium text-bm-text truncate">{value}</dd>
-                </div>
-              ))}
-            </dl>
+          <div className="grid gap-3 sm:grid-cols-3 xl:self-start">
+            {heroMetrics.map((metric) => (
+              <MetricCard
+                key={metric.label}
+                label={metric.label}
+                value={metric.value}
+                change={metric.change}
+                variant="hero"
+                testId={metric.testId}
+              />
+            ))}
           </div>
         </div>
       </header>
 
-      <section className="space-y-5" data-testid="section-position-snapshot">
-        <SectionHeader
-          eyebrow={SECTION_ORDER[0]}
-          title="How is this investment performing for the fund?"
-          description="The hero row combines investment outcome and operating throughput in the order analysts expect."
-        />
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7">
-          <HeroMetricCard label="NAV" value={fmtMoney(quarterState?.nav)} accent={BRIEFING_COLORS.structure} testId="hero-metric-nav" />
-          <HeroMetricCard label="Gross IRR" value={fmtPct(quarterState?.gross_irr)} accent={BRIEFING_COLORS.capital} testId="hero-metric-gross-irr" />
-          <HeroMetricCard label="MOIC" value={fmtX(quarterState?.equity_multiple)} accent={BRIEFING_COLORS.capital} testId="hero-metric-moic" />
-          <HeroMetricCard label="NOI" value={fmtMoney(quarterState?.noi ?? totalNoi)} accent={BRIEFING_COLORS.performance} testId="hero-metric-noi" />
-          <HeroMetricCard label="Gross Value" value={fmtMoney(quarterState?.gross_asset_value ?? totalAssetValue)} accent={BRIEFING_COLORS.lineMuted} testId="hero-metric-gross-value" />
-          <HeroMetricCard label="Debt" value={fmtMoney(quarterState?.debt_balance ?? totalDebt)} accent={BRIEFING_COLORS.lineMuted} testId="hero-metric-debt" />
-          <HeroMetricCard label="LTV" value={fmtPct(ltv)} accent={BRIEFING_COLORS.risk} testId="hero-metric-ltv" />
+      <section className="space-y-4" data-testid="section-investment-outcome">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">{SECTION_ORDER.outcome}</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight text-bm-text">Investment Outcome</h2>
+          <p className="mt-1 text-sm text-bm-muted2">Return metrics and leverage stay in their own band so outcomes read separately from operating drivers.</p>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_360px]">
+          <div className="rounded-[28px] border border-[#E8D8AC] bg-[linear-gradient(180deg,rgba(255,252,244,0.96),rgba(255,255,255,0.98))] p-5 dark:border-amber-500/20 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(200,162,58,0.1))]">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {outcomeMetrics.map((metric) => (
+                <MetricCard
+                  key={metric.label}
+                  label={metric.label}
+                  value={metric.value}
+                  change={metric.change}
+                  testId={metric.testId}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-4 rounded-[28px] border border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.98))] p-5 shadow-[0_18px_44px_-34px_rgba(15,23,42,0.16)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))]">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Capital Posture</p>
+              <h3 className="mt-1 text-lg font-semibold tracking-tight text-bm-text">Value vs leverage</h3>
+              <p className="mt-1 text-sm text-bm-muted2">Capital structure stays adjacent to outcomes instead of becoming a separate visual stack.</p>
+            </div>
+            <CompositionBar debtPct={debtPct} equityPct={equityPct} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Equity Value</p>
+                <p className="mt-1 text-lg font-semibold tabular-nums text-bm-text">{fmtMoney(equityValue)}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Fund NAV Contribution</p>
+                <p className="mt-1 text-lg font-semibold tabular-nums text-bm-text">{fmtMoney(fundNavContribution)}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">DSCR</p>
+                <p className="mt-1 text-lg font-semibold tabular-nums text-bm-text">{fmtX(dscr)}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Debt Yield</p>
+                <p className="mt-1 text-lg font-semibold tabular-nums text-bm-text">{fmtPct(debtYield)}</p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
       <section className="space-y-4" data-testid="section-operating-performance">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">{SECTION_ORDER[1]}</p>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">{SECTION_ORDER.operations}</p>
             <h2 className="mt-1 text-xl font-semibold tracking-tight text-bm-text">Operating Performance</h2>
-            {comparisonSummary && <p className="mt-1 max-w-2xl text-sm text-bm-muted2">{comparisonSummary}</p>}
+            <p className="mt-1 text-sm text-bm-muted2">NOI, occupancy, and operating trend lines stay visually distinct from valuation and return outcomes.</p>
           </div>
           <div className="flex flex-wrap gap-3 shrink-0">
             <SegmentToggle
@@ -811,42 +1349,107 @@ function InvestmentBriefingPageContent({
               testId="segment-period"
             />
             <SegmentToggle
-              label="Comparison"
+              label="Overlay"
               value={comparison}
               onChange={setComparison}
               options={[
+                { label: "Plan", value: "budget" },
                 { label: "YoY", value: "yoy" },
-                { label: "Budget", value: "budget" },
                 { label: "Scenario", value: "scenario" },
               ]}
               testId="segment-comparison"
             />
           </div>
         </div>
-        <div className="space-y-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))]">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/8 dark:bg-white/[0.02]">
-            <div className="mb-4">
-              <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">NOI Over Time</p>
-              <p className="mt-1 text-sm text-bm-muted2">Primary operating signal for asset health and valuation support.</p>
-            </div>
-            <TrendLineChart
-              data={operatingSeries}
-              lines={[
-                { key: "noi", label: "NOI", color: BRIEFING_COLORS.performance },
-                ...(comparison === "yoy"
-                  ? [{ key: "comparison_noi", label: "Comparable Prior Period", color: BRIEFING_COLORS.lineMuted, dashed: true }]
-                  : []),
-              ]}
-              height={320}
-              format="dollar"
-              showLegend={comparison === "yoy"}
-            />
+
+        <div className="space-y-4 rounded-[28px] border border-[#C7E5D3] bg-[linear-gradient(180deg,rgba(245,252,247,0.96),rgba(255,255,255,0.98))] p-5 shadow-[0_24px_60px_-42px_rgba(15,23,42,0.16)] dark:border-emerald-500/20 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(46,182,125,0.08))]">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {operatingMetrics.map((metric) => (
+              <MetricCard
+                key={metric.label}
+                label={metric.label}
+                value={metric.value}
+                change={metric.change}
+                supportingText={metric.supportingText}
+                testId={metric.testId}
+              />
+            ))}
           </div>
+
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_320px]">
+            <div className="rounded-[24px] border border-slate-200 bg-white/90 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">NOI Actual vs Plan</p>
+                  <p className="mt-1 text-sm text-bm-muted2">Actual NOI is anchored to a trailing run-rate plan, with anomalies called out only when variance becomes meaningful.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600 dark:bg-white/[0.06] dark:text-slate-300">
+                    Actual {fmtMoney(latestOperatingPoint?.noi)}
+                  </span>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600 dark:bg-white/[0.06] dark:text-slate-300">
+                    Plan {fmtMoney(latestOperatingPoint?.plan_noi)}
+                  </span>
+                  {planVariance != null ? (
+                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${planVariance >= 0 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-200" : "bg-amber-50 text-amber-700 dark:bg-amber-500/12 dark:text-amber-200"}`}>
+                      {planVariance >= 0 ? "Ahead" : "Below"} {fmtPct(Math.abs(planVariance))}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              <TrendLineChart
+                data={operatingSeries}
+                lines={[
+                  { key: "noi", label: "Actual NOI", color: BRIEFING_COLORS.performance },
+                  { key: "plan_noi", label: "Plan (run-rate)", color: BRIEFING_COLORS.lineMuted, dashed: true },
+                  ...(comparison === "yoy"
+                    ? [{ key: "comparison_noi", label: "Comparable Prior Period", color: BRIEFING_COLORS.capital, dashed: true }]
+                    : []),
+                ]}
+                highlights={noiHighlights}
+                height={320}
+                format="dollar"
+                showLegend
+              />
+            </div>
+
+            <div className="space-y-3 rounded-[24px] border border-slate-200 bg-white/90 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Operating Notes</p>
+                <h3 className="mt-1 text-lg font-semibold tracking-tight text-bm-text">Signal summary</h3>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-white/[0.04]">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Latest variance</p>
+                <p className="mt-1 text-sm text-bm-text">
+                  {comparisonSummary || "Plan variance will appear once enough history is available."}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-white/[0.04]">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Occupancy target</p>
+                <p className="mt-1 text-sm text-bm-text">90% reference line stays visible to keep leasing performance in context.</p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-white/[0.04]">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Annotated anomalies</p>
+                {noiHighlights.length ? (
+                  <div className="mt-2 space-y-2">
+                    {noiHighlights.map((highlight) => (
+                      <p key={`${highlight.quarter}-${highlight.label}`} className="text-sm text-bm-text">
+                        {highlight.quarter}: {highlight.label}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-sm text-bm-text">No recent plan variance exceeded the annotation threshold.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/8 dark:bg-white/[0.02]">
+            <div className="rounded-[24px] border border-slate-200 bg-white/90 p-4 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="mb-4">
                 <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Revenue vs Expenses</p>
-                <p className="mt-1 text-sm text-bm-muted2">Revenue and expense structure stays visually calm and secondary to NOI.</p>
+                <p className="mt-1 text-sm text-bm-muted2">Operating inputs stay tighter, with lighter padding and less card chrome.</p>
               </div>
               <QuarterlyBarChart
                 data={operatingSeries}
@@ -854,20 +1457,21 @@ function InvestmentBriefingPageContent({
                   { key: "revenue", label: "Revenue", color: BRIEFING_COLORS.structure },
                   { key: "opex", label: "Expenses", color: BRIEFING_COLORS.label },
                 ]}
-                height={260}
+                height={250}
                 showLegend
               />
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/8 dark:bg-white/[0.02]">
+
+            <div className="rounded-[24px] border border-slate-200 bg-white/90 p-4 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="mb-4">
                 <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Occupancy Trend</p>
-                <p className="mt-1 text-sm text-bm-muted2">Occupancy is tracked as a supporting operating indicator, not a competing headline metric.</p>
+                <p className="mt-1 text-sm text-bm-muted2">Occupancy remains a supporting driver, with target context instead of extra headline treatment.</p>
               </div>
               <TrendLineChart
                 data={operatingSeries.map((row) => ({ ...row, occupancy: row.occupancy ?? 0 }))}
                 lines={[{ key: "occupancy", label: "Occupancy", color: BRIEFING_COLORS.structure }]}
                 referenceLines={[{ y: 0.9, label: "90% target", color: BRIEFING_COLORS.risk }]}
-                height={260}
+                height={250}
                 format="percent"
                 showLegend={false}
               />
@@ -876,15 +1480,14 @@ function InvestmentBriefingPageContent({
         </div>
       </section>
 
-      {/* Financial Statements (IS / CF with toggles) */}
       {businessId && (
-        <section className="space-y-5" data-testid="section-financial-statements">
-          <SectionHeader
-            eyebrow="FINANCIAL STATEMENTS"
-            title="Income Statement & Cash Flow"
-            description="Ownership-adjusted financial detail assembled from the canonical accounting layer."
-          />
-          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))]">
+        <section className="space-y-4" data-testid="section-financial-statements">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">FINANCIAL STATEMENTS</p>
+            <h2 className="mt-1 text-xl font-semibold tracking-tight text-bm-text">Income Statement & Cash Flow</h2>
+            <p className="mt-1 text-sm text-bm-muted2">Ownership-adjusted statement detail stays below the briefing surface and keeps the page decision-first.</p>
+          </div>
+          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_-42px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))]">
             <StatementTable
               entityType="investment"
               entityId={params.investmentId}
@@ -903,69 +1506,13 @@ function InvestmentBriefingPageContent({
         </section>
       )}
 
-      <section className="space-y-5" data-testid="section-investor-returns">
-        <SectionHeader
-          eyebrow={SECTION_ORDER[2]}
-          title="Investor Returns"
-          description="Capital invested, capital returned, and value still owned are grouped so the outcome is legible without mixing in operating detail."
-        />
-        <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))]">
-          <div className="grid gap-4 lg:grid-cols-3">
-            <HeroMetricCard label="Committed Capital" value={fmtMoney(quarterState?.committed_capital || investment.committed_capital)} accent={BRIEFING_COLORS.capital} testId="returns-committed" />
-            <HeroMetricCard label="Invested Capital" value={fmtMoney(quarterState?.invested_capital || investment.invested_capital)} accent={BRIEFING_COLORS.capital} testId="returns-invested" />
-            <HeroMetricCard label="Distributions" value={fmtMoney(quarterState?.realized_distributions || investment.realized_distributions)} accent={BRIEFING_COLORS.capital} testId="returns-distributions" />
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <SecondaryMetric label="Gross IRR" value={fmtPct(quarterState?.gross_irr)} />
-            <SecondaryMetric label="Net IRR" value={fmtPct(quarterState?.net_irr)} />
-            <SecondaryMetric label="MOIC" value={fmtX(quarterState?.equity_multiple)} />
-            <SecondaryMetric label="Fund NAV Contribution" value={fmtMoney(fundNavContribution)} />
-          </div>
+      <section className="space-y-4" data-testid="section-portfolio-exposure">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">{SECTION_ORDER.portfolio}</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight text-bm-text">Portfolio Exposure</h2>
+          <p className="mt-1 text-sm text-bm-muted2">Portfolio context stays separate from both outcomes and operating signals.</p>
         </div>
-      </section>
-
-      <section className="space-y-5" data-testid="section-capital-structure">
-        <SectionHeader
-          eyebrow={SECTION_ORDER[3]}
-          title="Capital Structure"
-          description="Debt and equity are shown as structure and risk, not as decorative dashboard stats."
-        />
-        <div className="grid gap-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))] xl:grid-cols-12">
-          <div className="space-y-4 xl:col-span-7">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Debt vs Equity</p>
-              <p className="mt-1 text-sm text-bm-muted2">The financing mix frames current risk posture.</p>
-            </div>
-            <CompositionBar debtPct={debtPct} equityPct={equityPct} />
-            <div className="grid gap-3 md:grid-cols-2">
-              <SecondaryMetric label="Total Debt" value={fmtMoney(quarterState?.debt_balance ?? totalDebt)} />
-              <SecondaryMetric label="Equity Value" value={fmtMoney(currentValue - Number(quarterState?.debt_balance || totalDebt || 0))} />
-            </div>
-          </div>
-          <div className="grid gap-3 xl:col-span-5 md:grid-cols-2 xl:grid-cols-2">
-            <SecondaryMetric label="DSCR" value={fmtX(
-              quarterState?.debt_service && quarterState.debt_service > 0 && quarterState.noi != null
-                ? Number(quarterState.noi) / Number(quarterState.debt_service)
-                : null
-            )} />
-            <SecondaryMetric label="Debt Yield" value={fmtPct(
-              quarterState?.debt_balance && quarterState.debt_balance > 0 && quarterState.noi != null
-                ? Number(quarterState.noi) / Number(quarterState.debt_balance)
-                : null
-            )} />
-            <SecondaryMetric label="LTV" value={fmtPct(ltv)} />
-            <SecondaryMetric label="Cash Balance" value={fmtMoney(quarterState?.cash_balance)} />
-          </div>
-        </div>
-      </section>
-
-      <section className="space-y-5" data-testid="section-portfolio-exposure">
-        <SectionHeader
-          eyebrow={SECTION_ORDER[4]}
-          title="Portfolio Exposure"
-          description="Contextualizes the investment inside the fund without collapsing portfolio and investment performance into the same panel."
-        />
-        <div className="grid gap-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))] xl:grid-cols-12">
+        <div className="grid gap-4 rounded-[28px] border border-slate-200 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(255,255,255,0.98))] p-5 shadow-[0_24px_60px_-42px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))] xl:grid-cols-12">
           <div className="space-y-5 xl:col-span-8">
             <div className="space-y-3">
               <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Sector Exposure</p>
@@ -992,7 +1539,7 @@ function InvestmentBriefingPageContent({
               )) : <p className="text-sm text-bm-muted2">No geographic exposure available.</p>}
             </div>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/8 dark:bg-white/[0.03] xl:col-span-4">
+          <div className="rounded-[24px] border border-slate-200 bg-white/85 p-5 dark:border-white/10 dark:bg-white/[0.03] xl:col-span-4">
             <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Fund NAV Concentration</p>
             <p className="mt-3 text-3xl font-semibold tabular-nums text-bm-text">{fundNavConcentrationPct ? `${fundNavConcentrationPct.toFixed(1)}%` : "—"}</p>
             <p className="mt-1 text-sm text-bm-muted2">
@@ -1008,13 +1555,13 @@ function InvestmentBriefingPageContent({
         </div>
       </section>
 
-      <section className="space-y-5" data-testid="section-supporting-detail">
-        <SectionHeader
-          eyebrow={SECTION_ORDER[5]}
-          title="Supporting Detail"
-          description="Operational detail stays below the narrative surface so the briefing remains decision-first."
-        />
-        <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))]">
+      <section className="space-y-4" data-testid="section-supporting-detail">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">{SECTION_ORDER.supporting}</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight text-bm-text">Supporting Detail</h2>
+          <p className="mt-1 text-sm text-bm-muted2">Documents, logs, and asset detail stay available without crowding the page’s primary read path.</p>
+        </div>
+        <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_-42px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(9,14,28,0.96))]">
           <div className="flex flex-wrap gap-2">
             <SupportingTabButton active={supportingTab === "assets"} onClick={() => setSupportingTab("assets")}>
               Assets

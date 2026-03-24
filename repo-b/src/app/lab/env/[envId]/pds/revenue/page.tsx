@@ -1,219 +1,194 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
-import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
-import { bosFetch } from "@/lib/bos-api";
-import { formatCurrency, formatPercent } from "@/components/pds-enterprise/pdsEnterprise";
-import { ForecastVersionSelector } from "@/components/pds-enterprise/ForecastVersionSelector";
-import { GovernanceTrackToggle } from "@/components/pds-enterprise/GovernanceTrackToggle";
+import React, { useEffect, useState } from "react";
 import {
-  ComposedChart,
-  Bar,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+  getPdsCommandCenter,
+  type PdsV2CommandCenter,
+  type PdsV2Horizon,
+  type PdsV2Lens,
+  type PdsV2RolePreset,
+} from "@/lib/bos-api";
+import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
+import { PdsLensToolbar } from "@/components/pds-enterprise/PdsLensToolbar";
+import { PdsRevenueKpiStrip } from "@/components/pds-enterprise/PdsRevenueKpiStrip";
+import { PdsRevenueVsPlanChart } from "@/components/pds-enterprise/PdsRevenueVsPlanChart";
+import { PdsRevenueWaterfall } from "@/components/pds-enterprise/PdsRevenueWaterfall";
+import { PdsRevenueMixChart } from "@/components/pds-enterprise/PdsRevenueMixChart";
+import { PdsRevenueRiskPanel } from "@/components/pds-enterprise/PdsRevenueRiskPanel";
+import { PdsMarketLeaderboard } from "@/components/pds-enterprise/PdsMarketLeaderboard";
 
-/* ---------- types ---------- */
-
-type KpiData = {
-  total_revenue_ytd: number;
-  vs_budget_pct: number;
-  vs_prior_year_pct: number;
-  backlog: number;
-};
-
-type TimeSeriesRow = {
-  period: string;
-  actual: number | null;
-  [key: string]: number | string | null; // forecast version keys
-};
-
-type MixSlice = {
-  name: string;
-  value: number;
-};
-
-const MIX_COLORS = ["#3b82f6", "#8b5cf6", "#06b6d4", "#f59e0b"];
-
-/* ---------- component ---------- */
+function SectionHeader({ label, title }: { label: string; title: string }) {
+  return (
+    <div className="mt-1">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-bm-muted2">{label}</p>
+      <h3 className="text-base font-semibold text-bm-text">{title}</h3>
+    </div>
+  );
+}
 
 export default function PdsRevenuePage() {
   const { envId, businessId } = useDomainEnv();
-
-  const [selectedVersions, setSelectedVersions] = useState<string[]>(["budget"]);
-  const [governanceTrack, setGovernanceTrack] = useState<"all" | "variable" | "dedicated">("all");
+  const [lens, setLens] = useState<PdsV2Lens>("market");
+  const [horizon, setHorizon] = useState<PdsV2Horizon>("YTD");
+  const [rolePreset, setRolePreset] = useState<PdsV2RolePreset>("executive");
+  const [commandCenter, setCommandCenter] = useState<PdsV2CommandCenter | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [kpi, setKpi] = useState<KpiData | null>(null);
-  const [timeSeries, setTimeSeries] = useState<TimeSeriesRow[]>([]);
-  const [mix, setMix] = useState<MixSlice[]>([]);
-
-  const fetchData = useCallback(async () => {
-    if (!envId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const params: Record<string, string | undefined> = {
-        env_id: envId,
-        business_id: businessId ?? undefined,
-        governance_track: governanceTrack,
-        versions: selectedVersions.join(","),
-      };
-
-      const [tsRes, mixRes] = await Promise.all([
-        bosFetch<{ kpi: KpiData; rows: TimeSeriesRow[] }>("/api/pds/v2/revenue/time-series", { params }),
-        bosFetch<{ slices: MixSlice[] }>("/api/pds/v2/revenue/mix", { params }),
-      ]);
-
-      setKpi(tsRes.kpi);
-      setTimeSeries(tsRes.rows);
-      setMix(mixRes.slices);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load revenue data");
-    } finally {
-      setLoading(false);
-    }
-  }, [envId, businessId, governanceTrack, selectedVersions]);
-
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const cc = await getPdsCommandCenter(envId, {
+          business_id: businessId || undefined,
+          lens,
+          horizon,
+          role_preset: rolePreset,
+        });
+        if (cancelled) return;
+        setCommandCenter(cc);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Failed to load revenue data");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [envId, businessId, lens, horizon, rolePreset]);
 
-  /* ---------- KPI card helper ---------- */
-  function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  /* --- State 1: Loading (no prior data) --- */
+  if (loading && !commandCenter) {
     return (
-      <div className="rounded-lg border border-zinc-700 bg-zinc-800/60 px-5 py-4">
-        <p className="text-xs text-zinc-400">{label}</p>
-        <p className="mt-1 text-2xl font-semibold text-zinc-100">{value}</p>
-        {sub && <p className="mt-0.5 text-xs text-zinc-500">{sub}</p>}
+      <div className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-4 text-sm text-bm-muted2">
+        Loading revenue command center...
       </div>
     );
   }
 
-  /* ---------- render ---------- */
-  if (loading) {
+  /* --- State 2: Error (no prior data) --- */
+  if (error && !commandCenter) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-600 border-t-blue-500" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-6 text-red-200">
-        <p className="font-medium">Error loading revenue data</p>
-        <p className="mt-1 text-sm text-red-300">{error}</p>
-        <button onClick={fetchData} className="mt-3 rounded bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-500">
-          Retry
+      <div className="rounded-2xl border border-pds-signalRed/30 bg-pds-signalRed/10 p-4">
+        <p className="font-medium text-pds-signalRed">Unable to load revenue data</p>
+        <p className="mt-1 text-sm text-pds-signalRed/80">{error}</p>
+        <button
+          onClick={() => {
+            setError(null);
+            setLoading(true);
+            getPdsCommandCenter(envId, {
+              business_id: businessId || undefined,
+              lens,
+              horizon,
+              role_preset: rolePreset,
+            })
+              .then(setCommandCenter)
+              .catch((e) => setError(e instanceof Error ? e.message : "Retry failed"))
+              .finally(() => setLoading(false));
+          }}
+          className="mt-3 rounded-lg bg-pds-accent px-4 py-2 text-sm font-medium text-pds-bg transition hover:bg-pds-accent/90"
+        >
+          Try again
         </button>
       </div>
     );
   }
 
+  if (!commandCenter) return null;
+
+  const rows = commandCenter.performance_table?.rows ?? [];
+
+  /* --- State 3: Empty (loaded but no data) --- */
+  if (rows.length === 0) {
+    return (
+      <div className="space-y-5">
+        <PageHeader />
+        <div className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-8 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-pds-accent/10">
+            <svg className="h-6 w-6 text-pds-accentText" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-semibold text-bm-text">No revenue data yet</h2>
+          <p className="mt-2 text-sm text-bm-muted2 max-w-md mx-auto">
+            Revenue tracking requires fee data from projects in this environment.
+            Ensure projects have fee plans and actuals recorded to populate this dashboard.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /* --- State 4: Loaded dashboard --- */
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-100">Fee Revenue Dashboard</h1>
-        <p className="mt-1 text-sm text-zinc-400">
-          Track fee revenue, compare forecast versions, and analyze revenue mix.
-        </p>
-      </div>
+    <div className="space-y-5">
+      <PageHeader />
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-4">
-        <ForecastVersionSelector selected={selectedVersions} onChange={setSelectedVersions} />
-        <GovernanceTrackToggle value={governanceTrack} onChange={setGovernanceTrack} />
-      </div>
+      {/* Lens / Horizon / Role controls */}
+      <PdsLensToolbar
+        lens={lens}
+        horizon={horizon}
+        rolePreset={rolePreset}
+        generatedAt={commandCenter.generated_at}
+        onLensChange={setLens}
+        onHorizonChange={setHorizon}
+        onRolePresetChange={setRolePreset}
+      />
 
-      {/* KPI Strip */}
-      {kpi && (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <KpiCard label="Total Revenue YTD" value={formatCurrency(kpi.total_revenue_ytd)} />
-          <KpiCard
-            label="vs Budget"
-            value={formatPercent(kpi.vs_budget_pct / 100)}
-            sub={kpi.vs_budget_pct >= 0 ? "On track" : "Below plan"}
-          />
-          <KpiCard
-            label="vs Prior Year"
-            value={formatPercent(kpi.vs_prior_year_pct / 100)}
-            sub={kpi.vs_prior_year_pct >= 0 ? "Growth" : "Decline"}
-          />
-          <KpiCard label="Backlog" value={formatCurrency(kpi.backlog)} />
+      {/* Loading overlay for refetches */}
+      {loading && (
+        <div className="rounded-xl border border-pds-accent/20 bg-pds-accent/5 px-3 py-2 text-xs text-pds-accentText">
+          Refreshing revenue data...
         </div>
       )}
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Time Series Chart */}
-        <div className="col-span-2 rounded-lg border border-zinc-700 bg-zinc-800/40 p-4">
-          <h2 className="mb-4 text-sm font-medium text-zinc-300">Revenue Over Time</h2>
-          <ResponsiveContainer width="100%" height={320}>
-            <ComposedChart data={timeSeries}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="period" tick={{ fill: "#9ca3af", fontSize: 12 }} />
-              <YAxis tick={{ fill: "#9ca3af", fontSize: 12 }} tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} />
-              <Tooltip
-                contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", borderRadius: 8 }}
-                labelStyle={{ color: "#e5e7eb" }}
-              />
-              <Legend />
-              <Bar dataKey="actual" name="Actual" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              {selectedVersions.map((v, i) => (
-                <Line
-                  key={v}
-                  dataKey={v}
-                  name={v.replace(/_/g, " ")}
-                  stroke={MIX_COLORS[(i + 1) % MIX_COLORS.length]}
-                  strokeDasharray="6 3"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              ))}
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
+      {/* 1. Revenue Health KPI Strip */}
+      <PdsRevenueKpiStrip rows={rows} metrics={commandCenter.metrics_strip ?? []} />
 
-        {/* Revenue Mix Donut */}
-        <div className="rounded-lg border border-zinc-700 bg-zinc-800/40 p-4">
-          <h2 className="mb-4 text-sm font-medium text-zinc-300">Revenue Mix</h2>
-          <ResponsiveContainer width="100%" height={320}>
-            <PieChart>
-              <Pie
-                data={mix}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={100}
-                paddingAngle={4}
-                dataKey="value"
-                nameKey="name"
-                label={({ name, percent }: { name: string; percent: number }) =>
-                  `${name} ${(percent * 100).toFixed(0)}%`
-                }
-              >
-                {mix.map((_, idx) => (
-                  <Cell key={idx} fill={MIX_COLORS[idx % MIX_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", borderRadius: 8 }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+      {/* 2. Revenue vs Plan Chart */}
+      <SectionHeader label="Revenue Analysis" title="Actual vs Plan by Entity" />
+      <PdsRevenueVsPlanChart rows={rows} />
+
+      {/* 3. Variance Waterfall + Revenue Mix (side by side) */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <PdsRevenueWaterfall rows={rows} />
+        <PdsRevenueMixChart rows={rows} lens={lens} />
       </div>
+
+      {/* 4. Revenue Risk Panel */}
+      <PdsRevenueRiskPanel commandCenter={commandCenter} />
+
+      {/* 5. Detail Table */}
+      <SectionHeader label="Detail" title="Full Revenue Breakdown" />
+      <PdsMarketLeaderboard rows={rows} />
+
+      {/* Stale-data error banner */}
+      {error && (
+        <div className="rounded-xl border border-pds-signalOrange/30 bg-pds-signalOrange/10 px-3 py-2 text-sm text-pds-signalOrange">
+          {error}
+        </div>
+      )}
     </div>
+  );
+}
+
+function PageHeader() {
+  return (
+    <section className="rounded-xl border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,hsl(var(--pds-accent)/0.08),transparent_40%)] bg-bm-surface/[0.92] px-4 py-3">
+      <div className="flex items-center gap-2">
+        <h2 className="text-xl font-semibold text-bm-text">Revenue &amp; CI</h2>
+        <span className="rounded-full border border-pds-accent/20 px-2 py-0.5 text-[10px] font-medium text-pds-accentText">
+          PDS Enterprise OS
+        </span>
+      </div>
+      <p className="text-xs text-bm-muted2 mt-0.5">
+        Fee revenue, variance analysis, and revenue risk on one surface.
+      </p>
+    </section>
   );
 }

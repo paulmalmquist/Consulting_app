@@ -147,17 +147,17 @@ export default function PdsEnterpriseShell({
 
   return (
     <div className="space-y-4">
-      <section className="rounded-[30px] border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,hsl(var(--pds-gold)/0.10),transparent_42%)] bg-bm-surface/[0.92] p-5">
+      <section className="rounded-[30px] border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,hsl(var(--pds-accent)/0.08),transparent_42%)] bg-bm-surface/[0.92] p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-3">
-              <div className="rounded-2xl border border-pds-gold/20 bg-pds-gold/10 p-2 text-pds-goldSoft">
+              <div className="rounded-2xl border border-pds-accent/20 bg-pds-accent/10 p-2 text-pds-accentSoft">
                 <HardHat size={18} />
               </div>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl font-semibold">{envLabel}</h1>
-                  <span className="inline-flex items-center rounded-full border border-pds-gold/20 px-2.5 py-1 text-xs text-pds-goldText">
+                  <span className="inline-flex items-center rounded-full border border-pds-accent/20 px-2.5 py-1 text-xs text-pds-accentText">
                     PDS Enterprise OS
                   </span>
                 </div>
@@ -195,8 +195,8 @@ export default function PdsEnterpriseShell({
                     const active = isActive(pathname, item.href, item.exact);
                     const inactiveClass =
                       item.tone === "special"
-                        ? "border-pds-gold/15 bg-pds-gold/5 text-pds-goldText hover:bg-pds-gold/10 hover:text-pds-goldSoft"
-                        : "border-transparent hover:bg-pds-gold/5 hover:text-pds-goldSoft";
+                        ? "border-pds-accent/15 bg-pds-accent/5 text-pds-accentText hover:bg-pds-accent/10 hover:text-pds-accentSoft"
+                        : "border-transparent hover:bg-pds-accent/5 hover:text-pds-accentSoft";
 
                     return (
                       <Link
@@ -205,7 +205,7 @@ export default function PdsEnterpriseShell({
                         aria-current={active ? "page" : undefined}
                         className={`block rounded-xl border px-3 py-2 pl-5 text-[13px] transition ${
                           active
-                            ? "border-pds-gold/50 bg-pds-gold/10 text-pds-goldText"
+                            ? "border-pds-accent/50 bg-pds-accent/10 text-pds-accentText"
                             : inactiveClass
                         }`}
                       >

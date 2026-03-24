@@ -41,9 +41,9 @@
     --pds-bg-panel: 217 33% 9%;
     --pds-bg-card: 215 26% 15%;
     --pds-divider: 213 18% 22%;
-    --pds-gold: 41 64% 54%;
-    --pds-gold-soft: 43 71% 68%;
-    --pds-gold-text: 43 76% 76%;
+    --pds-accent: 217 91% 60%;
+    --pds-accent-soft: 217 91% 70%;
+    --pds-accent-text: 217 91% 78%;
     --pds-signal-green: 137 61% 49%;
     --pds-signal-yellow: 43 87% 62%;
     --pds-signal-orange: 28 86% 62%;
@@ -86,9 +86,9 @@
     --pds-bg-panel: 0 0% 100%;
     --pds-bg-card: 220 20% 96%;
     --pds-divider: 220 13% 88%;
-    --pds-gold: 41 64% 44%;
-    --pds-gold-soft: 41 52% 38%;
-    --pds-gold-text: 41 55% 30%;
+    --pds-accent: 217 91% 50%;
+    --pds-accent-soft: 217 80% 40%;
+    --pds-accent-text: 217 85% 32%;
     --pds-signal-green: 142 64% 34%;
     --pds-signal-yellow: 43 87% 42%;
     --pds-signal-orange: 28 86% 42%;

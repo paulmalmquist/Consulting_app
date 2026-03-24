@@ -2,7 +2,7 @@
 import React from "react";
 
 import type { PdsV2ResourceHealthItem, PdsV2TimecardHealthItem } from "@/lib/bos-api";
-import { formatPercent, reasonLabel, toNumber } from "@/components/pds-enterprise/pdsEnterprise";
+import { formatPercent, toNumber } from "@/components/pds-enterprise/pdsEnterprise";
 
 type ActionItem = {
   id: string;
@@ -11,6 +11,7 @@ type ActionItem = {
   impact: string;
   action: string;
   severity: "critical" | "warning" | "info";
+  subCategory: "utilization" | "timecard" | "mixed";
 };
 
 function buildActions(
@@ -19,7 +20,6 @@ function buildActions(
 ): ActionItem[] {
   const items: ActionItem[] = [];
 
-  // Build lookup for timecard delinquency by resource name
   const timecardMap = new Map<string, PdsV2TimecardHealthItem>();
   for (const tc of timecards) {
     if (tc.delinquent_count > 0) {
@@ -55,6 +55,10 @@ function buildActions(
     const severity: ActionItem["severity"] =
       (hasDelinquent && isLowUtil) || isOverloaded ? "critical" : hasDelinquent || isLowUtil ? "warning" : "info";
 
+    const hasUtilIssue = isLowUtil || isOverloaded;
+    const hasTimecardIssue = hasDelinquent || !!tc;
+    const subCategory: ActionItem["subCategory"] = hasUtilIssue && hasTimecardIssue ? "mixed" : hasUtilIssue ? "utilization" : "timecard";
+
     items.push({
       id: r.resource_id,
       name: r.resource_name,
@@ -62,13 +66,13 @@ function buildActions(
       impact: impacts.join("; "),
       action: actions.join("; "),
       severity,
+      subCategory,
     });
 
-    // Remove from timecard map so we don't double-count
     timecardMap.delete(r.resource_name);
   }
 
-  // Add remaining timecard-only issues
+  // Remaining timecard-only issues
   for (const [, tc] of timecardMap) {
     items.push({
       id: tc.resource_id || tc.resource_name,
@@ -77,25 +81,62 @@ function buildActions(
       impact: "Revenue recognition delay",
       action: "Follow up on timecards",
       severity: tc.delinquent_count >= 3 ? "critical" : "warning",
+      subCategory: "timecard",
     });
   }
 
-  // Sort: critical first, then warning, then info
   const order = { critical: 0, warning: 1, info: 2 };
-  return items.sort((a, b) => order[a.severity] - order[b.severity]).slice(0, 6);
+  return items.sort((a, b) => order[a.severity] - order[b.severity]).slice(0, 8);
 }
 
 const SEVERITY_DOT: Record<ActionItem["severity"], string> = {
-  critical: "bg-pds-signalRed",
-  warning: "bg-pds-signalOrange",
-  info: "bg-bm-muted2",
+  critical: "bg-red-500",
+  warning: "bg-amber-500",
+  info: "bg-slate-500",
 };
 
-const SEVERITY_BORDER: Record<ActionItem["severity"], string> = {
-  critical: "border-l-pds-signalRed/50",
-  warning: "border-l-pds-signalOrange/40",
-  info: "border-l-bm-border/60",
+const SEVERITY_STRIPE: Record<ActionItem["severity"], string> = {
+  critical: "bg-red-500",
+  warning: "bg-amber-500",
+  info: "bg-slate-600",
 };
+
+const SEVERITY_BG: Record<ActionItem["severity"], string> = {
+  critical: "bg-red-500/[0.06]",
+  warning: "bg-amber-500/[0.04]",
+  info: "",
+};
+
+const SEVERITY_LABEL: Record<ActionItem["severity"], { text: string; color: string }> = {
+  critical: { text: "Critical", color: "text-red-400" },
+  warning: { text: "Warning", color: "text-amber-400" },
+  info: { text: "Info", color: "text-slate-500" },
+};
+
+function ActionCard({ item }: { item: ActionItem }) {
+  return (
+    <article className={`relative overflow-hidden rounded-lg border border-slate-700/30 ${SEVERITY_BG[item.severity]} p-3`}>
+      <div className={`absolute left-0 top-0 h-full w-0.5 ${SEVERITY_STRIPE[item.severity]}`} />
+      <div className="pl-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className={`inline-block h-1.5 w-1.5 rounded-full ${SEVERITY_DOT[item.severity]}`} />
+            <h4 className="text-sm font-semibold text-bm-text">{item.name}</h4>
+          </div>
+          <span className={`text-[10px] font-semibold uppercase tracking-wide ${SEVERITY_LABEL[item.severity].color}`}>
+            {SEVERITY_LABEL[item.severity].text}
+          </span>
+        </div>
+        <p className="mt-1.5 text-xs text-slate-400">{item.issue}</p>
+        <div className="mt-2 flex items-center gap-3 text-[11px]">
+          <span className="text-red-400/80">{item.impact}</span>
+          <span className="text-slate-600">|</span>
+          <span className="text-emerald-400/80">{item.action}</span>
+        </div>
+      </div>
+    </article>
+  );
+}
 
 export function PdsResourceHealthPanel({
   resources,
@@ -106,41 +147,39 @@ export function PdsResourceHealthPanel({
 }) {
   const actionItems = buildActions(resources, timecards);
 
+  const criticalCount = actionItems.filter((i) => i.severity === "critical").length;
+  const warningCount = actionItems.filter((i) => i.severity === "warning").length;
+
   return (
-    <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="pds-resource-health-panel">
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
+    <section className="rounded-lg border border-slate-700/30 bg-slate-800/[0.15] p-4" data-testid="pds-resource-health-panel">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-pds-gold/70">Action Required</p>
-          <h3 className="text-base font-semibold text-bm-text">Staffing & Submission Issues</h3>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Action Required</p>
+          <h3 className="text-base font-semibold text-bm-text">People to Call Today</h3>
         </div>
-        <p className="text-xs text-bm-muted2">{actionItems.length} item{actionItems.length !== 1 ? "s" : ""} requiring follow-up</p>
+        <div className="flex items-center gap-2 text-[11px]">
+          {criticalCount > 0 && (
+            <span className="rounded-md bg-red-500/15 px-2 py-0.5 font-semibold text-red-400">
+              {criticalCount} critical
+            </span>
+          )}
+          {warningCount > 0 && (
+            <span className="rounded-md bg-amber-500/10 px-2 py-0.5 font-semibold text-amber-400">
+              {warningCount} warning
+            </span>
+          )}
+          <span className="text-slate-500">{actionItems.length} total</span>
+        </div>
       </div>
 
       {actionItems.length === 0 ? (
-        <p className="rounded-xl border border-bm-border/60 bg-pds-card/30 p-4 text-sm text-bm-muted2">
+        <p className="rounded-lg border border-slate-700/30 p-4 text-sm text-slate-500">
           No staffing or timecard issues requiring action.
         </p>
       ) : (
         <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
           {actionItems.map((item) => (
-            <article
-              key={item.id}
-              className={`rounded-xl border border-bm-border/50 border-l-2 ${SEVERITY_BORDER[item.severity]} bg-pds-card/30 p-3`}
-            >
-              <div className="flex items-center gap-2">
-                <span className={`inline-block h-1.5 w-1.5 rounded-full ${SEVERITY_DOT[item.severity]}`} />
-                <h4 className="text-sm font-semibold text-bm-text">{item.name}</h4>
-              </div>
-              <p className="mt-1 text-xs text-bm-muted2">{item.issue}</p>
-              <div className="mt-2 flex items-start gap-1 text-[11px]">
-                <span className="shrink-0 font-medium text-pds-signalOrange">Impact:</span>
-                <span className="text-bm-muted2">{item.impact}</span>
-              </div>
-              <div className="mt-1 flex items-start gap-1 text-[11px]">
-                <span className="shrink-0 font-medium text-pds-signalGreen">Action:</span>
-                <span className="text-bm-muted2">{item.action}</span>
-              </div>
-            </article>
+            <ActionCard key={item.id} item={item} />
           ))}
         </div>
       )}

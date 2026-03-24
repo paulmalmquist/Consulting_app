@@ -37,7 +37,9 @@ export default function PdsError({
         <p className="mt-2 text-sm text-white/60">
           {error.message?.includes("pds_pipeline_deals")
             ? "The PDS pipeline table hasn't been migrated yet. Please run the schema migration to resolve this."
-            : error.message || "An unexpected error occurred while loading this page."}
+            : error.message?.includes("revenue")
+              ? "Revenue data is not available for this environment. Ensure the PDS command center is configured with fee data."
+              : error.message || "An unexpected error occurred while loading this page."}
         </p>
         {error.digest && (
           <p className="mt-2 text-xs text-white/40">Error ID: {error.digest}</p>
@@ -45,7 +47,7 @@ export default function PdsError({
         <div className="mt-6 flex gap-3 justify-center">
           <button
             onClick={reset}
-            className="rounded-lg bg-pds-gold px-4 py-2 text-sm font-medium text-pds-bg transition hover:bg-pds-gold/90"
+            className="rounded-lg bg-pds-accent px-4 py-2 text-sm font-medium text-pds-bg transition hover:bg-pds-accent/90"
           >
             Try again
           </button>

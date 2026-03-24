@@ -29,7 +29,7 @@ export function PdsDeliveryRiskPanel({ items }: { items: PdsV2DeliveryRiskItem[]
                 <div>
                   <div className="flex items-center gap-2">
                     <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${SEVERITY_DOT[item.severity] || "bg-bm-muted2"}`} />
-                    <Link href={item.href} className="text-sm font-semibold text-bm-text hover:text-pds-goldText hover:underline">
+                    <Link href={item.href} className="text-sm font-semibold text-bm-text hover:text-pds-accentText hover:underline">
                       {item.project_name}
                     </Link>
                   </div>
