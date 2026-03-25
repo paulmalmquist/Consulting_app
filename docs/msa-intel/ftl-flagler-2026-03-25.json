@@ -1,0 +1,256 @@
+{
+  "zone_slug": "ftl-flagler",
+  "zone_name": "Fort Lauderdale — Flagler Village/FAT Village",
+  "msa_zone_id": "1baa4687-dfb7-4a97-8700-2cdcfd484ce6",
+  "asset_class_focus": "multifamily",
+  "run_date": "2026-03-25",
+  "tier": 1,
+  "score_delta_vs_last_run": null,
+  "signals": {
+    "transaction_velocity": {
+      "score": 6,
+      "trend": "stable",
+      "notes": "Active institutional buyer presence and land assemblage deals, but recent 2025 closed comp data is thin. Mag Mile Capital closed a record $223.5M bridge loan (March 2026) for 636-unit mixed-use development, signaling capital is moving. Berkadia arranged $84M construction bridge for Astor Park. Walker & Dunlop previously arranged $227M sale. Most land comp pricing from 2021-2023 ($319/sf land basis). Development site activity (Native Realty, Continua Developments) suggests sustained institutional conviction.",
+      "comps": [
+        {
+          "address": "203-215 NE Third St, Fort Lauderdale",
+          "price": 9250000,
+          "price_per_sf_land": 319,
+          "date": "2022-02",
+          "buyer_type": "institutional_developer",
+          "notes": "Native Realty land assemblage for Class A multifamily"
+        },
+        {
+          "address": "200-210 NE Third St, Fort Lauderdale",
+          "price": 9750000,
+          "price_per_sf_land": 336,
+          "date": "2021-11",
+          "buyer_type": "institutional_developer",
+          "notes": "Part of $19M two-parcel assemblage"
+        },
+        {
+          "address": "Flagler Village (site for 252-unit project)",
+          "price": 11000000,
+          "units_planned": 252,
+          "price_per_planned_unit": 43651,
+          "date": "2022",
+          "buyer_type": "institutional_developer",
+          "notes": "Midtown PAL Flagler Village LLC for Astor Park development"
+        }
+      ]
+    },
+    "distress_level": {
+      "score": 2,
+      "trend": "stable",
+      "lis_pendens_count": null,
+      "nod_count": null,
+      "notes": "No material distress signals found in Flagler Village specifically. Florida/Broward lis pendens activity is low for institutional multifamily; residential filings number 'several dozen per week' county-wide but no commercial multifamily distress stories surfaced. Market is healthy with active capital deployment — distressed acquisition opportunities are minimal in this submarket currently."
+    },
+    "supply_risk": {
+      "score": 8,
+      "trend": "increasing",
+      "permits_ytd": null,
+      "units_pipeline": 1525,
+      "major_projects": [
+        {
+          "name": "FAT Village (Hines + Urban Street Development)",
+          "units": 600,
+          "status": "under_construction",
+          "expected_delivery": "2026-Q2 to 2027",
+          "notes": "$500M mixed-use master plan on 5.6 acres; 24-story and 13-story towers topped out; first units mid-2026, full delivery 2027. One building targets affordable at $1,900/mo entry; other is luxury."
+        },
+        {
+          "name": "Astor Park Flagler Village",
+          "units": 252,
+          "status": "under_construction",
+          "expected_delivery": "2026-Q2",
+          "notes": "Luxury mid-rise, topped out Oct 2025; $84M Berkadia bridge. Delivering mid-2026."
+        },
+        {
+          "name": "Society Las Olas Phase II (Property Markets Group)",
+          "units": 563,
+          "status": "under_construction",
+          "expected_delivery": "2026-Q1",
+          "notes": "42-story tower; nearby but not strictly Flagler Village. Adds to metro supply pressure."
+        },
+        {
+          "name": "Urbania Flagler 1st Ave (Continua Developments)",
+          "units": 110,
+          "status": "under_construction",
+          "expected_delivery": "2026-2027",
+          "notes": "$28M construction loan. 110-unit mid-rise."
+        }
+      ]
+    },
+    "rent_growth": {
+      "score": 5,
+      "trailing_12mo": -0.04,
+      "by_class": {
+        "class_a": null,
+        "class_b": null,
+        "class_c": null,
+        "notes": "Class-specific breakdown unavailable; gap logged"
+      },
+      "avg_rent_flagler_village": 2824,
+      "by_unit_type": {
+        "studio": 2206,
+        "one_br": 3121,
+        "two_br": 4535,
+        "studio_yoy": 0.11,
+        "one_br_yoy": -0.07,
+        "two_br_yoy": -0.02
+      },
+      "concession_level": "light_to_moderate",
+      "notes": "Average Flagler Village rent $2,824 (Dec 2025), down 4% YoY from $2,943. Studios counterintuitively up 11% YoY; 1BR down 7%, 2BR down 2%. Move-in specials visible on apartment listing sites. Supply wave from 2025-2026 deliveries is putting pressure on larger units. Landlords offering light concessions to lease-up new product."
+    },
+    "demand_drivers": {
+      "score": 8,
+      "employment_trend": "growing",
+      "major_moves": [
+        {
+          "employer": "Professional & Business Services sector",
+          "action": "expansion",
+          "jobs_affected": null,
+          "notes": "+6% YoY employment growth in professional/business services as of Q2 2025"
+        }
+      ],
+      "migration_trend": "inflow",
+      "employment_stats": {
+        "broward_nonfarm_jobs_dec2025": 944700,
+        "yoy_job_change": 3400,
+        "yoy_job_pct": 0.004,
+        "miami_ftl_metro_yoy_jobs_jun2025": 42600,
+        "miami_ftl_metro_yoy_pct": 0.015,
+        "national_yoy_pct": 0.011
+      },
+      "downtown_ftl_economic_impact_2025": "43B",
+      "downtown_ftl_population_growth_projection": "26-28% by 2028-2030",
+      "top_migration_origins": ["New York", "Washington DC", "San Francisco", "Los Angeles/San Diego"],
+      "notes": "Fort Lauderdale is a top migration destination — NY, DC, SF, LA/SD all sending residents. Broward added 3,400 nonfarm jobs YoY through Dec 2025. Downtown FTL projected 26-28% population growth by 2030. Professional services growing 6%+ YoY. Strong structural renter demand supports long-term underwriting, even through near-term supply absorption."
+    },
+    "capital_availability": {
+      "score": 7,
+      "agency_volume_delta": null,
+      "bank_appetite": "stable",
+      "cmbs_delinquency_rate": null,
+      "current_cap_rate": 0.0627,
+      "commercial_mortgage_rate_oct2025": 0.0511,
+      "notes": "March 2026: Mag Mile Capital closed record $223.5M bridge loan for 636-unit FTL mixed-use — signals strong bridge capital appetite. Berkadia arranged $84M construction bridge for Astor Park. FTL cap rate at 6.27% and commercial mortgage rate ~5.11% (Oct 2025) provides positive leverage potential. Multifamily transaction activity rebounded in 2025 nationally, agency lenders active. Banks selective on new construction but refinance and stabilized deals getting done."
+    },
+    "regulatory_favorability": {
+      "score": 9,
+      "rent_control_risk": "none",
+      "oz_status": "active",
+      "tax_reassessment_risk": "low",
+      "impact_fee_change": "none_found",
+      "notes": "Florida state law has preempted local rent control since 1977 — zero rent control risk. Flagler Village sits in an active Opportunity Zone with documented investment activity (15-parcel OZ assemblage on N. Andrews Ave; multiple OZ projects active). Fort Lauderdale city government is pro-development. No material impact fee increases found. Property tax environment stable. OZ investors active through at least 2026 given QOF extension provisions."
+    }
+  },
+  "composite_acquisition_score": 3.65,
+  "score_delta_vs_last_run": null,
+  "key_findings": [
+    {
+      "finding": "Massive near-term supply wave: 1,525+ multifamily units delivering in Flagler Village/adjacent Downtown in 2026-2027, led by the $500M FAT Village project (600 units) and Astor Park (252 units). This is the dominant risk to near-term acquisition underwriting.",
+      "category": "supply_risk",
+      "significance": "high",
+      "source": "https://floridayimby.com/2025/10/construction-progresses-on-500-million-fat-village-in-fort-lauderdales-flagler-village.html"
+    },
+    {
+      "finding": "Rents softening: Average Flagler Village rent fell 4% YoY to $2,824 (Dec 2025) from $2,943. 1BR rents down 7% YoY. Light-to-moderate concessions visible. Supply pressure from 2025-2026 deliveries is real and measurable.",
+      "category": "rent_growth",
+      "significance": "high",
+      "source": "https://www.rentcafe.com/average-rent-market-trends/us/fl/fort-lauderdale/flagler-village/"
+    },
+    {
+      "finding": "Record $223.5M bridge loan closed March 2026 for 636-unit Fort Lauderdale multifamily/retail development — signals lender confidence in submarket at largest-ever single financing for Mag Mile Capital.",
+      "category": "capital_availability",
+      "significance": "high",
+      "source": "https://www.newsfilecorp.com/release/287842/Mag-Mile-Capital-MMCP-Closes-Record-223.5M-Bridge-Loan-for-636-Unit-Fort-Lauderdale-Multifamily-and-Retail-Development"
+    },
+    {
+      "finding": "Downtown Fort Lauderdale's urban core projected to grow 26-28% by 2028-2030, outpacing Miami, West Palm Beach, and Tampa. Net in-migration from NY, DC, SF, LA/SD continues, providing structural renter demand foundation.",
+      "category": "demand_drivers",
+      "significance": "high",
+      "source": "https://www.mardergroup.com/downtown-fort-lauderdales-economic-boom-a-look-at-the-2025-dda-report/"
+    },
+    {
+      "finding": "Florida's permanent state preemption of local rent control (since 1977) eliminates a key underwriting risk. Flagler Village's active Opportunity Zone status provides tax incentive for continued developer interest.",
+      "category": "regulatory_favorability",
+      "significance": "medium",
+      "source": "https://www.bisnow.com/south-florida/news/multifamily/opportunity-zones-florida-fort-lauderdale-94738"
+    },
+    {
+      "finding": "Professional and business services employment in the Fort Lauderdale metro grew 6%+ YoY as of Q2 2025. Broward County added 3,400 nonfarm jobs YoY through Dec 2025, outpacing the national 1.1% average with a 1.5% rate.",
+      "category": "demand_drivers",
+      "significance": "medium",
+      "source": "https://www.gflalliance.org/news/2026/01/26/press-releases/broward-county-adds-3-400-nonagricultural-jobs-over-the-year-in-december-2025/"
+    },
+    {
+      "finding": "Fort Lauderdale cap rate at 6.27% with commercial mortgage rates at ~5.11% (Oct 2025) — positive leverage spread exists, though thin. Bridge capital actively deploying in the submarket.",
+      "category": "capital_availability",
+      "significance": "medium",
+      "source": "https://selectcommercial.com/fort-lauderdale-commercial-mortgage.php"
+    },
+    {
+      "finding": "Studio apartments bucking the trend with +11% YoY rent growth in Flagler Village, suggesting strong demand from young professionals. 1BR and 2BR units absorbing more concession pressure as larger new supply delivers.",
+      "category": "rent_growth",
+      "significance": "medium",
+      "source": "https://www.rentcafe.com/average-rent-market-trends/us/fl/fort-lauderdale/flagler-village/"
+    }
+  ],
+  "feature_gaps_identified": [
+    {
+      "gap": "No access to granular Broward County lis pendens data for commercial multifamily properties. County recorder database not machine-accessible; could not quantify CRE-specific distress in Flagler Village. Would require direct PropertyShark or CoStar subscription or county scrape.",
+      "category": "data_source",
+      "impact": 8
+    },
+    {
+      "gap": "Fort Lauderdale permit portal (LauderBuild/Accela) does not expose structured permit data via public API. Could not generate actual permits-YTD count or track permit velocity for Flagler Village. A scraping integration or city data partnership is needed.",
+      "category": "data_source",
+      "impact": 7
+    },
+    {
+      "gap": "No submarket-level occupancy rate by vintage class (Class A vs B vs C) for Flagler Village. CoStar/Yardi Matrix would provide this; free sources only give city-wide approximations. Occupancy rate is a critical input for lease-up projection.",
+      "category": "data_source",
+      "impact": 9
+    },
+    {
+      "gap": "No 2025 closed land comp pricing with price-per-unit or price-per-sf on a consistent basis. All comp data found is from 2021-2023. A CoStar comparable sales integration would fill this gap and enable current land value underwriting.",
+      "category": "data_source",
+      "impact": 9
+    },
+    {
+      "gap": "No CMBS delinquency rate specific to Fort Lauderdale/Broward MSA for multifamily. TREPP or Bloomberg data needed. Could not assess whether any existing securitized loans in Flagler Village are in special servicing.",
+      "category": "data_source",
+      "impact": 6
+    },
+    {
+      "gap": "No supply absorption projection model — can estimate unit delivery count but cannot project how quickly 1,525+ new units will be absorbed given current leasing velocity. A Monte Carlo or cohort absorption model would materially improve acquisition timing recommendations.",
+      "category": "model",
+      "impact": 9
+    },
+    {
+      "gap": "No rent growth by property class (Class A vs B vs C) for Flagler Village. Studio trend (+11% YoY) vs 1BR (-7%) suggests vintage and unit mix matter significantly. Granular rent roll data by vintage would enable better rent escalation modeling.",
+      "category": "calculation",
+      "impact": 7
+    }
+  ],
+  "research_search_count": 9,
+  "sources": [
+    "https://floridayimby.com/2025/10/construction-progresses-on-500-million-fat-village-in-fort-lauderdales-flagler-village.html",
+    "https://floridayimby.com/2025/11/t3-fat-village-tops-out-in-fort-lauderdales-flagler-village.html",
+    "https://www.multihousingnews.com/continua-developments-snags-28m-to-build-fort-lauderdale-apartments/",
+    "https://yieldpro.com/2026/01/astor-park-flagler-village",
+    "https://www.prnewswire.com/news-releases/227-million-sale-of-flagler-village-apartments-arranged-by-walker--dunlop-301451130.html",
+    "https://www.multifamilypress.com/categories/property-acquisitions/3974-native-realty-closes-11-million-sale-of-multifamily-development-site-in-fort-lauderdale-s-flagler-village",
+    "https://cre-sources.com/just-closed-flagler-village-multifamily-development-site-sells-for-9-25-million/",
+    "https://www.rentcafe.com/average-rent-market-trends/us/fl/fort-lauderdale/flagler-village/",
+    "https://www.gflalliance.org/news/2026/01/26/press-releases/broward-county-adds-3-400-nonagricultural-jobs-over-the-year-in-december-2025/",
+    "https://www.mardergroup.com/downtown-fort-lauderdales-economic-boom-a-look-at-the-2025-dda-report/",
+    "https://www.newsfilecorp.com/release/287842/Mag-Mile-Capital-MMCP-Closes-Record-223.5M-Bridge-Loan-for-636-Unit-Fort-Lauderdale-Multifamily-and-Retail-Development",
+    "https://selectcommercial.com/fort-lauderdale-commercial-mortgage.php",
+    "https://www.bisnow.com/south-florida/news/multifamily/opportunity-zones-florida-fort-lauderdale-94738",
+    "https://www.bls.gov/regions/southeast/news-release/areaemployment_miami.htm",
+    "https://www.dantobuilders.com/building-fort-lauderdale-key-developments-shaping-2026/"
+  ]
+}
