@@ -30,10 +30,7 @@ describe("RE models page create flow", () => {
     vi.clearAllMocks();
 
     // Mock window.location.assign since jsdom doesn't support navigation
-    Object.defineProperty(window, "location", {
-      value: { ...window.location, assign: mockLocationAssign },
-      writable: true,
-    });
+    vi.stubGlobal("location", { ...window.location, assign: mockLocationAssign });
 
     mockListReV1Funds.mockResolvedValue([
       {
@@ -93,8 +90,9 @@ describe("RE models page create flow", () => {
     });
 
     // Page navigates to the new model detail after creation
+    // fund-1 is selected so the path includes /fund-scenario
     await waitFor(() => {
-      expect(mockLocationAssign).toHaveBeenCalledWith("/lab/env/env-1/re/models/model-1");
+      expect(mockLocationAssign).toHaveBeenCalledWith("/lab/env/env-1/re/models/model-1/fund-scenario");
     });
   });
 
