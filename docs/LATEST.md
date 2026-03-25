@@ -10,28 +10,28 @@
 
 | System | Status | Last checked |
 |---|---|---|
-| paulmalmquist.com | UP — login page rendering, all authenticated pages pass | 2026-03-23 |
+| paulmalmquist.com | UP — login page rendering, all authenticated pages pass | 2026-03-24 |
 | novendor.ai | LIVE — full marketing site, "Put AI to Work" hero, 4 industry verticals | 2026-03-22 |
-| Supabase | HEALTHY — 8 connections, 0 stuck, clean pool | 2026-03-22 |
-| Vercel deploys | GREEN — consulting-app READY (daily-brief 2026-03-22); floyorker ERROR (separate project) | 2026-03-22 |
+| Supabase | HEALTHY — 8 connections, 0 stuck, clean pool | 2026-03-24 |
+| Vercel deploys | GREEN — consulting-app READY; Stone PDS null guard fixes deployed | 2026-03-24 |
 
 ## Environment Health
 
-- **Stone PDS:** DEGRADED — `pds_business_lines` migration deployed 2026-03-23; 6 PASS, 2 FAIL (Revenue & CI, Resources — null guard fixes needed); chat backbone functional, rendering incomplete
-- **Meridian Capital:** DEGRADED — intent fix deployed and confirmed; routing works but SQL generation failing (39ms "couldn't generate SQL"); distributions/variance data gaps remain; AI test pass rate 33% (2/6)
-- **MSA Rotation Engine:** OPERATIONAL — first brief ran today (Miami—Wynwood/Edgewater, score 7.0/10); 9 feature cards (5 prompted, 4 specced, 0 built); frontend env still building
-- **Market Intelligence Engine:** PROVISIONED — 34 segments seeded, regime classified as RISK_OFF_DEFENSIVE, frontend page built, 8 fin-* tasks live. First real research sweep pending.
+- **Stone PDS:** DEGRADED (strongly improving) — 12/16 pages PASS (up from 10/16). Resources and Timecards null guards FIXED and deployed. Client Satisfaction fix committed, pending Vercel deploy. Schedule Health redirect open P1. `pds_leader_coverage` 0 rows. Satisfaction score seed quality issue.
+- **Meridian Capital:** DEGRADED — SQL generation fix (`fa9372dc`) committed but not confirmed deployed to Railway. Chat pipeline (Lane A) hallucinating fund data + exposing raw tool call JSON (new Bug 0 regression). Lane B latency spiked 164ms → 12,534ms. Distributions show $0 "Total Paid" (missing payout rows). AI test pass rate 33% (2/6) — unchanged from 2026-03-23.
+- **MSA Rotation Engine:** OPERATIONAL — Miami—Wynwood/Edgewater brief completed (score 7.0/10). 14 backlog cards total (5 prompted, 9 specced, 0 built). Top card: Cap Rate Distribution Estimator (priority 44.1/100).
+- **Market Intelligence Engine:** PROVISIONED — 34 segments seeded, regime classified as RISK_OFF_DEFENSIVE, frontend built. First rotation sweeps pending.
 - **Resume:** UNCONFIRMED — last confirmed healthy 2026-03-21
 
 ## Latest AI Test Results
 
 | File | Date | Pass rate |
 |---|---|---|
-| `docs/ai-testing/2026-03-23.md` | 2026-03-23 | 33.3% — 2/6 passed. Intent fix deployed; routing correct but SQL generation now failing on NOI queries. Error recovery speed improved 10.9s→164ms. |
+| `docs/ai-testing/2026-03-24.md` | 2026-03-24 | 33.3% — 2/6 passed. New regression: Test 1 hallucinating fund data + raw tool call JSON visible in chat (Bug 0 re-emerging). Lane B latency regression 164ms→12,534ms. SQL generation fix committed not confirmed deployed. |
 
-**Bug 0 status:** FIXED — commit `658bb74` pushed; no raw tool names in conversation body per 2026-03-21 smoke test.
+**Bug 0 status:** REGRESSED — commit `658bb74` had fixed tool call spam, but `2026-03-24` test shows raw tool call JSON visible in Lane A chat responses again. Check `backend/app/services/ai_gateway.py` SSE emit layer.
 
-**Next P0:** SQL generation failure in `repe_fast_path` analytics lane — "couldn't generate SQL" for NOI/asset queries. Fix routing confirmed working; SQL prompt/schema context is the next layer to debug.
+**Next P0:** (1) Confirm Railway deployed `fa9372dc` — `generate_sql()` fix for `repe_fast_path`. (2) Patch Tool Call JSON leak in Lane A chat pipeline.
 
 ## Latest Code Quality
 
@@ -75,24 +75,27 @@
 
 | File | Date |
 |---|---|
-| `docs/ops-reports/digests/winston-daily-brief-2026-03-24.md` | 2026-03-24 |
+| `docs/ops-reports/digests/digest-2026-03-25.md` | 2026-03-25 |
 
 ## Active Meta Prompts (Build Directives)
 
 | Meta Prompt | Status | Priority |
 |---|---|---|
-| `META_PROMPT_CHAT_WORKSPACE.md` | Active | Bug 0 (execution narration) → then chat workspace → then response blocks |
+| `META_PROMPT_CHAT_WORKSPACE.md` | Active | Bug 0 re-emerging (tool call JSON leak in Lane A) → SQL generation fix → Lane B latency fix → chat workspace |
 | `META_PROMPT_VISUAL_RESUME.md` | Active — needs career data | Build resume lab environment |
 
 ## Active Bugs
 
 | Bug | Severity | Status | Location |
 |---|---|---|---|
-| Bug 0: Tool call spam in AI UI | CRITICAL | FIXED — commit `658bb74` deployed | `META_PROMPT_CHAT_WORKSPACE.md` |
-| repe_fast_path SQL generation failure | CRITICAL | OPEN — routing fixed; SQL generation fails on NOI queries (39ms "couldn't generate SQL") | `docs/ai-testing/2026-03-23.md` |
-| Stone PDS: Revenue & CI null guard | HIGH | OPEN — `pds/revenue/page.tsx` calls `.map()` on undefined; one-line fix | `docs/env-tasks/stone-pds/health/health-2026-03-23.md` |
-| Stone PDS: Resources null guard | HIGH | OPEN — `pds/resources/page.tsx` calls `.length` on undefined; one-line fix | `docs/env-tasks/stone-pds/health/health-2026-03-23.md` |
-| Raw internal fund UUIDs exposed to users | HIGH | OPEN | `docs/ai-testing/2026-03-22.md` |
+| Bug 0: Tool call spam in AI UI | CRITICAL | REGRESSED — raw tool call JSON visible in Lane A chat responses as of 2026-03-24 | `docs/ai-testing/2026-03-24.md` |
+| repe_fast_path SQL generation failure | CRITICAL | FIX COMMITTED (`fa9372dc`) — not confirmed deployed to Railway | `docs/ai-testing/2026-03-24.md` |
+| Lane B total latency regression | HIGH | NEW — 164ms→12,534ms elapsed for error recovery (Lane B) | `docs/ai-testing/2026-03-24.md` |
+| Stone PDS: Client Satisfaction null guard | HIGH | FIX COMMITTED — pending Vercel deploy | `docs/env-tasks/stone-pds/health/health-2026-03-24.md` |
+| Stone PDS: Schedule Health nav redirect | HIGH | OPEN — redirects to /pds/risk silently | `docs/env-tasks/stone-pds/health/health-2026-03-24.md` |
+| Raw internal fund UUIDs exposed to users | HIGH | OPEN | `docs/ai-testing/2026-03-24.md` |
+| Meridian: Distributions Total Paid $0 | MEDIUM | OPEN — payout rows not seeded for 10 Paid events | `docs/env-tasks/meridian/health/health-2026-03-24.md` |
+| Meridian: Investment sub-records missing | MEDIUM | OPEN — property_type, market, valuation, operating_data absent | `docs/env-tasks/meridian/health/health-2026-03-24.md` |
 | Bug 1: Waterfall amounts unformatted | HIGH | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
 | Bug 2: Pref return / carry $0 | HIGH | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
 | Bug 3: Capital snapshots need manual click | MEDIUM | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
@@ -138,10 +141,10 @@ All suggestion-generating tasks (feature-radar, demo-ideas, site-improvements, c
 
 - **Last rotation:** Miami — Wynwood/Edgewater on 2026-03-24 — Score 7.0/10 (first run, Tier 1, mixed-use)
 - **Pipeline status:** OPERATIONAL — brief ran, intelligence populated, feature cards generating
-- **Feature backlog:** 9 cards total — 5 prompted (ready to build), 4 specced, 0 built
-- **Today's zone:** Miami — Wynwood/Edgewater (composite score 7.0/10; high transaction velocity, rent growth; supply risk the main drag)
-- **Top card to build:** Supply Pipeline Delivery Schedule visualization (Priority 49/100)
+- **Feature backlog:** 14 cards total — 5 prompted (ready to build), 9 specced, 0 built
+- **Top card to build:** Cap Rate Distribution by Asset Class Estimator (Priority 44.1/100) — pure calculation gap on data Winston already captures
 - **Latest intel:** `docs/msa-intel/miami-wynwood-2026-03-24.md`
+- **Latest feature cards:** `docs/msa-features/cards-2026-03-24.md`
 
 ## Market Rotation Engine
 
@@ -151,7 +154,6 @@ All suggestion-generating tasks (feature-radar, demo-ideas, site-improvements, c
 - **Pipeline status:** PROVISIONED — schema 419 applied, segments seeded, 8 fin-* tasks scheduled, frontend built
 - **First rotation targets (by overdue ratio):** BTC On-Chain Regime, ETH Ecosystem Health, Equity Options Flow, Crypto Derivatives Flow
 - **Feature cards:** 0 (pipeline hasn't produced research briefs yet)
-- **Latest digest:** `docs/market-digests/` (awaiting first rotation digest)
 - **Cross-vertical alerts:** Rate environment feeding into REPE cap rate models; credit spread widening relevant to credit decisioning module
 
 ---
@@ -168,4 +170,4 @@ All suggestion-generating tasks (feature-radar, demo-ideas, site-improvements, c
 
 ---
 
-*Last updated: 2026-03-24 07:30 AM by morning-ops-digest. Manual edits are fine but will be overwritten on next run.*
+*Last updated: 2026-03-25 08:30 AM by morning-ops-digest. Manual edits are fine but will be overwritten on next run.*
