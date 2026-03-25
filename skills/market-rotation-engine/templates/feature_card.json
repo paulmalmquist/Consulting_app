@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "template": "trading_feature_card",
+  "fields": {
+    "card_id": "UUID — auto-generated",
+    "segment_id": "string — FK to market_segments",
+    "brief_id": "UUID — FK to market_segment_intel_brief",
+    "gap_category": "data_source | calculation | screening | visualization | backtesting | risk_model | alert | cross_vertical",
+    "title": "string — concise feature name",
+    "description": "string — what this feature enables",
+    "priority_score": {
+      "formula": "(impact × 0.35) + (frequency × 0.25) + (inverse_effort × 0.15) × cross_vertical_multiplier",
+      "impact": "1-10 — how much analytical capability this adds",
+      "frequency_across_segments": "1-10 — how many segments need this",
+      "inverse_effort": "1-10 — 10 = trivial to build, 1 = major project",
+      "cross_vertical_multiplier": "1.0 (single vertical) or 1.5 (cross-vertical)",
+      "recency_boost": "+0.1 if gap found in last 21 days"
+    },
+    "cross_vertical_flag": "boolean — true if bridges to REPE/Credit/PDS",
+    "spec_json": {
+      "data_sources": ["list of required data feeds"],
+      "computation": "description of algorithm/formula",
+      "output_shape": "description of what gets stored/displayed",
+      "dependencies": ["list of packages or API keys needed"]
+    },
+    "meta_prompt": "string or null — filled in Phase 3",
+    "status": "identified | spec_ready | in_progress | shipped | deferred",
+    "target_module": "string — which Winston module this belongs to",
+    "lineage_note": "string — which segment rotation surfaced this gap"
+  }
+}

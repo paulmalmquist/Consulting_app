@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0.0",
+  "template": "segment_intelligence_brief",
+  "fields": {
+    "segment_id": "string — from market_segments table",
+    "segment_name": "string — human-readable name",
+    "category": "equities | crypto | derivatives | macro",
+    "run_date": "YYYY-MM-DD",
+    "regime_tag": "RISK_ON_MOMENTUM | RISK_ON_BROADENING | RISK_OFF_DEFENSIVE | RISK_OFF_PANIC | TRANSITION_UP | TRANSITION_DOWN | RANGE_BOUND",
+    "signals": {
+      "description": "Category-specific signal scores — all normalized 0-10",
+      "equities_example": {
+        "price_momentum": 7.2,
+        "fundamental_quality": 6.5,
+        "positioning_risk": 3.1,
+        "catalyst_density": 8.0,
+        "volatility_regime": 4.5,
+        "cross_vertical_relevance": 5.0
+      },
+      "crypto_example": {
+        "onchain_activity": 8.1,
+        "market_microstructure": 6.0,
+        "ecosystem_development": 7.5,
+        "token_economics": 5.5,
+        "regulatory_exposure": 4.0,
+        "cross_vertical_relevance": 6.5
+      }
+    },
+    "composite_score": "0.00-10.00 — weighted sum of signals with regime adjustment",
+    "key_findings": [
+      "string — 1-2 sentence finding with specific data point"
+    ],
+    "feature_gaps_identified": [
+      {
+        "gap_category": "data_source | calculation | screening | visualization | backtesting | risk_model | alert | cross_vertical",
+        "description": "What couldn't be done during research",
+        "suggested_feature": "What to build to close the gap"
+      }
+    ],
+    "cross_vertical_insights": {
+      "repe": "string or null — insight relevant to REPE module",
+      "credit": "string or null — insight relevant to Credit module",
+      "pds": "string or null — insight relevant to PDS module"
+    },
+    "raw_sources": [
+      {
+        "source": "source name",
+        "url": "URL accessed",
+        "data_point": "key data extracted"
+      }
+    ]
+  }
+}

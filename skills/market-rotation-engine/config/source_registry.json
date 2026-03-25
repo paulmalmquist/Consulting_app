@@ -1,0 +1,167 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-03-22",
+  "sources": {
+    "free_public": [
+      {
+        "name": "FRED",
+        "url": "https://api.stlouisfed.org/fred/",
+        "provides": ["interest_rates", "money_supply", "employment", "inflation", "credit_spreads", "yield_curve"],
+        "refresh": "daily",
+        "api_key_required": true,
+        "api_key_env": "FRED_API_KEY",
+        "rate_limit": "120 requests/minute",
+        "relevant_series": {
+          "rates": ["FEDFUNDS", "SOFR", "DGS2", "DGS5", "DGS10", "DGS30", "T10YIE", "DFII10"],
+          "spreads": ["BAMLC0A0CM", "BAMLH0A0HYM2", "BAMLC0A4CBBB"],
+          "money": ["M2SL", "WALCL", "RRPONTSYD", "WTREGEN"],
+          "labor": ["UNRATE", "PAYEMS", "ICSA"],
+          "housing": ["MORTGAGE30US", "HOUST", "CSUSHPINSA"]
+        }
+      },
+      {
+        "name": "SEC EDGAR",
+        "url": "https://efts.sec.gov/LATEST/",
+        "provides": ["13f_filings", "13d_filings", "form4_insider", "10k_10q", "form_d"],
+        "refresh": "daily",
+        "api_key_required": false,
+        "rate_limit": "10 requests/second with User-Agent header",
+        "notes": "Must include company email in User-Agent header per SEC fair access policy"
+      },
+      {
+        "name": "FINRA",
+        "url": "https://api.finra.org/",
+        "provides": ["short_interest", "dark_pool_volume", "margin_debt"],
+        "refresh": "bi-monthly (short interest), daily (ADF)",
+        "api_key_required": false
+      },
+      {
+        "name": "CBOE",
+        "url": "https://www.cboe.com/market_statistics/",
+        "provides": ["vix", "vix_term_structure", "put_call_ratios", "skew_index"],
+        "refresh": "daily",
+        "api_key_required": false
+      },
+      {
+        "name": "Treasury Direct",
+        "url": "https://api.fiscaldata.treasury.gov/services/api/",
+        "provides": ["auction_results", "tic_flows", "debt_outstanding"],
+        "refresh": "varies by series",
+        "api_key_required": false
+      },
+      {
+        "name": "CoinGecko",
+        "url": "https://api.coingecko.com/api/v3/",
+        "provides": ["crypto_prices", "market_cap", "volume", "exchange_data"],
+        "refresh": "real-time",
+        "api_key_required": false,
+        "rate_limit": "10-30 calls/minute (free tier)"
+      },
+      {
+        "name": "DefiLlama",
+        "url": "https://api.llama.fi/",
+        "provides": ["tvl", "protocol_revenue", "yields", "chain_comparison", "stablecoin_supply"],
+        "refresh": "hourly",
+        "api_key_required": false,
+        "key_endpoints": {
+          "tvl": "/tvl/{protocol}",
+          "protocols": "/protocols",
+          "chains": "/v2/chains",
+          "yields": "/pools",
+          "stablecoins": "/stablecoins"
+        }
+      },
+      {
+        "name": "Dune Analytics",
+        "url": "https://dune.com/",
+        "provides": ["on_chain_queries", "wallet_analysis", "protocol_metrics"],
+        "refresh": "varies by query",
+        "api_key_required": true,
+        "api_key_env": "DUNE_API_KEY"
+      },
+      {
+        "name": "Glassnode Free",
+        "url": "https://api.glassnode.com/",
+        "provides": ["btc_onchain_basics", "exchange_flows", "miner_data"],
+        "refresh": "daily",
+        "api_key_required": true,
+        "api_key_env": "GLASSNODE_API_KEY"
+      },
+      {
+        "name": "Token Unlocks",
+        "url": "https://token.unlocks.app/",
+        "provides": ["vesting_schedules", "unlock_events", "cliff_dates"],
+        "refresh": "daily",
+        "api_key_required": false
+      },
+      {
+        "name": "L2Beat",
+        "url": "https://l2beat.com/api/",
+        "provides": ["l2_tvl", "l2_risk_assessments", "l2_activity"],
+        "refresh": "daily",
+        "api_key_required": false
+      },
+      {
+        "name": "GitHub API",
+        "url": "https://api.github.com/",
+        "provides": ["commit_activity", "contributor_counts", "release_history"],
+        "refresh": "real-time",
+        "api_key_required": true,
+        "api_key_env": "GITHUB_TOKEN"
+      }
+    ],
+    "premium_api": [
+      {
+        "name": "Polygon.io",
+        "url": "https://api.polygon.io/",
+        "provides": ["equity_prices", "options_data", "forex", "crypto_prices", "fundamentals"],
+        "api_key_env": "POLYGON_API_KEY",
+        "status": "recommended",
+        "tier": "Starter ($29/mo) sufficient for daily research"
+      },
+      {
+        "name": "Alpha Vantage",
+        "url": "https://www.alphavantage.co/",
+        "provides": ["equity_prices", "fundamentals", "forex", "crypto", "economic_indicators"],
+        "api_key_env": "ALPHAVANTAGE_API_KEY",
+        "status": "fallback"
+      },
+      {
+        "name": "Coinglass",
+        "url": "https://open-api.coinglass.com/",
+        "provides": ["funding_rates", "liquidations", "open_interest", "long_short_ratio"],
+        "api_key_env": "COINGLASS_API_KEY",
+        "status": "recommended"
+      },
+      {
+        "name": "Unusual Whales",
+        "url": "https://api.unusualwhales.com/",
+        "provides": ["options_flow", "dark_pool_prints", "political_trades", "insider_trades"],
+        "api_key_env": "UNUSUALWHALES_API_KEY",
+        "status": "optional"
+      }
+    ],
+    "derived_computed": [
+      {
+        "name": "Factor Screens",
+        "description": "Custom momentum, value, quality screens built from free data sources",
+        "computation": "Python + pandas, run daily after market close"
+      },
+      {
+        "name": "Correlation Matrices",
+        "description": "Rolling 30/60/90-day cross-asset correlation matrices",
+        "computation": "numpy rolling correlation, updated daily"
+      },
+      {
+        "name": "Regime Classifier",
+        "description": "Multi-signal regime classification (risk-on/off/transition)",
+        "computation": "Weighted signal aggregation with threshold-based classification"
+      },
+      {
+        "name": "Backtest Engine",
+        "description": "Strategy backtest framework",
+        "status": "NOT_BUILT"
+      }
+    ]
+  }
+}

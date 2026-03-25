@@ -1,0 +1,92 @@
+# Angular specific
+/dist/
+/out-tsc/
+/tmp/
+/coverage/
+/e2e/test-output/
+/.angular/
+.angular/
+
+# Node modules and dependency files
+node_modules/
+/package-lock.json
+/yarn.lock
+
+# Environment files
+/.env
+/.env.*
+!/.env.example
+
+# Angular CLI and build artefacts
+/.angular-cli.json
+/.ng/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Local secrets / scratch
+godaddy.txt
+godaddy2.txt
+verceltoken.txt
+openaikey.txt
+*token*.txt
+*pat*.txt
+
+# Python virtualenvs and local env files (all subdirectories)
+**/.venv/
+**/.venv*/
+**/.env
+**/.env.*
+!**/.env.example
+
+# Python cache artifacts
+**/__pycache__/
+*.pyc
+
+# Next.js build/export output
+**/out/
+**/.next/
+
+# Test artifacts
+**/test-results/
+**/playwright-report/
+**/coverage/
+
+# Orchestration runtime artifacts
+.orchestration/worktrees/
+.orchestration/locks/
+.orchestration/logs/*.json
+.orchestration/logs/*.jsonl
+.orchestration/sessions/*.json
+
+# OS files
+.DS_Store
+.vercel
+
+# Claude local settings
+.claude/
+
+# Local test/runtime artifacts
+artifacts/
+repo-b/.next.bak*/
+.openclaw/
+
+# Binary files and outputs
+*.pdf
+*.docx
+*.pptx
+*.xlsx
+*.lock
+
+# Generated/synthetic data
+synthetic_repe_dataset.json
+~$*
+
+# Lock files
+.~lock*
