@@ -1,0 +1,44 @@
+[
+  {
+    "name": "architecture question on backend file",
+    "message": "Review backend/app/routes/nv_ai_copilot.py and explain how it fits the repo architecture.",
+    "expectedPrimaryId": "architect-winston",
+    "needsClarification": false
+  },
+  {
+    "name": "implementation request in repo-b",
+    "message": "Implement a loading-state fix in repo-b/src/app/lab/env/[envId]/page.tsx.",
+    "expectedPrimaryId": "feature-dev",
+    "needsClarification": false
+  },
+  {
+    "name": "slash research request",
+    "message": "/research compare assistant routing approaches for Winston.",
+    "expectedPrimaryId": "architect-winston",
+    "needsClarification": false
+  },
+  {
+    "name": "deploy request",
+    "message": "Push this and monitor Railway and Vercel until the deploy finishes.",
+    "expectedPrimaryId": "deploy-winston",
+    "needsClarification": false
+  },
+  {
+    "name": "qa request",
+    "message": "Run QA on the REPE regression path and tell me what broke.",
+    "expectedPrimaryId": "qa-winston",
+    "needsClarification": false
+  },
+  {
+    "name": "data request",
+    "message": "Add a migration in repo-b/db/schema and coordinate the backfill.",
+    "expectedPrimaryId": "data-winston",
+    "needsClarification": false
+  },
+  {
+    "name": "ambiguous cross repo request",
+    "message": "Help me improve how the frontend and backend fit together.",
+    "expectedPrimaryId": "claude-router",
+    "needsClarification": true
+  }
+]

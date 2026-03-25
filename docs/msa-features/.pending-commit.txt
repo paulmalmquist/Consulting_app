@@ -1,0 +1,18 @@
+PENDING COMMIT — msa-feature-builder 2026-03-24
+
+Files ready to commit (already on disk, not yet staged):
+- docs/msa-features/prompts/7e571201-supply-demand-absorption-model.md
+- docs/msa-features/prompts/03a36c0e-supply-pipeline-delivery-schedule-chart.md
+- docs/msa-features/prompts/f2f51505-cap-rate-distribution-submarket-estimator.md
+- docs/msa-features/ROADMAP.md (updated)
+
+Reason for delay: Git lock files on host filesystem (HEAD.lock, index.lock from 17:39 session)
+are preventing commit. Files are saved to disk — next git operation will pick them up.
+
+Commit message:
+  msa-features: meta prompts generated (2026-03-24)
+  
+  Cards prompted: 3
+  Top prompt: Supply-Demand Absorption Model (unblocks demand_momentum_score)
+  
+  Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
