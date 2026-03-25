@@ -3045,7 +3045,10 @@ async def run_gateway_stream(
             history_msgs: list[dict[str, str]] = []
             for msg in reversed(recent):
                 content = msg["content"] or ""
-                if msg["role"] == "assistant" and msg.get("tool_calls"):
+                # Only inject [Prior tool calls: ...] for lanes that have tools enabled.
+                # Lane A (skip_tools=True) has no tool definitions, so injecting tool call
+                # text causes the model to echo it verbatim into the response (Bug 0).
+                if msg["role"] == "assistant" and msg.get("tool_calls") and not route.skip_tools:
                     stored_tcs = msg["tool_calls"]
                     if isinstance(stored_tcs, str):
                         try:
