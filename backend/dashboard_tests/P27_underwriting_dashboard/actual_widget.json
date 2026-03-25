@@ -1,0 +1,129 @@
+{
+  "name": "Underwriting Dashboard",
+  "archetype": "underwriting_dashboard",
+  "widgets": [
+    {
+      "id": "kpi_summary_0",
+      "type": "metrics_strip",
+      "config": {
+        "entity_type": "asset",
+        "quarter": null,
+        "scenario": "actual",
+        "metrics": [
+          {
+            "key": "NOI"
+          },
+          {
+            "key": "OCCUPANCY"
+          },
+          {
+            "key": "DSCR_KPI"
+          },
+          {
+            "key": "ASSET_VALUE"
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 2
+      }
+    },
+    {
+      "id": "income_statement_1",
+      "type": "statement_table",
+      "config": {
+        "title": "Income Statement",
+        "statement": "IS",
+        "entity_type": "asset",
+        "quarter": null,
+        "scenario": "actual",
+        "metrics": []
+      },
+      "layout": {
+        "x": 0,
+        "y": 2,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "id": "cash_flow_2",
+      "type": "statement_table",
+      "config": {
+        "title": "Cash Flow Statement",
+        "statement": "CF",
+        "entity_type": "asset",
+        "quarter": null,
+        "scenario": "actual",
+        "metrics": []
+      },
+      "layout": {
+        "x": 0,
+        "y": 7,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "id": "noi_bridge_3",
+      "type": "waterfall",
+      "config": {
+        "title": "NOI Bridge",
+        "entity_type": "asset",
+        "quarter": null,
+        "scenario": "actual",
+        "metrics": [
+          {
+            "key": "EGI"
+          },
+          {
+            "key": "TOTAL_OPEX"
+          },
+          {
+            "key": "NOI"
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 12,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "id": "debt_maturity_4",
+      "type": "bar_chart",
+      "config": {
+        "title": "Debt Maturity Schedule",
+        "format": "dollar",
+        "entity_type": "asset",
+        "quarter": null,
+        "scenario": "actual",
+        "metrics": [
+          {
+            "key": "NOI"
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 4
+      }
+    }
+  ],
+  "entity_scope": {
+    "entity_type": "asset",
+    "env_id": "a1b2c3d4-0001-0001-0003-000000000001",
+    "business_id": "a1b2c3d4-0001-0001-0001-000000000001",
+    "fund_id": null
+  },
+  "quarter": null,
+  "prompt": "Underwriting dashboard",
+  "density": "comfortable"
+}

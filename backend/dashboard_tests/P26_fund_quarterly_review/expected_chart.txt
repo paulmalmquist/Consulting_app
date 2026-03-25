@@ -1,0 +1,6 @@
+Widget types: metrics_strip, trend_line, bar_chart
+Metrics: 
+Group by: None
+Time grain: None
+Entity type: fund
+Archetype: fund_quarterly_review

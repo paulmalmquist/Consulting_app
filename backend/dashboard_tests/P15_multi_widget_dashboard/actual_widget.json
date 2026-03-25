@@ -1,0 +1,92 @@
+{
+  "name": "Dashboard",
+  "archetype": "custom",
+  "widgets": [
+    {
+      "id": "freeform_0",
+      "type": "trend_line",
+      "config": {
+        "entity_type": "asset",
+        "quarter": null,
+        "scenario": "actual",
+        "metrics": [
+          {
+            "key": "NOI"
+          }
+        ],
+        "title": "NOI Trend",
+        "time_grain": "quarterly",
+        "format": "dollar"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "id": "freeform_1",
+      "type": "trend_line",
+      "config": {
+        "entity_type": "asset",
+        "quarter": null,
+        "scenario": "actual",
+        "metrics": [
+          {
+            "key": "OCCUPANCY"
+          }
+        ],
+        "title": "Occupancy Trend",
+        "time_grain": "quarterly",
+        "format": "percent"
+      },
+      "layout": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "id": "freeform_2",
+      "type": "comparison_table",
+      "config": {
+        "entity_type": "asset",
+        "quarter": null,
+        "scenario": "actual",
+        "metrics": [
+          {
+            "key": "NOI"
+          },
+          {
+            "key": "OCCUPANCY"
+          },
+          {
+            "key": "DSCR_KPI"
+          },
+          {
+            "key": "ASSET_VALUE"
+          }
+        ],
+        "title": "NOI, Occupancy, DSCR",
+        "format": "dollar"
+      },
+      "layout": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 5
+      }
+    }
+  ],
+  "entity_scope": {
+    "entity_type": "asset",
+    "env_id": "a1b2c3d4-0001-0001-0003-000000000001",
+    "business_id": "a1b2c3d4-0001-0001-0001-000000000001",
+    "fund_id": null
+  },
+  "quarter": null,
+  "prompt": "Dashboard with NOI trend, occupancy trend, and asset ranking table",
+  "density": "comfortable"
+}

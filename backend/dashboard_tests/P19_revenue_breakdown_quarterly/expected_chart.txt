@@ -1,0 +1,6 @@
+Widget types: bar_chart
+Metrics: RENT
+Group by: None
+Time grain: quarterly
+Entity type: asset
+Archetype: custom

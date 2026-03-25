@@ -1,0 +1,30 @@
+import React from "react";
+
+export interface WaterfallRunRow {
+  runId: string;
+  status: "draft" | "completed" | "locked";
+}
+
+interface WaterfallRunsProps {
+  rows: WaterfallRunRow[];
+  hasNewRun?: boolean;
+}
+
+export function WaterfallRuns({ rows, hasNewRun = false }: WaterfallRunsProps) {
+  return (
+    <section data-testid="waterfall-runs">
+      {hasNewRun ? (
+        <div data-testid="waterfall-new-run-toast">New run available</div>
+      ) : null}
+      {rows.map((row) => (
+        <div key={row.runId} data-testid="waterfall-run-row">
+          <span>{row.runId}</span>
+          <span data-testid={`waterfall-status-${row.runId}`}>{row.status}</span>
+          <button data-testid={`waterfall-lock-${row.runId}`} disabled={row.status !== "completed"}>
+            Lock Run
+          </button>
+        </div>
+      ))}
+    </section>
+  );
+}

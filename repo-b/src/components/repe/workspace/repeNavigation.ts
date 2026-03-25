@@ -1,0 +1,172 @@
+import type { ComponentType } from "react";
+import {
+  Activity,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  BarChart3,
+  Bookmark,
+  Building2,
+  CalendarCheck2,
+  CheckCircle2,
+  Construction,
+  FileBarChart,
+  FileEdit,
+  FileText,
+  Landmark,
+  LayoutDashboard,
+  Leaf,
+  LineChart,
+  Radar,
+  ReceiptText,
+  Scale,
+  Shield,
+  Sparkles,
+  TrendingUp,
+  Users,
+  WalletCards,
+} from "lucide-react";
+import type { MobileNavItem } from "@/components/repe/workspace/MobileBottomNav";
+
+type NavIcon = ComponentType<{ className?: string; size?: number; strokeWidth?: number }>;
+
+export type RepeNavItem = {
+  href: string;
+  label: string;
+  isBase: boolean;
+  icon: NavIcon;
+  matchPrefixes?: string[];
+};
+
+export type RepeNavGroup = {
+  label: string;
+  key: string;
+  icon: NavIcon;
+  items: RepeNavItem[];
+};
+
+export function isRepePathActive(
+  pathname: string,
+  href: string,
+  isBase: boolean,
+  matchPrefixes: string[] = [],
+): boolean {
+  if (isBase) {
+    if (pathname === href) return true;
+    if (pathname.startsWith(`${href}/funds`)) return true;
+    if (pathname.startsWith(`${href}/portfolio`)) return true;
+  } else if (pathname === href || pathname.startsWith(`${href}/`)) {
+    return true;
+  }
+
+  return matchPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+export function isRepeNavItemActive(pathname: string, item: Pick<RepeNavItem, "href" | "isBase" | "matchPrefixes">): boolean {
+  return isRepePathActive(pathname, item.href, item.isBase, item.matchPrefixes);
+}
+
+export function getActiveRepeGroupKey(pathname: string, navGroups: RepeNavGroup[]): string | null {
+  return navGroups.find((group) => group.items.some((item) => isRepeNavItemActive(pathname, item)))?.key ?? null;
+}
+
+export function buildRepeNavGroups({
+  base,
+  showIntelligence,
+  showSustainability: _showSustainability,
+}: {
+  base: string;
+  showIntelligence: boolean;
+  showSustainability: boolean;
+}): RepeNavGroup[] {
+  return [
+    {
+      label: "Portfolio",
+      key: "portfolio",
+      icon: Landmark,
+      items: [
+        { href: base, label: "Funds", isBase: true, icon: Landmark, matchPrefixes: [`${base}/capital`] },
+        { href: `${base}/deals`, label: "Investments", isBase: false, icon: TrendingUp },
+        { href: `${base}/assets`, label: "Assets", isBase: false, icon: Building2 },
+        { href: `${base}/development`, label: "Development", isBase: false, icon: Construction },
+      ],
+    },
+    {
+      label: "Investor Operations",
+      key: "investor-operations",
+      icon: Users,
+      items: [
+        { href: `${base}/investors`, label: "Investors", isBase: false, icon: Users },
+        { href: `${base}/capital-calls`, label: "Capital Call Ops", isBase: false, icon: ArrowUpCircle },
+        { href: `${base}/distributions`, label: "Distribution Ops", isBase: false, icon: ArrowDownCircle },
+        { href: `${base}/fees`, label: "Fees", isBase: false, icon: WalletCards },
+        { href: `${base}/ir-review`, label: "IR Review", isBase: false, icon: FileEdit },
+      ],
+    },
+    {
+      label: "Fund Accounting",
+      key: "fund-accounting",
+      icon: ReceiptText,
+      items: [
+        { href: `${base}/period-close`, label: "Period Close", isBase: false, icon: CalendarCheck2 },
+        { href: `${base}/variance`, label: "Variance", isBase: false, icon: Scale },
+      ],
+    },
+    {
+      label: "Analytics",
+      key: "analytics",
+      icon: BarChart3,
+      items: [
+        { href: `${base}/models`, label: "Models", isBase: false, icon: LineChart },
+        { href: `${base}/dashboards`, label: "Dashboards", isBase: false, icon: LayoutDashboard },
+        { href: `${base}/saved-analyses`, label: "Saved Analyses", isBase: false, icon: Bookmark },
+        { href: `${base}/reports`, label: "Reports", isBase: false, icon: FileBarChart },
+        ...(showIntelligence
+          ? [{ href: `${base}/intelligence`, label: "Intelligence", isBase: false, icon: Activity }]
+          : []),
+        { href: `${base}/sustainability`, label: "Sustainability", isBase: false, icon: Leaf },
+      ],
+    },
+    {
+      label: "Acquisitions",
+      key: "acquisitions",
+      icon: Radar,
+      items: [
+        { href: `${base}/pipeline`, label: "Pipeline", isBase: false, icon: Radar },
+      ],
+    },
+    {
+      label: "Governance",
+      key: "governance",
+      icon: FileText,
+      items: [
+        { href: `${base}/documents`, label: "Documents", isBase: false, icon: FileText },
+        {
+          href: `${base}/approvals`,
+          label: "Approvals",
+          isBase: false,
+          icon: CheckCircle2,
+          matchPrefixes: [`${base}/controls`],
+        },
+        { href: `${base}/ai-audit`, label: "AI Audit", isBase: false, icon: Shield },
+      ],
+    },
+    {
+      label: "Automation",
+      key: "automation",
+      icon: Sparkles,
+      items: [
+        { href: `${base}/winston`, label: "Winston", isBase: false, icon: Sparkles },
+      ],
+    },
+  ];
+}
+
+export function buildRepeMobileNavItems(base: string): MobileNavItem[] {
+  return [
+    { href: `${base}/pipeline`, label: "Pipeline", icon: "pipeline", matchPrefix: true },
+    { href: base, label: "Funds", icon: "funds", matchPrefix: false },
+    { href: `${base}/winston`, label: "Winston", icon: "winston", matchPrefix: true },
+    { href: `${base}/investors`, label: "Investors", icon: "investors", matchPrefix: true },
+    { href: `${base}/reports`, label: "Reports", icon: "reports", matchPrefix: true },
+  ];
+}

@@ -1,0 +1,118 @@
+{
+  "name": "Watchlist",
+  "archetype": "watchlist",
+  "widgets": [
+    {
+      "id": "kpi_summary_0",
+      "type": "metrics_strip",
+      "config": {
+        "entity_type": "asset",
+        "quarter": null,
+        "scenario": "actual",
+        "metrics": [
+          {
+            "key": "NOI"
+          },
+          {
+            "key": "OCCUPANCY"
+          },
+          {
+            "key": "DSCR_KPI"
+          },
+          {
+            "key": "ASSET_VALUE"
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 2
+      }
+    },
+    {
+      "id": "underperformer_watchlist_1",
+      "type": "comparison_table",
+      "config": {
+        "title": "Underperforming Assets",
+        "comparison": "budget",
+        "entity_type": "asset",
+        "quarter": null,
+        "scenario": "actual",
+        "metrics": []
+      },
+      "layout": {
+        "x": 0,
+        "y": 2,
+        "w": 12,
+        "h": 5
+      }
+    },
+    {
+      "id": "dscr_monitoring_2",
+      "type": "trend_line",
+      "config": {
+        "title": "DSCR Trend",
+        "format": "ratio",
+        "entity_type": "asset",
+        "quarter": null,
+        "scenario": "actual",
+        "metrics": [
+          {
+            "key": "NOI"
+          },
+          {
+            "key": "OCCUPANCY"
+          },
+          {
+            "key": "DSCR_KPI"
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 7,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "id": "occupancy_trend_3",
+      "type": "trend_line",
+      "config": {
+        "title": "Occupancy Trend",
+        "format": "percent",
+        "entity_type": "asset",
+        "quarter": null,
+        "scenario": "actual",
+        "metrics": [
+          {
+            "key": "NOI"
+          },
+          {
+            "key": "OCCUPANCY"
+          },
+          {
+            "key": "DSCR_KPI"
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 11,
+        "w": 6,
+        "h": 4
+      }
+    }
+  ],
+  "entity_scope": {
+    "entity_type": "asset",
+    "env_id": "a1b2c3d4-0001-0001-0003-000000000001",
+    "business_id": "a1b2c3d4-0001-0001-0001-000000000001",
+    "fund_id": null
+  },
+  "quarter": null,
+  "prompt": "Watchlist dashboard",
+  "density": "comfortable"
+}

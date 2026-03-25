@@ -1,0 +1,16 @@
+[mcp_servers.business_machine]
+command = "../scripts/run_mcp_server.sh"
+cwd = ".."
+env_vars = [
+  "MCP_API_TOKEN",
+  "ENABLE_MCP_WRITES",
+  "DATABASE_URL",
+  "SUPABASE_URL",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "MCP_ACTOR_NAME",
+  "MCP_RATE_LIMIT_RPM",
+  "MCP_ALLOWED_REPO_ROOTS",
+  "MCP_DENY_GLOBS",
+]
+startup_timeout_sec = 15
+tool_timeout_sec = 60

@@ -1,0 +1,6 @@
+Widget types: bar_chart
+Metrics: OCCUPANCY
+Group by: None
+Time grain: None
+Entity type: asset
+Archetype: custom
