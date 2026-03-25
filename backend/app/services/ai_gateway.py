@@ -1349,8 +1349,31 @@ async def _run_repe_fast_path(
                     business_id=scenario.business_id,
                 )
                 sql = generated.get("sql", "")
-            except Exception:
-                # Fallback: treat the message as a direct SQL query hint
+            except RuntimeError as e:
+                # Config/key error (e.g. OPENAI_API_KEY not set) — surface to user
+                emit_log(
+                    level="error",
+                    service="backend",
+                    action="ai.gateway.generate_sql.config_error",
+                    message=str(e),
+                    context={"intent": intent.original_message[:100]},
+                )
+                err_text = f"AI query unavailable: {e}"
+                yield _sse("token", {"text": err_text})
+                collected_text_parts.append(err_text)
+                sql = ""
+            except Exception as e:
+                # Unexpected error — log with full detail so we can diagnose in Railway logs
+                emit_log(
+                    level="error",
+                    service="backend",
+                    action="ai.gateway.generate_sql.error",
+                    message=str(e),
+                    context={
+                        "intent": intent.original_message[:100],
+                        "error_type": type(e).__name__,
+                    },
+                )
                 sql = ""
 
             if sql:

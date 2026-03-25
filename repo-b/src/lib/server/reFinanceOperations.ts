@@ -1520,10 +1520,16 @@ export async function getDistributionsOverview(
     }
 
     const declaredAmount = toNumber(event.net_distributable);
-    const paidAmount = (event.status as string) === "processed" ? allocatedAmount : 0;
+    // Treat both "processed" and "paid" as fully paid.
+    // When payout rows are absent (allocatedAmount === 0), fall back to declared_amount
+    // so the Total Paid KPI reflects actual cash movement rather than showing $0.
+    const isPaid = (event.status as string) === "processed" || (event.status as string) === "paid";
+    const paidAmount = isPaid
+      ? (allocatedAmount > 0 ? allocatedAmount : declaredAmount)
+      : 0;
     const pendingAmount = Math.max(declaredAmount - paidAmount, 0);
     const distributionType = buildDistributionType(event.event_type as string, payoutMix);
-    const status = (event.status as string) === "processed"
+    const status = isPaid
       ? "paid"
       : allocatedAmount <= 0.01
         ? "declared"
