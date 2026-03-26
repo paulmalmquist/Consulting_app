@@ -1,7 +1,7 @@
 # MSA Feature Roadmap
 
 > Auto-updated by `msa-feature-builder` scheduled task.
-> Last updated: 2026-03-24
+> Last updated: 2026-03-25
 
 ---
 
@@ -10,8 +10,8 @@
 | Status | Count |
 |---|---|
 | identified | 0 |
-| specced | 6 |
-| prompted | 8 |
+| specced | 3 |
+| prompted | 11 |
 | built | 0 |
 | verified | 0 |
 | **Total** | **14** |
@@ -29,44 +29,38 @@
 | 4 | Supply-Demand Absorption Model for Submarket Acquisition Scoring | 54 | **prompted** | calculation |
 | 6 | Supply Pipeline Delivery Schedule — Units-by-Quarter vs. Demand Chart | 49 | **prompted** | visualization |
 | 7 | BLS QCEW + FRED Employment Series Auto-Pull for MSA Zones | 48 | **prompted** | data_source |
-| 8 | Cap Rate Distribution by Asset Class — Submarket Estimator | 44 | **prompted** | calculation |
-| 9 | CoStar / CBRE Submarket Rent + Vacancy Data Connector | 42 | specced | data_source |
-| 10 | Lis Pendens / NOD Scraper — County Clerk by Neighborhood | 39 | specced | data_source |
-| 11 | Trepp / CREFC CMBS Delinquency Rate Connector for MSA Zones | 34 | specced | data_source |
+| 8 | Cap Rate Distribution by Asset Class — Submarket Estimator | 44.1 | **prompted** | calculation |
+| 9 | CoStar / CBRE Submarket Rent + Vacancy Data Connector | 42 | **prompted** | data_source |
+| 10 | Lis Pendens / NOD Scraper — County Clerk by Neighborhood | 39.2 | **prompted** | data_source |
+| 11 | Trepp / CREFC CMBS Delinquency Rate Connector for MSA Zones | 34 | **prompted** | data_source |
 | 12 | City Building Permit Portal Connector — YTD Permits by Zone | 32 | specced | data_source |
-| 13 | Block-Level Transaction Heat Map — Submarket Intelligence Layer | 25 | specced | visualization |
+| 13 | Block-Level Transaction Heat Map — Submarket Intelligence Layer | 25.2 | specced | visualization |
 | 14 | Agency Lending Volume Tracker — Fannie/Freddie by MSA Zone | 18 | specced | data_source |
 
 ---
 
 ## Prompts Ready for Coding Session (3 PM autonomous loop)
 
-The following prompts are ready in `docs/msa-features/prompts/` for the 3 PM autonomous coding session:
+The following 11 prompts are ready in `docs/msa-features/prompts/` for the 3 PM autonomous coding session:
 
-### Previously prompted (2026-03-22 to 2026-03-23)
+### Previously prompted (2026-03-22 to 2026-03-24)
 
-1. **`b1620471-msa-research-sweep-runner.md`** — Priority 72 — ROOT BLOCKER. Must be built first — nothing else in the MSA pipeline runs without it.
+1. **`b1620471-msa-research-sweep-runner.md`** — Priority 72 — ROOT BLOCKER. Must be built first.
+2. **`e769041f-county-assessor-connector.md`** — Priority 72 — Category 1 data gap.
+3. **`30ef9cb6-sub-msa-acquisition-score-calculator.md`** — Priority 60 — Rotation algorithm blocker.
+4. **`4068f9fe-zone-intelligence-dashboard.md`** — Priority 54 — First user-facing MSA surface.
+5. **`7e571201-supply-demand-absorption-model.md`** — Priority 54 — Unblocks demand_momentum_score.
+6. **`03a36c0e-supply-pipeline-delivery-schedule-chart.md`** — Priority 49 — Supply risk visualization.
+7. **`934432de-bls-fred-employment-connector.md`** — Priority 48 — Independent demand-driver connector.
+8. **`f2f51505-cap-rate-distribution-submarket-estimator.md`** — Priority 44.1 — Cap rate estimator from comps.
 
-2. **`e769041f-county-assessor-connector.md`** — Priority 72 — Category 1 data gap. Structured deed records and lis pendens.
+### NEW — Prompted today (2026-03-25)
 
-3. **`30ef9cb6-sub-msa-acquisition-score-calculator.md`** — Priority 60 — Rotation algorithm blocker. All 14 zones have `rotation_priority_score = 0.00`.
+9. **`6b8407e7-costar-cbre-submarket-rent-vacancy-connector.md`** *(NEW 2026-03-25)* — Priority 42 — **Primary rent/vacancy data connector.** Retrieves Class A/B/C asking rent, effective rent, and vacancy rates at the submarket level. Fallback chain: CoStar API → CBRE PDF → RealPage free → web fallback. Affects all 14 watchlist zones. Surfaced by WPB Downtown (impact-9 gap) and confirmed by Miami-Wynwood brief.
 
-4. **`4068f9fe-zone-intelligence-dashboard.md`** — Priority 54 — First user-facing MSA surface. Supabase Realtime enabled.
+10. **`5bcffc26-lis-pendens-nod-scraper-county-clerk.md`** *(NEW 2026-03-25)* — Priority 39.2 — **Neighborhood-level distress signal scraper.** Scrapes lis pendens and NOD filings from county clerk portals by ZIP code. Populates the null distress_level signal in zone briefs. Handles 5 county formats (Miami-Dade, Broward, Cook, Dallas, Harris). Affects 7/10 watchlist zones.
 
-5. **`934432de-bls-fred-employment-connector.md`** — Priority 48 — Independent demand-driver connector.
-
-### NEW — Prompted today (2026-03-24)
-
-6. **`7e571201-supply-demand-absorption-model.md`** *(NEW 2026-03-24)* — Priority 54 — **Unblocks demand_momentum_score for the acquisition score calculator.** Implements `msa_absorption_model.py` server-side service computing supply overhang, months-of-supply, and demand momentum score from brief pipeline signals. Triggered from rotation engine on every brief write. WPB (4,085 units) and Miami-Wynwood (1,317 units) both surfaced this gap. **Execute before running card 3 on a live brief.**
-
-7. **`03a36c0e-supply-pipeline-delivery-schedule-chart.md`** *(NEW 2026-03-24)* — Priority 49 — First supply risk visualization. Stacked bar chart (8 forward quarters of deliveries) + net absorption overlay + PNG export. New `SupplyPipelineChart.tsx` in `repo-b/src/components/msa/`. **Independent of absorption model — can build in parallel.**
-
-8. **`f2f51505-cap-rate-distribution-submarket-estimator.md`** *(NEW 2026-03-24)* — Priority 44 — Cap rate estimator from closed comps in zone briefs. Miami-Wynwood has 3 actionable comps ($180M 545Wyn, $72M Wynwood Norte, $33.5M land). Adds `msa_brief_scorer.py` + `cap_rate_estimates` column + `CapRateEstimatePanel.tsx`. **Fully independent — build in any order.**
-
-**Recommended build order for 3 PM session:**
-- Card 6 (absorption model) first — unblocks demand_momentum_score for acquisition score calculator (card 3)
-- Cards 7 and 8 in parallel after card 6 — independent of each other
-- Or: build card 8 (cap rate) in parallel while card 6 runs
+11. **`d1de8210-trepp-crefc-cmbs-delinquency-connector.md`** *(NEW 2026-03-25)* — Priority 34 — **CMBS delinquency early warning connector.** Surfaces CMBS delinquency rates and maturing loan schedules for distressed-opportunity identification. Critical context: $162.1B multifamily maturities in 2026 refinancing wall. Fallback: Trepp API → CREFC monthly PDF → web fallback. Affects 8/14 zones with CMBS exposure.
 
 ---
 
@@ -76,44 +70,35 @@ None yet — first prompted batch was 2026-03-22. The 3 PM autonomous coding ses
 
 ---
 
-## Cards Specced (Queued for Next Prompt Batch — 2026-03-25+)
+## Cards Specced (Queued for Next Prompt Batch)
 
 | Card | Priority | Category | Notes |
 |---|---|---|---|
-| CoStar / CBRE Submarket Rent + Vacancy Data Connector | 42 | data_source | Commercial API — needs key evaluation before prompting |
-| Lis Pendens / NOD Scraper — County Clerk by Neighborhood | 39 | data_source | Free public data; spec is clean; ready to prompt |
-| Trepp / CREFC CMBS Delinquency Rate Connector for MSA Zones | 34 | data_source | Commercial data — needs spec review |
 | City Building Permit Portal Connector — YTD Permits by Zone | 32 | data_source | Free public data; straightforward scraper |
-| Block-Level Transaction Heat Map — Submarket Intelligence Layer | 25 | visualization | Depends on county assessor connector (card 2) |
+| Block-Level Transaction Heat Map — Submarket Intelligence Layer | 25.2 | visualization | Depends on county assessor connector (card 2) |
 | Agency Lending Volume Tracker — Fannie/Freddie by MSA Zone | 18 | data_source | HMDA/FFIEC public data; low priority |
 
-**Next prompt batch recommendation (2026-03-25):** Lis Pendens / NOD Scraper (priority 39) has free public data and a clean spec — no API key required. City Building Permit Portal (priority 32) is similar. Recommend prompting these two next; defer CoStar/Trepp until commercial API decisions are made.
+---
+
+## Pipeline Health Notes (2026-03-25)
+
+- **MSA pipeline OPERATIONAL** — 14 total cards, 11 now prompted, 3 remaining specced
+- **3 new prompts generated today** (2026-03-25): CoStar/CBRE rent connector, Lis Pendens/NOD scraper, Trepp/CMBS delinquency connector — all data_source category
+- **Today's prompts are all data connectors** that feed the same MSA research sweep pipeline. Building them as a batch would give dramatically better signal coverage.
+- **No conflicts** with current non-MSA priorities. Feature radar top items (Adaptive Thinking Tiers, Finance Agent Benchmark Positioning, Context Compaction) are all AI gateway work — completely isolated from MSA data connectors.
+- **No capability inventory overlap** — none of these connectors exist in the current platform (verified against CAPABILITY_INVENTORY.md).
+- **Recommended build order for 3 PM session:** Continue with highest-priority prompted cards (Sweep Runner at 72, County Assessor at 72, Acquisition Score Calculator at 60). Today's new prompts slot in at positions 9-11 in the priority queue.
 
 ---
 
-## Projected Build Timeline
+## Category Distribution
 
-| Card | Priority | Dependency | Projected Prompt Date |
+| Category | Prompted | Specced | Total |
 |---|---|---|---|
-| Lis Pendens / NOD Scraper | 39 | None | 2026-03-25 |
-| City Building Permit Portal | 32 | None | 2026-03-25 |
-| CoStar / CBRE Rent + Vacancy | 42 | API key decision | TBD |
-| Trepp / CREFC CMBS Delinquency | 34 | Spec review | TBD |
-| Block-Level Transaction Heat Map | 25 | County Assessor Connector (card 2) | After card 2 built |
-| Agency Lending Volume Tracker | 18 | None | 2026-03-26+ |
-
----
-
-## Pipeline Health Notes (2026-03-24)
-
-- **MSA pipeline OPERATIONAL** — First briefs completed: WPB-Downtown (2026-03-23) + Miami-Wynwood/Edgewater score 7.0/10 (2026-03-24)
-- **8 prompts now ready** for the 3 PM coding session — absorption model (card 6) should execute first to unblock demand_momentum_score for acquisition score calculator
-- **3 new prompts generated today** (2026-03-24): absorption model, supply pipeline chart, cap rate estimator — driven by WPB and Miami-Wynwood sweeps
-- **6 specced cards** remain queued — Lis Pendens and Building Permit are clean free-data specs; CoStar/Trepp need commercial API evaluation
-- **No conflicts** with current non-MSA priorities (Stone PDS degraded, Meridian Capital SQL fix pending). MSA cards are isolated and don't touch shared services.
-- **Feature radar alignment:** MSA cards isolated from top 2026-03-23 radar items (Deal Room Mode, Adaptive Thinking Budget, Excel Plugin — all AI gateway/add-in work). Build MSA cards in parallel.
-- **Migration sequencing:** Next available migration is 419. Cap rate estimator migration (`420_msa_cap_rate_estimates.sql`) should confirm current max migration number before applying.
-- **Prompt-to-build pipeline:** 8 prompts queued → 3 PM coding session reads from `docs/msa-features/prompts/` → marks cards `built` → next morning digest confirms
+| data_source | 5 | 2 | 7 |
+| calculation | 3 | 0 | 3 |
+| visualization | 2 | 1 | 3 |
+| workflow | 1 | 0 | 1 |
 
 ---
 
