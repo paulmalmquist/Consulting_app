@@ -200,19 +200,22 @@ def create_activity(
     business_id: UUID,
     subject: str,
     activity_type: str,
-    crm_account_id: UUID | None,
-    crm_contact_id: UUID | None,
-    crm_opportunity_id: UUID | None,
+    body: str | None = None,
+    crm_account_id: UUID | None = None,
+    crm_contact_id: UUID | None = None,
+    crm_opportunity_id: UUID | None = None,
 ) -> dict:
     with get_cursor() as cur:
         tenant_id = resolve_tenant_id(cur, business_id)
+        import json as _json
+        payload = _json.dumps({"body": body}) if body else "{}"
         cur.execute(
             """
             INSERT INTO crm_activity
               (tenant_id, business_id, crm_account_id, crm_contact_id, crm_opportunity_id,
-               activity_type, subject)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            RETURNING crm_activity_id, activity_type, subject, activity_at, created_at
+               activity_type, subject, payload_json)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+            RETURNING crm_activity_id, activity_type, subject, payload_json, activity_at, created_at
             """,
             (
                 tenant_id,
@@ -222,6 +225,7 @@ def create_activity(
                 str(crm_opportunity_id) if crm_opportunity_id else None,
                 activity_type,
                 subject,
+                payload,
             ),
         )
         row = cur.fetchone()
@@ -233,4 +237,96 @@ def create_activity(
         idempotency_key=f"crm_activity_{row['crm_activity_id']}",
     )
     materialization.materialize_business_snapshot(business_id=business_id)
+    return row
+
+
+def list_activities(
+    *,
+    business_id: UUID,
+    crm_account_id: UUID | None = None,
+    crm_opportunity_id: UUID | None = None,
+    limit: int = 20,
+) -> list[dict]:
+    with get_cursor() as cur:
+        resolve_tenant_id(cur, business_id)
+        sql = """
+            SELECT crm_activity_id, activity_type, subject, payload_json, activity_at, created_at,
+                   crm_account_id, crm_opportunity_id, crm_contact_id
+            FROM crm_activity
+            WHERE business_id = %s
+        """
+        params: list = [str(business_id)]
+        if crm_account_id:
+            sql += " AND crm_account_id = %s"
+            params.append(str(crm_account_id))
+        if crm_opportunity_id:
+            sql += " AND crm_opportunity_id = %s"
+            params.append(str(crm_opportunity_id))
+        sql += " ORDER BY created_at DESC LIMIT %s"
+        params.append(limit)
+        cur.execute(sql, tuple(params))
+        return cur.fetchall()
+
+
+def move_opportunity_stage(
+    *,
+    business_id: UUID,
+    crm_opportunity_id: UUID,
+    to_stage_id: UUID,
+    note: str | None = None,
+) -> dict:
+    """Move an opportunity to a new pipeline stage with audit trail."""
+    with get_cursor() as cur:
+        tenant_id = resolve_tenant_id(cur, business_id)
+
+        # Get current stage
+        cur.execute(
+            "SELECT crm_pipeline_stage_id FROM crm_opportunity WHERE crm_opportunity_id = %s AND business_id = %s",
+            (str(crm_opportunity_id), str(business_id)),
+        )
+        current = cur.fetchone()
+        if not current:
+            raise LookupError(f"Opportunity {crm_opportunity_id} not found")
+        from_stage_id = current["crm_pipeline_stage_id"]
+
+        # Update opportunity stage
+        cur.execute(
+            """
+            UPDATE crm_opportunity
+            SET crm_pipeline_stage_id = %s
+            WHERE crm_opportunity_id = %s AND business_id = %s
+            RETURNING crm_opportunity_id, name, amount, status, expected_close_date
+            """,
+            (str(to_stage_id), str(crm_opportunity_id), str(business_id)),
+        )
+        row = cur.fetchone()
+
+        # Record stage history
+        cur.execute(
+            """
+            INSERT INTO crm_opportunity_stage_history
+              (tenant_id, business_id, crm_opportunity_id, from_stage_id, to_stage_id, changed_at, note)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                tenant_id,
+                str(business_id),
+                str(crm_opportunity_id),
+                str(from_stage_id) if from_stage_id else None,
+                str(to_stage_id),
+                datetime.now(timezone.utc),
+                note or "Stage changed via MCP",
+            ),
+        )
+
+        # Get new stage info
+        cur.execute(
+            "SELECT key, label FROM crm_pipeline_stage WHERE crm_pipeline_stage_id = %s",
+            (str(to_stage_id),),
+        )
+        stage = cur.fetchone()
+        if stage:
+            row["stage_key"] = stage["key"]
+            row["stage_label"] = stage["label"]
+
     return row

@@ -1249,7 +1249,15 @@ export async function askAi(input: {
 
 export type ConversationSummary = {
   conversation_id: string;
+  env_id?: string | null;
   title: string | null;
+  thread_kind: "contextual" | "general";
+  scope_type?: string | null;
+  scope_id?: string | null;
+  scope_label?: string | null;
+  launch_source?: string | null;
+  context_summary?: string | null;
+  last_route?: string | null;
   message_count: number;
   updated_at: string | null;
   archived: boolean;
@@ -1260,6 +1268,13 @@ export type ConversationDetail = {
   business_id: string;
   env_id?: string | null;
   title: string | null;
+  thread_kind: "contextual" | "general";
+  scope_type?: string | null;
+  scope_id?: string | null;
+  scope_label?: string | null;
+  launch_source?: string | null;
+  context_summary?: string | null;
+  last_route?: string | null;
   messages: Array<{
     message_id: string;
     role: string;
@@ -1275,6 +1290,13 @@ export type ConversationDetail = {
 export async function createConversation(input: {
   business_id: string;
   env_id?: string;
+  thread_kind?: "contextual" | "general";
+  scope_type?: string | null;
+  scope_id?: string | null;
+  scope_label?: string | null;
+  launch_source?: string | null;
+  context_summary?: string | null;
+  last_route?: string | null;
 }): Promise<ConversationDetail> {
   const res = await fetch("/api/ai/gateway/conversations", {
     method: "POST",
@@ -1282,6 +1304,13 @@ export async function createConversation(input: {
     body: JSON.stringify({
       business_id: input.business_id,
       env_id: input.env_id || null,
+      thread_kind: input.thread_kind || "general",
+      scope_type: input.scope_type || null,
+      scope_id: input.scope_id || null,
+      scope_label: input.scope_label || null,
+      launch_source: input.launch_source || null,
+      context_summary: input.context_summary || null,
+      last_route: input.last_route || null,
     }),
   });
   if (!res.ok) throw new Error(`Failed to create conversation: ${res.status}`);

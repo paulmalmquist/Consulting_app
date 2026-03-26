@@ -6260,10 +6260,20 @@ export type BaseScenarioPartnerAllocation = {
 export type BaseScenarioTierSummary = {
   tier_code: string;
   tier_label: string;
+  tier_order: number;
   lp_amount: number;
   gp_amount: number;
   total_amount: number;
   remaining_after: number;
+  starting_obligation: number;
+  effective_lp_split: number | null;
+  effective_gp_split: number | null;
+  hurdle_rate: number | null;
+  definition_split_gp: number | null;
+  definition_split_lp: number | null;
+  catch_up_percent: number | null;
+  is_active: boolean;
+  is_fully_satisfied: boolean;
 };
 
 export type BaseScenarioBridgeRow = {
@@ -6312,6 +6322,9 @@ export type FundBaseScenario = {
     promote_earned: number;
     preferred_return_shortfall: number;
     preferred_return_excess: number;
+    investment_count?: number;
+    jv_count?: number;
+    computed_at?: string;
   };
   value_composition: {
     historical_realized_proceeds: number;
@@ -6338,6 +6351,21 @@ export type FundBaseScenario = {
     realized_allocation_method: string;
     liquidation_mode: BaseScenarioLiquidationMode;
     notes: string[];
+  };
+  jv_summary?: {
+    total_jvs: number;
+    weighted_avg_ownership: number;
+    jvs: {
+      jv_id: string;
+      legal_name: string;
+      investment_id: string;
+      investment_name: string;
+      ownership_percent: number;
+      gp_percent: number | null;
+      lp_percent: number | null;
+      asset_count: number;
+      nav: number;
+    }[];
   };
 };
 
@@ -6465,6 +6493,116 @@ export function getFundExposureInsights(params: {
   scenario_id?: string;
 }): Promise<FundExposureInsights> {
   return directFetch(`/api/re/v2/funds/${params.fund_id}/exposure`, {
+    params: {
+      quarter: params.quarter,
+      scenario_id: params.scenario_id,
+    },
+  });
+}
+
+export type JvDetailAsset = {
+  asset_id: string;
+  asset_name: string;
+  property_type: string | null;
+  nav: number | null;
+  noi: number | null;
+  ownership_percent: number | null;
+};
+
+export type JvDetailPartner = {
+  partner_id: string;
+  partner_name: string;
+  partner_type: string;
+  ownership_percent: number;
+  share_class: string;
+  effective_from: string | null;
+  effective_to: string | null;
+};
+
+export type JvDetailWaterfallTier = {
+  tier_order: number;
+  tier_type: string;
+  hurdle_rate: number | null;
+  split_gp: number | null;
+  split_lp: number | null;
+  catch_up_percent: number | null;
+};
+
+export type JvDetailItem = {
+  jv_id: string;
+  legal_name: string;
+  investment_id: string;
+  investment_name: string;
+  status: string;
+  ownership_percent: number;
+  gp_percent: number | null;
+  lp_percent: number | null;
+  promote_structure_id: string | null;
+  nav: number | null;
+  noi: number | null;
+  debt_balance: number | null;
+  cash_balance: number | null;
+  asset_count: number;
+  assets: JvDetailAsset[];
+  partner_shares: JvDetailPartner[];
+  waterfall_tiers: JvDetailWaterfallTier[];
+};
+
+export type JvDetailResult = {
+  fund_id: string;
+  quarter: string;
+  jvs: JvDetailItem[];
+};
+
+export type QuarterlyTimelineRow = {
+  quarter: string;
+  portfolio_nav: number;
+  total_committed: number;
+  total_called: number;
+  total_distributed: number;
+  gross_irr: number | null;
+  net_irr: number | null;
+  tvpi: number | null;
+  dpi: number | null;
+  rvpi: number | null;
+  contributions: number;
+  distributions: number;
+  fees_and_expenses: number;
+  gross_return: number;
+  mgmt_fees: number;
+  fund_expenses: number;
+  net_return: number;
+};
+
+export type QuarterlyTimeline = {
+  fund_id: string;
+  scenario_id: string | null;
+  from_quarter: string;
+  to_quarter: string;
+  rows: QuarterlyTimelineRow[];
+};
+
+export function getQuarterlyTimeline(params: {
+  fund_id: string;
+  from_quarter: string;
+  to_quarter: string;
+  scenario_id?: string;
+}): Promise<QuarterlyTimeline> {
+  return directFetch(`/api/re/v2/funds/${params.fund_id}/quarterly-timeline`, {
+    params: {
+      from_quarter: params.from_quarter,
+      to_quarter: params.to_quarter,
+      scenario_id: params.scenario_id,
+    },
+  });
+}
+
+export function getJvDetail(params: {
+  fund_id: string;
+  quarter: string;
+  scenario_id?: string;
+}): Promise<JvDetailResult> {
+  return directFetch(`/api/re/v2/funds/${params.fund_id}/jv-detail`, {
     params: {
       quarter: params.quarter,
       scenario_id: params.scenario_id,

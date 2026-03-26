@@ -1980,3 +1980,58 @@ Plus: Workshop ($200-500/seat), Fractional CAIO ($5-10K/mo retainer)
 - Friday: Revenue review + reprioritization
 
 Coding sessions should align: revenue-blocking demo fixes before feature work.
+
+## Winston MCP Platform (2026-03-26)
+
+Winston is now an MCP platform — any AI interface can operate Winston's backend through MCP tools.
+
+### Architecture
+
+- **Stdio transport** (existing): `backend/app/mcp/server.py` — for Claude Code / Codex CLI
+- **HTTP transport** (new): `backend/app/mcp/http_transport.py` — for Claude Desktop, ChatGPT, web apps
+- **REST proxy** (new): `POST /mcp/tools/{tool_name}` — simpler REST for ChatGPT function calling
+- **Tool discovery**: `GET /mcp/tools` — lists all 80+ tools with JSON schemas
+- **Module discovery**: `GET /mcp/modules` — lists tool modules with counts
+- **Health check**: `GET /mcp/health` — no auth required
+
+### CRM MCP Tools (21 new tools)
+
+Registered as module `crm` in the MCP registry:
+- `crm.list_accounts`, `crm.create_account`, `crm.get_account`
+- `crm.list_pipeline_stages`, `crm.list_opportunities`, `crm.create_opportunity`, `crm.move_opportunity_stage`
+- `crm.list_activities`, `crm.create_activity`
+- `crm.create_lead`, `crm.list_leads`
+- `crm.create_proposal`, `crm.list_proposals`, `crm.send_proposal`
+- `crm.list_outreach_templates`, `crm.create_outreach_template`, `crm.log_outreach`, `crm.record_reply`
+- `crm.create_engagement`, `crm.list_engagements`
+- `crm.pipeline_scoreboard` — live revenue metrics
+
+### Key Files
+
+- `backend/app/mcp/schemas/crm_tools.py` — Pydantic schemas for CRM tools
+- `backend/app/mcp/tools/crm_tools.py` — CRM tool handlers + registration
+- `backend/app/mcp/http_transport.py` — HTTP transport with MCP + REST endpoints
+- `docs/WINSTON_MCP_PLATFORM.md` — Full architecture doc with client integration patterns
+
+### Important: `crm_activity` uses `payload_json`
+
+The `crm_activity` table has no `body` column. Use `payload_json` (jsonb) to store activity content:
+```python
+payload = json.dumps({"body": body_text})
+# INSERT ... payload_json = %s::jsonb
+```
+The MCP tool handlers extract body from `payload_json.body` for the API response.
+
+### Auth for HTTP transport
+
+All `/mcp/*` endpoints require `Authorization: Bearer <MCP_API_TOKEN>` header.
+Write operations require `ENABLE_MCP_WRITES=true` server-side.
+Write tools use two-phase: `confirm: false` = dry run, `confirm: true` = execute.
+
+### Adding new MCP tools
+
+Follow the existing pattern:
+1. Schema in `backend/app/mcp/schemas/{module}_tools.py` (Pydantic, `extra: "forbid"`)
+2. Handlers in `backend/app/mcp/tools/{module}_tools.py` (signature: `(ctx: McpContext, inp: Schema) -> dict`)
+3. Registration function: `register_{module}_tools()` called from `server.py._register_all_tools()`
+4. Every handler returns a dict. Write tools need `confirm: bool` field in schema.

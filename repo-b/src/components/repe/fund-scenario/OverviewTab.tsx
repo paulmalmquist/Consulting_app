@@ -4,7 +4,10 @@ import { fmtMoney, fmtPct, fmtMultiple } from "@/lib/format-utils";
 import { FundMetricsBand } from "./FundMetricsBand";
 import { WaterfallSummaryBand } from "./WaterfallSummaryBand";
 import { AssetContributionTable } from "./AssetContributionTable";
-import type { FundBaseScenario } from "./types";
+import { JvOwnershipSummaryStrip } from "./JvOwnershipSummaryStrip";
+import { QuarterlySparklines } from "./QuarterlySparklines";
+import type { FundBaseScenario, FundScenarioTab } from "./types";
+import type { QuarterlySparklineData } from "./QuarterlySparklines";
 
 function ValueBridgeChart({ result }: { result: FundBaseScenario }) {
   const bridge = result.bridge;
@@ -93,10 +96,14 @@ export function OverviewTab({
   result,
   baseResult,
   onAssetClick,
+  onTabChange,
+  sparklineData,
 }: {
   result: FundBaseScenario;
   baseResult?: FundBaseScenario | null;
   onAssetClick?: (assetId: string) => void;
+  onTabChange?: (tab: FundScenarioTab) => void;
+  sparklineData?: QuarterlySparklineData | null;
 }) {
   return (
     <div className="space-y-6">
@@ -105,6 +112,18 @@ export function OverviewTab({
 
       {/* Secondary metrics strip */}
       <FundSummaryStrip result={result} />
+
+      {/* Quarterly trend sparklines */}
+      <QuarterlySparklines
+        data={sparklineData}
+        onViewDetail={onTabChange ? () => onTabChange("cash-flows") : undefined}
+      />
+
+      {/* JV / Ownership summary */}
+      <JvOwnershipSummaryStrip
+        result={result}
+        onViewDetail={onTabChange ? () => onTabChange("jv-ownership") : undefined}
+      />
 
       {/* Band 2: Waterfall / LP/GP summary */}
       <WaterfallSummaryBand result={result} />

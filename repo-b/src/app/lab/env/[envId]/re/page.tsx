@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { Minus, Plus } from "lucide-react";
 import {
   deleteRepeFund,
   getReV2EnvironmentPortfolioKpis,
@@ -20,7 +21,6 @@ import { useToast } from "@/components/ui/Toast";
 import { fmtMoney, fmtMultiple } from '@/lib/format-utils';
 import {
   RepeIndexScaffold,
-  reIndexActionClass,
   reIndexNumericCellClass,
   reIndexPrimaryCellClass,
   reIndexTableBodyClass,
@@ -40,6 +40,12 @@ function fmtMoneyOrDash(v: string | number | undefined | null): string {
   if (v == null) return "—";
   return fmtMoney(v);
 }
+
+const createFundActionClass =
+  "inline-flex h-10 w-10 items-center justify-center rounded-full border border-bm-border/70 bg-bm-surface/20 text-bm-text transition-[transform,colors,box-shadow] duration-[120ms] hover:-translate-y-[1px] hover:border-bm-border/90 hover:bg-bm-surface/35 focus-visible:outline-none focus-visible:shadow-[0_0_4px_hsl(var(--bm-accent)/0.3)] focus-visible:ring-1 focus-visible:ring-bm-ring/50";
+
+const deleteFundActionClass =
+  "h-8 w-8 rounded-full border border-bm-border/55 bg-transparent p-0 text-bm-muted2 transition-[transform,colors,box-shadow] duration-[120ms] hover:border-bm-danger/25 hover:bg-bm-danger/8 hover:text-bm-danger";
 
 type FundRow = RepeFund & { state?: ReV2FundQuarterState | null };
 
@@ -130,8 +136,14 @@ export default function ReFundListPage() {
         title="Fund Portfolio"
         subtitle={`As of ${quarter}`}
         action={
-          <Link href={`${base}/funds/new`} className={reIndexActionClass}>
-            Create Fund
+          <Link
+            href={`${base}/funds/new`}
+            className={createFundActionClass}
+            aria-label="Create Fund"
+            title="Create Fund"
+          >
+            <Plus aria-hidden="true" size={16} strokeWidth={2.1} />
+            <span className="sr-only">Create Fund</span>
           </Link>
         }
         metrics={
@@ -211,11 +223,14 @@ export default function ReFundListPage() {
                           type="button"
                           size="sm"
                           variant="ghost"
-                          className="h-8 px-2 text-bm-danger hover:bg-bm-danger/10 hover:text-bm-danger"
+                          className={deleteFundActionClass}
                           onClick={() => setDeleteTarget(fund)}
                           data-testid={`delete-fund-${fund.fund_id}`}
+                          aria-label={`Delete ${fund.name}`}
+                          title={`Delete ${fund.name}`}
                         >
-                          Delete
+                          <Minus aria-hidden="true" size={14} strokeWidth={2.1} />
+                          <span className="sr-only">Delete {fund.name}</span>
                         </Button>
                       </td>
                     </tr>

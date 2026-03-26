@@ -62,6 +62,7 @@ describe("RE environment portfolio page", () => {
 
     expect(await screen.findByText("$490.0M")).toBeInTheDocument();
     expect(await screen.findByText("12")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Create Fund" })).toBeInTheDocument();
     const navCard = screen.getByText("Portfolio NAV").closest("div");
     expect(navCard?.textContent).toContain("—");
   });
@@ -89,6 +90,7 @@ describe("RE environment portfolio page", () => {
     render(<ReFundListPage />);
 
     expect(await screen.findByRole("link", { name: "Meridian Growth Fund" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete Meridian Growth Fund" })).toBeInTheDocument();
     expect(screen.getByTestId("delete-fund-fund-1")).toBeInTheDocument();
   });
 });

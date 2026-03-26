@@ -89,22 +89,48 @@ export function WaterfallSummaryBand({ result }: { result: FundBaseScenario }) {
                 <th className="text-right font-medium py-1">LP</th>
                 <th className="text-right font-medium py-1">GP</th>
                 <th className="text-right font-medium py-1">Total</th>
+                <th className="text-right font-medium py-1">Split</th>
+                <th className="text-center font-medium py-1 w-10">Active</th>
               </tr>
             </thead>
             <tbody>
-              {w.tiers.map((tier) => (
-                <tr key={tier.tier_code} className="border-t border-bm-border/20">
-                  <td className="py-1.5 text-bm-text">
-                    <span className="flex items-center gap-1.5">
-                      <span className={`inline-block h-2 w-2 rounded-full ${TIER_COLORS[tier.tier_code] ?? "bg-zinc-500"}`} />
-                      {TIER_LABELS[tier.tier_code] ?? tier.tier_label}
-                    </span>
-                  </td>
-                  <td className="text-right text-bm-muted2">{fmtMoney(tier.lp_amount)}</td>
-                  <td className="text-right text-bm-muted2">{fmtMoney(tier.gp_amount)}</td>
-                  <td className="text-right font-medium text-bm-text">{fmtMoney(tier.total_amount)}</td>
-                </tr>
-              ))}
+              {w.tiers.map((tier) => {
+                const tierTotal = tier.total_amount || 1;
+                const effectiveLpSplit = (tier as Record<string, unknown>).effective_lp_split != null
+                  ? (tier as Record<string, unknown>).effective_lp_split as number
+                  : tier.total_amount > 0 ? tier.lp_amount / tierTotal : null;
+                const effectiveGpSplit = (tier as Record<string, unknown>).effective_gp_split != null
+                  ? (tier as Record<string, unknown>).effective_gp_split as number
+                  : tier.total_amount > 0 ? tier.gp_amount / tierTotal : null;
+                const isActive = (tier as Record<string, unknown>).is_active != null
+                  ? (tier as Record<string, unknown>).is_active as boolean
+                  : tier.total_amount > 0;
+
+                return (
+                  <tr key={tier.tier_code} className="border-t border-bm-border/20">
+                    <td className="py-1.5 text-bm-text">
+                      <span className="flex items-center gap-1.5">
+                        <span className={`inline-block h-2 w-2 rounded-full ${TIER_COLORS[tier.tier_code] ?? "bg-zinc-500"}`} />
+                        {TIER_LABELS[tier.tier_code] ?? tier.tier_label}
+                      </span>
+                    </td>
+                    <td className="text-right text-bm-muted2">{fmtMoney(tier.lp_amount)}</td>
+                    <td className="text-right text-bm-muted2">{fmtMoney(tier.gp_amount)}</td>
+                    <td className="text-right font-medium text-bm-text">{fmtMoney(tier.total_amount)}</td>
+                    <td className="text-right text-bm-muted2">
+                      {effectiveLpSplit != null && effectiveGpSplit != null
+                        ? `${Math.round(effectiveLpSplit * 100)}/${Math.round(effectiveGpSplit * 100)}`
+                        : "—"}
+                    </td>
+                    <td className="text-center">
+                      <span
+                        className={`inline-block h-2 w-2 rounded-full ${isActive ? "bg-green-400" : "bg-zinc-600"}`}
+                        title={isActive ? "Active" : "Inactive"}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

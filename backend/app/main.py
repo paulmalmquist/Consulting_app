@@ -6,6 +6,7 @@ from app.config import ALLOWED_ORIGINS
 from app.auth.middleware import AuthMiddleware
 from app.middleware import RequestLoggingMiddleware
 from app.mcp.registry import registry as _tool_registry
+from app.mcp.http_transport import router as mcp_http_router
 from app.mcp.server import _register_all_tools
 from app.observability.logger import emit_log
 from app.routes import (
@@ -224,3 +225,4 @@ app.include_router(nv_engagement_output.router)
 app.include_router(epi_routes.router)
 app.include_router(semantic_catalog.router)
 app.include_router(analytics.router)
+app.include_router(mcp_http_router)

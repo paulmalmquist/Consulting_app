@@ -35,6 +35,10 @@ type AssetRow = {
   state: string | null;
   msa: string | null;
   ownership_percent: number | null;
+  jv_id: string | null;
+  jv_legal_name: string | null;
+  jv_gp_percent: number | null;
+  jv_lp_percent: number | null;
   noi: number | null;
   net_cash_flow: number | null;
   asset_value: number | null;
@@ -182,10 +186,20 @@ export type BaseScenarioPartnerAllocation = {
 export type BaseScenarioTierSummary = {
   tier_code: string;
   tier_label: string;
+  tier_order: number;
   lp_amount: number;
   gp_amount: number;
   total_amount: number;
   remaining_after: number;
+  starting_obligation: number;
+  effective_lp_split: number | null;
+  effective_gp_split: number | null;
+  hurdle_rate: number | null;
+  definition_split_gp: number | null;
+  definition_split_lp: number | null;
+  catch_up_percent: number | null;
+  is_active: boolean;
+  is_fully_satisfied: boolean;
 };
 
 export type BaseScenarioBridgeRow = {
@@ -234,6 +248,9 @@ export type FundBaseScenarioResult = {
     promote_earned: number;
     preferred_return_shortfall: number;
     preferred_return_excess: number;
+    investment_count: number;
+    jv_count: number;
+    computed_at: string;
   };
   value_composition: {
     historical_realized_proceeds: number;
@@ -260,6 +277,21 @@ export type FundBaseScenarioResult = {
     realized_allocation_method: string;
     liquidation_mode: BaseScenarioLiquidationMode;
     notes: string[];
+  };
+  jv_summary: {
+    total_jvs: number;
+    weighted_avg_ownership: number;
+    jvs: {
+      jv_id: string;
+      legal_name: string;
+      investment_id: string;
+      investment_name: string;
+      ownership_percent: number;
+      gp_percent: number | null;
+      lp_percent: number | null;
+      asset_count: number;
+      nav: number;
+    }[];
   };
 };
 
@@ -557,16 +589,27 @@ function runWaterfallComputation({
       tierSummaries.push({
         tier_code: tier.tier_type,
         tier_label: tierLabel(tier.tier_type),
+        tier_order: tier.tier_order,
         lp_amount: 0,
         gp_amount: 0,
         total_amount: 0,
         remaining_after: 0,
+        starting_obligation: 0,
+        effective_lp_split: null,
+        effective_gp_split: null,
+        hurdle_rate: tier.hurdle_rate ?? null,
+        definition_split_gp: tier.split_gp ?? null,
+        definition_split_lp: tier.split_lp ?? null,
+        catch_up_percent: tier.catch_up_percent ?? null,
+        is_active: false,
+        is_fully_satisfied: false,
       });
       continue;
     }
 
     let tierLpAmount = 0;
     let tierGpAmount = 0;
+    let tierStartingObligation = 0;
     const normalizedType = tier.tier_type.toLowerCase();
 
     if (normalizedType === "return_of_capital") {
@@ -574,6 +617,7 @@ function runWaterfallComputation({
         (sum, state) => sum + state.lots.reduce((lotSum, lot) => lotSum + lot.amount, 0),
         0
       );
+      tierStartingObligation = totalUnreturned;
       const tierPool = Math.min(remaining, totalUnreturned);
       const allocations = allocateProRata(
         tierPool,
@@ -606,6 +650,7 @@ function runWaterfallComputation({
     } else if (normalizedType === "preferred_return") {
       const lpStates = partnerStates.filter((state) => state.role === "lp");
       const totalPref = lpStates.reduce((sum, state) => sum + state.prefDue, 0);
+      tierStartingObligation = totalPref;
       const tierPool = Math.min(remaining, totalPref);
       const allocations = allocateProRata(
         tierPool,
@@ -627,6 +672,7 @@ function runWaterfallComputation({
       const targetCatchUp = carryRate > 0 && carryRate < 1
         ? Math.max((totalPreferredPaid * carryRate) / (1 - carryRate), 0)
         : 0;
+      tierStartingObligation = targetCatchUp;
       const gpStates = partnerStates.filter((state) => state.role === "gp");
       const tierPool = Math.min(remaining, targetCatchUp);
       const allocations = allocateProRata(
@@ -647,6 +693,7 @@ function runWaterfallComputation({
       }
       remaining = roundMoney(remaining - tierPool);
     } else if (normalizedType === "split" || normalizedType === "promote") {
+      tierStartingObligation = remaining;
       const splitGp = tier.split_gp ?? term?.carry_rate ?? 0.2;
       const splitLp = tier.split_lp ?? (1 - splitGp);
       const gpPool = roundMoney(remaining * splitGp);
@@ -694,13 +741,24 @@ function runWaterfallComputation({
       }
     }
 
+    const tierTotalAmount = roundMoney(tierLpAmount + tierGpAmount);
     tierSummaries.push({
       tier_code: tier.tier_type,
       tier_label: tierLabel(tier.tier_type),
+      tier_order: tier.tier_order,
       lp_amount: roundMoney(tierLpAmount),
       gp_amount: roundMoney(tierGpAmount),
-      total_amount: roundMoney(tierLpAmount + tierGpAmount),
+      total_amount: tierTotalAmount,
       remaining_after: roundMoney(remaining),
+      starting_obligation: roundMoney(tierStartingObligation),
+      effective_lp_split: tierTotalAmount > 0 ? roundMoney(tierLpAmount / tierTotalAmount) : null,
+      effective_gp_split: tierTotalAmount > 0 ? roundMoney(tierGpAmount / tierTotalAmount) : null,
+      hurdle_rate: tier.hurdle_rate ?? null,
+      definition_split_gp: tier.split_gp ?? null,
+      definition_split_lp: tier.split_lp ?? null,
+      catch_up_percent: tier.catch_up_percent ?? null,
+      is_active: tierTotalAmount > 0,
+      is_fully_satisfied: tierTotalAmount >= tierStartingObligation - 0.01,
     });
   }
 
@@ -1019,6 +1077,10 @@ async function loadAssets(
        NULLIF(pa.state, '') AS state,
        NULLIF(pa.msa, '') AS msa,
        COALESCE(j.ownership_percent::float8, 1.0) AS ownership_percent,
+       j.jv_id::text AS jv_id,
+       j.legal_name AS jv_legal_name,
+       j.gp_percent::float8 AS jv_gp_percent,
+       j.lp_percent::float8 AS jv_lp_percent,
        lqs.noi,
        lqs.net_cash_flow,
        lqs.asset_value,
@@ -1411,6 +1473,37 @@ export async function computeFundBaseScenario({
   const disposedAssets = assetContributions.filter((asset) => asset.status_category === "disposed");
   const pipelineAssets = assetContributions.filter((asset) => asset.status_category === "pipeline");
 
+  // Compute investment and JV counts from loaded asset data
+  const investmentIds = new Set(assets.map((a) => a.investment_id));
+  const jvMap = new Map<string, { jv_id: string; legal_name: string; investment_id: string; investment_name: string; ownership_percent: number; gp_percent: number | null; lp_percent: number | null; asset_count: number; nav: number }>();
+  for (const asset of assets) {
+    if (!asset.jv_id) continue;
+    const ownPct = asset.ownership_percent != null ? toNumber(asset.ownership_percent) : 1;
+    const assetNav = toNumber(asset.nav) * ownPct;
+    const existing = jvMap.get(asset.jv_id);
+    if (existing) {
+      existing.asset_count++;
+      existing.nav += assetNav;
+    } else {
+      jvMap.set(asset.jv_id, {
+        jv_id: asset.jv_id,
+        legal_name: asset.jv_legal_name ?? asset.jv_id,
+        investment_id: asset.investment_id,
+        investment_name: asset.investment_name,
+        ownership_percent: ownPct,
+        gp_percent: asset.jv_gp_percent,
+        lp_percent: asset.jv_lp_percent,
+        asset_count: 1,
+        nav: assetNav,
+      });
+    }
+  }
+  const jvSummaryList = [...jvMap.values()].map((jv) => ({ ...jv, nav: roundMoney(jv.nav) }));
+  const totalJvNav = jvSummaryList.reduce((sum, jv) => sum + Math.abs(jv.nav), 0);
+  const weightedAvgOwnership = jvSummaryList.length > 0 && totalJvNav > 0
+    ? roundMoney(jvSummaryList.reduce((sum, jv) => sum + jv.ownership_percent * Math.abs(jv.nav), 0) / totalJvNav)
+    : 1;
+
   const attributableNav = roundMoney(activeAssets.reduce((sum, asset) => sum + asset.attributable_nav, 0));
   const attributableUnrealizedNav = attributableNav;
   const hypotheticalAssetValue = roundMoney(
@@ -1622,6 +1715,9 @@ export async function computeFundBaseScenario({
       promote_earned: roundMoney(waterfallComputation.promoteTotal),
       preferred_return_shortfall: roundMoney(waterfallComputation.preferredReturnShortfall),
       preferred_return_excess: roundMoney(waterfallComputation.preferredReturnExcess),
+      investment_count: investmentIds.size,
+      jv_count: jvMap.size,
+      computed_at: new Date().toISOString(),
     },
     value_composition: {
       historical_realized_proceeds: realizedProceeds,
@@ -1661,6 +1757,11 @@ export async function computeFundBaseScenario({
         "Distributed capital uses historical distributions already posted through the selected quarter.",
         "Current waterfall allocations treat remaining value as a liquidation-at-as-of-date pool.",
       ],
+    },
+    jv_summary: {
+      total_jvs: jvMap.size,
+      weighted_avg_ownership: weightedAvgOwnership,
+      jvs: jvSummaryList,
     },
   };
 }

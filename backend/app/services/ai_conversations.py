@@ -16,14 +16,46 @@ def create_conversation(
     business_id: UUID,
     env_id: UUID | None = None,
     title: str | None = None,
+    thread_kind: str = "general",
+    scope_type: str | None = None,
+    scope_id: str | None = None,
+    scope_label: str | None = None,
+    launch_source: str | None = None,
+    context_summary: str | None = None,
+    last_route: str | None = None,
     actor: str = "anonymous",
 ) -> dict[str, Any]:
     with get_cursor() as cur:
         cur.execute(
-            """INSERT INTO ai_conversations (business_id, env_id, title, actor)
-               VALUES (%s, %s, %s, %s)
-               RETURNING conversation_id, business_id, env_id, title, created_at, updated_at, archived, actor""",
-            (str(business_id), str(env_id) if env_id else None, title, actor),
+            """INSERT INTO ai_conversations (
+                   business_id,
+                   env_id,
+                   title,
+                   thread_kind,
+                   scope_type,
+                   scope_id,
+                   scope_label,
+                   launch_source,
+                   context_summary,
+                   last_route,
+                   actor
+               )
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+               RETURNING conversation_id, business_id, env_id, title, thread_kind, scope_type, scope_id, scope_label,
+                         launch_source, context_summary, last_route, created_at, updated_at, archived, actor""",
+            (
+                str(business_id),
+                str(env_id) if env_id else None,
+                title,
+                thread_kind,
+                scope_type,
+                scope_id,
+                scope_label,
+                launch_source,
+                context_summary,
+                last_route,
+                actor,
+            ),
         )
         return cur.fetchone()
 
@@ -37,7 +69,8 @@ def list_conversations(
     with get_cursor() as cur:
         if include_archived:
             cur.execute(
-                """SELECT conversation_id, business_id, title, created_at, updated_at, archived,
+                """SELECT conversation_id, business_id, env_id, title, thread_kind, scope_type, scope_id, scope_label,
+                          launch_source, context_summary, last_route, created_at, updated_at, archived,
                           (SELECT count(*) FROM ai_messages m WHERE m.conversation_id = c.conversation_id) AS message_count
                    FROM ai_conversations c
                    WHERE c.business_id = %s
@@ -47,7 +80,8 @@ def list_conversations(
             )
         else:
             cur.execute(
-                """SELECT conversation_id, business_id, title, created_at, updated_at, archived,
+                """SELECT conversation_id, business_id, env_id, title, thread_kind, scope_type, scope_id, scope_label,
+                          launch_source, context_summary, last_route, created_at, updated_at, archived,
                           (SELECT count(*) FROM ai_messages m WHERE m.conversation_id = c.conversation_id) AS message_count
                    FROM ai_conversations c
                    WHERE c.business_id = %s AND c.archived = false
@@ -61,7 +95,8 @@ def list_conversations(
 def get_conversation(*, conversation_id: UUID) -> dict[str, Any] | None:
     with get_cursor() as cur:
         cur.execute(
-            """SELECT conversation_id, business_id, env_id, title, created_at, updated_at, archived, actor
+            """SELECT conversation_id, business_id, env_id, title, thread_kind, scope_type, scope_id, scope_label,
+                      launch_source, context_summary, last_route, created_at, updated_at, archived, actor
                FROM ai_conversations WHERE conversation_id = %s""",
             (str(conversation_id),),
         )

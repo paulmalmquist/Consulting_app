@@ -16,15 +16,15 @@ import type { FundScenarioTab } from "./types";
 
 const TABS: { key: FundScenarioTab; label: string; icon: typeof LayoutDashboard; enabled: boolean }[] = [
   { key: "overview", label: "Overview", icon: LayoutDashboard, enabled: true },
-  { key: "waterfall", label: "Waterfall", icon: Droplets, enabled: false },
-  { key: "asset-drivers", label: "Asset Drivers", icon: Building2, enabled: false },
-  { key: "cash-flows", label: "Cash Flows", icon: DollarSign, enabled: false },
-  { key: "debt-refi", label: "Debt / Refi", icon: Landmark, enabled: false },
-  { key: "valuation", label: "Valuation", icon: TrendingUp, enabled: false },
-  { key: "jv-ownership", label: "JV / Ownership", icon: Network, enabled: false },
-  { key: "compare", label: "Compare", icon: GitCompare, enabled: false },
-  { key: "audit", label: "Audit", icon: ClipboardList, enabled: false },
-  { key: "excel-sync", label: "Excel Sync", icon: FileSpreadsheet, enabled: false },
+  { key: "waterfall", label: "Waterfall", icon: Droplets, enabled: true },
+  { key: "asset-drivers", label: "Asset Drivers", icon: Building2, enabled: true },
+  { key: "cash-flows", label: "Cash Flows", icon: DollarSign, enabled: true },
+  { key: "debt-refi", label: "Debt / Refi", icon: Landmark, enabled: true },
+  { key: "valuation", label: "Valuation", icon: TrendingUp, enabled: true },
+  { key: "jv-ownership", label: "JV / Ownership", icon: Network, enabled: true },
+  { key: "compare", label: "Compare", icon: GitCompare, enabled: true },
+  { key: "audit", label: "Audit", icon: ClipboardList, enabled: true },
+  { key: "excel-sync", label: "Excel Sync", icon: FileSpreadsheet, enabled: true },
 ];
 
 export function FundScenarioTabBar({

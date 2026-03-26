@@ -162,6 +162,13 @@ class ConversationCreateRequest(BaseModel):
     business_id: UUID
     env_id: UUID | None = None
     title: str | None = None
+    thread_kind: str | None = Field(default=None, pattern=r"^(contextual|general)$")
+    scope_type: str | None = None
+    scope_id: str | None = None
+    scope_label: str | None = None
+    launch_source: str | None = None
+    context_summary: str | None = None
+    last_route: str | None = None
 
 
 class ConversationDetailResponse(BaseModel):
@@ -169,6 +176,13 @@ class ConversationDetailResponse(BaseModel):
     business_id: str
     env_id: str | None = None
     title: str | None = None
+    thread_kind: str = "general"
+    scope_type: str | None = None
+    scope_id: str | None = None
+    scope_label: str | None = None
+    launch_source: str | None = None
+    context_summary: str | None = None
+    last_route: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
     archived: bool = False

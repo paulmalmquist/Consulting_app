@@ -593,10 +593,10 @@ describe("fund detail narrative dashboard", () => {
   });
 
   it("shows a loading skeleton while exposure data is still resolving", async () => {
-    let resolveExposure: ((value: ReturnType<typeof makeExposurePayload>) => void) | null = null;
+    let resolveExposure!: (value: ReturnType<typeof makeExposurePayload>) => void;
     mockGetFundExposureInsights.mockReturnValueOnce(
       new Promise((resolve) => {
-        resolveExposure = resolve as (value: ReturnType<typeof makeExposurePayload>) => void;
+        resolveExposure = resolve;
       })
     );
 
@@ -606,7 +606,7 @@ describe("fund detail narrative dashboard", () => {
     expect(within(exposure).getByTestId("exposure-insights-loading")).toBeInTheDocument();
     expect(within(exposure).queryByText("No sector allocation is available yet.")).not.toBeInTheDocument();
 
-    resolveExposure?.(makeExposurePayload());
+    resolveExposure(makeExposurePayload());
 
     await waitFor(() => {
       expect(within(exposure).queryByTestId("exposure-insights-loading")).not.toBeInTheDocument();

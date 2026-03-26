@@ -129,3 +129,74 @@ Patterns for high-density "regional COO command center" style pages.
 ### Risk Encoding
 - Use a reusable `PdsRiskBadge` component with 4 levels: critical (red, >= 80), high (orange, >= 60), moderate (amber, >= 40), low (green, < 40).
 - Badge has a colored dot + text label in a small pill.
+
+## Revenue Operations Program
+
+### Pipeline Design
+- Work backwards from cash collected, not forwards from awareness. Every stage should answer "what evidence proves we're closer to getting paid?"
+- The existing consulting pipeline stages (lead → contacted → discovery → proposal → negotiation → closed_won) map cleanly to the revenue-backwards framework. No schema changes needed.
+- Win probabilities in the CRM (5% → 10% → 25% → 50% → 70% → 100%) are realistic for consulting sales cycles. Don't inflate them.
+
+### Offer Architecture
+- Three offers at different price points and commitment levels: Workshop ($3.5-10K) → Diagnostic ($7.5-15K) → Audit/Implementation ($25-150K). The workshop and diagnostic are designed as conversion vehicles, not standalone products.
+- Always lead with the diagnostic or workshop for new relationships. The platform pilot (Winston SaaS) is a conversion endpoint, not a cold-start sale.
+- Price anchoring: show the full implementation price first, then present the diagnostic as a low-risk entry point.
+
+### Autonomous Revenue Tasks
+- Revenue-oriented scheduled tasks follow the weekly rhythm: Monday pipeline, Tuesday proof assets, Wednesday outreach, Thursday demo/objections, Friday review.
+- Four new daily/weekly tasks supplement the rhythm: daily-pipeline-health (6:30 AM), daily-follow-up-sequencing (10 AM), weekly-crm-hygiene (Friday 6 AM), weekly-product-feedback-synthesis (Friday 7 AM).
+- All revenue task outputs go to docs/revenue-ops/ subdirectories. The morning-ops-digest should include revenue-ops status in its daily compilation.
+
+### Sales Signals Integration
+- The daily sales-signal-discovery task (4 PM) already produces qualified prospects. Revenue ops should consume these signals on Monday morning during pipeline review.
+- Current active prospects from signals: Vistria Group, Kayne Anderson, Alloy Development, Cliffwater. These are seeded in the target framework.
+
+### CRM Usage
+- The Consulting Revenue OS schema (migration 280) already has everything needed: leads, contacts, outreach logs, proposals, revenue schedules, engagement tracking. No new tables required.
+- Lead scoring uses 5 components: pain clarity (0-25), budget signal (0-25), authority (0-20), timeline (0-20), fit (0-10). Score >= 50 means qualified.
+- Outreach templates track use_count and reply_count. Retire templates with 0 replies after 10+ uses.
+
+### Content and Proof Assets
+- Proof assets are ranked by revenue impact in docs/revenue-ops/proof-backlog.md. The Tuesday proof-asset-builder task picks from this backlog.
+- LinkedIn content should tie to offer themes, not generic AI thought leadership. Every post should be traceable to one of the three offers.
+- The diagnostic questionnaire is the single most important proof asset — it's needed before any Offer A pitch can happen.
+
+## REPE Fund-Scenario Workspace Patterns
+
+### JV as First-Class Return Object
+
+- The fund waterfall lives at the fund level but real economics often live at the JV layer
+- Always surface JV-level ownership (LP/GP/partner %) alongside waterfall tier economics
+- JV summary data is computed from the asset query's `re_jv` JOIN — no separate query needed for the overview strip
+- Full JV detail (partner shares, waterfall tiers, quarterly state) lives behind a dedicated `/jv-detail` endpoint, lazy-loaded when the JV/Ownership tab opens
+
+### Enriched Waterfall Tier Summaries
+
+- The `BaseScenarioTierSummary` type carries both definition fields (`hurdle_rate`, `definition_split_gp/lp`, `catch_up_percent`) and computed fields (`effective_lp_split`, `effective_gp_split`, `is_active`, `is_fully_satisfied`, `starting_obligation`)
+- Track `tierStartingObligation` per tier type: RoC uses `totalUnreturned`, pref uses `totalPref`, catch-up uses `targetCatchUp`, split uses `remaining`
+- `is_fully_satisfied` = `total_amount >= starting_obligation - 0.01` (epsilon guard)
+
+### Quarterly Timeline Architecture
+
+- Multi-quarter data comes from a dedicated `/quarterly-timeline` endpoint that aggregates across `re_fund_quarter_state`, `re_fund_metrics_qtr`, `re_capital_ledger_entry`, `re_gross_net_bridge_qtr`, `re_fee_accrual_qtr`, and `re_fund_expense_qtr`
+- Each source is queried independently by quarter range, then merged by quarter key
+- The CashFlowsTab provides range selection (4Q/8Q/12Q/20Q) — the hook `useQuarterlyTimeline` recomputes `fromQuarter` from the current quarter minus N
+
+### Scenario Compare Pattern
+
+- No dedicated compare endpoint needed — client-side diffing of N `FundBaseScenario` responses is sufficient
+- Deltas use bps for IRR, x for multiples, $ for money
+- Green = improvement, red = degradation (not just positive/negative)
+
+### Tab Framework
+
+- All 10 fund-scenario tabs are defined in `FundScenarioTabBar.tsx` with `enabled: boolean` flags
+- Tabs consuming the current scenario data receive `scenarioResult` directly
+- Tabs needing additional data (JV detail, quarterly timeline) use dedicated hooks that lazy-load on tab open
+- The `onTabChange` callback enables cross-tab navigation from Overview links ("View JV Detail →")
+
+### Base Case vs Draft Status
+
+- "Set as Official Base Case" button only appears on `draft` status models
+- "Return to Draft" lives behind a `...` overflow menu on `official_base_case` models — not a prominent button
+- The official base case page shows a locked status badge; destructive actions are behind the overflow menu

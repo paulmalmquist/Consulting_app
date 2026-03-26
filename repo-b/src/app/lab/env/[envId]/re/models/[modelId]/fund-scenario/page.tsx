@@ -8,6 +8,15 @@ import { FundScenarioHeader } from "@/components/repe/fund-scenario/FundScenario
 import { FundScenarioTabBar } from "@/components/repe/fund-scenario/FundScenarioTabBar";
 import { ScenarioSidebar } from "@/components/repe/model/ScenarioSidebar";
 import { OverviewTab } from "@/components/repe/fund-scenario/OverviewTab";
+import { WaterfallTab } from "@/components/repe/fund-scenario/WaterfallTab";
+import { AssetDriversTab } from "@/components/repe/fund-scenario/AssetDriversTab";
+import { CashFlowsTab } from "@/components/repe/fund-scenario/CashFlowsTab";
+import { DebtRefiTab } from "@/components/repe/fund-scenario/DebtRefiTab";
+import { ValuationTab } from "@/components/repe/fund-scenario/ValuationTab";
+import { JvOwnershipTab } from "@/components/repe/fund-scenario/JvOwnershipTab";
+import { CompareTab } from "@/components/repe/fund-scenario/CompareTab";
+import { AuditTab } from "@/components/repe/fund-scenario/AuditTab";
+import { ExcelSyncTab } from "@/components/repe/fund-scenario/ExcelSyncTab";
 import { apiFetch } from "@/components/repe/model/types";
 import { useState, useCallback } from "react";
 import type { FundScenarioTab } from "@/components/repe/fund-scenario/types";
@@ -48,7 +57,6 @@ export default function FundScenarioWorkspacePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
-      // Reload to pick up new status
       window.location.reload();
     },
     [modelId],
@@ -56,14 +64,11 @@ export default function FundScenarioWorkspacePage() {
 
   const handleAssetClick = useCallback(
     (assetId: string) => {
-      // Phase 3: Navigate to asset drill-through page
-      // For now, scroll or expand inline
-      console.log("Asset drill-through:", assetId);
+      setActiveTab("asset-drivers");
     },
     [],
   );
 
-  // Loading state
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
@@ -73,7 +78,6 @@ export default function FundScenarioWorkspacePage() {
     );
   }
 
-  // Error state
   if (error || !model) {
     return (
       <div className="flex h-96 items-center justify-center">
@@ -92,6 +96,7 @@ export default function FundScenarioWorkspacePage() {
 
   const isLocked = model.status === "official_base_case" || model.status === "archived";
   const assetCount = scenarioResult?.assets.length ?? 0;
+  const scenarioIdForQuery = isBaseScenario ? undefined : activeScenarioId;
 
   return (
     <div className="space-y-6 px-6 py-5">
@@ -103,9 +108,13 @@ export default function FundScenarioWorkspacePage() {
         onQuarterChange={setQuarter}
         onStatusChange={handleStatusChange}
         onRecalculate={recalculate}
+        onTabChange={setActiveTab}
         resultLoading={resultLoading}
         fundName={scenarioResult?.fund_name ?? null}
         assetCount={assetCount}
+        investmentCount={scenarioResult?.summary?.investment_count}
+        jvCount={scenarioResult?.summary?.jv_count}
+        computedAt={scenarioResult?.summary?.computed_at ?? scenarioResult?.as_of_date}
       />
 
       {/* Main layout: Sidebar + Content */}
@@ -139,15 +148,57 @@ export default function FundScenarioWorkspacePage() {
                   result={scenarioResult}
                   baseResult={isBaseScenario ? undefined : baseResult}
                   onAssetClick={handleAssetClick}
+                  onTabChange={setActiveTab}
                 />
               )}
 
-              {activeTab !== "overview" && (
-                <div className="flex h-64 items-center justify-center rounded-lg border border-bm-border/30 bg-bm-surface/5">
-                  <p className="text-sm text-bm-muted2">
-                    {activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace(/-/g, " ")} tab coming soon.
-                  </p>
-                </div>
+              {activeTab === "waterfall" && (
+                <WaterfallTab result={scenarioResult} />
+              )}
+
+              {activeTab === "asset-drivers" && (
+                <AssetDriversTab result={scenarioResult} />
+              )}
+
+              {activeTab === "cash-flows" && (
+                <CashFlowsTab
+                  fundId={fundId}
+                  quarter={quarter}
+                  scenarioId={scenarioIdForQuery}
+                />
+              )}
+
+              {activeTab === "debt-refi" && (
+                <DebtRefiTab result={scenarioResult} />
+              )}
+
+              {activeTab === "valuation" && (
+                <ValuationTab result={scenarioResult} />
+              )}
+
+              {activeTab === "jv-ownership" && (
+                <JvOwnershipTab
+                  fundId={fundId}
+                  quarter={quarter}
+                  scenarioId={scenarioIdForQuery}
+                />
+              )}
+
+              {activeTab === "compare" && (
+                <CompareTab
+                  fundId={fundId}
+                  quarter={quarter}
+                  scenarios={scenarios}
+                  baseResult={baseResult}
+                />
+              )}
+
+              {activeTab === "audit" && (
+                <AuditTab result={scenarioResult} />
+              )}
+
+              {activeTab === "excel-sync" && (
+                <ExcelSyncTab />
               )}
             </>
           ) : (

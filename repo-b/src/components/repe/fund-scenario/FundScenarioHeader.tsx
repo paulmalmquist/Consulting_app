@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Lock,
   Unlock,
@@ -10,9 +10,11 @@ import {
   GitCompare,
   Download,
   Loader2,
+  ClipboardList,
+  MoreHorizontal,
 } from "lucide-react";
 import { Dialog } from "@/components/ui/Dialog";
-import type { ReModel, ModelScenario } from "./types";
+import type { ReModel, ModelScenario, FundScenarioTab } from "./types";
 
 const STATUS_DISPLAY: Record<string, { label: string; classes: string }> = {
   draft: {
@@ -41,6 +43,54 @@ const QUARTER_OPTIONS = (() => {
   return opts;
 })();
 
+function OverflowMenu({
+  items,
+}: {
+  items: { label: string; icon: typeof Lock; onClick: () => void }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="inline-flex items-center justify-center rounded-lg border border-bm-border/50 p-1.5 text-bm-muted2 hover:bg-bm-surface/30 hover:text-bm-text"
+      >
+        <MoreHorizontal size={14} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-lg border border-bm-border/50 bg-bm-surface/95 py-1 shadow-lg backdrop-blur-sm">
+          {items.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.label}
+                onClick={() => { item.onClick(); setOpen(false); }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-bm-muted2 hover:bg-bm-surface/50 hover:text-bm-text"
+              >
+                <Icon size={12} />
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function FundScenarioHeader({
   model,
   scenario,
@@ -48,9 +98,13 @@ export function FundScenarioHeader({
   onQuarterChange,
   onStatusChange,
   onRecalculate,
+  onTabChange,
   resultLoading,
   fundName,
   assetCount,
+  investmentCount,
+  jvCount,
+  computedAt,
 }: {
   model: ReModel;
   scenario: ModelScenario | null;
@@ -58,13 +112,26 @@ export function FundScenarioHeader({
   onQuarterChange: (q: string) => void;
   onStatusChange: (status: string) => void;
   onRecalculate: () => void;
+  onTabChange?: (tab: FundScenarioTab) => void;
   resultLoading: boolean;
   fundName: string | null;
   assetCount: number;
+  investmentCount?: number;
+  jvCount?: number;
+  computedAt?: string | null;
 }) {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [lockOpen, setLockOpen] = useState(false);
   const display = STATUS_DISPLAY[model.status] ?? STATUS_DISPLAY.draft;
+
+  // Build overflow menu items based on status
+  const overflowItems: { label: string; icon: typeof Lock; onClick: () => void }[] = [];
+  if (model.status === "official_base_case") {
+    overflowItems.push({ label: "Return to Draft", icon: Unlock, onClick: () => onStatusChange("draft") });
+  }
+  if (model.status !== "archived") {
+    overflowItems.push({ label: "Archive Model", icon: Archive, onClick: () => setArchiveOpen(true) });
+  }
 
   return (
     <>
@@ -81,17 +148,39 @@ export function FundScenarioHeader({
         <div className="flex items-start justify-between">
           {/* Left: Title + metadata */}
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{model.name}</h1>
-            <div className="mt-1 flex items-center gap-3 text-sm text-bm-muted2">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight">{model.name}</h1>
+              {/* Status badge */}
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs border ${display.classes}`}
+              >
+                {model.status === "official_base_case" && <Lock size={10} />}
+                {display.label}
+              </span>
+            </div>
+            <div className="mt-1.5 flex items-center gap-2 text-sm text-bm-muted2">
               {fundName && <span>{fundName}</span>}
               <span className="text-bm-border">|</span>
-              <span>Scenario: {scenario?.name ?? "Base Case"}</span>
+              <span>{quarter}</span>
               <span className="text-bm-border">|</span>
-              <span>{assetCount} asset{assetCount !== 1 ? "s" : ""}</span>
+              <span>
+                {investmentCount != null ? `${investmentCount} inv` : ""}
+                {jvCount != null ? ` / ${jvCount} JV` : ""}
+                {investmentCount != null ? " / " : ""}
+                {assetCount} asset{assetCount !== 1 ? "s" : ""}
+              </span>
+              {computedAt && (
+                <>
+                  <span className="text-bm-border">|</span>
+                  <span className="text-[11px] text-bm-muted">
+                    Calc: {new Date(computedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Right: Status + actions */}
+          {/* Right: Actions */}
           <div className="flex items-center gap-2">
             {/* Quarter picker */}
             <select
@@ -114,13 +203,33 @@ export function FundScenarioHeader({
               Recalculate
             </button>
 
-            {/* Status badge */}
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs border ${display.classes}`}
+            {/* Compare quick action */}
+            {onTabChange && (
+              <button
+                onClick={() => onTabChange("compare")}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-bm-border/50 px-3 py-1.5 text-xs text-bm-muted2 hover:bg-bm-surface/30 hover:text-bm-text"
+              >
+                <GitCompare size={12} /> Compare
+              </button>
+            )}
+
+            {/* Export */}
+            <button
+              className="inline-flex items-center gap-1.5 rounded-lg border border-bm-border/50 px-3 py-1.5 text-xs text-bm-muted2 hover:bg-bm-surface/30 hover:text-bm-text"
+              title="Export scenario data"
             >
-              {model.status === "official_base_case" && <Lock size={10} />}
-              {display.label}
-            </span>
+              <Download size={12} /> Export
+            </button>
+
+            {/* Audit quick action */}
+            {onTabChange && (
+              <button
+                onClick={() => onTabChange("audit")}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-bm-border/50 px-3 py-1.5 text-xs text-bm-muted2 hover:bg-bm-surface/30 hover:text-bm-text"
+              >
+                <ClipboardList size={12} /> Audit
+              </button>
+            )}
 
             {/* Draft → Set as Official Base Case */}
             {model.status === "draft" && (
@@ -132,25 +241,8 @@ export function FundScenarioHeader({
               </button>
             )}
 
-            {/* Official → Return to Draft */}
-            {model.status === "official_base_case" && (
-              <button
-                onClick={() => onStatusChange("draft")}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-bm-border px-3 py-1.5 text-xs text-bm-muted2 hover:bg-bm-surface/40 hover:text-bm-text"
-              >
-                <Unlock size={12} /> Return to Draft
-              </button>
-            )}
-
-            {/* Archive */}
-            {model.status !== "archived" && (
-              <button
-                onClick={() => setArchiveOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-bm-border px-3 py-1.5 text-xs text-bm-muted2 hover:bg-bm-surface/40 hover:text-bm-text"
-              >
-                <Archive size={12} /> Archive
-              </button>
-            )}
+            {/* Overflow menu (Return to Draft, Archive) */}
+            <OverflowMenu items={overflowItems} />
           </div>
         </div>
       </div>
