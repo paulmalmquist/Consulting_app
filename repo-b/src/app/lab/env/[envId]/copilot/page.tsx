@@ -1,10 +1,10 @@
 "use client";
 
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
-import WinstonWorkspace from "@/components/copilot/WinstonWorkspace";
+import { WinstonCompanionWorkspace } from "@/components/winston-companion/WinstonCompanionSurface";
 
 export default function CommandCenterPage() {
-  const { envId, businessId, environment, loading, error, requestId, retry } = useDomainEnv();
+  const { loading, error, requestId, retry } = useDomainEnv();
 
   if (loading) {
     return (
@@ -27,11 +27,5 @@ export default function CommandCenterPage() {
     );
   }
 
-  return (
-    <WinstonWorkspace
-      envId={envId}
-      businessId={businessId}
-      environmentName={environment?.client_name || environment?.workspace_template_key || "Winston"}
-    />
-  );
+  return <WinstonCompanionWorkspace />;
 }

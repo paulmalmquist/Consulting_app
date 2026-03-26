@@ -277,15 +277,25 @@ ALTER TABLE public.trading_research_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.trading_daily_briefs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.trading_watchlist ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "tenant_read_themes" ON public.trading_themes;
 CREATE POLICY "tenant_read_themes" ON public.trading_themes FOR SELECT USING (tenant_id = auth.uid() OR tenant_id IS NULL);
+DROP POLICY IF EXISTS "tenant_read_signals" ON public.trading_signals;
 CREATE POLICY "tenant_read_signals" ON public.trading_signals FOR SELECT USING (tenant_id = auth.uid() OR tenant_id IS NULL);
+DROP POLICY IF EXISTS "tenant_read_hypotheses" ON public.trading_hypotheses;
 CREATE POLICY "tenant_read_hypotheses" ON public.trading_hypotheses FOR SELECT USING (tenant_id = auth.uid() OR tenant_id IS NULL);
+DROP POLICY IF EXISTS "tenant_read_hypothesis_signals" ON public.hypothesis_signals;
 CREATE POLICY "tenant_read_hypothesis_signals" ON public.hypothesis_signals FOR SELECT USING (true);
+DROP POLICY IF EXISTS "tenant_read_positions" ON public.trading_positions;
 CREATE POLICY "tenant_read_positions" ON public.trading_positions FOR SELECT USING (tenant_id = auth.uid() OR tenant_id IS NULL);
+DROP POLICY IF EXISTS "tenant_read_price_snapshots" ON public.position_price_snapshots;
 CREATE POLICY "tenant_read_price_snapshots" ON public.position_price_snapshots FOR SELECT USING (true);
+DROP POLICY IF EXISTS "tenant_read_perf_snapshots" ON public.trading_performance_snapshots;
 CREATE POLICY "tenant_read_perf_snapshots" ON public.trading_performance_snapshots FOR SELECT USING (tenant_id = auth.uid() OR tenant_id IS NULL);
+DROP POLICY IF EXISTS "tenant_read_research_notes" ON public.trading_research_notes;
 CREATE POLICY "tenant_read_research_notes" ON public.trading_research_notes FOR SELECT USING (tenant_id = auth.uid() OR tenant_id IS NULL);
+DROP POLICY IF EXISTS "tenant_read_daily_briefs" ON public.trading_daily_briefs;
 CREATE POLICY "tenant_read_daily_briefs" ON public.trading_daily_briefs FOR SELECT USING (tenant_id = auth.uid() OR tenant_id IS NULL);
+DROP POLICY IF EXISTS "tenant_read_watchlist" ON public.trading_watchlist;
 CREATE POLICY "tenant_read_watchlist" ON public.trading_watchlist FOR SELECT USING (tenant_id = auth.uid() OR tenant_id IS NULL);
 
 -- ═══════════════════════════════════════════════════════════════════════════════

@@ -9,6 +9,7 @@ import {
   isRepeNavItemActive,
   type RepeNavGroup,
 } from "@/components/repe/workspace/repeNavigation";
+import WinstonAvatar from "@/components/winston-companion/WinstonAvatar";
 
 type RepeSidebarNavProps = {
   base: string;
@@ -111,15 +112,25 @@ export function RepeSidebarNav({
                               : "border-l-transparent text-bm-muted hover:bg-bm-surface/12 hover:text-bm-text",
                           )}
                         >
-                          <Icon
-                            size={15}
-                            strokeWidth={active ? 2 : 1.8}
-                            className={cn(
-                              "shrink-0 transition-colors duration-fast",
-                              active ? "text-bm-accent" : "text-bm-muted2 group-hover:text-bm-muted",
-                            )}
-                            aria-hidden="true"
-                          />
+                          {item.avatar ? (
+                            <WinstonAvatar
+                              className={cn(
+                                "h-7 w-7 shrink-0 rounded-full border transition-transform duration-fast",
+                                active ? "scale-100 border-white/70" : "border-white/50 group-hover:scale-[1.03]",
+                              )}
+                              imageClassName="object-cover"
+                            />
+                          ) : (
+                            <Icon
+                              size={15}
+                              strokeWidth={active ? 2 : 1.8}
+                              className={cn(
+                                "shrink-0 transition-colors duration-fast",
+                                active ? "text-bm-accent" : "text-bm-muted2 group-hover:text-bm-muted",
+                              )}
+                              aria-hidden="true"
+                            />
+                          )}
                           <span className="truncate">{item.label}</span>
                         </Link>
                       );
@@ -225,7 +236,16 @@ export function RepeSidebarCompactRail({
                       : "text-bm-muted2 hover:bg-bm-surface/18 hover:text-bm-text",
                   )}
                 >
-                  <Icon size={16} strokeWidth={active ? 2.1 : 1.9} aria-hidden="true" />
+                  {item.avatar ? (
+                    <WinstonAvatar
+                      className={cn(
+                        "h-8 w-8 rounded-full border bg-white/95",
+                        active ? "border-white/80" : "border-white/55",
+                      )}
+                    />
+                  ) : (
+                    <Icon size={16} strokeWidth={active ? 2.1 : 1.9} aria-hidden="true" />
+                  )}
                 </Link>
               );
             })}

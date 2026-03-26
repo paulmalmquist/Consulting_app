@@ -67,6 +67,7 @@ CREATE INDEX IF NOT EXISTS idx_btc_spx_corr_crossing
 ALTER TABLE public.btc_spx_correlation ENABLE ROW LEVEL SECURITY;
 
 -- Authenticated users may read rows for their tenant or global rows (tenant_id IS NULL)
+DROP POLICY IF EXISTS "tenant_read_btc_spx_corr" ON public.btc_spx_correlation;
 CREATE POLICY "tenant_read_btc_spx_corr"
   ON public.btc_spx_correlation
   FOR SELECT

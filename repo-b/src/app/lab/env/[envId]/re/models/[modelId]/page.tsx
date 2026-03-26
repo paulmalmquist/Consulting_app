@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { Copy, GitCompare, RefreshCw, Loader2 } from "lucide-react";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
+import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 
 import type { ReModel } from "@/components/repe/model/types";
 import { apiFetch } from "@/components/repe/model/types";
@@ -118,6 +119,63 @@ export default function ModelWorkspacePage() {
       if (ovRes.status === "fulfilled") setOverrides(ovRes.value);
     });
   }, [activeScenarioId, envId]);
+
+  useEffect(() => {
+    publishAssistantPageContext({
+      route: envId ? `/lab/env/${envId}/re/models/${modelId}` : null,
+      surface: "model_detail",
+      active_module: "re",
+      page_entity_type: "model",
+      page_entity_id: modelId,
+      page_entity_name: model?.name || null,
+      selected_entities: model
+        ? [
+            {
+              entity_type: "model",
+              entity_id: modelId,
+              name: model.name,
+              source: "page",
+              parent_entity_type: model.primary_fund_id ? "fund" : null,
+              parent_entity_id: model.primary_fund_id || null,
+            },
+          ]
+        : [],
+      visible_data: {
+        models: model
+          ? [
+              {
+                entity_type: "model",
+                entity_id: modelId,
+                name: model.name,
+                metadata: {
+                  status: model.status,
+                  model_type: model.model_type,
+                  strategy_type: model.strategy_type,
+                },
+              },
+            ]
+          : [],
+        assets: scenarioAssets.map((asset) => ({
+          entity_type: "asset",
+          entity_id: asset.asset_id,
+          name: asset.asset_name || asset.asset_id,
+          parent_entity_type: "fund",
+          parent_entity_id: asset.source_fund_id || null,
+          metadata: {
+            fund_name: asset.fund_name,
+            asset_type: asset.asset_type,
+          },
+        })),
+        metrics: {
+          scenario_count: scenarios.length,
+          scenario_asset_count: scenarioAssets.length,
+          active_tab: activeTab,
+        },
+        notes: [activeScenario ? `Active scenario: ${activeScenario.name}` : "Model detail workspace"],
+      },
+    });
+    return () => resetAssistantPageContext();
+  }, [activeScenario, activeTab, envId, model, modelId, scenarioAssets, scenarios.length]);
 
   const isLocked = model?.status === "archived" || model?.status === "official_base_case";
   const isArchived = model?.status === "archived";

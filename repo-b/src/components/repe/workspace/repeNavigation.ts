@@ -34,6 +34,7 @@ export type RepeNavItem = {
   label: string;
   isBase: boolean;
   icon: NavIcon;
+  avatar?: boolean;
   matchPrefixes?: string[];
 };
 
@@ -78,6 +79,7 @@ export function buildRepeNavGroups({
   showIntelligence: boolean;
   showSustainability: boolean;
 }): RepeNavGroup[] {
+  const companionHref = `${base.replace(/\/re$/, "")}/copilot`;
   return [
     {
       label: "Portfolio",
@@ -155,17 +157,25 @@ export function buildRepeNavGroups({
       key: "automation",
       icon: Sparkles,
       items: [
-        { href: `${base}/winston`, label: "Winston", isBase: false, icon: Sparkles },
+        {
+          href: companionHref,
+          label: "Winston",
+          isBase: false,
+          icon: Sparkles,
+          avatar: true,
+          matchPrefixes: [`${base}/winston`],
+        },
       ],
     },
   ];
 }
 
 export function buildRepeMobileNavItems(base: string): MobileNavItem[] {
+  const companionHref = `${base.replace(/\/re$/, "")}/copilot`;
   return [
     { href: `${base}/pipeline`, label: "Pipeline", icon: "pipeline", matchPrefix: true },
     { href: base, label: "Funds", icon: "funds", matchPrefix: false },
-    { href: `${base}/winston`, label: "Winston", icon: "winston", matchPrefix: true },
+    { href: companionHref, label: "Winston", icon: "winston", matchPrefix: true },
     { href: `${base}/investors`, label: "Investors", icon: "investors", matchPrefix: true },
     { href: `${base}/reports`, label: "Reports", icon: "reports", matchPrefix: true },
   ];

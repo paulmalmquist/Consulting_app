@@ -33,6 +33,7 @@ import {
   getResumeContext,
 } from "@/lib/bos-api";
 import { useBusinessContext } from "@/lib/business-context";
+import { publishAssistantEnvironmentContext } from "@/lib/commandbar/appContextBridge";
 import { resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
 
 export type DomainSlug = "pds" | "credit" | "legal" | "medical"
@@ -143,6 +144,24 @@ export function DomainEnvProvider({
   useEffect(() => {
     void resolve();
   }, [resolve]);
+
+  useEffect(() => {
+    publishAssistantEnvironmentContext({
+      active_environment_id: envId,
+      active_environment_name: environment?.client_name || null,
+      active_business_id: businessId,
+      active_business_name: null,
+      schema_name: environment?.schema_name || null,
+      industry: environment?.industry || environment?.industry_type || null,
+    });
+  }, [
+    businessId,
+    envId,
+    environment?.client_name,
+    environment?.industry,
+    environment?.industry_type,
+    environment?.schema_name,
+  ]);
 
   const retry = useCallback(async () => {
     await resolve();

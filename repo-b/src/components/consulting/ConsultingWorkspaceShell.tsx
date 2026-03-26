@@ -48,7 +48,7 @@ export default function ConsultingWorkspaceShell({
     () => [
       { href: `${base}/contacts`, label: "Contacts", icon: "investors", matchPrefix: true },
       { href: `${base}/events`, label: "Events", icon: "funds", matchPrefix: true },
-      { href: base, label: "Home", icon: "winston", matchPrefix: false },
+      { href: base, label: "Home", icon: "home", matchPrefix: false },
       { href: `${base}/tasks`, label: "Tasks", icon: "pipeline", matchPrefix: true },
       { href: `${base}/reports`, label: "Reports", icon: "reports", matchPrefix: true },
     ],

@@ -122,29 +122,35 @@ ON CONFLICT DO NOTHING;
 -- ── 5. Debt (re_loan) ──────────────────────────────────────────────────────
 
 -- Get env_id from first env_business_bindings
-DECLARE v_env_id text;
+DECLARE v_env_id uuid;
 BEGIN
-  SELECT env_id INTO v_env_id FROM env_business_bindings WHERE business_id = v_biz_id LIMIT 1;
-  IF v_env_id IS NULL THEN v_env_id := 'default'; END IF;
+  SELECT env_id INTO v_env_id
+  FROM app.env_business_bindings
+  WHERE business_id = v_biz_id
+  LIMIT 1;
 
-  INSERT INTO re_loan (env_id, business_id, fund_id, investment_id, asset_id, loan_name, upb, rate_type, rate, spread, maturity, amort_type)
-  VALUES
-    (v_env_id, v_biz_id, v_fund_va, v_deal_va, v_assets[1],  'Parkview Sr Loan',    18200000, 'floating', 0.0525, 0.0225, '2028-06-15', 'interest_only'),
-    (v_env_id, v_biz_id, v_fund_va, v_deal_va, v_assets[2],  'Lakeshore Sr Loan',   24500000, 'floating', 0.0500, 0.0200, '2028-09-01', 'interest_only'),
-    (v_env_id, v_biz_id, v_fund_va, v_deal_va, v_assets[3],  'Metro Logistics Loan', 14300000, 'fixed',   0.0475, NULL,   '2029-11-01', 'amortizing'),
-    (v_env_id, v_biz_id, v_fund_va, v_deal_va, v_assets[4],  'Riverside Loan',       11700000, 'fixed',   0.0450, NULL,   '2029-01-15', 'amortizing'),
-    (v_env_id, v_biz_id, v_fund_va, v_deal_va, v_assets[5],  'Sunset Ridge Loan',    29400000, 'floating', 0.0550, 0.0250, '2029-03-01', 'interest_only'),
-    (v_env_id, v_biz_id, v_fund_cp, v_deal_cp, v_assets[6],  'Beacon Tower Loan',    42250000, 'fixed',   0.0425, NULL,   '2029-03-15', 'amortizing'),
-    (v_env_id, v_biz_id, v_fund_cp, v_deal_cp, v_assets[7],  'Harbor Square Loan',   24700000, 'fixed',   0.0400, NULL,   '2028-06-01', 'amortizing'),
-    (v_env_id, v_biz_id, v_fund_cp, v_deal_cp, v_assets[8],  'Midtown Crossing Loan',38500000, 'floating', 0.0475, 0.0200, '2029-09-01', 'interest_only'),
-    (v_env_id, v_biz_id, v_fund_cp, v_deal_cp, v_assets[9],  'Westgate Loan',        31200000, 'fixed',   0.0450, NULL,   '2030-01-15', 'amortizing'),
-    (v_env_id, v_biz_id, v_fund_cp, v_deal_cp, v_assets[10], 'Promenade Loan',       20800000, 'fixed',   0.0425, NULL,   '2028-04-01', 'amortizing'),
-    (v_env_id, v_biz_id, v_fund_cp, v_deal_cp, v_assets[11], 'Skyline Loan',         50400000, 'floating', 0.0500, 0.0225, '2030-07-01', 'interest_only'),
-    (v_env_id, v_biz_id, v_fund_op, v_deal_op, v_assets[12], 'Heritage Sr Loan',     16250000, 'floating', 0.0600, 0.0300, '2027-02-01', 'interest_only'),
-    (v_env_id, v_biz_id, v_fund_op, v_deal_op, v_assets[13], 'Oakwood Loan',         11700000, 'floating', 0.0625, 0.0325, '2027-04-01', 'interest_only'),
-    (v_env_id, v_biz_id, v_fund_op, v_deal_op, v_assets[14], 'Commerce Park Loan',    9750000, 'fixed',   0.0550, NULL,   '2028-06-01', 'amortizing'),
-    (v_env_id, v_biz_id, v_fund_op, v_deal_op, v_assets[15], 'Gateway Dist Loan',    13000000, 'fixed',   0.0500, NULL,   '2028-08-01', 'amortizing')
-  ON CONFLICT DO NOTHING;
+  IF v_env_id IS NULL THEN
+    RAISE NOTICE 'No env binding found, skipping scenario v2 debt seed';
+  ELSE
+    INSERT INTO re_loan (env_id, business_id, fund_id, investment_id, asset_id, loan_name, upb, rate_type, rate, spread, maturity, amort_type)
+    VALUES
+      (v_env_id, v_biz_id, v_fund_va, v_deal_va, v_assets[1],  'Parkview Sr Loan',    18200000, 'floating', 0.0525, 0.0225, '2028-06-15', 'interest_only'),
+      (v_env_id, v_biz_id, v_fund_va, v_deal_va, v_assets[2],  'Lakeshore Sr Loan',   24500000, 'floating', 0.0500, 0.0200, '2028-09-01', 'interest_only'),
+      (v_env_id, v_biz_id, v_fund_va, v_deal_va, v_assets[3],  'Metro Logistics Loan', 14300000, 'fixed',   0.0475, NULL,   '2029-11-01', 'amortizing'),
+      (v_env_id, v_biz_id, v_fund_va, v_deal_va, v_assets[4],  'Riverside Loan',       11700000, 'fixed',   0.0450, NULL,   '2029-01-15', 'amortizing'),
+      (v_env_id, v_biz_id, v_fund_va, v_deal_va, v_assets[5],  'Sunset Ridge Loan',    29400000, 'floating', 0.0550, 0.0250, '2029-03-01', 'interest_only'),
+      (v_env_id, v_biz_id, v_fund_cp, v_deal_cp, v_assets[6],  'Beacon Tower Loan',    42250000, 'fixed',   0.0425, NULL,   '2029-03-15', 'amortizing'),
+      (v_env_id, v_biz_id, v_fund_cp, v_deal_cp, v_assets[7],  'Harbor Square Loan',   24700000, 'fixed',   0.0400, NULL,   '2028-06-01', 'amortizing'),
+      (v_env_id, v_biz_id, v_fund_cp, v_deal_cp, v_assets[8],  'Midtown Crossing Loan',38500000, 'floating', 0.0475, 0.0200, '2029-09-01', 'interest_only'),
+      (v_env_id, v_biz_id, v_fund_cp, v_deal_cp, v_assets[9],  'Westgate Loan',        31200000, 'fixed',   0.0450, NULL,   '2030-01-15', 'amortizing'),
+      (v_env_id, v_biz_id, v_fund_cp, v_deal_cp, v_assets[10], 'Promenade Loan',       20800000, 'fixed',   0.0425, NULL,   '2028-04-01', 'amortizing'),
+      (v_env_id, v_biz_id, v_fund_cp, v_deal_cp, v_assets[11], 'Skyline Loan',         50400000, 'floating', 0.0500, 0.0225, '2030-07-01', 'interest_only'),
+      (v_env_id, v_biz_id, v_fund_op, v_deal_op, v_assets[12], 'Heritage Sr Loan',     16250000, 'floating', 0.0600, 0.0300, '2027-02-01', 'interest_only'),
+      (v_env_id, v_biz_id, v_fund_op, v_deal_op, v_assets[13], 'Oakwood Loan',         11700000, 'floating', 0.0625, 0.0325, '2027-04-01', 'interest_only'),
+      (v_env_id, v_biz_id, v_fund_op, v_deal_op, v_assets[14], 'Commerce Park Loan',    9750000, 'fixed',   0.0550, NULL,   '2028-06-01', 'amortizing'),
+      (v_env_id, v_biz_id, v_fund_op, v_deal_op, v_assets[15], 'Gateway Dist Loan',    13000000, 'fixed',   0.0500, NULL,   '2028-08-01', 'amortizing')
+    ON CONFLICT DO NOTHING;
+  END IF;
 END;
 
 -- ── 6. Revenue / Expense / Amort Schedules (12 quarters: Q1 2024 – Q4 2026) ─
@@ -192,86 +198,92 @@ END LOOP;
 -- ── 7. Model + Scenarios ───────────────────────────────────────────────────
 
 -- Find env_id
-DECLARE v_env text;
+DECLARE v_env uuid;
 BEGIN
-  SELECT env_id INTO v_env FROM env_business_bindings WHERE business_id = v_biz_id LIMIT 1;
-  IF v_env IS NULL THEN v_env := 'default'; END IF;
+  SELECT env_id INTO v_env
+  FROM app.env_business_bindings
+  WHERE business_id = v_biz_id
+  LIMIT 1;
 
-  INSERT INTO re_model (model_id, env_id, name, description, status, created_by)
-  VALUES ('d0000001-0000-0000-0000-000000000001', v_env,
-          'Cross-Fund Scenario Analysis', 'Full portfolio 3-fund scenario model', 'draft', 'seed')
-  ON CONFLICT DO NOTHING;
+  IF v_env IS NULL THEN
+    RAISE NOTICE 'No env binding found, skipping scenario v2 model seed';
+  ELSE
+    INSERT INTO re_model (model_id, env_id, name, description, status, created_by)
+    VALUES ('d0000001-0000-0000-0000-000000000001', v_env,
+            'Cross-Fund Scenario Analysis', 'Full portfolio 3-fund scenario model', 'draft', 'seed')
+    ON CONFLICT DO NOTHING;
 
-  v_model := 'd0000001-0000-0000-0000-000000000001';
+    v_model := 'd0000001-0000-0000-0000-000000000001';
 
-  -- Base scenario
-  INSERT INTO re_model_scenarios (id, model_id, name, description, is_base)
-  VALUES ('e0000001-0000-0000-0000-000000000001', v_model, 'Base Case', 'Current assumptions, no changes', true)
-  ON CONFLICT DO NOTHING;
-  v_base_sc := 'e0000001-0000-0000-0000-000000000001';
+    -- Base scenario
+    INSERT INTO re_model_scenarios (id, model_id, name, description, is_base)
+    VALUES ('e0000001-0000-0000-0000-000000000001', v_model, 'Base Case', 'Current assumptions, no changes', true)
+    ON CONFLICT DO NOTHING;
+    v_base_sc := 'e0000001-0000-0000-0000-000000000001';
 
-  -- Upside scenario
-  INSERT INTO re_model_scenarios (id, model_id, name, description, is_base)
-  VALUES ('e0000001-0000-0000-0000-000000000002', v_model, 'Upside', 'Strong rent growth, low vacancy', false)
-  ON CONFLICT DO NOTHING;
-  v_up_sc := 'e0000001-0000-0000-0000-000000000002';
+    -- Upside scenario
+    INSERT INTO re_model_scenarios (id, model_id, name, description, is_base)
+    VALUES ('e0000001-0000-0000-0000-000000000002', v_model, 'Upside', 'Strong rent growth, low vacancy', false)
+    ON CONFLICT DO NOTHING;
+    v_up_sc := 'e0000001-0000-0000-0000-000000000002';
 
-  -- Downside scenario
-  INSERT INTO re_model_scenarios (id, model_id, name, description, is_base)
-  VALUES ('e0000001-0000-0000-0000-000000000003', v_model, 'Downside', 'Rising rates, higher vacancy', false)
-  ON CONFLICT DO NOTHING;
-  v_dn_sc := 'e0000001-0000-0000-0000-000000000003';
+    -- Downside scenario
+    INSERT INTO re_model_scenarios (id, model_id, name, description, is_base)
+    VALUES ('e0000001-0000-0000-0000-000000000003', v_model, 'Downside', 'Rising rates, higher vacancy', false)
+    ON CONFLICT DO NOTHING;
+    v_dn_sc := 'e0000001-0000-0000-0000-000000000003';
 
-  -- Add all 15 assets to all 3 scenarios
-  FOR v_i IN 1..15 LOOP
-    v_a := v_assets[v_i];
+    -- Add all 15 assets to all 3 scenarios
+    FOR v_i IN 1..15 LOOP
+      v_a := v_assets[v_i];
 
-    DECLARE v_fund uuid;
-    BEGIN
-      v_fund := CASE
-        WHEN v_i <= 5  THEN v_fund_va
-        WHEN v_i <= 11 THEN v_fund_cp
-        ELSE v_fund_op
+      DECLARE v_fund uuid;
+      BEGIN
+        v_fund := CASE
+          WHEN v_i <= 5  THEN v_fund_va
+          WHEN v_i <= 11 THEN v_fund_cp
+          ELSE v_fund_op
+        END;
+
+        INSERT INTO re_model_scenario_assets (scenario_id, asset_id, source_fund_id)
+        VALUES (v_base_sc, v_a, v_fund)
+        ON CONFLICT DO NOTHING;
+
+        INSERT INTO re_model_scenario_assets (scenario_id, asset_id, source_fund_id)
+        VALUES (v_up_sc, v_a, v_fund)
+        ON CONFLICT DO NOTHING;
+
+        INSERT INTO re_model_scenario_assets (scenario_id, asset_id, source_fund_id)
+        VALUES (v_dn_sc, v_a, v_fund)
+        ON CONFLICT DO NOTHING;
       END;
+    END LOOP;
 
-      INSERT INTO re_model_scenario_assets (scenario_id, asset_id, source_fund_id)
-      VALUES (v_base_sc, v_a, v_fund)
-      ON CONFLICT DO NOTHING;
+    -- Upside overrides: higher rent growth, lower vacancy, lower exit cap
+    FOR v_i IN 1..15 LOOP
+      v_a := v_assets[v_i];
+      INSERT INTO re_scenario_overrides (scenario_id, scope_type, scope_id, key, value_json)
+      VALUES
+        (v_up_sc, 'asset', v_a, 'rent_growth_pct', '4.5'),
+        (v_up_sc, 'asset', v_a, 'vacancy_pct', '3.0'),
+        (v_up_sc, 'asset', v_a, 'exit_cap_rate_pct', '5.0'),
+        (v_up_sc, 'asset', v_a, 'expense_delta_pct', '-2.0')
+      ON CONFLICT (scenario_id, scope_type, scope_id, key) DO NOTHING;
+    END LOOP;
 
-      INSERT INTO re_model_scenario_assets (scenario_id, asset_id, source_fund_id)
-      VALUES (v_up_sc, v_a, v_fund)
-      ON CONFLICT DO NOTHING;
-
-      INSERT INTO re_model_scenario_assets (scenario_id, asset_id, source_fund_id)
-      VALUES (v_dn_sc, v_a, v_fund)
-      ON CONFLICT DO NOTHING;
-    END;
-  END LOOP;
-
-  -- Upside overrides: higher rent growth, lower vacancy, lower exit cap
-  FOR v_i IN 1..15 LOOP
-    v_a := v_assets[v_i];
-    INSERT INTO re_scenario_overrides (scenario_id, scope_type, scope_id, key, value_json)
-    VALUES
-      (v_up_sc, 'asset', v_a, 'rent_growth_pct', '4.5'),
-      (v_up_sc, 'asset', v_a, 'vacancy_pct', '3.0'),
-      (v_up_sc, 'asset', v_a, 'exit_cap_rate_pct', '5.0'),
-      (v_up_sc, 'asset', v_a, 'expense_delta_pct', '-2.0')
-    ON CONFLICT (scenario_id, scope_type, scope_id, key) DO NOTHING;
-  END LOOP;
-
-  -- Downside overrides: lower rent growth, higher vacancy, higher exit cap, rate stress
-  FOR v_i IN 1..15 LOOP
-    v_a := v_assets[v_i];
-    INSERT INTO re_scenario_overrides (scenario_id, scope_type, scope_id, key, value_json)
-    VALUES
-      (v_dn_sc, 'asset', v_a, 'rent_growth_pct', '0.5'),
-      (v_dn_sc, 'asset', v_a, 'vacancy_pct', '10.0'),
-      (v_dn_sc, 'asset', v_a, 'exit_cap_rate_pct', '7.0'),
-      (v_dn_sc, 'asset', v_a, 'expense_delta_pct', '5.0'),
-      (v_dn_sc, 'asset', v_a, 'interest_rate_pct', '7.0')
-    ON CONFLICT (scenario_id, scope_type, scope_id, key) DO NOTHING;
-  END LOOP;
+    -- Downside overrides: lower rent growth, higher vacancy, higher exit cap, rate stress
+    FOR v_i IN 1..15 LOOP
+      v_a := v_assets[v_i];
+      INSERT INTO re_scenario_overrides (scenario_id, scope_type, scope_id, key, value_json)
+      VALUES
+        (v_dn_sc, 'asset', v_a, 'rent_growth_pct', '0.5'),
+        (v_dn_sc, 'asset', v_a, 'vacancy_pct', '10.0'),
+        (v_dn_sc, 'asset', v_a, 'exit_cap_rate_pct', '7.0'),
+        (v_dn_sc, 'asset', v_a, 'expense_delta_pct', '5.0'),
+        (v_dn_sc, 'asset', v_a, 'interest_rate_pct', '7.0')
+      ON CONFLICT (scenario_id, scope_type, scope_id, key) DO NOTHING;
+    END LOOP;
+  END IF;
 END;
 
 RAISE NOTICE 'Scenario v2 seed complete: 3 funds, 15 assets, 3 scenarios';

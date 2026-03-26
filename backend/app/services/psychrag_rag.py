@@ -126,13 +126,13 @@ def retrieve_clinical_context(query: str, *, top_k: int | None = None) -> list[d
             cur.execute(
                 """
                 SELECT c.id, c.document_id, d.title, c.chapter, c.section, c.page_start, c.page_end,
-                       c.content, 1 - (c.embedding <=> %s::vector) AS score
+                       c.content, 1 - ((c.embedding::halfvec(3072)) <=> %s::halfvec(3072)) AS score
                 FROM psychrag_kb_chunks c
                 JOIN psychrag_kb_documents d ON d.id = c.document_id
                 WHERE d.approved_for_rag = true
                   AND d.source_license IN ('owned', 'licensed', 'public_domain', 'rights_cleared')
                   AND c.embedding IS NOT NULL
-                ORDER BY c.embedding <=> %s::vector
+                ORDER BY (c.embedding::halfvec(3072)) <=> %s::halfvec(3072)
                 LIMIT %s
                 """,
                 (vector, vector, limit),

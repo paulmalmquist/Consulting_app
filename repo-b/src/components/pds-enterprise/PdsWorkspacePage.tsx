@@ -23,6 +23,7 @@ import { PdsInterventionQueue } from "@/components/pds-enterprise/PdsInterventio
 import { PdsSignalsStrip } from "@/components/pds-enterprise/PdsSignalsStrip";
 import { PdsMarketLeaderboard } from "@/components/pds-enterprise/PdsMarketLeaderboard";
 import { PdsVarianceChart } from "@/components/pds-enterprise/PdsVarianceChart";
+import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 
 export type PdsWorkspaceSection =
   | "performance"
@@ -145,6 +146,38 @@ export function PdsWorkspacePage({
       cancelled = true;
     };
   }, [businessId, envId, horizon, lens, rolePreset, reportPacketType]);
+
+  useEffect(() => {
+    publishAssistantPageContext({
+      route: envId ? `/lab/env/${envId}/pds` : null,
+      surface: "pds_workspace",
+      active_module: "pds",
+      page_entity_type: "environment",
+      page_entity_id: envId,
+      page_entity_name: title,
+      selected_entities: [],
+      visible_data: {
+        accounts: (commandCenter?.performance_table.rows || []).map((row) => ({
+          entity_type: lens === "account" ? "account" : "market",
+          entity_id: row.entity_id,
+          name: row.entity_label,
+          metadata: {
+            health_status: row.health_status,
+            owner_label: row.owner_label,
+            fee_variance: row.fee_variance,
+          },
+        })),
+        metrics: {
+          lens,
+          horizon,
+          performance_rows: commandCenter?.performance_table.rows.length || 0,
+          risk_items: commandCenter?.delivery_risk.length || 0,
+        },
+        notes: [description || "PDS enterprise command center"],
+      },
+    });
+    return () => resetAssistantPageContext();
+  }, [commandCenter, description, envId, horizon, lens, title]);
 
   if (loading && !commandCenter) {
     return <div className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-4 text-sm text-bm-muted2">Loading PDS enterprise command center...</div>;

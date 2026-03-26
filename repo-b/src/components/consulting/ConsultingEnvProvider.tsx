@@ -10,6 +10,7 @@ import {
 } from "react";
 import { apiFetch } from "@/lib/api";
 import { useBusinessContext } from "@/lib/business-context";
+import { publishAssistantEnvironmentContext } from "@/lib/commandbar/appContextBridge";
 
 type ConsultingEnvironment = {
   env_id: string;
@@ -107,6 +108,24 @@ export function ConsultingEnvProvider({
   useEffect(() => {
     void resolve();
   }, [resolve]);
+
+  useEffect(() => {
+    publishAssistantEnvironmentContext({
+      active_environment_id: envId,
+      active_environment_name: environment?.client_name || null,
+      active_business_id: businessId,
+      active_business_name: null,
+      schema_name: environment?.schema_name || null,
+      industry: environment?.industry || environment?.industry_type || null,
+    });
+  }, [
+    businessId,
+    envId,
+    environment?.client_name,
+    environment?.industry,
+    environment?.industry_type,
+    environment?.schema_name,
+  ]);
 
   const retry = useCallback(async () => {
     await resolve();

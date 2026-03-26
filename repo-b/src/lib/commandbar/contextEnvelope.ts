@@ -53,13 +53,26 @@ function routeDescriptor(route: string | null): RouteDescriptor {
     { re: /^\/lab\/env\/[^/]+\/re\/assets\/([^/]+)/, surface: "asset_detail", activeModule: "re", pageEntityType: "asset" },
     { re: /^\/lab\/env\/[^/]+\/re\/assets$/, surface: "asset_portfolio", activeModule: "re", pageEntityType: "environment" },
     { re: /^\/lab\/env\/[^/]+\/re\/investments\/([^/]+)/, surface: "investment_detail", activeModule: "re", pageEntityType: "investment" },
+    { re: /^\/lab\/env\/[^/]+\/re\/investors\/([^/]+)/, surface: "investor_detail", activeModule: "re", pageEntityType: "investor" },
+    { re: /^\/lab\/env\/[^/]+\/re\/investors$/, surface: "investor_list", activeModule: "re", pageEntityType: "environment" },
+    { re: /^\/lab\/env\/[^/]+\/re\/capital-calls\/([^/]+)/, surface: "capital_call_detail", activeModule: "re", pageEntityType: "capital_call" },
+    { re: /^\/lab\/env\/[^/]+\/re\/capital-calls$/, surface: "capital_call_operations", activeModule: "re", pageEntityType: "environment" },
+    { re: /^\/lab\/env\/[^/]+\/re\/distributions\/([^/]+)/, surface: "distribution_detail", activeModule: "re", pageEntityType: "distribution" },
+    { re: /^\/lab\/env\/[^/]+\/re\/distributions$/, surface: "distribution_operations", activeModule: "re", pageEntityType: "environment" },
     { re: /^\/lab\/env\/[^/]+\/re\/deals\/([^/]+)/, surface: "investment_detail", activeModule: "re", pageEntityType: "investment" },
     { re: /^\/lab\/env\/[^/]+\/re\/deals$/, surface: "investment_portfolio", activeModule: "re", pageEntityType: "environment" },
     { re: /^\/lab\/env\/[^/]+\/re\/models\/([^/]+)/, surface: "model_detail", activeModule: "re", pageEntityType: "model" },
     { re: /^\/lab\/env\/[^/]+\/re\/models$/, surface: "models_workspace", activeModule: "re", pageEntityType: "environment" },
+    { re: /^\/lab\/env\/[^/]+\/re\/development\/([^/]+)/, surface: "development_project_detail", activeModule: "re", pageEntityType: "development_project" },
+    { re: /^\/lab\/env\/[^/]+\/re\/development$/, surface: "development_workspace", activeModule: "re", pageEntityType: "environment" },
     { re: /^\/lab\/env\/[^/]+\/re\/pipeline\/([^/]+)/, surface: "pipeline_detail", activeModule: "re", pageEntityType: "pipeline_deal" },
     { re: /^\/lab\/env\/[^/]+\/re\/pipeline$/, surface: "pipeline_workspace", activeModule: "re", pageEntityType: "environment" },
+    { re: /^\/lab\/env\/[^/]+\/copilot(?:\/|$)/, surface: "winston_workspace", activeModule: "copilot", pageEntityType: "environment" },
+    { re: /^\/lab\/env\/[^/]+\/pds(?:\/|$)/, surface: "pds_workspace", activeModule: "pds", pageEntityType: "environment" },
+    { re: /^\/lab\/env\/[^/]+\/consulting(?:\/|$)/, surface: "consulting_workspace", activeModule: "consulting", pageEntityType: "environment" },
+    { re: /^\/lab\/env\/[^/]+\/credit(?:\/|$)/, surface: "credit_workspace", activeModule: "credit", pageEntityType: "environment" },
     { re: /^\/lab\/env\/[^/]+\/re/, surface: "re_workspace", activeModule: "re", pageEntityType: "environment" },
+    { re: /^\/app\/winston(?:\/|$)/, surface: "winston_workspace", activeModule: "bos", pageEntityType: "business" },
     { re: /^\/lab\/env\/([^/]+)/, surface: "environment_workspace", activeModule: "lab", pageEntityType: "environment" },
   ];
 
@@ -88,6 +101,13 @@ function assistantMode(surface: string | null, pageEntityType: AssistantEntityTy
   if (surface?.includes("asset") || pageEntityType === "asset") return "asset_copilot";
   if (surface?.includes("investment") || pageEntityType === "investment") return "investment_copilot";
   if (surface?.includes("model") || pageEntityType === "model") return "model_copilot";
+  if (surface?.includes("capital_call")) return "capital_call_copilot";
+  if (surface?.includes("distribution")) return "distribution_copilot";
+  if (surface?.includes("development")) return "development_copilot";
+  if (surface?.includes("consulting")) return "consulting_copilot";
+  if (surface?.includes("pds")) return "pds_copilot";
+  if (surface?.includes("credit")) return "credit_copilot";
+  if (surface?.includes("winston")) return "winston_companion";
   if (surface?.includes("pipeline")) return "pipeline_copilot";
   return "environment_copilot";
 }

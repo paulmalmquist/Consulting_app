@@ -42,6 +42,7 @@ CREATE INDEX IF NOT EXISTS idx_wpr_status ON cre_work_package_run (status) WHERE
 -- RLS on runs (env-scoped), packages are shared catalog
 ALTER TABLE cre_work_package_run ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS cre_work_package_run_tenant_isolation ON cre_work_package_run;
 CREATE POLICY cre_work_package_run_tenant_isolation
   ON cre_work_package_run
   USING (

@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
 import { useTrainingWorkspace } from "@/components/consulting/local-training/useTrainingWorkspace";
 import { EmptyState, TonePill, fmtCurrency, fmtDate, fmtTime } from "@/components/consulting/local-training/ui";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardTitle } from "@/components/ui/Card";
+import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 
 function Metric({ label, value, sublabel }: { label: string; value: string | number; sublabel?: string }) {
   return (
@@ -37,6 +38,45 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
     ],
     [params.envId],
   );
+
+  useEffect(() => {
+    publishAssistantPageContext({
+      route: `/lab/env/${params.envId}/consulting`,
+      surface: "consulting_workspace",
+      active_module: "consulting",
+      page_entity_type: "environment",
+      page_entity_id: params.envId,
+      page_entity_name: workspace?.summary.next_event?.event_name || "Consulting Command Center",
+      selected_entities: [],
+      visible_data: {
+        contacts: (workspace?.contacts || []).slice(0, 12).map((contact) => ({
+          entity_type: "contact",
+          entity_id: contact.crm_contact_id,
+          name: contact.full_name,
+          metadata: {
+            status: contact.status,
+            city: contact.city,
+          },
+        })),
+        events: (workspace?.events || []).slice(0, 12).map((event) => ({
+          entity_type: "event",
+          entity_id: event.id,
+          name: event.event_name,
+          metadata: {
+            event_status: event.event_status,
+            venue_name: event.venue_name,
+          },
+        })),
+        metrics: {
+          contact_count: workspace?.contacts.length || 0,
+          event_count: workspace?.events.length || 0,
+          followups_due: workspace?.summary.followups_due || 0,
+        },
+        notes: ["Consulting command center for local AI classes"],
+      },
+    });
+    return () => resetAssistantPageContext();
+  }, [params.envId, workspace]);
 
   if (contextLoading || loading) {
     return <div className="h-64 rounded-2xl border border-bm-border/60 bg-bm-surface/20 animate-pulse" />;

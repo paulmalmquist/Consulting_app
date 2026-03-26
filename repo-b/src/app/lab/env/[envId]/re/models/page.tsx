@@ -12,6 +12,7 @@ import {
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import { useRepeBasePath } from "@/lib/repe-context";
+import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 import { Archive, Lock, FileEdit, Copy, ExternalLink, PlusCircle, LayoutDashboard } from "lucide-react";
 import { CircularCreateButton } from "@/components/ui/CircularCreateButton";
 import { Dialog } from "@/components/ui/Dialog";
@@ -375,6 +376,48 @@ export default function ReModelsPage() {
       cancelled = true;
     };
   }, [businessId, envId]);
+
+  useEffect(() => {
+    publishAssistantPageContext({
+      route: envId ? `/lab/env/${envId}/re/models` : `${basePath}/models`,
+      surface: "models_workspace",
+      active_module: "re",
+      page_entity_type: "environment",
+      page_entity_id: envId || null,
+      page_entity_name: null,
+      selected_entities: [],
+      visible_data: {
+        models: models.map((model) => ({
+          entity_type: "model",
+          entity_id: model.model_id,
+          name: model.name,
+          parent_entity_type: model.primary_fund_id ? "fund" : null,
+          parent_entity_id: model.primary_fund_id || null,
+          metadata: {
+            status: model.status,
+            fund_name: model.fund_name,
+            model_type: model.model_type,
+            strategy_type: model.strategy_type,
+          },
+        })),
+        funds: funds.map((fund) => ({
+          entity_type: "fund",
+          entity_id: fund.fund_id,
+          name: fund.name,
+          metadata: {
+            status: fund.status,
+            strategy: fund.strategy,
+          },
+        })),
+        metrics: {
+          model_count: models.length,
+          fund_count: funds.length,
+        },
+        notes: ["Cross-fund model workspace"],
+      },
+    });
+    return () => resetAssistantPageContext();
+  }, [basePath, envId, funds, models]);
 
   const handleCloneModel = async (modelId: string) => {
     setCloningId(modelId);

@@ -5,7 +5,7 @@ test.describe("Winston copilot workspace", () => {
     test.skip(!process.env.PLAYWRIGHT_ENV_ID, "Set PLAYWRIGHT_ENV_ID to run the copilot workspace locally.");
 
     await page.goto(`/lab/env/${process.env.PLAYWRIGHT_ENV_ID}/copilot`);
-    await expect(page.getByText("Winston Copilot")).toBeVisible();
-    await expect(page.getByPlaceholder("Ask Winston to analyze, retrieve, or act...")).toBeVisible();
+    await expect(page.getByText("Winston workspace")).toBeVisible();
+    await expect(page.getByTestId("global-commandbar-input")).toBeVisible();
   });
 });

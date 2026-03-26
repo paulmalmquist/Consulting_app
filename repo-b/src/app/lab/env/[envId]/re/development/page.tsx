@@ -6,6 +6,7 @@ import { RepeIndexScaffold } from "@/components/repe/RepeIndexScaffold";
 import { DevKpiStrip } from "@/components/repe/development/DevKpiStrip";
 import { DevProjectTable } from "@/components/repe/development/DevProjectTable";
 import { DevSpendChart } from "@/components/repe/development/DevSpendChart";
+import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 import {
   getDevPortfolio,
   type DevPortfolioResponse,
@@ -30,6 +31,37 @@ export default function DevelopmentPortfolioPage() {
       })
       .finally(() => setLoading(false));
   }, [envId, businessId]);
+
+  useEffect(() => {
+    publishAssistantPageContext({
+      route: envId ? `/lab/env/${envId}/re/development` : null,
+      surface: "development_workspace",
+      active_module: "re",
+      page_entity_type: "environment",
+      page_entity_id: envId || null,
+      page_entity_name: null,
+      selected_entities: [],
+      visible_data: {
+        development_projects: (data?.projects || []).map((project) => ({
+          entity_type: "development_project",
+          entity_id: project.link_id,
+          name: project.project_name,
+          metadata: {
+            asset_name: project.asset_name,
+            status: project.status,
+            stage: project.stage,
+            health: project.health,
+          },
+        })),
+        metrics: {
+          project_count: data?.projects.length || 0,
+          spend_points: data?.spend_trend.length || 0,
+        },
+        notes: ["Development portfolio workspace"],
+      },
+    });
+    return () => resetAssistantPageContext();
+  }, [data, envId]);
 
   const basePath = `/lab/env/${envId}/re/development`;
 

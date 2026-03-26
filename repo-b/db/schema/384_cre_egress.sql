@@ -29,10 +29,12 @@ CREATE INDEX IF NOT EXISTS idx_egress_config_env ON cre_egress_config (env_id, b
 CREATE INDEX IF NOT EXISTS idx_egress_run_config ON cre_egress_run (config_id, started_at DESC);
 
 ALTER TABLE cre_egress_config ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS cre_egress_config_tenant_isolation ON cre_egress_config;
 CREATE POLICY cre_egress_config_tenant_isolation ON cre_egress_config
   USING (business_id IN (SELECT b.business_id FROM business b WHERE b.tenant_id = current_setting('app.tenant_id', true)::uuid));
 
 ALTER TABLE cre_egress_run ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS cre_egress_run_tenant_isolation ON cre_egress_run;
 CREATE POLICY cre_egress_run_tenant_isolation ON cre_egress_run
   USING (config_id IN (SELECT c.config_id FROM cre_egress_config c
     WHERE c.business_id IN (SELECT b.business_id FROM business b WHERE b.tenant_id = current_setting('app.tenant_id', true)::uuid)));

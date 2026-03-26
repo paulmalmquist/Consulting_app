@@ -150,10 +150,10 @@ FOR i IN 0..23 LOOP
     ELSE             6000000  + (random() * 3000000)::numeric(12,2)
   END;
 
-  INSERT INTO re_capital_ledger_entry (fund_id, partner_id, entry_type, amount, effective_date, quarter, memo, source)
+  INSERT INTO re_capital_ledger_entry (fund_id, partner_id, entry_type, amount, amount_base, effective_date, quarter, memo, source)
   VALUES
-    (v_fund_va, v_partner_gp, 'contribution', v_contrib_amt, v_month, v_quarter, 'Capital call - VA Fund', 'generated'),
-    (v_fund_va, v_partner_gp, 'distribution', v_dist_amt, v_month + interval '15 days', v_quarter, 'Operating distribution - VA Fund', 'generated')
+    (v_fund_va, v_partner_gp, 'contribution', v_contrib_amt, v_contrib_amt, v_month, v_quarter, 'Capital call - VA Fund', 'generated'),
+    (v_fund_va, v_partner_gp, 'distribution', v_dist_amt, v_dist_amt, v_month + interval '15 days', v_quarter, 'Operating distribution - VA Fund', 'generated')
   ON CONFLICT DO NOTHING;
 
   -- Meridian Core-Plus Income: larger contributions, steady distributions (income fund)
@@ -170,10 +170,10 @@ FOR i IN 0..23 LOOP
     ELSE             7000000  + (random() * 3000000)::numeric(12,2)
   END;
 
-  INSERT INTO re_capital_ledger_entry (fund_id, partner_id, entry_type, amount, effective_date, quarter, memo, source)
+  INSERT INTO re_capital_ledger_entry (fund_id, partner_id, entry_type, amount, amount_base, effective_date, quarter, memo, source)
   VALUES
-    (v_fund_cp, v_partner_gp, 'contribution', v_contrib_amt, v_month + interval '2 days', v_quarter, 'Capital call - CP Fund', 'generated'),
-    (v_fund_cp, v_partner_gp, 'distribution', v_dist_amt, v_month + interval '18 days', v_quarter, 'Income distribution - CP Fund', 'generated')
+    (v_fund_cp, v_partner_gp, 'contribution', v_contrib_amt, v_contrib_amt, v_month + interval '2 days', v_quarter, 'Capital call - CP Fund', 'generated'),
+    (v_fund_cp, v_partner_gp, 'distribution', v_dist_amt, v_dist_amt, v_month + interval '18 days', v_quarter, 'Income distribution - CP Fund', 'generated')
   ON CONFLICT DO NOTHING;
 
   -- Summit Opportunistic III: started later, high contribution ramp, minimal early distributions
@@ -189,10 +189,10 @@ FOR i IN 0..23 LOOP
       ELSE             3000000  + (random() * 2000000)::numeric(12,2)
     END;
 
-    INSERT INTO re_capital_ledger_entry (fund_id, partner_id, entry_type, amount, effective_date, quarter, memo, source)
+    INSERT INTO re_capital_ledger_entry (fund_id, partner_id, entry_type, amount, amount_base, effective_date, quarter, memo, source)
     VALUES
-      (v_fund_op, v_partner_gp, 'contribution', v_contrib_amt, v_month + interval '5 days', v_quarter, 'Capital call - OP Fund', 'generated'),
-      (v_fund_op, v_partner_gp, 'distribution', v_dist_amt, v_month + interval '20 days', v_quarter, 'Distribution - OP Fund', 'generated')
+      (v_fund_op, v_partner_gp, 'contribution', v_contrib_amt, v_contrib_amt, v_month + interval '5 days', v_quarter, 'Capital call - OP Fund', 'generated'),
+      (v_fund_op, v_partner_gp, 'distribution', v_dist_amt, v_dist_amt, v_month + interval '20 days', v_quarter, 'Distribution - OP Fund', 'generated')
     ON CONFLICT DO NOTHING;
   END IF;
 

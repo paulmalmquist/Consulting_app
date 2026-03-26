@@ -48,6 +48,7 @@ const SUPPRESSED_ROUTE_PATTERNS = [
 const MOBILE_NAV_ROUTE_PATTERNS = [
   /^\/lab\/env\/[^/]+\/re(?:\/|$)/,
   /^\/lab\/env\/[^/]+\/ecc(?:\/|$)/,
+  /^\/lab\/env\/[^/]+\/consulting(?:\/|$)/,
 ];
 
 function titleCase(value: string) {

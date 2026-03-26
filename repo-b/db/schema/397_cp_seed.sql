@@ -214,7 +214,7 @@ BEGIN
 
   -- Meeting 3: Safety for project A
   v_meeting_id := gen_random_uuid();
-  INSERT INTO cp_meeting (meeting_id, env_id, business_id, project_id, meeting_type, meeting_date, location, called_by, minutes, status, created_by)
+  INSERT INTO cp_meeting (meeting_id, env_id, business_id, project_id, meeting_type, meeting_date, location, called_by, attendees, minutes, status, created_by)
   VALUES (v_meeting_id, v_env, v_biz, v_proj_a, 'safety', v_today - 10, 'Site', 'Safety Officer',
     '["Safety Officer", "All Foremen"]'::jsonb,
     'Reviewed fall protection compliance on upper floors. One near-miss reported — guardrail not secured on floor 14. Corrected immediately.',
@@ -237,7 +237,7 @@ BEGIN
 
   -- Meeting 5: Preconstruction for project B
   v_meeting_id := gen_random_uuid();
-  INSERT INTO cp_meeting (meeting_id, env_id, business_id, project_id, meeting_type, meeting_date, location, called_by, minutes, status, created_by)
+  INSERT INTO cp_meeting (meeting_id, env_id, business_id, project_id, meeting_type, meeting_date, location, called_by, attendees, minutes, status, created_by)
   VALUES (v_meeting_id, v_env, v_biz, v_proj_b, 'preconstruction', v_today - 21, 'B&G Office', 'W. Chen',
     '["L. Morgan (PM)", "W. Chen (B&G)", "A. Patel (Gensler)", "MEP Subs"]'::jsonb,
     'Reviewed 90%% CD set. MEP coordination model at 60%%. Agreed on phased pour schedule for parking structure.',
@@ -248,19 +248,19 @@ BEGIN
 
   -- Meetings 6-8: additional meetings
   v_meeting_id := gen_random_uuid();
-  INSERT INTO cp_meeting (meeting_id, env_id, business_id, project_id, meeting_type, meeting_date, location, called_by, minutes, status, created_by)
+  INSERT INTO cp_meeting (meeting_id, env_id, business_id, project_id, meeting_type, meeting_date, location, called_by, attendees, minutes, status, created_by)
   VALUES (v_meeting_id, v_env, v_biz, v_proj_a, 'design_review', v_today - 28, 'HOK Studio', 'S. Park',
     '["S. Park (HOK)", "A. Thompson (PM)", "Interior Designer"]'::jsonb,
     'Reviewed lobby design intent, elevator cab finishes, and restroom fixture selections. Owner approved marble option A.',
     'completed', 'system');
 
   v_meeting_id := gen_random_uuid();
-  INSERT INTO cp_meeting (meeting_id, env_id, business_id, project_id, meeting_type, meeting_date, location, called_by, status, created_by)
+  INSERT INTO cp_meeting (meeting_id, env_id, business_id, project_id, meeting_type, meeting_date, location, called_by, attendees, status, created_by)
   VALUES (v_meeting_id, v_env, v_biz, v_proj_a, 'progress', v_today + 7, 'Site Trailer', 'A. Thompson',
     '["A. Thompson (PM)", "All Subs"]'::jsonb, 'scheduled', 'system');
 
   v_meeting_id := gen_random_uuid();
-  INSERT INTO cp_meeting (meeting_id, env_id, business_id, project_id, meeting_type, meeting_date, location, called_by, status, created_by)
+  INSERT INTO cp_meeting (meeting_id, env_id, business_id, project_id, meeting_type, meeting_date, location, called_by, attendees, status, created_by)
   VALUES (v_meeting_id, v_env, v_biz, v_proj_b, 'oac', v_today + 14, 'Owner Office', 'Cushman PM',
     '["L. Morgan (PM)", "T. Brooks (Owner)", "W. Chen (B&G)"]'::jsonb, 'scheduled', 'system');
 

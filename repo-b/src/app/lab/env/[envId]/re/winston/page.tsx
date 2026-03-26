@@ -1,7 +1,10 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import WinstonChatWorkspace from "@/components/winston/WinstonChatWorkspace";
-
-export default function WinstonPage() {
-  return <WinstonChatWorkspace />;
+export default async function WinstonAliasPage({
+  params,
+}: {
+  params: Promise<{ envId: string }>;
+}) {
+  const { envId } = await params;
+  redirect(`/lab/env/${envId}/copilot`);
 }

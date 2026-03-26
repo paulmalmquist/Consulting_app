@@ -14,17 +14,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
+  Home,
   Landmark,
   Radar,
-  Sparkles,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import WinstonAvatar from "@/components/winston-companion/WinstonAvatar";
 
 export interface MobileNavItem {
   href: string;
   label: string;
-  icon: "pipeline" | "funds" | "investors" | "reports" | "winston";
+  icon: "pipeline" | "funds" | "investors" | "reports" | "winston" | "home";
   /** Match sub-paths (prefix match) */
   matchPrefix?: boolean;
 }
@@ -36,14 +37,15 @@ const ICON_MAP: Record<MobileNavItem["icon"], LucideIcon> = {
   funds:    Landmark   as LucideIcon,
   investors: Users     as LucideIcon,
   reports:  BarChart3  as LucideIcon,
-  winston:  Sparkles   as LucideIcon,
+  winston:  Landmark   as LucideIcon,
+  home:     Home       as LucideIcon,
 };
 
 /** Default REPE nav items — pass these from the shell consumer */
 export const REPE_MOBILE_NAV_ITEMS = (base: string): MobileNavItem[] => [
   { href: `${base}/pipeline`,  label: "Pipeline",  icon: "pipeline",  matchPrefix: true },
   { href: base,                label: "Funds",     icon: "funds",     matchPrefix: false },
-  { href: `${base}/winston`,   label: "Winston",   icon: "winston",   matchPrefix: true },
+  { href: `${base.replace(/\/re$/, "")}/copilot`, label: "Winston", icon: "winston", matchPrefix: true },
   { href: `${base}/investors`, label: "Investors", icon: "investors", matchPrefix: true },
   { href: `${base}/reports`,   label: "Reports",   icon: "reports",   matchPrefix: true },
 ];
@@ -96,7 +98,7 @@ export function MobileBottomNav({ items }: { items: MobileNavItem[] }) {
                       : "bg-bm-surface border border-bm-border/20 text-bm-muted hover:text-bm-text"
                   )}
                 >
-                  <Icon size={20} />
+                  <WinstonAvatar className="h-9 w-9 border-white/65 bg-white/95 shadow-none" />
                   <span className="text-[9px] font-semibold tracking-wide">
                     {item.label}
                   </span>

@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import WinstonChatWorkspace from "@/components/winston/WinstonChatWorkspace";
+import { WinstonCompanionWorkspace } from "@/components/winston-companion/WinstonCompanionSurface";
 
 export default function WinstonPage() {
-  return <WinstonChatWorkspace />;
+  return <WinstonCompanionWorkspace />;
 }

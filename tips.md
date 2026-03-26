@@ -2035,3 +2035,12 @@ Follow the existing pattern:
 2. Handlers in `backend/app/mcp/tools/{module}_tools.py` (signature: `(ctx: McpContext, inp: Schema) -> dict`)
 3. Registration function: `register_{module}_tools()` called from `server.py._register_all_tools()`
 4. Every handler returns a dict. Write tools need `confirm: bool` field in schema.
+
+## Winston Companion (2026-03-26)
+
+- The persistent Winston companion is mounted globally from `repo-b/src/components/Providers.tsx` through `WinstonCompanionProvider` and `GlobalCommandBar` is now just a compatibility wrapper around the shared companion surface.
+- `repo-b/public/winstonpic.png` is Winston’s canonical avatar. Use `repo-b/src/components/winston-companion/WinstonAvatar.tsx` for Winston-branded launcher or nav affordances instead of generic sparkles when the UI is explicitly Winston-entry UI.
+- Canonical full-page Winston workspace is `/lab/env/[envId]/copilot`. Keep `/lab/env/[envId]/re/winston` as an alias/redirect only, and use `/app/winston` for the business/global fallback workspace.
+- The shared companion uses dual lanes: `contextual` threads stay pinned to entity/environment/business scope metadata, while `general` threads stay business/global. Conversation metadata relies on `thread_kind`, `scope_type`, `scope_id`, `scope_label`, `launch_source`, `context_summary`, and `last_route`.
+- Preserve the `winston-prefill-prompt` browser event and the `global-commandbar-toggle` test id. Existing pages dispatch that event to open the shared Winston drawer with a seeded prompt.
+- When adding or refactoring high-context pages, publish both environment and page context through `appContextBridge` so Winston can ground itself correctly. Important surfaces now covered include RE models, RE development, PDS home, and consulting home.

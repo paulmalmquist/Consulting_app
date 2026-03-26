@@ -36,6 +36,7 @@ CREATE INDEX IF NOT EXISTS idx_dim_entity_cluster ON dim_entity (cluster_id) WHE
 -- RLS: tenant isolation (follows 305_cre_intelligence_rls.sql pattern)
 ALTER TABLE cre_entity_relationship ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS cre_entity_relationship_tenant_isolation ON cre_entity_relationship;
 CREATE POLICY cre_entity_relationship_tenant_isolation
   ON cre_entity_relationship
   USING (

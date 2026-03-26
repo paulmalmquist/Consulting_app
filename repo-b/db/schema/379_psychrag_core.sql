@@ -264,7 +264,7 @@ CREATE INDEX IF NOT EXISTS psychrag_kb_chunks_doc_idx
 CREATE INDEX IF NOT EXISTS psychrag_kb_chunks_fts_idx
   ON psychrag_kb_chunks USING GIN (search_tsv);
 CREATE INDEX IF NOT EXISTS psychrag_kb_chunks_embedding_idx
-  ON psychrag_kb_chunks USING hnsw (embedding vector_cosine_ops)
+  ON psychrag_kb_chunks USING hnsw ((embedding::halfvec(3072)) halfvec_cosine_ops)
   WITH (m = 16, ef_construction = 64);
 CREATE INDEX IF NOT EXISTS psychrag_crisis_events_patient_idx
   ON psychrag_crisis_events (patient_id, created_at DESC);

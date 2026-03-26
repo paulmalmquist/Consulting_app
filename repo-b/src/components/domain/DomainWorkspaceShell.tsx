@@ -167,10 +167,8 @@ function navItems(domain: DomainSlug, base: string): NavItem[] {
   }
   if (domain === "copilot") {
     return [
-      { href: base, label: "Command Center" },
-      { href: `${base}/ask`, label: "Ask" },
-      { href: `${base}/context`, label: "Context" },
-      { href: `${base}/history`, label: "History" },
+      { href: base, label: "Winston Workspace" },
+      { href: "/app/winston", label: "Global Winston" },
     ];
   }
   if (domain === "outputs") {
