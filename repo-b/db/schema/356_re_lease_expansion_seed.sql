@@ -261,7 +261,7 @@ BEGIN
        33.23, 182765,
        0.6, 29400.00, -0.1150,
        'seed')
-    ON CONFLICT (asset_id, as_of_date) DO NOTHING;
+    ON CONFLICT (snapshot_id) DO NOTHING;
 
     -- ── Lease documents ──────────────────────────────────────────────────
     INSERT INTO re_lease_document (doc_id, lease_id, doc_type, file_name, parser_status, confidence)
@@ -414,7 +414,7 @@ BEGIN
        9.24, 997920,
        4.8, 9.50, 0.0281,
        'seed')
-    ON CONFLICT (asset_id, as_of_date) DO NOTHING;
+    ON CONFLICT (snapshot_id) DO NOTHING;
 
     -- ── Lease documents ──────────────────────────────────────────────────
     INSERT INTO re_lease_document (doc_id, lease_id, doc_type, file_name, parser_status, confidence)
@@ -599,7 +599,7 @@ BEGIN
        22.97, 1228850,
        5.2, 26.00, 0.1319,
        'seed')
-    ON CONFLICT (asset_id, as_of_date) DO NOTHING;
+    ON CONFLICT (snapshot_id) DO NOTHING;
 
     -- ── Lease documents ──────────────────────────────────────────────────
     INSERT INTO re_lease_document (doc_id, lease_id, doc_type, file_name, parser_status, confidence)
@@ -803,7 +803,7 @@ BEGIN
        141.14, 592800,
        0.5, 139.20, -0.0137,
        'seed')
-    ON CONFLICT (asset_id, as_of_date) DO NOTHING;
+    ON CONFLICT (snapshot_id) DO NOTHING;
 
     -- ── Lease documents ──────────────────────────────────────────────────
     INSERT INTO re_lease_document (doc_id, lease_id, doc_type, file_name, parser_status, confidence)
