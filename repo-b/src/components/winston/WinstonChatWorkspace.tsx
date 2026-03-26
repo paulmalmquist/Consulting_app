@@ -147,9 +147,17 @@ export default function WinstonChatWorkspace() {
     setBusy(false);
     setThinkingStatus(undefined);
     setContextPanel({ tools: [], citations: [] });
+    // Clear stale context so the next message fetches fresh data
+    setContextSnapshot(null);
     if (abortRef.current) {
       abortRef.current.abort();
       abortRef.current = null;
+    }
+    // Flush token buffer to prevent stale tokens from previous conversation
+    tokenBufferRef.current = "";
+    if (tokenFlushTimerRef.current) {
+      clearTimeout(tokenFlushTimerRef.current);
+      tokenFlushTimerRef.current = null;
     }
   }, [contextKey]);
 

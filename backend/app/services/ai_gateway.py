@@ -1343,12 +1343,25 @@ async def _run_repe_fast_path(
                 from app.sql_agent.combined_agent import generate_sql
                 from app.sql_agent.catalog import catalog_text_dynamic
                 catalog = catalog_text_dynamic(business_id=scenario.business_id)
-                generated = await generate_sql(
-                    message=intent.original_message,
-                    catalog=catalog,
-                    business_id=scenario.business_id,
-                )
-                sql = generated.get("sql", "")
+                if not catalog or len(catalog.strip()) < 50:
+                    emit_log(
+                        level="error",
+                        service="backend",
+                        action="ai.gateway.generate_sql.empty_catalog",
+                        message="catalog_text_dynamic returned empty or too-short catalog",
+                        context={"business_id": str(scenario.business_id), "catalog_len": len(catalog or "")},
+                    )
+                    err_text = "I couldn't generate a query — the data catalog for this environment is not available."
+                    yield _sse("token", {"text": err_text})
+                    collected_text_parts.append(err_text)
+                    sql = ""
+                else:
+                    generated = await generate_sql(
+                        message=intent.original_message,
+                        catalog=catalog,
+                        business_id=scenario.business_id,
+                    )
+                    sql = generated.get("sql", "")
             except RuntimeError as e:
                 # Config/key error (e.g. OPENAI_API_KEY not set) — surface to user
                 emit_log(
@@ -3694,6 +3707,16 @@ async def run_gateway_stream(
     )
     timings["tools_sent"] = len(openai_tools)
     timings["total_ms"] = elapsed_ms
+
+    if elapsed_ms > 10_000 and route.lane == "B":
+        emit_log(
+            level="warning",
+            service="backend",
+            action="ai.gateway.lane_b_slow",
+            message=f"Lane B response exceeding 10s target ({elapsed_ms}ms)",
+            context={"elapsed_ms": elapsed_ms, "tokens": total_completion_tokens,
+                      "tool_calls": tool_call_count, "history_msgs": len(messages)},
+        )
 
     # Track RAG as data source
     if rag_chunks:

@@ -311,7 +311,8 @@ def classify_request(
             needs_structured_retrieval=has_financial_metrics,
         )
 
-    # Simple list with visible data already present → Lane A
+    # Simple list with visible data → Lane B (tool-backed) so Winston pulls
+    # enriched live data instead of restating what's already on screen.
     if _SIMPLE_LIST_RE.search(message) and visible_data:
         for entity_word, records in [
             ("fund", visible_data.funds),
@@ -323,16 +324,16 @@ def classify_request(
         ]:
             if records and entity_word in message.lower():
                 return RouteDecision(
-                    lane="A",
+                    lane="B",
                     skip_rag=True,
-                    skip_tools=True,
-                    max_tool_rounds=0,
-                    max_tokens=512,
-                    temperature=0.1,
+                    skip_tools=False,
+                    max_tool_rounds=2,
+                    max_tokens=1024,
+                    temperature=0.2,
                     model=OPENAI_CHAT_MODEL_FAST,
                     rag_top_k=0,
                     rag_max_tokens=0,
-                    history_max_tokens=800,
+                    history_max_tokens=1500,
                 )
 
     # Simple lookup → Lane B (2 tool rounds, no RAG)
