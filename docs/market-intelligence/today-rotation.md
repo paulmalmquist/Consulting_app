@@ -1,6 +1,6 @@
-# Market Rotation Selection — 2026-03-24
+# Market Rotation Selection — 2026-03-26
 
-**Generated:** 2026-03-24T04:00 UTC
+**Generated:** 2026-03-26T04:00 UTC
 **Scheduler:** fin-rotation-scheduler
 **Next consumer:** fin-research-sweep (4:30 AM)
 
@@ -10,10 +10,10 @@
 
 | # | Segment ID | Segment Name | Category | Tier | Overdue Ratio | Cadence (days) |
 |---|---|---|---|---|---|---|
-| 1 | `eq-semi-ai-accel` | Semiconductor / AI Accelerators | equities | 1 | 758.1× | 3 |
-| 2 | `eq-factor-momentum` | Momentum Factor Screen | equities | 1 | 758.1× | 3 |
-| 3 | `eq-energy-transition` | Energy Transition / Grid | equities | 1 | 758.1× | 3 |
-| 4 | `cr-l1-alt` | Alt-L1 Platforms | crypto | 1 | 758.1× | 3 |
+| 1 | `ma-liquidity-flows` | Global Liquidity & Capital Flows | macro | 1 | 758.8× | 3 |
+| 2 | `cr-rwa-tokenization` | Real World Assets (RWA) | crypto | 1 | 455.3× | 5 |
+| 3 | `eq-homebuilders` | Homebuilders & Housing | equities | 1 | 455.3× | 5 |
+| 4 | `cr-l2-scaling` | L2 Scaling Solutions | crypto | 1 | 455.3× | 5 |
 
 ---
 
@@ -21,41 +21,44 @@
 
 | Category | Count | Segments |
 |---|---|---|
-| equities | 3 | Semiconductor / AI Accelerators, Momentum Factor Screen, Energy Transition / Grid |
-| crypto | 1 | Alt-L1 Platforms |
+| macro | 1 | Global Liquidity & Capital Flows |
+| crypto | 2 | Real World Assets (RWA), L2 Scaling Solutions |
+| equities | 1 | Homebuilders & Housing |
 
-**Mix assessment:** Two-category spread. All four returned segments from the overdue query were selected. No macro/rates/credit/derivatives segments appeared in the top 4 — those categories may have longer cadences or were rotated more recently. fin-research-sweep should note if macro coverage is expected.
+**Mix assessment:** Three-category spread across macro, crypto, and equities. Improved category diversity vs. prior rotation (2026-03-24) which was equities-heavy. Macro coverage restored with `ma-liquidity-flows` which has the shortest cadence (3 days) and highest overdue ratio.
 
 ---
 
 ## Selection Notes
 
-- All four segments had overdue ratios of ~758× as of 2026-03-24. Their `last_rotated_at` was previously stamped on 2026-03-22 (the prior run), and with a 3-day cadence they were due today.
+- All four segments had never been rotated prior to this run (`last_rotated_at` defaulted to 2020-01-01), producing extreme overdue ratios.
 - All are **Tier 1**, which per task spec should always be included when overdue.
-- `rotation_priority_score` was 0.00 for all four — tiebreaking fell to query order (already sorted by overdue ratio DESC).
+- `rotation_priority_score` was 0.00 for all four — tiebreaking fell to query order (overdue ratio DESC).
+- `ma-liquidity-flows` ranks highest due to its 3-day cadence vs. 5-day for the other three.
 - `last_rotated_at` and `updated_at` have been updated to `now()` for all four segment IDs.
 
 ---
 
 ## Heat Triggers
 
-No external heat triggers applied. Selection driven by overdue ratio. Future runs may incorporate:
+No external heat triggers applied. Selection driven purely by overdue ratio. Future runs may incorporate:
 - VIX spike flags (>25) to force macro/credit segments into the rotation
 - BTC 7-day drawdown >15% to elevate crypto tier-1 segments
-- Earnings calendar density to prioritize relevant equity sub-sectors
+- Housing starts or mortgage rate moves to prioritize homebuilder coverage
+- RWA TVL surges to elevate tokenization segments
 
 ---
 
 ## Segment Research Directives for fin-research-sweep
 
-### 1. Semiconductor / AI Accelerators (`eq-semi-ai-accel`)
-Focus: NVDA, AMD, AVGO, MRVL, ASML supply chain dynamics; AI training vs. inference compute demand split; HBM memory constraints; China export control tail risk; datacenter CapEx trajectory from hyperscalers.
+### 1. Global Liquidity & Capital Flows (`ma-liquidity-flows`)
+Focus: Fed balance sheet trajectory and QT pace; global central bank reserve shifts (BOJ, PBOC, ECB); TGA drawdowns and refills; reverse repo facility usage trends; cross-border capital flow data (IIF, BIS); dollar liquidity proxy indicators; collateral availability in repo markets; implications of any Treasury refunding announcements.
 
-### 2. Momentum Factor Screen (`eq-factor-momentum`)
-Focus: Current top-decile momentum names (12-1 month return); factor crowding signals; momentum crash risk given recent rate volatility; cross-asset momentum reads (equities + FX + commodities); sector rotation within the factor.
+### 2. Real World Assets (RWA) (`cr-rwa-tokenization`)
+Focus: Tokenized Treasury and money market fund AUM (BlackRock BUIDL, Franklin Templeton, Ondo); private credit on-chain deployments (Maple, Centrifuge, Goldfinch); regulatory clarity from SEC/CFTC on tokenized securities; institutional adoption signals; bridge volumes between TradFi and DeFi rails; real estate tokenization pilots; stablecoin-RWA composability.
 
-### 3. Energy Transition / Grid (`eq-energy-transition`)
-Focus: Grid capex cycle (transformers, substations, long-lead equipment); utility-scale storage deployments; IRA credit transferability utilization; nuclear renaissance (SMR permitting pipeline); data center power demand as structural demand catalyst; policy risk around IRA modifications.
+### 3. Homebuilders & Housing (`eq-homebuilders`)
+Focus: Major homebuilder earnings and guidance (DHI, LEN, NVR, PHM, TOL); new home sales and housing starts data; mortgage rate trajectory and lock-in effect on existing supply; land bank valuations; builder incentive trends (rate buydowns, price cuts); multifamily starts vs. single-family; regional divergence (Sun Belt vs. Northeast); affordability metrics (median income-to-price ratios).
 
-### 4. Alt-L1 Platforms (`cr-l1-alt`)
-Focus: SOL, AVAX, SUI, APT relative performance vs. ETH; DEX volume market share shifts; stablecoin issuance on alt-L1s; fee revenue and token burn dynamics; validator/staker economics; developer activity trends.
+### 4. L2 Scaling Solutions (`cr-l2-scaling`)
+Focus: Arbitrum, Optimism, Base, zkSync, Starknet, Scroll comparative metrics; L2 transaction volumes and fee revenue; blob fee dynamics post-EIP-4844; sequencer decentralization progress; cross-L2 bridging volumes; app migration patterns from L1 to L2; token unlock schedules and governance activity; L2 TVL composition (native DeFi vs. bridged assets).

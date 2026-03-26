@@ -1,0 +1,212 @@
+{
+  "zone_brief": {
+    "msa_zone_id": "b1c10eb5-2d31-4d6e-99cf-53c06ca9d34c",
+    "zone_slug": "tampa-water-st",
+    "zone_name": "Tampa — Water Street/Channel District",
+    "tier": 1,
+    "asset_class_focus": "mixed",
+    "run_date": "2026-03-26",
+    "previous_brief": null,
+    "composite_acquisition_score": 6.7,
+    "scoring_weights": {
+      "transaction_activity": 0.20,
+      "supply_pipeline": 0.15,
+      "demand_drivers": 0.20,
+      "rent_occupancy": 0.20,
+      "capital_markets": 0.15,
+      "regulatory_political": 0.10
+    },
+    "signals": {
+      "transaction_activity": {
+        "score": 7,
+        "trend": "stable",
+        "findings": [
+          "Tampa Bay top CRE deals in 2025 generated $1.46B across all asset classes",
+          "Tampa multifamily is the most transacted market in FL with $2.3B total sales volume trailing 12 months",
+          "631 retail transactions in Tampa over past 12 months at average 6.3% cap rate and $301/SF",
+          "20+ deals over $50M in 2024 (up from 13 in 2023), including four $100M+ trades",
+          "Water Street-specific comps limited in public data but institutional buyer activity is strong"
+        ],
+        "sources": [
+          "https://www.tampabay.com/news/real-estate/2026/01/06/tampa-bays-top-commercial-real-estate-deals-2025-generated-146-billion/",
+          "https://bounat.com/news/tampa-multifamily-real-estate-market-report-q1-2025/",
+          "https://mmgequitypartners.com/tampa-retail-real-estate-report-q1-2025/"
+        ]
+      },
+      "supply_pipeline": {
+        "score": 6,
+        "trend": "moderating",
+        "findings": [
+          "The Stevedore residential building at Gasworx opening early 2026; Luisa and Olivette following in 2027",
+          "Gasworx signature office tower expected to complete later 2026 with 28,000 SF marketplace in early 2027",
+          "New entertainment district planned with 3,500-seat live music venue, hotel, retail, dining across from Benchmark International Arena",
+          "Channel District infrastructure improvements across 9 street segments in 15 phases, completion early 2027",
+          "Multifamily deliveries tapering sharply: ~7,400 units in 2025 down to ~3,500 in 2026 metro-wide",
+          "Tampa Land Development Code update expected to complete second half of 2026"
+        ],
+        "sources": [
+          "https://www.waterstreettampa.com/project-progress",
+          "https://tbbwmag.com/2025/12/29/tampa-bay-real-estate-developments/",
+          "https://channeldistrictprojects.com/project-info/",
+          "https://www.businessobserverfl.com/news/2025/jul/21/mixed-used-building-water-street-tampa/"
+        ]
+      },
+      "demand_drivers": {
+        "score": 8,
+        "trend": "accelerating",
+        "findings": [
+          "Tampa private sector added 15,500 jobs YoY in June 2025, ranking #3 among FL metros",
+          "Lightcast ranks Tampa #8 among large metros nationally for talent attraction (prime-age, high-earning, college-educated workers)",
+          "Tampa Bay region projected to add 397K-547K new residents between 2025-2030",
+          "Tampa ranks #1 in net migration among comparable regions for young professionals and entrepreneurs",
+          "Tampa Bay EDC has attracted companies creating ~50,000 direct jobs over past 16 years across financial services, life sciences, healthcare, and advanced manufacturing"
+        ],
+        "sources": [
+          "https://tbbwmag.com/2025/09/23/tampa-job-growth-2025/",
+          "https://planhillsborough.org/tampa-bay-region-expecting-397k-or-547k-new-residents-through-2030/",
+          "https://graystoneig.com/articles/population-growth-in-tampa-bay-a-thriving-destination-for-new-residents",
+          "https://tbbwmag.com/2025/12/03/tampa-economy-2025/"
+        ]
+      },
+      "rent_occupancy": {
+        "score": 6,
+        "trend": "stabilizing",
+        "findings": [
+          "Class A multifamily averaging $2,305/unit (+1.4% YoY), Class B at $1,801 (+0.8%), Class C at $1,479 (+1.7%)",
+          "Tampa metro multifamily occupancy at 94.6% (August 2025), slightly below national 94.7%",
+          "Vacancy expected to close 2025 at 6.6%, down 60bps annually, ending three consecutive years of rising vacancy",
+          "Premium downtown office (4 & 5 Star) achieving $47+/SF; Water Street/Midtown West asking $60-70/SF",
+          "Downtown Tampa South - Islands submarket has lowest office vacancy at 2.92%",
+          "Supply tapering in 2026 expected to drive stronger rent gains"
+        ],
+        "sources": [
+          "https://www.yardimatrix.com/blog/tampa-multifamily-market-report/",
+          "https://www.matthews.com/market_insights/tampa-fl-multifamily-market-report-q3-2025",
+          "https://roireal.estate/tampa-office-market-update-2025/",
+          "https://mmgrea.com/2025-tampa-forecast/"
+        ]
+      },
+      "capital_markets": {
+        "score": 6,
+        "trend": "cautiously_improving",
+        "findings": [
+          "CBRE Lending Momentum Index rose 112% YoY in Q3 2025, highest since 2018",
+          "National CMBS issuance reached $115.2B through Nov 2025, highest since 2007",
+          "CMBS delinquency rate at 7.14% (Feb 2026), overall distress rate at 11.98%",
+          "Office CMBS delinquency over 12% in early 2026; $100B+ CMBS loans maturing in 2026 creating maturity wall",
+          "Tampa multifamily investment volume at $1.7B in 2025, second-highest in FL",
+          "Tampa positioned as supply-constrained market with stabilized multifamily opportunities",
+          "Prime rate at 6.75% as of Dec 2025; lenders tightening underwriting but activity increasing"
+        ],
+        "sources": [
+          "https://www.multihousingnews.com/cmbs-delinquency-rates/",
+          "https://agorareal.com/blog/commercial-real-estate-lending-trends/",
+          "https://www.northmarq.com/insights/research/commercial-real-estate-debt-market-outlook-2026-capital-available-lending-remains",
+          "https://commercialobserver.com/2026/02/cmbs-distress-2026-cred-iq/"
+        ]
+      },
+      "regulatory_political": {
+        "score": 7,
+        "trend": "mixed",
+        "findings": [
+          "Florida state preemption prohibits local rent control — landlord-friendly regulatory environment",
+          "Tampa has 23 designated Opportunity Zones; federal OZ benefits sunset after 2026 — urgency for OZ plays",
+          "Tampa multimodal impact fees updating for first time since 1989: from $955 to $5,284 for 2,000 SF home, phasing in 25% starting June 2026",
+          "Hillsborough County extended 0.5% infrastructure surtax from Nov 2026 to Dec 2041",
+          "FL legislature considering significant property tax relief (HJR 201) that could eliminate non-school property taxes on homestead",
+          "Tampa Future Land Use Update continued to Feb 2026 to incorporate SB 180 (anti-restrictive zoning legislation)"
+        ],
+        "sources": [
+          "https://frankalbertrealty.com/blog/tampas-fee-shock-what-new-development-costs-mean-for-you",
+          "https://graystoneig.com/articles/opportunity-zones-in-tampa-explained",
+          "https://moffataxlaw.com/floridas-2026-property-tax-relief-proposals-complete-guide-to-homestead-changes-soh-caps-and-assessment-limits/",
+          "https://www.tampa.gov/DEO/opportunity-zone-program"
+        ]
+      }
+    },
+    "key_findings": [
+      {
+        "finding": "Water Street/Channel District is in late-stage development buildout with $3B master plan nearing 2027 completion — acquisition window for stabilized assets opening as initial phases deliver",
+        "category": "transaction_activity",
+        "impact": "high"
+      },
+      {
+        "finding": "Multifamily supply delivery dropping 53% from 7,400 units (2025) to 3,500 units (2026) metro-wide — supply relief should accelerate rent growth",
+        "category": "supply_pipeline",
+        "impact": "high"
+      },
+      {
+        "finding": "Tampa ranks #1 in net migration for young professionals and #8 nationally for talent attraction — structural demand tailwind for mixed-use assets",
+        "category": "demand_drivers",
+        "impact": "high"
+      },
+      {
+        "finding": "Premium office at Water Street commanding $60-70/SF vs. broader Tampa at $47/SF — significant rent premium validates neighborhood positioning",
+        "category": "rent_occupancy",
+        "impact": "medium"
+      },
+      {
+        "finding": "Impact fee increase from $955 to $5,284 (phasing June 2026) will raise development costs and slow future supply — benefits existing asset holders",
+        "category": "regulatory_political",
+        "impact": "high"
+      },
+      {
+        "finding": "OZ benefits sunsetting after 2026 creates urgency for any remaining OZ-eligible acquisitions in Tampa's 23 designated zones",
+        "category": "regulatory_political",
+        "impact": "medium"
+      },
+      {
+        "finding": "CMBS maturity wall of $100B+ in 2026 with office delinquency over 12% may create distressed acquisition opportunities, though Water Street office assets likely insulated by premium positioning",
+        "category": "capital_markets",
+        "impact": "medium"
+      },
+      {
+        "finding": "New entertainment district (3,500-seat venue, hotel, retail) will significantly enhance neighborhood amenity profile and drive foot traffic to adjacent assets",
+        "category": "supply_pipeline",
+        "impact": "high"
+      }
+    ],
+    "feature_gaps": [
+      {
+        "gap": "No automated access to Hillsborough County deed transfer and lis pendens data — had to rely on aggregated market reports instead of transaction-level data",
+        "category": "data_source",
+        "impact": 8
+      },
+      {
+        "gap": "Cannot access CoStar/RealPage for submarket-level rent comps specific to Water Street — all rent data is metro-wide",
+        "category": "data_source",
+        "impact": 9
+      },
+      {
+        "gap": "No automated building permit API for City of Tampa — could not quantify exact pipeline by address in the zone",
+        "category": "data_source",
+        "impact": 7
+      },
+      {
+        "gap": "Missing BLS QCEW drill-down by Census tract for employment density within the zone specifically",
+        "category": "data_source",
+        "impact": 6
+      },
+      {
+        "gap": "No CMBS loan-level data to identify specific Water Street/Channel District loans approaching maturity",
+        "category": "data_source",
+        "impact": 7
+      },
+      {
+        "gap": "Ability to overlay OZ boundary maps with zone geometry to identify OZ-eligible parcels would improve regulatory scoring",
+        "category": "visualization",
+        "impact": 5
+      },
+      {
+        "gap": "No cap rate trend chart for the submarket over time — would help visualize pricing trajectory",
+        "category": "visualization",
+        "impact": 6
+      },
+      {
+        "gap": "Score delta tracking across rotation runs not yet implemented — no previous brief baseline for comparison",
+        "category": "workflow",
+        "impact": 4
+      }
+    ]
+  }
+}

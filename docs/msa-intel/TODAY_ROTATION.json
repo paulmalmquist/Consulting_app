@@ -1,9 +1,9 @@
 {
-  "date": "2026-03-24",
-  "msa_zone_id": "af0485fa-431e-4489-b713-f21f5f32084d",
-  "zone_slug": "miami-wynwood",
-  "zone_name": "Miami — Wynwood/Edgewater",
+  "date": "2026-03-26",
+  "msa_zone_id": "b1c10eb5-2d31-4d6e-99cf-53c06ca9d34c",
+  "zone_slug": "tampa-water-st",
+  "zone_name": "Tampa — Water Street/Channel District",
   "tier": 1,
   "asset_class_focus": "mixed",
-  "days_since_last_rotation": 2274
+  "days_since_last_rotation": 2276
 }

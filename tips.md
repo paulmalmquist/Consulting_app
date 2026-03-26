@@ -1905,3 +1905,78 @@ The fund-level scenario workspace lives at `models/[modelId]/fund-scenario/` as 
 
 ### Formatting: use canonical `format-utils.ts`
 All formatting uses `@/lib/format-utils` (`fmtPct`, `fmtMoney`, `fmtMultiple`). Do not create inline formatters in new components.
+
+## Revenue Operating Program (2026-03-26)
+
+The repo now has a full revenue operating program at `docs/REVENUE_OPERATING_PROGRAM.md`. Key things for coding assistants to know:
+
+### Revenue Context Matters for Coding Priorities
+
+- Demo friction that blocks REPE or PDS sales conversations is **higher priority than feature work**
+- The `docs/revenue-ops/demo-friction-log.md` and `docs/revenue-ops/objection-log.md` files feed directly into coding session priorities
+- Thursday's demo-objection-cycle task identifies what to fix; Friday's review scores the week
+- Always check `docs/revenue-ops/product-backlog-feed.md` — it contains revenue-driven feature requests
+
+### CRM Is Enterprise-Grade — Don't Rebuild It
+
+The Consulting Revenue OS is already built across 6+ backend services:
+- `crm.py` — accounts, opportunities, pipeline stages, activities, stage history
+- `cro_leads.py` — lead creation with scoring (ai_maturity, pain_category, lead_score, qualification_tier)
+- `cro_engagements.py` — engagement tracking with budget/margin
+- `cro_proposals.py` — proposal CRUD with version history, margin calc, acceptance flow
+- `cro_outreach.py` — templates, outreach logging, reply tracking, analytics
+- `cro_strategic_outreach.py` — long-horizon relationship campaigns
+
+Tables include: `crm_account`, `crm_opportunity`, `crm_pipeline_stage`, `crm_opportunity_stage_history`, `crm_activity`, `crm_contact`, `cro_lead_profile`, `cro_engagement`, `cro_proposal`, `cro_outreach_template`, `cro_outreach_log`, `cro_strategic_outreach`.
+
+### Autonomous Task Reliability Protocol
+
+All autonomous tasks now follow `docs/AUTONOMOUS_RELIABILITY_PROTOCOL.md`. The 6 protocols are:
+1. **Refusal Protocol** — write `UNCERTAIN:` or `CANNOT COMPLETE:` instead of guessing
+2. **Confidence Scoring** — `[HIGH]` / `[MEDIUM]` / `[LOW]` on every factual claim
+3. **Source Attribution** — cite file path, URL, or `[UNSOURCED]` for every key claim
+4. **Assumption Audit** — list assumptions before starting work
+5. **Hard Constraints** — never invent stats, never skip verification, never rebuild existing capabilities
+6. **Self-Critique Pass** — re-read output as hostile reviewer, flag and fix issues
+
+Every task output should have: `## Assumptions` section at top, source citations inline, `## Self-Critique` section at bottom.
+
+### Revenue-Ops Directory Structure
+
+```
+docs/revenue-ops/              — Weekly pipeline reviews, outreach logs, scoreboard
+docs/proof-assets/             — Ranked proof-asset backlog
+  offer-sheets/                — 1-page offer PDFs
+  roi/                         — ROI calculators and framing
+  workflows/                   — Before/after workflow diagrams
+  proposal-templates/          — Reusable proposal sections
+  demo-scripts/                — Click-by-click demo walkthroughs
+  diagnostics/                 — Diagnostic questionnaires and sample outputs
+  competitive/                 — Competitive positioning docs
+docs/REVENUE_OPERATING_PROGRAM.md  — Master revenue program (11 sections)
+docs/AUTONOMOUS_RELIABILITY_PROTOCOL.md — Reliability rules for all tasks
+```
+
+### Pipeline Stage Configuration
+
+The default stages in `crm.py` map to the revenue-backwards framework:
+- `target` (0.05) → `outreach` (0.10) → `qualified` (0.20) → `discovery` (0.35) → `proposal` (0.50) → `negotiation` (0.70) → `closed_won` (1.00) / `closed_lost` (0.00)
+
+### Offer Architecture
+
+Three packaged offers exist in the revenue program:
+1. **AI Operations Diagnostic** — $7,500, 5 days, targets COOs/VPs Ops
+2. **Workflow Automation Sprint** — $15,000, 2 weeks, targets department heads with process pain
+3. **Winston REPE Pilot** — $35,000, 90 days, targets REPE funds $500M-$5B AUM
+
+Plus: Workshop ($200-500/seat), Fractional CAIO ($5-10K/mo retainer)
+
+### Weekly Revenue Rhythm
+
+- Monday: Pipeline review + target discovery
+- Tuesday: Proof asset building
+- Wednesday: Outbound push + follow-ups
+- Thursday: Demo fixes + objection handling
+- Friday: Revenue review + reprioritization
+
+Coding sessions should align: revenue-blocking demo fixes before feature work.
