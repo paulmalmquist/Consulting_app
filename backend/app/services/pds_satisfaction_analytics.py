@@ -90,7 +90,25 @@ def get_nps_summary(
         )
         rows = cur.fetchall()
 
-    return {"nps_quarterly": [dict(r) for r in rows]}
+    quarterly = [dict(r) for r in rows]
+
+    # Derive summary fields the frontend expects:
+    # current_nps = most recent quarter NPS, trend = quarter/nps pairs,
+    # response_count = total across all quarters, response_rate_pct = N/A placeholder.
+    total_responses = sum(int(q.get("response_count", 0)) for q in quarterly)
+    current_nps = float(quarterly[-1].get("nps") or 0) if quarterly else 0
+    trend = [
+        {"quarter": str(q["quarter"]), "nps": float(q.get("nps", 0))}
+        for q in quarterly
+    ]
+
+    return {
+        "current_nps": current_nps,
+        "trend": trend,
+        "response_count": total_responses,
+        "response_rate_pct": 100,  # placeholder — full computation needs survey-sent count
+        "nps_quarterly": quarterly,  # keep raw data for backwards compat
+    }
 
 
 # ---------------------------------------------------------------------------

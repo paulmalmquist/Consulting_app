@@ -15,11 +15,13 @@ function npsColor(score: number): string {
 }
 
 export function NpsGauge({ score, benchmark = NPS_BENCHMARK }: Props) {
+  // Guard against NaN/undefined — display 0 instead of NaN
+  const safeScore = Number.isFinite(score) ? score : 0;
   // Map NPS (-100 to +100) to 0-180 degrees for a semicircular gauge
-  const normalizedScore = Math.max(-100, Math.min(100, score));
+  const normalizedScore = Math.max(-100, Math.min(100, safeScore));
   const angle = ((normalizedScore + 100) / 200) * 180;
   const benchmarkAngle = ((benchmark + 100) / 200) * 180;
-  const color = npsColor(score);
+  const color = npsColor(safeScore);
 
   return (
     <div className="flex flex-col items-center">
@@ -52,7 +54,7 @@ export function NpsGauge({ score, benchmark = NPS_BENCHMARK }: Props) {
         />
         {/* Score text */}
         <text x="100" y="90" textAnchor="middle" fill={color} fontSize="28" fontWeight="bold">
-          {score > 0 ? "+" : ""}{Math.round(score)}
+          {safeScore > 0 ? "+" : ""}{Math.round(safeScore)}
         </text>
         <text x="100" y="108" textAnchor="middle" fill="#9ca3af" fontSize="10">
           NPS Score

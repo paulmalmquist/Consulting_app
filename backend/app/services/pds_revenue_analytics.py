@@ -178,12 +178,15 @@ def get_pipeline(*, env_id: str, business_id: str) -> dict[str, Any]:
     for r in rows:
         status = r["status"]
         weight = stage_weights.get(status, 0.5)
+        total_val = float(r["total_value"] or 0)
         stages.append({
             "stage": status,
-            "deal_count": r["deal_count"],
-            "total_value": float(r["total_value"] or 0),
+            "count": int(r["deal_count"]),           # frontend expects "count"
+            "deal_count": int(r["deal_count"]),       # keep for backwards compat
+            "weighted_value": round(total_val * weight, 2),
+            "unweighted_value": round(total_val, 2),  # frontend expects "unweighted_value"
+            "total_value": total_val,                  # keep for backwards compat
             "weight": weight,
-            "weighted_value": round(float(r["total_value"] or 0) * weight, 2),
         })
 
     total_weighted = sum(s["weighted_value"] for s in stages)
