@@ -1,0 +1,32 @@
+# Target Account Queue
+
+> Maintained by: sales-signal-discovery (daily) + monday-pipeline-review (weekly)
+> Last updated: 2026-03-26
+
+---
+
+## Active Queue
+
+| # | Company | Segment | Signal Date | Trigger | Matched Offer | Score | Status | Source |
+|---|---|---|---|---|---|---|---|---|
+| 1 | Marcus Partners (Boston) | B — REPE National | 2026-03-26 | $875M Fund V close, East Coast expansion, ILPA compliance | Winston REPE Pilot ($35K) | 4.25 | NEW — needs warm intro research | [Press release](https://marcuspartners.com/mp-blog/marcus-partners-completes-fundraising-for-largest-fund-to-date-at-875-million) |
+| 2 | The Ardent Companies (Atlanta) | B — REPE National | 2026-03-26 | $600M Fund VI (credit), 200+ positions, 2 new partners | Winston REPE Pilot ($35K) | 3.75 | NEW — needs contact verification | [Metro Atlanta CEO](https://metroatlantaceo.com/news/2025/07/ardent-launches-600-million-real-estate-credit-fund-vi/) |
+| 3 | GAIA Real Estate (NYC/Miami) | B — REPE National | 2026-03-26 | New MD hire (Korchmar), South Florida expansion | AI Diagnostic ($7.5K) | 3.75 | NEW — local, named contact | [MultifamilyBiz](https://www.multifamilybiz.com/pressreleases/18386/gaia_real_estate_expands_in_south_florida_with_app...) |
+| 4 | ACG South Florida | D — Workshop/Event | 2026-03-26 | AI + PE events, DealMAX 2026 | Workshop pipeline | 3.75 | NEW — contact events team | [ACG SoFla](https://www.acg.org/southflorida/events) |
+| 5 | Apex Service Partners (Tampa) | E — PE-Backed Transition | 2026-03-26 | 107 brands, $1.3B rev, Tampa HQ, Alpine Investors | AI Diagnostic ($7.5K) | 3.50 | NEW — needs intro path | [Craft Dossier](https://www.craftflow.com/dossier/what-companies-has-apex-service-partners-acquired) |
+| 6 | FIU College of Business | D — Workshop/Event | 2026-03-26 | AI Strategy program, AI 305 Conference Oct 2026 | Workshop/speaking | 3.50 | NEW — email fiuExecEd@fiu.edu | [FIU](https://business.fiu.edu/academics/executive-education/ai-strategy-for-business-leaders/) |
+
+## Segment Signals (Not Company-Specific)
+
+| Signal | Segment | Date | Implication | Action |
+|---|---|---|---|---|
+| ILPA Q1 2026 reporting templates now standard | B — REPE National | 2026-03-26 | Compliance pressure on mid-size REPE funds for LP reporting | Build ILPA-focused outreach template + LinkedIn post |
+
+---
+
+## Queue Rules
+
+1. Accounts enter as NEW, move to RESEARCHED after contact verification, then OUTREACH_READY when message is drafted
+2. Monday pipeline review promotes top accounts to CRM as `crm_account` with `account_type = 'prospect'`
+3. Accounts older than 30 days without advancement get reviewed and either escalated or archived
+4. Wednesday outreach push drafts messages for OUTREACH_READY accounts
