@@ -105,10 +105,10 @@ function buildNarrative(envelope: AssistantContextEnvelope, routeLabel: string, 
 
 function buildQuickLinks(envelope: AssistantContextEnvelope): WinstonQuickLink[] {
   const envId = envelope.ui.active_environment_id;
-  const module = envelope.ui.active_module;
+  const activeModule = envelope.ui.active_module;
   if (!envId) return [];
 
-  if (module === "re") {
+  if (activeModule === "re") {
     const base = `/lab/env/${envId}/re`;
     return [
       { id: "re-funds", label: "Funds", href: base, description: "Portfolio and fund views" },
@@ -118,7 +118,7 @@ function buildQuickLinks(envelope: AssistantContextEnvelope): WinstonQuickLink[]
     ];
   }
 
-  if (module === "pds") {
+  if (activeModule === "pds") {
     const base = `/lab/env/${envId}/pds`;
     return [
       { id: "pds-home", label: "Home", href: base, description: "PDS command home" },
@@ -127,7 +127,7 @@ function buildQuickLinks(envelope: AssistantContextEnvelope): WinstonQuickLink[]
     ];
   }
 
-  if (module === "consulting") {
+  if (activeModule === "consulting") {
     const base = `/lab/env/${envId}/consulting`;
     return [
       { id: "consulting-home", label: "Home", href: base, description: "Command center" },
@@ -136,7 +136,7 @@ function buildQuickLinks(envelope: AssistantContextEnvelope): WinstonQuickLink[]
     ];
   }
 
-  if (module === "credit") {
+  if (activeModule === "credit") {
     const base = `/lab/env/${envId}/credit`;
     return [
       { id: "credit-home", label: "Home", href: base, description: "Credit workspace" },
@@ -149,10 +149,10 @@ function buildQuickLinks(envelope: AssistantContextEnvelope): WinstonQuickLink[]
 }
 
 function buildSuggestions(envelope: AssistantContextEnvelope, routeLabel: string, scopeLabel: string): WinstonSuggestion[] {
-  const module = envelope.ui.active_module;
+  const activeModule = envelope.ui.active_module;
   const selected = primaryEntityLabel(envelope.ui.selected_entities);
 
-  if (module === "re") {
+  if (activeModule === "re") {
     if (envelope.ui.page_entity_type === "fund") {
       return [
         { id: "fund-summary", label: "Summarize this fund", prompt: `Summarize ${scopeLabel} and flag the biggest operating and capital risks.` },
@@ -188,7 +188,7 @@ function buildSuggestions(envelope: AssistantContextEnvelope, routeLabel: string
     ];
   }
 
-  if (module === "pds") {
+  if (activeModule === "pds") {
     return [
       { id: "pds-summary", label: "Summarize operations", prompt: `Summarize the current PDS operating picture from ${routeLabel}.` },
       { id: "pds-risks", label: "Delivery risks", prompt: "Show the biggest delivery, staffing, and revenue risks from this PDS context." },
@@ -196,7 +196,7 @@ function buildSuggestions(envelope: AssistantContextEnvelope, routeLabel: string
     ];
   }
 
-  if (module === "consulting") {
+  if (activeModule === "consulting") {
     return [
       { id: "consulting-summary", label: "Summarize CRM", prompt: `Summarize the consulting workspace from ${routeLabel}.` },
       { id: "consulting-events", label: "Upcoming events", prompt: "What events, contacts, and follow-ups need attention next?" },
