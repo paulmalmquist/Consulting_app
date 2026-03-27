@@ -83,6 +83,7 @@ from app.schemas.local_training import (
 from app.services import (
     cro_clients,
     cro_engagements,
+    cro_entity_detail,
     cro_leads,
     cro_metrics_engine,
     cro_next_actions,
@@ -1076,5 +1077,119 @@ def update_lead_stage(lead_id: UUID, body: UpdateLeadStageRequest, env_id: str =
             "stage_label": result["pipeline_stage"],
             "created_at": result["updated_at"],
         }
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ─── Entity Detail Views ──────────────────────────────────────────────────
+
+@router.get("/accounts/{account_id}")
+def get_account_detail(
+    account_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return cro_entity_detail.get_account_detail(
+            env_id=env_id, business_id=business_id, account_id=account_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/accounts/{account_id}/contacts")
+def get_account_contacts(
+    account_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return cro_entity_detail.get_account_contacts(
+            business_id=business_id, account_id=account_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/accounts/{account_id}/opportunities")
+def get_account_opportunities(
+    account_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return cro_entity_detail.get_account_opportunities(
+            business_id=business_id, account_id=account_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/opportunities/{opportunity_id}")
+def get_opportunity_detail(
+    opportunity_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return cro_entity_detail.get_opportunity_detail(
+            business_id=business_id, opportunity_id=opportunity_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/opportunities/{opportunity_id}/contacts")
+def get_opportunity_contacts(
+    opportunity_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return cro_entity_detail.get_opportunity_contacts(
+            business_id=business_id, opportunity_id=opportunity_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/opportunities/{opportunity_id}/stage-history")
+def get_opportunity_stage_history(
+    opportunity_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return cro_entity_detail.get_opportunity_stage_history(
+            business_id=business_id, opportunity_id=opportunity_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/contacts/{contact_id}")
+def get_contact_detail(
+    contact_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return cro_entity_detail.get_contact_detail(
+            business_id=business_id, contact_id=contact_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/contacts/{contact_id}/outreach")
+def get_contact_outreach(
+    contact_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return cro_entity_detail.get_contact_outreach_history(
+            business_id=business_id, contact_id=contact_id,
+        )
     except Exception as exc:
         raise _to_http(exc)

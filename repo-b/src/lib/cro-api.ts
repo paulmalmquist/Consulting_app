@@ -786,3 +786,130 @@ export async function updateLeadStage(leadId: string, envId: string, businessId:
     body: JSON.stringify({ env_id: envId, business_id: businessId, stage }),
   });
 }
+
+// ─── Entity Detail Views ────────────────────────────────────────────────────
+
+export interface AccountDetail {
+  crm_account_id: string;
+  company_name: string;
+  industry: string | null;
+  website: string | null;
+  account_type: string | null;
+  annual_revenue: number | null;
+  employee_count: number | null;
+  lead_profile_id: string | null;
+  ai_maturity: string | null;
+  pain_category: string | null;
+  lead_score: number | null;
+  score_breakdown: Record<string, { value: number; label: string }> | null;
+  pipeline_stage: string | null;
+  lead_source: string | null;
+  company_size: string | null;
+  revenue_band: string | null;
+  erp_system: string | null;
+  estimated_budget: number | null;
+  qualified_at: string | null;
+  disqualified_at: string | null;
+  created_at: string;
+}
+
+export interface ContactDetail {
+  crm_contact_id: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  title: string | null;
+  crm_account_id: string | null;
+  account_name: string | null;
+  account_industry: string | null;
+  linkedin_url: string | null;
+  relationship_strength: string | null;
+  decision_role: string | null;
+  last_outreach_at: string | null;
+  profile_notes: string | null;
+  created_at: string;
+}
+
+export interface OpportunityDetail {
+  crm_opportunity_id: string;
+  name: string;
+  amount: number | null;
+  status: string;
+  expected_close_date: string | null;
+  crm_account_id: string | null;
+  account_name: string | null;
+  account_industry: string | null;
+  stage_key: string | null;
+  stage_label: string | null;
+  win_probability: number | null;
+  stage_order: number | null;
+  created_at: string;
+}
+
+export interface StageHistoryEntry {
+  id: string;
+  changed_at: string;
+  note: string | null;
+  from_stage_key: string | null;
+  from_stage_label: string | null;
+  to_stage_key: string | null;
+  to_stage_label: string | null;
+}
+
+export interface OutreachEntry {
+  id: string;
+  channel: string;
+  direction: string;
+  subject: string | null;
+  body_preview: string | null;
+  sent_at: string;
+  replied_at: string | null;
+  reply_sentiment: string | null;
+  meeting_booked: boolean;
+  sent_by: string | null;
+}
+
+export interface AccountContact {
+  crm_contact_id: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  title: string | null;
+  linkedin_url: string | null;
+  relationship_strength: string | null;
+  decision_role: string | null;
+  last_outreach_at: string | null;
+  created_at: string;
+}
+
+export async function fetchAccountDetail(accountId: string, envId: string, businessId: string): Promise<AccountDetail> {
+  return apiFetch<AccountDetail>(`${CRO_BASE}/accounts/${accountId}?env_id=${envId}&business_id=${businessId}`);
+}
+
+export async function fetchAccountContacts(accountId: string, envId: string, businessId: string): Promise<AccountContact[]> {
+  return apiFetch<AccountContact[]>(`${CRO_BASE}/accounts/${accountId}/contacts?env_id=${envId}&business_id=${businessId}`);
+}
+
+export async function fetchAccountOpportunities(accountId: string, envId: string, businessId: string): Promise<OpportunityDetail[]> {
+  return apiFetch<OpportunityDetail[]>(`${CRO_BASE}/accounts/${accountId}/opportunities?env_id=${envId}&business_id=${businessId}`);
+}
+
+export async function fetchOpportunityDetail(opportunityId: string, envId: string, businessId: string): Promise<OpportunityDetail> {
+  return apiFetch<OpportunityDetail>(`${CRO_BASE}/opportunities/${opportunityId}?env_id=${envId}&business_id=${businessId}`);
+}
+
+export async function fetchOpportunityContacts(opportunityId: string, envId: string, businessId: string): Promise<AccountContact[]> {
+  return apiFetch<AccountContact[]>(`${CRO_BASE}/opportunities/${opportunityId}/contacts?env_id=${envId}&business_id=${businessId}`);
+}
+
+export async function fetchOpportunityStageHistory(opportunityId: string, envId: string, businessId: string): Promise<StageHistoryEntry[]> {
+  return apiFetch<StageHistoryEntry[]>(`${CRO_BASE}/opportunities/${opportunityId}/stage-history?env_id=${envId}&business_id=${businessId}`);
+}
+
+export async function fetchContactDetail(contactId: string, envId: string, businessId: string): Promise<ContactDetail> {
+  return apiFetch<ContactDetail>(`${CRO_BASE}/contacts/${contactId}?env_id=${envId}&business_id=${businessId}`);
+}
+
+export async function fetchContactOutreach(contactId: string, envId: string, businessId: string): Promise<OutreachEntry[]> {
+  return apiFetch<OutreachEntry[]>(`${CRO_BASE}/contacts/${contactId}/outreach?env_id=${envId}&business_id=${businessId}`);
+}

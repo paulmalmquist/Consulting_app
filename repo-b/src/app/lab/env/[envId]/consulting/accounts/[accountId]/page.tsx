@@ -1,42 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
 import { ActivityTimeline } from "@/components/consulting/ActivityTimeline";
 import { NextActionPanel } from "@/components/consulting/NextActionPanel";
 import { Card, CardContent, CardTitle } from "@/components/ui/Card";
-import { fetchActivities, fetchNextActions, type Activity, type NextAction } from "@/lib/cro-api";
-
-interface Account {
-  crm_account_id: string;
-  company_name: string;
-  industry?: string;
-  website?: string;
-  account_type?: string;
-  annual_revenue?: number;
-  employee_count?: number;
-  created_at: string;
-}
-
-interface Contact {
-  crm_contact_id: string;
-  full_name: string;
-  email?: string;
-  phone?: string;
-  title?: string;
-  created_at: string;
-}
-
-interface Opportunity {
-  crm_opportunity_id: string;
-  name: string;
-  amount?: number;
-  stage_key?: string;
-  stage_label?: string;
-  expected_close_date?: string;
-  created_at: string;
-}
+import {
+  fetchAccountDetail,
+  fetchAccountContacts,
+  fetchAccountOpportunities,
+  fetchActivities,
+  fetchNextActions,
+  type AccountDetail,
+  type AccountContact,
+  type OpportunityDetail,
+  type Activity,
+  type NextAction,
+} from "@/lib/cro-api";
 
 function formatError(err: unknown): string {
   if (!(err instanceof Error)) {
@@ -63,62 +44,44 @@ export default function AccountDetailPage({
   params: { envId: string; accountId: string };
 }) {
   const { businessId, ready, loading: contextLoading, error: contextError } = useConsultingEnv();
-  const [account, setAccount] = useState<Account | null>(null);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [account, setAccount] = useState<AccountDetail | null>(null);
+  const [contacts, setContacts] = useState<AccountContact[]>([]);
+  const [opportunities, setOpportunities] = useState<OpportunityDetail[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [actions, setActions] = useState<NextAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     if (!ready || !businessId) {
       if (ready && !businessId) setLoading(false);
       return;
     }
-
     setLoading(true);
     setDataError(null);
-
-    Promise.allSettled([
-      fetch(
-        `/api/consulting/accounts/${params.accountId}?env_id=${params.envId}&business_id=${businessId}`
-      ).then((r) => r.json()),
-      fetch(
-        `/api/consulting/accounts/${params.accountId}/contacts?env_id=${params.envId}&business_id=${businessId}`
-      ).then((r) => r.json()),
-      fetch(
-        `/api/consulting/accounts/${params.accountId}/opportunities?env_id=${params.envId}&business_id=${businessId}`
-      ).then((r) => r.json()),
-      fetchActivities(params.envId, businessId, { account_id: params.accountId, limit: 50 }),
-      fetchNextActions(params.envId, businessId),
-    ])
-      .then(([accResult, contactsResult, oppResult, actResult, actionResult]) => {
-        if (accResult.status === "fulfilled") {
-          setAccount(accResult.value);
-        }
-        if (contactsResult.status === "fulfilled") {
-          setContacts(contactsResult.value);
-        }
-        if (oppResult.status === "fulfilled") {
-          setOpportunities(oppResult.value);
-        }
-        if (actResult.status === "fulfilled") {
-          setActivities(
-            actResult.value.filter((a: Activity) => a.crm_account_id === params.accountId)
-          );
-        }
-        if (actionResult.status === "fulfilled") {
-          setActions(
-            actionResult.value.filter((a: NextAction) => a.entity_id === params.accountId)
-          );
-        }
-      })
-      .catch((err) => {
-        setDataError(formatError(err));
-      })
-      .finally(() => setLoading(false));
+    try {
+      const [accData, contactsData, oppData, actData, actionData] = await Promise.all([
+        fetchAccountDetail(params.accountId, params.envId, businessId),
+        fetchAccountContacts(params.accountId, params.envId, businessId),
+        fetchAccountOpportunities(params.accountId, params.envId, businessId),
+        fetchActivities(params.envId, businessId, { account_id: params.accountId, limit: 50 }),
+        fetchNextActions(params.envId, businessId),
+      ]);
+      setAccount(accData);
+      setContacts(contactsData);
+      setOpportunities(oppData);
+      setActivities(actData.filter((a: Activity) => a.crm_account_id === params.accountId));
+      setActions(actionData.filter((a: NextAction) => a.entity_id === params.accountId));
+    } catch (err) {
+      setDataError(formatError(err));
+    } finally {
+      setLoading(false);
+    }
   }, [businessId, params.accountId, params.envId, ready]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   const bannerMessage = contextError || dataError;
   const isLoading = contextLoading || (ready && loading);
@@ -218,9 +181,7 @@ export default function AccountDetailPage({
               title="Pending Actions"
               actions={actions}
               businessId={businessId!}
-              onUpdate={() => {
-                // Reload actions if needed
-              }}
+              onUpdate={() => void loadData()}
             />
           ) : null}
 
@@ -241,10 +202,27 @@ export default function AccountDetailPage({
                     <CardContent className="py-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-bm-text">{contact.full_name}</p>
-                          {contact.title ? (
-                            <p className="text-xs text-bm-muted2">{contact.title}</p>
-                          ) : null}
+                          <Link
+                            href={`/lab/env/${params.envId}/consulting/contacts/${contact.crm_contact_id}`}
+                            className="text-sm font-medium text-bm-accent hover:underline"
+                          >
+                            {contact.full_name}
+                          </Link>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {contact.title ? (
+                              <span className="text-xs text-bm-muted2">{contact.title}</span>
+                            ) : null}
+                            {contact.decision_role ? (
+                              <span className="text-[10px] uppercase tracking-wide rounded-full bg-bm-surface/40 px-2 py-0.5 text-bm-muted2 border border-bm-border/50">
+                                {contact.decision_role}
+                              </span>
+                            ) : null}
+                            {contact.relationship_strength ? (
+                              <span className="text-[10px] uppercase tracking-wide rounded-full bg-bm-surface/40 px-2 py-0.5 text-bm-muted2">
+                                {contact.relationship_strength}
+                              </span>
+                            ) : null}
+                          </div>
                           {contact.email || contact.phone ? (
                             <div className="flex flex-wrap gap-2 mt-1 text-xs text-bm-muted2">
                               {contact.email ? <a href={`mailto:${contact.email}`} className="text-bm-accent hover:underline">{contact.email}</a> : null}
@@ -277,7 +255,12 @@ export default function AccountDetailPage({
                     <CardContent className="py-3">
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-bm-text">{opp.name}</p>
+                          <Link
+                            href={`/lab/env/${params.envId}/consulting/pipeline/${opp.crm_opportunity_id}`}
+                            className="text-sm font-medium text-bm-accent hover:underline"
+                          >
+                            {opp.name}
+                          </Link>
                           <p className="text-xs text-bm-muted2">
                             {opp.stage_label || "No stage"} · {fmtCurrency(opp.amount)}
                           </p>

@@ -8,7 +8,7 @@ import { EmptyState, TonePill, fmtCurrency, fmtDate, fmtTime } from "@/component
 import { NextActionPanel } from "@/components/consulting/NextActionPanel";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardTitle } from "@/components/ui/Card";
-import { fetchTodayOverdue, type TodayOverdue } from "@/lib/cro-api";
+import { fetchTodayOverdue, fetchLeads, fetchLatestMetrics, type TodayOverdue, type Lead, type MetricsSnapshot } from "@/lib/cro-api";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 
 function Metric({ label, value, sublabel }: { label: string; value: string | number; sublabel?: string }) {
@@ -28,6 +28,8 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
   const { workspace, loading, mutating, error, seed } = useTrainingWorkspace(params.envId, businessId, ready);
   const [actionData, setActionData] = useState<TodayOverdue | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [topLeads, setTopLeads] = useState<Lead[]>([]);
+  const [metrics, setMetrics] = useState<MetricsSnapshot | null>(null);
 
   const nextEvent = workspace?.summary.next_event ?? null;
   const mobile = workspace?.summary.mobile_dashboard;
@@ -37,8 +39,14 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
     if (!businessId) return;
     setActionLoading(true);
     try {
-      const data = await fetchTodayOverdue(params.envId, businessId);
-      setActionData(data);
+      const [data, leadData, metricsData] = await Promise.allSettled([
+        fetchTodayOverdue(params.envId, businessId),
+        fetchLeads(params.envId, businessId),
+        fetchLatestMetrics(params.envId, businessId),
+      ]);
+      if (data.status === "fulfilled") setActionData(data.value);
+      if (leadData.status === "fulfilled") setTopLeads(leadData.value.slice(0, 8));
+      if (metricsData.status === "fulfilled") setMetrics(metricsData.value);
     } catch (err) {
       console.error("Failed to load actions:", err);
     } finally {
@@ -135,6 +143,98 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
               onUpdate={reloadActions}
             />
           ) : null}
+        </section>
+      ) : null}
+
+      {/* CRO Pipeline Overview */}
+      {(topLeads.length > 0 || metrics) ? (
+        <section className="space-y-4">
+          {metrics ? (
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+              <Metric label="Pipeline" value={fmtCurrency(metrics.weighted_pipeline)} sublabel="weighted value" />
+              <Metric label="Open Opps" value={metrics.open_opportunities} sublabel={`${metrics.won_count_90d} won (90d)`} />
+              <Metric label="Outreach" value={metrics.outreach_count_30d} sublabel={metrics.response_rate_30d ? `${(metrics.response_rate_30d * 100).toFixed(0)}% response` : "30d total"} />
+              <Metric label="Revenue MTD" value={fmtCurrency(metrics.revenue_mtd)} sublabel={`${fmtCurrency(metrics.forecast_90d)} forecast`} />
+              <Metric label="Active Clients" value={metrics.active_clients} sublabel={`${metrics.active_engagements} engagements`} />
+            </div>
+          ) : null}
+
+          {topLeads.length > 0 ? (
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Top Leads by Score</p>
+                  <Link href={`/lab/env/${params.envId}/consulting/accounts`} className="text-xs text-bm-accent hover:underline">
+                    View all
+                  </Link>
+                </div>
+                <div className="space-y-2">
+                  {topLeads.map((lead) => (
+                    <Link
+                      key={lead.crm_account_id}
+                      href={`/lab/env/${params.envId}/consulting/accounts/${lead.crm_account_id}`}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-bm-border/50 px-3 py-2 hover:bg-bm-surface/20 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-bm-text truncate">{lead.company_name}</p>
+                        <p className="text-xs text-bm-muted2">
+                          {lead.industry || "—"} · {lead.stage_label || lead.stage_key || "research"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="w-16 h-1.5 rounded-full bg-bm-surface/40 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-bm-accent"
+                            style={{ width: `${lead.lead_score}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-medium text-bm-text w-6 text-right">{lead.lead_score}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap">
+            <Link
+              href={`/lab/env/${params.envId}/consulting/pipeline`}
+              className="rounded-xl border border-bm-accent/30 bg-bm-accent/10 px-4 py-3 text-sm font-medium text-bm-accent hover:bg-bm-accent/20 text-center"
+            >
+              Pipeline Kanban
+            </Link>
+            <Link
+              href={`/lab/env/${params.envId}/consulting/accounts`}
+              className="rounded-xl border border-bm-border/70 bg-bm-bg px-4 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30 text-center"
+            >
+              Accounts
+            </Link>
+            <Link
+              href={`/lab/env/${params.envId}/consulting/strategic-outreach`}
+              className="rounded-xl border border-bm-border/70 bg-bm-bg px-4 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30 text-center"
+            >
+              Strategic Outreach
+            </Link>
+            <Link
+              href={`/lab/env/${params.envId}/consulting/clients`}
+              className="rounded-xl border border-bm-border/70 bg-bm-bg px-4 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30 text-center"
+            >
+              Clients
+            </Link>
+            <Link
+              href={`/lab/env/${params.envId}/consulting/proposals`}
+              className="rounded-xl border border-bm-border/70 bg-bm-bg px-4 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30 text-center"
+            >
+              Proposals
+            </Link>
+            <Link
+              href={`/lab/env/${params.envId}/consulting/loops`}
+              className="rounded-xl border border-bm-border/70 bg-bm-bg px-4 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30 text-center"
+            >
+              Loop Intel
+            </Link>
+          </div>
         </section>
       ) : null}
 

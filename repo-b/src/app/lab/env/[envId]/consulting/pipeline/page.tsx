@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -32,8 +33,10 @@ function formatError(err: unknown): string {
 
 function StageColumn({
   column,
+  envId,
 }: {
   column: PipelineKanbanColumn;
+  envId: string;
 }) {
   return (
     <div className="min-w-[260px] flex flex-col">
@@ -52,24 +55,30 @@ function StageColumn({
           </div>
         ) : (
           column.cards.map((card) => (
-            <Card key={card.crm_opportunity_id}>
-              <CardContent className="py-3">
-                <p className="text-sm font-medium truncate">{card.name}</p>
-                <p className="text-xs text-bm-muted2 mt-0.5">
-                  {card.account_name || "—"}
-                </p>
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-sm font-semibold">
-                    {fmtCurrency(card.amount)}
-                  </span>
-                  {card.expected_close_date ? (
-                    <span className="text-xs text-bm-muted">
-                      Close: {card.expected_close_date}
+            <Link
+              key={card.crm_opportunity_id}
+              href={`/lab/env/${envId}/consulting/pipeline/${card.crm_opportunity_id}`}
+              className="block"
+            >
+              <Card className="hover:border-bm-accent/40 transition-colors cursor-pointer">
+                <CardContent className="py-3">
+                  <p className="text-sm font-medium truncate">{card.name}</p>
+                  <p className="text-xs text-bm-muted2 mt-0.5">
+                    {card.account_name || "—"}
+                  </p>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-sm font-semibold">
+                      {fmtCurrency(card.amount)}
                     </span>
-                  ) : null}
-                </div>
-              </CardContent>
-            </Card>
+                    {card.expected_close_date ? (
+                      <span className="text-xs text-bm-muted">
+                        Close: {card.expected_close_date}
+                      </span>
+                    ) : null}
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           ))
         )}
       </div>
@@ -189,6 +198,7 @@ export default function PipelinePage({
           <StageColumn
             key={col.stage_key}
             column={col}
+            envId={params.envId}
           />
         ))}
       </div>
