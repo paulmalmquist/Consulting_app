@@ -99,10 +99,10 @@ export default function PdsAdoptionPage() {
         bosFetch<{ tool_names: string[]; rows: TrendPoint[] }>("/api/pds/v2/adoption/trends", { params }),
       ]);
 
-      setTools(overviewRes.tools ?? []);
-      setHealthScores(healthRes.accounts ?? []);
-      setTrends(trendsRes.rows ?? []);
-      setTrendToolNames(trendsRes.tool_names ?? []);
+      setTools(Array.isArray(overviewRes.tools) ? overviewRes.tools : []);
+      setHealthScores(Array.isArray(healthRes.accounts) ? healthRes.accounts : []);
+      setTrends(Array.isArray(trendsRes.rows) ? trendsRes.rows : []);
+      setTrendToolNames(Array.isArray(trendsRes.tool_names) ? trendsRes.tool_names : []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load adoption data");
     } finally {

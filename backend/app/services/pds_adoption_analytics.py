@@ -83,7 +83,25 @@ def get_overview(
         )
         rows = cur.fetchall()
 
-    return {"tools": [dict(r) for r in rows]}
+    # Map SQL column names to frontend ToolOverview type
+    tools = []
+    for r in rows:
+        d = dict(r)
+        tools.append({
+            "tool_id": d.get("tool_name", ""),        # use tool_name as ID (no separate id column)
+            "tool_name": d.get("tool_name", ""),
+            "adoption_rate_pct": float(d.get("adoption_rate") or 0),
+            "dau_mau_ratio": round(float(d.get("avg_dau_mau_ratio") or 0) * 100, 2),  # decimal -> pct
+            "active_users": int(d.get("total_active") or 0),
+            "licensed_users": int(d.get("total_licensed") or 0),
+            # Keep originals for backwards compat
+            "adoption_rate": d.get("adoption_rate"),
+            "avg_dau_mau_ratio": d.get("avg_dau_mau_ratio"),
+            "total_active": d.get("total_active"),
+            "total_licensed": d.get("total_licensed"),
+            "avg_feature_adoption": d.get("avg_feature_adoption"),
+        })
+    return {"tools": tools}
 
 
 # ---------------------------------------------------------------------------
@@ -232,7 +250,26 @@ def get_health_score(
         })
 
     scores.sort(key=lambda x: x["composite_score"], reverse=True)
-    return {"health_scores": scores}
+
+    # Map to frontend HealthScoreRow type: {account_id, account_name, health_score, adoption_pct, engagement_score, trend}
+    accounts = []
+    for s in scores:
+        accounts.append({
+            "account_id": s["account_id"],
+            "account_name": s["account_name"],
+            "health_score": round(s["composite_score"]),
+            "adoption_pct": round(s["product_usage_score"], 2),
+            "engagement_score": round(s["nps_score_normalized"], 2),
+            "trend": "stable",  # default; no time-series comparison available yet
+            # Keep originals for backwards compat
+            "composite_score": s["composite_score"],
+            "product_usage_score": s["product_usage_score"],
+            "nps_score_normalized": s["nps_score_normalized"],
+            "product_setup_score": s["product_setup_score"],
+            "csm_qualitative_score": s["csm_qualitative_score"],
+            "rag": s["rag"],
+        })
+    return {"health_scores": scores, "accounts": accounts}
 
 
 # ---------------------------------------------------------------------------
@@ -281,4 +318,35 @@ def get_trends(
         )
         rows = cur.fetchall()
 
-    return {"trends": [dict(r) for r in rows]}
+    # Pivot rows into frontend TrendPoint format:
+    # Frontend expects { tool_names: string[], rows: [{ period, <tool_name>: dau_mau_ratio, ... }] }
+    raw = [dict(r) for r in rows]
+
+    # Collect unique tool names and periods
+    tool_names_set: set[str] = set()
+    periods_set: set[str] = set()
+    lookup: dict[tuple[str, str], float] = {}  # (period, tool_name) -> dau_mau_ratio pct
+    for r in raw:
+        tn = r.get("tool_name", "")
+        p = str(r.get("period", ""))
+        tool_names_set.add(tn)
+        periods_set.add(p)
+        ratio = float(r.get("dau_mau_ratio") or 0)
+        lookup[(p, tn)] = round(ratio * 100, 2)  # decimal -> pct for chart
+
+    tool_names = sorted(tool_names_set)
+    periods = sorted(periods_set)
+
+    pivoted_rows: list[dict[str, Any]] = []
+    for p in periods:
+        row: dict[str, Any] = {"period": p}
+        for tn in tool_names:
+            row[tn] = lookup.get((p, tn), 0)
+        pivoted_rows.append(row)
+
+    return {
+        "tool_names": tool_names,
+        "rows": pivoted_rows,
+        # Keep original flat list for backwards compat
+        "trends": raw,
+    }
