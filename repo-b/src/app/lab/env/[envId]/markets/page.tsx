@@ -16,7 +16,6 @@ import {
 } from "recharts";
 import { RegimeClassifierWidget } from "@/components/market/RegimeClassifierWidget";
 import { BtcSpxCorrelationChart } from "@/components/market/BtcSpxCorrelationChart";
-import { getSupabaseBrowserClient } from "@/lib/supabase-client";
 import type {
   TradingTheme,
   TradingSignal,
@@ -58,45 +57,25 @@ export default function TradingLabPage() {
     setLoading(true);
     setNotice(null);
 
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) {
-      setNotice("No database connection");
-      setLoading(false);
-      return;
-    }
-
     try {
-      const [themesRes, signalsRes, hypothesesRes, positionsRes, perfRes, notesRes, briefRes, watchlistRes] =
-        await Promise.all([
-          supabase.from("trading_themes").select("*").order("created_at", { ascending: false }),
-          supabase.from("trading_signals").select("*").order("strength", { ascending: false }),
-          supabase.from("trading_hypotheses").select("*").order("created_at", { ascending: false }),
-          supabase.from("trading_positions").select("*").order("entry_at", { ascending: false }),
-          supabase.from("trading_performance_snapshots").select("*").order("snapshot_date", { ascending: false }).limit(30),
-          supabase.from("trading_research_notes").select("*").order("created_at", { ascending: false }),
-          supabase.from("trading_daily_briefs").select("*").order("brief_date", { ascending: false }).limit(1),
-          supabase.from("trading_watchlist").select("*").eq("is_active", true).order("ticker"),
-        ]);
+      const res = await fetch("/api/v1/trading");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
 
-      if (themesRes.error) throw themesRes.error;
-      if (signalsRes.error) throw signalsRes.error;
-      if (hypothesesRes.error) throw hypothesesRes.error;
-      if (positionsRes.error) throw positionsRes.error;
-      if (perfRes.error) throw perfRes.error;
-      if (notesRes.error) throw notesRes.error;
-      if (briefRes.error) throw briefRes.error;
-      if (watchlistRes.error) throw watchlistRes.error;
-
-      setThemes(themesRes.data || []);
-      setSignals(signalsRes.data || []);
-      setHypotheses(hypothesesRes.data || []);
-      setPositions(positionsRes.data || []);
-      setPerfSnapshots(perfRes.data || []);
-      setResearchNotes(notesRes.data || []);
-      setDailyBrief(briefRes.data?.[0] || null);
-      setWatchlist(watchlistRes.data || []);
-    } catch (err: any) {
-      setNotice(`Error: ${err.message}`);
+      setThemes(data.themes || []);
+      setSignals(data.signals || []);
+      setHypotheses(data.hypotheses || []);
+      setPositions(data.positions || []);
+      setPerfSnapshots(data.performanceSnapshots || []);
+      setResearchNotes(data.researchNotes || []);
+      setDailyBrief(data.dailyBrief || null);
+      setWatchlist(data.watchlist || []);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setNotice(`Error: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -106,17 +85,26 @@ export default function TradingLabPage() {
     fetchData();
   }, [fetchData]);
 
-  // Helper functions
-  const fmtPnl = (v: number | null): { text: string; color: string } => {
-    if (v === null || v === undefined) return { text: "$0", color: "text-gray-400" };
-    const sign = v >= 0 ? "+" : "";
-    const color = v >= 0 ? "text-green-400" : "text-red-400";
-    return { text: `${sign}$${Math.abs(v).toLocaleString()}`, color };
+  // Helper: coerce pg string numerics to number
+  const num = (v: unknown): number | null => {
+    if (v == null) return null;
+    const n = typeof v === "number" ? v : Number(v);
+    return Number.isFinite(n) ? n : null;
   };
 
-  const fmtPct = (v: number | null): string => {
-    if (v === null || v === undefined) return "0%";
-    return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+  // Helper functions
+  const fmtPnl = (v: unknown): { text: string; color: string } => {
+    const n = num(v);
+    if (n === null) return { text: "$0", color: "text-gray-400" };
+    const sign = n >= 0 ? "+" : "";
+    const color = n >= 0 ? "text-green-400" : "text-red-400";
+    return { text: `${sign}$${Math.abs(n).toLocaleString()}`, color };
+  };
+
+  const fmtPct = (v: unknown): string => {
+    const n = num(v);
+    if (n === null) return "0%";
+    return `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
   };
 
   const fmtDate = (v: string | null): string => {
@@ -145,7 +133,7 @@ export default function TradingLabPage() {
 
   // Computed data
   const openPositions = positions.filter((p) => p.status === "open");
-  const totalPnL = openPositions.reduce((sum, p) => sum + (p.unrealized_pnl || 0), 0);
+  const totalPnL = openPositions.reduce((sum, p) => sum + (num(p.unrealized_pnl) || 0), 0);
   const topSignals = signals.slice(0, 5);
   const filteredSignals = signals.filter((s) => (signalFilter ? s.category?.includes(signalFilter) : true));
 
