@@ -106,7 +106,13 @@ export default function PdsSatisfactionPage() {
         bosFetch<{ verbatims: Verbatim[] }>("/api/pds/v2/satisfaction/verbatims", { params }),
       ]);
 
-      setNpsSummary(npsRes ? { ...npsRes, trend: npsRes.trend ?? [] } : null);
+      setNpsSummary(npsRes ? {
+        ...npsRes,
+        current_nps: npsRes.current_nps != null && !isNaN(npsRes.current_nps) ? npsRes.current_nps : 0,
+        response_count: npsRes.response_count ?? 0,
+        response_rate_pct: npsRes.response_rate_pct ?? 0,
+        trend: npsRes.trend ?? [],
+      } : null);
       setDrivers(driversRes.drivers ?? []);
       setAtRisk(riskRes.accounts ?? []);
       setVerbatims(verbRes.verbatims ?? []);
@@ -159,8 +165,8 @@ export default function PdsSatisfactionPage() {
           <div className="flex flex-col items-center rounded-lg border border-zinc-700 bg-zinc-800/40 p-6">
             <NpsGauge score={npsSummary.current_nps} />
             <div className="mt-3 flex gap-4 text-xs text-zinc-400">
-              <span>Responses: {npsSummary.response_count}</span>
-              <span>Rate: {npsSummary.response_rate_pct}%</span>
+              <span>Responses: {npsSummary.response_count ?? 0}</span>
+              <span>Rate: {npsSummary.response_rate_pct != null && !isNaN(npsSummary.response_rate_pct) ? `${npsSummary.response_rate_pct}%` : "—"}</span>
             </div>
           </div>
         )}

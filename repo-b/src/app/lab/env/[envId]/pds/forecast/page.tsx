@@ -64,10 +64,10 @@ export default function PdsForecastPage() {
 
       if (tab === "pipeline") {
         const res = await bosFetch<{ stages: PipelineStage[] }>("/api/pds/v2/revenue/pipeline", { params });
-        setPipeline(res.stages);
+        setPipeline(res.stages ?? []);
       } else {
         const res = await bosFetch<{ accounts: PortfolioAccount[] }>("/api/pds/v2/revenue/portfolio", { params });
-        setPortfolio(res.accounts);
+        setPortfolio(res.accounts ?? []);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load data");
@@ -189,12 +189,12 @@ export default function PdsForecastPage() {
               <div className="mt-4 flex flex-wrap gap-6 text-sm">
                 <div>
                   <span className="text-zinc-400">Total Deals:</span>{" "}
-                  <span className="font-medium text-zinc-200">{pipeline.reduce((s, r) => s + r.count, 0)}</span>
+                  <span className="font-medium text-zinc-200">{pipeline.reduce((s, r) => s + (r.count ?? 0), 0)}</span>
                 </div>
                 <div>
                   <span className="text-zinc-400">Weighted Pipeline:</span>{" "}
                   <span className="font-medium text-zinc-200">
-                    {formatCurrency(pipeline.reduce((s, r) => s + r.weighted_value, 0))}
+                    {formatCurrency(pipeline.reduce((s, r) => s + (r.weighted_value ?? 0), 0))}
                   </span>
                 </div>
               </div>
