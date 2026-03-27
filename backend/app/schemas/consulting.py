@@ -705,3 +705,56 @@ class StrategicOutreachDashboard(BaseModel):
     outreach_queue: list[OutreachSequenceOut]
     diagnostics: list[DiagnosticSessionOut]
     deliverables: list[DeliverableOut]
+
+
+# ─── Next Actions ──────────────────────────────────────────────────────
+
+class NextActionCreateRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    entity_type: str  # 'account', 'contact', 'opportunity', 'lead'
+    entity_id: UUID
+    action_type: str  # 'email', 'call', 'meeting', 'research', 'follow_up', 'proposal', 'linkedin', 'task', 'other'
+    description: str
+    due_date: date
+    owner: str | None = None
+    priority: str = "normal"  # 'low', 'normal', 'high', 'urgent'
+    notes: str | None = None
+
+
+class NextActionOut(BaseModel):
+    id: UUID
+    env_id: str
+    business_id: UUID
+    entity_type: str
+    entity_id: UUID
+    entity_name: str | None = None
+    action_type: str
+    description: str
+    due_date: date
+    owner: str | None = None
+    status: str  # 'pending', 'in_progress', 'completed', 'skipped'
+    completed_at: datetime | None = None
+    priority: str
+    notes: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class NextActionCompleteRequest(BaseModel):
+    notes: str | None = None
+
+
+class NextActionSkipRequest(BaseModel):
+    reason: str | None = None
+
+
+class TodayOverdueOut(BaseModel):
+    today: list[NextActionOut]
+    overdue: list[NextActionOut]
+    today_count: int
+    overdue_count: int
+
+
+class UpdateLeadStageRequest(BaseModel):
+    stage: str

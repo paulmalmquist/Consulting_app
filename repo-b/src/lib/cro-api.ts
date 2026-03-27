@@ -683,3 +683,106 @@ export function approveStrategicOutreach(sequenceId: string, body: { approved_me
     { method: "POST", body: JSON.stringify(body) },
   );
 }
+
+// ─── Next Actions ───────────────────────────────────────────────────────────
+
+export interface NextAction {
+  id: string;
+  env_id: string;
+  business_id: string;
+  entity_type: "account" | "contact" | "opportunity" | "lead";
+  entity_id: string;
+  entity_name?: string;
+  action_type: string;
+  description: string;
+  due_date: string;
+  owner?: string;
+  status: "pending" | "in_progress" | "completed" | "skipped";
+  completed_at?: string;
+  priority: "low" | "normal" | "high" | "urgent";
+  notes?: string;
+  created_at: string;
+}
+
+export interface TodayOverdue {
+  today: NextAction[];
+  overdue: NextAction[];
+  today_count: number;
+  overdue_count: number;
+}
+
+export async function fetchTodayOverdue(envId: string, businessId: string): Promise<TodayOverdue> {
+  return apiFetch<TodayOverdue>(`${CRO_BASE}/next-actions/today-overdue?env_id=${envId}&business_id=${businessId}`);
+}
+
+export async function fetchNextActions(envId: string, businessId: string, status?: string): Promise<NextAction[]> {
+  const params = new URLSearchParams({ env_id: envId, business_id: businessId });
+  if (status) params.set("status", status);
+  return apiFetch<NextAction[]>(`${CRO_BASE}/next-actions?${params}`);
+}
+
+export async function createNextAction(body: {
+  env_id: string;
+  business_id: string;
+  entity_type: string;
+  entity_id: string;
+  action_type: string;
+  description: string;
+  due_date: string;
+  owner?: string;
+  priority?: string;
+}): Promise<NextAction> {
+  return apiFetch<NextAction>(`${CRO_BASE}/next-actions`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function completeNextAction(actionId: string, businessId: string): Promise<NextAction> {
+  return apiFetch<NextAction>(`${CRO_BASE}/next-actions/${actionId}/complete`, {
+    method: "POST",
+    body: JSON.stringify({ business_id: businessId }),
+  });
+}
+
+export async function skipNextAction(actionId: string, businessId: string, reason?: string): Promise<NextAction> {
+  return apiFetch<NextAction>(`${CRO_BASE}/next-actions/${actionId}/skip`, {
+    method: "POST",
+    body: JSON.stringify({ business_id: businessId, reason }),
+  });
+}
+
+// ─── Activity Timeline ──────────────────────────────────────────────────────
+
+export interface Activity {
+  crm_activity_id: string;
+  crm_account_id?: string;
+  crm_contact_id?: string;
+  crm_opportunity_id?: string;
+  activity_type: string;
+  subject?: string;
+  activity_at: string;
+  payload_json?: Record<string, unknown>;
+  created_at: string;
+}
+
+export async function fetchActivities(envId: string, businessId: string, params?: {
+  account_id?: string;
+  contact_id?: string;
+  opportunity_id?: string;
+  limit?: number;
+}): Promise<Activity[]> {
+  const qs = new URLSearchParams({ env_id: envId, business_id: businessId });
+  if (params?.account_id) qs.set("account_id", params.account_id);
+  if (params?.contact_id) qs.set("contact_id", params.contact_id);
+  if (params?.opportunity_id) qs.set("opportunity_id", params.opportunity_id);
+  if (params?.limit) qs.set("limit", String(params.limit));
+  return apiFetch<Activity[]>(`${CRO_BASE}/activities?${qs}`);
+}
+
+export async function updateLeadStage(leadId: string, envId: string, businessId: string, stage: string): Promise<unknown> {
+  return apiFetch<unknown>(`${CRO_BASE}/leads/${leadId}/stage`, {
+    method: "POST",
+    body: JSON.stringify({ env_id: envId, business_id: businessId, stage }),
+  });
+}

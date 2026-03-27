@@ -30,6 +30,7 @@ export default function ConsultingWorkspaceShell({
   const navItems = useMemo(
     () => [
       { href: base, label: "Command Center", isBase: true },
+      { href: `${base}/accounts`, label: "Accounts", isBase: false },
       { href: `${base}/contacts`, label: "Contacts", isBase: false },
       { href: `${base}/events`, label: "Events", isBase: false },
       { href: `${base}/partners`, label: "Partners & Venues", isBase: false },

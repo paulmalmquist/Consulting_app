@@ -22,6 +22,10 @@ from app.schemas.consulting import (
     LeadOut,
     LeadScoreUpdate,
     MetricsSnapshotOut,
+    NextActionCompleteRequest,
+    NextActionCreateRequest,
+    NextActionOut,
+    NextActionSkipRequest,
     OutreachAnalyticsOut,
     OutreachLogCreateRequest,
     OutreachLogOut,
@@ -39,6 +43,8 @@ from app.schemas.consulting import (
     RevenueSummaryOut,
     SeedRequest,
     SeedResult,
+    TodayOverdueOut,
+    UpdateLeadStageRequest,
     LoopCreateRequest,
     LoopDetailOut,
     LoopInterventionCreateRequest,
@@ -79,6 +85,7 @@ from app.services import (
     cro_engagements,
     cro_leads,
     cro_metrics_engine,
+    cro_next_actions,
     cro_outreach,
     cro_pipeline,
     cro_proposals,
@@ -953,5 +960,121 @@ def seed_strategic_outreach(body: StrategicOutreachSeedRequest):
         )
         _log("cro.strategic_outreach.seed", "Strategic outreach targets seeded")
         return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ─── Next Actions ──────────────────────────────────────────────────────────
+
+@router.post("/next-actions", response_model=NextActionOut, status_code=201)
+def create_next_action(body: NextActionCreateRequest):
+    try:
+        return cro_next_actions.create_next_action(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            entity_type=body.entity_type,
+            entity_id=body.entity_id,
+            action_type=body.action_type,
+            description=body.description,
+            due_date=body.due_date,
+            owner=body.owner,
+            priority=body.priority,
+            notes=body.notes,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/next-actions", response_model=list[NextActionOut])
+def list_next_actions(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    status: str | None = Query("pending"),
+    entity_type: str | None = Query(None),
+    entity_id: UUID | None = Query(None),
+):
+    try:
+        return cro_next_actions.list_next_actions(
+            env_id=env_id,
+            business_id=business_id,
+            status=status,
+            entity_type=entity_type,
+            entity_id=entity_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/next-actions/today-overdue", response_model=TodayOverdueOut)
+def get_today_overdue(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return cro_next_actions.get_today_overdue(
+            env_id=env_id,
+            business_id=business_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/next-actions/{action_id}/complete", response_model=NextActionOut)
+def complete_next_action(action_id: UUID, body: NextActionCompleteRequest, business_id: UUID = Query(...)):
+    try:
+        return cro_next_actions.complete_next_action(
+            business_id=business_id,
+            action_id=action_id,
+            notes=body.notes,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/next-actions/{action_id}/skip", response_model=NextActionOut)
+def skip_next_action(action_id: UUID, body: NextActionSkipRequest, business_id: UUID = Query(...)):
+    try:
+        return cro_next_actions.skip_next_action(
+            business_id=business_id,
+            action_id=action_id,
+            reason=body.reason,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ─── Lead Pipeline Stage ───────────────────────────────────────────────────
+
+@router.post("/leads/{lead_id}/stage", response_model=LeadOut)
+def update_lead_stage(lead_id: UUID, body: UpdateLeadStageRequest, env_id: str = Query(...), business_id: UUID = Query(...)):
+    try:
+        result = cro_leads.update_lead_pipeline_stage(
+            env_id=env_id,
+            business_id=business_id,
+            lead_id=lead_id,
+            stage=body.stage,
+        )
+        # Convert database result to LeadOut schema
+        return {
+            "crm_account_id": result["crm_account_id"],
+            "lead_profile_id": result["id"],
+            "company_name": None,
+            "industry": None,
+            "website": None,
+            "account_type": None,
+            "ai_maturity": None,
+            "pain_category": None,
+            "lead_score": result["lead_score"],
+            "lead_source": None,
+            "company_size": None,
+            "revenue_band": None,
+            "erp_system": None,
+            "estimated_budget": None,
+            "qualified_at": None,
+            "disqualified_at": None,
+            "stage_key": result["pipeline_stage"],
+            "stage_label": result["pipeline_stage"],
+            "created_at": result["updated_at"],
+        }
     except Exception as exc:
         raise _to_http(exc)

@@ -5,6 +5,7 @@ Extends the CRM account model with consulting-specific scoring and qualification
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
@@ -56,8 +57,8 @@ def create_lead(
         )
         account = cur.fetchone()
 
-        # Compute initial lead score
-        score = _compute_lead_score(
+        # Compute initial lead score with breakdown
+        score, breakdown = _compute_lead_score_with_breakdown(
             ai_maturity=ai_maturity,
             pain_category=pain_category,
             company_size=company_size,
@@ -70,10 +71,10 @@ def create_lead(
             """
             INSERT INTO cro_lead_profile
               (crm_account_id, env_id, business_id, ai_maturity, pain_category,
-               lead_score, lead_source, company_size, revenue_band, erp_system,
+               lead_score, score_breakdown, pipeline_stage, lead_source, company_size, revenue_band, erp_system,
                estimated_budget)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, lead_score, ai_maturity, pain_category, lead_source,
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, lead_score, score_breakdown, pipeline_stage, ai_maturity, pain_category, lead_source,
                       company_size, revenue_band, erp_system, estimated_budget, created_at
             """,
             (
@@ -83,6 +84,8 @@ def create_lead(
                 ai_maturity,
                 pain_category,
                 score,
+                json.dumps(breakdown),
+                'research',
                 lead_source,
                 company_size,
                 revenue_band,
@@ -244,6 +247,117 @@ def disqualify_lead(*, lead_profile_id: UUID, reason: str) -> dict:
         return row
 
 
+def update_lead_pipeline_stage(
+    *,
+    env_id: str,
+    business_id: UUID,
+    lead_id: UUID,
+    stage: str,
+) -> dict:
+    """Update a lead's pipeline stage."""
+    valid_stages = [
+        "research", "identified", "contacted", "engaged", "meeting",
+        "qualified", "proposal", "closed_won", "closed_lost"
+    ]
+    if stage not in valid_stages:
+        raise ValueError(f"Invalid stage: {stage}. Must be one of {valid_stages}")
+
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            UPDATE cro_lead_profile
+            SET pipeline_stage = %s, updated_at = now()
+            WHERE crm_account_id = %s AND env_id = %s AND business_id = %s
+            RETURNING id, crm_account_id, pipeline_stage, lead_score, updated_at
+            """,
+            (stage, str(lead_id), env_id, str(business_id)),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise LookupError(f"Lead profile for account {lead_id} not found")
+
+    emit_log(level="info", service="backend", action="cro.lead.stage_updated",
+             message=f"Lead {lead_id} moved to stage {stage}",
+             context={"lead_id": str(lead_id), "stage": stage})
+    return row
+
+
+def _compute_lead_score_with_breakdown(
+    *,
+    ai_maturity: str | None,
+    pain_category: str | None,
+    company_size: str | None,
+    estimated_budget: Decimal | None,
+    lead_source: str | None,
+) -> tuple[int, dict]:
+    """Deterministic lead scoring formula with detailed breakdown.
+
+    Factors (each 0-20, total 0-100):
+    - AI maturity: none=4, exploring=8, piloting=12, scaling=16, embedded=20
+    - Pain severity: other=4, growth/efficiency=8, revenue/risk=12, ai_roi/erp_failure=16, reporting_chaos/governance_gap=20
+    - Company size: 1_10=4, 10_50=8, 50_200=16, 200_1000=20, 1000_plus=12
+    - Budget signal: none=0, <25k=4, <100k=10, <500k=16, >=500k=20
+    - Source quality: scrape=4, outbound=8, inbound=12, event/partner=16, referral=20
+
+    Returns: (total_score, breakdown_dict)
+    """
+    score = 0
+    breakdown = {}
+
+    # AI maturity
+    maturity_scores = {"none": 4, "exploring": 8, "piloting": 12, "scaling": 16, "embedded": 20}
+    maturity_score = maturity_scores.get(ai_maturity or "", 4)
+    breakdown["ai_maturity"] = {"value": maturity_score, "label": ai_maturity or "unknown"}
+    score += maturity_score
+
+    # Pain category
+    pain_scores = {
+        "other": 4, "growth": 8, "efficiency": 8, "compliance": 10,
+        "revenue": 12, "risk": 12, "ai_roi": 16, "erp_failure": 16,
+        "reporting_chaos": 20, "governance_gap": 20,
+    }
+    pain_score = pain_scores.get(pain_category or "", 4)
+    breakdown["pain_category"] = {"value": pain_score, "label": pain_category or "unknown"}
+    score += pain_score
+
+    # Company size
+    size_scores = {"1_10": 4, "10_50": 8, "50_200": 16, "200_1000": 20, "1000_plus": 12}
+    size_score = size_scores.get(company_size or "", 4)
+    breakdown["company_size"] = {"value": size_score, "label": company_size or "unknown"}
+    score += size_score
+
+    # Budget signal
+    if estimated_budget is None:
+        budget_score = 0
+        budget_label = "not_provided"
+    elif estimated_budget < 25000:
+        budget_score = 4
+        budget_label = "under_25k"
+    elif estimated_budget < 100000:
+        budget_score = 10
+        budget_label = "25k_100k"
+    elif estimated_budget < 500000:
+        budget_score = 16
+        budget_label = "100k_500k"
+    else:
+        budget_score = 20
+        budget_label = "500k_plus"
+
+    breakdown["estimated_budget"] = {"value": budget_score, "label": budget_label}
+    score += budget_score
+
+    # Source quality
+    source_scores = {
+        "scrape": 4, "manual": 6, "outbound": 8, "research_loop": 10,
+        "inbound": 12, "event": 16, "partner": 16, "referral": 20,
+    }
+    source_score = source_scores.get(lead_source or "", 4)
+    breakdown["lead_source"] = {"value": source_score, "label": lead_source or "unknown"}
+    score += source_score
+
+    return (min(score, 100), breakdown)
+
+
 def _compute_lead_score(
     *,
     ai_maturity: str | None,
@@ -252,50 +366,15 @@ def _compute_lead_score(
     estimated_budget: Decimal | None,
     lead_source: str | None,
 ) -> int:
-    """Deterministic lead scoring formula.
+    """Deterministic lead scoring formula (legacy, returns score only).
 
-    Factors (each 0-20, total 0-100):
-    - AI maturity: none=4, exploring=8, piloting=12, scaling=16, embedded=20
-    - Pain severity: other=4, growth/efficiency=8, revenue/risk=12, ai_roi/erp_failure=16, reporting_chaos/governance_gap=20
-    - Company size: 1_10=4, 10_50=8, 50_200=16, 200_1000=20, 1000_plus=12
-    - Budget signal: none=0, <25k=4, <100k=10, <500k=16, >=500k=20
-    - Source quality: scrape=4, outbound=8, inbound=12, event/partner=16, referral=20
+    For new code, use _compute_lead_score_with_breakdown instead.
     """
-    score = 0
-
-    # AI maturity
-    maturity_scores = {"none": 4, "exploring": 8, "piloting": 12, "scaling": 16, "embedded": 20}
-    score += maturity_scores.get(ai_maturity or "", 4)
-
-    # Pain category
-    pain_scores = {
-        "other": 4, "growth": 8, "efficiency": 8, "compliance": 10,
-        "revenue": 12, "risk": 12, "ai_roi": 16, "erp_failure": 16,
-        "reporting_chaos": 20, "governance_gap": 20,
-    }
-    score += pain_scores.get(pain_category or "", 4)
-
-    # Company size
-    size_scores = {"1_10": 4, "10_50": 8, "50_200": 16, "200_1000": 20, "1000_plus": 12}
-    score += size_scores.get(company_size or "", 4)
-
-    # Budget signal
-    if estimated_budget is None:
-        score += 0
-    elif estimated_budget < 25000:
-        score += 4
-    elif estimated_budget < 100000:
-        score += 10
-    elif estimated_budget < 500000:
-        score += 16
-    else:
-        score += 20
-
-    # Source quality
-    source_scores = {
-        "scrape": 4, "manual": 6, "outbound": 8, "research_loop": 10,
-        "inbound": 12, "event": 16, "partner": 16, "referral": 20,
-    }
-    score += source_scores.get(lead_source or "", 4)
-
-    return min(score, 100)
+    score, _ = _compute_lead_score_with_breakdown(
+        ai_maturity=ai_maturity,
+        pain_category=pain_category,
+        company_size=company_size,
+        estimated_budget=estimated_budget,
+        lead_source=lead_source,
+    )
+    return score

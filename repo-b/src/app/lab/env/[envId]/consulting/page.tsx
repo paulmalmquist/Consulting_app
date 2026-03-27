@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
 import { useTrainingWorkspace } from "@/components/consulting/local-training/useTrainingWorkspace";
 import { EmptyState, TonePill, fmtCurrency, fmtDate, fmtTime } from "@/components/consulting/local-training/ui";
+import { NextActionPanel } from "@/components/consulting/NextActionPanel";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardTitle } from "@/components/ui/Card";
+import { fetchTodayOverdue, type TodayOverdue } from "@/lib/cro-api";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 
 function Metric({ label, value, sublabel }: { label: string; value: string | number; sublabel?: string }) {
@@ -24,9 +26,30 @@ function Metric({ label, value, sublabel }: { label: string; value: string | num
 export default function ConsultingCommandCenter({ params }: { params: { envId: string } }) {
   const { businessId, ready, loading: contextLoading, error: contextError } = useConsultingEnv();
   const { workspace, loading, mutating, error, seed } = useTrainingWorkspace(params.envId, businessId, ready);
+  const [actionData, setActionData] = useState<TodayOverdue | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
   const nextEvent = workspace?.summary.next_event ?? null;
   const mobile = workspace?.summary.mobile_dashboard;
   const eventPerformance = workspace?.reports.event_performance ?? [];
+
+  const reloadActions = useCallback(async () => {
+    if (!businessId) return;
+    setActionLoading(true);
+    try {
+      const data = await fetchTodayOverdue(params.envId, businessId);
+      setActionData(data);
+    } catch (err) {
+      console.error("Failed to load actions:", err);
+    } finally {
+      setActionLoading(false);
+    }
+  }, [params.envId, businessId]);
+
+  useEffect(() => {
+    if (!ready || !businessId) return;
+    void reloadActions();
+  }, [ready, businessId, reloadActions]);
 
   const commandLinks = useMemo(
     () => [
@@ -90,6 +113,29 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
     <div className="space-y-6 pb-24 md:pb-6">
       {error ? (
         <div className="rounded-xl border border-bm-danger/35 bg-bm-danger/10 px-4 py-3 text-sm text-bm-text">{error}</div>
+      ) : null}
+
+      {/* Next Actions */}
+      {actionData && (actionData.overdue_count > 0 || actionData.today_count > 0) ? (
+        <section className="space-y-3">
+          {actionData.overdue_count > 0 ? (
+            <NextActionPanel
+              title="Overdue"
+              actions={actionData.overdue}
+              businessId={businessId!}
+              onUpdate={reloadActions}
+              variant="overdue"
+            />
+          ) : null}
+          {actionData.today_count > 0 ? (
+            <NextActionPanel
+              title="Today"
+              actions={actionData.today}
+              businessId={businessId!}
+              onUpdate={reloadActions}
+            />
+          ) : null}
+        </section>
       ) : null}
 
       <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-4 md:p-5">

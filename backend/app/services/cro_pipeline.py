@@ -15,11 +15,13 @@ from app.services.reporting_common import resolve_tenant_id
 
 # Consulting-specific pipeline stages (overrides generic CRM defaults)
 _CONSULTING_STAGES = [
-    ("lead", "Lead", 5, 0.05, False, False),
-    ("contacted", "Contacted", 10, 0.10, False, False),
-    ("discovery", "Discovery", 20, 0.25, False, False),
-    ("proposal", "Proposal", 40, 0.50, False, False),
-    ("negotiation", "Negotiation", 60, 0.70, False, False),
+    ("research", "Research", 5, 0.05, False, False),
+    ("identified", "Identified", 10, 0.10, False, False),
+    ("contacted", "Contacted", 20, 0.15, False, False),
+    ("engaged", "Engaged", 30, 0.25, False, False),
+    ("meeting", "Meeting", 40, 0.40, False, False),
+    ("qualified", "Qualified", 50, 0.55, False, False),
+    ("proposal", "Proposal", 70, 0.70, False, False),
     ("closed_won", "Closed Won", 90, 1.0, True, True),
     ("closed_lost", "Closed Lost", 100, 0.0, True, False),
 ]
