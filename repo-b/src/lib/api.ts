@@ -82,7 +82,8 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}) {
     try {
       const payload = await response.json();
       debugBody = payload;
-      message = payload.message || payload.detail || message;
+      const raw = payload.message || payload.detail || message;
+      message = typeof raw === "string" ? raw : JSON.stringify(raw);
     } catch {
       try {
         const snippet = (await responseClone.text()).slice(0, 220);

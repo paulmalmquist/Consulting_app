@@ -72,7 +72,7 @@ class PipelineStageOut(BaseModel):
 class PipelineKanbanCard(BaseModel):
     crm_opportunity_id: UUID
     name: str
-    amount: Decimal
+    amount: float
     account_name: str | None = None
     stage_key: str
     stage_label: str
@@ -84,16 +84,16 @@ class PipelineKanbanColumn(BaseModel):
     stage_key: str
     stage_label: str
     stage_order: int
-    win_probability: Decimal | None = None
+    win_probability: float | None = None
     cards: list[PipelineKanbanCard]
-    total_value: Decimal
-    weighted_value: Decimal
+    total_value: float
+    weighted_value: float
 
 
 class PipelineKanbanResult(BaseModel):
     columns: list[PipelineKanbanColumn]
-    total_pipeline: Decimal
-    weighted_pipeline: Decimal
+    total_pipeline: float
+    weighted_pipeline: float
 
 
 class AdvanceStageRequest(BaseModel):
