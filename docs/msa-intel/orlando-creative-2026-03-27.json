@@ -1,0 +1,232 @@
+{
+  "zone_slug": "orlando-creative",
+  "zone_name": "Orlando — Creative Village/Parramore",
+  "run_date": "2026-03-27",
+  "tier": 1,
+  "asset_class_focus": "multifamily",
+  "signals": {
+    "transaction_velocity": {
+      "score": 7,
+      "trend": "accelerating",
+      "comps": [
+        {
+          "address": "UnionWest at Creative Village, Orlando",
+          "price": null,
+          "price_per_unit": null,
+          "price_per_sf": null,
+          "cap_rate": null,
+          "date": "2024-12",
+          "buyer_type": "institutional",
+          "notes": "Most expensive Orlando MF transaction of 2024"
+        },
+        {
+          "address": "216-Unit Complex, Suburban Orlando",
+          "price": 34300000,
+          "price_per_unit": 158796,
+          "price_per_sf": null,
+          "cap_rate": null,
+          "date": "2026-03",
+          "buyer_type": "private"
+        }
+      ],
+      "notes": "Orlando MF transaction activity increased 56% YoY in 2025. Quarterly transaction volume in Q3 2025 hit highest level since 2022. Median price per unit declined ~25% from 2022-2025, attracting new buyers. JLL actively marketing select parcels at Creative Village."
+    },
+    "distress_level": {
+      "score": 3,
+      "trend": "stable",
+      "lis_pendens_count": null,
+      "nod_count": null,
+      "notes": "No significant distress signals found for Creative Village/Parramore multifamily. The broader Orlando market is healthy with cap rate compression and institutional buyers returning. No forced sales or receiverships reported in this submarket."
+    },
+    "supply_risk": {
+      "score": 7,
+      "trend": "increasing",
+      "permits_ytd": null,
+      "units_pipeline": 1278,
+      "major_projects": [
+        {
+          "name": "Creative Village Phase 2 — Market-Rate Apartments",
+          "units": 450,
+          "status": "planned",
+          "expected_delivery": "2026-2029"
+        },
+        {
+          "name": "Creative Village Phase 2 — Mixed-Income Units",
+          "units": 106,
+          "status": "planned",
+          "expected_delivery": "2026-2029"
+        },
+        {
+          "name": "Creative Village Phase 2 — Student Housing",
+          "units": 600,
+          "status": "planned",
+          "expected_delivery": "2026-2029"
+        },
+        {
+          "name": "The Beacon at Creative Village",
+          "units": 122,
+          "status": "proposed",
+          "expected_delivery": "2027-2028"
+        }
+      ],
+      "notes": "Phase 2 is a $600M investment. Orlando metro added 30,000 units in the past 2 years. However, construction starts are tapering nationally and locally, which should moderate future supply risk. Unlocked Open-Door Program targets 300+ vacant lots for single-family (not competing with MF supply)."
+    },
+    "rent_growth": {
+      "score": 5,
+      "trailing_12mo": -0.001,
+      "by_class": {
+        "class_a": 0.024,
+        "class_b": 0.020,
+        "class_c": null
+      },
+      "concession_level": "moderate",
+      "notes": "Creative Village specifically saw -0.1% rent decline. Orlando metro forecast at 2.0-2.4% rent growth by year-end. Modera Creative Village offering up to 1 month free rent. Average asking rents: studio $1,561, 1BR $1,729, 2BR $2,222. Metro average asking rent at $1,763. Rent growth expected to accelerate in 2026-2027 as supply tappers."
+    },
+    "demand_drivers": {
+      "score": 8,
+      "employment_trend": "growing",
+      "major_moves": [
+        {
+          "employer": "Orlando Health",
+          "action": "expanding",
+          "jobs_affected": 570
+        },
+        {
+          "employer": "KPMG US",
+          "action": "hiring",
+          "jobs_affected": 195
+        },
+        {
+          "employer": "EY (Ernst & Young)",
+          "action": "hiring",
+          "jobs_affected": 184
+        },
+        {
+          "employer": "ThreatLocker",
+          "action": "expanding",
+          "jobs_affected": null
+        },
+        {
+          "employer": "BNY Mellon",
+          "action": "expanding",
+          "jobs_affected": null
+        },
+        {
+          "employer": "Charles Schwab",
+          "action": "expanding",
+          "jobs_affected": null
+        }
+      ],
+      "migration_trend": "inflow",
+      "notes": "Orlando is #1 fastest-growing major metro in the US. Added 76,000 residents in 2024 (1,500/week). 2.7% population growth, surpassing FL statewide rate. 65% of recent growth from international migration. Employment growth forecast at 1.3% in 2026 (vs 0.5% national). 1 million job openings projected 2026-2031. UCF and Valencia College anchor Creative Village with strong education pipeline. SunRail transit-oriented development. LYMMO lines connect Parramore to downtown."
+    },
+    "capital_availability": {
+      "score": 7,
+      "agency_volume_delta": 0.20,
+      "bank_appetite": "expanding",
+      "cmbs_delinquency_rate": null,
+      "notes": "Multifamily lending projected to increase 21% to $399.2B in 2026. Fannie/Freddie allocated ~20% increase in capped business. CMBS issuance surged to $115.2B through Nov 2025, highest since 2007. AAA spreads much tighter than 2022-2023. Florida MF cap rates at 5.5% (vs 5.2% national). Cap rate compression expected in 2026 toward 5.0-5.5% range low end."
+    },
+    "regulatory_favorability": {
+      "score": 8,
+      "rent_control_risk": "none",
+      "oz_status": "active",
+      "tax_reassessment_risk": "low",
+      "notes": "Florida state law preempts local rent control measures. Parramore is an active federal Opportunity Zone (South Parramore OZ). CRA actively supporting development — contributed debt to Parramore Oaks ($20M in tax credits/incentives). Unlocked Open-Door Program provides 100% rebate on impact/building permit fees. City allocated $750K CRA funds. $45K down payment assistance available. EPA cleanup grants funded. Orange County property tax rate ~0.94%. Florida 2026 property tax relief proposals pending."
+    }
+  },
+  "composite_acquisition_score": 5.8,
+  "score_delta_vs_last_run": null,
+  "key_findings": [
+    {
+      "finding": "Creative Village Phase 2 represents a $600M investment with 1,278 planned residential units (450 market-rate, 106 mixed-income, 600 student, 122 proposed), creating significant near-term supply that will pressure absorption",
+      "category": "supply_risk",
+      "significance": "high",
+      "source": "https://www.orlando.gov/Initiatives/Creative-Village/Creative-Village-Phase-II-Development"
+    },
+    {
+      "finding": "Orlando is the #1 fastest-growing major metro in the US across jobs, population, and GDP — the triple crown — with 76,000 new residents added in 2024 alone",
+      "category": "demand_drivers",
+      "significance": "high",
+      "source": "https://news.orlando.org/blog/triple-crown-orlando-leads-the-nation-in-job-population-and-gdp-growth/"
+    },
+    {
+      "finding": "Orlando MF transaction volume increased 56% YoY in 2025, with Q3 quarterly volume the highest since 2022. Median price per unit down ~25% from 2022 peak, creating attractive entry points",
+      "category": "transaction_velocity",
+      "significance": "high",
+      "source": "https://www.northmarq.com/insights/insights/transaction-activity-accelerates-second-half"
+    },
+    {
+      "finding": "Creative Village rents slightly declining (-0.1% YoY) with concessions offered (1 month free at Modera). Metro rent growth forecast at 2.0-2.4% suggests submarket-specific softness from elevated deliveries",
+      "category": "rent_growth",
+      "significance": "medium",
+      "source": "https://www.apartments.com/creative-village-orlando-fl/"
+    },
+    {
+      "finding": "South Parramore is an active federal Opportunity Zone with proven OZ + LIHTC stacking (Parramore Oaks: $20M in tax credits). No rent control risk due to state preemption. City launched Unlocked program with permit fee rebates",
+      "category": "regulatory_favorability",
+      "significance": "high",
+      "source": "https://www.orlando.gov/Initiatives/Opportunity-Zones/South-Parramore"
+    },
+    {
+      "finding": "Multifamily lending projected to increase 21% nationally to $399.2B in 2026. CMBS issuance at highest since 2007. Cap rate compression expected toward 5.0% range. Institutional buyers returning to Orlando",
+      "category": "capital_availability",
+      "significance": "medium",
+      "source": "https://www.multifamilyexecutive.com/debt-equity/multifamily-cre-originations-poised-climb-2026"
+    },
+    {
+      "finding": "UnionWest at Creative Village sold in Dec 2024 as Orlando's most expensive MF transaction of the year, validating institutional demand for this specific submarket",
+      "category": "transaction_velocity",
+      "significance": "high",
+      "source": "https://www.theorlandoreal.com/creative-village-completed-and-proposed-projects-through-2027/"
+    },
+    {
+      "finding": "SunRail Sunshine Corridor extension from Orlando Airport to Disney Springs could boost ridership from 1M to 6M+ annually, dramatically improving Creative Village's transit connectivity value",
+      "category": "demand_drivers",
+      "significance": "medium",
+      "source": "https://jaredjones.com/2025/09/24/orlando-development-projects-2025/"
+    }
+  ],
+  "feature_gaps_identified": [
+    {
+      "gap": "Cannot access Orlando City permit database programmatically to pull actual building permit counts for Parramore submarket",
+      "category": "data_source",
+      "impact": 8
+    },
+    {
+      "gap": "No access to CoStar/RCA for actual sales comp data (price per unit, cap rates) for Creative Village transactions",
+      "category": "data_source",
+      "impact": 9
+    },
+    {
+      "gap": "Cannot pull lis pendens or foreclosure filing data for Orange County to quantify distress level",
+      "category": "data_source",
+      "impact": 7
+    },
+    {
+      "gap": "No CMBS delinquency rate data available at the MSA level for Orlando specifically",
+      "category": "data_source",
+      "impact": 5
+    },
+    {
+      "gap": "Rent by class (A/B/C) not available at the subzone level — only metro-wide estimates available",
+      "category": "data_source",
+      "impact": 6
+    },
+    {
+      "gap": "No automated pipeline to track zoning variances, PUD amendments, or impact fee changes from the Orlando city council agenda",
+      "category": "workflow",
+      "impact": 6
+    },
+    {
+      "gap": "Need submarket-level absorption rate calculation — overall Orlando occupancy trending up but Creative Village may differ due to concentrated new supply",
+      "category": "calculation",
+      "impact": 7
+    },
+    {
+      "gap": "Heat map visualization of transaction activity and rent levels by census tract within the zone would significantly improve spatial analysis",
+      "category": "visualization",
+      "impact": 5
+    }
+  ]
+}
