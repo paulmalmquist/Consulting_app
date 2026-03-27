@@ -147,6 +147,32 @@ export default function AccountDetailPage({
             </div>
           </section>
 
+          {account.score_breakdown && Object.keys(account.score_breakdown).length > 0 ? (
+            <section className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Lead Score Breakdown</h2>
+                {account.lead_score != null ? (
+                  <span className="text-sm font-semibold text-bm-accent">{account.lead_score.toFixed(1)} / 10</span>
+                ) : null}
+              </div>
+              <div className="space-y-2">
+                {Object.entries(account.score_breakdown).map(([key, factor]) => {
+                  const pct = Math.min(Math.max((factor.value / 10) * 100, 0), 100);
+                  const barColor = pct >= 70 ? "bg-emerald-500" : pct >= 40 ? "bg-amber-500" : "bg-rose-500";
+                  return (
+                    <div key={key} className="flex items-center gap-3">
+                      <span className="text-xs text-bm-muted2 w-36 shrink-0">{factor.label || key}</span>
+                      <div className="flex-1 h-1.5 bg-bm-border/40 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-xs font-medium text-bm-text w-8 text-right">{factor.value.toFixed(1)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Card>
               <CardContent className="py-4">

@@ -266,6 +266,9 @@ export function advanceOpportunityStage(body: {
   env_id: string;
   business_id: string;
   opportunity_id: string;
+  close_reason?: string;
+  competitive_incumbent?: string;
+  close_notes?: string;
   to_stage_key: string;
   note?: string;
 }) {
@@ -844,6 +847,10 @@ export interface OpportunityDetail {
   win_probability: number | null;
   stage_order: number | null;
   created_at: string;
+  close_reason: string | null;
+  competitive_incumbent: string | null;
+  close_notes: string | null;
+  closed_at: string | null;
 }
 
 export interface StageHistoryEntry {

@@ -148,6 +148,9 @@ def advance_stage(body: AdvanceStageRequest):
             opportunity_id=body.opportunity_id,
             to_stage_key=body.to_stage_key,
             note=body.note,
+            close_reason=body.close_reason,
+            competitive_incumbent=body.competitive_incumbent,
+            close_notes=body.close_notes,
         )
         _log("cro.pipeline.advanced", f"Opportunity advanced to {body.to_stage_key}")
         return result

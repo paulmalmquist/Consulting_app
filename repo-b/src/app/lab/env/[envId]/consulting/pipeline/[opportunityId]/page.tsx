@@ -68,6 +68,10 @@ export default function OpportunityDetailPage({
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
   const [advancing, setAdvancing] = useState(false);
+  const [closeModal, setCloseModal] = useState<{ type: "won" | "lost" } | null>(null);
+  const [closeReason, setCloseReason] = useState("");
+  const [closeIncumbent, setCloseIncumbent] = useState("");
+  const [closeNotes, setCloseNotes] = useState("");
 
   const loadData = useCallback(async () => {
     if (!ready || !businessId) {
@@ -110,7 +114,7 @@ export default function OpportunityDetailPage({
     void loadData();
   }, [loadData]);
 
-  const handleAdvance = async (stageKey: string) => {
+  const handleAdvance = async (stageKey: string, extra?: { close_reason?: string; competitive_incumbent?: string; close_notes?: string }) => {
     if (!businessId || !opp) return;
     setAdvancing(true);
     try {
@@ -119,6 +123,7 @@ export default function OpportunityDetailPage({
         business_id: businessId,
         opportunity_id: params.opportunityId,
         to_stage_key: stageKey,
+        ...extra,
       });
       await loadData();
     } catch (err) {
@@ -126,6 +131,20 @@ export default function OpportunityDetailPage({
     } finally {
       setAdvancing(false);
     }
+  };
+
+  const handleCloseSubmit = async () => {
+    if (!closeModal) return;
+    const stageKey = closeModal.type === "won" ? "closed_won" : "closed_lost";
+    setCloseModal(null);
+    await handleAdvance(stageKey, {
+      close_reason: closeReason || undefined,
+      competitive_incumbent: closeIncumbent || undefined,
+      close_notes: closeNotes || undefined,
+    });
+    setCloseReason("");
+    setCloseIncumbent("");
+    setCloseNotes("");
   };
 
   const bannerMessage = ctxError || dataError;
@@ -263,20 +282,55 @@ export default function OpportunityDetailPage({
                   </button>
                 ))}
                 <button
-                  onClick={() => handleAdvance("closed_won")}
+                  onClick={() => setCloseModal({ type: "won" })}
                   disabled={advancing}
                   className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
                 >
                   Close Won
                 </button>
                 <button
-                  onClick={() => handleAdvance("closed_lost")}
+                  onClick={() => setCloseModal({ type: "lost" })}
                   disabled={advancing}
                   className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300 hover:bg-red-500/20 disabled:opacity-50"
                 >
                   Close Lost
                 </button>
               </div>
+            </section>
+          )}
+
+          {/* Closed deal info */}
+          {opp.status !== "open" && (opp.close_reason || opp.competitive_incumbent || opp.close_notes) && (
+            <section className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5">
+              <h2 className="text-xs uppercase tracking-[0.12em] text-bm-muted2 mb-3">
+                {opp.status === "won" ? "Win Details" : "Loss Details"}
+              </h2>
+              <dl className="space-y-2 text-sm">
+                {opp.close_reason && (
+                  <div className="flex gap-3">
+                    <dt className="text-bm-muted2 w-36 shrink-0">Reason</dt>
+                    <dd className="text-bm-text">{opp.close_reason}</dd>
+                  </div>
+                )}
+                {opp.competitive_incumbent && (
+                  <div className="flex gap-3">
+                    <dt className="text-bm-muted2 w-36 shrink-0">Competitor / Incumbent</dt>
+                    <dd className="text-bm-text">{opp.competitive_incumbent}</dd>
+                  </div>
+                )}
+                {opp.close_notes && (
+                  <div className="flex gap-3">
+                    <dt className="text-bm-muted2 w-36 shrink-0">Notes</dt>
+                    <dd className="text-bm-text">{opp.close_notes}</dd>
+                  </div>
+                )}
+                {opp.closed_at && (
+                  <div className="flex gap-3">
+                    <dt className="text-bm-muted2 w-36 shrink-0">Closed</dt>
+                    <dd className="text-bm-text">{new Date(opp.closed_at).toLocaleDateString()}</dd>
+                  </div>
+                )}
+              </dl>
             </section>
           )}
 
@@ -415,6 +469,74 @@ export default function OpportunityDetailPage({
             <p className="text-sm text-bm-muted2">Opportunity not found.</p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Close capture modal */}
+      {closeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-xl border border-bm-border bg-bm-bg p-6 shadow-xl space-y-4">
+            <h2 className="text-lg font-semibold text-bm-text">
+              {closeModal.type === "won" ? "Close as Won" : "Close as Lost"}
+            </h2>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-bm-muted2 uppercase tracking-[0.1em] mb-1 block">
+                  {closeModal.type === "won" ? "Win reason" : "Loss reason"}
+                </label>
+                <input
+                  type="text"
+                  value={closeReason}
+                  onChange={(e) => setCloseReason(e.target.value)}
+                  placeholder={closeModal.type === "won" ? "e.g. Best AI maturity score" : "e.g. Budget cut, went with competitor"}
+                  className="w-full rounded-lg border border-bm-border bg-bm-surface/30 px-3 py-2 text-sm text-bm-text placeholder:text-bm-muted focus:outline-none focus:border-bm-accent"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-bm-muted2 uppercase tracking-[0.1em] mb-1 block">
+                  Competitor / Incumbent (optional)
+                </label>
+                <input
+                  type="text"
+                  value={closeIncumbent}
+                  onChange={(e) => setCloseIncumbent(e.target.value)}
+                  placeholder="e.g. Accenture, in-house team"
+                  className="w-full rounded-lg border border-bm-border bg-bm-surface/30 px-3 py-2 text-sm text-bm-text placeholder:text-bm-muted focus:outline-none focus:border-bm-accent"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-bm-muted2 uppercase tracking-[0.1em] mb-1 block">
+                  Notes (optional)
+                </label>
+                <textarea
+                  value={closeNotes}
+                  onChange={(e) => setCloseNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Any additional context…"
+                  className="w-full rounded-lg border border-bm-border bg-bm-surface/30 px-3 py-2 text-sm text-bm-text placeholder:text-bm-muted focus:outline-none focus:border-bm-accent resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                onClick={() => { setCloseModal(null); setCloseReason(""); setCloseIncumbent(""); setCloseNotes(""); }}
+                className="rounded-lg border border-bm-border px-4 py-2 text-sm text-bm-muted2 hover:bg-bm-surface/30"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => void handleCloseSubmit()}
+                disabled={advancing}
+                className={`rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50 ${
+                  closeModal.type === "won"
+                    ? "bg-emerald-600 hover:bg-emerald-500 text-white"
+                    : "bg-red-700 hover:bg-red-600 text-white"
+                }`}
+              >
+                {advancing ? "Saving…" : closeModal.type === "won" ? "Mark Won" : "Mark Lost"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

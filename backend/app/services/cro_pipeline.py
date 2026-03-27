@@ -147,6 +147,9 @@ def advance_opportunity_stage(
     opportunity_id: UUID,
     to_stage_key: str,
     note: str | None = None,
+    close_reason: str | None = None,
+    competitive_incumbent: str | None = None,
+    close_notes: str | None = None,
 ) -> dict:
     """Move an opportunity to a new stage and record history."""
     with get_cursor() as cur:
@@ -185,15 +188,31 @@ def advance_opportunity_stage(
         if to_stage["is_closed"]:
             new_status = "won" if to_stage["is_won"] else "lost"
 
-        cur.execute(
-            """
-            UPDATE crm_opportunity
-            SET crm_pipeline_stage_id = %s, status = %s
-            WHERE crm_opportunity_id = %s
-            RETURNING crm_opportunity_id, name, status
-            """,
-            (str(to_stage_id), new_status, str(opportunity_id)),
-        )
+        if to_stage["is_closed"] and (close_reason or competitive_incumbent or close_notes):
+            cur.execute(
+                """
+                UPDATE crm_opportunity
+                SET crm_pipeline_stage_id = %s, status = %s,
+                    close_reason = COALESCE(%s, close_reason),
+                    competitive_incumbent = COALESCE(%s, competitive_incumbent),
+                    close_notes = COALESCE(%s, close_notes),
+                    closed_at = now()
+                WHERE crm_opportunity_id = %s
+                RETURNING crm_opportunity_id, name, status
+                """,
+                (str(to_stage_id), new_status, close_reason, competitive_incumbent,
+                 close_notes, str(opportunity_id)),
+            )
+        else:
+            cur.execute(
+                """
+                UPDATE crm_opportunity
+                SET crm_pipeline_stage_id = %s, status = %s
+                WHERE crm_opportunity_id = %s
+                RETURNING crm_opportunity_id, name, status
+                """,
+                (str(to_stage_id), new_status, str(opportunity_id)),
+            )
         updated = cur.fetchone()
 
         # Record stage history

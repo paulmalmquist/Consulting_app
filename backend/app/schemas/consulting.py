@@ -102,6 +102,9 @@ class AdvanceStageRequest(BaseModel):
     opportunity_id: UUID
     to_stage_key: str
     note: str | None = None
+    close_reason: str | None = None
+    competitive_incumbent: str | None = None
+    close_notes: str | None = None
 
 
 # ── Outreach ────────────────────────────────────────────────────────────────────

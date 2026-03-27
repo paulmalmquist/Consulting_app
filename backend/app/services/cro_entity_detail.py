@@ -78,6 +78,7 @@ def get_opportunity_detail(*, business_id: UUID, opportunity_id: UUID) -> dict:
             """
             SELECT o.crm_opportunity_id, o.name, o.amount, o.status,
                    o.expected_close_date, o.created_at, o.crm_account_id,
+                   o.close_reason, o.competitive_incumbent, o.close_notes, o.closed_at,
                    a.name AS account_name, a.industry AS account_industry,
                    s.key AS stage_key, s.label AS stage_label,
                    s.win_probability, s.stage_order

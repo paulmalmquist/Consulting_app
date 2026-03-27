@@ -3173,6 +3173,18 @@ async def run_gateway_stream(
             context={"instructions": visible_context_policy["instructions"]},
         )
         openai_tools = []
+        # Lane A: model must NOT narrate tool use. Inject an explicit override so the
+        # model answers directly from the context block instead of saying "I'll fetch...".
+        messages.append({
+            "role": system_role,
+            "content": (
+                "IMPORTANT: You have NO tools available in this exchange. "
+                "Answer ONLY using the data already provided above in the context block. "
+                "Do NOT say you will 'look up', 'fetch', 'retrieve', or 'call' anything. "
+                "Respond directly with the information from the context. "
+                "If the data is not in the context, say so — do not promise to find it."
+            ),
+        })
     else:
         emit_log(
             level="info",
