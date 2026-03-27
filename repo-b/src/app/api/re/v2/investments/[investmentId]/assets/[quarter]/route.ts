@@ -36,7 +36,7 @@ export async function GET(
            a.name,
            a.cost_basis::float8,
            pa.property_type,
-           COALESCE(pa.units, pa.gross_sf::int, pa.square_feet::int) AS units,
+           COALESCE(pa.units, pa.square_feet::int, pa.gross_sf::int) AS units,
            pa.market,
            pa.city,
            pa.state,

@@ -513,7 +513,17 @@ function AssetsIndexContent() {
                         {asset.state || "—"}
                       </td>
                       <td className={`px-4 py-4 align-middle ${reIndexSecondaryCellClass}`}>
-                        {(asset.units && asset.units > 0) ? `${asset.units.toLocaleString()} units` : (asset.square_feet && asset.square_feet > 0) ? `${Math.max(1, Math.round(asset.square_feet / 1000))}K SF` : "—"}
+                        {(() => {
+                          const sfSectors = ["office", "medical office", "industrial", "retail", "lab", "data center", "self-storage"];
+                          const isSfSector = sfSectors.some(s => (asset.sector || "").toLowerCase().includes(s));
+                          const hasUnits = asset.units && asset.units > 0 && asset.units < 100000;
+                          const hasSf = asset.square_feet && asset.square_feet > 0;
+                          if (isSfSector && hasSf) return `${Math.max(1, Math.round(asset.square_feet / 1000))}K SF`;
+                          if (isSfSector && hasUnits) return `${asset.units.toLocaleString()} units`;
+                          if (hasUnits) return `${asset.units.toLocaleString()} units`;
+                          if (hasSf) return `${Math.max(1, Math.round(asset.square_feet / 1000))}K SF`;
+                          return "—";
+                        })()}
                       </td>
                       <td className={`px-4 py-4 align-middle ${reIndexNumericCellClass}`}>
                         {fmtMoney(asset.latest_noi)}

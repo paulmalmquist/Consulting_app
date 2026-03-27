@@ -36,7 +36,7 @@ export async function GET(
          pa.state,
          pa.msa,
          pa.address,
-         pa.gross_sf AS square_feet,
+         COALESCE(pa.square_feet, pa.gross_sf) AS square_feet,
          COALESCE(pa.square_feet, pa.gross_sf) AS sq_ft,
          pa.year_built,
          pa.current_noi,

@@ -1,5 +1,5 @@
 # LATEST.md — Autonomous Intelligence Manifest
-## Updated by: morning-ops-digest (7:30 AM weekdays)
+## Updated by: morning-ops-digest (6:00 AM weekdays)
 ## Read this file first in any new coding session.
 
 > This manifest is machine-readable. It points to the most recent output from every scheduled task. A coding agent can read this one file and know the current state of all intelligence, operations, and test results.
@@ -10,29 +10,32 @@
 
 | System | Status | Last checked |
 |---|---|---|
-| paulmalmquist.com | UP — login page rendering, all authenticated pages pass | 2026-03-25 |
-| novendor.ai | LIVE — full marketing site, "Put AI to Work" hero, 4 industry verticals | 2026-03-22 |
+| paulmalmquist.com | UP — homepage rendering, Winston branding visible, login buttons present | 2026-03-27 |
+| novendor.ai | LIVE — full marketing site, "Put AI to Work" hero, 4 industry verticals, "Book strategy call" CTA | 2026-03-27 |
 | Supabase | HEALTHY — 8 connections, 0 stuck, clean pool | 2026-03-24 |
-| Vercel deploys | GREEN — consulting-app READY; Stone PDS null guard fixes deployed | 2026-03-25 |
-| Railway | UNCONFIRMED — SQL gen fix (fa9372dc) + Bug 0 fix (6cfd6234) committed but deploy status unknown | 2026-03-26 |
+| Vercel deploys | GREEN — consulting-app READY on `f56faa7` (Orlando MSA brief). 4 consecutive READY deploys on main. | 2026-03-27 |
+| Railway | UP — backend health `{"ok": true}`, AI gateway healthy (gpt-5-mini, RAG available). SQL gen fix and Bug 0 fix deploy status still unconfirmed via direct Railway check. | 2026-03-27 |
 
 ## Environment Health
 
-- **Stone PDS:** IMPROVING — 13/14 pages PASS (up from 12/16). Client Satisfaction null guard fix DEPLOYED and working. Two new NaN display bugs: Forecast "Total Deals: NaN", Client Satisfaction "NPS Score: NaN". Schedule Health redirect open P1. 11 new nav items discovered needing test coverage.
-- **Meridian Capital:** DEGRADED — SQL generation fix (`fa9372dc`) committed but not confirmed deployed to Railway. Bug 0 fix (`6cfd6234`) committed — tool call spam now gone but Lane A regressed to narration-only (no data rendered). Lane B latency worsening: 164ms → 12,534ms → 22,695ms over 3 days. Distributions show $0 "Total Paid" (missing payout rows). AI test pass rate 33% (2/6) — unchanged since 2026-03-23.
-- **MSA Rotation Engine:** OPERATIONAL — Tampa Water Street/Channel District brief completed (score 6.7/10). 14 backlog cards total. Top cards: MSA Research Sweep Runner (72.0) and County Assessor Connector (72.0).
-- **Market Intelligence Engine:** ACTIVE — Regime RISK_OFF_DEFENSIVE (5th consecutive session). VIX improved to 22 (from 27). 4 new research segments published 2026-03-26.
+- **Stone PDS:** STABLE — 22/25 pages PASS (up from 13/14 after expanding coverage to 25 pages). All 11 newly tested pages pass. Null guards holding day 2-3. Three known bugs carry forward: Tech Adoption crash ("_ is not iterable" — P0), Forecast "Total Deals: NaN", Satisfaction "NPS Score: NaN". Schedule Health still redirects to /pds/risk.
+- **Meridian Capital:** STALE — last health check 2026-03-24 (3 days ago). Known issues from that report (Distributions $0, investment sub-records missing) unverified. Railway deploy confirmation still needed. AI test pass rate was 33% (2/6) as of 2026-03-25 — 2026-03-26 test SKIPPED (Chrome auth failure).
+- **MSA Rotation Engine:** OPERATIONAL — Orlando Creative Village/Parramore brief completed (score 5.8/10, first rotation). Previous: Tampa Water Street (6.7/10). 14 feature backlog cards, 3 new cards from gap detection. Top cards: MSA Research Sweep Runner (72.0) and County Assessor Connector (72.0).
+- **Market Intelligence Engine:** ACTIVE — Regime RISK_OFF_DEFENSIVE (5th consecutive session). VIX 22 (improved from 27). 4 research segments published 2026-03-26 (L2 Scaling, RWA Tokenization, Homebuilders, Liquidity Flows).
 - **Resume:** UNCONFIRMED — last confirmed healthy 2026-03-21
 
 ## Latest AI Test Results
 
 | File | Date | Pass rate |
 |---|---|---|
-| `docs/ai-testing/2026-03-25.md` | 2026-03-25 | 33.3% — 2/6 passed. Test 1 regressed to narration-only (no data rendered). Bug 0 tool call spam FIXED (6cfd6234). Lane B latency worsening: 22.7s error recovery, 17.7s greeting. repe_fast_path still broken. |
+| `docs/ai-testing/2026-03-26.md` | 2026-03-26 | N/A — ALL 5 TESTS SKIPPED. Chrome extension authentication expired. Zero new test data. |
+| `docs/ai-testing/2026-03-25.md` | 2026-03-25 | 33.3% — 2/6 passed (last actual test run). Lane A narration-only. repe_fast_path broken. Lane B latency 22.7s. |
 
-**Bug 0 status:** FIX COMMITTED (`6cfd6234`) — tool call spam no longer visible in 2026-03-25 test. However, Lane A now returns narration-only (promises data but never renders it). The tool spam fix may have masked but not resolved the underlying data-fetch issue.
+**Bug 0 status:** FIX COMMITTED (`6cfd6234`) — tool call spam no longer visible in 2026-03-25 test. However, Lane A now returns narration-only (promises data but never renders it). 2026-03-26 test skipped — status unverified for 2 days.
 
-**Next P0:** (1) Merge auto branches to main and confirm Railway deploy. (2) Fix Lane A data rendering — model generates 1,439 tokens but UI shows only narration promise. (3) Investigate Lane B latency regression (context window bloat from "New Chat" not clearing state).
+**Chrome extension blocker:** Authentication expired overnight 2026-03-26. Must re-authenticate before tonight's 11 PM test run.
+
+**Next P0:** (1) Re-authenticate Chrome extension. (2) Confirm Railway deploy of SQL gen + Bug 0 fixes. (3) Fix Lane A data rendering. (4) Investigate Lane B latency regression.
 
 ## Latest Code Quality
 
@@ -46,19 +49,19 @@
 
 | File | Date | Top pick |
 |---|---|---|
-| `docs/feature-radar/2026-03-23-noon.md` | 2026-03-23 | Deal Room Mode — 1M token context toggle for whole-deal ingestion; GPT-5.4 forcing function; HIGH priority |
+| `docs/feature-radar/2026-03-24-noon.md` | 2026-03-24 | STALE — no new output in 3 days. Last top pick: Deal Room Mode (1M token context toggle). |
 
 ## Latest Competitor Intelligence
 
 | File | Date | Top opportunity |
 |---|---|---|
-| `docs/competitor-research/daily-summary/2026-03-23.md` | 2026-03-23 | Juniper Square HIGH threat (JunieAI live + Tenor Digital acquisition for private credit); Yardi Virtuoso AI maturing; Cherre Data Observability UI gap |
+| `docs/competitor-research/daily-summary/2026-03-26.md` | 2026-03-26 | Dealpath Connect now has JLL+CBRE+Cushman (~65% institutional brokerage). Threat upgraded MEDIUM-HIGH. Juniper Square adding Nasdaq eVestment to AI CRM (summer 2026 GA). Yardi Virtuoso Agents + Claude Connector live. |
 
 ## Latest Sales Signals
 
 | File | Date | Top prospect |
 |---|---|---|
-| `docs/sales-signals/` | 2026-03-19 | Allegro Real Estate (UK, greenfield, debut fund) |
+| `docs/revenue-ops/target-account-queue.md` | 2026-03-26 | Marcus Partners (Boston, $875M Fund V, score 4.25), Ardent Companies (Atlanta, $600M Fund VI credit, 3.75), GAIA Real Estate (NYC/Miami, local contact, 3.75) |
 
 ## Latest Efficiency Report
 
@@ -76,7 +79,7 @@
 
 | File | Date |
 |---|---|
-| `docs/ops-reports/digests/digest-2026-03-26.md` | 2026-03-26 |
+| `docs/ops-reports/digests/digest-2026-03-27.md` | 2026-03-27 |
 
 ## Active Meta Prompts (Build Directives)
 
@@ -89,23 +92,34 @@
 
 | Bug | Severity | Status | Location |
 |---|---|---|---|
-| Bug 0: Tool call spam in AI UI | CRITICAL | FIX COMMITTED (`6cfd6234`) — tool spam gone, but Lane A now narration-only (no data rendered) | `docs/ai-testing/2026-03-25.md` |
-| Lane A narration-only (no data rendered) | CRITICAL | NEW — model generates 1,439 tokens but only narration promise shown | `docs/ai-testing/2026-03-25.md` |
-| repe_fast_path SQL generation failure | CRITICAL | FIX COMMITTED (`fa9372dc`) — not confirmed deployed to Railway | `docs/ai-testing/2026-03-25.md` |
-| Lane B total latency regression | HIGH | WORSENING — 164ms→12,534ms→22,695ms over 3 days | `docs/ai-testing/2026-03-25.md` |
-| "New Chat" button doesn't clear conversation state | MEDIUM | NEW — may cause context bloat driving Lane B latency | `docs/ai-testing/2026-03-25.md` |
-| Stone PDS: Client Satisfaction null guard | HIGH | ✅ FIXED and deployed | `docs/env-tasks/stone-pds/health/health-2026-03-25.md` |
-| Stone PDS: Forecast "Total Deals: NaN" | MEDIUM | NEW — display bug | `docs/env-tasks/stone-pds/health/health-2026-03-25.md` |
-| Stone PDS: NPS Score NaN | MEDIUM | NEW — calculation issue | `docs/env-tasks/stone-pds/health/health-2026-03-25.md` |
-| Stone PDS: Schedule Health nav redirect | HIGH | OPEN — redirects to /pds/risk silently | `docs/env-tasks/stone-pds/health/health-2026-03-25.md` |
-| Raw internal fund UUIDs exposed to users | LOW | OPEN | `docs/ai-testing/2026-03-25.md` |
-| Meridian: Distributions Total Paid $0 | MEDIUM | OPEN — payout rows not seeded for 10 Paid events | `docs/env-tasks/meridian/health/health-2026-03-24.md` |
-| Meridian: Investment sub-records missing | MEDIUM | OPEN — property_type, market, valuation, operating_data absent | `docs/env-tasks/meridian/health/health-2026-03-24.md` |
+| Bug 0: Tool call spam in AI UI | CRITICAL | FIX COMMITTED (`6cfd6234`) — tool spam gone, but Lane A now narration-only (no data rendered). Unverified since 2026-03-25. | `docs/ai-testing/2026-03-25.md` |
+| Lane A narration-only (no data rendered) | CRITICAL | OPEN — model generates 1,439 tokens but only narration promise shown. Unverified since 2026-03-25. | `docs/ai-testing/2026-03-25.md` |
+| repe_fast_path SQL generation failure | CRITICAL | FIX COMMITTED (`fa9372dc`) — not confirmed deployed to Railway. Unverified since 2026-03-25. | `docs/ai-testing/2026-03-25.md` |
+| Lane B total latency regression | HIGH | WORSENING — 164ms→12,534ms→22,695ms over 3 days. Unverified since 2026-03-25. | `docs/ai-testing/2026-03-25.md` |
+| "New Chat" button doesn't clear conversation state | MEDIUM | OPEN — may cause context bloat driving Lane B latency | `docs/ai-testing/2026-03-25.md` |
+| Stone PDS: Tech Adoption crash | P0 | NEW — "_ is not iterable" error, crash with error boundary | `docs/env-tasks/stone-pds/health/2026-03-26.md` |
+| Stone PDS: Forecast "Total Deals: NaN" | MEDIUM | OPEN — display bug, day 2 | `docs/env-tasks/stone-pds/health/2026-03-26.md` |
+| Stone PDS: NPS Score NaN | MEDIUM | OPEN — calculation issue, day 2 | `docs/env-tasks/stone-pds/health/2026-03-26.md` |
+| Stone PDS: Schedule Health nav redirect | HIGH | OPEN — redirects to /pds/risk silently, day 4 | `docs/env-tasks/stone-pds/health/2026-03-26.md` |
+| Stone PDS: Client Satisfaction null guard | HIGH | ✅ FIXED and deployed, holding day 2 | `docs/env-tasks/stone-pds/health/2026-03-26.md` |
+| Raw internal fund UUIDs exposed to users | LOW | OPEN — day 6 | `docs/ai-testing/2026-03-25.md` |
+| Meridian: Distributions Total Paid $0 | MEDIUM | OPEN — payout rows not seeded. Unverified since 2026-03-24. | `docs/env-tasks/meridian/health/health-2026-03-24.md` |
+| Meridian: Investment sub-records missing | MEDIUM | OPEN — property_type, market, valuation, operating_data absent. Unverified since 2026-03-24. | `docs/env-tasks/meridian/health/health-2026-03-24.md` |
 | Bug 1: Waterfall amounts unformatted | HIGH | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
 | Bug 2: Pref return / carry $0 | HIGH | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
 | Bug 3: Capital snapshots need manual click | MEDIUM | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
 | Bug 4: Reports default to wrong fund | MEDIUM | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
 | Bug 5: UW vs Actual all dashes | MEDIUM | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
+
+## Stale Scheduled Tasks (No Recent Output)
+
+| Task | Expected Output | Last Output | Days Stale |
+|---|---|---|---|
+| nightly-ops-validator | `docs/ops-reports/regression/` | Never produced | ∞ |
+| novendor-market-scanner | `docs/market-intel/` | Never produced | ∞ |
+| product-feature-radar | `docs/feature-radar/` | 2026-03-24 | 3 |
+| website-evolution-engine | `docs/site-improvements/` | 2026-03-22 | 5 |
+| sales-positioning | `docs/sales-positioning/` | 2026-03-24 | 3 |
 
 ## Scheduled Task Index
 
@@ -144,11 +158,12 @@ All suggestion-generating tasks (feature-radar, demo-ideas, site-improvements, c
 
 ## MSA Rotation Engine
 
-- **Last rotation:** Tampa — Water Street/Channel District on 2026-03-26 — Score 6.7/10 (first rotation, Tier 1, mixed)
-- **Pipeline status:** OPERATIONAL — brief ran, intelligence populated, feature cards generating
+- **Last rotation:** Orlando — Creative Village/Parramore on 2026-03-27 — Score 5.8/10 (first rotation, Tier 1, mixed — strong macro/regulatory, heavy supply pipeline)
+- **Previous rotation:** Tampa — Water Street/Channel District on 2026-03-26 — Score 6.7/10
+- **Pipeline status:** OPERATIONAL — briefs running daily, intelligence populated, feature cards generating
 - **Feature backlog:** 14 cards total. Top cards: MSA Research Sweep Runner Phase 1 Automation (72.0) and County Assessor/Recorder Live Data Connector (72.0)
-- **Latest intel:** `docs/msa-intel/tampa-water-st-2026-03-26.md`
-- **Latest feature cards:** `docs/msa-features/cards-2026-03-25.md` (skipped — no new brief on 03-25)
+- **Latest intel:** `docs/msa-intel/orlando-creative-2026-03-27.md`
+- **Latest feature cards:** `docs/msa-features/cards-2026-03-26.md`
 
 ## Market Rotation Engine
 
@@ -157,7 +172,7 @@ All suggestion-generating tasks (feature-radar, demo-ideas, site-improvements, c
 - **Segments:** 34 active — 4 new research segments published 2026-03-26 (L2 Scaling, RWA Tokenization, Homebuilders, Liquidity Flows)
 - **Pipeline status:** ACTIVE — regime reports + research segments producing daily output
 - **Regime transition watchpoints:** VIX below 20, HY spreads narrowing, SPX reclaims 200-DMA
-- **Cross-vertical alerts:** Rate environment feeding into REPE cap rate models; credit spread widening relevant to credit decisioning module
+- **Cross-vertical alerts:** Rate environment feeding into REPE cap rate models; credit spread widening relevant to credit decisioning module; capital rotating from private credit back to CRE (CNBC/BREIT signal)
 
 ---
 
@@ -173,4 +188,4 @@ All suggestion-generating tasks (feature-radar, demo-ideas, site-improvements, c
 
 ---
 
-*Last updated: 2026-03-26 06:00 AM by morning-ops-digest. Manual edits are fine but will be overwritten on next run.*
+*Last updated: 2026-03-27 06:00 AM by morning-ops-digest. Manual edits are fine but will be overwritten on next run.*

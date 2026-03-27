@@ -83,7 +83,7 @@ export async function POST(
          pa.units,
          pa.market,
          pa.address,
-         pa.gross_sf AS square_feet,
+         COALESCE(pa.square_feet, pa.gross_sf) AS square_feet,
          d.deal_id::text AS investment_id,
          d.name AS investment_name,
          d.fund_id::text,
