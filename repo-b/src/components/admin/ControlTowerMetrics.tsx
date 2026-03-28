@@ -51,14 +51,13 @@ export function ControlTowerMetrics({
       : "Offline";
 
   return (
-    <section aria-label="Key metrics" className="grid gap-6 md:grid-cols-2 xl:grid-cols-[minmax(0,1.18fr)_minmax(0,1.18fr)_repeat(3,minmax(0,0.82fr))]">
+    <section aria-label="Key metrics" className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
       {loading ? (
         <>
           <MetricSkeleton priority="primary" />
           <MetricSkeleton priority="primary" />
-          <MetricSkeleton priority="secondary" />
-          <MetricSkeleton priority="secondary" />
-          <MetricSkeleton priority="secondary" />
+          <MetricSkeleton priority="primary" />
+          <MetricSkeleton priority="primary" />
         </>
       ) : (
         <>
@@ -95,22 +94,17 @@ export function ControlTowerMetrics({
             label="Total Environments"
             value={String(totalCount)}
             detail="Full provisioned footprint across the workspace."
-            priority="secondary"
-            tone="neutral"
+            emphasisLabel="Deployed"
+            priority="primary"
+            tone="success"
           />
           <ControlTowerMetricCard
             label="Industries"
             value={String(industryCount)}
             detail="Distinct operating templates currently represented."
-            priority="secondary"
-            tone="neutral"
-          />
-          <ControlTowerMetricCard
-            label="Recent (7d)"
-            value={String(recentCount)}
-            detail="New environments created over the last 7 days."
-            priority="secondary"
-            tone="neutral"
+            emphasisLabel="Covered"
+            priority="primary"
+            tone="success"
           />
         </>
       )}

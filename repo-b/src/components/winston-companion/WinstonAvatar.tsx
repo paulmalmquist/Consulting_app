@@ -26,7 +26,7 @@ export default function WinstonAvatar({
         fill
         sizes="(max-width: 768px) 56px, 64px"
         priority={priority}
-        className={cn("object-contain p-[16%]", imageClassName)}
+        className={cn("object-contain p-[10%]", imageClassName)}
       />
     </div>
   );

@@ -492,32 +492,48 @@ function WorkspaceContent({
   );
 }
 
+function focusableElements(root: HTMLElement | null): HTMLElement[] {
+  if (!root) return [];
+  const selector = [
+    'a[href]',
+    'button:not([disabled])',
+    'textarea:not([disabled])',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])',
+  ].join(",");
+  return Array.from(root.querySelectorAll<HTMLElement>(selector));
+}
+
 function useDialogFocusTrap(enabled: boolean, onClose: () => void) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const lastActiveElementRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!enabled || !dialogRef.current) return;
 
-    const dialog = dialogRef.current;
-    const selector = [
-      'a[href]',
-      'button:not([disabled])',
-      'textarea:not([disabled])',
-      'input:not([disabled])',
-      'select:not([disabled])',
-      '[tabindex]:not([tabindex="-1"])',
-    ].join(",");
+    lastActiveElementRef.current = document.activeElement as HTMLElement | null;
 
-    const focusables = Array.from(dialog.querySelectorAll<HTMLElement>(selector));
+    const dialog = dialogRef.current;
+    const focusables = focusableElements(dialog);
     const first = focusables[0];
     const last = focusables[focusables.length - 1];
+    const composer = dialog.querySelector<HTMLTextAreaElement>('textarea[data-testid="global-commandbar-input"]');
 
-    first?.focus();
+    composer?.focus({ preventScroll: true });
+    if (document.activeElement !== composer) {
+      first?.focus();
+    }
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
 
@@ -534,8 +550,11 @@ function useDialogFocusTrap(enabled: boolean, onClose: () => void) {
     };
 
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [enabled, onClose]);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      lastActiveElementRef.current?.focus({ preventScroll: true });
+    };
+  }, [enabled]);
 
   return dialogRef;
 }

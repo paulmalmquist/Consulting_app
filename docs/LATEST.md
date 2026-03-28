@@ -10,52 +10,54 @@
 
 | System | Status | Last checked |
 |---|---|---|
-| paulmalmquist.com | UP — homepage rendering, Winston branding visible, login buttons present | 2026-03-27 |
+| paulmalmquist.com | UP — homepage rendering, Winston branding visible, login buttons present | 2026-03-28 |
 | novendor.ai | LIVE — full marketing site, "Put AI to Work" hero, 4 industry verticals, "Book strategy call" CTA | 2026-03-27 |
-| Supabase | HEALTHY — 8 connections, 0 stuck, clean pool | 2026-03-24 |
-| Vercel deploys | GREEN — consulting-app READY on `f56faa7` (Orlando MSA brief). 4 consecutive READY deploys on main. | 2026-03-27 |
-| Railway | UP — backend health `{"ok": true}`, AI gateway healthy (gpt-5-mini, RAG available). SQL gen fix and Bug 0 fix deploy status still unconfirmed via direct Railway check. | 2026-03-27 |
+| Supabase | HEALTHY — ACTIVE_HEALTHY, 608 tables, 43 migrations, 99.98% cache hit, 0.19% rollback rate, 8 active backends | 2026-03-28 |
+| Vercel deploys | GREEN — consulting-app READY on `b07606e` (Jacksonville Brooklyn/LaVilla MSA brief). All recent production deploys READY. Zero errors in last 24h. | 2026-03-28 |
+| Railway | UP — backend health `{"ok": true}`, AI gateway healthy (gpt-5-mini, RAG available). Zero runtime errors, zero 500s in last 24h. | 2026-03-28 |
 
 ## Environment Health
 
-- **Stone PDS:** STABLE — 22/25 pages PASS (up from 13/14 after expanding coverage to 25 pages). All 11 newly tested pages pass. Null guards holding day 2-3. Three known bugs carry forward: Tech Adoption crash ("_ is not iterable" — P0), Forecast "Total Deals: NaN", Satisfaction "NPS Score: NaN". Schedule Health still redirects to /pds/risk.
-- **Meridian Capital:** STALE — last health check 2026-03-24 (3 days ago). Known issues from that report (Distributions $0, investment sub-records missing) unverified. Railway deploy confirmation still needed. AI test pass rate was 33% (2/6) as of 2026-03-25 — 2026-03-26 test SKIPPED (Chrome auth failure).
-- **MSA Rotation Engine:** OPERATIONAL — Orlando Creative Village/Parramore brief completed (score 5.8/10, first rotation). Previous: Tampa Water Street (6.7/10). 14 feature backlog cards, 3 new cards from gap detection. Top cards: MSA Research Sweep Runner (72.0) and County Assessor Connector (72.0).
-- **Market Intelligence Engine:** ACTIVE — Regime RISK_OFF_DEFENSIVE (5th consecutive session). VIX 22 (improved from 27). 4 research segments published 2026-03-26 (L2 Scaling, RWA Tokenization, Homebuilders, Liquidity Flows).
+- **Stone PDS:** IMPROVED — 27/28 pages PASS (up from 22/25 on 03-26). Three P0/P1 bugs FIXED and confirmed: Tech Adoption crash resolved, Forecast NaN fixed (shows 202 deals), Satisfaction NPS fixed (shows +42). Schedule Health redirect resolved. Nav expanded to 28 pages. Zero new regressions. **Demo-ready: YES.**
+- **Meridian Capital:** DEGRADED — Core pages load with real data across 3 funds. Distribution Total Paid fixed ($123.8M). However: AI Chat BROKEN (500 server error on conversation creation), fund performance metrics contradictory (TVPI 0.21x on page vs 2.59x in AI summary), investment sub-records still missing. **Demo-ready: LIMITED.**
+- **MSA Rotation Engine:** OPERATIONAL — Jacksonville Brooklyn/LaVilla brief completed 2026-03-28 (score 5.2/10, Tier 2, first rotation). Previous: Orlando Creative Village (5.8/10). 14 feature backlog cards.
+- **Market Intelligence Engine:** ACTIVE — Regime RISK_OFF_DEFENSIVE (7th consecutive session). VIX 27.44 (elevated from Iran conflict). SPX ~6506 below both MAs. BTC-SPX correlation 0.74. 4 new research segments published 2026-03-28.
 - **Resume:** UNCONFIRMED — last confirmed healthy 2026-03-21
 
 ## Latest AI Test Results
 
 | File | Date | Pass rate |
 |---|---|---|
-| `docs/ai-testing/2026-03-26.md` | 2026-03-26 | N/A — ALL 5 TESTS SKIPPED. Chrome extension authentication expired. Zero new test data. |
+| `docs/ai-testing/2026-03-27.md` | 2026-03-27 | N/A — ALL 5 TESTS SKIPPED. Chrome extension not connected. 3rd consecutive day without test data. |
 | `docs/ai-testing/2026-03-25.md` | 2026-03-25 | 33.3% — 2/6 passed (last actual test run). Lane A narration-only. repe_fast_path broken. Lane B latency 22.7s. |
 
-**Bug 0 status:** FIX COMMITTED (`6cfd6234`) — tool call spam no longer visible in 2026-03-25 test. However, Lane A now returns narration-only (promises data but never renders it). 2026-03-26 test skipped — status unverified for 2 days.
+**Bug 0 status:** FIX COMMITTED (`6cfd6234`) — tool call spam no longer visible in 2026-03-25 test. However, Lane A now returns narration-only (promises data but never renders it). Status unverified for 3 days.
 
-**Chrome extension blocker:** Authentication expired overnight 2026-03-26. Must re-authenticate before tonight's 11 PM test run.
+**Chrome extension blocker:** Not connected since 2026-03-26. Must re-authenticate before tonight's 11 PM test run. 3 days without live AI test data.
 
-**Next P0:** (1) Re-authenticate Chrome extension. (2) Confirm Railway deploy of SQL gen + Bug 0 fixes. (3) Fix Lane A data rendering. (4) Investigate Lane B latency regression.
+**Meridian AI Chat:** NEW — returns "Failed to create conversation: 500" server error as of 2026-03-27 health check. Separate from Chrome extension issue.
+
+**Next P0:** (1) Re-authenticate Chrome extension. (2) Fix Meridian AI Chat 500 error. (3) Fix Lane A data rendering. (4) Investigate Lane B latency regression.
 
 ## Latest Code Quality
 
 | File | Date | Overall score |
 |---|---|---|
-| `docs/ops-reports/code-quality/2026-03-21.md` | 2026-03-21 | C+ (first Saturday sweep) |
+| `docs/ops-reports/code-quality/2026-03-28.md` | 2026-03-28 | C+ (unchanged from last week) |
 
-**Key findings:** 76 commits, 39 feature / 37 fix (near 1:1 ratio). Hardcoded API key needs rotation. Coding agent not running ruff/tsc before commits.
+**Key findings:** 96 commits this week, feature:fix ratio ~1.1:1 (no improvement). **SECURITY: Next.js critical CVE GHSA-f82v-jwr5-mffw (CVSS 9.1) — top priority.** 8 orphaned capital-projects components. Coding agent still not running ruff/tsc before commits. Mass deletion protection commit shows learning.
 
 ## Latest Feature Radar
 
 | File | Date | Top pick |
 |---|---|---|
-| `docs/feature-radar/2026-03-24-noon.md` | 2026-03-24 | STALE — no new output in 3 days. Last top pick: Deal Room Mode (1M token context toggle). |
+| `docs/feature-radar/2026-03-27.md` | 2026-03-27 | Virtual CFO Mode for REPE Fund Managers (leverages existing REPE Finance + AI Gateway services). Also: Skills/workflow marketplace concept (inspired by OpenAI Skills launch). |
 
 ## Latest Competitor Intelligence
 
 | File | Date | Top opportunity |
 |---|---|---|
-| `docs/competitor-research/daily-summary/2026-03-26.md` | 2026-03-26 | Dealpath Connect now has JLL+CBRE+Cushman (~65% institutional brokerage). Threat upgraded MEDIUM-HIGH. Juniper Square adding Nasdaq eVestment to AI CRM (summer 2026 GA). Yardi Virtuoso Agents + Claude Connector live. |
+| `docs/competitor-research/daily-summary/2026-03-27.md` | 2026-03-27 | Juniper Square + Kudu Investment Management partnership (32 firms, ~$150B AUM, $1T LP capital on platform). Ecosystem distribution play. Dealpath Connect stable at MEDIUM-HIGH. Counter-positioning: "Juniper Square manages your LPs. Winston manages your investments." |
 
 ## Latest Sales Signals
 
@@ -79,7 +81,7 @@
 
 | File | Date |
 |---|---|
-| `docs/ops-reports/digests/digest-2026-03-27.md` | 2026-03-27 |
+| `docs/ops-reports/digests/digest-2026-03-28.md` | 2026-03-28 |
 
 ## Active Meta Prompts (Build Directives)
 
@@ -97,14 +99,17 @@
 | repe_fast_path SQL generation failure | CRITICAL | FIX COMMITTED (`fa9372dc`) — not confirmed deployed to Railway. Unverified since 2026-03-25. | `docs/ai-testing/2026-03-25.md` |
 | Lane B total latency regression | HIGH | WORSENING — 164ms→12,534ms→22,695ms over 3 days. Unverified since 2026-03-25. | `docs/ai-testing/2026-03-25.md` |
 | "New Chat" button doesn't clear conversation state | MEDIUM | OPEN — may cause context bloat driving Lane B latency | `docs/ai-testing/2026-03-25.md` |
-| Stone PDS: Tech Adoption crash | P0 | NEW — "_ is not iterable" error, crash with error boundary | `docs/env-tasks/stone-pds/health/2026-03-26.md` |
-| Stone PDS: Forecast "Total Deals: NaN" | MEDIUM | OPEN — display bug, day 2 | `docs/env-tasks/stone-pds/health/2026-03-26.md` |
-| Stone PDS: NPS Score NaN | MEDIUM | OPEN — calculation issue, day 2 | `docs/env-tasks/stone-pds/health/2026-03-26.md` |
-| Stone PDS: Schedule Health nav redirect | HIGH | OPEN — redirects to /pds/risk silently, day 4 | `docs/env-tasks/stone-pds/health/2026-03-26.md` |
-| Stone PDS: Client Satisfaction null guard | HIGH | ✅ FIXED and deployed, holding day 2 | `docs/env-tasks/stone-pds/health/2026-03-26.md` |
-| Raw internal fund UUIDs exposed to users | LOW | OPEN — day 6 | `docs/ai-testing/2026-03-25.md` |
-| Meridian: Distributions Total Paid $0 | MEDIUM | OPEN — payout rows not seeded. Unverified since 2026-03-24. | `docs/env-tasks/meridian/health/health-2026-03-24.md` |
-| Meridian: Investment sub-records missing | MEDIUM | OPEN — property_type, market, valuation, operating_data absent. Unverified since 2026-03-24. | `docs/env-tasks/meridian/health/health-2026-03-24.md` |
+| Stone PDS: Tech Adoption crash | P0 | ✅ FIXED — confirmed working 2026-03-27 | `docs/env-tasks/stone-pds/health/2026-03-27.md` |
+| Stone PDS: Forecast "Total Deals: NaN" | MEDIUM | ✅ FIXED — now shows 202 deals, confirmed 2026-03-27 | `docs/env-tasks/stone-pds/health/2026-03-27.md` |
+| Stone PDS: NPS Score NaN | MEDIUM | ✅ FIXED — now shows +42, confirmed 2026-03-27 | `docs/env-tasks/stone-pds/health/2026-03-27.md` |
+| Stone PDS: Schedule Health nav redirect | HIGH | ✅ FIXED — renders own page with SPI data, confirmed 2026-03-27 | `docs/env-tasks/stone-pds/health/2026-03-27.md` |
+| Stone PDS: Client Satisfaction null guard | HIGH | ✅ FIXED and deployed, holding day 4 | `docs/env-tasks/stone-pds/health/2026-03-27.md` |
+| Next.js CVE GHSA-f82v-jwr5-mffw | CRITICAL | NEW — CVSS 9.1, needs immediate patching | `docs/ops-reports/code-quality/2026-03-28.md` |
+| Meridian: AI Chat 500 error | CRITICAL | NEW — "Failed to create conversation: 500" server error | `docs/env-tasks/meridian/health/health-2026-03-27.md` |
+| Meridian: Fund performance metric contradictions | HIGH | NEW — TVPI 0.21x on page vs 2.59x in AI summary on same page | `docs/env-tasks/meridian/health/health-2026-03-27.md` |
+| Meridian: Distributions Total Paid $0 | MEDIUM | ✅ FIXED — now shows $123.8M, confirmed 2026-03-27 | `docs/env-tasks/meridian/health/health-2026-03-27.md` |
+| Meridian: Investment sub-records missing | MEDIUM | OPEN — property_type, market, valuation, operating_data still absent | `docs/env-tasks/meridian/health/health-2026-03-27.md` |
+| Raw internal fund UUIDs exposed to users | LOW | OPEN — day 7 | `docs/ai-testing/2026-03-25.md` |
 | Bug 1: Waterfall amounts unformatted | HIGH | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
 | Bug 2: Pref return / carry $0 | HIGH | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
 | Bug 3: Capital snapshots need manual click | MEDIUM | OPEN | `META_PROMPT_CHAT_WORKSPACE.md` |
@@ -115,11 +120,9 @@
 
 | Task | Expected Output | Last Output | Days Stale |
 |---|---|---|---|
-| nightly-ops-validator | `docs/ops-reports/regression/` | Never produced | ∞ |
 | novendor-market-scanner | `docs/market-intel/` | Never produced | ∞ |
-| product-feature-radar | `docs/feature-radar/` | 2026-03-24 | 3 |
-| website-evolution-engine | `docs/site-improvements/` | 2026-03-22 | 5 |
-| sales-positioning | `docs/sales-positioning/` | 2026-03-24 | 3 |
+| website-evolution-engine | `docs/site-improvements/` | 2026-03-22 | 6 |
+| sales-positioning | `docs/sales-positioning/` | 2026-03-24 | 4 |
 
 ## Scheduled Task Index
 
@@ -158,21 +161,21 @@ All suggestion-generating tasks (feature-radar, demo-ideas, site-improvements, c
 
 ## MSA Rotation Engine
 
-- **Last rotation:** Orlando — Creative Village/Parramore on 2026-03-27 — Score 5.8/10 (first rotation, Tier 1, mixed — strong macro/regulatory, heavy supply pipeline)
-- **Previous rotation:** Tampa — Water Street/Channel District on 2026-03-26 — Score 6.7/10
+- **Last rotation:** Jacksonville — Brooklyn/LaVilla on 2026-03-28 — Score 5.2/10 (first rotation, Tier 2, demand story with supply caution)
+- **Previous rotation:** Orlando — Creative Village/Parramore on 2026-03-27 — Score 5.8/10
 - **Pipeline status:** OPERATIONAL — briefs running daily, intelligence populated, feature cards generating
 - **Feature backlog:** 14 cards total. Top cards: MSA Research Sweep Runner Phase 1 Automation (72.0) and County Assessor/Recorder Live Data Connector (72.0)
-- **Latest intel:** `docs/msa-intel/orlando-creative-2026-03-27.md`
-- **Latest feature cards:** `docs/msa-features/cards-2026-03-26.md`
+- **Latest intel:** `docs/msa-intel/jax-brooklyn-2026-03-28.md`
+- **Latest feature cards:** `docs/msa-features/cards-2026-03-27.md`
 
 ## Market Rotation Engine
 
-- **Regime:** RISK_OFF_DEFENSIVE (5th consecutive session, moderate confidence, classified 2026-03-22)
-- **Key levels:** SPX ~6,506 (below 50-DMA 6,818 and 200-DMA 6,592); VIX 22 (improved from 27); HY spreads 3.19% (flat); DXY 99.6; BTC-SPX correlation 0.74 (highest of 2026)
-- **Segments:** 34 active — 4 new research segments published 2026-03-26 (L2 Scaling, RWA Tokenization, Homebuilders, Liquidity Flows)
+- **Regime:** RISK_OFF_DEFENSIVE (7th consecutive session, high confidence, classified 2026-03-22)
+- **Key levels:** SPX ~6,506 (below 50-DMA 6,570 and 200-DMA 6,750); VIX 27.44 (elevated, Iran conflict); HY spreads 3.17%; DXY 100.21; BTC-SPX correlation 0.74
+- **Segments:** 34+ active — 4 new research segments published 2026-03-28 (regime-btc, options-flow, defense-space, rates-curve)
 - **Pipeline status:** ACTIVE — regime reports + research segments producing daily output
-- **Regime transition watchpoints:** VIX below 20, HY spreads narrowing, SPX reclaims 200-DMA
-- **Cross-vertical alerts:** Rate environment feeding into REPE cap rate models; credit spread widening relevant to credit decisioning module; capital rotating from private credit back to CRE (CNBC/BREIT signal)
+- **Regime transition watchpoints:** VIX below 20, HY spreads narrowing, SPX reclaims 200-DMA, Iran de-escalation catalyst
+- **Cross-vertical alerts:** Rate environment feeding into REPE cap rate models; credit spread widening relevant to credit decisioning module; capital rotating from private credit back to CRE (CNBC/BREIT signal); family offices increasing CRE allocation (CNBC/JPM)
 
 ---
 
@@ -188,4 +191,4 @@ All suggestion-generating tasks (feature-radar, demo-ideas, site-improvements, c
 
 ---
 
-*Last updated: 2026-03-27 06:00 AM by morning-ops-digest. Manual edits are fine but will be overwritten on next run.*
+*Last updated: 2026-03-28 06:00 AM by morning-ops-digest. Manual edits are fine but will be overwritten on next run.*

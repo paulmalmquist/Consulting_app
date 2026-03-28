@@ -6,10 +6,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .git_isolation import _clear_stale_locks
 from .paths import ORCH_DIR, ROOT
 
 
 def _git(*args: str) -> tuple[int, str, str]:
+    _clear_stale_locks()
     cp = subprocess.run(["git", *args], cwd=str(ROOT), capture_output=True, text=True)
     return cp.returncode, cp.stdout.strip(), cp.stderr.strip()
 

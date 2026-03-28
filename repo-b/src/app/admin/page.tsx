@@ -4,18 +4,17 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useEnv } from "@/components/EnvProvider";
 import { apiFetch } from "@/lib/api";
-import { ControlTowerAlertsPanel } from "@/components/admin/ControlTowerAlertsPanel";
 import { ControlTowerMetrics } from "@/components/admin/ControlTowerMetrics";
 import { CreateEnvironmentPanel } from "@/components/lab/environments/CreateEnvironmentPanel";
 import { EnvironmentList } from "@/components/lab/environments/EnvironmentList";
 import { EnvironmentSettingsModal } from "@/components/lab/environments/EnvironmentSettingsModal";
 import { type Industry } from "@/components/lab/environments/constants";
 import { ActivityFeed, type ActivityItem } from "@/components/ui/ActivityFeed";
-import { type InsightSection } from "@/components/ui/InsightRail";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { SystemStatusBanner } from "@/components/admin/SystemStatusBanner";
 import { useGatewayHealth } from "@/components/admin/useGatewayHealth";
+import { RecentEnhancementsPanel } from "@/components/admin/RecentEnhancementsPanel";
 
 function formatRelative(dateStr?: string): string {
   if (!dateStr) return "—";
@@ -79,44 +78,7 @@ export default function AdminPage() {
       .slice(0, 8);
   }, [environments]);
 
-  // Insight rail: operational alerts + recently provisioned
-  const insightSections = useMemo<InsightSection[]>(() => {
-    const stale = environments.filter((e) => {
-      if (!e.created_at) return false;
-      const days = (Date.now() - new Date(e.created_at).getTime()) / 86_400_000;
-      return days > 7 && e.is_active;
-    });
-    return [
-      {
-        title: "Operational Alerts",
-        emptyText: "All environments active and healthy.",
-        items: stale.slice(0, 5).map((e) => ({
-          id: e.env_id,
-          severity: "warning" as const,
-          label: e.client_name,
-          detail: `Inactive for ${Math.floor((Date.now() - new Date(e.created_at || 0).getTime()) / 86_400_000)} days`,
-          action: { label: "Open", href: `/lab/env/${e.env_id}` },
-        })),
-      },
-      {
-        title: "Recently Provisioned",
-        emptyText: "No recent provisioning. Use '+ New Environment' to create one.",
-        items: environments
-          .filter((e) => {
-            if (!e.created_at) return false;
-            return (Date.now() - new Date(e.created_at).getTime()) / 86_400_000 < 3;
-          })
-          .slice(0, 3)
-          .map((e) => ({
-            id: `recent-${e.env_id}`,
-            severity: "info" as const,
-            label: e.client_name,
-            detail: `Created ${formatRelative(e.created_at)}`,
-            action: { label: "Open", href: `/lab/env/${e.env_id}` },
-          })),
-      },
-    ];
-  }, [environments]);
+  // No longer computing insight sections — replaced by RecentEnhancementsPanel
 
   const openEnvironment = (envId: string) => {
     selectEnv(envId);
@@ -238,7 +200,7 @@ export default function AdminPage() {
 
         <div className="min-w-0">
           <div className="2xl:sticky 2xl:top-24">
-            <ControlTowerAlertsPanel sections={insightSections} />
+            <RecentEnhancementsPanel />
           </div>
         </div>
       </div>

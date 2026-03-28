@@ -17,6 +17,9 @@ import {
 } from "recharts";
 import { RegimeClassifierWidget } from "@/components/market/RegimeClassifierWidget";
 import { BtcSpxCorrelationChart } from "@/components/market/BtcSpxCorrelationChart";
+import { NewPositionModal } from "@/components/trading/NewPositionModal";
+import { ClosePositionModal } from "@/components/trading/ClosePositionModal";
+import { EditPositionModal } from "@/components/trading/EditPositionModal";
 import type {
   TradingTheme,
   TradingSignal,
@@ -155,6 +158,11 @@ export default function TradingLabPage() {
   const [watchlist, setWatchlist] = useState<TradingWatchlistItem[]>([]);
 
   const [signalFilter, setSignalFilter] = useState<string>("");
+
+  // Position management modals
+  const [showNewPosition, setShowNewPosition] = useState(false);
+  const [closingPosition, setClosingPosition] = useState<TradingPosition | null>(null);
+  const [editingPosition, setEditingPosition] = useState<TradingPosition | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -565,47 +573,99 @@ export default function TradingLabPage() {
 
         {/* POSITIONS TAB */}
         {activeTab === "positions" && (
-          <div className={`${t.cardBg} border ${t.cardBorder} rounded overflow-auto max-h-96`}>
-            <table className="w-full text-xs font-mono">
-              <thead className={`sticky top-0 ${t.theadBg} border-b ${t.tableDivider}`}>
-                <tr>
-                  <th className={`text-left py-2 px-3 ${t.textFaint}`}>Ticker</th>
-                  <th className={`text-left py-2 px-3 ${t.textFaint}`}>Direction</th>
-                  <th className={`text-right py-2 px-3 ${t.textFaint}`}>Entry</th>
-                  <th className={`text-right py-2 px-3 ${t.textFaint}`}>Current</th>
-                  <th className={`text-right py-2 px-3 ${t.textFaint}`}>P&L</th>
-                  <th className={`text-right py-2 px-3 ${t.textFaint}`}>Return %</th>
-                  <th className={`text-left py-2 px-3 ${t.textFaint}`}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {positions.map((pos) => (
-                  <tr key={pos.position_id} className={`border-b ${t.tableDivider} ${t.cardHover}`}>
-                    <td className={`py-2 px-3 ${t.accentBlue} font-bold`}>{pos.ticker}</td>
-                    <td className="py-2 px-3">
-                      <span
-                        className={`px-2 py-1 rounded text-xs ${
-                          pos.direction === "long" ? t.longBadge : t.shortBadge
-                        }`}
-                      >
-                        {pos.direction}
-                      </span>
-                    </td>
-                    <td className="py-2 px-3 text-right">${pos.entry_price?.toFixed(2)}</td>
-                    <td className="py-2 px-3 text-right">${pos.current_price?.toFixed(2)}</td>
-                    <td className={`py-2 px-3 text-right font-bold ${fmtPnl(pos.unrealized_pnl).color}`}>
-                      {fmtPnl(pos.unrealized_pnl).text}
-                    </td>
-                    <td className={`py-2 px-3 text-right ${fmtPnl(pos.return_pct).color}`}>
-                      {fmtPct(pos.return_pct)}
-                    </td>
-                    <td className="py-2 px-3">
-                      <span className={`px-2 py-1 rounded text-xs ${statusBadge(pos.status)}`}>{pos.status}</span>
-                    </td>
+          <div className="space-y-3">
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowNewPosition(true)}
+                className="px-3 py-1.5 rounded text-xs font-bold bg-blue-600 text-white hover:bg-blue-700"
+              >
+                + New Position
+              </button>
+            </div>
+            <div className={`${t.cardBg} border ${t.cardBorder} rounded overflow-auto max-h-96`}>
+              <table className="w-full text-xs font-mono">
+                <thead className={`sticky top-0 ${t.theadBg} border-b ${t.tableDivider}`}>
+                  <tr>
+                    <th className={`text-left py-2 px-3 ${t.textFaint}`}>Ticker</th>
+                    <th className={`text-left py-2 px-3 ${t.textFaint}`}>Direction</th>
+                    <th className={`text-right py-2 px-3 ${t.textFaint}`}>Entry</th>
+                    <th className={`text-right py-2 px-3 ${t.textFaint}`}>Current</th>
+                    <th className={`text-right py-2 px-3 ${t.textFaint}`}>P&L</th>
+                    <th className={`text-right py-2 px-3 ${t.textFaint}`}>Return %</th>
+                    <th className={`text-left py-2 px-3 ${t.textFaint}`}>Status</th>
+                    <th className={`text-center py-2 px-3 ${t.textFaint}`}>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {positions.map((pos) => (
+                    <tr key={pos.position_id} className={`border-b ${t.tableDivider} ${t.cardHover}`}>
+                      <td className={`py-2 px-3 ${t.accentBlue} font-bold`}>{pos.ticker}</td>
+                      <td className="py-2 px-3">
+                        <span
+                          className={`px-2 py-1 rounded text-xs ${
+                            pos.direction === "long" ? t.longBadge : t.shortBadge
+                          }`}
+                        >
+                          {pos.direction}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 text-right">${pos.entry_price?.toFixed(2)}</td>
+                      <td className="py-2 px-3 text-right">${pos.current_price?.toFixed(2)}</td>
+                      <td className={`py-2 px-3 text-right font-bold ${fmtPnl(pos.unrealized_pnl).color}`}>
+                        {fmtPnl(pos.unrealized_pnl).text}
+                      </td>
+                      <td className={`py-2 px-3 text-right ${fmtPnl(pos.return_pct).color}`}>
+                        {fmtPct(pos.return_pct)}
+                      </td>
+                      <td className="py-2 px-3">
+                        <span className={`px-2 py-1 rounded text-xs ${statusBadge(pos.status)}`}>{pos.status}</span>
+                      </td>
+                      <td className="py-2 px-3 text-center">
+                        {pos.status === "open" && (
+                          <div className="flex gap-1 justify-center">
+                            <button
+                              onClick={() => setEditingPosition(pos)}
+                              className={`px-2 py-0.5 rounded text-xs border ${t.cardBorder} ${t.textSecondary} hover:${t.textPrimary}`}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => setClosingPosition(pos)}
+                              className="px-2 py-0.5 rounded text-xs bg-red-600/20 text-red-400 hover:bg-red-600/40"
+                            >
+                              Close
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Position modals */}
+            <NewPositionModal
+              open={showNewPosition}
+              onClose={() => setShowNewPosition(false)}
+              onCreated={fetchData}
+              hypotheses={hypotheses}
+              theme={t}
+            />
+            <ClosePositionModal
+              open={!!closingPosition}
+              position={closingPosition}
+              onClose={() => setClosingPosition(null)}
+              onClosed={fetchData}
+              theme={t}
+            />
+            <EditPositionModal
+              open={!!editingPosition}
+              position={editingPosition}
+              onClose={() => setEditingPosition(null)}
+              onUpdated={fetchData}
+              theme={t}
+            />
           </div>
         )}
 

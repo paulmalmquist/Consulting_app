@@ -100,6 +100,10 @@ def cmd_validate_parallel(args: argparse.Namespace) -> int:
 
 def cmd_merge_gate(args: argparse.Namespace) -> int:
     import subprocess
+    from orchestration.engine.git_isolation import _clear_stale_locks
+
+    # Clear stale locks before merge-gate (multi-step git sequence)
+    _clear_stale_locks()
 
     tmp = f"orchestration/merge-gate-manual"
     subprocess.run(["git", "checkout", "-B", tmp, "main"], cwd=str(REPO_ROOT), check=True)

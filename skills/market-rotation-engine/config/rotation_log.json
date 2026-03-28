@@ -4,7 +4,7 @@
   "created_at": "2026-03-22",
   "current_regime": "RISK_OFF_DEFENSIVE",
   "regime_updated_at": "2026-03-24",
-  "total_rotations": 2,
+  "total_rotations": 3,
   "total_feature_cards": 0,
   "total_prompts_generated": 0,
   "rotations": [
@@ -22,6 +22,21 @@
       "supabase_inserted": true,
       "git_pushed": false,
       "notes": "Git push blocked by concurrent session holding index.lock. Briefs on disk and in Supabase."
+    },
+    {
+      "date": "2026-03-28",
+      "segments": ["cr-regime-btc", "dr-options-flow", "ma-rates-curve", "eq-defense-space"],
+      "regime": "RISK_OFF_DEFENSIVE",
+      "composite_scores": {
+        "cr-regime-btc": 4.8,
+        "dr-options-flow": 6.3,
+        "ma-rates-curve": 6.7,
+        "eq-defense-space": 6.4
+      },
+      "briefs_written": true,
+      "supabase_inserted": true,
+      "git_pushed": false,
+      "notes": "Four-category rotation: 3 Tier 1 dailies (BTC regime, options flow, rates curve) + 1 Tier 2 equities (defense & space). Iran war dominant macro theme across all segments. BTC showing rare 5-signal bottom convergence. Defense sector paradoxically strong in risk-off regime. Git push blocked by stale index.lock from 2026-03-27 21:37 — needs manual removal. Briefs on disk and in Supabase."
     }
   ],
   "regime_history": [

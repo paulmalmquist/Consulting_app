@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ── Load lock guard ──────────────────────────────────────────────
+# Clear stale .git lock files before any git operation so that
+# autonomous sessions don't cascade-fail from a prior session's
+# interrupted git call.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$SCRIPT_DIR/git_lock_guard.sh" ]]; then
+  # shellcheck source=scripts/git_lock_guard.sh
+  source "$SCRIPT_DIR/git_lock_guard.sh"
+  git_clear_stale_locks
+fi
+
 EXPECTED_ROOT="${OPENCLAW_SYNC_EXPECTED_ROOT:-/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app}"
 EXPECTED_BRANCH="${OPENCLAW_SYNC_BRANCH:-${2:-main}}"
 MODE="${1:-status}"

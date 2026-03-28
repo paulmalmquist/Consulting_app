@@ -39,10 +39,18 @@ test.describe("Winston companion", () => {
     });
 
     await page.goto("/lab/environments");
-    await expect(page.getByTestId("global-commandbar-toggle")).toBeVisible();
+    const launcher = page.getByTestId("global-commandbar-toggle");
+    const composer = page.getByTestId("global-commandbar-input");
 
-    await page.getByTestId("global-commandbar-toggle").click();
-    await expect(page.getByRole("dialog", { name: "Winston companion" })).toBeVisible();
+    await expect(launcher).toBeVisible();
+
+    const dialog = page.getByRole("dialog", { name: "Winston companion" });
+
+    await launcher.click();
+    await expect(dialog).toBeVisible();
+    await expect(composer).toBeFocused();
+    await page.keyboard.type("why now");
+    await expect(composer).toHaveValue("why now");
 
     await page.keyboard.press("Tab");
     await page.keyboard.press("Tab");
@@ -54,11 +62,13 @@ test.describe("Winston companion", () => {
     });
     expect(focusInDialog).toBeTruthy();
 
-    await expect(page.getByTestId("global-commandbar-input")).toBeVisible();
+    await expect(composer).toBeVisible();
     await expect(page.getByTestId("global-commandbar-output")).toBeVisible();
 
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog", { name: "Winston companion" })).toBeHidden();
+    await expect(launcher).toHaveAttribute("aria-label", "Open Winston companion");
+    await expect(dialog).toHaveClass(/translate-x-full/);
+    await expect(launcher).toBeFocused();
   });
 
   test("suppresses the launcher on public routes", async ({ page }) => {
