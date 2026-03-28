@@ -10,6 +10,7 @@
  * at http://localhost:8000 for simpler debugging.
  */
 import { logError, logInfo } from "@/lib/logging/logger";
+import type { AssistantResponseBlock } from "@/lib/commandbar/types";
 import type {
   PdsAttentionAction,
   PdsAttentionProject,
@@ -8037,6 +8038,223 @@ export function listResumeDeployments(envId: string, businessId?: string): Promi
 export function getResumeSystemStats(envId: string, businessId?: string): Promise<ResumeSystemStats> {
   return bosFetch("/api/resume/v1/system-stats", {
     params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export type ResumeWorkspaceMetric = {
+  label: string;
+  value: string;
+  detail: string | null;
+};
+
+export type ResumeIdentity = {
+  name: string;
+  title: string;
+  tagline: string;
+  location: string;
+  summary: string;
+  badges: string[];
+  metrics: ResumeWorkspaceMetric[];
+};
+
+export type ResumeTimelineInitiative = {
+  initiative_id: string;
+  role_id: string;
+  title: string;
+  summary: string;
+  team_context: string;
+  business_challenge: string;
+  measurable_outcome: string;
+  stakeholder_group: string;
+  scale: string;
+  architecture: string;
+  start_date: string;
+  end_date: string;
+  category: string;
+  capability: string;
+  impact_area: string;
+  technologies: string[];
+  impact_tag: string;
+  linked_modules: string[];
+  linked_architecture_node_ids: string[];
+  linked_bi_entity_ids: string[];
+  linked_model_preset: string | null;
+};
+
+export type ResumeTimelineMilestone = {
+  milestone_id: string;
+  title: string;
+  date: string;
+  summary: string;
+  linked_modules: string[];
+  linked_architecture_node_ids: string[];
+  linked_bi_entity_ids: string[];
+  linked_model_preset: string | null;
+};
+
+export type ResumeTimelineRole = {
+  timeline_role_id: string;
+  company: string;
+  title: string;
+  lane: string;
+  start_date: string;
+  end_date: string | null;
+  summary: string;
+  scope: string;
+  technologies: string[];
+  outcomes: string[];
+  initiatives: ResumeTimelineInitiative[];
+  milestones: ResumeTimelineMilestone[];
+};
+
+export type ResumeTimelineViewMode = "career" | "delivery" | "capability" | "impact";
+
+export type ResumeTimeline = {
+  default_view: ResumeTimelineViewMode;
+  views: ResumeTimelineViewMode[];
+  start_date: string;
+  end_date: string;
+  roles: ResumeTimelineRole[];
+  milestones: ResumeTimelineMilestone[];
+};
+
+export type ResumeArchitectureNode = {
+  node_id: string;
+  label: string;
+  layer: string;
+  group: string;
+  position: { x: number; y: number };
+  description: string;
+  tools: string[];
+  outcomes: string[];
+  business_problem: string;
+  real_example: string;
+  linked_timeline_ids: string[];
+  linked_bi_entity_ids: string[];
+  linked_model_preset: string | null;
+};
+
+export type ResumeArchitectureEdge = {
+  edge_id: string;
+  source: string;
+  target: string;
+  technical_label: string;
+  impact_label: string;
+};
+
+export type ResumeArchitecture = {
+  default_view: "technical" | "business";
+  nodes: ResumeArchitectureNode[];
+  edges: ResumeArchitectureEdge[];
+};
+
+export type ResumeScenarioInputs = {
+  purchase_price: number;
+  exit_cap_rate: number;
+  hold_period: number;
+  noi_growth_pct: number;
+  debt_pct: number;
+};
+
+export type ResumeScenarioPreset = {
+  preset_id: string;
+  label: string;
+  description: string;
+  inputs: ResumeScenarioInputs;
+};
+
+export type ResumeModeling = {
+  defaults: ResumeScenarioInputs;
+  assumptions: Record<string, string | number>;
+  presets: ResumeScenarioPreset[];
+};
+
+export type ResumeBiPoint = {
+  period: string;
+  noi: number;
+  occupancy: number;
+  value: number;
+  irr: number;
+};
+
+export type ResumeBiEntity = {
+  entity_id: string;
+  parent_id: string | null;
+  level: "portfolio" | "fund" | "investment" | "asset";
+  name: string;
+  market: string | null;
+  property_type: string | null;
+  sector: string | null;
+  coordinates: { x: number; y: number } | null;
+  metrics: Record<string, string | number>;
+  trend: ResumeBiPoint[];
+  story: string;
+  linked_architecture_node_ids: string[];
+  linked_timeline_ids: string[];
+};
+
+export type ResumeBi = {
+  root_entity_id: string;
+  levels: Array<"portfolio" | "fund" | "investment" | "asset">;
+  markets: string[];
+  property_types: string[];
+  periods: string[];
+  entities: ResumeBiEntity[];
+};
+
+export type ResumeStory = {
+  story_id: string;
+  title: string;
+  module: string;
+  why_it_matters: string;
+  before_state: string;
+  after_state: string;
+  audience: string;
+};
+
+export type ResumeWorkspacePayload = {
+  identity: ResumeIdentity;
+  timeline: ResumeTimeline;
+  architecture: ResumeArchitecture;
+  modeling: ResumeModeling;
+  bi: ResumeBi;
+  stories: ResumeStory[];
+};
+
+export type ResumeAssistantContext = {
+  active_module: string;
+  selected_timeline_id?: string | null;
+  selected_architecture_node_id?: string | null;
+  selected_bi_entity_id?: string | null;
+  architecture_view?: string | null;
+  timeline_view?: string | null;
+  model_preset_id?: string | null;
+  model_inputs?: Record<string, string | number>;
+  breadcrumb?: string[];
+  metrics?: Record<string, string | number>;
+  filters?: Record<string, string>;
+};
+
+export type ResumeAssistantResponse = {
+  blocks: AssistantResponseBlock[];
+  suggested_questions: string[];
+};
+
+export function getResumeWorkspace(envId: string, businessId?: string): Promise<ResumeWorkspacePayload> {
+  return bosFetch("/api/resume/v1/workspace", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function askResumeAssistant(body: {
+  env_id: string;
+  business_id?: string | null;
+  query: string;
+  context: ResumeAssistantContext;
+}): Promise<ResumeAssistantResponse> {
+  return bosFetch("/api/resume/v1/assistant", {
+    method: "POST",
+    body: JSON.stringify(body),
   });
 }
 

@@ -16,7 +16,6 @@ import {
 } from "recharts";
 import { RegimeClassifierWidget } from "@/components/market/RegimeClassifierWidget";
 import { BtcSpxCorrelationChart } from "@/components/market/BtcSpxCorrelationChart";
-import { getSupabaseBrowserClient } from "@/lib/supabase-client";
 import type {
   TradingTheme,
   TradingSignal,
@@ -34,6 +33,94 @@ import type {
 } from "@/lib/trading-lab/types";
 
 type Tab = "overview" | "signals" | "hypotheses" | "positions" | "performance" | "research" | "watchlist";
+type ThemeMode = "dark" | "light";
+
+/* ── Theme tokens ─────────────────────────────────────────────────── */
+
+function buildTheme(mode: ThemeMode) {
+  const dark = mode === "dark";
+  return {
+    // Page
+    pageBg: dark ? "bg-gray-900" : "bg-gray-50",
+    pageText: dark ? "text-gray-100" : "text-gray-900",
+
+    // Cards / surfaces
+    cardBg: dark ? "bg-gray-800" : "bg-white",
+    cardBorder: dark ? "border-gray-700" : "border-gray-200",
+    cardHover: dark ? "hover:bg-gray-700/30" : "hover:bg-gray-50",
+
+    // Header bar
+    headerBg: dark ? "bg-gray-900" : "bg-white",
+    headerBorder: dark ? "border-gray-800" : "border-gray-200",
+    statBarBg: dark ? "bg-gray-800/50" : "bg-gray-100",
+
+    // Text hierarchy
+    textPrimary: dark ? "text-gray-100" : "text-gray-900",
+    textSecondary: dark ? "text-gray-300" : "text-gray-600",
+    textMuted: dark ? "text-gray-400" : "text-gray-500",
+    textFaint: dark ? "text-gray-500" : "text-gray-400",
+
+    // Accent
+    accent: dark ? "text-green-400" : "text-green-600",
+    accentBold: dark ? "text-green-400" : "text-green-700",
+    accentBlue: dark ? "text-blue-300" : "text-blue-600",
+
+    // Tabs
+    tabActive: dark ? "border-green-400 text-green-400" : "border-green-600 text-green-700",
+    tabInactive: dark ? "border-transparent text-gray-500 hover:text-gray-300" : "border-transparent text-gray-400 hover:text-gray-700",
+    tabBg: dark ? "bg-gray-900" : "bg-white",
+
+    // Badges
+    badgeBullish: dark ? "bg-green-900 text-green-300" : "bg-green-100 text-green-700",
+    badgeBearish: dark ? "bg-red-900 text-red-300" : "bg-red-100 text-red-700",
+    badgeNeutral: dark ? "bg-gray-700 text-gray-300" : "bg-gray-200 text-gray-600",
+    badgeActive: dark ? "bg-blue-900 text-blue-300" : "bg-blue-100 text-blue-700",
+    badgePending: dark ? "bg-yellow-900 text-yellow-300" : "bg-yellow-100 text-yellow-700",
+    badgeClosed: dark ? "bg-gray-700 text-gray-300" : "bg-gray-200 text-gray-600",
+
+    // Direction badges (positions)
+    longBadge: dark ? "bg-green-900 text-green-300" : "bg-green-100 text-green-700",
+    shortBadge: dark ? "bg-red-900 text-red-300" : "bg-red-100 text-red-700",
+
+    // Tags
+    tagBg: dark ? "bg-gray-700 text-gray-300" : "bg-gray-200 text-gray-600",
+    tagBlueBg: dark ? "bg-blue-900 text-blue-300" : "bg-blue-100 text-blue-700",
+    tagYellowBg: dark ? "bg-yellow-900 text-yellow-300" : "bg-yellow-100 text-yellow-700",
+
+    // PnL colors
+    pnlUp: dark ? "text-green-400" : "text-green-600",
+    pnlDown: dark ? "text-red-400" : "text-red-600",
+
+    // Notice/error bar
+    noticeBg: dark ? "bg-red-900/30 border-red-800/50 text-red-300" : "bg-red-50 border-red-200 text-red-700",
+
+    // Table
+    tableDivider: dark ? "border-gray-700" : "border-gray-200",
+    theadBg: dark ? "bg-gray-900" : "bg-gray-50",
+
+    // Input
+    inputBg: dark ? "bg-gray-800 border-gray-700 text-gray-100" : "bg-white border-gray-300 text-gray-900",
+
+    // Skeleton
+    skeletonBg: dark ? "bg-gray-800" : "bg-gray-200",
+
+    // Progress bars
+    progressTrack: dark ? "bg-gray-700" : "bg-gray-200",
+
+    // Chart tokens (raw hex for recharts inline styles)
+    chart: {
+      gridStroke: dark ? "#444" : "#e5e7eb",
+      axisStroke: dark ? "#666" : "#9ca3af",
+      tooltipBg: dark ? "#1f2937" : "#ffffff",
+      tooltipBorder: dark ? "#444" : "#d1d5db",
+      green: "#22c55e",
+      greenGradientStart: dark ? 0.3 : 0.15,
+      red: "#ef4444",
+    },
+  } as const;
+}
+
+/* ── Component ────────────────────────────────────────────────────── */
 
 export default function TradingLabPage() {
   const params = useParams<{ envId: string }>();
@@ -42,6 +129,9 @@ export default function TradingLabPage() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
+  const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
+
+  const t = useMemo(() => buildTheme(themeMode), [themeMode]);
 
   const [themes, setThemes] = useState<TradingTheme[]>([]);
   const [signals, setSignals] = useState<TradingSignal[]>([]);
@@ -58,45 +148,25 @@ export default function TradingLabPage() {
     setLoading(true);
     setNotice(null);
 
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) {
-      setNotice("No database connection");
-      setLoading(false);
-      return;
-    }
-
     try {
-      const [themesRes, signalsRes, hypothesesRes, positionsRes, perfRes, notesRes, briefRes, watchlistRes] =
-        await Promise.all([
-          supabase.from("trading_themes").select("*").order("created_at", { ascending: false }),
-          supabase.from("trading_signals").select("*").order("strength", { ascending: false }),
-          supabase.from("trading_hypotheses").select("*").order("created_at", { ascending: false }),
-          supabase.from("trading_positions").select("*").order("entry_at", { ascending: false }),
-          supabase.from("trading_performance_snapshots").select("*").order("snapshot_date", { ascending: false }).limit(30),
-          supabase.from("trading_research_notes").select("*").order("created_at", { ascending: false }),
-          supabase.from("trading_daily_briefs").select("*").order("brief_date", { ascending: false }).limit(1),
-          supabase.from("trading_watchlist").select("*").eq("is_active", true).order("ticker"),
-        ]);
+      const res = await fetch("/api/v1/trading");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
 
-      if (themesRes.error) throw themesRes.error;
-      if (signalsRes.error) throw signalsRes.error;
-      if (hypothesesRes.error) throw hypothesesRes.error;
-      if (positionsRes.error) throw positionsRes.error;
-      if (perfRes.error) throw perfRes.error;
-      if (notesRes.error) throw notesRes.error;
-      if (briefRes.error) throw briefRes.error;
-      if (watchlistRes.error) throw watchlistRes.error;
-
-      setThemes(themesRes.data || []);
-      setSignals(signalsRes.data || []);
-      setHypotheses(hypothesesRes.data || []);
-      setPositions(positionsRes.data || []);
-      setPerfSnapshots(perfRes.data || []);
-      setResearchNotes(notesRes.data || []);
-      setDailyBrief(briefRes.data?.[0] || null);
-      setWatchlist(watchlistRes.data || []);
-    } catch (err: any) {
-      setNotice(`Error: ${err.message}`);
+      setThemes(data.themes || []);
+      setSignals(data.signals || []);
+      setHypotheses(data.hypotheses || []);
+      setPositions(data.positions || []);
+      setPerfSnapshots(data.performanceSnapshots || []);
+      setResearchNotes(data.researchNotes || []);
+      setDailyBrief(data.dailyBrief || null);
+      setWatchlist(data.watchlist || []);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setNotice(`Error: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -106,17 +176,26 @@ export default function TradingLabPage() {
     fetchData();
   }, [fetchData]);
 
-  // Helper functions
-  const fmtPnl = (v: number | null): { text: string; color: string } => {
-    if (v === null || v === undefined) return { text: "$0", color: "text-gray-400" };
-    const sign = v >= 0 ? "+" : "";
-    const color = v >= 0 ? "text-green-400" : "text-red-400";
-    return { text: `${sign}$${Math.abs(v).toLocaleString()}`, color };
+  // Helper: coerce pg string numerics to number
+  const num = (v: unknown): number | null => {
+    if (v == null) return null;
+    const n = typeof v === "number" ? v : Number(v);
+    return Number.isFinite(n) ? n : null;
   };
 
-  const fmtPct = (v: number | null): string => {
-    if (v === null || v === undefined) return "0%";
-    return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+  // Helper functions
+  const fmtPnl = (v: unknown): { text: string; color: string } => {
+    const n = num(v);
+    if (n === null) return { text: "$0", color: t.textMuted };
+    const sign = n >= 0 ? "+" : "";
+    const color = n >= 0 ? t.pnlUp : t.pnlDown;
+    return { text: `${sign}$${Math.abs(n).toLocaleString()}`, color };
+  };
+
+  const fmtPct = (v: unknown): string => {
+    const n = num(v);
+    if (n === null) return "0%";
+    return `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
   };
 
   const fmtDate = (v: string | null): string => {
@@ -128,24 +207,24 @@ export default function TradingLabPage() {
   const directionColor = (d: SignalDirection): string => {
     switch (d) {
       case "bullish":
-        return "bg-green-900 text-green-300";
+        return t.badgeBullish;
       case "bearish":
-        return "bg-red-900 text-red-300";
+        return t.badgeBearish;
       default:
-        return "bg-gray-700 text-gray-300";
+        return t.badgeNeutral;
     }
   };
 
   const statusBadge = (s: string): string => {
-    if (s === "active") return "bg-blue-900 text-blue-300";
-    if (s === "closed") return "bg-gray-700 text-gray-300";
-    if (s === "pending") return "bg-yellow-900 text-yellow-300";
-    return "bg-gray-700 text-gray-300";
+    if (s === "active") return t.badgeActive;
+    if (s === "closed") return t.badgeClosed;
+    if (s === "pending") return t.badgePending;
+    return t.badgeNeutral;
   };
 
   // Computed data
   const openPositions = positions.filter((p) => p.status === "open");
-  const totalPnL = openPositions.reduce((sum, p) => sum + (p.unrealized_pnl || 0), 0);
+  const totalPnL = openPositions.reduce((sum, p) => sum + (num(p.unrealized_pnl) || 0), 0);
   const topSignals = signals.slice(0, 5);
   const filteredSignals = signals.filter((s) => (signalFilter ? s.category?.includes(signalFilter) : true));
 
@@ -168,17 +247,22 @@ export default function TradingLabPage() {
   const latestPerf = perfSnapshots.length > 0 ? perfSnapshots[0] : null;
   const winRate = latestPerf?.win_rate?.toFixed(1) ?? "0";
 
-  // Daily brief fields are top-level on TradingDailyBrief
+  const tooltipStyle = {
+    backgroundColor: t.chart.tooltipBg,
+    border: `1px solid ${t.chart.tooltipBorder}`,
+    borderRadius: "4px",
+    color: themeMode === "dark" ? "#e5e7eb" : "#111827",
+  };
 
   if (loading) {
     return (
-      <div className="flex-1 bg-gray-900 p-6">
+      <div className={`flex-1 ${t.pageBg} p-6`}>
         <div className="space-y-4">
-          <div className="h-8 bg-gray-800 rounded w-48 animate-pulse" />
-          <div className="h-32 bg-gray-800 rounded animate-pulse" />
+          <div className={`h-8 ${t.skeletonBg} rounded w-48 animate-pulse`} />
+          <div className={`h-32 ${t.skeletonBg} rounded animate-pulse`} />
           <div className="grid grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-24 bg-gray-800 rounded animate-pulse" />
+              <div key={i} className={`h-24 ${t.skeletonBg} rounded animate-pulse`} />
             ))}
           </div>
         </div>
@@ -187,62 +271,84 @@ export default function TradingLabPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-900 text-gray-100 font-sans min-h-full">
+    <div className={`flex-1 flex flex-col ${t.pageBg} ${t.pageText} font-sans min-h-full transition-colors duration-200`}>
       {/* Header */}
-      <div className="border-b border-gray-800 px-6 py-4 bg-gray-900 sticky top-0 z-10">
-        <h1 className="text-2xl font-bold text-green-400 font-mono">
-          WINSTON TRADING LAB
-          <span className="text-xs text-gray-500 ml-4">ENV: {envId || "—"}</span>
-        </h1>
-        {notice && (
-          <div className="mt-2 flex items-center gap-2 bg-red-900/30 border border-red-800/50 rounded px-3 py-1.5 text-xs text-red-300 font-mono">
-            <span className="inline-block w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-            {notice}
-          </div>
-        )}
+      <div className={`border-b ${t.headerBorder} px-6 py-4 ${t.headerBg} sticky top-0 z-10 flex items-center justify-between`}>
+        <div>
+          <h1 className={`text-2xl font-bold ${t.accentBold} font-mono`}>
+            WINSTON TRADING LAB
+            <span className={`text-xs ${t.textFaint} ml-4`}>ENV: {envId || "—"}</span>
+          </h1>
+          {notice && (
+            <div className={`mt-2 flex items-center gap-2 ${t.noticeBg} border rounded px-3 py-1.5 text-xs font-mono`}>
+              <span className="inline-block w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+              {notice}
+            </div>
+          )}
+        </div>
+        {/* Theme Toggle */}
+        <button
+          onClick={() => setThemeMode((m) => (m === "dark" ? "light" : "dark"))}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded border text-xs font-mono transition-colors ${
+            themeMode === "dark"
+              ? "border-gray-600 bg-gray-800 text-gray-300 hover:bg-gray-700"
+              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+          }`}
+          title={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
+        >
+          {themeMode === "dark" ? (
+            <>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+              Light
+            </>
+          ) : (
+            <>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              Dark
+            </>
+          )}
+        </button>
       </div>
 
       {/* Command Header (Stats Row) */}
       {activeTab === "overview" && (
-        <div className="border-b border-gray-800 px-6 py-3 bg-gray-800/50 grid grid-cols-5 gap-4 font-mono text-sm">
+        <div className={`border-b ${t.headerBorder} px-6 py-3 ${t.statBarBg} grid grid-cols-5 gap-4 font-mono text-sm`}>
           <div>
-            <div className="text-gray-500 text-xs uppercase tracking-wider">Regime</div>
-            <div className="text-blue-300 font-bold">
+            <div className={`${t.textFaint} text-xs uppercase tracking-wider`}>Regime</div>
+            <div className={`${t.accentBlue} font-bold`}>
               {dailyBrief?.regime_label || "—"}
             </div>
           </div>
           <div>
-            <div className="text-gray-500 text-xs uppercase tracking-wider">Net P&L</div>
+            <div className={`${t.textFaint} text-xs uppercase tracking-wider`}>Net P&L</div>
             <div className={`font-bold ${fmtPnl(totalPnL).color}`}>{fmtPnl(totalPnL).text}</div>
           </div>
           <div>
-            <div className="text-gray-500 text-xs uppercase tracking-wider">Top Signal</div>
-            <div className="text-green-400 font-bold">{topSignals[0]?.strength?.toFixed(1) || "—"}</div>
+            <div className={`${t.textFaint} text-xs uppercase tracking-wider`}>Top Signal</div>
+            <div className={`${t.accent} font-bold`}>{topSignals[0]?.strength?.toFixed(1) || "—"}</div>
           </div>
           <div>
-            <div className="text-gray-500 text-xs uppercase tracking-wider">Equity</div>
-            <div className="text-blue-300 font-bold">
+            <div className={`${t.textFaint} text-xs uppercase tracking-wider`}>Equity</div>
+            <div className={`${t.accentBlue} font-bold`}>
               ${perfSnapshots[0]?.equity_value?.toLocaleString() || "—"}
             </div>
           </div>
           <div>
-            <div className="text-gray-500 text-xs uppercase tracking-wider">Win Rate</div>
-            <div className="text-green-400 font-bold">{winRate}%</div>
+            <div className={`${t.textFaint} text-xs uppercase tracking-wider`}>Win Rate</div>
+            <div className={`${t.accent} font-bold`}>{winRate}%</div>
           </div>
         </div>
       )}
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-800 px-6 flex gap-8 bg-gray-900 sticky top-14 z-9">
+      <div className={`border-b ${t.headerBorder} px-6 flex gap-8 ${t.tabBg} sticky top-14 z-9`}>
         {(["overview", "signals", "hypotheses", "positions", "performance", "research", "watchlist"] as Tab[]).map(
           (tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`py-3 px-2 text-sm font-mono uppercase tracking-wider border-b-2 transition-colors ${
-                activeTab === tab
-                  ? "border-green-400 text-green-400"
-                  : "border-transparent text-gray-500 hover:text-gray-300"
+                activeTab === tab ? t.tabActive : t.tabInactive
               }`}
             >
               {tab}
@@ -258,20 +364,20 @@ export default function TradingLabPage() {
           <div className="space-y-6">
             {/* What Changed Panel */}
             {dailyBrief && (
-              <div className="bg-gray-800 border border-gray-700 p-4 rounded">
-                <h2 className="text-sm font-mono uppercase tracking-wider text-green-400 mb-3">What Changed</h2>
-                <div className="text-sm text-gray-300 space-y-2">
-                  <p className="text-xs text-gray-500">Brief Date: {fmtDate(dailyBrief.brief_date)}</p>
+              <div className={`${t.cardBg} border ${t.cardBorder} p-4 rounded`}>
+                <h2 className={`text-sm font-mono uppercase tracking-wider ${t.accent} mb-3`}>What Changed</h2>
+                <div className={`text-sm ${t.textSecondary} space-y-2`}>
+                  <p className={`text-xs ${t.textFaint}`}>Brief Date: {fmtDate(dailyBrief.brief_date)}</p>
                   {dailyBrief.what_changed && (
                     <p>{dailyBrief.what_changed}</p>
                   )}
                   {dailyBrief.market_summary && (
-                    <p className="text-gray-400">{dailyBrief.market_summary}</p>
+                    <p className={t.textMuted}>{dailyBrief.market_summary}</p>
                   )}
                   {dailyBrief.top_risks && (
                     <div className="mt-2">
-                      <span className="text-red-400 text-xs font-mono uppercase">Top Risks:</span>
-                      <p className="text-gray-400 text-xs mt-1">
+                      <span className={`${t.pnlDown} text-xs font-mono uppercase`}>Top Risks:</span>
+                      <p className={`${t.textMuted} text-xs mt-1`}>
                         {typeof dailyBrief.top_risks === "string"
                           ? dailyBrief.top_risks
                           : Array.isArray(dailyBrief.top_risks)
@@ -286,44 +392,38 @@ export default function TradingLabPage() {
 
             <div className="grid grid-cols-3 gap-6">
               {/* Equity Curve */}
-              <div className="col-span-2 bg-gray-800 border border-gray-700 p-4 rounded">
-                <h2 className="text-sm font-mono uppercase tracking-wider text-green-400 mb-4">Equity Curve</h2>
+              <div className={`col-span-2 ${t.cardBg} border ${t.cardBorder} p-4 rounded`}>
+                <h2 className={`text-sm font-mono uppercase tracking-wider ${t.accent} mb-4`}>Equity Curve</h2>
                 <ResponsiveContainer width="100%" height={250}>
                   <AreaChart data={equityCurveData}>
                     <defs>
                       <linearGradient id="colorEquity" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                        <stop offset="5%" stopColor={t.chart.green} stopOpacity={t.chart.greenGradientStart} />
+                        <stop offset="95%" stopColor={t.chart.green} stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                    <XAxis dataKey="date" stroke="#666" style={{ fontSize: "11px" }} />
-                    <YAxis stroke="#666" style={{ fontSize: "11px" }} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#1f2937",
-                        border: "1px solid #444",
-                        borderRadius: "4px",
-                      }}
-                    />
-                    <Area type="monotone" dataKey="equity" stroke="#22c55e" fillOpacity={1} fill="url(#colorEquity)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke={t.chart.gridStroke} />
+                    <XAxis dataKey="date" stroke={t.chart.axisStroke} style={{ fontSize: "11px" }} />
+                    <YAxis stroke={t.chart.axisStroke} style={{ fontSize: "11px" }} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Area type="monotone" dataKey="equity" stroke={t.chart.green} fillOpacity={1} fill="url(#colorEquity)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
 
               {/* Top Signals */}
-              <div className="bg-gray-800 border border-gray-700 p-4 rounded overflow-y-auto max-h-96">
-                <h2 className="text-sm font-mono uppercase tracking-wider text-green-400 mb-4">Top Signals</h2>
+              <div className={`${t.cardBg} border ${t.cardBorder} p-4 rounded overflow-y-auto max-h-96`}>
+                <h2 className={`text-sm font-mono uppercase tracking-wider ${t.accent} mb-4`}>Top Signals</h2>
                 <div className="space-y-3">
                   {topSignals.map((sig) => (
-                    <div key={sig.signal_id} className="bg-gray-700 p-2 rounded text-xs">
+                    <div key={sig.signal_id} className={`${themeMode === "dark" ? "bg-gray-700" : "bg-gray-100"} p-2 rounded text-xs`}>
                       <div className="flex justify-between items-center mb-1">
-                        <span className="font-mono text-green-400">{sig.asset_class || "—"}</span>
+                        <span className={`font-mono ${t.accent}`}>{sig.asset_class || "—"}</span>
                         <span className={directionColor(sig.direction)}>{sig.direction}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-400">Strength</span>
-                        <span className="text-blue-300 font-mono">{sig.strength?.toFixed(1) || "—"}</span>
+                        <span className={t.textMuted}>Strength</span>
+                        <span className={`${t.accentBlue} font-mono`}>{sig.strength?.toFixed(1) || "—"}</span>
                       </div>
                     </div>
                   ))}
@@ -332,22 +432,22 @@ export default function TradingLabPage() {
             </div>
 
             {/* Open Positions */}
-            <div className="bg-gray-800 border border-gray-700 p-4 rounded">
-              <h2 className="text-sm font-mono uppercase tracking-wider text-green-400 mb-4">Open Positions</h2>
+            <div className={`${t.cardBg} border ${t.cardBorder} p-4 rounded`}>
+              <h2 className={`text-sm font-mono uppercase tracking-wider ${t.accent} mb-4`}>Open Positions</h2>
               <table className="w-full text-xs font-mono">
                 <thead>
-                  <tr className="border-b border-gray-700">
-                    <th className="text-left py-2 text-gray-500">Ticker</th>
-                    <th className="text-right py-2 text-gray-500">Entry</th>
-                    <th className="text-right py-2 text-gray-500">Current</th>
-                    <th className="text-right py-2 text-gray-500">P&L</th>
-                    <th className="text-right py-2 text-gray-500">Return</th>
-                    <th className="text-left py-2 text-gray-500">Status</th>
+                  <tr className={`border-b ${t.tableDivider}`}>
+                    <th className={`text-left py-2 ${t.textFaint}`}>Ticker</th>
+                    <th className={`text-right py-2 ${t.textFaint}`}>Entry</th>
+                    <th className={`text-right py-2 ${t.textFaint}`}>Current</th>
+                    <th className={`text-right py-2 ${t.textFaint}`}>P&L</th>
+                    <th className={`text-right py-2 ${t.textFaint}`}>Return</th>
+                    <th className={`text-left py-2 ${t.textFaint}`}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {openPositions.slice(0, 10).map((pos) => (
-                    <tr key={pos.position_id} className="border-b border-gray-700 hover:bg-gray-700/30">
+                    <tr key={pos.position_id} className={`border-b ${t.tableDivider} ${t.cardHover}`}>
                       <td className="py-2">{pos.ticker}</td>
                       <td className="text-right">${pos.entry_price?.toFixed(2)}</td>
                       <td className="text-right">${pos.current_price?.toFixed(2)}</td>
@@ -377,36 +477,36 @@ export default function TradingLabPage() {
                 placeholder="Filter by category..."
                 value={signalFilter}
                 onChange={(e) => setSignalFilter(e.target.value)}
-                className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-sm font-mono text-gray-100"
+                className={`px-3 py-2 ${t.inputBg} border rounded text-sm font-mono`}
               />
             </div>
 
-            <div className="bg-gray-800 border border-gray-700 rounded overflow-auto max-h-96">
+            <div className={`${t.cardBg} border ${t.cardBorder} rounded overflow-auto max-h-96`}>
               <table className="w-full text-xs font-mono">
-                <thead className="sticky top-0 bg-gray-900 border-b border-gray-700">
+                <thead className={`sticky top-0 ${t.theadBg} border-b ${t.tableDivider}`}>
                   <tr>
-                    <th className="text-left py-2 px-3 text-gray-500">Asset Class</th>
-                    <th className="text-left py-2 px-3 text-gray-500">Category</th>
-                    <th className="text-right py-2 px-3 text-gray-500">Strength</th>
-                    <th className="text-left py-2 px-3 text-gray-500">Direction</th>
-                    <th className="text-left py-2 px-3 text-gray-500">Status</th>
-                    <th className="text-left py-2 px-3 text-gray-500">Source</th>
+                    <th className={`text-left py-2 px-3 ${t.textFaint}`}>Asset Class</th>
+                    <th className={`text-left py-2 px-3 ${t.textFaint}`}>Category</th>
+                    <th className={`text-right py-2 px-3 ${t.textFaint}`}>Strength</th>
+                    <th className={`text-left py-2 px-3 ${t.textFaint}`}>Direction</th>
+                    <th className={`text-left py-2 px-3 ${t.textFaint}`}>Status</th>
+                    <th className={`text-left py-2 px-3 ${t.textFaint}`}>Source</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredSignals.map((sig) => (
-                    <tr key={sig.signal_id} className="border-b border-gray-700 hover:bg-gray-700/30">
-                      <td className="py-2 px-3 text-blue-300">{sig.asset_class}</td>
-                      <td className="py-2 px-3 text-gray-300">{sig.category}</td>
+                    <tr key={sig.signal_id} className={`border-b ${t.tableDivider} ${t.cardHover}`}>
+                      <td className={`py-2 px-3 ${t.accentBlue}`}>{sig.asset_class}</td>
+                      <td className={`py-2 px-3 ${t.textSecondary}`}>{sig.category}</td>
                       <td className="py-2 px-3 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <div className="w-24 bg-gray-700 h-2 rounded">
+                          <div className={`w-24 ${t.progressTrack} h-2 rounded`}>
                             <div
                               className="h-2 bg-green-500 rounded"
                               style={{ width: `${Math.min((sig.strength || 0) * 20, 100)}%` }}
                             />
                           </div>
-                          <span className="text-green-400 font-bold">{sig.strength?.toFixed(1)}</span>
+                          <span className={`${t.accent} font-bold`}>{sig.strength?.toFixed(1)}</span>
                         </div>
                       </td>
                       <td className="py-2 px-3">
@@ -417,7 +517,7 @@ export default function TradingLabPage() {
                       <td className="py-2 px-3">
                         <span className={`px-2 py-1 rounded text-xs ${statusBadge(sig.status)}`}>{sig.status}</span>
                       </td>
-                      <td className="py-2 px-3 text-gray-500">{sig.source}</td>
+                      <td className={`py-2 px-3 ${t.textFaint}`}>{sig.source}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -430,22 +530,22 @@ export default function TradingLabPage() {
         {activeTab === "hypotheses" && (
           <div className="grid grid-cols-2 gap-4">
             {hypotheses.map((hyp) => (
-              <div key={hyp.hypothesis_id} className="bg-gray-800 border border-gray-700 p-4 rounded">
+              <div key={hyp.hypothesis_id} className={`${t.cardBg} border ${t.cardBorder} p-4 rounded`}>
                 <div className="flex justify-between items-start mb-3">
-                  <h3 className="text-sm font-mono font-bold text-blue-300">{hyp.thesis}</h3>
+                  <h3 className={`text-sm font-mono font-bold ${t.accentBlue}`}>{hyp.thesis}</h3>
                   <span className={`px-2 py-1 rounded text-xs ${statusBadge(hyp.status)}`}>{hyp.status}</span>
                 </div>
 
-                <div className="text-xs text-gray-400 mb-3">
+                <div className={`text-xs ${t.textMuted} mb-3`}>
                   <div className="mb-2">
-                    <span className="text-green-400">Confidence:</span>
-                    <div className="w-full bg-gray-700 h-2 rounded mt-1">
+                    <span className={t.accent}>Confidence:</span>
+                    <div className={`w-full ${t.progressTrack} h-2 rounded mt-1`}>
                       <div
                         className="h-2 bg-blue-500 rounded"
                         style={{ width: `${hyp.confidence || 0}%` }}
                       />
                     </div>
-                    <span className="text-blue-300">{hyp.confidence}%</span>
+                    <span className={t.accentBlue}>{hyp.confidence}%</span>
                   </div>
                   <div>Timeframe: {hyp.timeframe}</div>
                 </div>
@@ -453,16 +553,16 @@ export default function TradingLabPage() {
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   {hyp.proves_right && (
                     <div>
-                      <div className="text-green-400 font-bold mb-1">Proves Right</div>
-                      <p className="text-gray-400">
+                      <div className={`${t.pnlUp} font-bold mb-1`}>Proves Right</div>
+                      <p className={t.textMuted}>
                         {Array.isArray(hyp.proves_right) ? hyp.proves_right.join("; ") : String(hyp.proves_right)}
                       </p>
                     </div>
                   )}
                   {hyp.proves_wrong && (
                     <div>
-                      <div className="text-red-400 font-bold mb-1">Proves Wrong</div>
-                      <p className="text-gray-400">
+                      <div className={`${t.pnlDown} font-bold mb-1`}>Proves Wrong</div>
+                      <p className={t.textMuted}>
                         {Array.isArray(hyp.proves_wrong) ? hyp.proves_wrong.join("; ") : String(hyp.proves_wrong)}
                       </p>
                     </div>
@@ -475,29 +575,27 @@ export default function TradingLabPage() {
 
         {/* POSITIONS TAB */}
         {activeTab === "positions" && (
-          <div className="bg-gray-800 border border-gray-700 rounded overflow-auto max-h-96">
+          <div className={`${t.cardBg} border ${t.cardBorder} rounded overflow-auto max-h-96`}>
             <table className="w-full text-xs font-mono">
-              <thead className="sticky top-0 bg-gray-900 border-b border-gray-700">
+              <thead className={`sticky top-0 ${t.theadBg} border-b ${t.tableDivider}`}>
                 <tr>
-                  <th className="text-left py-2 px-3 text-gray-500">Ticker</th>
-                  <th className="text-left py-2 px-3 text-gray-500">Direction</th>
-                  <th className="text-right py-2 px-3 text-gray-500">Entry</th>
-                  <th className="text-right py-2 px-3 text-gray-500">Current</th>
-                  <th className="text-right py-2 px-3 text-gray-500">P&L</th>
-                  <th className="text-right py-2 px-3 text-gray-500">Return %</th>
-                  <th className="text-left py-2 px-3 text-gray-500">Status</th>
+                  <th className={`text-left py-2 px-3 ${t.textFaint}`}>Ticker</th>
+                  <th className={`text-left py-2 px-3 ${t.textFaint}`}>Direction</th>
+                  <th className={`text-right py-2 px-3 ${t.textFaint}`}>Entry</th>
+                  <th className={`text-right py-2 px-3 ${t.textFaint}`}>Current</th>
+                  <th className={`text-right py-2 px-3 ${t.textFaint}`}>P&L</th>
+                  <th className={`text-right py-2 px-3 ${t.textFaint}`}>Return %</th>
+                  <th className={`text-left py-2 px-3 ${t.textFaint}`}>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {positions.map((pos) => (
-                  <tr key={pos.position_id} className="border-b border-gray-700 hover:bg-gray-700/30">
-                    <td className="py-2 px-3 text-blue-300 font-bold">{pos.ticker}</td>
+                  <tr key={pos.position_id} className={`border-b ${t.tableDivider} ${t.cardHover}`}>
+                    <td className={`py-2 px-3 ${t.accentBlue} font-bold`}>{pos.ticker}</td>
                     <td className="py-2 px-3">
                       <span
                         className={`px-2 py-1 rounded text-xs ${
-                          pos.direction === "long"
-                            ? "bg-green-900 text-green-300"
-                            : "bg-red-900 text-red-300"
+                          pos.direction === "long" ? t.longBadge : t.shortBadge
                         }`}
                       >
                         {pos.direction}
@@ -548,57 +646,45 @@ export default function TradingLabPage() {
                   color: fmtPnl(latestPerf?.total_pnl ?? null).color,
                 },
               ].map((stat, i) => (
-                <div key={i} className="bg-gray-800 border border-gray-700 p-4 rounded">
-                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">{stat.label}</div>
-                  <div className={`text-lg font-mono font-bold ${stat.color || "text-green-400"}`}>{stat.value}</div>
+                <div key={i} className={`${t.cardBg} border ${t.cardBorder} p-4 rounded`}>
+                  <div className={`text-xs ${t.textFaint} uppercase tracking-wider mb-2`}>{stat.label}</div>
+                  <div className={`text-lg font-mono font-bold ${stat.color || t.accent}`}>{stat.value}</div>
                 </div>
               ))}
             </div>
 
             {/* Equity Curve */}
-            <div className="bg-gray-800 border border-gray-700 p-4 rounded">
-              <h2 className="text-sm font-mono uppercase tracking-wider text-green-400 mb-4">Equity Curve</h2>
+            <div className={`${t.cardBg} border ${t.cardBorder} p-4 rounded`}>
+              <h2 className={`text-sm font-mono uppercase tracking-wider ${t.accent} mb-4`}>Equity Curve</h2>
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={equityCurveData}>
                   <defs>
                     <linearGradient id="colorEquity2" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                      <stop offset="5%" stopColor={t.chart.green} stopOpacity={t.chart.greenGradientStart} />
+                      <stop offset="95%" stopColor={t.chart.green} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                  <XAxis dataKey="date" stroke="#666" style={{ fontSize: "11px" }} />
-                  <YAxis stroke="#666" style={{ fontSize: "11px" }} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1f2937",
-                      border: "1px solid #444",
-                      borderRadius: "4px",
-                    }}
-                  />
-                  <Area type="monotone" dataKey="equity" stroke="#22c55e" fillOpacity={1} fill="url(#colorEquity2)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={t.chart.gridStroke} />
+                  <XAxis dataKey="date" stroke={t.chart.axisStroke} style={{ fontSize: "11px" }} />
+                  <YAxis stroke={t.chart.axisStroke} style={{ fontSize: "11px" }} />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Area type="monotone" dataKey="equity" stroke={t.chart.green} fillOpacity={1} fill="url(#colorEquity2)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
 
             {/* Closed Trades P&L */}
-            <div className="bg-gray-800 border border-gray-700 p-4 rounded">
-              <h2 className="text-sm font-mono uppercase tracking-wider text-green-400 mb-4">Closed Trade P&L</h2>
+            <div className={`${t.cardBg} border ${t.cardBorder} p-4 rounded`}>
+              <h2 className={`text-sm font-mono uppercase tracking-wider ${t.accent} mb-4`}>Closed Trade P&L</h2>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={closedPnLData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                  <XAxis dataKey="date" stroke="#666" style={{ fontSize: "11px" }} />
-                  <YAxis stroke="#666" style={{ fontSize: "11px" }} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1f2937",
-                      border: "1px solid #444",
-                      borderRadius: "4px",
-                    }}
-                  />
-                  <Bar dataKey="pnl" stroke="#22c55e" fill="#22c55e">
+                  <CartesianGrid strokeDasharray="3 3" stroke={t.chart.gridStroke} />
+                  <XAxis dataKey="date" stroke={t.chart.axisStroke} style={{ fontSize: "11px" }} />
+                  <YAxis stroke={t.chart.axisStroke} style={{ fontSize: "11px" }} />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Bar dataKey="pnl" stroke={t.chart.green} fill={t.chart.green}>
                     {closedPnLData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={(entry.pnl || 0) >= 0 ? "#22c55e" : "#ef4444"} />
+                      <Cell key={`cell-${index}`} fill={(entry.pnl || 0) >= 0 ? t.chart.green : t.chart.red} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -611,23 +697,23 @@ export default function TradingLabPage() {
         {activeTab === "research" && (
           <div className="grid grid-cols-2 gap-4">
             {researchNotes.map((note) => (
-              <div key={note.note_id} className="bg-gray-800 border border-gray-700 p-4 rounded">
+              <div key={note.note_id} className={`${t.cardBg} border ${t.cardBorder} p-4 rounded`}>
                 <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-bold text-sm text-blue-300">{note.title}</h3>
-                  <span className="bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">{note.note_type}</span>
+                  <h3 className={`font-bold text-sm ${t.accentBlue}`}>{note.title}</h3>
+                  <span className={`${t.tagBg} px-2 py-1 rounded text-xs`}>{note.note_type}</span>
                 </div>
 
                 <div className="flex flex-wrap gap-2 mb-3">
                   {note.ticker && (
-                    <span className="bg-blue-900 text-blue-300 px-2 py-1 rounded text-xs">{note.ticker}</span>
+                    <span className={`${t.tagBlueBg} px-2 py-1 rounded text-xs`}>{note.ticker}</span>
                   )}
                   {note.tags?.map((tag, i) => (
-                    <span key={i} className="bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">{tag}</span>
+                    <span key={i} className={`${t.tagBg} px-2 py-1 rounded text-xs`}>{tag}</span>
                   ))}
                 </div>
 
-                <p className="text-sm text-gray-400 line-clamp-4">{note.content || "No content"}</p>
-                <div className="text-xs text-gray-500 mt-3">{fmtDate(note.created_at)}</div>
+                <p className={`text-sm ${t.textMuted} line-clamp-4`}>{note.content || "No content"}</p>
+                <div className={`text-xs ${t.textFaint} mt-3`}>{fmtDate(note.created_at)}</div>
               </div>
             ))}
           </div>
@@ -635,24 +721,24 @@ export default function TradingLabPage() {
 
         {/* WATCHLIST TAB */}
         {activeTab === "watchlist" && (
-          <div className="bg-gray-800 border border-gray-700 rounded overflow-auto max-h-96">
+          <div className={`${t.cardBg} border ${t.cardBorder} rounded overflow-auto max-h-96`}>
             <table className="w-full text-xs font-mono">
-              <thead className="sticky top-0 bg-gray-900 border-b border-gray-700">
+              <thead className={`sticky top-0 ${t.theadBg} border-b ${t.tableDivider}`}>
                 <tr>
-                  <th className="text-left py-2 px-3 text-gray-500">Ticker</th>
-                  <th className="text-left py-2 px-3 text-gray-500">Asset Name</th>
-                  <th className="text-right py-2 px-3 text-gray-500">Price</th>
-                  <th className="text-right py-2 px-3 text-gray-500">1D Change</th>
-                  <th className="text-right py-2 px-3 text-gray-500">1W Change</th>
-                  <th className="text-left py-2 px-3 text-gray-500">Alerts</th>
-                  <th className="text-left py-2 px-3 text-gray-500">Notes</th>
+                  <th className={`text-left py-2 px-3 ${t.textFaint}`}>Ticker</th>
+                  <th className={`text-left py-2 px-3 ${t.textFaint}`}>Asset Name</th>
+                  <th className={`text-right py-2 px-3 ${t.textFaint}`}>Price</th>
+                  <th className={`text-right py-2 px-3 ${t.textFaint}`}>1D Change</th>
+                  <th className={`text-right py-2 px-3 ${t.textFaint}`}>1W Change</th>
+                  <th className={`text-left py-2 px-3 ${t.textFaint}`}>Alerts</th>
+                  <th className={`text-left py-2 px-3 ${t.textFaint}`}>Notes</th>
                 </tr>
               </thead>
               <tbody>
                 {watchlist.map((item) => (
-                  <tr key={item.ticker} className="border-b border-gray-700 hover:bg-gray-700/30">
-                    <td className="py-2 px-3 text-blue-300 font-bold">{item.ticker}</td>
-                    <td className="py-2 px-3 text-gray-300">{item.asset_name}</td>
+                  <tr key={item.ticker} className={`border-b ${t.tableDivider} ${t.cardHover}`}>
+                    <td className={`py-2 px-3 ${t.accentBlue} font-bold`}>{item.ticker}</td>
+                    <td className={`py-2 px-3 ${t.textSecondary}`}>{item.asset_name}</td>
                     <td className="py-2 px-3 text-right">${item.current_price?.toFixed(2)}</td>
                     <td className={`py-2 px-3 text-right ${fmtPnl(item.price_change_1d).color}`}>
                       {fmtPct(item.price_change_1d)}
@@ -662,14 +748,14 @@ export default function TradingLabPage() {
                     </td>
                     <td className="py-2 px-3">
                       {(item.alert_above || item.alert_below) ? (
-                        <span className="bg-yellow-900 text-yellow-300 px-2 py-1 rounded text-xs">
+                        <span className={`${t.tagYellowBg} px-2 py-1 rounded text-xs`}>
                           {[item.alert_above && `↑${item.alert_above}`, item.alert_below && `↓${item.alert_below}`].filter(Boolean).join(" ")}
                         </span>
                       ) : (
-                        <span className="text-gray-500">—</span>
+                        <span className={t.textFaint}>—</span>
                       )}
                     </td>
-                    <td className="py-2 px-3 text-gray-500">{item.notes || "—"}</td>
+                    <td className={`py-2 px-3 ${t.textFaint}`}>{item.notes || "—"}</td>
                   </tr>
                 ))}
               </tbody>

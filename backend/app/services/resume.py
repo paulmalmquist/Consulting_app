@@ -8,6 +8,10 @@ from uuid import UUID
 import psycopg
 
 from app.db import get_cursor
+from app.services.resume_workspace import (
+    build_resume_workspace_payload,
+    generate_resume_assistant_response,
+)
 
 
 def _table_exists(table_name: str) -> bool:
@@ -429,6 +433,32 @@ def get_system_stats(*, env_id: UUID, business_id: UUID) -> dict:
         "total_projects": len(projects),
         "system_status": "active",
     }
+
+
+def get_workspace_payload(*, env_id: UUID, business_id: UUID) -> dict:
+    summary = get_career_summary(env_id=env_id, business_id=business_id)
+    stats = get_system_stats(env_id=env_id, business_id=business_id)
+    roles = list_roles(env_id=env_id, business_id=business_id)
+    projects = list_projects(env_id=env_id, business_id=business_id)
+    components = list_system_components(env_id=env_id, business_id=business_id)
+    deployments = list_deployments(env_id=env_id, business_id=business_id)
+    return build_resume_workspace_payload(
+        summary=summary,
+        stats=stats,
+        roles=roles,
+        projects=projects,
+        components=components,
+        deployments=deployments,
+    )
+
+
+def get_assistant_response(*, env_id: UUID, business_id: UUID, query: str, context: dict) -> dict:
+    workspace = get_workspace_payload(env_id=env_id, business_id=business_id)
+    return generate_resume_assistant_response(
+        workspace=workspace,
+        query=query,
+        context=context,
+    )
 
 
 # ── Seed data: system components ─────────────────────────────────

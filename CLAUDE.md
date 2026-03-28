@@ -105,6 +105,7 @@ When a request touches client portability or white-labeling, keep the three-laye
 | push, deploy, CI, Railway, Vercel, production verification | `agents/deploy.md` |
 | QA, regression, smoke test, validation | `agents/qa.md` |
 | site audit, design review, tour paulmalmquist.com, mobile audit, site performance, REPE usefulness, PDS usefulness, AI synchronicity | `skills/site-audit/SKILL.md` |
+| post-deploy verification, smoke test production, verify deploy, check if fix worked, log in and check environments | `skills/winston-post-deploy-verify/SKILL.md` |
 | schema, SQL, migrations, ETL, seeds | `agents/data.md` |
 | research ingestion from `docs/research/*` | `.skills/research-ingest/SKILL.md` |
 | CRM lookup, prospect enrichment, contact record, Apollo search, add to CRM, find contact, is [company] in Apollo, track outreach | `skills/winston-sales-intelligence/SKILL.md` with `docs/WINSTON_SALES_INTELLIGENCE_PROMPT.md` as reference and `agents/outreach.md` as support |
@@ -256,6 +257,8 @@ This is not optional busywork — these files contain real production data (test
 - `/research compare assistant routing approaches` -> `agents/architect.md`
 - `ingest research: docs/research/2026-03-11-irr-libs.md` -> `.skills/research-ingest/SKILL.md`
 - `use Codex CLI for this Winston bug` -> `skills/winston-router/SKILL.md`
+- `verify the deploy landed` -> `skills/winston-post-deploy-verify/SKILL.md`
+- `log in and check if the market intel fix worked` -> `skills/winston-post-deploy-verify/SKILL.md`
 - `push this and watch Railway and Vercel` -> `agents/deploy.md`
 - `sync Winston, stop if the repo is dirty, and summarize incoming commits` -> `agents/sync.md`
 - `run QA on the REPE regression path` -> `agents/qa.md`

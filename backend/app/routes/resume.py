@@ -6,6 +6,8 @@ from fastapi import APIRouter, Query, Request
 
 from app.routes.domain_common import classify_domain_error, domain_error_response
 from app.schemas.resume import (
+    ResumeAssistantRequestIn,
+    ResumeAssistantResponseOut,
     ResumeCareerSummaryOut,
     ResumeContextOut,
     ResumeDeploymentOut,
@@ -14,6 +16,7 @@ from app.schemas.resume import (
     ResumeSkillOut,
     ResumeSystemComponentOut,
     ResumeSystemStatsOut,
+    ResumeWorkspaceOut,
 )
 from app.services import resume as resume_svc
 from app.services import env_context
@@ -161,6 +164,33 @@ def get_system_stats(request: Request, env_id: str = Query(...), business_id: UU
     except Exception as exc:
         status, code = classify_domain_error(exc)
         return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="resume.system_stats.failed")
+
+
+@router.get("/workspace", response_model=ResumeWorkspaceOut)
+def get_workspace(request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None)):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return ResumeWorkspaceOut(**resume_svc.get_workspace_payload(env_id=resolved_env_id, business_id=resolved_business_id))
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="resume.workspace.failed")
+
+
+@router.post("/assistant", response_model=ResumeAssistantResponseOut)
+def run_assistant(request: Request, payload: ResumeAssistantRequestIn):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, payload.env_id, payload.business_id)
+        return ResumeAssistantResponseOut(
+            **resume_svc.get_assistant_response(
+                env_id=resolved_env_id,
+                business_id=resolved_business_id,
+                query=payload.query,
+                context=payload.context.model_dump(),
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="resume.assistant.failed")
 
 
 @router.post("/seed")
