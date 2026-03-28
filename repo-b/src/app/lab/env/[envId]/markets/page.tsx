@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { getStoredThemeMode, type ThemeMode } from "@/lib/theme";
 import { useParams } from "next/navigation";
 import {
   Area,
@@ -33,7 +34,6 @@ import type {
 } from "@/lib/trading-lab/types";
 
 type Tab = "overview" | "signals" | "hypotheses" | "positions" | "performance" | "research" | "watchlist";
-type ThemeMode = "dark" | "light";
 
 /* ── Theme tokens ─────────────────────────────────────────────────── */
 
@@ -129,7 +129,19 @@ export default function TradingLabPage() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
-  const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() =>
+    typeof window !== "undefined" ? getStoredThemeMode() : "dark"
+  );
+
+  // Stay in sync with the global theme toggle
+  useEffect(() => {
+    setThemeMode(getStoredThemeMode());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "bm_theme_mode") setThemeMode(getStoredThemeMode());
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const t = useMemo(() => buildTheme(themeMode), [themeMode]);
 
@@ -286,28 +298,6 @@ export default function TradingLabPage() {
             </div>
           )}
         </div>
-        {/* Theme Toggle */}
-        <button
-          onClick={() => setThemeMode((m) => (m === "dark" ? "light" : "dark"))}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded border text-xs font-mono transition-colors ${
-            themeMode === "dark"
-              ? "border-gray-600 bg-gray-800 text-gray-300 hover:bg-gray-700"
-              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
-          }`}
-          title={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
-        >
-          {themeMode === "dark" ? (
-            <>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-              Light
-            </>
-          ) : (
-            <>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-              Dark
-            </>
-          )}
-        </button>
       </div>
 
       {/* Command Header (Stats Row) */}
