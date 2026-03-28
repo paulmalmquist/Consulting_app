@@ -8,16 +8,13 @@ interface Props {
   position: TradingPosition | null;
   onClose: () => void;
   onClosed: () => void;
-  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  theme: Record<string, any>;
+  theme: any; // buildTheme() returns nested object with chart sub-object
 }
 
 export function ClosePositionModal({ open, position, onClose, onClosed, theme: t }: Props) {
   const [exitPrice, setExitPrice] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  if (!open || !position) return null;
 
   const preview = useMemo(() => {
     const ep = parseFloat(exitPrice);
@@ -28,6 +25,8 @@ export function ClosePositionModal({ open, position, onClose, onClosed, theme: t
     const returnPct = (pnl / notional) * 100;
     return { pnl, returnPct };
   }, [exitPrice, position]);
+
+  if (!open || !position) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

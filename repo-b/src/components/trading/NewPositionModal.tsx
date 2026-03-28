@@ -8,8 +8,7 @@ interface Props {
   onClose: () => void;
   onCreated: () => void;
   hypotheses: TradingHypothesis[];
-  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  theme: Record<string, any>;
+  theme: any; // buildTheme() returns nested object with chart sub-object
 }
 
 const ASSET_CLASSES: AssetClass[] = [
