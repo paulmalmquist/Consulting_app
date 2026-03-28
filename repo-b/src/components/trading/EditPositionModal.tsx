@@ -8,7 +8,8 @@ interface Props {
   position: TradingPosition | null;
   onClose: () => void;
   onUpdated: () => void;
-  theme: Record<string, string>;
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  theme: Record<string, any>;
 }
 
 export function EditPositionModal({ open, position, onClose, onUpdated, theme: t }: Props) {
