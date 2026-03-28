@@ -1,0 +1,242 @@
+{
+  "zone_slug": "jax-brooklyn",
+  "zone_name": "Jacksonville — Brooklyn/LaVilla",
+  "run_date": "2026-03-28",
+  "signals": {
+    "transaction_velocity": {
+      "score": 4,
+      "trend": "decelerating",
+      "comps": [
+        {
+          "address": "Gateway Jax LaVilla (801 W Bay St)",
+          "price": 4000000,
+          "price_per_unit": null,
+          "price_per_sf": 105,
+          "cap_rate": null,
+          "date": "2024-10-31",
+          "buyer_type": "institutional_developer"
+        }
+      ],
+      "notes": "Metro Jacksonville multifamily sales declined from $3.3B (2021) to $584M through Oct 2025. Q3 2025 quarterly volume was $315M. Limited transaction data specific to Brooklyn/LaVilla submarket. Recovery expected in 2026 as market stabilizes."
+    },
+    "distress_level": {
+      "score": 3,
+      "trend": "stable",
+      "lis_pendens_count": null,
+      "nod_count": null,
+      "notes": "No significant distress signals found for Brooklyn/LaVilla specifically. Metro-level CMBS multifamily delinquency at 6.85% (down 27bps from Oct 2025 high). Market transitioning from supply digestion to recovery phase. Limited distress-driven acquisition opportunity."
+    },
+    "supply_risk": {
+      "score": 6,
+      "trend": "increasing",
+      "permits_ytd": null,
+      "units_pipeline": 1763,
+      "major_projects": [
+        {
+          "name": "Gateway Jax Pearl Square (Block N11 - 515 Pearl St)",
+          "units": 205,
+          "status": "under_construction",
+          "expected_delivery": "mid-2026"
+        },
+        {
+          "name": "Pearl Square (full buildout)",
+          "units": 1000,
+          "status": "phased",
+          "expected_delivery": "2027-2029"
+        },
+        {
+          "name": "One Riverside Phase 1 (Brooklyn)",
+          "units": 271,
+          "status": "leasing",
+          "expected_delivery": "2025"
+        },
+        {
+          "name": "One Riverside Phase 2",
+          "units": 115,
+          "status": "planned",
+          "expected_delivery": "2027"
+        },
+        {
+          "name": "Gateway Jax 425 Beaver St",
+          "units": 286,
+          "status": "under_construction",
+          "expected_delivery": "2026-2027"
+        },
+        {
+          "name": "Johnson Commons (LaVilla townhomes)",
+          "units": 91,
+          "status": "under_construction",
+          "expected_delivery": "summer-2026"
+        }
+      ],
+      "notes": "Significant supply pipeline in immediate zone. 61% decline in metro multifamily permits provides some moderation. Estimated 1,763+ units in immediate Brooklyn/LaVilla pipeline. However, strong demand drivers may absorb supply."
+    },
+    "rent_growth": {
+      "score": 5,
+      "trailing_12mo": 0.015,
+      "by_class": {
+        "class_a": 0.02,
+        "class_b": 0.01,
+        "class_c": 0.005
+      },
+      "concession_level": "light",
+      "notes": "Brooklyn 1BR rents ~$1,965 (premium to metro avg of $1,412-$1,495). Metro occupancy 92.8%. Flat to slightly positive rent growth (1-2%) after 10 consecutive quarters of flat/negative performance through Q3 2025. Recovery trajectory forming into 2026. Net absorption of 1,630 units through first 3 quarters of 2025."
+    },
+    "demand_drivers": {
+      "score": 8,
+      "employment_trend": "growing",
+      "major_moves": [
+        {
+          "employer": "University of Florida",
+          "action": "New graduate campus in LaVilla (20+ acres, $50M+ public funding)",
+          "jobs_affected": 500
+        },
+        {
+          "employer": "JTA - NAVI Autonomous Transit",
+          "action": "$12.7M Autonomous Innovation Center opened in LaVilla; $246M Phase 2 Skyway conversion planned",
+          "jobs_affected": 200
+        },
+        {
+          "employer": "Redwire Space",
+          "action": "Consolidated multiple facilities into new Jacksonville hub",
+          "jobs_affected": 300
+        },
+        {
+          "employer": "Baptist Health / Mayo Clinic",
+          "action": "Continued expansion as top healthcare employers",
+          "jobs_affected": 8600
+        }
+      ],
+      "migration_trend": "inflow",
+      "notes": "Jacksonville added 16,365 residents (Jul 2023-Jul 2024), ranked 10th nationally. 31,700 net in-migrants in 2024. Projected fastest-growing major FL metro through 2028. Education & health services led with 8,600 new jobs in June 2025. $8.8B downtown development pipeline. 150+ corporate HQs. UF campus is transformational catalyst for LaVilla."
+    },
+    "capital_availability": {
+      "score": 7,
+      "agency_volume_delta": 0.205,
+      "bank_appetite": "expanding",
+      "cmbs_delinquency_rate": 0.0714,
+      "notes": "Agency lending caps increased 20.5% to $176B combined for 2026. GSEs financed $151.6B in multifamily in 2025 (+25% YoY). CMBS delinquency declining (7.14% Feb 2026 from 7.47% Jan). Multifamily led CRE transaction rebound with 51.1% YoY increase in Q3 2025. $936B in CRE mortgages maturing in 2026 creates refinancing activity. Jacksonville seen as offering cap-rate compression potential."
+    },
+    "regulatory_favorability": {
+      "score": 7,
+      "rent_control_risk": "none",
+      "oz_status": "active",
+      "tax_reassessment_risk": "low",
+      "notes": "No rent control in Jacksonville or Florida (state preemption). 21 designated Opportunity Zones in Jacksonville (34 in Duval County). Millage rate reduced 0.125 mills (1.1%) to 11.1919 for FY26. Pro-development city council: $50M+ public investment in UF LaVilla campus, DIA actively supporting $6.5B downtown pipeline. Impact fees stable."
+    }
+  },
+  "composite_acquisition_score": 5.2,
+  "score_delta_vs_last_run": null,
+  "key_findings": [
+    {
+      "finding": "University of Florida securing 20+ acres in LaVilla for graduate campus with $50M+ city funding is a transformational demand catalyst. Classes started Fall 2025, new construction beginning 2026.",
+      "category": "demand_drivers",
+      "significance": "high",
+      "source": "https://news.ufl.edu/2025/06/jacksonville-campus/"
+    },
+    {
+      "finding": "JTA NAVI autonomous transit system operational in LaVilla with $246M Phase 2 Skyway conversion to Holon people movers planned, connecting LaVilla to Brooklyn and Riverside.",
+      "category": "demand_drivers",
+      "significance": "high",
+      "source": "https://jaxtoday.org/2026/02/25/skyway-changes-jacksonville/"
+    },
+    {
+      "finding": "$8.8B in downtown development projects reshaping the urban landscape, with $2.5B currently under construction. Gateway Jax Pearl Square alone bringing 1,000+ apartments to NorthCore adjacent to LaVilla.",
+      "category": "supply_risk",
+      "significance": "high",
+      "source": "https://dia.jacksonville.gov/news/downtown-jacksonville-s-construction-surge-$8-8-billion-in-projects-reshape-urban-landscape"
+    },
+    {
+      "finding": "Metro multifamily rents recovering after 10 quarters of flat/negative performance. Brooklyn commands premium rents (~$1,965 for 1BR) vs metro average (~$1,495). Occupancy at 92.8% and firming.",
+      "category": "rent_growth",
+      "significance": "medium",
+      "source": "https://www.matthews.com/market_insights/jacksonville-fl-multifamily-market-report-q3-2025"
+    },
+    {
+      "finding": "Jacksonville added 16,365 residents and 31,700 net in-migrants in 2024, projected fastest-growing major FL metro through 2028. Strong employment growth especially in healthcare (+8,600 jobs).",
+      "category": "demand_drivers",
+      "significance": "high",
+      "source": "https://www.floridajobs.org/news-center/DEO-Press/2025/09/19/floridacommerce-announces-the-jacksonville-area-august-2025-employment-data"
+    },
+    {
+      "finding": "Agency lending caps increased 20.5% to $176B combined for 2026. Multifamily led CRE transaction rebound with 51.1% YoY increase nationally in Q3 2025. Jacksonville positioned for cap-rate compression.",
+      "category": "capital_availability",
+      "significance": "medium",
+      "source": "https://www.fhfa.gov/news/news-release/u.s.-federal-housing-announces-2026-multifamily-loan-purchase-caps-for-fannie-mae-and-freddie-mac"
+    },
+    {
+      "finding": "City Council reduced millage rate by 0.125 mills (1.1%) for FY26. No rent control risk (Florida state preemption). 21 active Opportunity Zones support investment incentives.",
+      "category": "regulatory_favorability",
+      "significance": "medium",
+      "source": "https://jaxtoday.org/2025/07/22/city-council-keeps-property-tax-rate-same-while-weighing-future-cut/"
+    },
+    {
+      "finding": "One Riverside Phase 1 (271 units with Whole Foods anchor) now leasing in Brooklyn, validating the submarket. Phase 2 adding 115 units planned.",
+      "category": "transaction_velocity",
+      "significance": "medium",
+      "source": "https://naihallmark.com/learning-centers/downtown-jacksonville-commercial-real-estate-a-market-evolving/"
+    }
+  ],
+  "feature_gaps_identified": [
+    {
+      "gap": "No automated access to Duval County property appraiser deed transfer and lis pendens data for real-time transaction tracking",
+      "category": "data_source",
+      "impact": 8
+    },
+    {
+      "gap": "Cannot programmatically pull Jacksonville building permit data to track multifamily pipeline by subzone",
+      "category": "data_source",
+      "impact": 7
+    },
+    {
+      "gap": "No CoStar/RealPage API integration for submarket-level rent comps, occupancy, and absorption data",
+      "category": "data_source",
+      "impact": 9
+    },
+    {
+      "gap": "Unable to access CMBS loan-level data for Jacksonville-specific delinquency and special servicing metrics",
+      "category": "data_source",
+      "impact": 6
+    },
+    {
+      "gap": "No supply pipeline visualization showing unit delivery timeline against projected absorption",
+      "category": "visualization",
+      "impact": 7
+    },
+    {
+      "gap": "Missing rent growth forecast model that incorporates supply pipeline, demand drivers, and macro rates",
+      "category": "model",
+      "impact": 8
+    },
+    {
+      "gap": "No automated OZ investment tracking to monitor capital flows into designated census tracts",
+      "category": "data_source",
+      "impact": 5
+    }
+  ],
+  "raw_sources": [
+    "https://www.matthews.com/market_insights/jacksonville-fl-multifamily-market-report-q3-2025",
+    "https://multifamilyaffordablehousing.com/market-disequilibrium-signals-opportunity-in-jacksonville/",
+    "https://mmgrea.com/2025-jacksonville-forecast/",
+    "https://naihallmark.com/learning-centers/downtown-jacksonville-commercial-real-estate-a-market-evolving/",
+    "https://www.jaxdailyrecord.com/news/2024/nov/06/gateway-jax-adds-to-downtown-property-portfolio-with-lavilla-purchase/",
+    "https://dia.jacksonville.gov/news/downtown-jacksonville-s-construction-surge-$8-8-billion-in-projects-reshape-urban-landscape",
+    "https://dia.jacksonville.gov/news/downtown-development-update-part-i-projects-rising",
+    "https://www.thejaxsonmag.com/article/urban-construction-update-winter-2025-page-2/",
+    "https://fred.stlouisfed.org/series/JACK212BPPRIV",
+    "https://www.bls.gov/eag/eag.fl_jacksonville_msa.htm",
+    "https://www.floridajobs.org/news-center/DEO-Press/2025/09/19/floridacommerce-announces-the-jacksonville-area-august-2025-employment-data",
+    "https://jaxtoday.org/2026/02/25/skyway-changes-jacksonville/",
+    "https://www.jtafla.com/project-initiatives/u2c/",
+    "https://news.ufl.edu/2025/06/jacksonville-campus/",
+    "https://www.crossviewpropertymanagement.com/cvpm-blog/the-jacksonville-fl-rental-market-in-2026-what-property-owners-need-to-know",
+    "https://www.yardimatrix.com/blog/jacksonville-multifamily-market-report/",
+    "https://www.steadily.com/blog/average-rent-jacksonville",
+    "https://www.multihousingnews.com/cmbs-delinquency-rates/",
+    "https://largocapital.com/florida-cre-market-update-q2-2025/",
+    "https://www.fhfa.gov/news/news-release/u.s.-federal-housing-announces-2026-multifamily-loan-purchase-caps-for-fannie-mae-and-freddie-mac",
+    "https://opportunityzones.com/cities/jacksonville-florida/",
+    "https://jaxtoday.org/2025/07/22/city-council-keeps-property-tax-rate-same-while-weighing-future-cut/",
+    "https://www.news4jax.com/news/local/2025/12/27/this-week-in-jacksonville-business-edition-downtowns-growth-development-future-plans-for-2026/"
+  ]
+}
