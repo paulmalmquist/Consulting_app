@@ -476,7 +476,6 @@ def _build_timeline() -> dict[str, Any]:
     ]
 
     initiatives_by_role = {}
-    milestones_by_role = {}
     for initiative in initiatives:
         initiatives_by_role.setdefault(initiative["role_id"], []).append(initiative)
     role_milestone_map = {

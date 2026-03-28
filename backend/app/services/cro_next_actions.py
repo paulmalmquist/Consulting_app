@@ -10,7 +10,6 @@ from uuid import UUID
 
 from app.db import get_cursor
 from app.observability.logger import emit_log
-from app.services.reporting_common import resolve_tenant_id
 
 
 def create_next_action(
