@@ -6,7 +6,6 @@ watchlist items, research notes, daily briefs, and performance snapshots.
 
 from __future__ import annotations
 
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
