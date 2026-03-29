@@ -1,7 +1,8 @@
 {
   "scripts": {
     "validate:instructions": "node scripts/validate_instruction_docs.mjs",
-    "test:instructions": "node --test tests/instruction-routing/*.test.mjs"
+    "test:instructions": "node --test tests/instruction-routing/*.test.mjs",
+    "guardrails:repo": "node scripts/check_repo_guardrails.mjs"
   },
   "devDependencies": {
     "@railway/cli": "^4.30.1"

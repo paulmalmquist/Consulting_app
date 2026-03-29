@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { getStoredThemeMode, type ThemeMode } from "@/lib/theme";
 import { useParams } from "next/navigation";
 import {
@@ -307,6 +308,12 @@ export default function TradingLabPage() {
             </div>
           )}
         </div>
+        <Link
+          href={`/lab/env/${envId}/markets/execution`}
+          className={`rounded-full border px-4 py-2 text-xs font-mono uppercase tracking-[0.24em] ${t.cardBorder} ${t.cardHover} ${t.textSecondary}`}
+        >
+          Execution Workspace
+        </Link>
       </div>
 
       {/* Command Header (Stats Row) */}

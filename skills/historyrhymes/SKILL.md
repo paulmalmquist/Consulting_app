@@ -6,6 +6,25 @@
 **Source of truth:** true
 **Research basis:** `docs/research/2026-03-28-history-rhymes-system.md`
 
+### Delivered Artifacts
+
+| Artifact | Path | Status |
+|----------|------|--------|
+| Skill spec (this file) | `skills/historyrhymes/SKILL.md` | Active |
+| Databricks config | `skills/historyrhymes/config/databricks.json` | Active |
+| Model registry | `skills/historyrhymes/config/model_registry.json` | Active |
+| Databricks REST client | `skills/historyrhymes/scripts/databricks_client.py` | Active |
+| Supabase schema (episodes, WSS, agents) | `skills/historyrhymes/references/schema_supabase.sql` | Ready to apply |
+| Seed episodes (8 historical) | `skills/historyrhymes/references/seed_episodes.json` | Ready to load |
+| Podcast pipeline spec | `skills/historyrhymes/references/podcast_pipeline.md` | Reference |
+| Embedding pipeline template | `skills/historyrhymes/templates/embedding_pipeline.py` | Template |
+| Regime classifier template | `skills/historyrhymes/templates/regime_classifier.py` | Template |
+| Podcast Intelligence schema (16 tables) | `repo-b/db/schema/425_podcast_intelligence.sql` | Ready to apply |
+| Podcast architecture (15 sections) | `docs/plans/PODCAST_INTELLIGENCE_ARCHITECTURE.md` | Reference |
+| Podcast extraction tips | `docs/podcast-intelligence/tips.md` | Reference |
+| Build plan (5 phases) | `docs/plans/HISTORY_RHYMES_BUILD_PLAN.md` | Active |
+| Trading Lab dashboard tab | `repo-b/src/components/market/HistoryRhymesTab.tsx` | Wired into Trading Lab |
+
 ---
 
 ## Purpose
@@ -260,6 +279,8 @@ Fire alerts when: divergence_score exceeds threshold, narrative velocity spikes 
 ---
 
 ## Podcast Ingestion Pipeline
+
+> **Status: DESIGN COMPLETE.** Full schema (`repo-b/db/schema/425_podcast_intelligence.sql`, 16 tables), architecture (`docs/plans/PODCAST_INTELLIGENCE_ARCHITECTURE.md`), and extraction guide (`docs/podcast-intelligence/tips.md`) are delivered. Backend service implementation pending.
 
 ### Purpose
 

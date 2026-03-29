@@ -6,7 +6,7 @@
 # Translates domain-level commands into HTTP calls against local or remote services.
 #
 # IMPORTANT: "environment" in this tool ALWAYS means a Demo Lab Environment
-# (repo-c /v1/environments). It NEVER means a Python venv, conda env, or
+# exposed by the canonical backend on /v1/environments. It NEVER means a Python venv, conda env, or
 # system environment variable. If you need Python tooling, use pip/venv directly.
 #
 # Usage:
@@ -25,15 +25,15 @@
 #   bmctl help
 #
 # Environment variables (reads from .env files or shell):
-#   LAB_API_BASE_URL      — Demo Lab backend   (default: http://127.0.0.1:8001)
-#   BOS_API_BASE_URL      — Business OS backend (default: http://127.0.0.1:8000)
+#   LAB_API_BASE_URL      — Demo Lab compatibility surface (default: BOS_API_BASE_URL or http://127.0.0.1:8000)
+#   BOS_API_BASE_URL      — Canonical backend (default: http://127.0.0.1:8000)
 #   FRONTEND_BASE_URL     — Next.js frontend    (default: http://127.0.0.1:3001)
 
 set -euo pipefail
 
 # ── Defaults ──────────────────────────────────────────────────────
-LAB_API_BASE_URL="${LAB_API_BASE_URL:-http://127.0.0.1:8001}"
 BOS_API_BASE_URL="${BOS_API_BASE_URL:-http://127.0.0.1:8000}"
+LAB_API_BASE_URL="${LAB_API_BASE_URL:-${BOS_API_BASE_URL}}"
 FRONTEND_BASE_URL="${FRONTEND_BASE_URL:-http://127.0.0.1:3001}"
 
 # ── Helpers ───────────────────────────────────────────────────────
@@ -298,7 +298,7 @@ health_check() {
     ok=false
   fi
 
-  echo -n "  Demo Lab   (${LAB_API_BASE_URL}): "
+  echo -n "  Demo Lab (/v1 via backend) (${LAB_API_BASE_URL}): "
   if _curl "${LAB_API_BASE_URL}/health" >/dev/null 2>&1; then
     echo "OK"
   else
@@ -333,7 +333,7 @@ TERMINOLOGY
   These are PRODUCT DOMAIN objects, NOT Python/conda/system environments.
 
 COMMANDS
-  Lab (Demo Lab — repo-c, port 8001):
+  Lab (Demo Lab compatibility routes on backend, default port 8000):
     bmctl lab env list                          List all Demo Lab environments
     bmctl lab env create --name "..." [opts]    Create a new environment
     bmctl lab env get    --id <envId>           Get environment details
@@ -365,8 +365,8 @@ UPDATE OPTIONS
   --active true|false   Enable/disable environment
 
 ENVIRONMENT VARIABLES
-  LAB_API_BASE_URL      Demo Lab backend   (default: http://127.0.0.1:8001)
-  BOS_API_BASE_URL      Business OS backend (default: http://127.0.0.1:8000)
+  LAB_API_BASE_URL      Demo Lab compatibility base (default: BOS_API_BASE_URL or http://127.0.0.1:8000)
+  BOS_API_BASE_URL      Canonical backend       (default: http://127.0.0.1:8000)
   FRONTEND_BASE_URL     Next.js frontend    (default: http://127.0.0.1:3001)
 
 EXAMPLES

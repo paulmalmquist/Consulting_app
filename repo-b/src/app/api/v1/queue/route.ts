@@ -1,16 +1,9 @@
 import { NextRequest } from "next/server";
-import { listFallbackQueue } from "@/lib/labV1Fallback";
-import { proxyOrFallback } from "@/lib/v1Proxy";
+import { proxyOrFail } from "@/lib/v1Proxy";
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
-  return proxyOrFallback(request, `/v1/queue${url.search}`, async () => {
-    const envId = url.searchParams.get("env_id");
-    if (!envId) {
-      return Response.json({ message: "env_id is required" }, { status: 400 });
-    }
-    return Response.json({ items: listFallbackQueue(envId) });
-  });
+  return proxyOrFail(request, "/v1/queue" + url.search);
 }

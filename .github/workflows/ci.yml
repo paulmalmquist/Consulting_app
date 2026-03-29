@@ -62,28 +62,23 @@ jobs:
       - name: Ruff check
         run: python -m ruff check app tests
 
-  demo-lab-lint:
-    name: Backend Lint (repo-c)
+      - name: Backend pytest
+        run: python -m pytest tests -q
+
+  repo-guardrails:
+    name: Repo Guardrails
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: repo-c
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          python-version: "3.11"
-          cache: "pip"
-          cache-dependency-path: repo-c/requirements.txt
+          node-version: "20"
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Ruff check
-        run: python -m ruff check app tests
+      - name: Repo guardrails
+        run: node scripts/check_repo_guardrails.mjs
 
   frontend-quality:
     name: Frontend Lint + Typecheck + Unit

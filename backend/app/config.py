@@ -124,6 +124,15 @@ PSYCHRAG_EMBEDDING_DIMENSION: int = int(os.getenv("PSYCHRAG_EMBEDDING_DIMENSION"
 PSYCHRAG_TOP_K: int = int(os.getenv("PSYCHRAG_TOP_K", "5"))
 PSYCHRAG_SUPPORT_EMAIL: str = os.getenv("PSYCHRAG_SUPPORT_EMAIL", "support@example.com")
 
+# ── Trade execution layer ───────────────────────────────────────────
+IBKR_HOST: str = os.getenv("IBKR_HOST", "127.0.0.1")
+IBKR_PAPER_PORT: int = int(os.getenv("IBKR_PAPER_PORT", "4002"))
+IBKR_LIVE_PORT: int = int(os.getenv("IBKR_LIVE_PORT", "4001"))
+IBKR_CLIENT_ID: int = int(os.getenv("IBKR_CLIENT_ID", "7"))
+TRADES_RECONNECT_INTERVAL_SEC: int = int(os.getenv("TRADES_RECONNECT_INTERVAL_SEC", "15"))
+TRADES_SLIPPAGE_ALERT_BPS: int = int(os.getenv("TRADES_SLIPPAGE_ALERT_BPS", "50"))
+TRADES_ENABLE_LIVE_SUBMISSION: bool = os.getenv("TRADES_ENABLE_LIVE_SUBMISSION", "false").lower() == "true"
+
 _db_validated = False
 
 

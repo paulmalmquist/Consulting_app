@@ -1,8 +1,9 @@
-// Demo Lab API base URL.
+// Demo Lab browser API base.
 //
-// In production, default to same-origin so Vercel can proxy `/v1/*` via a route
-// handler (`src/app/v1/[...path]/route.ts`). This avoids hardcoding `localhost`
-// and also avoids frontend CORS configuration.
+// `/v1/*` now resolves through the same-origin route handler in
+// `src/app/v1/[...path]/route.ts`, which forwards to the canonical backend.
+// Browser callers can still override the base URL, but the canonical runtime
+// owner is `backend/`, not a separate Demo Lab service.
 export const API_BASE_URL =
   (() => {
     const configuredRaw =
@@ -35,7 +36,7 @@ type ApiOptions = RequestInit & { params?: Record<string, string | undefined> };
 export async function apiFetch<T>(path: string, options: ApiOptions = {}) {
   if (!API_BASE_URL) {
     throw new Error(
-      "Demo Lab API is not configured. Set NEXT_PUBLIC_DEMO_API_BASE_URL (direct) or configure the /v1 proxy via DEMO_API_ORIGIN."
+      "Lab API is not configured. Set NEXT_PUBLIC_DEMO_API_BASE_URL (direct) or configure the /v1 proxy via BOS_API_ORIGIN / DEMO_API_ORIGIN."
     );
   }
 
@@ -93,7 +94,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}) {
           (response.status === 404 || response.status === 405)
         ) {
           message =
-            "API route is not available in this deployment. Check /v1 and /bos route handlers or NEXT_PUBLIC_*_API_BASE_URL settings.";
+            "API route is not available in this deployment. Check the canonical backend /v1 proxy or NEXT_PUBLIC_*_API_BASE_URL settings.";
         }
       } catch {
         // ignore parse errors

@@ -147,12 +147,15 @@ Define interface contract:
 
 **Acceptance:** Bidirectional data flow verified, regime classifier accepts 6th pillar input.
 
-### Ticket 2.4: Podcast Pipeline — Basic Ingestion
+### Ticket 2.4: Podcast Pipeline — Basic Ingestion ✅ SCHEMA + ARCHITECTURE COMPLETE
 
 **Surface:** Backend service + scheduled task
 **Effort:** 6 days
 **New scheduled task:** `fin-podcast-ingest`
 **Spec:** `skills/historyrhymes/references/podcast_pipeline.md`
+**Schema:** `repo-b/db/schema/425_podcast_intelligence.sql` (16 tables, 554 lines — DELIVERED)
+**Architecture:** `docs/plans/PODCAST_INTELLIGENCE_ARCHITECTURE.md` (15-section spec — DELIVERED)
+**Edge cases:** `docs/podcast-intelligence/tips.md` (extraction patterns + 10 edge cases — DELIVERED)
 
 Phase 1 podcast implementation:
 - RSS feed polling for 10 initial shows
@@ -161,6 +164,7 @@ Phase 1 podcast implementation:
 - Store in podcast_episodes, podcast_viewpoints, podcast_narratives
 - Speaker profile creation
 
+**Status:** Schema, architecture, and extraction guide delivered. Backend service implementation pending.
 **Acceptance:** 10 shows tracked, new episodes auto-ingested, viewpoints extracted.
 
 ---
@@ -283,15 +287,19 @@ Implement topological data analysis:
 - Alert when norms exceed 2σ above 250-day trailing average
 - Benchmark against <200ms latency target
 
-### Ticket 5.2: Full Podcast Intelligence
+### Ticket 5.2: Full Podcast Intelligence ✅ DESIGN COMPLETE
 
 **Effort:** 8 days
+**Schema:** All 16 tables in `425_podcast_intelligence.sql` already cover full pipeline (narrative_velocity, speaker_track_records, adversarial_scores, divergences, rhyme_suggestions)
+**Architecture:** Dual-LLM routing (Claude for nuance, GPT-4o for structured tagging), 4-pass extraction, 9 scheduled tasks — all specified in `PODCAST_INTELLIGENCE_ARCHITECTURE.md`
 
 Complete podcast pipeline:
 - Speaker diarization
 - Speaker track record system (prediction tracking, Brier per speaker)
 - Adversarial filters (coordinated narratives, recycled content, suspicious timing)
 - Integration with WSS Layer 5 meta-game signals
+
+**Status:** Full design delivered. Implementation pending.
 
 ### Ticket 5.3: Narrative Silence Detector
 

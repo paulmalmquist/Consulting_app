@@ -8,34 +8,32 @@
 
 # ── Ports ──────────────────────────────────────────────────────────
 BACKEND_PORT   ?= 8000
-DEMO_LAB_PORT  ?= 8001
 FRONTEND_PORT  ?= 3001
 BACKEND_HOST   ?= 127.0.0.1
 
 # ── Install ────────────────────────────────────────────────────────
 install:  ## Install all dependencies
 	cd backend && python3 -m venv .venv && .venv/bin/pip install --upgrade pip && .venv/bin/pip install -r requirements.txt
-	cd repo-c  && python3 -m venv .venv && .venv/bin/pip install --upgrade pip && .venv/bin/pip install -r requirements.txt
 	cd repo-b  && npm ci
 
 # ── Dev ────────────────────────────────────────────────────────────
-dev:  ## Start all services (Business OS + Demo Lab + Frontend)
+dev:  ## Start canonical backend + frontend
 	./dev.sh
 
-dev-bos:  ## Start Business OS backend + Frontend
-	DEMO_LAB_PORT=0 ./dev.sh
+dev-bos:  ## Start canonical backend + frontend
+	./dev.sh
 
-dev-demo:  ## Start Demo Lab backend + Frontend
-	BACKEND_PORT=0 ./dev.sh
+dev-demo:  ## Legacy alias: start lab UI on the canonical backend
+	./dev.sh
 
 # ── Test ───────────────────────────────────────────────────────────
-test: test-backend test-demo  ## Run all tests
+test: test-backend  ## Run canonical backend tests
 
 test-backend:  ## Run Business OS backend tests
 	cd backend && .venv/bin/python -m pytest tests/ -v
 
-test-demo:  ## Run Demo Lab backend tests
-	cd repo-c && .venv/bin/python -m pytest tests/ -v
+test-demo:  ## Legacy alias: run Demo Lab compatibility tests in backend
+	cd backend && .venv/bin/python -m pytest tests/test_lab_v1.py tests/test_lab_v1_compat.py -q
 
 test-frontend:  ## Run frontend unit tests
 	cd repo-b && npm run test:unit
@@ -77,13 +75,11 @@ test-live:  ## Run live integration smoke tests against a real DB (requires DATA
 
 # ── Lint / Format ─────────────────────────────────────────────────
 lint:  ## Lint all code
-	cd backend && .venv/bin/python -m ruff check app/ tests/ || true
-	cd repo-c  && .venv/bin/python -m ruff check app/ tests/ || true
-	cd repo-b  && npx next lint || true
+	cd backend && .venv/bin/python -m ruff check app/ tests/
+	cd repo-b  && npm run lint
 
 lint-strict:  ## Lint all code (fails on violations)
 	cd backend && .venv/bin/python -m ruff check app/ tests/
-	cd repo-c  && .venv/bin/python -m ruff check app/ tests/
 	cd repo-b  && npm run lint
 
 typecheck:  ## Typecheck frontend code
@@ -92,8 +88,7 @@ typecheck:  ## Typecheck frontend code
 quality: lint-strict typecheck test-frontend  ## CI-aligned strict checks
 
 fmt:  ## Format all code
-	cd backend && .venv/bin/python -m ruff format app/ tests/ || true
-	cd repo-c  && .venv/bin/python -m ruff format app/ tests/ || true
+	cd backend && .venv/bin/python -m ruff format app/ tests/
 
 # ── Database ──────────────────────────────────────────────────────
 db\:migrate:  ## Apply DB migrations (backbone + business_os)

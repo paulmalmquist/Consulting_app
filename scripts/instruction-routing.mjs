@@ -51,9 +51,8 @@ const INTENT_PATTERNS = {
 };
 
 const OWNER_PATTERNS = {
-  backend: [/\bbackend\//i, /\bfastapi\b/i, /\bbos backend\b/i],
+  backend: [/\bbackend\//i, /\bfastapi\b/i, /\bbos backend\b/i, /\bdemo lab\b/i, /\b\/v1\/\*\b/i],
   "repo-b": [/\brepo-b\//i, /\bnext\.js\b/i, /\bfrontend\b/i],
-  "repo-c": [/\brepo-c\//i, /\bdemo lab\b/i],
   "excel-addin": [/\bexcel-addin\//i, /\bexcel add-?in\b/i],
   orchestration: [/\borchestration\//i, /\blobster\b/i, /\bworkflow\b/i],
   scripts: [/\bscripts\//i, /\bscript\b/i],

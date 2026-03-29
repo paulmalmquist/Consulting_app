@@ -36,3 +36,8 @@ numpy>=1.26
 pgvector>=0.3
 cohere>=5.0
 langfuse>=2.0
+
+# Trade execution layer
+celery>=5.4
+redis>=5.0
+ib_insync>=0.9.86

@@ -147,6 +147,7 @@ _(This section is appended by the research-architect after each successful inges
 - Audit note (2026-03-14): assistant response rendering is now split across both `repo-b/src/components/copilot/` and `repo-b/src/components/winston/`. Before adding a third assistant surface, extract shared response blocks or add mirrored tests so charts/tables/confirmations do not drift silently.
 - REPE sidebar UX source of truth now lives in `repo-b/src/components/repe/workspace/repeNavigation.ts`. Desktop grouped nav, tablet compact icon rail, and mobile quick-nav all derive from that config; if you change section order or labels, update that file and `repo-b/src/components/repe/workspace/__tests__/repeNavigation.test.ts` together.
 - RE create/list flows are easy to break when the page mixes a legacy direct-DB Next route with the canonical BOS API contract. For models, the durable contract is `env_id` + `primary_fund_id` on `/api/re/v2/models`; validate inline before submit, disable only during the in-flight save, and refetch the list from that same source of truth after success instead of hand-appending a stale payload.
+- Winston execution now has a BOS-owned paper-first surface: add new trade/risk/order/control writes under `backend/app/routes/trades.py` + `repo-b/src/lib/bos-api.ts`, not under the legacy direct-DB `repo-b/src/app/api/v1/trading/*` routes. Keep `business_id` as the primary scope, use nullable `env_id` only for lab filtering, and treat live mode as audit-only unless `TRADES_ENABLE_LIVE_SUBMISSION=true`.
 - Fund detail exposure on `repo-b/src/app/lab/env/[envId]/re/funds/[fundId]/page.tsx` should come from `/api/re/v2/funds/[fundId]/exposure` backed by `repo-b/src/lib/server/reFundExposure.ts`, not from page-local guesses off `sector_mix` and `primary_market`. The durable rollup uses asset-level `attributable_nav` with fallbacks to `current_value_contribution` and non-disposed `attributable_equity_basis`, and it preserves `Unclassified` / `Unknown` buckets plus coverage metadata instead of collapsing to a false empty state.
 
 ## 1. Repo Inventory
@@ -157,8 +158,8 @@ _(This section is appended by the research-architect after each successful inges
 |---|---|---|---:|---|
 | Frontend | `repo-b/` | Next.js 14 App Router + TS | `3001` | Main Winston / Business OS UI |
 | BOS backend | `backend/` | FastAPI + psycopg | `8000` | Business OS APIs, documents, AI gateway, RE/PDS/etc. |
-| Demo Lab backend | `repo-c/` | FastAPI + psycopg | `8001` | Demo lab environments, uploads, chat, pipeline, Excel API |
-| Excel add-in | `excel-addin/` | React + Webpack | n/a | Talks to `repo-c` APIs |
+| Demo Lab compatibility routes | `backend/` | FastAPI + psycopg | `8000` | Canonical `/v1/*` environments, uploads, chat, pipeline, Excel API |
+| Excel add-in | `excel-addin/` | React + Webpack | n/a | Talks to backend `/v1/*` APIs |
 | SQL schema source | `repo-b/db/schema/` | ordered `.sql` bundle | n/a | Canonical schema/migrations |
 
 ### Important conclusion
@@ -169,7 +170,7 @@ It is:
 
 1. `repo-b` frontend
 2. `backend` Business OS backend
-3. `repo-c` Demo Lab backend
+3. `backend` canonical Demo Lab compatibility routes
 4. Shared Postgres / Supabase-backed data model
 5. Mixed direct-DB and proxied API patterns inside `repo-b`
 
@@ -180,7 +181,7 @@ It is:
 | Frontend pages/components | `repo-b/src/app`, `repo-b/src/components` |
 | Frontend direct DB route handlers | `repo-b/src/app/api/re/v2/*`, selected `repo-b/src/app/bos/api/*` |
 | Business OS API contracts | `backend/app/routes/*`, `backend/app/schemas/*`, `backend/app/services/*` |
-| Demo Lab API contracts | `repo-c/app/main.py` |
+| Demo Lab API contracts | `backend/app/routes/lab.py`, `backend/app/services/lab*.py` |
 | Canonical SQL schema | `repo-b/db/schema/*.sql` applied in numeric order |
 | DB apply/verify scripts | `repo-b/db/schema/apply.js`, `repo-b/db/schema/verify.js` |
 | Local dev topology | `docs/LOCAL_DEV_PORTS.md`, `Makefile` |
@@ -252,7 +253,7 @@ Flow:
 1. Browser UI in `repo-b`
 2. `apiFetch(...)`
 3. Same-origin Next proxy at `/v1/*` in `repo-b/src/app/v1/[...path]/route.ts`
-4. FastAPI in `repo-c/`
+4. FastAPI in `backend/` owns both `/api/*` and `/v1/*`
 5. Postgres / Supabase-backed tables used by Demo Lab
 
 Typical examples:
@@ -273,7 +274,7 @@ Relevant file:
 
 ### Important conclusion
 
-If a Demo Lab page "works" while `repo-c` is down, verify whether you are seeing fallback behavior before concluding that the real backend path is correct.
+If a Demo Lab page works while `/v1/*` is failing, verify that you are hitting the canonical backend rather than a stale browser base URL or local proxy misconfiguration.
 
 ### D. Document upload -> SQL metadata + Supabase Storage
 
@@ -343,7 +344,7 @@ Do not default to `app.document_chunks` unless the task is explicitly about Wins
 - `ALLOWED_ORIGINS`
 - `OPENAI_API_KEY` for AI Gateway
 
-### Demo Lab backend (`repo-c`)
+### Demo Lab compatibility routes (`backend`)
 
 - `SUPABASE_DB_URL`
 - `SUPABASE_URL`
@@ -355,7 +356,7 @@ Do not default to `app.document_chunks` unless the task is explicitly about Wins
 
 - frontend: `3001`
 - BOS backend: `8000`
-- Demo Lab backend: `8001`
+- Canonical backend: `8000`
 
 ## 5. Authentication / Context Assumptions
 
@@ -433,7 +434,7 @@ cd repo-b && npm run db:dry
 
 1. Assuming all APIs are in `backend/`
 2. Assuming all frontend APIs are thin proxies rather than direct SQL handlers
-3. Sending Demo Lab changes to BOS backend or BOS changes to `repo-c`
+3. Treating `/v1/*` as separate from the canonical backend when it now lives in `backend/`
 4. Forgetting that RE v2 is largely implemented inside `repo-b/src/app/api/re/v2/*`
 5. Forgetting env/business binding requirements
 6. Confusing document upload with RAG indexing
@@ -443,7 +444,7 @@ cd repo-b && npm run db:dry
 10. Changing UI without checking matching tests in `repo-b/tests` and `repo-b/src/components/**/*.test*`
 11. Changing backend contracts without checking frontend callers in `bos-api.ts` or `api.ts`
 12. Forgetting that `repo-b` can fail because DB env vars are missing even if `backend` is healthy
-13. Mistaking Demo Lab fallback responses for real `repo-c` behavior
+13. Mistaking stale browser aliases or same-origin proxies for a second live backend
 14. Creating new `"use client"` React components without `import React from "react"` — Next.js auto-injects it for production builds but the vitest/jsdom test environment does NOT, causing `ReferenceError: React is not defined` in CI
 15. Pushing Python changes without running `ruff check` locally first — CI will catch it but it wastes a deploy cycle
 16. Hardcoded `%` in SQL strings passed to psycopg3 `execute()` — must be `%%` to avoid format-string errors (e.g. `LIKE '%%broker%%'`)
@@ -452,7 +453,7 @@ cd repo-b && npm run db:dry
 
 Ask the assistant to confirm all of these before making changes:
 
-1. Which app is in scope: `repo-b`, `backend`, `repo-c`, or `excel-addin`?
+1. Which app is in scope: `repo-b`, `backend`, or `excel-addin`?
 2. Is the user flow using `bosFetch`, `apiFetch`, or a direct browser fetch to a Next route?
 3. Is the endpoint implemented in `backend/app/routes/*` or `repo-b/src/app/api/*`?
 4. Does the route talk to Postgres directly, or proxy to FastAPI?
@@ -461,7 +462,7 @@ Ask the assistant to confirm all of these before making changes:
 7. Does the DB schema already contain the required tables/columns?
 8. If documents are involved, is the task about storage metadata, extracted text, or vector retrieval?
 9. If AI/RAG is involved, is the canonical table `rag_chunks` or a demo KB table?
-10. Which test suite must pass: `backend` pytest, `repo-c` pytest, `repo-b` vitest, Playwright, or DB verify?
+10. Which test suite must pass: `backend` pytest, `repo-b` vitest, Playwright, Excel smoke, or DB verify?
 
 ## 9. Recommended Prompt Addendum For Assistants
 
@@ -512,7 +513,7 @@ rg "rag_chunks|document_chunks" backend repo-b/db/schema repo-b/src
 
 ## 11. One-Sentence Mental Model
 
-This repo is a multi-surface monorepo where `repo-b` is the UI, `backend` is the Business OS API, `repo-c` is a separate Demo Lab API, `repo-b` also owns many direct-to-Postgres route handlers, and the current canonical vector store is `rag_chunks`, not the older demo KB chunk tables.
+This repo is a multi-surface monorepo where `repo-b` is the UI, `backend` is the canonical API for both `/api/*` and `/v1/*`, `repo-b` still owns some direct-to-Postgres route handlers, and the current canonical vector store is `rag_chunks`, not the older demo KB chunk tables.
 
 ---
 
@@ -2044,3 +2045,6 @@ Follow the existing pattern:
 - The shared companion uses dual lanes: `contextual` threads stay pinned to entity/environment/business scope metadata, while `general` threads stay business/global. Conversation metadata relies on `thread_kind`, `scope_type`, `scope_id`, `scope_label`, `launch_source`, `context_summary`, and `last_route`.
 - Preserve the `winston-prefill-prompt` browser event and the `global-commandbar-toggle` test id. Existing pages dispatch that event to open the shared Winston drawer with a seeded prompt.
 - When adding or refactoring high-context pages, publish both environment and page context through `appContextBridge` so Winston can ground itself correctly. Important surfaces now covered include RE models, RE development, PDS home, and consulting home.
+- Convergence note (2026-03-28): `backend/app/routes/lab.py` is now the canonical owner for Demo Lab `/v1/*` business logic. New lab behavior belongs in `backend/`, while `repo-b/src/app/v1/[...path]/route.ts` and `repo-b/src/app/api/v1/*` should stay proxy-only.
+- Convergence note (2026-03-28): `repo-b/src/app/api/re/v1/*` now proxies to the BOS backend. Do not reintroduce direct-DB stubs or fake bootstrap/context responses in that surface.
+- Guardrail note (2026-03-28): run `node scripts/check_repo_guardrails.mjs` before landing repo-shape changes. It freezes today’s known schema-duplication, page-local API-base, `globalThis`, and direct-DB route debt so we stop adding more.

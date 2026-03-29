@@ -11,6 +11,7 @@
  */
 import { logError, logInfo } from "@/lib/logging/logger";
 import type { AssistantResponseBlock } from "@/lib/commandbar/types";
+import type { AccountSummary, ExecutionControlState, ExecutionEvent, ExecutionOrder, PortfolioPosition, PostTradeReview, PromotionChecklist, TradeIntent, TradeRiskCheck } from "@/lib/trades/types";
 import type {
   PdsAttentionAction,
   PdsAttentionProject,
@@ -9359,4 +9360,132 @@ export function getDevDraws(linkId: string, scenarioLabel?: string): Promise<Rec
 
 export function seedDevBridge(envId: string, businessId?: string): Promise<{ status: string; counts: Record<string, number> }> {
   return bosFetch("/api/dev/v1/seed", { method: "POST", params: _devParams(envId, businessId) });
+}
+
+
+function _tradeParams(businessId: string, envId?: string, extras: Record<string, string | undefined> = {}): Record<string, string> {
+  const params: Record<string, string> = { business_id: businessId };
+  if (envId) params.env_id = envId;
+  Object.entries(extras).forEach(([key, value]) => {
+    if (value) params[key] = value;
+  });
+  return params;
+}
+
+export function getTradeIntents(businessId: string, options: { status?: string; envId?: string } = {}): Promise<TradeIntent[]> {
+  return bosFetch("/api/trades/intents", { params: _tradeParams(businessId, options.envId, { status: options.status }) });
+}
+
+export function getTradeIntent(tradeIntentId: string, businessId: string): Promise<TradeIntent> {
+  return bosFetch(`/api/trades/intents/${tradeIntentId}`, { params: _tradeParams(businessId) });
+}
+
+export function runTradeRiskCheck(tradeIntentId: string, businessId: string): Promise<TradeRiskCheck> {
+  return bosFetch(`/api/trades/intents/${tradeIntentId}/risk-check`, {
+    method: "POST",
+    body: JSON.stringify({ business_id: businessId }),
+  });
+}
+
+export function approveTradeIntent(tradeIntentId: string, body: { business_id: string; approved_by: string; approval_notes?: string }): Promise<TradeIntent> {
+  return bosFetch(`/api/trades/intents/${tradeIntentId}/approve`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function submitTradeIntent(
+  tradeIntentId: string,
+  body: {
+    business_id: string;
+    actor: string;
+    tif?: string;
+    broker?: string;
+    broker_account_mode?: "paper" | "live";
+    quantity?: number;
+    limit_price?: number;
+    stop_price?: number;
+  },
+): Promise<ExecutionOrder> {
+  return bosFetch(`/api/trades/intents/${tradeIntentId}/submit`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getTradeOrders(businessId: string, status?: string): Promise<ExecutionOrder[]> {
+  return bosFetch("/api/trades/orders", { params: _tradeParams(businessId, undefined, { status }) });
+}
+
+export function getTradeOrder(executionOrderId: string, businessId: string): Promise<ExecutionOrder> {
+  return bosFetch(`/api/trades/orders/${executionOrderId}`, { params: _tradeParams(businessId) });
+}
+
+export function cancelTradeOrder(executionOrderId: string, body: { business_id: string; actor: string }): Promise<ExecutionOrder> {
+  return bosFetch(`/api/trades/orders/${executionOrderId}/cancel`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getTradePositions(businessId: string, accountMode?: string): Promise<PortfolioPosition[]> {
+  return bosFetch("/api/trades/positions", { params: _tradeParams(businessId, undefined, { account_mode: accountMode }) });
+}
+
+export function getTradeAccountSummary(businessId: string): Promise<AccountSummary> {
+  return bosFetch("/api/trades/account-summary", { params: _tradeParams(businessId) });
+}
+
+export function getTradeControlState(businessId: string): Promise<ExecutionControlState> {
+  return bosFetch("/api/trades/control-state", { params: _tradeParams(businessId) });
+}
+
+export function setTradeKillSwitch(body: { business_id: string; activate: boolean; reason: string; changed_by: string }): Promise<ExecutionControlState> {
+  return bosFetch("/api/trades/kill-switch", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function setTradeMode(body: {
+  business_id: string;
+  target_mode: "paper" | "live_disabled" | "live_enabled";
+  changed_by: string;
+  reason?: string;
+  confirmation_phrase?: string;
+}): Promise<ExecutionControlState> {
+  return bosFetch("/api/trades/mode", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createPostTradeReview(body: {
+  business_id: string;
+  trade_intent_id: string;
+  env_id?: string;
+  thesis_quality_score?: number;
+  timing_quality_score?: number;
+  sizing_quality_score?: number;
+  execution_quality_score?: number;
+  discipline_score?: number;
+  trap_realized_flag?: boolean;
+  notes?: string;
+}): Promise<PostTradeReview> {
+  return bosFetch("/api/trades/reviews", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getPostTradeReviews(businessId: string, tradeIntentId?: string): Promise<PostTradeReview[]> {
+  return bosFetch("/api/trades/reviews", { params: _tradeParams(businessId, undefined, { trade_intent_id: tradeIntentId }) });
+}
+
+export function getTradePromotionChecklist(businessId: string): Promise<PromotionChecklist> {
+  return bosFetch("/api/trades/promotion-checklist", { params: _tradeParams(businessId) });
+}
+
+export function getTradeAlerts(businessId: string): Promise<ExecutionEvent[]> {
+  return bosFetch("/api/trades/alerts", { params: _tradeParams(businessId) });
 }

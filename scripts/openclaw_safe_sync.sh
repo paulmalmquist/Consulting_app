@@ -113,11 +113,8 @@ echo "Changed files:"
 git diff --name-only "$before_head" "$after_head"
 
 restart_notes=()
-if git diff --name-only "$before_head" "$after_head" | rg -q '^backend/'; then
-  restart_notes+=("backend on port 8000")
-fi
-if git diff --name-only "$before_head" "$after_head" | rg -q '^repo-c/'; then
-  restart_notes+=("repo-c on port 8001")
+if git diff --name-only "$before_head" "$after_head" | rg -q '^(backend/|repo-b/src/app/v1/|repo-b/src/app/api/v1/|excel-addin/)'; then
+  restart_notes+=("canonical backend on port 8000")
 fi
 if git diff --name-only "$before_head" "$after_head" | rg -q '^repo-b/'; then
   restart_notes+=("frontend on port 3001")

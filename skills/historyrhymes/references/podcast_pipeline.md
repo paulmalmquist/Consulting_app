@@ -1,5 +1,7 @@
 # Podcast Ingestion Pipeline — Technical Specification
 
+> **See also:** Full architecture at `docs/plans/PODCAST_INTELLIGENCE_ARCHITECTURE.md`, schema at `repo-b/db/schema/425_podcast_intelligence.sql`, extraction tips at `docs/podcast-intelligence/tips.md`.
+
 ## Overview
 
 Convert podcasts from passive listening into structured alpha extraction: narrative signals, macro viewpoints, positioning insights, analog triggers, and adversarial signals.

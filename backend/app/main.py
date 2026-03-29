@@ -78,6 +78,7 @@ from app.routes import resume, resume_chat
 from app.routes import market_regime
 from app.routes import market_correlation
 from app.routes import trading
+from app.routes import trades
 
 app = FastAPI(title="Business OS API", version="0.1.0")
 
@@ -199,6 +200,7 @@ app.include_router(resume_chat.router)
 app.include_router(market_regime.router)
 app.include_router(market_correlation.router)
 app.include_router(trading.router)
+app.include_router(trades.router)
 app.include_router(credit.router)
 app.include_router(credit_v2.router)
 app.include_router(doc_completion.router)

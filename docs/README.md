@@ -58,7 +58,7 @@ BusinessMachine/Consulting_app/
 │   │   └── styles/                 # Global styles
 │   ├── db/                         # Database migrations
 │   └── package.json
-├── repo-c/                         # Secondary applications
+├── excel-addin/                    # Excel integration against backend /v1/*
 ├── scripts/                        # Development scripts
 ├── backend/                        # Backend services
 ├── orchestration/                  # Orchestration configurations

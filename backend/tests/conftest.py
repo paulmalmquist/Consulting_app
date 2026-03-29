@@ -102,6 +102,9 @@ _GET_CURSOR_TARGETS = [
     "app.services.credit.get_cursor",
     "app.services.legal_ops.get_cursor",
     "app.services.medoffice.get_cursor",
+    "app.services.lab.get_cursor",
+    "app.services.lab_compat.get_cursor",
+    "app.services.lab_excel.get_cursor",
     "app.services.re_investment.get_cursor",
     "app.services.re_jv.get_cursor",
     "app.services.re_partner.get_cursor",
@@ -150,6 +153,8 @@ _GET_CURSOR_TARGETS = [
     "app.services.re_intelligence.get_cursor",
     "app.services.opportunity_engine.get_cursor",
     "app.services.capital_projects.get_cursor",
+    "app.services.trades.get_cursor",
+    "app.services.market_regime_engine.get_cursor",
 ]
 
 

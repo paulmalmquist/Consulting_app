@@ -1,5 +1,5 @@
-import { getPool } from "@/lib/server/db";
-import { getFundDetail } from "@/lib/server/repeFunds";
+import { NextRequest } from "next/server";
+import { proxyToBos } from "@/lib/server/bosProxy";
 
 export const runtime = "nodejs";
 
@@ -11,23 +11,8 @@ export async function OPTIONS() {
 }
 
 export async function GET(
-  _request: Request,
+  request: NextRequest,
   { params }: { params: { fundId: string } }
 ) {
-  const pool = getPool();
-  if (!pool) {
-    return Response.json({ error_code: "DB_UNAVAILABLE", message: "Database not configured" }, { status: 503 });
-  }
-
-  try {
-    const detail = await getFundDetail(pool, params.fundId);
-    if (!detail) {
-      return Response.json({ error_code: "FUND_NOT_FOUND", message: `Fund ${params.fundId} not found` }, { status: 404 });
-    }
-
-    return Response.json(detail);
-  } catch (err) {
-    console.error("[re/v1/funds/[fundId]] DB error", err);
-    return Response.json({ error_code: "DB_ERROR", message: "Failed to load fund" }, { status: 500 });
-  }
+  return proxyToBos(request, "/api/re/v1/funds/" + params.fundId);
 }
