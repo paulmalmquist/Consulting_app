@@ -4,8 +4,6 @@ import pytest
 
 from app.schemas.ai_gateway import AssistantContextEnvelope, AssistantUiContext, ResolvedAssistantScope
 from app.services.re_scenario_templates import resolve_template
-
-pytestmark = pytest.mark.usefixtures("fake_cursor")
 from app.services.repe_intent import (
     INTENT_CAPITAL_CALL_IMPACT,
     INTENT_CLAWBACK_RISK,
@@ -19,6 +17,8 @@ from app.services.repe_intent import (
     classify_repe_intent,
 )
 from app.services.repe_session import get_session, summarize_waterfall_run, update_session
+
+pytestmark = pytest.mark.usefixtures("fake_cursor")
 
 
 def _scope() -> ResolvedAssistantScope:
