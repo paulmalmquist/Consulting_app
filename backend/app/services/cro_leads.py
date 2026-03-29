@@ -6,13 +6,27 @@ Extends the CRM account model with consulting-specific scoring and qualification
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
 
 from app.db import get_cursor
 from app.observability.logger import emit_log
 from app.services.reporting_common import normalize_key, resolve_tenant_id
+
+
+# Stage → default next action mapping
+_STAGE_NEXT_ACTIONS: dict[str, tuple[str, str, int]] = {
+    "research": ("research", "Research company background and identify key contacts", 3),
+    "identified": ("email", "Send initial outreach email", 2),
+    "contacted": ("follow_up", "Follow up on initial outreach", 5),
+    "engaged": ("meeting", "Schedule discovery meeting", 3),
+    "meeting": ("proposal", "Prepare and send consulting proposal", 2),
+    "qualified": ("proposal", "Finalize proposal terms and pricing", 5),
+    "proposal": ("follow_up", "Follow up on proposal status", 3),
+    "closed_won": ("task", "Convert to active client and schedule kickoff", 1),
+    "closed_lost": ("task", "Document lessons learned and post-mortem", 7),
+}
 
 
 def create_lead(
@@ -132,6 +146,44 @@ def create_lead(
         message=f"Lead created: {company_name}",
         context={"crm_account_id": str(account["crm_account_id"]), "lead_score": score},
     )
+
+    # Auto-generate next action for the new lead
+    try:
+        from app.services import cro_next_actions
+        action_type, description, days = _STAGE_NEXT_ACTIONS.get(
+            "research", ("research", "Research company background", 3)
+        )
+        priority = "high" if score > 70 else ("normal" if score > 50 else "low")
+        cro_next_actions.create_next_action(
+            env_id=env_id,
+            business_id=business_id,
+            entity_type="account",
+            entity_id=account["crm_account_id"],
+            action_type=action_type,
+            description=description,
+            due_date=date.today() + timedelta(days=days),
+            priority=priority,
+        )
+    except Exception:
+        pass  # non-critical; don't fail lead creation
+
+    # Auto-log creation activity
+    try:
+        with get_cursor() as cur:
+            tenant_id = resolve_tenant_id(cur, business_id)
+            cur.execute(
+                """
+                INSERT INTO crm_activity
+                  (tenant_id, business_id, crm_account_id, activity_type, subject, notes, activity_date)
+                VALUES (%s, %s, %s, 'note', %s, %s, %s)
+                """,
+                (tenant_id, str(business_id), str(account["crm_account_id"]),
+                 f"Lead created: {company_name}",
+                 f"Score: {score}/100. Stage: research.",
+                 datetime.now(timezone.utc)),
+            )
+    except Exception:
+        pass
 
     return {
         "crm_account_id": account["crm_account_id"],
@@ -279,6 +331,105 @@ def update_lead_pipeline_stage(
     emit_log(level="info", service="backend", action="cro.lead.stage_updated",
              message=f"Lead {lead_id} moved to stage {stage}",
              context={"lead_id": str(lead_id), "stage": stage})
+
+    # Auto-create opportunity when lead advances past "contacted"
+    advanced_stages = {"engaged", "meeting", "qualified", "proposal", "closed_won"}
+    if stage in advanced_stages:
+        try:
+            with get_cursor() as cur:
+                tenant_id = resolve_tenant_id(cur, business_id)
+
+                # Check if an opportunity already exists for this account
+                cur.execute(
+                    "SELECT crm_opportunity_id FROM crm_opportunity WHERE crm_account_id = %s AND business_id = %s LIMIT 1",
+                    (str(lead_id), str(business_id)),
+                )
+                existing = cur.fetchone()
+                if not existing:
+                    # Get account name and budget
+                    cur.execute(
+                        "SELECT a.name, p.estimated_budget FROM crm_account a JOIN cro_lead_profile p ON p.crm_account_id = a.crm_account_id WHERE a.crm_account_id = %s",
+                        (str(lead_id),),
+                    )
+                    info = cur.fetchone()
+                    company_name_resolved = info["name"] if info else "Unknown"
+                    budget = info["estimated_budget"] if info else None
+
+                    # Get the pipeline stage ID for this stage
+                    cur.execute(
+                        "SELECT crm_pipeline_stage_id FROM crm_pipeline_stage WHERE tenant_id = %s AND business_id = %s AND key = %s",
+                        (tenant_id, str(business_id), stage),
+                    )
+                    stage_row = cur.fetchone()
+                    stage_id = stage_row["crm_pipeline_stage_id"] if stage_row else None
+
+                    if stage_id:
+                        cur.execute(
+                            """
+                            INSERT INTO crm_opportunity
+                              (tenant_id, business_id, crm_account_id, crm_pipeline_stage_id,
+                               name, status, amount, expected_close_date)
+                            VALUES (%s, %s, %s, %s, %s, 'open', %s, %s)
+                            """,
+                            (tenant_id, str(business_id), str(lead_id), str(stage_id),
+                             f"{company_name_resolved} - Consulting Engagement",
+                             str(budget) if budget else "0",
+                             (date.today() + timedelta(days=90)).isoformat()),
+                        )
+        except Exception:
+            pass
+
+    # Auto-generate next action for new stage
+    try:
+        from app.services import cro_next_actions
+
+        action_info = _STAGE_NEXT_ACTIONS.get(stage)
+        if action_info:
+            action_type, description, days = action_info
+
+            # Mark previous pending actions for this account as completed
+            with get_cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE cro_next_action
+                    SET status = 'completed', completed_at = %s, updated_at = %s
+                    WHERE entity_type = 'account' AND entity_id = %s
+                      AND status IN ('pending', 'in_progress')
+                    """,
+                    (datetime.now(timezone.utc), datetime.now(timezone.utc), str(lead_id)),
+                )
+
+            cro_next_actions.create_next_action(
+                env_id=env_id,
+                business_id=business_id,
+                entity_type="account",
+                entity_id=lead_id,
+                action_type=action_type,
+                description=description,
+                due_date=date.today() + timedelta(days=days),
+                priority="high" if stage in ("proposal", "closed_won", "meeting") else "normal",
+            )
+    except Exception:
+        pass
+
+    # Log stage change activity
+    try:
+        with get_cursor() as cur:
+            tenant_id = resolve_tenant_id(cur, business_id)
+            cur.execute(
+                """
+                INSERT INTO crm_activity
+                  (tenant_id, business_id, crm_account_id, activity_type, subject, notes, activity_date)
+                VALUES (%s, %s, %s, 'note', %s, %s, %s)
+                """,
+                (tenant_id, str(business_id), str(lead_id),
+                 f"Lead stage advanced to {stage}",
+                 f"Pipeline stage updated to {stage}",
+                 datetime.now(timezone.utc)),
+            )
+    except Exception:
+        pass
+
     return row
 
 

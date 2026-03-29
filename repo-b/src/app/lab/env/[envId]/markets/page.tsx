@@ -40,6 +40,18 @@ import type {
 
 type Tab = "overview" | "signals" | "hypotheses" | "positions" | "performance" | "research" | "watchlist" | "rhymes";
 
+const TAB_ORDER: Tab[] = ["rhymes", "overview", "signals", "hypotheses", "positions", "performance", "research", "watchlist"];
+const TAB_LABELS: Record<Tab, string> = {
+  rhymes: "Command Center",
+  overview: "Overview",
+  signals: "Signals",
+  hypotheses: "Hypotheses",
+  positions: "Positions",
+  performance: "Performance",
+  research: "Research",
+  watchlist: "Watchlist",
+};
+
 /* ── Theme tokens ─────────────────────────────────────────────────── */
 
 function buildTheme(mode: ThemeMode) {
@@ -131,7 +143,7 @@ export default function TradingLabPage() {
   const params = useParams<{ envId: string }>();
   const envId = params?.envId;
 
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [activeTab, setActiveTab] = useState<Tab>("rhymes");
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() =>
@@ -298,7 +310,7 @@ export default function TradingLabPage() {
       <div className={`border-b ${t.headerBorder} px-6 py-4 ${t.headerBg} sticky top-0 z-10 flex items-center justify-between`}>
         <div>
           <h1 className={`text-2xl font-bold ${t.accentBold} font-mono`}>
-            WINSTON TRADING LAB
+            TRADING PLATFORM
             <span className={`text-xs ${t.textFaint} ml-4`}>ENV: {envId || "—"}</span>
           </h1>
           {notice && (
@@ -348,7 +360,7 @@ export default function TradingLabPage() {
 
       {/* Tab Navigation */}
       <div className={`border-b ${t.headerBorder} px-6 flex gap-8 ${t.tabBg} sticky top-14 z-9`}>
-        {(["overview", "signals", "hypotheses", "positions", "performance", "research", "watchlist", "rhymes"] as Tab[]).map(
+        {TAB_ORDER.map(
           (tab) => (
             <button
               key={tab}
@@ -357,7 +369,7 @@ export default function TradingLabPage() {
                 activeTab === tab ? t.tabActive : t.tabInactive
               }`}
             >
-              {tab}
+              {TAB_LABELS[tab]}
             </button>
           )
         )}

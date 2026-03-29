@@ -31,5 +31,7 @@ def resolve_workspace_template_key(
         return "digital_media_workspace"
     if candidate in {"ecc", "executive_command_center"}:
         return "executive_command_center"
+    if candidate in {"trading_platform", "trading", "market_rotation", "market_intelligence", "msa_rotation", "financial_markets"}:
+        return "trading_platform"
 
     return "generic_workspace"

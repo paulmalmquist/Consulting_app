@@ -1084,6 +1084,30 @@ def update_lead_stage(lead_id: UUID, body: UpdateLeadStageRequest, env_id: str =
         raise _to_http(exc)
 
 
+# ─���─ Activities ──────────────────────────────────────────────────────────
+
+@router.get("/activities")
+def list_activities(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    account_id: UUID | None = Query(None),
+    contact_id: UUID | None = Query(None),
+    opportunity_id: UUID | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+):
+    """List CRM activities with optional entity filters."""
+    try:
+        from app.services import crm
+        return crm.list_activities(
+            business_id=business_id,
+            crm_account_id=account_id,
+            crm_opportunity_id=opportunity_id,
+            limit=limit,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
 # ─── Entity Detail Views ──────────────────────────────────────────────────
 
 @router.get("/accounts/{account_id}")

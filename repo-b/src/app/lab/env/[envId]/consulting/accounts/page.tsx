@@ -25,7 +25,25 @@ function formatError(err: unknown): string {
   return msg || "Consulting API unreachable. Backend service is not available.";
 }
 
-type FilterType = "all" | "qualified" | "high_score";
+type FilterType = "all" | "qualified" | "high_score" | "stage";
+
+const STAGE_LABELS: Record<string, string> = {
+  research: "Research", identified: "Identified", contacted: "Contacted",
+  engaged: "Engaged", meeting: "Meeting", qualified: "Qualified",
+  proposal: "Proposal", closed_won: "Won", closed_lost: "Lost",
+};
+
+const STAGE_COLORS: Record<string, string> = {
+  research: "bg-slate-500/10 text-slate-400",
+  identified: "bg-blue-500/10 text-blue-400",
+  contacted: "bg-indigo-500/10 text-indigo-400",
+  engaged: "bg-violet-500/10 text-violet-400",
+  meeting: "bg-amber-500/10 text-amber-400",
+  qualified: "bg-emerald-500/10 text-emerald-400",
+  proposal: "bg-orange-500/10 text-orange-400",
+  closed_won: "bg-green-500/10 text-green-400",
+  closed_lost: "bg-red-500/10 text-red-400",
+};
 
 export default function AccountsPage({ params }: { params: { envId: string } }) {
   const { businessId, ready, loading: contextLoading, error: contextError } = useConsultingEnv();
@@ -33,6 +51,7 @@ export default function AccountsPage({ params }: { params: { envId: string } }) 
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterType>("all");
+  const [stageFilter, setStageFilter] = useState<string>("");
 
   useEffect(() => {
     if (!ready) return;
@@ -66,14 +85,17 @@ export default function AccountsPage({ params }: { params: { envId: string } }) 
   );
 
   const visibleAccounts = useMemo(() => {
+    let filtered = sortedAccounts;
     if (filter === "qualified") {
-      return sortedAccounts.filter((acc) => Boolean(acc.qualified_at));
+      filtered = filtered.filter((acc) => Boolean(acc.qualified_at));
+    } else if (filter === "high_score") {
+      filtered = filtered.filter((acc) => acc.lead_score >= 70);
     }
-    if (filter === "high_score") {
-      return sortedAccounts.filter((acc) => acc.lead_score >= 70);
+    if (stageFilter) {
+      filtered = filtered.filter((acc) => (acc.stage_key || "research") === stageFilter);
     }
-    return sortedAccounts;
-  }, [filter, sortedAccounts]);
+    return filtered;
+  }, [filter, stageFilter, sortedAccounts]);
 
   const qualifiedCount = useMemo(
     () => accounts.filter((acc) => Boolean(acc.qualified_at)).length,
@@ -144,6 +166,16 @@ export default function AccountsPage({ params }: { params: { envId: string } }) 
           >
             High Score (&gt;= 70)
           </button>
+          <select
+            value={stageFilter}
+            onChange={(e) => setStageFilter(e.target.value)}
+            className="rounded-lg border border-bm-border bg-bm-surface/20 px-3 py-2 text-sm text-bm-text"
+          >
+            <option value="">All Stages</option>
+            {Object.entries(STAGE_LABELS).map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -222,9 +254,14 @@ export default function AccountsPage({ params }: { params: { envId: string } }) 
                           </span>
                         ) : null}
                       </div>
-                      <p className="text-xs text-bm-muted2 mt-0.5">
-                        {account.industry || "—"} · {account.company_size || "—"} · {fmtCurrency(account.estimated_budget)}
-                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className={`text-[10px] uppercase tracking-wide rounded-full px-2 py-0.5 ${STAGE_COLORS[account.stage_key || "research"] || "bg-bm-surface/40 text-bm-muted2"}`}>
+                          {STAGE_LABELS[account.stage_key || "research"] || "Research"}
+                        </span>
+                        <span className="text-xs text-bm-muted2">
+                          {account.industry || "—"} · {account.company_size || "—"} · {fmtCurrency(account.estimated_budget)}
+                        </span>
+                      </div>
                     </div>
                     <div className="text-right text-xs text-bm-muted2">
                       {account.ai_maturity || "—"}

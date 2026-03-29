@@ -1,5 +1,6 @@
 export const workspaceTemplateRegistry = {
   generic: { label: "Generic Workspace", openPath: null },
+  trading_platform: { label: "Trading Platform", openPath: "markets" },
   repe_workspace: { label: "REPE Workspace", openPath: "re" },
   pds_enterprise: { label: "PDS Enterprise OS", openPath: "pds" },
   ecc_command: { label: "Executive Command Center", openPath: "ecc" },
@@ -63,6 +64,7 @@ export function resolveWorkspaceTemplateKey(input: WorkspaceTemplateInput): stri
   if (industryKey === "ai_copilot") return "ai_copilot";
   if (industryKey === "engagement_output") return "engagement_output";
   if (industryKey === "visual_resume" || industryKey === "resume") return "visual_resume";
+  if (["trading_platform", "trading", "market_rotation", "market_intelligence", "msa_rotation", "financial_markets"].includes(industryKey)) return "trading_platform";
   return null;
 }
 

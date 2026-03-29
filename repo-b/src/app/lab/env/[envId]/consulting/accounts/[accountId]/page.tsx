@@ -12,6 +12,7 @@ import {
   fetchAccountOpportunities,
   fetchActivities,
   fetchNextActions,
+  updateLeadStage,
   type AccountDetail,
   type AccountContact,
   type OpportunityDetail,
@@ -152,26 +153,81 @@ export default function AccountDetailPage({
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Lead Score Breakdown</h2>
                 {account.lead_score != null ? (
-                  <span className="text-sm font-semibold text-bm-accent">{account.lead_score.toFixed(1)} / 10</span>
+                  <span className="text-sm font-semibold text-bm-accent">{account.lead_score} / 100</span>
                 ) : null}
               </div>
               <div className="space-y-2">
                 {Object.entries(account.score_breakdown).map(([key, factor]) => {
-                  const pct = Math.min(Math.max((factor.value / 10) * 100, 0), 100);
+                  const pct = Math.min(Math.max((factor.value / 20) * 100, 0), 100);
                   const barColor = pct >= 70 ? "bg-emerald-500" : pct >= 40 ? "bg-amber-500" : "bg-rose-500";
+                  const factorLabels: Record<string, string> = {
+                    ai_maturity: "AI Maturity",
+                    pain_category: "Pain Severity",
+                    company_size: "Company Size",
+                    estimated_budget: "Budget Signal",
+                    lead_source: "Source Quality",
+                  };
                   return (
                     <div key={key} className="flex items-center gap-3">
-                      <span className="text-xs text-bm-muted2 w-36 shrink-0">{factor.label || key}</span>
+                      <span className="text-xs text-bm-muted2 w-36 shrink-0">{factorLabels[key] || key}</span>
                       <div className="flex-1 h-1.5 bg-bm-border/40 rounded-full overflow-hidden">
                         <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
                       </div>
-                      <span className="text-xs font-medium text-bm-text w-8 text-right">{factor.value.toFixed(1)}</span>
+                      <span className="text-xs font-medium text-bm-text w-12 text-right">{factor.value}/{20}</span>
                     </div>
                   );
                 })}
               </div>
             </section>
           ) : null}
+
+          {/* Pipeline Stage */}
+          <section className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5">
+            <h2 className="text-xs uppercase tracking-[0.12em] text-bm-muted2 mb-3">Pipeline Stage</h2>
+            {(() => {
+              const stages = ["research", "identified", "contacted", "engaged", "meeting", "qualified", "proposal", "closed_won", "closed_lost"];
+              const stageLabels: Record<string, string> = {
+                research: "Research", identified: "Identified", contacted: "Contacted",
+                engaged: "Engaged", meeting: "Meeting", qualified: "Qualified",
+                proposal: "Proposal", closed_won: "Closed Won", closed_lost: "Closed Lost",
+              };
+              const currentStage = account.pipeline_stage || "research";
+              const currentIdx = stages.indexOf(currentStage);
+              return (
+                <div className="flex flex-wrap gap-1.5">
+                  {stages.filter(s => s !== "closed_lost").map((stage, idx) => {
+                    const isCurrent = stage === currentStage;
+                    const isPast = idx < currentIdx && currentStage !== "closed_lost";
+                    const isClickable = !isCurrent && stage !== "closed_lost";
+                    return (
+                      <button
+                        key={stage}
+                        disabled={!isClickable}
+                        onClick={async () => {
+                          if (!isClickable) return;
+                          try {
+                            await updateLeadStage(params.accountId, params.envId, businessId!, stage);
+                            void loadData();
+                          } catch (e) {
+                            console.error("Stage update failed:", e);
+                          }
+                        }}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                          isCurrent
+                            ? "bg-bm-accent text-white"
+                            : isPast
+                            ? "bg-bm-accent/20 text-bm-accent border border-bm-accent/30"
+                            : "bg-bm-surface/20 text-bm-muted2 border border-bm-border/50 hover:bg-bm-surface/40"
+                        } ${isClickable ? "cursor-pointer" : "cursor-default"}`}
+                      >
+                        {stageLabels[stage]}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </section>
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Card>

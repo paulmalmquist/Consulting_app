@@ -5,6 +5,8 @@ description: Daily-rotating deep-dive engine that cycles through a curated watch
 
 # MSA Rotation Engine
 
+> **Note:** This engine is now part of the unified **Trading Platform** environment (env_id: `c3d8f2a1-7b4e-4f9c-a6d2-e8f1b3c5d7a9`). The MSA Rotation Engine contributes zone-level REPE acquisition intelligence to the platform's signal stack.
+
 A daily-rotating deep-dive engine that cycles through a curated watchlist of sub-MSA zones. Rather than broad metros, the watchlist targets neighborhood/submarket-level granularity where actual acquisition decisions happen.
 
 The core insight: most REPE platforms treat market data as a static layer. This skill makes market research a **generative input to product development**. Every day Winston gets smarter about one specific market, and the gaps discovered during research become features.

@@ -5,7 +5,7 @@ Builds on the canonical CRM tables (crm_pipeline_stage, crm_opportunity, crm_opp
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
 
@@ -240,4 +240,83 @@ def advance_opportunity_stage(
         message=f"Opportunity {opportunity_id} moved to {to_stage_key}",
         context={"opportunity_id": str(opportunity_id), "to_stage": to_stage_key},
     )
+
+    # Auto-log stage change activity
+    try:
+        with get_cursor() as cur:
+            tenant_id_inner = resolve_tenant_id(cur, business_id)
+            # Get the account_id for this opportunity
+            cur.execute(
+                "SELECT crm_account_id FROM crm_opportunity WHERE crm_opportunity_id = %s",
+                (str(opportunity_id),),
+            )
+            opp_row = cur.fetchone()
+            acct_id = opp_row["crm_account_id"] if opp_row else None
+
+            cur.execute(
+                """
+                INSERT INTO crm_activity
+                  (tenant_id, business_id, crm_account_id, crm_opportunity_id,
+                   activity_type, subject, notes, activity_date)
+                VALUES (%s, %s, %s, %s, 'note', %s, %s, %s)
+                """,
+                (tenant_id_inner, str(business_id),
+                 str(acct_id) if acct_id else None, str(opportunity_id),
+                 f"Stage advanced to {to_stage_key}",
+                 note or f"Opportunity moved to {to_stage_key}",
+                 datetime.now(timezone.utc)),
+            )
+    except Exception:
+        pass
+
+    # Auto-generate next action for the new stage
+    try:
+        from app.services.cro_leads import _STAGE_NEXT_ACTIONS
+        from app.services import cro_next_actions
+
+        action_info = _STAGE_NEXT_ACTIONS.get(to_stage_key)
+        if action_info:
+            action_type, description, days = action_info
+
+            # Mark previous pending actions for this opportunity as completed
+            with get_cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE cro_next_action
+                    SET status = 'completed', completed_at = %s, updated_at = %s
+                    WHERE entity_type = 'opportunity' AND entity_id = %s
+                      AND status IN ('pending', 'in_progress')
+                    """,
+                    (datetime.now(timezone.utc), datetime.now(timezone.utc),
+                     str(opportunity_id)),
+                )
+
+            # Resolve env_id from the opportunity
+            with get_cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT p.env_id FROM cro_lead_profile p
+                    JOIN crm_opportunity o ON o.crm_account_id = p.crm_account_id
+                    WHERE o.crm_opportunity_id = %s
+                    LIMIT 1
+                    """,
+                    (str(opportunity_id),),
+                )
+                env_row = cur.fetchone()
+                env_id_resolved = env_row["env_id"] if env_row else None
+
+            if env_id_resolved:
+                cro_next_actions.create_next_action(
+                    env_id=env_id_resolved,
+                    business_id=business_id,
+                    entity_type="opportunity",
+                    entity_id=opportunity_id,
+                    action_type=action_type,
+                    description=description,
+                    due_date=date.today() + timedelta(days=days),
+                    priority="high" if to_stage_key in ("proposal", "closed_won") else "normal",
+                )
+    except Exception:
+        pass
+
     return updated

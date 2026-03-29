@@ -11,6 +11,7 @@ Seeds a consulting environment with realistic demo data:
 """
 from __future__ import annotations
 
+import json
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
@@ -103,25 +104,33 @@ def seed_consulting_environment(*, env_id: str, business_id: UUID) -> dict:
             acct = cur.fetchone()
             account_ids.append(acct["crm_account_id"])
 
-            from app.services.cro_leads import _compute_lead_score
-            score = _compute_lead_score(
+            from app.services.cro_leads import _compute_lead_score_with_breakdown
+            score, breakdown = _compute_lead_score_with_breakdown(
                 ai_maturity=lead["ai"], pain_category=lead["pain"],
                 company_size=lead["size"],
                 estimated_budget=Decimal(str(lead["budget"])) if lead["budget"] else None,
                 lead_source=lead["source"],
             )
 
+            # Assign pipeline stages to leads based on position
+            lead_stages = [
+                "engaged", "meeting", "contacted", "identified", "proposal",
+                "qualified", "research", "research", "identified", "meeting",
+            ]
+            lead_stage = lead_stages[len(account_ids) - 1]
+
             cur.execute(
                 """
                 INSERT INTO cro_lead_profile
                   (crm_account_id, env_id, business_id, ai_maturity, pain_category,
-                   lead_score, lead_source, company_size, estimated_budget)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                   lead_score, score_breakdown, pipeline_stage, lead_source, company_size, estimated_budget)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (crm_account_id) DO NOTHING
                 """,
                 (
                     str(acct["crm_account_id"]), env_id, str(business_id),
-                    lead["ai"], lead["pain"], score, lead["source"], lead["size"],
+                    lead["ai"], lead["pain"], score, json.dumps(breakdown),
+                    lead_stage, lead["source"], lead["size"],
                     str(lead["budget"]) if lead["budget"] else None,
                 ),
             )
@@ -206,7 +215,7 @@ def seed_consulting_environment(*, env_id: str, business_id: UUID) -> dict:
             counts["outreach_logs_seeded"] += 1
 
         # ── 6. Opportunities + Proposals ──────────────────────────────
-        stages_for_opps = ["discovery", "proposal", "negotiation", "closed_won", "closed_won"]
+        stages_for_opps = ["meeting", "proposal", "qualified", "closed_won", "closed_won"]
         for i in range(5):
             acct_id = account_ids[i]
             stage_key = stages_for_opps[i]
@@ -327,6 +336,67 @@ def seed_consulting_environment(*, env_id: str, business_id: UUID) -> dict:
                             ),
                         )
                         counts["revenue_entries_seeded"] += 1
+
+        # ── 10. Activities for each lead ──────────────────────────────
+        activity_templates = [
+            ("note", "Lead created via seed", "Initial prospect identified and added to pipeline"),
+            ("email", "Introduction email sent", "Sent initial outreach based on AI maturity assessment"),
+            ("call", "Discovery call completed", "Discussed pain points and current technology stack"),
+            ("meeting", "Strategy session scheduled", "Meeting set to review consulting proposal"),
+            ("note", "Research completed", "Completed background research on company and decision makers"),
+        ]
+        counts["activities_seeded"] = 0
+        for idx, acct_id in enumerate(account_ids):
+            # Each lead gets 1-2 activities depending on position
+            num_activities = 2 if idx < 5 else 1
+            for act_offset in range(num_activities):
+                act_type, act_subject, act_notes = activity_templates[(idx + act_offset) % len(activity_templates)]
+                act_date = now - timedelta(days=random.randint(1, 14))
+                cur.execute(
+                    """
+                    INSERT INTO crm_activity
+                      (tenant_id, business_id, crm_account_id, activity_type, subject, notes, activity_date)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (tenant_id, str(business_id), str(acct_id), act_type, act_subject, act_notes, act_date),
+                )
+                counts["activities_seeded"] += 1
+
+        # ── 11. Next actions for each lead ─────────���──────────────────
+        action_templates = [
+            ("account", "email", "Send follow-up email with AI maturity assessment", "high"),
+            ("account", "call", "Schedule discovery call to discuss pain points", "normal"),
+            ("account", "research", "Research company background and identify key contacts", "normal"),
+            ("account", "meeting", "Prepare for strategy session", "high"),
+            ("account", "follow_up", "Follow up on proposal sent last week", "urgent"),
+            ("account", "linkedin", "Connect with decision maker on LinkedIn", "low"),
+            ("account", "proposal", "Draft initial consulting proposal", "high"),
+            ("account", "task", "Review company's recent press releases", "normal"),
+            ("account", "follow_up", "Check in after initial introduction", "normal"),
+            ("account", "research", "Analyze competitor landscape for account", "low"),
+        ]
+        counts["next_actions_seeded"] = 0
+        today = date.today()
+        for idx, acct_id in enumerate(account_ids):
+            entity_type, action_type, description, priority = action_templates[idx]
+            # Spread due dates: some overdue, some today, some future
+            if idx < 3:
+                due = today - timedelta(days=random.randint(1, 5))  # overdue
+            elif idx < 5:
+                due = today  # due today
+            else:
+                due = today + timedelta(days=random.randint(1, 7))  # upcoming
+            cur.execute(
+                """
+                INSERT INTO cro_next_action
+                  (env_id, business_id, entity_type, entity_id,
+                   action_type, description, due_date, priority)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (env_id, str(business_id), entity_type, str(acct_id),
+                 action_type, description, due, priority),
+            )
+            counts["next_actions_seeded"] += 1
 
     counts["loops_seeded"] = cro_loops.seed_default_loops(env_id=env_id, business_id=business_id)
 

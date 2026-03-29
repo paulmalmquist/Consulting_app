@@ -1,4 +1,4 @@
-"""Trading / Market Intelligence MCP tools."""
+"""Trading Platform MCP tools."""
 
 from __future__ import annotations
 

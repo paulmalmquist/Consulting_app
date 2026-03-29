@@ -28,6 +28,7 @@ export const industries = [
   "engagement_output",
   "execution_pattern_intel",
   "visual_resume",
+  "trading_platform",
 ] as const;
 
 export type Industry = (typeof industries)[number];
@@ -71,6 +72,7 @@ const INDUSTRY_DISPLAY_MAP: Record<string, string> = {
   engagement_output: "Engagement Output Center",
   execution_pattern_intel: "Execution Pattern Intelligence",
   visual_resume: "Visual Resume",
+  trading_platform: "Trading Platform",
 };
 
 export function statusFromFlags(isActive: boolean): EnvironmentStatus {
@@ -207,10 +209,13 @@ export function isVisualResumeEnvironment(industry?: string | null): boolean {
   return key === "visual_resume" || key === "resume";
 }
 
-export function isMarketRotationEnvironment(industry?: string | null): boolean {
+export function isTradingPlatformEnvironment(industry?: string | null): boolean {
   const key = (industry || "").trim().toLowerCase();
-  return key === "market_rotation" || key === "market_intelligence" || key === "markets";
+  return ["trading_platform", "market_rotation", "market_intelligence", "msa_rotation", "markets"].includes(key);
 }
+
+/** @deprecated Use isTradingPlatformEnvironment */
+export const isMarketRotationEnvironment = isTradingPlatformEnvironment;
 
 export function resolveEnvironmentOpenPath(args: {
   envId: string;

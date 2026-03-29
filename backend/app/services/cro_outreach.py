@@ -150,6 +150,33 @@ def log_outreach(
         message=f"Outreach logged to account {crm_account_id}",
         context={"channel": channel, "direction": direction},
     )
+
+    # Auto-generate follow-up next action
+    try:
+        from datetime import date, timedelta
+        from app.services import cro_next_actions
+
+        if meeting_booked:
+            cro_next_actions.create_next_action(
+                env_id=env_id, business_id=business_id,
+                entity_type="account", entity_id=crm_account_id,
+                action_type="meeting",
+                description="Prepare for scheduled meeting",
+                due_date=date.today() + timedelta(days=1),
+                priority="high",
+            )
+        elif direction == "outbound":
+            cro_next_actions.create_next_action(
+                env_id=env_id, business_id=business_id,
+                entity_type="account", entity_id=crm_account_id,
+                action_type="follow_up",
+                description="Follow up if no reply to outreach",
+                due_date=date.today() + timedelta(days=3),
+                priority="normal",
+            )
+    except Exception:
+        pass
+
     return log_entry
 
 
@@ -220,6 +247,35 @@ def record_reply(
                 "UPDATE cro_outreach_template SET reply_count = reply_count + 1 WHERE id = %s",
                 (str(row["template_id"]),),
             )
+
+        # Get account_id and env_id for next action generation
+        cur.execute(
+            "SELECT crm_account_id, env_id, business_id FROM cro_outreach_log WHERE id = %s",
+            (str(outreach_log_id),),
+        )
+        log_row = cur.fetchone()
+
+    # Auto-generate next action based on reply
+    if log_row:
+        try:
+            from datetime import date, timedelta
+            from app.services import cro_next_actions
+
+            if sentiment == "positive" or meeting_booked:
+                action_type = "meeting" if meeting_booked else "call"
+                description = "Prepare discovery deck for meeting" if meeting_booked else "Schedule discovery call — positive reply received"
+                cro_next_actions.create_next_action(
+                    env_id=log_row["env_id"],
+                    business_id=UUID(str(log_row["business_id"])),
+                    entity_type="account",
+                    entity_id=UUID(str(log_row["crm_account_id"])),
+                    action_type=action_type,
+                    description=description,
+                    due_date=date.today() + timedelta(days=1 if meeting_booked else 2),
+                    priority="high",
+                )
+        except Exception:
+            pass
 
     return row
 

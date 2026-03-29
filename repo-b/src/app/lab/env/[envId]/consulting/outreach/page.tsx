@@ -8,6 +8,9 @@ import {
   fetchLeads,
   fetchOutreachLog,
   fetchOutreachAnalytics,
+  fetchOutreachTemplates,
+  logOutreach,
+  recordOutreachReply,
   type Lead,
   type OutreachLogEntry,
   type OutreachAnalytics,
@@ -55,9 +58,20 @@ export default function OutreachPage({
   const [leads, setLeads] = useState<Lead[]>([]);
   const [outreachLog, setOutreachLog] = useState<OutreachLogEntry[]>([]);
   const [analytics, setAnalytics] = useState<OutreachAnalytics | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
   const [filter, setFilter] = useState<LeadFilter>("all");
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [formAccount, setFormAccount] = useState("");
+  const [formChannel, setFormChannel] = useState("email");
+  const [formTemplate, setFormTemplate] = useState("");
+  const [formSubject, setFormSubject] = useState("");
+  const [formSending, setFormSending] = useState(false);
+  const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [replySentiment, setReplySentiment] = useState("positive");
+  const [replyMeeting, setReplyMeeting] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -72,8 +86,9 @@ export default function OutreachPage({
       fetchLeads(params.envId, businessId),
       fetchOutreachLog(params.envId, businessId),
       fetchOutreachAnalytics(params.envId, businessId),
+      fetchOutreachTemplates(params.envId, businessId),
     ])
-      .then(([leadsResult, outreachResult, analyticsResult]) => {
+      .then(([leadsResult, outreachResult, analyticsResult, templatesResult]) => {
         if (leadsResult.status !== "fulfilled") {
           throw leadsResult.reason;
         }
@@ -83,6 +98,9 @@ export default function OutreachPage({
         );
         setAnalytics(
           analyticsResult.status === "fulfilled" ? analyticsResult.value : null,
+        );
+        setTemplates(
+          templatesResult.status === "fulfilled" ? templatesResult.value : [],
         );
       })
       .catch((err) => {
@@ -240,6 +258,114 @@ export default function OutreachPage({
         </div>
       ) : null}
 
+      {/* New Outreach Form */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Log Outreach</h2>
+          <Button size="sm" variant={showNewForm ? "secondary" : "primary"} onClick={() => setShowNewForm(!showNewForm)}>
+            {showNewForm ? "Cancel" : "New Outreach"}
+          </Button>
+        </div>
+        {showNewForm ? (
+          <Card>
+            <CardContent className="py-4 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-bm-muted2 block mb-1">Account</label>
+                  <select
+                    value={formAccount}
+                    onChange={(e) => setFormAccount(e.target.value)}
+                    className="w-full rounded-lg border border-bm-border bg-bm-surface/20 px-3 py-2 text-sm text-bm-text"
+                  >
+                    <option value="">Select account...</option>
+                    {leads.map((lead) => (
+                      <option key={lead.crm_account_id} value={lead.crm_account_id}>
+                        {lead.company_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-bm-muted2 block mb-1">Channel</label>
+                  <select
+                    value={formChannel}
+                    onChange={(e) => setFormChannel(e.target.value)}
+                    className="w-full rounded-lg border border-bm-border bg-bm-surface/20 px-3 py-2 text-sm text-bm-text"
+                  >
+                    <option value="email">Email</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="phone">Phone</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-bm-muted2 block mb-1">Template (optional)</label>
+                  <select
+                    value={formTemplate}
+                    onChange={(e) => setFormTemplate(e.target.value)}
+                    className="w-full rounded-lg border border-bm-border bg-bm-surface/20 px-3 py-2 text-sm text-bm-text"
+                  >
+                    <option value="">No template</option>
+                    {templates.map((t: { id: string; name: string }) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-bm-muted2 block mb-1">Subject</label>
+                  <input
+                    type="text"
+                    value={formSubject}
+                    onChange={(e) => setFormSubject(e.target.value)}
+                    placeholder="Subject line..."
+                    className="w-full rounded-lg border border-bm-border bg-bm-surface/20 px-3 py-2 text-sm text-bm-text placeholder:text-bm-muted2"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  disabled={!formAccount || formSending}
+                  onClick={async () => {
+                    if (!formAccount || !businessId) return;
+                    setFormSending(true);
+                    try {
+                      await logOutreach({
+                        env_id: params.envId,
+                        business_id: businessId,
+                        crm_account_id: formAccount,
+                        channel: formChannel,
+                        subject: formSubject || undefined,
+                        template_id: formTemplate || undefined,
+                      });
+                      setShowNewForm(false);
+                      setFormAccount("");
+                      setFormSubject("");
+                      setFormTemplate("");
+                      // Reload data
+                      const [logRes, analyticsRes] = await Promise.allSettled([
+                        fetchOutreachLog(params.envId, businessId),
+                        fetchOutreachAnalytics(params.envId, businessId),
+                      ]);
+                      if (logRes.status === "fulfilled") setOutreachLog(logRes.value);
+                      if (analyticsRes.status === "fulfilled") setAnalytics(analyticsRes.value);
+                    } catch (err) {
+                      console.error("Failed to log outreach:", err);
+                    } finally {
+                      setFormSending(false);
+                    }
+                  }}
+                >
+                  {formSending ? "Sending..." : "Log Outreach"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+      </div>
+
       <div>
         <h2 className="text-xs uppercase tracking-[0.12em] text-bm-muted2 mb-3">
           Leads ({visibleLeads.length})
@@ -303,38 +429,101 @@ export default function OutreachPage({
           <div className="space-y-2">
             {outreachLog.slice(0, 20).map((entry) => (
               <Card key={entry.id}>
-                <CardContent className="py-3 flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {entry.account_name || "Unknown"}{" "}
-                      {entry.contact_name ? `→ ${entry.contact_name}` : ""}
-                    </p>
-                    <p className="text-xs text-bm-muted2 mt-0.5">
-                      {entry.channel} · {entry.direction} · {" "}
-                      {entry.subject || "No subject"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {entry.replied_at ? (
-                      <span className={`text-xs px-1.5 py-0.5 rounded ${
-                        entry.reply_sentiment === "positive"
-                          ? "bg-bm-success/10 text-bm-success"
-                          : entry.reply_sentiment === "negative"
-                            ? "bg-bm-danger/10 text-bm-danger"
-                            : "bg-bm-muted/10 text-bm-muted"
-                      }`}>
-                        {entry.reply_sentiment}
+                <CardContent className="py-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {entry.account_name || "Unknown"}{" "}
+                        {entry.contact_name ? `→ ${entry.contact_name}` : ""}
+                      </p>
+                      <p className="text-xs text-bm-muted2 mt-0.5">
+                        {entry.channel} · {entry.direction} · {" "}
+                        {entry.subject || "No subject"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {entry.replied_at ? (
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${
+                          entry.reply_sentiment === "positive"
+                            ? "bg-bm-success/10 text-bm-success"
+                            : entry.reply_sentiment === "negative"
+                              ? "bg-bm-danger/10 text-bm-danger"
+                              : "bg-bm-muted/10 text-bm-muted"
+                        }`}>
+                          {entry.reply_sentiment}
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => setReplyingId(replyingId === entry.id ? null : entry.id)}
+                          className="text-xs text-bm-accent hover:underline"
+                        >
+                          Record Reply
+                        </button>
+                      )}
+                      {entry.meeting_booked ? (
+                        <span className="text-xs bg-bm-accent/10 text-bm-accent px-1.5 py-0.5 rounded">
+                          Meeting
+                        </span>
+                      ) : null}
+                      <span className="text-xs text-bm-muted2">
+                        {new Date(entry.sent_at).toLocaleDateString()}
                       </span>
-                    ) : null}
-                    {entry.meeting_booked ? (
-                      <span className="text-xs bg-bm-accent/10 text-bm-accent px-1.5 py-0.5 rounded">
-                        Meeting
-                      </span>
-                    ) : null}
-                    <span className="text-xs text-bm-muted2">
-                      {new Date(entry.sent_at).toLocaleDateString()}
-                    </span>
+                    </div>
                   </div>
+                  {replyingId === entry.id ? (
+                    <div className="mt-3 flex items-center gap-2 border-t border-bm-border/30 pt-3">
+                      <select
+                        value={replySentiment}
+                        onChange={(e) => setReplySentiment(e.target.value)}
+                        className="rounded-lg border border-bm-border bg-bm-surface/20 px-2 py-1.5 text-xs text-bm-text"
+                      >
+                        <option value="positive">Positive</option>
+                        <option value="neutral">Neutral</option>
+                        <option value="negative">Negative</option>
+                      </select>
+                      <label className="flex items-center gap-1 text-xs text-bm-muted2">
+                        <input
+                          type="checkbox"
+                          checked={replyMeeting}
+                          onChange={(e) => setReplyMeeting(e.target.checked)}
+                          className="rounded"
+                        />
+                        Meeting booked
+                      </label>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await recordOutreachReply(entry.id, {
+                              sentiment: replySentiment,
+                              meeting_booked: replyMeeting,
+                            });
+                            setReplyingId(null);
+                            setReplyMeeting(false);
+                            // Reload
+                            if (businessId) {
+                              const [logRes, analyticsRes] = await Promise.allSettled([
+                                fetchOutreachLog(params.envId, businessId),
+                                fetchOutreachAnalytics(params.envId, businessId),
+                              ]);
+                              if (logRes.status === "fulfilled") setOutreachLog(logRes.value);
+                              if (analyticsRes.status === "fulfilled") setAnalytics(analyticsRes.value);
+                            }
+                          } catch (err) {
+                            console.error("Failed to record reply:", err);
+                          }
+                        }}
+                        className="rounded-lg bg-bm-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-bm-accent/80"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => { setReplyingId(null); setReplyMeeting(false); }}
+                        className="text-xs text-bm-muted2 hover:text-bm-text"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : null}
                 </CardContent>
               </Card>
             ))}

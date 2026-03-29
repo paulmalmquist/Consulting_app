@@ -56,7 +56,7 @@ For each segment selected for rotation:
 
 ### Phase 2: Gap Detection (fin-gap-detection)
 
-Read today's intelligence briefs and audit what Winston's Market Intelligence environment CAN'T do yet:
+Read today's intelligence briefs and audit what Winston's Trading Platform environment CAN'T do yet:
 
 **Gap Categories:**
 - `data_source` — need a feed we don't have
@@ -184,7 +184,7 @@ All tasks use `fin-*` prefix for organization:
 | `fin-feature-builder` | 9:30 PM | Phase 3: convert top cards to build-ready meta prompts |
 | `fin-rotation-digest` | 10:00 PM | Compile daily market summary for morning brief |
 | `fin-coding-session` | 1:30 PM | Opus. Build market intelligence frontend + features |
-| `fin-market-health` | 6:30 PM | Tour Market Intelligence environment, write health report |
+| `fin-market-health` | 6:30 PM | Tour Trading Platform environment, write health report |
 
 ---
 
