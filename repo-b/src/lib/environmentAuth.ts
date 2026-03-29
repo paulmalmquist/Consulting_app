@@ -1,6 +1,8 @@
 export const SUPPORTED_ENVIRONMENT_SLUGS = [
   "novendor",
   "floyorker",
+  "stone-pds",
+  "meridian",
   "resume",
   "trading",
 ] as const;
@@ -57,6 +59,36 @@ export const environmentCatalog: Record<EnvironmentSlug, EnvironmentBranding> = 
     shellGradient: "radial-gradient(circle at top left, rgba(249, 115, 22, 0.2), transparent 36%), radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.18), transparent 36%)",
     panelGradient: "linear-gradient(180deg, rgba(24, 14, 10, 0.88), rgba(17, 10, 7, 0.94))",
     buttonText: "24 100% 7%",
+  },
+  "stone-pds": {
+    slug: "stone-pds",
+    label: "Stone PDS",
+    familyLabel: "Winston Delivery Systems",
+    loginTitle: "Sign in to Stone PDS",
+    loginSubtitle: "Project and development command environment for delivery risk, account coverage, and operational intervention.",
+    unauthorizedTitle: "Stone PDS access required",
+    unauthorizedBody: "This account is active, but it does not currently have membership for the Stone PDS environment.",
+    accent: "174 72% 44%",
+    accentSoft: "186 70% 36%",
+    glow: "45, 212, 191",
+    shellGradient: "radial-gradient(circle at top left, rgba(45, 212, 191, 0.18), transparent 34%), radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.14), transparent 34%)",
+    panelGradient: "linear-gradient(180deg, rgba(8, 18, 22, 0.9), rgba(6, 11, 16, 0.95))",
+    buttonText: "182 57% 8%",
+  },
+  meridian: {
+    slug: "meridian",
+    label: "Meridian Capital Management",
+    familyLabel: "Winston Institutional",
+    loginTitle: "Sign in to Meridian",
+    loginSubtitle: "Institutional investment environment for portfolio, underwriting, and real-estate operating context.",
+    unauthorizedTitle: "Meridian access required",
+    unauthorizedBody: "Your identity is valid, but this account is not currently allowed into the Meridian environment.",
+    accent: "271 62% 63%",
+    accentSoft: "257 54% 53%",
+    glow: "167, 139, 250",
+    shellGradient: "radial-gradient(circle at top left, rgba(167, 139, 250, 0.18), transparent 34%), radial-gradient(circle at bottom right, rgba(96, 165, 250, 0.14), transparent 34%)",
+    panelGradient: "linear-gradient(180deg, rgba(16, 12, 25, 0.9), rgba(9, 9, 18, 0.95))",
+    buttonText: "210 40% 98%",
   },
   resume: {
     slug: "resume",
@@ -120,6 +152,10 @@ export function environmentHomePath(args: {
       return `/lab/env/${args.envId}/consulting`;
     case "floyorker":
       return `/lab/env/${args.envId}/content`;
+    case "stone-pds":
+      return `/lab/env/${args.envId}/pds`;
+    case "meridian":
+      return `/lab/env/${args.envId}/re`;
     case "resume":
       return `/lab/env/${args.envId}/resume`;
     case "trading":

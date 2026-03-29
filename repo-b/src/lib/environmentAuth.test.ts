@@ -10,14 +10,18 @@ import {
 describe("environmentAuth", () => {
   it("maps each environment to its branded login and unauthorized routes", () => {
     expect(environmentLoginPath("novendor")).toBe("/novendor/login");
+    expect(environmentLoginPath("meridian")).toBe("/meridian/login");
+    expect(environmentLoginPath("stone-pds")).toBe("/stone-pds/login");
     expect(environmentUnauthorizedPath("trading")).toBe("/trading/unauthorized");
   });
 
   it("resolves environment-specific default homes", () => {
     expect(environmentHomePath({ slug: "novendor", envId: "env-1" })).toBe("/lab/env/env-1/consulting");
     expect(environmentHomePath({ slug: "floyorker", envId: "env-2" })).toBe("/lab/env/env-2/content");
-    expect(environmentHomePath({ slug: "resume", envId: "env-3" })).toBe("/lab/env/env-3/resume");
-    expect(environmentHomePath({ slug: "trading", envId: "env-4" })).toBe("/lab/env/env-4/markets");
+    expect(environmentHomePath({ slug: "stone-pds", envId: "env-3" })).toBe("/lab/env/env-3/pds");
+    expect(environmentHomePath({ slug: "meridian", envId: "env-4" })).toBe("/lab/env/env-4/re");
+    expect(environmentHomePath({ slug: "resume", envId: "env-5" })).toBe("/lab/env/env-5/resume");
+    expect(environmentHomePath({ slug: "trading", envId: "env-6" })).toBe("/lab/env/env-6/markets");
     expect(environmentDisplayHomePath("resume")).toBe("/resume");
   });
 

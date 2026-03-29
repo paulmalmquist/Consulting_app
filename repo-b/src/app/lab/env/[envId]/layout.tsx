@@ -1,5 +1,4 @@
 import LabEnvironmentShell from "@/components/lab/LabEnvironmentShell";
-import { isAdminSession } from "@/lib/server/sessionRole";
 
 export default async function LabEnvironmentLayout({
   children,
@@ -10,5 +9,5 @@ export default async function LabEnvironmentLayout({
 }) {
   const { envId } = await params;
 
-  return <LabEnvironmentShell envId={envId} isAdmin={isAdminSession()}>{children}</LabEnvironmentShell>;
+  return <LabEnvironmentShell envId={envId}>{children}</LabEnvironmentShell>;
 }

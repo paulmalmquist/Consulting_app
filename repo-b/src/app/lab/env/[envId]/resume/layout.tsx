@@ -2,7 +2,6 @@ import { DomainEnvProvider } from "@/components/domain/DomainEnvProvider";
 import DomainWorkspaceShell from "@/components/domain/DomainWorkspaceShell";
 import ResumeFallbackCard from "@/components/resume/ResumeFallbackCard";
 import { isValidEnvId } from "@/lib/resume/workspace";
-import { isAdminSession } from "@/lib/server/sessionRole";
 
 export default async function ResumeLayout({
   children,
@@ -27,7 +26,7 @@ export default async function ResumeLayout({
 
   return (
     <DomainEnvProvider domain={domain} envId={envId}>
-      <DomainWorkspaceShell envId={envId} domain={domain} isAdmin={isAdminSession()}>
+      <DomainWorkspaceShell envId={envId} domain={domain}>
         {children}
       </DomainWorkspaceShell>
     </DomainEnvProvider>

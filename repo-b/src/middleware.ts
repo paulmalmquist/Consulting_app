@@ -16,7 +16,7 @@ import {
   verifyPlatformSession,
 } from "@/lib/server/sessionAuth";
 
-const TOP_LEVEL_ENV_RE = /^\/(novendor|floyorker|resume|trading)(?:\/|$)/;
+const TOP_LEVEL_ENV_RE = /^\/(novendor|floyorker|stone-pds|meridian|resume|trading)(?:\/|$)/;
 const LAB_ENV_RE = /^\/lab\/env\/([^/]+)(?:\/|$)/;
 
 function buildLoginRedirect(request: NextRequest, pathname: string) {
@@ -114,6 +114,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = session ? "/lab/environments" : "/login";
+    return NextResponse.redirect(url);
+  }
+
   const topLevelEnvironment = pathname.match(TOP_LEVEL_ENV_RE)?.[1] || null;
   if (topLevelEnvironment && isEnvironmentSlug(topLevelEnvironment)) {
     if (isPublicEnvironmentPath(pathname, topLevelEnvironment)) {
@@ -150,17 +156,13 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
-    if (!session) {
-      return NextResponse.redirect(buildLoginRedirect(request, pathname));
+    const url = request.nextUrl.clone();
+    if (pathname === "/admin/access" || pathname.startsWith("/admin/access/")) {
+      url.pathname = "/lab/system/access";
+    } else {
+      url.pathname = "/lab/system/control-tower";
     }
-    if (!isPlatformAdminSession(session)) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set("returnTo", pathname);
-      url.searchParams.set("error", "admin_access_required");
-      return NextResponse.redirect(url);
-    }
-    return NextResponse.next();
+    return NextResponse.redirect(url, { status: 308 });
   }
 
   const protectedPrefixes = ["/lab", "/app", "/onboarding", "/documents", "/tasks"];
@@ -200,6 +202,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/",
     "/admin",
     "/admin/:path*",
     "/api/auth/:path*",

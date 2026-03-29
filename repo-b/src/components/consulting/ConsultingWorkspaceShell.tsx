@@ -16,17 +16,15 @@ function isActive(pathname: string, href: string, isBase: boolean): boolean {
 export default function ConsultingWorkspaceShell({
   children,
   envId,
-  isAdmin = false,
 }: {
   children: React.ReactNode;
   envId: string;
-  isAdmin?: boolean;
 }) {
   const pathname = usePathname();
   const { environment, businessId, loading, error, retry } = useConsultingEnv();
 
   const base = `/lab/env/${envId}/consulting`;
-  const homeHref = isAdmin ? "/admin" : `/lab/env/${envId}`;
+  const homeHref = `/lab/env/${envId}`;
   const navItems = useMemo(
     () => [
       { href: base, label: "Command Center", isBase: true },

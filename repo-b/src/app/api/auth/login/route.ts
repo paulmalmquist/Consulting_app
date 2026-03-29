@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     if (!inviteCode || inviteCode !== expected) {
       return NextResponse.json({ message: "Invalid admin code" }, { status: 401 });
     }
-    const response = NextResponse.json({ ok: true, redirectTo: "/admin" });
+    const response = NextResponse.json({ ok: true, redirectTo: "/lab/environments" });
     response.cookies.set({
       name: "bos_session",
       value: JSON.stringify({ role: "admin" }),

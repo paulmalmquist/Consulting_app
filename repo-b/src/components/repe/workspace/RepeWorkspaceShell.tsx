@@ -574,13 +574,11 @@ function TopUtilityNav({
 export default function RepeWorkspaceShell({
   children,
   envId,
-  isAdmin = false,
   /** Optional context rail content — passed through to the right column */
   rail,
 }: {
   children: React.ReactNode;
   envId?: string;
-  isAdmin?: boolean;
   rail?: React.ReactNode;
 }) {
   const pathname = usePathname();

@@ -7,9 +7,11 @@ const SUBHEADLINE_LINES = [
   "PROJECT DELIVERY, AND INSTITUTIONAL OPERATIONS",
 ] as const;
 
-const ENVIRONMENT_LOGIN_ORDER: EnvironmentSlug[] = ["novendor", "trading", "floyorker", "resume"];
+const ENVIRONMENT_LOGIN_ORDER: EnvironmentSlug[] = ["novendor", "meridian", "stone-pds", "trading", "floyorker", "resume"];
 const ENVIRONMENT_INDUSTRY: Record<EnvironmentSlug, string> = {
   novendor: "Consulting",
+  meridian: "Institutional REPE",
+  "stone-pds": "Project Delivery",
   trading: "Capital Markets",
   floyorker: "Media & Publishing",
   resume: "Portfolio",

@@ -40,7 +40,7 @@ function parseDepartmentFromPath(pathname: string, envId: string): LabDepartment
   return dept as LabDepartmentKey;
 }
 
-export default function LabEnvironmentShell({ envId, children, isAdmin = false }: Props & { isAdmin?: boolean }) {
+export default function LabEnvironmentShell({ envId, children }: Props) {
   const pathname = usePathname();
   const { selectedEnv, selectEnv } = useEnv();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -165,7 +165,7 @@ export default function LabEnvironmentShell({ envId, children, isAdmin = false }
   }, [mobileSidebarOpen]);
 
   const isDomainRoute = new RegExp(`^/lab/env/${envId}/(re|pds|credit|legal|medical|consulting|opportunity-engine|ecc|demo|documents|definitions|resume|markets)(/|$)`).test(pathname);
-  const homeHref = isAdmin ? "/admin" : `/lab/env/${envId}`;
+  const homeHref = `/lab/env/${envId}`;
   if (isDomainRoute) {
     return <>{children}</>;
   }
@@ -187,8 +187,8 @@ export default function LabEnvironmentShell({ envId, children, isAdmin = false }
             <Link
               href={homeHref}
               data-testid="dept-tab-home"
-              aria-label={isAdmin ? "Admin home" : "Environment home"}
-              title={isAdmin ? "Admin home" : "Environment home"}
+              aria-label="Environment home"
+              title="Environment home"
                 className={cn(
                 "rounded-md border p-2 transition-[transform,box-shadow] duration-[120ms] inline-flex items-center justify-center",
                 pathname === `/lab/env/${envId}`

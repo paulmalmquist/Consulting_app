@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import React, { useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEnv } from "@/components/EnvProvider";
 import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/cn";
@@ -17,18 +17,16 @@ type NavItem = {
   href: string;
   label: string;
   navKey: string;
-  group: "operations" | "intelligence" | "system";
 };
 
 export default function AppShell({
   children,
-  isAdmin = false,
 }: {
   children: React.ReactNode;
-  isAdmin?: boolean;
 }) {
   const pathname = usePathname();
-  const { environments, selectedEnv } = useEnv();
+  const router = useRouter();
+  const { environments, selectedEnv, selectEnv, isPlatformAdmin } = useEnv();
   const environmentOptions = environments || [];
   const isDomainRoute = /^\/lab\/env\/[^/]+\/(re|pds|credit|legal|medical|consulting|opportunity-engine)(\/|$)/.test(pathname);
   const isImmersiveRoute = /^\/lab\/env\/[^/]+\/markets(\/|$)/.test(pathname);
@@ -38,34 +36,24 @@ export default function AppShell({
   });
 
   const homeHref = useMemo(() => {
-    if (isAdmin) return "/admin";
     return selectedEnv ? `/lab/env/${selectedEnv.env_id}` : "/lab/environments";
-  }, [isAdmin, selectedEnv]);
+  }, [selectedEnv]);
 
-  const navItems = useMemo<NavItem[]>(() => {
-    const base: NavItem[] = [
-      { id: "environments", href: "/lab/environments", label: "Environments", navKey: "environments", group: "operations" },
-      { id: "pipeline", href: "/lab/pipeline", label: "Pipeline", navKey: "pipeline", group: "operations" },
-      { id: "uploads", href: "/lab/upload", label: "Uploads", navKey: "uploads", group: "operations" },
-      { id: "chat", href: "/lab/chat", label: "Chat", navKey: "chat", group: "intelligence" },
-      { id: "metrics", href: "/lab/metrics", label: "Metrics", navKey: "metrics", group: "intelligence" },
-      { id: "market-intelligence", href: "/lab/market-intelligence", label: "Trading Lab", navKey: "market-intelligence", group: "intelligence" },
-      { id: "audit", href: "/lab/audit", label: "Audit", navKey: "audit", group: "system" },
-      { id: "ai", href: "/lab/ai", label: "AI", navKey: "ai", group: "intelligence" },
-      { id: "ai-audit", href: "/lab/ai-audit", label: "AI Audit", navKey: "ai-audit", group: "system" },
-    ];
-    return base;
-  }, []);
+  const workspaceItems = useMemo<NavItem[]>(() => [
+    { id: "pipeline", href: "/lab/pipeline", label: "Pipeline", navKey: "pipeline" },
+    { id: "chat", href: "/lab/chat", label: "Chat", navKey: "chat" },
+    { id: "metrics", href: "/lab/metrics", label: "Metrics", navKey: "metrics" },
+    { id: "uploads", href: "/lab/upload", label: "Uploads", navKey: "uploads" },
+    { id: "ai", href: "/lab/ai", label: "AI", navKey: "ai" },
+    { id: "market-intelligence", href: "/lab/market-intelligence", label: "Trading Lab", navKey: "market-intelligence" },
+  ], []);
 
-  const groupedItems = useMemo(() => {
-    const groups: Record<NavItem["group"], NavItem[]> = {
-      operations: [],
-      intelligence: [],
-      system: [],
-    };
-    for (const item of navItems) groups[item.group].push(item);
-    return groups;
-  }, [navItems]);
+  const systemItems = useMemo<NavItem[]>(() => [
+    { id: "control-tower", href: "/lab/system/control-tower", label: "Control Tower", navKey: "environments" },
+    { id: "access", href: "/lab/system/access", label: "Access", navKey: "access" },
+    { id: "audit", href: "/lab/audit", label: "Audit", navKey: "audit" },
+    { id: "ai-audit", href: "/lab/ai-audit", label: "AI Audit", navKey: "ai-audit" },
+  ], []);
 
   const toggleCollapsed = () => {
     setCollapsed((previous) => {
@@ -77,6 +65,13 @@ export default function AppShell({
 
   const logout = async () => {
     await logoutPlatformSession();
+  };
+
+  const handleEnvironmentClick = (envId: string) => {
+    const target = environmentOptions.find((env) => env.env_id === envId);
+    if (!target) return;
+    selectEnv(envId);
+    router.push(`/lab/env/${envId}`);
   };
 
   const handleEnvironmentSwitch = async (nextEnvId: string) => {
@@ -96,20 +91,43 @@ export default function AppShell({
     );
   }
 
+  const renderNavItem = (item: NavItem) => {
+    const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+    return (
+      <Link
+        key={item.id}
+        href={item.href}
+        data-testid={`lab-nav-link-${item.id}`}
+        title={collapsed ? item.label : undefined}
+        className={cn(
+          "rounded-md text-sm font-normal border flex items-center relative",
+          collapsed ? "justify-center p-2.5" : "px-3 py-2.5 gap-2",
+          isActive
+            ? "text-bm-text font-medium border-transparent bg-bm-surface/30 border-l-2 border-l-bm-accent"
+            : "text-bm-muted border-transparent hover:bg-bm-surface/30 hover:text-bm-text"
+        )}
+      >
+        <NavIcon navKey={item.navKey} size={15} />
+        {!collapsed ? item.label : null}
+      </Link>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-bm-bg text-bm-text flex">
       <aside
         className={cn(
-          "border-r border-bm-border/70 hidden lg:flex flex-col gap-6 bg-bm-bg transition-[width,padding] duration-[120ms]",
-          collapsed ? "w-[84px] p-4" : "w-64 p-6"
+          "border-r border-bm-border/70 hidden lg:flex flex-col gap-4 bg-bm-bg transition-[width,padding] duration-[120ms] overflow-y-auto",
+          collapsed ? "w-[84px] p-4" : "w-64 p-5"
         )}
       >
+        {/* Header */}
         <div className={cn("flex items-start", collapsed ? "justify-center" : "justify-between gap-2")}>
           {!collapsed ? (
             <div>
               <p className="bm-section-label">Winston</p>
-              <p className="text-lg font-semibold tracking-[-0.01em]">
-                {isAdmin ? "Admin" : selectedEnv?.client_name || "Environments"}
+              <p className="text-sm font-medium text-bm-text truncate max-w-[160px]">
+                {selectedEnv?.client_name || "Select environment"}
               </p>
             </div>
           ) : null}
@@ -125,45 +143,73 @@ export default function AppShell({
         </div>
 
         <nav className="flex flex-col gap-4" data-testid="lab-nav">
-          {([
-            ["operations", "Operations"],
-            ["intelligence", "Intelligence"],
-            ["system", "System"],
-          ] as const).map(([groupKey, groupLabel]) => (
-            <div key={groupKey} className="space-y-2">
-              {!collapsed ? (
-                <p className="bm-section-label px-2">
-                  {groupLabel}
-                </p>
+          {/* Environments Section */}
+          <div className="space-y-1.5">
+            {!collapsed ? (
+              <p className="bm-section-label px-2">Environments</p>
+            ) : null}
+            <div className="flex flex-col gap-0.5">
+              {environmentOptions.map((env) => {
+                const isActive = selectedEnv?.env_id === env.env_id;
+                return (
+                  <button
+                    key={env.env_id}
+                    type="button"
+                    onClick={() => handleEnvironmentClick(env.env_id)}
+                    title={collapsed ? env.client_name : undefined}
+                    data-testid={`env-nav-${env.env_id}`}
+                    className={cn(
+                      "rounded-md text-sm font-normal border flex items-center text-left w-full",
+                      collapsed ? "justify-center p-2.5" : "px-3 py-2 gap-2",
+                      isActive
+                        ? "text-bm-text font-medium border-transparent bg-bm-surface/30 border-l-2 border-l-bm-accent"
+                        : "text-bm-muted border-transparent hover:bg-bm-surface/30 hover:text-bm-text"
+                    )}
+                  >
+                    <span className={cn(
+                      "inline-flex items-center justify-center rounded-md bg-bm-surface/50 text-[10px] font-mono uppercase shrink-0",
+                      collapsed ? "h-6 w-6" : "h-5 w-5"
+                    )}>
+                      {env.client_name.slice(0, 2)}
+                    </span>
+                    {!collapsed ? (
+                      <span className="truncate">{env.client_name}</span>
+                    ) : null}
+                  </button>
+                );
+              })}
+              {environmentOptions.length === 0 && !collapsed ? (
+                <p className="px-3 py-2 text-xs text-bm-muted2">No environments available</p>
               ) : null}
-              <div className="flex flex-col gap-1.5">
-                {groupedItems[groupKey].map((item) => {
-                  const isActive = pathname === item.href;
-                  return (
-                    <Link
-                      key={item.id}
-                      href={item.href}
-                      data-testid={`lab-nav-link-${item.id}`}
-                      title={collapsed ? item.label : undefined}
-                      className={cn(
-                        "rounded-md text-sm font-normal border flex items-center relative",
-                        collapsed ? "justify-center p-2.5" : "px-3 py-2.5 gap-2",
-                        isActive
-                          ? "text-bm-text font-medium border-transparent bg-bm-surface/30 border-l-2 border-l-bm-accent"
-                          : "text-bm-muted border-transparent hover:bg-bm-surface/30 hover:text-bm-text"
-                      )}
-                    >
-                      <NavIcon navKey={item.navKey} size={15} />
-                      {!collapsed ? item.label : null}
-                    </Link>
-                  );
-                })}
+            </div>
+          </div>
+
+          {/* Workspace Section (visible when env selected) */}
+          {selectedEnv ? (
+            <div className="space-y-1.5">
+              {!collapsed ? (
+                <p className="bm-section-label px-2">Workspace</p>
+              ) : null}
+              <div className="flex flex-col gap-1">
+                {workspaceItems.map(renderNavItem)}
               </div>
             </div>
-          ))}
+          ) : null}
+
+          {/* System Section (admin only) */}
+          {isPlatformAdmin ? (
+            <div className="space-y-1.5" data-testid="system-nav-section">
+              {!collapsed ? (
+                <p className="bm-section-label px-2">System</p>
+              ) : null}
+              <div className="flex flex-col gap-1">
+                {systemItems.map(renderNavItem)}
+              </div>
+            </div>
+          ) : null}
         </nav>
 
-        <div className={cn("mt-auto text-xs text-bm-muted2", collapsed && "text-center")}> 
+        <div className={cn("mt-auto text-xs text-bm-muted2", collapsed && "text-center")}>
           {!collapsed ? "Winston" : "W"}
         </div>
       </aside>
@@ -173,11 +219,7 @@ export default function AppShell({
             <p className="bm-section-label">
               Current Environment
             </p>
-            {isAdmin ? (
-              <span className="inline-flex items-center rounded-md border border-bm-border/70 bg-bm-surface/90 px-2.5 py-1 text-[11px] font-mono tracking-[0.08em] text-bm-text">
-                Admin session
-              </span>
-            ) : environmentOptions.length > 1 && selectedEnv ? (
+            {environmentOptions.length > 1 && selectedEnv ? (
               <select
                 value={selectedEnv.env_id}
                 onChange={(event) => void handleEnvironmentSwitch(event.target.value)}

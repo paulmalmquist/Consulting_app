@@ -134,7 +134,7 @@ function selectActiveMembership(
 }
 
 function returnToIsAuthorized(returnTo: string, memberships: PlatformMembershipSummary[], platformAdmin: boolean) {
-  if (returnTo.startsWith("/admin")) return platformAdmin;
+  if (returnTo.startsWith("/admin") || returnTo.startsWith("/lab/system")) return platformAdmin;
 
   const labMatch = returnTo.match(/^\/lab\/env\/([^/]+)(?:\/|$)/);
   if (labMatch) {
@@ -161,7 +161,6 @@ function resolveSessionRedirect(args: {
   if (sanitized && returnToIsAuthorized(sanitized, args.memberships, args.platformAdmin)) {
     return sanitized;
   }
-  if (args.genericLogin && args.platformAdmin) return "/admin";
   return environmentHomePath({
     envId: args.activeMembership.env_id,
     slug: args.activeMembership.env_slug,
@@ -318,7 +317,7 @@ async function bootstrapOwnerMemberships(
         status = 'active',
         updated_at = now()
     `,
-    [platformUserId, ["novendor", "floyorker", "resume", "trading"]],
+    [platformUserId, ["novendor", "floyorker", "stone-pds", "meridian", "resume", "trading"]],
   );
 }
 
@@ -347,6 +346,7 @@ async function loadMemberships(client: PoolClient, platformUserId: string) {
       WHERE m.platform_user_id = $1::uuid
       ORDER BY
         CASE WHEN m.is_default THEN 0 ELSE 1 END,
+        m.last_used_at DESC NULLS LAST,
         e.client_name ASC
     `,
     [platformUserId],

@@ -209,18 +209,16 @@ export default function DomainWorkspaceShell({
   envId,
   domain,
   children,
-  isAdmin = false,
 }: {
   envId: string;
   domain: DomainSlug;
   children: React.ReactNode;
-  isAdmin?: boolean;
 }) {
   const pathname = usePathname();
   const { environment, businessId, loading, error, requestId, retry } = useDomainEnv();
 
   const base = `/lab/env/${envId}/${domain}`;
-  const homeHref = isAdmin ? "/admin" : `/lab/env/${envId}`;
+  const homeHref = `/lab/env/${envId}`;
   const items = navItems(domain, base);
   const envLabel = environment?.client_name || envId;
 

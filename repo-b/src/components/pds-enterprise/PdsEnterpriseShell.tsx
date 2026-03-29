@@ -105,16 +105,14 @@ function navGroups(base: string): NavGroup[] {
 export default function PdsEnterpriseShell({
   envId,
   children,
-  isAdmin = false,
 }: {
   envId: string;
   children: React.ReactNode;
-  isAdmin?: boolean;
 }) {
   const pathname = usePathname();
   const { environment, businessId, loading, error, requestId, retry } = useDomainEnv();
   const base = `/lab/env/${envId}/pds`;
-  const homeHref = isAdmin ? "/admin" : `/lab/env/${envId}`;
+  const homeHref = `/lab/env/${envId}`;
   const groups = navGroups(base);
   const envLabel = environment?.client_name || "Stone PDS";
   const templateKey =

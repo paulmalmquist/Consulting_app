@@ -26,6 +26,7 @@ type EnvContextValue = {
   selectEnv: (envId: string) => void;
   refresh: () => Promise<void>;
   loading: boolean;
+  isPlatformAdmin: boolean;
 };
 
 const EnvContext = createContext<EnvContextValue | undefined>(undefined);
@@ -36,6 +37,7 @@ export function EnvProvider({ children }: { children: React.ReactNode }) {
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [selectedEnvId, setSelectedEnvId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
 
   const refresh = async () => {
     setLoading(true);
@@ -65,6 +67,7 @@ export function EnvProvider({ children }: { children: React.ReactNode }) {
       };
 
       let normalized: Environment[] = [];
+      setIsPlatformAdmin(Boolean(auth.authenticated && auth.session?.platformAdmin));
       if (auth.authenticated && auth.session?.platformAdmin) {
         const data = await apiFetch<{ environments: Environment[] }>("/v1/environments");
         normalized = (data.environments || []).map((env) => ({
@@ -138,8 +141,8 @@ export function EnvProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ environments, selectedEnv, selectEnv, refresh, loading }),
-    [environments, selectedEnv, loading]
+    () => ({ environments, selectedEnv, selectEnv, refresh, loading, isPlatformAdmin }),
+    [environments, selectedEnv, loading, isPlatformAdmin]
   );
 
   return <EnvContext.Provider value={value}>{children}</EnvContext.Provider>;
