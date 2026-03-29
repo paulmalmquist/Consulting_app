@@ -30,10 +30,10 @@ export default function ReError({
           Retry
         </button>
         <Link
-          href="/lab/environments"
+          href="/app"
           className="rounded-lg border border-bm-border px-4 py-2 text-sm hover:bg-bm-surface/40"
         >
-          Back to Environments
+          Back to Workspaces
         </Link>
       </div>
     </div>

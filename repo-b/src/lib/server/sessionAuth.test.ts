@@ -80,11 +80,11 @@ describe("sessionAuth", () => {
     expect(findMembershipBySlug(session, "trading")?.tenant_id).toBe("tenant-trading");
   });
 
-  it("derives the correct post-logout login route from the active environment", async () => {
+  it("uses the canonical root login route for signed-out sessions", async () => {
     const session = await parsePlatformSessionFromCookieValue(
       await signPlatformSession(buildClaims()),
     );
 
-    expect(getLoginRedirectForSession(session)).toBe("/novendor/login");
+    expect(getLoginRedirectForSession(session)).toBe("/");
   });
 });

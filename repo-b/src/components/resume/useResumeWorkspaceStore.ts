@@ -11,6 +11,10 @@ import type {
   ResumeTimelineViewMode,
 } from "@/lib/bos-api";
 import type { ResumeWorkspaceViewModel } from "@/lib/resume/workspace";
+import type {
+  ImpactMetricKey,
+  NarrativeSelectionKind,
+} from "./capabilityGraphData";
 
 type ResumeModule = "timeline" | "architecture" | "modeling" | "bi";
 
@@ -21,6 +25,10 @@ type ResumeWorkspaceState = {
   playStory: boolean;
   playIndex: number;
   selectedTimelineId: string | null;
+  selectedNarrativeKind: NarrativeSelectionKind | null;
+  selectedNarrativeId: string | null;
+  hoveredNarrativeKind: NarrativeSelectionKind | null;
+  hoveredNarrativeId: string | null;
   selectedArchitectureNodeId: string | null;
   highlightArchitectureNodeIds: string[];
   architectureView: "technical" | "business";
@@ -33,14 +41,21 @@ type ResumeWorkspaceState = {
     period: string;
   };
   capabilityHoveredLayer: string | null;
-  capabilityHoveredYear: number | null;
-  capabilityPlaybackYear: number | null;
+  enabledCapabilityLayerIds: string[];
+  selectedImpactMetric: ImpactMetricKey;
   initialize: (workspace: ResumeWorkspaceViewModel) => void;
   setActiveModule: (module: ResumeModule) => void;
   setTimelineView: (view: ResumeTimelineViewMode) => void;
   togglePlayStory: () => void;
   setPlayIndex: (index: number) => void;
   selectTimelineItem: (itemId: string, options?: { switchModule?: ResumeModule | null }) => void;
+  selectNarrativeItem: (
+    kind: NarrativeSelectionKind,
+    itemId: string,
+    options?: { switchModule?: ResumeModule | null; timelineView?: ResumeTimelineViewMode | null },
+  ) => void;
+  previewNarrativeItem: (kind: NarrativeSelectionKind | null, itemId: string | null) => void;
+  clearNarrativeSelection: () => void;
   selectArchitectureNode: (nodeId: string | null) => void;
   setArchitectureView: (view: "technical" | "business") => void;
   setModelPreset: (presetId: string) => void;
@@ -48,8 +63,9 @@ type ResumeWorkspaceState = {
   selectBiEntity: (entityId: string) => void;
   setBiFilters: (patch: Partial<ResumeWorkspaceState["biFilters"]>) => void;
   setCapabilityHoveredLayer: (layerId: string | null) => void;
-  setCapabilityHoveredYear: (year: number | null) => void;
-  setCapabilityPlaybackYear: (year: number | null) => void;
+  toggleCapabilityLayer: (layerId: string) => void;
+  resetCapabilityLayers: () => void;
+  setSelectedImpactMetric: (metric: ImpactMetricKey) => void;
   buildAssistantContext: () => ResumeAssistantContext;
 };
 
@@ -98,11 +114,73 @@ function resolveLinkedTimelineSelection(
     }
   }
 
+  const topLevelInitiative = timeline.initiatives.find((initiative) => initiative.initiative_id === id);
+  if (topLevelInitiative) {
+    return {
+      linkedArchitectureNodeIds: topLevelInitiative.linked_architecture_node_ids,
+      linkedBiEntityIds: topLevelInitiative.linked_bi_entity_ids,
+      linkedModelPreset: topLevelInitiative.linked_model_preset,
+    };
+  }
+
   return { linkedArchitectureNodeIds: [], linkedBiEntityIds: [], linkedModelPreset: null };
+}
+
+function resolveNarrativeTimelineId(
+  timeline: ResumeTimeline,
+  kind: NarrativeSelectionKind,
+  id: string,
+): string | null {
+  if (kind === "milestone" || kind === "initiative" || kind === "role") {
+    return id;
+  }
+
+  if (kind === "phase") {
+    return (
+      timeline.milestones
+        .filter((milestone) => milestone.phase_id === id)
+        .sort((left, right) => {
+          const leftOrder = left.play_order ?? 999;
+          const rightOrder = right.play_order ?? 999;
+          if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+          return left.date.localeCompare(right.date);
+        })[0]?.milestone_id ??
+      timeline.initiatives.find((initiative) => initiative.phase_id === id)?.initiative_id ??
+      null
+    );
+  }
+
+  if (kind === "layer") {
+    return (
+      timeline.milestones.find((milestone) => milestone.capability_tags.includes(id))?.milestone_id ??
+      timeline.initiatives.find((initiative) => initiative.capability_tags.includes(id))?.initiative_id ??
+      null
+    );
+  }
+
+  if (kind === "metric") {
+    const anchor = timeline.metric_anchors.find((item) => item.hero_metric_key === id);
+    if (!anchor) return null;
+    return (
+      anchor.linked_milestone_ids[0] ??
+      (anchor.linked_phase_ids[0] ? resolveNarrativeTimelineId(timeline, "phase", anchor.linked_phase_ids[0]) : null) ??
+      (anchor.linked_capability_layer_ids[0]
+        ? resolveNarrativeTimelineId(timeline, "layer", anchor.linked_capability_layer_ids[0])
+        : null) ??
+      null
+    );
+  }
+
+  return null;
 }
 
 function pickDefaultPreset(modeling: ResumeModeling) {
   return modeling.presets[0]?.preset_id ?? "base_case";
+}
+
+function getVisibleCapabilityLayerIds(timeline: ResumeTimeline) {
+  const visible = timeline.capability_layers.filter((layer) => layer.is_visible).map((layer) => layer.layer_id);
+  return visible.length > 0 ? visible : timeline.capability_layers.map((layer) => layer.layer_id);
 }
 
 export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) => ({
@@ -112,6 +190,10 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
   playStory: false,
   playIndex: 0,
   selectedTimelineId: null,
+  selectedNarrativeKind: null,
+  selectedNarrativeId: null,
+  hoveredNarrativeKind: null,
+  hoveredNarrativeId: null,
   selectedArchitectureNodeId: null,
   highlightArchitectureNodeIds: [],
   architectureView: "technical",
@@ -130,14 +212,33 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
     period: "2025-12",
   },
   capabilityHoveredLayer: null,
-  capabilityHoveredYear: null,
-  capabilityPlaybackYear: null,
-  initialize: (workspace) =>
+  enabledCapabilityLayerIds: [],
+  selectedImpactMetric: "impact_composite",
+  initialize: (workspace) => {
+    const defaultTimelineId =
+      workspace.timeline.play_story_steps[0]?.milestone_id ??
+      workspace.timeline.milestones[0]?.milestone_id ??
+      workspace.timeline.roles[0]?.timeline_role_id ??
+      null;
     set({
       workspace,
       activeModule: "timeline",
       timelineView: workspace.timeline.default_view,
-      selectedTimelineId: workspace.timeline.roles[0]?.timeline_role_id ?? null,
+      playStory: false,
+      playIndex: 0,
+      selectedTimelineId: defaultTimelineId,
+      selectedNarrativeKind:
+        workspace.timeline.play_story_steps[0]?.milestone_id != null
+          ? "milestone"
+          : workspace.timeline.phases[0]?.phase_id != null
+            ? "phase"
+            : null,
+      selectedNarrativeId:
+        workspace.timeline.play_story_steps[0]?.milestone_id ??
+        workspace.timeline.phases[0]?.phase_id ??
+        null,
+      hoveredNarrativeKind: null,
+      hoveredNarrativeId: null,
       highlightArchitectureNodeIds: [],
       selectedArchitectureNodeId: null,
       architectureView: workspace.architecture.default_view,
@@ -149,7 +250,11 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
         propertyType: "All Types",
         period: workspace.bi.periods[workspace.bi.periods.length - 1] ?? "2025-12",
       },
-    }),
+      capabilityHoveredLayer: null,
+      enabledCapabilityLayerIds: getVisibleCapabilityLayerIds(workspace.timeline),
+      selectedImpactMetric: "impact_composite",
+    });
+  },
   setActiveModule: (module) => set({ activeModule: module }),
   setTimelineView: (view) => set({ timelineView: view }),
   togglePlayStory: () => set((state) => ({ playStory: !state.playStory })),
@@ -160,6 +265,15 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
     const linked = resolveLinkedTimelineSelection(workspace.timeline, itemId);
     set((state) => ({
       selectedTimelineId: itemId,
+      selectedNarrativeKind:
+        workspace.timeline.milestones.some((item) => item.milestone_id === itemId)
+          ? "milestone"
+          : workspace.timeline.roles.some((item) => item.timeline_role_id === itemId)
+            ? "role"
+            : "initiative",
+      selectedNarrativeId: itemId,
+      hoveredNarrativeKind: null,
+      hoveredNarrativeId: null,
       highlightArchitectureNodeIds: linked.linkedArchitectureNodeIds,
       selectedArchitectureNodeId: linked.linkedArchitectureNodeIds[0] ?? state.selectedArchitectureNodeId,
       selectedBiEntityId: linked.linkedBiEntityIds[0] ?? state.selectedBiEntityId,
@@ -174,6 +288,58 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
       activeModule: options?.switchModule ?? state.activeModule,
     }));
   },
+  selectNarrativeItem: (kind, itemId, options) => {
+    const workspace = get().workspace;
+    if (!workspace) return;
+
+    const resolvedTimelineId = resolveNarrativeTimelineId(workspace.timeline, kind, itemId);
+    const linked = resolvedTimelineId
+      ? resolveLinkedTimelineSelection(workspace.timeline, resolvedTimelineId)
+      : { linkedArchitectureNodeIds: [], linkedBiEntityIds: [], linkedModelPreset: null };
+    const anchor =
+      kind === "metric"
+        ? workspace.timeline.metric_anchors.find((item) => item.hero_metric_key === itemId) ?? null
+        : null;
+
+    set((state) => ({
+      selectedNarrativeKind: kind,
+      selectedNarrativeId: itemId,
+      selectedTimelineId: resolvedTimelineId ?? state.selectedTimelineId,
+      hoveredNarrativeKind: null,
+      hoveredNarrativeId: null,
+      highlightArchitectureNodeIds: linked.linkedArchitectureNodeIds,
+      selectedArchitectureNodeId: linked.linkedArchitectureNodeIds[0] ?? state.selectedArchitectureNodeId,
+      selectedBiEntityId: linked.linkedBiEntityIds[0] ?? state.selectedBiEntityId,
+      modelPresetId: linked.linkedModelPreset ?? state.modelPresetId,
+      modelInputs:
+        linked.linkedModelPreset
+          ? {
+              ...(workspace.modeling.presets.find((preset) => preset.preset_id === linked.linkedModelPreset)?.inputs ??
+                state.modelInputs),
+            }
+          : state.modelInputs,
+      activeModule: options?.switchModule ?? state.activeModule,
+      timelineView:
+        options?.timelineView ??
+        anchor?.default_view ??
+        state.timelineView,
+    }));
+  },
+  previewNarrativeItem: (kind, itemId) =>
+    set({
+      hoveredNarrativeKind: kind,
+      hoveredNarrativeId: itemId,
+    }),
+  clearNarrativeSelection: () =>
+    set((state) => ({
+      selectedTimelineId: null,
+      selectedNarrativeKind: null,
+      selectedNarrativeId: null,
+      hoveredNarrativeKind: null,
+      hoveredNarrativeId: null,
+      highlightArchitectureNodeIds: [],
+      selectedArchitectureNodeId: state.selectedArchitectureNodeId,
+    })),
   selectArchitectureNode: (nodeId) => set({ selectedArchitectureNodeId: nodeId }),
   setArchitectureView: (view) => set({ architectureView: view }),
   setModelPreset: (presetId) => {
@@ -188,8 +354,28 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
   selectBiEntity: (entityId) => set({ selectedBiEntityId: entityId }),
   setBiFilters: (patch) => set((state) => ({ biFilters: { ...state.biFilters, ...patch } })),
   setCapabilityHoveredLayer: (layerId) => set({ capabilityHoveredLayer: layerId }),
-  setCapabilityHoveredYear: (year) => set({ capabilityHoveredYear: year }),
-  setCapabilityPlaybackYear: (year) => set({ capabilityPlaybackYear: year }),
+  toggleCapabilityLayer: (layerId) => {
+    const workspace = get().workspace;
+    if (!workspace) return;
+    set((state) => {
+      const enabled = state.enabledCapabilityLayerIds.includes(layerId)
+        ? state.enabledCapabilityLayerIds.filter((id) => id !== layerId)
+        : [...state.enabledCapabilityLayerIds, layerId];
+      return {
+        enabledCapabilityLayerIds: enabled.length > 0 ? enabled : getVisibleCapabilityLayerIds(workspace.timeline),
+        selectedNarrativeKind: "layer",
+        selectedNarrativeId: layerId,
+      };
+    });
+  },
+  resetCapabilityLayers: () => {
+    const workspace = get().workspace;
+    if (!workspace) return;
+    set({
+      enabledCapabilityLayerIds: getVisibleCapabilityLayerIds(workspace.timeline),
+    });
+  },
+  setSelectedImpactMetric: (metric) => set({ selectedImpactMetric: metric }),
   buildAssistantContext: () => {
     const state = get();
     return {
@@ -205,6 +391,9 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
         market: state.biFilters.market,
         propertyType: state.biFilters.propertyType,
         period: state.biFilters.period,
+      },
+      metrics: {
+        impact_metric: state.selectedImpactMetric,
       },
     };
   },

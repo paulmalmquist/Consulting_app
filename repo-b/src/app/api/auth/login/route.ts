@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     if (!inviteCode || inviteCode !== expected) {
       return NextResponse.json({ message: "Invalid admin code" }, { status: 401 });
     }
-    const response = NextResponse.json({ ok: true, redirectTo: "/lab/environments" });
+    const response = NextResponse.json({ ok: true, redirectTo: "/app" });
     response.cookies.set({
       name: "bos_session",
       value: JSON.stringify({ role: "admin" }),
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     const sessionPayload: Record<string, string> = { role: "env_user" };
     if (envId) sessionPayload.env_id = envId;
 
-    const redirectTo = envId ? `/lab/env/${envId}` : "/lab/environments";
+    const redirectTo = envId ? `/lab/env/${envId}` : "/app";
     const response = NextResponse.json({ ok: true, redirectTo });
     response.cookies.set({
       name: "bos_session",
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Invalid invite code" }, { status: 401 });
   }
 
-  const response = NextResponse.json({ ok: true, redirectTo: "/lab/environments" });
+  const response = NextResponse.json({ ok: true, redirectTo: "/app" });
   response.cookies.set({
     name: "bos_session",
     value: JSON.stringify({ role: "env_user" }),

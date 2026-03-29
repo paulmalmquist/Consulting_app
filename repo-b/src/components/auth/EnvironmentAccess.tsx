@@ -56,7 +56,7 @@ export function EnvironmentAuthShell({
 
   return (
     <main
-      className="relative isolate min-h-screen overflow-hidden px-6 py-10 text-white"
+      className="relative isolate min-h-screen overflow-hidden px-4 py-6 text-white sm:px-6 sm:py-10"
       style={shellStyle(slug) as React.CSSProperties}
     >
       <div
@@ -68,27 +68,27 @@ export function EnvironmentAuthShell({
         }}
       />
 
-      <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-6xl items-center gap-8 lg:grid-cols-[minmax(0,1.05fr)_460px]">
-        <section className="max-w-2xl space-y-6">
+      <div className="mx-auto grid min-h-[calc(100vh-3rem)] max-w-6xl items-center gap-6 sm:min-h-[calc(100vh-5rem)] lg:grid-cols-[minmax(0,1.05fr)_460px] lg:gap-8">
+        <section className="max-w-2xl space-y-4 sm:space-y-6">
           <div className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-mono uppercase tracking-[0.18em] text-white/60">
             {branding.familyLabel}
           </div>
           <div className="space-y-4">
-            <h1 className="font-command max-w-xl text-[clamp(3.2rem,7vw,5.4rem)] uppercase leading-[0.92] tracking-[0.05em] text-white">
+            <h1 className="font-command max-w-xl text-[clamp(2.5rem,14vw,5.4rem)] uppercase leading-[0.92] tracking-[0.05em] text-white">
               {title}
             </h1>
             <p className="max-w-xl text-base leading-7 text-white/72 sm:text-lg">
               {subtitle}
             </p>
           </div>
-          <div className="grid gap-3 text-sm text-white/58 sm:grid-cols-3">
-            <div className="rounded-[1.4rem] border border-white/10 bg-white/5 px-4 py-4">
+          <div className="grid gap-2 text-sm text-white/58 sm:grid-cols-3 sm:gap-3">
+            <div className="rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-3 sm:rounded-[1.4rem] sm:py-4">
               Distinct entry point
             </div>
-            <div className="rounded-[1.4rem] border border-white/10 bg-white/5 px-4 py-4">
+            <div className="rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-3 sm:rounded-[1.4rem] sm:py-4">
               Explicit environment scope
             </div>
-            <div className="rounded-[1.4rem] border border-white/10 bg-white/5 px-4 py-4">
+            <div className="rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-3 sm:rounded-[1.4rem] sm:py-4">
               Shared platform identity
             </div>
           </div>
@@ -99,7 +99,7 @@ export function EnvironmentAuthShell({
           className="border border-white/10 bg-transparent shadow-[0_28px_60px_-34px_rgba(2,6,23,0.95)] backdrop-blur-sm"
           style={{ backgroundImage: branding.panelGradient } as React.CSSProperties}
         >
-          <CardContent className="p-8 sm:p-9">{children}</CardContent>
+          <CardContent className="p-5 sm:p-8 lg:p-9">{children}</CardContent>
         </Card>
       </div>
     </main>
@@ -167,7 +167,13 @@ export function EnvironmentLoginForm({
       router.push(payload.redirectTo || loginHint);
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Authentication failed");
+      const msg =
+        cause instanceof Error
+          ? cause.message
+          : cause != null && typeof cause === "object" && "message" in cause && typeof (cause as { message: unknown }).message === "string"
+          ? (cause as { message: string }).message
+          : "Authentication failed";
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -267,7 +273,13 @@ export function GenericPlatformLoginForm({ returnTo }: { returnTo?: string | nul
       router.push(payload.redirectTo || "/admin");
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Authentication failed");
+      const msg =
+        cause instanceof Error
+          ? cause.message
+          : cause != null && typeof cause === "object" && "message" in cause && typeof (cause as { message: unknown }).message === "string"
+          ? (cause as { message: string }).message
+          : "Authentication failed";
+      setError(msg);
     } finally {
       setLoading(false);
     }

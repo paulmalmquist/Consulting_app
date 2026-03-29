@@ -1,5 +1,10 @@
-import { redirect } from "next/navigation";
+import { WinstonLoginPortal } from "@/components/auth/WinstonLoginPortal";
 
-export default function HomePage() {
-  redirect("/login");
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ returnTo?: string }>;
+}) {
+  const resolvedSearchParams = await searchParams;
+  return <WinstonLoginPortal returnTo={resolvedSearchParams?.returnTo || null} />;
 }

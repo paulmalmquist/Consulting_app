@@ -9,6 +9,7 @@ Requires OPENAI_API_KEY env var. AI_GATEWAY_ENABLED is set automatically when th
 """
 from __future__ import annotations
 
+import logging
 import time
 from typing import AsyncGenerator
 
@@ -31,6 +32,7 @@ from app.services.ai_gateway import run_gateway_stream
 from app.services import ai_conversations as convo_svc
 
 router = APIRouter(prefix="/api/ai/gateway", tags=["ai-gateway"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/health", response_model=GatewayHealthResponse)
@@ -182,25 +184,36 @@ def index_document_endpoint(payload: GatewayIndexRequest, request: Request) -> G
 
 @router.post("/conversations", response_model=ConversationDetailResponse)
 def create_conversation(payload: ConversationCreateRequest, request: Request):
-    if payload.env_id:
-        require_environment_access(request, env_id=payload.env_id)
-    else:
-        require_authenticated_request(request)
-    actor = request.headers.get("x-bm-actor", "anonymous")
-    row = convo_svc.create_conversation(
-        business_id=payload.business_id,
-        env_id=payload.env_id,
-        title=payload.title,
-        thread_kind=payload.thread_kind or "general",
-        scope_type=payload.scope_type,
-        scope_id=payload.scope_id,
-        scope_label=payload.scope_label,
-        launch_source=payload.launch_source,
-        context_summary=payload.context_summary,
-        last_route=payload.last_route,
-        actor=actor,
-    )
-    return _serialize_conversation(row, messages=[], message_count=0)
+    try:
+        if payload.env_id:
+            require_environment_access(request, env_id=payload.env_id)
+        else:
+            require_authenticated_request(request)
+        actor = request.headers.get("x-bm-actor", "anonymous")
+        row = convo_svc.create_conversation(
+            business_id=payload.business_id,
+            env_id=payload.env_id,
+            title=payload.title,
+            thread_kind=payload.thread_kind or "general",
+            scope_type=payload.scope_type,
+            scope_id=payload.scope_id,
+            scope_label=payload.scope_label,
+            launch_source=payload.launch_source,
+            context_summary=payload.context_summary,
+            last_route=payload.last_route,
+            actor=actor,
+        )
+        return _serialize_conversation(row, messages=[], message_count=0)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "Conversation creation failed for business=%s env=%s actor=%s",
+            payload.business_id,
+            payload.env_id,
+            request.headers.get("x-bm-actor", "anonymous"),
+        )
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @router.get("/conversations")

@@ -1,13 +1,18 @@
 import { z } from "zod";
 import type {
+  ResumeAccomplishmentCard,
   ResumeArchitecture,
   ResumeArchitectureEdge,
   ResumeArchitectureNode,
   ResumeBi,
   ResumeBiEntity,
   ResumeBiPoint,
+  ResumeCapabilityLayer,
+  ResumeCareerPhase,
   ResumeIdentity,
+  ResumeMetricAnchor,
   ResumeModeling,
+  ResumePlayStoryStep,
   ResumeScenarioInputs,
   ResumeScenarioPreset,
   ResumeStory,
@@ -20,7 +25,7 @@ import type {
 } from "@/lib/bos-api";
 
 const UUID_SCHEMA = z.string().uuid();
-const TIMELINE_VIEWS = ["career", "delivery", "capability", "impact", "compounding"] as const;
+const TIMELINE_VIEWS = ["career", "delivery", "capability", "impact"] as const;
 const ARCHITECTURE_VIEWS = ["technical", "business"] as const;
 const BI_LEVELS = ["portfolio", "fund", "investment", "asset"] as const;
 const RESUME_MODULES = ["timeline", "architecture", "modeling", "bi"] as const;
@@ -28,6 +33,8 @@ const RESUME_MODULES = ["timeline", "architecture", "modeling", "bi"] as const;
 const DEFAULT_DATE = "2020-01-01";
 const DEFAULT_PERIOD = "2025-12";
 const DEFAULT_ROOT_ENTITY_ID = "portfolio-root";
+type MetricScalar = string | number;
+type ArtifactScalar = string | number | boolean | null;
 
 export type ResumeModelAssumptions = {
   entry_cap_rate: number;
@@ -116,6 +123,45 @@ function asNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(normalized) ? normalized : fallback;
 }
 
+function asBoolean(value: unknown, fallback = false): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value === "true") return true;
+    if (value === "false") return false;
+  }
+  return fallback;
+}
+
+function asMetricRecord(value: unknown): Record<string, MetricScalar> {
+  const record = asRecord(value);
+  const normalized: Record<string, MetricScalar> = {};
+  Object.entries(record).forEach(([key, entry]) => {
+    if (typeof entry === "string") {
+      normalized[key] = entry;
+      return;
+    }
+    if (typeof entry === "number" && Number.isFinite(entry)) {
+      normalized[key] = entry;
+    }
+  });
+  return normalized;
+}
+
+function asArtifactRecord(value: unknown): Record<string, ArtifactScalar> {
+  const record = asRecord(value);
+  const normalized: Record<string, ArtifactScalar> = {};
+  Object.entries(record).forEach(([key, entry]) => {
+    if (entry == null || typeof entry === "string" || typeof entry === "boolean") {
+      normalized[key] = entry ?? null;
+      return;
+    }
+    if (typeof entry === "number" && Number.isFinite(entry)) {
+      normalized[key] = entry;
+    }
+  });
+  return normalized;
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
@@ -143,6 +189,7 @@ function asMetric(value: unknown, index: number): ResumeWorkspaceMetric | null {
   if (!label || !normalizedValue) return null;
 
   return {
+    metric_key: asNullableString(record.metric_key),
     label,
     value: normalizedValue,
     detail: asNullableString(record.detail),
@@ -189,17 +236,113 @@ function normalizeIdentity(raw: unknown): ResumeIdentity {
   };
 }
 
+function normalizeCareerPhase(raw: unknown, index: number): ResumeCareerPhase {
+  const record = asRecord(raw);
+  return {
+    phase_id: asString(record.phase_id, `phase-${index + 1}`),
+    company: asString(record.company, "Business Machine"),
+    phase_name: asString(record.phase_name, `Phase ${index + 1}`),
+    start_date: normalizeDate(record.start_date, DEFAULT_DATE),
+    end_date: record.end_date == null ? null : normalizeDate(record.end_date, DEFAULT_DATE),
+    description: asNullableString(record.description),
+    band_color: asString(record.band_color, "#475569"),
+    overlay_only: asBoolean(record.overlay_only, false),
+    display_order: Math.round(asNumber(record.display_order, index + 1)),
+  };
+}
+
+function normalizeCapabilityLayer(raw: unknown, index: number): ResumeCapabilityLayer {
+  const record = asRecord(raw);
+  return {
+    layer_id: asString(record.layer_id, `layer-${index + 1}`),
+    name: asString(record.name, `Layer ${index + 1}`),
+    color: asString(record.color, "#3B82F6"),
+    description: asNullableString(record.description),
+    sort_order: Math.round(asNumber(record.sort_order, index + 1)),
+    is_visible: asBoolean(record.is_visible, true),
+  };
+}
+
 function normalizeMilestone(raw: unknown, index: number, fallbackDate = DEFAULT_DATE): ResumeTimelineMilestone {
   const record = asRecord(raw);
   return {
     milestone_id: asString(record.milestone_id, `milestone-${index + 1}`),
+    phase_id: asNullableString(record.phase_id),
     title: asString(record.title, `Milestone ${index + 1}`),
     date: normalizeDate(record.date, fallbackDate),
+    type: asString(record.type, "build"),
     summary: asString(record.summary, "Key delivery milestone."),
+    importance: Math.round(asNumber(record.importance, 50)),
+    play_order:
+      record.play_order == null
+        ? null
+        : Math.round(asNumber(record.play_order, index + 1)),
+    capability_tags: asStringArray(record.capability_tags),
     linked_modules: asStringArray(record.linked_modules, ["timeline"]),
     linked_architecture_node_ids: asStringArray(record.linked_architecture_node_ids),
     linked_bi_entity_ids: asStringArray(record.linked_bi_entity_ids),
     linked_model_preset: asNullableString(record.linked_model_preset),
+    metrics_json: asMetricRecord(record.metrics_json),
+    artifact_refs: asArray(record.artifact_refs).map((value) => asArtifactRecord(value)),
+    snapshot_spec: asRecord(record.snapshot_spec),
+  };
+}
+
+function normalizeMetricAnchor(raw: unknown, index: number): ResumeMetricAnchor {
+  const record = asRecord(raw);
+  const defaultViewCandidate = asString(record.default_view, "impact") as ResumeMetricAnchor["default_view"];
+  const defaultView = (TIMELINE_VIEWS as readonly string[]).includes(defaultViewCandidate)
+    ? defaultViewCandidate
+    : "impact";
+  return {
+    anchor_id: asString(record.anchor_id, `anchor-${index + 1}`),
+    hero_metric_key: asString(record.hero_metric_key, `metric-${index + 1}`),
+    title: asString(record.title, `Anchor ${index + 1}`),
+    default_view: defaultView,
+    linked_phase_ids: asStringArray(record.linked_phase_ids),
+    linked_milestone_ids: asStringArray(record.linked_milestone_ids),
+    linked_capability_layer_ids: asStringArray(record.linked_capability_layer_ids),
+    narrative_hint: asNullableString(record.narrative_hint),
+    sort_order: Math.round(asNumber(record.sort_order, index + 1)),
+  };
+}
+
+function normalizeAccomplishmentCard(raw: unknown, index: number): ResumeAccomplishmentCard {
+  const record = asRecord(raw);
+  return {
+    card_id: asString(record.card_id, `card-${index + 1}`),
+    phase_id: asNullableString(record.phase_id),
+    milestone_id: asNullableString(record.milestone_id),
+    metric_key: asNullableString(record.metric_key),
+    title: asString(record.title, `Card ${index + 1}`),
+    card_type: asString(record.card_type, "context") as ResumeAccomplishmentCard["card_type"],
+    company: asNullableString(record.company),
+    date_start: record.date_start == null ? null : normalizeDate(record.date_start, DEFAULT_DATE),
+    date_end: record.date_end == null ? null : normalizeDate(record.date_end, DEFAULT_DATE),
+    capability_tags: asStringArray(record.capability_tags),
+    short_narrative: asString(record.short_narrative, "Evidence card"),
+    context: asNullableString(record.context),
+    action: asNullableString(record.action),
+    impact: asNullableString(record.impact),
+    stakeholders: asNullableString(record.stakeholders),
+    artifact_refs: asArray(record.artifact_refs).map((value) => asArtifactRecord(value)),
+    metrics_json: asMetricRecord(record.metrics_json),
+    snapshot_spec: asRecord(record.snapshot_spec),
+    sort_order: Math.round(asNumber(record.sort_order, index + 1)),
+  };
+}
+
+function normalizePlayStoryStep(raw: unknown, index: number): ResumePlayStoryStep {
+  const record = asRecord(raw);
+  const viewCandidate = asString(record.view, "career") as ResumePlayStoryStep["view"];
+  const view = (TIMELINE_VIEWS as readonly string[]).includes(viewCandidate) ? viewCandidate : "career";
+  return {
+    step_id: asString(record.step_id, `step-${index + 1}`),
+    title: asString(record.title, `Story Step ${index + 1}`),
+    milestone_id: asString(record.milestone_id),
+    phase_id: asNullableString(record.phase_id),
+    view,
+    description: asNullableString(record.description),
   };
 }
 
@@ -219,6 +362,7 @@ function normalizeInitiative(
   return {
     initiative_id: asString(record.initiative_id, `${roleId}-initiative-${index + 1}`),
     role_id: asString(record.role_id, roleId),
+    phase_id: asNullableString(record.phase_id),
     title: asString(record.title, `Initiative ${index + 1}`),
     summary: asString(record.summary, "Delivery initiative."),
     team_context: asString(record.team_context, "Cross-functional team"),
@@ -230,14 +374,16 @@ function normalizeInitiative(
     start_date: startDate,
     end_date: safeEndDate,
     category: asString(record.category, "foundation"),
-    capability: asString(record.capability, "Execution"),
     impact_area: asString(record.impact_area, "operations"),
+    importance: Math.round(asNumber(record.importance, 50)),
+    capability_tags: asStringArray(record.capability_tags),
     technologies: asStringArray(record.technologies),
     impact_tag: asString(record.impact_tag, "Execution"),
     linked_modules: asStringArray(record.linked_modules, ["timeline"]),
     linked_architecture_node_ids: asStringArray(record.linked_architecture_node_ids),
     linked_bi_entity_ids: asStringArray(record.linked_bi_entity_ids),
     linked_model_preset: asNullableString(record.linked_model_preset),
+    metrics_json: asMetricRecord(record.metrics_json),
   };
 }
 
@@ -275,20 +421,42 @@ function normalizeRole(raw: unknown, index: number): ResumeTimelineRole {
 
 function normalizeTimeline(raw: unknown, issues: string[]): ResumeTimeline {
   const record = asRecord(raw);
+  const phases = asArray(record.phases)
+    .map((phase, index) => normalizeCareerPhase(phase, index))
+    .sort((left, right) => left.display_order - right.display_order);
   const roles = asArray(record.roles)
     .map((role, index) => normalizeRole(role, index))
+    .sort((left, right) => new Date(left.start_date).getTime() - new Date(right.start_date).getTime());
+  const initiatives = asArray(record.initiatives)
+    .map((initiative, index) =>
+      normalizeInitiative(initiative, asString(asRecord(initiative).role_id, `role-${index + 1}`), index, DEFAULT_DATE, DEFAULT_DATE),
+    )
     .sort((left, right) => new Date(left.start_date).getTime() - new Date(right.start_date).getTime());
 
   const fallbackMilestoneDate = roles[0]?.start_date ?? DEFAULT_DATE;
   const milestones = asArray(record.milestones).map((milestone, index) =>
     normalizeMilestone(milestone, index, fallbackMilestoneDate),
   );
+  const capabilityLayers = asArray(record.capability_layers)
+    .map((layer, index) => normalizeCapabilityLayer(layer, index))
+    .sort((left, right) => left.sort_order - right.sort_order);
+  const metricAnchors = asArray(record.metric_anchors)
+    .map((anchor, index) => normalizeMetricAnchor(anchor, index))
+    .sort((left, right) => left.sort_order - right.sort_order);
+  const accomplishmentCards = asArray(record.accomplishment_cards)
+    .map((card, index) => normalizeAccomplishmentCard(card, index))
+    .sort((left, right) => left.sort_order - right.sort_order);
+  const playStorySteps = asArray(record.play_story_steps)
+    .map((step, index) => normalizePlayStoryStep(step, index))
+    .sort((left, right) => left.step_id.localeCompare(right.step_id, undefined, { numeric: true }));
 
   const timelineDates = [
     asString(record.start_date),
     asString(record.end_date),
+    ...phases.flatMap((phase) => [phase.start_date, phase.end_date ?? phase.start_date]),
     ...roles.flatMap((role) => [role.start_date, role.end_date ?? role.start_date]),
     ...roles.flatMap((role) => role.initiatives.flatMap((initiative) => [initiative.start_date, initiative.end_date])),
+    ...initiatives.flatMap((initiative) => [initiative.start_date, initiative.end_date]),
     ...milestones.map((milestone) => milestone.date),
   ].filter(Boolean);
 
@@ -314,8 +482,14 @@ function normalizeTimeline(raw: unknown, issues: string[]): ResumeTimeline {
     views: views.length ? uniqueStrings([defaultView, ...views]) as ResumeTimelineViewMode[] : [defaultView],
     start_date: startDate,
     end_date: safeEndDate,
+    phases,
     roles,
+    initiatives,
     milestones,
+    capability_layers: capabilityLayers,
+    metric_anchors: metricAnchors,
+    accomplishment_cards: accomplishmentCards,
+    play_story_steps: playStorySteps,
   };
 }
 
@@ -688,21 +862,25 @@ function buildFallbackIdentityMetrics(
 ): ResumeWorkspaceMetric[] {
   return [
     {
+      metric_key: "roles",
       label: "Roles",
       value: String(timeline.roles.length),
       detail: identity.location || null,
     },
     {
+      metric_key: "system_nodes",
       label: "System Nodes",
       value: String(architecture.nodes.length),
       detail: "Connected delivery layers",
     },
     {
+      metric_key: "model_presets",
       label: "Model Presets",
       value: String(modeling.presets.length),
       detail: "Interactive scenario paths",
     },
     {
+      metric_key: "bi_entities",
       label: "BI Entities",
       value: String(bi.entities.length),
       detail: "Portfolio drill context",

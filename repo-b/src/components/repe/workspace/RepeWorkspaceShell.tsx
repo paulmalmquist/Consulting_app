@@ -586,7 +586,7 @@ export default function RepeWorkspaceShell({
   const [investmentDialogOpen, setInvestmentDialogOpen] = useState(false);
 
   const base     = envId ? `/lab/env/${envId}/re` : "/app/repe";
-  const homeHref = envId ? `/lab/env/${envId}`    : "/lab/environments";
+  const homeHref = envId ? `/lab/env/${envId}`    : "/app";
 
   const showIntelligence  = process.env.NEXT_PUBLIC_SHOW_INTELLIGENCE_MODULE  === "true";
   const showSustainability = process.env.NEXT_PUBLIC_SHOW_SUSTAINABILITY_MODULE === "true";

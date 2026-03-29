@@ -696,7 +696,25 @@ export function WinstonCompanionWorkspace() {
         <div className="space-y-4">
           <WorkspaceContent />
         </div>
-        <WorkspaceUtilities />
+        <div className="hidden xl:block">
+          <WorkspaceUtilities />
+        </div>
+      </div>
+
+      <div className="space-y-3 xl:hidden">
+        <details className="rounded-[24px] border border-bm-border/50 bg-bm-surface/12 p-4" open>
+          <summary className="cursor-pointer text-sm font-semibold text-bm-text">Recent threads</summary>
+          <div className="mt-4">
+            <RecentConversations />
+          </div>
+        </details>
+        <details className="rounded-[24px] border border-bm-border/50 bg-bm-surface/12 p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-bm-text">Explore and tools</summary>
+          <div className="mt-4 space-y-4">
+            <ExplorePanel />
+            <AdvancedPanel />
+          </div>
+        </details>
       </div>
     </div>
   );

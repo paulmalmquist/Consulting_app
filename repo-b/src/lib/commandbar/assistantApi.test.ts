@@ -5,6 +5,7 @@ import {
   askAi,
   checkCodexHealth,
   createPlan,
+  createConversation,
   fetchContextSnapshot,
 } from "@/lib/commandbar/assistantApi";
 import { ContractValidationError } from "@/lib/commandbar/schemas";
@@ -183,5 +184,25 @@ describe("assistantApi contract behavior", () => {
       tool_name: "repe.get_environment_snapshot",
       result: { fund_count: 1 },
     });
+  });
+
+  it("surfaces backend conversation details and strips invalid env ids", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async (...args) => {
+      const body = JSON.parse(String(args[1]?.body || "{}"));
+      expect(body.env_id).toBeNull();
+      return new Response(JSON.stringify({ detail: "column \"thread_kind\" does not exist" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      createConversation({
+        business_id: "c2a4f3d8-0f79-46db-bbca-bbc1be13d7a2",
+        env_id: "resume",
+        thread_kind: "contextual",
+      })
+    ).rejects.toThrow('column "thread_kind" does not exist');
   });
 });

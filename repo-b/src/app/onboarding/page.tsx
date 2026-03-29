@@ -120,7 +120,7 @@ export default function OnboardingPage() {
       }
 
       const envId = selectedEnv?.env_id;
-      router.push(envId ? `/lab/env/${envId}` : "/lab/environments");
+      router.push(envId ? `/lab/env/${envId}` : "/app");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Provisioning failed");
     } finally {

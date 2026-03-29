@@ -4,7 +4,6 @@ import { notFound, redirect } from "next/navigation";
 import {
   environmentCatalog,
   environmentHomePath,
-  environmentUnauthorizedPath,
   isEnvironmentSlug,
 } from "@/lib/environmentAuth";
 import {
@@ -39,9 +38,9 @@ export default async function EnvironmentEntryPage({
 
   if (!membership) {
     if (session) {
-      redirect(environmentUnauthorizedPath(environmentSlug));
+      redirect(`/app?denied=${environmentSlug}`);
     }
-    redirect(`/${environmentSlug}/login`);
+    redirect(`/?returnTo=/${environmentSlug}`);
   }
 
   redirect(

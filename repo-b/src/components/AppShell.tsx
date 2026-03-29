@@ -36,7 +36,7 @@ export default function AppShell({
   });
 
   const homeHref = useMemo(() => {
-    return selectedEnv ? `/lab/env/${selectedEnv.env_id}` : "/lab/environments";
+    return selectedEnv ? `/lab/env/${selectedEnv.env_id}` : "/app";
   }, [selectedEnv]);
 
   const workspaceItems = useMemo<NavItem[]>(() => [

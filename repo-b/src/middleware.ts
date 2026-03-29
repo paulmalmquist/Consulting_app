@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import {
-  environmentLoginPath,
-  environmentUnauthorizedPath,
   type EnvironmentSlug,
   isEnvironmentSlug,
 } from "@/lib/environmentAuth";
@@ -21,15 +19,18 @@ const LAB_ENV_RE = /^\/lab\/env\/([^/]+)(?:\/|$)/;
 
 function buildLoginRedirect(request: NextRequest, pathname: string) {
   const url = request.nextUrl.clone();
-  url.pathname = "/login";
-  url.searchParams.set("returnTo", pathname);
+  url.pathname = "/";
+  const returnTo = `${pathname}${request.nextUrl.search}`;
+  if (returnTo && returnTo !== "/") {
+    url.searchParams.set("returnTo", returnTo);
+  }
   return url;
 }
 
-function buildEnvironmentLoginRedirect(request: NextRequest, slug: EnvironmentSlug, pathname: string) {
+function buildAccessDeniedRedirect(request: NextRequest, denied: string) {
   const url = request.nextUrl.clone();
-  url.pathname = environmentLoginPath(slug);
-  url.searchParams.set("returnTo", pathname);
+  url.pathname = "/app";
+  url.searchParams.set("denied", denied);
   return url;
 }
 
@@ -106,17 +107,24 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = await readSession(request);
 
+  if (pathname === "/login") {
+    if (!session) return NextResponse.next();
+    const url = request.nextUrl.clone();
+    url.pathname = "/app";
+    return NextResponse.redirect(url);
+  }
+
   if (
     pathname.startsWith("/api/auth/") ||
-    pathname.startsWith("/api/public/") ||
-    pathname === "/login"
+    pathname.startsWith("/api/public/")
   ) {
     return NextResponse.next();
   }
 
   if (pathname === "/") {
+    if (!session) return NextResponse.next();
     const url = request.nextUrl.clone();
-    url.pathname = session ? "/lab/environments" : "/login";
+    url.pathname = "/app";
     return NextResponse.redirect(url);
   }
 
@@ -127,16 +135,12 @@ export async function middleware(request: NextRequest) {
     }
 
     if (!session) {
-      return NextResponse.redirect(
-        buildEnvironmentLoginRedirect(request, topLevelEnvironment, pathname),
-      );
+      return NextResponse.redirect(buildLoginRedirect(request, pathname));
     }
 
     const membership = membershipForSlug(session.memberships || [], topLevelEnvironment);
     if (!membership && !isPlatformAdminSession(session)) {
-      const url = request.nextUrl.clone();
-      url.pathname = environmentUnauthorizedPath(topLevelEnvironment);
-      return NextResponse.redirect(url);
+      return NextResponse.redirect(buildAccessDeniedRedirect(request, topLevelEnvironment));
     }
 
     if (
@@ -145,9 +149,7 @@ export async function middleware(request: NextRequest) {
       !["owner", "admin"].includes(membership.role) &&
       !isPlatformAdminSession(session)
     ) {
-      const url = request.nextUrl.clone();
-      url.pathname = environmentUnauthorizedPath("resume");
-      return NextResponse.redirect(url);
+      return NextResponse.redirect(buildAccessDeniedRedirect(request, "resume"));
     }
 
     const response = NextResponse.next();
@@ -178,7 +180,7 @@ export async function middleware(request: NextRequest) {
     if (envId) {
       const membership = membershipForEnvId(session.memberships || [], envId);
       if (!membership && !isPlatformAdminSession(session)) {
-        return new NextResponse("Not Found", { status: 404 });
+        return NextResponse.redirect(buildAccessDeniedRedirect(request, envId));
       }
       if (membership) {
         const response = NextResponse.next();
@@ -203,6 +205,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/",
+    "/login",
     "/admin",
     "/admin/:path*",
     "/api/auth/:path*",

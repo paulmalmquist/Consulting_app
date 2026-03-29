@@ -13,6 +13,7 @@ export default function BosAppShell({ children }: { children: React.ReactNode })
   const capKey = (params?.capKey as string) || null;
   const isRepeWorkspace = pathname.startsWith("/app/repe");
   const isWinstonWorkspace = pathname.startsWith("/app/winston");
+  const isEnvironmentSelector = pathname === "/app";
   const { setActiveDeptKey } = useBusinessContext();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -39,6 +40,10 @@ export default function BosAppShell({ children }: { children: React.ReactNode })
       document.body.style.overflow = "";
     };
   }, [sidebarOpen]);
+
+  if (isEnvironmentSelector) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="min-h-screen bg-bm-bg text-bm-text flex flex-col">

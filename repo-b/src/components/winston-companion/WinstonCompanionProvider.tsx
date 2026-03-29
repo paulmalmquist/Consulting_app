@@ -907,6 +907,17 @@ export function WinstonCompanionProvider({
       }));
       await refreshConversations();
     } catch (error) {
+      console.error("Winston companion request failed", {
+        lane,
+        businessId,
+        envId,
+        conversationId: conversationId || laneState.conversationId || null,
+        error,
+      });
+      const userMessage =
+        conversationId || laneState.conversationId
+          ? "Winston ran into a response error. Please try again."
+          : "Something went wrong starting the conversation. Please try again.";
       setLaneState(lane, (current) => ({
         ...current,
         thinking: false,
@@ -915,7 +926,7 @@ export function WinstonCompanionProvider({
           item.id === assistantId
             ? {
                 ...item,
-                content: error instanceof Error ? error.message : "Winston encountered an error.",
+                content: userMessage,
               }
             : item,
         ),

@@ -1128,7 +1128,7 @@ async function executeStep(
         `Fetched ${environments.length} environment(s).`,
         true,
         { count: environments.length },
-        [{ label: "Open environments page", href: "/lab/environments" }]
+        [{ label: "Open workspace access", href: "/app" }]
       ),
     };
   }
@@ -1270,7 +1270,7 @@ async function executeStep(
           "Verified environment no longer appears in list.",
           true,
           { env_id: envId, get_by_id_status: 404 },
-          [{ label: "Open environments page", href: "/lab/environments" }]
+          [{ label: "Open workspace access", href: "/app" }]
         ),
       };
     }
@@ -1360,7 +1360,7 @@ async function executeStep(
       `Discovery complete: found ${count} environment(s).`,
       true,
       { count },
-      [{ label: "Open environments page", href: "/lab/environments" }]
+      [{ label: "Open workspace access", href: "/app" }]
     ),
   };
 }

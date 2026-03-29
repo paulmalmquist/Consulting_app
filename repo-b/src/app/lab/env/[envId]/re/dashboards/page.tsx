@@ -77,6 +77,7 @@ export default function DashboardBuilderPage({
   const [density, setDensity] = useState<"comfortable" | "compact">("comfortable");
   const [savedDashboards, setSavedDashboards] = useState<SavedDashboardRow[]>([]);
   const [view, setView] = useState<"builder" | "gallery">("gallery");
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   // Load saved dashboards
   useEffect(() => {
@@ -119,6 +120,28 @@ export default function DashboardBuilderPage({
       // silent — fall back to gallery
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const media = window.matchMedia("(max-width: 1023px)");
+    const updateViewport = () => setIsMobileViewport(media.matches);
+    updateViewport();
+    media.addEventListener("change", updateViewport);
+    return () => media.removeEventListener("change", updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (!(configWidgetId && isMobileViewport)) {
+      document.body.style.overflow = "";
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [configWidgetId, isMobileViewport]);
 
   // Hint context
   const hintContext: HintContext = {
@@ -338,7 +361,7 @@ export default function DashboardBuilderPage({
     <DashboardFilterProvider>
     <div className="flex h-full">
       {/* Main canvas area */}
-      <div className={`flex-1 overflow-y-auto px-6 py-6 space-y-6 ${configWidget ? "pr-0" : ""}`}>
+      <div className={`flex-1 overflow-y-auto px-4 py-5 space-y-6 sm:px-6 sm:py-6 ${configWidget && !isMobileViewport ? "pr-0" : ""}`}>
         {/* Prompt (collapsed in builder mode) */}
         <DashboardPrompt
           onGenerate={handleGenerate}
@@ -478,7 +501,7 @@ export default function DashboardBuilderPage({
       </div>
 
       {/* Config panel (right rail) */}
-      {configWidget && (
+      {configWidget && !isMobileViewport ? (
         <div className="w-80 shrink-0 border-l border-slate-200 bg-white dark:border-white/10 dark:bg-[rgba(15,23,42,0.92)]">
           <WidgetConfigPanel
             widget={configWidget}
@@ -487,7 +510,26 @@ export default function DashboardBuilderPage({
             onClose={() => setConfigWidgetId(null)}
           />
         </div>
-      )}
+      ) : null}
+
+      {configWidget && isMobileViewport ? (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-950/60"
+            aria-label="Close widget configuration"
+            onClick={() => setConfigWidgetId(null)}
+          />
+          <div className="absolute bottom-0 left-0 right-0 max-h-[85vh] overflow-y-auto rounded-t-[28px] border-t border-white/10 bg-[rgba(15,23,42,0.96)] shadow-[0_-24px_80px_-36px_rgba(0,0,0,0.82)]">
+            <WidgetConfigPanel
+              widget={configWidget}
+              onUpdate={handleUpdateWidget}
+              onRemove={handleRemoveWidget}
+              onClose={() => setConfigWidgetId(null)}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
     </DashboardFilterProvider>
   );

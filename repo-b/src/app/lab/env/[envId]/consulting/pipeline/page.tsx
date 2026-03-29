@@ -302,20 +302,34 @@ export default function PipelinePage({
         </div>
       ) : null}
 
-      <div className="flex items-center justify-between">
-        <h2 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">
-          Pipeline Kanban
-        </h2>
-        {kanban ? (
-          <div className="flex flex-wrap items-center gap-3 text-xs text-bm-muted2">
-            <span className="rounded-full border border-bm-border/70 px-2 py-1 text-bm-text">
-              {openDeals} open deals
-            </span>
-            <span>Total: {fmtCurrency(kanban.total_pipeline)}</span>
-            <span>Weighted: {fmtCurrency(kanban.weighted_pipeline)}</span>
+      <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/18 p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">
+              Pipeline Kanban
+            </h2>
+            <p className="mt-2 text-sm text-bm-muted2">
+              Drag deals across stages on desktop. On mobile, swipe horizontally across the board and tap into a deal for detail.
+            </p>
           </div>
-        ) : null}
-      </div>
+          {kanban ? (
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div className="rounded-xl border border-bm-border/60 bg-bm-surface/22 px-3 py-3 text-sm text-bm-text">
+                <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Open deals</p>
+                <p className="mt-2 text-lg font-semibold">{openDeals}</p>
+              </div>
+              <div className="rounded-xl border border-bm-border/60 bg-bm-surface/22 px-3 py-3 text-sm text-bm-text">
+                <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Total pipeline</p>
+                <p className="mt-2 text-lg font-semibold">{fmtCurrency(kanban.total_pipeline)}</p>
+              </div>
+              <div className="rounded-xl border border-bm-border/60 bg-bm-surface/22 px-3 py-3 text-sm text-bm-text">
+                <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Weighted</p>
+                <p className="mt-2 text-lg font-semibold">{fmtCurrency(kanban.weighted_pipeline)}</p>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </section>
 
       {kanban && openDeals === 0 ? (
         <Card>
@@ -332,13 +346,14 @@ export default function PipelinePage({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4">
           {kanban?.columns.map((col) => (
-            <DroppableColumn
-              key={col.stage_key}
-              column={col}
-              envId={params.envId}
-            />
+            <div key={col.stage_key} className="snap-start">
+              <DroppableColumn
+                column={col}
+                envId={params.envId}
+              />
+            </div>
           ))}
         </div>
         <DragOverlay>

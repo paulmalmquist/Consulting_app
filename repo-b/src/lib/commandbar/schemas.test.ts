@@ -45,7 +45,7 @@ describe("commandbar schemas", () => {
       doubleConfirmationPhrase: null,
       target: { envId: "env_1", envName: "Acme", businessId: null },
       clarification: { needed: false },
-      context: { currentEnvId: "env_1", currentBusinessId: null, route: "/lab/environments", selection: null },
+      context: { currentEnvId: "env_1", currentBusinessId: null, route: "/app", selection: null },
       createdAt: Date.now(),
     },
   };

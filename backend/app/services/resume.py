@@ -165,7 +165,7 @@ _ROLES = [
         "title": "Senior Analyst, Data Engineering & Analytics / Business Analyst — PMO",
         "location": "Boca Raton, FL",
         "start_date": "2014-08-01",
-        "end_date": "2018-02-01",
+        "end_date": "2018-01-31",
         "role_type": "engineering",
         "industry": "Financial Services / CRE",
         "summary": "Built JLL's first dedicated BI and data engineering service line for the JPMC national account. Defined standards for data ingestion, governance, and visualization.",
@@ -372,6 +372,778 @@ _PROJECTS = [
 ]
 
 
+_CAREER_PHASES = [
+    {
+        "phase_id": "phase-jll-2014-2018",
+        "company": "JLL",
+        "phase_name": "JLL (2014-2018)",
+        "start_date": "2014-08-01",
+        "end_date": "2018-01-31",
+        "description": "Reporting foundation and BI scope expansion on the JPMC national account.",
+        "band_color": "#1D4ED8",
+        "overlay_only": False,
+        "display_order": 1,
+    },
+    {
+        "phase_id": "phase-kayne-2018-2025",
+        "company": "Kayne Anderson",
+        "phase_name": "Kayne Anderson (2018-2025)",
+        "start_date": "2018-02-01",
+        "end_date": "2025-03-31",
+        "description": "Automation, warehouse, semantic layer, and waterfall modernization for a $4B+ AUM platform.",
+        "band_color": "#D97706",
+        "overlay_only": False,
+        "display_order": 2,
+    },
+    {
+        "phase_id": "phase-jll-2025-present",
+        "company": "JLL",
+        "phase_name": "JLL (2025-present)",
+        "start_date": "2025-04-01",
+        "end_date": None,
+        "description": "AI-enabled analytics and governed data delivery across PDS Americas.",
+        "band_color": "#7C3AED",
+        "overlay_only": False,
+        "display_order": 3,
+    },
+]
+
+_CAPABILITY_LAYERS = [
+    {
+        "layer_id": "data_platform",
+        "name": "Data Platform / Warehouse",
+        "color": "#14B8A6",
+        "description": "Lakehouse, warehouse, source integration, and durable operating data foundations.",
+        "sort_order": 1,
+        "is_visible": True,
+    },
+    {
+        "layer_id": "bi_reporting",
+        "name": "BI / Reporting Systems",
+        "color": "#3B82F6",
+        "description": "Dashboards, semantic models, and reusable reporting surfaces.",
+        "sort_order": 2,
+        "is_visible": True,
+    },
+    {
+        "layer_id": "financial_modeling",
+        "name": "Financial Modeling / Waterfalls",
+        "color": "#6366F1",
+        "description": "Waterfall distributions, scenario engines, and fund-model logic turned into software.",
+        "sort_order": 3,
+        "is_visible": True,
+    },
+    {
+        "layer_id": "automation_workflow",
+        "name": "Automation / Workflow",
+        "color": "#22C55E",
+        "description": "Manual analyst work converted into governed repeatable pipelines and workflows.",
+        "sort_order": 4,
+        "is_visible": True,
+    },
+    {
+        "layer_id": "ai_agentic",
+        "name": "AI / Agentic Systems",
+        "color": "#A855F7",
+        "description": "LLM interfaces, MCP tools, and conversational operating surfaces on governed data.",
+        "sort_order": 5,
+        "is_visible": True,
+    },
+    {
+        "layer_id": "executive_decision_support",
+        "name": "Executive Decision Support",
+        "color": "#F97316",
+        "description": "Systems designed to improve operating cadence, investor response, and executive clarity.",
+        "sort_order": 6,
+        "is_visible": True,
+    },
+]
+
+_DELIVERY_INITIATIVES = [
+    {
+        "initiative_id": "initiative-jll-reporting-foundation",
+        "phase_id": "phase-jll-2014-2018",
+        "role_sort_order": 1,
+        "title": "Reporting foundation and PMO operating rhythm",
+        "summary": "Moved project reporting from manual coordination into consistent analytical operating cadence.",
+        "team_context": "Embedded JPMC account delivery team.",
+        "business_challenge": "Reporting was manual, inconsistent, and heavily analyst-dependent.",
+        "measurable_outcome": "Created the operational foundation that made BI delivery possible.",
+        "stakeholder_group": "Account leadership and delivery operators",
+        "scale": "National account reporting workflow",
+        "architecture": "Excel, SQL extracts, and repeatable reporting templates.",
+        "start_date": "2014-08-01",
+        "end_date": "2016-02-29",
+        "category": "foundation",
+        "impact_area": "decision_support",
+        "impact_tag": "Reporting cadence standardized",
+        "importance": 40,
+        "capability_tags": ["bi_reporting", "executive_decision_support"],
+        "technologies": ["Excel", "SQL", "PowerPivot"],
+        "linked_modules": ["timeline", "bi"],
+        "linked_architecture_node_ids": ["api_sources", "bi_dashboards"],
+        "linked_bi_entity_ids": ["fund-jpmc-ops"],
+        "linked_model_preset": None,
+        "metrics_json": {"systems_replaced": 1, "stakeholders_served": 20},
+    },
+    {
+        "initiative_id": "initiative-jll-bi-service-line",
+        "phase_id": "phase-jll-2014-2018",
+        "role_sort_order": 1,
+        "title": "JLL BI service line buildout",
+        "summary": "Built JLL’s first dedicated BI and data engineering service line for the JPMC national account.",
+        "team_context": "Small leverage-focused analytics team.",
+        "business_challenge": "No reusable analytics backbone or dedicated BI capability existed on the account.",
+        "measurable_outcome": "Created repeatable dashboard delivery and executive-ready reporting systems.",
+        "stakeholder_group": "National account leadership",
+        "scale": "JPMC national account",
+        "architecture": "Tableau, SQL validations, and optimized data extracts.",
+        "start_date": "2016-03-01",
+        "end_date": "2018-01-31",
+        "category": "bi",
+        "impact_area": "decision_support",
+        "impact_tag": "BI capability established",
+        "importance": 65,
+        "capability_tags": ["bi_reporting", "executive_decision_support"],
+        "technologies": ["Tableau", "SQL", "PowerPivot", "VBA"],
+        "linked_modules": ["timeline", "bi", "architecture"],
+        "linked_architecture_node_ids": ["api_sources", "semantic_models", "bi_dashboards"],
+        "linked_bi_entity_ids": ["fund-jpmc-ops"],
+        "linked_model_preset": None,
+        "metrics_json": {"systems_replaced": 2, "stakeholders_served": 50},
+    },
+    {
+        "initiative_id": "initiative-kayne-automation",
+        "phase_id": "phase-kayne-2018-2025",
+        "role_sort_order": 2,
+        "title": "500+ property automation and ingestion",
+        "summary": "Automated partner accounting ingestion and recurring analyst workflows across a 500+ property footprint.",
+        "team_context": "FP&A, asset management, and engineering collaboration.",
+        "business_challenge": "Manual uploads and spreadsheet stitching were consuming analyst bandwidth and creating errors.",
+        "measurable_outcome": "Replaced manual intake with governed ingestion and validation.",
+        "stakeholder_group": "FP&A and asset management",
+        "scale": "500+ properties",
+        "architecture": "Azure landing zone, Logic Apps, PySpark pipelines, Power BI outputs.",
+        "start_date": "2018-02-01",
+        "end_date": "2020-12-31",
+        "category": "automation",
+        "impact_area": "time_saved",
+        "impact_tag": "160+ hours/month recaptured",
+        "importance": 75,
+        "capability_tags": ["automation_workflow", "data_platform", "executive_decision_support"],
+        "technologies": ["Azure Logic Apps", "PySpark", "SQL", "Power BI", "VBA"],
+        "linked_modules": ["timeline", "architecture", "bi"],
+        "linked_architecture_node_ids": ["yardi_mri", "azure_data_lake", "databricks_etl"],
+        "linked_bi_entity_ids": ["fund-kayne-ops"],
+        "linked_model_preset": None,
+        "metrics_json": {"time_saved": 160, "volume_supported": 500, "systems_replaced": 2},
+    },
+    {
+        "initiative_id": "initiative-kayne-warehouse",
+        "phase_id": "phase-kayne-2018-2025",
+        "role_sort_order": 3,
+        "title": "Kayne warehouse and source-of-truth platform",
+        "summary": "Architected the central REPE warehouse that unified investment, property, and operational data.",
+        "team_context": "Internal finance stakeholders plus offshore engineering support.",
+        "business_challenge": "DealCloud, MRI, Yardi, and Excel models were fragmented and slowed reporting.",
+        "measurable_outcome": "Created the governed platform backbone for every downstream reporting and DDQ workflow.",
+        "stakeholder_group": "Executive leadership, FP&A, investor relations",
+        "scale": "$4B+ AUM platform",
+        "architecture": "Databricks, Azure Data Lake, PySpark medallion architecture.",
+        "start_date": "2021-02-01",
+        "end_date": "2023-06-30",
+        "category": "automation",
+        "impact_area": "scale_integrated",
+        "impact_tag": "6+ systems unified",
+        "importance": 90,
+        "capability_tags": ["data_platform", "executive_decision_support"],
+        "technologies": ["Databricks", "Azure Data Lake", "PySpark", "DealCloud", "MRI", "Yardi"],
+        "linked_modules": ["timeline", "architecture", "bi"],
+        "linked_architecture_node_ids": ["dealcloud", "yardi_mri", "azure_data_lake", "databricks_etl", "silver_tables", "gold_tables"],
+        "linked_bi_entity_ids": ["fund-kayne-warehouse"],
+        "linked_model_preset": None,
+        "metrics_json": {"volume_supported": 500, "systems_replaced": 6, "stakeholders_served": 40},
+    },
+    {
+        "initiative_id": "initiative-kayne-semantic-governance",
+        "phase_id": "phase-kayne-2018-2025",
+        "role_sort_order": 3,
+        "title": "Semantic layer and governance standardization",
+        "summary": "Standardized metrics and reporting logic so teams could self-serve trusted answers.",
+        "team_context": "Finance, investor relations, and asset management consumers.",
+        "business_challenge": "Analysts were recreating definitions and reports across teams.",
+        "measurable_outcome": "Reduced ad hoc reporting and accelerated quarter-close delivery.",
+        "stakeholder_group": "Portfolio leadership and analyst teams",
+        "scale": "Six business verticals",
+        "architecture": "Gold tables feeding semantic models and governed BI datasets.",
+        "start_date": "2022-04-01",
+        "end_date": "2024-09-30",
+        "category": "governance",
+        "impact_area": "reporting_acceleration",
+        "impact_tag": "10-day reporting acceleration",
+        "importance": 80,
+        "capability_tags": ["bi_reporting", "data_platform", "executive_decision_support"],
+        "technologies": ["Power BI", "DAX", "Semantic Layer", "SQL", "Tabular Editor"],
+        "linked_modules": ["timeline", "bi", "architecture"],
+        "linked_architecture_node_ids": ["gold_tables", "semantic_models", "bi_dashboards"],
+        "linked_bi_entity_ids": ["fund-kayne-warehouse"],
+        "linked_model_preset": None,
+        "metrics_json": {"cycle_time_reduction": 10, "systems_replaced": 2, "stakeholders_served": 30},
+    },
+    {
+        "initiative_id": "initiative-kayne-waterfall-engine",
+        "phase_id": "phase-kayne-2018-2025",
+        "role_sort_order": 3,
+        "title": "Waterfall engine replacing Excel",
+        "summary": "Replaced spreadsheet-driven waterfall scenarios with a deterministic software engine.",
+        "team_context": "Finance and investment collaboration.",
+        "business_challenge": "Excel scenarios were slow, fragile, and difficult to audit.",
+        "measurable_outcome": "Created reliable LP/GP distribution analysis and faster investment iteration.",
+        "stakeholder_group": "Investment committee and FP&A",
+        "scale": "Fund-level distribution modeling",
+        "architecture": "Python runtime using governed investment inputs and reusable allocation logic.",
+        "start_date": "2023-01-01",
+        "end_date": "2024-05-31",
+        "category": "modeling",
+        "impact_area": "decision_support",
+        "impact_tag": "Excel process replaced by near-instant runs",
+        "importance": 85,
+        "capability_tags": ["financial_modeling", "automation_workflow", "executive_decision_support"],
+        "technologies": ["Python", "SQL", "Excel"],
+        "linked_modules": ["timeline", "modeling", "architecture", "bi"],
+        "linked_architecture_node_ids": ["excel_ingestion", "gold_tables"],
+        "linked_bi_entity_ids": ["investment-kayne-waterfall"],
+        "linked_model_preset": "base_case",
+        "metrics_json": {"systems_replaced": 1, "cycle_time_reduction": 5, "time_saved": 40},
+    },
+    {
+        "initiative_id": "initiative-winston-overlay",
+        "phase_id": None,
+        "role_sort_order": 5,
+        "title": "Winston / 83 MCP tools overlay",
+        "summary": "Built the parallel AI execution layer that proves the transition from governed data to agentic operating systems.",
+        "team_context": "Founder-led product architecture and delivery.",
+        "business_challenge": "Generic AI tools could not execute domain-specific REPE workflows.",
+        "measurable_outcome": "Created an AI tool surface with domain actions, auditability, and structured outputs.",
+        "stakeholder_group": "Operators, executives, and product buyers",
+        "scale": "Vertical AI platform",
+        "architecture": "Next.js, FastAPI, PostgreSQL, MCP, streaming interfaces, model routing.",
+        "start_date": "2024-01-01",
+        "end_date": "2026-03-27",
+        "category": "ai",
+        "impact_area": "decision_support",
+        "impact_tag": "83 MCP tools shipped",
+        "importance": 95,
+        "capability_tags": ["ai_agentic", "automation_workflow", "executive_decision_support"],
+        "technologies": ["FastAPI", "Next.js 14", "PostgreSQL", "MCP", "OpenAI API", "Claude API"],
+        "linked_modules": ["timeline", "architecture", "bi"],
+        "linked_architecture_node_ids": ["vector_db", "rag_pipelines", "winston_interface"],
+        "linked_bi_entity_ids": ["fund-jll-pds"],
+        "linked_model_preset": None,
+        "metrics_json": {"systems_replaced": 3, "stakeholders_served": 15, "volume_supported": 83},
+    },
+    {
+        "initiative_id": "initiative-jll-ai-analytics",
+        "phase_id": "phase-jll-2025-present",
+        "role_sort_order": 4,
+        "title": "JLL AI analytics platform",
+        "summary": "Merged governed data architecture with AI query patterns so business users could ask for insight directly.",
+        "team_context": "BI leadership, engineering, and client-delivery stakeholders.",
+        "business_challenge": "Reporting consistency and methodology standardization broke down across accounts.",
+        "measurable_outcome": "Delivered a conversational analytics layer on top of governed project and financial data.",
+        "stakeholder_group": "PDS leadership and client teams",
+        "scale": "10+ client accounts",
+        "architecture": "Databricks medallion foundation, semantic models, and AI query orchestration.",
+        "start_date": "2025-04-01",
+        "end_date": "2026-03-27",
+        "category": "ai",
+        "impact_area": "decision_support",
+        "impact_tag": "Conversational BI for executive delivery",
+        "importance": 88,
+        "capability_tags": ["ai_agentic", "data_platform", "bi_reporting", "executive_decision_support"],
+        "technologies": ["Databricks", "Delta Lake", "Unity Catalog", "OpenAI", "FastAPI", "Semantic Layer"],
+        "linked_modules": ["timeline", "architecture", "bi"],
+        "linked_architecture_node_ids": ["databricks_etl", "gold_tables", "semantic_models", "rag_pipelines", "winston_interface"],
+        "linked_bi_entity_ids": ["fund-jll-pds"],
+        "linked_model_preset": None,
+        "metrics_json": {"stakeholders_served": 25, "systems_replaced": 2, "volume_supported": 10},
+    },
+]
+
+_CAREER_MILESTONES = [
+    {
+        "milestone_id": "milestone-joined-jll-2014",
+        "phase_id": "phase-jll-2014-2018",
+        "title": "Joined JLL / reporting foundation",
+        "date": "2014-08-01",
+        "type": "transition",
+        "summary": "Entered the JLL/JPMC delivery environment and built the execution discipline that later became system design leverage.",
+        "importance": 35,
+        "play_order": 1,
+        "capability_tags": ["executive_decision_support"],
+        "linked_modules": ["timeline"],
+        "linked_architecture_node_ids": ["api_sources"],
+        "linked_bi_entity_ids": ["fund-jpmc-ops"],
+        "linked_model_preset": None,
+        "metrics_json": {"stakeholders_served": 10},
+        "artifact_refs": [],
+        "snapshot_spec": {},
+    },
+    {
+        "milestone_id": "milestone-expanded-bi-scope",
+        "phase_id": "phase-jll-2014-2018",
+        "title": "Expanded BI scope / JLL BI service line",
+        "date": "2017-03-01",
+        "type": "build",
+        "summary": "Shifted from reporting support into a repeatable BI delivery capability with live dashboard systems.",
+        "importance": 65,
+        "play_order": 2,
+        "capability_tags": ["bi_reporting", "executive_decision_support"],
+        "linked_modules": ["timeline", "bi", "architecture"],
+        "linked_architecture_node_ids": ["semantic_models", "bi_dashboards"],
+        "linked_bi_entity_ids": ["fund-jpmc-ops"],
+        "linked_model_preset": None,
+        "metrics_json": {"systems_replaced": 2, "stakeholders_served": 50},
+        "artifact_refs": [],
+        "snapshot_spec": {},
+    },
+    {
+        "milestone_id": "milestone-500-property-automation",
+        "phase_id": "phase-kayne-2018-2025",
+        "title": "500+ property automation",
+        "date": "2020-09-01",
+        "type": "impact",
+        "summary": "Scale became the forcing function for governed ingestion architecture and automated workflows.",
+        "importance": 78,
+        "play_order": 3,
+        "capability_tags": ["automation_workflow", "data_platform", "executive_decision_support"],
+        "linked_modules": ["timeline", "architecture", "bi"],
+        "linked_architecture_node_ids": ["yardi_mri", "azure_data_lake", "databricks_etl"],
+        "linked_bi_entity_ids": ["fund-kayne-ops"],
+        "linked_model_preset": None,
+        "metrics_json": {"time_saved": 160, "volume_supported": 500, "systems_replaced": 2},
+        "artifact_refs": [],
+        "snapshot_spec": {},
+    },
+    {
+        "milestone_id": "milestone-kayne-warehouse-semantic",
+        "phase_id": "phase-kayne-2018-2025",
+        "title": "Kayne warehouse + semantic layer",
+        "date": "2023-07-01",
+        "type": "architecture",
+        "summary": "The governed warehouse and semantic layer changed reporting from fragmented requests into a trusted operating system.",
+        "importance": 92,
+        "play_order": 4,
+        "capability_tags": ["data_platform", "bi_reporting", "executive_decision_support"],
+        "linked_modules": ["timeline", "architecture", "bi"],
+        "linked_architecture_node_ids": ["gold_tables", "semantic_models", "bi_dashboards"],
+        "linked_bi_entity_ids": ["fund-kayne-warehouse"],
+        "linked_model_preset": None,
+        "metrics_json": {"ddq_turnaround": 50, "reporting_cycle_reduction": 10, "systems_replaced": 6},
+        "artifact_refs": [],
+        "snapshot_spec": {
+            "title": "Warehouse before and after",
+            "before": {
+                "label": "Before",
+                "nodes": ["DealCloud", "MRI / Yardi", "Excel models", "Manual DDQs"],
+            },
+            "after": {
+                "label": "After",
+                "nodes": ["Databricks lakehouse", "Gold tables", "Semantic model", "Executive BI"],
+            },
+        },
+    },
+    {
+        "milestone_id": "milestone-waterfall-engine",
+        "phase_id": "phase-kayne-2018-2025",
+        "title": "Waterfall engine replacing Excel",
+        "date": "2024-02-01",
+        "type": "build",
+        "summary": "A fragile spreadsheet process became a reusable decision engine with faster scenario iteration and auditability.",
+        "importance": 88,
+        "play_order": 5,
+        "capability_tags": ["financial_modeling", "automation_workflow", "executive_decision_support"],
+        "linked_modules": ["timeline", "modeling", "architecture"],
+        "linked_architecture_node_ids": ["excel_ingestion", "gold_tables"],
+        "linked_bi_entity_ids": ["investment-kayne-waterfall"],
+        "linked_model_preset": "base_case",
+        "metrics_json": {"cycle_time_reduction": 5, "systems_replaced": 1},
+        "artifact_refs": [],
+        "snapshot_spec": {
+            "title": "Waterfall logic before and after",
+            "before": {
+                "label": "Before",
+                "nodes": ["Excel waterfall tabs", "Manual scenario edits", "Slow comparisons"],
+            },
+            "after": {
+                "label": "After",
+                "nodes": ["Python engine", "Governed inputs", "Instant LP/GP scenarios"],
+            },
+        },
+    },
+    {
+        "milestone_id": "milestone-winston-overlay",
+        "phase_id": None,
+        "title": "Winston / 83 MCP tools overlay",
+        "date": "2024-10-01",
+        "type": "overlay",
+        "summary": "The parallel founder build shows how governed systems thinking compounds into an agentic execution layer.",
+        "importance": 95,
+        "play_order": 6,
+        "capability_tags": ["ai_agentic", "automation_workflow", "executive_decision_support"],
+        "linked_modules": ["timeline", "architecture"],
+        "linked_architecture_node_ids": ["vector_db", "rag_pipelines", "winston_interface"],
+        "linked_bi_entity_ids": ["fund-jll-pds"],
+        "linked_model_preset": None,
+        "metrics_json": {"volume_supported": 83, "systems_replaced": 3},
+        "artifact_refs": [],
+        "snapshot_spec": {
+            "title": "AI execution layer",
+            "before": {
+                "label": "Before",
+                "nodes": ["Dashboards", "Manual requests", "Static workflow handoffs"],
+            },
+            "after": {
+                "label": "After",
+                "nodes": ["LLM router", "83 MCP tools", "Structured actions", "Audit trail"],
+            },
+        },
+    },
+    {
+        "milestone_id": "milestone-rejoined-jll-2025",
+        "phase_id": "phase-jll-2025-present",
+        "title": "Rejoined JLL in 2025 / AI analytics platform",
+        "date": "2025-04-01",
+        "type": "transition",
+        "summary": "Returned to JLL with the full data-platform and AI playbook, now aimed at national client delivery.",
+        "importance": 82,
+        "play_order": 7,
+        "capability_tags": ["ai_agentic", "data_platform", "bi_reporting", "executive_decision_support"],
+        "linked_modules": ["timeline", "architecture", "bi"],
+        "linked_architecture_node_ids": ["databricks_etl", "gold_tables", "semantic_models", "winston_interface"],
+        "linked_bi_entity_ids": ["fund-jll-pds"],
+        "linked_model_preset": None,
+        "metrics_json": {"volume_supported": 10, "stakeholders_served": 25},
+        "artifact_refs": [],
+        "snapshot_spec": {},
+    },
+]
+
+_ACCOMPLISHMENT_CARDS = [
+    {
+        "card_id": "card-jll-phase-context",
+        "phase_id": "phase-jll-2014-2018",
+        "milestone_id": None,
+        "metric_key": None,
+        "title": "JLL first period",
+        "card_type": "context",
+        "company": "JLL",
+        "date_start": "2014-08-01",
+        "date_end": "2018-01-31",
+        "capability_tags": ["bi_reporting", "executive_decision_support"],
+        "short_narrative": "Built the foundation: operational reporting discipline first, BI leverage second.",
+        "context": "JLL’s JPMC account had reporting needs but no dedicated BI service line.",
+        "action": "Created repeatable reporting and dashboard delivery patterns.",
+        "impact": "Set the pattern for later enterprise-scale data and AI work.",
+        "stakeholders": "Account leadership and delivery operators",
+        "artifact_refs": [],
+        "metrics_json": {"stakeholders_served": 50},
+        "snapshot_spec": {},
+        "sort_order": 1,
+    },
+    {
+        "card_id": "card-bi-service-line-action",
+        "phase_id": "phase-jll-2014-2018",
+        "milestone_id": "milestone-expanded-bi-scope",
+        "metric_key": None,
+        "title": "From reports to a service line",
+        "card_type": "action",
+        "company": "JLL",
+        "date_start": "2016-03-01",
+        "date_end": "2018-01-31",
+        "capability_tags": ["bi_reporting", "executive_decision_support"],
+        "short_narrative": "The important jump was not prettier dashboards. It was making analytics a repeatable operating capability.",
+        "context": "Analytics work had been ad hoc and dependent on individual analysts.",
+        "action": "Built a structured BI delivery motion using Tableau, SQL validations, and reusable extracts.",
+        "impact": "Leadership could trust a consistent reporting interface instead of one-off output.",
+        "stakeholders": "National account leadership",
+        "artifact_refs": [],
+        "metrics_json": {"systems_replaced": 2},
+        "snapshot_spec": {},
+        "sort_order": 2,
+    },
+    {
+        "card_id": "card-500-properties-problem",
+        "phase_id": "phase-kayne-2018-2025",
+        "milestone_id": "milestone-500-property-automation",
+        "metric_key": "properties_integrated",
+        "title": "Manual intake broke at scale",
+        "card_type": "problem",
+        "company": "Kayne Anderson",
+        "date_start": "2018-02-01",
+        "date_end": "2020-12-31",
+        "capability_tags": ["automation_workflow", "data_platform"],
+        "short_narrative": "500+ properties turned spreadsheet workflow pain into a systems problem.",
+        "context": "Partner accounting feeds and acquisitions data entry required repetitive manual work and reconciliation.",
+        "action": "Automated ingestion and validation with Azure Logic Apps, PySpark, and governed outputs.",
+        "impact": "Freed analyst capacity and created a stronger data platform base.",
+        "stakeholders": "FP&A and asset management",
+        "artifact_refs": [],
+        "metrics_json": {"time_saved": 160, "volume_supported": 500},
+        "snapshot_spec": {},
+        "sort_order": 3,
+    },
+    {
+        "card_id": "card-500-properties-impact",
+        "phase_id": "phase-kayne-2018-2025",
+        "milestone_id": "milestone-500-property-automation",
+        "metric_key": "properties_integrated",
+        "title": "500+ properties integrated",
+        "card_type": "impact",
+        "company": "Kayne Anderson",
+        "date_start": "2020-09-01",
+        "date_end": "2020-09-01",
+        "capability_tags": ["automation_workflow", "data_platform"],
+        "short_narrative": "This is where scale stops being a bullet point and becomes evidence of operating leverage.",
+        "context": "The automation layer had to hold across hundreds of assets and partner feeds.",
+        "action": "Standardized ingestion contracts and recurring validation.",
+        "impact": "160+ hours/month recaptured and far fewer manual-entry errors.",
+        "stakeholders": "Finance, operations, asset management",
+        "artifact_refs": [],
+        "metrics_json": {"time_saved": 160, "volume_supported": 500, "systems_replaced": 2},
+        "snapshot_spec": {},
+        "sort_order": 4,
+    },
+    {
+        "card_id": "card-kayne-warehouse-system",
+        "phase_id": "phase-kayne-2018-2025",
+        "milestone_id": "milestone-kayne-warehouse-semantic",
+        "metric_key": None,
+        "title": "Warehouse as operating backbone",
+        "card_type": "system",
+        "company": "Kayne Anderson",
+        "date_start": "2021-02-01",
+        "date_end": "2024-09-30",
+        "capability_tags": ["data_platform", "bi_reporting", "executive_decision_support"],
+        "short_narrative": "The important thing wasn’t just centralization. It was turning fragmented reporting into one governed operating surface.",
+        "context": "DealCloud, MRI, Yardi, and Excel lived in separate worlds.",
+        "action": "Created Databricks/Azure medallion flows, gold tables, and semantic models.",
+        "impact": "A single platform now powered DDQs, reporting, and downstream analytics.",
+        "stakeholders": "Executive leadership, FP&A, investor relations",
+        "artifact_refs": [],
+        "metrics_json": {"systems_replaced": 6},
+        "snapshot_spec": {
+            "title": "Before vs after warehouse",
+            "before": {"label": "Before", "nodes": ["CRM exports", "Property systems", "Excel reports"]},
+            "after": {"label": "After", "nodes": ["Lakehouse", "Gold tables", "Semantic model", "Executive BI"]},
+        },
+        "sort_order": 5,
+    },
+    {
+        "card_id": "card-kayne-warehouse-impact",
+        "phase_id": "phase-kayne-2018-2025",
+        "milestone_id": "milestone-kayne-warehouse-semantic",
+        "metric_key": "ddq_turnaround",
+        "title": "DDQ turnaround became a platform outcome",
+        "card_type": "impact",
+        "company": "Kayne Anderson",
+        "date_start": "2023-07-01",
+        "date_end": "2023-07-01",
+        "capability_tags": ["data_platform", "bi_reporting", "executive_decision_support"],
+        "short_narrative": "The warehouse mattered because it changed investor-facing speed, not because the architecture looked sophisticated.",
+        "context": "Investor requests depended on fragmented manual sourcing.",
+        "action": "Put governed data and shared definitions underneath the reporting process.",
+        "impact": "DDQ turnaround dropped by 50% and reporting accelerated by 10 days.",
+        "stakeholders": "Investor relations and executive stakeholders",
+        "artifact_refs": [],
+        "metrics_json": {"ddq_turnaround": 50, "reporting_cycle_reduction": 10},
+        "snapshot_spec": {},
+        "sort_order": 6,
+    },
+    {
+        "card_id": "card-reporting-cycle-impact",
+        "phase_id": "phase-kayne-2018-2025",
+        "milestone_id": "milestone-kayne-warehouse-semantic",
+        "metric_key": "reporting_cycle",
+        "title": "Quarter-close reporting moved faster",
+        "card_type": "impact",
+        "company": "Kayne Anderson",
+        "date_start": "2023-07-01",
+        "date_end": "2023-07-01",
+        "capability_tags": ["bi_reporting", "executive_decision_support"],
+        "short_narrative": "The system changed how quickly leadership could move from raw data to a decision-ready packet.",
+        "context": "Quarter-close reporting and executive delivery were slowed by fragmented reconciliation.",
+        "action": "Standardized semantic definitions and gold-layer outputs.",
+        "impact": "Quarterly reporting accelerated by 10 days.",
+        "stakeholders": "Leadership, FP&A, investor relations",
+        "artifact_refs": [],
+        "metrics_json": {"reporting_cycle_reduction": 10},
+        "snapshot_spec": {},
+        "sort_order": 7,
+    },
+    {
+        "card_id": "card-waterfall-snapshot",
+        "phase_id": "phase-kayne-2018-2025",
+        "milestone_id": "milestone-waterfall-engine",
+        "metric_key": None,
+        "title": "Waterfall engine snapshot",
+        "card_type": "snapshot",
+        "company": "Kayne Anderson",
+        "date_start": "2024-02-01",
+        "date_end": "2024-02-01",
+        "capability_tags": ["financial_modeling", "automation_workflow"],
+        "short_narrative": "This is the clearest before/after proof that modeling depth became software, not spreadsheet maintenance.",
+        "context": "Waterfall distributions lived in Excel logic that was slow to inspect and compare.",
+        "action": "Rebuilt the process as a Python-based engine using governed inputs.",
+        "impact": "Near-instant scenarios and clearer LP/GP economics.",
+        "stakeholders": "Investment committee and FP&A",
+        "artifact_refs": [],
+        "metrics_json": {"systems_replaced": 1, "cycle_time_reduction": 5},
+        "snapshot_spec": {
+            "title": "Waterfall engine",
+            "before": {"label": "Before", "nodes": ["Excel model", "Manual edits", "Slow reruns"]},
+            "after": {"label": "After", "nodes": ["Python engine", "Structured inputs", "Fast distributions"]},
+        },
+        "sort_order": 8,
+    },
+    {
+        "card_id": "card-waterfall-anecdote",
+        "phase_id": "phase-kayne-2018-2025",
+        "milestone_id": "milestone-waterfall-engine",
+        "metric_key": None,
+        "title": "Why the waterfall mattered",
+        "card_type": "anecdote",
+        "company": "Kayne Anderson",
+        "date_start": "2024-02-01",
+        "date_end": "2024-02-01",
+        "capability_tags": ["financial_modeling", "executive_decision_support"],
+        "short_narrative": "It proved the work was not 'just BI' because the financial engine itself became a productized system.",
+        "context": "This is the transition from reporting systems into domain-deep operating software.",
+        "action": "Encoded waterfall logic into a reusable calculation layer.",
+        "impact": "Faster scenario iteration and less spreadsheet risk.",
+        "stakeholders": "Investment and finance teams",
+        "artifact_refs": [],
+        "metrics_json": {"cycle_time_reduction": 5},
+        "snapshot_spec": {},
+        "sort_order": 9,
+    },
+    {
+        "card_id": "card-winston-system",
+        "phase_id": None,
+        "milestone_id": "milestone-winston-overlay",
+        "metric_key": "ai_tool_surface",
+        "title": "Winston as a parallel proof point",
+        "card_type": "system",
+        "company": "Novendor",
+        "date_start": "2024-01-01",
+        "date_end": None,
+        "capability_tags": ["ai_agentic", "automation_workflow", "executive_decision_support"],
+        "short_narrative": "Winston is not another employer phase here. It is proof that the same systems thinking compounds into an agentic execution layer.",
+        "context": "Generic enterprise AI tools were horizontal and thin on domain-specific action.",
+        "action": "Built a vertical AI execution platform with 83 MCP tools, structured outputs, and auditability.",
+        "impact": "Makes the recent AI claim concrete and linkable to a real operating surface.",
+        "stakeholders": "Operators, executives, and product buyers",
+        "artifact_refs": [],
+        "metrics_json": {"volume_supported": 83, "systems_replaced": 3},
+        "snapshot_spec": {
+            "title": "Winston execution layer",
+            "before": {"label": "Before", "nodes": ["Chat wrappers", "Manual follow-up", "No domain actions"]},
+            "after": {"label": "After", "nodes": ["LLM router", "83 MCP tools", "Execution workflows", "Audit layer"]},
+        },
+        "sort_order": 10,
+    },
+    {
+        "card_id": "card-jll-2025-context",
+        "phase_id": "phase-jll-2025-present",
+        "milestone_id": "milestone-rejoined-jll-2025",
+        "metric_key": None,
+        "title": "JLL second period in 2025",
+        "card_type": "context",
+        "company": "JLL",
+        "date_start": "2025-04-01",
+        "date_end": None,
+        "capability_tags": ["ai_agentic", "data_platform", "bi_reporting"],
+        "short_narrative": "This phase should read as the return of a much stronger builder, not a continuation blur from the first JLL chapter.",
+        "context": "Rejoined JLL on April 1, 2025 with the full warehouse, governance, and AI playbook already earned.",
+        "action": "Applied the compounded data-platform and AI toolkit to client-delivery analytics.",
+        "impact": "Moved beyond dashboards into governed conversational analytics.",
+        "stakeholders": "PDS leadership and client teams",
+        "artifact_refs": [],
+        "metrics_json": {"volume_supported": 10},
+        "snapshot_spec": {},
+        "sort_order": 11,
+    },
+    {
+        "card_id": "card-jll-2025-stakeholders",
+        "phase_id": "phase-jll-2025-present",
+        "milestone_id": "milestone-rejoined-jll-2025",
+        "metric_key": "ai_tool_surface",
+        "title": "Who the 2025 platform served",
+        "card_type": "stakeholders",
+        "company": "JLL",
+        "date_start": "2025-04-01",
+        "date_end": None,
+        "capability_tags": ["ai_agentic", "executive_decision_support"],
+        "short_narrative": "The JLL return matters because the AI layer was used for delivery and client-facing execution, not a lab-only prototype.",
+        "context": "The platform had to serve both internal methodology and client-facing reporting needs.",
+        "action": "Standardized analytics across 10+ accounts and exposed conversational access patterns.",
+        "impact": "Turned reporting infrastructure into a live intelligence interface.",
+        "stakeholders": "PDS leaders, delivery teams, and client account stakeholders",
+        "artifact_refs": [],
+        "metrics_json": {"stakeholders_served": 25, "volume_supported": 10},
+        "snapshot_spec": {},
+        "sort_order": 12,
+    },
+]
+
+_METRIC_ANCHORS = [
+    {
+        "anchor_id": "anchor-properties-integrated",
+        "hero_metric_key": "properties_integrated",
+        "title": "500+ properties integrated",
+        "default_view": "impact",
+        "linked_phase_ids": ["phase-kayne-2018-2025"],
+        "linked_milestone_ids": ["milestone-500-property-automation", "milestone-kayne-warehouse-semantic"],
+        "linked_capability_layer_ids": ["automation_workflow", "data_platform"],
+        "narrative_hint": "Scale became the forcing function for stronger ingestion, governance, and warehouse design.",
+        "sort_order": 1,
+    },
+    {
+        "anchor_id": "anchor-ddq-turnaround",
+        "hero_metric_key": "ddq_turnaround",
+        "title": "DDQ turnaround reduced by 50%",
+        "default_view": "impact",
+        "linked_phase_ids": ["phase-kayne-2018-2025"],
+        "linked_milestone_ids": ["milestone-kayne-warehouse-semantic"],
+        "linked_capability_layer_ids": ["data_platform", "bi_reporting", "executive_decision_support"],
+        "narrative_hint": "The warehouse mattered because it changed investor-facing speed and trust.",
+        "sort_order": 2,
+    },
+    {
+        "anchor_id": "anchor-reporting-cycle",
+        "hero_metric_key": "reporting_cycle",
+        "title": "Reporting cycle accelerated by 10 days",
+        "default_view": "impact",
+        "linked_phase_ids": ["phase-kayne-2018-2025"],
+        "linked_milestone_ids": ["milestone-kayne-warehouse-semantic"],
+        "linked_capability_layer_ids": ["bi_reporting", "executive_decision_support"],
+        "narrative_hint": "Governance and semantic definitions shortened the path from raw data to decision-ready reporting.",
+        "sort_order": 3,
+    },
+    {
+        "anchor_id": "anchor-ai-tool-surface",
+        "hero_metric_key": "ai_tool_surface",
+        "title": "83 MCP tools and AI execution layer",
+        "default_view": "capability",
+        "linked_phase_ids": ["phase-jll-2025-present"],
+        "linked_milestone_ids": ["milestone-winston-overlay", "milestone-rejoined-jll-2025"],
+        "linked_capability_layer_ids": ["ai_agentic", "executive_decision_support"],
+        "narrative_hint": "The AI layer is shown as an overlay proof point plus its application in the 2025 JLL return.",
+        "sort_order": 4,
+    },
+]
+
+
 # ── New queries (system components, deployments, stats) ──────────
 
 def list_system_components(*, env_id: UUID, business_id: UUID) -> list[dict]:
@@ -414,6 +1186,120 @@ def list_deployments(*, env_id: UUID, business_id: UUID) -> list[dict]:
         return []
 
 
+def list_career_phases(*, env_id: UUID, business_id: UUID) -> list[dict]:
+    if not _table_exists("resume_career_phases"):
+        return []
+
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT * FROM resume_career_phases
+                WHERE env_id = %s::uuid AND business_id = %s::uuid
+                ORDER BY display_order
+                """,
+                (str(env_id), str(business_id)),
+            )
+            return cur.fetchall()
+    except psycopg.errors.UndefinedTable:
+        return []
+
+
+def list_capability_layers(*, env_id: UUID, business_id: UUID) -> list[dict]:
+    if not _table_exists("resume_capability_layers"):
+        return []
+
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT * FROM resume_capability_layers
+                WHERE env_id = %s::uuid AND business_id = %s::uuid
+                ORDER BY sort_order
+                """,
+                (str(env_id), str(business_id)),
+            )
+            return cur.fetchall()
+    except psycopg.errors.UndefinedTable:
+        return []
+
+
+def list_delivery_initiatives(*, env_id: UUID, business_id: UUID) -> list[dict]:
+    if not _table_exists("resume_delivery_initiatives"):
+        return []
+
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT * FROM resume_delivery_initiatives
+                WHERE env_id = %s::uuid AND business_id = %s::uuid
+                ORDER BY start_date ASC, importance DESC
+                """,
+                (str(env_id), str(business_id)),
+            )
+            return cur.fetchall()
+    except psycopg.errors.UndefinedTable:
+        return []
+
+
+def list_career_milestones(*, env_id: UUID, business_id: UUID) -> list[dict]:
+    if not _table_exists("resume_career_milestones"):
+        return []
+
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT * FROM resume_career_milestones
+                WHERE env_id = %s::uuid AND business_id = %s::uuid
+                ORDER BY date ASC, coalesce(play_order, 999)
+                """,
+                (str(env_id), str(business_id)),
+            )
+            return cur.fetchall()
+    except psycopg.errors.UndefinedTable:
+        return []
+
+
+def list_accomplishment_cards(*, env_id: UUID, business_id: UUID) -> list[dict]:
+    if not _table_exists("resume_accomplishment_cards"):
+        return []
+
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT * FROM resume_accomplishment_cards
+                WHERE env_id = %s::uuid AND business_id = %s::uuid
+                ORDER BY sort_order, coalesce(date_start, date_end, now()::date)
+                """,
+                (str(env_id), str(business_id)),
+            )
+            return cur.fetchall()
+    except psycopg.errors.UndefinedTable:
+        return []
+
+
+def list_metric_anchors(*, env_id: UUID, business_id: UUID) -> list[dict]:
+    if not _table_exists("resume_metric_anchors"):
+        return []
+
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT * FROM resume_metric_anchors
+                WHERE env_id = %s::uuid AND business_id = %s::uuid
+                ORDER BY sort_order
+                """,
+                (str(env_id), str(business_id)),
+            )
+            return cur.fetchall()
+    except psycopg.errors.UndefinedTable:
+        return []
+
+
 def get_system_stats(*, env_id: UUID, business_id: UUID) -> dict:
     """Compute live system metrics from resume data."""
     roles = list_roles(env_id=env_id, business_id=business_id)
@@ -442,6 +1328,12 @@ def get_workspace_payload(*, env_id: UUID, business_id: UUID) -> dict:
     projects = list_projects(env_id=env_id, business_id=business_id)
     components = list_system_components(env_id=env_id, business_id=business_id)
     deployments = list_deployments(env_id=env_id, business_id=business_id)
+    phases = list_career_phases(env_id=env_id, business_id=business_id)
+    capability_layers = list_capability_layers(env_id=env_id, business_id=business_id)
+    initiatives = list_delivery_initiatives(env_id=env_id, business_id=business_id)
+    milestones = list_career_milestones(env_id=env_id, business_id=business_id)
+    accomplishment_cards = list_accomplishment_cards(env_id=env_id, business_id=business_id)
+    metric_anchors = list_metric_anchors(env_id=env_id, business_id=business_id)
     return build_resume_workspace_payload(
         summary=summary,
         stats=stats,
@@ -449,6 +1341,12 @@ def get_workspace_payload(*, env_id: UUID, business_id: UUID) -> dict:
         projects=projects,
         components=components,
         deployments=deployments,
+        phases=phases,
+        capability_layers=capability_layers,
+        initiatives=initiatives,
+        milestones=milestones,
+        accomplishment_cards=accomplishment_cards,
+        metric_anchors=metric_anchors,
     )
 
 
@@ -662,55 +1560,72 @@ def seed_demo_workspace(*, env_id: UUID, business_id: UUID, actor: str = "system
             "SELECT role_id FROM resume_roles WHERE env_id = %s::uuid AND business_id = %s::uuid LIMIT 1",
             (str(env_id), str(business_id)),
         )
-        if cur.fetchone():
-            return {"seeded": False, "reason": "already_seeded"}
+        roles_already_seeded = bool(cur.fetchone())
 
     role_ids = []
+    role_ids_by_sort: dict[int, str] = {}
     with get_cursor() as cur:
-        for r in _ROLES:
-            cur.execute(
-                """
-                INSERT INTO resume_roles
-                (env_id, business_id, company, division, title, location,
-                 start_date, end_date, role_type, industry, summary, highlights, technologies, sort_order)
-                VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s)
-                RETURNING role_id
-                """,
-                (
-                    str(env_id), str(business_id),
-                    r["company"], r["division"], r["title"], r["location"],
-                    r["start_date"], r["end_date"], r["role_type"], r["industry"],
-                    r["summary"], r["highlights"], r["technologies"], r["sort_order"],
-                ),
-            )
-            role_ids.append(str(cur.fetchone()["role_id"]))
+        if not roles_already_seeded:
+            for r in _ROLES:
+                cur.execute(
+                    """
+                    INSERT INTO resume_roles
+                    (env_id, business_id, company, division, title, location,
+                     start_date, end_date, role_type, industry, summary, highlights, technologies, sort_order)
+                    VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s)
+                    RETURNING role_id
+                    """,
+                    (
+                        str(env_id), str(business_id),
+                        r["company"], r["division"], r["title"], r["location"],
+                        r["start_date"], r["end_date"], r["role_type"], r["industry"],
+                        r["summary"], r["highlights"], r["technologies"], r["sort_order"],
+                    ),
+                )
+                role_id = str(cur.fetchone()["role_id"])
+                role_ids.append(role_id)
+                role_ids_by_sort[r["sort_order"]] = role_id
 
-        for name, category, proficiency, years_used, context in _SKILLS:
-            cur.execute(
-                """
-                INSERT INTO resume_skills (env_id, business_id, name, category, proficiency, years_used, context)
-                VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, %s)
-                ON CONFLICT (env_id, name) DO NOTHING
-                """,
-                (str(env_id), str(business_id), name, category, proficiency, years_used, context),
-            )
+            for name, category, proficiency, years_used, context in _SKILLS:
+                cur.execute(
+                    """
+                    INSERT INTO resume_skills (env_id, business_id, name, category, proficiency, years_used, context)
+                    VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, %s)
+                    ON CONFLICT (env_id, name) DO NOTHING
+                    """,
+                    (str(env_id), str(business_id), name, category, proficiency, years_used, context),
+                )
 
-        for p in _PROJECTS:
+            for p in _PROJECTS:
+                cur.execute(
+                    """
+                    INSERT INTO resume_projects
+                    (env_id, business_id, name, client, status, summary, impact, technologies, metrics, url, sort_order)
+                    VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s)
+                    """,
+                    (
+                        str(env_id), str(business_id),
+                        p["name"], p["client"], p["status"], p["summary"], p["impact"],
+                        p["technologies"], p["metrics"], p.get("url"), p["sort_order"],
+                    ),
+                )
+        else:
             cur.execute(
                 """
-                INSERT INTO resume_projects
-                (env_id, business_id, name, client, status, summary, impact, technologies, metrics, url, sort_order)
-                VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s)
+                SELECT role_id, sort_order
+                FROM resume_roles
+                WHERE env_id = %s::uuid AND business_id = %s::uuid
+                ORDER BY sort_order
                 """,
-                (
-                    str(env_id), str(business_id),
-                    p["name"], p["client"], p["status"], p["summary"], p["impact"],
-                    p["technologies"], p["metrics"], p.get("url"), p["sort_order"],
-                ),
+                (str(env_id), str(business_id)),
             )
+            for row in cur.fetchall():
+                role_id = str(row["role_id"])
+                role_ids.append(role_id)
+                role_ids_by_sort[int(row["sort_order"])] = role_id
 
     # Seed system components only when the extended resume tables exist.
-    if _table_exists("resume_system_components"):
+    if _table_exists("resume_system_components") and not roles_already_seeded:
         with get_cursor() as cur:
             for sc in _SYSTEM_COMPONENTS:
                 cur.execute(
@@ -728,11 +1643,11 @@ def seed_demo_workspace(*, env_id: UUID, business_id: UUID, actor: str = "system
                 )
 
     # Seed deployments (link to role_ids by sort_order) only when the table exists.
-    if _table_exists("resume_deployments"):
+    if _table_exists("resume_deployments") and not roles_already_seeded:
         with get_cursor() as cur:
             for dep in _DEPLOYMENTS:
                 # Match deployment to role by sort_order index
-                dep_role_id = role_ids[dep["sort_order"] - 1] if dep["sort_order"] <= len(role_ids) else None
+                dep_role_id = role_ids_by_sort.get(dep["sort_order"])
                 cur.execute(
                     """
                     INSERT INTO resume_deployments
@@ -749,6 +1664,196 @@ def seed_demo_workspace(*, env_id: UUID, business_id: UUID, actor: str = "system
                     ),
                 )
 
+    if _table_exists("resume_career_phases"):
+        with get_cursor() as cur:
+            for phase in _CAREER_PHASES:
+                cur.execute(
+                    """
+                    INSERT INTO resume_career_phases
+                    (phase_id, env_id, business_id, company, phase_name, start_date, end_date, description, band_color, overlay_only, display_order)
+                    VALUES (%s, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (phase_id) DO NOTHING
+                    """,
+                    (
+                        phase["phase_id"],
+                        str(env_id),
+                        str(business_id),
+                        phase["company"],
+                        phase["phase_name"],
+                        phase["start_date"],
+                        phase["end_date"],
+                        phase["description"],
+                        phase["band_color"],
+                        phase["overlay_only"],
+                        phase["display_order"],
+                    ),
+                )
+
+    if _table_exists("resume_capability_layers"):
+        with get_cursor() as cur:
+            for layer in _CAPABILITY_LAYERS:
+                cur.execute(
+                    """
+                    INSERT INTO resume_capability_layers
+                    (layer_id, env_id, business_id, name, color, description, sort_order, is_visible)
+                    VALUES (%s, %s::uuid, %s::uuid, %s, %s, %s, %s, %s)
+                    ON CONFLICT (layer_id) DO NOTHING
+                    """,
+                    (
+                        layer["layer_id"],
+                        str(env_id),
+                        str(business_id),
+                        layer["name"],
+                        layer["color"],
+                        layer["description"],
+                        layer["sort_order"],
+                        layer["is_visible"],
+                    ),
+                )
+
+    if _table_exists("resume_delivery_initiatives"):
+        with get_cursor() as cur:
+            for initiative in _DELIVERY_INITIATIVES:
+                cur.execute(
+                    """
+                    INSERT INTO resume_delivery_initiatives
+                    (initiative_id, env_id, business_id, phase_id, role_id, title, summary, team_context, business_challenge,
+                     measurable_outcome, stakeholder_group, scale, architecture, start_date, end_date, category, impact_area,
+                     impact_tag, importance, capability_tags, technologies, linked_modules, linked_architecture_node_ids,
+                     linked_bi_entity_ids, linked_model_preset, metrics_json)
+                    VALUES (%s, %s::uuid, %s::uuid, %s, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                            %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s, %s::jsonb)
+                    ON CONFLICT (initiative_id) DO NOTHING
+                    """,
+                    (
+                        initiative["initiative_id"],
+                        str(env_id),
+                        str(business_id),
+                        initiative["phase_id"],
+                        role_ids_by_sort.get(initiative["role_sort_order"]),
+                        initiative["title"],
+                        initiative["summary"],
+                        initiative["team_context"],
+                        initiative["business_challenge"],
+                        initiative["measurable_outcome"],
+                        initiative["stakeholder_group"],
+                        initiative["scale"],
+                        initiative["architecture"],
+                        initiative["start_date"],
+                        initiative["end_date"],
+                        initiative["category"],
+                        initiative["impact_area"],
+                        initiative["impact_tag"],
+                        initiative["importance"],
+                        json.dumps(initiative["capability_tags"]),
+                        json.dumps(initiative["technologies"]),
+                        json.dumps(initiative["linked_modules"]),
+                        json.dumps(initiative["linked_architecture_node_ids"]),
+                        json.dumps(initiative["linked_bi_entity_ids"]),
+                        initiative["linked_model_preset"],
+                        json.dumps(initiative["metrics_json"]),
+                    ),
+                )
+
+    if _table_exists("resume_career_milestones"):
+        with get_cursor() as cur:
+            for milestone in _CAREER_MILESTONES:
+                cur.execute(
+                    """
+                    INSERT INTO resume_career_milestones
+                    (milestone_id, env_id, business_id, phase_id, title, date, type, summary, importance, play_order,
+                     capability_tags, linked_modules, linked_architecture_node_ids, linked_bi_entity_ids, linked_model_preset,
+                     metrics_json, artifact_refs, snapshot_spec)
+                    VALUES (%s, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb,
+                            %s, %s::jsonb, %s::jsonb, %s::jsonb)
+                    ON CONFLICT (milestone_id) DO NOTHING
+                    """,
+                    (
+                        milestone["milestone_id"],
+                        str(env_id),
+                        str(business_id),
+                        milestone["phase_id"],
+                        milestone["title"],
+                        milestone["date"],
+                        milestone["type"],
+                        milestone["summary"],
+                        milestone["importance"],
+                        milestone["play_order"],
+                        json.dumps(milestone["capability_tags"]),
+                        json.dumps(milestone["linked_modules"]),
+                        json.dumps(milestone["linked_architecture_node_ids"]),
+                        json.dumps(milestone["linked_bi_entity_ids"]),
+                        milestone["linked_model_preset"],
+                        json.dumps(milestone["metrics_json"]),
+                        json.dumps(milestone["artifact_refs"]),
+                        json.dumps(milestone["snapshot_spec"]),
+                    ),
+                )
+
+    if _table_exists("resume_accomplishment_cards"):
+        with get_cursor() as cur:
+            for card in _ACCOMPLISHMENT_CARDS:
+                cur.execute(
+                    """
+                    INSERT INTO resume_accomplishment_cards
+                    (card_id, env_id, business_id, phase_id, milestone_id, metric_key, title, card_type, company, date_start,
+                     date_end, capability_tags, short_narrative, context, action, impact, stakeholders, artifact_refs,
+                     metrics_json, snapshot_spec, sort_order)
+                    VALUES (%s, %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s,
+                            %s::jsonb, %s::jsonb, %s::jsonb, %s)
+                    ON CONFLICT (card_id) DO NOTHING
+                    """,
+                    (
+                        card["card_id"],
+                        str(env_id),
+                        str(business_id),
+                        card["phase_id"],
+                        card["milestone_id"],
+                        card["metric_key"],
+                        card["title"],
+                        card["card_type"],
+                        card["company"],
+                        card["date_start"],
+                        card["date_end"],
+                        json.dumps(card["capability_tags"]),
+                        card["short_narrative"],
+                        card["context"],
+                        card["action"],
+                        card["impact"],
+                        card["stakeholders"],
+                        json.dumps(card["artifact_refs"]),
+                        json.dumps(card["metrics_json"]),
+                        json.dumps(card["snapshot_spec"]),
+                        card["sort_order"],
+                    ),
+                )
+
+    if _table_exists("resume_metric_anchors"):
+        with get_cursor() as cur:
+            for anchor in _METRIC_ANCHORS:
+                cur.execute(
+                    """
+                    INSERT INTO resume_metric_anchors
+                    (anchor_id, env_id, business_id, hero_metric_key, title, default_view, linked_phase_ids,
+                     linked_milestone_ids, linked_capability_layer_ids, narrative_hint, sort_order)
+                    VALUES (%s, %s::uuid, %s::uuid, %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s, %s)
+                    ON CONFLICT (anchor_id) DO NOTHING
+                    """,
+                    (
+                        anchor["anchor_id"],
+                        str(env_id),
+                        str(business_id),
+                        anchor["hero_metric_key"],
+                        anchor["title"],
+                        anchor["default_view"],
+                        json.dumps(anchor["linked_phase_ids"]),
+                        json.dumps(anchor["linked_milestone_ids"]),
+                        json.dumps(anchor["linked_capability_layer_ids"]),
+                        anchor["narrative_hint"],
+                        anchor["sort_order"],
+                    ),
+                )
+
     # Seed RAG documents (best-effort — won't fail the seed if RAG is unavailable)
     rag_chunks = 0
     try:
@@ -757,4 +1862,4 @@ def seed_demo_workspace(*, env_id: UUID, business_id: UUID, actor: str = "system
     except Exception:
         pass
 
-    return {"seeded": True, "role_ids": role_ids, "rag_chunks": rag_chunks}
+    return {"seeded": not roles_already_seeded, "role_ids": role_ids, "rag_chunks": rag_chunks}

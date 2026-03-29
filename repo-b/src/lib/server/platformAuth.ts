@@ -161,6 +161,9 @@ function resolveSessionRedirect(args: {
   if (sanitized && returnToIsAuthorized(sanitized, args.memberships, args.platformAdmin)) {
     return sanitized;
   }
+  if (args.genericLogin) {
+    return "/app";
+  }
   return environmentHomePath({
     envId: args.activeMembership.env_id,
     slug: args.activeMembership.env_slug,

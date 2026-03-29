@@ -70,6 +70,19 @@ export function WinstonShell({
     setRailOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    if (!drawerOpen && !railOpen) {
+      document.body.style.overflow = "";
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [drawerOpen, railOpen]);
+
   return (
     <div className={cn("min-h-screen flex flex-col bg-bm-bg", className)}>
 
@@ -204,11 +217,12 @@ export function WinstonShell({
           {/* Sheet panel */}
           <div
             className={cn(
-              "absolute right-0 top-0 h-full w-80 flex flex-col",
-              "bg-bm-bg border-l border-bm-border/[0.08]",
-              "shadow-[-4px_0_32px_-8px_rgba(0,0,0,0.6)]",
+              "absolute bottom-0 left-0 right-0 flex max-h-[82vh] flex-col rounded-t-[28px]",
+              "bg-bm-bg border-t border-bm-border/[0.08]",
+              "shadow-[0_-16px_48px_-20px_rgba(0,0,0,0.72)]",
               "transition-transform duration-200",
-              railOpen ? "translate-x-0" : "translate-x-full"
+              "md:bottom-0 md:left-auto md:right-0 md:top-0 md:h-full md:max-h-none md:w-80 md:rounded-none md:border-l md:border-t-0 md:shadow-[-4px_0_32px_-8px_rgba(0,0,0,0.6)]",
+              railOpen ? "translate-y-0 md:translate-x-0" : "translate-y-full md:translate-x-full md:translate-y-0"
             )}
           >
             {/* Sheet header */}

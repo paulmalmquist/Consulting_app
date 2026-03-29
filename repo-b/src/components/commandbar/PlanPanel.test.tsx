@@ -43,7 +43,7 @@ function makePlan(): AssistantPlan {
     context: {
       currentEnvId: "env_1",
       currentBusinessId: null,
-      route: "/lab/environments",
+      route: "/app",
       selection: null,
     },
     createdAt: Date.now(),

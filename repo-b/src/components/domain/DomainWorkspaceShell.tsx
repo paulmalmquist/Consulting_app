@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Building2, Menu, X } from "lucide-react";
 import { DomainSlug, useDomainEnv } from "@/components/domain/DomainEnvProvider";
 
 function isActive(pathname: string, href: string): boolean {
@@ -216,11 +217,33 @@ export default function DomainWorkspaceShell({
 }) {
   const pathname = usePathname();
   const { environment, businessId, loading, error, requestId, retry } = useDomainEnv();
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const base = `/lab/env/${envId}/${domain}`;
   const homeHref = `/lab/env/${envId}`;
   const items = navItems(domain, base);
   const envLabel = environment?.client_name || envId;
+  const activeNavLabel = useMemo(
+    () => items.find((item) => isActive(pathname, item.href))?.label || DOMAIN_LABELS[domain],
+    [domain, items, pathname],
+  );
+
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!drawerOpen) {
+      document.body.style.overflow = "";
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [drawerOpen]);
 
   if (loading) {
     return (
@@ -249,7 +272,86 @@ export default function DomainWorkspaceShell({
 
   return (
     <div className="space-y-4">
-      <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-4">
+      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-bm-border/60 bg-bm-bg/95 px-4 py-3 backdrop-blur lg:hidden">
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(true)}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-bm-border/70 bg-bm-surface/25 text-bm-text"
+          aria-label={`Open ${DOMAIN_LABELS[domain]} navigation`}
+        >
+          <Menu size={18} />
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[10px] uppercase tracking-[0.18em] text-bm-muted2">{DOMAIN_LABELS[domain]}</p>
+          <p className="truncate text-sm font-semibold text-bm-text">{envLabel}</p>
+        </div>
+        <Link
+          href={homeHref}
+          className="inline-flex h-10 items-center rounded-xl border border-bm-border/70 bg-bm-surface/25 px-3 text-xs font-medium text-bm-text"
+        >
+          Home
+        </Link>
+      </header>
+
+      {drawerOpen ? (
+        <div className="fixed inset-0 z-40 lg:hidden" data-testid={`${domain}-mobile-drawer`}>
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/60"
+            aria-label="Close navigation"
+            onClick={() => setDrawerOpen(false)}
+          />
+          <div className="absolute left-0 top-0 flex h-full w-72 max-w-[88vw] flex-col border-r border-bm-border/70 bg-bm-bg p-4">
+            <div className="flex items-center justify-between border-b border-bm-border/50 pb-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">{DOMAIN_LABELS[domain]}</p>
+                <p className="text-sm font-semibold text-bm-text">{envLabel}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(false)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-bm-border/70 text-bm-text"
+                aria-label="Close navigation"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <nav className="mt-4 space-y-1.5 overflow-y-auto" data-testid={`${domain}-left-nav-mobile`}>
+              {items.map((item) => (
+                <Link
+                  key={`${item.href}-mobile`}
+                  href={item.href}
+                  className={`block rounded-lg border px-3 py-2.5 text-sm transition ${
+                    isActive(pathname, item.href)
+                      ? "border-bm-accent/45 bg-bm-accent/10 text-bm-text"
+                      : "border-transparent text-bm-muted hover:bg-bm-surface/30 hover:text-bm-text"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+        </div>
+      ) : null}
+
+      <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-4 lg:hidden">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Building2 size={18} className="text-bm-muted2" />
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">Current module</p>
+              <h1 className="text-lg font-semibold text-bm-text">{activeNavLabel}</h1>
+            </div>
+          </div>
+          <p className="text-sm text-bm-muted2">
+            Environment: {environment?.schema_name || envId}
+            {businessId ? ` · Business: ${businessId.slice(0, 8)}` : ""}
+          </p>
+        </div>
+      </section>
+
+      <section className="hidden rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-4 lg:block">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -275,7 +377,7 @@ export default function DomainWorkspaceShell({
       </section>
 
       <div className="grid gap-4 lg:grid-cols-[220px,1fr]">
-        <aside className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3 h-fit" data-testid={`${domain}-sidebar`}>
+        <aside className="hidden h-fit rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3 lg:block" data-testid={`${domain}-sidebar`}>
           <p className="mb-2 px-1 text-xs uppercase tracking-[0.12em] text-bm-muted2">Navigation</p>
           <nav className="space-y-1" data-testid={`${domain}-left-nav`}>
             {items.map((item) => (

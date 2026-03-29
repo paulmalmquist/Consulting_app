@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 import { fmtMoney, fmtPct, fmtMultiple } from "@/lib/format-utils";
 import {
@@ -43,6 +44,12 @@ export default function ResumeWorkspace({
     modelInputs,
     selectedBiEntityId,
     biFilters,
+    selectNarrativeItem,
+    clearNarrativeSelection,
+    selectedNarrativeKind,
+    selectedNarrativeId,
+    timelineView,
+    setTimelineView,
   } = useResumeWorkspaceStore(
     useShallow((state) => ({
       activeModule: state.activeModule,
@@ -51,12 +58,115 @@ export default function ResumeWorkspace({
       modelInputs: state.modelInputs,
       selectedBiEntityId: state.selectedBiEntityId,
       biFilters: state.biFilters,
+      selectNarrativeItem: state.selectNarrativeItem,
+      clearNarrativeSelection: state.clearNarrativeSelection,
+      selectedNarrativeKind: state.selectedNarrativeKind,
+      selectedNarrativeId: state.selectedNarrativeId,
+      timelineView: state.timelineView,
+      setTimelineView: state.setTimelineView,
     })),
   );
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [urlStateHydrated, setUrlStateHydrated] = useState(false);
 
   useEffect(() => {
     initialize(workspace);
   }, [workspace, initialize]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const media = window.matchMedia("(max-width: 1279px)");
+    const updateViewport = () => setIsMobileViewport(media.matches);
+    updateViewport();
+    media.addEventListener("change", updateViewport);
+    return () => media.removeEventListener("change", updateViewport);
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    const view = params.get("view");
+    const milestone = params.get("milestone");
+    const phase = params.get("phase");
+    const layer = params.get("layer");
+    const metric = params.get("metric");
+    const requestedView =
+      view && workspace.timeline.views.includes(view as typeof workspace.timeline.views[number])
+        ? (view as typeof workspace.timeline.default_view)
+        : null;
+
+    if (requestedView) {
+      setTimelineView(requestedView);
+    }
+
+    if (milestone) {
+      selectNarrativeItem("milestone", milestone, {
+        switchModule: "timeline",
+        timelineView: requestedView,
+      });
+      setUrlStateHydrated(true);
+      return;
+    }
+    if (phase) {
+      selectNarrativeItem("phase", phase, {
+        switchModule: "timeline",
+        timelineView: requestedView,
+      });
+      setUrlStateHydrated(true);
+      return;
+    }
+    if (layer) {
+      selectNarrativeItem("layer", layer, {
+        switchModule: "timeline",
+        timelineView: requestedView ?? "capability",
+      });
+      setUrlStateHydrated(true);
+      return;
+    }
+    if (metric) {
+      const anchor = workspace.timeline.metric_anchors.find((item) => item.hero_metric_key === metric);
+      selectNarrativeItem("metric", metric, {
+        switchModule: "timeline",
+        timelineView: requestedView ?? anchor?.default_view ?? null,
+      });
+      setUrlStateHydrated(true);
+      return;
+    }
+    setUrlStateHydrated(true);
+  }, [searchParams, selectNarrativeItem, setTimelineView, workspace.timeline.default_view, workspace.timeline.metric_anchors, workspace.timeline.views]);
+
+  useEffect(() => {
+    if (!urlStateHydrated) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("view", timelineView);
+    params.delete("phase");
+    params.delete("milestone");
+    params.delete("layer");
+    params.delete("metric");
+
+    if (selectedNarrativeKind === "phase" && selectedNarrativeId) params.set("phase", selectedNarrativeId);
+    if (selectedNarrativeKind === "milestone" && selectedNarrativeId) params.set("milestone", selectedNarrativeId);
+    if (selectedNarrativeKind === "layer" && selectedNarrativeId) params.set("layer", selectedNarrativeId);
+    if (selectedNarrativeKind === "metric" && selectedNarrativeId) params.set("metric", selectedNarrativeId);
+
+    const next = params.toString();
+    const current = searchParams.toString();
+    if (next !== current) {
+      router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+    }
+  }, [pathname, router, searchParams, selectedNarrativeId, selectedNarrativeKind, timelineView, urlStateHydrated]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        clearNarrativeSelection();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [clearNarrativeSelection]);
 
   const modelOutputs = useMemo(
     () => computeResumeScenario(modelInputs, workspace.modeling.assumptions),
@@ -146,11 +256,19 @@ export default function ResumeWorkspace({
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {workspace.identity.metrics.map((metric) => (
-              <div key={metric.label} className="rounded-2xl border border-white/10 bg-black/15 px-4 py-4 backdrop-blur-sm">
+              <button
+                key={metric.label}
+                type="button"
+                onClick={() => {
+                  if (!metric.metric_key) return;
+                  selectNarrativeItem("metric", metric.metric_key, { switchModule: "timeline" });
+                }}
+                className="rounded-2xl border border-white/10 bg-black/15 px-4 py-4 text-left backdrop-blur-sm transition hover:border-white/20 hover:bg-black/20"
+              >
                 <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">{metric.label}</p>
                 <p className="mt-2 text-2xl font-semibold">{metric.value}</p>
                 {metric.detail ? <p className="mt-2 text-xs text-bm-muted">{metric.detail}</p> : null}
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -221,33 +339,78 @@ export default function ResumeWorkspace({
           ) : null}
         </div>
 
-        <div className="space-y-6">
-          <ResumeModuleBoundary
-            boundaryId="resume-context-rail"
-            eyebrow="Context Rail"
-            title="Resume data unavailable"
-            message="The supporting narrative rail could not render, but the main resume modules remain available."
-            resetKey={`${envId}-${activeModule}-${biSlice.entity.entity_id}`}
-          >
-            <ResumeContextRail
-              timeline={workspace.timeline}
-              architecture={workspace.architecture}
-              stories={workspace.stories}
-              modelingOutputs={modelOutputs}
-              biEntity={biSlice.entity}
-            />
-          </ResumeModuleBoundary>
-          <ResumeModuleBoundary
-            boundaryId="resume-assistant"
-            eyebrow="Assistant"
-            title="Resume data unavailable"
-            message="The contextual assistant failed to render. You can still use the visual resume modules directly."
-            resetKey={`${envId}-${activeModule}`}
-          >
-            <ResumeAssistantDock envId={envId} businessId={businessId} metrics={assistantMetrics} />
-          </ResumeModuleBoundary>
-        </div>
+        {!isMobileViewport ? (
+          <div className="space-y-6">
+            <ResumeModuleBoundary
+              boundaryId="resume-context-rail"
+              eyebrow="Context Rail"
+              title="Resume data unavailable"
+              message="The supporting narrative rail could not render, but the main resume modules remain available."
+              resetKey={`${envId}-${activeModule}-${biSlice.entity.entity_id}`}
+            >
+              <ResumeContextRail
+                timeline={workspace.timeline}
+                architecture={workspace.architecture}
+                stories={workspace.stories}
+                modelingOutputs={modelOutputs}
+                biEntity={biSlice.entity}
+              />
+            </ResumeModuleBoundary>
+            <ResumeModuleBoundary
+              boundaryId="resume-assistant"
+              eyebrow="Assistant"
+              title="Resume data unavailable"
+              message="The contextual assistant failed to render. You can still use the visual resume modules directly."
+              resetKey={`${envId}-${activeModule}`}
+            >
+              <ResumeAssistantDock envId={envId} businessId={businessId} metrics={assistantMetrics} />
+            </ResumeModuleBoundary>
+          </div>
+        ) : null}
       </div>
+
+      {isMobileViewport ? (
+        <div className="space-y-3">
+        <details
+          className="rounded-[24px] border border-bm-border/60 bg-bm-surface/18 p-4"
+          open
+        >
+          <summary className="cursor-pointer text-sm font-semibold text-bm-text">Context Rail</summary>
+          <div className="mt-4">
+            <ResumeModuleBoundary
+              boundaryId="resume-context-rail-mobile"
+              eyebrow="Context Rail"
+              title="Resume data unavailable"
+              message="The supporting narrative rail could not render, but the main resume modules remain available."
+              resetKey={`${envId}-${activeModule}-${biSlice.entity.entity_id}-mobile`}
+            >
+              <ResumeContextRail
+                timeline={workspace.timeline}
+                architecture={workspace.architecture}
+                stories={workspace.stories}
+                modelingOutputs={modelOutputs}
+                biEntity={biSlice.entity}
+              />
+            </ResumeModuleBoundary>
+          </div>
+        </details>
+
+        <details className="rounded-[24px] border border-bm-border/60 bg-bm-surface/18 p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-bm-text">Winston</summary>
+          <div className="mt-4">
+            <ResumeModuleBoundary
+              boundaryId="resume-assistant-mobile"
+              eyebrow="Assistant"
+              title="Resume data unavailable"
+              message="The contextual assistant failed to render. You can still use the visual resume modules directly."
+              resetKey={`${envId}-${activeModule}-mobile`}
+            >
+              <ResumeAssistantDock envId={envId} businessId={businessId} metrics={assistantMetrics} />
+            </ResumeModuleBoundary>
+          </div>
+        </details>
+        </div>
+      ) : null}
     </div>
   );
 }

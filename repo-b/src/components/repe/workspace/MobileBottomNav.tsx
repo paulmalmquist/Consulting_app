@@ -14,6 +14,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
+  BriefcaseBusiness,
+  Building2,
+  CircleAlert,
+  ClipboardCheck,
   Home,
   Landmark,
   Radar,
@@ -25,7 +29,18 @@ import WinstonAvatar from "@/components/winston-companion/WinstonAvatar";
 export interface MobileNavItem {
   href: string;
   label: string;
-  icon: "pipeline" | "funds" | "investors" | "reports" | "winston" | "home";
+  icon:
+    | "pipeline"
+    | "funds"
+    | "investors"
+    | "reports"
+    | "winston"
+    | "home"
+    | "contacts"
+    | "tasks"
+    | "accounts"
+    | "revenue"
+    | "risk";
   /** Match sub-paths (prefix match) */
   matchPrefix?: boolean;
 }
@@ -39,6 +54,11 @@ const ICON_MAP: Record<MobileNavItem["icon"], LucideIcon> = {
   reports:  BarChart3  as LucideIcon,
   winston:  Landmark   as LucideIcon,
   home:     Home       as LucideIcon,
+  contacts: Users      as LucideIcon,
+  tasks:    ClipboardCheck as LucideIcon,
+  accounts: Building2  as LucideIcon,
+  revenue:  BriefcaseBusiness as LucideIcon,
+  risk:     CircleAlert as LucideIcon,
 };
 
 /** Default REPE nav items — pass these from the shell consumer */

@@ -24,9 +24,9 @@ export default function ConsultingError({
           className="rounded-lg bg-bm-accent px-4 py-2 text-sm font-medium text-white hover:bg-bm-accent/90">
           Retry
         </button>
-        <Link href="/lab/environments"
+        <Link href="/app"
           className="rounded-lg border border-bm-border px-4 py-2 text-sm hover:bg-bm-surface/40">
-          Back to Environments
+          Back to Workspaces
         </Link>
       </div>
     </div>

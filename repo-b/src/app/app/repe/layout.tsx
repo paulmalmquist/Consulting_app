@@ -29,7 +29,7 @@ export default function RepeLegacyLayout({ children }: { children: React.ReactNo
       const envId = await resolveEnvId();
       if (cancelled) return;
       if (!envId) {
-        router.replace("/lab/environments");
+        router.replace("/app");
         return;
       }
       const normalizedSuffix = suffix === "/portfolio" ? "" : suffix;

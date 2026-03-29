@@ -1,62 +1,82 @@
-import Link from "next/link";
-import { environmentCatalog, type EnvironmentSlug } from "@/lib/environmentAuth";
+"use client";
 
-const SUBHEADLINE_LINES = [
-  "AI EXECUTION ENVIRONMENT FOR REAL ESTATE PRIVATE EQUITY,",
-  "PROJECT DELIVERY, AND INSTITUTIONAL OPERATIONS",
-] as const;
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 
-const ENVIRONMENT_LOGIN_ORDER: EnvironmentSlug[] = ["novendor", "meridian", "stone-pds", "trading", "floyorker", "resume"];
-const ENVIRONMENT_INDUSTRY: Record<EnvironmentSlug, string> = {
-  novendor: "Consulting",
-  meridian: "Institutional REPE",
-  "stone-pds": "Project Delivery",
-  trading: "Capital Markets",
-  floyorker: "Media & Publishing",
-  resume: "Portfolio",
-};
+import { Input } from "@/components/ui/Input";
+import { applyEnvironmentClientState } from "@/lib/platformSessionClient";
+import { getSupabaseBrowserClient } from "@/lib/supabase-client";
 
-function environmentCardStyle(slug: EnvironmentSlug) {
-  const branding = environmentCatalog[slug];
-  return {
-    borderColor: `rgba(${branding.glow}, 0.34)`,
-    boxShadow: `0 14px 34px -28px rgba(${branding.glow}, 0.5), inset 0 0 0 1px rgba(${branding.glow}, 0.08)`,
-    backgroundImage: `linear-gradient(180deg, rgba(12,16,24,0.52), rgba(12,16,24,0.38)), ${branding.shellGradient}`,
-  } as const;
-}
-
-function industryBadgeStyle(slug: EnvironmentSlug) {
-  const branding = environmentCatalog[slug];
-  return {
-    borderColor: `rgba(${branding.glow}, 0.28)`,
-    backgroundColor: `rgba(${branding.glow}, 0.08)`,
-    color: "rgba(255,255,255,0.62)",
-  } as const;
-}
-
-function withReturnTo(href: string, returnTo?: string | null) {
-  if (!returnTo) return href;
-  const params = new URLSearchParams({ returnTo });
-  return `${href}?${params.toString()}`;
-}
-
-function portalButtonClassName() {
-  return [
-    "inline-flex h-14 w-full items-center justify-center rounded-md border px-5",
-    "bg-[rgba(12,16,24,0.44)] text-[rgba(243,246,250,0.96)]",
-    "border-[rgba(173,181,196,0.18)] shadow-[0_12px_28px_-24px_rgba(0,0,0,0.82)]",
-    "transition-[background-color,border-color,transform] duration-150",
-    "hover:-translate-y-[1px] hover:bg-[rgba(18,24,34,0.56)] hover:border-[rgba(193,201,214,0.26)]",
-    "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40",
-  ].join(" ");
+function panelInputClassName() {
+  return "h-12 rounded-xl border-white/12 bg-white/[0.08] text-white placeholder:text-white/32 focus-visible:border-white/24 focus-visible:shadow-[0_0_0_1px_rgba(255,255,255,0.14)]";
 }
 
 export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+
+    const client = getSupabaseBrowserClient();
+    if (!client) {
+      setError("Supabase is not configured in this environment.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error: signInError } = await client.auth.signInWithPassword({ email, password });
+      if (signInError) throw signInError;
+
+      const { data } = await client.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (!accessToken) {
+        throw new Error("Supabase session was not established");
+      }
+
+      const response = await fetch("/api/auth/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accessToken,
+          returnTo,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        redirectTo?: string;
+        activeEnvironment?: {
+          env_id: string;
+          env_slug: string;
+          business_id?: string | null;
+        } | null;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Authentication failed");
+      }
+
+      applyEnvironmentClientState(payload.activeEnvironment || null);
+      router.push(payload.redirectTo || "/app");
+      router.refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Authentication failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <main className="relative isolate min-h-screen overflow-hidden bg-[#05070b] px-6 py-10 text-white">
+    <main className="relative isolate min-h-screen overflow-hidden bg-[#05070b] px-4 py-6 text-white sm:px-6 sm:py-10">
       <div
         aria-hidden
-        className="absolute inset-0"
+        className="pointer-events-none absolute inset-0"
         style={{
           backgroundImage: [
             "radial-gradient(circle at 50% 20%, rgba(255,255,255,0.14), transparent 0, transparent 22%)",
@@ -69,7 +89,7 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
       />
       <div
         aria-hidden
-        className="absolute inset-0 opacity-70"
+        className="pointer-events-none absolute inset-0 opacity-70"
         style={{
           backgroundImage: [
             "radial-gradient(circle at 12% 22%, rgba(255,255,255,0.26) 0 1px, transparent 1.6px)",
@@ -87,101 +107,96 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
       />
       <div
         aria-hidden
-        className="absolute inset-0 opacity-[0.12] mix-blend-screen"
+        className="pointer-events-none absolute inset-0 opacity-[0.12] mix-blend-screen"
         style={{
           backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")",
         }}
       />
-      <div
-        aria-hidden
-        className="absolute inset-x-0 bottom-[15%] h-px bg-gradient-to-r from-transparent via-white/22 to-transparent"
-      />
-      <div
-        aria-hidden
-        className="absolute inset-x-[12%] bottom-[14.5%] h-16 bg-[radial-gradient(circle_at_center,rgba(207,218,232,0.22),transparent_58%)] blur-2xl"
-      />
 
-      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-5rem)] max-w-5xl flex-col items-center justify-center pb-28 pt-8">
-        <div className="w-full max-w-[52rem] text-center">
-          <div className="mx-auto inline-flex items-center rounded-full border border-white/18 bg-white/[0.05] px-4 py-1.5 text-[11px] uppercase tracking-[0.28em] text-white/70">
-            System Access
-          </div>
-
-          <h1
-            className="font-command mt-7 text-[clamp(4.2rem,11vw,6.6rem)] font-bold uppercase leading-[0.95] tracking-[0.05em] text-white"
-            style={{ textShadow: "0 0 18px rgba(255,255,255,0.06)" }}
-          >
-            WINSTON
-          </h1>
-
-          <p
-            className="mx-auto mt-10 max-w-[48rem] text-[clamp(0.98rem,1.95vw,1.42rem)] uppercase leading-[1.34] tracking-[0.1em]"
-            style={{
-              color: "rgba(255,255,255,0.88)",
-              fontWeight: 400,
-            }}
-          >
-            {SUBHEADLINE_LINES.map((line) => (
-              <span key={line} className="block">
-                {line}
-              </span>
-            ))}
-          </p>
-
-          <div className="mx-auto mt-12 max-w-[44rem] rounded-[1.8rem] border border-white/10 bg-white/[0.04] p-5 text-left backdrop-blur-sm">
-            <div className="border-b border-white/10 pb-4">
-              <h2 className="font-command text-[1.6rem] uppercase tracking-[0.06em] text-white">Select Environment</h2>
+      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-3rem)] max-w-6xl items-center justify-center sm:min-h-[calc(100vh-5rem)]">
+        <div className="grid w-full max-w-[58rem] gap-6 lg:grid-cols-[minmax(0,1.05fr)_380px] lg:items-center lg:gap-10">
+          <section className="max-w-2xl space-y-4 sm:space-y-6">
+            <div className="inline-flex items-center rounded-full border border-white/18 bg-white/[0.05] px-4 py-1.5 text-[11px] uppercase tracking-[0.28em] text-white/70">
+              System Access
             </div>
 
-            <div className="mt-4 grid gap-3">
-              {ENVIRONMENT_LOGIN_ORDER.map((slug) => {
-                const environment = environmentCatalog[slug];
-                return (
-                  <Link
-                    key={slug}
-                    href={withReturnTo(`/${slug}/login`, returnTo)}
-                    className={`${portalButtonClassName()} !h-auto !justify-between rounded-[1.35rem] !px-5 !py-4 text-left`}
-                    style={environmentCardStyle(slug)}
-                  >
-                    <div>
-                      <div className="font-command text-[1.45rem] uppercase tracking-[0.06em] text-white">
-                        {environment.label}
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-white/58">{environment.loginSubtitle}</p>
-                    </div>
-                    <span
-                      className="inline-flex rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.18em]"
-                      style={industryBadgeStyle(slug)}
-                    >
-                      {ENVIRONMENT_INDUSTRY[slug]}
-                    </span>
-                  </Link>
-                );
-              })}
+            <div className="space-y-3 sm:space-y-4">
+              <h1
+                className="font-command text-[clamp(2.9rem,16vw,6.2rem)] font-bold uppercase leading-[0.95] tracking-[0.05em] text-white"
+                style={{ textShadow: "0 0 18px rgba(255,255,255,0.06)" }}
+              >
+                WINSTON
+              </h1>
+              <p className="max-w-xl text-base leading-7 text-white/78 sm:text-lg sm:leading-8">
+                Winston is the system we use to run Novendor. Client environments are provisioned based on access. After sign-in, you&apos;ll see the workspaces available to your account.
+              </p>
             </div>
-          </div>
 
-          <div className="mx-auto mt-9 max-w-[37rem] border-t border-white/10 pt-7">
-            <p className="text-[1.05rem] text-white/66">Not yet on Winston?</p>
-            <a
-              href="https://novendor.ai/contact"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 inline-flex items-center justify-center text-[clamp(1.02rem,2vw,1.3rem)] transition-colors duration-150 hover:text-white"
-              style={{
-                letterSpacing: "0.05em",
-                color: "rgba(206,220,236,0.88)",
-                fontWeight: 400,
-              }}
-            >
-              Request a walkthrough &rarr;
-            </a>
-          </div>
+            <div className="grid gap-2 text-sm text-white/58 sm:grid-cols-3 sm:gap-3">
+              <div className="rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-3">
+                Platform identity first
+              </div>
+              <div className="rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-3">
+                Environment scope after login
+              </div>
+              <div className="rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-3">
+                Desktop control surfaces preserved
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-[1.6rem] border border-white/10 bg-white/[0.05] p-5 shadow-[0_28px_60px_-34px_rgba(2,6,23,0.95)] backdrop-blur-md sm:rounded-[1.8rem] sm:p-6">
+            <div className="space-y-2 border-b border-white/10 pb-5">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-white/44">Winston login</p>
+              <h2 className="font-command text-[1.7rem] uppercase tracking-[0.06em] text-white">Sign In</h2>
+            </div>
+
+            <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
+              <label className="block space-y-2 text-sm text-white/60">
+                <span>Email</span>
+                <Input
+                  autoComplete="email"
+                  inputMode="email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className={panelInputClassName()}
+                  required
+                />
+              </label>
+
+              <label className="block space-y-2 text-sm text-white/60">
+                <span>Password</span>
+                <Input
+                  autoComplete="current-password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className={panelInputClassName()}
+                  required
+                />
+              </label>
+
+              {error ? (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                  {error}
+                </div>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="inline-flex h-12 w-full items-center justify-center rounded-xl bg-[linear-gradient(135deg,rgba(58,208,173,0.95),rgba(38,198,218,0.92))] px-4 text-sm font-semibold uppercase tracking-[0.18em] text-slate-950 transition-[transform,filter] duration-150 hover:-translate-y-[1px] hover:brightness-105 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {loading ? "Signing in..." : "Sign in"}
+              </button>
+            </form>
+
+            <div className="mt-5 border-t border-white/10 pt-4 text-sm leading-6 text-white/54">
+              Control Tower is available only to authorized platform administrators.
+            </div>
+          </section>
         </div>
-      </div>
-
-      <div className="pointer-events-none fixed inset-x-0 bottom-5 z-10 text-center text-sm tracking-[0.08em] text-white/58">
-        2026 Novendor Systems
       </div>
     </main>
   );

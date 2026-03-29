@@ -38,7 +38,7 @@ export default function LegacyDomainLayout({ children }: { children: React.React
       const envId = await resolveEnvId();
       if (cancelled) return;
       if (!envId) {
-        router.replace("/lab/environments");
+        router.replace("/app");
         return;
       }
       router.replace(`/lab/env/${envId}/${domain}${suffix}`);

@@ -395,11 +395,7 @@ export async function getSessionActor(request: Request): Promise<string> {
 }
 
 export function getLoginRedirectForSession(session: SessionPayload | null | undefined) {
-  const activeMembership = getActiveMembership(session);
-  if (activeMembership) {
-    return environmentLoginPath(activeMembership.env_slug);
-  }
-  return "/login";
+  return "/";
 }
 
 export function unauthorizedJson(message = "Authentication required") {

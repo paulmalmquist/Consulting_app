@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import date
 from typing import Any
 
@@ -15,8 +16,22 @@ def build_resume_workspace_payload(
     projects: list[dict[str, Any]],
     components: list[dict[str, Any]],
     deployments: list[dict[str, Any]],
+    phases: list[dict[str, Any]] | None = None,
+    capability_layers: list[dict[str, Any]] | None = None,
+    initiatives: list[dict[str, Any]] | None = None,
+    milestones: list[dict[str, Any]] | None = None,
+    accomplishment_cards: list[dict[str, Any]] | None = None,
+    metric_anchors: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    timeline = _build_timeline()
+    timeline = _build_narrative_timeline(
+        roles=roles,
+        phases=phases or [],
+        capability_layers=capability_layers or [],
+        initiatives=initiatives or [],
+        milestones=milestones or [],
+        accomplishment_cards=accomplishment_cards or [],
+        metric_anchors=metric_anchors or [],
+    )
     architecture = _build_architecture(components)
     modeling = _build_modeling()
     bi = _build_bi()
@@ -37,10 +52,30 @@ def build_resume_workspace_payload(
                 "Winston AI platform",
             ],
             "metrics": [
-                {"label": "Properties Integrated", "value": "500+", "detail": "Kayne Anderson warehouse + automation programs"},
-                {"label": "DDQ Turnaround", "value": "-50%", "detail": "Investor relations response acceleration"},
-                {"label": "Reporting Cycle", "value": "-10 days", "detail": "Quarter-close and executive reporting"},
-                {"label": "AI Tool Surface", "value": "83 MCP tools", "detail": "Winston domain actions and auditability"},
+                {
+                    "metric_key": "properties_integrated",
+                    "label": "Properties Integrated",
+                    "value": "500+",
+                    "detail": "Kayne Anderson warehouse + automation programs",
+                },
+                {
+                    "metric_key": "ddq_turnaround",
+                    "label": "DDQ Turnaround",
+                    "value": "-50%",
+                    "detail": "Investor relations response acceleration",
+                },
+                {
+                    "metric_key": "reporting_cycle",
+                    "label": "Reporting Cycle",
+                    "value": "-10 days",
+                    "detail": "Quarter-close and executive reporting",
+                },
+                {
+                    "metric_key": "ai_tool_surface",
+                    "label": "AI Tool Surface",
+                    "value": "83 MCP tools",
+                    "detail": "Winston domain actions and auditability",
+                },
             ],
         },
         "timeline": timeline,
@@ -48,6 +83,350 @@ def build_resume_workspace_payload(
         "modeling": modeling,
         "bi": bi,
         "stories": _build_stories(stats=stats, roles=roles, projects=projects, deployments=deployments),
+    }
+
+
+def _json_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return []
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return []
+        return parsed if isinstance(parsed, list) else []
+    return []
+
+
+def _json_dict(value: Any) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return {}
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
+def _as_date(value: Any, fallback: date | None = None) -> date:
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        return date.fromisoformat(value)
+    return fallback or date(2020, 1, 1)
+
+
+def _timeline_role_id(role: dict[str, Any]) -> str:
+    sort_order = role.get("sort_order")
+    if sort_order is not None:
+        return f"role-{sort_order}"
+    return f"role-{role.get('role_id')}"
+
+
+def _play_view_for_milestone(milestone: dict[str, Any]) -> str:
+    milestone_type = milestone.get("type") or "build"
+    tags = set(_json_list(milestone.get("capability_tags")))
+    if milestone_type in {"transition", "promotion"}:
+        return "career"
+    if milestone_type == "impact":
+        return "impact"
+    if "ai_agentic" in tags or "financial_modeling" in tags or "data_platform" in tags:
+        return "capability"
+    if "automation_workflow" in tags:
+        return "delivery"
+    return "career"
+
+
+def _build_narrative_timeline(
+    *,
+    roles: list[dict[str, Any]],
+    phases: list[dict[str, Any]],
+    capability_layers: list[dict[str, Any]],
+    initiatives: list[dict[str, Any]],
+    milestones: list[dict[str, Any]],
+    accomplishment_cards: list[dict[str, Any]],
+    metric_anchors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    public_roles = [
+        role for role in sorted(roles, key=lambda item: item.get("sort_order", 0))
+        if (role.get("company") or "") != "Novendor"
+    ]
+    phase_lookup = {str(phase.get("phase_id")): phase for phase in phases}
+    initiative_rows = sorted(initiatives, key=lambda item: (_as_date(item.get("start_date")), -(item.get("importance") or 0)))
+    milestone_rows = sorted(
+        milestones,
+        key=lambda item: (_as_date(item.get("date")), item.get("play_order") if item.get("play_order") is not None else 999),
+    )
+
+    normalized_roles: list[dict[str, Any]] = []
+    for role in public_roles:
+        role_id = role.get("role_id")
+        timeline_role_id = _timeline_role_id(role)
+        role_start = _as_date(role.get("start_date"))
+        role_end = _as_date(role.get("end_date"), fallback=role_start) if role.get("end_date") else None
+        role_initiatives = [item for item in initiative_rows if item.get("role_id") == role_id]
+
+        attached_milestones = []
+        for milestone in milestone_rows:
+            phase_id = milestone.get("phase_id")
+            milestone_date = _as_date(milestone.get("date"))
+            same_phase = phase_id and phase_id == next(
+                (
+                    phase.get("phase_id")
+                    for phase in phases
+                    if _as_date(phase.get("start_date")) <= role_start
+                    and (phase.get("end_date") is None or _as_date(phase.get("end_date")) >= role_start)
+                ),
+                None,
+            )
+            within_role = milestone_date >= role_start and (role_end is None or milestone_date <= role_end)
+            if same_phase or within_role:
+                attached_milestones.append(
+                    {
+                        "milestone_id": milestone["milestone_id"],
+                        "phase_id": milestone.get("phase_id"),
+                        "title": milestone["title"],
+                        "date": milestone["date"],
+                        "type": milestone.get("type") or "build",
+                        "summary": milestone["summary"],
+                        "importance": int(milestone.get("importance") or 50),
+                        "play_order": milestone.get("play_order"),
+                        "capability_tags": _json_list(milestone.get("capability_tags")),
+                        "linked_modules": _json_list(milestone.get("linked_modules")),
+                        "linked_architecture_node_ids": _json_list(milestone.get("linked_architecture_node_ids")),
+                        "linked_bi_entity_ids": _json_list(milestone.get("linked_bi_entity_ids")),
+                        "linked_model_preset": milestone.get("linked_model_preset"),
+                        "metrics_json": _json_dict(milestone.get("metrics_json")),
+                        "artifact_refs": _json_list(milestone.get("artifact_refs")),
+                        "snapshot_spec": _json_dict(milestone.get("snapshot_spec")),
+                    }
+                )
+
+        normalized_roles.append(
+            {
+                "timeline_role_id": timeline_role_id,
+                "company": role.get("company") or "Business Machine",
+                "title": role.get("title") or "Role",
+                "lane": role.get("company") or "Delivery",
+                "start_date": role.get("start_date"),
+                "end_date": role.get("end_date"),
+                "summary": role.get("summary") or "",
+                "scope": role.get("summary") or "",
+                "technologies": _json_list(role.get("technologies")),
+                "outcomes": _json_list(role.get("highlights")),
+                "initiatives": [
+                    {
+                        "initiative_id": item["initiative_id"],
+                        "role_id": timeline_role_id,
+                        "phase_id": item.get("phase_id"),
+                        "title": item["title"],
+                        "summary": item["summary"],
+                        "team_context": item.get("team_context") or "",
+                        "business_challenge": item.get("business_challenge") or "",
+                        "measurable_outcome": item.get("measurable_outcome") or "",
+                        "stakeholder_group": item.get("stakeholder_group") or "",
+                        "scale": item.get("scale") or "",
+                        "architecture": item.get("architecture") or "",
+                        "start_date": item["start_date"],
+                        "end_date": item["end_date"],
+                        "category": item.get("category") or "foundation",
+                        "impact_area": item.get("impact_area") or "decision_support",
+                        "importance": int(item.get("importance") or 50),
+                        "capability_tags": _json_list(item.get("capability_tags")),
+                        "technologies": _json_list(item.get("technologies")),
+                        "impact_tag": item.get("impact_tag") or "",
+                        "linked_modules": _json_list(item.get("linked_modules")),
+                        "linked_architecture_node_ids": _json_list(item.get("linked_architecture_node_ids")),
+                        "linked_bi_entity_ids": _json_list(item.get("linked_bi_entity_ids")),
+                        "linked_model_preset": item.get("linked_model_preset"),
+                        "metrics_json": _json_dict(item.get("metrics_json")),
+                    }
+                    for item in role_initiatives
+                ],
+                "milestones": attached_milestones,
+            }
+        )
+
+    phase_rows = [
+        {
+            "phase_id": phase["phase_id"],
+            "company": phase["company"],
+            "phase_name": phase["phase_name"],
+            "start_date": phase["start_date"],
+            "end_date": phase.get("end_date"),
+            "description": phase.get("description"),
+            "band_color": phase.get("band_color") or "#475569",
+            "overlay_only": bool(phase.get("overlay_only")),
+            "display_order": int(phase.get("display_order") or 0),
+        }
+        for phase in sorted(phases, key=lambda item: item.get("display_order", 0))
+    ]
+
+    capability_layer_rows = [
+        {
+            "layer_id": layer["layer_id"],
+            "name": layer["name"],
+            "color": layer["color"],
+            "description": layer.get("description"),
+            "sort_order": int(layer.get("sort_order") or 0),
+            "is_visible": bool(layer.get("is_visible", True)),
+        }
+        for layer in sorted(capability_layers, key=lambda item: item.get("sort_order", 0))
+    ]
+
+    initiative_output = [
+        {
+            "initiative_id": item["initiative_id"],
+            "role_id": next(
+                (_timeline_role_id(role) for role in public_roles if role.get("role_id") == item.get("role_id")),
+                "",
+            ),
+            "phase_id": item.get("phase_id"),
+            "title": item["title"],
+            "summary": item["summary"],
+            "team_context": item.get("team_context") or "",
+            "business_challenge": item.get("business_challenge") or "",
+            "measurable_outcome": item.get("measurable_outcome") or "",
+            "stakeholder_group": item.get("stakeholder_group") or "",
+            "scale": item.get("scale") or "",
+            "architecture": item.get("architecture") or "",
+            "start_date": item["start_date"],
+            "end_date": item["end_date"],
+            "category": item.get("category") or "foundation",
+            "impact_area": item.get("impact_area") or "decision_support",
+            "importance": int(item.get("importance") or 50),
+            "capability_tags": _json_list(item.get("capability_tags")),
+            "technologies": _json_list(item.get("technologies")),
+            "impact_tag": item.get("impact_tag") or "",
+            "linked_modules": _json_list(item.get("linked_modules")),
+            "linked_architecture_node_ids": _json_list(item.get("linked_architecture_node_ids")),
+            "linked_bi_entity_ids": _json_list(item.get("linked_bi_entity_ids")),
+            "linked_model_preset": item.get("linked_model_preset"),
+            "metrics_json": _json_dict(item.get("metrics_json")),
+        }
+        for item in initiative_rows
+    ]
+
+    milestone_output = [
+        {
+            "milestone_id": item["milestone_id"],
+            "phase_id": item.get("phase_id"),
+            "title": item["title"],
+            "date": item["date"],
+            "type": item.get("type") or "build",
+            "summary": item["summary"],
+            "importance": int(item.get("importance") or 50),
+            "play_order": item.get("play_order"),
+            "capability_tags": _json_list(item.get("capability_tags")),
+            "linked_modules": _json_list(item.get("linked_modules")),
+            "linked_architecture_node_ids": _json_list(item.get("linked_architecture_node_ids")),
+            "linked_bi_entity_ids": _json_list(item.get("linked_bi_entity_ids")),
+            "linked_model_preset": item.get("linked_model_preset"),
+            "metrics_json": _json_dict(item.get("metrics_json")),
+            "artifact_refs": _json_list(item.get("artifact_refs")),
+            "snapshot_spec": _json_dict(item.get("snapshot_spec")),
+        }
+        for item in milestone_rows
+    ]
+
+    accomplishment_card_rows = [
+        {
+            "card_id": card["card_id"],
+            "phase_id": card.get("phase_id"),
+            "milestone_id": card.get("milestone_id"),
+            "metric_key": card.get("metric_key"),
+            "title": card["title"],
+            "card_type": card["card_type"],
+            "company": card.get("company"),
+            "date_start": card.get("date_start"),
+            "date_end": card.get("date_end"),
+            "capability_tags": _json_list(card.get("capability_tags")),
+            "short_narrative": card.get("short_narrative") or "",
+            "context": card.get("context"),
+            "action": card.get("action"),
+            "impact": card.get("impact"),
+            "stakeholders": card.get("stakeholders"),
+            "artifact_refs": _json_list(card.get("artifact_refs")),
+            "metrics_json": _json_dict(card.get("metrics_json")),
+            "snapshot_spec": _json_dict(card.get("snapshot_spec")),
+            "sort_order": int(card.get("sort_order") or 0),
+        }
+        for card in sorted(accomplishment_cards, key=lambda item: item.get("sort_order", 0))
+    ]
+
+    metric_anchor_rows = [
+        {
+            "anchor_id": anchor["anchor_id"],
+            "hero_metric_key": anchor["hero_metric_key"],
+            "title": anchor["title"],
+            "default_view": anchor.get("default_view") or "impact",
+            "linked_phase_ids": _json_list(anchor.get("linked_phase_ids")),
+            "linked_milestone_ids": _json_list(anchor.get("linked_milestone_ids")),
+            "linked_capability_layer_ids": _json_list(anchor.get("linked_capability_layer_ids")),
+            "narrative_hint": anchor.get("narrative_hint"),
+            "sort_order": int(anchor.get("sort_order") or 0),
+        }
+        for anchor in sorted(metric_anchors, key=lambda item: item.get("sort_order", 0))
+    ]
+
+    play_story_steps = [
+        {
+            "step_id": f"step-{item.get('play_order')}",
+            "title": item["title"],
+            "milestone_id": item["milestone_id"],
+            "phase_id": item.get("phase_id"),
+            "view": _play_view_for_milestone(item),
+            "description": item.get("summary"),
+        }
+        for item in milestone_rows
+        if item.get("play_order") is not None
+    ]
+
+    date_candidates = [
+        _as_date(phase.get("start_date"))
+        for phase in phases
+    ] + [
+        _as_date(phase.get("end_date"), fallback=_as_date(phase.get("start_date")))
+        for phase in phases
+        if phase.get("end_date")
+    ] + [
+        _as_date(item.get("end_date"), fallback=_as_date(item.get("start_date")))
+        for item in initiative_rows
+    ] + [
+        _as_date(item.get("date"))
+        for item in milestone_rows
+    ]
+
+    start_date = min(date_candidates).isoformat() if date_candidates else "2020-01-01"
+    end_date = max(date_candidates).isoformat() if date_candidates else start_date
+
+    return {
+        "default_view": "career",
+        "views": TIMELINE_VIEWS,
+        "start_date": start_date,
+        "end_date": end_date,
+        "phases": phase_rows,
+        "roles": normalized_roles,
+        "initiatives": initiative_output,
+        "milestones": milestone_output,
+        "capability_layers": capability_layer_rows,
+        "metric_anchors": metric_anchor_rows,
+        "accomplishment_cards": accomplishment_card_rows,
+        "play_story_steps": play_story_steps,
     }
 
 

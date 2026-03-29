@@ -27,10 +27,10 @@ export default function MarketIntelligenceRedirect() {
     <div className="flex h-64 flex-col items-center justify-center gap-3 text-sm">
       <p className="text-bm-muted">Select an environment to open Trading Lab.</p>
       <Link
-        href="/lab/environments"
+        href="/app"
         className="rounded-md bg-bm-accent px-4 py-2 text-white text-sm font-medium hover:opacity-90"
       >
-        Go to Environments
+        Go to Workspace Access
       </Link>
     </div>
   );

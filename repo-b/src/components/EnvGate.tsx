@@ -29,7 +29,7 @@ export default function EnvGate({ children }: { children: React.ReactNode }) {
             continue.
           </CardDescription>
           <div className="mt-4">
-            <Link href="/lab/environments" className={buttonVariants()}>
+            <Link href="/app" className={buttonVariants()}>
               Choose environment
             </Link>
           </div>

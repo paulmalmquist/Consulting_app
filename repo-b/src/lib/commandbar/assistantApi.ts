@@ -1287,6 +1287,24 @@ export type ConversationDetail = {
   }>;
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function normalizeUuid(value?: string | null): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  return UUID_RE.test(trimmed) ? trimmed : null;
+}
+
+function readErrorDetail(bodyText: string, fallbackStatus: number): string {
+  if (!bodyText.trim()) return `HTTP ${fallbackStatus}`;
+  try {
+    const parsed = JSON.parse(bodyText) as { detail?: string; error?: string; message?: string };
+    return parsed.detail || parsed.error || parsed.message || bodyText;
+  } catch {
+    return bodyText;
+  }
+}
+
 export async function createConversation(input: {
   business_id: string;
   env_id?: string;
@@ -1298,12 +1316,13 @@ export async function createConversation(input: {
   context_summary?: string | null;
   last_route?: string | null;
 }): Promise<ConversationDetail> {
+  const envId = normalizeUuid(input.env_id);
   const res = await fetch("/api/ai/gateway/conversations", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       business_id: input.business_id,
-      env_id: input.env_id || null,
+      env_id: envId,
       thread_kind: input.thread_kind || "general",
       scope_type: input.scope_type || null,
       scope_id: input.scope_id || null,
@@ -1313,8 +1332,20 @@ export async function createConversation(input: {
       last_route: input.last_route || null,
     }),
   });
-  if (!res.ok) throw new Error(`Failed to create conversation: ${res.status}`);
-  return res.json();
+  const bodyText = await res.text();
+  if (!res.ok) {
+    const detail = readErrorDetail(bodyText, res.status);
+    console.error("Conversation creation failed", {
+      status: res.status,
+      detail,
+      business_id: input.business_id,
+      env_id: input.env_id || null,
+      normalized_env_id: envId,
+      thread_kind: input.thread_kind || "general",
+    });
+    throw new Error(detail);
+  }
+  return JSON.parse(bodyText) as ConversationDetail;
 }
 
 export async function listConversations(

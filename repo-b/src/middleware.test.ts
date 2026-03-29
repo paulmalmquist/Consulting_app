@@ -81,15 +81,28 @@ describe("middleware", () => {
 
   it("redirects unauthenticated users to the correct branded login", async () => {
     const response = await middleware(await makeRequest("/novendor"));
-    expect(response.headers.get("location")).toBe("http://localhost:3001/novendor/login?returnTo=%2Fnovendor");
+    expect(response.headers.get("location")).toBe("http://localhost:3001/?returnTo=%2Fnovendor");
   });
 
-  it("redirects authenticated users without membership to unauthorized", async () => {
+  it("redirects authenticated users without membership back to the authenticated selector", async () => {
     const claims = buildClaims({
       memberships: [buildClaims().memberships[0]],
     });
     const response = await middleware(await makeRequest("/trading", claims));
-    expect(response.headers.get("location")).toBe("http://localhost:3001/trading/unauthorized");
+    expect(response.headers.get("location")).toBe("http://localhost:3001/app?denied=trading");
+  });
+
+  it("keeps the root route public when logged out", async () => {
+    const response = await middleware(await makeRequest("/"));
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("redirects authenticated users away from root and login to /app", async () => {
+    const rootResponse = await middleware(await makeRequest("/", buildClaims()));
+    const loginResponse = await middleware(await makeRequest("/login", buildClaims()));
+
+    expect(rootResponse.headers.get("location")).toBe("http://localhost:3001/app");
+    expect(loginResponse.headers.get("location")).toBe("http://localhost:3001/app");
   });
 
   it("allows the public resume route without a session", async () => {
@@ -99,7 +112,7 @@ describe("middleware", () => {
 
   it("protects resume admin tools when the membership role is not elevated", async () => {
     const response = await middleware(await makeRequest("/resume/admin", buildClaims()));
-    expect(response.headers.get("location")).toBe("http://localhost:3001/resume/unauthorized");
+    expect(response.headers.get("location")).toBe("http://localhost:3001/app?denied=resume");
   });
 
   it("rotates the active environment cookie when navigating into another authorized env", async () => {

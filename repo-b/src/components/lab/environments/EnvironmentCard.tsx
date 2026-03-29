@@ -2,7 +2,7 @@
 
 import React from "react";
 import { cn } from "@/lib/cn";
-import { ArrowRight, Settings, Trash2 } from "lucide-react";
+import { ArrowRight, MoreHorizontal, Settings, Trash2 } from "lucide-react";
 import type { Environment } from "@/components/EnvProvider";
 import { Badge } from "@/components/ui/Badge";
 import { EnvironmentStatus } from "./constants";
@@ -31,6 +31,7 @@ export function EnvironmentCard({
   variant?: "default" | "controlTower";
   rowIndex?: number;
 }) {
+  const [mobileActionsOpen, setMobileActionsOpen] = React.useState(false);
   const industry = env.industry_type || env.industry;
   const industryVisual = getIndustryIcon(industry);
   const IndustryIcon = industryVisual.icon;
@@ -105,7 +106,7 @@ export function EnvironmentCard({
           </div>
 
           <div
-            className="flex shrink-0 items-center gap-2"
+            className="hidden shrink-0 items-center gap-2 md:flex"
             data-testid={`env-actions-${env.env_id}`}
           >
             <button
@@ -144,6 +145,61 @@ export function EnvironmentCard({
             >
               <Trash2 className="h-3.5 w-3.5" strokeWidth={1.6} />
             </button>
+          </div>
+
+          <div className="relative md:hidden" data-testid={`env-actions-${env.env_id}`}>
+            <button
+              type="button"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-bm-border/60 bg-bm-surface2/45 text-bm-muted"
+              aria-label={`Environment actions for ${env.client_name}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                setMobileActionsOpen((current) => !current);
+              }}
+            >
+              <MoreHorizontal className="h-4 w-4" strokeWidth={1.8} />
+            </button>
+            {mobileActionsOpen ? (
+              <div
+                className="absolute right-0 top-[calc(100%+0.5rem)] z-20 w-40 rounded-2xl border border-bm-border/70 bg-bm-bg/95 p-2 shadow-[0_18px_30px_-24px_rgba(5,9,14,0.95)]"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-bm-text hover:bg-bm-surface/30"
+                  onClick={() => {
+                    setMobileActionsOpen(false);
+                    onOpen(env.env_id);
+                  }}
+                >
+                  <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.6} />
+                  Open
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-bm-text hover:bg-bm-surface/30"
+                  onClick={() => {
+                    setMobileActionsOpen(false);
+                    onSettings(env.env_id);
+                  }}
+                >
+                  <Settings className="h-3.5 w-3.5" strokeWidth={1.6} />
+                  Settings
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-bm-danger hover:bg-bm-danger/10"
+                  onClick={() => {
+                    setMobileActionsOpen(false);
+                    onDelete(env.env_id);
+                  }}
+                  data-testid={`env-delete-${env.env_id}`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.6} />
+                  Delete
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       </article>

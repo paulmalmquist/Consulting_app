@@ -126,6 +126,7 @@ class ResumeSystemStatsOut(BaseModel):
 
 
 class ResumeMetricItemOut(BaseModel):
+    metric_key: str | None = None
     label: str
     value: str
     detail: str | None = None
@@ -141,9 +142,31 @@ class ResumeIdentityOut(BaseModel):
     metrics: list[ResumeMetricItemOut] = Field(default_factory=list)
 
 
+class ResumeCareerPhaseOut(BaseModel):
+    phase_id: str
+    company: str
+    phase_name: str
+    start_date: date
+    end_date: date | None = None
+    description: str | None = None
+    band_color: str
+    overlay_only: bool = False
+    display_order: int = 0
+
+
+class ResumeCapabilityLayerOut(BaseModel):
+    layer_id: str
+    name: str
+    color: str
+    description: str | None = None
+    sort_order: int = 0
+    is_visible: bool = True
+
+
 class ResumeTimelineInitiativeOut(BaseModel):
     initiative_id: str
     role_id: str
+    phase_id: str | None = None
     title: str
     summary: str
     team_context: str
@@ -155,25 +178,78 @@ class ResumeTimelineInitiativeOut(BaseModel):
     start_date: date
     end_date: date
     category: str
-    capability: str
     impact_area: str
+    importance: int = 50
+    capability_tags: list[str] = Field(default_factory=list)
     technologies: list[str] = Field(default_factory=list)
     impact_tag: str
     linked_modules: list[str] = Field(default_factory=list)
     linked_architecture_node_ids: list[str] = Field(default_factory=list)
     linked_bi_entity_ids: list[str] = Field(default_factory=list)
     linked_model_preset: str | None = None
+    metrics_json: dict[str, Any] = Field(default_factory=dict)
 
 
 class ResumeTimelineMilestoneOut(BaseModel):
     milestone_id: str
+    phase_id: str | None = None
     title: str
     date: date
+    type: str = "build"
     summary: str
+    importance: int = 50
+    play_order: int | None = None
+    capability_tags: list[str] = Field(default_factory=list)
     linked_modules: list[str] = Field(default_factory=list)
     linked_architecture_node_ids: list[str] = Field(default_factory=list)
     linked_bi_entity_ids: list[str] = Field(default_factory=list)
     linked_model_preset: str | None = None
+    metrics_json: dict[str, Any] = Field(default_factory=dict)
+    artifact_refs: list[dict[str, Any]] = Field(default_factory=list)
+    snapshot_spec: dict[str, Any] = Field(default_factory=dict)
+
+
+class ResumeAccomplishmentCardOut(BaseModel):
+    card_id: str
+    phase_id: str | None = None
+    milestone_id: str | None = None
+    metric_key: str | None = None
+    title: str
+    card_type: str
+    company: str | None = None
+    date_start: date | None = None
+    date_end: date | None = None
+    capability_tags: list[str] = Field(default_factory=list)
+    short_narrative: str
+    context: str | None = None
+    action: str | None = None
+    impact: str | None = None
+    stakeholders: str | None = None
+    artifact_refs: list[dict[str, Any]] = Field(default_factory=list)
+    metrics_json: dict[str, Any] = Field(default_factory=dict)
+    snapshot_spec: dict[str, Any] = Field(default_factory=dict)
+    sort_order: int = 0
+
+
+class ResumeMetricAnchorOut(BaseModel):
+    anchor_id: str
+    hero_metric_key: str
+    title: str
+    default_view: str = "impact"
+    linked_phase_ids: list[str] = Field(default_factory=list)
+    linked_milestone_ids: list[str] = Field(default_factory=list)
+    linked_capability_layer_ids: list[str] = Field(default_factory=list)
+    narrative_hint: str | None = None
+    sort_order: int = 0
+
+
+class ResumePlayStoryStepOut(BaseModel):
+    step_id: str
+    title: str
+    milestone_id: str
+    phase_id: str | None = None
+    view: str = "career"
+    description: str | None = None
 
 
 class ResumeTimelineRoleOut(BaseModel):
@@ -196,8 +272,14 @@ class ResumeTimelineOut(BaseModel):
     views: list[str] = Field(default_factory=list)
     start_date: date
     end_date: date
+    phases: list[ResumeCareerPhaseOut] = Field(default_factory=list)
     roles: list[ResumeTimelineRoleOut] = Field(default_factory=list)
+    initiatives: list[ResumeTimelineInitiativeOut] = Field(default_factory=list)
     milestones: list[ResumeTimelineMilestoneOut] = Field(default_factory=list)
+    capability_layers: list[ResumeCapabilityLayerOut] = Field(default_factory=list)
+    metric_anchors: list[ResumeMetricAnchorOut] = Field(default_factory=list)
+    accomplishment_cards: list[ResumeAccomplishmentCardOut] = Field(default_factory=list)
+    play_story_steps: list[ResumePlayStoryStepOut] = Field(default_factory=list)
 
 
 class ResumeArchitectureNodeOut(BaseModel):

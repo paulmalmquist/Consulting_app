@@ -44,6 +44,15 @@ type ModuleNote = {
   body: string;
 };
 
+type PdsMobilePanel =
+  | "performance"
+  | "resourceHealth"
+  | "deliveryRisk"
+  | "forecast"
+  | "satisfactionCloseout"
+  | "briefing"
+  | "reportPacket";
+
 type Props = {
   title: string;
   description?: string;
@@ -106,6 +115,8 @@ export function PdsWorkspacePage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [performanceView, setPerformanceView] = useState<"chart" | "table">("chart");
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [mobilePanel, setMobilePanel] = useState<PdsMobilePanel | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -179,6 +190,38 @@ export function PdsWorkspacePage({
     return () => resetAssistantPageContext();
   }, [commandCenter, description, envId, horizon, lens, title]);
 
+  const hasVarianceOrLeaderboard = sections.includes("varianceChart") || sections.includes("leaderboard");
+  const mobilePanels = React.useMemo<Array<{ key: PdsMobilePanel; label: string }>>(() => {
+    const panels: Array<{ key: PdsMobilePanel; label: string }> = [];
+    if (hasVarianceOrLeaderboard || sections.includes("performance")) panels.push({ key: "performance", label: "Performance" });
+    if (sections.includes("resourceHealth")) panels.push({ key: "resourceHealth", label: "Resources" });
+    if (sections.includes("deliveryRisk")) panels.push({ key: "deliveryRisk", label: "Risk" });
+    if (sections.includes("forecast")) panels.push({ key: "forecast", label: "Forecast" });
+    if (sections.includes("satisfactionCloseout")) panels.push({ key: "satisfactionCloseout", label: "Client" });
+    if (sections.includes("briefing")) panels.push({ key: "briefing", label: "Briefing" });
+    if (sections.includes("reportPacket") && reportPacket) panels.push({ key: "reportPacket", label: "Packet" });
+    return panels;
+  }, [hasVarianceOrLeaderboard, reportPacket, sections]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const media = window.matchMedia("(max-width: 1023px)");
+    const updateViewport = () => setIsMobileViewport(media.matches);
+    updateViewport();
+    media.addEventListener("change", updateViewport);
+    return () => media.removeEventListener("change", updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (!mobilePanels.length) {
+      setMobilePanel(null);
+      return;
+    }
+    if (!mobilePanel || !mobilePanels.some((panel) => panel.key === mobilePanel)) {
+      setMobilePanel(mobilePanels[0].key);
+    }
+  }, [mobilePanel, mobilePanels]);
+
   if (loading && !commandCenter) {
     return <div className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-4 text-sm text-bm-muted2">Loading PDS enterprise command center...</div>;
   }
@@ -192,8 +235,6 @@ export function PdsWorkspacePage({
   }
 
   if (!commandCenter) return null;
-
-  const hasVarianceOrLeaderboard = sections.includes("varianceChart") || sections.includes("leaderboard");
 
   return (
     <div className="space-y-5">
@@ -251,8 +292,27 @@ export function PdsWorkspacePage({
         <PdsSignalsStrip commandCenter={commandCenter} />
       ) : null}
 
+      {isMobileViewport && mobilePanels.length > 1 ? (
+        <section className="flex gap-2 overflow-x-auto pb-1" data-testid="pds-mobile-panel-tabs">
+          {mobilePanels.map((panel) => (
+            <button
+              key={panel.key}
+              type="button"
+              onClick={() => setMobilePanel(panel.key)}
+              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                mobilePanel === panel.key
+                  ? "border-pds-accent/35 bg-pds-accent/10 text-pds-accentText"
+                  : "border-bm-border/60 bg-bm-surface/18 text-bm-muted2"
+              }`}
+            >
+              {panel.label}
+            </button>
+          ))}
+        </section>
+      ) : null}
+
       {/* 3. Performance Visual — chart/table toggle */}
-      {hasVarianceOrLeaderboard ? (
+      {(!isMobileViewport || mobilePanel === "performance") && hasVarianceOrLeaderboard ? (
         <>
           <div className="flex items-end justify-between gap-3">
             <PdsSectionHeader label="Market Analysis" title="Operating Performance by Market" />
@@ -288,7 +348,7 @@ export function PdsWorkspacePage({
       ) : null}
 
       {/* Legacy performance table (for non-market pages without chart/leaderboard) */}
-      {sections.includes("performance") && !hasVarianceOrLeaderboard && commandCenter.performance_table ? (
+      {(!isMobileViewport || mobilePanel === "performance") && sections.includes("performance") && !hasVarianceOrLeaderboard && commandCenter.performance_table ? (
         <>
           <PdsSectionHeader label="Portfolio Performance" title="Market Operating View" />
           <PdsPerformanceTable table={commandCenter.performance_table} />
@@ -296,12 +356,12 @@ export function PdsWorkspacePage({
       ) : null}
 
       {/* 4. Root Cause — staffing & submission issues (promoted position) */}
-      {sections.includes("resourceHealth") ? (
+      {(!isMobileViewport || mobilePanel === "resourceHealth") && sections.includes("resourceHealth") ? (
         <PdsResourceHealthPanel resources={commandCenter.resource_health ?? []} timecards={commandCenter.timecard_health ?? []} />
       ) : null}
 
       {/* Delivery Risk — projects requiring intervention */}
-      {sections.includes("deliveryRisk") ? (
+      {(!isMobileViewport || mobilePanel === "deliveryRisk") && sections.includes("deliveryRisk") ? (
         <>
           <PdsSectionHeader label="Delivery Risk" title="Projects Requiring Intervention" />
           <PdsDeliveryRiskPanel items={commandCenter.delivery_risk ?? []} />
@@ -309,7 +369,7 @@ export function PdsWorkspacePage({
       ) : null}
 
       {/* Client Health */}
-      {sections.includes("satisfactionCloseout") ? (
+      {(!isMobileViewport || mobilePanel === "satisfactionCloseout") && sections.includes("satisfactionCloseout") ? (
         <>
           <PdsSectionHeader label="Client Health" title="Satisfaction & Closeout Status" />
           <PdsSatisfactionCloseoutPanel satisfaction={commandCenter.satisfaction ?? []} closeout={commandCenter.closeout ?? []} />
@@ -317,7 +377,7 @@ export function PdsWorkspacePage({
       ) : null}
 
       {/* Forecast */}
-      {sections.includes("forecast") ? (
+      {(!isMobileViewport || mobilePanel === "forecast") && sections.includes("forecast") ? (
         <>
           <PdsSectionHeader label="Forecast" title="Forecast Trend" />
           <PdsForecastPanel points={commandCenter.forecast_points ?? []} />
@@ -325,14 +385,14 @@ export function PdsWorkspacePage({
       ) : null}
 
       {/* Exec Briefing */}
-      {sections.includes("briefing") && commandCenter.briefing ? (
+      {(!isMobileViewport || mobilePanel === "briefing") && sections.includes("briefing") && commandCenter.briefing ? (
         <>
           <PdsSectionHeader label="Exec Briefing" title="Management Intelligence" />
           <PdsExecutiveBriefingPanel briefing={commandCenter.briefing} />
         </>
       ) : null}
 
-      {sections.includes("reportPacket") && reportPacket ? <ReportPacketPanel packet={reportPacket} /> : null}
+      {(!isMobileViewport || mobilePanel === "reportPacket") && sections.includes("reportPacket") && reportPacket ? <ReportPacketPanel packet={reportPacket} /> : null}
 
       {error ? (
         <div className="rounded-xl border border-pds-signalOrange/30 bg-pds-signalOrange/10 px-3 py-2 text-sm text-pds-signalOrange">

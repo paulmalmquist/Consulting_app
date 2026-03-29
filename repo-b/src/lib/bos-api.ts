@@ -8043,6 +8043,7 @@ export function getResumeSystemStats(envId: string, businessId?: string): Promis
 }
 
 export type ResumeWorkspaceMetric = {
+  metric_key?: string | null;
   label: string;
   value: string;
   detail: string | null;
@@ -8061,6 +8062,7 @@ export type ResumeIdentity = {
 export type ResumeTimelineInitiative = {
   initiative_id: string;
   role_id: string;
+  phase_id?: string | null;
   title: string;
   summary: string;
   team_context: string;
@@ -8072,25 +8074,108 @@ export type ResumeTimelineInitiative = {
   start_date: string;
   end_date: string;
   category: string;
-  capability: string;
   impact_area: string;
+  importance: number;
+  capability_tags: string[];
   technologies: string[];
   impact_tag: string;
   linked_modules: string[];
   linked_architecture_node_ids: string[];
   linked_bi_entity_ids: string[];
   linked_model_preset: string | null;
+  metrics_json: Record<string, string | number>;
 };
 
 export type ResumeTimelineMilestone = {
   milestone_id: string;
+  phase_id?: string | null;
   title: string;
   date: string;
+  type: string;
   summary: string;
+  importance: number;
+  play_order: number | null;
+  capability_tags: string[];
   linked_modules: string[];
   linked_architecture_node_ids: string[];
   linked_bi_entity_ids: string[];
   linked_model_preset: string | null;
+  metrics_json: Record<string, string | number>;
+  artifact_refs: Array<Record<string, string | number | boolean | null>>;
+  snapshot_spec: Record<string, unknown>;
+};
+
+export type ResumeCareerPhase = {
+  phase_id: string;
+  company: string;
+  phase_name: string;
+  start_date: string;
+  end_date: string | null;
+  description: string | null;
+  band_color: string;
+  overlay_only: boolean;
+  display_order: number;
+};
+
+export type ResumeCapabilityLayer = {
+  layer_id: string;
+  name: string;
+  color: string;
+  description: string | null;
+  sort_order: number;
+  is_visible: boolean;
+};
+
+export type ResumeMetricAnchor = {
+  anchor_id: string;
+  hero_metric_key: string;
+  title: string;
+  default_view: "career" | "delivery" | "capability" | "impact";
+  linked_phase_ids: string[];
+  linked_milestone_ids: string[];
+  linked_capability_layer_ids: string[];
+  narrative_hint: string | null;
+  sort_order: number;
+};
+
+export type ResumeAccomplishmentCard = {
+  card_id: string;
+  phase_id: string | null;
+  milestone_id: string | null;
+  metric_key: string | null;
+  title: string;
+  card_type:
+    | "context"
+    | "problem"
+    | "action"
+    | "system"
+    | "impact"
+    | "stakeholders"
+    | "artifact"
+    | "snapshot"
+    | "anecdote";
+  company: string | null;
+  date_start: string | null;
+  date_end: string | null;
+  capability_tags: string[];
+  short_narrative: string;
+  context: string | null;
+  action: string | null;
+  impact: string | null;
+  stakeholders: string | null;
+  artifact_refs: Array<Record<string, string | number | boolean | null>>;
+  metrics_json: Record<string, string | number>;
+  snapshot_spec: Record<string, unknown>;
+  sort_order: number;
+};
+
+export type ResumePlayStoryStep = {
+  step_id: string;
+  title: string;
+  milestone_id: string;
+  phase_id: string | null;
+  view: "career" | "delivery" | "capability" | "impact";
+  description: string | null;
 };
 
 export type ResumeTimelineRole = {
@@ -8108,15 +8193,21 @@ export type ResumeTimelineRole = {
   milestones: ResumeTimelineMilestone[];
 };
 
-export type ResumeTimelineViewMode = "career" | "delivery" | "capability" | "impact" | "compounding";
+export type ResumeTimelineViewMode = "career" | "delivery" | "capability" | "impact";
 
 export type ResumeTimeline = {
   default_view: ResumeTimelineViewMode;
   views: ResumeTimelineViewMode[];
   start_date: string;
   end_date: string;
+  phases: ResumeCareerPhase[];
   roles: ResumeTimelineRole[];
+  initiatives: ResumeTimelineInitiative[];
   milestones: ResumeTimelineMilestone[];
+  capability_layers: ResumeCapabilityLayer[];
+  metric_anchors: ResumeMetricAnchor[];
+  accomplishment_cards: ResumeAccomplishmentCard[];
+  play_story_steps: ResumePlayStoryStep[];
 };
 
 export type ResumeArchitectureNode = {

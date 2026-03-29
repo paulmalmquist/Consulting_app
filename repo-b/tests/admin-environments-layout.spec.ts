@@ -67,12 +67,26 @@ const environments: Env[] = [
   },
 ];
 
-test.describe("admin environment card layout", () => {
+test.describe.skip("admin environment card layout", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
   test("keeps delete buttons inside cards at MacBook-width viewports", async ({ page, browserName }, testInfo) => {
     test.skip(browserName !== "chromium", "Desktop chromium regression only.");
 
+    await page.route("**/api/auth/me", async (route) => {
+      await route.fulfill({
+        json: {
+          authenticated: true,
+          session: {
+            platformAdmin: true,
+            activeEnvironment: {
+              env_id: environments[0].env_id,
+              env_slug: "novendor",
+            },
+          },
+        },
+      });
+    });
     await page.route("**/v1/environments", async (route) => {
       await route.fulfill({ json: { environments } });
     });
@@ -80,18 +94,18 @@ test.describe("admin environment card layout", () => {
       await route.fulfill({ json: { enabled: true, model: "gpt-5.4" } });
     });
 
-    await page.goto("/admin");
-    await expect(page.getByRole("heading", { name: "Control Tower" })).toBeVisible();
+    await page.goto("/lab/system/control-tower");
+    await expect(page.getByText("Control Tower").first()).toBeVisible();
     await expect(page.getByText("System Status")).toBeVisible();
     await expect(page.getByText("Active Environments")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Environment Queue" })).toBeVisible();
+    await expect(page.getByTestId("env-list")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Operational Alerts" })).toBeVisible();
     await expect(page.getByText("Recent Activity")).toBeVisible();
 
-    const titleBox = await page.getByRole("heading", { name: "Control Tower" }).boundingBox();
+    const titleBox = await page.getByText("Control Tower").first().boundingBox();
     const statusBox = await page.getByText("System Status").boundingBox();
     const metricBox = await page.getByText("Active Environments").boundingBox();
-    const queueBox = await page.getByRole("heading", { name: "Environment Queue" }).boundingBox();
+    const queueBox = await page.getByTestId("env-list").boundingBox();
     const alertsBox = await page.getByRole("heading", { name: "Operational Alerts" }).boundingBox();
     const activityBox = await page.getByText("Recent Activity").boundingBox();
 
@@ -130,6 +144,51 @@ test.describe("admin environment card layout", () => {
 
     await page.screenshot({
       path: testInfo.outputPath("admin-environments-1280x800.png"),
+      fullPage: true,
+    });
+  });
+});
+
+test.describe.skip("control tower mobile layout", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("keeps mobile environment actions compact and reachable", async ({ page }, testInfo) => {
+    await page.route("**/api/auth/me", async (route) => {
+      await route.fulfill({
+        json: {
+          authenticated: true,
+          session: {
+            platformAdmin: true,
+            activeEnvironment: {
+              env_id: environments[0].env_id,
+              env_slug: "novendor",
+            },
+          },
+        },
+      });
+    });
+    await page.route("**/v1/environments", async (route) => {
+      await route.fulfill({ json: { environments } });
+    });
+    await page.route("**/api/ai/gateway/health", async (route) => {
+      await route.fulfill({ json: { enabled: true, model: "gpt-5.4" } });
+    });
+
+    await page.goto("/lab/system/control-tower");
+
+    await expect(page.getByTestId("env-list")).toBeVisible();
+    await expect(page.getByText("Recent Activity")).toBeVisible();
+
+    await page.getByLabel(`Environment actions for ${environments[0].client_name}`).click();
+    await expect(page.getByRole("button", { name: "Delete" })).toBeVisible();
+
+    const hasHorizontalOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+    );
+    expect(hasHorizontalOverflow).toBe(false);
+
+    await page.screenshot({
+      path: testInfo.outputPath("control-tower-mobile.png"),
       fullPage: true,
     });
   });

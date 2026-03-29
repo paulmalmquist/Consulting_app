@@ -42,7 +42,7 @@ export async function logoutPlatformSession() {
   const response = await fetch("/api/auth/logout", { method: "POST" });
   const payload = (await response.json().catch(() => ({}))) as { redirectTo?: string };
   clearLegacyEnvironmentClientState();
-  window.location.assign(payload.redirectTo || "/login");
+  window.location.assign(payload.redirectTo || "/");
 }
 
 export async function switchPlatformEnvironment(target: { environmentSlug?: string; envId?: string }) {

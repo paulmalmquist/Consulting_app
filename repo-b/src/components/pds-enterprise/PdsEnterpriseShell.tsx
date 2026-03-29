@@ -3,10 +3,12 @@ import React from "react";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, HardHat } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Building2, HardHat, Menu, X } from "lucide-react";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 import { resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
 import ThemeToggle from "@/components/ThemeToggle";
+import { MobileBottomNav, type MobileNavItem } from "@/components/repe/workspace/MobileBottomNav";
 
 type NavItem = {
   href: string;
@@ -111,9 +113,20 @@ export default function PdsEnterpriseShell({
 }) {
   const pathname = usePathname();
   const { environment, businessId, loading, error, requestId, retry } = useDomainEnv();
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const base = `/lab/env/${envId}/pds`;
   const homeHref = `/lab/env/${envId}`;
   const groups = navGroups(base);
+  const mobileNavItems = useMemo<MobileNavItem[]>(
+    () => [
+      { href: base, label: "Home", icon: "home", matchPrefix: false },
+      { href: `${base}/accounts`, label: "Accounts", icon: "accounts", matchPrefix: true },
+      { href: `${base}/pipeline`, label: "Pipeline", icon: "pipeline", matchPrefix: true },
+      { href: `${base}/revenue`, label: "Revenue", icon: "revenue", matchPrefix: true },
+      { href: `${base}/risk`, label: "Risk", icon: "risk", matchPrefix: true },
+    ],
+    [base],
+  );
   const envLabel = environment?.client_name || "Stone PDS";
   const templateKey =
     resolveWorkspaceTemplateKey({
@@ -121,6 +134,28 @@ export default function PdsEnterpriseShell({
       industry: environment?.industry,
       industryType: environment?.industry_type,
     }) || "pds_enterprise";
+  const activeNavLabel = useMemo(
+    () =>
+      groups.flatMap((group) => group.items).find((item) => isActive(pathname, item.href, item.exact))?.label || "Home",
+    [groups, pathname],
+  );
+
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!drawerOpen) {
+      document.body.style.overflow = "";
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [drawerOpen]);
 
   if (loading) {
     return <div className="rounded-3xl border border-bm-border/70 bg-bm-surface/20 p-6 text-sm text-bm-muted2">Resolving PDS enterprise workspace...</div>;
@@ -145,7 +180,103 @@ export default function PdsEnterpriseShell({
 
   return (
     <div className="space-y-4">
-      <section className="rounded-[30px] border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,hsl(var(--pds-accent)/0.08),transparent_42%)] bg-bm-surface/[0.92] p-5">
+      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-bm-border/60 bg-bm-bg/95 px-4 py-3 backdrop-blur xl:hidden">
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(true)}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-bm-border/70 bg-bm-surface/25 text-bm-text"
+          aria-label="Open PDS navigation"
+        >
+          <Menu size={18} />
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[10px] uppercase tracking-[0.18em] text-bm-muted2">PDS Enterprise OS</p>
+          <p className="truncate text-sm font-semibold text-bm-text">{envLabel}</p>
+        </div>
+        <ThemeToggle />
+      </header>
+
+      {drawerOpen ? (
+        <div className="fixed inset-0 z-40 xl:hidden" data-testid="pds-mobile-drawer">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/60"
+            aria-label="Close PDS navigation"
+            onClick={() => setDrawerOpen(false)}
+          />
+          <div className="absolute left-0 top-0 flex h-full w-80 max-w-[92vw] flex-col border-r border-bm-border/70 bg-bm-bg p-4">
+            <div className="flex items-center justify-between border-b border-bm-border/50 pb-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">PDS Enterprise OS</p>
+                <p className="text-sm font-semibold text-bm-text">{envLabel}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(false)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-bm-border/70 text-bm-text"
+                aria-label="Close PDS navigation"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="mt-4 flex-1 overflow-y-auto">
+              {groups.map((group) => (
+                <div key={`${group.domain}-mobile`} className="mb-4">
+                  <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-bm-muted2/70">
+                    {group.domain}
+                  </p>
+                  <div className="space-y-1">
+                    {group.items.map((item) => {
+                      const active = isActive(pathname, item.href, item.exact);
+                      const inactiveClass =
+                        item.tone === "special"
+                          ? "border-pds-accent/15 bg-pds-accent/5 text-pds-accentText hover:bg-pds-accent/10 hover:text-pds-accentSoft"
+                          : "border-transparent text-bm-muted hover:bg-pds-accent/5 hover:text-pds-accentSoft";
+
+                      return (
+                        <Link
+                          key={`${item.href}-mobile`}
+                          href={item.href}
+                          className={`block rounded-xl border px-3 py-2.5 text-[13px] transition ${
+                            active ? "border-pds-accent/50 bg-pds-accent/10 text-pds-accentText" : inactiveClass
+                          }`}
+                        >
+                          {item.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <section className="rounded-[24px] border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,hsl(var(--pds-accent)/0.08),transparent_42%)] bg-bm-surface/[0.92] p-4 xl:hidden">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="rounded-2xl border border-pds-accent/20 bg-pds-accent/10 p-2 text-pds-accentSoft">
+                <HardHat size={16} />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">Current section</p>
+                <h1 className="text-lg font-semibold text-bm-text">{activeNavLabel}</h1>
+              </div>
+            </div>
+            <p className="text-sm text-bm-muted2">
+              Environment {environment?.schema_name || envId}
+              {businessId ? ` · ${businessId.slice(0, 8)}` : ""}
+            </p>
+          </div>
+          <Link href={homeHref} className="rounded-full border border-bm-border/70 px-4 py-2 text-sm hover:bg-bm-surface/40">
+            Home
+          </Link>
+        </div>
+      </section>
+
+      <section className="hidden rounded-[30px] border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,hsl(var(--pds-accent)/0.08),transparent_42%)] bg-bm-surface/[0.92] p-5 xl:block">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-3">
@@ -181,7 +312,7 @@ export default function PdsEnterpriseShell({
       </section>
 
       <div className="grid gap-4 xl:grid-cols-[250px,1fr]">
-        <aside className="rounded-[28px] border border-bm-border/70 bg-bm-surface/20 p-3" data-testid="pds-sidebar">
+        <aside className="hidden rounded-[28px] border border-bm-border/70 bg-bm-surface/20 p-3 xl:block" data-testid="pds-sidebar">
           <nav className="max-h-[calc(100vh-200px)] space-y-0.5 overflow-y-auto scrollbar-hide">
             {groups.map((group) => (
               <div key={group.domain} className="mb-3">
@@ -217,8 +348,9 @@ export default function PdsEnterpriseShell({
           </nav>
         </aside>
 
-        <div>{children}</div>
+        <div className="pb-20 xl:pb-0">{children}</div>
       </div>
+      <MobileBottomNav items={mobileNavItems} />
     </div>
   );
 }
