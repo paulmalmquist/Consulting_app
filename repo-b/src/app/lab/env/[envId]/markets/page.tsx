@@ -20,6 +20,7 @@ import { BtcSpxCorrelationChart } from "@/components/market/BtcSpxCorrelationCha
 import { NewPositionModal } from "@/components/trading/NewPositionModal";
 import { ClosePositionModal } from "@/components/trading/ClosePositionModal";
 import { EditPositionModal } from "@/components/trading/EditPositionModal";
+import { HistoryRhymesTab } from "@/components/market/HistoryRhymesTab";
 import type {
   TradingTheme,
   TradingSignal,
@@ -36,7 +37,7 @@ import type {
   AssetClass,
 } from "@/lib/trading-lab/types";
 
-type Tab = "overview" | "signals" | "hypotheses" | "positions" | "performance" | "research" | "watchlist";
+type Tab = "overview" | "signals" | "hypotheses" | "positions" | "performance" | "research" | "watchlist" | "rhymes";
 
 /* ── Theme tokens ─────────────────────────────────────────────────── */
 
@@ -340,7 +341,7 @@ export default function TradingLabPage() {
 
       {/* Tab Navigation */}
       <div className={`border-b ${t.headerBorder} px-6 flex gap-8 ${t.tabBg} sticky top-14 z-9`}>
-        {(["overview", "signals", "hypotheses", "positions", "performance", "research", "watchlist"] as Tab[]).map(
+        {(["overview", "signals", "hypotheses", "positions", "performance", "research", "watchlist", "rhymes"] as Tab[]).map(
           (tab) => (
             <button
               key={tab}
@@ -812,6 +813,8 @@ export default function TradingLabPage() {
             </table>
           </div>
         )}
+
+        {activeTab === "rhymes" && <HistoryRhymesTab />}
       </div>
     </div>
   );

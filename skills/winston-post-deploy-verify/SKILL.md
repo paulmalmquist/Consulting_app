@@ -34,7 +34,7 @@ Automated smoke test that logs into paulmalmquist.com (or a Vercel preview URL) 
 
 Run these checks in order. For each, navigate to the page, wait for data to load, and read the page to verify.
 
-### Market Intelligence Engine
+### Trading Lab
 
 **URL:** `{base_url}/lab/env/c3d8f2a1-7b4e-4f9c-a6d2-e8f1b3c5d7a9/markets`
 

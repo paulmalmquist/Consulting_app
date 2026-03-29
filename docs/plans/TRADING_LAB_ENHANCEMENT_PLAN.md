@@ -1,9 +1,9 @@
 # Trading Lab Enhancement Plan
 
-## Market Intelligence Engine → Full-Stack Crypto Trading Lab
+## Trading Lab — Full-Stack Crypto Trading Lab
 
 **Created:** 2026-03-28
-**Source analysis:** Winston Trading Lab: Market Intelligence Engine Analysis and Enhancement Recommendations
+**Source analysis:** Winston Trading Lab: Analysis and Enhancement Recommendations
 **Status:** PLANNING — ready for phased execution
 
 ---

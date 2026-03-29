@@ -349,7 +349,7 @@ function getQuickActions(industry: string, envId: string): Array<{ label: string
     ];
   }
   return [
-    { label: "Market Intelligence", href: `/lab/env/${envId}/markets` },
+    { label: "Trading Lab", href: `/lab/env/${envId}/markets` },
     { label: "Upload Document", href: `/lab/upload` },
     { label: "Create Work Item", href: `/lab/pipeline` },
   ];

@@ -21,7 +21,7 @@
 - **Stone PDS:** IMPROVED — 27/28 pages PASS (up from 22/25 on 03-26). Three P0/P1 bugs FIXED and confirmed: Tech Adoption crash resolved, Forecast NaN fixed (shows 202 deals), Satisfaction NPS fixed (shows +42). Schedule Health redirect resolved. Nav expanded to 28 pages. Zero new regressions. **Demo-ready: YES.**
 - **Meridian Capital:** DEGRADED — Core pages load with real data across 3 funds. Distribution Total Paid fixed ($123.8M). However: AI Chat BROKEN (500 server error on conversation creation), fund performance metrics contradictory (TVPI 0.21x on page vs 2.59x in AI summary), investment sub-records still missing. **Demo-ready: LIMITED.**
 - **MSA Rotation Engine:** OPERATIONAL — Jacksonville Brooklyn/LaVilla brief completed 2026-03-28 (score 5.2/10, Tier 2, first rotation). Previous: Orlando Creative Village (5.8/10). 14 feature backlog cards.
-- **Market Intelligence Engine:** ACTIVE — Regime RISK_OFF_DEFENSIVE (7th consecutive session). VIX 27.44 (elevated from Iran conflict). SPX ~6506 below both MAs. BTC-SPX correlation 0.74. 4 new research segments published 2026-03-28.
+- **Trading Lab:** ACTIVE — Regime RISK_OFF_DEFENSIVE (7th consecutive session). VIX 27.44 (elevated from Iran conflict). SPX ~6506 below both MAs. BTC-SPX correlation 0.74. 4 new research segments published 2026-03-28.
 - **Resume:** UNCONFIRMED — last confirmed healthy 2026-03-21
 
 ## Latest AI Test Results

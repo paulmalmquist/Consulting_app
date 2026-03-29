@@ -1,5 +1,5 @@
 -- Migration 422: BTC-SPX 30-Day Rolling Correlation Tracker
--- Phase B of the Market Intelligence Engine build.
+-- Phase B of the Trading Lab build.
 -- Additive only — creates a new table only; no existing schema is modified.
 --
 -- Purpose:
@@ -81,7 +81,7 @@ CREATE POLICY "tenant_read_btc_spx_corr"
 COMMENT ON TABLE public.btc_spx_correlation IS
   'Daily 30-day rolling Pearson correlation between BTC-USD and ^GSPC daily log returns. '
   'Written by btc_spx_correlation_service.py; read by the Market Intelligence module. '
-  'Created in migration 422 as part of Phase B Market Intelligence Engine build.';
+  'Created in migration 422 as part of Phase B Trading Lab build.';
 
 COMMENT ON COLUMN public.btc_spx_correlation.correlation_30d IS
   'Pearson r between BTC-USD and ^GSPC 30-day daily log returns. Range [-1, 1]. '

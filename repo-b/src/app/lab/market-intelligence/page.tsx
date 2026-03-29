@@ -18,14 +18,14 @@ export default function MarketIntelligenceRedirect() {
   if (selectedEnv) {
     return (
       <div className="flex h-64 items-center justify-center text-bm-muted text-sm">
-        Redirecting to Market Intelligence Engine…
+        Redirecting to Trading Lab…
       </div>
     );
   }
 
   return (
     <div className="flex h-64 flex-col items-center justify-center gap-3 text-sm">
-      <p className="text-bm-muted">Select an environment to open Market Intelligence.</p>
+      <p className="text-bm-muted">Select an environment to open Trading Lab.</p>
       <Link
         href="/lab/environments"
         className="rounded-md bg-bm-accent px-4 py-2 text-white text-sm font-medium hover:opacity-90"

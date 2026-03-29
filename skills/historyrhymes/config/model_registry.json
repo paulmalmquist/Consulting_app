@@ -1,0 +1,137 @@
+{
+  "models": [
+    {
+      "name": "regime_classifier",
+      "priority": 1,
+      "description": "Market regime classification (7 regimes based on Two Sigma GMM approach + enhancements)",
+      "target": "regime_label",
+      "regime_labels": ["RISK_ON_MOMENTUM", "RISK_ON_BROADENING", "RISK_OFF_DEFENSIVE", "RISK_OFF_PANIC", "TRANSITION_UP", "TRANSITION_DOWN", "RANGE_BOUND"],
+      "features": ["macro_indicators", "vol_surface", "cross_asset_correlation", "credit_spreads", "m2_change", "btc_mvrv", "rhyme_score"],
+      "framework": "xgboost",
+      "retrain_cadence": "weekly",
+      "min_accuracy": 0.60,
+      "template": "templates/regime_classifier.py",
+      "status": "planned"
+    },
+    {
+      "name": "directional_predictor_5d",
+      "priority": 2,
+      "description": "5-day return sign prediction for signal generation",
+      "target": "return_sign_5d",
+      "features": ["momentum", "sentiment", "behavioral", "regime_label", "rhyme_score"],
+      "framework": "xgboost",
+      "retrain_cadence": "weekly",
+      "min_accuracy": 0.55,
+      "status": "planned"
+    },
+    {
+      "name": "volatility_forecaster",
+      "priority": 3,
+      "description": "Realized volatility ratio forecast for position sizing",
+      "target": "rv_ratio_5d",
+      "features": ["garch", "implied_vol", "regime_label", "volume_profile", "vix_term_structure"],
+      "framework": "sklearn",
+      "retrain_cadence": "weekly",
+      "status": "planned"
+    },
+    {
+      "name": "mean_reversion_detector",
+      "priority": 4,
+      "description": "Z-score extreme detection for counter-trend entries",
+      "target": "mean_reversion_score",
+      "features": ["spread_ratios", "rsi", "bollinger", "volume_deviation"],
+      "framework": "sklearn",
+      "retrain_cadence": "biweekly",
+      "min_sharpe": 1.0,
+      "status": "planned"
+    },
+    {
+      "name": "sector_rotation_ranker",
+      "priority": 5,
+      "description": "Cross-sector relative strength ranking for allocation",
+      "target": "sector_rank",
+      "features": ["cross_sector_momentum", "flow_data", "earnings_revision", "regime_label"],
+      "framework": "xgboost",
+      "retrain_cadence": "weekly",
+      "status": "planned"
+    },
+    {
+      "name": "ensemble_stacker",
+      "priority": 6,
+      "description": "Meta-learner combining all model outputs into final signal",
+      "target": "blended_signal",
+      "features": ["all_model_outputs", "rhyme_score", "trap_probability"],
+      "framework": "sklearn",
+      "retrain_cadence": "weekly",
+      "min_sharpe": 1.0,
+      "min_accuracy": 0.55,
+      "status": "planned"
+    },
+    {
+      "name": "state_vector_autoencoder",
+      "priority": 0,
+      "description": "Autoencoder projecting 192-dim (64 quant + 128 text) to 256-dim state vectors",
+      "target": "state_vector_256",
+      "features": ["quantitative_64", "text_embedding_128"],
+      "framework": "pytorch",
+      "retrain_cadence": "monthly",
+      "template": "templates/embedding_pipeline.py",
+      "status": "planned",
+      "notes": "Compare against simple concatenation + padding in ablation study"
+    }
+  ],
+  "forecasting_agents": [
+    {
+      "name": "macro_fundamentals",
+      "description": "Macro economist using Dalio debt cycle framework",
+      "receives": ["yield_curve", "pmi", "cpi", "employment", "dalio_cycle_stage", "housing_starts", "credit_spreads", "central_bank_balance_sheets"],
+      "lens": "Cycle analysis via debt cycle framework",
+      "weight_default": 0.25
+    },
+    {
+      "name": "technical_quant",
+      "description": "Quantitative analyst focused on price patterns and statistical relationships",
+      "receives": ["price_series", "volume", "volatility_surfaces", "momentum", "mean_reversion", "correlations", "funding_rates"],
+      "lens": "Pure quantitative evidence, ignore narratives",
+      "weight_default": 0.25
+    },
+    {
+      "name": "narrative_behavioral",
+      "description": "Behavioral finance analyst tracking reflexivity and sentiment",
+      "receives": ["fed_minutes_sentiment", "earnings_language", "social_momentum", "aaii", "fear_greed", "google_trends", "podcast_extractions"],
+      "lens": "Soros reflexivity: are feedback loops accelerating or exhausting?",
+      "weight_default": 0.20
+    },
+    {
+      "name": "contrarian",
+      "description": "Professional contrarian who systematically inverts consensus",
+      "receives": ["all_data", "other_agent_outputs"],
+      "lens": "Invert consensus. AAII bearish >60% → bullish. Consensus >80% → flag danger.",
+      "weight_default": 0.15
+    },
+    {
+      "name": "adversarial_red_team",
+      "description": "Predatory institutional desk simulation",
+      "receives": ["all_signals", "agent_forecasts", "crowding_estimates", "flow_analysis"],
+      "lens": "What trade exploits predictable AI/retail behavior?",
+      "weight_default": 0.15,
+      "special_powers": ["crowding_severity_override", "abstain_recommendation", "position_sizing_adjustment"]
+    }
+  ],
+  "aggregator": {
+    "method": "extremized_logarithmic_opinion_pooling",
+    "extremization_alpha": 1.5,
+    "weight_update_cadence": "monthly",
+    "min_brier_threshold": 0.33,
+    "weight_halving_trigger": "90d_brier > 0.33"
+  },
+  "open_questions": {
+    "embedding_dimensionality": "Test 32, 64, 128, 256 — run ablation on Databricks",
+    "autoencoder_vs_concatenation": "Compare learned projection vs simple concat + padding",
+    "optimal_analog_count": "Green & Armstrong: >= 2. Test 3, 5, 10 for diversity vs noise",
+    "extremization_alpha": "Tetlock found 1.5 for humans. LLM agents may differ — calibrate",
+    "tda_latency": "Persistent homology on daily windows vs <200ms target",
+    "mvrv_etf_era": "Peak Z-scores diminishing. Track if predictive power persists",
+    "honeypot_threshold": "0.85 cosine — calibrate false positive rate"
+  }
+}

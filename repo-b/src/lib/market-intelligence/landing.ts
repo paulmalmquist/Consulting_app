@@ -788,7 +788,7 @@ export async function getMarketLandingFeed(): Promise<MarketLandingFeed> {
   const regimeLabels = parseNamedLines(regimeDoc?.content || "");
   const manifestRegime = manifestMarketLines["Regime"] || "";
   const regimeMatch = manifestRegime.match(/^([^()]+)(?:\(([^)]+)\))?/);
-  const engineLine = manifestEnvironmentLines["Market Intelligence Engine"] || "";
+  const engineLine = manifestEnvironmentLines["Trading Lab"] || manifestEnvironmentLines["Market Intelligence Engine"] || "";
   const engineStatus =
     cleanInline(engineLine.split("—")[0] || engineLine.split("-")[0] || "").replace(/:$/, "") ||
     cleanInline(manifestMarketLines["Pipeline status"]?.split("—")[0] || "") ||

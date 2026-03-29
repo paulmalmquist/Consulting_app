@@ -1,0 +1,22 @@
+{
+  "workspace_url": "https://dbc-2504bec5-b5ab.cloud.databricks.com",
+  "auth_env_var": "DATABRICKS_PAT",
+  "catalog": "novendor_1",
+  "schema": "historyrhymes",
+  "sql_warehouse_id": "0e56420fb707d861",
+  "mlflow_experiment_id": "3740651530987773",
+  "mlflow_experiment_path": "/Users/paulmalmquist@gmail.com/HistoryRhymesML",
+  "metastore_id": "ebd2f3a2-7fcb-4955-a1f1-061e8f2eddf4",
+  "api_versions": {
+    "workspace": "2.0",
+    "mlflow": "2.0",
+    "unity_catalog": "2.1",
+    "sql": "2.0",
+    "jobs": "2.1"
+  },
+  "cost_controls": {
+    "auto_stop_warehouse_after_min": 15,
+    "max_concurrent_jobs": 3,
+    "warehouse_size": "Small"
+  }
+}

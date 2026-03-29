@@ -1,5 +1,5 @@
 -- Migration 423: Winston Trading Lab — Core Schema
--- Transforms Market Intelligence Engine into a stateful decision system.
+-- Transforms Trading Lab into a stateful decision system.
 -- Additive only — no existing tables modified.
 --
 -- Entity graph:
