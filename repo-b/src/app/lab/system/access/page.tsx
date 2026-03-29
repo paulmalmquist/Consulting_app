@@ -195,7 +195,7 @@ export default function AccessPage() {
                 checked={isDefault}
                 onChange={(event) => setIsDefault(event.target.checked)}
               />
-              Mark as this user's default environment
+              Mark as this user&apos;s default environment
             </label>
 
             <div className="xl:col-span-1">
