@@ -1,5 +1,6 @@
 "use client";
 
+import { useShallow } from "zustand/react/shallow";
 import { fmtMoney, fmtPct, fmtMultiple } from "@/lib/format-utils";
 import type {
   ResumeArchitecture,
@@ -69,17 +70,27 @@ export default function ResumeContextRail({
     selectedTimelineId,
     selectedArchitectureNodeId,
     setActiveModule,
-  } = useResumeWorkspaceStore((state) => ({
-    activeModule: state.activeModule,
-    selectedTimelineId: state.selectedTimelineId,
-    selectedArchitectureNodeId: state.selectedArchitectureNodeId,
-    setActiveModule: state.setActiveModule,
-  }));
+  } = useResumeWorkspaceStore(
+    useShallow((state) => ({
+      activeModule: state.activeModule,
+      selectedTimelineId: state.selectedTimelineId,
+      selectedArchitectureNodeId: state.selectedArchitectureNodeId,
+      setActiveModule: state.setActiveModule,
+    })),
+  );
 
   const timelineSelection = resolveTimelineSelection(timeline, selectedTimelineId);
   const selectedNode =
     architecture.nodes.find((node) => node.node_id === selectedArchitectureNodeId) ?? null;
-  const activeStory = stories.find((story) => story.module === activeModule) ?? stories[0];
+  const activeStory =
+    stories.find((story) => story.module === activeModule) ??
+    stories[0] ?? {
+      title: "Resume story",
+      why_it_matters: "The visual resume is staying available even when some supporting narrative data is sparse.",
+      audience: "Operators and executives",
+      before_state: "Manual and fragmented workflows",
+      after_state: "Connected systems and clearer decision support",
+    };
 
   const content =
     activeModule === "timeline" && timelineSelection

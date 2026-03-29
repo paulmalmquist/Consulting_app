@@ -1,9 +1,11 @@
 "use client";
 
+import { useShallow } from "zustand/react/shallow";
 import { fmtMoney, fmtPct, fmtMultiple } from "@/lib/format-utils";
 import type { ResumeModeling } from "@/lib/bos-api";
 import WaterfallChart from "@/components/charts/WaterfallChart";
 import TrendLineChart from "@/components/charts/TrendLineChart";
+import ResumeFallbackCard from "./ResumeFallbackCard";
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
 import type { ResumeScenarioOutputs } from "./modelingMath";
 
@@ -50,12 +52,14 @@ export default function ResumeModelingModule({
   modeling: ResumeModeling;
   outputs: ResumeScenarioOutputs;
 }) {
-  const { modelInputs, modelPresetId, setModelPreset, setModelInputs } = useResumeWorkspaceStore((state) => ({
-    modelInputs: state.modelInputs,
-    modelPresetId: state.modelPresetId,
-    setModelPreset: state.setModelPreset,
-    setModelInputs: state.setModelInputs,
-  }));
+  const { modelInputs, modelPresetId, setModelPreset, setModelInputs } = useResumeWorkspaceStore(
+    useShallow((state) => ({
+      modelInputs: state.modelInputs,
+      modelPresetId: state.modelPresetId,
+      setModelPreset: state.setModelPreset,
+      setModelInputs: state.setModelInputs,
+    })),
+  );
 
   const equityTrend = outputs.annualCashFlows.map((row, index) => ({
     quarter: `Year ${row.year}`,
@@ -63,6 +67,7 @@ export default function ResumeModelingModule({
       .slice(0, index + 1)
       .reduce((sum, entry) => sum + entry.cashFlowToEquity, -outputs.equityInvested),
   }));
+  const assumptionEntries = Object.entries(modeling.assumptions);
 
   return (
     <section className="rounded-[28px] border border-bm-border/60 bg-bm-surface/30 p-5">
@@ -164,14 +169,18 @@ export default function ResumeModelingModule({
               </div>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {Object.entries(modeling.assumptions).map(([key, value]) => (
-                <div key={key} className="rounded-xl border border-bm-border/30 bg-white/5 px-3 py-3">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">{key.replaceAll("_", " ")}</p>
-                  <p className="mt-2 text-sm text-bm-text">
-                    {typeof value === "number" && value < 1 ? fmtPct(value) : String(value)}
-                  </p>
-                </div>
-              ))}
+              {assumptionEntries.length > 0 ? (
+                assumptionEntries.map(([key, value]) => (
+                  <div key={key} className="rounded-xl border border-bm-border/30 bg-white/5 px-3 py-3">
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">{key.replaceAll("_", " ")}</p>
+                    <p className="mt-2 text-sm text-bm-text">
+                      {typeof value === "number" && value < 1 ? fmtPct(value) : String(value)}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-bm-muted2">Model assumptions are temporarily unavailable, but the live scenario controls still work.</p>
+              )}
             </div>
           </div>
         </div>
@@ -188,7 +197,17 @@ export default function ResumeModelingModule({
               </div>
             </div>
             <div className="mt-4 h-[300px]">
-              <WaterfallChart items={outputs.waterfall} height={300} />
+              {outputs.waterfall.length > 0 ? (
+                <WaterfallChart items={outputs.waterfall} height={300} />
+              ) : (
+                <ResumeFallbackCard
+                  eyebrow="Modeling"
+                  title="Visualization failed to render"
+                  body="The distribution waterfall does not have a usable series right now."
+                  className="h-full"
+                  tone="warning"
+                />
+              )}
             </div>
           </div>
 
@@ -196,13 +215,23 @@ export default function ResumeModelingModule({
             <h3 className="text-sm font-semibold">Equity growth trajectory</h3>
             <p className="mt-1 text-xs text-bm-muted2">How the scenario compounds over the hold period.</p>
             <div className="mt-4 h-[260px]">
-              <TrendLineChart
-                data={equityTrend}
-                lines={[{ key: "equity", label: "Equity Value", color: "#8b5cf6" }]}
-                format="dollar"
-                height={260}
-                showLegend={false}
-              />
+              {equityTrend.length > 0 ? (
+                <TrendLineChart
+                  data={equityTrend}
+                  lines={[{ key: "equity", label: "Equity Value", color: "#8b5cf6" }]}
+                  format="dollar"
+                  height={260}
+                  showLegend={false}
+                />
+              ) : (
+                <ResumeFallbackCard
+                  eyebrow="Modeling"
+                  title="Visualization failed to render"
+                  body="The equity trend series is unavailable for the current scenario."
+                  className="h-full"
+                  tone="warning"
+                />
+              )}
             </div>
           </div>
         </div>
@@ -224,16 +253,24 @@ export default function ResumeModelingModule({
               </tr>
             </thead>
             <tbody>
-              {outputs.annualCashFlows.map((row) => (
-                <tr key={row.year} className="border-t border-bm-border/20 text-bm-text">
-                  <td className="px-4 py-3">{row.year}</td>
-                  <td className="px-4 py-3">{fmtMoney(row.noi)}</td>
-                  <td className="px-4 py-3">{fmtMoney(row.debtService)}</td>
-                  <td className="px-4 py-3">{fmtMoney(row.cashFlowToEquity)}</td>
-                  <td className="px-4 py-3">{row.terminalValue ? fmtMoney(row.terminalValue) : "—"}</td>
-                  <td className="px-4 py-3">{row.netSaleProceeds ? fmtMoney(row.netSaleProceeds) : "—"}</td>
+              {outputs.annualCashFlows.length > 0 ? (
+                outputs.annualCashFlows.map((row) => (
+                  <tr key={row.year} className="border-t border-bm-border/20 text-bm-text">
+                    <td className="px-4 py-3">{row.year}</td>
+                    <td className="px-4 py-3">{fmtMoney(row.noi)}</td>
+                    <td className="px-4 py-3">{fmtMoney(row.debtService)}</td>
+                    <td className="px-4 py-3">{fmtMoney(row.cashFlowToEquity)}</td>
+                    <td className="px-4 py-3">{row.terminalValue ? fmtMoney(row.terminalValue) : "—"}</td>
+                    <td className="px-4 py-3">{row.netSaleProceeds ? fmtMoney(row.netSaleProceeds) : "—"}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr className="border-t border-bm-border/20 text-bm-muted2">
+                  <td colSpan={6} className="px-4 py-6 text-center text-sm">
+                    The current scenario did not produce a year-by-year series. Adjust the assumptions or reload the module.
+                  </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

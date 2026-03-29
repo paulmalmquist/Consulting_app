@@ -6,6 +6,7 @@
  */
 import { NextRequest } from "next/server";
 import { hasSession, unauthorizedJson } from "@/lib/server/sessionAuth";
+import { buildPlatformSessionHeaders } from "@/lib/server/platformForwardHeaders";
 
 export const runtime = "nodejs";
 
@@ -19,12 +20,12 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ conversationId: string }> },
 ) {
-  if (!hasSession(req)) return unauthorizedJson();
+  if (!(await hasSession(req))) return unauthorizedJson();
   const { conversationId } = await params;
 
   const upstream = await fetch(
     `${FASTAPI_BASE}/api/ai/gateway/conversations/${conversationId}`,
-    { signal: AbortSignal.timeout(10_000) },
+    { headers: await buildPlatformSessionHeaders(req), signal: AbortSignal.timeout(10_000) },
   );
 
   const data = await upstream.text();
@@ -38,12 +39,12 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ conversationId: string }> },
 ) {
-  if (!hasSession(req)) return unauthorizedJson();
+  if (!(await hasSession(req))) return unauthorizedJson();
   const { conversationId } = await params;
 
   const upstream = await fetch(
     `${FASTAPI_BASE}/api/ai/gateway/conversations/${conversationId}`,
-    { method: "DELETE", signal: AbortSignal.timeout(10_000) },
+    { method: "DELETE", headers: await buildPlatformSessionHeaders(req), signal: AbortSignal.timeout(10_000) },
   );
 
   const data = await upstream.text();

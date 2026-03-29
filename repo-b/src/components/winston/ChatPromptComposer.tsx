@@ -1,6 +1,10 @@
 "use client";
 
-import React, { useCallback, useRef, useEffect } from "react";
+import React, { useCallback, useRef, useMemo } from "react";
+import {
+  usePretextComposerHeight,
+  useElementWidth,
+} from "@/hooks/usePretext";
 
 export default function ChatPromptComposer({
   value,
@@ -16,17 +20,21 @@ export default function ChatPromptComposer({
   placeholder?: string;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const autoResize = useCallback(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
-  }, []);
+  // Track wrapper width for pretext measurement
+  const wrapperWidth = useElementWidth(wrapperRef);
 
-  useEffect(() => {
-    autoResize();
-  }, [value, autoResize]);
+  // Textarea has px-4 (16px * 2 = 32px horizontal padding) + 2px border
+  const textareaContentWidth = Math.max(0, wrapperWidth - 34);
+
+  // Compute height via pretext — no DOM reflow
+  const computedHeight = usePretextComposerHeight(
+    value,
+    textareaContentWidth,
+    160, // maxHeight
+    20   // py-2.5 vertical padding
+  );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -40,7 +48,7 @@ export default function ChatPromptComposer({
   return (
     <div className="border-t border-bm-border/30 bg-bm-bg/80 backdrop-blur-sm px-4 py-3">
       <div className="mx-auto max-w-4xl flex items-end gap-2">
-        <div className="flex-1 relative">
+        <div ref={wrapperRef} className="flex-1 relative">
           <textarea
             ref={textareaRef}
             value={value}
@@ -50,7 +58,10 @@ export default function ChatPromptComposer({
             disabled={busy}
             rows={1}
             className="w-full resize-none rounded-lg border border-bm-border/40 bg-bm-surface/30 px-4 py-2.5 text-[13px] text-bm-text placeholder:text-bm-muted/60 focus:border-bm-accent/50 focus:outline-none focus:ring-1 focus:ring-bm-accent/30 disabled:opacity-50 transition-colors"
-            style={{ maxHeight: 160 }}
+            style={{
+              height: computedHeight > 0 ? computedHeight : undefined,
+              maxHeight: 160,
+            }}
           />
         </div>
         <button

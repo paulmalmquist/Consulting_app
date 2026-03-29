@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/server/db";
+import { requireTradingMembership, tradingWriteAllowed } from "@/lib/server/tradingSession";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -135,10 +136,16 @@ export async function POST(
   }
 
   try {
+    const access = await requireTradingMembership(req);
+    if (access.error) return access.error;
+    if (!tradingWriteAllowed(access.membership.role)) {
+      return NextResponse.json({ error: "Write access required" }, { status: 403 });
+    }
+
     const body = await req.json();
     const id = crypto.randomUUID();
     body[config.idCol] = id;
-    if (!body.tenant_id) body.tenant_id = "00000000-0000-0000-0000-000000000000";
+    body.tenant_id = access.membership.tenant_id;
 
     // Default entry_at for positions
     if (entity === "positions" && !body.entry_at) {
@@ -184,6 +191,12 @@ export async function PATCH(
   }
 
   try {
+    const access = await requireTradingMembership(req);
+    if (access.error) return access.error;
+    if (!tradingWriteAllowed(access.membership.role)) {
+      return NextResponse.json({ error: "Write access required" }, { status: 403 });
+    }
+
     const body = await req.json();
     const sets: string[] = [];
     const vals: unknown[] = [];
@@ -203,7 +216,9 @@ export async function PATCH(
     sets.push(`updated_at = now()`);
     vals.push(id);
 
-    const sql = `UPDATE public.${config.table} SET ${sets.join(", ")} WHERE ${config.idCol} = $${paramIdx} RETURNING *`;
+    vals.push(access.membership.tenant_id);
+
+    const sql = `UPDATE public.${config.table} SET ${sets.join(", ")} WHERE ${config.idCol} = $${paramIdx} AND tenant_id = $${paramIdx + 1}::uuid RETURNING *`;
     const result = await pool.query(sql, vals);
 
     if (result.rows.length === 0) {

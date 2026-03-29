@@ -1,10 +1,11 @@
 """Website OS — Content module routes."""
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 from typing import Optional
 from uuid import UUID
 
+from app.auth.platform import require_environment_access
 from app.services import website_content as svc
 
 router = APIRouter(prefix="/api/website/content", tags=["website-content"])
@@ -29,18 +30,21 @@ class ContentStateUpdateRequest(BaseModel):
 
 @router.get("/items")
 def list_content_items(
+    request: Request,
     env_id: str = Query(...),
     state: Optional[str] = Query(None),
 ):
     try:
+        require_environment_access(request, env_id=env_id)
         return svc.list_content_items(env_id=env_id, state=state)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.post("/items", status_code=201)
-def create_content_item(req: ContentItemCreateRequest):
+def create_content_item(request: Request, req: ContentItemCreateRequest):
     try:
+        require_environment_access(request, env_id=req.env_id, allowed_roles={"owner", "admin", "member"})
         return svc.create_content_item(
             env_id=req.env_id,
             title=req.title,
@@ -59,8 +63,9 @@ def create_content_item(req: ContentItemCreateRequest):
 
 
 @router.patch("/items/{item_id}/state")
-def update_content_state(item_id: UUID, req: ContentStateUpdateRequest):
+def update_content_state(request: Request, item_id: UUID, req: ContentStateUpdateRequest):
     try:
+        require_environment_access(request, env_id=req.env_id, allowed_roles={"owner", "admin", "member"})
         return svc.update_content_state(
             item_id=str(item_id),
             env_id=req.env_id,
@@ -75,8 +80,9 @@ def update_content_state(item_id: UUID, req: ContentStateUpdateRequest):
 
 
 @router.get("/stats")
-def get_content_stats(env_id: str = Query(...)):
+def get_content_stats(request: Request, env_id: str = Query(...)):
     try:
+        require_environment_access(request, env_id=env_id)
         return svc.get_content_stats(env_id=env_id)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))

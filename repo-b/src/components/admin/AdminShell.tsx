@@ -5,9 +5,11 @@ import { usePathname } from "next/navigation";
 import { Globe, FileText, Settings, type LucideIcon } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/cn";
+import { logoutPlatformSession } from "@/lib/platformSessionClient";
 
 const NAV_ITEMS: ReadonlyArray<{ id: string; href: string; label: string; icon: LucideIcon }> = [
   { id: "environments", href: "/admin", label: "Environments", icon: Globe },
+  { id: "access", href: "/admin/access", label: "Access", icon: Settings },
   { id: "audit", href: "/lab/audit", label: "Audit Log", icon: FileText },
 ];
 
@@ -15,8 +17,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
 
   const logout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    window.location.href = "/login";
+    await logoutPlatformSession();
   };
 
   return (
@@ -32,7 +33,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
         <nav className="flex flex-col gap-0.5">
           {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <Link
                 key={item.id}

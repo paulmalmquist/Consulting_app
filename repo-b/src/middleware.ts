@@ -1,75 +1,197 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-type SessionPayload = { role?: string; env_id?: string };
+import {
+  environmentLoginPath,
+  environmentUnauthorizedPath,
+  type EnvironmentSlug,
+  isEnvironmentSlug,
+} from "@/lib/environmentAuth";
+import { applyPlatformSessionCookies } from "@/lib/server/platformSessionCookies";
+import {
+  isPlatformAdminSession,
+  parseSessionFromNextRequest,
+  PLATFORM_SESSION_COOKIE,
+  signPlatformSession,
+  verifyPlatformSession,
+} from "@/lib/server/sessionAuth";
 
-function parseSession(request: NextRequest): SessionPayload | null {
-  if (process.env.PLAYWRIGHT_BYPASS_AUTH === "1") return { role: "admin" };
+const TOP_LEVEL_ENV_RE = /^\/(novendor|floyorker|resume|trading)(?:\/|$)/;
+const LAB_ENV_RE = /^\/lab\/env\/([^/]+)(?:\/|$)/;
 
-  // Prefer the new structured session cookie
-  const newCookie = request.cookies.get("bos_session")?.value;
-  if (newCookie) {
-    try {
-      return JSON.parse(newCookie) as SessionPayload;
-    } catch {
-      return null;
-    }
-  }
-
-  // Fall back to legacy invite-code cookie (treat as env_user)
-  const legacyCookie = request.cookies.get("demo_lab_session")?.value;
-  if (legacyCookie === "active") {
-    return { role: "env_user" };
-  }
-
-  return null;
+function buildLoginRedirect(request: NextRequest, pathname: string) {
+  const url = request.nextUrl.clone();
+  url.pathname = "/login";
+  url.searchParams.set("returnTo", pathname);
+  return url;
 }
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const session = parseSession(request);
-  const role = session?.role;
+function buildEnvironmentLoginRedirect(request: NextRequest, slug: EnvironmentSlug, pathname: string) {
+  const url = request.nextUrl.clone();
+  url.pathname = environmentLoginPath(slug);
+  url.searchParams.set("returnTo", pathname);
+  return url;
+}
 
-  // ── Always public ──────────────────────────────────────────────
+function isPublicEnvironmentPath(pathname: string, slug: EnvironmentSlug) {
+  if (pathname === `/${slug}/login`) return true;
+  if (pathname === `/${slug}/unauthorized`) return true;
+  if (pathname === `/${slug}/logout`) return true;
+  if (pathname === `/${slug}/auth/callback`) return true;
+  if (slug === "resume" && pathname === "/resume") return true;
+  return false;
+}
+
+function membershipForSlug(
+  memberships: Array<{ env_id: string; env_slug: string; role: string; status: string }>,
+  slug: EnvironmentSlug,
+) {
+  return memberships.find((membership) => membership.env_slug === slug && membership.status === "active") || null;
+}
+
+function membershipForEnvId(
+  memberships: Array<{ env_id: string; env_slug: string; role: string; status: string }>,
+  envId: string,
+) {
+  return memberships.find((membership) => membership.env_id === envId && membership.status === "active") || null;
+}
+
+async function maybeRotateSessionByMembership(
+  request: NextRequest,
+  response: NextResponse,
+  target: { envId?: string | null; slug?: EnvironmentSlug | null },
+) {
+  const raw = request.cookies.get(PLATFORM_SESSION_COOKIE)?.value;
+  const claims = await verifyPlatformSession(raw);
+  if (!claims) return response;
+
+  const membership = target.envId
+    ? membershipForEnvId(claims.memberships, target.envId)
+    : target.slug
+      ? membershipForSlug(claims.memberships, target.slug)
+      : null;
+
+  if (!membership) return response;
+  if (claims.active_env_id === membership.env_id && claims.active_env_slug === membership.env_slug) {
+    return response;
+  }
+
+  const rotatedClaims = {
+    ...claims,
+    active_env_id: membership.env_id,
+    active_env_slug: membership.env_slug as EnvironmentSlug,
+    active_role: membership.role as "owner" | "admin" | "member" | "viewer",
+  };
+  const token = await signPlatformSession(rotatedClaims);
+  applyPlatformSessionCookies(response, {
+    token,
+    claims: rotatedClaims,
+    activeMembership: membership as typeof claims.memberships[number],
+  });
+  return response;
+}
+
+async function readSession(request: NextRequest) {
+  if (process.env.PLAYWRIGHT_BYPASS_AUTH === "1") {
+    return {
+      role: "admin",
+      platform_admin: true,
+      memberships: [],
+    };
+  }
+  return parseSessionFromNextRequest(request);
+}
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const session = await readSession(request);
+
   if (
     pathname.startsWith("/api/auth/") ||
-    pathname.startsWith("/api/public/")
+    pathname.startsWith("/api/public/") ||
+    pathname === "/login"
   ) {
     return NextResponse.next();
   }
 
-  // ── Admin-only routes (/admin) ─────────────────────────────────
+  const topLevelEnvironment = pathname.match(TOP_LEVEL_ENV_RE)?.[1] || null;
+  if (topLevelEnvironment && isEnvironmentSlug(topLevelEnvironment)) {
+    if (isPublicEnvironmentPath(pathname, topLevelEnvironment)) {
+      return NextResponse.next();
+    }
+
+    if (!session) {
+      return NextResponse.redirect(
+        buildEnvironmentLoginRedirect(request, topLevelEnvironment, pathname),
+      );
+    }
+
+    const membership = membershipForSlug(session.memberships || [], topLevelEnvironment);
+    if (!membership && !isPlatformAdminSession(session)) {
+      const url = request.nextUrl.clone();
+      url.pathname = environmentUnauthorizedPath(topLevelEnvironment);
+      return NextResponse.redirect(url);
+    }
+
+    if (
+      pathname === "/resume/admin" &&
+      membership &&
+      !["owner", "admin"].includes(membership.role) &&
+      !isPlatformAdminSession(session)
+    ) {
+      const url = request.nextUrl.clone();
+      url.pathname = environmentUnauthorizedPath("resume");
+      return NextResponse.redirect(url);
+    }
+
+    const response = NextResponse.next();
+    if (!membership) return response;
+    return maybeRotateSessionByMembership(request, response, { slug: topLevelEnvironment });
+  }
+
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
-    if (role !== "admin") {
+    if (!session) {
+      return NextResponse.redirect(buildLoginRedirect(request, pathname));
+    }
+    if (!isPlatformAdminSession(session)) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
-      url.searchParams.set("loginType", "admin");
+      url.searchParams.set("returnTo", pathname);
+      url.searchParams.set("error", "admin_access_required");
       return NextResponse.redirect(url);
     }
     return NextResponse.next();
   }
 
-  // ── Protected env-user routes ─────────────────────────────────
   const protectedPrefixes = ["/lab", "/app", "/onboarding", "/documents", "/tasks"];
   const isProtected = protectedPrefixes.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
-
   if (isProtected) {
-    if (!role) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      return NextResponse.redirect(url);
+    if (!session) {
+      return NextResponse.redirect(buildLoginRedirect(request, pathname));
     }
+
+    const envId = pathname.match(LAB_ENV_RE)?.[1] || null;
+    if (envId) {
+      const membership = membershipForEnvId(session.memberships || [], envId);
+      if (!membership && !isPlatformAdminSession(session)) {
+        return new NextResponse("Not Found", { status: 404 });
+      }
+      if (membership) {
+        const response = NextResponse.next();
+        return maybeRotateSessionByMembership(request, response, { envId });
+      }
+    }
+
     return NextResponse.next();
   }
 
-  // ── Private API routes ─────────────────────────────────────────
-  const privateApiPrefixes = ["/api/commands", "/api/mcp", "/api/ai/gateway"];
+  const privateApiPrefixes = ["/api/commands", "/api/mcp", "/api/ai/gateway", "/api/admin/access"];
   const isPrivateApi = privateApiPrefixes.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
-  if (isPrivateApi && !role) {
+  if (isPrivateApi && !session) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
 
@@ -80,11 +202,12 @@ export const config = {
   matcher: [
     "/admin",
     "/admin/:path*",
+    "/api/auth/:path*",
+    "/api/public/:path*",
     "/api/commands/:path*",
     "/api/mcp/:path*",
     "/api/ai/gateway/:path*",
-    "/api/public/:path*",
-    "/api/auth/login",
+    "/api/admin/access/:path*",
     "/lab",
     "/lab/:path*",
     "/app",
@@ -95,5 +218,10 @@ export const config = {
     "/documents/:path*",
     "/tasks",
     "/tasks/:path*",
+    "/novendor/:path*",
+    "/floyorker/:path*",
+    "/resume",
+    "/resume/:path*",
+    "/trading/:path*",
   ],
 };

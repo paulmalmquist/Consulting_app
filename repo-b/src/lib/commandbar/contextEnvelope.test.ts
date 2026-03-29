@@ -93,4 +93,19 @@ describe("buildAssistantContextEnvelope", () => {
       name: "IGF VII",
     });
   });
+
+  it("recognizes the resume route as a dedicated resume workspace surface", () => {
+    const envelope = buildAssistantContextEnvelope({
+      context: {
+        route: "/lab/env/7160a57b-59e7-4d72-bf43-5b9c179021af/resume",
+        currentEnvId: "7160a57b-59e7-4d72-bf43-5b9c179021af",
+      },
+      snapshot: null,
+    });
+
+    expect(envelope.ui.surface).toBe("resume_workspace");
+    expect(envelope.ui.active_module).toBe("resume");
+    expect(envelope.ui.page_entity_type).toBe("environment");
+    expect(envelope.ui.page_entity_id).toBe("7160a57b-59e7-4d72-bf43-5b9c179021af");
+  });
 });

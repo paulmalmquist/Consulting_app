@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Inter_Tight, JetBrains_Mono } from "next/font/google";
+import "@fontsource/league-gothic/400.css";
 import "./globals.css";
 import Providers from "@/components/Providers";
 

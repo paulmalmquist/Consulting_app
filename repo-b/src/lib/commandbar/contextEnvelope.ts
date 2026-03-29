@@ -67,6 +67,7 @@ function routeDescriptor(route: string | null): RouteDescriptor {
     { re: /^\/lab\/env\/[^/]+\/re\/development$/, surface: "development_workspace", activeModule: "re", pageEntityType: "environment" },
     { re: /^\/lab\/env\/[^/]+\/re\/pipeline\/([^/]+)/, surface: "pipeline_detail", activeModule: "re", pageEntityType: "pipeline_deal" },
     { re: /^\/lab\/env\/[^/]+\/re\/pipeline$/, surface: "pipeline_workspace", activeModule: "re", pageEntityType: "environment" },
+    { re: /^\/lab\/env\/([^/]+)\/resume(?:\/|$)/, surface: "resume_workspace", activeModule: "resume", pageEntityType: "environment" },
     { re: /^\/lab\/env\/[^/]+\/copilot(?:\/|$)/, surface: "winston_workspace", activeModule: "copilot", pageEntityType: "environment" },
     { re: /^\/lab\/env\/[^/]+\/pds(?:\/|$)/, surface: "pds_workspace", activeModule: "pds", pageEntityType: "environment" },
     { re: /^\/lab\/env\/[^/]+\/consulting(?:\/|$)/, surface: "consulting_workspace", activeModule: "consulting", pageEntityType: "environment" },
@@ -105,6 +106,7 @@ function assistantMode(surface: string | null, pageEntityType: AssistantEntityTy
   if (surface?.includes("distribution")) return "distribution_copilot";
   if (surface?.includes("development")) return "development_copilot";
   if (surface?.includes("consulting")) return "consulting_copilot";
+  if (surface?.includes("resume")) return "resume_copilot";
   if (surface?.includes("pds")) return "pds_copilot";
   if (surface?.includes("credit")) return "credit_copilot";
   if (surface?.includes("winston")) return "winston_companion";

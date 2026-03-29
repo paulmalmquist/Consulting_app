@@ -68,6 +68,7 @@ export default function WinstonChatWorkspace() {
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
   const [thinkingStatus, setThinkingStatus] = useState<string | undefined>();
+  const [streamingMessageId, setStreamingMessageId] = useState<string | undefined>();
 
   // Context state
   const [contextSnapshot, setContextSnapshot] = useState<ContextSnapshot | null>(null);
@@ -146,6 +147,7 @@ export default function WinstonChatWorkspace() {
     setConversationId(null);
     setBusy(false);
     setThinkingStatus(undefined);
+    setStreamingMessageId(undefined);
     setContextPanel({ tools: [], citations: [] });
     // Clear stale context so the next message fetches fresh data
     setContextSnapshot(null);
@@ -192,6 +194,7 @@ export default function WinstonChatWorkspace() {
       responseBlocks: [],
     };
     setMessages((prev) => [...prev, assistantMsg]);
+    setStreamingMessageId(assistantMsgId);
 
     try {
       const snapshot = contextSnapshot || (await fetchContextSnapshot(context).then((p) => {
@@ -396,6 +399,7 @@ export default function WinstonChatWorkspace() {
     } finally {
       setBusy(false);
       setThinkingStatus(undefined);
+      setStreamingMessageId(undefined);
       abortRef.current = null;
     }
   }, [prompt, busy, context, contextSnapshot, conversationId, workspace]);
@@ -431,6 +435,7 @@ export default function WinstonChatWorkspace() {
             thinkingStatus={thinkingStatus}
             onAction={handleAction}
             onExampleClick={handleExampleClick}
+            streamingMessageId={streamingMessageId}
           />
           <ChatPromptComposer
             value={prompt}

@@ -4,7 +4,8 @@
  * Triggers document indexing for RAG search after upload.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { hasSession, getSessionActor, unauthorizedJson } from "@/lib/server/sessionAuth";
+import { hasSession, unauthorizedJson } from "@/lib/server/sessionAuth";
+import { buildPlatformSessionHeaders } from "@/lib/server/platformForwardHeaders";
 
 export const runtime = "nodejs";
 
@@ -15,17 +16,18 @@ const FASTAPI_BASE = (
 ).replace(/\/$/, "");
 
 export async function POST(req: NextRequest) {
-  if (!hasSession(req)) {
+  if (!(await hasSession(req))) {
     return unauthorizedJson();
   }
 
   try {
     const body = await req.text();
+    const platformHeaders = await buildPlatformSessionHeaders(req);
     const upstream = await fetch(`${FASTAPI_BASE}/api/ai/gateway/index`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-bm-actor": getSessionActor(req),
+        ...platformHeaders,
       },
       body,
     });

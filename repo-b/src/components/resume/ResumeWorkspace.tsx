@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { fmtMoney, fmtPct, fmtMultiple } from "@/lib/format-utils";
-import type { ResumeWorkspacePayload } from "@/lib/bos-api";
 import {
   publishAssistantEnvironmentContext,
   publishAssistantPageContext,
@@ -16,7 +16,9 @@ import ResumeModelingModule from "./ResumeModelingModule";
 import ResumeBiModule from "./ResumeBiModule";
 import ResumeContextRail from "./ResumeContextRail";
 import ResumeAssistantDock from "./ResumeAssistantDock";
+import ResumeModuleBoundary from "./ResumeModuleBoundary";
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
+import type { ResumeWorkspaceViewModel } from "@/lib/resume/workspace";
 
 const MODULE_LABELS = {
   timeline: "Timeline",
@@ -32,7 +34,7 @@ export default function ResumeWorkspace({
 }: {
   envId: string;
   businessId: string | null;
-  workspace: ResumeWorkspacePayload;
+  workspace: ResumeWorkspaceViewModel;
 }) {
   const {
     activeModule,
@@ -41,38 +43,23 @@ export default function ResumeWorkspace({
     modelInputs,
     selectedBiEntityId,
     biFilters,
-  } = useResumeWorkspaceStore((state) => ({
-    activeModule: state.activeModule,
-    setActiveModule: state.setActiveModule,
-    initialize: state.initialize,
-    modelInputs: state.modelInputs,
-    selectedBiEntityId: state.selectedBiEntityId,
-    biFilters: state.biFilters,
-  }));
+  } = useResumeWorkspaceStore(
+    useShallow((state) => ({
+      activeModule: state.activeModule,
+      setActiveModule: state.setActiveModule,
+      initialize: state.initialize,
+      modelInputs: state.modelInputs,
+      selectedBiEntityId: state.selectedBiEntityId,
+      biFilters: state.biFilters,
+    })),
+  );
 
   useEffect(() => {
     initialize(workspace);
   }, [workspace, initialize]);
 
-  useEffect(() => {
-    publishAssistantEnvironmentContext({
-      active_environment_id: envId,
-      active_business_id: businessId ?? undefined,
-    });
-    publishAssistantPageContext({
-      route: `/lab/env/${envId}/resume`,
-      surface: "resume",
-      active_module: activeModule,
-    });
-    return () => resetAssistantPageContext();
-  }, [activeModule, envId, businessId]);
-
   const modelOutputs = useMemo(
-    () =>
-      computeResumeScenario(
-        modelInputs,
-        workspace.modeling.assumptions as Parameters<typeof computeResumeScenario>[1],
-      ),
+    () => computeResumeScenario(modelInputs, workspace.modeling.assumptions),
     [modelInputs, workspace.modeling.assumptions],
   );
 
@@ -105,23 +92,56 @@ export default function ResumeWorkspace({
     return metrics;
   }, [activeModule, modelOutputs, biSlice]);
 
+  useEffect(() => {
+    publishAssistantEnvironmentContext({
+      active_environment_id: envId,
+      active_business_id: businessId ?? undefined,
+    });
+    publishAssistantPageContext({
+      route: `/lab/env/${envId}/resume`,
+      surface: "resume_workspace",
+      active_module: "resume",
+      page_entity_type: "environment",
+      page_entity_id: envId,
+      page_entity_name: workspace.identity.name,
+      selected_entities: [
+        {
+          entity_type: "resume_workspace",
+          entity_id: envId,
+          name: workspace.identity.name,
+          source: "page",
+          metadata: {
+            active_panel: activeModule,
+          },
+        },
+      ],
+      visible_data: {
+        metrics: assistantMetrics,
+        notes: [`Active resume panel: ${MODULE_LABELS[activeModule]}`],
+      },
+    });
+    return () => resetAssistantPageContext();
+  }, [activeModule, assistantMetrics, businessId, envId, workspace.identity.name]);
+
   return (
     <div className="space-y-6">
       <section className="relative overflow-hidden rounded-[32px] border border-bm-border/60 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.22),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-6 shadow-[0_32px_80px_-50px_rgba(10,18,24,0.95)]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(168,85,247,0.16),transparent_26%)]" />
         <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
-            <p className="bm-section-label">Paul Malmquist</p>
+            <p className="bm-section-label">{workspace.identity.name}</p>
             <h1 className="mt-3 text-4xl leading-tight sm:text-5xl">{workspace.identity.title}</h1>
             <p className="mt-4 text-lg text-bm-muted">{workspace.identity.tagline}</p>
             <p className="mt-4 max-w-2xl text-sm leading-6 text-bm-muted">{workspace.identity.summary}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {workspace.identity.badges.map((badge) => (
-                <span key={badge} className="rounded-full border border-bm-border/35 bg-white/5 px-3 py-1.5 text-xs text-bm-muted2">
-                  {badge}
-                </span>
-              ))}
-            </div>
+            {workspace.identity.badges.length > 0 ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {workspace.identity.badges.map((badge) => (
+                  <span key={badge} className="rounded-full border border-bm-border/35 bg-white/5 px-3 py-1.5 text-xs text-bm-muted2">
+                    {badge}
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -155,23 +175,77 @@ export default function ResumeWorkspace({
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-6">
-          {activeModule === "timeline" ? <ResumeTimelineModule timeline={workspace.timeline} /> : null}
-          {activeModule === "architecture" ? <ResumeArchitectureModule architecture={workspace.architecture} /> : null}
-          {activeModule === "modeling" ? (
-            <ResumeModelingModule modeling={workspace.modeling} outputs={modelOutputs} />
+          {activeModule === "timeline" ? (
+            <ResumeModuleBoundary
+              boundaryId="resume-timeline"
+              eyebrow="Timeline"
+              title="Timeline temporarily unavailable"
+              message="The career arc could not render, but the rest of the visual resume is still available."
+              resetKey={`${envId}-${activeModule}-${workspace.timeline.roles.length}-${workspace.timeline.milestones.length}`}
+            >
+              <ResumeTimelineModule timeline={workspace.timeline} />
+            </ResumeModuleBoundary>
           ) : null}
-          {activeModule === "bi" ? <ResumeBiModule bi={workspace.bi} /> : null}
+          {activeModule === "architecture" ? (
+            <ResumeModuleBoundary
+              boundaryId="resume-architecture"
+              eyebrow="Architecture"
+              title="Visualization failed to render"
+              message="The architecture map could not render in this session. The rest of the visual resume is still available."
+              resetKey={`${envId}-${activeModule}-${workspace.architecture.nodes.length}-${workspace.architecture.edges.length}`}
+            >
+              <ResumeArchitectureModule architecture={workspace.architecture} />
+            </ResumeModuleBoundary>
+          ) : null}
+          {activeModule === "modeling" ? (
+            <ResumeModuleBoundary
+              boundaryId="resume-modeling"
+              eyebrow="Modeling"
+              title="Visualization failed to render"
+              message="The modeling view hit a rendering issue, but the rest of the visual resume is still available."
+              resetKey={`${envId}-${activeModule}-${workspace.modeling.presets.length}-${modelOutputs.annualCashFlows.length}`}
+            >
+              <ResumeModelingModule modeling={workspace.modeling} outputs={modelOutputs} />
+            </ResumeModuleBoundary>
+          ) : null}
+          {activeModule === "bi" ? (
+            <ResumeModuleBoundary
+              boundaryId="resume-bi"
+              eyebrow="BI Module"
+              title="Visualization failed to render"
+              message="The analytics slice could not render cleanly, but the rest of the visual resume is still available."
+              resetKey={`${envId}-${activeModule}-${workspace.bi.entities.length}-${workspace.bi.periods.length}`}
+            >
+              <ResumeBiModule bi={workspace.bi} />
+            </ResumeModuleBoundary>
+          ) : null}
         </div>
 
         <div className="space-y-6">
-          <ResumeContextRail
-            timeline={workspace.timeline}
-            architecture={workspace.architecture}
-            stories={workspace.stories}
-            modelingOutputs={modelOutputs}
-            biEntity={biSlice.entity}
-          />
-          <ResumeAssistantDock envId={envId} businessId={businessId} metrics={assistantMetrics} />
+          <ResumeModuleBoundary
+            boundaryId="resume-context-rail"
+            eyebrow="Context Rail"
+            title="Resume data unavailable"
+            message="The supporting narrative rail could not render, but the main resume modules remain available."
+            resetKey={`${envId}-${activeModule}-${biSlice.entity.entity_id}`}
+          >
+            <ResumeContextRail
+              timeline={workspace.timeline}
+              architecture={workspace.architecture}
+              stories={workspace.stories}
+              modelingOutputs={modelOutputs}
+              biEntity={biSlice.entity}
+            />
+          </ResumeModuleBoundary>
+          <ResumeModuleBoundary
+            boundaryId="resume-assistant"
+            eyebrow="Assistant"
+            title="Resume data unavailable"
+            message="The contextual assistant failed to render. You can still use the visual resume modules directly."
+            resetKey={`${envId}-${activeModule}`}
+          >
+            <ResumeAssistantDock envId={envId} businessId={businessId} metrics={assistantMetrics} />
+          </ResumeModuleBoundary>
         </div>
       </div>
     </div>

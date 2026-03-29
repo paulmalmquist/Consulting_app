@@ -9,13 +9,13 @@ import type {
   ResumeScenarioInputs,
   ResumeTimeline,
   ResumeTimelineViewMode,
-  ResumeWorkspacePayload,
 } from "@/lib/bos-api";
+import type { ResumeWorkspaceViewModel } from "@/lib/resume/workspace";
 
 type ResumeModule = "timeline" | "architecture" | "modeling" | "bi";
 
 type ResumeWorkspaceState = {
-  workspace: ResumeWorkspacePayload | null;
+  workspace: ResumeWorkspaceViewModel | null;
   activeModule: ResumeModule;
   timelineView: ResumeTimelineViewMode;
   playStory: boolean;
@@ -32,7 +32,7 @@ type ResumeWorkspaceState = {
     propertyType: string;
     period: string;
   };
-  initialize: (workspace: ResumeWorkspacePayload) => void;
+  initialize: (workspace: ResumeWorkspaceViewModel) => void;
   setActiveModule: (module: ResumeModule) => void;
   setTimelineView: (view: ResumeTimelineViewMode) => void;
   togglePlayStory: () => void;

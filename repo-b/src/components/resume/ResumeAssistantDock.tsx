@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import type { AssistantResponseBlock } from "@/lib/commandbar/types";
 import { askResumeAssistant } from "@/lib/bos-api";
+import { logError } from "@/lib/logging/logger";
 import ResponseBlockRenderer from "@/components/winston/ResponseBlockRenderer";
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
 
@@ -46,10 +48,12 @@ export default function ResumeAssistantDock({
   const {
     activeModule,
     buildAssistantContext,
-  } = useResumeWorkspaceStore((state) => ({
-    activeModule: state.activeModule,
-    buildAssistantContext: state.buildAssistantContext,
-  }));
+  } = useResumeWorkspaceStore(
+    useShallow((state) => ({
+      activeModule: state.activeModule,
+      buildAssistantContext: state.buildAssistantContext,
+    })),
+  );
 
   const starters = useMemo(() => STARTERS[activeModule] ?? STARTERS.timeline, [activeModule]);
 
@@ -74,7 +78,12 @@ export default function ResumeAssistantDock({
       });
       setSuggestedQuestions(response.suggested_questions ?? []);
       setMessages((previous) => [...previous, { role: "assistant", blocks: response.blocks }]);
-    } catch {
+    } catch (error) {
+      logError("resume.assistant_error", "Resume assistant request failed", {
+        env_id: envId,
+        business_id: businessId,
+        error_message: error instanceof Error ? error.message : "Unknown assistant error",
+      });
       setMessages((previous) => [
         ...previous,
         {

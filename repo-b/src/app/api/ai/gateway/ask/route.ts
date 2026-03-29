@@ -8,6 +8,7 @@
 import { NextRequest } from "next/server";
 import type { AssistantContextEnvelope } from "@/lib/commandbar/types";
 import { getSessionActor, hasSession, parseSessionFromRequest, unauthorizedJson } from "@/lib/server/sessionAuth";
+import { buildPlatformSessionHeaders } from "@/lib/server/platformForwardHeaders";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,7 +42,7 @@ function envIdFromRoute(route: string | null): string | null {
   return match?.[1] || null;
 }
 
-function buildFallbackContextEnvelope(
+async function buildFallbackContextEnvelope(
   req: NextRequest,
   parsed: {
     business_id?: string;
@@ -51,8 +52,8 @@ function buildFallbackContextEnvelope(
     entity_id?: string;
     context_envelope?: AssistantContextEnvelope;
   },
-): AssistantContextEnvelope {
-  const session = parseSessionFromRequest(req);
+): Promise<AssistantContextEnvelope> {
+  const session = await parseSessionFromRequest(req);
   const route = parsed.context_envelope?.ui?.route || routeFromRequest(req);
   const activeEnvironmentId = parsed.context_envelope?.ui?.active_environment_id || parsed.env_id || session?.env_id || envIdFromRoute(route);
   const activeBusinessId = parsed.context_envelope?.ui?.active_business_id || parsed.business_id || null;
@@ -61,7 +62,7 @@ function buildFallbackContextEnvelope(
     session: {
       user_id: null,
       org_id: activeBusinessId,
-      actor: getSessionActor(req),
+      actor: await getSessionActor(req),
       roles: session?.role ? [session.role] : [],
       session_env_id: session?.env_id || activeEnvironmentId || null,
     },
@@ -130,11 +131,11 @@ function buildHiddenContextBlock(envelope: AssistantContextEnvelope) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!hasSession(req)) {
+  if (!(await hasSession(req))) {
     return unauthorizedJson();
   }
 
-  const actor = getSessionActor(req);
+  const actor = await getSessionActor(req);
   const raw = await req.text();
 
   // Parse the frontend payload
@@ -165,7 +166,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const contextEnvelope = buildFallbackContextEnvelope(req, parsed);
+  const contextEnvelope = await buildFallbackContextEnvelope(req, parsed);
 
   // Build the payload matching FastAPI GatewayAskRequest
   const gatewayBody = JSON.stringify({
@@ -193,9 +194,9 @@ export async function POST(req: NextRequest) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-bm-actor": actor,
           "x-bm-request-id": requestId,
           "x-request-id": requestId,
+          ...(await buildPlatformSessionHeaders(req)),
         },
         body: gatewayBody,
         signal: proxyCtrl.signal,

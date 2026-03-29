@@ -4,26 +4,30 @@ import { buttonVariants } from "@/components/ui/buttonVariants";
 export default function HomePage() {
   return (
     <main className="min-h-screen flex items-center justify-center bg-bm-bg px-6">
-      <div className="w-full max-w-lg space-y-10 text-center">
+      <div className="w-full max-w-3xl space-y-10 text-center">
         <div className="space-y-3">
           <h1 className="text-3xl font-bold font-display">Winston</h1>
           <p className="text-bm-muted text-sm max-w-md mx-auto leading-relaxed">
-            AI execution environment for real estate private equity,
-            project delivery, and institutional operations.
+            Shared identity, environment-scoped access, and distinct product entry points for the Winston platform family.
           </p>
         </div>
-        <div className="flex flex-col gap-4">
-          <Link
-            href="/login?loginType=admin"
-            className={buttonVariants({ variant: "primary" })}
-          >
-            Login as Admin
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Link href="/novendor" className={buttonVariants({ variant: "primary" })}>
+            Enter Novendor
           </Link>
-          <Link
-            href="/login?loginType=environment"
-            className={buttonVariants({ variant: "secondary" })}
-          >
-            Login to Environment
+          <Link href="/floyorker" className={buttonVariants({ variant: "secondary" })}>
+            Enter Floyorker
+          </Link>
+          <Link href="/resume" className={buttonVariants({ variant: "secondary" })}>
+            Open My Resume
+          </Link>
+          <Link href="/trading" className={buttonVariants({ variant: "secondary" })}>
+            Enter Trading Platform
+          </Link>
+        </div>
+        <div className="flex justify-center">
+          <Link href="/login" className={buttonVariants({ variant: "ghost" })}>
+            Platform / Admin Login
           </Link>
         </div>
         <div className="pt-2 border-t border-bm-border">

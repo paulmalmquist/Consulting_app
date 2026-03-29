@@ -94,4 +94,37 @@ describe("winston companion context", () => {
     expect(context.quickLinks.some((item) => item.href.endsWith("/capital-calls"))).toBe(true);
     expect(context.suggestions.some((item) => item.prompt.includes("Institutional Growth Fund VII"))).toBe(true);
   });
+
+  it("builds a grounded resume context with resume-specific quick links and suggestions", () => {
+    const context = buildCompanionContext({
+      envelope: makeEnvelope({
+        ui: {
+          route: "/lab/env/env_1/resume",
+          surface: "resume_workspace",
+          active_module: "resume",
+          active_environment_id: "env_1",
+          active_environment_name: "Meridian Capital Management",
+          active_business_id: "biz_1",
+          active_business_name: "Meridian Capital Management",
+          page_entity_type: "environment",
+          page_entity_id: "env_1",
+          page_entity_name: "Paul Malmquist",
+          selected_entities: [],
+          visible_data: null,
+        },
+        thread: {
+          assistant_mode: "resume_copilot",
+          scope_type: "environment",
+          scope_id: "env_1",
+          launch_source: "winston_companion",
+        },
+      }),
+      snapshot,
+    });
+
+    expect(context.routeLabel).toBe("Resume");
+    expect(context.currentNarrative).toContain("Meridian Capital Management");
+    expect(context.quickLinks.some((item) => item.href.endsWith("/resume"))).toBe(true);
+    expect(context.suggestions.some((item) => item.label.includes("Explain this resume"))).toBe(true);
+  });
 });

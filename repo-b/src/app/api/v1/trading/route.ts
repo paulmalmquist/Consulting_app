@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/server/db";
+import { requireTradingMembership } from "@/lib/server/tradingSession";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,7 +38,7 @@ function coerceRows<T extends Record<string, unknown>>(rows: T[]): T[] {
  * Uses the server-side pg pool so the page is not blocked by
  * missing NEXT_PUBLIC_SUPABASE_* browser credentials.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   const pool = getPool();
   if (!pool) {
     return NextResponse.json(
@@ -47,6 +48,13 @@ export async function GET() {
   }
 
   try {
+    const access = await requireTradingMembership(
+      request,
+      request.nextUrl.searchParams.get("env_id"),
+    );
+    if (access.error) return access.error;
+
+    const tenantId = access.membership.tenant_id;
     const [
       themesRes,
       signalsRes,
@@ -58,28 +66,36 @@ export async function GET() {
       watchlistRes,
     ] = await Promise.all([
       pool.query(
-        `SELECT * FROM public.trading_themes ORDER BY created_at DESC`
+        `SELECT * FROM public.trading_themes WHERE tenant_id = $1::uuid ORDER BY created_at DESC`,
+        [tenantId],
       ),
       pool.query(
-        `SELECT * FROM public.trading_signals ORDER BY strength DESC`
+        `SELECT * FROM public.trading_signals WHERE tenant_id = $1::uuid ORDER BY strength DESC`,
+        [tenantId],
       ),
       pool.query(
-        `SELECT * FROM public.trading_hypotheses ORDER BY created_at DESC`
+        `SELECT * FROM public.trading_hypotheses WHERE tenant_id = $1::uuid ORDER BY created_at DESC`,
+        [tenantId],
       ),
       pool.query(
-        `SELECT * FROM public.trading_positions ORDER BY entry_at DESC`
+        `SELECT * FROM public.trading_positions WHERE tenant_id = $1::uuid ORDER BY entry_at DESC`,
+        [tenantId],
       ),
       pool.query(
-        `SELECT * FROM public.trading_performance_snapshots ORDER BY snapshot_date DESC LIMIT 30`
+        `SELECT * FROM public.trading_performance_snapshots WHERE tenant_id = $1::uuid ORDER BY snapshot_date DESC LIMIT 30`,
+        [tenantId],
       ),
       pool.query(
-        `SELECT * FROM public.trading_research_notes ORDER BY created_at DESC`
+        `SELECT * FROM public.trading_research_notes WHERE tenant_id = $1::uuid ORDER BY created_at DESC`,
+        [tenantId],
       ),
       pool.query(
-        `SELECT * FROM public.trading_daily_briefs ORDER BY brief_date DESC LIMIT 1`
+        `SELECT * FROM public.trading_daily_briefs WHERE tenant_id = $1::uuid ORDER BY brief_date DESC LIMIT 1`,
+        [tenantId],
       ),
       pool.query(
-        `SELECT * FROM public.trading_watchlist WHERE is_active = true ORDER BY ticker`
+        `SELECT * FROM public.trading_watchlist WHERE tenant_id = $1::uuid AND is_active = true ORDER BY ticker`,
+        [tenantId],
       ),
     ]);
 

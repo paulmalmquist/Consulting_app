@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import {
   Background,
   Controls,
@@ -12,6 +13,7 @@ import {
   type Node,
 } from "@xyflow/react";
 import type { ResumeArchitecture } from "@/lib/bos-api";
+import ResumeFallbackCard from "./ResumeFallbackCard";
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
 
 const LAYER_COLORS: Record<string, string> = {
@@ -37,13 +39,15 @@ export default function ResumeArchitectureModule({ architecture }: { architectur
     selectedArchitectureNodeId,
     selectArchitectureNode,
     highlightArchitectureNodeIds,
-  } = useResumeWorkspaceStore((state) => ({
-    architectureView: state.architectureView,
-    setArchitectureView: state.setArchitectureView,
-    selectedArchitectureNodeId: state.selectedArchitectureNodeId,
-    selectArchitectureNode: state.selectArchitectureNode,
-    highlightArchitectureNodeIds: state.highlightArchitectureNodeIds,
-  }));
+  } = useResumeWorkspaceStore(
+    useShallow((state) => ({
+      architectureView: state.architectureView,
+      setArchitectureView: state.setArchitectureView,
+      selectedArchitectureNodeId: state.selectedArchitectureNodeId,
+      selectArchitectureNode: state.selectArchitectureNode,
+      highlightArchitectureNodeIds: state.highlightArchitectureNodeIds,
+    })),
+  );
 
   const highlightSet = useMemo(() => new Set(highlightArchitectureNodeIds), [highlightArchitectureNodeIds]);
 
@@ -111,6 +115,17 @@ export default function ResumeArchitectureModule({ architecture }: { architectur
     [architecture.edges, architectureView],
   );
 
+  if (architecture.nodes.length === 0) {
+    return (
+      <ResumeFallbackCard
+        eyebrow="Architecture"
+        title="Visualization failed to render"
+        body="The architecture layer does not have enough normalized node data to draw a safe system map."
+        tone="warning"
+      />
+    );
+  }
+
   return (
     <section className="rounded-[28px] border border-bm-border/60 bg-bm-surface/30 p-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -169,6 +184,11 @@ export default function ResumeArchitectureModule({ architecture }: { architectur
             {label} · {copy}
           </span>
         ))}
+        {architecture.edges.length === 0 ? (
+          <span className="rounded-full border border-bm-border/35 px-3 py-1">
+            Flow edges unavailable · Showing node topology only
+          </span>
+        ) : null}
       </div>
     </section>
   );

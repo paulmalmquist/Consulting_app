@@ -1,52 +1,166 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getResumeWorkspace, type ResumeWorkspacePayload } from "@/lib/bos-api";
+import { useCallback, useEffect, useState } from "react";
+import { getResumeWorkspace, type BosApiError } from "@/lib/bos-api";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 import ResumeWorkspace from "@/components/resume/ResumeWorkspace";
+import ResumeFallbackCard from "@/components/resume/ResumeFallbackCard";
+import { logError, logInfo, logWarn } from "@/lib/logging/logger";
+import {
+  isValidEnvId,
+  normalizeResumeWorkspace,
+  type ResumeWorkspaceViewModel,
+} from "@/lib/resume/workspace";
+
+type LoadState = "idle" | "loading" | "ready" | "error";
+
+function extractRequestId(error: unknown): string | null {
+  return (error as BosApiError | undefined)?.requestId ?? null;
+}
 
 export default function ResumeOsPage() {
-  const { envId, businessId } = useDomainEnv();
-  const [workspace, setWorkspace] = useState<ResumeWorkspacePayload | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    envId,
+    businessId,
+    loading: contextLoading,
+    error: contextError,
+    requestId: contextRequestId,
+    retry: retryContext,
+  } = useDomainEnv();
+  const [workspace, setWorkspace] = useState<ResumeWorkspaceViewModel | null>(null);
+  const [loadState, setLoadState] = useState<LoadState>("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorRequestId, setErrorRequestId] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const validEnvId = isValidEnvId(envId);
+
+  const retryWorkspace = useCallback(() => {
+    if (contextError) {
+      void retryContext();
+      return;
+    }
+    setRefreshKey((value) => value + 1);
+  }, [contextError, retryContext]);
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setError(null);
+    if (!validEnvId) {
+      setWorkspace(null);
+      setLoadState("error");
+      setErrorMessage("This route needs a valid environment id before the visual resume can load.");
+      setErrorRequestId(null);
+      return;
+    }
+
+    if (contextLoading) {
+      setLoadState("loading");
+      return;
+    }
+
+    if (contextError) {
+      setWorkspace(null);
+      setLoadState("error");
+      setErrorMessage(contextError);
+      setErrorRequestId(contextRequestId);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadWorkspace() {
+      setLoadState("loading");
+      setErrorMessage(null);
+      setErrorRequestId(null);
+
       try {
         const payload = await getResumeWorkspace(envId, businessId || undefined);
-        setWorkspace(payload);
+        if (cancelled) return;
+
+        const normalized = normalizeResumeWorkspace(payload);
+        logInfo("resume.workspace_loaded", "Resume workspace loaded", {
+          env_id: envId,
+          business_id: businessId,
+          ...normalized.stats,
+        });
+        if (normalized.issues.length > 0) {
+          logWarn("resume.workspace_normalized", "Resume workspace payload required normalization", {
+            env_id: envId,
+            business_id: businessId,
+            issues: normalized.issues,
+            issue_count: normalized.issues.length,
+            ...normalized.stats,
+          });
+        }
+
+        setWorkspace(normalized.workspace);
+        setLoadState("ready");
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Failed to load resume workspace");
-      } finally {
-        setLoading(false);
+        if (cancelled) return;
+        const requestId = extractRequestId(cause);
+        const message = cause instanceof Error ? cause.message : "Failed to load resume workspace";
+        logError("resume.workspace_failed", "Resume workspace request failed", {
+          env_id: envId,
+          business_id: businessId,
+          request_id: requestId,
+          error_message: message,
+        });
+        setWorkspace(null);
+        setLoadState("error");
+        setErrorMessage(message);
+        setErrorRequestId(requestId);
       }
     }
-    void load();
-  }, [envId, businessId]);
 
-  if (loading) {
+    void loadWorkspace();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId, contextError, contextLoading, contextRequestId, envId, refreshKey, validEnvId]);
+
+  if ((contextLoading || loadState === "idle" || loadState === "loading") && !workspace) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="flex items-center gap-3 text-sm text-bm-muted">
-          <span className="relative flex h-3 w-3">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75" />
-            <span className="relative inline-flex h-3 w-3 rounded-full bg-sky-500" />
-          </span>
-          Initializing interactive resume workspace...
-        </div>
-      </div>
+      <ResumeFallbackCard
+        eyebrow="Visual Resume"
+        title="Initializing visual resume"
+        body="Loading the profile, timeline, architecture, modeling, and analytics layers for this environment."
+      />
     );
   }
 
-  if (error || !workspace) {
+  if (!validEnvId) {
     return (
-      <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-6 text-center">
-        <p className="text-sm text-red-300">{error ?? "Resume workspace unavailable."}</p>
-      </div>
+      <ResumeFallbackCard
+        eyebrow="Visual Resume"
+        title="Resume data unavailable"
+        body="The requested resume route does not include a valid environment id, so the page cannot load safely."
+        tone="error"
+      />
     );
+  }
+
+  if ((loadState === "error" || !workspace) && !contextLoading) {
+    return (
+      <ResumeFallbackCard
+        eyebrow="Visual Resume"
+        title="Resume data unavailable"
+        body={errorMessage ?? "The visual resume workspace could not be loaded right now."}
+        meta={errorRequestId ? `Request ID: ${errorRequestId}` : null}
+        tone="error"
+        action={
+          <button
+            type="button"
+            onClick={retryWorkspace}
+            className="rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-sm text-bm-text transition hover:bg-white/15"
+          >
+            Retry visual resume
+          </button>
+        }
+      />
+    );
+  }
+
+  if (!workspace) {
+    return null;
   }
 
   return <ResumeWorkspace envId={envId} businessId={businessId} workspace={workspace} />;

@@ -8,6 +8,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/cn";
 import { buttonVariants } from "@/components/ui/buttonVariants";
 import { ChevronsLeftIcon, ChevronsRightIcon, NavIcon } from "@/components/lab/LabIcons";
+import { logoutPlatformSession, switchPlatformEnvironment } from "@/lib/platformSessionClient";
 
 const SIDEBAR_COLLAPSED_KEY = "lab_sidebar_collapsed";
 
@@ -27,7 +28,8 @@ export default function AppShell({
   isAdmin?: boolean;
 }) {
   const pathname = usePathname();
-  const { selectedEnv } = useEnv();
+  const { environments, selectedEnv } = useEnv();
+  const environmentOptions = environments || [];
   const isDomainRoute = /^\/lab\/env\/[^/]+\/(re|pds|credit|legal|medical|consulting|opportunity-engine)(\/|$)/.test(pathname);
   const isImmersiveRoute = /^\/lab\/env\/[^/]+\/markets(\/|$)/.test(pathname);
   const [collapsed, setCollapsed] = useState(() => {
@@ -53,7 +55,7 @@ export default function AppShell({
       { id: "ai-audit", href: "/lab/ai-audit", label: "AI Audit", navKey: "ai-audit", group: "system" },
     ];
     return base;
-  }, [homeHref]);
+  }, []);
 
   const groupedItems = useMemo(() => {
     const groups: Record<NavItem["group"], NavItem[]> = {
@@ -74,8 +76,16 @@ export default function AppShell({
   };
 
   const logout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    window.location.href = "/login";
+    await logoutPlatformSession();
+  };
+
+  const handleEnvironmentSwitch = async (nextEnvId: string) => {
+    const target = environmentOptions.find((environment) => environment.env_id === nextEnvId);
+    if (!target || target.env_id === selectedEnv?.env_id) return;
+    await switchPlatformEnvironment({
+      environmentSlug: target.slug || undefined,
+      envId: target.slug ? undefined : target.env_id,
+    });
   };
 
   if (isDomainRoute) {
@@ -163,13 +173,29 @@ export default function AppShell({
             <p className="bm-section-label">
               Current Environment
             </p>
-            <span className="inline-flex items-center rounded-md border border-bm-border/70 bg-bm-surface/90 px-2.5 py-1 text-[11px] font-mono tracking-[0.08em] text-bm-text">
-              {isAdmin
-                ? "Admin session"
-                : selectedEnv
+            {isAdmin ? (
+              <span className="inline-flex items-center rounded-md border border-bm-border/70 bg-bm-surface/90 px-2.5 py-1 text-[11px] font-mono tracking-[0.08em] text-bm-text">
+                Admin session
+              </span>
+            ) : environmentOptions.length > 1 && selectedEnv ? (
+              <select
+                value={selectedEnv.env_id}
+                onChange={(event) => void handleEnvironmentSwitch(event.target.value)}
+                className="h-9 rounded-md border border-bm-border/70 bg-bm-surface/90 px-3 text-sm text-bm-text"
+              >
+                {environmentOptions.map((environment) => (
+                  <option key={environment.env_id} value={environment.env_id}>
+                    {environment.client_name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="inline-flex items-center rounded-md border border-bm-border/70 bg-bm-surface/90 px-2.5 py-1 text-[11px] font-mono tracking-[0.08em] text-bm-text">
+                {selectedEnv
                   ? `${selectedEnv.client_name} · ${selectedEnv.industry_type}`
                   : "No environment selected"}
-            </span>
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Link

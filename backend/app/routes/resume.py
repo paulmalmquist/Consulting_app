@@ -4,6 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query, Request
 
+from app.auth.platform import require_environment_access
 from app.routes.domain_common import classify_domain_error, domain_error_response
 from app.schemas.resume import (
     ResumeAssistantRequestIn,
@@ -31,6 +32,11 @@ def _resolve_context(
     *,
     ensure_seeded: bool = True,
 ):
+    require_environment_access(
+        request,
+        env_id=env_id,
+        env_slug="resume",
+    )
     ctx = env_context.resolve_env_business_context(
         request=request,
         env_id=env_id,

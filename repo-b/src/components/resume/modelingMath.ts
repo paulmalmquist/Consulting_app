@@ -1,6 +1,7 @@
 "use client";
 
 import type { ResumeScenarioInputs } from "@/lib/bos-api";
+import type { ResumeModelAssumptions } from "@/lib/resume/workspace";
 
 export type ResumeScenarioOutputs = {
   irr: number;
@@ -23,18 +24,6 @@ export type ResumeScenarioOutputs = {
   gpDistribution: number;
   lpPct: number;
   gpPct: number;
-};
-
-export type ResumeModelAssumptions = {
-  entry_cap_rate: number;
-  debt_rate: number;
-  exit_cost_pct: number;
-  lp_equity_share: number;
-  gp_equity_share: number;
-  pref_rate: number;
-  catch_up_ratio: number;
-  residual_lp_split: number;
-  residual_gp_split: number;
 };
 
 function computeIrr(cashFlows: number[]): number {

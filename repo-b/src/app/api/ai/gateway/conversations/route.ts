@@ -5,7 +5,8 @@
  * GET  /api/ai/gateway/conversations?business_id=... — list conversations
  */
 import { NextRequest } from "next/server";
-import { hasSession, getSessionActor, unauthorizedJson } from "@/lib/server/sessionAuth";
+import { hasSession, unauthorizedJson } from "@/lib/server/sessionAuth";
+import { buildPlatformSessionHeaders } from "@/lib/server/platformForwardHeaders";
 
 export const runtime = "nodejs";
 
@@ -16,16 +17,16 @@ const FASTAPI_BASE = (
 ).replace(/\/$/, "");
 
 export async function POST(req: NextRequest) {
-  if (!hasSession(req)) return unauthorizedJson();
+  if (!(await hasSession(req))) return unauthorizedJson();
 
-  const actor = getSessionActor(req);
   const body = await req.text();
+  const platformHeaders = await buildPlatformSessionHeaders(req);
 
   const upstream = await fetch(`${FASTAPI_BASE}/api/ai/gateway/conversations`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-bm-actor": actor,
+      ...platformHeaders,
     },
     body,
     signal: AbortSignal.timeout(10_000),
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!hasSession(req)) return unauthorizedJson();
+  if (!(await hasSession(req))) return unauthorizedJson();
 
   const businessId = req.nextUrl.searchParams.get("business_id") || "";
   if (!businessId) {
@@ -52,7 +53,7 @@ export async function GET(req: NextRequest) {
   const upstream = await fetch(
     `${FASTAPI_BASE}/api/ai/gateway/conversations?business_id=${encodeURIComponent(businessId)}`,
     {
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await buildPlatformSessionHeaders(req)) },
       signal: AbortSignal.timeout(10_000),
     },
   );

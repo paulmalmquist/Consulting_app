@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import {
   BarChart,
   Bar,
@@ -13,12 +14,27 @@ import {
 import { fmtMoney, fmtPct } from "@/lib/format-utils";
 import type { ResumeBi, ResumeBiEntity } from "@/lib/bos-api";
 import TrendLineChart from "@/components/charts/TrendLineChart";
+import ResumeFallbackCard from "./ResumeFallbackCard";
 import { deriveResumeBiSlice, type ResumeBiSlice } from "./biMath";
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
 
+function PanelFallback({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="flex h-[260px] flex-col justify-center rounded-2xl border border-bm-border/35 bg-black/10 p-4">
+      <h3 className="text-sm font-semibold">{title}</h3>
+      <p className="mt-2 text-xs leading-5 text-bm-muted2">{body}</p>
+    </div>
+  );
+}
+
 function MarketMap({ markets }: { markets: ResumeBiSlice["marketBreakdown"] }) {
   if (markets.length === 0) {
-    return <div className="h-52 rounded-2xl border border-bm-border/35 bg-black/10" />;
+    return (
+      <PanelFallback
+        title="Market footprint unavailable"
+        body="No market coordinates are available for the current BI slice, so the geographic footprint is temporarily hidden."
+      />
+    );
   }
 
   const maxValue = Math.max(...markets.map((market) => market.value), 1);
@@ -61,12 +77,14 @@ export default function ResumeBiModule({ bi }: { bi: ResumeBi }) {
     selectBiEntity,
     biFilters,
     setBiFilters,
-  } = useResumeWorkspaceStore((state) => ({
-    selectedBiEntityId: state.selectedBiEntityId,
-    selectBiEntity: state.selectBiEntity,
-    biFilters: state.biFilters,
-    setBiFilters: state.setBiFilters,
-  }));
+  } = useResumeWorkspaceStore(
+    useShallow((state) => ({
+      selectedBiEntityId: state.selectedBiEntityId,
+      selectBiEntity: state.selectBiEntity,
+      biFilters: state.biFilters,
+      setBiFilters: state.setBiFilters,
+    })),
+  );
 
   const slice = useMemo(
     () =>
@@ -77,6 +95,18 @@ export default function ResumeBiModule({ bi }: { bi: ResumeBi }) {
       }),
     [bi, selectedBiEntityId, biFilters.market, biFilters.propertyType, biFilters.period],
   );
+  const hasAssetData = bi.entities.some((entity) => entity.level === "asset");
+
+  if (!hasAssetData) {
+    return (
+      <ResumeFallbackCard
+        eyebrow="BI Module"
+        title="Resume data unavailable"
+        body="This environment does not currently expose asset-level BI records, so the analytics module is showing a contained fallback."
+        tone="warning"
+      />
+    );
+  }
 
   return (
     <section className="rounded-[28px] border border-bm-border/60 bg-bm-surface/30 p-5">
@@ -159,15 +189,22 @@ export default function ResumeBiModule({ bi }: { bi: ResumeBi }) {
             <p className="mt-1 text-xs text-bm-muted2">Where value concentrates in the visible slice.</p>
           </div>
           <div className="mt-4 h-[260px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={slice.sectorBreakdown}>
-                <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.08)" />
-                <XAxis dataKey="name" stroke="rgba(255,255,255,0.45)" tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 11 }} />
-                <YAxis stroke="rgba(255,255,255,0.45)" tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 11 }} tickFormatter={(value) => fmtMoney(value).replace("$", "")} />
-                <Tooltip contentStyle={{ background: "#08101A", border: "1px solid rgba(255,255,255,0.12)" }} formatter={(value: number) => fmtMoney(value)} />
-                <Bar dataKey="value" fill="#60a5fa" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {slice.sectorBreakdown.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={slice.sectorBreakdown}>
+                  <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.08)" />
+                  <XAxis dataKey="name" stroke="rgba(255,255,255,0.45)" tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 11 }} />
+                  <YAxis stroke="rgba(255,255,255,0.45)" tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 11 }} tickFormatter={(value) => fmtMoney(value).replace("$", "")} />
+                  <Tooltip contentStyle={{ background: "#08101A", border: "1px solid rgba(255,255,255,0.12)" }} formatter={(value: number) => fmtMoney(value)} />
+                  <Bar dataKey="value" fill="#60a5fa" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <PanelFallback
+                title="Sector breakdown unavailable"
+                body="No sector mix is available for the current drill path, so this chart is temporarily hidden."
+              />
+            )}
           </div>
         </div>
 
@@ -177,15 +214,22 @@ export default function ResumeBiModule({ bi }: { bi: ResumeBi }) {
             <p className="mt-1 text-xs text-bm-muted2">Trend stays synced as the drill path changes.</p>
           </div>
           <div className="mt-4 h-[260px]">
-            <TrendLineChart
-              data={slice.trend}
-              lines={[
-                { key: "noi", label: "NOI", color: "#34d399" },
-                { key: "value", label: "Value", color: "#8b5cf6" },
-              ]}
-              format="dollar"
-              height={260}
-            />
+            {slice.trend.length > 0 ? (
+              <TrendLineChart
+                data={slice.trend}
+                lines={[
+                  { key: "noi", label: "NOI", color: "#34d399" },
+                  { key: "value", label: "Value", color: "#8b5cf6" },
+                ]}
+                format="dollar"
+                height={260}
+              />
+            ) : (
+              <PanelFallback
+                title="Trend unavailable"
+                body="The selected BI slice does not include a usable time series, so the trend chart is temporarily hidden."
+              />
+            )}
           </div>
         </div>
 
@@ -212,29 +256,37 @@ export default function ResumeBiModule({ bi }: { bi: ResumeBi }) {
               </tr>
             </thead>
             <tbody>
-              {slice.visibleChildren.map((row) => (
-                <tr
-                  key={row.entity_id}
-                  className="border-t border-bm-border/20 text-bm-text hover:bg-white/5"
-                >
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => selectBiEntity(row.entity_id)}
-                      className="text-left hover:text-sky-300"
-                    >
-                      {row.name}
-                    </button>
+              {slice.visibleChildren.length > 0 ? (
+                slice.visibleChildren.map((row) => (
+                  <tr
+                    key={row.entity_id}
+                    className="border-t border-bm-border/20 text-bm-text hover:bg-white/5"
+                  >
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => selectBiEntity(row.entity_id)}
+                        className="text-left hover:text-sky-300"
+                      >
+                        {row.name}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 capitalize">{row.level}</td>
+                    <td className="px-4 py-3">{row.market ?? "—"}</td>
+                    <td className="px-4 py-3">{row.property_type ?? "—"}</td>
+                    <td className="px-4 py-3">{fmtMoney(Number(row.metrics.portfolio_value ?? 0))}</td>
+                    <td className="px-4 py-3">{fmtMoney(Number(row.metrics.noi ?? 0))}</td>
+                    <td className="px-4 py-3">{fmtPct(Number(row.metrics.occupancy ?? 0))}</td>
+                    <td className="px-4 py-3">{fmtPct(Number(row.metrics.irr ?? 0))}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr className="border-t border-bm-border/20 text-bm-muted2">
+                  <td colSpan={8} className="px-4 py-6 text-center text-sm">
+                    No child rows match the current filters. Adjust the market, property type, or drill selection to continue exploring.
                   </td>
-                  <td className="px-4 py-3 capitalize">{row.level}</td>
-                  <td className="px-4 py-3">{row.market ?? "—"}</td>
-                  <td className="px-4 py-3">{row.property_type ?? "—"}</td>
-                  <td className="px-4 py-3">{fmtMoney(Number(row.metrics.portfolio_value ?? 0))}</td>
-                  <td className="px-4 py-3">{fmtMoney(Number(row.metrics.noi ?? 0))}</td>
-                  <td className="px-4 py-3">{fmtPct(Number(row.metrics.occupancy ?? 0))}</td>
-                  <td className="px-4 py-3">{fmtPct(Number(row.metrics.irr ?? 0))}</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

@@ -24,7 +24,7 @@ function normalizeContext(input: CommandContext | undefined): CommandContext {
 
 export async function POST(request: Request) {
   const requestId = resolveRequestId(request);
-  if (!hasSession(request)) {
+  if (!(await hasSession(request))) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401, ...withRequestId(requestId) });
   }
   const payload = (await request.json().catch(() => ({}))) as PlanRequest;

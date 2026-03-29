@@ -139,18 +139,32 @@ function readRouteEnvId(pathname: string | null): string | null {
   return pathname?.match(/^\/lab\/env\/([^/]+)/)?.[1] || null;
 }
 
-function readBrowserContext(pathname: string | null) {
-  if (typeof window === "undefined") {
-    return { route: pathname || "/" };
+function readBrowserContext(pathname: string | null, options: { clientReady?: boolean } = {}) {
+  const route = pathname || (typeof window !== "undefined" ? window.location.pathname : "/");
+  const routeEnvId = readRouteEnvId(route);
+
+  if (typeof window === "undefined" || !options.clientReady) {
+    return {
+      currentEnvId: routeEnvId,
+      currentBusinessId: null,
+      route,
+      selection: null,
+      surface: null,
+      activeModule: null,
+      pageEntityType: null,
+      pageEntityId: null,
+      schemaName: null,
+      industry: null,
+    };
   }
 
   const appContext = readAssistantAppContext();
   const selected = window.getSelection?.()?.toString().trim() || "";
 
   return {
-    currentEnvId: appContext?.environment.active_environment_id || readRouteEnvId(pathname) || window.localStorage.getItem("demo_lab_env_id"),
+    currentEnvId: appContext?.environment.active_environment_id || routeEnvId || window.localStorage.getItem("demo_lab_env_id"),
     currentBusinessId: appContext?.environment.active_business_id || window.localStorage.getItem("bos_business_id"),
-    route: pathname || window.location.pathname,
+    route,
     selection: selected || null,
     surface: appContext?.page.surface || null,
     activeModule: appContext?.page.active_module || null,
@@ -486,6 +500,7 @@ export function WinstonCompanionProvider({
   const [contextSnapshot, setContextSnapshot] = useState<ContextSnapshot | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [bridgeTick, setBridgeTick] = useState(0);
+  const [clientReady, setClientReady] = useState(false);
   const [generalState, setGeneralState] = useState<LaneState>(EMPTY_LANE);
   const [contextualState, setContextualState] = useState<LaneState>(EMPTY_LANE);
   const [exploreQuery, setExploreQuery] = useState("");
@@ -497,6 +512,10 @@ export function WinstonCompanionProvider({
   useEffect(() => {
     activeLaneRef.current = activeLane;
   }, [activeLane]);
+
+  useEffect(() => {
+    setClientReady(true);
+  }, []);
 
   useEffect(() => {
     return subscribeAssistantAppContext(() => {
@@ -550,7 +569,7 @@ export function WinstonCompanionProvider({
 
   useEffect(() => {
     let cancelled = false;
-    const commandContext = readBrowserContext(pathname);
+    const commandContext = readBrowserContext(pathname, { clientReady });
     void fetchContextSnapshot(commandContext)
       .then((result) => {
         if (!cancelled) setContextSnapshot(result.snapshot);
@@ -561,9 +580,12 @@ export function WinstonCompanionProvider({
     return () => {
       cancelled = true;
     };
-  }, [pathname, bridgeTick]);
+  }, [bridgeTick, clientReady, pathname]);
 
-  const commandContext = useMemo(() => readBrowserContext(pathname), [pathname, bridgeTick]);
+  const commandContext = useMemo(
+    () => readBrowserContext(pathname, { clientReady }),
+    [bridgeTick, clientReady, pathname],
+  );
 
   const rawEnvelope = useMemo(
     () => buildAssistantContextEnvelope({

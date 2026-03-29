@@ -8,12 +8,24 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from app.auth.platform import require_environment_access
 from app.services import trading_lab_service as svc
 
 router = APIRouter(prefix="/api/v1/trading", tags=["trading-lab"])
+
+
+def _require_trading_access(request: Request, *, write: bool = False) -> UUID | None:
+    auth = require_environment_access(
+        request,
+        env_slug="trading",
+        allowed_roles={"owner", "admin", "member"} if write else None,
+    )
+    if auth.tenant_id:
+        return UUID(auth.tenant_id)
+    return None
 
 
 # ── Pydantic Request Models ─────────────────────────────────────────────────
@@ -188,8 +200,8 @@ class CreatePerformanceBody(BaseModel):
 
 
 @router.post("/signals")
-def create_signal(body: CreateSignalBody, tenant_id: UUID | None = Query(default=None)):
-    tid = tenant_id or _default_tenant()
+def create_signal(request: Request, body: CreateSignalBody, tenant_id: UUID | None = Query(default=None)):
+    tid = _require_trading_access(request, write=True) or tenant_id or _default_tenant()
     try:
         return svc.create_signal(tid, body.model_dump(exclude_none=True))
     except Exception as exc:
@@ -197,8 +209,8 @@ def create_signal(body: CreateSignalBody, tenant_id: UUID | None = Query(default
 
 
 @router.patch("/signals/{signal_id}")
-def update_signal(signal_id: UUID, body: UpdateSignalBody, tenant_id: UUID | None = Query(default=None)):
-    tid = tenant_id or _default_tenant()
+def update_signal(request: Request, signal_id: UUID, body: UpdateSignalBody, tenant_id: UUID | None = Query(default=None)):
+    tid = _require_trading_access(request, write=True) or tenant_id or _default_tenant()
     try:
         return svc.update_signal(tid, signal_id, body.model_dump(exclude_none=True))
     except ValueError as exc:
@@ -211,8 +223,8 @@ def update_signal(signal_id: UUID, body: UpdateSignalBody, tenant_id: UUID | Non
 
 
 @router.post("/hypotheses")
-def create_hypothesis(body: CreateHypothesisBody, tenant_id: UUID | None = Query(default=None)):
-    tid = tenant_id or _default_tenant()
+def create_hypothesis(request: Request, body: CreateHypothesisBody, tenant_id: UUID | None = Query(default=None)):
+    tid = _require_trading_access(request, write=True) or tenant_id or _default_tenant()
     try:
         return svc.create_hypothesis(tid, body.model_dump(exclude_none=True))
     except Exception as exc:
@@ -220,8 +232,8 @@ def create_hypothesis(body: CreateHypothesisBody, tenant_id: UUID | None = Query
 
 
 @router.patch("/hypotheses/{hypothesis_id}")
-def update_hypothesis(hypothesis_id: UUID, body: UpdateHypothesisBody, tenant_id: UUID | None = Query(default=None)):
-    tid = tenant_id or _default_tenant()
+def update_hypothesis(request: Request, hypothesis_id: UUID, body: UpdateHypothesisBody, tenant_id: UUID | None = Query(default=None)):
+    tid = _require_trading_access(request, write=True) or tenant_id or _default_tenant()
     try:
         return svc.update_hypothesis(tid, hypothesis_id, body.model_dump(exclude_none=True))
     except ValueError as exc:
@@ -234,8 +246,8 @@ def update_hypothesis(hypothesis_id: UUID, body: UpdateHypothesisBody, tenant_id
 
 
 @router.post("/positions")
-def create_position(body: CreatePositionBody, tenant_id: UUID | None = Query(default=None)):
-    tid = tenant_id or _default_tenant()
+def create_position(request: Request, body: CreatePositionBody, tenant_id: UUID | None = Query(default=None)):
+    tid = _require_trading_access(request, write=True) or tenant_id or _default_tenant()
     try:
         return svc.create_position(tid, body.model_dump(exclude_none=True))
     except Exception as exc:
@@ -243,8 +255,8 @@ def create_position(body: CreatePositionBody, tenant_id: UUID | None = Query(def
 
 
 @router.patch("/positions/{position_id}")
-def update_position(position_id: UUID, body: UpdatePositionBody, tenant_id: UUID | None = Query(default=None)):
-    tid = tenant_id or _default_tenant()
+def update_position(request: Request, position_id: UUID, body: UpdatePositionBody, tenant_id: UUID | None = Query(default=None)):
+    tid = _require_trading_access(request, write=True) or tenant_id or _default_tenant()
     try:
         return svc.update_position(tid, position_id, body.model_dump(exclude_none=True))
     except ValueError as exc:
@@ -254,8 +266,8 @@ def update_position(position_id: UUID, body: UpdatePositionBody, tenant_id: UUID
 
 
 @router.post("/positions/{position_id}/close")
-def close_position(position_id: UUID, body: ClosePositionBody, tenant_id: UUID | None = Query(default=None)):
-    tid = tenant_id or _default_tenant()
+def close_position(request: Request, position_id: UUID, body: ClosePositionBody, tenant_id: UUID | None = Query(default=None)):
+    tid = _require_trading_access(request, write=True) or tenant_id or _default_tenant()
     try:
         return svc.close_position(tid, position_id, body.exit_price, body.exit_at)
     except ValueError as exc:
@@ -268,8 +280,8 @@ def close_position(position_id: UUID, body: ClosePositionBody, tenant_id: UUID |
 
 
 @router.post("/watchlist")
-def create_watchlist(body: CreateWatchlistBody, tenant_id: UUID | None = Query(default=None)):
-    tid = tenant_id or _default_tenant()
+def create_watchlist(request: Request, body: CreateWatchlistBody, tenant_id: UUID | None = Query(default=None)):
+    tid = _require_trading_access(request, write=True) or tenant_id or _default_tenant()
     try:
         return svc.create_watchlist_item(tid, body.model_dump(exclude_none=True))
     except Exception as exc:
@@ -277,8 +289,8 @@ def create_watchlist(body: CreateWatchlistBody, tenant_id: UUID | None = Query(d
 
 
 @router.patch("/watchlist/{watchlist_id}")
-def update_watchlist(watchlist_id: UUID, body: UpdateWatchlistBody, tenant_id: UUID | None = Query(default=None)):
-    tid = tenant_id or _default_tenant()
+def update_watchlist(request: Request, watchlist_id: UUID, body: UpdateWatchlistBody, tenant_id: UUID | None = Query(default=None)):
+    tid = _require_trading_access(request, write=True) or tenant_id or _default_tenant()
     try:
         return svc.update_watchlist_item(tid, watchlist_id, body.model_dump(exclude_none=True))
     except ValueError as exc:
@@ -291,8 +303,8 @@ def update_watchlist(watchlist_id: UUID, body: UpdateWatchlistBody, tenant_id: U
 
 
 @router.post("/research")
-def create_research(body: CreateResearchNoteBody, tenant_id: UUID | None = Query(default=None)):
-    tid = tenant_id or _default_tenant()
+def create_research(request: Request, body: CreateResearchNoteBody, tenant_id: UUID | None = Query(default=None)):
+    tid = _require_trading_access(request, write=True) or tenant_id or _default_tenant()
     try:
         return svc.create_research_note(tid, body.model_dump(exclude_none=True))
     except Exception as exc:
@@ -300,8 +312,8 @@ def create_research(body: CreateResearchNoteBody, tenant_id: UUID | None = Query
 
 
 @router.patch("/research/{note_id}")
-def update_research(note_id: UUID, body: UpdateResearchNoteBody, tenant_id: UUID | None = Query(default=None)):
-    tid = tenant_id or _default_tenant()
+def update_research(request: Request, note_id: UUID, body: UpdateResearchNoteBody, tenant_id: UUID | None = Query(default=None)):
+    tid = _require_trading_access(request, write=True) or tenant_id or _default_tenant()
     try:
         return svc.update_research_note(tid, note_id, body.model_dump(exclude_none=True))
     except ValueError as exc:
@@ -314,8 +326,8 @@ def update_research(note_id: UUID, body: UpdateResearchNoteBody, tenant_id: UUID
 
 
 @router.post("/briefs")
-def create_brief(body: CreateDailyBriefBody, tenant_id: UUID | None = Query(default=None)):
-    tid = tenant_id or _default_tenant()
+def create_brief(request: Request, body: CreateDailyBriefBody, tenant_id: UUID | None = Query(default=None)):
+    tid = _require_trading_access(request, write=True) or tenant_id or _default_tenant()
     try:
         return svc.create_daily_brief(tid, body.model_dump())
     except Exception as exc:
@@ -323,8 +335,8 @@ def create_brief(body: CreateDailyBriefBody, tenant_id: UUID | None = Query(defa
 
 
 @router.post("/performance")
-def create_performance(body: CreatePerformanceBody, tenant_id: UUID | None = Query(default=None)):
-    tid = tenant_id or _default_tenant()
+def create_performance(request: Request, body: CreatePerformanceBody, tenant_id: UUID | None = Query(default=None)):
+    tid = _require_trading_access(request, write=True) or tenant_id or _default_tenant()
     try:
         return svc.create_performance_snapshot(tid, body.model_dump())
     except Exception as exc:

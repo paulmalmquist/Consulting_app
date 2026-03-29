@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hasSession, getSessionActor, unauthorizedJson } from "@/lib/server/sessionAuth";
+import { hasSession, unauthorizedJson } from "@/lib/server/sessionAuth";
+import { buildPlatformSessionHeaders } from "@/lib/server/platformForwardHeaders";
 
 export const runtime = "nodejs";
 
@@ -10,13 +11,13 @@ const FASTAPI_BASE = (
 ).replace(/\/$/, "");
 
 export async function GET(req: NextRequest) {
-  if (!hasSession(req)) {
+  if (!(await hasSession(req))) {
     return unauthorizedJson();
   }
 
   try {
     const upstream = await fetch(`${FASTAPI_BASE}/api/ai/gateway/health`, {
-      headers: { "x-bm-actor": getSessionActor(req) },
+      headers: await buildPlatformSessionHeaders(req),
     });
     const data = await upstream.json();
     return NextResponse.json(data);

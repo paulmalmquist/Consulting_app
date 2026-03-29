@@ -49,6 +49,7 @@ const MOBILE_NAV_ROUTE_PATTERNS = [
   /^\/lab\/env\/[^/]+\/re(?:\/|$)/,
   /^\/lab\/env\/[^/]+\/ecc(?:\/|$)/,
   /^\/lab\/env\/[^/]+\/consulting(?:\/|$)/,
+  /^\/lab\/env\/[^/]+\/resume(?:\/|$)/,
 ];
 
 function titleCase(value: string) {
@@ -137,6 +138,14 @@ function buildQuickLinks(envelope: AssistantContextEnvelope): WinstonQuickLink[]
     ];
   }
 
+  if (activeModule === "resume") {
+    const base = `/lab/env/${envId}/resume`;
+    return [
+      { id: "resume-home", label: "Visual Resume", href: base, description: "Interactive visual resume workspace" },
+      { id: "resume-env-home", label: "Environment Home", href: `/lab/env/${envId}`, description: "Return to the environment overview" },
+    ];
+  }
+
   if (activeModule === "credit") {
     const base = `/lab/env/${envId}/credit`;
     return [
@@ -202,6 +211,14 @@ function buildSuggestions(envelope: AssistantContextEnvelope, routeLabel: string
       { id: "consulting-summary", label: "Summarize CRM", prompt: `Summarize the consulting workspace from ${routeLabel}.` },
       { id: "consulting-events", label: "Upcoming events", prompt: "What events, contacts, and follow-ups need attention next?" },
       { id: "consulting-explore", label: "Explore elsewhere", prompt: "Take me from this consulting page to the most relevant events, contacts, or reports." },
+    ];
+  }
+
+  if (activeModule === "resume") {
+    return [
+      { id: "resume-summary", label: "Explain this resume", prompt: `Summarize what matters on the ${routeLabel} page and explain the active resume story.` },
+      { id: "resume-modules", label: "Best module to open", prompt: "Which visual resume module should I open next, and why?" },
+      { id: "resume-narrative", label: "Translate for executives", prompt: "Translate this visual resume into a concise executive narrative with the most important systems and business outcomes." },
     ];
   }
 

@@ -20,7 +20,12 @@ class AuthContext:
     authenticated: bool = False
     roles: list[str] = field(default_factory=list)
     permissions: list[str] = field(default_factory=list)
+    user_id: str | None = None
     tenant_id: str | None = None
+    business_id: str | None = None
+    env_id: str | None = None
+    env_slug: str | None = None
+    membership_role: str | None = None
     scopes: dict[str, Any] = field(default_factory=dict)
-    provider: str = "anonymous"  # mcp | okta | azure_ad
+    provider: str = "anonymous"  # mcp | okta | azure_ad | platform-session
     raw_claims: dict[str, Any] = field(default_factory=dict)

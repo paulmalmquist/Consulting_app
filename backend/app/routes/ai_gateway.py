@@ -15,6 +15,7 @@ from typing import AsyncGenerator
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from app.auth.platform import require_authenticated_request, require_environment_access
 from app.config import AI_GATEWAY_ENABLED, OPENAI_CHAT_MODEL, OPENAI_EMBEDDING_MODEL
 from app.schemas.ai_gateway import (
     GatewayAskRequest,
@@ -33,7 +34,8 @@ router = APIRouter(prefix="/api/ai/gateway", tags=["ai-gateway"])
 
 
 @router.get("/health", response_model=GatewayHealthResponse)
-def gateway_health() -> GatewayHealthResponse:
+def gateway_health(request: Request) -> GatewayHealthResponse:
+    require_authenticated_request(request)
     rag_available = False
     try:
         from app.db import get_cursor
@@ -61,6 +63,11 @@ async def gateway_ask(payload: GatewayAskRequest, request: Request) -> Streaming
     """
     if not AI_GATEWAY_ENABLED:
         raise HTTPException(status_code=501, detail="AI Gateway disabled: set OPENAI_API_KEY")
+
+    if payload.env_id:
+        require_environment_access(request, env_id=payload.env_id)
+    else:
+        require_authenticated_request(request)
 
     actor = request.headers.get("x-bm-actor", "anonymous")
 
@@ -90,13 +97,18 @@ async def gateway_ask(payload: GatewayAskRequest, request: Request) -> Streaming
 
 
 @router.post("/index", response_model=GatewayIndexResponse)
-def index_document_endpoint(payload: GatewayIndexRequest) -> GatewayIndexResponse:
+def index_document_endpoint(payload: GatewayIndexRequest, request: Request) -> GatewayIndexResponse:
     """Trigger RAG indexing for a document version.
 
     Downloads from Supabase Storage, extracts text, chunks, embeds, stores in pgvector.
     """
     if not AI_GATEWAY_ENABLED:
         raise HTTPException(status_code=501, detail="AI Gateway disabled")
+
+    if payload.env_id:
+        require_environment_access(request, env_id=payload.env_id)
+    else:
+        require_authenticated_request(request)
 
     start = time.time()
 
@@ -170,6 +182,10 @@ def index_document_endpoint(payload: GatewayIndexRequest) -> GatewayIndexRespons
 
 @router.post("/conversations", response_model=ConversationDetailResponse)
 def create_conversation(payload: ConversationCreateRequest, request: Request):
+    if payload.env_id:
+        require_environment_access(request, env_id=payload.env_id)
+    else:
+        require_authenticated_request(request)
     actor = request.headers.get("x-bm-actor", "anonymous")
     row = convo_svc.create_conversation(
         business_id=payload.business_id,
@@ -188,7 +204,8 @@ def create_conversation(payload: ConversationCreateRequest, request: Request):
 
 
 @router.get("/conversations")
-def list_conversations(business_id: str, include_archived: bool = False):
+def list_conversations(request: Request, business_id: str, include_archived: bool = False):
+    require_authenticated_request(request)
     from uuid import UUID
 
     rows = convo_svc.list_conversations(
@@ -218,7 +235,8 @@ def list_conversations(business_id: str, include_archived: bool = False):
 
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationDetailResponse)
-def get_conversation(conversation_id: str):
+def get_conversation(conversation_id: str, request: Request):
+    require_authenticated_request(request)
     from uuid import UUID
 
     convo = convo_svc.get_conversation(conversation_id=UUID(conversation_id))
@@ -229,7 +247,8 @@ def get_conversation(conversation_id: str):
 
 
 @router.post("/conversations/{conversation_id}/messages", response_model=MessageResponse)
-def append_message(conversation_id: str, payload: MessageAppendRequest):
+def append_message(conversation_id: str, payload: MessageAppendRequest, request: Request):
+    require_authenticated_request(request)
     from uuid import UUID
 
     convo = convo_svc.get_conversation(conversation_id=UUID(conversation_id))
@@ -250,7 +269,8 @@ def append_message(conversation_id: str, payload: MessageAppendRequest):
 
 
 @router.delete("/conversations/{conversation_id}")
-def archive_conversation(conversation_id: str):
+def archive_conversation(conversation_id: str, request: Request):
+    require_authenticated_request(request)
     from uuid import UUID
 
     ok = convo_svc.archive_conversation(conversation_id=UUID(conversation_id))

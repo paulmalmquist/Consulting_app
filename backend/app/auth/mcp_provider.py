@@ -16,6 +16,39 @@ class McpAuthProvider(AuthProvider):
     """Authenticates via x-bm-actor header and optional MCP_API_TOKEN."""
 
     async def authenticate(self, request: Request) -> AuthContext:
+        platform_user_id = request.headers.get("x-bm-user-id")
+        platform_provider = request.headers.get("x-bm-auth-provider")
+        if platform_provider == "platform-session" or platform_user_id:
+            membership_role = request.headers.get("x-bm-membership-role") or "viewer"
+            roles = [membership_role]
+            permissions = ["read"]
+            if membership_role in {"owner", "admin"}:
+                roles.append("admin")
+                permissions = ["read", "write", "admin"]
+            elif membership_role == "member":
+                permissions = ["read", "write"]
+
+            if request.headers.get("x-bm-platform-admin") == "true" and "admin" not in roles:
+                roles.append("admin")
+                permissions = ["read", "write", "admin"]
+
+            return AuthContext(
+                actor=request.headers.get("x-bm-actor") or f"user:{platform_user_id or 'unknown'}",
+                authenticated=True,
+                roles=roles,
+                permissions=permissions,
+                user_id=platform_user_id,
+                tenant_id=request.headers.get("x-tenant-id"),
+                business_id=request.headers.get("x-bm-business-id"),
+                env_id=request.headers.get("x-bm-env-id"),
+                env_slug=request.headers.get("x-bm-env-slug"),
+                membership_role=membership_role,
+                provider="platform-session",
+                raw_claims={
+                    "platform_admin": request.headers.get("x-bm-platform-admin"),
+                },
+            )
+
         actor = (
             request.headers.get("x-bm-actor")
             or request.headers.get("x-user")

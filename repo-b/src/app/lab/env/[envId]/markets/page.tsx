@@ -183,7 +183,7 @@ export default function TradingLabPage() {
     setNotice(null);
 
     try {
-      const res = await fetch("/api/v1/trading");
+      const res = await fetch(`/api/v1/trading?env_id=${encodeURIComponent(envId)}`);
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || `HTTP ${res.status}`);

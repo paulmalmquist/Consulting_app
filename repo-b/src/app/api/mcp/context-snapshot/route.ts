@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   const requestId = resolveRequestId(request);
-  if (!hasSession(request)) {
+  if (!(await hasSession(request))) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401, ...withRequestId(requestId) });
   }
   const url = new URL(request.url);

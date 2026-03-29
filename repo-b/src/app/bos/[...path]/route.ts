@@ -12,6 +12,12 @@
  * Using a same-origin proxy eliminates both failure modes.
  */
 import { NextRequest } from "next/server";
+import {
+  getActiveMembership,
+  getSessionActor,
+  isPlatformAdminSession,
+  parseSessionFromRequest,
+} from "@/lib/server/sessionAuth";
 
 export const runtime = "nodejs";
 
@@ -74,6 +80,22 @@ async function proxy(request: NextRequest, ctx: { params: Promise<{ path: string
   headers.set("accept-encoding", "identity");
   headers.set("x-bm-request-id", requestId);
   headers.set("X-Request-Id", requestId);
+
+  const session = await parseSessionFromRequest(request);
+  const activeMembership = getActiveMembership(session);
+  if (session?.platform_user_id) {
+    headers.set("x-bm-auth-provider", "platform-session");
+    headers.set("x-bm-user-id", session.platform_user_id);
+    headers.set("x-bm-platform-admin", String(isPlatformAdminSession(session)));
+    headers.set("x-bm-actor", await getSessionActor(request));
+  }
+  if (activeMembership) {
+    headers.set("x-bm-env-id", activeMembership.env_id);
+    headers.set("x-bm-env-slug", activeMembership.env_slug);
+    headers.set("x-bm-membership-role", activeMembership.role);
+    if (activeMembership.business_id) headers.set("x-bm-business-id", activeMembership.business_id);
+    if (activeMembership.tenant_id) headers.set("x-tenant-id", activeMembership.tenant_id);
+  }
 
   let upstreamRes: Response;
   try {

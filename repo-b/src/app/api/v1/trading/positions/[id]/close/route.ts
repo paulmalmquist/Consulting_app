@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/server/db";
+import { requireTradingMembership, tradingWriteAllowed } from "@/lib/server/tradingSession";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,12 @@ export async function POST(
   }
 
   try {
+    const access = await requireTradingMembership(req);
+    if (access.error) return access.error;
+    if (!tradingWriteAllowed(access.membership.role)) {
+      return NextResponse.json({ error: "Write access required" }, { status: 403 });
+    }
+
     const { exit_price, exit_at } = await req.json();
     if (exit_price == null || typeof exit_price !== "number") {
       return NextResponse.json({ error: "exit_price is required and must be a number" }, { status: 400 });
@@ -26,8 +33,8 @@ export async function POST(
 
     // Fetch position
     const posRes = await pool.query(
-      "SELECT * FROM public.trading_positions WHERE position_id = $1",
-      [positionId]
+      "SELECT * FROM public.trading_positions WHERE position_id = $1 AND tenant_id = $2::uuid",
+      [positionId, access.membership.tenant_id]
     );
     if (posRes.rows.length === 0) {
       return NextResponse.json({ error: "Position not found" }, { status: 404 });
@@ -54,9 +61,9 @@ export async function POST(
         exit_price = $1, realized_pnl = $2, return_pct = $3,
         unrealized_pnl = 0, status = 'closed', exit_at = $4,
         current_price = $1, updated_at = now()
-      WHERE position_id = $5
+      WHERE position_id = $5 AND tenant_id = $6::uuid
       RETURNING *`,
-      [exit_price, realizedPnl, returnPct, exitTs, positionId]
+      [exit_price, realizedPnl, returnPct, exitTs, positionId, access.membership.tenant_id]
     );
 
     // Coerce numerics

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import type {
   ResumeTimeline,
   ResumeTimelineInitiative,
@@ -8,6 +9,7 @@ import type {
   ResumeTimelineRole,
   ResumeTimelineViewMode,
 } from "@/lib/bos-api";
+import ResumeFallbackCard from "./ResumeFallbackCard";
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
 
 const COLOR_MAP: Record<string, string> = {
@@ -31,6 +33,7 @@ type TimelineRow =
 
 function pctBetween(start: Date, end: Date, value: Date) {
   const total = end.getTime() - start.getTime();
+  if (!Number.isFinite(total) || total <= 0) return 0;
   return ((value.getTime() - start.getTime()) / total) * 100;
 }
 
@@ -97,29 +100,38 @@ export default function ResumeTimelineModule({ timeline }: { timeline: ResumeTim
     selectedTimelineId,
     selectTimelineItem,
     setActiveModule,
-  } = useResumeWorkspaceStore((state) => ({
-    timelineView: state.timelineView,
-    setTimelineView: state.setTimelineView,
-    playStory: state.playStory,
-    togglePlayStory: state.togglePlayStory,
-    playIndex: state.playIndex,
-    setPlayIndex: state.setPlayIndex,
-    selectedTimelineId: state.selectedTimelineId,
-    selectTimelineItem: state.selectTimelineItem,
-    setActiveModule: state.setActiveModule,
-  }));
+  } = useResumeWorkspaceStore(
+    useShallow((state) => ({
+      timelineView: state.timelineView,
+      setTimelineView: state.setTimelineView,
+      playStory: state.playStory,
+      togglePlayStory: state.togglePlayStory,
+      playIndex: state.playIndex,
+      setPlayIndex: state.setPlayIndex,
+      selectedTimelineId: state.selectedTimelineId,
+      selectTimelineItem: state.selectTimelineItem,
+      setActiveModule: state.setActiveModule,
+    })),
+  );
 
   const rows = useMemo(() => groupRows(timeline, timelineView), [timeline, timelineView]);
   const rangeStart = useMemo(() => new Date(timeline.start_date), [timeline.start_date]);
   const rangeEnd = useMemo(() => new Date(timeline.end_date), [timeline.end_date]);
+  const hasRoles = timeline.roles.length > 0;
+  const hasMilestones = timeline.milestones.length > 0;
+  const hasValidRange =
+    Number.isFinite(rangeStart.getTime()) &&
+    Number.isFinite(rangeEnd.getTime()) &&
+    rangeEnd.getTime() >= rangeStart.getTime();
   const years = useMemo(() => {
+    if (!hasValidRange) return [] as number[];
     const startYear = rangeStart.getFullYear();
     const endYear = rangeEnd.getFullYear();
     return Array.from({ length: endYear - startYear + 1 }, (_, index) => startYear + index);
-  }, [rangeStart, rangeEnd]);
+  }, [hasValidRange, rangeStart, rangeEnd]);
 
   useEffect(() => {
-    if (!playStory || timeline.milestones.length === 0) return undefined;
+    if (!playStory || !hasMilestones) return undefined;
     const timer = window.setInterval(() => {
       const nextIndex = (playIndex + 1) % timeline.milestones.length;
       const nextMilestone = timeline.milestones[nextIndex];
@@ -127,7 +139,18 @@ export default function ResumeTimelineModule({ timeline }: { timeline: ResumeTim
       selectTimelineItem(nextMilestone.milestone_id);
     }, 3200);
     return () => window.clearInterval(timer);
-  }, [playStory, playIndex, timeline.milestones, setPlayIndex, selectTimelineItem]);
+  }, [hasMilestones, playStory, playIndex, timeline.milestones, setPlayIndex, selectTimelineItem]);
+
+  if (!hasRoles || !hasValidRange || rows.length === 0) {
+    return (
+      <ResumeFallbackCard
+        eyebrow="Timeline"
+        title="Timeline temporarily unavailable"
+        body="The career timeline is missing enough structured data that it cannot render safely right now."
+        tone="warning"
+      />
+    );
+  }
 
   return (
     <section className="rounded-[28px] border border-bm-border/60 bg-bm-surface/30 p-5 shadow-[0_24px_64px_-48px_rgba(5,12,18,0.95)]">
@@ -161,6 +184,7 @@ export default function ResumeTimelineModule({ timeline }: { timeline: ResumeTim
         <span className="font-semibold text-bm-text">Play Story</span>
         <button
           type="button"
+          disabled={!hasMilestones}
           onClick={() => {
             if (!playStory) {
               const activeMilestone = timeline.milestones[playIndex] ?? timeline.milestones[0];
@@ -168,35 +192,41 @@ export default function ResumeTimelineModule({ timeline }: { timeline: ResumeTim
             }
             togglePlayStory();
           }}
-          className="rounded-full border border-bm-border/40 px-3 py-1 transition hover:border-bm-border/70 hover:text-bm-text"
+          className={`rounded-full border border-bm-border/40 px-3 py-1 transition hover:border-bm-border/70 hover:text-bm-text ${!hasMilestones ? "cursor-not-allowed opacity-40" : ""}`}
         >
           {playStory ? "Pause" : "Play"}
         </button>
         <button
           type="button"
+          disabled={!hasMilestones}
           onClick={() => {
+            if (!hasMilestones) return;
             const nextIndex = (playIndex - 1 + timeline.milestones.length) % timeline.milestones.length;
             setPlayIndex(nextIndex);
             selectTimelineItem(timeline.milestones[nextIndex].milestone_id);
           }}
-          className="rounded-full border border-bm-border/40 px-3 py-1 transition hover:border-bm-border/70 hover:text-bm-text"
+          className={`rounded-full border border-bm-border/40 px-3 py-1 transition hover:border-bm-border/70 hover:text-bm-text ${!hasMilestones ? "cursor-not-allowed opacity-40" : ""}`}
         >
           Previous
         </button>
         <button
           type="button"
+          disabled={!hasMilestones}
           onClick={() => {
+            if (!hasMilestones) return;
             const nextIndex = (playIndex + 1) % timeline.milestones.length;
             setPlayIndex(nextIndex);
             selectTimelineItem(timeline.milestones[nextIndex].milestone_id);
           }}
-          className="rounded-full border border-bm-border/40 px-3 py-1 transition hover:border-bm-border/70 hover:text-bm-text"
+          className={`rounded-full border border-bm-border/40 px-3 py-1 transition hover:border-bm-border/70 hover:text-bm-text ${!hasMilestones ? "cursor-not-allowed opacity-40" : ""}`}
         >
           Next
         </button>
         {timeline.milestones[playIndex] ? (
           <span className="ml-auto text-bm-text">{timeline.milestones[playIndex].title}</span>
-        ) : null}
+        ) : (
+          <span className="ml-auto">Timeline milestones unavailable</span>
+        )}
       </div>
 
       <div className="mt-6 overflow-x-auto">
@@ -400,23 +430,27 @@ export default function ResumeTimelineModule({ timeline }: { timeline: ResumeTim
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
-        {timeline.milestones.map((milestone) => (
-          <button
-            key={milestone.milestone_id}
-            type="button"
-            onClick={() => {
-              selectTimelineItem(milestone.milestone_id);
-              setActiveModule("timeline");
-            }}
-            className={`rounded-full border px-3 py-1.5 text-xs transition ${
-              selectedTimelineId === milestone.milestone_id
-                ? "border-white/50 bg-white/12 text-white"
-                : "border-bm-border/35 bg-white/5 text-bm-muted hover:border-white/25 hover:text-bm-text"
-            }`}
-          >
-            {milestone.title}
-          </button>
-        ))}
+        {hasMilestones ? (
+          timeline.milestones.map((milestone) => (
+            <button
+              key={milestone.milestone_id}
+              type="button"
+              onClick={() => {
+                selectTimelineItem(milestone.milestone_id);
+                setActiveModule("timeline");
+              }}
+              className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                selectedTimelineId === milestone.milestone_id
+                  ? "border-white/50 bg-white/12 text-white"
+                  : "border-bm-border/35 bg-white/5 text-bm-muted hover:border-white/25 hover:text-bm-text"
+              }`}
+            >
+              {milestone.title}
+            </button>
+          ))
+        ) : (
+          <p className="text-sm text-bm-muted2">Timeline milestones are temporarily unavailable, so guided playback is paused.</p>
+        )}
       </div>
     </section>
   );
