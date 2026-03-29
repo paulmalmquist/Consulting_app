@@ -194,6 +194,10 @@
   .bm-focus-glow {
     box-shadow: 0 0 4px hsl(var(--bm-accent) / 0.3);
   }
+
+  .font-command {
+    font-family: var(--font-command), var(--font-display), sans-serif;
+  }
 }
 
 @layer utilities {

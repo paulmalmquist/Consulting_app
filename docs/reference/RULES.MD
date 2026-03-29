@@ -191,7 +191,9 @@ Last updated: 2026-02-25 — added environment registration rules, seed layer di
 ### 10. MIGRATION DISCIPLINE
 
 - All schema changes via numbered migration files in repo-b/db/schema/.
-- Naming convention: `NNN_domain.sql` — do not reuse or renumber existing sequence numbers.
+- Naming convention: `NNN_module_description.sql` — do not reuse or renumber existing sequence numbers.
+- Reserve the `500+` range for the current tech-debt remediation sequence until that series is complete.
+- Read `ARCHITECTURE.md` before creating a new table, prefix, or migration file.
 - No manual production schema edits.
 - Every migration must be reversible (include a rollback block or a companion down
   migration).
@@ -200,6 +202,7 @@ Last updated: 2026-02-25 — added environment registration rules, seed layer di
   they must not diverge structurally from the Business OS schema for shared tables.
 - New finance tables require corresponding index entries in 955_fin_indexes.sql and
   view entries in 995_fin_views.sql.
+- New user-facing tables must include `env_id` and `business_id` unless they are listed as shared reference-table exemptions in `ARCHITECTURE.md`.
 
 ---
 

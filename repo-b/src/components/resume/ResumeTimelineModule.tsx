@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { lazy, Suspense, useEffect, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import type {
   ResumeTimeline,
@@ -11,6 +11,8 @@ import type {
 } from "@/lib/bos-api";
 import ResumeFallbackCard from "./ResumeFallbackCard";
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
+
+const CompoundingCapabilityGraph = lazy(() => import("./CompoundingCapabilityGraph"));
 
 const COLOR_MAP: Record<string, string> = {
   bi: "from-sky-500/85 to-sky-400/60 border-sky-400/60",
@@ -163,23 +165,38 @@ export default function ResumeTimelineModule({ timeline }: { timeline: ResumeTim
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {(["career", "delivery", "capability", "impact"] as ResumeTimelineViewMode[]).map((view) => (
-            <button
-              key={view}
-              type="button"
-              onClick={() => setTimelineView(view)}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                timelineView === view
-                  ? "bg-white/12 text-white"
-                  : "bg-white/5 text-bm-muted hover:bg-white/10 hover:text-bm-text"
-              }`}
-            >
-              {view === "career" ? "Career View" : view === "delivery" ? "Delivery View" : view === "capability" ? "Capability View" : "Impact View"}
-            </button>
-          ))}
+          {(["career", "delivery", "capability", "impact", "compounding"] as ResumeTimelineViewMode[]).map((view) => {
+            const labels: Record<ResumeTimelineViewMode, string> = {
+              career: "Career View",
+              delivery: "Delivery View",
+              capability: "Capability View",
+              impact: "Impact View",
+              compounding: "Compounding",
+            };
+            return (
+              <button
+                key={view}
+                type="button"
+                onClick={() => setTimelineView(view)}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                  timelineView === view
+                    ? "bg-white/12 text-white"
+                    : "bg-white/5 text-bm-muted hover:bg-white/10 hover:text-bm-text"
+                }`}
+              >
+                {labels[view]}
+              </button>
+            );
+          })}
         </div>
       </div>
 
+      {timelineView === "compounding" ? (
+        <Suspense fallback={<div className="mt-5 h-[420px] animate-pulse rounded-2xl bg-black/10" />}>
+          <CompoundingCapabilityGraph timeline={timeline} />
+        </Suspense>
+      ) : (
+      <>
       <div className="mt-5 flex flex-wrap items-center gap-2 rounded-2xl border border-bm-border/40 bg-black/10 px-4 py-3 text-xs text-bm-muted2">
         <span className="font-semibold text-bm-text">Play Story</span>
         <button
@@ -452,6 +469,8 @@ export default function ResumeTimelineModule({ timeline }: { timeline: ResumeTim
           <p className="text-sm text-bm-muted2">Timeline milestones are temporarily unavailable, so guided playback is paused.</p>
         )}
       </div>
+      </>
+      )}
     </section>
   );
 }

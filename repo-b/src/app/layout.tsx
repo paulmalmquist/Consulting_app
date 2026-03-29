@@ -3,6 +3,7 @@ import { Inter, Inter_Tight, JetBrains_Mono } from "next/font/google";
 import "@fontsource/league-gothic/400.css";
 import "./globals.css";
 import Providers from "@/components/Providers";
+import { mandaloreCommand } from "@/lib/brandFonts";
 
 export const metadata: Metadata = {
   title: "Winston",
@@ -73,7 +74,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable}`}>
+    <html
+      lang="en"
+      className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable} ${mandaloreCommand.variable}`}
+    >
       <body>
         <Providers>{children}</Providers>
       </body>

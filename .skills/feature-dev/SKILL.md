@@ -58,8 +58,21 @@ Replace "this would work" with "I ran this and the output was..."
 You CANNOT reach COMPLETE without passing through every state.
 A response without terminal output from the TESTING state is INCOMPLETE.
 
+## Database Rules — mandatory for any schema-affecting task
+
+Read [`ARCHITECTURE.md`](/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/ARCHITECTURE.md) before editing [`repo-b/db/schema/`](/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/repo-b/db/schema).
+
+1. Every `CREATE TABLE` must be paired with `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` and a tenant-isolation policy.
+2. Every new user-facing table must include `env_id TEXT NOT NULL` and `business_id UUID NOT NULL` unless `ARCHITECTURE.md` exempts it.
+3. Before creating a table, confirm an equivalent table does not already exist.
+4. Migration names must follow `NNN_module_description.sql`.
+5. Only approved prefixes from `ARCHITECTURE.md` may be used.
+6. New indexes require a specific query-path justification.
+7. Add `COMMENT ON TABLE` for every new table.
+
 ### STATE: orienting
 - Read CLAUDE.md: `cat CLAUDE.md`
+- If schema may change, read ARCHITECTURE.md: `cat ARCHITECTURE.md`
 - Identify which runtime owns this feature (repo-b, backend, repo-c)
 - Confirm: "I will modify files ONLY in `<service>/`"
 - Run baseline tests to confirm they pass BEFORE you write anything:

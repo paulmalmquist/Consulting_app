@@ -11,8 +11,7 @@ import { EnvironmentSettingsModal } from "@/components/lab/environments/Environm
 import { type Industry } from "@/components/lab/environments/constants";
 import { ActivityFeed, type ActivityItem } from "@/components/ui/ActivityFeed";
 import { Dialog } from "@/components/ui/Dialog";
-import { Button } from "@/components/ui/Button";
-import { SystemStatusBanner } from "@/components/admin/SystemStatusBanner";
+import { ControlTowerConsole } from "@/components/admin/ControlTowerConsole";
 import { useGatewayHealth } from "@/components/admin/useGatewayHealth";
 import { RecentEnhancementsPanel } from "@/components/admin/RecentEnhancementsPanel";
 
@@ -143,35 +142,16 @@ export default function AdminPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <section className="rounded-xl border border-bm-border/10 bg-[linear-gradient(180deg,hsl(var(--bm-surface)/0.92),hsl(var(--bm-bg-2)/0.86))] px-6 py-6 shadow-[0_20px_38px_-34px_rgba(5,9,14,0.95)]">
-        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-          <div className="min-w-0 flex-1">
-            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Operations Command</p>
-            <h1 className="mt-2 font-display text-[2rem] font-semibold tracking-tight text-bm-text">
-              Control Tower
-            </h1>
-            <p className="mt-2 max-w-3xl text-base leading-relaxed text-bm-muted">
-              Operational readiness across all business environments with fast visibility into live status, recent provisioning, and follow-up signals.
-            </p>
-            <SystemStatusBanner
-              status={gateway.status}
-              lastChecked={gateway.lastChecked}
-              className="mt-6"
-            />
-          </div>
-
-          <div className="shrink-0">
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={() => setShowProvision(true)}
-              className="border-bm-border/20 bg-bm-surface/68 px-4 hover:border-bm-accent/40 hover:bg-bm-surface/86"
-            >
-              + New Environment
-            </Button>
-          </div>
-        </div>
-      </section>
+      <ControlTowerConsole
+        status={gateway.status}
+        lastChecked={gateway.lastChecked}
+        activeCount={activeCount}
+        totalCount={environments.length}
+        industryCount={industryCount}
+        recentCount={recentCount}
+        loading={loading}
+        onProvision={() => setShowProvision(true)}
+      />
 
       <ControlTowerMetrics
         activeCount={activeCount}

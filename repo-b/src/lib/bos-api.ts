@@ -8108,7 +8108,7 @@ export type ResumeTimelineRole = {
   milestones: ResumeTimelineMilestone[];
 };
 
-export type ResumeTimelineViewMode = "career" | "delivery" | "capability" | "impact";
+export type ResumeTimelineViewMode = "career" | "delivery" | "capability" | "impact" | "compounding";
 
 export type ResumeTimeline = {
   default_view: ResumeTimelineViewMode;

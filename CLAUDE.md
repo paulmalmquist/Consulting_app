@@ -147,6 +147,20 @@ When a request touches client portability or white-labeling, keep the three-laye
 - New-client onboarding should trend toward `load config + bind secrets + run bootstrap`, not repo-wide source edits.
 - If a request is specifically about forkability or transferability, route planning to `agents/architect.md`; for implementation, keep the owning surface but still use `PORTABILITY.MD` as a design constraint.
 
+## Database Guardrails
+
+Every autonomous coding session that can touch SQL, seeds, schema contracts, or direct-DB handlers must read [`ARCHITECTURE.md`](/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/ARCHITECTURE.md) before proposing or writing a migration.
+
+Mandatory database rules:
+
+1. Every `CREATE TABLE` must be followed by `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` and a tenant-isolation policy using `env_id = current_setting('app.env_id', true)`.
+2. Every new user-facing table must include `env_id TEXT NOT NULL` and `business_id UUID NOT NULL` unless the table is a shared dimension or reference table explicitly exempted in `ARCHITECTURE.md`.
+3. Before creating a table, query the existing schema and confirm an equivalent table does not already exist.
+4. New schema files must follow `NNN_module_description.sql` in [`repo-b/db/schema/`](/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/repo-b/db/schema), using the next sequential number.
+5. Only approved prefixes from `ARCHITECTURE.md` may be used for new tables.
+6. New indexes require a named query path or workload justification.
+7. Add `COMMENT ON TABLE` for every new table explaining its purpose and owning module.
+
 ## Autonomous Intelligence Directory
 
 22+ scheduled tasks run daily and write structured outputs to `docs/`. **Any coding agent should check relevant intelligence folders before starting work** — they contain competitor findings, feature ideas, test results, and production health data that directly inform implementation decisions.

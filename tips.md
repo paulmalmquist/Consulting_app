@@ -410,6 +410,7 @@ If a bug smells like "empty data", "404", "not bound", or "context missing", che
 The schema is a numbered SQL bundle in:
 
 - `repo-b/db/schema/*.sql`
+- `ARCHITECTURE.md` is the policy layer that defines approved prefixes, RLS requirements, and migration naming guardrails.
 
 Applied by:
 
@@ -2053,3 +2054,5 @@ Follow the existing pattern:
 - Guardrail note (2026-03-28): run `node scripts/check_repo_guardrails.mjs` before landing repo-shape changes. It freezes today’s known schema-duplication, page-local API-base, `globalThis`, and direct-DB route debt so we stop adding more.
 - Resume workspace note (2026-03-29): Zustand v5 selectors in `repo-b/src/components/resume/**` must not return fresh objects without `useShallow` or equivalent stable selection. The `/lab/env/[envId]/resume` route can otherwise hit `getSnapshot should be cached`, then `Maximum update depth exceeded`, and blank-screen in client render.
 - Resume workspace note (2026-03-29): `WinstonCompanionProvider` and `contextEnvelope` need a deterministic first-render route context for env pages before layering browser-only state. If SSR and first client render disagree on `/lab/env/[envId]/resume`, `ContextCard` can hydrate with mismatched copy and crash the route.
+
+- Auth entry note (2026-03-29): The shared auth shell and root Winston entry now use the local Mandalore font from `repo-b/src/app/fonts/mandalore/` via `repo-b/src/lib/brandFonts.ts`. Keep auth entry language framed as environment resolution (system -> context -> workspace), not a product switcher. Prefer `Environment` / `Control Tower` labels over `Enter product` copy on platform-auth surfaces.

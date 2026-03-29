@@ -32,6 +32,9 @@ type ResumeWorkspaceState = {
     propertyType: string;
     period: string;
   };
+  capabilityHoveredLayer: string | null;
+  capabilityHoveredYear: number | null;
+  capabilityPlaybackYear: number | null;
   initialize: (workspace: ResumeWorkspaceViewModel) => void;
   setActiveModule: (module: ResumeModule) => void;
   setTimelineView: (view: ResumeTimelineViewMode) => void;
@@ -44,6 +47,9 @@ type ResumeWorkspaceState = {
   setModelInputs: (patch: Partial<ResumeScenarioInputs>) => void;
   selectBiEntity: (entityId: string) => void;
   setBiFilters: (patch: Partial<ResumeWorkspaceState["biFilters"]>) => void;
+  setCapabilityHoveredLayer: (layerId: string | null) => void;
+  setCapabilityHoveredYear: (year: number | null) => void;
+  setCapabilityPlaybackYear: (year: number | null) => void;
   buildAssistantContext: () => ResumeAssistantContext;
 };
 
@@ -123,6 +129,9 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
     propertyType: "All Types",
     period: "2025-12",
   },
+  capabilityHoveredLayer: null,
+  capabilityHoveredYear: null,
+  capabilityPlaybackYear: null,
   initialize: (workspace) =>
     set({
       workspace,
@@ -178,6 +187,9 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
   setModelInputs: (patch) => set((state) => ({ modelInputs: { ...state.modelInputs, ...patch } })),
   selectBiEntity: (entityId) => set({ selectedBiEntityId: entityId }),
   setBiFilters: (patch) => set((state) => ({ biFilters: { ...state.biFilters, ...patch } })),
+  setCapabilityHoveredLayer: (layerId) => set({ capabilityHoveredLayer: layerId }),
+  setCapabilityHoveredYear: (year) => set({ capabilityHoveredYear: year }),
+  setCapabilityPlaybackYear: (year) => set({ capabilityPlaybackYear: year }),
   buildAssistantContext: () => {
     const state = get();
     return {

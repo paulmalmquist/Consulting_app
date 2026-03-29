@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { Hexagon } from "lucide-react";
-
-const HEADLINE_FONT_STACK = "\"Mandalore\", \"Agency FB\", \"Agency Black\", \"Arial Narrow Bold\", \"Arial Narrow\", sans-serif";
-const SUBHEAD_FONT_STACK = "\"News Gothic Extra Condensed\", \"Trade Gothic Condensed Bold\", \"League Gothic\", \"Arial Narrow\", sans-serif";
+import { environmentCatalog, type EnvironmentSlug } from "@/lib/environmentAuth";
 
 const SUBHEADLINE_LINES = [
   "AI EXECUTION ENVIRONMENT FOR REAL ESTATE PRIVATE EQUITY,",
   "PROJECT DELIVERY, AND INSTITUTIONAL OPERATIONS",
 ] as const;
+
+const ENVIRONMENT_LOGIN_ORDER: EnvironmentSlug[] = ["novendor", "trading", "floyorker", "resume"];
 
 function withReturnTo(href: string, returnTo?: string | null) {
   if (!returnTo) return href;
@@ -83,11 +83,8 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
           </div>
 
           <h1
-            className="mt-7 text-[clamp(4.2rem,11vw,6.6rem)] font-bold uppercase leading-[0.95] tracking-[0.035em] text-white"
-            style={{
-              fontFamily: HEADLINE_FONT_STACK,
-              textShadow: "0 0 18px rgba(255,255,255,0.06)",
-            }}
+            className="font-command mt-7 text-[clamp(4.2rem,11vw,6.6rem)] font-bold uppercase leading-[0.95] tracking-[0.05em] text-white"
+            style={{ textShadow: "0 0 18px rgba(255,255,255,0.06)" }}
           >
             WINSTON
           </h1>
@@ -95,7 +92,6 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
           <p
             className="mx-auto mt-10 max-w-[48rem] text-[clamp(0.98rem,1.95vw,1.42rem)] uppercase leading-[1.34] tracking-[0.1em]"
             style={{
-              fontFamily: SUBHEAD_FONT_STACK,
               color: "rgba(255,255,255,0.88)",
               fontWeight: 400,
             }}
@@ -107,29 +103,49 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
             ))}
           </p>
 
-          <div className="mx-auto mt-12 flex max-w-[37rem] flex-col gap-4">
-            <Link
-              href={withReturnTo("/login/admin", returnTo)}
-              className={portalButtonClassName()}
-              style={{
-                fontFamily: SUBHEAD_FONT_STACK,
-                letterSpacing: "0.08em",
-                fontWeight: 400,
-              }}
-            >
-              LOGIN AS ADMIN
-            </Link>
-            <Link
-              href={withReturnTo("/novendor/login", returnTo)}
-              className={portalButtonClassName()}
-              style={{
-                fontFamily: SUBHEAD_FONT_STACK,
-                letterSpacing: "0.08em",
-                fontWeight: 400,
-              }}
-            >
-              LOGIN TO ENVIRONMENT
-            </Link>
+          <div className="mx-auto mt-12 max-w-[44rem] rounded-[1.8rem] border border-white/10 bg-white/[0.04] p-5 text-left backdrop-blur-sm">
+            <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-4">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.22em] text-white/42">Access resolver</p>
+                <h2 className="mt-2 text-[1.25rem] text-white/90">Choose the operating context you need</h2>
+              </div>
+              <Link
+                href={withReturnTo("/login/admin", returnTo)}
+                className="inline-flex items-center rounded-full border border-white/12 px-3 py-1.5 text-[11px] uppercase tracking-[0.18em] text-white/64 transition hover:border-white/24 hover:text-white"
+              >
+                Control Tower
+              </Link>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              {ENVIRONMENT_LOGIN_ORDER.map((slug) => {
+                const environment = environmentCatalog[slug];
+                return (
+                  <Link
+                    key={slug}
+                    href={withReturnTo(`/${slug}/login`, returnTo)}
+                    className={`${portalButtonClassName()} !h-auto !justify-between rounded-[1.35rem] !px-5 !py-4 text-left`}
+                  >
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-white/42">Environment</p>
+                      <div className="font-command mt-2 text-[1.45rem] uppercase tracking-[0.06em] text-white">
+                        {environment.label}
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-white/58">{environment.loginSubtitle}</p>
+                    </div>
+                    <span
+                      className="inline-flex rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.18em]"
+                      style={{
+                        backgroundColor: `hsl(${environment.accent} / 0.14)`,
+                        color: `hsl(${environment.accent} / 0.95)`,
+                      }}
+                    >
+                      Resolve
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
 
           <div className="mx-auto mt-9 max-w-[37rem] border-t border-white/10 pt-7">
@@ -140,7 +156,6 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
               rel="noopener noreferrer"
               className="mt-4 inline-flex items-center justify-center text-[clamp(1.02rem,2vw,1.3rem)] transition-colors duration-150 hover:text-white"
               style={{
-                fontFamily: SUBHEAD_FONT_STACK,
                 letterSpacing: "0.05em",
                 color: "rgba(206,220,236,0.88)",
                 fontWeight: 400,
@@ -158,6 +173,3 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
     </main>
   );
 }
-
-export const WINSTON_HEADLINE_FONT_STACK = HEADLINE_FONT_STACK;
-export const WINSTON_SUBHEAD_FONT_STACK = SUBHEAD_FONT_STACK;

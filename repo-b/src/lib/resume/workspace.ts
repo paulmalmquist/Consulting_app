@@ -20,7 +20,7 @@ import type {
 } from "@/lib/bos-api";
 
 const UUID_SCHEMA = z.string().uuid();
-const TIMELINE_VIEWS = ["career", "delivery", "capability", "impact"] as const;
+const TIMELINE_VIEWS = ["career", "delivery", "capability", "impact", "compounding"] as const;
 const ARCHITECTURE_VIEWS = ["technical", "business"] as const;
 const BI_LEVELS = ["portfolio", "fund", "investment", "asset"] as const;
 const RESUME_MODULES = ["timeline", "architecture", "modeling", "bi"] as const;
