@@ -1,5 +1,5 @@
 # LATEST.md — Autonomous Intelligence Manifest
-## Updated by: morning-ops-digest (6:00 AM weekdays)
+## Updated by: morning-ops-digest (6:00 AM daily)
 ## Read this file first in any new coding session.
 
 > This manifest is machine-readable. It points to the most recent output from every scheduled task. A coding agent can read this one file and know the current state of all intelligence, operations, and test results.
@@ -10,34 +10,34 @@
 
 | System | Status | Last checked |
 |---|---|---|
-| paulmalmquist.com | UP — homepage rendering, Winston branding visible, login buttons present | 2026-03-28 |
+| paulmalmquist.com | UP — homepage rendering, Winston branding visible, login buttons present, CDN cache HIT | 2026-03-29 |
 | novendor.ai | LIVE — full marketing site, "Put AI to Work" hero, 4 industry verticals, "Book strategy call" CTA | 2026-03-27 |
-| Supabase | HEALTHY — ACTIVE_HEALTHY, 608 tables, 43 migrations, 99.98% cache hit, 0.19% rollback rate, 8 active backends | 2026-03-28 |
-| Vercel deploys | GREEN — consulting-app READY on `b07606e` (Jacksonville Brooklyn/LaVilla MSA brief). All recent production deploys READY. Zero errors in last 24h. | 2026-03-28 |
-| Railway | UP — backend health `{"ok": true}`, AI gateway healthy (gpt-5-mini, RAG available). Zero runtime errors, zero 500s in last 24h. | 2026-03-28 |
+| Supabase | HEALTHY — ACTIVE_HEALTHY, 608 tables, 43 migrations, 99.98% cache hit, 0.19% rollback rate, 6 active backends, 0 new deadlocks | 2026-03-29 |
+| Vercel deploys | GREEN — consulting-app READY on `8e39a2e` ("deploy2"). 16/20 recent deploys READY. 4 ERROR from trading-lab dev cycle (all resolved). Zero runtime errors, zero 500s in last 24h. | 2026-03-29 |
+| Railway | UP (last confirmed) — backend health `{"ok": true}`, AI gateway healthy (gpt-5-mini, RAG available). | 2026-03-28 |
 
 ## Environment Health
 
-- **Stone PDS:** IMPROVED — 27/28 pages PASS (up from 22/25 on 03-26). Three P0/P1 bugs FIXED and confirmed: Tech Adoption crash resolved, Forecast NaN fixed (shows 202 deals), Satisfaction NPS fixed (shows +42). Schedule Health redirect resolved. Nav expanded to 28 pages. Zero new regressions. **Demo-ready: YES.**
-- **Meridian Capital:** DEGRADED — Core pages load with real data across 3 funds. Distribution Total Paid fixed ($123.8M). However: AI Chat BROKEN (500 server error on conversation creation), fund performance metrics contradictory (TVPI 0.21x on page vs 2.59x in AI summary), investment sub-records still missing. **Demo-ready: LIMITED.**
-- **MSA Rotation Engine:** OPERATIONAL — Jacksonville Brooklyn/LaVilla brief completed 2026-03-28 (score 5.2/10, Tier 2, first rotation). Previous: Orlando Creative Village (5.8/10). 14 feature backlog cards.
-- **Trading Lab:** ACTIVE — Regime RISK_OFF_DEFENSIVE (7th consecutive session). VIX 27.44 (elevated from Iran conflict). SPX ~6506 below both MAs. BTC-SPX correlation 0.74. 4 new research segments published 2026-03-28.
+- **Stone PDS:** STALE (last checked 03-25) — Was 27/28 pages PASS. Three P0/P1 bugs FIXED and confirmed. Schedule Health redirect resolved. **Demo-ready: YES (assumed, unverified 4 days).**
+- **Meridian Capital:** STALE (last checked 03-27) — Core pages load with real data across 3 funds. Distribution Total Paid fixed ($123.8M). AI Chat BROKEN (500 server error). Fund performance metrics contradictory. Investment sub-records still missing. **Demo-ready: LIMITED.**
+- **MSA Rotation Engine:** STALE (last rotation 03-28) — Jacksonville Brooklyn/LaVilla brief (5.2/10, Tier 2). No weekend rotations expected. 14 feature backlog cards.
+- **Trading Lab:** ACTIVE — Regime RISK_OFF_DEFENSIVE (7th+ consecutive session). VIX 27.44 (elevated from Iran conflict). SPX ~6506 below both MAs. BTC-SPX correlation 0.74. Trading-lab Phase 1 build active (write API, MCP tools, position management UI). 4 ERROR deploys during dev resolved.
 - **Resume:** UNCONFIRMED — last confirmed healthy 2026-03-21
 
 ## Latest AI Test Results
 
 | File | Date | Pass rate |
 |---|---|---|
-| `docs/ai-testing/2026-03-27.md` | 2026-03-27 | N/A — ALL 5 TESTS SKIPPED. Chrome extension not connected. 3rd consecutive day without test data. |
+| `docs/ai-testing/2026-03-28.md` | 2026-03-28 | N/A — ALL 5 TESTS SKIPPED. Chrome extension not connected. **4th consecutive night** without test data (03-26 through 03-28+). |
 | `docs/ai-testing/2026-03-25.md` | 2026-03-25 | 33.3% — 2/6 passed (last actual test run). Lane A narration-only. repe_fast_path broken. Lane B latency 22.7s. |
 
-**Bug 0 status:** FIX COMMITTED (`6cfd6234`) — tool call spam no longer visible in 2026-03-25 test. However, Lane A now returns narration-only (promises data but never renders it). Status unverified for 3 days.
+**Bug 0 status:** FIX COMMITTED (`6cfd6234`) — tool call spam no longer visible in 2026-03-25 test. However, Lane A now returns narration-only (promises data but never renders it). Status unverified for 4 days.
 
-**Chrome extension blocker:** Not connected since 2026-03-26. Must re-authenticate before tonight's 11 PM test run. 3 days without live AI test data.
+**Chrome extension blocker:** ESCALATION — Not connected since 2026-03-26. 4 consecutive nights without live AI test data. API-based test fallback recommended since 03-27, still unimplemented.
 
-**Meridian AI Chat:** NEW — returns "Failed to create conversation: 500" server error as of 2026-03-27 health check. Separate from Chrome extension issue.
+**Meridian AI Chat:** Returns "Failed to create conversation: 500" server error as of 2026-03-27 health check. Separate from Chrome extension issue. Unverified 2 days.
 
-**Next P0:** (1) Re-authenticate Chrome extension. (2) Fix Meridian AI Chat 500 error. (3) Fix Lane A data rendering. (4) Investigate Lane B latency regression.
+**Next P0:** (1) Re-authenticate Chrome extension. (2) Build API-based test fallback. (3) Fix Meridian AI Chat 500 error. (4) Fix Lane A data rendering. (5) Investigate Lane B latency regression.
 
 ## Latest Code Quality
 
@@ -81,7 +81,7 @@
 
 | File | Date |
 |---|---|
-| `docs/ops-reports/digests/digest-2026-03-28.md` | 2026-03-28 |
+| `docs/ops-reports/digests/digest-2026-03-29.md` | 2026-03-29 |
 
 ## Active Meta Prompts (Build Directives)
 
@@ -121,8 +121,8 @@
 | Task | Expected Output | Last Output | Days Stale |
 |---|---|---|---|
 | novendor-market-scanner | `docs/market-intel/` | Never produced | ∞ |
-| website-evolution-engine | `docs/site-improvements/` | 2026-03-22 | 6 |
-| sales-positioning | `docs/sales-positioning/` | 2026-03-24 | 4 |
+| website-evolution-engine | `docs/site-improvements/` | 2026-03-22 | 7 |
+| sales-positioning | `docs/sales-positioning/` | 2026-03-24 | 5 |
 
 ## Scheduled Task Index
 
@@ -191,4 +191,4 @@ All suggestion-generating tasks (feature-radar, demo-ideas, site-improvements, c
 
 ---
 
-*Last updated: 2026-03-28 06:00 AM by morning-ops-digest. Manual edits are fine but will be overwritten on next run.*
+*Last updated: 2026-03-29 06:00 AM by morning-ops-digest. Manual edits are fine but will be overwritten on next run.*
