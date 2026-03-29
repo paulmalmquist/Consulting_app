@@ -25,7 +25,7 @@ function shellStyle(slug: EnvironmentSlug) {
     ["--env-accent" as string]: branding.accent,
     ["--env-accent-soft" as string]: branding.accentSoft,
     ["--env-button-text" as string]: branding.buttonText,
-    backgroundImage: `${branding.shellGradient}, linear-gradient(180deg, hsl(var(--bm-bg) / 1), hsl(var(--bm-bg-2) / 1))`,
+    backgroundImage: `${branding.shellGradient}, linear-gradient(180deg, #07090d, #05070b)`,
   };
 }
 
@@ -56,7 +56,7 @@ export function EnvironmentAuthShell({
 
   return (
     <main
-      className="relative isolate min-h-screen overflow-hidden px-6 py-10 text-bm-text"
+      className="relative isolate min-h-screen overflow-hidden px-6 py-10 text-white"
       style={shellStyle(slug) as React.CSSProperties}
     >
       <div
@@ -70,7 +70,7 @@ export function EnvironmentAuthShell({
 
       <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-6xl items-center gap-8 lg:grid-cols-[minmax(0,1.05fr)_460px]">
         <section className="max-w-2xl space-y-6">
-          <div className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-mono uppercase tracking-[0.18em] text-bm-muted">
+          <div className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-mono uppercase tracking-[0.18em] text-white/60">
             {branding.familyLabel}
           </div>
           <div className="space-y-4">
@@ -176,13 +176,13 @@ export function EnvironmentLoginForm({
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.16em] text-bm-muted">{branding.label}</p>
+        <p className="text-xs uppercase tracking-[0.16em] text-white/60">{branding.label}</p>
         <h2 className="font-command text-[2rem] uppercase tracking-[0.05em] text-white">{branding.loginTitle}</h2>
         <p className="text-sm leading-6 text-white/64">{branding.loginSubtitle}</p>
       </div>
 
       <form className="space-y-4" onSubmit={handleSubmit}>
-        <label className="block space-y-2 text-sm text-bm-muted">
+        <label className="block space-y-2 text-sm text-white/60">
           <span>Email</span>
           <Input
             autoComplete="email"
@@ -193,7 +193,7 @@ export function EnvironmentLoginForm({
             required
           />
         </label>
-        <label className="block space-y-2 text-sm text-bm-muted">
+        <label className="block space-y-2 text-sm text-white/60">
           <span>Password</span>
           <Input
             autoComplete="current-password"
@@ -294,7 +294,7 @@ export function GenericPlatformLoginForm({ returnTo }: { returnTo?: string | nul
     >
       <div className="space-y-6">
         <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.16em] text-bm-muted">Platform access</p>
+          <p className="text-xs uppercase tracking-[0.16em] text-white/60">Platform access</p>
           <h2 className="font-command text-[2rem] uppercase tracking-[0.05em] text-white">Control Tower access</h2>
           <p className="text-sm leading-6 text-white/64">
             Use this route for platform administration. Environment-specific entry stays available when you want the session to resolve directly into a branded workspace.
@@ -302,7 +302,7 @@ export function GenericPlatformLoginForm({ returnTo }: { returnTo?: string | nul
         </div>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
-          <label className="block space-y-2 text-sm text-bm-muted">
+          <label className="block space-y-2 text-sm text-white/60">
             <span>Email</span>
             <Input
               autoComplete="email"
@@ -313,7 +313,7 @@ export function GenericPlatformLoginForm({ returnTo }: { returnTo?: string | nul
               required
             />
           </label>
-          <label className="block space-y-2 text-sm text-bm-muted">
+          <label className="block space-y-2 text-sm text-white/60">
             <span>Password</span>
             <Input
               autoComplete="current-password"
@@ -348,17 +348,17 @@ export function EnvironmentUnauthorizedState({ slug }: { slug: EnvironmentSlug }
       title={branding.unauthorizedTitle}
       subtitle={branding.unauthorizedBody}
       aside={
-        <div className="text-sm leading-7 text-bm-muted">
+        <div className="text-sm leading-7 text-white/60">
           If this looks wrong, ask an owner or admin to grant membership for the
           {" "}
-          <span className="text-bm-text">{branding.label}</span>
+          <span className="text-white">{branding.label}</span>
           {" "}
           environment.
         </div>
       }
     >
       <div className="space-y-4">
-        <p className="text-sm leading-6 text-bm-muted">
+        <p className="text-sm leading-6 text-white/60">
           Your platform identity is active, but the environment boundary held. No session was silently redirected into the wrong workspace.
         </p>
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -368,7 +368,7 @@ export function EnvironmentUnauthorizedState({ slug }: { slug: EnvironmentSlug }
           <button
             type="button"
             onClick={() => void logoutPlatformSession()}
-            className="inline-flex h-11 items-center justify-center rounded-md border border-white/12 px-4 text-sm font-medium text-bm-text transition-colors hover:bg-white/5"
+            className="inline-flex h-11 items-center justify-center rounded-md border border-white/12 px-4 text-sm font-medium text-white transition-colors hover:bg-white/5"
           >
             Clear session
           </button>
@@ -385,7 +385,7 @@ export function ResumePublicExperience() {
       title="Paul Malmquist"
       subtitle="Operator-builder working at the seam between business systems, applied AI, and productized execution."
       aside={
-        <div className="grid gap-3 text-sm text-bm-muted sm:grid-cols-2">
+        <div className="grid gap-3 text-sm text-white/60 sm:grid-cols-2">
           <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
             Build operating systems that turn messy business workflows into usable product surfaces.
           </div>
@@ -397,11 +397,11 @@ export function ResumePublicExperience() {
     >
       <div className="space-y-6">
         <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.16em] text-bm-muted">Public portfolio</p>
+          <p className="text-xs uppercase tracking-[0.16em] text-white/60">Public portfolio</p>
           <h2 className="text-2xl font-semibold tracking-[-0.02em]">Selected focus areas</h2>
         </div>
 
-        <div className="space-y-3 text-sm leading-6 text-bm-muted">
+        <div className="space-y-3 text-sm leading-6 text-white/60">
           <p>Business-machine design for consulting, operating environments, and internal platforms.</p>
           <p>Workflow-heavy product architecture spanning data, copilots, control surfaces, and execution loops.</p>
           <p>Delivery systems that make complex businesses feel legible without dumbing them down.</p>
@@ -417,7 +417,7 @@ export function ResumePublicExperience() {
               clearLegacyEnvironmentClientState();
               window.location.href = "/novendor";
             }}
-            className="inline-flex h-11 items-center justify-center rounded-md border border-white/12 px-4 text-sm font-medium text-bm-text transition-colors hover:bg-white/5"
+            className="inline-flex h-11 items-center justify-center rounded-md border border-white/12 px-4 text-sm font-medium text-white transition-colors hover:bg-white/5"
           >
             Open platform family
           </button>

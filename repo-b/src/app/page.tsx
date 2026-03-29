@@ -47,10 +47,10 @@ export default function HomePage() {
             </div>
             <div className="space-y-5">
               <h1 className="font-command text-[clamp(4rem,11vw,7rem)] uppercase leading-[0.9] tracking-[0.05em] text-white">
-                Resolve Context
+                Winston
               </h1>
               <p className="max-w-xl text-base leading-7 text-white/72 sm:text-lg">
-                Enter the system, assume the right operating boundary, and continue inside the correct environment without carrying the wrong session state forward.
+                Novendor&rsquo;s intelligence engine for real estate private equity, project delivery, and institutional operations.
               </p>
             </div>
             <div className="grid gap-3 text-sm text-white/62 sm:grid-cols-3">
