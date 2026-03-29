@@ -158,7 +158,7 @@ export function findShrinkwrapWidth(
   if (baseline.lineCount <= 1) {
     // Single line — shrinkwrap to actual text width
     let maxLineWidth = 0;
-    walkLineRanges(prepared, maxWidth, (line) => {
+    walkLineRanges(prepared, maxWidth, (line: { width: number }) => {
       if (line.width > maxLineWidth) maxLineWidth = line.width;
     });
     return {
@@ -184,7 +184,7 @@ export function findShrinkwrapWidth(
 
   // Collect the actual max line width at the tight width
   let maxLineWidth = 0;
-  walkLineRanges(prepared, lo, (line) => {
+  walkLineRanges(prepared, lo, (line: { width: number }) => {
     if (line.width > maxLineWidth) maxLineWidth = line.width;
   });
 
