@@ -165,7 +165,6 @@ def _build_narrative_timeline(
         role for role in sorted(roles, key=lambda item: item.get("sort_order", 0))
         if (role.get("company") or "") != "Novendor"
     ]
-    phase_lookup = {str(phase.get("phase_id")): phase for phase in phases}
     initiative_rows = sorted(initiatives, key=lambda item: (_as_date(item.get("start_date")), -(item.get("importance") or 0)))
     milestone_rows = sorted(
         milestones,
