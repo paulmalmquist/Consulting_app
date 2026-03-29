@@ -8,6 +8,12 @@ const SUBHEADLINE_LINES = [
 ] as const;
 
 const ENVIRONMENT_LOGIN_ORDER: EnvironmentSlug[] = ["novendor", "trading", "floyorker", "resume"];
+const ENVIRONMENT_INDUSTRY: Record<EnvironmentSlug, string> = {
+  novendor: "Consulting",
+  trading: "Capital Markets",
+  floyorker: "Media & Publishing",
+  resume: "Portfolio",
+};
 
 function withReturnTo(href: string, returnTo?: string | null) {
   if (!returnTo) return href;
@@ -104,17 +110,8 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
           </p>
 
           <div className="mx-auto mt-12 max-w-[44rem] rounded-[1.8rem] border border-white/10 bg-white/[0.04] p-5 text-left backdrop-blur-sm">
-            <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-4">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-white/42">Access resolver</p>
-                <h2 className="mt-2 text-[1.25rem] text-white/90">Choose the operating context you need</h2>
-              </div>
-              <Link
-                href={withReturnTo("/login/admin", returnTo)}
-                className="inline-flex items-center rounded-full border border-white/12 px-3 py-1.5 text-[11px] uppercase tracking-[0.18em] text-white/64 transition hover:border-white/24 hover:text-white"
-              >
-                Control Tower
-              </Link>
+            <div className="border-b border-white/10 pb-4">
+              <h2 className="text-[1.25rem] text-white/90">Environments</h2>
             </div>
 
             <div className="mt-4 grid gap-3">
@@ -133,14 +130,8 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
                       </div>
                       <p className="mt-2 text-sm leading-6 text-white/58">{environment.loginSubtitle}</p>
                     </div>
-                    <span
-                      className="inline-flex rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.18em]"
-                      style={{
-                        backgroundColor: `hsl(${environment.accent} / 0.14)`,
-                        color: `hsl(${environment.accent} / 0.95)`,
-                      }}
-                    >
-                      Resolve
+                    <span className="inline-flex rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white/50">
+                      {ENVIRONMENT_INDUSTRY[slug]}
                     </span>
                   </Link>
                 );

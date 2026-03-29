@@ -9,10 +9,16 @@ const ENVIRONMENT_STATUS: Record<EnvironmentSlug, string> = {
   resume: "Public portfolio with private owner tools",
 };
 const ENVIRONMENT_HREF: Record<EnvironmentSlug, string> = {
-  novendor: "/novendor",
-  trading: "/trading",
-  floyorker: "/floyorker",
+  novendor: "/novendor/login",
+  trading: "/trading/login",
+  floyorker: "/floyorker/login",
   resume: "/resume",
+};
+const ENVIRONMENT_INDUSTRY: Record<EnvironmentSlug, string> = {
+  novendor: "Consulting",
+  trading: "Capital Markets",
+  floyorker: "Media & Publishing",
+  resume: "Portfolio",
 };
 
 export default function HomePage() {
@@ -70,17 +76,8 @@ export default function HomePage() {
           </section>
 
           <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(11,16,24,0.92),rgba(7,10,16,0.94))] p-6 shadow-[0_28px_90px_-42px_rgba(0,0,0,0.92)] backdrop-blur-sm sm:p-7">
-            <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-4">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-white/42">Environment console</p>
-                <h2 className="mt-2 text-xl font-semibold text-white">Available operating contexts</h2>
-              </div>
-              <Link
-                href="/login"
-                className="inline-flex items-center rounded-full border border-white/12 px-3 py-1.5 text-[11px] uppercase tracking-[0.18em] text-white/66 transition hover:border-white/22 hover:text-white"
-              >
-                Control Tower
-              </Link>
+            <div className="border-b border-white/10 pb-4">
+              <h2 className="text-xl font-semibold text-white">Environments</h2>
             </div>
 
             <div className="mt-5 space-y-3">
@@ -104,14 +101,8 @@ export default function HomePage() {
                       </p>
                     </div>
                     <div className="pt-1 text-right">
-                      <div
-                        className="inline-flex items-center rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.18em]"
-                        style={{
-                          backgroundColor: `hsl(${environment.accent} / 0.14)`,
-                          color: `hsl(${environment.accent} / 0.96)`,
-                        }}
-                      >
-                        Resolve
+                      <div className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white/50">
+                        {ENVIRONMENT_INDUSTRY[slug]}
                       </div>
                     </div>
                   </Link>
