@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
+import pytest
 
 # ── Configuration ─────────────────────────────────────────────────
 PROXY_BASE = os.getenv("WINSTON_TEST_BASE", "http://127.0.0.1:3001")
@@ -26,6 +27,20 @@ BUSINESS_ID = "a1b2c3d4-0001-0001-0001-000000000001"
 ENV_ID = "a1b2c3d4-0001-0001-0003-000000000001"
 FUND_ID = "a1b2c3d4-0003-0030-0001-000000000001"
 TIMEOUT = 180  # seconds per request
+
+
+def _server_reachable() -> bool:
+    try:
+        r = httpx.get(f"{PROXY_BASE}/api/ai/gateway/health", timeout=3)
+        return r.status_code == 200
+    except Exception:
+        return False
+
+
+pytestmark = pytest.mark.skipif(
+    not _server_reachable(),
+    reason=f"No backend server reachable at {PROXY_BASE} — E2E tests require a running server",
+)
 
 
 @dataclass

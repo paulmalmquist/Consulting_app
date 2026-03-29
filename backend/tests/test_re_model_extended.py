@@ -105,11 +105,11 @@ def test_approve_model(client, monkeypatch):
     model_id = str(uuid4())
     fund_id = str(uuid4())
     approved = _model_row(fund_id, model_id)
-    approved["status"] = "approved"
+    approved["status"] = "official_base_case"
     approved["approved_at"] = datetime.now().isoformat()
     monkeypatch.setattr(
         re_v2_routes.re_model,
-        "approve_model",
+        "set_official_base_case",
         lambda **_: approved,
     )
     resp = client.patch(
@@ -117,7 +117,7 @@ def test_approve_model(client, monkeypatch):
         json={"status": "approved"},
     )
     assert resp.status_code == 200
-    assert resp.json()["status"] == "approved"
+    assert resp.json()["status"] == "official_base_case"
 
 
 # ── Model Scope ──────────────────────────────────────────────────────────────
@@ -143,6 +143,11 @@ def test_add_model_scope(client, monkeypatch):
     scope = _scope_row(model_id)
     monkeypatch.setattr(
         re_v2_routes.re_model,
+        "is_model_locked",
+        lambda **_: False,
+    )
+    monkeypatch.setattr(
+        re_v2_routes.re_model,
         "add_model_scope",
         lambda **_: scope,
     )
@@ -157,6 +162,11 @@ def test_add_model_scope(client, monkeypatch):
 def test_remove_model_scope(client, monkeypatch):
     model_id = str(uuid4())
     node_id = str(uuid4())
+    monkeypatch.setattr(
+        re_v2_routes.re_model,
+        "is_model_locked",
+        lambda **_: False,
+    )
     monkeypatch.setattr(
         re_v2_routes.re_model,
         "remove_model_scope",
@@ -186,6 +196,11 @@ def test_list_model_overrides(client, monkeypatch):
 def test_set_model_override(client, monkeypatch):
     model_id = str(uuid4())
     override = _override_row(model_id)
+    monkeypatch.setattr(
+        re_v2_routes.re_model,
+        "is_model_locked",
+        lambda **_: False,
+    )
     monkeypatch.setattr(
         re_v2_routes.re_model,
         "set_model_override",

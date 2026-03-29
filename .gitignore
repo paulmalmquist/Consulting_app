@@ -82,6 +82,7 @@ repo-b/.next.bak*/
 
 # Binary files and outputs
 *.pdf
+!backend/tests/fixtures/sample_text.pdf
 *.docx
 *.pptx
 *.xlsx
@@ -93,3 +94,4 @@ synthetic_repe_dataset.json
 
 # Lock files
 .~lock*
+pretext-main/

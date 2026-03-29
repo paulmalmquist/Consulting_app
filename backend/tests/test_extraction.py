@@ -1,11 +1,18 @@
 from pathlib import Path
 from uuid import uuid4
 
+import pytest
+
 from app.services.pdf_processing import PDFProcessor
+
+_FIXTURES = Path(__file__).resolve().parent / "fixtures"
+_SAMPLE_PDF = _FIXTURES / "sample_text.pdf"
 
 
 def test_pdf_text_extraction_fixture():
-    pdf_bytes = Path("tests/fixtures/sample_text.pdf").read_bytes()
+    if not _SAMPLE_PDF.exists():
+        pytest.skip(f"Missing fixture: {_SAMPLE_PDF}")
+    pdf_bytes = _SAMPLE_PDF.read_bytes()
     pages = PDFProcessor().extract_pages(pdf_bytes)
     assert len(pages) == 1
     assert pages[0].source == "text"
@@ -13,7 +20,9 @@ def test_pdf_text_extraction_fixture():
 
 
 def test_pdf_ocr_path_stub(monkeypatch):
-    pdf_bytes = Path("tests/fixtures/sample_text.pdf").read_bytes()
+    if not _SAMPLE_PDF.exists():
+        pytest.skip(f"Missing fixture: {_SAMPLE_PDF}")
+    pdf_bytes = _SAMPLE_PDF.read_bytes()
 
     class StubProcessor(PDFProcessor):
         def _ocr_page(self, pdf_path, page_no):
@@ -48,7 +57,7 @@ def test_run_extraction_validates_json(client, fake_cursor, monkeypatch):
     monkeypatch.setattr("app.services.extraction.service._store_fields", lambda *_, **__: None)
     monkeypatch.setattr("app.services.extraction.service.get_extracted_document", lambda _id: {"extracted_document": {"id": extracted_id, "document_id": doc_id, "document_version_id": ver_id, "doc_type": "loan_real_estate_v1", "status": "completed", "created_at": "2024-01-01T00:00:00"}, "latest_run": None, "fields": []})
 
-    pdf_bytes = Path("tests/fixtures/sample_text.pdf").read_bytes()
+    pdf_bytes = _SAMPLE_PDF.read_bytes() if _SAMPLE_PDF.exists() else b"%PDF-1.0 stub"
     monkeypatch.setattr("httpx.get", lambda *_, **__: type("R", (), {"content": pdf_bytes, "raise_for_status": lambda self: None})())
 
     # Simulate two _ask_ai calls: first returns invalid JSON, second returns valid

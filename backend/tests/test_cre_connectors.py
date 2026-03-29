@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import os
+
+import pytest
+
 from app.connectors.cre import get_connector, list_connector_keys
 from app.connectors.cre.base import ConnectorContext
 from app.connectors.cre.acs_5y.fetch import fetch as fetch_acs
@@ -10,6 +14,14 @@ from app.connectors.cre.kalshi_markets.fetch import fetch as fetch_kalshi
 from app.connectors.cre.kalshi_markets.parse import parse as parse_kalshi
 from app.connectors.cre.tiger_geography.fetch import fetch as fetch_tiger
 from app.connectors.cre.tiger_geography.parse import parse as parse_tiger
+
+_FAKE_URL = "postgresql://test:test@localhost:5432/test"
+_LIVE_DB = os.environ.get("DATABASE_URL", _FAKE_URL) not in (_FAKE_URL, "")
+
+_skip_no_db = pytest.mark.skipif(
+    not _LIVE_DB,
+    reason="Requires live DB — fetch helpers call get_cursor() for metro registry lookup",
+)
 
 
 def test_connector_registry_exposes_expected_sources():
@@ -20,6 +32,7 @@ def test_connector_registry_exposes_expected_sources():
     assert get_connector("hud_fmr").source_key == "hud_fmr"
 
 
+@_skip_no_db
 def test_tiger_geography_parser_returns_miami_fixture_rows():
     ctx = ConnectorContext(run_id="test", source_key="tiger_geography", scope="metro", filters={})
     rows = parse_tiger(fetch_tiger(ctx), ctx)
@@ -27,6 +40,7 @@ def test_tiger_geography_parser_returns_miami_fixture_rows():
     assert any(row["geoid"] == "33100" for row in rows)
 
 
+@_skip_no_db
 def test_acs_parser_emits_metric_rows_without_network():
     ctx = ConnectorContext(run_id="test", source_key="acs_5y", scope="metro", filters={})
     rows = parse_acs(fetch_acs(ctx), ctx)

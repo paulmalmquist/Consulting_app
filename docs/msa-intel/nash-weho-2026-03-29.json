@@ -1,0 +1,220 @@
+{
+  "msa_zone_id": "512fd007-bee0-454d-a51e-306993cfd6f3",
+  "zone_slug": "nash-weho",
+  "zone_name": "Nashville — WeHo/Wedgewood-Houston",
+  "tier": 2,
+  "asset_class_focus": "mixed",
+  "run_date": "2026-03-29",
+  "previous_brief": null,
+  "composite_acquisition_score": 6.8,
+  "signals": {
+    "transaction_activity": {
+      "score": 7,
+      "trend": "stable-positive",
+      "findings": [
+        {
+          "summary": "Origin Investments acquired Queens Wedgewood-Houston (221-unit Class A multifamily) for $79.4M+ in Feb 2025",
+          "source": "https://origininvestments.com/press/origin-investments-buys-queens-wedgewood-houston-a-221-unit-class-a-multifamily-community-in-nashville/"
+        },
+        {
+          "summary": "Houston-based developer paid $6.5M for a WeHo development site",
+          "source": "https://www.nashvillepost.com/business/development/houston-developer-pays-6-5m-for-weho-site/article_136bdf3e-06d7-5ae4-b9cb-c8e65f5abc97.html"
+        },
+        {
+          "summary": "27 active properties for sale with average listing price $749,981 as of March 2026",
+          "source": "https://www.nashvillesmls.com/wedgewood-houston-area.php"
+        },
+        {
+          "summary": "Strong institutional buyer presence with Origin, AJ Capital, Atlas Real Estate Partners all active in the submarket",
+          "source": "https://citynownext.com/2026/01/06/upcoming-projects-defining-the-next-era-of-wedgewood-houston-in-nashville/"
+        }
+      ]
+    },
+    "supply_pipeline": {
+      "score": 5,
+      "trend": "elevated-risk",
+      "findings": [
+        {
+          "summary": "Wedgewood Village: AJ Capital 18-acre, 1.6M SF mixed-use mega-project broken ground across all components",
+          "source": "https://www.wedgewoodhouston.org/briefings/wedgewood-village"
+        },
+        {
+          "summary": "Memoir May Hosiery: 109 residential units opening March 2026",
+          "source": "https://citynownext.com/2026/01/06/upcoming-projects-defining-the-next-era-of-wedgewood-houston-in-nashville/"
+        },
+        {
+          "summary": "430 Chestnut: 140,000 SF Class A office building under development",
+          "source": "https://citynownext.com/2026/01/06/upcoming-projects-defining-the-next-era-of-wedgewood-houston-in-nashville/"
+        },
+        {
+          "summary": "Delux Weho mixed-use development at Humphreys & 4th Ave South targeting 2026 completion",
+          "source": "https://citynownext.com/2026/01/06/upcoming-projects-defining-the-next-era-of-wedgewood-houston-in-nashville/"
+        },
+        {
+          "summary": "Merritt Mansion Lawn site: office and multifamily buildings under construction",
+          "source": "https://citynownext.com/2026/01/06/upcoming-projects-defining-the-next-era-of-wedgewood-houston-in-nashville/"
+        },
+        {
+          "summary": "500-516 Hagan St: 4-building mixed-use project up to 7 stories planned",
+          "source": "https://www.nashvillepost.com/business/development/mixed-use-project-eyed-for-wedgewood-houston/article_03542b40-71df-11ef-9e1a-f7a6c43a2feb.html"
+        },
+        {
+          "summary": "Metro-wide: units under construction down 25%, permits down 50% — supply pipeline thinning",
+          "source": "https://www.northmarq.com/insights/insights/annual-rent-growth-holds-supply-boom-fades-nashville-multifamily-market"
+        }
+      ]
+    },
+    "demand_drivers": {
+      "score": 8,
+      "trend": "strong-positive",
+      "findings": [
+        {
+          "summary": "Nashville ranked #2 US metro for job growth and income (Aug 2025)",
+          "source": "https://capitalanalyticsassociates.com/nashville-named-no-2-us-metro-for-job-growth-and-income/"
+        },
+        {
+          "summary": "~24,000 new jobs forecast for 2026; healthcare, tech, logistics, and creative sectors leading",
+          "source": "https://www.cushmanwakefield.com/en/united-states/insights/nashville-employment-update"
+        },
+        {
+          "summary": "38,000+ international immigrants since 2020; metro population 1.35M growing at 1.28% annually",
+          "source": "https://www.axios.com/local/nashville/2025/03/18/international-migration-nashville-population"
+        },
+        {
+          "summary": "GEODIS Park (30,109-seat MLS stadium) at adjacent Fairgrounds is a major neighborhood catalyst with new multimodal transit connections",
+          "source": "https://www.nashville.gov/departments/sports-authority/fairgrounds-infrastructure-project"
+        },
+        {
+          "summary": "Amazon, Oracle, Meta expanding Nashville-area operations; HCA and Vanderbilt anchor healthcare employment",
+          "source": "https://hndrealty.com/everything-you-need-to-know-about-the-job-market-in-nashville-tennessee/"
+        }
+      ]
+    },
+    "rent_and_occupancy": {
+      "score": 6,
+      "trend": "stabilizing-improving",
+      "findings": [
+        {
+          "summary": "Nashville average asking rents $1,643 (Nov 2025), down 0.5% trailing 3-month but expected to reach ~$1,700 by year-end",
+          "source": "https://www.yardimatrix.com/blog/nashville-multifamily-market-report/"
+        },
+        {
+          "summary": "Stabilized asset occupancy ticked up 30bps YoY to 94.3% in Oct 2025",
+          "source": "https://www.northmarq.com/insights/insights/annual-rent-growth-holds-supply-boom-fades-nashville-multifamily-market"
+        },
+        {
+          "summary": "Annual rent growth projected at 2.1% by Q4 2025; modest improvement expected in 2026 as supply wave absorbs",
+          "source": "https://mmgrea.com/2025-nashville-forecast/"
+        },
+        {
+          "summary": "Deliveries projected to fall for third consecutive year in 2026, supporting rent recovery",
+          "source": "https://www.northmarq.com/insights/insights/annual-rent-growth-holds-supply-boom-fades-nashville-multifamily-market"
+        }
+      ]
+    },
+    "capital_markets": {
+      "score": 6,
+      "trend": "cautiously-available",
+      "findings": [
+        {
+          "summary": "National CMBS issuance hit $115.2B in 2025 — highest since 2007",
+          "source": "https://www.credaily.com/briefs/cmbs-market-outlook-shows-resilient-growth-in-2026/"
+        },
+        {
+          "summary": "CMBS delinquency rate 7.14% (Feb 2026), down from 7.47% in Jan — improving but still elevated",
+          "source": "https://www.multihousingnews.com/cmbs-delinquency-rates/"
+        },
+        {
+          "summary": "$100B+ CMBS loans maturing in 2026, mostly office — creates refinancing pressure but also buying opportunities",
+          "source": "https://www.credaily.com/briefs/cmbs-office-distress-hits-2026-maturity-wall/"
+        },
+        {
+          "summary": "Nashville CRE market maturing; capital becoming more selective with pricing stabilizing",
+          "source": "https://www.crexi.com/blog/nashville-commercial-real-estate-market"
+        }
+      ]
+    },
+    "regulatory_political": {
+      "score": 8,
+      "trend": "favorable",
+      "findings": [
+        {
+          "summary": "Tennessee statewide prohibition on rent control — Nashville cannot enact local rent stabilization",
+          "source": "https://www.hemlane.com/resources/tennessee-rent-control-laws/"
+        },
+        {
+          "summary": "Metro Planning Commission passed new zoning codes diversifying housing types (Sep 2025); WeHo properties up-zoned to 3-4 units",
+          "source": "https://www.wsmv.com/2025/09/26/metro-planning-commission-passes-new-zoning-codes-aimed-diversifying-housing-types/"
+        },
+        {
+          "summary": "Wedgewood-Houston/Chestnut Hill Planning Study completed by Metro Nashville Planning Department",
+          "source": "https://www.nashville.gov/departments/planning/long-range-planning/local-planning-studies/wedgewood-houston-chestnut-hill"
+        },
+        {
+          "summary": "STR non-owner-occupied permits frozen since 2022 in residential zones — redirects investment toward long-term rentals",
+          "source": "https://nastra.org/short-term-rentals-in-nashville-2026-what-the-rules-really-say-and-why-they-matter/"
+        }
+      ]
+    }
+  },
+  "key_findings": [
+    "WeHo is in a supply-heavy transitional phase with 1.6M+ SF of Wedgewood Village alone, but metro-wide pipeline is contracting sharply (permits -50%), suggesting a favorable entry window for 2027+ absorption",
+    "Institutional capital is active and confident — Origin's $79.4M multifamily acquisition at $359K/door signals strong conviction in the submarket's trajectory",
+    "GEODIS Park and the Fairgrounds multimodal infrastructure have fundamentally improved WeHo's connectivity and catalyzed adjacent development",
+    "Nashville's #2 ranking for job growth and income, combined with 24,000 new jobs forecast for 2026, provides strong demand underpinning for all asset classes",
+    "Regulatory environment is among the most landlord-friendly in major US metros: no rent control possible, pro-density zoning reforms, and STR restrictions that benefit long-term rental operators",
+    "Near-term risk: significant localized supply could pressure rents and occupancy through mid-2027 until absorption catches up",
+    "Capital markets are selectively available — strong CMBS issuance but lenders are more discriminating on underwriting, favoring sponsors with track records in growing submarkets like WeHo"
+  ],
+  "feature_gaps": [
+    {
+      "category": "data_source",
+      "description": "No access to Davidson County deed transfer records for real-time transaction tracking at the submarket level",
+      "impact": 8
+    },
+    {
+      "category": "data_source",
+      "description": "CoStar/Yardi Matrix submarket-level rent and occupancy data not available through web search — only metro-level aggregates found",
+      "impact": 9
+    },
+    {
+      "category": "data_source",
+      "description": "Nashville building permit API (ArcGIS hub) could not be programmatically queried for WeHo-specific permit volume",
+      "impact": 7
+    },
+    {
+      "category": "calculation",
+      "description": "Unable to compute absorption rate vs. delivery pace for the submarket without unit-level pipeline and leasing velocity data",
+      "impact": 8
+    },
+    {
+      "category": "visualization",
+      "description": "No spatial map overlay of development pipeline projects relative to GEODIS Park and transit improvements",
+      "impact": 6
+    },
+    {
+      "category": "data_source",
+      "description": "BLS employment data available at MSA level only — cannot isolate job growth within Davidson County or WeHo submarket",
+      "impact": 5
+    },
+    {
+      "category": "model",
+      "description": "No cap rate compression/expansion model for WeHo relative to broader Nashville CBD — would need historical transaction data",
+      "impact": 7
+    },
+    {
+      "category": "data_source",
+      "description": "Opportunity Zone capital flows into WeHo census tracts not trackable through public search",
+      "impact": 6
+    }
+  ],
+  "scoring_weights_used": {
+    "transaction_activity": 0.20,
+    "supply_pipeline": 0.15,
+    "demand_drivers": 0.20,
+    "rent_and_occupancy": 0.15,
+    "capital_markets": 0.15,
+    "regulatory_political": 0.15,
+    "note": "Default weights used — config/scoring_weights.json not yet created"
+  }
+}
