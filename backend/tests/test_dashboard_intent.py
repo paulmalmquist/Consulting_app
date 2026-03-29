@@ -1,9 +1,13 @@
 """Tests for INTENT_GENERATE_DASHBOARD classifier and dashboard_composer.py."""
 from __future__ import annotations
 
+import pytest
+
 from app.schemas.ai_gateway import AssistantContextEnvelope, AssistantUiContext, ResolvedAssistantScope
 from app.services.repe_intent import classify_repe_intent, INTENT_GENERATE_DASHBOARD
 from app.services.dashboard_composer import compose_dashboard_spec
+
+pytestmark = pytest.mark.usefixtures("fake_cursor")
 
 
 # ── Fixtures ────────────────────────────────────────────────────────────────

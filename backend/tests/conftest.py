@@ -155,6 +155,13 @@ _GET_CURSOR_TARGETS = [
     "app.services.capital_projects.get_cursor",
     "app.services.trades.get_cursor",
     "app.services.market_regime_engine.get_cursor",
+    "app.services.re_scenario_templates.get_cursor",
+    "app.services.cro_next_actions.get_cursor",
+    "app.services.cro_entity_detail.get_cursor",
+    "app.services.cro_strategic_outreach.get_cursor",
+    "app.services.local_training_crm.get_cursor",
+    "app.services.trading_lab_service.get_cursor",
+    "app.services.resume.get_cursor",
 ]
 
 

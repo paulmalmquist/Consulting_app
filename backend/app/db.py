@@ -17,8 +17,15 @@ def _get_pool() -> ConnectionPool:
             require_database_url(),
             min_size=2,
             max_size=10,
-            kwargs={"prepare_threshold": DB_PREPARE_THRESHOLD, "row_factory": psycopg.rows.dict_row},
+            open=False,
+            timeout=5,
+            kwargs={
+                "prepare_threshold": DB_PREPARE_THRESHOLD,
+                "row_factory": psycopg.rows.dict_row,
+                "connect_timeout": 5,
+            },
         )
+        _pool.open(wait=True, timeout=5)
         atexit.register(_pool.close)
     return _pool
 

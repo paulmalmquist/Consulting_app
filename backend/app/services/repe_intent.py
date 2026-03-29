@@ -881,17 +881,23 @@ def _extract_params(
         params["fund_name_hint"] = fund_match.group(1).strip()
         params["_source_fund_name_hint"] = "message"
 
-    try:
-        from app.services.re_scenario_templates import resolve_template
+    _SCENARIO_INTENTS = {
+        INTENT_RUN_SALE_SCENARIO, INTENT_RUN_WATERFALL, INTENT_RUN_FUND_IMPACT,
+        INTENT_SENSITIVITY, INTENT_CONSTRUCTION_IMPACT, INTENT_MONTE_CARLO_WATERFALL,
+        INTENT_PORTFOLIO_WATERFALL,
+    }
+    if intent_family in _SCENARIO_INTENTS:
+        try:
+            from app.services.re_scenario_templates import resolve_template
 
-        template = resolve_template(message, env_id=str(params.get("env_id") or ""))
-        if template:
-            params["scenario_template"] = template["name"]
-            params["cap_rate_delta_bps"] = template.get("cap_rate_delta_bps")
-            params["noi_stress_pct"] = template.get("noi_stress_pct")
-            params["exit_date_shift_months"] = template.get("exit_date_shift_months")
-    except Exception:
-        pass
+            template = resolve_template(message, env_id=str(params.get("env_id") or ""))
+            if template:
+                params["scenario_template"] = template["name"]
+                params["cap_rate_delta_bps"] = template.get("cap_rate_delta_bps")
+                params["noi_stress_pct"] = template.get("noi_stress_pct")
+                params["exit_date_shift_months"] = template.get("exit_date_shift_months")
+        except Exception:
+            pass
 
     return params
 

@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import pytest
+
 from app.schemas.ai_gateway import AssistantContextEnvelope, AssistantUiContext, ResolvedAssistantScope
 from app.services.re_scenario_templates import resolve_template
+
+pytestmark = pytest.mark.usefixtures("fake_cursor")
 from app.services.repe_intent import (
     INTENT_CAPITAL_CALL_IMPACT,
     INTENT_CLAWBACK_RISK,

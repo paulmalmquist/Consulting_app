@@ -1,7 +1,11 @@
 """Tests for investor / capital activity intent classification and MCP tool schemas."""
 from __future__ import annotations
 
+import pytest
+
 from app.schemas.ai_gateway import AssistantContextEnvelope, AssistantUiContext, ResolvedAssistantScope
+
+pytestmark = pytest.mark.usefixtures("fake_cursor")
 from app.services.repe_intent import (
     classify_repe_intent,
     INTENT_LIST_INVESTORS,
