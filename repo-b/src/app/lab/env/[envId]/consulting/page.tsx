@@ -30,7 +30,7 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
   const [actionLoading, setActionLoading] = useState(false);
   const [topLeads, setTopLeads] = useState<Lead[]>([]);
   const [metrics, setMetrics] = useState<MetricsSnapshot | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const [kanban, setKanban] = useState<any>(null);
 
   const nextEvent = workspace?.summary.next_event ?? null;

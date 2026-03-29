@@ -58,7 +58,7 @@ export default function OutreachPage({
   const [leads, setLeads] = useState<Lead[]>([]);
   const [outreachLog, setOutreachLog] = useState<OutreachLogEntry[]>([]);
   const [analytics, setAnalytics] = useState<OutreachAnalytics | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
