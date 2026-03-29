@@ -5,9 +5,11 @@ import AppShell from "@/components/AppShell";
 
 const mockUseEnv = vi.fn();
 const mockUsePathname = vi.fn();
+const mockUseRouter = vi.fn();
 
 vi.mock("next/navigation", () => ({
   usePathname: () => mockUsePathname(),
+  useRouter: () => mockUseRouter(),
 }));
 
 vi.mock("next/link", () => ({
@@ -30,10 +32,21 @@ vi.mock("@/components/lab/LabIcons", () => ({
   NavIcon: () => <span data-testid="nav-icon" />,
 }));
 
-describe("AppShell home button", () => {
+describe("AppShell", () => {
   beforeEach(() => {
     mockUsePathname.mockReturnValue("/lab/metrics");
+    mockUseRouter.mockReturnValue({ push: vi.fn() });
     mockUseEnv.mockReturnValue({
+      environments: [
+        {
+          env_id: "env-123",
+          client_name: "Alpha",
+          industry: "real_estate",
+          industry_type: "real_estate",
+          schema_name: "env_alpha",
+          is_active: true,
+        },
+      ],
       selectedEnv: {
         env_id: "env-123",
         client_name: "Alpha",
@@ -42,22 +55,68 @@ describe("AppShell home button", () => {
         schema_name: "env_alpha",
         is_active: true,
       },
+      selectEnv: vi.fn(),
+      isPlatformAdmin: false,
     });
   });
 
-  test("routes home to admin for admin sessions", () => {
-    render(<AppShell isAdmin><div>content</div></AppShell>);
-
-    const home = screen.getByTestId("global-home-button");
-    expect(home).toHaveAttribute("href", "/admin");
-    expect(screen.getByText("Admin session")).toBeInTheDocument();
-  });
-
-  test("routes home to selected environment for non-admin sessions", () => {
+  test("home button routes to selected environment", () => {
     render(<AppShell><div>content</div></AppShell>);
 
     const home = screen.getByTestId("global-home-button");
     expect(home).toHaveAttribute("href", "/lab/env/env-123");
+  });
+
+  test("shows environment name in sidebar", () => {
+    render(<AppShell><div>content</div></AppShell>);
+
+    expect(screen.getAllByText("Alpha").length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("shows System section for platform admins", () => {
+    mockUseEnv.mockReturnValue({
+      environments: [
+        {
+          env_id: "env-123",
+          client_name: "Alpha",
+          industry: "real_estate",
+          industry_type: "real_estate",
+          schema_name: "env_alpha",
+          is_active: true,
+        },
+      ],
+      selectedEnv: {
+        env_id: "env-123",
+        client_name: "Alpha",
+        industry: "real_estate",
+        industry_type: "real_estate",
+        schema_name: "env_alpha",
+        is_active: true,
+      },
+      selectEnv: vi.fn(),
+      isPlatformAdmin: true,
+    });
+
+    render(<AppShell><div>content</div></AppShell>);
+
+    expect(screen.getByTestId("system-nav-section")).toBeInTheDocument();
+    expect(screen.getByText("Control Tower")).toBeInTheDocument();
+    expect(screen.getByText("Access")).toBeInTheDocument();
+    expect(screen.getByText("Audit")).toBeInTheDocument();
+    expect(screen.getByText("AI Audit")).toBeInTheDocument();
+  });
+
+  test("hides System section for non-admin users", () => {
+    render(<AppShell><div>content</div></AppShell>);
+
+    expect(screen.queryByTestId("system-nav-section")).not.toBeInTheDocument();
+    expect(screen.queryByText("Control Tower")).not.toBeInTheDocument();
+  });
+
+  test("shows environment indicator instead of admin badge", () => {
+    render(<AppShell><div>content</div></AppShell>);
+
+    expect(screen.queryByText("Admin session")).not.toBeInTheDocument();
     expect(screen.getByText(/Alpha · real_estate/i)).toBeInTheDocument();
   });
 });

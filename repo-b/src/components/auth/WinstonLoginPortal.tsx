@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Hexagon } from "lucide-react";
 import { environmentCatalog, type EnvironmentSlug } from "@/lib/environmentAuth";
 
 const SUBHEADLINE_LINES = [
@@ -16,6 +15,24 @@ const ENVIRONMENT_INDUSTRY: Record<EnvironmentSlug, string> = {
   floyorker: "Media & Publishing",
   resume: "Portfolio",
 };
+
+function environmentCardStyle(slug: EnvironmentSlug) {
+  const branding = environmentCatalog[slug];
+  return {
+    borderColor: `rgba(${branding.glow}, 0.34)`,
+    boxShadow: `0 14px 34px -28px rgba(${branding.glow}, 0.5), inset 0 0 0 1px rgba(${branding.glow}, 0.08)`,
+    backgroundImage: `linear-gradient(180deg, rgba(12,16,24,0.52), rgba(12,16,24,0.38)), ${branding.shellGradient}`,
+  } as const;
+}
+
+function industryBadgeStyle(slug: EnvironmentSlug) {
+  const branding = environmentCatalog[slug];
+  return {
+    borderColor: `rgba(${branding.glow}, 0.28)`,
+    backgroundColor: `rgba(${branding.glow}, 0.08)`,
+    color: "rgba(255,255,255,0.62)",
+  } as const;
+}
 
 function withReturnTo(href: string, returnTo?: string | null) {
   if (!returnTo) return href;
@@ -86,8 +103,8 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
 
       <div className="relative z-10 mx-auto flex min-h-[calc(100vh-5rem)] max-w-5xl flex-col items-center justify-center pb-28 pt-8">
         <div className="w-full max-w-[52rem] text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.07] shadow-[0_18px_40px_-24px_rgba(0,0,0,0.75)] backdrop-blur-sm">
-            <Hexagon className="h-6 w-6 text-white/90" strokeWidth={1.7} />
+          <div className="mx-auto inline-flex items-center rounded-full border border-white/18 bg-white/[0.05] px-4 py-1.5 text-[11px] uppercase tracking-[0.28em] text-white/70">
+            System Access
           </div>
 
           <h1
@@ -113,7 +130,7 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
 
           <div className="mx-auto mt-12 max-w-[44rem] rounded-[1.8rem] border border-white/10 bg-white/[0.04] p-5 text-left backdrop-blur-sm">
             <div className="border-b border-white/10 pb-4">
-              <h2 className="text-[1.25rem] text-white/90">Environments</h2>
+              <h2 className="font-command text-[1.6rem] uppercase tracking-[0.06em] text-white">Select Environment</h2>
             </div>
 
             <div className="mt-4 grid gap-3">
@@ -124,15 +141,18 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
                     key={slug}
                     href={withReturnTo(`/${slug}/login`, returnTo)}
                     className={`${portalButtonClassName()} !h-auto !justify-between rounded-[1.35rem] !px-5 !py-4 text-left`}
+                    style={environmentCardStyle(slug)}
                   >
                     <div>
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-white/42">Environment</p>
-                      <div className="font-command mt-2 text-[1.45rem] uppercase tracking-[0.06em] text-white">
+                      <div className="font-command text-[1.45rem] uppercase tracking-[0.06em] text-white">
                         {environment.label}
                       </div>
                       <p className="mt-2 text-sm leading-6 text-white/58">{environment.loginSubtitle}</p>
                     </div>
-                    <span className="inline-flex rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white/50">
+                    <span
+                      className="inline-flex rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.18em]"
+                      style={industryBadgeStyle(slug)}
+                    >
                       {ENVIRONMENT_INDUSTRY[slug]}
                     </span>
                   </Link>

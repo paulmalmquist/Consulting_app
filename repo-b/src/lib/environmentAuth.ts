@@ -92,9 +92,9 @@ export const environmentCatalog: Record<EnvironmentSlug, EnvironmentBranding> = 
   },
   resume: {
     slug: "resume",
-    label: "My Resume",
+    label: "Paul Malmquist Resume",
     familyLabel: "Winston Portfolio",
-    loginTitle: "Owner access for My Resume",
+    loginTitle: "Owner access for Paul Malmquist Resume",
     loginSubtitle: "Public portfolio on the outside, private authoring and assistant tools on the inside.",
     unauthorizedTitle: "Owner access required",
     unauthorizedBody: "This resume has a public face, but the admin workspace is reserved for the owner or invited collaborators.",

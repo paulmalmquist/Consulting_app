@@ -50,7 +50,7 @@ function buildClaims(overrides?: Partial<PlatformSessionClaims>): PlatformSessio
       {
         env_id: "env-resume",
         env_slug: "resume",
-        client_name: "My Resume",
+        client_name: "Paul Malmquist Resume",
         role: "owner",
         status: "active",
         auth_mode: "hybrid",
