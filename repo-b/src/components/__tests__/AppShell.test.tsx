@@ -5,11 +5,9 @@ import AppShell from "@/components/AppShell";
 
 const mockUseEnv = vi.fn();
 const mockUsePathname = vi.fn();
-const mockUseRouter = vi.fn();
 
 vi.mock("next/navigation", () => ({
   usePathname: () => mockUsePathname(),
-  useRouter: () => mockUseRouter(),
 }));
 
 vi.mock("next/link", () => ({
@@ -26,16 +24,9 @@ vi.mock("@/components/ThemeToggle", () => ({
   default: () => <div data-testid="theme-toggle" />,
 }));
 
-vi.mock("@/components/lab/LabIcons", () => ({
-  ChevronsLeftIcon: () => <span data-testid="icon-left" />,
-  ChevronsRightIcon: () => <span data-testid="icon-right" />,
-  NavIcon: () => <span data-testid="nav-icon" />,
-}));
-
 describe("AppShell", () => {
   beforeEach(() => {
     mockUsePathname.mockReturnValue("/lab/metrics");
-    mockUseRouter.mockReturnValue({ push: vi.fn() });
     mockUseEnv.mockReturnValue({
       environments: [
         {
@@ -60,63 +51,29 @@ describe("AppShell", () => {
     });
   });
 
-  test("home button routes to selected environment", () => {
+  test("home button routes to /app", () => {
     render(<AppShell><div>content</div></AppShell>);
 
     const home = screen.getByTestId("global-home-button");
-    expect(home).toHaveAttribute("href", "/lab/env/env-123");
+    expect(home).toHaveAttribute("href", "/app");
   });
 
-  test("shows environment name in sidebar", () => {
-    render(<AppShell><div>content</div></AppShell>);
+  test("renders children", () => {
+    render(<AppShell><div>test content</div></AppShell>);
 
-    expect(screen.getAllByText("Alpha").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("test content")).toBeInTheDocument();
   });
 
-  test("shows System section for platform admins", () => {
-    mockUseEnv.mockReturnValue({
-      environments: [
-        {
-          env_id: "env-123",
-          client_name: "Alpha",
-          industry: "real_estate",
-          industry_type: "real_estate",
-          schema_name: "env_alpha",
-          is_active: true,
-        },
-      ],
-      selectedEnv: {
-        env_id: "env-123",
-        client_name: "Alpha",
-        industry: "real_estate",
-        industry_type: "real_estate",
-        schema_name: "env_alpha",
-        is_active: true,
-      },
-      selectEnv: vi.fn(),
-      isPlatformAdmin: true,
-    });
-
+  test("renders sign out button", () => {
     render(<AppShell><div>content</div></AppShell>);
 
-    expect(screen.getByTestId("system-nav-section")).toBeInTheDocument();
-    expect(screen.getByText("Control Tower")).toBeInTheDocument();
-    expect(screen.getByText("Access")).toBeInTheDocument();
-    expect(screen.getByText("Audit")).toBeInTheDocument();
-    expect(screen.getByText("AI Audit")).toBeInTheDocument();
+    expect(screen.getByText("Sign out")).toBeInTheDocument();
   });
 
-  test("hides System section for non-admin users", () => {
+  test("no sidebar is rendered", () => {
     render(<AppShell><div>content</div></AppShell>);
 
-    expect(screen.queryByTestId("system-nav-section")).not.toBeInTheDocument();
-    expect(screen.queryByText("Control Tower")).not.toBeInTheDocument();
-  });
-
-  test("shows environment indicator instead of admin badge", () => {
-    render(<AppShell><div>content</div></AppShell>);
-
-    expect(screen.queryByText("Admin session")).not.toBeInTheDocument();
-    expect(screen.getByText(/Alpha · real_estate/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("lab-nav")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("lab-sidebar-toggle")).not.toBeInTheDocument();
   });
 });
