@@ -3,16 +3,35 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
-import { useTrainingWorkspace } from "@/components/consulting/local-training/useTrainingWorkspace";
-import { EmptyState, TonePill, fmtCurrency, fmtDate, fmtTime } from "@/components/consulting/local-training/ui";
 import { NextActionPanel } from "@/components/consulting/NextActionPanel";
-import { Button } from "@/components/ui/Button";
-import { Card, CardContent, CardTitle } from "@/components/ui/Card";
-import { fetchTodayOverdue, fetchLeads, fetchLatestMetrics, fetchPipelineKanban, type TodayOverdue, type Lead, type MetricsSnapshot } from "@/lib/cro-api";
+import { Card, CardContent } from "@/components/ui/Card";
+import {
+  fetchTodayOverdue,
+  fetchLeads,
+  fetchLatestMetrics,
+  fetchPipelineKanban,
+  fetchSchemaHealth,
+  fetchProofAssetSummary,
+  fetchDemoReadiness,
+  fetchStaleRecords,
+  type TodayOverdue,
+  type Lead,
+  type MetricsSnapshot,
+  type SchemaHealth,
+  type ProofAssetSummary,
+  type DemoReadiness,
+  type StaleRecords,
+  type StaleAccount,
+  type OrphanOpportunity,
+} from "@/lib/cro-api";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 
-function Metric({ label, value, sublabel }: { label: string; value: string | number; sublabel?: string }) {
-  return (
+function fmtCurrency(n: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+}
+
+function Metric({ label, value, sublabel, href }: { label: string; value: string | number; sublabel?: string; href?: string }) {
+  const inner = (
     <Card>
       <CardContent className="py-4">
         <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">{label}</p>
@@ -21,57 +40,71 @@ function Metric({ label, value, sublabel }: { label: string; value: string | num
       </CardContent>
     </Card>
   );
+  if (href) return <Link href={href} className="hover:ring-1 hover:ring-bm-accent/40 rounded-xl transition-shadow">{inner}</Link>;
+  return inner;
 }
+
+const WEEK_RHYTHM = [
+  { day: "Mon", theme: "Pipeline + Targets", key: "pipeline" },
+  { day: "Tue", theme: "Proof Assets", key: "proof_assets" },
+  { day: "Wed", theme: "Outbound", key: "outbound" },
+  { day: "Thu", theme: "Demos + Feedback", key: "demos" },
+  { day: "Fri", theme: "Review + Reprioritize", key: "review" },
+] as const;
+
+const DEMO_STATUS_COLORS: Record<string, string> = {
+  ready: "bg-emerald-500",
+  in_progress: "bg-amber-500",
+  needs_refresh: "bg-amber-500",
+  blocked: "bg-red-500",
+  not_started: "bg-bm-muted2",
+};
 
 export default function ConsultingCommandCenter({ params }: { params: { envId: string } }) {
   const { businessId, ready, loading: contextLoading, error: contextError } = useConsultingEnv();
-  const { workspace, loading, mutating, error, seed } = useTrainingWorkspace(params.envId, businessId, ready);
   const [actionData, setActionData] = useState<TodayOverdue | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
   const [topLeads, setTopLeads] = useState<Lead[]>([]);
   const [metrics, setMetrics] = useState<MetricsSnapshot | null>(null);
-  const [kanban, setKanban] = useState<any>(null);
+  const [kanban, setKanban] = useState<{ columns: Array<{ stage_key: string; stage_label: string; cards: unknown[]; weighted_value: number }> } | null>(null);
+  const [health, setHealth] = useState<SchemaHealth | null>(null);
+  const [proofSummary, setProofSummary] = useState<ProofAssetSummary | null>(null);
+  const [demoReadiness, setDemoReadiness] = useState<DemoReadiness[]>([]);
+  const [staleRecords, setStaleRecords] = useState<StaleRecords | null>(null);
+  const [dataLoading, setDataLoading] = useState(false);
 
-  const nextEvent = workspace?.summary.next_event ?? null;
-  const mobile = workspace?.summary.mobile_dashboard;
-  const eventPerformance = workspace?.reports.event_performance ?? [];
-
-  const reloadActions = useCallback(async () => {
+  const reloadAll = useCallback(async () => {
     if (!businessId) return;
-    setActionLoading(true);
+    setDataLoading(true);
     try {
-      const [data, leadData, metricsData, kanbanData] = await Promise.allSettled([
+      const results = await Promise.allSettled([
         fetchTodayOverdue(params.envId, businessId),
         fetchLeads(params.envId, businessId),
         fetchLatestMetrics(params.envId, businessId),
         fetchPipelineKanban(params.envId, businessId),
+        fetchSchemaHealth(),
+        fetchProofAssetSummary(params.envId, businessId),
+        fetchDemoReadiness(params.envId, businessId),
+        fetchStaleRecords(params.envId, businessId),
       ]);
-      if (data.status === "fulfilled") setActionData(data.value);
-      if (leadData.status === "fulfilled") setTopLeads(leadData.value.slice(0, 8));
-      if (metricsData.status === "fulfilled") setMetrics(metricsData.value);
-      if (kanbanData.status === "fulfilled") setKanban(kanbanData.value);
+      if (results[0].status === "fulfilled") setActionData(results[0].value);
+      if (results[1].status === "fulfilled") setTopLeads(results[1].value.slice(0, 8));
+      if (results[2].status === "fulfilled") setMetrics(results[2].value);
+      if (results[3].status === "fulfilled") setKanban(results[3].value);
+      if (results[4].status === "fulfilled") setHealth(results[4].value);
+      if (results[5].status === "fulfilled") setProofSummary(results[5].value);
+      if (results[6].status === "fulfilled") setDemoReadiness(results[6].value);
+      if (results[7].status === "fulfilled") setStaleRecords(results[7].value);
     } catch (err) {
-      console.error("Failed to load actions:", err);
+      console.error("Failed to load command center data:", err);
     } finally {
-      setActionLoading(false);
+      setDataLoading(false);
     }
   }, [params.envId, businessId]);
 
   useEffect(() => {
     if (!ready || !businessId) return;
-    void reloadActions();
-  }, [ready, businessId, reloadActions]);
-
-  const commandLinks = useMemo(
-    () => [
-      { href: `/lab/env/${params.envId}/consulting/contacts`, label: "Contacts" },
-      { href: `/lab/env/${params.envId}/consulting/events`, label: "Events" },
-      { href: `/lab/env/${params.envId}/consulting/partners`, label: "Venues" },
-      { href: `/lab/env/${params.envId}/consulting/tasks`, label: "Tasks" },
-      { href: `/lab/env/${params.envId}/consulting/reports`, label: "Reports" },
-    ],
-    [params.envId],
-  );
+    void reloadAll();
+  }, [ready, businessId, reloadAll]);
 
   useEffect(() => {
     publishAssistantPageContext({
@@ -80,71 +113,146 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
       active_module: "consulting",
       page_entity_type: "environment",
       page_entity_id: params.envId,
-      page_entity_name: workspace?.summary.next_event?.event_name || "Consulting Command Center",
+      page_entity_name: "Novendor Command Center",
       selected_entities: [],
       visible_data: {
-        contacts: (workspace?.contacts || []).slice(0, 12).map((contact) => ({
-          entity_type: "contact",
-          entity_id: contact.crm_contact_id,
-          name: contact.full_name,
-          metadata: {
-            status: contact.status,
-            city: contact.city,
-          },
-        })),
-        events: (workspace?.events || []).slice(0, 12).map((event) => ({
-          entity_type: "event",
-          entity_id: event.id,
-          name: event.event_name,
-          metadata: {
-            event_status: event.event_status,
-            venue_name: event.venue_name,
-          },
-        })),
-        metrics: {
-          contact_count: workspace?.contacts.length || 0,
-          event_count: workspace?.events.length || 0,
-          followups_due: workspace?.summary.followups_due || 0,
-        },
-        notes: ["Consulting command center for local AI classes"],
+        metrics: metrics ? {
+          weighted_pipeline: metrics.weighted_pipeline,
+          open_opportunities: metrics.open_opportunities,
+          outreach_count_30d: metrics.outreach_count_30d,
+          revenue_mtd: metrics.revenue_mtd,
+          active_clients: metrics.active_clients,
+        } : undefined,
+        notes: ["Revenue execution command center"],
       },
     });
     return () => resetAssistantPageContext();
-  }, [params.envId, workspace]);
+  }, [params.envId, metrics]);
 
-  if (contextLoading || loading) {
+  const todayDayIdx = new Date().getDay(); // 0=Sun ... 6=Sat
+  const rhythmIdx = todayDayIdx >= 1 && todayDayIdx <= 5 ? todayDayIdx - 1 : -1;
+
+  if (contextLoading) {
     return <div className="h-64 rounded-2xl border border-bm-border/60 bg-bm-surface/20 animate-pulse" />;
   }
 
   if (contextError) {
-    return <EmptyState title="Environment unavailable" body={contextError} />;
+    return (
+      <div className="rounded-xl border border-bm-danger/35 bg-bm-danger/10 px-5 py-4 text-sm text-bm-text">
+        <p className="font-semibold">Environment unavailable</p>
+        <p className="mt-1 text-bm-muted2">{contextError}</p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6 pb-24 md:pb-6">
-      {error ? (
-        <div className="rounded-xl border border-bm-danger/35 bg-bm-danger/10 px-4 py-3 text-sm text-bm-text">{error}</div>
+      {/* Schema Status Banner */}
+      {health && !health.schema_ready ? (
+        <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm">
+          <p className="font-semibold text-red-400">Schema Not Ready</p>
+          <p className="mt-1 text-bm-muted2">
+            {health.tables_missing.length} table{health.tables_missing.length !== 1 ? "s" : ""} missing.
+            {health.migrations_needed.length > 0 ? ` Migrations needed: ${health.migrations_needed.map((m: string) => m.split(" ")[0]).join(", ")}` : ""}
+          </p>
+        </div>
       ) : null}
 
-      {/* Revenue Metrics — always visible */}
-      <section className="space-y-4">
+      {health && health.schema_ready && !health.has_data ? (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+          <p className="font-semibold text-amber-400">No Data Seeded</p>
+          <p className="mt-1 text-bm-muted2">
+            Schema is ready but tables are empty. Seed the environment to load pipeline data, proof assets, and demo readiness records.
+          </p>
+        </div>
+      ) : null}
+
+      {/* Revenue KPIs */}
+      <section>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <Metric label="Pipeline" value={metrics ? fmtCurrency(metrics.weighted_pipeline) : "—"} sublabel="weighted value" />
-          <Metric label="Open Opps" value={metrics?.open_opportunities ?? 0} sublabel={metrics ? `${metrics.won_count_90d} won (90d)` : "—"} />
-          <Metric label="Outreach" value={metrics?.outreach_count_30d ?? 0} sublabel={metrics?.response_rate_30d ? `${(metrics.response_rate_30d * 100).toFixed(0)}% response` : "30d total"} />
-          <Metric label="Revenue MTD" value={metrics ? fmtCurrency(metrics.revenue_mtd) : "—"} sublabel={metrics ? `${fmtCurrency(metrics.forecast_90d)} forecast` : "—"} />
-          <Metric label="Active Clients" value={metrics?.active_clients ?? 0} sublabel={metrics ? `${metrics.active_engagements} engagements` : "—"} />
+          <Metric
+            label="Pipeline"
+            value={metrics ? fmtCurrency(metrics.weighted_pipeline) : "—"}
+            sublabel="weighted value"
+            href={`/lab/env/${params.envId}/consulting/pipeline`}
+          />
+          <Metric
+            label="Open Opps"
+            value={metrics?.open_opportunities ?? 0}
+            sublabel={metrics ? `${metrics.won_count_90d} won (90d)` : "—"}
+            href={`/lab/env/${params.envId}/consulting/pipeline`}
+          />
+          <Metric
+            label="Outreach"
+            value={metrics?.outreach_count_30d ?? 0}
+            sublabel={metrics?.response_rate_30d ? `${(metrics.response_rate_30d * 100).toFixed(0)}% response` : "30d total"}
+            href={`/lab/env/${params.envId}/consulting/strategic-outreach`}
+          />
+          <Metric
+            label="Revenue MTD"
+            value={metrics ? fmtCurrency(metrics.revenue_mtd) : "—"}
+            sublabel={metrics ? `${fmtCurrency(metrics.forecast_90d)} forecast` : "—"}
+            href={`/lab/env/${params.envId}/consulting/revenue`}
+          />
+          <Metric
+            label="Active Clients"
+            value={metrics?.active_clients ?? 0}
+            sublabel={metrics ? `${metrics.active_engagements} engagements` : "—"}
+            href={`/lab/env/${params.envId}/consulting/clients`}
+          />
         </div>
       </section>
 
-      {/* Next Actions — always visible */}
+      {/* Proof Asset + Demo Readiness Strips */}
+      <section className="grid gap-3 md:grid-cols-2">
+        {/* Proof Assets */}
+        <Link
+          href={`/lab/env/${params.envId}/consulting/proof-assets`}
+          className="rounded-xl border border-bm-border/50 bg-bm-surface/10 px-4 py-3 hover:bg-bm-surface/20 transition-colors"
+        >
+          <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Proof Assets</p>
+          {proofSummary ? (
+            <div className="mt-2 flex items-center gap-3 text-sm">
+              <span className="text-emerald-400 font-semibold">{proofSummary.ready} ready</span>
+              <span className="text-bm-muted2">·</span>
+              <span className="text-amber-400">{proofSummary.draft} draft</span>
+              <span className="text-bm-muted2">·</span>
+              <span className="text-red-400">{proofSummary.needs_update} need update</span>
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-bm-muted2">Loading...</p>
+          )}
+        </Link>
+
+        {/* Demo Readiness */}
+        <div className="rounded-xl border border-bm-border/50 bg-bm-surface/10 px-4 py-3">
+          <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Demo Readiness</p>
+          {demoReadiness.length > 0 ? (
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              {demoReadiness.map((demo) => (
+                <div key={demo.id} className="flex items-center gap-2 text-sm">
+                  <span className={`inline-block h-2.5 w-2.5 rounded-full ${DEMO_STATUS_COLORS[demo.status] ?? "bg-bm-muted2"}`} />
+                  <span className="text-bm-text">{demo.demo_name}</span>
+                  {demo.blockers.length > 0 ? (
+                    <span className="text-[10px] text-bm-muted2">({demo.blockers.length} blocker{demo.blockers.length !== 1 ? "s" : ""})</span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-bm-muted2">No demo readiness data</p>
+          )}
+        </div>
+      </section>
+
+      {/* Next Actions */}
       <section className="space-y-3">
         {actionData && actionData.overdue_count > 0 ? (
           <NextActionPanel
             title="Overdue"
             actions={actionData.overdue}
             businessId={businessId!}
-            onUpdate={reloadActions}
+            onUpdate={reloadAll}
             variant="overdue"
           />
         ) : null}
@@ -153,7 +261,7 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
             title="Today"
             actions={actionData.today}
             businessId={businessId!}
-            onUpdate={reloadActions}
+            onUpdate={reloadAll}
           />
         ) : null}
         {actionData && actionData.overdue_count === 0 && actionData.today_count === 0 ? (
@@ -163,8 +271,43 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
         ) : null}
       </section>
 
+      {/* Stale Record Alerts */}
+      {staleRecords && (staleRecords.stale_accounts.length > 0 || staleRecords.orphan_opportunities.length > 0) ? (
+        <section className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 space-y-2">
+          <p className="text-[11px] uppercase tracking-[0.12em] text-amber-400 font-semibold">Attention Needed</p>
+          {staleRecords.stale_accounts.length > 0 ? (
+            <div>
+              <p className="text-xs text-bm-muted2 mb-1">{staleRecords.stale_accounts.length} stale account{staleRecords.stale_accounts.length !== 1 ? "s" : ""} (no activity 14+ days)</p>
+              <div className="flex flex-wrap gap-2">
+                {staleRecords.stale_accounts.slice(0, 5).map((acct: StaleAccount) => (
+                  <Link
+                    key={acct.crm_account_id}
+                    href={`/lab/env/${params.envId}/consulting/accounts/${acct.crm_account_id}`}
+                    className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-bm-text hover:bg-amber-500/20"
+                  >
+                    {acct.name} <span className="text-bm-muted2">({acct.days_stale ?? "∞"}d)</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {staleRecords.orphan_opportunities.length > 0 ? (
+            <div>
+              <p className="text-xs text-bm-muted2 mb-1">{staleRecords.orphan_opportunities.length} deal{staleRecords.orphan_opportunities.length !== 1 ? "s" : ""} missing next action</p>
+              <div className="flex flex-wrap gap-2">
+                {staleRecords.orphan_opportunities.slice(0, 5).map((opp: OrphanOpportunity) => (
+                  <span key={opp.crm_opportunity_id} className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-bm-text">
+                    {opp.name} <span className="text-bm-muted2">({opp.stage_key ?? "—"})</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       {/* Pipeline Stage Summary */}
-      {kanban?.columns?.length > 0 ? (
+      {kanban?.columns?.length ? (
         <section>
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Pipeline Stages</p>
@@ -173,22 +316,24 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
             </Link>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {kanban.columns.filter((col: { stage_key: string }) => !["closed_won", "closed_lost"].includes(col.stage_key)).map((col: { stage_key: string; stage_label: string; cards: unknown[]; weighted_value: number }) => (
-              <div key={col.stage_key} className="flex-1 min-w-[100px] rounded-lg border border-bm-border/50 bg-bm-surface/10 px-3 py-2 text-center">
-                <p className="text-[10px] uppercase tracking-wider text-bm-muted2 truncate">{col.stage_label}</p>
-                <p className="text-lg font-semibold text-bm-text">{col.cards.length}</p>
-                {col.weighted_value > 0 ? (
-                  <p className="text-[10px] text-bm-muted2">{fmtCurrency(col.weighted_value)}</p>
-                ) : null}
-              </div>
-            ))}
+            {kanban.columns
+              .filter((col) => !["closed_won", "closed_lost"].includes(col.stage_key))
+              .map((col) => (
+                <div key={col.stage_key} className="flex-1 min-w-[100px] rounded-lg border border-bm-border/50 bg-bm-surface/10 px-3 py-2 text-center">
+                  <p className="text-[10px] uppercase tracking-wider text-bm-muted2 truncate">{col.stage_label}</p>
+                  <p className="text-lg font-semibold text-bm-text">{col.cards.length}</p>
+                  {col.weighted_value > 0 ? (
+                    <p className="text-[10px] text-bm-muted2">{fmtCurrency(col.weighted_value)}</p>
+                  ) : null}
+                </div>
+              ))}
           </div>
         </section>
       ) : null}
 
       {/* Top Leads */}
-      <section className="space-y-4">
-        {topLeads.length > 0 ? (
+      {topLeads.length > 0 ? (
+        <section>
           <Card>
             <CardContent className="py-4">
               <div className="flex items-center justify-between mb-3">
@@ -212,10 +357,7 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <div className="w-16 h-1.5 rounded-full bg-bm-surface/40 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-bm-accent"
-                          style={{ width: `${lead.lead_score}%` }}
-                        />
+                        <div className="h-full rounded-full bg-bm-accent" style={{ width: `${lead.lead_score}%` }} />
                       </div>
                       <span className="text-xs font-medium text-bm-text w-6 text-right">{lead.lead_score}</span>
                     </div>
@@ -224,265 +366,54 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
               </div>
             </CardContent>
           </Card>
-        ) : null}
+        </section>
+      ) : null}
 
+      {/* Quick Links */}
+      <section>
         <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap">
-          <Link
-            href={`/lab/env/${params.envId}/consulting/pipeline`}
-            className="rounded-xl border border-bm-accent/30 bg-bm-accent/10 px-4 py-3 text-sm font-medium text-bm-accent hover:bg-bm-accent/20 text-center"
-          >
-            Pipeline Kanban
+          <Link href={`/lab/env/${params.envId}/consulting/pipeline`} className="rounded-xl border border-bm-accent/30 bg-bm-accent/10 px-4 py-3 text-sm font-medium text-bm-accent hover:bg-bm-accent/20 text-center">
+            Pipeline
           </Link>
-          <Link
-            href={`/lab/env/${params.envId}/consulting/outreach`}
-            className="rounded-xl border border-bm-accent/30 bg-bm-accent/10 px-4 py-3 text-sm font-medium text-bm-accent hover:bg-bm-accent/20 text-center"
-          >
+          <Link href={`/lab/env/${params.envId}/consulting/strategic-outreach`} className="rounded-xl border border-bm-accent/30 bg-bm-accent/10 px-4 py-3 text-sm font-medium text-bm-accent hover:bg-bm-accent/20 text-center">
             Outreach
           </Link>
-          <Link
-            href={`/lab/env/${params.envId}/consulting/accounts`}
-            className="rounded-xl border border-bm-border/70 bg-bm-bg px-4 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30 text-center"
-          >
+          <Link href={`/lab/env/${params.envId}/consulting/accounts`} className="rounded-xl border border-bm-border/70 bg-bm-bg px-4 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30 text-center">
             Accounts
           </Link>
-          <Link
-            href={`/lab/env/${params.envId}/consulting/strategic-outreach`}
-            className="rounded-xl border border-bm-border/70 bg-bm-bg px-4 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30 text-center"
-          >
-            Strategic Outreach
-          </Link>
-          <Link
-            href={`/lab/env/${params.envId}/consulting/clients`}
-            className="rounded-xl border border-bm-border/70 bg-bm-bg px-4 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30 text-center"
-          >
-            Clients
-          </Link>
-          <Link
-            href={`/lab/env/${params.envId}/consulting/proposals`}
-            className="rounded-xl border border-bm-border/70 bg-bm-bg px-4 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30 text-center"
-          >
+          <Link href={`/lab/env/${params.envId}/consulting/proposals`} className="rounded-xl border border-bm-border/70 bg-bm-bg px-4 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30 text-center">
             Proposals
           </Link>
-          <Link
-            href={`/lab/env/${params.envId}/consulting/loops`}
-            className="rounded-xl border border-bm-border/70 bg-bm-bg px-4 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30 text-center"
-          >
-            Loop Intel
+          <Link href={`/lab/env/${params.envId}/consulting/clients`} className="rounded-xl border border-bm-border/70 bg-bm-bg px-4 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30 text-center">
+            Clients
+          </Link>
+          <Link href={`/lab/env/${params.envId}/consulting/proof-assets`} className="rounded-xl border border-bm-border/70 bg-bm-bg px-4 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30 text-center">
+            Proof Assets
           </Link>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-4 md:p-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-2">
-            <TonePill label="Novendor Local AI Classes CRM" tone="info" />
-            <div>
-              <h2 className="text-2xl font-semibold text-bm-text">Founder-ready command center for local events</h2>
-              <p className="mt-2 max-w-3xl text-sm text-bm-muted2">
-                Manage beginner-friendly AI classes across Lake Worth Beach and West Palm Beach: contacts, venues, events, outreach, check-in, and follow-up from the same mobile-friendly workspace.
+      {/* Weekly Rhythm */}
+      <section className="rounded-xl border border-bm-border/50 bg-bm-surface/10 px-4 py-3">
+        <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2 mb-2">Weekly Rhythm</p>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {WEEK_RHYTHM.map((item, idx) => (
+            <div
+              key={item.key}
+              className={`flex-1 min-w-[80px] rounded-lg px-3 py-2 text-center transition-colors ${
+                idx === rhythmIdx
+                  ? "border-2 border-bm-accent bg-bm-accent/10"
+                  : "border border-bm-border/40 bg-bm-bg"
+              }`}
+            >
+              <p className={`text-xs font-semibold ${idx === rhythmIdx ? "text-bm-accent" : "text-bm-text"}`}>
+                {item.day}
               </p>
+              <p className="text-[10px] text-bm-muted2 mt-0.5">{item.theme}</p>
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => void seed()} disabled={mutating || Boolean(workspace?.contacts.length)}>
-              {workspace?.contacts.length ? "Seeded" : mutating ? "Seeding..." : "Seed realistic data"}
-            </Button>
-            <Link href={`/lab/env/${params.envId}/consulting/events`} className="inline-flex rounded-lg border border-bm-border px-3 py-2 text-sm text-bm-text hover:bg-bm-surface/30">
-              Open check-in
-            </Link>
-          </div>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2 md:flex md:flex-wrap">
-          {commandLinks.map((item) => (
-            <Link key={item.href} href={item.href} className="rounded-xl border border-bm-border/70 bg-bm-bg px-3 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30">
-              {item.label}
-            </Link>
           ))}
         </div>
       </section>
-
-      {!workspace ? (
-        <EmptyState title="Seed the local training CRM" body="No event CRM records exist yet for this environment. Use the seed action above to load a realistic South Florida operating dataset." />
-      ) : (
-        <>
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
-            <Metric label="Next Event" value={nextEvent ? fmtDate(nextEvent.event_date) : "—"} sublabel={nextEvent ? nextEvent.event_name : "Seed data to begin"} />
-            <Metric label="Contacts" value={workspace.seed_summary.contacts} sublabel={`${workspace.summary.contacts_added_this_month} added this month`} />
-            <Metric label="Follow-ups due" value={workspace.summary.followups_due} sublabel="Registrations awaiting nurture" />
-            <Metric label="Open tasks" value={workspace.tasks.filter((task) => task.status !== "done").length} sublabel="Phone quick actions included" />
-            <Metric label="Campaigns live" value={workspace.campaigns.filter((campaign) => campaign.status === "active").length} sublabel="Channel performance tracked" />
-          </div>
-
-          <div className="grid gap-4 xl:grid-cols-[1.25fr,0.95fr]">
-            <Card>
-              <CardContent className="py-5">
-                <CardTitle>Dashboard 1 — CRM command center</CardTitle>
-                {nextEvent ? (
-                  <div className="mt-4 space-y-3 rounded-xl border border-bm-border/70 bg-bm-bg p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-bm-text">{nextEvent.event_name}</p>
-                        <p className="mt-1 text-sm text-bm-muted2">
-                          {fmtDate(nextEvent.event_date)} · {fmtTime(nextEvent.event_start_time)} – {fmtTime(nextEvent.event_end_time)} · {nextEvent.venue_name}
-                        </p>
-                      </div>
-                      <TonePill label={nextEvent.event_status} tone={nextEvent.event_status === "scheduled" ? "warning" : "success"} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
-                      <div><span className="text-bm-muted2">Target</span><p className="font-semibold">{nextEvent.target_capacity ?? "—"}</p></div>
-                      <div><span className="text-bm-muted2">Registrations</span><p className="font-semibold">{nextEvent.actual_registrations}</p></div>
-                      <div><span className="text-bm-muted2">Ticket</span><p className="font-semibold">{fmtCurrency(nextEvent.ticket_price_standard)}</p></div>
-                      <div><span className="text-bm-muted2">Theme</span><p className="font-semibold">{nextEvent.event_type}</p></div>
-                    </div>
-                  </div>
-                ) : null}
-
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <div className="rounded-xl border border-bm-border/70 bg-bm-bg p-4">
-                    <h3 className="text-sm font-semibold text-bm-text">Recent activity feed</h3>
-                    <div className="mt-3 space-y-3">
-                      {workspace.summary.recent_activity.slice(0, 5).map((activity) => (
-                        <div key={activity.id} className="border-l-2 border-bm-accent/60 pl-3">
-                          <p className="text-sm font-medium text-bm-text">{activity.subject ?? activity.activity_type}</p>
-                          <p className="text-xs text-bm-muted2">{fmtDate(activity.activity_date)} · {activity.channel ?? "manual"} · {activity.outcome ?? "pending"}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-bm-border/70 bg-bm-bg p-4">
-                    <h3 className="text-sm font-semibold text-bm-text">Venue outreach status</h3>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {Object.entries(workspace.summary.venue_outreach_status).map(([status, count]) => (
-                        <TonePill key={status} label={`${status}: ${count}`} tone={status === "preferred" ? "success" : status === "qualified" ? "info" : "default"} />
-                      ))}
-                    </div>
-                    <p className="mt-3 text-xs text-bm-muted2">Preferred venues and partner pipeline are tracked separately so venue fit, cost, and relationship stage stay auditable.</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="py-5">
-                <CardTitle>Dashboard 4 — Mobile quick dashboard</CardTitle>
-                <div className="mt-4 space-y-3">
-                  <div className="rounded-xl border border-bm-border/70 bg-bm-bg p-4">
-                    <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Today&apos;s tasks</p>
-                    <div className="mt-2 space-y-2">
-                      {mobile?.today_tasks.slice(0, 4).map((task) => (
-                        <div key={task.id} className="flex items-center justify-between gap-2 rounded-lg bg-bm-surface/20 px-3 py-2">
-                          <div>
-                            <p className="text-sm font-medium text-bm-text">{task.task_name}</p>
-                            <p className="text-xs text-bm-muted2">{task.priority} · due {fmtDate(task.due_date)}</p>
-                          </div>
-                          <TonePill label={task.status} tone={task.status === "in_progress" ? "warning" : "default"} />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-bm-border/70 bg-bm-bg p-4">
-                    <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Recent registrations</p>
-                    <div className="mt-2 space-y-2">
-                      {mobile?.recent_registrations.map((registration) => (
-                        <div key={registration.registration_id} className="flex items-center justify-between gap-2 rounded-lg bg-bm-surface/20 px-3 py-2">
-                          <div>
-                            <p className="text-sm font-medium text-bm-text">{registration.contact_name}</p>
-                            <p className="text-xs text-bm-muted2">{registration.event_name}</p>
-                          </div>
-                          <TonePill label={registration.payment_status} tone={registration.payment_status === "paid" ? "success" : "warning"} />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-[1.1fr,0.9fr]">
-            <Card>
-              <CardContent className="py-5">
-                <CardTitle>Current-state inventory and target architecture</CardTitle>
-                <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">What existed</p>
-                    <div className="mt-3 space-y-3">
-                      {workspace.inventory.existing_objects.map((row) => (
-                        <div key={row.object} className="rounded-xl border border-bm-border/70 bg-bm-bg p-3">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-sm font-semibold text-bm-text">{row.object}</p>
-                            <TonePill label={String(row.usable_as_is)} tone={row.usable_as_is === true ? "success" : row.usable_as_is === false ? "danger" : "warning"} />
-                          </div>
-                          <p className="mt-1 text-xs text-bm-muted2">{row.purpose}</p>
-                          <p className="mt-2 text-xs text-bm-text">Action: {row.action}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Target architecture</p>
-                    <div className="mt-3 space-y-2">
-                      {Object.entries(workspace.architecture).map(([key, value]) => (
-                        <div key={key} className="rounded-xl border border-bm-border/70 bg-bm-bg px-3 py-2 text-sm">
-                          <span className="font-medium text-bm-text">{key}</span>
-                          <p className="text-xs text-bm-muted2">{value}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="py-5">
-                <CardTitle>QA receipts</CardTitle>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <Metric label="Orphans" value={workspace.qa.orphan_records} />
-                  <Metric label="Bad statuses" value={workspace.qa.impossible_status_rows} />
-                  <Metric label="Duplicate emails" value={workspace.qa.duplicate_contact_emails.length} />
-                  <Metric label="Registration sync" value={workspace.qa.registration_count_matches_events ? "OK" : "Mismatch"} />
-                </div>
-                <div className="mt-4 rounded-xl border border-bm-border/70 bg-bm-bg p-4">
-                  <p className="text-sm font-semibold text-bm-text">Mobile issues fixed in this build</p>
-                  <ul className="mt-2 space-y-2 text-sm text-bm-muted2">
-                    {workspace.inventory.mobile_problems_before_build.map((item) => (
-                      <li key={item} className="list-disc ml-5">{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardContent className="py-5">
-              <CardTitle>Dashboard 2 — Event performance</CardTitle>
-              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {eventPerformance.map((event) => (
-                  <div key={event.event_id} className="rounded-xl border border-bm-border/70 bg-bm-bg p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-bm-text">{event.event_name}</p>
-                        <p className="mt-1 text-xs text-bm-muted2">Regs {event.registrations} · Attendance {event.attendance}</p>
-                      </div>
-                      <TonePill label={event.capacity_utilization ? `${event.capacity_utilization}% cap` : "—"} tone="info" />
-                    </div>
-                    <div className="mt-3 text-xs text-bm-muted2">
-                      Repeat attendees: {event.repeat_attendance} · Feedback: {event.feedback_score ?? "—"}
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                      {Object.entries(event.channel_conversion).slice(0, 3).map(([channel, count]) => (
-                        <TonePill key={channel} label={`${channel}: ${count}`} />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </>
-      )}
     </div>
   );
 }

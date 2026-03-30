@@ -920,3 +920,178 @@ export async function fetchContactDetail(contactId: string, envId: string, busin
 export async function fetchContactOutreach(contactId: string, envId: string, businessId: string): Promise<OutreachEntry[]> {
   return apiFetch<OutreachEntry[]>(`${CRO_BASE}/contacts/${contactId}/outreach?env_id=${envId}&business_id=${businessId}`);
 }
+
+// ── Schema Health ───────────────────────────────────────────────────────────
+
+export type SchemaHealth = {
+  schema_ready: boolean;
+  tables_found: string[];
+  tables_missing: string[];
+  migrations_needed: string[];
+  seed_status: Record<string, number>;
+  has_data: boolean;
+  last_activity: string | null;
+  total_required: number;
+  total_found: number;
+};
+
+export async function fetchSchemaHealth(): Promise<SchemaHealth> {
+  return apiFetch<SchemaHealth>("/bos/api/consulting/health");
+}
+
+// ── Proof Assets ────────────────────────────────────────────────────────────
+
+export type ProofAsset = {
+  id: string;
+  env_id: string;
+  business_id: string;
+  asset_type: string;
+  title: string;
+  description: string | null;
+  status: string;
+  linked_offer_type: string | null;
+  file_path: string | null;
+  content_markdown: string | null;
+  last_used_at: string | null;
+  use_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProofAssetSummary = {
+  total: number;
+  ready: number;
+  draft: number;
+  needs_update: number;
+  archived: number;
+};
+
+export async function fetchProofAssets(envId: string, businessId: string, status?: string): Promise<ProofAsset[]> {
+  let url = `${CRO_BASE}/proof-assets?env_id=${envId}&business_id=${businessId}`;
+  if (status) url += `&status=${status}`;
+  return apiFetch<ProofAsset[]>(url);
+}
+
+export async function fetchProofAssetSummary(envId: string, businessId: string): Promise<ProofAssetSummary> {
+  return apiFetch<ProofAssetSummary>(`${CRO_BASE}/proof-assets/summary?env_id=${envId}&business_id=${businessId}`);
+}
+
+export async function createProofAsset(body: {
+  env_id: string;
+  business_id: string;
+  asset_type: string;
+  title: string;
+  description?: string;
+  status?: string;
+  content_markdown?: string;
+}): Promise<ProofAsset> {
+  return apiFetch<ProofAsset>(`${CRO_BASE}/proof-assets`, { method: "POST", body: JSON.stringify(body) });
+}
+
+export async function updateProofAsset(assetId: string, body: { status?: string; title?: string; description?: string; content_markdown?: string }): Promise<ProofAsset> {
+  return apiFetch<ProofAsset>(`${CRO_BASE}/proof-assets/${assetId}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+
+// ── Objections ──────────────────────────────────────────────────────────────
+
+export type Objection = {
+  id: string;
+  env_id: string;
+  business_id: string;
+  crm_account_id: string | null;
+  crm_opportunity_id: string | null;
+  account_name: string | null;
+  objection_type: string;
+  summary: string;
+  source_conversation: string | null;
+  response_strategy: string | null;
+  confidence: number | null;
+  outcome: string;
+  linked_feature_gap: string | null;
+  linked_offer_type: string | null;
+  detected_at: string;
+  resolved_at: string | null;
+  created_at: string;
+};
+
+export type TopObjection = {
+  objection_type: string;
+  freq: number;
+  examples: string[];
+};
+
+export async function fetchObjections(envId: string, businessId: string, outcome?: string): Promise<Objection[]> {
+  let url = `${CRO_BASE}/objections?env_id=${envId}&business_id=${businessId}`;
+  if (outcome) url += `&outcome=${outcome}`;
+  return apiFetch<Objection[]>(url);
+}
+
+export async function fetchTopObjections(envId: string, businessId: string): Promise<TopObjection[]> {
+  return apiFetch<TopObjection[]>(`${CRO_BASE}/objections/top?env_id=${envId}&business_id=${businessId}`);
+}
+
+export async function createObjection(body: {
+  env_id: string;
+  business_id: string;
+  objection_type: string;
+  summary: string;
+  response_strategy?: string;
+  confidence?: number;
+}): Promise<Objection> {
+  return apiFetch<Objection>(`${CRO_BASE}/objections`, { method: "POST", body: JSON.stringify(body) });
+}
+
+export async function updateObjection(objectionId: string, body: { outcome?: string; response_strategy?: string; confidence?: number }): Promise<Objection> {
+  return apiFetch<Objection>(`${CRO_BASE}/objections/${objectionId}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+
+// ── Demo Readiness ──────────────────────────────────────────────────────────
+
+export type DemoReadiness = {
+  id: string;
+  env_id: string;
+  business_id: string;
+  demo_name: string;
+  vertical: string | null;
+  status: string;
+  blockers: string[];
+  last_tested_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export async function fetchDemoReadiness(envId: string, businessId: string): Promise<DemoReadiness[]> {
+  return apiFetch<DemoReadiness[]>(`${CRO_BASE}/demo-readiness?env_id=${envId}&business_id=${businessId}`);
+}
+
+export async function updateDemoReadiness(demoId: string, body: { status?: string; blockers?: string[]; notes?: string }): Promise<DemoReadiness> {
+  return apiFetch<DemoReadiness>(`${CRO_BASE}/demo-readiness/${demoId}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+
+// ── Stale Records ───────────────────────────────────────────────────────────
+
+export type StaleAccount = {
+  crm_account_id: string;
+  name: string;
+  industry: string | null;
+  last_activity_date: string | null;
+  days_stale: number;
+};
+
+export type OrphanOpportunity = {
+  crm_opportunity_id: string;
+  name: string;
+  account_name: string | null;
+  stage_key: string | null;
+  amount: number | null;
+};
+
+export type StaleRecords = {
+  stale_accounts: StaleAccount[];
+  orphan_opportunities: OrphanOpportunity[];
+};
+
+export async function fetchStaleRecords(envId: string, businessId: string, staleDays = 14): Promise<StaleRecords> {
+  return apiFetch<StaleRecords>(`${CRO_BASE}/health/stale?env_id=${envId}&business_id=${businessId}&stale_days=${staleDays}`);
+}
