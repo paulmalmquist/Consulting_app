@@ -1403,14 +1403,37 @@ export default function FundDetailPage({
     return items;
   }, [fund]);
 
+  // Merge baseScenario KPIs into fundState so the narrative card matches the header metrics.
+  // baseScenario computes TVPI/IRR from actual ledger cashflows; fundState may come from a
+  // stale materialized snapshot (re_fund_quarter_state) with different values. Prefer
+  // baseScenario when available to avoid contradictory numbers on the same page.
+  const mergedFundStateForNarrative = useMemo((): ReV2FundQuarterState | null => {
+    if (!fundState) return null;
+    if (!baseScenario) return fundState;
+    const s = baseScenario.summary;
+    return {
+      ...fundState,
+      // Use baseScenario (ledger-computed) values; convert null→undefined for type compat
+      tvpi: s.tvpi ?? fundState.tvpi,
+      dpi: s.dpi ?? fundState.dpi,
+      rvpi: s.rvpi != null ? s.rvpi : fundState.rvpi,
+      gross_irr: s.gross_irr ?? fundState.gross_irr,
+      net_irr: s.net_irr ?? fundState.net_irr,
+      portfolio_nav: s.remaining_value ?? fundState.portfolio_nav,
+      total_committed: s.total_committed ?? fundState.total_committed,
+      total_called: s.paid_in_capital ?? fundState.total_called,
+      total_distributed: s.distributed_capital ?? fundState.total_distributed,
+    };
+  }, [fundState, baseScenario]);
+
   const headerHealthSummary: FundHealthSummary = useMemo(
     () =>
       buildFundHealthSummary({
-        fundState,
+        fundState: mergedFundStateForNarrative,
         exposureInsights: overviewExposureInsights,
         performanceDrivers: overviewPerformanceDrivers,
       }),
-    [fundState, overviewExposureInsights, overviewPerformanceDrivers]
+    [mergedFundStateForNarrative, overviewExposureInsights, overviewPerformanceDrivers]
   );
 
   useEffect(() => {
@@ -1458,18 +1481,19 @@ export default function FundDetailPage({
           },
         })),
         metrics: {
-          nav: fundState?.portfolio_nav ?? null,
-          tvpi: fundState?.tvpi ?? null,
-          dpi: fundState?.dpi ?? null,
-          gross_irr: fundState?.gross_irr ?? null,
-          net_irr: fundState?.net_irr ?? null,
+          // Prefer baseScenario (computed from ledger) over fundState (possibly stale snapshot)
+          nav: baseScenario?.summary.remaining_value ?? fundState?.portfolio_nav ?? null,
+          tvpi: baseScenario?.summary.tvpi ?? fundState?.tvpi ?? null,
+          dpi: baseScenario?.summary.dpi ?? fundState?.dpi ?? null,
+          gross_irr: baseScenario?.summary.gross_irr ?? fundState?.gross_irr ?? null,
+          net_irr: baseScenario?.summary.net_irr ?? fundState?.net_irr ?? null,
         },
         notes: [`Fund detail page for ${fund?.name || params.fundId} as of ${quarter}`],
       },
     });
 
     return () => resetAssistantPageContext();
-  }, [fund, fundState, investments, params.envId, params.fundId, quarter]);
+  }, [fund, fundState, baseScenario, investments, params.envId, params.fundId, quarter]);
 
   if (loading) return <div className="p-6 text-sm text-bm-muted2">Loading fund...</div>;
   if (error) {
