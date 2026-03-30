@@ -73,7 +73,7 @@ describe("resolveAssetMetrics", () => {
 
       // Labels are live/current
       expect(m.revenue.label).toBe("Revenue (QTD)");
-      expect(m.noi.label).toBe("NOI");
+      expect(m.noi.label).toBe("NOI (TTM)");
       expect(m.occupancy.label).toBe("Occupancy");
       expect(m.assetValue.label).toBe("Asset Value");
       expect(m.debtBalance.label).toBe("Debt Balance");
