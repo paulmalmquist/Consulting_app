@@ -226,6 +226,8 @@ export const config = {
     "/tasks/:path*",
     "/novendor/:path*",
     "/floyorker/:path*",
+    "/stone-pds/:path*",
+    "/meridian/:path*",
     "/resume",
     "/resume/:path*",
     "/trading/:path*",
