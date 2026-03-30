@@ -47,6 +47,13 @@ const SECTIONS: SidebarSection[] = [
   },
 ];
 
+/** MSA Zone tiers shown when Real Estate scope is active */
+const MSA_ZONE_TIERS = [
+  { tier: 1, label: "Tier 1 — Sun Belt Growth", zones: ["DFW", "Austin", "Nashville", "Phoenix", "Tampa"] },
+  { tier: 2, label: "Tier 2 — Gateway Recovery", zones: ["NYC", "SF", "Chicago", "LA", "Boston"] },
+  { tier: 3, label: "Tier 3 — Watch List", zones: ["Denver", "Portland", "Minneapolis", "Detroit"] },
+];
+
 export function DecisionEngineSidebar({
   activeTab,
   assetScope,
@@ -107,6 +114,41 @@ export function DecisionEngineSidebar({
             </div>
           </div>
         ))}
+
+        {/* Real Estate context section — visible only when RE scope is active */}
+        {assetScope === "real-estate" && (
+          <>
+            <div className="border-t border-bm-border/30" />
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-wider text-bm-muted2 mb-2">
+                MSA ZONES
+              </p>
+              <div className="space-y-2">
+                {MSA_ZONE_TIERS.map(({ tier, label, zones }) => (
+                  <div key={tier}>
+                    <p className="text-[10px] font-semibold text-bm-muted px-3 mb-1">{label}</p>
+                    <div className="flex flex-wrap gap-1 px-3">
+                      {zones.map((z) => (
+                        <span
+                          key={z}
+                          className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-mono ${
+                            tier === 1
+                              ? "bg-emerald-500/10 text-emerald-400"
+                              : tier === 2
+                                ? "bg-sky-500/10 text-sky-400"
+                                : "bg-amber-500/10 text-amber-400"
+                          }`}
+                        >
+                          {z}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </nav>
   );

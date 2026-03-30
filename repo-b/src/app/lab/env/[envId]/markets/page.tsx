@@ -21,6 +21,14 @@ import { ClosePositionModal } from "@/components/trading/ClosePositionModal";
 import { EditPositionModal } from "@/components/trading/EditPositionModal";
 import { CommandCenterLayout } from "@/components/market/CommandCenterLayout";
 import { DecisionEngineSidebar } from "@/components/market/DecisionEngineSidebar";
+import {
+  AnalogForecast,
+  SupportingDetail,
+  DecisionLayer,
+  PositioningSection,
+  SignalStack,
+} from "@/components/market/HistoryRhymesTab";
+import { TrapDetectorFullView } from "@/components/market/TrapDetectorFullView";
 import type { DecisionTab, AssetScope } from "@/lib/trading-lab/decision-engine-types";
 import type {
   TradingHypothesis,
@@ -497,28 +505,26 @@ export default function TradingLabPage() {
           </div>
         )}
 
-          {/* HISTORY RHYMES TAB (placeholder) */}
+          {/* HISTORY RHYMES TAB */}
           {activeTab === "history-rhymes" && (
-            <div className={`${t.cardBg} border ${t.cardBorder} p-8 rounded text-center`}>
-              <p className={`text-sm font-mono uppercase tracking-wider ${t.accent} mb-2`}>History Rhymes</p>
-              <p className={`text-xs ${t.textMuted}`}>Episode library, analog matching, and temporal pattern analysis. Coming soon.</p>
+            <div className="space-y-6">
+              <AnalogForecast />
+              <SignalStack />
+              <SupportingDetail />
             </div>
           )}
 
-          {/* MACHINE FORECASTS TAB (placeholder) */}
+          {/* MACHINE FORECASTS TAB */}
           {activeTab === "machine-forecasts" && (
-            <div className={`${t.cardBg} border ${t.cardBorder} p-8 rounded text-center`}>
-              <p className={`text-sm font-mono uppercase tracking-wider ${t.accent} mb-2`}>Machine Forecasts</p>
-              <p className={`text-xs ${t.textMuted}`}>Multi-agent probabilistic forecasts with walk-forward evaluation. Coming soon.</p>
+            <div className="space-y-6">
+              <DecisionLayer />
+              <PositioningSection />
             </div>
           )}
 
-          {/* TRAP DETECTOR TAB (placeholder) */}
+          {/* TRAP DETECTOR TAB */}
           {activeTab === "trap-detector" && (
-            <div className={`${t.cardBg} border ${t.cardBorder} p-8 rounded text-center`}>
-              <p className={`text-sm font-mono uppercase tracking-wider ${t.accent} mb-2`}>Trap Detector</p>
-              <p className={`text-xs ${t.textMuted}`}>Full adversarial analysis: honeypot patterns, crowding unwinds, narrative traps. Coming soon.</p>
-            </div>
+            <TrapDetectorFullView />
           )}
         </div>
       </div>
