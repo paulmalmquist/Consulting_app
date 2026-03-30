@@ -605,6 +605,263 @@ export default function TradingLabPage() {
           {activeTab === "trap-detector" && (
             <TrapDetectorFullView />
           )}
+
+          {/* MARKET SEGMENTS TAB */}
+          {activeTab === "market-segments" && (
+            <div className="space-y-6">
+              {/* Header + refresh */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className={`text-sm font-mono uppercase tracking-wider ${t.accent}`}>
+                    Market Rotation Engine
+                  </h2>
+                  <p className={`text-xs ${t.textMuted} mt-1`}>
+                    {mreSegments.length} active segments · {mreBriefs.length} recent briefs · {mreCards.length} feature cards
+                  </p>
+                </div>
+                <button
+                  onClick={fetchMreData}
+                  disabled={mreLoading}
+                  className={`px-3 py-1.5 rounded text-xs font-mono border ${t.cardBorder} ${t.textSecondary} hover:${t.textPrimary} disabled:opacity-50`}
+                >
+                  {mreLoading ? "Loading…" : "Refresh"}
+                </button>
+              </div>
+
+              {mreError && (
+                <div className={`${t.noticeBg} border rounded px-3 py-2 text-xs font-mono`}>
+                  {mreError}
+                </div>
+              )}
+
+              {mreLoading && (
+                <div className="space-y-3">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className={`h-16 ${t.skeletonBg} rounded animate-pulse`} />
+                  ))}
+                </div>
+              )}
+
+              {!mreLoading && !mreError && (
+                <>
+                  {/* Segment grid — tier-grouped */}
+                  <div className={`${t.cardBg} border ${t.cardBorder} rounded`}>
+                    <div className={`px-4 py-3 border-b ${t.cardBorder} flex items-center justify-between`}>
+                      <span className={`text-xs font-mono uppercase tracking-wider ${t.textFaint}`}>
+                        Active Segments ({mreSegments.length})
+                      </span>
+                    </div>
+                    {mreSegments.length === 0 ? (
+                      <div className={`px-4 py-8 text-center text-xs ${t.textMuted}`}>
+                        No active segments found.
+                      </div>
+                    ) : (
+                      <div className="overflow-auto max-h-72">
+                        <table className="w-full text-xs font-mono">
+                          <thead className={`sticky top-0 ${t.theadBg} border-b ${t.tableDivider}`}>
+                            <tr>
+                              <th className={`text-left py-2 px-3 ${t.textFaint}`}>Segment</th>
+                              <th className={`text-left py-2 px-3 ${t.textFaint}`}>Category</th>
+                              <th className={`text-left py-2 px-3 ${t.textFaint}`}>Subcategory</th>
+                              <th className={`text-center py-2 px-3 ${t.textFaint}`}>Tier</th>
+                              <th className={`text-right py-2 px-3 ${t.textFaint}`}>Priority</th>
+                              <th className={`text-left py-2 px-3 ${t.textFaint}`}>Tickers</th>
+                              <th className={`text-left py-2 px-3 ${t.textFaint}`}>Last Rotated</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {mreSegments.map((seg) => (
+                              <tr key={seg.segment_id} className={`border-b ${t.tableDivider} ${t.cardHover}`}>
+                                <td className={`py-2 px-3 font-bold ${t.accentBlue}`}>{seg.segment_name}</td>
+                                <td className="py-2 px-3">
+                                  <span className={`px-2 py-0.5 rounded text-xs capitalize ${
+                                    seg.category === "equities" ? t.badgeActive :
+                                    seg.category === "crypto" ? t.badgePending :
+                                    seg.category === "derivatives" ? t.badgeNeutral :
+                                    t.tagBg
+                                  }`}>
+                                    {seg.category}
+                                  </span>
+                                </td>
+                                <td className={`py-2 px-3 ${t.textMuted}`}>{seg.subcategory}</td>
+                                <td className="py-2 px-3 text-center">
+                                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                                    seg.tier === 1 ? t.badgeBullish :
+                                    seg.tier === 2 ? t.badgePending :
+                                    t.badgeNeutral
+                                  }`}>
+                                    T{seg.tier}
+                                  </span>
+                                </td>
+                                <td className={`py-2 px-3 text-right font-bold ${
+                                  (seg.rotation_priority_score ?? 0) >= 70 ? t.accent :
+                                  (seg.rotation_priority_score ?? 0) >= 40 ? t.accentBlue :
+                                  t.textMuted
+                                }`}>
+                                  {seg.rotation_priority_score?.toFixed(1) ?? "—"}
+                                </td>
+                                <td className={`py-2 px-3 ${t.textMuted} max-w-[160px] truncate`}>
+                                  {Array.isArray(seg.tickers) ? seg.tickers.slice(0, 4).join(", ") : "—"}
+                                  {Array.isArray(seg.tickers) && seg.tickers.length > 4 ? ` +${seg.tickers.length - 4}` : ""}
+                                </td>
+                                <td className={`py-2 px-3 ${t.textFaint}`}>
+                                  {seg.last_rotated_at ? fmtDate(seg.last_rotated_at) : "Never"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Recent Intel Briefs */}
+                  <div className={`${t.cardBg} border ${t.cardBorder} rounded`}>
+                    <div className={`px-4 py-3 border-b ${t.cardBorder}`}>
+                      <span className={`text-xs font-mono uppercase tracking-wider ${t.textFaint}`}>
+                        Recent Intel Briefs ({mreBriefs.length})
+                      </span>
+                    </div>
+                    {mreBriefs.length === 0 ? (
+                      <div className={`px-4 py-8 text-center text-xs ${t.textMuted}`}>
+                        No intel briefs found.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-0 divide-x divide-y" style={{ borderColor: "inherit" }}>
+                        {mreBriefs.slice(0, 8).map((brief) => (
+                          <div key={brief.brief_id} className={`p-4 border-b ${t.tableDivider}`}>
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <span className={`font-bold text-xs ${t.accentBlue}`}>{brief.segment_name}</span>
+                                <span className={`ml-2 text-xs ${t.textFaint}`}>{brief.run_date}</span>
+                              </div>
+                              <div className="flex gap-1">
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                  brief.tier === 1 ? t.badgeBullish :
+                                  brief.tier === 2 ? t.badgePending :
+                                  t.badgeNeutral
+                                }`}>T{brief.tier}</span>
+                                {brief.regime_tag && (
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                    brief.regime_tag?.includes("RISK_ON") ? t.badgeBullish :
+                                    brief.regime_tag?.includes("RISK_OFF") ? t.badgeBearish :
+                                    t.badgeNeutral
+                                  }`}>
+                                    {brief.regime_tag?.replace(/_/g, " ")}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {brief.composite_score !== null && (
+                              <div className={`text-xs ${t.textMuted} mb-2`}>
+                                Score: <span className={`font-bold ${
+                                  (brief.composite_score ?? 0) >= 7 ? t.accent :
+                                  (brief.composite_score ?? 0) >= 4 ? t.accentBlue :
+                                  t.pnlDown
+                                }`}>{brief.composite_score?.toFixed(1)}/10</span>
+                              </div>
+                            )}
+                            {Array.isArray(brief.key_findings) && brief.key_findings.length > 0 && (
+                              <ul className={`text-xs ${t.textMuted} space-y-0.5`}>
+                                {(brief.key_findings as string[]).slice(0, 2).map((f, i) => (
+                                  <li key={i} className="line-clamp-1">· {f}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Feature Cards Pipeline */}
+                  <div className={`${t.cardBg} border ${t.cardBorder} rounded`}>
+                    <div className={`px-4 py-3 border-b ${t.cardBorder} flex items-center justify-between`}>
+                      <span className={`text-xs font-mono uppercase tracking-wider ${t.textFaint}`}>
+                        Feature Pipeline ({mreCards.length} cards)
+                      </span>
+                      <div className="flex gap-1">
+                        {["all", "identified", "spec_ready", "in_progress", "shipped"].map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => setCardStatusFilter(s)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
+                              cardStatusFilter === s
+                                ? "bg-bm-accent/20 text-bm-accent border border-bm-accent/40"
+                                : `${t.tagBg} ${t.textMuted}`
+                            }`}
+                          >
+                            {s === "all" ? "All" : s.replace(/_/g, " ")}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {mreCards.length === 0 ? (
+                      <div className={`px-4 py-8 text-center text-xs ${t.textMuted}`}>
+                        No feature cards found.
+                      </div>
+                    ) : (
+                      <div className="overflow-auto max-h-80">
+                        <table className="w-full text-xs font-mono">
+                          <thead className={`sticky top-0 ${t.theadBg} border-b ${t.tableDivider}`}>
+                            <tr>
+                              <th className={`text-left py-2 px-3 ${t.textFaint}`}>Title</th>
+                              <th className={`text-left py-2 px-3 ${t.textFaint}`}>Category</th>
+                              <th className={`text-right py-2 px-3 ${t.textFaint}`}>Priority</th>
+                              <th className={`text-left py-2 px-3 ${t.textFaint}`}>Status</th>
+                              <th className={`text-left py-2 px-3 ${t.textFaint}`}>Module</th>
+                              <th className={`text-center py-2 px-3 ${t.textFaint}`}>Cross</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {mreCards
+                              .filter((c) => cardStatusFilter === "all" || c.status === cardStatusFilter)
+                              .map((card) => (
+                                <tr key={card.card_id} className={`border-b ${t.tableDivider} ${t.cardHover}`}>
+                                  <td className={`py-2 px-3 ${t.textPrimary} max-w-[220px]`}>
+                                    <span className="line-clamp-1 font-medium">{card.title}</span>
+                                  </td>
+                                  <td className="py-2 px-3">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] ${t.tagBg}`}>
+                                      {card.gap_category?.replace(/_/g, " ")}
+                                    </span>
+                                  </td>
+                                  <td className={`py-2 px-3 text-right font-bold ${
+                                    (card.priority_score ?? 0) >= 80 ? t.accent :
+                                    (card.priority_score ?? 0) >= 50 ? t.accentBlue :
+                                    t.textMuted
+                                  }`}>
+                                    {card.priority_score?.toFixed(0) ?? "—"}
+                                  </td>
+                                  <td className="py-2 px-3">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                      card.status === "shipped" ? t.badgeBullish :
+                                      card.status === "in_progress" ? t.badgeActive :
+                                      card.status === "spec_ready" ? t.badgePending :
+                                      t.badgeNeutral
+                                    }`}>
+                                      {card.status?.replace(/_/g, " ")}
+                                    </span>
+                                  </td>
+                                  <td className={`py-2 px-3 ${t.textMuted} max-w-[120px] truncate`}>
+                                    {card.target_module ?? "—"}
+                                  </td>
+                                  <td className="py-2 px-3 text-center">
+                                    {card.cross_vertical_flag && (
+                                      <span className={`text-[10px] ${t.accent}`}>✓</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
