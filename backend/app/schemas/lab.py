@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 class EnvironmentOut(BaseModel):
     env_id: UUID
+    slug: Optional[str] = None
     client_name: str
     industry: str
     industry_type: Optional[str] = None

@@ -4,6 +4,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Override Mandalore A and O with clean sans-serif (no decorative fills) */
+@font-face {
+  font-family: "MandaloreAO Override";
+  src: local("Inter"), local("Helvetica Neue"), local("Arial");
+  unicode-range: U+0041, U+0061, U+004F, U+006F;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 @layer base {
   :root {
     /* Winston cinematic tokens — Restrained Slate Blue */
@@ -196,7 +205,7 @@
   }
 
   .font-command {
-    font-family: var(--font-command), var(--font-display), sans-serif;
+    font-family: "MandaloreAO Override", var(--font-command), var(--font-display), sans-serif;
   }
 }
 

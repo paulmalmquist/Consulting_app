@@ -76,6 +76,7 @@ def _pipeline_template(industry_type: str | None, industry: str | None) -> list[
 def _environment_payload(row: dict) -> dict:
     return {
         "env_id": row["env_id"],
+        "slug": row.get("slug"),
         "client_name": row["client_name"],
         "industry": row["industry"],
         "industry_type": row.get("industry_type"),
@@ -121,7 +122,7 @@ def _card_payload(row: dict) -> dict:
 
 def _fetch_environment_row(cur, env_id: UUID | str) -> dict | None:
     cur.execute(
-        """SELECT env_id, client_name, industry, industry_type, workspace_template_key, schema_name,
+        """SELECT env_id, slug, client_name, industry, industry_type, workspace_template_key, schema_name,
                   is_active, business_id, repe_initialized, created_at, notes, pipeline_stage_name
            FROM app.environments
            WHERE env_id = %s::uuid""",
@@ -243,9 +244,10 @@ def _record_lab_event(
 def list_environments() -> list[dict]:
     with get_cursor() as cur:
         cur.execute(
-            """SELECT env_id, client_name, industry, industry_type, workspace_template_key, schema_name,
+            """SELECT env_id, slug, client_name, industry, industry_type, workspace_template_key, schema_name,
                       is_active, business_id, repe_initialized, created_at, notes, pipeline_stage_name
                FROM app.environments
+               WHERE is_active = true
                ORDER BY created_at DESC"""
         )
         return [_environment_payload(row) for row in cur.fetchall()]
