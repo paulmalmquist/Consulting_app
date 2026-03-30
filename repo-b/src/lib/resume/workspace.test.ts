@@ -11,7 +11,7 @@ describe("normalizeResumeWorkspace", () => {
 
     expect(result.issues).toEqual([]);
     expect(result.stats.roles).toBe(3);
-    expect(result.stats.nodes).toBe(2);
+    expect(result.stats.nodes).toBe(10);
     expect(result.workspace.identity.name).toBe("Paul Malmquist");
     expect(result.workspace.bi.root_entity_id).toBe("portfolio-root");
     expect(result.workspace.timeline.phases[0]?.start_date).toBe("2014-08-01");

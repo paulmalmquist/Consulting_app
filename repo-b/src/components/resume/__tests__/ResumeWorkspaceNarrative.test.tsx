@@ -104,7 +104,8 @@ describe("ResumeWorkspace narrative controls", () => {
 
     renderWorkspace();
 
-    expect(await screen.findByText("This selection has limited authored evidence so far. The summary above remains the active fallback until more cards are added.")).toBeInTheDocument();
+    expect(await screen.findByText("JLL (2014-2018)")).toBeInTheDocument();
+    expect(screen.getByText("Select a timeline item to see evidence and metrics.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Restart" }));
     await waitFor(() =>

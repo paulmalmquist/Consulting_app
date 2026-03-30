@@ -1,3 +1,136 @@
+import { vi } from "vitest";
+
+const goldenPathFixtures = vi.hoisted(() => {
+  const bridgeRows = [
+    { quarter: "2025Q1", revenue: 150_000, opex: 7_500, noi: 142_500, capex: 10_000, ti_lc: 0, reserves: 4_500, debt_service: 88_725, net_cash_flow: 39_275, asset_value: 10_400_000, debt_balance: 6_760_000, nav: 3_640_000, occupancy: 0.95, noi_check: 142_500, ncf_check: 39_275, noi_reconciles: true, ncf_reconciles: true, noi_delta: 0, ncf_delta: 0 },
+    { quarter: "2025Q2", revenue: 150_713, opex: 7_500, noi: 143_213, capex: 10_000, ti_lc: 0, reserves: 4_500, debt_service: 88_725, net_cash_flow: 39_988, asset_value: 10_500_000, debt_balance: 6_760_000, nav: 3_740_000, occupancy: 0.951, noi_check: 143_213, ncf_check: 39_988, noi_reconciles: true, ncf_reconciles: true, noi_delta: 0, ncf_delta: 0 },
+    { quarter: "2025Q3", revenue: 151_428, opex: 7_500, noi: 143_928, capex: 10_000, ti_lc: 0, reserves: 4_500, debt_service: 88_725, net_cash_flow: 40_703, asset_value: 10_600_000, debt_balance: 6_760_000, nav: 3_840_000, occupancy: 0.952, noi_check: 143_928, ncf_check: 40_703, noi_reconciles: true, ncf_reconciles: true, noi_delta: 0, ncf_delta: 0 },
+    { quarter: "2025Q4", revenue: 152_148, opex: 7_500, noi: 144_648, capex: 10_000, ti_lc: 0, reserves: 4_500, debt_service: 88_725, net_cash_flow: 41_423, asset_value: 10_700_000, debt_balance: 6_760_000, nav: 3_940_000, occupancy: 0.953, noi_check: 144_648, ncf_check: 41_423, noi_reconciles: true, ncf_reconciles: true, noi_delta: 0, ncf_delta: 0 },
+    { quarter: "2026Q1", revenue: 152_870, opex: 7_500, noi: 145_370, capex: 10_000, ti_lc: 0, reserves: 4_500, debt_service: 88_725, net_cash_flow: 42_145, asset_value: 10_900_000, debt_balance: 6_760_000, nav: 4_140_000, occupancy: 0.954, noi_check: 145_370, ncf_check: 42_145, noi_reconciles: true, ncf_reconciles: true, noi_delta: 0, ncf_delta: 0 },
+    { quarter: "2026Q2", revenue: 153_597, opex: 7_500, noi: 146_097, capex: 10_000, ti_lc: 0, reserves: 4_500, debt_service: 88_725, net_cash_flow: 42_872, asset_value: 11_100_000, debt_balance: 6_760_000, nav: 4_340_000, occupancy: 0.955, noi_check: 146_097, ncf_check: 42_872, noi_reconciles: true, ncf_reconciles: true, noi_delta: 0, ncf_delta: 0 },
+    { quarter: "2026Q3", revenue: 154_327, opex: 7_500, noi: 146_827, capex: 10_000, ti_lc: 0, reserves: 4_500, debt_service: 88_725, net_cash_flow: 43_602, asset_value: 11_300_000, debt_balance: 6_760_000, nav: 4_540_000, occupancy: 0.956, noi_check: 146_827, ncf_check: 43_602, noi_reconciles: true, ncf_reconciles: true, noi_delta: 0, ncf_delta: 0 },
+    { quarter: "2026Q4", revenue: 155_327, opex: 7_767, noi: 147_560, capex: 10_000, ti_lc: 0, reserves: 4_500, debt_service: 88_725, net_cash_flow: 44_335, asset_value: 11_804_800, debt_balance: 0, nav: 5_044_800, occupancy: 0.957, noi_check: 147_560, ncf_check: 44_335, noi_reconciles: true, ncf_reconciles: true, noi_delta: 0, ncf_delta: 0 },
+  ];
+
+  const saleEvent = {
+    sale_date: "2026-12-31",
+    gross_sale_price: 11_804_800,
+    sale_costs: 354_144,
+    debt_payoff: 6_760_000,
+    net_sale_proceeds: 4_690_656,
+    ownership_percent: 1,
+    attributable_proceeds: 4_690_656,
+  };
+
+  return {
+    cfBridge: {
+      asset_id: "f0000000-9001-0003-0001-000000000001",
+      periods: 8,
+      rows: bridgeRows,
+      sale_event: saleEvent,
+      ltd_totals: {
+        revenue: 1_220_410,
+        opex: 60_267,
+        noi: 1_160_143,
+        capex: 80_000,
+        ti_lc: 0,
+        reserves: 36_000,
+        debt_service: 709_800,
+        net_cash_flow: 334_343,
+        sale_net_proceeds: 4_690_656,
+        total_equity_distributions: 5_024_999,
+      },
+      validation: {
+        all_noi_reconcile: true,
+        all_ncf_reconcile: true,
+        period_count_ok: true,
+        has_sale_event: true,
+      },
+    },
+    chainValidation: {
+      fund_id: "a1b2c3d4-0003-0030-0001-000000000001",
+      asset_id: "f0000000-9001-0003-0001-000000000001",
+      terminal_quarter: "2026Q4",
+      validation_status: "PASS",
+      assertions: [
+        { name: "noi_equals_rev_minus_opex", passed: true, detail: "All periods pass" },
+        { name: "ncf_waterfall_reconciles", passed: true, detail: "All periods pass" },
+        { name: "jv_rollup_reconciles", passed: true, detail: "All periods pass" },
+        { name: "sale_net_proceeds_reconcile", passed: true, detail: "Sale reconciles" },
+        { name: "waterfall_balances", passed: true, detail: "Waterfall balances" },
+        { name: "no_dollar_double_counted", passed: true, detail: "All dollars allocated once" },
+        { name: "tvpi_equals_dpi_plus_rvpi", passed: true, detail: "TVPI identity holds" },
+        { name: "period_coverage", passed: true, detail: "8 quarters available" },
+      ],
+      asset: {
+        name: "Gateway Industrial Center",
+        deal_name: "Gateway Deal",
+        jv_name: "Gateway JV",
+        cost_basis: 3_640_000,
+        jv_fund_pct: 0.8,
+        equity_invested: 2_912_000,
+      },
+      cf_bridge: bridgeRows.map(({ noi_check, ncf_check, noi_reconciles, ncf_reconciles, noi_delta, ncf_delta, ...row }) => row),
+      sale_event: saleEvent,
+      jv_rollup: {
+        fund_ownership_pct: 0.8,
+        per_quarter: bridgeRows.map((row) => ({
+          quarter: row.quarter,
+          asset_ncf: row.net_cash_flow,
+          fund_share: Math.round(row.net_cash_flow * 0.8 * 100) / 100,
+          partner_share: Math.round(row.net_cash_flow * 0.2 * 100) / 100,
+          jv_fund_pct: 0.8,
+        })),
+        ltd_asset_ncf: 334_343,
+        ltd_fund_operating_ncf: 267_474,
+        fund_sale_share: 3_752_525,
+        total_fund_distributions_gross: 4_019_999,
+      },
+      gross_to_net_bridge: {
+        gross_distributions: 4_019_999,
+        management_fees: 87_360,
+        asset_mgmt_fees: 0,
+        other_fees: 0,
+        total_fees: 87_360,
+        net_distributions: 3_932_639,
+        fee_drag_bps: 300,
+      },
+      waterfall: {
+        net_distributable: 3_932_639,
+        tiers: [
+          { tier: 1, name: "return_of_capital", lp: 2_912_000, gp: 0, pool_before: 3_932_639, pool_after: 1_020_639, description: "Return of capital" },
+          { tier: 2, name: "preferred_return", lp: 620_639, gp: 0, pool_before: 1_020_639, pool_after: 400_000, description: "Preferred return" },
+          { tier: 3, name: "catch_up", lp: 0, gp: 100_000, pool_before: 400_000, pool_after: 300_000, description: "GP catch-up" },
+          { tier: 4, name: "split", lp: 240_000, gp: 60_000, pool_before: 300_000, pool_after: 0, description: "80/20 residual split" },
+        ],
+        summary: {
+          total_lp: 3_772_639,
+          total_gp: 160_000,
+          lp_moic: 1.2955,
+        },
+      },
+      return_metrics: {
+        gross_irr: 0.146,
+        net_irr: 0.132,
+        tvpi: 1.38,
+        dpi: 1.38,
+        rvpi: 0,
+        equity_invested: 2_912_000,
+        total_fund_distributions_gross: 4_019_999,
+        terminal_nav: 0,
+      },
+    },
+  };
+});
+
+vi.mock("@/lib/server/reAssetCashFlowBridge", () => ({
+  getAssetCashFlowBridge: vi.fn(async () => goldenPathFixtures.cfBridge),
+}));
+
+vi.mock("@/lib/server/reFundChainValidation", () => ({
+  getFundChainValidation: vi.fn(async () => goldenPathFixtures.chainValidation),
+}));
+
 /**
  * chain-validation.test.ts
  *
