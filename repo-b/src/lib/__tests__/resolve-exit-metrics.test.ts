@@ -72,7 +72,7 @@ describe("resolveAssetMetrics", () => {
       expect(m.saleDate).toBeNull();
 
       // Labels are live/current
-      expect(m.revenue.label).toBe("Revenue");
+      expect(m.revenue.label).toBe("Revenue (QTD)");
       expect(m.noi.label).toBe("NOI");
       expect(m.occupancy.label).toBe("Occupancy");
       expect(m.assetValue.label).toBe("Asset Value");

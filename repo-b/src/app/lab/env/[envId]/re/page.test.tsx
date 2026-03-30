@@ -23,6 +23,7 @@ vi.mock("@/lib/bos-api", () => ({
   getReV2EnvironmentPortfolioKpis: (...args: unknown[]) =>
     mockGetReV2EnvironmentPortfolioKpis(...args),
   deleteRepeFund: (...args: unknown[]) => mockDeleteRepeFund(...args),
+  getAssetMapPoints: vi.fn().mockResolvedValue([]),
 }));
 
 describe("RE environment portfolio page", () => {
