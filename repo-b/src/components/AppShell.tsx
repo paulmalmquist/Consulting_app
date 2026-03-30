@@ -43,7 +43,7 @@ export default function AppShell({
 
   return (
     <div className="min-h-screen bg-bm-bg text-bm-text flex flex-col">
-      <header className="fixed top-0 right-0 z-50 flex items-center gap-2 p-3">
+      <header className="absolute top-0 right-0 z-50 flex items-center gap-2 p-3">
         <Link
           href="/app"
           className={cn(
