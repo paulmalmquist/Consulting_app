@@ -1,7 +1,7 @@
 # Target Account Queue
 
 > Maintained by: sales-signal-discovery (daily) + monday-pipeline-review (weekly)
-> Last updated: 2026-03-27
+> Last updated: 2026-03-30
 
 ---
 
@@ -18,6 +18,10 @@
 | 7 | Canopy Real Estate Partners (Denver) | B — REPE National | 2026-03-27 | $75M inaugural fund closed Mar 18, emerging sponsor, ILPA compliance, rapid deployment | Winston REPE Pilot ($35K) | 3.85 | NEW — find warm intro to Jay Rollins | [PR Newswire](http://www.prnewswire.com/news-releases/canopy-real-estate-partners-closes-75-million-inaugural-real-estate-fund-302716498.html) |
 | 8 | Hidden Harbor Capital / R.L. James (Boca Raton) | E — PE-Backed Transition | 2026-03-27 | Active FL roll-up (Paramount Painting acquired), 24 portcos, local | AI Diagnostic ($7.5K) | 3.50 | NEW — research Justin Martino | [Hidden Harbor](https://hh-cp.com/news/) |
 | 9 | Michelli / Summit Park (Jacksonville, FL) | E — PE-Backed Transition | 2026-03-27 | Acquired FL Industrial Scale Co. today, active roll-up, PE-backed | AI Diagnostic ($7.5K) | 3.35 | NEW — identify contact | [Press](http://www.tennesseedaily.com/news/278948211/michelli-weighing-measurement-announces-acquisition-of-florida-industrial-scale-co) |
+| 10 | Comvest Private Equity (West Palm Beach, FL) | E — PE-Backed / A — SoFla | 2026-03-30 | $10.4B AUM, 166 portcos, Jan 2026 investment (Corvid Technologies), active add-ons (Bland/CSS in FL) | AI Diagnostic ($7.5K) | 3.90 | NEW — research value creation team | [Tracxn](https://tracxn.com/d/private-equity/comvestpartners/) |
+| 11 | Greystar Investment Group (GEP XII) | B — REPE National | 2026-03-30 | GEP XII fund raise, 893K+ units globally, massive LP reporting burden | Winston REPE Pilot ($35K) | 3.80 | NEW — needs fund ops contact | [Dakota](https://www.dakota.com/resources/blog/top-10-funds-to-watch-february-2026) |
+| 12 | TPG Real Estate Partners V | B — REPE National | 2026-03-30 | Active fundraise, complexity-driven RE thesis (dislocated/transitional assets) | Winston REPE Pilot ($35K) | 3.30 | NEW — low priority unless warm intro | [Dakota](https://www.dakota.com/resources/blog/top-10-funds-to-watch-february-2026) |
+| 13 | AI Engineer Miami (Event Apr 20-21) | D — Workshop/Event | 2026-03-30 | 500+ engineers, VPs of AI, founders, CEOs — speaking/attendance opportunity | Workshop ($200-500/seat) | 3.40 | NEW — apply to speak | [AI Engineer](https://www.ai.engineer/miami) |
 
 ## Segment Signals (Not Company-Specific)
 
@@ -26,6 +30,9 @@
 | ILPA Q1 2026 reporting templates now standard | B — REPE National | 2026-03-26 | Compliance pressure on mid-size REPE funds for LP reporting | Build ILPA-focused outreach template + LinkedIn post |
 | Yardi antitrust: FPI settled $2.8M, judge denied dismissal, discovery active | B — REPE National | 2026-03-27 | Yardi brand under legal pressure; REPE firms may be open to alternatives | Add to competitive positioning; reference "vendor diversification" in outreach |
 | PE CFOs now hired with explicit AI mandate | E — PE-Backed Transition | 2026-03-27 | New portfolio company CFOs have AI budget authority + mandate from sponsor | Target recently hired PE portfolio company CFOs via LinkedIn |
+| RE fund reporting software market fragmenting | B — REPE National | 2026-03-30 | Agora, InvestNext, Covercy competing hard vs. Juniper Square/Yardi; REPE firms evaluating alternatives | Reference "software evaluation cycle" in REPE outreach |
+| Mid-market PE deal activity recovering in 2026 | E — PE-Backed Transition | 2026-03-30 | Over half of senior PE leaders expect M&A to normalize by H1 2026; profitability + AI are top ops initiatives | Position AI Diagnostic as post-acquisition value creation tool |
+| South Florida AI event pipeline active | D — Workshop/Event | 2026-03-30 | AI Engineer Miami (Apr 20-21), Business Show Miami, AI 305 (Oct) — multiple speaking/networking venues | Apply to speak at AI Engineer Miami ASAP (April deadline) |
 
 ---
 
