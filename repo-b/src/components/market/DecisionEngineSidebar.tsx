@@ -37,6 +37,7 @@ const SECTIONS: SidebarSection[] = [
       { tab: "history-rhymes", label: "History Rhymes" },
       { tab: "calibration", label: "Calibration" },
       { tab: "research-briefs", label: "Research Briefs" },
+      { tab: "market-segments", label: "Market Segments" },
     ],
   },
   {

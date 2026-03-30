@@ -37,6 +37,47 @@ import type {
   TradingResearchNote,
 } from "@/lib/trading-lab/types";
 
+/* ── Market Rotation Engine types ─────────────────────────────────── */
+
+interface MarketSegmentRow {
+  segment_id: string;
+  category: string;
+  subcategory: string;
+  segment_name: string;
+  tickers: string[];
+  tier: number;
+  rotation_priority_score: number | null;
+  last_rotated_at: string | null;
+  is_active: boolean;
+  updated_at: string;
+}
+
+interface IntelBriefRow {
+  brief_id: string;
+  segment_id: string;
+  segment_name: string;
+  category: string;
+  tier: number;
+  run_date: string;
+  regime_tag: string | null;
+  composite_score: number | null;
+  key_findings: string[];
+  created_at: string;
+}
+
+interface FeatureCardRow {
+  card_id: string;
+  segment_id: string | null;
+  gap_category: string;
+  title: string;
+  description: string | null;
+  priority_score: number | null;
+  cross_vertical_flag: boolean;
+  status: string;
+  target_module: string | null;
+  created_at: string;
+}
+
 /* ── Theme tokens ─────────────────────────────────────────────────── */
 
 function buildTheme(mode: ThemeMode) {
@@ -153,6 +194,14 @@ export default function TradingLabPage() {
   const [perfSnapshots, setPerfSnapshots] = useState<TradingPerformanceSnapshot[]>([]);
   const [researchNotes, setResearchNotes] = useState<TradingResearchNote[]>([]);
 
+  // Market Rotation Engine state
+  const [mreSegments, setMreSegments] = useState<MarketSegmentRow[]>([]);
+  const [mreBriefs, setMreBriefs] = useState<IntelBriefRow[]>([]);
+  const [mreCards, setMreCards] = useState<FeatureCardRow[]>([]);
+  const [mreLoading, setMreLoading] = useState(false);
+  const [mreError, setMreError] = useState<string | null>(null);
+  const [cardStatusFilter, setCardStatusFilter] = useState<string>("all");
+
   // Position management modals
   const [showNewPosition, setShowNewPosition] = useState(false);
   const [closingPosition, setClosingPosition] = useState<TradingPosition | null>(null);
@@ -185,6 +234,36 @@ export default function TradingLabPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Market Rotation Engine fetch — lazy, triggered when tab is opened
+  const fetchMreData = useCallback(async () => {
+    if (mreLoading) return;
+    setMreLoading(true);
+    setMreError(null);
+    try {
+      const res = await fetch("/api/v1/market-rotation");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setMreSegments(data.segments || []);
+      setMreBriefs(data.briefs || []);
+      setMreCards(data.featureCards || []);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setMreError(message);
+    } finally {
+      setMreLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "market-segments" && mreSegments.length === 0 && !mreError) {
+      fetchMreData();
+    }
+  }, [activeTab, mreSegments.length, mreError, fetchMreData]);
 
   // Helper: coerce pg string numerics to number
   const num = (v: unknown): number | null => {

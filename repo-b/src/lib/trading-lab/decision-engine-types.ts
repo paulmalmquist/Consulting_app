@@ -9,7 +9,8 @@ export type DecisionTab =
   | "trap-detector"
   | "paper-portfolio"
   | "calibration"
-  | "research-briefs";
+  | "research-briefs"
+  | "market-segments";
 
 export const DECISION_TAB_LABELS: Record<DecisionTab, string> = {
   "command-center": "Command Center",
@@ -19,6 +20,7 @@ export const DECISION_TAB_LABELS: Record<DecisionTab, string> = {
   "paper-portfolio": "Paper Portfolio",
   "calibration": "Calibration",
   "research-briefs": "Research Briefs",
+  "market-segments": "Market Segments",
 };
 
 export const ASSET_SCOPE_LABELS: Record<AssetScope, string> = {
