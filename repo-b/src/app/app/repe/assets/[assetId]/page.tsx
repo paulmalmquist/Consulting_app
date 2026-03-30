@@ -7,7 +7,6 @@ import {
   getReV2AssetQuarterState,
   getReV2AssetPeriods,
   getReV2AssetLineage,
-  generateReV2AssetReport,
   getAssetLeaseSummary,
   getAssetLeaseTenants,
   getAssetLeaseExpiration,
@@ -37,7 +36,7 @@ import AuditSection from "@/components/repe/asset-cockpit/AuditSection";
 import { fmtMoney } from "@/components/repe/asset-cockpit/format-utils";
 import { resolveAssetMetrics } from "@/lib/resolve-exit-metrics";
 
-const SECTIONS = ["Cockpit", "Leasing", "Financials", "Debt", "Valuation", "Documents", "Audit"] as const;
+const SECTIONS = ["Home", "Leasing", "Financials", "Debt", "Valuation", "Documents", "Audit"] as const;
 type SectionKey = (typeof SECTIONS)[number];
 
 function pickQuarter(): string {
@@ -46,20 +45,11 @@ function pickQuarter(): string {
   return `${now.getUTCFullYear()}Q${q}`;
 }
 
-const REPORT_TYPES = [
-  { value: "snapshot", label: "Asset Snapshot" },
-  { value: "pnl", label: "Quarterly P&L Package" },
-  { value: "trial_balance", label: "Trial Balance Export" },
-  { value: "transactions", label: "Transaction Ledger" },
-  { value: "occupancy", label: "Occupancy & Rent Summary" },
-  { value: "audit", label: "Asset Audit Pack" },
-] as const;
-
 export default function ReAssetDetailPage({ params }: { params: { assetId: string } }) {
   const { businessId, environmentId } = useRepeContext();
   const basePath = useRepeBasePath();
   const quarter = pickQuarter();
-  const [section, setSection] = useState<SectionKey>("Cockpit");
+  const [section, setSection] = useState<SectionKey>("Home");
 
   // Core data
   const [detail, setDetail] = useState<ReV2AssetDetail | null>(null);
@@ -80,13 +70,6 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
   const [leaseEconomics, setLeaseEconomics] = useState<ReLeaseEconomics | null>(null);
   const [leasingLoading, setLeasingLoading] = useState(false);
   const leaseFetched = useRef(false);
-
-  // Report generation
-  const [reportModalOpen, setReportModalOpen] = useState(false);
-  const [reportType, setReportType] = useState("snapshot");
-  const [reportQuarter, setReportQuarter] = useState(quarter);
-  const [reportGenerating, setReportGenerating] = useState(false);
-  const [reportResult, setReportResult] = useState<string | null>(null);
 
   // Load core data
   useEffect(() => {
@@ -149,33 +132,6 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
       if (ecoRes.status === "fulfilled") setLeaseEconomics(ecoRes.value);
     }).finally(() => setLeasingLoading(false));
   }, [section, params.assetId]);
-
-  // Report generation handler
-  async function handleGenerateReport() {
-    setReportGenerating(true);
-    setReportResult(null);
-    try {
-      const result = await generateReV2AssetReport(params.assetId, {
-        report_type: reportType,
-        quarter: reportQuarter,
-        format: "json",
-      });
-      const blob = new Blob([JSON.stringify(result, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${detail?.asset.name || "asset"}_${reportType}_${reportQuarter}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      setReportResult("Report generated and downloaded.");
-      setTimeout(() => setReportResult(null), 5000);
-      setReportModalOpen(false);
-    } catch (err) {
-      setReportResult(err instanceof Error ? err.message : "Failed to generate report");
-    } finally {
-      setReportGenerating(false);
-    }
-  }
 
   if (loading) {
     return <div className="rounded-[28px] border border-slate-200 bg-white p-6 text-sm text-bm-muted2 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.14)] dark:border-bm-border/[0.08] dark:bg-bm-surface/[0.92]">Loading asset...</div>;
@@ -302,28 +258,6 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
             </dl>
           </div>
 
-          {/* Action buttons — pill style */}
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href={`${base}/models?asset=${asset.asset_id}&fund=${fund.fund_id}`}
-              className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-bm-text shadow-[0_8px_18px_-16px_rgba(15,23,42,0.15)] hover:bg-slate-50 dark:border-bm-border/[0.08] dark:bg-bm-surface/[0.06] dark:hover:bg-bm-surface/[0.12]"
-            >
-              Run Model
-            </Link>
-            <button
-              type="button"
-              onClick={() => setReportModalOpen(true)}
-              className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-bm-text shadow-[0_8px_18px_-16px_rgba(15,23,42,0.15)] hover:bg-slate-50 dark:border-bm-border/[0.08] dark:bg-bm-surface/[0.06] dark:hover:bg-bm-surface/[0.12]"
-            >
-              Generate Report
-            </button>
-            <Link
-              href={`${base}/assets`}
-              className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-bm-text shadow-[0_8px_18px_-16px_rgba(15,23,42,0.15)] hover:bg-slate-50 dark:border-bm-border/[0.08] dark:bg-bm-surface/[0.06] dark:hover:bg-bm-surface/[0.12]"
-            >
-              Back to Assets
-            </Link>
-          </div>
         </div>
       </div>
 
@@ -345,8 +279,8 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
         ))}
       </div>
 
-      {/* ── COCKPIT ── */}
-      {section === "Cockpit" && (
+      {/* ── HOME ── */}
+      {section === "Home" && (
         <CockpitSection
           detail={detail}
           financialState={financialState}
@@ -420,69 +354,6 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
         />
       )}
 
-      {/* ── REPORT TOAST ── */}
-      {reportResult && !reportModalOpen && (
-        <div className="fixed bottom-6 right-6 z-50 rounded-xl border border-green-500/30 bg-green-500/10 px-5 py-3 shadow-lg backdrop-blur">
-          <p className="text-sm font-medium text-green-300">{reportResult}</p>
-        </div>
-      )}
-
-      {/* ── REPORT GENERATION MODAL ── */}
-      {reportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-[28px] border border-slate-200 bg-white p-6 shadow-xl dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(9,14,28,0.98))]">
-            <h2 className="text-lg font-semibold text-bm-text">Generate Asset Report</h2>
-            <p className="mt-1 text-sm text-bm-muted2">{asset.name}</p>
-
-            <div className="mt-4 space-y-3">
-              <label className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
-                Report Type
-                <select
-                  className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-bm-text dark:border-white/10 dark:bg-white/[0.04]"
-                  value={reportType}
-                  onChange={(e) => setReportType(e.target.value)}
-                >
-                  {REPORT_TYPES.map((rt) => (
-                    <option key={rt.value} value={rt.value}>{rt.label}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
-                Quarter
-                <input
-                  className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-bm-text dark:border-white/10 dark:bg-white/[0.04]"
-                  value={reportQuarter}
-                  onChange={(e) => setReportQuarter(e.target.value)}
-                  placeholder="2026Q1"
-                />
-              </label>
-            </div>
-
-            {reportResult && (
-              <p className="mt-3 text-sm text-bm-muted2">{reportResult}</p>
-            )}
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setReportModalOpen(false)}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-bm-border/[0.08] dark:bg-bm-surface/[0.06] dark:hover:bg-bm-surface/[0.12]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleGenerateReport}
-                disabled={reportGenerating}
-                className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-white/10 dark:hover:bg-white/20"
-              >
-                {reportGenerating ? "Generating..." : "Generate"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }

@@ -62,14 +62,42 @@ export default function DebtSection({ financialState, periods, assetId }: Props)
       .catch(() => {});
   }, [assetId]);
 
-  const debtTrendData = periods
+  const debtTrendData = (periods ?? [])
     .filter((p) => p.debt_balance != null)
     .map((p) => ({
       quarter: p.quarter,
       debt_balance: Number(p.debt_balance ?? 0),
     }));
 
-  const loan = getMockLoanDetails();
+  // Use real covenant data when available, fall back to mock
+  const mockLoan = getMockLoanDetails();
+  const primaryLoan = covenantData?.loans?.[0];
+  const loan = primaryLoan
+    ? {
+        lender: primaryLoan.loan_name,
+        rate: primaryLoan.rate,
+        maturity: primaryLoan.maturity_date
+          ? new Date(primaryLoan.maturity_date).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+          : "—",
+        amortization: "—",
+        loan_type: "—",
+      }
+    : mockLoan;
+
+  // Maturity warning: flag loans maturing within 18 months
+  const maturityWarnings: { loanName: string; monthsLeft: number }[] = [];
+  if (covenantData?.loans) {
+    const now = Date.now();
+    for (const ln of covenantData.loans) {
+      if (ln.maturity_date) {
+        const matMs = new Date(ln.maturity_date).getTime();
+        const monthsLeft = Math.round((matMs - now) / (1000 * 60 * 60 * 24 * 30.44));
+        if (monthsLeft > 0 && monthsLeft <= 18) {
+          maturityWarnings.push({ loanName: ln.loan_name, monthsLeft });
+        }
+      }
+    }
+  }
 
   if (!financialState && debtTrendData.length === 0) {
     return (
@@ -194,6 +222,20 @@ export default function DebtSection({ financialState, periods, assetId }: Props)
           <SecondaryMetric label="Loan Type" value={loan.loan_type} />
         </div>
       </div>
+
+      {/* Maturity & Covenant Alerts */}
+      {maturityWarnings.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {maturityWarnings.map((w) => (
+            <div key={w.loanName} className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] px-4 py-2.5">
+              <span className="h-2 w-2 rounded-full bg-amber-400" />
+              <span className="text-xs font-medium text-amber-300">
+                {w.loanName}: matures in {w.monthsLeft} month{w.monthsLeft !== 1 ? "s" : ""} — refinancing review recommended
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Covenant Status Panel */}
       {covenantData && covenantData.loans.length > 0 && (

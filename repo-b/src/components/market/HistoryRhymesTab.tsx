@@ -36,9 +36,9 @@ const LAYER_CLASSES: Record<string, { text: string; bg: string; dot: string }> =
   meta:        { text: "text-red-400", bg: "bg-red-400", dot: "bg-red-400" },
 };
 
-/* ── Mock Data (unchanged) ────────────────────────────────── */
+/* ── Mock Data (exported for panel decomposition) ─────────── */
 
-const analogOverlay = Array.from({ length: 60 }, (_, i) => {
+export const analogOverlay = Array.from({ length: 60 }, (_, i) => {
   const b = Math.sin(i * 0.1) * 5;
   return {
     day: i - 30,
@@ -48,7 +48,7 @@ const analogOverlay = Array.from({ length: 60 }, (_, i) => {
   };
 });
 
-const realitySignals = [
+export const realitySignals = [
   { domain: "Labor", signal: "Tech job postings", value: -12, accel: -3.2, trend: "down", confidence: 0.82 },
   { domain: "Labor", signal: "Construction hiring", value: -8, accel: -1.1, trend: "down", confidence: 0.74 },
   { domain: "Logistics", signal: "Freight rates (Drewry WCI)", value: -22, accel: +4.5, trend: "decel. decline", confidence: 0.88 },
@@ -58,7 +58,7 @@ const realitySignals = [
   { domain: "Consumer", signal: "BNPL usage growth", value: +18, accel: +6.7, trend: "accelerating", confidence: 0.77 },
 ];
 
-const dataSignals = [
+export const dataSignals = [
   { metric: "CPI YoY", reported: 3.1, expected: 3.0, surprise: +0.1, trend: "sticky", revision: "none" },
   { metric: "Core PCE", reported: 2.8, expected: 2.7, surprise: +0.1, trend: "sticky", revision: "none" },
   { metric: "Nonfarm Payrolls", reported: 151, expected: 170, surprise: -19, trend: "cooling", revision: "-26K prior" },
@@ -67,7 +67,7 @@ const dataSignals = [
   { metric: "CMBS Delinq.", reported: 12.3, expected: 11.8, surprise: +0.5, trend: "rising", revision: "+0.2 prior" },
 ];
 
-const narrativeState = [
+export const narrativeState = [
   { label: "Soft Landing", intensity: 72, velocity: -8, lifecycle: "exhaustion", crowding: 85, manipulation: 0.3 },
   { label: "AI Bubble", intensity: 61, velocity: +12, lifecycle: "emerging", crowding: 45, manipulation: 0.2 },
   { label: "CRE Apocalypse", intensity: 58, velocity: -3, lifecycle: "crowded", crowding: 78, manipulation: 0.4 },
@@ -76,7 +76,7 @@ const narrativeState = [
   { label: "Rate Cut Rally", intensity: 68, velocity: -15, lifecycle: "exhaustion", crowding: 91, manipulation: 0.6 },
 ];
 
-const positioningData = [
+export const positioningData = [
   { asset: "SPY", metric: "Put/Call", value: "0.82", crowding: 62, extreme: false, direction: "neutral" },
   { asset: "QQQ", metric: "Net Gamma", value: "-2.1B", crowding: 78, extreme: true, direction: "negative" },
   { asset: "BTC", metric: "Funding Rate", value: "0.012%", crowding: 55, extreme: false, direction: "long" },
@@ -87,7 +87,7 @@ const positioningData = [
   { asset: "Gold", metric: "CFTC Net Long", value: "312K", crowding: 82, extreme: true, direction: "crowded long" },
 ];
 
-const silenceEvents = [
+export const silenceEvents = [
   { label: "China Property Crisis", priorIntensity: 78, currentIntensity: 12, dropoff: -85, significance: 0.91 },
   { label: "Bank Term Funding", priorIntensity: 65, currentIntensity: 8, dropoff: -88, significance: 0.87 },
   { label: "Japan Carry Trade", priorIntensity: 71, currentIntensity: 15, dropoff: -79, significance: 0.83 },
@@ -95,7 +95,7 @@ const silenceEvents = [
   { label: "Student Loan Restart", priorIntensity: 60, currentIntensity: 5, dropoff: -92, significance: 0.72 },
 ];
 
-const mismatchData = [
+export const mismatchData = [
   { topic: "Consumer Health", reality: "BNPL +18%, card delinq rising", data: "Retail sales +0.4%", narrative: "Consumer resilient", mismatch: 0.78 },
   { topic: "Labor Market", reality: "Tech freeze, construction -8%", data: "NFP +151K (miss)", narrative: "Jobs still strong", mismatch: 0.72 },
   { topic: "Office CRE", reality: "Cranes -15%, leasing quiet", data: "CMBS delinq 12.3%", narrative: "Bottom forming", mismatch: 0.85 },
@@ -103,7 +103,7 @@ const mismatchData = [
   { topic: "Rate Path", reality: "BNPL stress, freight falling", data: "CPI sticky 3.1%", narrative: "Higher for longer", mismatch: 0.55 },
 ];
 
-const agentData = [
+export const agentData = [
   { agent: "Macro", dir: "Bearish", conf: 68, brier: 0.19, wt: 28 },
   { agent: "Quant", dir: "Neutral", conf: 52, brier: 0.21, wt: 22 },
   { agent: "Narrative", dir: "Bearish", conf: 71, brier: 0.17, wt: 24 },
@@ -111,7 +111,7 @@ const agentData = [
   { agent: "Red Team", dir: "TRAP", conf: 73, brier: 0.15, wt: 12 },
 ];
 
-const radarDims = [
+export const radarDims = [
   { d: "Reality", current: 0.78, gfc: 0.88, crypto22: 0.72 },
   { d: "Data", current: 0.65, gfc: 0.91, crypto22: 0.55 },
   { d: "Narrative", current: 0.71, gfc: 0.81, crypto22: 0.85 },
@@ -120,14 +120,14 @@ const radarDims = [
   { d: "Acceleration", current: 0.73, gfc: 0.85, crypto22: 0.76 },
 ];
 
-const brierHist = Array.from({ length: 24 }, (_, i) => ({
+export const brierHist = Array.from({ length: 24 }, (_, i) => ({
   w: `W${i + 1}`,
   agg: 0.21 - i * 0.0008 + (Math.random() - .5) * 0.03,
   base: 0.25,
   narrative: 0.17 + (Math.random() - .5) * 0.04,
 }));
 
-const trapChecks = [
+export const trapChecks = [
   { check: "Consensus Divergence", status: "CLEAR", variant: "success" as const, value: "3/5 agents agree" },
   { check: "Flow / Narrative", status: "MISMATCH", variant: "warning" as const, value: "Bearish narrative, buying flows" },
   { check: "Crowding Score", status: "ELEVATED", variant: "warning" as const, value: "0.68 - Office REIT shorts" },
@@ -138,7 +138,7 @@ const trapChecks = [
 
 /* ── Section Components ───────────────────────────────────── */
 
-function SectionHeader({ title, children }: { title: string; children?: React.ReactNode }) {
+export function SectionHeader({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between mb-3">
       <h3 className="text-[10px] font-bold uppercase tracking-wider text-bm-muted2">{title}</h3>
@@ -147,7 +147,7 @@ function SectionHeader({ title, children }: { title: string; children?: React.Re
   );
 }
 
-function MarketStateStrip() {
+export function MarketStateStrip() {
   const metrics = [
     { label: "Regime", value: "LATE", sub: "Dalio Phase 3 - tightening stress", variant: "accent" as const },
     { label: "Divergence Score", value: "0.74", sub: "Reality != Narrative on 3/5 topics", variant: "warning" as const },
@@ -174,7 +174,7 @@ function MarketStateStrip() {
   );
 }
 
-function DecisionLayer() {
+export function DecisionLayer() {
   const bearishCount = agentData.filter(a => a.dir === "Bearish").length;
   const totalConf = agentData.reduce((s, a) => s + a.conf * a.wt, 0) / agentData.reduce((s, a) => s + a.wt, 0);
   const trapsActive = trapChecks.filter(t => t.variant === "warning" || t.variant === "danger").length;
@@ -205,7 +205,7 @@ function DecisionLayer() {
   );
 }
 
-function AnalogForecast() {
+export function AnalogForecast() {
   const scenarios = [
     { label: "BULL", prob: 20, ret: "+12%", variant: "success" as const, note: "Requires dovish pivot + CRE stabilization" },
     { label: "BASE", prob: 52, ret: "-3%", variant: "accent" as const, note: "Grinding chop, data-dependent Fed, slow deterioration" },
@@ -285,7 +285,7 @@ function AnalogForecast() {
   );
 }
 
-function PositioningSection() {
+export function PositioningSection() {
   return (
     <section data-testid="positioning-traps">
       <SectionHeader title="Positioning & Traps">
@@ -364,7 +364,7 @@ function PositioningSection() {
   );
 }
 
-function SignalStack() {
+export function SignalStack() {
   const [open, setOpen] = useState(false);
 
   return (
@@ -506,7 +506,7 @@ function SignalStack() {
   );
 }
 
-function SupportingDetail() {
+export function SupportingDetail() {
   const [open, setOpen] = useState(false);
 
   return (

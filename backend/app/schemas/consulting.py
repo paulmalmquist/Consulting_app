@@ -761,3 +761,144 @@ class TodayOverdueOut(BaseModel):
 
 class UpdateLeadStageRequest(BaseModel):
     stage: str
+
+
+# ─── Proof Assets ─────────────────────────────────────────────────────
+
+class ProofAssetCreateRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    asset_type: str
+    title: str
+    description: str | None = None
+    status: str = "draft"
+    linked_offer_type: str | None = None
+    file_path: str | None = None
+    content_markdown: str | None = None
+
+
+class ProofAssetUpdateRequest(BaseModel):
+    status: str | None = None
+    title: str | None = None
+    description: str | None = None
+    content_markdown: str | None = None
+    file_path: str | None = None
+
+
+class ProofAssetOut(BaseModel):
+    id: UUID
+    env_id: str
+    business_id: UUID
+    asset_type: str
+    title: str
+    description: str | None = None
+    status: str
+    linked_offer_type: str | None = None
+    file_path: str | None = None
+    content_markdown: str | None = None
+    last_used_at: datetime | None = None
+    use_count: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProofAssetSummaryOut(BaseModel):
+    total: int
+    ready: int
+    draft: int
+    needs_update: int
+    archived: int
+
+
+# ─── Objections ───────────────────────────────────────────────────────
+
+class ObjectionCreateRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    objection_type: str
+    summary: str
+    crm_account_id: UUID | None = None
+    crm_opportunity_id: UUID | None = None
+    source_conversation: str | None = None
+    response_strategy: str | None = None
+    confidence: int | None = Field(None, ge=1, le=5)
+    linked_feature_gap: str | None = None
+    linked_offer_type: str | None = None
+
+
+class ObjectionUpdateRequest(BaseModel):
+    outcome: str | None = None
+    response_strategy: str | None = None
+    confidence: int | None = Field(None, ge=1, le=5)
+
+
+class ObjectionOut(BaseModel):
+    id: UUID
+    env_id: str
+    business_id: UUID
+    crm_account_id: UUID | None = None
+    crm_opportunity_id: UUID | None = None
+    account_name: str | None = None
+    objection_type: str
+    summary: str
+    source_conversation: str | None = None
+    response_strategy: str | None = None
+    confidence: int | None = None
+    outcome: str
+    linked_feature_gap: str | None = None
+    linked_offer_type: str | None = None
+    detected_at: datetime
+    resolved_at: datetime | None = None
+    created_at: datetime
+
+
+class TopObjectionOut(BaseModel):
+    objection_type: str
+    freq: int
+    examples: list[str]
+
+
+# ─── Demo Readiness ───────────────────────────────────────────────────
+
+class DemoReadinessUpdateRequest(BaseModel):
+    status: str | None = None
+    blockers: list[str] | None = None
+    notes: str | None = None
+    last_tested_at: datetime | None = None
+
+
+class DemoReadinessOut(BaseModel):
+    id: UUID
+    env_id: str
+    business_id: UUID
+    demo_name: str
+    vertical: str | None = None
+    status: str
+    blockers: list[str] = Field(default_factory=list)
+    last_tested_at: datetime | None = None
+    notes: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+# ─── Stale Records ────────────────────────────────────────────────────
+
+class StaleAccountOut(BaseModel):
+    crm_account_id: UUID
+    name: str
+    industry: str | None = None
+    last_activity_date: datetime | None = None
+    days_stale: int
+
+
+class OrphanOpportunityOut(BaseModel):
+    crm_opportunity_id: UUID
+    name: str
+    account_name: str | None = None
+    stage_key: str | None = None
+    amount: Decimal | None = None
+
+
+class StaleRecordsOut(BaseModel):
+    stale_accounts: list[StaleAccountOut]
+    orphan_opportunities: list[OrphanOpportunityOut]

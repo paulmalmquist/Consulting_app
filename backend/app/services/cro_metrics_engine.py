@@ -267,3 +267,55 @@ def get_latest_snapshot(*, env_id: str, business_id: UUID) -> dict | None:
             (env_id, str(business_id)),
         )
         return cur.fetchone()
+
+
+def get_stale_records(*, env_id: str, business_id: UUID, stale_days: int = 14) -> dict:
+    """Return accounts with no recent activity and open opportunities missing next actions."""
+    with get_cursor() as cur:
+        # Stale accounts: last activity > stale_days ago
+        cur.execute(
+            """
+            SELECT a.crm_account_id, a.name, a.industry,
+                   MAX(act.activity_date) AS last_activity_date,
+                   EXTRACT(DAY FROM now() - MAX(act.activity_date))::int AS days_stale
+              FROM crm_account a
+              LEFT JOIN crm_activity act ON act.crm_account_id = a.crm_account_id
+             WHERE a.business_id = %s
+               AND a.account_type NOT IN ('archived', 'cold_hold')
+             GROUP BY a.crm_account_id, a.name, a.industry
+            HAVING MAX(act.activity_date) IS NULL
+                OR MAX(act.activity_date) < now() - interval '%s days'
+             ORDER BY days_stale DESC NULLS FIRST
+             LIMIT 20
+            """,
+            (str(business_id), stale_days),
+        )
+        stale_accounts = [dict(r) for r in cur.fetchall()]
+
+        # Orphan opportunities: open with no pending next action
+        cur.execute(
+            """
+            SELECT o.crm_opportunity_id, o.name, a.name AS account_name,
+                   s.key AS stage_key, o.amount
+              FROM crm_opportunity o
+              LEFT JOIN crm_account a ON a.crm_account_id = o.crm_account_id
+              LEFT JOIN crm_pipeline_stage s ON s.crm_pipeline_stage_id = o.crm_pipeline_stage_id
+             WHERE o.business_id = %s
+               AND o.status = 'open'
+               AND NOT EXISTS (
+                   SELECT 1 FROM cro_next_action na
+                    WHERE na.entity_type = 'opportunity'
+                      AND na.entity_id = o.crm_opportunity_id
+                      AND na.status = 'pending'
+               )
+             ORDER BY o.amount DESC NULLS LAST
+             LIMIT 20
+            """,
+            (str(business_id),),
+        )
+        orphan_opps = [dict(r) for r in cur.fetchall()]
+
+    return {
+        "stale_accounts": stale_accounts,
+        "orphan_opportunities": orphan_opps,
+    }

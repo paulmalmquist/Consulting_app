@@ -30,12 +30,16 @@ interface Props {
 
 export default function FinancialsSection({
   assetId,
-  quarter,
+  quarter: initialQuarter,
   financialState,
   periods,
   envId,
   businessId,
 }: Props) {
+  // Period selector — stateful within section
+  const [selectedQuarter, setSelectedQuarter] = useState(initialQuarter);
+  const quarter = selectedQuarter;
+
   // Upload drawer
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadRefreshKey, setUploadRefreshKey] = useState(0);
@@ -81,6 +85,30 @@ export default function FinancialsSection({
 
   return (
     <div className="space-y-4" data-testid="asset-financials-section">
+      {/* Period selector + lock badge */}
+      {periods.length > 0 && (
+        <div className="flex items-center gap-3">
+          <label className="text-[10px] uppercase tracking-[0.12em] text-bm-muted2">Period</label>
+          <select
+            value={quarter}
+            onChange={(e) => setSelectedQuarter(e.target.value)}
+            className="rounded-lg border border-bm-border bg-bm-surface px-3 py-1.5 text-sm text-bm-text focus:border-bm-accent focus:outline-none"
+          >
+            {periods.map((p) => (
+              <option key={p.quarter} value={p.quarter}>{p.quarter}</option>
+            ))}
+          </select>
+          {/* Lock badge — visual indicator (actual lock state comes from re_run) */}
+          <span className="inline-flex items-center gap-1 rounded-full border border-bm-border/50 bg-bm-surface/20 px-2 py-0.5 text-[10px] text-bm-muted2">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <rect x="3" y="11" width="18" height="11" rx="2" />
+              <path d="M7 11V7a5 5 0 0110 0v4" />
+            </svg>
+            {quarter === initialQuarter ? "Current" : "Historical"}
+          </span>
+        </div>
+      )}
+
       {/* NOI Bridge Waterfall */}
       {waterfallItems.length > 0 && (
         <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">

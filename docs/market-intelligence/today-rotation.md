@@ -1,37 +1,38 @@
-# Market Rotation Selection — 2026-03-29
+# Market Rotation Selection — 2026-03-30
 
-**Generated:** 2026-03-29 ~04:00 UTC
+**Generated:** 2026-03-30 ~04:00 UTC
 **Status:** Ready for fin-research-sweep
 
 ## Selected Segments (4)
 
 | # | Segment ID | Segment Name | Category | Tier | Overdue Ratio | Days Since Rotation |
 |---|---|---|---|---|---|---|
-| 1 | cr-regime-eth | ETH Ecosystem Health | crypto | 1 | 6.76x | 6.8 |
-| 2 | dr-crypto-derivatives | Crypto Derivatives Flow | derivatives | 1 | 6.76x | 6.8 |
-| 3 | ma-regime-classifier | Multi-Asset Regime Classifier | macro | 1 | 6.29x | 6.3 |
-| 4 | eq-reits-data-center | Data Center REITs | equities | 1 | 2.10x | 6.3 |
+| 1 | ma-credit-spreads | Credit Spreads & Risk Premia | macro | 1 | 6.87x | 6.9 |
+| 2 | cr-regime-btc | BTC On-Chain Regime | crypto | 1 | 1.97x | 2.0 |
+| 3 | dr-options-flow | Equity Options Flow | derivatives | 1 | 1.97x | 2.0 |
+| 4 | ma-rates-curve | Rates & Yield Curve | macro | 1 | 1.97x | 2.0 |
 
 ## Category Mix
 
-- **crypto** (1): cr-regime-eth
-- **derivatives** (1): dr-crypto-derivatives
-- **macro** (1): ma-regime-classifier
-- **equities** (1): eq-reits-data-center
+- **macro** (2): ma-credit-spreads, ma-rates-curve
+- **crypto** (1): cr-regime-btc
+- **derivatives** (1): dr-options-flow
 
-All 4 active categories represented.
+3 of 4 active categories represented. Equities not selected this cycle — no equities Tier 1 daily segments were overdue.
 
 ## Selection Rationale
 
-- Yesterday's rotation flagged ETH Ecosystem Health, Crypto Derivatives Flow, Multi-Asset Regime Classifier, and Credit Spreads as priority carryovers. Three of those four are selected today.
-- All 4 selections are Tier 1 segments. The top 3 are daily-cadence segments that went ~6-7 days without rotation (6x+ overdue).
-- The equities slot went to Data Center REITs (Tier 1, 3-day cadence, 2.1x overdue) to ensure category diversity rather than selecting a second macro segment (Credit Spreads, 6.29x overdue).
-- Credit Spreads & Risk Premia (ma-credit-spreads, 6.29x overdue) remains the top carryover for tomorrow's rotation.
+- All 4 selections are Tier 1 daily-cadence segments with overdue ratios > 1.0. Per rotation policy, these must always be included when overdue.
+- Credit Spreads & Risk Premia was the top carryover from yesterday's rotation (flagged at 6.29x, now 6.87x). It is finally selected today after being deferred for category diversity yesterday.
+- BTC On-Chain Regime, Equity Options Flow, and Rates & Yield Curve are all ~2 days overdue on daily cadences.
+- Macro has 2 slots because both daily macro segments (credit spreads, rates) were overdue. No equities Tier 1 daily segments exist to compete for a slot.
 
 ## Heat Triggers
 
-- No external heat triggers detected. Selection driven purely by overdue ratios and category-mix rules.
+- **ma-credit-spreads**: 6.87x overdue — highest urgency. Nearly a week without rotation on a daily segment. Carryover from 2 consecutive rotations.
+- No external heat triggers detected. Selection driven by overdue ratios and mandatory Tier 1 daily inclusion rules.
 
 ## Backlog Note
 
-Tier 2 equities segments (Cybersecurity, Industrial Reshoring, Healthcare Services, Biotech Catalysts, etc.) remain at 325x+ overdue ratios, never having been rotated. Recommend continuing the equities catch-up block referenced in yesterday's rotation.
+- Tier 1 3-day cadence segments with high overdue ratios: eq-factor-momentum (2.0x), cr-l1-alt (2.0x), eq-semi-ai-accel (2.0x), eq-energy-transition (2.0x). These should be prioritized in the next rotation.
+- Tier 2 equities segments (Cybersecurity, Industrial Reshoring, Healthcare Services, Biotech Catalysts) remain at 325x+ overdue ratios, never rotated. Recommend scheduling a dedicated equities catch-up block.

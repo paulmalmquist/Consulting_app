@@ -98,7 +98,9 @@ export async function GET(request: NextRequest) {
         {
           error_code: "SCHEMA_NOT_MIGRATED",
           message: "Consulting Revenue OS schema not migrated.",
-          detail: "Run migrations 280 and 281.",
+          detail: "Run migrations 260 (CRM base), 280 (CRO core), and 281 (strategic outreach). Check /bos/api/consulting/health for full status.",
+          health_check_url: "/bos/api/consulting/health",
+          required_migrations: ["260_crm_native.sql", "280_consulting_revenue_os.sql", "281_strategic_outreach_engine.sql"],
         },
         { status: 503 },
       );

@@ -7,12 +7,18 @@ import {
   listReV2InvestmentsFiltered,
   createReV2Investment,
   listReV1Funds,
+  getAssetMapPoints,
   RepeFund,
   ReV2FundInvestmentRollupRow,
+  type AssetMapResponse,
 } from "@/lib/bos-api";
 import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
 import { KpiStrip } from "@/components/repe/asset-cockpit/KpiStrip";
 import { fmtMoney, fmtPct } from '@/lib/format-utils';
+import { computeHealthColor, HEALTH_DOT_CLASSES, healthLabel } from "@/lib/repe-health";
+import { PortfolioAssetMap } from "@/components/repe/portfolio/PortfolioAssetMap";
+import { TrendLineChart } from "@/components/charts";
+import { CHART_COLORS } from "@/components/charts/chart-theme";
 import {
   RepeIndexScaffold,
   reIndexActionClass,
@@ -43,11 +49,15 @@ function pickCurrentQuarter(): string {
   return `${now.getUTCFullYear()}Q${q}`;
 }
 
-function DataHealthDot({ missing }: { missing: number | undefined }) {
-  if (missing == null) return <span className="text-bm-muted2">—</span>;
-  if (missing === 0) return <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-400" title="All assets have data" />;
-  if (missing <= 2) return <span className="inline-block h-2.5 w-2.5 rounded-full bg-yellow-400" title={`${missing} asset(s) missing data`} />;
-  return <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-400" title={`${missing} assets missing data`} />;
+function InvestmentHealthDot({ dscr, ltv }: { dscr: number | null | undefined; ltv: number | null | undefined }) {
+  const color = computeHealthColor(dscr != null ? Number(dscr) : null, ltv != null ? Number(ltv) : null);
+  const lbl = healthLabel(color);
+  return (
+    <span
+      className={`inline-block h-2.5 w-2.5 rounded-full ${HEALTH_DOT_CLASSES[color]}`}
+      title={`${lbl}${dscr != null ? ` · DSCR ${Number(dscr).toFixed(2)}x` : ""}${ltv != null ? ` · LTV ${(Number(ltv) * 100).toFixed(0)}%` : ""}`}
+    />
+  );
 }
 
 // ── Column-header filter components ─────────────────────────────────────────
@@ -297,6 +307,10 @@ function RepeInvestmentsPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
+  // Map + visualization
+  const [mapData, setMapData] = useState<AssetMapResponse | null>(null);
+  const [mapLoading, setMapLoading] = useState(false);
+
   // ── Filter state from URL params ────────────────────────────────────────
   const nameFilter = searchParams.get("q") || "";
   const fundFilter = searchParams.get("fund") || "";
@@ -331,6 +345,16 @@ function RepeInvestmentsPageContent() {
       business_id: businessId || undefined,
     }).then(setFunds).catch(() => {});
   }, [businessId, environmentId]);
+
+  // ── Load asset map data ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!environmentId) return;
+    setMapLoading(true);
+    getAssetMapPoints({ env_id: environmentId, status: "all" })
+      .then(setMapData)
+      .catch(() => setMapData(null))
+      .finally(() => setMapLoading(false));
+  }, [environmentId]);
 
   // ── Load all investments (no server-side filters) ────────────────────────
   const fetchInvestments = useCallback(async () => {
@@ -405,6 +429,31 @@ function RepeInvestmentsPageContent() {
     ? filteredRows.reduce((s, r) => s + Number(r.weighted_occupancy || 0) * Number(r.total_asset_value || 0), 0) / totalValue
     : 0;
 
+  // ── DSCR vs LTV scatter data ──────────────────────────────────────────
+  const scatterData = useMemo(() => {
+    return filteredRows
+      .filter((r) => r.computed_dscr != null && r.computed_ltv != null)
+      .map((r) => ({
+        name: r.name,
+        dscr: Number(r.computed_dscr),
+        ltv: Number(r.computed_ltv) * 100,
+        nav: Number(r.nav || 0),
+        health: computeHealthColor(Number(r.computed_dscr), Number(r.computed_ltv)),
+      }));
+  }, [filteredRows]);
+
+  // ── Aggregate NAV time series by quarter (from investment-level data) ──
+  const navTimeSeriesData = useMemo(() => {
+    // Group NAV by fund_name for multi-line chart
+    const fundNames = [...new Set(filteredRows.map((r) => r.fund_name).filter(Boolean))];
+    const navByFund: Record<string, number> = {};
+    for (const row of filteredRows) {
+      const fn = row.fund_name || "Unknown";
+      navByFund[fn] = (navByFund[fn] || 0) + Number(row.nav || 0);
+    }
+    return { fundNames, navByFund, quarter };
+  }, [filteredRows, quarter]);
+
   const hasActiveFilters =
     nameFilter !== "" || fundFilter !== "" || typeFilter !== "" ||
     stageFilter !== "" || marketFilter !== "" || sponsorFilter !== "";
@@ -470,6 +519,76 @@ function RepeInvestmentsPageContent() {
       }
       className="w-full"
     >
+      {/* ── MAP + SCATTER (50/50) ── */}
+      {!loading && allRows.length > 0 && (
+        <div className="grid gap-4 lg:grid-cols-2 mb-4">
+          <PortfolioAssetMap data={mapData} loading={mapLoading} />
+
+          {/* DSCR vs LTV Scatter */}
+          <div className="rounded-xl border border-bm-border/70 bg-bm-surface/[0.03] p-5 space-y-3">
+            <div>
+              <h3 className="text-[1.05rem] font-semibold tracking-tight text-bm-text">
+                Risk Quadrant: DSCR vs LTV
+              </h3>
+              <p className="mt-0.5 text-xs text-bm-muted2">
+                Each point = one investment. Green = healthy, yellow = watch, red = distressed.
+              </p>
+            </div>
+            {scatterData.length > 0 ? (
+              <div className="relative h-[240px]">
+                {/* Simple CSS scatter plot — deterministic, no derived calcs */}
+                <div className="absolute inset-0 border border-bm-border/30 rounded-lg overflow-hidden">
+                  {/* Quadrant labels */}
+                  <div className="absolute top-2 left-2 text-[9px] uppercase tracking-wider text-red-400/60">Distressed</div>
+                  <div className="absolute top-2 right-2 text-[9px] uppercase tracking-wider text-amber-400/60">Leveraged</div>
+                  <div className="absolute bottom-2 left-2 text-[9px] uppercase tracking-wider text-bm-muted2/40">De-risked</div>
+                  <div className="absolute bottom-2 right-2 text-[9px] uppercase tracking-wider text-green-400/60">Strong</div>
+
+                  {/* Reference lines */}
+                  <div className="absolute left-0 right-0 border-t border-dashed border-bm-border/40" style={{ top: "35%" }} />
+                  <div className="absolute top-0 bottom-0 border-l border-dashed border-bm-border/40" style={{ left: "50%" }} />
+                  <span className="absolute text-[8px] text-bm-muted2" style={{ top: "33%", left: "2px" }}>LTV 65%</span>
+                  <span className="absolute text-[8px] text-bm-muted2" style={{ top: "2px", left: "49%" }}>DSCR 1.25x</span>
+
+                  {/* Data points */}
+                  {scatterData.map((d, i) => {
+                    // Map DSCR 0-3 → left 0-100%, LTV 0-100 → bottom 0-100%
+                    const x = Math.min(Math.max(d.dscr / 3, 0), 1) * 100;
+                    const y = (1 - Math.min(d.ltv / 100, 1)) * 100;
+                    const size = Math.max(6, Math.min(16, Math.sqrt(d.nav / 1_000_000) * 3));
+                    return (
+                      <div
+                        key={i}
+                        className={`absolute rounded-full ${HEALTH_DOT_CLASSES[d.health]} opacity-80`}
+                        style={{
+                          left: `${x}%`,
+                          top: `${100 - y}%`,
+                          width: `${size}px`,
+                          height: `${size}px`,
+                          transform: "translate(-50%, -50%)",
+                        }}
+                        title={`${d.name}\nDSCR: ${d.dscr.toFixed(2)}x\nLTV: ${d.ltv.toFixed(0)}%\nNAV: $${(d.nav / 1_000_000).toFixed(1)}M`}
+                      />
+                    );
+                  })}
+                </div>
+                {/* Axes labels */}
+                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] uppercase tracking-wider text-bm-muted2">
+                  DSCR →
+                </div>
+                <div className="absolute -left-1 top-1/2 -translate-y-1/2 -rotate-90 text-[9px] uppercase tracking-wider text-bm-muted2">
+                  LTV →
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-[240px] text-sm text-bm-muted2">
+                No DSCR / LTV data available for scatter plot
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <section data-testid="re-investments-list">
         {error ? (
           <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">
@@ -627,7 +746,7 @@ function RepeInvestmentsPageContent() {
                         {row.sponsor || "—"}
                       </td>
                       <td className="px-3 py-4 text-center align-middle">
-                        <DataHealthDot missing={row.missing_quarter_state_count} />
+                        <InvestmentHealthDot dscr={row.computed_dscr} ltv={row.computed_ltv} />
                       </td>
                     </tr>
                   ))

@@ -106,7 +106,13 @@ export async function GET(request: NextRequest) {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes("does not exist") || message.includes("relation")) {
       return Response.json(
-        { error_code: "SCHEMA_NOT_MIGRATED", message: "Loop Intelligence schema not migrated.", detail: "Run migration 302." },
+        {
+          error_code: "SCHEMA_NOT_MIGRATED",
+          message: "Loop Intelligence schema not migrated.",
+          detail: "Run migration 302 (consulting_loop_intelligence). Check /bos/api/consulting/health for full status.",
+          health_check_url: "/bos/api/consulting/health",
+          required_migrations: ["302_consulting_loop_intelligence.sql"],
+        },
         { status: 503 },
       );
     }

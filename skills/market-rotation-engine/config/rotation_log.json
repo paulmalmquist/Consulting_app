@@ -4,7 +4,7 @@
   "created_at": "2026-03-22",
   "current_regime": "RISK_OFF_DEFENSIVE",
   "regime_updated_at": "2026-03-24",
-  "total_rotations": 4,
+  "total_rotations": 5,
   "total_feature_cards": 0,
   "total_prompts_generated": 0,
   "rotations": [
@@ -52,6 +52,21 @@
       "supabase_inserted": true,
       "git_pushed": false,
       "notes": "Four-category rotation: all Tier 1 segments, 3 daily-cadence segments 6-7 days overdue. RISK_OFF_DEFENSIVE confirmed by regime classifier: HY spreads at 470bps, $1.35T maturity wall, Fed hold at 3.50-3.75%. ETH showing record on-chain divergence from price. Data center REITs strongest fundamental quality (8/10) but cap rate spread compressed to near zero vs 4.39% 10Y. Credit Spreads (ma-credit-spreads) remains top carryover for tomorrow. Git push blocked by stale index.lock — needs manual removal. Briefs on disk and in Supabase."
+    },
+    {
+      "date": "2026-03-30",
+      "segments": ["ma-credit-spreads", "cr-regime-btc", "dr-options-flow", "ma-rates-curve"],
+      "regime": "RISK_OFF_DEFENSIVE",
+      "composite_scores": {
+        "ma-credit-spreads": 7.0,
+        "cr-regime-btc": 6.6,
+        "dr-options-flow": 6.5,
+        "ma-rates-curve": 7.7
+      },
+      "briefs_written": true,
+      "supabase_inserted": true,
+      "git_pushed": false,
+      "notes": "Four-segment rotation: 2 macro (credit spreads finally rotated after 6.87x overdue, rates curve), 1 crypto (BTC on-chain), 1 derivatives (options flow). Credit spreads carryover resolved — HY OAS at ~312bps with CCC bifurcation to 945bps. BTC 5-signal bottom convergence firing for 4th time in history at $66K. Yield curve uninverted via rising short-end (recession warning). VIX averaged 25.33 with record options volume. Rates & Yield Curve scored highest composite at 7.7 — highest cross-vertical relevance of any segment. Git push blocked by stale index.lock — needs manual removal. Briefs on disk and in Supabase."
     }
   ],
   "regime_history": [

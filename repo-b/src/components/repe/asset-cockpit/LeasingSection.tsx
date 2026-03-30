@@ -479,6 +479,17 @@ export default function LeasingSection({
     );
   }
 
+  // Empty state: no leasing data available
+  const hasData = summary != null || tenants.length > 0 || expirationBuckets.length > 0 || rentRoll.length > 0 || documents.length > 0;
+  if (!hasData) {
+    return (
+      <div className={`${BRIEFING_CONTAINER} text-center py-12`}>
+        <p className="text-sm text-bm-muted2">No leasing data available for this asset.</p>
+        <p className="mt-2 text-xs text-bm-muted2/60">Upload a rent roll or connect a lease management source to populate.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* KPI summary strip */}

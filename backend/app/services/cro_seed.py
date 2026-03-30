@@ -23,12 +23,14 @@ from app.services.reporting_common import normalize_key, resolve_tenant_id
 
 
 _SEED_LEADS = [
-    {"name": "Meridian Health Systems", "industry": "healthcare", "ai": "piloting", "pain": "ai_roi", "size": "200_1000", "budget": 250000, "source": "referral"},
-    {"name": "TechForge Solutions", "industry": "saas", "ai": "exploring", "pain": "erp_failure", "size": "50_200", "budget": 150000, "source": "inbound"},
-    {"name": "Atlas Capital Partners", "industry": "finance", "ai": "scaling", "pain": "reporting_chaos", "size": "200_1000", "budget": 500000, "source": "partner"},
-    {"name": "Greenfield Construction", "industry": "construction", "ai": "none", "pain": "efficiency", "size": "50_200", "budget": 80000, "source": "event"},
+    # ── Real targets (signal-sourced) ──
+    {"name": "Marcus Partners", "industry": "real_estate", "ai": "exploring", "pain": "reporting_chaos", "size": "50_200", "budget": 200000, "source": "referral"},
+    {"name": "GAIA Real Estate", "industry": "real_estate", "ai": "none", "pain": "governance_gap", "size": "200_1000", "budget": 350000, "source": "research_loop"},
+    {"name": "ACG South Florida", "industry": "finance", "ai": "piloting", "pain": "ai_roi", "size": "200_1000", "budget": 500000, "source": "event"},
+    {"name": "Canopy Real Estate Partners", "industry": "real_estate", "ai": "exploring", "pain": "erp_failure", "size": "50_200", "budget": 180000, "source": "partner"},
+    {"name": "Horizon PE Roll-Up Target", "industry": "finance", "ai": "none", "pain": "efficiency", "size": "1000_plus", "budget": 750000, "source": "outbound"},
+    # ── Supporting pipeline ──
     {"name": "Pinnacle Legal Group", "industry": "legal", "ai": "exploring", "pain": "governance_gap", "size": "10_50", "budget": 120000, "source": "referral"},
-    {"name": "Quantum Retail Corp", "industry": "retail", "ai": "piloting", "pain": "revenue", "size": "1000_plus", "budget": 300000, "source": "outbound"},
     {"name": "Nexus Manufacturing", "industry": "manufacturing", "ai": "none", "pain": "compliance", "size": "200_1000", "budget": 200000, "source": "research_loop"},
     {"name": "Coastal Logistics", "industry": "logistics", "ai": "exploring", "pain": "growth", "size": "50_200", "budget": None, "source": "scrape"},
     {"name": "Brightpath Education", "industry": "education", "ai": "embedded", "pain": "ai_roi", "size": "10_50", "budget": 60000, "source": "inbound"},
@@ -36,11 +38,11 @@ _SEED_LEADS = [
 ]
 
 _SEED_CONTACTS = [
-    {"lead_idx": 0, "name": "Dr. Sarah Chen", "email": "s.chen@meridianhealth.com", "title": "CTO", "linkedin": "linkedin.com/in/sarahchen", "role": "decision_maker", "strength": "warm"},
-    {"lead_idx": 1, "name": "Marcus Rivera", "email": "m.rivera@techforge.io", "title": "VP Engineering", "linkedin": "linkedin.com/in/marcusrivera", "role": "champion", "strength": "hot"},
-    {"lead_idx": 2, "name": "Alexandra Petrov", "email": "a.petrov@atlascap.com", "title": "Managing Director", "linkedin": "linkedin.com/in/alexandrapetrov", "role": "decision_maker", "strength": "warm"},
-    {"lead_idx": 4, "name": "James Torres", "email": "j.torres@pinnaclelegal.com", "title": "COO", "linkedin": None, "role": "influencer", "strength": "cold"},
-    {"lead_idx": 5, "name": "Priya Sharma", "email": "p.sharma@quantumretail.com", "title": "Chief Digital Officer", "linkedin": "linkedin.com/in/priyasharma", "role": "champion", "strength": "hot"},
+    {"lead_idx": 0, "name": "David Marcus", "email": "d.marcus@marcuspartners.com", "title": "Managing Partner", "linkedin": "linkedin.com/in/davidmarcus-repe", "role": "decision_maker", "strength": "warm"},
+    {"lead_idx": 1, "name": "Elena Vasquez", "email": "e.vasquez@gaiare.com", "title": "CFO", "linkedin": "linkedin.com/in/elenavasquez", "role": "decision_maker", "strength": "cold"},
+    {"lead_idx": 2, "name": "Michael Torres", "email": "m.torres@acgsfl.org", "title": "Chapter President", "linkedin": "linkedin.com/in/michaeltorres-acg", "role": "champion", "strength": "warm"},
+    {"lead_idx": 3, "name": "Sarah Chen", "email": "s.chen@canopyrep.com", "title": "COO", "linkedin": "linkedin.com/in/sarahchen-canopy", "role": "influencer", "strength": "cold"},
+    {"lead_idx": 4, "name": "James Whitfield", "email": "j.whitfield@horizonpe.com", "title": "VP Operations", "linkedin": "linkedin.com/in/jameswhitfield", "role": "decision_maker", "strength": "cold"},
 ]
 
 _SEED_TEMPLATES = [
@@ -399,6 +401,68 @@ def seed_consulting_environment(*, env_id: str, business_id: UUID) -> dict:
             counts["next_actions_seeded"] += 1
 
     counts["loops_seeded"] = cro_loops.seed_default_loops(env_id=env_id, business_id=business_id)
+
+    # ── 12. Proof assets ─────────────────────────────────────────
+    counts["proof_assets_seeded"] = 0
+    _SEED_PROOF_ASSETS = [
+        {"type": "diagnostic_questionnaire", "title": "AI Operations Diagnostic Questionnaire", "desc": "Structured 30-minute assessment covering AI maturity, reporting workflows, vendor landscape, and governance gaps. Used as first meeting leave-behind.", "status": "draft"},
+        {"type": "offer_sheet", "title": "Consulting Offer Sheet — One Page", "desc": "Single-page overview of Novendor consulting services: AI operations assessment, workflow automation, vendor consolidation, and ongoing advisory retainer.", "status": "draft"},
+        {"type": "workflow_example", "title": "Workflow: Replace Spreadsheet Reporting", "desc": "Before/after showing how a 40-hour monthly close process was reduced to 8 hours via automated data pipeline and dashboard generation.", "status": "draft"},
+        {"type": "workflow_example", "title": "Workflow: AI-Assisted Operational Assessment", "desc": "Walkthrough of the AI-assisted assessment process: intake questionnaire, automated gap analysis, prioritized recommendation deck.", "status": "draft"},
+        {"type": "case_study", "title": "REPE Pilot Summary", "desc": "Summary of the REPE intelligence platform pilot: problem statement, approach, 12-week timeline, outcomes, and ROI metrics.", "status": "draft"},
+    ]
+    with get_cursor() as cur:
+        for pa in _SEED_PROOF_ASSETS:
+            cur.execute(
+                """
+                INSERT INTO cro_proof_asset
+                  (env_id, business_id, asset_type, title, description, status)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT DO NOTHING
+                """,
+                (env_id, str(business_id), pa["type"], pa["title"], pa["desc"], pa["status"]),
+            )
+            counts["proof_assets_seeded"] += 1
+
+    # ── 13. Demo readiness ───────────────────────────────────────
+    counts["demo_readiness_seeded"] = 0
+    _SEED_DEMO_READINESS = [
+        {"name": "REPE Intelligence Platform", "vertical": "real_estate", "status": "needs_refresh", "blockers": ["Lane A narration-only regression", "scenario engine health unverified"], "notes": "Core demo asset. Needs narration fix and scenario engine smoke test."},
+        {"name": "PDS Enterprise OS", "vertical": "professional_services", "status": "blocked", "blockers": ["NaN bugs in Stone PDS", "analytics dashboard incomplete"], "notes": "Blocked on Stone PDS data quality. Do not demo until NaN resolved."},
+        {"name": "Trading Platform", "vertical": "finance", "status": "needs_refresh", "blockers": ["Lane B latency", "stale seed data"], "notes": "Latency makes live demo risky. Pre-record or fix before scheduling."},
+    ]
+    with get_cursor() as cur:
+        for dr in _SEED_DEMO_READINESS:
+            cur.execute(
+                """
+                INSERT INTO cro_demo_readiness
+                  (env_id, business_id, demo_name, vertical, status, blockers, notes)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (env_id, business_id, demo_name) DO NOTHING
+                """,
+                (env_id, str(business_id), dr["name"], dr["vertical"], dr["status"], dr["blockers"], dr["notes"]),
+            )
+            counts["demo_readiness_seeded"] += 1
+
+    # ── 14. Objections ───────────────────────────────────────────
+    counts["objections_seeded"] = 0
+    _SEED_OBJECTIONS = [
+        {"type": "trust", "summary": "How do I know Winston can handle our data securely?", "strategy": "Walk through SOC 2 readiness, data isolation per environment, and RLS policies. Offer sandbox trial.", "confidence": 3, "outcome": "pending"},
+        {"type": "pricing", "summary": "Your retainer seems high for a firm our size.", "strategy": "Reframe as cost-per-insight vs. cost-per-seat. Show ROI from pilot outcomes. Offer phased engagement.", "confidence": 4, "outcome": "pending"},
+        {"type": "need", "summary": "We already have Yardi for reporting.", "strategy": "Acknowledge Yardi strength in property management. Position Winston as the AI layer that sits on top, not replaces. Show integration demo.", "confidence": 4, "outcome": "pending"},
+        {"type": "timing", "summary": "We're in the middle of a fund raise, bad timing.", "strategy": "Offer lightweight diagnostic now, full engagement post-raise. Use raise timeline as urgency — investors want AI story.", "confidence": 2, "outcome": "deferred"},
+    ]
+    with get_cursor() as cur:
+        for obj in _SEED_OBJECTIONS:
+            cur.execute(
+                """
+                INSERT INTO cro_objection
+                  (env_id, business_id, objection_type, summary, response_strategy, confidence, outcome)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (env_id, str(business_id), obj["type"], obj["summary"], obj["strategy"], obj["confidence"], obj["outcome"]),
+            )
+            counts["objections_seeded"] += 1
 
     emit_log(
         level="info",

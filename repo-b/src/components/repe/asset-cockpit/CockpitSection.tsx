@@ -66,6 +66,31 @@ export default function CockpitSection({
   // Prior quarter (second-to-last in sorted periods)
   const prior = periods.length >= 2 ? periods[periods.length - 2] : null;
 
+  // QoQ delta helpers
+  function qoqDelta(
+    current: number | null | undefined,
+    priorVal: number | null | undefined,
+    format: "money" | "pct" | "bps"
+  ): { delta: string; tone: "positive" | "negative" | "neutral" } | null {
+    const c = current != null ? Number(current) : null;
+    const p = priorVal != null ? Number(priorVal) : null;
+    if (c == null || p == null || p === 0) return null;
+    const diff = c - p;
+    const pctChange = (diff / Math.abs(p)) * 100;
+    const tone: "positive" | "negative" | "neutral" = diff > 0 ? "positive" : diff < 0 ? "negative" : "neutral";
+    if (format === "money") return { delta: `${diff >= 0 ? "+" : ""}${pctChange.toFixed(1)}% QoQ`, tone };
+    if (format === "pct") {
+      const bps = diff * 10000;
+      return { delta: `${bps >= 0 ? "+" : ""}${bps.toFixed(0)} bps QoQ`, tone };
+    }
+    return { delta: `${diff >= 0 ? "+" : ""}${pctChange.toFixed(1)}% QoQ`, tone };
+  }
+
+  const revDelta = qoqDelta(financialState?.revenue, prior?.revenue, "money");
+  const noiDelta = qoqDelta(financialState?.noi, prior?.noi, "money");
+  const occDelta = qoqDelta(financialState?.occupancy, prior?.occupancy, "pct");
+  const valueDelta = qoqDelta(financialState?.asset_value, prior?.asset_value, "money");
+
   // For exited assets, filter chart data to stop at the exit quarter
   const exitQuarter = detail.exit_quarter_state?.quarter;
 
@@ -139,18 +164,24 @@ export default function CockpitSection({
               value={fmtResolved(m.revenue, "money")}
               accent={BRIEFING_COLORS.performance}
               testId="kpi-revenue"
+              delta={revDelta?.delta}
+              deltaTone={revDelta?.tone}
             />
             <HeroMetricCard
               label={m.noi.label}
               value={fmtResolved(m.noi, "money")}
               accent={BRIEFING_COLORS.performance}
               testId="kpi-noi"
+              delta={noiDelta?.delta}
+              deltaTone={noiDelta?.tone}
             />
             <HeroMetricCard
               label={m.occupancy.label}
               value={fmtResolved(m.occupancy, "pct")}
               accent={BRIEFING_COLORS.performance}
               testId="kpi-occupancy"
+              delta={occDelta?.delta}
+              deltaTone={occDelta?.tone}
             />
             <HeroMetricCard
               label={m.noiMargin.label}
@@ -170,6 +201,8 @@ export default function CockpitSection({
               value={fmtResolved(m.assetValue, "money")}
               accent={BRIEFING_COLORS.capital}
               testId="kpi-asset-value"
+              delta={valueDelta?.delta}
+              deltaTone={valueDelta?.tone}
             />
             {m.isExited && m.netProceeds ? (
               <HeroMetricCard

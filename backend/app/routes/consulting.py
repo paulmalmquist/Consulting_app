@@ -16,6 +16,8 @@ from app.schemas.consulting import (
     AdvanceStageRequest,
     ClientOut,
     ConvertToClientRequest,
+    DemoReadinessOut,
+    DemoReadinessUpdateRequest,
     EngagementCreateRequest,
     EngagementOut,
     LeadCreateRequest,
@@ -26,6 +28,9 @@ from app.schemas.consulting import (
     NextActionCreateRequest,
     NextActionOut,
     NextActionSkipRequest,
+    ObjectionCreateRequest,
+    ObjectionOut,
+    ObjectionUpdateRequest,
     OutreachAnalyticsOut,
     OutreachLogCreateRequest,
     OutreachLogOut,
@@ -34,6 +39,10 @@ from app.schemas.consulting import (
     OutreachTemplateOut,
     PipelineKanbanResult,
     PipelineStageOut,
+    ProofAssetCreateRequest,
+    ProofAssetOut,
+    ProofAssetSummaryOut,
+    ProofAssetUpdateRequest,
     ProposalCreateRequest,
     ProposalOut,
     ProposalStatusUpdate,
@@ -43,6 +52,7 @@ from app.schemas.consulting import (
     RevenueSummaryOut,
     SeedRequest,
     SeedResult,
+    StaleRecordsOut,
     TodayOverdueOut,
     UpdateLeadStageRequest,
     LoopCreateRequest,
@@ -82,13 +92,16 @@ from app.schemas.local_training import (
 )
 from app.services import (
     cro_clients,
+    cro_demo_readiness,
     cro_engagements,
     cro_entity_detail,
     cro_leads,
     cro_metrics_engine,
     cro_next_actions,
+    cro_objections,
     cro_outreach,
     cro_pipeline,
+    cro_proof_assets,
     cro_proposals,
     cro_revenue,
     cro_seed,
@@ -101,10 +114,15 @@ router = APIRouter(prefix="/api/consulting", tags=["consulting-revenue-os"])
 
 
 def _to_http(exc: Exception) -> HTTPException:
-    if isinstance(exc, psycopg.errors.UndefinedTable):
+    if isinstance(exc, (psycopg.errors.UndefinedTable, psycopg.errors.UndefinedColumn)):
         return HTTPException(
             503,
-            {"error_code": "SCHEMA_NOT_MIGRATED", "message": "Consulting Revenue OS schema not migrated.", "detail": "Run migrations 280 and 281."},
+            {
+                "error_code": "SCHEMA_NOT_MIGRATED",
+                "message": "Consulting Revenue OS schema not migrated.",
+                "detail": "Check /bos/api/consulting/health for full status. Required: migrations 260, 280, 281, 302, 311, 431.",
+                "health_check_url": "/bos/api/consulting/health",
+            },
         )
     if isinstance(exc, LookupError):
         return HTTPException(404, {"error_code": "NOT_FOUND", "message": str(exc)})
@@ -1217,6 +1235,199 @@ def get_contact_outreach(
     try:
         return cro_entity_detail.get_contact_outreach_history(
             business_id=business_id, contact_id=contact_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Proof Assets
+# ═══════════════════════════════════════════════════════════════════════
+
+@router.get("/proof-assets", response_model=list[ProofAssetOut])
+def list_proof_assets_route(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    status: str | None = Query(None),
+):
+    try:
+        return cro_proof_assets.list_proof_assets(
+            env_id=env_id, business_id=business_id, status_filter=status,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/proof-assets/summary", response_model=ProofAssetSummaryOut)
+def proof_asset_summary_route(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return cro_proof_assets.get_proof_asset_summary(
+            env_id=env_id, business_id=business_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/proof-assets", response_model=ProofAssetOut, status_code=201)
+def create_proof_asset_route(body: ProofAssetCreateRequest):
+    try:
+        return cro_proof_assets.create_proof_asset(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            asset_type=body.asset_type,
+            title=body.title,
+            description=body.description,
+            status=body.status,
+            linked_offer_type=body.linked_offer_type,
+            file_path=body.file_path,
+            content_markdown=body.content_markdown,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch("/proof-assets/{asset_id}", response_model=ProofAssetOut)
+def update_proof_asset_route(asset_id: UUID, body: ProofAssetUpdateRequest):
+    try:
+        result = cro_proof_assets.update_proof_asset(
+            asset_id=asset_id,
+            status=body.status,
+            title=body.title,
+            description=body.description,
+            content_markdown=body.content_markdown,
+            file_path=body.file_path,
+        )
+        if not result:
+            raise HTTPException(404, "Proof asset not found")
+        return result
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Objections
+# ═══════════════════════════════════════════════════════════════════════
+
+@router.get("/objections", response_model=list[ObjectionOut])
+def list_objections_route(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    outcome: str | None = Query(None),
+):
+    try:
+        return cro_objections.list_objections(
+            env_id=env_id, business_id=business_id, outcome_filter=outcome,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/objections", response_model=ObjectionOut, status_code=201)
+def create_objection_route(body: ObjectionCreateRequest):
+    try:
+        return cro_objections.create_objection(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            objection_type=body.objection_type,
+            summary=body.summary,
+            crm_account_id=body.crm_account_id,
+            crm_opportunity_id=body.crm_opportunity_id,
+            source_conversation=body.source_conversation,
+            response_strategy=body.response_strategy,
+            confidence=body.confidence,
+            linked_feature_gap=body.linked_feature_gap,
+            linked_offer_type=body.linked_offer_type,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch("/objections/{objection_id}", response_model=ObjectionOut)
+def update_objection_route(objection_id: UUID, body: ObjectionUpdateRequest):
+    try:
+        result = cro_objections.update_objection(
+            objection_id=objection_id,
+            outcome=body.outcome,
+            response_strategy=body.response_strategy,
+            confidence=body.confidence,
+        )
+        if not result:
+            raise HTTPException(404, "Objection not found")
+        return result
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/objections/top")
+def top_objections_route(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    limit: int = Query(5, ge=1, le=20),
+):
+    try:
+        return cro_objections.get_top_objections(
+            env_id=env_id, business_id=business_id, limit=limit,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Demo Readiness
+# ═══════════════════════════════════════════════════════════════════════
+
+@router.get("/demo-readiness", response_model=list[DemoReadinessOut])
+def list_demo_readiness_route(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return cro_demo_readiness.list_demo_readiness(
+            env_id=env_id, business_id=business_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch("/demo-readiness/{demo_id}", response_model=DemoReadinessOut)
+def update_demo_readiness_route(demo_id: UUID, body: DemoReadinessUpdateRequest):
+    try:
+        result = cro_demo_readiness.update_demo_readiness(
+            demo_id=demo_id,
+            status=body.status,
+            blockers=body.blockers,
+            notes=body.notes,
+            last_tested_at=body.last_tested_at,
+        )
+        if not result:
+            raise HTTPException(404, "Demo readiness record not found")
+        return result
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Stale Records
+# ═══════════════════════════════════════════════════════════════════════
+
+@router.get("/health/stale", response_model=StaleRecordsOut)
+def stale_records_route(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    stale_days: int = Query(14, ge=1, le=90),
+):
+    try:
+        return cro_metrics_engine.get_stale_records(
+            env_id=env_id, business_id=business_id, stale_days=stale_days,
         )
     except Exception as exc:
         raise _to_http(exc)

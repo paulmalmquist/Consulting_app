@@ -16,41 +16,18 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { RegimeClassifierWidget } from "@/components/market/RegimeClassifierWidget";
-import { BtcSpxCorrelationChart } from "@/components/market/BtcSpxCorrelationChart";
 import { NewPositionModal } from "@/components/trading/NewPositionModal";
 import { ClosePositionModal } from "@/components/trading/ClosePositionModal";
 import { EditPositionModal } from "@/components/trading/EditPositionModal";
-import { HistoryRhymesTab } from "@/components/market/HistoryRhymesTab";
+import { CommandCenterLayout } from "@/components/market/CommandCenterLayout";
+import { DecisionEngineSidebar } from "@/components/market/DecisionEngineSidebar";
+import type { DecisionTab, AssetScope } from "@/lib/trading-lab/decision-engine-types";
 import type {
-  TradingTheme,
-  TradingSignal,
   TradingHypothesis,
   TradingPosition,
   TradingPerformanceSnapshot,
   TradingResearchNote,
-  TradingDailyBrief,
-  TradingWatchlistItem,
-  SignalDirection,
-  SignalStatus,
-  HypothesisStatus,
-  PositionStatus,
-  AssetClass,
 } from "@/lib/trading-lab/types";
-
-type Tab = "overview" | "signals" | "hypotheses" | "positions" | "performance" | "research" | "watchlist" | "rhymes";
-
-const TAB_ORDER: Tab[] = ["rhymes", "overview", "signals", "hypotheses", "positions", "performance", "research", "watchlist"];
-const TAB_LABELS: Record<Tab, string> = {
-  rhymes: "Command Center",
-  overview: "Overview",
-  signals: "Signals",
-  hypotheses: "Hypotheses",
-  positions: "Positions",
-  performance: "Performance",
-  research: "Research",
-  watchlist: "Watchlist",
-};
 
 /* ── Theme tokens ─────────────────────────────────────────────────── */
 
@@ -143,7 +120,8 @@ export default function TradingLabPage() {
   const params = useParams<{ envId: string }>();
   const envId = params?.envId;
 
-  const [activeTab, setActiveTab] = useState<Tab>("rhymes");
+  const [activeTab, setActiveTab] = useState<DecisionTab>("command-center");
+  const [assetScope, setAssetScope] = useState<AssetScope>("global");
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() =>
@@ -162,16 +140,10 @@ export default function TradingLabPage() {
 
   const t = useMemo(() => buildTheme(themeMode), [themeMode]);
 
-  const [themes, setThemes] = useState<TradingTheme[]>([]);
-  const [signals, setSignals] = useState<TradingSignal[]>([]);
   const [hypotheses, setHypotheses] = useState<TradingHypothesis[]>([]);
   const [positions, setPositions] = useState<TradingPosition[]>([]);
   const [perfSnapshots, setPerfSnapshots] = useState<TradingPerformanceSnapshot[]>([]);
   const [researchNotes, setResearchNotes] = useState<TradingResearchNote[]>([]);
-  const [dailyBrief, setDailyBrief] = useState<TradingDailyBrief | null>(null);
-  const [watchlist, setWatchlist] = useState<TradingWatchlistItem[]>([]);
-
-  const [signalFilter, setSignalFilter] = useState<string>("");
 
   // Position management modals
   const [showNewPosition, setShowNewPosition] = useState(false);
@@ -190,14 +162,10 @@ export default function TradingLabPage() {
       }
       const data = await res.json();
 
-      setThemes(data.themes || []);
-      setSignals(data.signals || []);
       setHypotheses(data.hypotheses || []);
       setPositions(data.positions || []);
       setPerfSnapshots(data.performanceSnapshots || []);
       setResearchNotes(data.researchNotes || []);
-      setDailyBrief(data.dailyBrief || null);
-      setWatchlist(data.watchlist || []);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
       setNotice(`Error: ${message}`);
@@ -238,17 +206,6 @@ export default function TradingLabPage() {
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
-  const directionColor = (d: SignalDirection): string => {
-    switch (d) {
-      case "bullish":
-        return t.badgeBullish;
-      case "bearish":
-        return t.badgeBearish;
-      default:
-        return t.badgeNeutral;
-    }
-  };
-
   const statusBadge = (s: string): string => {
     if (s === "active") return t.badgeActive;
     if (s === "closed") return t.badgeClosed;
@@ -259,9 +216,6 @@ export default function TradingLabPage() {
   // Computed data
   const openPositions = positions.filter((p) => p.status === "open");
   const totalPnL = openPositions.reduce((sum, p) => sum + (num(p.unrealized_pnl) || 0), 0);
-  const topSignals = signals.slice(0, 5);
-  const filteredSignals = signals.filter((s) => (signalFilter ? s.category?.includes(signalFilter) : true));
-
   const equityCurveData = perfSnapshots
     .slice()
     .reverse()
@@ -307,10 +261,10 @@ export default function TradingLabPage() {
   return (
     <div className={`flex-1 flex flex-col ${t.pageBg} ${t.pageText} font-sans min-h-full transition-colors duration-200`}>
       {/* Header */}
-      <div className={`border-b ${t.headerBorder} px-6 py-4 ${t.headerBg} sticky top-0 z-10 flex items-center justify-between`}>
+      <div className={`border-b ${t.headerBorder} px-6 py-3 ${t.headerBg} sticky top-0 z-10 flex items-center justify-between`}>
         <div>
-          <h1 className={`text-2xl font-bold ${t.accentBold} font-mono`}>
-            TRADING PLATFORM
+          <h1 className={`text-xl font-bold ${t.accentBold} font-mono`}>
+            DECISION ENGINE
             <span className={`text-xs ${t.textFaint} ml-4`}>ENV: {envId || "—"}</span>
           </h1>
           {notice && (
@@ -328,271 +282,25 @@ export default function TradingLabPage() {
         </Link>
       </div>
 
-      {/* Command Header (Stats Row) */}
-      {activeTab === "overview" && (
-        <div className={`border-b ${t.headerBorder} px-6 py-3 ${t.statBarBg} grid grid-cols-5 gap-4 font-mono text-sm`}>
-          <div>
-            <div className={`${t.textFaint} text-xs uppercase tracking-wider`}>Regime</div>
-            <div className={`${t.accentBlue} font-bold`}>
-              {dailyBrief?.regime_label || "—"}
-            </div>
-          </div>
-          <div>
-            <div className={`${t.textFaint} text-xs uppercase tracking-wider`}>Net P&L</div>
-            <div className={`font-bold ${fmtPnl(totalPnL).color}`}>{fmtPnl(totalPnL).text}</div>
-          </div>
-          <div>
-            <div className={`${t.textFaint} text-xs uppercase tracking-wider`}>Top Signal</div>
-            <div className={`${t.accent} font-bold`}>{topSignals[0]?.strength?.toFixed(1) || "—"}</div>
-          </div>
-          <div>
-            <div className={`${t.textFaint} text-xs uppercase tracking-wider`}>Equity</div>
-            <div className={`${t.accentBlue} font-bold`}>
-              ${perfSnapshots[0]?.equity_value?.toLocaleString() || "—"}
-            </div>
-          </div>
-          <div>
-            <div className={`${t.textFaint} text-xs uppercase tracking-wider`}>Win Rate</div>
-            <div className={`${t.accent} font-bold`}>{winRate}%</div>
-          </div>
-        </div>
-      )}
+      {/* Main content area: sidebar + content */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left sidebar */}
+        <DecisionEngineSidebar
+          activeTab={activeTab}
+          assetScope={assetScope}
+          onTabChange={setActiveTab}
+          onScopeChange={setAssetScope}
+        />
 
-      {/* Tab Navigation */}
-      <div className={`border-b ${t.headerBorder} px-6 flex gap-8 ${t.tabBg} sticky top-14 z-9`}>
-        {TAB_ORDER.map(
-          (tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`py-3 px-2 text-sm font-mono uppercase tracking-wider border-b-2 transition-colors ${
-                activeTab === tab ? t.tabActive : t.tabInactive
-              }`}
-            >
-              {TAB_LABELS[tab]}
-            </button>
-          )
-        )}
-      </div>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {/* COMMAND CENTER */}
+          {activeTab === "command-center" && (
+            <CommandCenterLayout assetScope={assetScope} />
+          )}
 
-      {/* Content */}
-      <div className="p-6">
-        {/* OVERVIEW TAB */}
-        {activeTab === "overview" && (
-          <div className="space-y-6">
-            {/* What Changed Panel */}
-            {dailyBrief && (
-              <div className={`${t.cardBg} border ${t.cardBorder} p-4 rounded`}>
-                <h2 className={`text-sm font-mono uppercase tracking-wider ${t.accent} mb-3`}>What Changed</h2>
-                <div className={`text-sm ${t.textSecondary} space-y-2`}>
-                  <p className={`text-xs ${t.textFaint}`}>Brief Date: {fmtDate(dailyBrief.brief_date)}</p>
-                  {dailyBrief.what_changed && (
-                    <p>{dailyBrief.what_changed}</p>
-                  )}
-                  {dailyBrief.market_summary && (
-                    <p className={t.textMuted}>{dailyBrief.market_summary}</p>
-                  )}
-                  {dailyBrief.top_risks && (
-                    <div className="mt-2">
-                      <span className={`${t.pnlDown} text-xs font-mono uppercase`}>Top Risks:</span>
-                      <p className={`${t.textMuted} text-xs mt-1`}>
-                        {typeof dailyBrief.top_risks === "string"
-                          ? dailyBrief.top_risks
-                          : Array.isArray(dailyBrief.top_risks)
-                            ? (dailyBrief.top_risks as string[]).join(", ")
-                            : "—"}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-3 gap-6">
-              {/* Equity Curve */}
-              <div className={`col-span-2 ${t.cardBg} border ${t.cardBorder} p-4 rounded`}>
-                <h2 className={`text-sm font-mono uppercase tracking-wider ${t.accent} mb-4`}>Equity Curve</h2>
-                <ResponsiveContainer width="100%" height={250}>
-                  <AreaChart data={equityCurveData}>
-                    <defs>
-                      <linearGradient id="colorEquity" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={t.chart.green} stopOpacity={t.chart.greenGradientStart} />
-                        <stop offset="95%" stopColor={t.chart.green} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke={t.chart.gridStroke} />
-                    <XAxis dataKey="date" stroke={t.chart.axisStroke} style={{ fontSize: "11px" }} />
-                    <YAxis stroke={t.chart.axisStroke} style={{ fontSize: "11px" }} />
-                    <Tooltip contentStyle={tooltipStyle} />
-                    <Area type="monotone" dataKey="equity" stroke={t.chart.green} fillOpacity={1} fill="url(#colorEquity)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Top Signals */}
-              <div className={`${t.cardBg} border ${t.cardBorder} p-4 rounded overflow-y-auto max-h-96`}>
-                <h2 className={`text-sm font-mono uppercase tracking-wider ${t.accent} mb-4`}>Top Signals</h2>
-                <div className="space-y-3">
-                  {topSignals.map((sig) => (
-                    <div key={sig.signal_id} className={`${themeMode === "dark" ? "bg-gray-700" : "bg-gray-100"} p-2 rounded text-xs`}>
-                      <div className="flex justify-between items-center mb-1">
-                        <span className={`font-mono ${t.accent}`}>{sig.asset_class || "—"}</span>
-                        <span className={directionColor(sig.direction)}>{sig.direction}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className={t.textMuted}>Strength</span>
-                        <span className={`${t.accentBlue} font-mono`}>{sig.strength?.toFixed(1) || "—"}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Open Positions */}
-            <div className={`${t.cardBg} border ${t.cardBorder} p-4 rounded`}>
-              <h2 className={`text-sm font-mono uppercase tracking-wider ${t.accent} mb-4`}>Open Positions</h2>
-              <table className="w-full text-xs font-mono">
-                <thead>
-                  <tr className={`border-b ${t.tableDivider}`}>
-                    <th className={`text-left py-2 ${t.textFaint}`}>Ticker</th>
-                    <th className={`text-right py-2 ${t.textFaint}`}>Entry</th>
-                    <th className={`text-right py-2 ${t.textFaint}`}>Current</th>
-                    <th className={`text-right py-2 ${t.textFaint}`}>P&L</th>
-                    <th className={`text-right py-2 ${t.textFaint}`}>Return</th>
-                    <th className={`text-left py-2 ${t.textFaint}`}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {openPositions.slice(0, 10).map((pos) => (
-                    <tr key={pos.position_id} className={`border-b ${t.tableDivider} ${t.cardHover}`}>
-                      <td className="py-2">{pos.ticker}</td>
-                      <td className="text-right">${pos.entry_price?.toFixed(2)}</td>
-                      <td className="text-right">${pos.current_price?.toFixed(2)}</td>
-                      <td className={`text-right font-bold ${fmtPnl(pos.unrealized_pnl).color}`}>
-                        {fmtPnl(pos.unrealized_pnl).text}
-                      </td>
-                      <td className={`text-right ${fmtPnl(pos.return_pct).color}`}>
-                        {fmtPct(pos.return_pct)}
-                      </td>
-                      <td>
-                        <span className={`px-2 py-1 rounded text-xs ${statusBadge(pos.status)}`}>{pos.status}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* SIGNALS TAB */}
-        {activeTab === "signals" && (
-          <div className="space-y-4">
-            <div className="flex gap-4 mb-4">
-              <input
-                type="text"
-                placeholder="Filter by category..."
-                value={signalFilter}
-                onChange={(e) => setSignalFilter(e.target.value)}
-                className={`px-3 py-2 ${t.inputBg} border rounded text-sm font-mono`}
-              />
-            </div>
-
-            <div className={`${t.cardBg} border ${t.cardBorder} rounded overflow-auto max-h-96`}>
-              <table className="w-full text-xs font-mono">
-                <thead className={`sticky top-0 ${t.theadBg} border-b ${t.tableDivider}`}>
-                  <tr>
-                    <th className={`text-left py-2 px-3 ${t.textFaint}`}>Asset Class</th>
-                    <th className={`text-left py-2 px-3 ${t.textFaint}`}>Category</th>
-                    <th className={`text-right py-2 px-3 ${t.textFaint}`}>Strength</th>
-                    <th className={`text-left py-2 px-3 ${t.textFaint}`}>Direction</th>
-                    <th className={`text-left py-2 px-3 ${t.textFaint}`}>Status</th>
-                    <th className={`text-left py-2 px-3 ${t.textFaint}`}>Source</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredSignals.map((sig) => (
-                    <tr key={sig.signal_id} className={`border-b ${t.tableDivider} ${t.cardHover}`}>
-                      <td className={`py-2 px-3 ${t.accentBlue}`}>{sig.asset_class}</td>
-                      <td className={`py-2 px-3 ${t.textSecondary}`}>{sig.category}</td>
-                      <td className="py-2 px-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className={`w-24 ${t.progressTrack} h-2 rounded`}>
-                            <div
-                              className="h-2 bg-green-500 rounded"
-                              style={{ width: `${Math.min((sig.strength || 0) * 20, 100)}%` }}
-                            />
-                          </div>
-                          <span className={`${t.accent} font-bold`}>{sig.strength?.toFixed(1)}</span>
-                        </div>
-                      </td>
-                      <td className="py-2 px-3">
-                        <span className={`px-2 py-1 rounded text-xs ${directionColor(sig.direction)}`}>
-                          {sig.direction}
-                        </span>
-                      </td>
-                      <td className="py-2 px-3">
-                        <span className={`px-2 py-1 rounded text-xs ${statusBadge(sig.status)}`}>{sig.status}</span>
-                      </td>
-                      <td className={`py-2 px-3 ${t.textFaint}`}>{sig.source}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* HYPOTHESES TAB */}
-        {activeTab === "hypotheses" && (
-          <div className="grid grid-cols-2 gap-4">
-            {hypotheses.map((hyp) => (
-              <div key={hyp.hypothesis_id} className={`${t.cardBg} border ${t.cardBorder} p-4 rounded`}>
-                <div className="flex justify-between items-start mb-3">
-                  <h3 className={`text-sm font-mono font-bold ${t.accentBlue}`}>{hyp.thesis}</h3>
-                  <span className={`px-2 py-1 rounded text-xs ${statusBadge(hyp.status)}`}>{hyp.status}</span>
-                </div>
-
-                <div className={`text-xs ${t.textMuted} mb-3`}>
-                  <div className="mb-2">
-                    <span className={t.accent}>Confidence:</span>
-                    <div className={`w-full ${t.progressTrack} h-2 rounded mt-1`}>
-                      <div
-                        className="h-2 bg-blue-500 rounded"
-                        style={{ width: `${hyp.confidence || 0}%` }}
-                      />
-                    </div>
-                    <span className={t.accentBlue}>{hyp.confidence}%</span>
-                  </div>
-                  <div>Timeframe: {hyp.timeframe}</div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  {hyp.proves_right && (
-                    <div>
-                      <div className={`${t.pnlUp} font-bold mb-1`}>Proves Right</div>
-                      <p className={t.textMuted}>
-                        {Array.isArray(hyp.proves_right) ? hyp.proves_right.join("; ") : String(hyp.proves_right)}
-                      </p>
-                    </div>
-                  )}
-                  {hyp.proves_wrong && (
-                    <div>
-                      <div className={`${t.pnlDown} font-bold mb-1`}>Proves Wrong</div>
-                      <p className={t.textMuted}>
-                        {Array.isArray(hyp.proves_wrong) ? hyp.proves_wrong.join("; ") : String(hyp.proves_wrong)}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* POSITIONS TAB */}
-        {activeTab === "positions" && (
+          {/* PAPER PORTFOLIO TAB (was positions) */}
+          {activeTab === "paper-portfolio" && (
           <div className="space-y-3">
             <div className="flex justify-end">
               <button
@@ -689,8 +397,8 @@ export default function TradingLabPage() {
           </div>
         )}
 
-        {/* PERFORMANCE TAB */}
-        {activeTab === "performance" && (
+          {/* CALIBRATION TAB (was performance) */}
+          {activeTab === "calibration" && (
           <div className="space-y-6">
             {/* Stats Cards */}
             <div className="grid grid-cols-5 gap-4">
@@ -763,8 +471,8 @@ export default function TradingLabPage() {
           </div>
         )}
 
-        {/* RESEARCH TAB */}
-        {activeTab === "research" && (
+          {/* RESEARCH BRIEFS TAB */}
+          {activeTab === "research-briefs" && (
           <div className="grid grid-cols-2 gap-4">
             {researchNotes.map((note) => (
               <div key={note.note_id} className={`${t.cardBg} border ${t.cardBorder} p-4 rounded`}>
@@ -789,51 +497,30 @@ export default function TradingLabPage() {
           </div>
         )}
 
-        {/* WATCHLIST TAB */}
-        {activeTab === "watchlist" && (
-          <div className={`${t.cardBg} border ${t.cardBorder} rounded overflow-auto max-h-96`}>
-            <table className="w-full text-xs font-mono">
-              <thead className={`sticky top-0 ${t.theadBg} border-b ${t.tableDivider}`}>
-                <tr>
-                  <th className={`text-left py-2 px-3 ${t.textFaint}`}>Ticker</th>
-                  <th className={`text-left py-2 px-3 ${t.textFaint}`}>Asset Name</th>
-                  <th className={`text-right py-2 px-3 ${t.textFaint}`}>Price</th>
-                  <th className={`text-right py-2 px-3 ${t.textFaint}`}>1D Change</th>
-                  <th className={`text-right py-2 px-3 ${t.textFaint}`}>1W Change</th>
-                  <th className={`text-left py-2 px-3 ${t.textFaint}`}>Alerts</th>
-                  <th className={`text-left py-2 px-3 ${t.textFaint}`}>Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {watchlist.map((item) => (
-                  <tr key={item.ticker} className={`border-b ${t.tableDivider} ${t.cardHover}`}>
-                    <td className={`py-2 px-3 ${t.accentBlue} font-bold`}>{item.ticker}</td>
-                    <td className={`py-2 px-3 ${t.textSecondary}`}>{item.asset_name}</td>
-                    <td className="py-2 px-3 text-right">${item.current_price?.toFixed(2)}</td>
-                    <td className={`py-2 px-3 text-right ${fmtPnl(item.price_change_1d).color}`}>
-                      {fmtPct(item.price_change_1d)}
-                    </td>
-                    <td className={`py-2 px-3 text-right ${fmtPnl(item.price_change_1w).color}`}>
-                      {fmtPct(item.price_change_1w)}
-                    </td>
-                    <td className="py-2 px-3">
-                      {(item.alert_above || item.alert_below) ? (
-                        <span className={`${t.tagYellowBg} px-2 py-1 rounded text-xs`}>
-                          {[item.alert_above && `↑${item.alert_above}`, item.alert_below && `↓${item.alert_below}`].filter(Boolean).join(" ")}
-                        </span>
-                      ) : (
-                        <span className={t.textFaint}>—</span>
-                      )}
-                    </td>
-                    <td className={`py-2 px-3 ${t.textFaint}`}>{item.notes || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+          {/* HISTORY RHYMES TAB (placeholder) */}
+          {activeTab === "history-rhymes" && (
+            <div className={`${t.cardBg} border ${t.cardBorder} p-8 rounded text-center`}>
+              <p className={`text-sm font-mono uppercase tracking-wider ${t.accent} mb-2`}>History Rhymes</p>
+              <p className={`text-xs ${t.textMuted}`}>Episode library, analog matching, and temporal pattern analysis. Coming soon.</p>
+            </div>
+          )}
 
-        {activeTab === "rhymes" && <HistoryRhymesTab />}
+          {/* MACHINE FORECASTS TAB (placeholder) */}
+          {activeTab === "machine-forecasts" && (
+            <div className={`${t.cardBg} border ${t.cardBorder} p-8 rounded text-center`}>
+              <p className={`text-sm font-mono uppercase tracking-wider ${t.accent} mb-2`}>Machine Forecasts</p>
+              <p className={`text-xs ${t.textMuted}`}>Multi-agent probabilistic forecasts with walk-forward evaluation. Coming soon.</p>
+            </div>
+          )}
+
+          {/* TRAP DETECTOR TAB (placeholder) */}
+          {activeTab === "trap-detector" && (
+            <div className={`${t.cardBg} border ${t.cardBorder} p-8 rounded text-center`}>
+              <p className={`text-sm font-mono uppercase tracking-wider ${t.accent} mb-2`}>Trap Detector</p>
+              <p className={`text-xs ${t.textMuted}`}>Full adversarial analysis: honeypot patterns, crowding unwinds, narrative traps. Coming soon.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
