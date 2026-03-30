@@ -1,12 +1,44 @@
 "use client";
 
-import Image from "next/image";
 import { cn } from "@/lib/cn";
+
+export function WinstonBowtieIcon(
+  props: React.SVGProps<SVGSVGElement>
+) {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      {...props}
+    >
+      <path
+        d="M2 6.5L11 11.2V12.8L2 17.5L4.3 12L2 6.5Z"
+        fill="currentColor"
+      />
+      <path
+        d="M22 6.5L13 11.2V12.8L22 17.5L19.7 12L22 6.5Z"
+        fill="currentColor"
+      />
+      <rect
+        x="11"
+        y="10"
+        width="2"
+        height="4"
+        rx="0.4"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
 
 export default function WinstonAvatar({
   className,
   imageClassName,
-  priority = false,
+  priority: _priority = false,
 }: {
   className?: string;
   imageClassName?: string;
@@ -20,14 +52,11 @@ export default function WinstonAvatar({
         className,
       )}
     >
-      <Image
-        src="/winstonpic.png"
-        alt="Winston"
-        fill
-        sizes="(max-width: 768px) 56px, 64px"
-        priority={priority}
-        className={cn("object-contain p-[10%]", imageClassName)}
-      />
+      <div className="flex h-full w-full items-center justify-center">
+        <WinstonBowtieIcon
+          className={cn("h-[58%] w-[58%] text-black", imageClassName)}
+        />
+      </div>
     </div>
   );
 }
