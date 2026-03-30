@@ -33,10 +33,12 @@ function rankColor(idx: number): string {
 export function PdsRankedMarketList({
   rows,
   selectedMarketId,
+  activeFilterKey,
   onMarketClick,
 }: {
   rows: PdsV2PerformanceRow[];
   selectedMarketId?: string | null;
+  activeFilterKey?: string | null;
   onMarketClick?: (marketId: string) => void;
 }) {
   const ranked = useMemo(() => {
@@ -85,6 +87,12 @@ export function PdsRankedMarketList({
                   <span className="text-slate-500 tabular-nums">
                     {formatCurrency(row.shortfall)}
                   </span>
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+                  <span>{row.red_projects || 0} red projects</span>
+                  <span>{row.client_risk_accounts || 0} client risks</span>
+                  {row.owner_label ? <span>Owner: {row.owner_label}</span> : null}
+                  {activeFilterKey ? <span className="text-pds-accentText">Filter: {activeFilterKey.replace(/_/g, " ")}</span> : null}
                 </div>
               </div>
             </button>

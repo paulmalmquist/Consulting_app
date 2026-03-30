@@ -120,15 +120,23 @@ export function PdsWarRoomPage() {
       else if (vPct < -0.03) rScore += 15;
       rScore += (row.red_projects || 0) * 10;
       return {
-        marketId: row.entity_id,
+        market_id: row.entity_id,
         name: row.entity_label,
         lat: geo.lat,
         lng: geo.lng,
-        feeActual,
-        feePlan,
-        variancePct: vPct,
-        riskScore: Math.min(rScore, 100),
-        healthStatus: row.health_status,
+        fee_actual: feeActual,
+        fee_plan: feePlan,
+        variance_pct: vPct,
+        backlog: row.backlog || 0,
+        forecast: row.forecast || 0,
+        staffing_pressure_count: 0,
+        delinquent_timecards: 0,
+        red_projects: row.red_projects || 0,
+        closeout_risk_count: 0,
+        client_risk_accounts: row.client_risk_accounts || 0,
+        risk_score: Math.min(rScore, 100),
+        health_status: row.health_status,
+        top_accounts: [],
       };
     });
   }, [allRows]);
@@ -210,6 +218,7 @@ export function PdsWarRoomPage() {
           <PdsMarketMap
             points={mapPoints}
             selectedMarketId={selectedMarketId}
+            colorMode="revenue_variance"
             onMarketClick={handleMarketClick}
           />
         </div>

@@ -2,19 +2,21 @@
 
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import type { MarketMapPoint } from "./PdsMarketMapInner";
+import type { MarketMapPoint, MapColorMode } from "./PdsMarketMapInner";
 
 const MapInner = dynamic(() => import("./PdsMarketMapInner"), { ssr: false });
 
-export type { MarketMapPoint };
+export type { MarketMapPoint, MapColorMode };
 
 export function PdsMarketMap({
   points,
   selectedMarketId,
+  colorMode,
   onMarketClick,
 }: {
   points: MarketMapPoint[];
   selectedMarketId?: string | null;
+  colorMode: MapColorMode;
   onMarketClick?: (marketId: string) => void;
 }) {
   const [mounted, setMounted] = useState(false);
@@ -34,6 +36,7 @@ export function PdsMarketMap({
         <MapInner
           points={points}
           selectedMarketId={selectedMarketId}
+          colorMode={colorMode}
           onMarketClick={onMarketClick}
         />
       ) : (

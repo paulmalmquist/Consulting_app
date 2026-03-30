@@ -31,6 +31,10 @@ class PdsV2MetricCardOut(BaseModel):
     delta_value: Decimal | int | str | None = None
     tone: str = "neutral"
     unit: str | None = None
+    driver_text: str | None = None
+    trend_direction: Literal["up", "down", "flat"] | None = None
+    filter_key: str | None = None
+    reason_codes: list[str] = Field(default_factory=list)
 
 
 class PdsV2PerformanceRowOut(BaseModel):
@@ -273,6 +277,102 @@ class PdsV2BriefingOut(BaseModel):
     recommended_actions: list[str] = Field(default_factory=list)
 
 
+class PdsV2OperatingBriefLineOut(BaseModel):
+    label: str
+    text: str
+    severity: Literal["neutral", "watch", "warning", "critical"] = "neutral"
+
+
+class PdsV2OperatingBriefOut(BaseModel):
+    headline: str
+    summary: str
+    trend_direction: Literal["improving", "stable", "worsening"] = "stable"
+    focus_label: str | None = None
+    lines: list[PdsV2OperatingBriefLineOut] = Field(default_factory=list)
+    recommended_actions: list[str] = Field(default_factory=list)
+
+
+class PdsV2AlertFilterOut(BaseModel):
+    key: str
+    label: str
+    count: int = 0
+    description: str | None = None
+    severity: Literal["neutral", "watch", "warning", "critical"] = "neutral"
+    tone: str = "neutral"
+    reason_codes: list[str] = Field(default_factory=list)
+    entity_ids: list[str] = Field(default_factory=list)
+
+
+class PdsV2MapPointOut(BaseModel):
+    market_id: UUID
+    name: str
+    lat: float
+    lng: float
+    fee_actual: Decimal = Decimal("0")
+    fee_plan: Decimal = Decimal("0")
+    variance_pct: Decimal = Decimal("0")
+    backlog: Decimal = Decimal("0")
+    forecast: Decimal = Decimal("0")
+    staffing_pressure_count: int = 0
+    delinquent_timecards: int = 0
+    red_projects: int = 0
+    closeout_risk_count: int = 0
+    client_risk_accounts: int = 0
+    risk_score: Decimal = Decimal("0")
+    health_status: str = "green"
+    reason_codes: list[str] = Field(default_factory=list)
+    top_accounts: list[str] = Field(default_factory=list)
+    owner_name: str | None = None
+
+
+class PdsV2MapSummaryOut(BaseModel):
+    focus_market_id: UUID | None = None
+    points: list[PdsV2MapPointOut] = Field(default_factory=list)
+    color_modes: list[str] = Field(default_factory=lambda: ["revenue_variance", "staffing_pressure", "backlog", "closeout_risk"])
+
+
+class PdsV2InsightPanelOut(BaseModel):
+    title: str
+    focus_label: str | None = None
+    status: Literal["neutral", "watch", "warning", "critical"] = "neutral"
+    what: str
+    why: str
+    consequence: str
+    action: str
+    owner: str | None = None
+    reason_codes: list[str] = Field(default_factory=list)
+
+
+class PdsV2InterventionQueueItemOut(BaseModel):
+    intervention_id: str
+    decision_code: str
+    entity_type: Literal["market", "account", "project", "resource", "pipeline_deal"]
+    entity_id: str
+    entity_label: str
+    severity: Literal["neutral", "watch", "warning", "critical"] = "neutral"
+    tone: str = "neutral"
+    issue_summary: str
+    cause_summary: str
+    expected_impact: str | None = None
+    recommended_action: str
+    owner_label: str | None = None
+    reason_codes: list[str] = Field(default_factory=list)
+    href: str | None = None
+    queue_item_id: UUID | None = None
+    queue_status: str | None = None
+
+
+class PdsV2PipelineRollupOut(BaseModel):
+    active_deals: int = 0
+    overdue_close_count: int = 0
+    stalled_count: int = 0
+    high_value_low_probability_count: int = 0
+    total_pipeline_value: Decimal = Decimal("0")
+    total_weighted_value: Decimal = Decimal("0")
+    top_deal_name: str | None = None
+    top_issue: str | None = None
+
+
 class PdsV2CommandCenterOut(BaseModel):
     env_id: str
     business_id: UUID
@@ -291,6 +391,12 @@ class PdsV2CommandCenterOut(BaseModel):
     closeout: list[PdsV2CloseoutItemOut] = Field(default_factory=list)
     account_dashboard: PdsV2AccountDashboardOut | None = None
     briefing: PdsV2BriefingOut
+    operating_brief: PdsV2OperatingBriefOut
+    alert_filters: list[PdsV2AlertFilterOut] = Field(default_factory=list)
+    map_summary: PdsV2MapSummaryOut
+    intervention_queue: list[PdsV2InterventionQueueItemOut] = Field(default_factory=list)
+    insight_panel: PdsV2InsightPanelOut
+    pipeline_summary: PdsV2PipelineRollupOut
 
 
 class PdsV2ReportPacketRequest(BaseModel):

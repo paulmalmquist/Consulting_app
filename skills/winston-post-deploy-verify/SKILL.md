@@ -24,11 +24,16 @@ Automated smoke test that logs into paulmalmquist.com (or a Vercel preview URL) 
 
 ## Login Procedure
 
-1. Navigate to `{base_url}/login?loginType=admin`
-2. Enter the admin code from `docs/reference/ENV_KEYS.md` (field: `ADMIN_INVITE_CODE`)
-3. Click "Enter Admin Dashboard"
-4. Wait for redirect to `/admin`
-5. Confirm the admin dashboard renders with environment cards
+> **Updated 2026-03-29:** Login changed from invite-code flow to Supabase email/password auth.
+
+1. Navigate to `{base_url}/login`
+2. Enter email: `info@novendor.ai`
+3. Enter password from `docs/reference/ENV_KEYS.md` (field: `NOVENDOR_ADMIN_PASSWORD`)
+4. Click "Sign In" / submit the form
+5. Wait for redirect to `/app` (the main workspace)
+6. Confirm the workspace renders with environment cards and navigation
+
+**Fallback:** If the email login fails (e.g., account not yet provisioned), fall back to the legacy invite-code flow: navigate to `{base_url}/login?loginType=admin`, enter `ADMIN_INVITE_CODE`, and proceed. Report which login method was used in the health report.
 
 ## Environment Health Checks
 
@@ -95,7 +100,7 @@ After checking, produce a brief report:
 ### Results
 | Environment | Status | Notes |
 |---|---|---|
-| Market Intelligence | PASS/FAIL | {details} |
+| Trading Lab | PASS/FAIL | {details} |
 | Stone PDS | PASS/FAIL | {details} |
 | Meridian Capital | PASS/FAIL | {details} |
 

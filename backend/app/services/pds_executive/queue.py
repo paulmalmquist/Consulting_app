@@ -73,6 +73,7 @@ def upsert_queue_item(
     context_json: dict,
     ai_analysis_json: dict,
     input_snapshot_json: dict,
+    correlation_key: str | None = None,
     actor: str | None = None,
 ) -> dict:
     existing: dict | None = None
@@ -87,13 +88,32 @@ def upsert_queue_item(
               AND decision_code = %s
               AND status IN ('open', 'in_review', 'deferred')
               AND (
-                (project_id IS NULL AND %s::uuid IS NULL)
-                OR project_id = %s::uuid
+                (
+                  %s::uuid IS NOT NULL
+                  AND project_id = %s::uuid
+                )
+                OR (
+                  %s::uuid IS NULL
+                  AND project_id IS NULL
+                  AND (
+                    %s IS NULL
+                    OR COALESCE(context_json->>'correlation_key', '') = %s
+                  )
+                )
               )
             ORDER BY created_at DESC
             LIMIT 1
             """,
-            (str(env_id), str(business_id), decision_code, str(project_id) if project_id else None, str(project_id) if project_id else None),
+            (
+                str(env_id),
+                str(business_id),
+                decision_code,
+                str(project_id) if project_id else None,
+                str(project_id) if project_id else None,
+                str(project_id) if project_id else None,
+                correlation_key,
+                correlation_key,
+            ),
         )
         existing = cur.fetchone()
 

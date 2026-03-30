@@ -714,6 +714,7 @@ def run_decision_engine(
             context_json=item.context_json,
             ai_analysis_json=item.ai_analysis_json,
             input_snapshot_json=item.input_snapshot_json,
+            correlation_key=item.correlation_key,
             actor=actor,
         )
         queued_items.append(queue_row)

@@ -1,12 +1,15 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   buildPdsReportPacket,
   getPdsCommandCenter,
   type PdsV2CommandCenter,
+  type PdsV2AlertFilter,
   type PdsV2Horizon,
+  type PdsV2InterventionQueueItem,
   type PdsV2Lens,
+  type PdsV2MetricCard,
   type PdsV2ReportPacket,
   type PdsV2RolePreset,
 } from "@/lib/bos-api";
@@ -23,6 +26,10 @@ import { PdsInterventionQueue } from "@/components/pds-enterprise/PdsInterventio
 import { PdsSignalsStrip } from "@/components/pds-enterprise/PdsSignalsStrip";
 import { PdsMarketLeaderboard } from "@/components/pds-enterprise/PdsMarketLeaderboard";
 import { PdsVarianceChart } from "@/components/pds-enterprise/PdsVarianceChart";
+import { PdsMarketMap, type MapColorMode } from "@/components/pds-enterprise/PdsMarketMap";
+import { PdsRankedMarketList } from "@/components/pds-enterprise/PdsRankedMarketList";
+import { PdsOperatingBrief } from "@/components/pds-enterprise/PdsOperatingBrief";
+import { PdsInsightPanel } from "@/components/pds-enterprise/PdsInsightPanel";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 
 export type PdsWorkspaceSection =
@@ -117,6 +124,12 @@ export function PdsWorkspacePage({
   const [performanceView, setPerformanceView] = useState<"chart" | "table">("chart");
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<PdsMobilePanel | null>(null);
+  const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
+  const [activeFilterKey, setActiveFilterKey] = useState<string | null>(null);
+  const [selectedInterventionId, setSelectedInterventionId] = useState<string | null>(null);
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+  const [mapColorMode, setMapColorMode] = useState<MapColorMode>("revenue_variance");
+  const [focusSource, setFocusSource] = useState<"brief" | "chip" | "kpi" | "map" | "list" | "queue">("brief");
 
   useEffect(() => {
     let cancelled = false;
@@ -166,7 +179,7 @@ export function PdsWorkspacePage({
       page_entity_type: "environment",
       page_entity_id: envId,
       page_entity_name: title,
-      selected_entities: [],
+      selected_entities: selectedEntityId ? [{ entity_id: selectedEntityId, entity_type: lens === "account" ? "account" : "market" }] : [],
       visible_data: {
         accounts: (commandCenter?.performance_table.rows || []).map((row) => ({
           entity_type: lens === "account" ? "account" : "market",
@@ -188,7 +201,14 @@ export function PdsWorkspacePage({
       },
     });
     return () => resetAssistantPageContext();
-  }, [commandCenter, description, envId, horizon, lens, title]);
+  }, [commandCenter, description, envId, horizon, lens, selectedEntityId, title]);
+
+  useEffect(() => {
+    if (!commandCenter) return;
+    if (!selectedMarketId) {
+      setSelectedMarketId(commandCenter.map_summary.focus_market_id || commandCenter.map_summary.points[0]?.market_id || null);
+    }
+  }, [commandCenter, selectedMarketId]);
 
   const hasVarianceOrLeaderboard = sections.includes("varianceChart") || sections.includes("leaderboard");
   const mobilePanels = React.useMemo<Array<{ key: PdsMobilePanel; label: string }>>(() => {
@@ -222,6 +242,75 @@ export function PdsWorkspacePage({
     }
   }, [mobilePanel, mobilePanels]);
 
+  const activeFilter = useMemo<PdsV2AlertFilter | null>(
+    () => commandCenter?.alert_filters.find((item) => item.key === activeFilterKey) || null,
+    [activeFilterKey, commandCenter],
+  );
+  const selectedMarketPoint = useMemo(
+    () => commandCenter?.map_summary.points.find((point) => point.market_id === selectedMarketId) || null,
+    [commandCenter, selectedMarketId],
+  );
+  const selectedIntervention = useMemo(
+    () => commandCenter?.intervention_queue.find((item) => item.intervention_id === selectedInterventionId) || null,
+    [commandCenter, selectedInterventionId],
+  );
+  const filteredInterventions = useMemo(() => {
+    if (!commandCenter) return [];
+    let items = [...commandCenter.intervention_queue];
+    if (activeFilter) {
+      items = items.filter((item) => activeFilter.entity_ids.includes(item.entity_id));
+    }
+    if (selectedMarketId) {
+      const marketFirst = items.filter((item) => item.entity_type === "market" && item.entity_id === selectedMarketId);
+      const rest = items.filter((item) => !(item.entity_type === "market" && item.entity_id === selectedMarketId));
+      items = [...marketFirst, ...rest];
+    }
+    return items;
+  }, [activeFilter, commandCenter, selectedMarketId]);
+  const focusLabel =
+    selectedIntervention?.entity_label ||
+    selectedMarketPoint?.name ||
+    commandCenter?.operating_brief.focus_label ||
+    "Portfolio";
+  const insightPanel = useMemo(() => {
+    if (!commandCenter) return null;
+    if (selectedIntervention) {
+      return {
+        ...commandCenter.insight_panel,
+        focus_label: selectedIntervention.entity_label,
+        status: selectedIntervention.severity,
+        what: selectedIntervention.issue_summary,
+        why: selectedIntervention.cause_summary,
+        consequence: selectedIntervention.expected_impact || commandCenter.insight_panel.consequence,
+        action: selectedIntervention.recommended_action,
+        owner: selectedIntervention.owner_label || commandCenter.insight_panel.owner,
+        reason_codes: selectedIntervention.reason_codes,
+      };
+    }
+    if (activeFilter) {
+      return {
+        ...commandCenter.insight_panel,
+        focus_label: activeFilter.label,
+        status: activeFilter.severity,
+        what: activeFilter.label,
+        why: activeFilter.description || commandCenter.insight_panel.why,
+        consequence: `This focus currently affects ${activeFilter.count} entities on the homepage.`,
+        action: commandCenter.operating_brief.recommended_actions[0] || commandCenter.insight_panel.action,
+        reason_codes: activeFilter.reason_codes,
+      };
+    }
+    if (selectedMarketPoint) {
+      return {
+        ...commandCenter.insight_panel,
+        focus_label: selectedMarketPoint.name,
+        what: `${selectedMarketPoint.name} is ${selectedMarketPoint.variance_pct} vs plan with ${selectedMarketPoint.red_projects} red projects.`,
+        why: `${selectedMarketPoint.staffing_pressure_count} staffing risks and ${selectedMarketPoint.closeout_risk_count} closeout blockers are concentrated here.`,
+        consequence: `${selectedMarketPoint.client_risk_accounts} client risk accounts and ${selectedMarketPoint.delinquent_timecards} delinquent timecards are reducing recovery speed.`,
+      };
+    }
+    return commandCenter.insight_panel;
+  }, [activeFilter, commandCenter, selectedIntervention, selectedMarketPoint]);
+
   if (loading && !commandCenter) {
     return <div className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-4 text-sm text-bm-muted2">Loading PDS enterprise command center...</div>;
   }
@@ -238,7 +327,6 @@ export function PdsWorkspacePage({
 
   return (
     <div className="space-y-5">
-      {/* Compressed header row */}
       <section className="rounded-xl border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,hsl(var(--pds-accent)/0.08),transparent_40%)] bg-bm-surface/[0.92] px-4 py-3">
         <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-baseline gap-3">
@@ -264,7 +352,8 @@ export function PdsWorkspacePage({
         </div>
       </section>
 
-      {/* Operating lens + controls */}
+      <PdsOperatingBrief brief={commandCenter.operating_brief} />
+
       <PdsLensToolbar
         lens={lens}
         horizon={horizon}
@@ -275,21 +364,105 @@ export function PdsWorkspacePage({
         onRolePresetChange={setRolePreset}
       />
 
-      {/* 1. Critical Issues — first read (what needs attention right now) */}
-      {sections.includes("interventionQueue") ? (
-        <PdsInterventionQueue commandCenter={commandCenter} />
+      <section className="rounded-2xl border border-bm-border/60 bg-bm-surface/15 px-4 py-3" data-testid="pds-active-state">
+        <p className="text-xs text-bm-muted2">
+          Viewing: <span className="font-semibold text-bm-text">{lens.replace(/_/g, " ")}</span>
+          {" · "}Period: <span className="font-semibold text-bm-text">{horizon}</span>
+          {" · "}Lens: <span className="font-semibold text-bm-text">{rolePreset.replace(/_/g, " ")}</span>
+          {" · "}Focus: <span className="font-semibold text-bm-text">{focusLabel}</span>
+          {" · "}Source: <span className="font-semibold text-bm-text">{focusSource}</span>
+        </p>
+      </section>
+
+      {sections.includes("signals") ? (
+        <PdsSignalsStrip
+          filters={commandCenter.alert_filters ?? []}
+          activeFilterKey={activeFilterKey}
+        onFilterSelect={(filter) => {
+          setActiveFilterKey((current) => (current === filter.key ? null : filter.key));
+            setSelectedInterventionId(null);
+            setSelectedEntityId(null);
+            setFocusSource("chip");
+          }}
+        />
       ) : null}
 
-      {/* 2. KPI cards — second read (how are we performing) */}
-      {sections.includes("performance") ? (
-        <PdsMetricStrip metrics={commandCenter.metrics_strip ?? []} />
-      ) : (
-        <PdsMetricStrip metrics={commandCenter.metrics_strip ?? []} />
-      )}
+      <PdsMetricStrip
+        metrics={commandCenter.metrics_strip ?? []}
+        activeFilterKey={activeFilterKey}
+        onMetricSelect={(metric: PdsV2MetricCard) => {
+          if (!metric.filter_key) return;
+          const nextFilterKey = metric.filter_key ?? null;
+          setActiveFilterKey((current) => (current === nextFilterKey ? null : nextFilterKey));
+          setSelectedInterventionId(null);
+          setSelectedEntityId(null);
+          setFocusSource("kpi");
+        }}
+      />
 
-      {/* Signals strip — compact operational context */}
-      {sections.includes("signals") ? (
-        <PdsSignalsStrip commandCenter={commandCenter} />
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)_minmax(320px,1fr)]">
+        <div className="rounded-[24px] border border-bm-border/70 bg-bm-surface/20 p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <PdsSectionHeader label="Geography" title="Where performance is slipping" />
+            <div className="flex flex-wrap gap-1.5">
+              {(["revenue_variance", "staffing_pressure", "backlog", "closeout_risk"] as MapColorMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setMapColorMode(mode)}
+                  className={`rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] ${
+                    mapColorMode === mode
+                      ? "border-pds-accent/35 bg-pds-accent/10 text-pds-accentText"
+                      : "border-bm-border/60 bg-bm-surface/10 text-bm-muted2"
+                  }`}
+                >
+                  {mode.replace(/_/g, " ")}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="h-[420px]">
+            <PdsMarketMap
+              points={commandCenter.map_summary.points}
+              selectedMarketId={selectedMarketId}
+              colorMode={mapColorMode}
+              onMarketClick={(marketId) => {
+                setSelectedMarketId(marketId);
+                setSelectedInterventionId(null);
+                setSelectedEntityId(marketId);
+                setFocusSource("map");
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-[24px] border border-bm-border/70 bg-bm-surface/20 p-4">
+          <PdsRankedMarketList
+            rows={commandCenter.performance_table.rows ?? []}
+            selectedMarketId={selectedMarketId}
+            activeFilterKey={activeFilterKey}
+            onMarketClick={(marketId) => {
+              setSelectedMarketId(marketId);
+              setSelectedInterventionId(null);
+              setSelectedEntityId(marketId);
+              setFocusSource("list");
+            }}
+          />
+        </div>
+
+        {insightPanel ? <PdsInsightPanel panel={insightPanel} /> : null}
+      </section>
+
+      {sections.includes("interventionQueue") ? (
+        <PdsInterventionQueue
+          items={filteredInterventions}
+          activeFilterKey={activeFilterKey}
+          onInterventionSelect={(item: PdsV2InterventionQueueItem) => {
+            setSelectedInterventionId(item.intervention_id);
+            setSelectedEntityId(item.entity_id);
+            setFocusSource("queue");
+          }}
+        />
       ) : null}
 
       {isMobileViewport && mobilePanels.length > 1 ? (

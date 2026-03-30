@@ -805,6 +805,10 @@ export interface PdsV2MetricCard {
   delta_value?: string | number | null;
   tone: string;
   unit?: string | null;
+  driver_text?: string | null;
+  trend_direction?: "up" | "down" | "flat" | null;
+  filter_key?: string | null;
+  reason_codes?: string[];
 }
 
 export interface PdsV2PerformanceRow {
@@ -1024,6 +1028,102 @@ export interface PdsV2Briefing {
   recommended_actions: string[];
 }
 
+export interface PdsV2OperatingBriefLine {
+  label: string;
+  text: string;
+  severity: "neutral" | "watch" | "warning" | "critical";
+}
+
+export interface PdsV2OperatingBrief {
+  headline: string;
+  summary: string;
+  trend_direction: "improving" | "stable" | "worsening";
+  focus_label?: string | null;
+  lines: PdsV2OperatingBriefLine[];
+  recommended_actions: string[];
+}
+
+export interface PdsV2AlertFilter {
+  key: string;
+  label: string;
+  count: number;
+  description?: string | null;
+  severity: "neutral" | "watch" | "warning" | "critical";
+  tone: string;
+  reason_codes: string[];
+  entity_ids: string[];
+}
+
+export interface PdsV2MapPoint {
+  market_id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  fee_actual: number | string;
+  fee_plan: number | string;
+  variance_pct: number | string;
+  backlog: number | string;
+  forecast: number | string;
+  staffing_pressure_count: number;
+  delinquent_timecards: number;
+  red_projects: number;
+  closeout_risk_count: number;
+  client_risk_accounts: number;
+  risk_score: number | string;
+  health_status: string;
+  reason_codes: string[];
+  top_accounts: string[];
+  owner_name?: string | null;
+}
+
+export interface PdsV2MapSummary {
+  focus_market_id?: string | null;
+  points: PdsV2MapPoint[];
+  color_modes: string[];
+}
+
+export interface PdsV2InsightPanel {
+  title: string;
+  focus_label?: string | null;
+  status: "neutral" | "watch" | "warning" | "critical";
+  what: string;
+  why: string;
+  consequence: string;
+  action: string;
+  owner?: string | null;
+  reason_codes: string[];
+}
+
+export interface PdsV2InterventionQueueItem {
+  intervention_id: string;
+  decision_code: string;
+  entity_type: "market" | "account" | "project" | "resource" | "pipeline_deal";
+  entity_id: string;
+  entity_label: string;
+  severity: "neutral" | "watch" | "warning" | "critical";
+  tone: string;
+  issue_summary: string;
+  cause_summary: string;
+  expected_impact?: string | null;
+  recommended_action: string;
+  owner_label?: string | null;
+  reason_codes: string[];
+  href?: string | null;
+  queue_item_id?: string | null;
+  queue_status?: string | null;
+}
+
+export interface PdsV2PipelineRollup {
+  active_deals: number;
+  overdue_close_count: number;
+  stalled_count: number;
+  high_value_low_probability_count: number;
+  total_pipeline_value: number | string;
+  total_weighted_value: number | string;
+  top_deal_name?: string | null;
+  top_issue?: string | null;
+}
+
 export interface PdsV2ReportPacket {
   packet_type: string;
   generated_at: string;
@@ -1153,6 +1253,12 @@ export interface PdsV2CommandCenter {
   closeout: PdsV2CloseoutItem[];
   account_dashboard?: PdsV2AccountDashboard | null;
   briefing: PdsV2Briefing;
+  operating_brief: PdsV2OperatingBrief;
+  alert_filters: PdsV2AlertFilter[];
+  map_summary: PdsV2MapSummary;
+  intervention_queue: PdsV2InterventionQueueItem[];
+  insight_panel: PdsV2InsightPanel;
+  pipeline_summary: PdsV2PipelineRollup;
 }
 
 export type {

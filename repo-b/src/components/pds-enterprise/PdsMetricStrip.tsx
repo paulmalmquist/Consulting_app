@@ -55,16 +55,29 @@ function toneBorderClass(tone?: string): string {
 
 const PRIORITY_KEYS = new Set(["fee_revenue", "gaap_revenue"]);
 
-export function PdsMetricStrip({ metrics }: { metrics: PdsV2MetricCard[] }) {
+export function PdsMetricStrip({
+  metrics,
+  activeFilterKey,
+  onMetricSelect,
+}: {
+  metrics: PdsV2MetricCard[];
+  activeFilterKey?: string | null;
+  onMetricSelect?: (metric: PdsV2MetricCard) => void;
+}) {
   return (
     <section className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" data-testid="pds-metric-strip">
       {metrics.map((metric) => {
         const vPct = computeVariancePct(metric);
         const isPriority = PRIORITY_KEYS.has(metric.key);
+        const isActive = !!metric.filter_key && metric.filter_key === activeFilterKey;
         return (
-          <article
+          <button
             key={metric.key}
-            className={`relative overflow-hidden rounded-xl border p-4 text-bm-text ${toneBgClass(metric.tone)} ${toneBorderClass(metric.tone)}`}
+            type="button"
+            onClick={() => onMetricSelect?.(metric)}
+            className={`relative overflow-hidden rounded-xl border p-4 text-left text-bm-text transition hover:-translate-y-[1px] ${
+              toneBgClass(metric.tone)
+            } ${toneBorderClass(metric.tone)} ${isActive ? "ring-1 ring-pds-accent/45" : ""}`}
           >
             <div className={`absolute left-0 top-0 h-full w-1 ${accentStripeClass(metric.tone)}`} />
             <div className="pl-3">
@@ -78,9 +91,16 @@ export function PdsMetricStrip({ metrics }: { metrics: PdsV2MetricCard[] }) {
                   </span>
                 ) : null}
               </div>
-              {/* TODO: Add sparkline when trend_values added to PdsV2MetricCard */}
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <p className="text-[11px] text-bm-muted2">{metric.driver_text || "Filter the surface to inspect main drivers."}</p>
+                {metric.trend_direction ? (
+                  <span className="rounded-full border border-bm-border/60 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-bm-muted2">
+                    {metric.trend_direction}
+                  </span>
+                ) : null}
+              </div>
             </div>
-          </article>
+          </button>
         );
       })}
     </section>

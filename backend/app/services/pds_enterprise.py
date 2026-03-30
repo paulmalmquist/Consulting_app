@@ -8,6 +8,7 @@ from uuid import UUID
 
 from app.db import get_cursor
 from app.services import pds as pds_core
+from app.services.pds_executive import queue as queue_svc
 from app.services.workspace_templates import resolve_workspace_template_key
 
 VALID_LENSES = {"market", "account", "project", "resource", "business_line"}
@@ -18,6 +19,25 @@ PIPELINE_BOARD_STAGES = ["prospect", "pursuit", "negotiation", "won", "converted
 PIPELINE_ACTIVE_STAGES = {"prospect", "pursuit", "negotiation", "won"}
 PIPELINE_WON_STAGES = {"won", "converted"}
 PIPELINE_CLOSED_STAGES = {"converted", "lost"}
+HOME_REASON_LABELS = {
+    "staffing": "staffing pressure",
+    "utilization": "utilization",
+    "delinquent_timecards": "delinquent timecards",
+    "backlog": "backlog coverage",
+    "closeout": "closeout drag",
+    "client_risk": "client risk",
+    "ci_miss": "CI miss",
+    "pipeline_slip": "pipeline slip",
+    "forecast_risk": "forecast risk",
+}
+MARKET_GEO_FALLBACKS = {
+    "neh": (42.0, -72.5),
+    "northeast": (42.0, -72.5),
+    "maps": (39.2, -76.0),
+    "mid-atlantic": (39.2, -76.0),
+    "sfl": (26.1, -80.3),
+    "south florida": (26.1, -80.3),
+}
 
 
 def _q(value: Any) -> Decimal:
@@ -3030,8 +3050,728 @@ def _pipeline_example_deal() -> dict[str, Any]:
     }
 
 
+def _severity_bucket(score: Decimal | float | int) -> str:
+    value = float(score)
+    if value >= 80:
+        return "critical"
+    if value >= 55:
+        return "warning"
+    if value >= 25:
+        return "watch"
+    return "neutral"
+
+
+def _severity_from_tone(tone: str | None) -> str:
+    if tone == "danger":
+        return "critical"
+    if tone == "warn":
+        return "warning"
+    return "neutral"
+
+
+def _reason_tags_from_codes(reason_codes: Iterable[Any] | None) -> list[str]:
+    tags: list[str] = []
+    for raw_code in reason_codes or []:
+        code = str(raw_code or "").strip().lower()
+        if not code:
+            continue
+        mapped = None
+        if "timecard" in code or "late_tc" in code:
+            mapped = "delinquent_timecards"
+        elif "staff" in code or "overload" in code or "gap" in code:
+            mapped = "staffing"
+        elif "util" in code:
+            mapped = "utilization"
+        elif "backlog" in code:
+            mapped = "backlog"
+        elif "closeout" in code or "billing" in code or "blocker" in code:
+            mapped = "closeout"
+        elif "client" in code or "satisfaction" in code or "survey" in code:
+            mapped = "client_risk"
+        elif code == "ci" or "ci_" in code or "margin" in code:
+            mapped = "ci_miss"
+        elif "pipeline" in code or "deal" in code:
+            mapped = "pipeline_slip"
+        elif "forecast" in code:
+            mapped = "forecast_risk"
+        if mapped and mapped not in tags:
+            tags.append(mapped)
+    return tags
+
+
+def _reason_summary(reason_codes: Iterable[str]) -> str:
+    labels = [HOME_REASON_LABELS.get(code, code.replace("_", " ")) for code in reason_codes]
+    if not labels:
+        return "mixed operating pressure"
+    return ", ".join(labels[:3])
+
+
+def _variance_pct(actual: Any, plan: Any) -> Decimal:
+    actual_value = _q(actual)
+    plan_value = _q(plan)
+    if plan_value == 0:
+        return Decimal("0")
+    return _q((actual_value - plan_value) / abs(plan_value))
+
+
+def _lookup_market_geo(market_name: str, market_code: str | None = None) -> tuple[float, float]:
+    name_lc = (market_name or "").lower()
+    code_lc = (market_code or "").lower()
+    for key, coords in MARKET_GEO_FALLBACKS.items():
+        if key in name_lc or key in code_lc:
+            return coords
+    hash_seed = sum(ord(ch) for ch in (market_name or "market"))
+    jitter_lat = ((hash_seed % 100) / 100) * 5 - 2.5
+    jitter_lng = (((hash_seed // 7) % 100) / 100) * 8 - 4
+    return 39.8 + jitter_lat, -98.5 + jitter_lng
+
+
+def _load_market_lookup(*, env_id: UUID, business_id: UUID) -> dict[str, dict[str, Any]]:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT market_id, market_name, market_code, leader_name
+            FROM pds_markets
+            WHERE env_id = %s::uuid AND business_id = %s::uuid
+            """,
+            (str(env_id), str(business_id)),
+        )
+        rows = cur.fetchall()
+    return {
+        str(row["market_id"]): {
+            "market_name": row.get("market_name"),
+            "market_code": row.get("market_code"),
+            "leader_name": row.get("leader_name"),
+        }
+        for row in rows
+    }
+
+
+def _load_top_accounts_by_market(*, env_id: UUID, business_id: UUID) -> dict[str, list[str]]:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT m.market_id, a.account_name
+            FROM pds_accounts a
+            JOIN pds_markets m ON m.market_id = a.market_id
+            WHERE a.env_id = %s::uuid AND a.business_id = %s::uuid
+            ORDER BY a.account_name
+            """,
+            (str(env_id), str(business_id)),
+        )
+        rows = cur.fetchall()
+    grouped: dict[str, list[str]] = {}
+    for row in rows:
+        grouped.setdefault(str(row["market_id"]), [])
+        if len(grouped[str(row["market_id"])]) < 3:
+            grouped[str(row["market_id"])].append(str(row["account_name"]))
+    return grouped
+
+
+def _build_pipeline_rollup(pipeline_summary: dict[str, Any]) -> dict[str, Any]:
+    attention_items = pipeline_summary.get("attention_items") or []
+    deals = pipeline_summary.get("deals") or []
+    high_value_low_probability = sum(1 for item in attention_items if item.get("issue_type") == "High Value / Low Prob")
+    return {
+        "active_deals": len([deal for deal in deals if deal.get("stage") in PIPELINE_ACTIVE_STAGES]),
+        "overdue_close_count": sum(1 for item in attention_items if item.get("issue_type") == "Overdue Close"),
+        "stalled_count": sum(1 for item in attention_items if item.get("issue_type") == "Stalled"),
+        "high_value_low_probability_count": high_value_low_probability,
+        "total_pipeline_value": pipeline_summary.get("total_pipeline_value") or Decimal("0"),
+        "total_weighted_value": pipeline_summary.get("total_weighted_value") or Decimal("0"),
+        "top_deal_name": attention_items[0].get("deal_name") if attention_items else None,
+        "top_issue": attention_items[0].get("issue") if attention_items else None,
+    }
+
+
+def _build_alert_filters(
+    *,
+    performance_rows: list[dict[str, Any]],
+    resource_health: list[dict[str, Any]],
+    timecard_health: list[dict[str, Any]],
+    delivery_risk: list[dict[str, Any]],
+    closeout: list[dict[str, Any]],
+    pipeline_summary: dict[str, Any],
+) -> list[dict[str, Any]]:
+    below_plan = [row for row in performance_rows if _variance_pct(row.get("fee_actual"), row.get("fee_plan")) < Decimal("-0.03")]
+    staffing = [row for row in resource_health if row.get("overload_flag") or row.get("staffing_gap_flag")]
+    delinquent = [row for row in timecard_health if int(row.get("delinquent_count") or 0) > 0]
+    red_projects = [row for row in delivery_risk if str(row.get("severity") or "") in {"red", "orange"}]
+    closeout_risk = [row for row in closeout if int(row.get("blocker_count") or 0) > 0 or int(row.get("closeout_aging_days") or 0) > 30]
+    pipeline_attention = pipeline_summary.get("attention_items") or []
+    items = [
+        {
+            "key": "markets_below_plan",
+            "label": f"{len(below_plan)} market{'s' if len(below_plan) != 1 else ''} below plan",
+            "count": len(below_plan),
+            "description": "Markets trailing fee revenue plan.",
+            "severity": "critical" if len(below_plan) >= 3 else "warning" if below_plan else "neutral",
+            "tone": "danger" if below_plan else "neutral",
+            "reason_codes": ["forecast_risk"],
+            "entity_ids": [str(row["entity_id"]) for row in below_plan],
+        },
+        {
+            "key": "staffing_risks",
+            "label": f"{len(staffing)} staffing risks",
+            "count": len(staffing),
+            "description": "Overload or staffing gap pressure across resources.",
+            "severity": "critical" if len(staffing) >= 6 else "warning" if staffing else "neutral",
+            "tone": "danger" if len(staffing) >= 6 else "warn" if staffing else "neutral",
+            "reason_codes": ["staffing", "utilization"],
+            "entity_ids": [str(row["resource_id"]) for row in staffing],
+        },
+        {
+            "key": "delinquent_timecards",
+            "label": f"{sum(int(row.get('delinquent_count') or 0) for row in delinquent)} delinquent timecards",
+            "count": sum(int(row.get("delinquent_count") or 0) for row in delinquent),
+            "description": "Late timecards are delaying revenue capture.",
+            "severity": "warning" if delinquent else "neutral",
+            "tone": "warn" if delinquent else "neutral",
+            "reason_codes": ["delinquent_timecards"],
+            "entity_ids": [str(row.get("resource_id") or row.get("resource_name") or "") for row in delinquent],
+        },
+        {
+            "key": "red_projects",
+            "label": f"{len(red_projects)} red projects",
+            "count": len(red_projects),
+            "description": "Projects needing immediate delivery intervention.",
+            "severity": "critical" if len(red_projects) >= 2 else "warning" if red_projects else "neutral",
+            "tone": "danger" if red_projects else "neutral",
+            "reason_codes": ["closeout"],
+            "entity_ids": [str(row["project_id"]) for row in red_projects],
+        },
+        {
+            "key": "closeout_blockers",
+            "label": f"{len(closeout_risk)} closeout blockers",
+            "count": len(closeout_risk),
+            "description": "Aging closeout blockers holding back final billing.",
+            "severity": "warning" if closeout_risk else "neutral",
+            "tone": "warn" if closeout_risk else "neutral",
+            "reason_codes": ["closeout"],
+            "entity_ids": [str(row["project_id"]) for row in closeout_risk],
+        },
+        {
+            "key": "pipeline_pressure",
+            "label": f"{len(pipeline_attention)} pipeline interventions",
+            "count": len(pipeline_attention),
+            "description": "Open pipeline slippage or conversion risk.",
+            "severity": "warning" if pipeline_attention else "neutral",
+            "tone": "warn" if pipeline_attention else "neutral",
+            "reason_codes": ["pipeline_slip"],
+            "entity_ids": [str(row["deal_id"]) for row in pipeline_attention],
+        },
+    ]
+    return [item for item in items if item["count"] > 0]
+
+
+def _build_map_summary(
+    *,
+    env_id: UUID,
+    business_id: UUID,
+    market_rows: list[dict[str, Any]],
+    resource_health: list[dict[str, Any]],
+    timecard_health: list[dict[str, Any]],
+    closeout: list[dict[str, Any]],
+) -> dict[str, Any]:
+    market_lookup = _load_market_lookup(env_id=env_id, business_id=business_id)
+    top_accounts = _load_top_accounts_by_market(env_id=env_id, business_id=business_id)
+    resource_by_market: dict[str, int] = {}
+    delinquent_by_market: dict[str, int] = {}
+    closeout_by_market: dict[str, int] = {}
+
+    for row in resource_health:
+        market_name = str(row.get("market_name") or "")
+        for market_id, market_meta in market_lookup.items():
+            if str(market_meta.get("market_name") or "") == market_name:
+                resource_by_market[market_id] = resource_by_market.get(market_id, 0) + int(bool(row.get("overload_flag") or row.get("staffing_gap_flag")))
+                delinquent_by_market[market_id] = delinquent_by_market.get(market_id, 0) + int(row.get("delinquent_timecards") or 0)
+                break
+
+    for row in closeout:
+        href = str(row.get("href") or "")
+        for market_id in market_lookup:
+            if market_id in href:
+                closeout_by_market[market_id] = closeout_by_market.get(market_id, 0) + 1
+
+    points: list[dict[str, Any]] = []
+    for row in market_rows:
+        market_id = str(row["entity_id"])
+        market_meta = market_lookup.get(market_id, {})
+        lat, lng = _lookup_market_geo(str(row.get("entity_label") or ""), str(market_meta.get("market_code") or ""))
+        variance_pct = _variance_pct(row.get("fee_actual"), row.get("fee_plan"))
+        risk_score = min(
+            Decimal("100"),
+            max(
+                Decimal("0"),
+                abs(variance_pct) * Decimal("280")
+                + Decimal(int(row.get("red_projects") or 0) * 8)
+                + Decimal(int(resource_by_market.get(market_id, 0)) * 6),
+            ),
+        )
+        points.append(
+            {
+                "market_id": row["entity_id"],
+                "name": row.get("entity_label"),
+                "lat": lat,
+                "lng": lng,
+                "fee_actual": row.get("fee_actual") or Decimal("0"),
+                "fee_plan": row.get("fee_plan") or Decimal("0"),
+                "variance_pct": variance_pct,
+                "backlog": row.get("backlog") or Decimal("0"),
+                "forecast": row.get("forecast") or Decimal("0"),
+                "staffing_pressure_count": resource_by_market.get(market_id, 0),
+                "delinquent_timecards": delinquent_by_market.get(market_id, 0),
+                "red_projects": int(row.get("red_projects") or 0),
+                "closeout_risk_count": closeout_by_market.get(market_id, 0),
+                "client_risk_accounts": int(row.get("client_risk_accounts") or 0),
+                "risk_score": _q(risk_score),
+                "health_status": row.get("health_status") or "green",
+                "reason_codes": _reason_tags_from_codes(row.get("reason_codes")),
+                "top_accounts": top_accounts.get(market_id, []),
+                "owner_name": row.get("owner_label") or market_meta.get("leader_name"),
+            }
+        )
+    return {
+        "focus_market_id": points[0]["market_id"] if points else None,
+        "points": points,
+        "color_modes": ["revenue_variance", "staffing_pressure", "backlog", "closeout_risk"],
+    }
+
+
+def _queue_payload_for_intervention(
+    *,
+    env_id: UUID,
+    business_id: UUID,
+    item: dict[str, Any],
+) -> dict[str, Any]:
+    decision_code = item["decision_code"]
+    correlation_key = item["correlation_key"]
+    queue_row = queue_svc.upsert_queue_item(
+        env_id=env_id,
+        business_id=business_id,
+        decision_code=decision_code,
+        title=item["entity_label"],
+        summary=item["issue_summary"],
+        priority={"critical": "critical", "warning": "high", "watch": "medium", "neutral": "low"}[item["severity"]],
+        recommended_action=item["recommended_action"],
+        recommended_owner=item.get("owner_label"),
+        due_at=datetime.utcnow() + timedelta(days=1 if item["severity"] == "critical" else 3),
+        risk_score=_q(item.get("risk_score") or 0),
+        project_id=UUID(str(item["entity_id"])) if item["entity_type"] == "project" else None,
+        signal_event_id=None,
+        context_json={
+            "correlation_key": correlation_key,
+            "entity_type": item["entity_type"],
+            "entity_id": item["entity_id"],
+            "reason_codes": item.get("reason_codes") or [],
+            "href": item.get("href"),
+        },
+        ai_analysis_json={
+            "cause_summary": item["cause_summary"],
+            "expected_impact": item.get("expected_impact"),
+        },
+        input_snapshot_json={
+            "severity": item["severity"],
+            "focus_source": "stone_home",
+        },
+        correlation_key=correlation_key,
+        actor="stone_home",
+    )
+    item["queue_item_id"] = queue_row.get("queue_item_id")
+    item["queue_status"] = queue_row.get("status")
+    return item
+
+
+def _build_intervention_queue(
+    *,
+    env_id: UUID,
+    business_id: UUID,
+    horizon: str,
+    performance_rows: list[dict[str, Any]],
+    delivery_risk: list[dict[str, Any]],
+    timecard_health: list[dict[str, Any]],
+    satisfaction: list[dict[str, Any]],
+    closeout: list[dict[str, Any]],
+    pipeline_summary: dict[str, Any],
+) -> list[dict[str, Any]]:
+    today_key = _today().strftime("%Y-%W")
+    items: list[dict[str, Any]] = []
+    for row in performance_rows:
+        variance_pct = _variance_pct(row.get("fee_actual"), row.get("fee_plan"))
+        if variance_pct < Decimal("-0.05"):
+            reasons = list(dict.fromkeys(_reason_tags_from_codes(row.get("reason_codes")) + ["forecast_risk"]))
+            items.append(
+                {
+                    "intervention_id": f"market-{row['entity_id']}",
+                    "decision_code": "D19",
+                    "entity_type": "market",
+                    "entity_id": str(row["entity_id"]),
+                    "entity_label": str(row.get("entity_label") or "Market"),
+                    "severity": "critical" if variance_pct < Decimal("-0.10") else "warning",
+                    "tone": "danger",
+                    "issue_summary": f"{row.get('entity_label')} is {_q(variance_pct * Decimal('100'))}% vs fee plan.",
+                    "cause_summary": _reason_summary(reasons),
+                    "expected_impact": f"{_q(_q(row.get('fee_actual')) - _q(row.get('fee_plan')))} fee variance gap requires recovery.",
+                    "recommended_action": "Run market recovery plan and rebalance staffing/timecards.",
+                    "owner_label": row.get("owner_label"),
+                    "reason_codes": reasons,
+                    "href": row.get("href"),
+                    "correlation_key": f"home:market:{row['entity_id']}:{horizon}:{today_key}",
+                    "risk_score": abs(variance_pct) * Decimal("100"),
+                }
+            )
+    for row in delivery_risk[:4]:
+        reasons = list(dict.fromkeys(_reason_tags_from_codes(row.get("reason_codes")) + ["closeout"]))
+        items.append(
+            {
+                "intervention_id": f"project-{row['project_id']}",
+                "decision_code": "D07",
+                "entity_type": "project",
+                "entity_id": str(row["project_id"]),
+                "entity_label": str(row.get("project_name") or "Project"),
+                "severity": "critical" if str(row.get("severity")) == "red" else "warning",
+                "tone": "danger" if str(row.get("severity")) == "red" else "warn",
+                "issue_summary": str(row.get("issue_summary") or "Project risk requires intervention."),
+                "cause_summary": _reason_summary(reasons),
+                "expected_impact": f"Delivery drag in {row.get('market_name') or 'the portfolio'} if not escalated.",
+                "recommended_action": str(row.get("recommended_action") or "Escalate the project recovery plan."),
+                "owner_label": row.get("recommended_owner"),
+                "reason_codes": reasons,
+                "href": row.get("href"),
+                "correlation_key": f"home:project:{row['project_id']}:{horizon}:{today_key}",
+                "risk_score": _q(row.get("risk_score")),
+            }
+        )
+    for row in timecard_health[:4]:
+        if int(row.get("delinquent_count") or 0) <= 0:
+            continue
+        reasons = list(dict.fromkeys(_reason_tags_from_codes(row.get("reason_codes")) + ["delinquent_timecards", "staffing"]))
+        items.append(
+            {
+                "intervention_id": f"resource-{row.get('resource_id') or row.get('resource_name')}",
+                "decision_code": "D14",
+                "entity_type": "resource",
+                "entity_id": str(row.get("resource_id") or row.get("resource_name")),
+                "entity_label": str(row.get("resource_name") or "Resource"),
+                "severity": "warning",
+                "tone": "warn",
+                "issue_summary": f"{row.get('resource_name')} has {row.get('delinquent_count')} delinquent timecards.",
+                "cause_summary": _reason_summary(reasons),
+                "expected_impact": "Revenue recognition remains delayed until timecards are submitted.",
+                "recommended_action": "Resolve delinquent timecards and rebalance utilization.",
+                "owner_label": None,
+                "reason_codes": reasons,
+                "href": None,
+                "correlation_key": f"home:resource:{row.get('resource_id') or row.get('resource_name')}:{horizon}:{today_key}",
+                "risk_score": Decimal(int(row.get("delinquent_count") or 0) * 10),
+            }
+        )
+    for row in satisfaction[:3]:
+        if str(row.get("risk_state") or "") not in {"red", "orange"} and _q(row.get("average_score")) >= Decimal("3.5"):
+            continue
+        reasons = list(dict.fromkeys(_reason_tags_from_codes(row.get("reason_codes")) + ["client_risk"]))
+        items.append(
+            {
+                "intervention_id": f"account-{row['account_id']}",
+                "decision_code": "D16",
+                "entity_type": "account",
+                "entity_id": str(row["account_id"]),
+                "entity_label": str(row.get("account_name") or "Account"),
+                "severity": "critical" if str(row.get("risk_state")) == "red" else "warning",
+                "tone": "danger" if str(row.get("risk_state")) == "red" else "warn",
+                "issue_summary": f"{row.get('account_name')} satisfaction score is {_q(row.get('average_score'))}.",
+                "cause_summary": _reason_summary(reasons),
+                "expected_impact": "Client expansion and repeat awards are at risk.",
+                "recommended_action": "Run an executive client recovery intervention.",
+                "owner_label": None,
+                "reason_codes": reasons,
+                "href": None,
+                "correlation_key": f"home:account:{row['account_id']}:{horizon}:{today_key}",
+                "risk_score": Decimal("75"),
+            }
+        )
+    for row in closeout[:3]:
+        if int(row.get("blocker_count") or 0) <= 0 and int(row.get("closeout_aging_days") or 0) <= 30:
+            continue
+        reasons = list(dict.fromkeys(_reason_tags_from_codes(row.get("reason_codes")) + ["closeout"]))
+        items.append(
+            {
+                "intervention_id": f"closeout-{row['project_id']}",
+                "decision_code": "D08",
+                "entity_type": "project",
+                "entity_id": str(row["project_id"]),
+                "entity_label": str(row.get("project_name") or "Project"),
+                "severity": "warning",
+                "tone": "warn",
+                "issue_summary": f"{row.get('project_name')} has {row.get('blocker_count')} closeout blockers.",
+                "cause_summary": _reason_summary(reasons),
+                "expected_impact": "Final billing and lessons learned remain stuck.",
+                "recommended_action": "Clear closeout blockers and force final billing readiness.",
+                "owner_label": None,
+                "reason_codes": reasons,
+                "href": row.get("href"),
+                "correlation_key": f"home:closeout:{row['project_id']}:{horizon}:{today_key}",
+                "risk_score": Decimal(int(row.get("blocker_count") or 0) * 12),
+            }
+        )
+    for row in (pipeline_summary.get("attention_items") or [])[:3]:
+        reasons = ["pipeline_slip"]
+        if row.get("issue_type") == "Overdue Close":
+            reasons.append("forecast_risk")
+        items.append(
+            {
+                "intervention_id": f"deal-{row['deal_id']}",
+                "decision_code": "D06",
+                "entity_type": "pipeline_deal",
+                "entity_id": str(row["deal_id"]),
+                "entity_label": str(row.get("deal_name") or "Pipeline deal"),
+                "severity": "warning",
+                "tone": row.get("tone") or "warn",
+                "issue_summary": str(row.get("issue") or "Pipeline attention required."),
+                "cause_summary": _reason_summary(reasons),
+                "expected_impact": "Pipeline slippage reduces near-term forecast confidence.",
+                "recommended_action": str(row.get("action") or "Prioritize the deal for executive review."),
+                "owner_label": None,
+                "reason_codes": reasons,
+                "href": "/lab/env/{}/pds/pipeline".format(env_id),
+                "correlation_key": f"home:deal:{row['deal_id']}:{horizon}:{today_key}",
+                "risk_score": Decimal("60"),
+            }
+        )
+    ranked = sorted(
+        items,
+        key=lambda item: (
+            {"critical": 0, "warning": 1, "watch": 2, "neutral": 3}[item["severity"]],
+            -float(item.get("risk_score") or 0),
+        ),
+    )[:12]
+    return [_queue_payload_for_intervention(env_id=env_id, business_id=business_id, item=item) for item in ranked]
+
+
+def _build_operating_brief(
+    *,
+    performance_rows: list[dict[str, Any]],
+    resource_health: list[dict[str, Any]],
+    timecard_health: list[dict[str, Any]],
+    delivery_risk: list[dict[str, Any]],
+    closeout: list[dict[str, Any]],
+    pipeline_rollup: dict[str, Any],
+    interventions: list[dict[str, Any]],
+) -> dict[str, Any]:
+    worst_market = None
+    if performance_rows:
+        worst_market = min(performance_rows, key=lambda row: _variance_pct(row.get("fee_actual"), row.get("fee_plan")))
+    staffing_risks = len([row for row in resource_health if row.get("overload_flag") or row.get("staffing_gap_flag")])
+    delinquent_total = sum(int(row.get("delinquent_count") or 0) for row in timecard_health)
+    red_projects = len([row for row in delivery_risk if str(row.get("severity") or "") in {"red", "orange"}])
+    closeout_risk = len([row for row in closeout if int(row.get("blocker_count") or 0) > 0 or int(row.get("closeout_aging_days") or 0) > 30])
+    top_action = interventions[0] if interventions else None
+    headline = "Current Operating Posture"
+    summary = "StonePDS is running with concentrated revenue, staffing, and execution pressure."
+    focus_label = worst_market.get("entity_label") if worst_market else None
+    if worst_market is not None:
+        summary = (
+            f"{worst_market.get('entity_label')} is {_q(_variance_pct(worst_market.get('fee_actual'), worst_market.get('fee_plan')) * Decimal('100'))}% vs plan, "
+            f"with {staffing_risks} staffing risks and {delinquent_total} delinquent timecards constraining delivery."
+        )
+    return {
+        "headline": headline,
+        "summary": summary,
+        "trend_direction": "worsening" if red_projects or delinquent_total or pipeline_rollup.get("stalled_count") else "stable",
+        "focus_label": focus_label,
+        "lines": [
+            {
+                "label": "Biggest Drag",
+                "text": f"{worst_market.get('entity_label')} is the largest drag on plan." if worst_market else "No market drag detected.",
+                "severity": "critical" if worst_market and _variance_pct(worst_market.get("fee_actual"), worst_market.get("fee_plan")) < Decimal("-0.08") else "warning",
+            },
+            {
+                "label": "Primary Driver",
+                "text": f"{staffing_risks} staffing risks and {delinquent_total} delinquent timecards are blocking execution.",
+                "severity": "critical" if staffing_risks >= 6 or delinquent_total >= 6 else "warning",
+            },
+            {
+                "label": "Execution Pressure",
+                "text": f"{red_projects} red projects and {closeout_risk} closeout blockers need intervention.",
+                "severity": "critical" if red_projects >= 2 else "warning" if closeout_risk else "neutral",
+            },
+            {
+                "label": "Pipeline Watch",
+                "text": f"{pipeline_rollup.get('overdue_close_count', 0)} overdue closes and {pipeline_rollup.get('stalled_count', 0)} stalled deals are affecting forecast confidence.",
+                "severity": "warning" if pipeline_rollup.get("overdue_close_count", 0) or pipeline_rollup.get("stalled_count", 0) else "neutral",
+            },
+            {
+                "label": "Highest-Leverage Action",
+                "text": top_action.get("recommended_action") if top_action else "No immediate action queued.",
+                "severity": top_action.get("severity") if top_action else "neutral",
+            },
+        ],
+        "recommended_actions": [item["recommended_action"] for item in interventions[:3]],
+    }
+
+
+def _build_insight_panel(
+    *,
+    operating_brief: dict[str, Any],
+    interventions: list[dict[str, Any]],
+) -> dict[str, Any]:
+    lead = interventions[0] if interventions else None
+    if lead is None:
+        return {
+            "title": "Why this matters",
+            "focus_label": operating_brief.get("focus_label"),
+            "status": "neutral",
+            "what": operating_brief.get("summary") or "Portfolio is stable.",
+            "why": "No dominant intervention driver is active.",
+            "consequence": "Continue monitoring for new risk concentration.",
+            "action": "Review the highest-value markets and pipeline weekly.",
+            "owner": None,
+            "reason_codes": [],
+        }
+    return {
+        "title": "Why this matters",
+        "focus_label": lead.get("entity_label"),
+        "status": lead.get("severity") or "warning",
+        "what": lead.get("issue_summary"),
+        "why": lead.get("cause_summary"),
+        "consequence": lead.get("expected_impact") or "Performance will continue to slip if unresolved.",
+        "action": lead.get("recommended_action"),
+        "owner": lead.get("owner_label"),
+        "reason_codes": lead.get("reason_codes") or [],
+    }
+
+
+def _enrich_metric_strip(metrics_strip: list[dict[str, Any]], alert_filters: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    filter_lookup = {item["key"]: item for item in alert_filters}
+    metric_map = {
+        "fee_vs_plan": ("markets_below_plan", "Markets trailing fee plan.", "down"),
+        "gaap_vs_plan": ("markets_below_plan", "Revenue recognition is missing plan.", "down"),
+        "ci_vs_plan": ("markets_below_plan", "CI pressure is dragging margin.", "down"),
+        "backlog": ("pipeline_pressure", "Backlog coverage against forecast.", "flat"),
+        "forecast": ("pipeline_pressure", "Pipeline confidence feeding forecast.", "flat"),
+        "red_projects": ("red_projects", "Projects requiring escalation.", "up"),
+        "client_risk_accounts": ("closeout_blockers", "Client recovery and closeout risk.", "up"),
+    }
+    enriched: list[dict[str, Any]] = []
+    for metric in metrics_strip:
+        filter_key, driver_text, trend_direction = metric_map.get(metric["key"], (None, None, "flat"))
+        item = dict(metric)
+        item["filter_key"] = filter_key
+        item["driver_text"] = driver_text
+        item["trend_direction"] = trend_direction
+        item["reason_codes"] = list(filter_lookup.get(filter_key, {}).get("reason_codes") or [])
+        enriched.append(item)
+    return enriched
+
+
+def _ensure_pipeline_demo_data(*, env_id: UUID, business_id: UUID) -> None:
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(*) AS cnt FROM pds_pipeline_deals WHERE env_id = %s::uuid AND business_id = %s::uuid",
+            (str(env_id), str(business_id)),
+        )
+        existing = int((cur.fetchone() or {}).get("cnt") or 0)
+        if existing >= 6:
+            return
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT pg_try_advisory_xact_lock(hashtext(%s))",
+            (f"pds_pipeline_seed:{env_id}:{business_id}",),
+        )
+        lock_row = cur.fetchone() or {}
+        if not lock_row.get("pg_try_advisory_xact_lock"):
+            return
+        cur.execute(
+            "SELECT COUNT(*) AS cnt FROM pds_pipeline_deals WHERE env_id = %s::uuid AND business_id = %s::uuid",
+            (str(env_id), str(business_id)),
+        )
+        if int((cur.fetchone() or {}).get("cnt") or 0) >= 6:
+            return
+        cur.execute(
+            """
+            SELECT a.account_id, a.account_name, a.market_id, a.owner_name,
+                   COALESCE(r.resource_id, a.owner_resource_id) AS owner_resource_id,
+                   COALESCE(r.full_name, a.owner_name) AS resource_name,
+                   a.business_line_id
+            FROM pds_accounts a
+            LEFT JOIN pds_resources r ON r.resource_id = a.owner_resource_id
+            WHERE a.env_id = %s::uuid AND a.business_id = %s::uuid
+            ORDER BY a.strategic_flag DESC, a.account_name
+            LIMIT 12
+            """,
+            (str(env_id), str(business_id)),
+        )
+        accounts = cur.fetchall()
+        if not accounts:
+            return
+        today = _today()
+        seed_rows = [
+            ("Prospect Recovery Program", "prospect", Decimal("850000"), Decimal("20"), today + timedelta(days=21), "High-value prospect needs sponsor alignment."),
+            ("Healthcare Campus Modernization", "pursuit", Decimal("1650000"), Decimal("35"), today - timedelta(days=7), "Overdue close; executive sponsor needed."),
+            ("Regional Office Consolidation", "negotiation", Decimal("910000"), Decimal("65"), today + timedelta(days=10), "Negotiation is close but stalled."),
+            ("Data Center Expansion PMO", "pursuit", Decimal("2200000"), Decimal("30"), today + timedelta(days=40), "High value / low probability; tighten pursuit strategy."),
+            ("Critical Care Renovation", "won", Decimal("1400000"), Decimal("90"), today + timedelta(days=5), "Won and awaiting conversion."),
+            ("Airport Program Reset", "prospect", Decimal("780000"), Decimal("25"), today + timedelta(days=55), "New opportunity, needs qualification."),
+            ("Retail Portfolio Rollout", "negotiation", Decimal("1120000"), Decimal("55"), today - timedelta(days=3), "Late-stage deal is past expected close."),
+            ("Life Sciences Lab Upgrade", "pursuit", Decimal("980000"), Decimal("40"), today + timedelta(days=18), "Pursuit aging with light recent activity."),
+        ]
+        for idx, (deal_name, stage, deal_value, probability_pct, expected_close_date, notes) in enumerate(seed_rows):
+            account = accounts[idx % len(accounts)]
+            owner_name = account.get("resource_name") or account.get("owner_name") or "Dana Park"
+            last_activity_at = datetime.utcnow() - timedelta(days=18 if idx in {1, 2, 6, 7} else 6)
+            stage_entered_at = datetime.utcnow() - timedelta(days=20 if idx in {1, 2, 6} else 9)
+            cur.execute(
+                """
+                INSERT INTO pds_pipeline_deals
+                (env_id, business_id, account_id, market_id, business_line_id, owner_resource_id, deal_name,
+                 stage, deal_value, probability_pct, expected_close_date, owner_name, notes,
+                 stage_entered_at, last_activity_at, created_at, updated_at)
+                VALUES
+                (%s::uuid, %s::uuid, %s::uuid, %s::uuid, %s::uuid, %s::uuid, %s,
+                 %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
+                RETURNING deal_id
+                """,
+                (
+                    str(env_id),
+                    str(business_id),
+                    str(account["account_id"]),
+                    str(account.get("market_id")) if account.get("market_id") else None,
+                    str(account.get("business_line_id")) if account.get("business_line_id") else None,
+                    str(account.get("owner_resource_id")) if account.get("owner_resource_id") else None,
+                    deal_name,
+                    stage,
+                    str(deal_value),
+                    str(probability_pct),
+                    expected_close_date,
+                    owner_name,
+                    notes,
+                    stage_entered_at,
+                    last_activity_at,
+                ),
+            )
+            created = cur.fetchone() or {}
+            if created.get("deal_id"):
+                cur.execute(
+                    """
+                    INSERT INTO pds_pipeline_deal_stage_history
+                    (env_id, business_id, deal_id, from_stage, to_stage, changed_at, note)
+                    VALUES (%s::uuid, %s::uuid, %s::uuid, NULL, %s, %s, %s)
+                    """,
+                    (
+                        str(env_id),
+                        str(business_id),
+                        str(created["deal_id"]),
+                        stage,
+                        stage_entered_at,
+                        "Seeded Stone pipeline deal",
+                    ),
+                )
+    _upsert_pipeline_snapshot(env_id=env_id, business_id=business_id)
+
+
 def get_pipeline_lookups(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
     _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
+    _ensure_pipeline_demo_data(env_id=env_id, business_id=business_id)
     accounts: list[dict[str, Any]] = []
     owners: list[dict[str, Any]] = []
     try:
@@ -3254,6 +3994,7 @@ def update_pipeline_deal(*, env_id: UUID, business_id: UUID, deal_id: UUID, payl
 def get_pipeline_summary(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
     """Return the board-first pipeline workspace model for the PDS pipeline module."""
     _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
+    _ensure_pipeline_demo_data(env_id=env_id, business_id=business_id)
     today = _today()
     raw_rows = _fetch_pipeline_deal_rows(env_id=env_id, business_id=business_id)
     deals = [_pipeline_deal_from_row(row, today=today) for row in raw_rows]
@@ -3281,15 +4022,24 @@ def get_pipeline_summary(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
 def get_command_center(*, env_id: UUID, business_id: UUID, lens: str, horizon: str, role_preset: str) -> dict[str, Any]:
     environment = _fetch_environment(env_id)
     _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
+    _ensure_pipeline_demo_data(env_id=env_id, business_id=business_id)
     normalized_lens = normalize_lens(lens, role_preset)
     normalized_horizon = normalize_horizon(horizon)
     performance_table = get_performance_table(env_id=env_id, business_id=business_id, lens=normalized_lens, horizon=normalized_horizon)
+    market_performance_table = performance_table if normalized_lens == "market" else get_performance_table(
+        env_id=env_id,
+        business_id=business_id,
+        lens="market",
+        horizon=normalized_horizon,
+    )
     delivery_risk = get_delivery_risk(env_id=env_id, business_id=business_id, horizon=normalized_horizon)
     resource_health = get_resource_health(env_id=env_id, business_id=business_id, horizon=normalized_horizon)
     timecard_health = get_timecard_health(env_id=env_id, business_id=business_id, horizon=normalized_horizon)
     forecast = get_forecast(env_id=env_id, business_id=business_id, horizon=normalized_horizon, lens=normalized_lens)
     satisfaction = get_satisfaction(env_id=env_id, business_id=business_id, horizon=normalized_horizon)
     closeout = get_closeout(env_id=env_id, business_id=business_id, horizon=normalized_horizon)
+    pipeline_summary = get_pipeline_summary(env_id=env_id, business_id=business_id)
+    pipeline_rollup = _build_pipeline_rollup(pipeline_summary)
     briefing = get_executive_briefing(
         env_id=env_id, business_id=business_id, lens=normalized_lens, horizon=normalized_horizon, role_preset=role_preset,
         performance_table=performance_table, delivery_risk=delivery_risk,
@@ -3396,6 +4146,48 @@ def get_command_center(*, env_id: UUID, business_id: UUID, lens: str, horizon: s
             {"key": "client_risk_accounts", "label": "Client Risk Accounts", "value": client_risk_accounts, "tone": "warn"},
         ]
 
+    alert_filters = _build_alert_filters(
+        performance_rows=market_performance_table["rows"],
+        resource_health=resource_health,
+        timecard_health=timecard_health,
+        delivery_risk=delivery_risk,
+        closeout=closeout,
+        pipeline_summary=pipeline_summary,
+    )
+    interventions = _build_intervention_queue(
+        env_id=env_id,
+        business_id=business_id,
+        horizon=normalized_horizon,
+        performance_rows=market_performance_table["rows"],
+        delivery_risk=delivery_risk,
+        timecard_health=timecard_health,
+        satisfaction=satisfaction,
+        closeout=closeout,
+        pipeline_summary=pipeline_summary,
+    )
+    operating_brief = _build_operating_brief(
+        performance_rows=market_performance_table["rows"],
+        resource_health=resource_health,
+        timecard_health=timecard_health,
+        delivery_risk=delivery_risk,
+        closeout=closeout,
+        pipeline_rollup=pipeline_rollup,
+        interventions=interventions,
+    )
+    insight_panel = _build_insight_panel(
+        operating_brief=operating_brief,
+        interventions=interventions,
+    )
+    map_summary = _build_map_summary(
+        env_id=env_id,
+        business_id=business_id,
+        market_rows=market_performance_table["rows"],
+        resource_health=resource_health,
+        timecard_health=timecard_health,
+        closeout=closeout,
+    )
+    enriched_metrics_strip = _enrich_metric_strip(metrics_strip, alert_filters)
+
     return {
         "env_id": str(env_id),
         "business_id": str(business_id),
@@ -3404,7 +4196,7 @@ def get_command_center(*, env_id: UUID, business_id: UUID, lens: str, horizon: s
         "horizon": normalized_horizon,
         "role_preset": normalize_role_preset(role_preset),
         "generated_at": datetime.utcnow(),
-        "metrics_strip": metrics_strip,
+        "metrics_strip": enriched_metrics_strip,
         "performance_table": performance_table,
         "delivery_risk": delivery_risk,
         "resource_health": resource_health,
@@ -3414,6 +4206,12 @@ def get_command_center(*, env_id: UUID, business_id: UUID, lens: str, horizon: s
         "closeout": closeout,
         "account_dashboard": account_dashboard,
         "briefing": briefing,
+        "operating_brief": operating_brief,
+        "alert_filters": alert_filters,
+        "map_summary": map_summary,
+        "intervention_queue": interventions,
+        "insight_panel": insight_panel,
+        "pipeline_summary": pipeline_rollup,
     }
 
 
