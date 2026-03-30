@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   Background,
@@ -9,11 +9,14 @@ import {
   MiniMap,
   Position,
   ReactFlow,
+  useReactFlow,
+  ReactFlowProvider,
   type Edge,
   type Node,
 } from "@xyflow/react";
 import type { ResumeArchitecture } from "@/lib/bos-api";
 import ResumeFallbackCard from "./ResumeFallbackCard";
+import ArchitectureNodeDetail from "./ArchitectureNodeDetail";
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
 
 const LAYER_COLORS: Record<string, string> = {
@@ -32,7 +35,7 @@ const BORDER_COLORS: Record<string, string> = {
   consumption: "#f472b6",
 };
 
-export default function ResumeArchitectureModule({ architecture }: { architecture: ResumeArchitecture }) {
+function ArchitectureFlowInner({ architecture }: { architecture: ResumeArchitecture }) {
   const {
     architectureView,
     setArchitectureView,
@@ -49,13 +52,33 @@ export default function ResumeArchitectureModule({ architecture }: { architectur
     })),
   );
 
+  const { fitView } = useReactFlow();
+  const fitViewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const highlightSet = useMemo(() => new Set(highlightArchitectureNodeIds), [highlightArchitectureNodeIds]);
+  const hasHighlights = highlightSet.size > 0;
+
+  useEffect(() => {
+    if (highlightArchitectureNodeIds.length === 0) return;
+    if (fitViewTimer.current) clearTimeout(fitViewTimer.current);
+    fitViewTimer.current = setTimeout(() => {
+      fitView({
+        nodes: highlightArchitectureNodeIds.map((id) => ({ id })),
+        padding: 0.35,
+        duration: 400,
+      });
+    }, 300);
+    return () => {
+      if (fitViewTimer.current) clearTimeout(fitViewTimer.current);
+    };
+  }, [highlightArchitectureNodeIds, fitView]);
 
   const nodes = useMemo<Node[]>(
     () =>
       architecture.nodes.map((node) => {
         const isSelected = selectedArchitectureNodeId === node.node_id;
         const isLinked = highlightSet.has(node.node_id);
+        const isDimmed = hasHighlights && !isLinked && !isSelected;
         return {
           id: node.node_id,
           position: node.position,
@@ -67,6 +90,15 @@ export default function ResumeArchitectureModule({ architecture }: { architectur
                 <div className="text-xs leading-5 text-white/70">
                   {architectureView === "technical" ? node.description : node.business_problem}
                 </div>
+                {node.tools.length > 0 ? (
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {node.tools.slice(0, 3).map((tool) => (
+                      <span key={tool} className="rounded-full bg-white/8 px-1.5 py-0.5 text-[9px] text-white/50">
+                        {tool}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ),
           },
@@ -82,49 +114,63 @@ export default function ResumeArchitectureModule({ architecture }: { architectur
                 ? `0 0 0 1px ${BORDER_COLORS[node.layer]}, 0 16px 36px -24px ${BORDER_COLORS[node.layer]}`
                 : "0 18px 48px -36px rgba(5,12,18,0.9)",
             color: "white",
+            opacity: isDimmed ? 0.3 : 1,
+            transition: "opacity 0.3s ease, box-shadow 0.3s ease, border 0.3s ease",
           },
           draggable: false,
           sourcePosition: Position.Right,
           targetPosition: Position.Left,
         };
       }),
-    [architecture.nodes, architectureView, selectedArchitectureNodeId, highlightSet],
+    [architecture.nodes, architectureView, selectedArchitectureNodeId, highlightSet, hasHighlights],
   );
 
   const edges = useMemo<Edge[]>(
     () =>
-      architecture.edges.map((edge) => ({
-        id: edge.edge_id,
-        source: edge.source,
-        target: edge.target,
-        label: architectureView === "technical" ? edge.technical_label : edge.impact_label,
-        animated: true,
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: "rgba(255,255,255,0.55)",
-        },
-        labelStyle: {
-          fill: "rgba(255,255,255,0.68)",
-          fontSize: 11,
-        },
-        style: {
-          stroke: "rgba(255,255,255,0.22)",
-          strokeWidth: 1.6,
-        },
-      })),
-    [architecture.edges, architectureView],
+      architecture.edges.map((edge) => {
+        const sourceLinked = highlightSet.has(edge.source);
+        const targetLinked = highlightSet.has(edge.target);
+        const isActiveEdge = hasHighlights && sourceLinked && targetLinked;
+        const isDimmedEdge = hasHighlights && !isActiveEdge;
+        return {
+          id: edge.edge_id,
+          source: edge.source,
+          target: edge.target,
+          label: architectureView === "technical" ? edge.technical_label : edge.impact_label,
+          animated: isActiveEdge || !hasHighlights,
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: isActiveEdge ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.55)",
+          },
+          labelStyle: {
+            fill: isDimmedEdge ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.68)",
+            fontSize: 11,
+          },
+          style: {
+            stroke: isActiveEdge
+              ? "rgba(255,255,255,0.6)"
+              : isDimmedEdge
+                ? "rgba(255,255,255,0.08)"
+                : "rgba(255,255,255,0.22)",
+            strokeWidth: isActiveEdge ? 2.2 : 1.6,
+            transition: "stroke 0.3s ease, opacity 0.3s ease",
+          },
+        };
+      }),
+    [architecture.edges, architectureView, highlightSet, hasHighlights],
   );
 
-  if (architecture.nodes.length === 0) {
-    return (
-      <ResumeFallbackCard
-        eyebrow="Architecture"
-        title="Visualization failed to render"
-        body="The architecture layer does not have enough normalized node data to draw a safe system map."
-        tone="warning"
-      />
-    );
-  }
+  const selectedNode = useMemo(
+    () => architecture.nodes.find((n) => n.node_id === selectedArchitectureNodeId) ?? null,
+    [architecture.nodes, selectedArchitectureNodeId],
+  );
+
+  const handleNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      selectArchitectureNode(selectedArchitectureNodeId === node.id ? null : node.id);
+    },
+    [selectArchitectureNode, selectedArchitectureNodeId],
+  );
 
   return (
     <section className="rounded-[28px] border border-bm-border/60 bg-bm-surface/30 p-5">
@@ -160,17 +206,22 @@ export default function ResumeArchitectureModule({ architecture }: { architectur
           proOptions={{ hideAttribution: true }}
           nodesConnectable={false}
           nodesDraggable={false}
-          onNodeClick={(_, node) => selectArchitectureNode(node.id)}
+          onNodeClick={handleNodeClick}
         >
           <Background gap={24} color="rgba(255,255,255,0.06)" />
           <Controls showInteractive={false} position="bottom-right" />
           <MiniMap
-            nodeColor={(node) => BORDER_COLORS[String(node.id).includes("vector") ? "ai" : "processing"]}
+            nodeColor={(node) => {
+              const archNode = architecture.nodes.find((n) => n.node_id === String(node.id));
+              return BORDER_COLORS[archNode?.layer ?? "processing"] ?? BORDER_COLORS.processing;
+            }}
             maskColor="rgba(4, 8, 12, 0.55)"
             pannable
           />
         </ReactFlow>
       </div>
+
+      {selectedNode ? <ArchitectureNodeDetail node={selectedNode} /> : null}
 
       <div className="mt-4 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.16em] text-bm-muted2">
         {[
@@ -191,5 +242,24 @@ export default function ResumeArchitectureModule({ architecture }: { architectur
         ) : null}
       </div>
     </section>
+  );
+}
+
+export default function ResumeArchitectureModule({ architecture }: { architecture: ResumeArchitecture }) {
+  if (architecture.nodes.length === 0) {
+    return (
+      <ResumeFallbackCard
+        eyebrow="Architecture"
+        title="Visualization failed to render"
+        body="The architecture layer does not have enough normalized node data to draw a safe system map."
+        tone="warning"
+      />
+    );
+  }
+
+  return (
+    <ReactFlowProvider>
+      <ArchitectureFlowInner architecture={architecture} />
+    </ReactFlowProvider>
   );
 }

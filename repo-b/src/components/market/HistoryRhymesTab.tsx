@@ -174,9 +174,10 @@ export function MarketStateStrip() {
   );
 }
 
-export function DecisionLayer() {
-  const bearishCount = agentData.filter(a => a.dir === "Bearish").length;
-  const totalConf = agentData.reduce((s, a) => s + a.conf * a.wt, 0) / agentData.reduce((s, a) => s + a.wt, 0);
+export function DecisionLayer({ agentData: propAgents }: { agentData?: typeof agentData } = {}) {
+  const agents = propAgents ?? agentData;
+  const bearishCount = agents.filter(a => a.dir === "Bearish").length;
+  const totalConf = agents.reduce((s, a) => s + a.conf * a.wt, 0) / agents.reduce((s, a) => s + a.wt, 0);
   const trapsActive = trapChecks.filter(t => t.variant === "warning" || t.variant === "danger").length;
 
   return (
@@ -205,7 +206,16 @@ export function DecisionLayer() {
   );
 }
 
-export function AnalogForecast() {
+interface AnalogForecastProps {
+  analogOverlay?: typeof analogOverlay;
+  radarDims?: typeof radarDims;
+  topMatch?: { matches: Array<{ episode_name: string; rhyme_score: number; key_similarity: string }> } | null;
+}
+
+export function AnalogForecast({ analogOverlay: propOverlay, radarDims: propRadar, topMatch }: AnalogForecastProps = {}) {
+  const overlayData = propOverlay ?? analogOverlay;
+  const radarData = propRadar ?? radarDims;
+  const topAnalog = topMatch?.matches?.[0];
   const scenarios = [
     { label: "BULL", prob: 20, ret: "+12%", variant: "success" as const, note: "Requires dovish pivot + CRE stabilization" },
     { label: "BASE", prob: 52, ret: "-3%", variant: "accent" as const, note: "Grinding chop, data-dependent Fed, slow deterioration" },
@@ -223,12 +233,12 @@ export function AnalogForecast() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs text-bm-muted2 uppercase tracking-wider">Top Analog</p>
-            <p className="text-sm font-semibold text-bm-text mt-1">2022 Rate Cycle</p>
-            <p className="text-[10px] text-bm-muted mt-1">Key similarity: tightening + leverage stress</p>
+            <p className="text-sm font-semibold text-bm-text mt-1">{topAnalog?.episode_name ?? "2022 Rate Cycle"}</p>
+            <p className="text-[10px] text-bm-muted mt-1">Key similarity: {topAnalog?.key_similarity ?? "tightening + leverage stress"}</p>
           </div>
           <div className="text-right">
             <p className="text-xs text-bm-muted2 uppercase tracking-wider">Rhyme Score</p>
-            <p className="text-2xl font-bold font-mono text-bm-accent mt-1">0.78</p>
+            <p className="text-2xl font-bold font-mono text-bm-accent mt-1">{(topAnalog?.rhyme_score ?? 0.78).toFixed(2)}</p>
           </div>
         </div>
       </Card>
@@ -253,7 +263,7 @@ export function AnalogForecast() {
             <Badge>60-DAY</Badge>
           </div>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={analogOverlay} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <LineChart data={overlayData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
               <CartesianGrid {...GRID_STYLE} />
               <XAxis dataKey="day" tick={AXIS_TICK_STYLE} tickLine={false} axisLine={{ stroke: CH.grid }} />
               <YAxis tick={AXIS_TICK_STYLE} tickLine={false} axisLine={{ stroke: CH.grid }} domain={["auto", "auto"]} />
@@ -270,7 +280,7 @@ export function AnalogForecast() {
             <Badge variant="accent">RADAR</Badge>
           </div>
           <ResponsiveContainer width="100%" height={220}>
-            <RadarChart data={radarDims}>
+            <RadarChart data={radarData}>
               <PolarGrid stroke={CH.grid} />
               <PolarAngleAxis dataKey="d" tick={{ fill: CH.axis, fontSize: 9 }} />
               <PolarRadiusAxis tick={false} axisLine={false} domain={[0, 1]} />
@@ -285,7 +295,16 @@ export function AnalogForecast() {
   );
 }
 
-export function PositioningSection() {
+interface PositioningSectionProps {
+  positioningData?: typeof positioningData;
+  agentData?: typeof agentData;
+  trapChecks?: typeof trapChecks;
+}
+
+export function PositioningSection({ positioningData: propPos, agentData: propAgents, trapChecks: propTraps }: PositioningSectionProps = {}) {
+  const posData = propPos ?? positioningData;
+  const agentRows = propAgents ?? agentData;
+  const trapRows = propTraps ?? trapChecks;
   return (
     <section data-testid="positioning-traps">
       <SectionHeader title="Positioning & Traps">
@@ -296,7 +315,7 @@ export function PositioningSection() {
       <Card className="p-4 mb-3">
         <p className="text-[10px] font-bold uppercase tracking-wider text-bm-muted2 mb-3">Crowding Heatmap</p>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
-          {positioningData.map(p => {
+          {posData.map(p => {
             const crowdColor = p.crowding > 80 ? "text-red-400" : p.crowding > 60 ? "text-amber-400" : p.crowding > 40 ? "text-sky-400" : "text-emerald-400";
             return (
               <div key={p.asset + p.metric} className="rounded-lg border border-bm-border/70 bg-bm-surface/20 p-3 relative overflow-hidden">
@@ -334,7 +353,7 @@ export function PositioningSection() {
           <div className="grid grid-cols-[70px_60px_40px_40px_40px] text-[9px] text-bm-muted2 pb-1">
             <span>Agent</span><span>Dir</span><span>Conf</span><span>Brier</span><span>Wt</span>
           </div>
-          {agentData.map(a => (
+          {agentRows.map(a => (
             <div key={a.agent} className="grid grid-cols-[70px_60px_40px_40px_40px] py-1.5 border-b border-bm-border/50 items-center">
               <span className="text-xs font-semibold text-bm-text">{a.agent}</span>
               <span className={`text-[10px] font-bold ${a.dir === "Bullish" ? "text-emerald-400" : a.dir === "Bearish" ? "text-red-400" : a.dir === "TRAP" ? "text-amber-400" : "text-bm-muted"}`}>{a.dir}</span>
@@ -349,7 +368,7 @@ export function PositioningSection() {
             <p className="text-[10px] font-bold uppercase tracking-wider text-bm-muted2">Trap Detector</p>
             <Badge variant="danger">6 CHECKS</Badge>
           </div>
-          {trapChecks.map(t => (
+          {trapRows.map(t => (
             <div key={t.check} className="flex items-center justify-between py-1.5 border-b border-bm-border/50">
               <span className="text-xs font-semibold text-bm-text">{t.check}</span>
               <div className="flex items-center gap-2">
@@ -364,8 +383,17 @@ export function PositioningSection() {
   );
 }
 
-export function SignalStack() {
+interface SignalStackProps {
+  realitySignals?: typeof realitySignals;
+  dataSignals?: typeof dataSignals;
+  narrativeState?: typeof narrativeState;
+}
+
+export function SignalStack({ realitySignals: propReality, dataSignals: propData, narrativeState: propNarrative }: SignalStackProps = {}) {
   const [open, setOpen] = useState(false);
+  const realityRows = propReality ?? realitySignals;
+  const dataRows = propData ?? dataSignals;
+  const narrativeRows = propNarrative ?? narrativeState;
 
   return (
     <section data-testid="signal-stack">
@@ -394,7 +422,7 @@ export function SignalStack() {
               <Badge variant="success">LIVE</Badge>
             </div>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-2">
-              {realitySignals.map(s => (
+              {realityRows.map(s => (
                 <div key={s.signal} className={`rounded-lg border p-3 bg-bm-surface/20 ${Math.abs(s.accel) > 3 ? "border-amber-400/30" : "border-bm-border/70"}`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold text-bm-text">{s.signal}</span>
@@ -445,7 +473,7 @@ export function SignalStack() {
                   </tr>
                 </thead>
                 <tbody>
-                  {dataSignals.map(d => (
+                  {dataRows.map(d => (
                     <tr key={d.metric} className="border-b border-bm-border/30">
                       <td className="py-1.5 pr-4 font-semibold text-bm-text">{d.metric}</td>
                       <td className="py-1.5 pr-4 font-mono text-bm-muted">{d.reported}</td>
@@ -470,7 +498,7 @@ export function SignalStack() {
               <Badge variant="warning">NLP</Badge>
             </div>
             <div className="space-y-1.5">
-              {narrativeState.map(n => (
+              {narrativeRows.map(n => (
                 <div key={n.label} className="flex items-center gap-3 rounded-lg bg-bm-surface/20 p-2.5">
                   <div className="w-[130px] shrink-0">
                     <span className="text-xs font-semibold text-bm-text">{n.label}</span>
@@ -506,8 +534,17 @@ export function SignalStack() {
   );
 }
 
-export function SupportingDetail() {
+interface SupportingDetailProps {
+  mismatchData?: typeof mismatchData;
+  silenceEvents?: typeof silenceEvents;
+  brierHist?: typeof brierHist;
+}
+
+export function SupportingDetail({ mismatchData: propMismatch, silenceEvents: propSilence, brierHist: propBrier }: SupportingDetailProps = {}) {
   const [open, setOpen] = useState(false);
+  const mismatchRows = propMismatch ?? mismatchData;
+  const silenceRows = propSilence ?? silenceEvents;
+  const brierRows = propBrier ?? brierHist;
 
   return (
     <section data-testid="supporting-detail">
@@ -533,7 +570,7 @@ export function SupportingDetail() {
               <Badge variant="danger">DIVERGENCE</Badge>
             </div>
             <div className="space-y-3">
-              {mismatchData.map(m => (
+              {mismatchRows.map(m => (
                 <div key={m.topic} className={`rounded-lg border p-3 bg-bm-surface/20 ${m.mismatch > 0.7 ? "border-red-400/30" : "border-bm-border/70"}`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-semibold text-bm-text">{m.topic}</span>
@@ -569,7 +606,7 @@ export function SupportingDetail() {
               <Badge>SCAN</Badge>
             </div>
             <p className="text-[10px] text-bm-muted2 mb-3">Narratives that were dominant and suddenly went quiet - often signals that positioning is complete.</p>
-            {silenceEvents.map(s => (
+            {silenceRows.map(s => (
               <div key={s.label} className="flex items-center gap-3 py-2 border-b border-bm-border/30">
                 <div className="flex-1">
                   <span className="text-xs font-semibold text-bm-text">{s.label}</span>
@@ -595,7 +632,7 @@ export function SupportingDetail() {
               <Badge variant="success">24W ROLLING</Badge>
             </div>
             <ResponsiveContainer width="100%" height={170}>
-              <AreaChart data={brierHist} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+              <AreaChart data={brierRows} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                 <CartesianGrid {...GRID_STYLE} />
                 <XAxis dataKey="w" tick={AXIS_TICK_STYLE} tickLine={false} axisLine={{ stroke: CH.grid }} interval={3} />
                 <YAxis tick={AXIS_TICK_STYLE} tickLine={false} axisLine={{ stroke: CH.grid }} domain={[0.05, 0.35]} />

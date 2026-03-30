@@ -8352,6 +8352,9 @@ export type ResumeScenarioInputs = {
   hold_period: number;
   noi_growth_pct: number;
   debt_pct: number;
+  sale_year?: number;
+  refi_year?: number | null;
+  refi_debt_pct?: number;
 };
 
 export type ResumeScenarioPreset = {

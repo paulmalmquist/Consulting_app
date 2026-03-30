@@ -29,6 +29,13 @@ import {
   SignalStack,
 } from "@/components/market/HistoryRhymesTab";
 import { TrapDetectorFullView } from "@/components/market/TrapDetectorFullView";
+import { useDecisionEngine } from "@/components/market/hooks/useDecisionEngine";
+import { DataProvenanceBadge } from "@/components/market/DataProvenanceBadge";
+import { EpisodeLibrary } from "@/components/market/EpisodeLibrary";
+import { DivergenceTable } from "@/components/market/DivergenceTable";
+import { AgentForecastPanel } from "@/components/market/AgentForecastPanel";
+import { DebugPanel } from "@/components/market/DebugPanel";
+import { CalibrationFooter } from "@/components/market/CalibrationFooter";
 import type { DecisionTab, AssetScope } from "@/lib/trading-lab/decision-engine-types";
 import type {
   TradingHypothesis,
@@ -207,6 +214,14 @@ export default function TradingLabPage() {
   const [closingPosition, setClosingPosition] = useState<TradingPosition | null>(null);
   const [editingPosition, setEditingPosition] = useState<TradingPosition | null>(null);
 
+  // Decision Engine data (replaces hardcoded mock data)
+  const de = useDecisionEngine(envId, assetScope);
+  const [showDebug, setShowDebug] = useState(() =>
+    typeof window !== "undefined"
+      ? localStorage.getItem("de_show_debug") === "true"
+      : false,
+  );
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setNotice(null);
@@ -361,12 +376,30 @@ export default function TradingLabPage() {
             </div>
           )}
         </div>
-        <Link
-          href={`/lab/env/${envId}/markets/execution`}
-          className={`rounded-full border px-4 py-2 text-xs font-mono uppercase tracking-[0.24em] ${t.cardBorder} ${t.cardHover} ${t.textSecondary}`}
-        >
-          Execution Workspace
-        </Link>
+        <div className="flex items-center gap-3">
+          {de.raw?.provenance && (
+            <DataProvenanceBadge
+              seedPct={de.raw.provenance.seedDataPct}
+              lastUpdated={de.raw.provenance.dataFreshness}
+            />
+          )}
+          <button
+            onClick={() => {
+              const next = !showDebug;
+              setShowDebug(next);
+              localStorage.setItem("de_show_debug", String(next));
+            }}
+            className={`px-3 py-1.5 rounded text-[10px] font-mono uppercase tracking-wider border ${t.cardBorder} ${showDebug ? "bg-amber-500/20 text-amber-300 border-amber-400/40" : `${t.textFaint}`}`}
+          >
+            {showDebug ? "Hide Internals" : "Show Internals"}
+          </button>
+          <Link
+            href={`/lab/env/${envId}/markets/execution`}
+            className={`rounded-full border px-4 py-2 text-xs font-mono uppercase tracking-[0.24em] ${t.cardBorder} ${t.cardHover} ${t.textSecondary}`}
+          >
+            Execution Workspace
+          </Link>
+        </div>
       </div>
 
       {/* Main content area: sidebar + content */}
@@ -383,7 +416,11 @@ export default function TradingLabPage() {
         <div className="flex-1 overflow-y-auto p-6">
           {/* COMMAND CENTER */}
           {activeTab === "command-center" && (
-            <CommandCenterLayout assetScope={assetScope} />
+            <CommandCenterLayout
+              assetScope={assetScope}
+              decisionEngine={de}
+              showDebug={showDebug}
+            />
           )}
 
           {/* PAPER PORTFOLIO TAB (was positions) */}
@@ -587,23 +624,60 @@ export default function TradingLabPage() {
           {/* HISTORY RHYMES TAB */}
           {activeTab === "history-rhymes" && (
             <div className="space-y-6">
-              <AnalogForecast />
-              <SignalStack />
-              <SupportingDetail />
+              <AnalogForecast
+                analogOverlay={de.analogOverlay}
+                radarDims={de.radarDims}
+                topMatch={de.raw?.analogs.topMatch ?? null}
+              />
+              <SignalStack
+                realitySignals={de.realitySignals}
+                dataSignals={de.dataSignals}
+                narrativeState={de.narrativeState}
+              />
+              <SupportingDetail
+                mismatchData={de.mismatchData}
+                silenceEvents={de.silenceEvents}
+                brierHist={de.brierHist}
+              />
+              {de.raw && (
+                <EpisodeLibrary episodes={de.raw.analogs.episodeLibrary} />
+              )}
+              {showDebug && de.raw?.currentSignals && de.raw?.analogs.topMatch && (
+                <DivergenceTable
+                  currentSignals={de.raw.currentSignals}
+                  topMatch={de.raw.analogs.topMatch}
+                />
+              )}
             </div>
           )}
 
           {/* MACHINE FORECASTS TAB */}
           {activeTab === "machine-forecasts" && (
             <div className="space-y-6">
-              <DecisionLayer />
-              <PositioningSection />
+              <DecisionLayer agentData={de.agentData} />
+              <PositioningSection
+                positioningData={de.positioningData}
+                agentData={de.agentData}
+                trapChecks={de.trapChecks}
+              />
+              {de.raw?.forecasts.current && (
+                <AgentForecastPanel
+                  agents={de.raw.agents.calibration}
+                  ensemble={de.raw.agents.ensemble}
+                  forecast={de.raw.forecasts.current}
+                />
+              )}
             </div>
           )}
 
           {/* TRAP DETECTOR TAB */}
           {activeTab === "trap-detector" && (
-            <TrapDetectorFullView />
+            <TrapDetectorFullView
+              trapChecks={de.trapChecks}
+              positioningData={de.positioningData}
+              mismatchData={de.mismatchData}
+              silenceEvents={de.silenceEvents}
+            />
           )}
 
           {/* MARKET SEGMENTS TAB */}
@@ -861,6 +935,20 @@ export default function TradingLabPage() {
                 </>
               )}
             </div>
+          )}
+
+          {/* CALIBRATION FOOTER — shown on all decision tabs */}
+          {["command-center", "history-rhymes", "machine-forecasts", "trap-detector"].includes(activeTab) && de.raw && (
+            <CalibrationFooter
+              brierHistory={de.raw.forecasts.brierHistory}
+              agents={de.raw.agents.calibration}
+              predictions={de.raw.forecasts.recent}
+            />
+          )}
+
+          {/* DEBUG / UNDER THE HOOD */}
+          {showDebug && de.raw && (
+            <DebugPanel data={de.raw} />
           )}
         </div>
       </div>

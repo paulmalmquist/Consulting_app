@@ -12,7 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import { fmtMoney, fmtPct } from "@/lib/format-utils";
-import type { ResumeBi, ResumeBiEntity } from "@/lib/bos-api";
+import type { ResumeBi, ResumeBiEntity, ResumeBiPoint } from "@/lib/bos-api";
 import TrendLineChart from "@/components/charts/TrendLineChart";
 import ResumeFallbackCard from "./ResumeFallbackCard";
 import { deriveResumeBiSlice, type ResumeBiSlice } from "./biMath";
@@ -71,18 +71,109 @@ function MarketMap({ markets }: { markets: ResumeBiSlice["marketBreakdown"] }) {
   );
 }
 
+function computeDelta(current: number, previous: number): { delta: number; direction: "up" | "down" | "flat" } {
+  if (previous === 0) return { delta: 0, direction: "flat" };
+  const delta = (current - previous) / Math.abs(previous);
+  if (Math.abs(delta) < 0.001) return { delta: 0, direction: "flat" };
+  return { delta, direction: delta > 0 ? "up" : "down" };
+}
+
+function BiKpiStrip({
+  trend,
+  kpis,
+}: {
+  trend: ResumeBiPoint[];
+  kpis: { portfolio_value: number; noi: number; occupancy: number; irr: number };
+}) {
+  const prevPeriod = trend.length >= 2 ? trend[trend.length - 2] : null;
+  const deltas = prevPeriod
+    ? {
+        portfolio_value: computeDelta(kpis.portfolio_value, prevPeriod.value),
+        noi: computeDelta(kpis.noi, prevPeriod.noi),
+        occupancy: computeDelta(kpis.occupancy, prevPeriod.occupancy),
+        irr: computeDelta(kpis.irr, prevPeriod.irr),
+      }
+    : null;
+
+  const items = [
+    { label: "Portfolio Value", value: fmtMoney(kpis.portfolio_value), delta: deltas?.portfolio_value },
+    { label: "NOI", value: fmtMoney(kpis.noi), delta: deltas?.noi },
+    { label: "Occupancy", value: fmtPct(kpis.occupancy), delta: deltas?.occupancy },
+    { label: "IRR", value: fmtPct(kpis.irr), delta: deltas?.irr },
+  ];
+
+  return (
+    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {items.map((kpi) => (
+        <div key={kpi.label} className="rounded-2xl border border-bm-border/35 bg-black/10 px-4 py-4">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">{kpi.label}</p>
+          <div className="mt-2 flex items-baseline gap-2">
+            <p className="text-xl font-semibold">{kpi.value}</p>
+            {kpi.delta && kpi.delta.direction !== "flat" ? (
+              <span className={`text-xs ${kpi.delta.direction === "up" ? "text-emerald-400" : "text-red-400"}`}>
+                {kpi.delta.direction === "up" ? "+" : ""}{fmtPct(kpi.delta.delta)}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ReverseLinks({ entity }: { entity: ResumeBiEntity }) {
+  const { selectNarrativeItem } = useResumeWorkspaceStore(
+    useShallow((state) => ({
+      selectNarrativeItem: state.selectNarrativeItem,
+    })),
+  );
+
+  return (
+    <div className="mt-4 rounded-2xl border border-bm-border/25 bg-white/4 px-4 py-3">
+      <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Connected to</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {entity.linked_timeline_ids.map((timelineId) => (
+          <button
+            key={timelineId}
+            type="button"
+            onClick={() => selectNarrativeItem("initiative", timelineId, { switchModule: "timeline" })}
+            className="rounded-full border border-sky-400/30 bg-sky-400/8 px-2.5 py-1 text-[11px] text-sky-300 transition hover:bg-sky-400/16"
+          >
+            {timelineId.replace(/^(initiative-|milestone-)/, "").replaceAll("-", " ")}
+          </button>
+        ))}
+        {entity.linked_architecture_node_ids.map((nodeId) => (
+          <button
+            key={nodeId}
+            type="button"
+            onClick={() => {
+              useResumeWorkspaceStore.getState().selectArchitectureNode(nodeId);
+              useResumeWorkspaceStore.getState().setActiveModule("architecture");
+            }}
+            className="rounded-full border border-violet-400/30 bg-violet-400/8 px-2.5 py-1 text-[11px] text-violet-300 transition hover:bg-violet-400/16"
+          >
+            {nodeId.replaceAll("_", " ")}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ResumeBiModule({ bi }: { bi: ResumeBi }) {
   const {
     selectedBiEntityId,
     selectBiEntity,
     biFilters,
     setBiFilters,
+    lastBiEntitySource,
   } = useResumeWorkspaceStore(
     useShallow((state) => ({
       selectedBiEntityId: state.selectedBiEntityId,
       selectBiEntity: state.selectBiEntity,
       biFilters: state.biFilters,
       setBiFilters: state.setBiFilters,
+      lastBiEntitySource: state.lastBiEntitySource,
     })),
   );
 
@@ -166,21 +257,19 @@ export default function ResumeBiModule({ bi }: { bi: ResumeBi }) {
             {crumb.name}
           </button>
         ))}
+        {lastBiEntitySource === "timeline" && selectedBiEntityId !== bi.root_entity_id ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-400/25 bg-sky-400/8 px-2.5 py-1 text-[11px] text-sky-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+            from timeline
+          </span>
+        ) : null}
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: "Portfolio Value", value: fmtMoney(slice.kpis.portfolio_value) },
-          { label: "NOI", value: fmtMoney(slice.kpis.noi) },
-          { label: "Occupancy", value: fmtPct(slice.kpis.occupancy) },
-          { label: "IRR", value: fmtPct(slice.kpis.irr) },
-        ].map((kpi) => (
-          <div key={kpi.label} className="rounded-2xl border border-bm-border/35 bg-black/10 px-4 py-4">
-            <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">{kpi.label}</p>
-            <p className="mt-2 text-xl font-semibold">{kpi.value}</p>
-          </div>
-        ))}
-      </div>
+      <BiKpiStrip trend={slice.entity.trend} kpis={slice.kpis} />
+
+      {selectedBiEntityId !== bi.root_entity_id && slice.entity.linked_timeline_ids.length > 0 ? (
+        <ReverseLinks entity={slice.entity} />
+      ) : null}
 
       <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_1fr_0.95fr]">
         <div className="rounded-2xl border border-bm-border/35 bg-black/10 p-4">

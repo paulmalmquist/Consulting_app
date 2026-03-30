@@ -19,20 +19,22 @@ const CH = {
   grid: CHART_COLORS.grid,
 } as const;
 
-const AGENT_REASONING: Record<string, string> = {
+const FALLBACK_REASONING: Record<string, string> = {
   Macro: "Late-cycle tightening with sticky inflation. Labor market cooling but not cracking. Credit spreads widening modestly.",
   Quant: "Mean-reversion signals mixed. Momentum fading but not reversed. Vol surface showing mild put skew.",
-  Narrative: "Soft landing narrative exhausting (crowding 85). AI bubble narrative accelerating. Rate cut rally losing steam.",
+  Narrative: "Soft landing narrative exhausting. AI bubble narrative accelerating. Rate cut rally losing steam.",
   Contrarian: "Positioning already defensive. Crowded Office REIT shorts. Potential for squeeze if data improves.",
-  "Red Team": "Flow/narrative mismatch detected: bearish narrative but net buying flows. 3 low-provenance sources amplified.",
+  "Red Team": "Flow/narrative mismatch detected: bearish narrative but net buying flows. Low-provenance sources amplified.",
 };
 
 interface ModelTransparencyPanelProps {
   agentData: AgentDataItem[];
   brierHist: BrierHistPoint[];
+  agentReasoning?: Record<string, string>;
 }
 
-export function ModelTransparencyPanel({ agentData, brierHist }: ModelTransparencyPanelProps) {
+export function ModelTransparencyPanel({ agentData, brierHist, agentReasoning }: ModelTransparencyPanelProps) {
+  const AGENT_REASONING = agentReasoning ?? FALLBACK_REASONING;
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
 
   const totalConf =

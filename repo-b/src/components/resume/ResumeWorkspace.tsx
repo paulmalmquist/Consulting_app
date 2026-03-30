@@ -18,6 +18,7 @@ import ResumeBiModule from "./ResumeBiModule";
 import ResumeContextRail from "./ResumeContextRail";
 import ResumeAssistantDock from "./ResumeAssistantDock";
 import ResumeModuleBoundary from "./ResumeModuleBoundary";
+import LinkedContextBar from "./LinkedContextBar";
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
 import type { ResumeWorkspaceViewModel } from "@/lib/resume/workspace";
 
@@ -289,6 +290,8 @@ export default function ResumeWorkspace({
             </button>
           ))}
         </div>
+
+        <LinkedContextBar />
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">

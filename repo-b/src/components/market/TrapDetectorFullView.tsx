@@ -4,11 +4,17 @@ import React, { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import {
-  trapChecks,
-  positioningData,
-  mismatchData,
-  silenceEvents,
+  trapChecks as defaultTrapChecks,
+  positioningData as defaultPositioningData,
+  mismatchData as defaultMismatchData,
+  silenceEvents as defaultSilenceEvents,
 } from "@/components/market/HistoryRhymesTab";
+import type {
+  TrapCheckRaw,
+  PositioningItem,
+  MismatchItem,
+  SilenceEvent,
+} from "@/lib/trading-lab/decision-engine-types";
 
 /* ── Layer color map ── */
 const LAYER_CLASSES: Record<string, { text: string; dot: string }> = {
@@ -45,8 +51,25 @@ const TRAP_EXPLANATIONS: Record<string, { explanation: string; action: string | 
   },
 };
 
-export function TrapDetectorFullView() {
+interface TrapDetectorFullViewProps {
+  trapChecks?: TrapCheckRaw[];
+  positioningData?: PositioningItem[];
+  mismatchData?: MismatchItem[];
+  silenceEvents?: SilenceEvent[];
+}
+
+export function TrapDetectorFullView({
+  trapChecks: propTrapChecks,
+  positioningData: propPositioningData,
+  mismatchData: propMismatchData,
+  silenceEvents: propSilenceEvents,
+}: TrapDetectorFullViewProps = {}) {
   const [expandedTrap, setExpandedTrap] = useState<string | null>(null);
+
+  const trapChecks = propTrapChecks ?? defaultTrapChecks;
+  const positioningData = propPositioningData ?? defaultPositioningData;
+  const mismatchData = propMismatchData ?? defaultMismatchData;
+  const silenceEvents = propSilenceEvents ?? defaultSilenceEvents;
 
   const warningCount = trapChecks.filter(
     (t) => t.variant === "warning" || t.variant === "danger"

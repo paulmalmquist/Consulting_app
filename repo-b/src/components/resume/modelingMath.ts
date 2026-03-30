@@ -26,7 +26,7 @@ export type ResumeScenarioOutputs = {
   gpPct: number;
 };
 
-function computeIrr(cashFlows: number[]): number {
+export function computeIrr(cashFlows: number[]): number {
   let low = -0.99;
   let high = 2.5;
 
@@ -50,24 +50,33 @@ export function computeResumeScenario(
   inputs: ResumeScenarioInputs,
   assumptions: ResumeModelAssumptions,
 ): ResumeScenarioOutputs {
+  const saleYear = inputs.sale_year ?? inputs.hold_period;
+  const refiYear = inputs.refi_year ?? null;
+  const refiDebtPct = inputs.refi_debt_pct ?? inputs.debt_pct;
+
   const equityInvested = inputs.purchase_price * (1 - inputs.debt_pct);
-  const debtAmount = inputs.purchase_price * inputs.debt_pct;
+  let debtAmount = inputs.purchase_price * inputs.debt_pct;
   const initialNoi = inputs.purchase_price * assumptions.entry_cap_rate;
-  const debtService = debtAmount * assumptions.debt_rate;
+  let debtService = debtAmount * assumptions.debt_rate;
 
   const annualCashFlows: ResumeScenarioOutputs["annualCashFlows"] = [];
   const equityCashFlowSeries = [-equityInvested];
   let totalDistributions = 0;
 
   for (let year = 1; year <= inputs.hold_period; year += 1) {
+    // Handle refinance event
+    if (refiYear && year === refiYear) {
+      debtAmount = inputs.purchase_price * refiDebtPct;
+      debtService = debtAmount * assumptions.debt_rate;
+    }
+
     const noi = initialNoi * Math.pow(1 + inputs.noi_growth_pct, year - 1);
+    const isSaleYear = year === saleYear;
     const terminalNoi = initialNoi * Math.pow(1 + inputs.noi_growth_pct, year);
-    const terminalValue =
-      year === inputs.hold_period ? terminalNoi / Math.max(inputs.exit_cap_rate, 0.0001) : 0;
-    const netSaleProceeds =
-      year === inputs.hold_period
-        ? terminalValue * (1 - assumptions.exit_cost_pct) - debtAmount
-        : 0;
+    const terminalValue = isSaleYear ? terminalNoi / Math.max(inputs.exit_cap_rate, 0.0001) : 0;
+    const netSaleProceeds = isSaleYear
+      ? terminalValue * (1 - assumptions.exit_cost_pct) - debtAmount
+      : 0;
     const cashFlowToEquity = noi - debtService + netSaleProceeds;
 
     annualCashFlows.push({
@@ -80,6 +89,22 @@ export function computeResumeScenario(
     });
     totalDistributions += Math.max(0, cashFlowToEquity);
     equityCashFlowSeries.push(cashFlowToEquity);
+
+    // Stop generating cash flows after sale
+    if (isSaleYear && year < inputs.hold_period) {
+      for (let postYear = year + 1; postYear <= inputs.hold_period; postYear += 1) {
+        annualCashFlows.push({
+          year: postYear,
+          noi: 0,
+          debtService: 0,
+          cashFlowToEquity: 0,
+          terminalValue: 0,
+          netSaleProceeds: 0,
+        });
+        equityCashFlowSeries.push(0);
+      }
+      break;
+    }
   }
 
   const irr = computeIrr(equityCashFlowSeries);
@@ -87,7 +112,7 @@ export function computeResumeScenario(
 
   const lpContribution = equityInvested * assumptions.lp_equity_share;
   const gpContribution = equityInvested * assumptions.gp_equity_share;
-  const lpPref = lpContribution * assumptions.pref_rate * inputs.hold_period;
+  const lpPref = lpContribution * assumptions.pref_rate * saleYear;
 
   let remaining = totalDistributions;
 

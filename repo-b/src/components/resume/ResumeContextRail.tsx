@@ -150,6 +150,90 @@ function buildFallbackSelectionSummary(
   return null;
 }
 
+function SyntheticEvidence({
+  timeline,
+  kind,
+  id,
+}: {
+  timeline: ResumeTimeline;
+  kind: SelectionKind;
+  id: string | null;
+}) {
+  if (!kind || !id) {
+    return (
+      <div className="mt-3 rounded-2xl border border-bm-border/25 bg-black/10 p-4 text-sm text-bm-muted">
+        Select a timeline item to see evidence and metrics.
+      </div>
+    );
+  }
+
+  const milestone = kind === "milestone" ? timeline.milestones.find((m) => m.milestone_id === id) : null;
+  const initiative =
+    kind === "initiative"
+      ? timeline.initiatives.find((i) => i.initiative_id === id) ??
+        timeline.roles.flatMap((r) => r.initiatives).find((i) => i.initiative_id === id)
+      : null;
+  const item = milestone ?? initiative;
+  if (!item) {
+    return (
+      <div className="mt-3 rounded-2xl border border-bm-border/25 bg-black/10 p-4 text-sm text-bm-muted">
+        Select a timeline item to see evidence and metrics.
+      </div>
+    );
+  }
+
+  const metricsJson = "metrics_json" in item ? (item.metrics_json as Record<string, string | number>) : {};
+  const technologies = "technologies" in item ? (item.technologies as string[]) : [];
+  const capabilityTags = "capability_tags" in item ? (item.capability_tags as string[]) : [];
+  const snapshotSpec = "snapshot_spec" in item ? (item.snapshot_spec as Record<string, unknown>) : {};
+  const hasMetrics = Object.keys(metricsJson).length > 0;
+  const hasTechnologies = technologies.length > 0;
+  const hasCapabilities = capabilityTags.length > 0;
+  const hasSnapshot = snapshotSpec && Object.keys(snapshotSpec).length > 0;
+
+  return (
+    <div className="mt-4 space-y-3">
+      {hasMetrics ? (
+        <div className="rounded-2xl border border-bm-border/35 bg-black/10 p-4">
+          <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Metrics</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {Object.entries(metricsJson).map(([key, value]) => (
+              <span key={key} className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200">
+                {key.replaceAll("_", " ")}: {value}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {hasTechnologies ? (
+        <div className="rounded-2xl border border-bm-border/35 bg-black/10 p-4">
+          <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Technologies</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {technologies.map((tech) => (
+              <span key={tech} className="rounded-full border border-bm-border/35 bg-white/5 px-2.5 py-1 text-[11px] text-bm-muted">
+                {tech}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {hasCapabilities ? (
+        <div className="rounded-2xl border border-bm-border/35 bg-black/10 p-4">
+          <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Capability layers</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {capabilityTags.map((tag) => (
+              <span key={tag} className="rounded-full border border-violet-400/25 bg-violet-500/10 px-2.5 py-1 text-[11px] text-violet-200">
+                {tag.replaceAll("_", " ")}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {hasSnapshot ? <SnapshotMiniDiagram spec={snapshotSpec} /> : null}
+    </div>
+  );
+}
+
 export default function ResumeContextRail({
   timeline,
   architecture,
@@ -308,26 +392,13 @@ export default function ResumeContextRail({
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {["timeline", "architecture", "modeling", "bi"].map((module) => (
-            <button
-              key={module}
-              type="button"
-              onClick={() => setActiveModule(module as "timeline" | "architecture" | "modeling" | "bi")}
-              className="rounded-full border border-bm-border/35 bg-white/5 px-3 py-1.5 text-xs text-bm-muted transition hover:border-white/25 hover:text-bm-text"
-            >
-              Open {module}
-            </button>
-          ))}
-        </div>
+        {/* Module navigation is handled by the LinkedContextBar above the module tabs */}
       </section>
 
       <section className="rounded-[28px] border border-bm-border/60 bg-bm-surface/35 p-5">
         <p className="bm-section-label">Evidence Rail</p>
         {railCards.length === 0 ? (
-          <div className="mt-3 rounded-2xl border border-dashed border-bm-border/35 bg-black/10 p-4 text-sm text-bm-muted">
-            This selection has limited authored evidence so far. The summary above remains the active fallback until more cards are added.
-          </div>
+          <SyntheticEvidence timeline={timeline} kind={effectiveKind} id={effectiveId} />
         ) : (
           <div className="mt-4 space-y-4">
             {railCards.map((card) => (

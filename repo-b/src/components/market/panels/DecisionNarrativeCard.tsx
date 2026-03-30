@@ -9,8 +9,10 @@ import type {
   RealitySignal,
   MismatchItem,
   SilenceEvent,
+  TrapCheckRaw,
   AssetScope,
 } from "@/lib/trading-lab/decision-engine-types";
+import type { ApiPrediction } from "@/components/market/hooks/useDecisionEngine";
 
 interface DecisionNarrativeCardProps {
   agentData: AgentDataItem[];
@@ -19,6 +21,8 @@ interface DecisionNarrativeCardProps {
   mismatchData: MismatchItem[];
   silenceEvents: SilenceEvent[];
   assetScope: AssetScope;
+  forecast?: ApiPrediction | null;
+  trapChecks?: TrapCheckRaw[];
 }
 
 const SCOPE_LABELS: Record<AssetScope, string> = {
@@ -35,6 +39,8 @@ export function DecisionNarrativeCard({
   mismatchData,
   silenceEvents,
   assetScope,
+  forecast,
+  trapChecks,
 }: DecisionNarrativeCardProps) {
   const bearishCount = agentData.filter((a) => a.dir === "Bearish").length;
   const totalConf =
@@ -64,25 +70,43 @@ export function DecisionNarrativeCard({
       ? "text-bm-danger"
       : "text-bm-accent";
 
-  // Scenarios
+  // Key risk — dynamic from trap checks
+  const topTrap = trapChecks?.find(
+    (t) => t.variant === "warning" || t.variant === "danger",
+  );
+  const keyRisk = topTrap
+    ? `${topTrap.check}: ${topTrap.value}`
+    : "Bear trap due to crowded positioning";
+
+  // Scenarios — dynamic from forecast if available
+  const bullProb = forecast
+    ? Math.round((forecast.scenario_bull_prob ?? 0.20) * 100)
+    : 20;
+  const baseProb = forecast
+    ? Math.round((forecast.scenario_base_prob ?? 0.52) * 100)
+    : 52;
+  const bearProb = forecast
+    ? Math.round((forecast.scenario_bear_prob ?? 0.28) * 100)
+    : 28;
+
   const scenarios = [
     {
       label: "BULL",
-      prob: 20,
+      prob: bullProb,
       ret: "+12%",
       variant: "success" as const,
       note: "Requires dovish pivot + stabilization",
     },
     {
       label: "BASE",
-      prob: 52,
+      prob: baseProb,
       ret: "-3%",
       variant: "accent" as const,
       note: "Grinding chop, data-dependent, slow deterioration",
     },
     {
       label: "BEAR",
-      prob: 28,
+      prob: bearProb,
       ret: "-18%",
       variant: "danger" as const,
       note: "Credit contagion, tightening, positioning unwind",
@@ -150,7 +174,7 @@ export function DecisionNarrativeCard({
               Key Risk
             </p>
             <p className="text-sm text-bm-muted">
-              Bear trap due to crowded positioning
+              {keyRisk}
             </p>
           </div>
         </div>

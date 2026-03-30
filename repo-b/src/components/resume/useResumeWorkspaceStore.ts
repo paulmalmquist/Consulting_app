@@ -43,6 +43,8 @@ type ResumeWorkspaceState = {
   capabilityHoveredLayer: string | null;
   enabledCapabilityLayerIds: string[];
   selectedImpactMetric: ImpactMetricKey;
+  lastBiEntitySource: "timeline" | "bi" | "init";
+  lastModelPresetSource: "timeline" | "modeling" | "init";
   initialize: (workspace: ResumeWorkspaceViewModel) => void;
   setActiveModule: (module: ResumeModule) => void;
   setTimelineView: (view: ResumeTimelineViewMode) => void;
@@ -214,6 +216,8 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
   capabilityHoveredLayer: null,
   enabledCapabilityLayerIds: [],
   selectedImpactMetric: "impact_composite",
+  lastBiEntitySource: "init",
+  lastModelPresetSource: "init",
   initialize: (workspace) => {
     const defaultTimelineId =
       workspace.timeline.play_story_steps[0]?.milestone_id ??
@@ -253,6 +257,8 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
       capabilityHoveredLayer: null,
       enabledCapabilityLayerIds: getVisibleCapabilityLayerIds(workspace.timeline),
       selectedImpactMetric: "impact_composite",
+      lastBiEntitySource: "init",
+      lastModelPresetSource: "init",
     });
   },
   setActiveModule: (module) => set({ activeModule: module }),
@@ -277,7 +283,9 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
       highlightArchitectureNodeIds: linked.linkedArchitectureNodeIds,
       selectedArchitectureNodeId: linked.linkedArchitectureNodeIds[0] ?? state.selectedArchitectureNodeId,
       selectedBiEntityId: linked.linkedBiEntityIds[0] ?? state.selectedBiEntityId,
+      lastBiEntitySource: linked.linkedBiEntityIds[0] ? "timeline" : state.lastBiEntitySource,
       modelPresetId: linked.linkedModelPreset ?? state.modelPresetId,
+      lastModelPresetSource: linked.linkedModelPreset ? "timeline" : state.lastModelPresetSource,
       modelInputs:
         linked.linkedModelPreset
           ? {
@@ -310,7 +318,9 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
       highlightArchitectureNodeIds: linked.linkedArchitectureNodeIds,
       selectedArchitectureNodeId: linked.linkedArchitectureNodeIds[0] ?? state.selectedArchitectureNodeId,
       selectedBiEntityId: linked.linkedBiEntityIds[0] ?? state.selectedBiEntityId,
+      lastBiEntitySource: linked.linkedBiEntityIds[0] ? "timeline" : state.lastBiEntitySource,
       modelPresetId: linked.linkedModelPreset ?? state.modelPresetId,
+      lastModelPresetSource: linked.linkedModelPreset ? "timeline" : state.lastModelPresetSource,
       modelInputs:
         linked.linkedModelPreset
           ? {
@@ -348,10 +358,11 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
     set((state) => ({
       modelPresetId: presetId,
       modelInputs: preset ? { ...preset.inputs } : state.modelInputs,
+      lastModelPresetSource: "modeling",
     }));
   },
   setModelInputs: (patch) => set((state) => ({ modelInputs: { ...state.modelInputs, ...patch } })),
-  selectBiEntity: (entityId) => set({ selectedBiEntityId: entityId }),
+  selectBiEntity: (entityId) => set({ selectedBiEntityId: entityId, lastBiEntitySource: "bi" }),
   setBiFilters: (patch) => set((state) => ({ biFilters: { ...state.biFilters, ...patch } })),
   setCapabilityHoveredLayer: (layerId) => set({ capabilityHoveredLayer: layerId }),
   toggleCapabilityLayer: (layerId) => {
@@ -386,7 +397,9 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
       architecture_view: state.architectureView,
       timeline_view: state.timelineView,
       model_preset_id: state.modelPresetId,
-      model_inputs: state.modelInputs,
+      model_inputs: Object.fromEntries(
+        Object.entries(state.modelInputs).filter(([, v]) => v != null),
+      ) as Record<string, string | number>,
       filters: {
         market: state.biFilters.market,
         propertyType: state.biFilters.propertyType,
