@@ -216,6 +216,21 @@ def create_lead(body: LeadCreateRequest):
             contact_linkedin=body.contact_linkedin,
         )
         _log("cro.lead.created", f"Lead created: {body.company_name}")
+        # Auto-generate first next action for any new lead
+        import datetime as _dt
+        try:
+            cro_next_actions.create_next_action(
+                env_id=body.env_id,
+                business_id=body.business_id,
+                entity_type="account",
+                entity_id=result["crm_account_id"],
+                action_type="research",
+                description=f"Find contact and send Touch 1 outreach to {body.company_name}",
+                due_date=(_dt.date.today() + _dt.timedelta(days=1)),
+                priority="high",
+            )
+        except Exception:
+            pass  # Don't fail the lead creation if next action fails
         return result
     except Exception as exc:
         raise _to_http(exc)
@@ -733,6 +748,17 @@ def seed_consulting_environment(body: SeedRequest):
     try:
         result = cro_seed.seed_consulting_environment(env_id=body.env_id, business_id=body.business_id)
         _log("cro.seed.completed", "Consulting environment seeded")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/seed/reset", response_model=SeedResult, status_code=201)
+def reset_and_reseed(body: SeedRequest):
+    """Wipe all CRM data for this env and reseed with current client-hunting targets."""
+    try:
+        result = cro_seed.reset_and_reseed(env_id=body.env_id, business_id=body.business_id)
+        _log("cro.seed.reset", "Consulting environment reset and reseeded")
         return result
     except Exception as exc:
         raise _to_http(exc)

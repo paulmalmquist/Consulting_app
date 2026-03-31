@@ -53,6 +53,32 @@ _SEED_TEMPLATES = [
 ]
 
 
+def reset_and_reseed(*, env_id: str, business_id: UUID) -> dict:
+    """Delete all CRM/CRO data for this env and reseed with current _SEED_LEADS."""
+    with get_cursor() as cur:
+        tenant_id = resolve_tenant_id(cur, business_id)
+        # Delete in dependency order (FK constraints)
+        for table in [
+            "cro_next_action",
+            "crm_activity",
+            "cro_outreach_log",
+            "cro_proposal",
+            "crm_opportunity",
+            "cro_lead_profile",
+            "crm_contact",
+            "crm_account",
+            "cro_outreach_template",
+            "cro_proof_asset",
+            "cro_objection",
+            "cro_demo_readiness",
+        ]:
+            cur.execute(
+                f"DELETE FROM {table} WHERE business_id = %s",  # noqa: S608
+                (str(business_id),),
+            )
+    return seed_consulting_environment(env_id=env_id, business_id=business_id)
+
+
 def seed_consulting_environment(*, env_id: str, business_id: UUID) -> dict:
     """Seed a consulting environment with demo data."""
     counts = {

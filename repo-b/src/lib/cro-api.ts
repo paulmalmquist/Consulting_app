@@ -1095,3 +1095,37 @@ export type StaleRecords = {
 export async function fetchStaleRecords(envId: string, businessId: string, staleDays = 14): Promise<StaleRecords> {
   return apiFetch<StaleRecords>(`${CRO_BASE}/health/stale?env_id=${envId}&business_id=${businessId}&stale_days=${staleDays}`);
 }
+
+export async function resetAndReseed(envId: string, businessId: string): Promise<Record<string, number>> {
+  return apiFetch<Record<string, number>>(`${CRO_BASE}/seed/reset`, {
+    method: "POST",
+    body: JSON.stringify({ env_id: envId, business_id: businessId }),
+  });
+}
+
+// Target from client-hunting research — used in the Target Queue panel
+export type TargetQueueItem = {
+  company: string;
+  signal: string;
+  score: number;
+  offer: string;
+  contact: string;
+  email: string;
+};
+
+export const TARGET_QUEUE: TargetQueueItem[] = [
+  { company: "ZRS Management", signal: "First-ever COO promoted 2024 — building ops from scratch at 100K units", score: 22, offer: "Institutional reporting pipeline + centralized ops visibility", contact: "Jackie Impellitier, COO", email: "jfi@zrsmanagement.com" },
+  { company: "13th Floor Investments", signal: "Vertically integrated RE — sourcing, dev, construction, asset mgmt all in-house", score: 21, offer: "Investment operations engine: unified reporting + draw management", contact: "Rey Melendi, COO & Principal", email: "rmelendi@13fi.com" },
+  { company: "Weiss Serota Helfman", signal: "94-attorney firm hiring first-ever COO — zero operational infrastructure", score: 23, offer: "Foundation Sprint: conflict tracking + compliance deadline management", contact: "COO (identify name)", email: "[coo]@wsh-law.com" },
+  { company: "Bilzin Sumberg", signal: "238-person commercial RE law firm — matter coordination + billing friction", score: 19, offer: "Matter coordination system + AFA billing performance", contact: "Michelle Weber, COO", email: "mweber@bilzin.com" },
+  { company: "Bay Property Management Group", signal: "200+ staff multi-state PM — confirmed COO email", score: 18, offer: "Maintenance dispatch + owner reporting automation", contact: "Tony Cook, COO", email: "tcook@baymgmtgroup.com" },
+  { company: "Pebb Capital", signal: "$2B+ multi-strategy (student housing, retail, lending, hospitality) — ops fragmentation", score: 18, offer: "Multi-strategy portfolio ops: unified reporting per investor group", contact: "Lori Worman, MD Operations", email: "lworman@pebbcap.com" },
+];
+
+export const PROOF_ASSET_GAPS = [
+  { title: "Diagnostic Questionnaire", description: "Pre-call discovery form to qualify pain depth and budget", status: "missing" as const },
+  { title: "Offer Sheet — One Page", description: "Foundation Sprint scope, pricing, and expected outcomes", status: "missing" as const },
+  { title: "Workflow Example — Replace Spreadsheet Reporting", description: "Before/after workflow showing reporting automation", status: "missing" as const },
+  { title: "Case Study / REPE Pilot Summary", description: "Anonymized outcome from first engagement", status: "missing" as const },
+  { title: "LinkedIn Sequence Template", description: "3-touch LinkedIn + email outreach cadence", status: "missing" as const },
+];

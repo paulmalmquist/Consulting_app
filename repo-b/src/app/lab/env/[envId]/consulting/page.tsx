@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
 import { NextActionPanel } from "@/components/consulting/NextActionPanel";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -11,18 +11,16 @@ import {
   fetchLatestMetrics,
   fetchPipelineKanban,
   fetchSchemaHealth,
-  fetchProofAssetSummary,
-  fetchDemoReadiness,
-  fetchStaleRecords,
+  fetchProofAssets,
+  resetAndReseed,
+  TARGET_QUEUE,
+  PROOF_ASSET_GAPS,
   type TodayOverdue,
   type Lead,
   type MetricsSnapshot,
   type SchemaHealth,
-  type ProofAssetSummary,
-  type DemoReadiness,
-  type StaleRecords,
-  type StaleAccount,
-  type OrphanOpportunity,
+  type ProofAsset,
+  type TargetQueueItem,
 } from "@/lib/cro-api";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 
@@ -44,21 +42,8 @@ function Metric({ label, value, sublabel, href }: { label: string; value: string
   return inner;
 }
 
-const WEEK_RHYTHM = [
-  { day: "Mon", theme: "Pipeline + Targets", key: "pipeline" },
-  { day: "Tue", theme: "Proof Assets", key: "proof_assets" },
-  { day: "Wed", theme: "Outbound", key: "outbound" },
-  { day: "Thu", theme: "Demos + Feedback", key: "demos" },
-  { day: "Fri", theme: "Review + Reprioritize", key: "review" },
-] as const;
-
-const DEMO_STATUS_COLORS: Record<string, string> = {
-  ready: "bg-emerald-500",
-  in_progress: "bg-amber-500",
-  needs_refresh: "bg-amber-500",
-  blocked: "bg-red-500",
-  not_started: "bg-bm-muted2",
-};
+// Hard-coded proof asset gaps — these are what you need to close deals
+const REQUIRED_ASSETS = PROOF_ASSET_GAPS;
 
 export default function ConsultingCommandCenter({ params }: { params: { envId: string } }) {
   const { businessId, ready, loading: contextLoading, error: contextError } = useConsultingEnv();
@@ -67,10 +52,11 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
   const [metrics, setMetrics] = useState<MetricsSnapshot | null>(null);
   const [kanban, setKanban] = useState<{ columns: Array<{ stage_key: string; stage_label: string; cards: unknown[]; weighted_value: number }> } | null>(null);
   const [health, setHealth] = useState<SchemaHealth | null>(null);
-  const [proofSummary, setProofSummary] = useState<ProofAssetSummary | null>(null);
-  const [demoReadiness, setDemoReadiness] = useState<DemoReadiness[]>([]);
-  const [staleRecords, setStaleRecords] = useState<StaleRecords | null>(null);
+  const [proofAssets, setProofAssets] = useState<ProofAsset[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
+  const [reseedLoading, setReseedLoading] = useState(false);
+  const [promotingCompany, setPromotingCompany] = useState<string | null>(null);
+  const [promotedCompanies, setPromotedCompanies] = useState<Set<string>>(new Set());
 
   const reloadAll = useCallback(async () => {
     if (!businessId) return;
@@ -82,18 +68,14 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
         fetchLatestMetrics(params.envId, businessId),
         fetchPipelineKanban(params.envId, businessId),
         fetchSchemaHealth(),
-        fetchProofAssetSummary(params.envId, businessId),
-        fetchDemoReadiness(params.envId, businessId),
-        fetchStaleRecords(params.envId, businessId),
+        fetchProofAssets(params.envId, businessId),
       ]);
       if (results[0].status === "fulfilled") setActionData(results[0].value);
-      if (results[1].status === "fulfilled") setTopLeads(results[1].value.slice(0, 8));
+      if (results[1].status === "fulfilled") setTopLeads(results[1].value.slice(0, 6));
       if (results[2].status === "fulfilled") setMetrics(results[2].value);
       if (results[3].status === "fulfilled") setKanban(results[3].value);
       if (results[4].status === "fulfilled") setHealth(results[4].value);
-      if (results[5].status === "fulfilled") setProofSummary(results[5].value);
-      if (results[6].status === "fulfilled") setDemoReadiness(results[6].value);
-      if (results[7].status === "fulfilled") setStaleRecords(results[7].value);
+      if (results[5].status === "fulfilled") setProofAssets(results[5].value);
     } catch (err) {
       console.error("Failed to load command center data:", err);
     } finally {
@@ -123,14 +105,51 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
           revenue_mtd: metrics.revenue_mtd,
           active_clients: metrics.active_clients,
         } : undefined,
-        notes: ["Revenue execution command center"],
       },
     });
     return () => resetAssistantPageContext();
   }, [params.envId, metrics]);
 
-  const todayDayIdx = new Date().getDay(); // 0=Sun ... 6=Sat
-  const rhythmIdx = todayDayIdx >= 1 && todayDayIdx <= 5 ? todayDayIdx - 1 : -1;
+  const handleReseed = useCallback(async () => {
+    if (!businessId) return;
+    setReseedLoading(true);
+    try {
+      await resetAndReseed(params.envId, businessId);
+      await reloadAll();
+    } catch (err) {
+      console.error("Reseed failed:", err);
+    } finally {
+      setReseedLoading(false);
+    }
+  }, [params.envId, businessId, reloadAll]);
+
+  const handlePromote = useCallback(async (target: TargetQueueItem) => {
+    if (!businessId || promotedCompanies.has(target.company)) return;
+    setPromotingCompany(target.company);
+    try {
+      const res = await fetch(`/bos/api/consulting/leads`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          env_id: params.envId,
+          business_id: businessId,
+          company_name: target.company,
+          lead_source: "client_hunting",
+          contact_name: target.contact.split(",")[0],
+          contact_email: target.email.startsWith("[") ? undefined : target.email,
+          contact_title: target.contact.split(",")[1]?.trim(),
+        }),
+      });
+      if (res.ok) {
+        setPromotedCompanies((prev) => new Set([...prev, target.company]));
+        void reloadAll();
+      }
+    } catch (err) {
+      console.error("Promote failed:", err);
+    } finally {
+      setPromotingCompany(null);
+    }
+  }, [params.envId, businessId, promotedCompanies, reloadAll]);
 
   if (contextLoading) {
     return <div className="h-64 rounded-2xl border border-bm-border/60 bg-bm-surface/20 animate-pulse" />;
@@ -145,6 +164,32 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
     );
   }
 
+  // Compute forced actions — system generates these, not the user
+  const pipelineEmpty = !kanban || kanban.columns.every((c) => c.cards.length === 0);
+  const accountsInCRM = topLeads.length;
+  const assetsReady = proofAssets.filter((a) => a.status === "ready").length;
+  const assetsDraft = proofAssets.filter((a) => a.status === "draft").length;
+  const assetsTotal = proofAssets.length;
+  const hasNoActions = !actionData || (actionData.today_count === 0 && actionData.overdue_count === 0);
+
+  // Generate forced actions from system state
+  const forcedActions: Array<{ label: string; href?: string; action?: string; priority: "critical" | "high" | "normal" }> = [];
+
+  if (pipelineEmpty && accountsInCRM === 0) {
+    forcedActions.push({ label: "No accounts in CRM — promote 3 targets from the queue below", action: "scroll_targets", priority: "critical" });
+  }
+  if (accountsInCRM > 0 && pipelineEmpty) {
+    forcedActions.push({ label: `${accountsInCRM} accounts in CRM with no open opportunities — create deals`, href: `/lab/env/${params.envId}/consulting/pipeline`, priority: "critical" });
+  }
+  if (assetsTotal === 0) {
+    forcedActions.push({ label: "Proof assets are missing — if someone replies, you have nothing to send", href: `/lab/env/${params.envId}/consulting/proof-assets`, priority: "critical" });
+  } else if (assetsReady === 0 && assetsDraft > 0) {
+    forcedActions.push({ label: `${assetsDraft} proof assets in draft — review and mark ready before outreach`, href: `/lab/env/${params.envId}/consulting/proof-assets`, priority: "high" });
+  }
+  if (accountsInCRM > 0 && metrics?.outreach_count_30d === 0) {
+    forcedActions.push({ label: "Accounts exist but no outreach logged — send Touch 1 this week", href: `/lab/env/${params.envId}/consulting/strategic-outreach`, priority: "high" });
+  }
+
   return (
     <div className="space-y-6 pb-24 md:pb-6">
       {/* Schema Status Banner */}
@@ -153,100 +198,63 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
           <p className="font-semibold text-red-400">Schema Not Ready</p>
           <p className="mt-1 text-bm-muted2">
             {health.tables_missing.length} table{health.tables_missing.length !== 1 ? "s" : ""} missing.
-            {health.migrations_needed.length > 0 ? ` Migrations needed: ${health.migrations_needed.map((m: string) => m.split(" ")[0]).join(", ")}` : ""}
+            {health.migrations_needed.length > 0 ? ` Apply: ${health.migrations_needed.map((m: string) => m.split(" ")[0]).join(", ")}` : ""}
           </p>
         </div>
       ) : null}
 
-      {health && health.schema_ready && !health.has_data ? (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
-          <p className="font-semibold text-amber-400">No Data Seeded</p>
-          <p className="mt-1 text-bm-muted2">
-            Schema is ready but tables are empty. Seed the environment to load pipeline data, proof assets, and demo readiness records.
-          </p>
-        </div>
-      ) : null}
-
-      {/* Revenue KPIs */}
+      {/* ── SECTION 1: FORCED TODAY'S ACTIONS ──────────────────────────────── */}
       <section>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <Metric
-            label="Pipeline"
-            value={metrics ? fmtCurrency(metrics.weighted_pipeline) : "—"}
-            sublabel="weighted value"
-            href={`/lab/env/${params.envId}/consulting/pipeline`}
-          />
-          <Metric
-            label="Open Opps"
-            value={metrics?.open_opportunities ?? 0}
-            sublabel={metrics ? `${metrics.won_count_90d} won (90d)` : "—"}
-            href={`/lab/env/${params.envId}/consulting/pipeline`}
-          />
-          <Metric
-            label="Outreach"
-            value={metrics?.outreach_count_30d ?? 0}
-            sublabel={metrics?.response_rate_30d ? `${(metrics.response_rate_30d * 100).toFixed(0)}% response` : "30d total"}
-            href={`/lab/env/${params.envId}/consulting/strategic-outreach`}
-          />
-          <Metric
-            label="Revenue MTD"
-            value={metrics ? fmtCurrency(metrics.revenue_mtd) : "—"}
-            sublabel={metrics ? `${fmtCurrency(metrics.forecast_90d)} forecast` : "—"}
-            href={`/lab/env/${params.envId}/consulting/revenue`}
-          />
-          <Metric
-            label="Active Clients"
-            value={metrics?.active_clients ?? 0}
-            sublabel={metrics ? `${metrics.active_engagements} engagements` : "—"}
-            href={`/lab/env/${params.envId}/consulting/clients`}
-          />
-        </div>
-      </section>
-
-      {/* Proof Asset + Demo Readiness Strips */}
-      <section className="grid gap-3 md:grid-cols-2">
-        {/* Proof Assets */}
-        <Link
-          href={`/lab/env/${params.envId}/consulting/proof-assets`}
-          className="rounded-xl border border-bm-border/50 bg-bm-surface/10 px-4 py-3 hover:bg-bm-surface/20 transition-colors"
-        >
-          <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Proof Assets</p>
-          {proofSummary ? (
-            <div className="mt-2 flex items-center gap-3 text-sm">
-              <span className="text-emerald-400 font-semibold">{proofSummary.ready} ready</span>
-              <span className="text-bm-muted2">·</span>
-              <span className="text-amber-400">{proofSummary.draft} draft</span>
-              <span className="text-bm-muted2">·</span>
-              <span className="text-red-400">{proofSummary.needs_update} need update</span>
-            </div>
-          ) : (
-            <p className="mt-2 text-sm text-bm-muted2">Loading...</p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2 font-semibold">Today&apos;s Actions</p>
+          {health?.schema_ready && (
+            <button
+              onClick={handleReseed}
+              disabled={reseedLoading}
+              className="text-[10px] text-bm-muted2 hover:text-bm-text underline disabled:opacity-50"
+            >
+              {reseedLoading ? "Reseeding…" : "Reset + Reseed"}
+            </button>
           )}
-        </Link>
+        </div>
 
-        {/* Demo Readiness */}
-        <div className="rounded-xl border border-bm-border/50 bg-bm-surface/10 px-4 py-3">
-          <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2">Demo Readiness</p>
-          {demoReadiness.length > 0 ? (
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-              {demoReadiness.map((demo) => (
-                <div key={demo.id} className="flex items-center gap-2 text-sm">
-                  <span className={`inline-block h-2.5 w-2.5 rounded-full ${DEMO_STATUS_COLORS[demo.status] ?? "bg-bm-muted2"}`} />
-                  <span className="text-bm-text">{demo.demo_name}</span>
-                  {demo.blockers.length > 0 ? (
-                    <span className="text-[10px] text-bm-muted2">({demo.blockers.length} blocker{demo.blockers.length !== 1 ? "s" : ""})</span>
-                  ) : null}
+        {/* System-generated forced actions */}
+        {forcedActions.length > 0 ? (
+          <div className="space-y-2 mb-3">
+            {forcedActions.map((fa, idx) => (
+              fa.href ? (
+                <Link
+                  key={idx}
+                  href={fa.href}
+                  className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-colors ${
+                    fa.priority === "critical"
+                      ? "border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                      : "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+                  }`}
+                >
+                  <span className={`h-2 w-2 rounded-full flex-shrink-0 ${fa.priority === "critical" ? "bg-red-400" : "bg-amber-400"}`} />
+                  {fa.label}
+                  <span className="ml-auto text-xs opacity-60">→</span>
+                </Link>
+              ) : (
+                <div
+                  key={idx}
+                  className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium ${
+                    fa.priority === "critical"
+                      ? "border-red-500/40 bg-red-500/10 text-red-400"
+                      : "border-amber-500/40 bg-amber-500/10 text-amber-400"
+                  }`}
+                >
+                  <span className={`h-2 w-2 rounded-full flex-shrink-0 ${fa.priority === "critical" ? "bg-red-400" : "bg-amber-400"}`} />
+                  {fa.label}
+                  <span className="ml-auto text-[10px] opacity-60">↓ see below</span>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-2 text-sm text-bm-muted2">No demo readiness data</p>
-          )}
-        </div>
-      </section>
+              )
+            ))}
+          </div>
+        ) : null}
 
-      {/* Next Actions */}
-      <section className="space-y-3">
+        {/* Actual next actions from DB */}
         {actionData && actionData.overdue_count > 0 ? (
           <NextActionPanel
             title="Overdue"
@@ -258,96 +266,153 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
         ) : null}
         {actionData && actionData.today_count > 0 ? (
           <NextActionPanel
-            title="Today"
+            title="Scheduled Today"
             actions={actionData.today}
             businessId={businessId!}
             onUpdate={reloadAll}
           />
         ) : null}
-        {actionData && actionData.overdue_count === 0 && actionData.today_count === 0 ? (
-          <div className="rounded-xl border border-bm-border/50 bg-bm-surface/10 px-4 py-3 text-sm text-bm-muted2">
-            No actions due today. Create leads or advance pipeline stages to generate actions.
+        {hasNoActions && forcedActions.length === 0 ? (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-400">
+            No actions due. Check pipeline for deals that need advancing.
           </div>
         ) : null}
       </section>
 
-      {/* Stale Record Alerts */}
-      {staleRecords && (staleRecords.stale_accounts.length > 0 || staleRecords.orphan_opportunities.length > 0) ? (
-        <section className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 space-y-2">
-          <p className="text-[11px] uppercase tracking-[0.12em] text-amber-400 font-semibold">Attention Needed</p>
-          {staleRecords.stale_accounts.length > 0 ? (
-            <div>
-              <p className="text-xs text-bm-muted2 mb-1">{staleRecords.stale_accounts.length} stale account{staleRecords.stale_accounts.length !== 1 ? "s" : ""} (no activity 14+ days)</p>
-              <div className="flex flex-wrap gap-2">
-                {staleRecords.stale_accounts.slice(0, 5).map((acct: StaleAccount) => (
-                  <Link
-                    key={acct.crm_account_id}
-                    href={`/lab/env/${params.envId}/consulting/accounts/${acct.crm_account_id}`}
-                    className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-bm-text hover:bg-amber-500/20"
-                  >
-                    {acct.name} <span className="text-bm-muted2">({acct.days_stale ?? "∞"}d)</span>
-                  </Link>
-                ))}
+      {/* ── SECTION 2: TARGET QUEUE — promote to CRM ───────────────────────── */}
+      <section id="target-queue">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2 font-semibold">Target Queue</p>
+          <span className="text-[10px] text-bm-muted2">{TARGET_QUEUE.length} researched targets · promote to activate</span>
+        </div>
+        <div className="space-y-2">
+          {TARGET_QUEUE.map((target) => {
+            const alreadyInCRM = topLeads.some((l) => l.company_name.toLowerCase().includes(target.company.toLowerCase().split(" ")[0]));
+            const promoted = promotedCompanies.has(target.company) || alreadyInCRM;
+            return (
+              <div
+                key={target.company}
+                className={`rounded-xl border px-4 py-3 transition-colors ${
+                  promoted
+                    ? "border-emerald-500/30 bg-emerald-500/5"
+                    : "border-bm-border/50 bg-bm-surface/10"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold text-bm-text">{target.company}</span>
+                      <span className="text-[10px] font-bold text-bm-accent border border-bm-accent/30 rounded px-1.5 py-0.5">
+                        {target.score}/25
+                      </span>
+                      {promoted && (
+                        <span className="text-[10px] text-emerald-400 font-medium">✓ In CRM</span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-bm-muted2 leading-relaxed">{target.signal}</p>
+                    <p className="mt-1 text-xs text-bm-text/70">
+                      <span className="text-bm-muted2">Offer:</span> {target.offer}
+                    </p>
+                    <p className="mt-0.5 text-xs text-bm-muted2">
+                      {target.contact} · <span className="font-mono">{target.email}</span>
+                    </p>
+                  </div>
+                  {!promoted && (
+                    <button
+                      onClick={() => void handlePromote(target)}
+                      disabled={promotingCompany === target.company}
+                      className="flex-shrink-0 rounded-lg border border-bm-accent/40 bg-bm-accent/10 px-3 py-2 text-xs font-semibold text-bm-accent hover:bg-bm-accent/20 disabled:opacity-50 transition-colors whitespace-nowrap"
+                    >
+                      {promotingCompany === target.company ? "Adding…" : "Promote →"}
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ) : null}
-          {staleRecords.orphan_opportunities.length > 0 ? (
-            <div>
-              <p className="text-xs text-bm-muted2 mb-1">{staleRecords.orphan_opportunities.length} deal{staleRecords.orphan_opportunities.length !== 1 ? "s" : ""} missing next action</p>
-              <div className="flex flex-wrap gap-2">
-                {staleRecords.orphan_opportunities.slice(0, 5).map((opp: OrphanOpportunity) => (
-                  <span key={opp.crm_opportunity_id} className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-bm-text">
-                    {opp.name} <span className="text-bm-muted2">({opp.stage_key ?? "—"})</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
+            );
+          })}
+        </div>
+      </section>
 
-      {/* Pipeline Stage Summary */}
+      {/* ── SECTION 3: PROOF ASSET GAPS ─────────────────────────────────────── */}
+      <section>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2 font-semibold">Proof Assets — Close Engine</p>
+          <Link href={`/lab/env/${params.envId}/consulting/proof-assets`} className="text-xs text-bm-accent hover:underline">
+            Manage
+          </Link>
+        </div>
+        <div className="rounded-xl border border-bm-border/50 bg-bm-surface/10 divide-y divide-bm-border/30">
+          {REQUIRED_ASSETS.map((required) => {
+            const found = proofAssets.find((a) => a.title.toLowerCase().includes(required.title.toLowerCase().split(" ")[0].toLowerCase()));
+            const assetStatus = found ? found.status : "missing";
+            return (
+              <div key={required.title} className="flex items-center justify-between gap-3 px-4 py-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-bm-text font-medium">{required.title}</p>
+                  <p className="text-xs text-bm-muted2 mt-0.5">{required.description}</p>
+                </div>
+                <span className={`flex-shrink-0 text-[10px] font-bold uppercase px-2 py-1 rounded ${
+                  assetStatus === "ready" ? "bg-emerald-500/20 text-emerald-400" :
+                  assetStatus === "draft" ? "bg-amber-500/20 text-amber-400" :
+                  assetStatus === "needs_update" ? "bg-orange-500/20 text-orange-400" :
+                  "bg-red-500/20 text-red-400"
+                }`}>
+                  {assetStatus === "missing" ? "Missing" : assetStatus.replace("_", " ")}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── SECTION 4: PIPELINE STATUS ──────────────────────────────────────── */}
       {kanban?.columns?.length ? (
         <section>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Pipeline Stages</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2 font-semibold">Pipeline</p>
             <Link href={`/lab/env/${params.envId}/consulting/pipeline`} className="text-xs text-bm-accent hover:underline">
-              Open Kanban
+              Open Kanban →
             </Link>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {kanban.columns
               .filter((col) => !["closed_won", "closed_lost"].includes(col.stage_key))
               .map((col) => (
-                <div key={col.stage_key} className="flex-1 min-w-[100px] rounded-lg border border-bm-border/50 bg-bm-surface/10 px-3 py-2 text-center">
+                <Link
+                  key={col.stage_key}
+                  href={`/lab/env/${params.envId}/consulting/pipeline`}
+                  className="flex-1 min-w-[90px] rounded-lg border border-bm-border/50 bg-bm-surface/10 px-3 py-2 text-center hover:bg-bm-surface/20 transition-colors"
+                >
                   <p className="text-[10px] uppercase tracking-wider text-bm-muted2 truncate">{col.stage_label}</p>
-                  <p className="text-lg font-semibold text-bm-text">{col.cards.length}</p>
+                  <p className={`text-lg font-semibold ${col.cards.length === 0 ? "text-bm-muted2" : "text-bm-text"}`}>
+                    {col.cards.length}
+                  </p>
                   {col.weighted_value > 0 ? (
                     <p className="text-[10px] text-bm-muted2">{fmtCurrency(col.weighted_value)}</p>
                   ) : null}
-                </div>
+                </Link>
               ))}
           </div>
         </section>
       ) : null}
 
-      {/* Top Leads */}
+      {/* ── SECTION 5: CRM ACCOUNTS IN SYSTEM ──────────────────────────────── */}
       {topLeads.length > 0 ? (
         <section>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2 font-semibold">In CRM ({topLeads.length})</p>
+            <Link href={`/lab/env/${params.envId}/consulting/accounts`} className="text-xs text-bm-accent hover:underline">
+              View all
+            </Link>
+          </div>
           <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Top Leads by Score</p>
-                <Link href={`/lab/env/${params.envId}/consulting/accounts`} className="text-xs text-bm-accent hover:underline">
-                  View all
-                </Link>
-              </div>
-              <div className="space-y-2">
+            <CardContent className="py-3">
+              <div className="space-y-1.5">
                 {topLeads.map((lead) => (
                   <Link
                     key={lead.crm_account_id}
                     href={`/lab/env/${params.envId}/consulting/accounts/${lead.crm_account_id}`}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-bm-border/50 px-3 py-2 hover:bg-bm-surface/20 transition-colors"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-bm-border/40 px-3 py-2 hover:bg-bm-surface/20 transition-colors"
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-bm-text truncate">{lead.company_name}</p>
@@ -356,10 +421,10 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <div className="w-16 h-1.5 rounded-full bg-bm-surface/40 overflow-hidden">
+                      <div className="w-12 h-1.5 rounded-full bg-bm-surface/40 overflow-hidden">
                         <div className="h-full rounded-full bg-bm-accent" style={{ width: `${lead.lead_score}%` }} />
                       </div>
-                      <span className="text-xs font-medium text-bm-text w-6 text-right">{lead.lead_score}</span>
+                      <span className="text-xs text-bm-muted2 w-5 text-right">{lead.lead_score}</span>
                     </div>
                   </Link>
                 ))}
@@ -369,51 +434,45 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
         </section>
       ) : null}
 
-      {/* Quick Links */}
+      {/* ── SECTION 6: KPI STRIP ────────────────────────────────────────────── */}
       <section>
-        <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap">
-          <Link href={`/lab/env/${params.envId}/consulting/pipeline`} className="rounded-xl border border-bm-accent/30 bg-bm-accent/10 px-4 py-3 text-sm font-medium text-bm-accent hover:bg-bm-accent/20 text-center">
-            Pipeline
-          </Link>
-          <Link href={`/lab/env/${params.envId}/consulting/strategic-outreach`} className="rounded-xl border border-bm-accent/30 bg-bm-accent/10 px-4 py-3 text-sm font-medium text-bm-accent hover:bg-bm-accent/20 text-center">
-            Outreach
-          </Link>
-          <Link href={`/lab/env/${params.envId}/consulting/accounts`} className="rounded-xl border border-bm-border/70 bg-bm-bg px-4 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30 text-center">
-            Accounts
-          </Link>
-          <Link href={`/lab/env/${params.envId}/consulting/proposals`} className="rounded-xl border border-bm-border/70 bg-bm-bg px-4 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30 text-center">
-            Proposals
-          </Link>
-          <Link href={`/lab/env/${params.envId}/consulting/clients`} className="rounded-xl border border-bm-border/70 bg-bm-bg px-4 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30 text-center">
-            Clients
-          </Link>
-          <Link href={`/lab/env/${params.envId}/consulting/proof-assets`} className="rounded-xl border border-bm-border/70 bg-bm-bg px-4 py-3 text-sm font-medium text-bm-text hover:bg-bm-surface/30 text-center">
-            Proof Assets
-          </Link>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <Metric
+            label="Pipeline"
+            value={metrics ? fmtCurrency(metrics.weighted_pipeline) : "—"}
+            sublabel="weighted"
+            href={`/lab/env/${params.envId}/consulting/pipeline`}
+          />
+          <Metric
+            label="Open Opps"
+            value={metrics?.open_opportunities ?? 0}
+            sublabel={metrics ? `${metrics.won_count_90d} won 90d` : "—"}
+            href={`/lab/env/${params.envId}/consulting/pipeline`}
+          />
+          <Metric
+            label="Outreach 30d"
+            value={metrics?.outreach_count_30d ?? 0}
+            sublabel={metrics?.response_rate_30d ? `${(metrics.response_rate_30d * 100).toFixed(0)}% reply` : "no replies yet"}
+            href={`/lab/env/${params.envId}/consulting/strategic-outreach`}
+          />
+          <Metric
+            label="Revenue MTD"
+            value={metrics ? fmtCurrency(metrics.revenue_mtd) : "—"}
+            sublabel={metrics ? `${fmtCurrency(metrics.forecast_90d)} forecast` : "—"}
+            href={`/lab/env/${params.envId}/consulting/revenue`}
+          />
+          <Metric
+            label="Active Clients"
+            value={metrics?.active_clients ?? 0}
+            href={`/lab/env/${params.envId}/consulting/clients`}
+          />
         </div>
       </section>
 
-      {/* Weekly Rhythm */}
-      <section className="rounded-xl border border-bm-border/50 bg-bm-surface/10 px-4 py-3">
-        <p className="text-[11px] uppercase tracking-[0.12em] text-bm-muted2 mb-2">Weekly Rhythm</p>
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {WEEK_RHYTHM.map((item, idx) => (
-            <div
-              key={item.key}
-              className={`flex-1 min-w-[80px] rounded-lg px-3 py-2 text-center transition-colors ${
-                idx === rhythmIdx
-                  ? "border-2 border-bm-accent bg-bm-accent/10"
-                  : "border border-bm-border/40 bg-bm-bg"
-              }`}
-            >
-              <p className={`text-xs font-semibold ${idx === rhythmIdx ? "text-bm-accent" : "text-bm-text"}`}>
-                {item.day}
-              </p>
-              <p className="text-[10px] text-bm-muted2 mt-0.5">{item.theme}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* Loading indicator */}
+      {dataLoading && (
+        <div className="text-center text-xs text-bm-muted2 py-2">Loading…</div>
+      )}
     </div>
   );
 }
