@@ -133,7 +133,7 @@ export default function CompoundingCapabilityGraph({
                 label={{
                   value: phase.phase_name,
                   position: "insideTopLeft",
-                  fill: "hsl(215, 12%, 70%)",
+                  fill: "rgba(107,114,128,0.7)",
                   fontSize: 10,
                   offset: 8,
                 }}
@@ -148,7 +148,7 @@ export default function CompoundingCapabilityGraph({
               <ReferenceLine
                 key={milestone.milestone_id}
                 x={x}
-                stroke={isSelected ? "#F8FAFC" : "rgba(248,250,252,0.28)"}
+                stroke={isSelected ? "#3B82F6" : "rgba(107,114,128,0.45)"}
                 strokeWidth={isSelected ? 2 : 1}
                 strokeDasharray="4 4"
                 ifOverflow="extendDomain"
@@ -179,7 +179,7 @@ export default function CompoundingCapabilityGraph({
                 series={series}
               />
             }
-            cursor={{ stroke: "rgba(255,255,255,0.14)", strokeWidth: 1.2 }}
+            cursor={{ stroke: "rgba(107,114,128,0.3)", strokeWidth: 1.2 }}
           />
 
           {series.map((item) =>

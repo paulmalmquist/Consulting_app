@@ -196,9 +196,7 @@ function navItems(domain: DomainSlug, base: string): NavItem[] {
     ];
   }
   if (domain === "resume") {
-    return [
-      { href: base, label: "Dashboard" },
-    ];
+    return [];
   }
   return [
     { href: base, label: "Home" },
@@ -272,7 +270,7 @@ export default function DomainWorkspaceShell({
 
   return (
     <div className="space-y-4">
-      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-bm-border/60 bg-bm-bg/95 px-4 py-3 backdrop-blur lg:hidden">
+      <header className={`sticky top-0 z-30 flex items-center gap-3 border-b border-bm-border/60 bg-bm-bg/95 px-4 py-3 backdrop-blur lg:hidden ${domain === "resume" && items.length === 0 ? "hidden" : ""}`}>
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
@@ -351,53 +349,58 @@ export default function DomainWorkspaceShell({
         </div>
       </section>
 
-      <section className="hidden rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-4 lg:block">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Building2 size={18} className="text-bm-muted2" />
-              <h1 className="text-xl font-semibold">{envLabel}</h1>
-              <span className="inline-flex items-center rounded-full border border-bm-border/70 px-2.5 py-1 text-xs text-bm-muted2">
-                {DOMAIN_LABELS[domain]}
-              </span>
+      {domain !== "resume" ? (
+        <section className="hidden rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-4 lg:block">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Building2 size={18} className="text-bm-muted2" />
+                <h1 className="text-xl font-semibold">{envLabel}</h1>
+                <span className="inline-flex items-center rounded-full border border-bm-border/70 px-2.5 py-1 text-xs text-bm-muted2">
+                  {DOMAIN_LABELS[domain]}
+                </span>
+              </div>
+              <p className="text-xs text-bm-muted2">
+                Environment: {environment?.schema_name || envId}
+                {businessId ? ` · Business: ${businessId.slice(0, 8)}` : ""}
+              </p>
             </div>
-            <p className="text-xs text-bm-muted2">
-              Environment: {environment?.schema_name || envId}
-              {businessId ? ` · Business: ${businessId.slice(0, 8)}` : ""}
-            </p>
+            <Link
+              href={homeHref}
+              className="inline-flex items-center rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
+              data-testid="global-home-button"
+            >
+              Home
+            </Link>
           </div>
-          <Link
-            href={homeHref}
-            className="inline-flex items-center rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
-            data-testid="global-home-button"
-          >
-            Home
-          </Link>
+        </section>
+      ) : null}
+
+      {items.length > 0 ? (
+        <div className="grid gap-4 lg:grid-cols-[220px,1fr]">
+          <aside className="hidden h-fit rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3 lg:block" data-testid={`${domain}-sidebar`}>
+            <p className="mb-2 px-1 text-xs uppercase tracking-[0.12em] text-bm-muted2">Navigation</p>
+            <nav className="space-y-1" data-testid={`${domain}-left-nav`}>
+              {items.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`block rounded-lg border px-3 py-2 text-sm transition ${
+                    isActive(pathname, item.href)
+                      ? "border-bm-accent/60 bg-bm-accent/10"
+                      : "border-bm-border/70 hover:bg-bm-surface/40"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+          </aside>
+          <div>{children}</div>
         </div>
-      </section>
-
-      <div className="grid gap-4 lg:grid-cols-[220px,1fr]">
-        <aside className="hidden h-fit rounded-xl border border-bm-border/70 bg-bm-surface/20 p-3 lg:block" data-testid={`${domain}-sidebar`}>
-          <p className="mb-2 px-1 text-xs uppercase tracking-[0.12em] text-bm-muted2">Navigation</p>
-          <nav className="space-y-1" data-testid={`${domain}-left-nav`}>
-            {items.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`block rounded-lg border px-3 py-2 text-sm transition ${
-                  isActive(pathname, item.href)
-                    ? "border-bm-accent/60 bg-bm-accent/10"
-                    : "border-bm-border/70 hover:bg-bm-surface/40"
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </aside>
-
+      ) : (
         <div>{children}</div>
-      </div>
+      )}
     </div>
   );
 }

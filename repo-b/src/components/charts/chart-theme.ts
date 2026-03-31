@@ -70,13 +70,13 @@ export const TOOLTIP_STYLE: React.CSSProperties = {
 
 export const AXIS_TICK_STYLE = {
   fontSize: 11,
-  fill: "hsl(215, 12%, 72%)",
+  fill: "rgba(107,114,128,0.8)",
 } as const;
 
 export const GRID_STYLE = {
-  stroke: "rgba(255,255,255,0.08)",
+  stroke: "rgba(107,114,128,0.2)",
   strokeDasharray: "3 3",
-  strokeOpacity: 0.15,
+  strokeOpacity: 0.5,
 } as const;
 
 /* ── Number formatting helpers ───────────────────────────────────── */

@@ -43,24 +43,24 @@ export default function AppShell({
 
   return (
     <div className="min-h-screen bg-bm-bg text-bm-text flex flex-col">
-      <header className="absolute top-0 right-0 z-50 flex items-center gap-2 p-3">
+      <header className="absolute top-0 right-0 z-50 flex items-center gap-3 p-4">
+        <ThemeToggle />
         <Link
           href="/app"
           className={cn(
             buttonVariants({ variant: "secondary", size: "sm" }),
-            "h-8 w-8 p-0 flex items-center justify-center rounded-full"
+            "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium"
           )}
           data-testid="global-home-button"
-          title="Home"
         >
-          <HomeIcon size={16} />
+          <HomeIcon size={18} />
+          Home
         </Link>
-        <ThemeToggle />
         <button
           onClick={logout}
           className={cn(
             buttonVariants({ variant: "secondary", size: "sm" }),
-            "text-xs"
+            "rounded-lg px-4 py-2 text-sm"
           )}
         >
           Sign out

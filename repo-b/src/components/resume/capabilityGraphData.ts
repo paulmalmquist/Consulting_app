@@ -59,7 +59,7 @@ const DELIVERY_SERIES_META = [
 ] as const;
 
 const IMPACT_SERIES_META = [
-  { key: "impact_composite", label: "Composite Impact", color: "#F8FAFC" },
+  { key: "impact_composite", label: "Composite Impact", color: "#6366F1" },
   { key: "impact_time_saved", label: "Time Saved", color: "#22C55E" },
   { key: "impact_volume_supported", label: "Volume Supported", color: "#14B8A6" },
   { key: "impact_cycle_time_reduction", label: "Cycle Reduction", color: "#F97316" },
@@ -304,9 +304,9 @@ export function getSeriesForView(
     {
       key: "career_scope",
       label: "Career Scope",
-      color: "#F8FAFC",
+      color: "#3B82F6",
       strokeWidth: 2.4,
-      fillOpacity: 0.16,
+      fillOpacity: 0.22,
       type: "area",
     },
   ];
