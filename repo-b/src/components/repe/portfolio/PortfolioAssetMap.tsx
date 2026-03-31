@@ -41,7 +41,7 @@ export function PortfolioAssetMap({
   const summary = data?.summary;
 
   return (
-    <div className="rounded-xl border border-bm-border/70 bg-bm-surface/[0.03] p-6 space-y-5">
+    <div className="rounded-lg border border-bm-border/30 bg-bm-surface/[0.02] p-4 space-y-3">
       {/* Header */}
       <div>
         <h3 className="text-[1.05rem] font-semibold tracking-tight text-bm-text">
@@ -57,8 +57,8 @@ export function PortfolioAssetMap({
       ) : !data || points.length === 0 ? (
         <StateCard
           state="empty"
-          title="No asset locations available yet"
-          description="Map will populate from owned asset records and pipeline opportunities with location metadata."
+          title="No assets with location data"
+          description={`${data?.summary?.owned_assets ?? 0} assets exist but lack geolocation or market metadata. Add coordinates or assign valid market mappings to enable portfolio map analysis.`}
         />
       ) : (
         <>
@@ -88,9 +88,21 @@ export function PortfolioAssetMap({
           </div>
 
           {/* Map */}
-          <div className="h-[280px] rounded-lg overflow-hidden border border-bm-border/30">
+          <div className="h-[320px] rounded-lg overflow-hidden border border-bm-border/20">
             {mounted && <MapInner points={filtered} />}
           </div>
+          {(() => {
+            const noCoords = filtered.filter((p) => {
+              const lat = Number(p.lat);
+              const lon = Number(p.lon);
+              return isNaN(lat) || isNaN(lon) || (lat === 0 && lon === 0);
+            }).length;
+            return noCoords > 0 ? (
+              <p className="text-[10px] text-bm-muted2">
+                {noCoords} asset{noCoords > 1 ? "s" : ""} placed at market centroid or missing location data
+              </p>
+            ) : null;
+          })()}
         </>
       )}
     </div>

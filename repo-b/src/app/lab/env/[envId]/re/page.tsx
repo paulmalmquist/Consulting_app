@@ -24,7 +24,6 @@ import { fmtMoney, fmtMultiple, fmtPct } from '@/lib/format-utils';
 import { PortfolioAssetMap } from "@/components/repe/portfolio/PortfolioAssetMap";
 import { TrendLineChart } from "@/components/charts";
 import { CHART_COLORS } from "@/components/charts/chart-theme";
-import { useRepeFiltersOptional } from "@/components/repe/workspace/RepeFilterContext";
 import {
   RepeIndexScaffold,
   reIndexNumericCellClass,
@@ -75,7 +74,6 @@ const FUND_COLORS = [
 export default function ReFundListPage() {
   const { envId, businessId } = useReEnv();
   const { push } = useToast();
-  const filterCtx = useRepeFiltersOptional();
   const [funds, setFunds] = useState<FundRow[]>([]);
   const [portfolioKpis, setPortfolioKpis] = useState<ReV2EnvironmentPortfolioKpis | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,7 +86,6 @@ export default function ReFundListPage() {
 
   // Time series controls
   const [timeMetric, setTimeMetric] = useState<TimeMetric>("portfolio_nav");
-  const [normalizeByVintage, setNormalizeByVintage] = useState(false);
 
   const quarter = pickCurrentQuarter();
 
@@ -145,31 +142,6 @@ export default function ReFundListPage() {
       .finally(() => setMapLoading(false));
   }, [envId]);
 
-  // Populate filter options from loaded fund data
-  useEffect(() => {
-    if (!filterCtx || funds.length === 0) return;
-    const fundOpts = funds.map((f) => ({ value: f.fund_id, label: f.name }));
-    const vintageSet = new Set(funds.map((f) => f.vintage_year).filter(Boolean));
-    const vintageOpts = [...vintageSet].sort().map((v) => ({ value: String(v), label: String(v) }));
-    const statusSet = new Set(funds.map((f) => f.status).filter(Boolean));
-    const statusOpts = [...statusSet].sort().map((s) => ({ value: s, label: s }));
-    filterCtx.setOptions({ funds: fundOpts, vintages: vintageOpts, statuses: statusOpts });
-  }, [funds, filterCtx]);
-
-  // Build time series data from fund quarter states
-  const timeSeriesData = useMemo(() => {
-    const fundsWithState = funds.filter((f) => f.state);
-    if (fundsWithState.length === 0) return [];
-
-    // For now we have one quarter per fund (current). Build a single-point series.
-    // When multi-quarter data is available, this will become a real time series.
-    return fundsWithState.map((f) => ({
-      fund_name: f.name,
-      quarter: f.state!.quarter,
-      value: Number(f.state![timeMetric] ?? 0),
-    }));
-  }, [funds, timeMetric]);
-
   // Aggregate for the TrendLineChart: reshape into { quarter, fund1, fund2, ... }
   const chartData = useMemo(() => {
     const fundsWithState = funds.filter((f) => f.state);
@@ -194,17 +166,61 @@ export default function ReFundListPage() {
       }));
   }, [funds]);
 
-  // Apply filters to displayed funds
-  const filteredFunds = useMemo(() => {
-    if (!filterCtx) return funds;
-    const { filters } = filterCtx;
-    return funds.filter((f) => {
-      if (filters.fund && f.fund_id !== filters.fund) return false;
-      if (filters.vintage && String(f.vintage_year) !== filters.vintage) return false;
-      if (filters.status && f.status !== filters.status) return false;
-      return true;
-    });
-  }, [funds, filterCtx]);
+  // NAV-weighted average across funds
+  function navWeightedAvg(field: "gross_irr" | "net_irr"): string {
+    const valid = funds.filter((f) => f.state?.[field] != null && f.state?.portfolio_nav);
+    if (valid.length === 0) return "—";
+    const totalNav = valid.reduce((s, f) => s + Number(f.state!.portfolio_nav ?? 0), 0);
+    if (totalNav === 0) return "—";
+    const wtd = valid.reduce((s, f) => s + Number(f.state![field]!) * Number(f.state!.portfolio_nav ?? 0), 0) / totalNav;
+    return fmtPct(wtd);
+  }
+
+  // Compute weighted portfolio-level KPIs from fund states
+  const computedGrossIrr = useMemo(() => navWeightedAvg("gross_irr"), [funds]);
+  const computedNetIrr = useMemo(() => navWeightedAvg("net_irr"), [funds]);
+
+  const computedDscr = useMemo(() => {
+    const withDscr = funds.filter((f) => f.state?.weighted_dscr != null);
+    if (withDscr.length === 0) return "—";
+    const avg = withDscr.reduce((s, f) => s + Number(f.state!.weighted_dscr!), 0) / withDscr.length;
+    return `${avg.toFixed(2)}x`;
+  }, [funds]);
+
+  // Signal bar data
+  const signals = useMemo(() => {
+    const withState = funds.filter((f) => f.state);
+    const items: { label: string; value: string; tone?: "positive" | "negative" | "neutral" }[] = [];
+    if (withState.length === 0) return items;
+
+    // Top NAV fund
+    const topNav = withState.reduce((best, f) =>
+      Number(f.state!.portfolio_nav ?? 0) > Number(best.state!.portfolio_nav ?? 0) ? f : best
+    );
+    if (topNav.state?.portfolio_nav) {
+      items.push({ label: "Top NAV", value: `${topNav.name}: ${fmtMoney(topNav.state.portfolio_nav)}` });
+    }
+
+    // DSCR watch count
+    const dscrWatch = withState.filter((f) => f.state!.weighted_dscr != null && Number(f.state!.weighted_dscr) < 1.25);
+    if (dscrWatch.length > 0) {
+      items.push({
+        label: "DSCR Watch",
+        value: `${dscrWatch.length} fund${dscrWatch.length > 1 ? "s" : ""} below 1.25x`,
+        tone: "negative",
+      });
+    }
+
+    // DPI leader
+    const topDpi = withState.reduce((best, f) =>
+      Number(f.state!.dpi ?? 0) > Number(best.state!.dpi ?? 0) ? f : best
+    );
+    if (topDpi.state?.dpi && Number(topDpi.state.dpi) > 0) {
+      items.push({ label: "DPI Leader", value: `${topDpi.name}: ${fmtMultiple(topDpi.state.dpi)}`, tone: "positive" });
+    }
+
+    return items;
+  }, [funds]);
 
   const base = `/lab/env/${envId}/re`;
 
@@ -253,46 +269,62 @@ export default function ReFundListPage() {
           <KpiStrip
             variant="band"
             kpis={[
-              { label: "Funds", value: portfolioKpis ? portfolioKpis.fund_count : "—" },
+              {
+                label: "Funds / Assets",
+                value: portfolioKpis
+                  ? `${portfolioKpis.fund_count} / ${portfolioKpis.active_assets}`
+                  : "—",
+              },
               { label: "Total Commitments", value: fmtMoneyOrDash(portfolioKpis?.total_commitments) },
               { label: "Portfolio NAV", value: fmtMoneyOrDash(portfolioKpis?.portfolio_nav) },
-              { label: "Active Assets", value: portfolioKpis ? portfolioKpis.active_assets : "—" },
+              { label: "Gross IRR", value: computedGrossIrr },
+              { label: "Net IRR", value: computedNetIrr },
+              { label: "Wtd DSCR", value: computedDscr },
             ]}
           />
         }
         className="w-full"
       >
-        {/* ── MAP + TIME SERIES (50/50) ── */}
+        {/* ── SIGNAL BAR ── */}
+        {!loading && signals.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-bm-border/20 bg-bm-surface/[0.02] px-3 py-1.5">
+            <span className="text-[9px] uppercase tracking-[0.14em] text-bm-muted2 font-semibold">Signals</span>
+            {signals.map((s, i) => (
+              <span key={i} className="flex items-center gap-1.5 text-xs">
+                <span className="text-[10px] uppercase tracking-[0.1em] text-bm-muted2">{s.label}:</span>
+                <span className={`font-medium ${
+                  s.tone === "positive" ? "text-green-400" :
+                  s.tone === "negative" ? "text-red-400" :
+                  "text-bm-text"
+                }`}>{s.value}</span>
+                {i < signals.length - 1 && <span className="text-bm-border/40 ml-1.5">|</span>}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* ── MAP + TIME SERIES (60/40) ── */}
         {!loading && funds.length > 0 && (
-          <div className="grid gap-4 lg:grid-cols-2 mb-4">
+          <div className="grid gap-3 lg:grid-cols-[3fr_2fr]">
             {/* Portfolio Asset Map */}
             <PortfolioAssetMap data={mapData} loading={mapLoading} />
 
-            {/* Portfolio Time Series */}
-            <div className="rounded-xl border border-bm-border/70 bg-bm-surface/[0.03] p-5 space-y-3">
+            {/* Portfolio Trends */}
+            <div className="rounded-lg border border-bm-border/30 bg-bm-surface/[0.02] p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <h3 className="text-[1.05rem] font-semibold tracking-tight text-bm-text">
+                <h3 className="text-sm font-semibold tracking-tight text-bm-text">
                   Portfolio Trends
                 </h3>
                 <div className="flex items-center gap-2">
                   <select
                     value={timeMetric}
                     onChange={(e) => setTimeMetric(e.target.value as TimeMetric)}
-                    className="rounded-lg border border-bm-border bg-bm-surface px-2.5 py-1 text-xs text-bm-text focus:border-bm-accent focus:outline-none"
+                    className="rounded border border-bm-border bg-bm-surface px-2 py-0.5 text-[11px] text-bm-text focus:border-bm-accent focus:outline-none"
                   >
                     {TIME_METRIC_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>{o.label}</option>
                     ))}
                   </select>
-                  <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.1em] text-bm-muted2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={normalizeByVintage}
-                      onChange={(e) => setNormalizeByVintage(e.target.checked)}
-                      className="h-3 w-3 rounded border-bm-border bg-bm-surface text-bm-accent focus:ring-bm-accent"
-                    />
-                    Normalize
-                  </label>
                 </div>
               </div>
               {chartData.length > 0 && chartLines.length > 0 ? (
@@ -300,11 +332,11 @@ export default function ReFundListPage() {
                   data={chartData}
                   lines={chartLines}
                   format={timeMetric === "dpi" || timeMetric === "tvpi" ? "number" : "dollar"}
-                  height={240}
+                  height={280}
                   showLegend={chartLines.length <= 6}
                 />
               ) : (
-                <div className="flex items-center justify-center h-[240px] text-sm text-bm-muted2">
+                <div className="flex items-center justify-center h-[280px] text-sm text-bm-muted2">
                   No time series data available
                 </div>
               )}
@@ -344,50 +376,50 @@ export default function ReFundListPage() {
                   </tr>
                 </thead>
                 <tbody className={reIndexTableBodyClass}>
-                  {filteredFunds.map((fund) => {
+                  {funds.map((fund) => {
                     const pctInvested = fund.state?.total_committed && fund.state?.total_called
                       ? Number(fund.state.total_called) / Number(fund.state.total_committed)
                       : null;
                     return (
                     <tr key={fund.fund_id} className={reIndexTableRowClass}>
-                      <td className="px-4 py-4 align-middle">
+                      <td className="px-3 py-3 align-middle">
                         <Link href={`${base}/funds/${fund.fund_id}`} className={reIndexPrimaryCellClass}>
                           {fund.name}
                         </Link>
                       </td>
-                      <td className="px-4 py-4 align-middle text-[12px] uppercase tracking-[0.04em] text-bm-muted2">
+                      <td className="px-3 py-3 align-middle text-[12px] uppercase tracking-[0.04em] text-bm-muted2">
                         {fund.strategy?.toUpperCase() ?? "—"}
                       </td>
-                      <td className="px-4 py-4 align-middle text-[12px] tracking-[0.04em] text-bm-muted2">
+                      <td className="px-3 py-3 align-middle text-[12px] tracking-[0.04em] text-bm-muted2">
                         {fund.vintage_year}
                       </td>
-                      <td className={`px-4 py-4 align-middle ${reIndexNumericCellClass}`}>
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
                         {fmtMoney(fund.state?.total_committed)}
                       </td>
-                      <td className={`px-4 py-4 align-middle ${reIndexNumericCellClass}`}>
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
                         {fmtMoney(fund.state?.portfolio_nav)}
                       </td>
-                      <td className={`px-4 py-4 align-middle ${reIndexNumericCellClass}`}>
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
                         {fmtPct(fund.state?.gross_irr)}
                       </td>
-                      <td className={`px-4 py-4 align-middle ${reIndexNumericCellClass}`}>
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
                         {fmtPct(fund.state?.net_irr)}
                       </td>
-                      <td className={`px-4 py-4 align-middle ${reIndexNumericCellClass}`}>
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
                         {fmtMultiple(fund.state?.dpi)}
                       </td>
-                      <td className={`px-4 py-4 align-middle ${reIndexNumericCellClass}`}>
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
                         {fmtMultiple(fund.state?.tvpi)}
                       </td>
-                      <td className={`px-4 py-4 align-middle ${reIndexNumericCellClass}`}>
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
                         {pctInvested != null ? `${(pctInvested * 100).toFixed(0)}%` : "—"}
                       </td>
-                      <td className="px-4 py-4 align-middle">
+                      <td className="px-3 py-3 align-middle">
                         <span className="inline-flex rounded-full border border-bm-border/60 bg-bm-surface/18 px-2.5 py-1 text-[11px] capitalize text-bm-muted2">
                           {fund.status}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-right align-middle">
+                      <td className="px-3 py-3 text-right align-middle">
                         <Button
                           type="button"
                           size="sm"

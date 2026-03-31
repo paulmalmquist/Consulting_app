@@ -89,6 +89,7 @@ export function buildRepeNavGroups({
         { href: base, label: "Funds", isBase: true, icon: Landmark, matchPrefixes: [`${base}/capital`] },
         { href: `${base}/deals`, label: "Investments", isBase: false, icon: TrendingUp },
         { href: `${base}/assets`, label: "Assets", isBase: false, icon: Building2 },
+        { href: `${base}/pipeline`, label: "Pipeline", isBase: false, icon: Radar },
         { href: `${base}/development`, label: "Development", isBase: false, icon: Construction },
       ],
     },
@@ -126,14 +127,6 @@ export function buildRepeNavGroups({
           ? [{ href: `${base}/intelligence`, label: "Intelligence", isBase: false, icon: Activity }]
           : []),
         { href: `${base}/sustainability`, label: "Sustainability", isBase: false, icon: Leaf },
-      ],
-    },
-    {
-      label: "Acquisitions",
-      key: "acquisitions",
-      icon: Radar,
-      items: [
-        { href: `${base}/pipeline`, label: "Pipeline", isBase: false, icon: Radar },
       ],
     },
     {

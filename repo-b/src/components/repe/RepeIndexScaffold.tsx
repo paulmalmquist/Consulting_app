@@ -51,7 +51,7 @@ export function RepeIndexScaffold({
   return (
     <section className={cn("space-y-5", className)}>
       <div className={cn(metrics ? "space-y-3" : "space-y-0")}>
-        <div className="flex flex-col gap-3 rounded-xl border border-bm-border/10 bg-bm-surface/[0.02] px-5 py-2.5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-2 rounded-lg border border-bm-border/10 bg-bm-surface/[0.02] px-3 py-2 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <h1 className="text-2xl font-semibold tracking-tight text-bm-text">{title}</h1>
             {subtitle ? (

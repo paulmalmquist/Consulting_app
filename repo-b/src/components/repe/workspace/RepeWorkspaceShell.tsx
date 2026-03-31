@@ -25,7 +25,6 @@ import {
   isRepePathActive,
 } from "@/components/repe/workspace/repeNavigation";
 import ThemeToggle from "@/components/ThemeToggle";
-import RepeFilterBar from "@/components/repe/workspace/RepeFilterBar";
 
 const STAGE_OPTIONS = [
   { value: "sourcing", label: "Sourced" },
@@ -742,7 +741,7 @@ export default function RepeWorkspaceShell({
         businessId={businessId}
         base={base}
       />
-      <div className="space-y-3 xl:space-y-4">
+      <div className="space-y-2 xl:space-y-3">
         <TopUtilityNav
           pathname={pathname}
           base={base}
@@ -750,7 +749,6 @@ export default function RepeWorkspaceShell({
           className="hidden items-center justify-end gap-4 xl:flex"
           testId="repe-utility-nav"
         />
-        <RepeFilterBar />
         {children}
       </div>
     </WinstonShell>

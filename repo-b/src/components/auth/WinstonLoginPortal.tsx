@@ -132,17 +132,6 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
               </p>
             </div>
 
-            <div className="grid gap-2 text-sm text-white/58 sm:grid-cols-3 sm:gap-3">
-              <div className="rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-3">
-                Platform identity first
-              </div>
-              <div className="rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-3">
-                Environment scope after login
-              </div>
-              <div className="rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-3">
-                Desktop control surfaces preserved
-              </div>
-            </div>
           </section>
 
           <section className="rounded-[1.6rem] border border-white/10 bg-white/[0.05] p-5 shadow-[0_28px_60px_-34px_rgba(2,6,23,0.95)] backdrop-blur-md sm:rounded-[1.8rem] sm:p-6">

@@ -43,29 +43,31 @@ export default function AppShell({
 
   return (
     <div className="min-h-screen bg-bm-bg text-bm-text flex flex-col">
-      <header className="absolute top-0 right-0 z-50 flex items-center gap-3 p-4">
-        <ThemeToggle />
-        <Link
-          href="/app"
-          className={cn(
-            buttonVariants({ variant: "secondary", size: "sm" }),
-            "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium"
-          )}
-          data-testid="global-home-button"
-        >
-          <HomeIcon size={18} />
-          Home
-        </Link>
-        <button
-          onClick={logout}
-          className={cn(
-            buttonVariants({ variant: "secondary", size: "sm" }),
-            "rounded-lg px-4 py-2 text-sm"
-          )}
-        >
-          Sign out
-        </button>
-      </header>
+      {!isImmersiveRoute ? (
+        <header className="absolute top-0 right-0 z-50 flex items-center gap-3 p-4">
+          <ThemeToggle />
+          <Link
+            href="/app"
+            className={cn(
+              buttonVariants({ variant: "secondary", size: "sm" }),
+              "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+            )}
+            data-testid="global-home-button"
+          >
+            <HomeIcon size={18} />
+            Home
+          </Link>
+          <button
+            onClick={logout}
+            className={cn(
+              buttonVariants({ variant: "secondary", size: "sm" }),
+              "rounded-lg px-4 py-2 text-sm"
+            )}
+          >
+            Sign out
+          </button>
+        </header>
+      ) : null}
       <main className={cn("flex-1", isImmersiveRoute ? "overflow-y-auto" : "p-6 pt-14")}>
         {children}
       </main>

@@ -70,6 +70,16 @@ describe("AppShell", () => {
     expect(screen.getByText("Sign out")).toBeInTheDocument();
   });
 
+  test("hides the global utility header on immersive trading routes", () => {
+    mockUsePathname.mockReturnValue("/lab/env/env-123/markets");
+
+    render(<AppShell><div>content</div></AppShell>);
+
+    expect(screen.queryByTestId("theme-toggle")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("global-home-button")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sign out")).not.toBeInTheDocument();
+  });
+
   test("no sidebar is rendered", () => {
     render(<AppShell><div>content</div></AppShell>);
 
