@@ -186,6 +186,158 @@ describe("assistantApi contract behavior", () => {
     });
   });
 
+  // ── Fail-closed regression tests ──────────────────────────────────
+
+  it("returns clean unavailable message when backend returns 503", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            error: "Winston is not available right now.",
+            reason: "backend_error",
+            status: 503,
+            request_id: "req_test",
+            runtime: { backend_gateway_reached: true, canonical_runtime: false, degraded: true },
+          }),
+          { status: 503, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    const result = await askAi({ message: "list funds" });
+    expect(result.answer).toBe("Winston is not available right now.");
+    expect(result.debug.eventLog[0]?.eventType).toBe("unavailable");
+    expect(result.debug.eventLog[0]?.payload).toMatchObject({ reason: "backend_error" });
+  });
+
+  it("returns clean unavailable message when backend is unreachable (network error)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            error: "Winston is not available right now.",
+            reason: "backend_unreachable",
+            request_id: "req_test",
+            runtime: { backend_gateway_reached: false, canonical_runtime: false, degraded: true },
+          }),
+          { status: 503, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    const result = await askAi({ message: "list funds" });
+    expect(result.answer).toBe("Winston is not available right now.");
+    expect(result.debug.eventLog[0]?.payload).toMatchObject({
+      reason: "backend_unreachable",
+      runtime: expect.objectContaining({ backend_gateway_reached: false }),
+    });
+  });
+
+  it("returns clean unavailable message on 401 unauthorized", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            error: "Winston is not available right now.",
+            reason: "unauthorized",
+            status: 401,
+            request_id: "req_test",
+            runtime: { backend_gateway_reached: true, canonical_runtime: false, degraded: true },
+          }),
+          { status: 401, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    const result = await askAi({ message: "list funds" });
+    expect(result.answer).toBe("Winston is not available right now.");
+  });
+
+  it("does NOT parse OpenAI-format tokens from non-canonical runtime", async () => {
+    // If somehow an OpenAI-format stream is returned, tokens should NOT be rendered
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: "sneaky fallback" } }] })}\n\n`));
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
+      },
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream" } }),
+      ),
+    );
+
+    const result = await askAi({ message: "list funds" });
+    // The OpenAI tokens should be rejected, leaving an empty answer → unavailable
+    expect(result.answer).toBe("Winston is not available right now.");
+    expect(result.answer).not.toContain("sneaky fallback");
+  });
+
+  it("returns unavailable for empty SSE stream (no tokens, no blocks)", async () => {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(`event: done\ndata: ${JSON.stringify({ trace: { lane: "A" } })}\n\n`));
+        controller.close();
+      },
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream" } }),
+      ),
+    );
+
+    const result = await askAi({ message: "list funds" });
+    expect(result.answer).toBe("Winston is not available right now.");
+  });
+
+  it("returns successful answer when canonical backend streams tokens normally", async () => {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(`event: token\ndata: ${JSON.stringify({ text: "Here are your " })}\n\n`));
+        controller.enqueue(encoder.encode(`event: token\ndata: ${JSON.stringify({ text: "3 funds." })}\n\n`));
+        controller.enqueue(encoder.encode(`event: done\ndata: ${JSON.stringify({
+          trace: { execution_path: "chat", lane: "B", runtime: { backend_gateway_reached: true, canonical_runtime: true, degraded: false } },
+        })}\n\n`));
+        controller.close();
+      },
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream" } }),
+      ),
+    );
+
+    const result = await askAi({ message: "list funds" });
+    expect(result.answer).toBe("Here are your 3 funds.");
+    expect(result.debug.trace?.runtime?.canonical_runtime).toBe(true);
+  });
+
+  it("handles fetch exception gracefully with unavailable message", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("ECONNREFUSED");
+      }),
+    );
+
+    const result = await askAi({ message: "list funds" });
+    expect(result.answer).toBe("Winston is not available right now.");
+    expect(result.trace.ok).toBe(false);
+  });
+
   it("surfaces backend conversation details and strips invalid env ids", async () => {
     const fetchMock = vi.fn<typeof fetch>(async (...args) => {
       const body = JSON.parse(String(args[1]?.body || "{}"));

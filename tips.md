@@ -1030,7 +1030,28 @@ curl -sL -X POST "https://www.paulmalmquist.com/api/ai/gateway/ask" \
   --max-time 30
 ```
 
-Expected: streaming SSE response with non-empty `content` tokens. A 503 means `OPENAI_API_KEY` is missing. A 501 means the backend gateway is disabled. A 404 means the route is missing or the backend hasn't redeployed yet.
+Expected: streaming SSE response with non-empty `content` tokens. A 503 with `reason: "backend_unreachable"` means the FastAPI backend is down. A 503 with `reason: "backend_error"` means the backend returned a server error. A 401 with `reason: "unauthorized"` means the session is invalid. All error responses include a `runtime` object for diagnostics.
+
+### Winston AI runtime: fail-closed policy (March 2026)
+
+The Winston frontend AI gateway (`repo-b/src/app/api/ai/gateway/ask/route.ts`) enforces a **fail-closed** policy:
+
+- The backend FastAPI AI Gateway is the **only** valid runtime for user-facing Winston chat.
+- If the backend is unavailable, broken, or unauthorized, the route returns a structured JSON error — it does **NOT** silently fall back to a direct OpenAI call.
+- Direct OpenAI fallback was removed because it strips tools, RAG, and changes product semantics without the user knowing.
+- The frontend (`assistantApi.ts`) no longer parses OpenAI-format SSE tokens (`choices[].delta.content`). If such tokens appear, they are logged as `rejected_openai_token` and ignored.
+- Empty SSE streams (no tokens, no response blocks, no structured results) are treated as unavailable, not as "No response from Winston."
+- The consistent user-facing message for all failure modes is: **"Winston is not available right now."**
+- All error responses include a `runtime` object: `{ backend_gateway_reached, canonical_runtime, degraded, tools_enabled, rag_enabled }`.
+- Regression tests cover: backend 503, backend unreachable, 401 unauthorized, OpenAI-format token rejection, empty stream, successful canonical path, and fetch exception.
+
+**Key files:**
+
+- `repo-b/src/app/api/ai/gateway/ask/route.ts` — gateway proxy (no fallback)
+- `repo-b/src/lib/commandbar/assistantApi.ts` — SSE parser + fail-closed client
+- `repo-b/src/components/winston/WinstonChatWorkspace.tsx` — unavailable UX state
+- `repo-b/src/lib/commandbar/assistantApi.test.ts` — 7 fail-closed regression tests
+- `backend/app/services/ai_gateway.py` — canonical backend emits `runtime` in done trace
 
 ---
 

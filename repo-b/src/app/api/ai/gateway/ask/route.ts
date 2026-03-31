@@ -1,9 +1,13 @@
 /**
- * AI Gateway — SSE proxy with direct OpenAI fallback.
+ * AI Gateway — SSE proxy to the canonical FastAPI backend.
  *
- * 1. Try the FastAPI backend at BOS_API_ORIGIN
- * 2. If backend is unavailable (404/5xx/network), fall back to direct OpenAI call
- * 3. Keeps OPENAI_API_KEY server-side only
+ * Product rule: the backend AI Gateway is the ONLY valid runtime for
+ * user-facing Winston chat.  If the backend is unavailable, broken, or
+ * unauthorized, we return a controlled error — we do NOT silently fall
+ * back to a direct OpenAI call (which would strip tools, RAG, and
+ * change product semantics).
+ *
+ * Fail closed.  Loud > degraded.
  */
 import { NextRequest } from "next/server";
 import type { AssistantContextEnvelope } from "@/lib/commandbar/types";
@@ -19,13 +23,7 @@ const FASTAPI_BASE = (
   "http://localhost:8000"
 ).replace(/\/$/, "");
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
-const OPENAI_MODEL = process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini";
-
-const SYSTEM_PROMPT = `You are Winston, an AI assistant for real estate private equity portfolio managers.
-You help analyze assets, funds, and investments. Be concise and data-driven.
-Key metrics you understand: TVPI, IRR, DPI, NAV, DSCR, LTV, Cap Rate, NOI, Debt Yield.
-Format numbers clearly. Use bullet points for lists. Flag when data may need verification.`;
+/* Direct OpenAI fallback intentionally removed — see product rule above. */
 
 function routeFromRequest(req: NextRequest): string | null {
   const referer = req.headers.get("referer");
@@ -109,26 +107,6 @@ async function buildFallbackContextEnvelope(
   };
 }
 
-function buildHiddenContextBlock(envelope: AssistantContextEnvelope) {
-  const selected = envelope.ui.selected_entities.length
-    ? envelope.ui.selected_entities.map((entity) => `${entity.entity_type}:${entity.name || entity.entity_id}`).join(", ")
-    : "none";
-  return [
-    "CURRENT APPLICATION CONTEXT",
-    `Route: ${envelope.ui.route || "unknown"}`,
-    `Surface: ${envelope.ui.surface || "unknown"}`,
-    `Active Environment: ${envelope.ui.active_environment_name || envelope.ui.active_environment_id || "unknown"}`,
-    `Business ID: ${envelope.ui.active_business_id || envelope.session.org_id || "unknown"}`,
-    `Schema: ${envelope.ui.schema_name || "unknown"}`,
-    `Industry: ${envelope.ui.industry || "unknown"}`,
-    `Page Entity: ${envelope.ui.page_entity_type || "unknown"}:${envelope.ui.page_entity_id || "unknown"}`,
-    `Selected Entities: ${selected}`,
-    "Instructions:",
-    "- Default questions to the active environment.",
-    "- Never ask for identifiers already present in context.",
-    "- Trust visible UI data over a conflicting assumption.",
-  ].join("\n");
-}
 
 export async function POST(req: NextRequest) {
   if (!(await hasSession(req))) {
@@ -180,8 +158,8 @@ export async function POST(req: NextRequest) {
     context_envelope: contextEnvelope,
   });
 
-  // Try FastAPI backend first.
-  // Use a connection-only timeout (10s) — once headers arrive, let the SSE body
+  // Proxy to canonical FastAPI backend (fail-closed — no fallback).
+  // Connection-only timeout (10s) — once headers arrive, let the SSE body
   // stream as long as needed. Tool-calling workflows can take 40-70s across
   // multiple LLM rounds; a body timeout would silently kill the stream mid-flight.
   const requestId = req.headers.get("x-bm-request-id") || crypto.randomUUID();
@@ -215,58 +193,51 @@ export async function POST(req: NextRequest) {
         },
       });
     }
-    console.warn(`[ai-gateway] Backend returned ${upstream.status} for ${requestId}; falling back to OpenAI`);
+
+    // Backend returned an error — fail closed, no fallback.
+    const status = upstream.status;
+    const detail = await upstream.text().catch(() => "");
+    console.error(`[ai-gateway] Backend returned ${status} for ${requestId}. No fallback. Detail: ${detail.slice(0, 300)}`);
+
+    const reason =
+      status === 401 || status === 403
+        ? "unauthorized"
+        : status === 404
+          ? "backend_not_found"
+          : status >= 500
+            ? "backend_error"
+            : "backend_error";
+
+    return new Response(
+      JSON.stringify({
+        error: "Winston is not available right now.",
+        reason,
+        status,
+        detail: detail.slice(0, 300),
+        request_id: requestId,
+        runtime: { backend_gateway_reached: true, canonical_runtime: false, degraded: true },
+      }),
+      {
+        status: status >= 500 ? 503 : status,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   } catch (err) {
-    console.warn(`[ai-gateway] Backend unreachable for ${requestId}: ${err instanceof Error ? err.message : err}; falling back to OpenAI`);
-  }
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[ai-gateway] Backend unreachable for ${requestId}. No fallback. Error: ${errMsg}`);
 
-  // Fallback: call OpenAI directly (no tools, no RAG — just basic chat)
-  if (!OPENAI_API_KEY) {
     return new Response(
-      JSON.stringify({ error: "AI backend unavailable and no OPENAI_API_KEY configured." }),
-      { status: 503, headers: { "Content-Type": "application/json" } },
+      JSON.stringify({
+        error: "Winston is not available right now.",
+        reason: "backend_unreachable",
+        detail: errMsg.slice(0, 300),
+        request_id: requestId,
+        runtime: { backend_gateway_reached: false, canonical_runtime: false, degraded: true },
+      }),
+      {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      },
     );
   }
-
-  const messages = [
-    { role: "system", content: `${SYSTEM_PROMPT}\n\n${buildHiddenContextBlock(contextEnvelope)}` },
-    { role: "user", content: message },
-  ];
-
-  const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      messages,
-      stream: true,
-      // GPT-5 family and o-series don't support custom temperature — only include for GPT-4o
-      ...(!/^(gpt-5|o[13])/.test(OPENAI_MODEL.toLowerCase()) && { temperature: 0.3 }),
-      // GPT-5 and o-series use max_completion_tokens; GPT-4o uses max_tokens
-      ...(/^(gpt-5|o[13])/.test(OPENAI_MODEL.toLowerCase())
-        ? { max_completion_tokens: 2048 }
-        : { max_tokens: 2048 }),
-    }),
-  });
-
-  if (!openaiRes.ok) {
-    const errText = await openaiRes.text().catch(() => "");
-    return new Response(
-      JSON.stringify({ error: `OpenAI error (${openaiRes.status}): ${errText.slice(0, 300)}` }),
-      { status: openaiRes.status, headers: { "Content-Type": "application/json" } },
-    );
-  }
-
-  // Pass through OpenAI SSE stream
-  return new Response(openaiRes.body, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      "X-Accel-Buffering": "no",
-      "Connection": "keep-alive",
-    },
-  });
 }

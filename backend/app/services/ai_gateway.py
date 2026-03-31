@@ -3803,6 +3803,13 @@ async def run_gateway_stream(
                 "timings": timings,
                 "rag_quality": rag_quality,
                 "cost": cost_info,
+                "runtime": {
+                    "backend_gateway_reached": True,
+                    "canonical_runtime": True,
+                    "degraded": False,
+                    "tools_enabled": not route.skip_tools,
+                    "rag_enabled": not route.skip_rag,
+                },
             },
             # Keep flat fields for backward compat
             "prompt_tokens": total_prompt_tokens,

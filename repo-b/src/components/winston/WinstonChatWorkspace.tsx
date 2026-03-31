@@ -369,30 +369,50 @@ export default function WinstonChatWorkspace() {
       });
 
       // Finalize the assistant message with the complete answer if streaming didn't populate it
+      const isUnavailable = result.answer === "Winston is not available right now.";
       setMessages((prev) => {
         const updated = [...prev];
         const last = updated[updated.length - 1];
-        if (last?.id === assistantMsgId && !last.content && result.answer) {
-          last.content = result.answer;
-        }
-        // Merge any blocks from the final result that weren't streamed
-        if (last?.id === assistantMsgId && result.blocks.length > 0) {
-          const existingIds = new Set((last.responseBlocks || []).map((b) => b.block_id));
-          const newBlocks = result.blocks.filter((b) => !existingIds.has(b.block_id));
-          if (newBlocks.length > 0) {
-            last.responseBlocks = [...(last.responseBlocks || []), ...newBlocks];
+        if (last?.id === assistantMsgId) {
+          if (!last.content && result.answer) {
+            last.content = result.answer;
+          }
+          // If the canonical runtime was unavailable, show a clean error block
+          if (isUnavailable && !(last.responseBlocks || []).some((b) => b.type === "error")) {
+            last.responseBlocks = [...(last.responseBlocks || []), {
+              type: "error" as const,
+              block_id: `unavailable-${Date.now()}`,
+              title: "Unavailable",
+              message: "Winston could not process your request. Please try again shortly.",
+              recoverable: true,
+            }];
+          }
+          // Merge any blocks from the final result that weren't streamed
+          if (result.blocks.length > 0) {
+            const existingIds = new Set((last.responseBlocks || []).map((b) => b.block_id));
+            const newBlocks = result.blocks.filter((b) => !existingIds.has(b.block_id));
+            if (newBlocks.length > 0) {
+              last.responseBlocks = [...(last.responseBlocks || []), ...newBlocks];
+            }
           }
         }
         return updated;
       });
     } catch (error) {
       if ((error as Error)?.name === "AbortError") return;
-      const errMsg = error instanceof Error ? error.message : "Unknown error";
+      console.error("[Winston] Request failed:", error);
       setMessages((prev) => {
         const updated = [...prev];
         const last = updated[updated.length - 1];
         if (last?.id === assistantMsgId) {
-          last.content = `Winston is unavailable. ${errMsg}`;
+          last.content = "Winston is not available right now.";
+          last.responseBlocks = [{
+            type: "error" as const,
+            block_id: `error-${Date.now()}`,
+            title: "Unavailable",
+            message: "Winston could not process your request. Please try again shortly.",
+            recoverable: true,
+          }];
         }
         return updated;
       });

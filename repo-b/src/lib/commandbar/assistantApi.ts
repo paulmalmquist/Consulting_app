@@ -83,8 +83,8 @@ export type WinstonRepeMetadata = {
 };
 
 export type WinstonTrace = {
-  execution_path: "chat" | "tool" | "rag" | "hybrid";
-  lane?: "A" | "B" | "C" | "D";
+  execution_path: "chat" | "tool" | "rag" | "hybrid" | "repe_fast_path" | "unavailable";
+  lane?: "A" | "B" | "C" | "D" | "F";
   model: string;
   prompt_tokens: number;
   completion_tokens: number;
@@ -113,6 +113,14 @@ export type WinstonTrace = {
     model_ms?: number;
     total_ms?: number;
     [key: string]: number | undefined;
+  };
+  /** Runtime clarity metadata — tells the client whether the canonical backend was used. */
+  runtime?: {
+    backend_gateway_reached: boolean;
+    canonical_runtime: boolean;
+    degraded: boolean;
+    tools_enabled?: boolean;
+    rag_enabled?: boolean;
   };
 };
 
@@ -929,13 +937,34 @@ export async function streamAi(input: {
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
       logClientTrace(trace);
-      const hint = response.status === 404
-        ? "The AI gateway backend is not running. Start it with `make backend` or set BOS_API_ORIGIN."
-        : response.status === 401
-          ? "Session expired. Refresh the page and sign in again."
-          : errText.slice(0, 200);
+
+      // Parse structured error from gateway (fail-closed contract)
+      let reason = "unknown";
+      let runtime: Record<string, unknown> | null = null;
+      let userMessage = "Winston is not available right now.";
+      try {
+        const errJson = JSON.parse(errText);
+        reason = errJson.reason || reason;
+        runtime = errJson.runtime || null;
+        if (errJson.error) userMessage = errJson.error;
+      } catch {
+        // Non-JSON error body — use status-based hint
+        if (response.status === 404) {
+          reason = "backend_not_found";
+          userMessage = "Winston is not available right now.";
+        } else if (response.status === 401 || response.status === 403) {
+          reason = "unauthorized";
+          userMessage = "Session expired. Please refresh the page and sign in again.";
+        }
+      }
+
+      console.error(
+        `[Winston] Unavailable: status=${response.status} reason=${reason} request=${requestId}`,
+        runtime ? `runtime=${JSON.stringify(runtime)}` : "",
+      );
+
       return {
-        answer: `Winston is unavailable (${response.status}). ${hint}`,
+        answer: userMessage,
         blocks: [],
         trace,
         debug: {
@@ -946,14 +975,14 @@ export async function streamAi(input: {
           citations: [],
           responseBlocks: [],
           trace: null,
-          eventLog: [],
+          eventLog: [{ seq: 0, timestamp: Date.now(), elapsedMs: 0, eventType: "unavailable", payload: { reason, runtime, status: response.status }, summary: `Unavailable: ${reason}` }],
         },
       };
     }
 
-    // Collect SSE stream — handles both:
-    //   1. FastAPI backend format: "event: token\ndata: {"text":"..."}"
-    //   2. OpenAI proxy format: "data: {"choices":[{"delta":{"content":"..."}}]}"
+    // Collect SSE stream — canonical FastAPI backend format only:
+    //   "event: token\ndata: {"text":"..."}"
+    // Direct OpenAI format is no longer supported (fail-closed policy).
     let answer = "";
     const debug: AskAiDebug = {
       contextEnvelope: input.context_envelope,
@@ -1049,14 +1078,11 @@ export async function streamAi(input: {
                 logSSE("token", { count: tokenCount }, `${tokenCount} tokens received, answer length=${answer.length}`);
               }
             }
-            // OpenAI streaming format: {"choices":[{"delta":{"content":"..."}}]}
+            // OpenAI direct format intentionally unsupported (fail-closed policy).
+            // If we see choices[].delta.content, it means a non-canonical runtime
+            // produced this stream — log it as a warning and skip.
             else if (parsed.choices?.[0]?.delta?.content) {
-              tokenCount++;
-              answer += parsed.choices[0].delta.content;
-              input.onToken?.(parsed.choices[0].delta.content);
-              if (tokenCount === 1) {
-                logSSE("openai_token", { text: parsed.choices[0].delta.content.slice(0, 50) }, `First OpenAI token (fallback path)`);
-              }
+              logSSE("rejected_openai_token", null, "Received OpenAI-format token from non-canonical runtime — ignored");
             }
             // FastAPI "error" event
             else if (currentEvent === "error" && parsed.message) {
@@ -1182,12 +1208,26 @@ export async function streamAi(input: {
     }
 
     trace.durationMs = Date.now() - startedAt;
-    if (!answer.trim()) {
-      console.warn(`[askAi] Empty response for ${requestId} after ${trace.durationMs}ms (status=${response.status})`);
+
+    // If we streamed tokens but got nothing usable, treat as failure — not ambiguous success.
+    const hasResponseBlocks = (debug.responseBlocks?.length ?? 0) > 0;
+    const hasStructuredResults = !!(debug as Record<string, unknown>).structuredResults;
+    const trimmedAnswer = answer.trim();
+
+    if (!trimmedAnswer && !hasResponseBlocks && !hasStructuredResults) {
+      console.warn(`[Winston] Empty response for ${requestId} after ${trace.durationMs}ms — marking unavailable`);
+      logClientTrace(trace);
+      return {
+        answer: "Winston is not available right now.",
+        blocks: [],
+        trace,
+        debug,
+      };
     }
+
     logClientTrace(trace);
     return {
-      answer: answer.trim() || "No response from Winston.",
+      answer: trimmedAnswer || "",
       blocks: debug.responseBlocks || [],
       trace,
       debug,
@@ -1204,7 +1244,7 @@ export async function streamAi(input: {
     };
     logClientTrace(trace);
     return {
-      answer: error instanceof Error ? `Winston error: ${error.message}` : "Winston encountered an error.",
+      answer: "Winston is not available right now.",
       blocks: [],
       trace,
       debug: {
