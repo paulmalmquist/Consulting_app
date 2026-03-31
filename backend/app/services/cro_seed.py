@@ -23,26 +23,27 @@ from app.services.reporting_common import normalize_key, resolve_tenant_id
 
 
 _SEED_LEADS = [
-    # ── Real targets (signal-sourced) ──
-    {"name": "Marcus Partners", "industry": "real_estate", "ai": "exploring", "pain": "reporting_chaos", "size": "50_200", "budget": 200000, "source": "referral"},
-    {"name": "GAIA Real Estate", "industry": "real_estate", "ai": "none", "pain": "governance_gap", "size": "200_1000", "budget": 350000, "source": "research_loop"},
-    {"name": "ACG South Florida", "industry": "finance", "ai": "piloting", "pain": "ai_roi", "size": "200_1000", "budget": 500000, "source": "event"},
-    {"name": "Canopy Real Estate Partners", "industry": "real_estate", "ai": "exploring", "pain": "erp_failure", "size": "50_200", "budget": 180000, "source": "partner"},
-    {"name": "Horizon PE Roll-Up Target", "industry": "finance", "ai": "none", "pain": "efficiency", "size": "1000_plus", "budget": 750000, "source": "outbound"},
-    # ── Supporting pipeline ──
-    {"name": "Pinnacle Legal Group", "industry": "legal", "ai": "exploring", "pain": "governance_gap", "size": "10_50", "budget": 120000, "source": "referral"},
-    {"name": "Nexus Manufacturing", "industry": "manufacturing", "ai": "none", "pain": "compliance", "size": "200_1000", "budget": 200000, "source": "research_loop"},
-    {"name": "Coastal Logistics", "industry": "logistics", "ai": "exploring", "pain": "growth", "size": "50_200", "budget": None, "source": "scrape"},
-    {"name": "Brightpath Education", "industry": "education", "ai": "embedded", "pain": "ai_roi", "size": "10_50", "budget": 60000, "source": "inbound"},
-    {"name": "Ironclad Insurance", "industry": "insurance", "ai": "scaling", "pain": "risk", "size": "1000_plus", "budget": 400000, "source": "partner"},
+    # ── Client-hunting Tier 1 + Tier 2 targets ──
+    {"name": "ZRS Management", "industry": "real_estate", "ai": "none", "pain": "reporting_chaos", "size": "1000_plus", "budget": 180000, "source": "research_loop"},
+    {"name": "13th Floor Investments", "industry": "real_estate", "ai": "exploring", "pain": "reporting_chaos", "size": "10_50", "budget": 150000, "source": "research_loop"},
+    {"name": "Bay Property Management Group", "industry": "real_estate", "ai": "none", "pain": "efficiency", "size": "200_1000", "budget": 120000, "source": "research_loop"},
+    {"name": "Bilzin Sumberg", "industry": "legal", "ai": "exploring", "pain": "governance_gap", "size": "200_1000", "budget": 100000, "source": "research_loop"},
+    {"name": "Pebb Capital", "industry": "real_estate", "ai": "exploring", "pain": "reporting_chaos", "size": "10_50", "budget": 75000, "source": "research_loop"},
+    # ── Construction PDS targets ──
+    {"name": "McAlvain Construction", "industry": "construction", "ai": "none", "pain": "erp_failure", "size": "200_1000", "budget": 100000, "source": "research_loop"},
+    {"name": "Kaufman Lynn Construction", "industry": "construction", "ai": "none", "pain": "governance_gap", "size": "200_1000", "budget": 80000, "source": "research_loop"},
+    {"name": "Galaxy Builders", "industry": "construction", "ai": "none", "pain": "erp_failure", "size": "50_200", "budget": 60000, "source": "research_loop"},
+    # ── Law firm targets ──
+    {"name": "Weiss Serota Helfman Cole & Bierman", "industry": "legal", "ai": "none", "pain": "governance_gap", "size": "200_1000", "budget": 200000, "source": "research_loop"},
+    {"name": "Stearns Weaver Miller", "industry": "legal", "ai": "exploring", "pain": "reporting_chaos", "size": "200_1000", "budget": 100000, "source": "research_loop"},
 ]
 
 _SEED_CONTACTS = [
-    {"lead_idx": 0, "name": "David Marcus", "email": "d.marcus@marcuspartners.com", "title": "Managing Partner", "linkedin": "linkedin.com/in/davidmarcus-repe", "role": "decision_maker", "strength": "warm"},
-    {"lead_idx": 1, "name": "Elena Vasquez", "email": "e.vasquez@gaiare.com", "title": "CFO", "linkedin": "linkedin.com/in/elenavasquez", "role": "decision_maker", "strength": "cold"},
-    {"lead_idx": 2, "name": "Michael Torres", "email": "m.torres@acgsfl.org", "title": "Chapter President", "linkedin": "linkedin.com/in/michaeltorres-acg", "role": "champion", "strength": "warm"},
-    {"lead_idx": 3, "name": "Sarah Chen", "email": "s.chen@canopyrep.com", "title": "COO", "linkedin": "linkedin.com/in/sarahchen-canopy", "role": "influencer", "strength": "cold"},
-    {"lead_idx": 4, "name": "James Whitfield", "email": "j.whitfield@horizonpe.com", "title": "VP Operations", "linkedin": "linkedin.com/in/jameswhitfield", "role": "decision_maker", "strength": "cold"},
+    {"lead_idx": 0, "name": "Jackie Impellitier", "email": "jfi@zrsmanagement.com", "title": "COO", "linkedin": None, "role": "decision_maker", "strength": "warm"},
+    {"lead_idx": 1, "name": "Rey Melendi", "email": "rmelendi@13fi.com", "title": "COO & Principal", "linkedin": "linkedin.com/in/rey-melendi-850a9a12", "role": "decision_maker", "strength": "cold"},
+    {"lead_idx": 2, "name": "Tony Cook", "email": "tcook@baymgmtgroup.com", "title": "COO", "linkedin": None, "role": "decision_maker", "strength": "warm"},
+    {"lead_idx": 3, "name": "Michelle Weber", "email": "mweber@bilzin.com", "title": "COO", "linkedin": "linkedin.com/in/michelle-weber-5270275", "role": "decision_maker", "strength": "cold"},
+    {"lead_idx": 4, "name": "Lori Worman", "email": "lworman@pebbcap.com", "title": "MD Operations", "linkedin": None, "role": "decision_maker", "strength": "cold"},
 ]
 
 _SEED_TEMPLATES = [

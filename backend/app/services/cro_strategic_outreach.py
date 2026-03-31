@@ -33,125 +33,288 @@ DIAGNOSTIC_TEMPLATE = [
 ]
 
 SEED_COMPANIES = [
+    # ── Tier 1: Act Now (Score 20+) ──────────────────────────────────────
     {
-        "company_name": "U.S. Oral Surgery Management",
-        "industry": "healthcare",
-        "employee_range": "1000_plus",
-        "stack": ["NetSuite", "Workday", "Power BI"],
-        "multi_entity": True,
-        "pe_backed": True,
-        "ai_pressure": 4,
-        "reporting": 4,
-        "governance": 5,
-        "fragmentation": 4,
-        "wedge": "Governance-first operator reporting",
-        "capabilities": ["executive_reporting", "data_governance"],
-        "hypothesis": "Multi-site oral surgery rollups typically accumulate definition drift across entity-level finance and operational reporting.",
-    },
-    {
-        "company_name": "American Family Care",
-        "industry": "healthcare",
-        "employee_range": "1000_plus",
-        "stack": ["Oracle", "Tableau", "Salesforce"],
-        "multi_entity": True,
-        "pe_backed": False,
-        "ai_pressure": 4,
-        "reporting": 5,
-        "governance": 5,
-        "fragmentation": 4,
-        "wedge": "AI ROI measurement across clinics",
-        "capabilities": ["ai_roi_controls", "reconciliation_map"],
-        "hypothesis": "Urgent care networks face manual clinic-to-corporate reconciliation and weak accountability for AI ROI definitions.",
-    },
-    {
-        "company_name": "Brasfield & Gorrie",
-        "industry": "construction",
-        "employee_range": "1000_plus",
-        "stack": ["Procore", "SAP", "Power BI"],
-        "multi_entity": True,
-        "pe_backed": False,
-        "ai_pressure": 3,
-        "reporting": 4,
-        "governance": 4,
-        "fragmentation": 5,
-        "wedge": "Project reporting alignment",
-        "capabilities": ["job_cost_reporting", "vendor_control"],
-        "hypothesis": "Major contractors accumulate vendor fatigue and manual project reconciliation across field and finance systems.",
-    },
-    {
-        "company_name": "DPR Construction",
-        "industry": "construction",
-        "employee_range": "1000_plus",
-        "stack": ["Oracle", "Procore", "Looker"],
-        "multi_entity": True,
-        "pe_backed": False,
-        "ai_pressure": 4,
-        "reporting": 4,
-        "governance": 4,
-        "fragmentation": 4,
-        "wedge": "Controlled automation readiness",
-        "capabilities": ["governance_map", "workflow_controls"],
-        "hypothesis": "Automation pressure often outruns field-to-finance controls, creating governance gaps before ROI is provable.",
-    },
-    {
-        "company_name": "Cortland",
-        "industry": "real_estate",
-        "employee_range": "1000_plus",
-        "stack": ["Yardi", "NetSuite", "Snowflake"],
-        "multi_entity": True,
-        "pe_backed": True,
-        "ai_pressure": 4,
-        "reporting": 5,
-        "governance": 5,
-        "fragmentation": 4,
-        "wedge": "Portfolio definition consistency",
-        "capabilities": ["portfolio_reporting", "entity_controls"],
-        "hypothesis": "Institutional multifamily operators face cross-entity reporting drift and AI pressure without stable governance baselines.",
-    },
-    {
-        "company_name": "Hamilton Zanze",
-        "industry": "real_estate",
-        "employee_range": "200_1000",
-        "stack": ["MRI", "Excel", "Power BI"],
-        "multi_entity": True,
-        "pe_backed": False,
-        "ai_pressure": 3,
-        "reporting": 4,
-        "governance": 4,
-        "fragmentation": 4,
-        "wedge": "Reconciliation fragility containment",
-        "capabilities": ["close_process_map", "reconciliation_controls"],
-        "hypothesis": "Mid-size multifamily managers often carry fragile close processes across assets and third-party systems.",
-    },
-    {
-        "company_name": "Ogletree Deakins",
+        "company_name": "Weiss Serota Helfman Cole & Bierman",
         "industry": "legal",
-        "employee_range": "1000_plus",
-        "stack": ["Elite 3E", "Workday", "Power BI"],
-        "multi_entity": False,
+        "employee_range": "200_1000",
+        "stack": ["Case Management", "iManage", "3E Billing", "Conflict Check Software"],
+        "multi_entity": True,
         "pe_backed": False,
-        "ai_pressure": 4,
-        "reporting": 4,
-        "governance": 5,
-        "fragmentation": 3,
-        "wedge": "Governance-safe AI measurement",
-        "capabilities": ["matter_reporting", "ai_governance"],
-        "hypothesis": "Large law firms need executive-safe AI positioning without compromising governance or creating vendor fatigue.",
+        "ai_pressure": 5,  # urgency: first-ever COO hire
+        "reporting": 5,    # pain: no operational infrastructure
+        "governance": 5,   # fit: exactly ICP
+        "fragmentation": 5,  # deal size: foundation sprint + full modules
+        "wedge": "Conflict management and government deadline tracking across multi-office structure",
+        "capabilities": ["conflict_management", "deadline_tracking"],
+        "hypothesis": "94-attorney firm with no COO until now — zero operational infrastructure. Multi-office conflict checks are labor-intensive and duplicated.",
+        "contacts": [
+            {"name": "COO (Recently Hired)", "title": "Chief Operating Officer", "buyer_type": "COO", "authority": "High"},
+        ],
+        "triggers": [
+            {"type": "CFO_Hire", "summary": "First-ever COO hired — firm building operational infrastructure from scratch. Best possible timing for engagement."},
+        ],
     },
     {
-        "company_name": "Live Oak Bank",
-        "industry": "banking",
+        "company_name": "ZRS Management",
+        "industry": "real_estate",
+        "employee_range": "1000_plus",
+        "stack": ["Yardi", "Property PM Tools", "Excel Reporting", "Maintenance Dispatch"],
+        "multi_entity": True,
+        "pe_backed": False,
+        "ai_pressure": 5,  # urgency: first COO hire, institutional clients demanding
+        "reporting": 5,    # pain: 100K units, fragmented PM tools
+        "governance": 5,   # fit: PM is sweet spot
+        "fragmentation": 2,  # deal size: PM firms tend toward implementation
+        "wedge": "Institutional reporting pipeline and centralized operations visibility at 100K+ units",
+        "capabilities": ["investor_reporting", "maintenance_automation"],
+        "hypothesis": "100K units managed — massive scale running on spreadsheets and fragmented PM tools. Quarterly investor reporting pulls from a dozen systems.",
+        "contacts": [
+            {"name": "Jackie Impellitier", "title": "COO", "email": "jfi@zrsmanagement.com", "buyer_type": "COO", "authority": "High"},
+            {"name": "Darren Pierce", "title": "President", "buyer_type": "Other", "authority": "High"},
+        ],
+        "triggers": [
+            {"type": "CFO_Hire", "summary": "Jackie Impellitier promoted to first-ever COO from VP Operations (2024). 25-year tenure. Created Centralized Services Department."},
+        ],
+        "outreach_sequences": [
+            {"stage": 1, "channel": "email", "subject": "Building centralized operations at 100K units", "draft": "Hi Jackie,\n\nThe Centralized Services Department you built at ZRS is a significant infrastructure move. Maintaining standardization across 100K+ units while still letting local markets operate is genuinely hard.\n\nWhat I've noticed working with institutional multifamily platforms is that centralization is smooth until reporting to the client side becomes the constraint. At 100K units, quarterly investor reporting typically pulls data from a dozen different systems: property accounting, maintenance dispatch, tenant data, compliance tracking. The more centralized your operations, the more important a unified visibility layer becomes.\n\nWe help firms build that layer -- essentially a single source of truth that feeds investor dashboards, reduces reporting prep time, and surfaces operational issues before they reach the client.\n\nWould you be open to a 20-minute call to talk through how other platforms your size have tackled this? Happy to work around your schedule.\n\nBest,\nPaul"},
+            {"stage": 2, "channel": "linkedin", "draft": "Hi Jackie, congrats on stepping into the COO role at ZRS. I've been impressed by the operational foundation you've built. Curious what the priority is now that centralization is in place -- reporting automation, maintenance efficiency, something else?"},
+            {"stage": 3, "channel": "email", "subject": "RE: Building centralized operations at 100K units", "draft": "Hi Jackie,\n\nFollowing up on my email last week about centralized ops at scale. I mentioned the reporting piece -- specifically how institutional clients expect both speed and detail in their monthly/quarterly packages.\n\nI'd like to send you a one-pager on what an automated client reporting pipeline looks like for a portfolio your size. It usually cuts 15-20 hours per reporting cycle. No strings attached if you're not exploring this right now.\n\nLet me know.\n\nPaul"},
+        ],
+    },
+    {
+        "company_name": "13th Floor Investments",
+        "industry": "real_estate",
+        "employee_range": "10_50",
+        "stack": ["Excel", "Procore", "QuickBooks/Yardi", "Dropbox/SharePoint"],
+        "multi_entity": True,
+        "pe_backed": True,
+        "ai_pressure": 4,  # urgency: active deal flow
+        "reporting": 4,    # pain: vertically integrated coordination
+        "governance": 5,   # fit: 44 employees, PE + operating hybrid
+        "fragmentation": 4,  # deal size: multi-entity = $50K-$150K
+        "wedge": "Investor reporting pipeline and portfolio visibility for vertically integrated RE",
+        "capabilities": ["investor_reporting", "construction_draw_workflow"],
+        "hypothesis": "Vertically integrated RE firm with 44 employees managing sourcing, development, construction, asset management, and PE. Investor reporting is a manual data collection sprint across 4-5 systems.",
+        "contacts": [
+            {"name": "Rey Melendi", "title": "COO & Principal", "email": "rmelendi@13fi.com", "linkedin": "linkedin.com/in/rey-melendi-850a9a12", "buyer_type": "COO", "authority": "High"},
+        ],
+        "outreach_sequences": [
+            {"stage": 1, "channel": "email", "subject": "Investor reporting and portfolio visibility -- vertically integrated RE", "draft": "Hi Rey,\n\nThe challenge of vertically integrated RE is unique: your deal team, development, construction, and asset management teams all generate data the others need, but it's rarely connected in real time. Construction is progressing while development costs are running ahead of forecast. Asset management is optimizing tenant mix, but capital deployment doesn't know until the quarterly review.\n\nThe result: quarterly investor reporting becomes a data collection sprint across 4-5 different systems. It's a bottleneck that gets worse as you scale.\n\nWe help vertically integrated firms build a single operational backbone that connects sourcing, development, construction, and asset management. It reduces reporting prep time and surfaces issues in real time instead of at quarterly close.\n\nWould you be open to a 20-minute call to walk through how other platforms your size approach this?\n\nBest,\nPaul"},
+            {"stage": 2, "channel": "linkedin", "draft": "Hi Rey, just connected. I work with vertically integrated RE firms on operational systems. Your background in both development and investment management is exactly the kind of operator who'd find this relevant. Curious if this is on your roadmap."},
+            {"stage": 3, "channel": "email", "subject": "RE: Investor reporting and portfolio visibility", "draft": "Hi Rey,\n\nFollowing up on my email last week about vertically integrated operations. Beyond investor reporting, construction draw processing is a secondary efficiency target for firms your size -- typically 10-15 hours per draw cycle for active development.\n\nI'd like to send a one-pager on how firms structure that. No expectation you'll need it, but given your development background, thought it might be worth a quick review.\n\nLet me know if a call makes sense.\n\nPaul"},
+        ],
+    },
+    # ── Tier 2: High Potential (Score 17-19) ─────────────────────────────
+    {
+        "company_name": "Bilzin Sumberg",
+        "industry": "legal",
         "employee_range": "200_1000",
-        "stack": ["Jack Henry", "Salesforce", "Tableau"],
+        "stack": ["iManage/NetDocuments", "3E/Clio", "SharePoint", "CRM"],
         "multi_entity": False,
         "pe_backed": False,
-        "ai_pressure": 5,
+        "ai_pressure": 3,  # urgency: no specific trigger
+        "reporting": 4,    # pain: 238-person firm, complex closings
+        "governance": 5,   # fit: law firm COO is ideal buyer
+        "fragmentation": 3,  # deal size: mid-range
+        "wedge": "Real estate closing coordination and AFA profitability tracking",
+        "capabilities": ["closing_checklist_engine", "matter_profitability"],
+        "hypothesis": "Complex multi-party RE closings involve 50-100+ item checklists requiring manual tracking across multiple parties, title companies, and lenders.",
+        "contacts": [
+            {"name": "Michelle Weber", "title": "COO", "email": "mweber@bilzin.com", "linkedin": "linkedin.com/in/michelle-weber-5270275", "buyer_type": "COO", "authority": "High"},
+        ],
+        "outreach_sequences": [
+            {"stage": 1, "channel": "email", "subject": "Operations at a commercial real estate law firm", "draft": "Hi Michelle,\n\nBilzin has a strong reputation for handling complex RE transactions and structured finance work -- the kind of matters that involve multiple parties, tight deadlines, and heavy document coordination.\n\nFrom working with similar commercial practices, operational leverage doesn't come from billing optimization at this point. It comes from reducing friction in matter coordination, document tracking, and the administrative burden that comes with high-value multi-party deals.\n\nWe work with law firms to build systems that connect those workflows without replacing what you already have. The result is less firefighting, faster closings, and better visibility into matter profitability.\n\nWould you be open to a 20-minute conversation about what that looks like?\n\nBest,\nPaul"},
+            {"stage": 2, "channel": "linkedin", "draft": "Hi Michelle, just wanted to connect. I've been working with law firms on operational systems and have noticed Bilzin's volume in RE transactions and structured deals. Curious about your operational priorities right now."},
+            {"stage": 3, "channel": "email", "subject": "RE: Operations at a commercial real estate law firm", "draft": "Hi Michelle,\n\nFollowing up on the email from last week. One specific angle that comes up often for firms handling high-value deals: AFA billing performance tracking and matter profitability dashboards.\n\nI can send a one-pager on how firms structure that. Happy to do it if you're exploring this area.\n\nPaul"},
+        ],
+    },
+    {
+        "company_name": "Pebb Capital",
+        "industry": "real_estate",
+        "employee_range": "10_50",
+        "stack": ["Yardi", "Lending Accounting", "Excel", "SharePoint", "Juniper Square"],
+        "multi_entity": True,
+        "pe_backed": True,
+        "ai_pressure": 3,  # urgency: stable firm
+        "reporting": 4,    # pain: multi-asset class $2B+
+        "governance": 4,   # fit: South Florida RE PE, right size
+        "fragmentation": 3,  # deal size: $25K-$75K to start
+        "wedge": "Multi-strategy investor reporting and cross-strategy portfolio visibility",
+        "capabilities": ["portfolio_dashboard", "investor_reporting"],
+        "hypothesis": "Each strategy (student housing, retail, lending, hospitality) has different metrics, reporting cadences, and investor groups. Consolidating into a unified view is a major manual effort.",
+        "contacts": [
+            {"name": "Lori Worman", "title": "Managing Director of Operations", "email": "lworman@pebbcap.com", "buyer_type": "COO", "authority": "High"},
+            {"name": "Carlos Jimenez", "title": "Co-Founder & COO", "buyer_type": "COO", "authority": "High"},
+        ],
+        "outreach_sequences": [
+            {"stage": 1, "channel": "email", "subject": "Multi-strategy portfolio operations in Boca", "draft": "Hi Lori,\n\nRunning a $2B+ portfolio across student housing, retail, lending, and hospitality under one platform is operationally complex. Each strategy has different investor groups, different KPIs, and different reporting cadences.\n\nWhat makes Pebb particularly interesting is the lending arm -- loan servicing adds a layer most RE platforms don't have to manage.\n\nWe work with multi-strategy platforms to build a unified operational system that handles that complexity: different reporting for each investor group, different KPI dashboards per strategy, but all fed from a single source of truth.\n\nWould you be open to a 20-minute conversation about what that looks like?\n\nBest,\nPaul"},
+            {"stage": 2, "channel": "linkedin", "draft": "Hi Lori, just connected. I work with RE platforms on multi-strategy operations. Few platforms actually handle student housing, retail, lending, and hospitality together well. Curious if operational optimization is on the roadmap."},
+            {"stage": 3, "channel": "email", "subject": "RE: Multi-strategy portfolio operations in Boca", "draft": "Hi Lori,\n\nFollowing up on my email from last week. Cross-strategy investor reporting is the highest-friction point I see with multi-strategy platforms. I'd like to send a one-pager on how firms structure that.\n\nLet me know if that would be helpful.\n\nPaul"},
+        ],
+    },
+    {
+        "company_name": "Bay Property Management Group",
+        "industry": "real_estate",
+        "employee_range": "200_1000",
+        "stack": ["AppFolio/Buildium", "QuickBooks", "CRM", "Maintenance Ticketing"],
+        "multi_entity": True,
+        "pe_backed": False,
+        "ai_pressure": 3,  # urgency: growth-oriented but no specific trigger
+        "reporting": 4,    # pain: 200+ staff, multi-state PM
+        "governance": 4,   # fit: PM ICP fit, right size
+        "fragmentation": 2,  # deal size: PM firms often underbuy
+        "wedge": "Maintenance triage automation and owner reporting latency reduction",
+        "capabilities": ["maintenance_intelligence", "owner_reporting"],
+        "hypothesis": "High-volume maintenance requests require manual classification and vendor matching. Emergency vs. routine decisions are judgment calls made by property managers already at capacity.",
+        "contacts": [
+            {"name": "Tony Cook", "title": "COO", "email": "tcook@baymgmtgroup.com", "buyer_type": "COO", "authority": "High"},
+            {"name": "Patrick Freeze", "title": "CEO & Founder", "buyer_type": "Other", "authority": "High"},
+        ],
+        "outreach_sequences": [
+            {"stage": 1, "channel": "email", "subject": "Multi-state property management operations", "draft": "Hi Tony,\n\nBay PMG's growth to 200+ staff across multiple markets puts you in a position where the coordination layer between your systems starts becoming the bottleneck. Maintenance dispatch, owner reporting, leasing workflows, and vendor management all generate data that's useful across the business, but rarely connected in real time.\n\nWe help property management companies build the connective layer across those systems so workflows run end-to-end without the manual bridging in the middle.\n\nWould you be open to a 20-minute call to walk through how other platforms your size have approached this?\n\nBest,\nPaul"},
+            {"stage": 2, "channel": "linkedin", "draft": "Hi Tony, just connected. I work with property management companies on operational systems. Bay PMG's multi-state footprint is exactly where the coordination layer starts to strain. Curious if this is something you're looking at."},
+            {"stage": 3, "channel": "email", "subject": "RE: Multi-state property management operations", "draft": "Hi Tony,\n\nFollowing up on my email last week. One specific angle that comes up often at your size: owner reporting prep time. Most multi-state PM firms are spending 8-12 hours per reporting cycle on data pulls that should be automated.\n\nHappy to send a one-pager on how firms structure that if it's relevant.\n\nPaul"},
+        ],
+    },
+    {
+        "company_name": "Franklin Street",
+        "industry": "real_estate",
+        "employee_range": "200_1000",
+        "stack": ["Yardi/AppFolio", "Brokerage CRM", "Separate Accounting", "Separate Advisory System"],
+        "multi_entity": True,
+        "pe_backed": False,
+        "ai_pressure": 3,  # urgency: no specific trigger
+        "reporting": 5,    # pain: 5 service lines under one roof
+        "governance": 4,   # fit: 462 employees, slightly large but multi-line justifies
+        "fragmentation": 4,  # deal size: cross-department scope
+        "wedge": "Cross-service data integration and opportunity identification across silos",
+        "capabilities": ["client_intelligence", "cross_service_alerts"],
+        "hypothesis": "Capital advisory, PM, brokerage, and insurance operate with separate client knowledge. Cross-selling opportunities are missed because each silo holds client data independently.",
+        "contacts": [],
+    },
+    {
+        "company_name": "Stearns Weaver Miller",
+        "industry": "legal",
+        "employee_range": "200_1000",
+        "stack": ["iManage/NetDocuments", "3E", "HR/Compliance Tracking", "Microsoft 365"],
+        "multi_entity": True,
+        "pe_backed": False,
+        "ai_pressure": 3,  # urgency: no specific trigger
+        "reporting": 4,    # pain: 318-person, multi-practice
+        "governance": 4,   # fit: right-sized law firm with ops lead
+        "fragmentation": 3,  # deal size: mid-range
+        "wedge": "Cross-office staffing and practice group financial reporting",
+        "capabilities": ["practice_performance", "billing_acceleration"],
+        "hypothesis": "Matching attorneys to matters across 5 offices requires manual coordination. Utilization imbalances between offices go undetected until quarterly reviews.",
+        "contacts": [
+            {"name": "Rick Schatz", "title": "Managing Director", "buyer_type": "Other", "authority": "High"},
+        ],
+    },
+    # ── Construction PDS Targets ─────────────────────────────────────────
+    {
+        "company_name": "McAlvain Construction",
+        "industry": "construction",
+        "employee_range": "200_1000",
+        "stack": ["Viewpoint Vista", "Procore", "Bluebeam", "Primavera/Outbuild"],
+        "multi_entity": False,
+        "pe_backed": False,
+        "ai_pressure": 3,
         "reporting": 4,
-        "governance": 5,
+        "governance": 4,
+        "fragmentation": 4,
+        "wedge": "Procurement approval workflow and PO intake automation for self-perform concrete",
+        "capabilities": ["procurement_controls", "field_to_erp_handoff"],
+        "hypothesis": "Self-perform concrete creates more coordination load than pure fee-based CM because purchasing and vendor management affect live field execution directly.",
+        "contacts": [
+            {"name": "Torry McAlvain Jr.", "title": "President", "buyer_type": "Other", "authority": "High"},
+            {"name": "Tyler Resnick", "title": "Executive Vice President", "buyer_type": "COO", "authority": "High"},
+            {"name": "Mason Hampton", "title": "Controller", "buyer_type": "CFO", "authority": "Medium"},
+        ],
+        "outreach_sequences": [
+            {"stage": 1, "channel": "email", "subject": "Tightening procurement flow between field and Vista", "draft": "Hi Torry,\n\nThe most expensive operational drag in self-perform construction usually is not a lack of software. It is the handoff between field demand, approvals, vendor coordination, and ERP entry.\n\nMcAlvain is exactly the kind of builder where that handoff matters. With live field purchasing, concrete operations, and multiple systems in the mix, even small approval friction compounds into schedule drag and back-office cleanup.\n\nWe help contractors build lightweight internal workflow layers around one process at a time so field requests, approvals, and accounting controls move through one governed path.\n\nIf useful, I can send over a concise 1-page outline for a 2-4 week sprint focused only on procurement control and exception handling.\n\nBest,\nPaul"},
+            {"stage": 2, "channel": "linkedin", "draft": "Hi Torry, I've been looking closely at where procurement and approval friction shows up in self-perform construction teams. McAlvain's mix of field execution and office controls is exactly where that handoff gets expensive. Curious whether procurement flow or job-cost visibility is the bigger ops priority right now."},
+            {"stage": 3, "channel": "email", "subject": "RE: Tightening procurement flow between field and Vista", "draft": "Hi Torry,\n\nFollowing up on the note below. The narrow version of what I'm talking about is not 'automation' in the broad sense. It is getting one workflow under control so field requests, approvals, and ERP exceptions stop bouncing between people.\n\nIf helpful, I can send a sample sprint outline showing what we'd map, what we'd measure, and what the output looks like.\n\nPaul"},
+        ],
+    },
+    {
+        "company_name": "Kaufman Lynn Construction",
+        "industry": "construction",
+        "employee_range": "200_1000",
+        "stack": ["Construction PM Tools", "DocuSign", "Spreadsheet Reporting"],
+        "multi_entity": False,
+        "pe_backed": False,
+        "ai_pressure": 3,
+        "reporting": 4,
+        "governance": 4,
         "fragmentation": 3,
-        "wedge": "Executive-safe control stack",
-        "capabilities": ["risk_reporting", "control_alignment"],
-        "hypothesis": "Banks face acute AI pressure, but governance-safe outreach must stay focused on control maturity, not product pitch.",
+        "wedge": "Project controls visibility and SOP enforcement without system replacement",
+        "capabilities": ["project_controls_review", "executive_briefing"],
+        "hypothesis": "SOP maturity is catching up to growth. Growing pains and SOPs still being implemented indicate the firm has outrun its coordination discipline.",
+        "contacts": [
+            {"name": "Michael Kaufman", "title": "Founder & CEO", "buyer_type": "Other", "authority": "High"},
+            {"name": "Stephen Haskins", "title": "EVP Financial Excellence", "buyer_type": "CFO", "authority": "High"},
+        ],
+        "triggers": [
+            {"type": "Job_Posting", "summary": "Hiring project controls engineer — signals investment in reporting infrastructure and operational controls maturity."},
+        ],
+    },
+    {
+        "company_name": "Galaxy Builders",
+        "industry": "construction",
+        "employee_range": "50_200",
+        "stack": ["Procore", "Separate Accounting", "Levelset", "Spreadsheets"],
+        "multi_entity": False,
+        "pe_backed": False,
+        "ai_pressure": 3,
+        "reporting": 4,
+        "governance": 4,
+        "fragmentation": 4,
+        "wedge": "Procore-to-accounting reconciliation and variance visibility",
+        "capabilities": ["project_finance_reconciliation", "variance_queue"],
+        "hypothesis": "Project data and financial data are not traveling together. Accounting is still not fully integrated with Procore — the core reconciliation gap.",
+        "contacts": [
+            {"name": "Cara DeAnda", "title": "Chief Operating Officer", "buyer_type": "COO", "authority": "High"},
+            {"name": "Neilesh Verma", "title": "Chief Executive Officer", "buyer_type": "Other", "authority": "High"},
+        ],
+    },
+    {
+        "company_name": "Embree Construction Group",
+        "industry": "construction",
+        "employee_range": "200_1000",
+        "stack": ["Procore", "Levelset", "Finance/Accounting Stack", "Email/Spreadsheets"],
+        "multi_entity": True,
+        "pe_backed": False,
+        "ai_pressure": 3,
+        "reporting": 4,
+        "governance": 4,
+        "fragmentation": 4,
+        "wedge": "Field-to-payment approval workflow and superintendent reporting standardization",
+        "capabilities": ["payment_approval_workflow", "superintendent_reporting"],
+        "hypothesis": "Field reporting and payment approvals are not one controlled flow. Slow-pay and lien signals suggest breakdowns in documentation and approval timing.",
+        "contacts": [
+            {"name": "Cory Delz", "title": "President", "buyer_type": "Other", "authority": "High"},
+            {"name": "Rocky Hardin", "title": "CFO/EVP", "buyer_type": "CFO", "authority": "High"},
+        ],
+    },
+    {
+        "company_name": "Cadence McShane Construction",
+        "industry": "construction",
+        "employee_range": "200_1000",
+        "stack": ["Construction PM Stack", "Office-Specific Reporting", "Spreadsheet Consolidation"],
+        "multi_entity": True,
+        "pe_backed": False,
+        "ai_pressure": 3,
+        "reporting": 4,
+        "governance": 4,
+        "fragmentation": 3,
+        "wedge": "Cross-office operational consistency and field-to-leadership escalation",
+        "capabilities": ["operations_consistency", "exception_dashboard"],
+        "hypothesis": "Scale is outrunning coordination discipline. Overloaded teams and confusion around who owns what across Dallas, Austin, Houston, and San Antonio offices.",
+        "contacts": [
+            {"name": "Monica Schoenemann", "title": "SVP Chief Construction Officer", "buyer_type": "COO", "authority": "High"},
+            {"name": "Will Hodges", "title": "President", "buyer_type": "Other", "authority": "High"},
+        ],
     },
 ]
 
@@ -855,6 +1018,10 @@ def get_dashboard(*, env_id: str, business_id: UUID) -> dict:
 
 def seed_novendor_strategic_outreach(*, env_id: str, business_id: UUID) -> dict:
     seeded = 0
+    contacts_seeded = 0
+    sequences_seeded = 0
+    triggers_seeded = 0
+
     for company in SEED_COMPANIES:
         lead_profile_id = _ensure_lead(
             env_id=env_id,
@@ -862,6 +1029,11 @@ def seed_novendor_strategic_outreach(*, env_id: str, business_id: UUID) -> dict:
             company_name=company["company_name"],
             industry=company["industry"],
         )
+
+        # Determine status based on available data
+        has_sequences = bool(company.get("outreach_sequences"))
+        status = "Outreach Drafted" if has_sequences else "Hypothesis Built"
+
         upsert_strategic_lead(
             env_id=env_id,
             business_id=business_id,
@@ -874,7 +1046,7 @@ def seed_novendor_strategic_outreach(*, env_id: str, business_id: UUID) -> dict:
             reporting_complexity_score=int(company["reporting"]),
             governance_risk_score=int(company["governance"]),
             vendor_fragmentation_score=int(company["fragmentation"]),
-            status="Hypothesis Built",
+            status=status,
         )
         upsert_hypothesis(
             env_id=env_id,
@@ -888,17 +1060,89 @@ def seed_novendor_strategic_outreach(*, env_id: str, business_id: UUID) -> dict:
             primary_wedge_angle=company["wedge"],
             top_2_capabilities=list(company["capabilities"]),
         )
-        create_contact(
-            env_id=env_id,
-            business_id=business_id,
-            lead_profile_id=lead_profile_id,
-            name="Office of the CFO",
-            title="CFO",
-            buyer_type="CFO",
-            authority_level="High",
-        )
+
+        # Seed real contacts from client-hunting research
+        for contact in company.get("contacts", []):
+            create_contact(
+                env_id=env_id,
+                business_id=business_id,
+                lead_profile_id=lead_profile_id,
+                name=contact["name"],
+                title=contact["title"],
+                email=contact.get("email"),
+                linkedin_url=contact.get("linkedin"),
+                buyer_type=contact.get("buyer_type", "Other"),
+                authority_level=contact.get("authority", "Medium"),
+            )
+            contacts_seeded += 1
+
+        # If no contacts provided, seed a placeholder
+        if not company.get("contacts"):
+            create_contact(
+                env_id=env_id,
+                business_id=business_id,
+                lead_profile_id=lead_profile_id,
+                name="Operations Leadership (TBD)",
+                title="COO / VP Operations",
+                buyer_type="COO",
+                authority_level="High",
+            )
+            contacts_seeded += 1
+
+        # Seed outreach sequences from drafted emails
+        for seq in company.get("outreach_sequences", []):
+            _seed_outreach_sequence(
+                env_id=env_id,
+                business_id=business_id,
+                lead_profile_id=lead_profile_id,
+                stage=seq["stage"],
+                draft_message=seq["draft"],
+            )
+            sequences_seeded += 1
+
+        # Seed trigger signals from identified events
+        for trigger in company.get("triggers", []):
+            create_trigger_signal(
+                env_id=env_id,
+                business_id=business_id,
+                lead_profile_id=lead_profile_id,
+                trigger_type=trigger["type"],
+                source_url=trigger.get("source_url", "client-hunting/priority-hit-list.md"),
+                summary=trigger["summary"],
+            )
+            triggers_seeded += 1
+
         seeded += 1
-    return {"status": "seeded", "leads_seeded": seeded}
+
+    return {
+        "status": "seeded",
+        "leads_seeded": seeded,
+        "contacts_seeded": contacts_seeded,
+        "sequences_seeded": sequences_seeded,
+        "triggers_seeded": triggers_seeded,
+    }
+
+
+def _seed_outreach_sequence(
+    *,
+    env_id: str,
+    business_id: UUID,
+    lead_profile_id: UUID,
+    stage: int,
+    draft_message: str,
+) -> None:
+    """Insert a draft outreach sequence entry for seeding."""
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO cro_outreach_sequence
+              (env_id, business_id, lead_profile_id, sequence_stage,
+               draft_message, response_status)
+            VALUES (%s, %s, %s, %s, %s, 'pending')
+            ON CONFLICT DO NOTHING
+            """,
+            (env_id, str(business_id), str(lead_profile_id), stage, draft_message),
+        )
 
 
 def _ensure_lead(*, env_id: str, business_id: UUID, company_name: str, industry: str) -> UUID:
