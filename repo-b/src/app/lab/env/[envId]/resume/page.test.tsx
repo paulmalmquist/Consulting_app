@@ -94,16 +94,17 @@ describe("Resume route page", () => {
     expect(mockLogWarn).toHaveBeenCalled();
   });
 
-  it("renders the workspace with an empty payload instead of crashing", async () => {
+  it("renders the seed workspace with an empty DB payload instead of crashing", async () => {
     mockGetResumeWorkspace.mockResolvedValue({});
 
     render(<ResumePage />);
 
+    // Seed renders immediately — DB payload is empty but seed has the title
     expect(await screen.findByTestId("resume-workspace")).toBeInTheDocument();
-    expect(screen.getByText("Systems Builder and Product Operator")).toBeInTheDocument();
+    expect(screen.getByText("AI Platform Architect & Investment Data Engineering Leader")).toBeInTheDocument();
   });
 
-  it("renders the workspace with malformed payloads instead of crashing", async () => {
+  it("renders the seed workspace with malformed DB payloads instead of crashing", async () => {
     mockGetResumeWorkspace.mockResolvedValue(null);
 
     render(<ResumePage />);
@@ -112,7 +113,7 @@ describe("Resume route page", () => {
     expect(screen.getByTestId("resume-story-count")).toHaveTextContent("4");
   });
 
-  it("shows a clean invalid env state without fetching", () => {
+  it("renders seed workspace even with invalid env — never blanks", () => {
     mockUseDomainEnv.mockReturnValue({
       envId: "not-a-valid-env",
       businessId: RESUME_BUSINESS_ID,
@@ -124,22 +125,21 @@ describe("Resume route page", () => {
 
     render(<ResumePage />);
 
-    expect(screen.getByText(/valid environment id/i)).toBeInTheDocument();
+    // Seed-first: workspace always renders, DB fetch is skipped for invalid env
+    expect(screen.getByTestId("resume-workspace")).toBeInTheDocument();
     expect(mockGetResumeWorkspace).not.toHaveBeenCalled();
   });
 
-  it("shows an attributable error state and retries failed loads", async () => {
+  it("keeps seed workspace visible when DB fetch fails", async () => {
     mockGetResumeWorkspace.mockRejectedValue(
       Object.assign(new Error("Resume workspace unavailable"), { requestId: "req_resume_123" }),
     );
 
     render(<ResumePage />);
 
-    expect(await screen.findByText("Resume data unavailable")).toBeInTheDocument();
-    expect(screen.getByText(/req_resume_123/i)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /retry visual resume/i }));
-
-    await waitFor(() => expect(mockGetResumeWorkspace).toHaveBeenCalledTimes(2));
+    // Seed renders immediately; DB failure logged but UI stays populated
+    expect(await screen.findByTestId("resume-workspace")).toBeInTheDocument();
+    expect(screen.getByText("AI Platform Architect & Investment Data Engineering Leader")).toBeInTheDocument();
+    await waitFor(() => expect(mockLogWarn).toHaveBeenCalled());
   });
 });
