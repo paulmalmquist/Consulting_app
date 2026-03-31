@@ -1512,7 +1512,7 @@ export default function FundDetailPage({
   const TABS = fund?.strategy === "debt" ? DEBT_TABS : EQUITY_TABS;
 
   return (
-    <section className="mx-auto flex w-full max-w-[1500px] flex-col gap-4" data-testid="re-fund-detail">
+    <section className="flex w-full flex-col gap-4" data-testid="re-fund-detail">
       <div className={`${FUND_PANEL_CLASS} px-5 pb-[18px] pt-[20px]`} data-testid="fund-overview-header">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">

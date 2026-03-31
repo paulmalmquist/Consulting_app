@@ -10,7 +10,7 @@ describe("normalizeResumeWorkspace", () => {
     const result = normalizeResumeWorkspace(makeResumeWorkspacePayload());
 
     expect(result.issues).toEqual([]);
-    expect(result.stats.roles).toBe(3);
+    expect(result.stats.roles).toBe(4);
     expect(result.stats.nodes).toBe(10);
     expect(result.workspace.identity.name).toBe("Paul Malmquist");
     expect(result.workspace.bi.root_entity_id).toBe("portfolio-root");

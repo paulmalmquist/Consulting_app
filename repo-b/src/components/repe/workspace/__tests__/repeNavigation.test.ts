@@ -18,20 +18,18 @@ describe("REPE navigation model", () => {
       "Investor Operations",
       "Fund Accounting",
       "Analytics",
-      "Acquisitions",
       "Governance",
       "Automation",
     ]);
   });
 
   it("maps the core section items to the requested order", () => {
-    expect(groups[0]?.items.map((item) => item.label)).toEqual(["Funds", "Investments", "Assets", "Development"]);
+    expect(groups[0]?.items.map((item) => item.label)).toEqual(["Funds", "Investments", "Assets", "Pipeline", "Development"]);
     expect(groups[1]?.items.map((item) => item.label)).toEqual(["Investors", "Capital Call Ops", "Distribution Ops", "Fees", "IR Review"]);
     expect(groups[2]?.items.map((item) => item.label)).toEqual(["Period Close", "Variance"]);
     expect(groups[3]?.items.map((item) => item.label)).toEqual(["Models", "Dashboards", "Saved Analyses", "Reports", "Sustainability"]);
-    expect(groups[4]?.items.map((item) => item.label)).toEqual(["Pipeline"]);
-    expect(groups[5]?.items.map((item) => item.label)).toEqual(["Documents", "Approvals", "AI Audit"]);
-    expect(groups[6]?.items.map((item) => item.label)).toEqual(["Winston"]);
+    expect(groups[4]?.items.map((item) => item.label)).toEqual(["Documents", "Approvals", "AI Audit"]);
+    expect(groups[5]?.items.map((item) => item.label)).toEqual(["Winston"]);
   });
 
   it("always includes Sustainability in Analytics even when the legacy flag is off", () => {

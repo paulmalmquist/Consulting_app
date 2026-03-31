@@ -75,7 +75,7 @@ describe("ResumeWorkspace narrative controls", () => {
     const user = userEvent.setup();
     renderWorkspace();
 
-    await user.click(screen.getByRole("button", { name: /Properties Integrated/i }));
+    await user.click(screen.getByRole("button", { name: /Properties Automated/i }));
 
     expect(await screen.findByText("Scale stops being a bullet point and becomes evidence of operating leverage.")).toBeInTheDocument();
     expect(mockRouterReplace).toHaveBeenLastCalledWith(

@@ -1210,7 +1210,7 @@ function InvestmentBriefingPageContent({
   const equityValue = currentValue - Number(quarterState?.debt_balance || totalDebt || 0);
 
   return (
-    <section className="w-full max-w-[1520px] space-y-10 xl:border-l xl:border-slate-200/80 xl:pl-6 dark:border-white/10" data-testid="investment-briefing-page">
+    <section className="w-full space-y-8" data-testid="investment-briefing-page">
       <header className="rounded-[30px] border border-slate-200 bg-[radial-gradient(circle_at_top_right,rgba(200,162,58,0.12),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.98))] px-5 py-5 shadow-[0_24px_60px_-42px_rgba(15,23,42,0.18)] dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_right,rgba(200,162,58,0.12),transparent_24%),linear-gradient(180deg,rgba(15,23,42,0.86),rgba(9,14,28,0.96))]">
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(500px,0.9fr)]">
           <div className="space-y-5">

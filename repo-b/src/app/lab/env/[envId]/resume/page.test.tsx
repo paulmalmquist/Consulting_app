@@ -64,7 +64,7 @@ describe("Resume route page", () => {
       expect(mockGetResumeWorkspace).toHaveBeenCalledWith(RESUME_ENV_ID, RESUME_BUSINESS_ID),
     );
     expect(await screen.findByTestId("resume-workspace")).toBeInTheDocument();
-    expect(screen.getByText("Systems Builder and Product Operator")).toBeInTheDocument();
+    expect(screen.getByText("AI Platform Architect & Investment Data Engineering Leader")).toBeInTheDocument();
   });
 
   it("renders the workspace with sparse data after normalization", async () => {
