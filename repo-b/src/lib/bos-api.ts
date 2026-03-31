@@ -8314,6 +8314,8 @@ export type ResumeTimeline = {
   metric_anchors: ResumeMetricAnchor[];
   accomplishment_cards: ResumeAccomplishmentCard[];
   play_story_steps: ResumePlayStoryStep[];
+  /** Pre-computed cumulative capability growth curves keyed by layer_id */
+  precomputed_capability_growth?: Record<string, Array<{ date: string; value: number }>>;
 };
 
 export type ResumeArchitectureNode = {

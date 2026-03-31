@@ -189,10 +189,33 @@ export function getVisibleCapabilityLayerIds(timeline: ResumeTimeline) {
   return timeline.capability_layers.filter((layer) => layer.is_visible).map((layer) => layer.layer_id);
 }
 
+/** Linearly interpolate between pre-computed curve anchor points. */
+function interpolateCurve(
+  point: Date,
+  anchors: Array<{ date: string; value: number }>,
+): number {
+  if (anchors.length === 0) return 0;
+  const t = point.getTime();
+  const first = parseDate(anchors[0].date).getTime();
+  if (t <= first) return anchors[0].value;
+  const last = parseDate(anchors[anchors.length - 1].date).getTime();
+  if (t >= last) return anchors[anchors.length - 1].value;
+  for (let i = 0; i < anchors.length - 1; i++) {
+    const a = parseDate(anchors[i].date).getTime();
+    const b = parseDate(anchors[i + 1].date).getTime();
+    if (t >= a && t <= b) {
+      const ratio = b === a ? 1 : (t - a) / (b - a);
+      return anchors[i].value + ratio * (anchors[i + 1].value - anchors[i].value);
+    }
+  }
+  return anchors[anchors.length - 1].value;
+}
+
 export function buildTimelineChartData(timeline: ResumeTimeline): TimelineChartPoint[] {
   const phases = getTimelinePhases(timeline);
   const months = monthRange(timeline.start_date, timeline.end_date);
   const layerIds = timeline.capability_layers.map((layer) => layer.layer_id);
+  const precomputed = timeline.precomputed_capability_growth;
 
   return months.map((month) => {
     const point: TimelineChartPoint = {
@@ -256,6 +279,25 @@ export function buildTimelineChartData(timeline: ResumeTimeline): TimelineChartP
         });
       }
     });
+
+    // Override with pre-computed capability growth curves when available.
+    // These produce visible compounding shapes instead of thin derived values.
+    if (precomputed) {
+      let totalCapability = 0;
+      for (const [key, anchors] of Object.entries(precomputed)) {
+        const value = interpolateCurve(month, anchors);
+        // Map precomputed keys to capability layers if they match
+        const matchingLayer = layerIds.find((id) => id === key);
+        if (matchingLayer) {
+          point[matchingLayer] = value;
+        }
+        totalCapability += value;
+      }
+      // Career scope = total of all precomputed curves (compounding shape)
+      if (totalCapability > 0) {
+        point.career_scope = totalCapability;
+      }
+    }
 
     return point;
   });

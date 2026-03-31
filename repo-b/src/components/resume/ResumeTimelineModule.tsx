@@ -118,9 +118,9 @@ export default function ResumeTimelineModule({ timeline }: { timeline: ResumeTim
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-3xl">
           <p className="bm-section-label">Build Journey</p>
-          <h2 className="mt-2 text-2xl">Execution timeline as system backbone</h2>
+          <h2 className="mt-2 text-2xl">11 years of compounding systems</h2>
           <p className="mt-2 text-sm text-bm-muted">
-            The graph now controls the story: phases, milestones, capability layers, and KPI evidence all resolve from the same narrative model.
+            From reporting foundation to governed warehouse to AI operating layer — each system built on the last.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

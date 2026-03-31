@@ -219,11 +219,21 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
   lastBiEntitySource: "init",
   lastModelPresetSource: "init",
   initialize: (workspace) => {
+    // Pick the strongest milestone as default — warehouse/semantic layer milestone shows the most
+    // cross-module connections (architecture, BI, modeling). Fall back to first play step or first milestone.
+    const preferredMilestone = workspace.timeline.milestones.find(
+      (m) => m.milestone_id === "milestone-kayne-warehouse-semantic",
+    );
     const defaultTimelineId =
+      preferredMilestone?.milestone_id ??
       workspace.timeline.play_story_steps[0]?.milestone_id ??
       workspace.timeline.milestones[0]?.milestone_id ??
       workspace.timeline.roles[0]?.timeline_role_id ??
       null;
+    // Resolve linked modules for the default milestone so the page opens with full context.
+    const linked = defaultTimelineId
+      ? resolveLinkedTimelineSelection(workspace.timeline, defaultTimelineId)
+      : null;
     set({
       workspace,
       activeModule: "timeline",
@@ -231,24 +241,16 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
       playStory: false,
       playIndex: 0,
       selectedTimelineId: defaultTimelineId,
-      selectedNarrativeKind:
-        workspace.timeline.play_story_steps[0]?.milestone_id != null
-          ? "milestone"
-          : workspace.timeline.phases[0]?.phase_id != null
-            ? "phase"
-            : null,
-      selectedNarrativeId:
-        workspace.timeline.play_story_steps[0]?.milestone_id ??
-        workspace.timeline.phases[0]?.phase_id ??
-        null,
+      selectedNarrativeKind: defaultTimelineId ? "milestone" : null,
+      selectedNarrativeId: defaultTimelineId,
       hoveredNarrativeKind: null,
       hoveredNarrativeId: null,
-      highlightArchitectureNodeIds: [],
+      highlightArchitectureNodeIds: linked?.linkedArchitectureNodeIds ?? [],
       selectedArchitectureNodeId: null,
       architectureView: workspace.architecture.default_view,
-      modelPresetId: pickDefaultPreset(workspace.modeling),
+      modelPresetId: linked?.linkedModelPreset ?? pickDefaultPreset(workspace.modeling),
       modelInputs: { ...workspace.modeling.defaults },
-      selectedBiEntityId: workspace.bi.root_entity_id,
+      selectedBiEntityId: linked?.linkedBiEntityIds[0] ?? workspace.bi.root_entity_id,
       biFilters: {
         market: "All Markets",
         propertyType: "All Types",
