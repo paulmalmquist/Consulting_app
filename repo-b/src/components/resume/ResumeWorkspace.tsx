@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 import { fmtMoney, fmtPct, fmtMultiple } from "@/lib/format-utils";
@@ -17,6 +17,7 @@ import ResumeModelingModule from "./ResumeModelingModule";
 import ResumeBiModule from "./ResumeBiModule";
 import ResumeContextRail from "./ResumeContextRail";
 import ResumeAssistantDock from "./ResumeAssistantDock";
+import ResumeExportPdf from "./ResumeExportPdf";
 import ResumeModuleBoundary from "./ResumeModuleBoundary";
 import LinkedContextBar from "./LinkedContextBar";
 import CareerTimelineBar from "./CareerTimelineBar";
@@ -34,10 +35,12 @@ export default function ResumeWorkspace({
   envId,
   businessId,
   workspace,
+  readOnly = false,
 }: {
   envId: string;
   businessId: string | null;
   workspace: ResumeWorkspaceViewModel;
+  readOnly?: boolean;
 }) {
   const {
     activeModule,
@@ -71,6 +74,7 @@ export default function ResumeWorkspace({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const moduleContentRef = useRef<HTMLDivElement>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [urlStateHydrated, setUrlStateHydrated] = useState(false);
 
@@ -279,8 +283,8 @@ export default function ResumeWorkspace({
           </div>
         ) : null}
 
-        {/* Module tabs */}
-        <div className="flex flex-wrap gap-2 pt-2">
+        {/* Module tabs + export */}
+        <div className="flex flex-wrap items-center gap-2 pt-2">
           {(Object.keys(MODULE_LABELS) as Array<keyof typeof MODULE_LABELS>).map((module) => (
             <button
               key={module}
@@ -295,13 +299,16 @@ export default function ResumeWorkspace({
               {MODULE_LABELS[module]}
             </button>
           ))}
+          <div className="ml-auto">
+            <ResumeExportPdf contentRef={moduleContentRef} />
+          </div>
         </div>
 
         <LinkedContextBar />
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-6">
+        <div ref={moduleContentRef} className="space-y-6">
           {activeModule === "timeline" ? (
             <ResumeModuleBoundary
               boundaryId="resume-timeline"
@@ -365,15 +372,17 @@ export default function ResumeWorkspace({
                 biEntity={biSlice.entity}
               />
             </ResumeModuleBoundary>
-            <ResumeModuleBoundary
-              boundaryId="resume-assistant"
-              eyebrow="Assistant"
-              title="Resume data unavailable"
-              message="The contextual assistant failed to render. You can still use the visual resume modules directly."
-              resetKey={`${envId}-${activeModule}`}
-            >
-              <ResumeAssistantDock envId={envId} businessId={businessId} metrics={assistantMetrics} />
-            </ResumeModuleBoundary>
+            {!readOnly ? (
+              <ResumeModuleBoundary
+                boundaryId="resume-assistant"
+                eyebrow="Assistant"
+                title="Resume data unavailable"
+                message="The contextual assistant failed to render. You can still use the visual resume modules directly."
+                resetKey={`${envId}-${activeModule}`}
+              >
+                <ResumeAssistantDock envId={envId} businessId={businessId} metrics={assistantMetrics} />
+              </ResumeModuleBoundary>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -404,20 +413,22 @@ export default function ResumeWorkspace({
           </div>
         </details>
 
-        <details className="rounded-[24px] border border-bm-border/60 bg-bm-surface/18 p-4">
-          <summary className="cursor-pointer text-sm font-semibold text-bm-text">Winston</summary>
-          <div className="mt-4">
-            <ResumeModuleBoundary
-              boundaryId="resume-assistant-mobile"
-              eyebrow="Assistant"
-              title="Resume data unavailable"
-              message="The contextual assistant failed to render. You can still use the visual resume modules directly."
-              resetKey={`${envId}-${activeModule}-mobile`}
-            >
-              <ResumeAssistantDock envId={envId} businessId={businessId} metrics={assistantMetrics} />
-            </ResumeModuleBoundary>
-          </div>
-        </details>
+        {!readOnly ? (
+          <details className="rounded-[24px] border border-bm-border/60 bg-bm-surface/18 p-4">
+            <summary className="cursor-pointer text-sm font-semibold text-bm-text">Winston</summary>
+            <div className="mt-4">
+              <ResumeModuleBoundary
+                boundaryId="resume-assistant-mobile"
+                eyebrow="Assistant"
+                title="Resume data unavailable"
+                message="The contextual assistant failed to render. You can still use the visual resume modules directly."
+                resetKey={`${envId}-${activeModule}-mobile`}
+              >
+                <ResumeAssistantDock envId={envId} businessId={businessId} metrics={assistantMetrics} />
+              </ResumeModuleBoundary>
+            </div>
+          </details>
+        ) : null}
         </div>
       ) : null}
     </div>

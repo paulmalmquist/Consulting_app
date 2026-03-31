@@ -6,12 +6,15 @@ import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider"
 import { ActivityTimeline } from "@/components/consulting/ActivityTimeline";
 import { NextActionPanel } from "@/components/consulting/NextActionPanel";
 import { Card, CardContent, CardTitle } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import {
+  createConsultingOpportunity,
   fetchAccountDetail,
   fetchAccountContacts,
   fetchAccountOpportunities,
   fetchActivities,
   fetchNextActions,
+  generateProposal,
   updateLeadStage,
   type AccountDetail,
   type AccountContact,
@@ -52,6 +55,12 @@ export default function AccountDetailPage({
   const [actions, setActions] = useState<NextAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
+  const [showConvertForm, setShowConvertForm] = useState(false);
+  const [convertName, setConvertName] = useState("");
+  const [convertAmount, setConvertAmount] = useState("");
+  const [convertDays, setConvertDays] = useState("60");
+  const [converting, setConverting] = useState(false);
+  const [generatingProposal, setGeneratingProposal] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!ready || !businessId) {
@@ -139,12 +148,36 @@ export default function AccountDetailPage({
                   </div>
                 ) : null}
               </div>
-              <Link
-                href={`/lab/env/${params.envId}/consulting/accounts`}
-                className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/30"
-              >
-                Back to Accounts
-              </Link>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  disabled={generatingProposal || !businessId}
+                  onClick={async () => {
+                    if (!businessId) return;
+                    setGeneratingProposal(true);
+                    try {
+                      await generateProposal({
+                        env_id: params.envId,
+                        business_id: businessId,
+                        crm_account_id: params.accountId,
+                      });
+                      void loadData();
+                    } catch (e) {
+                      setDataError(formatError(e));
+                    } finally {
+                      setGeneratingProposal(false);
+                    }
+                  }}
+                >
+                  {generatingProposal ? "Generating..." : "Generate Proposal"}
+                </Button>
+                <Link
+                  href={`/lab/env/${params.envId}/consulting/accounts`}
+                  className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/30"
+                >
+                  Back to Accounts
+                </Link>
+              </div>
             </div>
           </section>
 
@@ -326,8 +359,83 @@ export default function AccountDetailPage({
             </h2>
             {opportunities.length === 0 ? (
               <Card>
-                <CardContent className="py-6 text-center">
-                  <p className="text-sm text-bm-muted2">No opportunities at this account.</p>
+                <CardContent className="py-6">
+                  {showConvertForm ? (
+                    <div className="space-y-3">
+                      <p className="text-sm font-semibold text-bm-text">Create Opportunity</p>
+                      <input
+                        type="text"
+                        placeholder="Opportunity name"
+                        value={convertName}
+                        onChange={(e) => setConvertName(e.target.value)}
+                        className="w-full rounded-lg border border-bm-border bg-bm-bg px-3 py-2 text-sm"
+                      />
+                      <div className="grid grid-cols-2 gap-3">
+                        <input
+                          type="text"
+                          placeholder="Amount (e.g. 150000)"
+                          value={convertAmount}
+                          onChange={(e) => setConvertAmount(e.target.value)}
+                          className="rounded-lg border border-bm-border bg-bm-bg px-3 py-2 text-sm"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Days to close (e.g. 60)"
+                          value={convertDays}
+                          onChange={(e) => setConvertDays(e.target.value)}
+                          className="rounded-lg border border-bm-border bg-bm-bg px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          disabled={converting || !convertName.trim() || !convertAmount.trim()}
+                          onClick={async () => {
+                            if (!businessId) return;
+                            setConverting(true);
+                            try {
+                              const closeDate = new Date();
+                              closeDate.setDate(closeDate.getDate() + parseInt(convertDays || "60"));
+                              await createConsultingOpportunity({
+                                business_id: businessId,
+                                name: convertName,
+                                amount: convertAmount,
+                                crm_account_id: params.accountId,
+                                expected_close_date: closeDate.toISOString().split("T")[0],
+                              });
+                              setShowConvertForm(false);
+                              setConvertName("");
+                              setConvertAmount("");
+                              void loadData();
+                            } catch (e) {
+                              setDataError(formatError(e));
+                            } finally {
+                              setConverting(false);
+                            }
+                          }}
+                        >
+                          {converting ? "Creating..." : "Create Opportunity"}
+                        </Button>
+                        <Button size="sm" variant="secondary" onClick={() => setShowConvertForm(false)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <p className="text-sm text-bm-muted2 mb-3">No opportunities at this account.</p>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setConvertName(account ? `${account.company_name} - AI Engagement` : "");
+                          setConvertAmount(account?.estimated_budget ? String(Math.round(Number(account.estimated_budget))) : "");
+                          setShowConvertForm(true);
+                        }}
+                      >
+                        Convert to Opportunity
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ) : (

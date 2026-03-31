@@ -45,6 +45,7 @@ SEED_COMPANIES = [
         "reporting": 5,    # pain: no operational infrastructure
         "governance": 5,   # fit: exactly ICP
         "fragmentation": 5,  # deal size: foundation sprint + full modules
+        "seed_status": "Diagnostic Scheduled",  # COO meeting booked
         "wedge": "Conflict management and government deadline tracking across multi-office structure",
         "capabilities": ["conflict_management", "deadline_tracking"],
         "hypothesis": "94-attorney firm with no COO until now — zero operational infrastructure. Multi-office conflict checks are labor-intensive and duplicated.",
@@ -66,6 +67,7 @@ SEED_COMPANIES = [
         "reporting": 5,    # pain: 100K units, fragmented PM tools
         "governance": 5,   # fit: PM is sweet spot
         "fragmentation": 2,  # deal size: PM firms tend toward implementation
+        "seed_status": "Sent",  # outreach already delivered
         "wedge": "Institutional reporting pipeline and centralized operations visibility at 100K+ units",
         "capabilities": ["investor_reporting", "maintenance_automation"],
         "hypothesis": "100K units managed — massive scale running on spreadsheets and fragmented PM tools. Quarterly investor reporting pulls from a dozen systems.",
@@ -117,6 +119,7 @@ SEED_COMPANIES = [
         "reporting": 4,    # pain: 238-person firm, complex closings
         "governance": 5,   # fit: law firm COO is ideal buyer
         "fragmentation": 3,  # deal size: mid-range
+        "seed_status": "Engaged",  # COO responded positively
         "wedge": "Real estate closing coordination and AFA profitability tracking",
         "capabilities": ["closing_checklist_engine", "matter_profitability"],
         "hypothesis": "Complex multi-party RE closings involve 50-100+ item checklists requiring manual tracking across multiple parties, title companies, and lenders.",
@@ -140,6 +143,7 @@ SEED_COMPANIES = [
         "reporting": 4,    # pain: multi-asset class $2B+
         "governance": 4,   # fit: South Florida RE PE, right size
         "fragmentation": 3,  # deal size: $25K-$75K to start
+        "seed_status": "Sent",  # initial outreach delivered
         "wedge": "Multi-strategy investor reporting and cross-strategy portfolio visibility",
         "capabilities": ["portfolio_dashboard", "investor_reporting"],
         "hypothesis": "Each strategy (student housing, retail, lending, hospitality) has different metrics, reporting cadences, and investor groups. Consolidating into a unified view is a major manual effort.",
@@ -457,6 +461,24 @@ def upsert_strategic_lead(
         message=f"Strategic lead updated: {lead['company_name']}",
         context={"lead_profile_id": str(lead_profile_id), "priority": row["composite_priority_score"]},
     )
+    return row
+
+
+def advance_strategic_lead_status(*, strategic_lead_id: UUID, new_status: str) -> dict:
+    """Update a strategic lead's pipeline status."""
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            UPDATE cro_strategic_lead
+            SET status = %s, updated_at = now()
+            WHERE id = %s
+            RETURNING id, lead_profile_id, composite_priority_score, status
+            """,
+            (new_status, str(strategic_lead_id)),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise ValueError(f"Strategic lead {strategic_lead_id} not found")
     return row
 
 
@@ -1030,9 +1052,15 @@ def seed_novendor_strategic_outreach(*, env_id: str, business_id: UUID) -> dict:
             industry=company["industry"],
         )
 
-        # Determine status based on available data
+        # Determine status — spread leads across pipeline stages for demo realism
         has_sequences = bool(company.get("outreach_sequences"))
-        status = "Outreach Drafted" if has_sequences else "Hypothesis Built"
+        explicit_status = company.get("seed_status")
+        if explicit_status:
+            status = explicit_status
+        elif has_sequences:
+            status = "Outreach Drafted"
+        else:
+            status = "Hypothesis Built"
 
         upsert_strategic_lead(
             env_id=env_id,

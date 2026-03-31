@@ -5,6 +5,7 @@ import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider"
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardTitle } from "@/components/ui/Card";
 import {
+  advanceStrategicLeadStatus,
   approveStrategicOutreach,
   fetchStrategicOutreachDashboard,
   runStrategicOutreachMonitor,
@@ -52,7 +53,26 @@ function priorityTone(score: number): string {
   return "text-bm-muted2";
 }
 
-function LeadRow({ lead }: { lead: StrategicOutreachLead }) {
+const STAGE_ORDER = [
+  "Identified",
+  "Hypothesis Built",
+  "Outreach Drafted",
+  "Sent",
+  "Engaged",
+  "Diagnostic Scheduled",
+  "Deliverable Sent",
+  "Closed",
+] as const;
+
+function LeadRow({
+  lead,
+  onAdvance,
+  busy,
+}: {
+  lead: StrategicOutreachLead;
+  onAdvance: (leadId: string, status: string) => void;
+  busy: boolean;
+}) {
   return (
     <Card>
       <CardContent className="py-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -62,9 +82,16 @@ function LeadRow({ lead }: { lead: StrategicOutreachLead }) {
             <span className={`text-xs font-semibold ${priorityTone(lead.composite_priority_score)}`}>
               {lead.composite_priority_score}
             </span>
-            <span className="text-xs rounded-full border border-bm-border/70 px-2 py-0.5 text-bm-muted2">
-              {lead.status}
-            </span>
+            <select
+              className="text-xs rounded-full border border-bm-border/70 bg-bm-bg px-2 py-0.5 text-bm-muted2 cursor-pointer"
+              value={lead.status}
+              onChange={(e) => onAdvance(lead.id, e.target.value)}
+              disabled={busy}
+            >
+              {STAGE_ORDER.map((stage) => (
+                <option key={stage} value={stage}>{stage}</option>
+              ))}
+            </select>
           </div>
           <p className="text-xs text-bm-muted2">
             {lead.primary_wedge_angle || "Hypothesis pending"}
@@ -130,6 +157,22 @@ export default function StrategicOutreachPage({
       : contextError
     : dataError;
   const isLoading = contextLoading || (ready && loading);
+
+  const advanceLead = useCallback(
+    async (leadId: string, newStatus: string) => {
+      setBusyAction(leadId);
+      setDataError(null);
+      try {
+        await advanceStrategicLeadStatus(leadId, newStatus);
+        await loadDashboard();
+      } catch (err) {
+        setDataError(formatError(err));
+      } finally {
+        setBusyAction(null);
+      }
+    },
+    [loadDashboard],
+  );
 
   const approveDraft = useCallback(
     async (sequenceId: string, draftMessage: string) => {
@@ -316,7 +359,7 @@ export default function StrategicOutreachPage({
               </CardContent>
             </Card>
           ) : (
-            sortedLeads.map((lead) => <LeadRow key={lead.id} lead={lead} />)
+            sortedLeads.map((lead) => <LeadRow key={lead.id} lead={lead} onAdvance={advanceLead} busy={busyAction !== null} />)
           )}
         </div>
       ) : null}

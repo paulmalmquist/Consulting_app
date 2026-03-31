@@ -75,6 +75,7 @@ from app.routes import capital_projects
 from app.routes import cp_draws
 from app.routes import dev_bridge
 from app.routes import resume, resume_chat
+from app.routes import tracking
 from app.routes import market_regime
 from app.routes import market_correlation
 from app.routes import trading
@@ -214,6 +215,7 @@ app.include_router(website_content.router)
 app.include_router(website_rankings.router)
 app.include_router(website_analytics.router)
 app.include_router(consulting.router)
+app.include_router(tracking.router)
 app.include_router(nv_discovery.router)
 app.include_router(nv_data_studio.router)
 app.include_router(nv_workflow_intel.router)

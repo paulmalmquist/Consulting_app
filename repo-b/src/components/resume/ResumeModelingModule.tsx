@@ -421,6 +421,41 @@ export default function ResumeModelingModule({
           </table>
         </div>
       </div>
+      {/* Consulting Proof Assets */}
+      <div className="mt-5 rounded-2xl border border-bm-border/35 bg-black/10 p-4">
+        <h3 className="text-sm font-semibold">Consulting Proof Assets</h3>
+        <p className="mt-1 text-xs text-bm-muted2">
+          Live examples of how this modeling engine translates into client-ready deliverables.
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          {[
+            {
+              label: "Waterfall Model",
+              description: "Distribution waterfall translated from spreadsheet to software.",
+              suffix: "?asset=waterfall_model",
+            },
+            {
+              label: "Workflow Example",
+              description: "End-to-end acquisition workflow with live parameter controls.",
+              suffix: "?asset=workflow_example",
+            },
+            {
+              label: "ROI Calculator",
+              description: "Client-facing ROI calculator powered by the same engine.",
+              suffix: "?asset=roi_calculator",
+            },
+          ].map((item) => (
+            <a
+              key={item.label}
+              href={`/lab/env/consulting/proof-assets${item.suffix}`}
+              className="rounded-xl border border-bm-border/30 bg-white/5 px-3 py-3 transition hover:bg-white/10 hover:border-bm-border/60"
+            >
+              <p className="text-sm font-medium text-bm-accent">{item.label}</p>
+              <p className="mt-1 text-xs text-bm-muted2">{item.description}</p>
+            </a>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }

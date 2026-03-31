@@ -116,7 +116,8 @@ export async function middleware(request: NextRequest) {
 
   if (
     pathname.startsWith("/api/auth/") ||
-    pathname.startsWith("/api/public/")
+    pathname.startsWith("/api/public/") ||
+    pathname.startsWith("/public/")
   ) {
     return NextResponse.next();
   }
@@ -231,5 +232,6 @@ export const config = {
     "/resume",
     "/resume/:path*",
     "/trading/:path*",
+    "/public/:path*",
   ],
 };

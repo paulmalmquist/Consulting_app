@@ -22,6 +22,7 @@ import {
   type ProofAsset,
   type TargetQueueItem,
 } from "@/lib/cro-api";
+import { WeeklyRhythmCard } from "@/components/consulting/WeeklyRhythmCard";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 
 function fmtCurrency(n: number) {
@@ -278,6 +279,9 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
           </div>
         ) : null}
       </section>
+
+      {/* ── WEEKLY RHYTHM ────────────────────────────────────────────────── */}
+      <WeeklyRhythmCard />
 
       {/* ── SECTION 2: TARGET QUEUE — promote to CRM ───────────────────────── */}
       <section id="target-queue">

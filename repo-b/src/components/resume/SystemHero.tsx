@@ -65,8 +65,22 @@ export default function SystemHero({ stats }: { stats: ResumeSystemStats | null 
             </p>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <PerspectiveToggle />
+            <a
+              href="https://calendly.com/paulmalmquist/30min"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-bm-accent/40 bg-bm-accent/10 px-3 py-1.5 text-xs font-medium text-bm-accent transition-colors hover:bg-bm-accent/20"
+            >
+              Schedule a Call
+            </a>
+            <a
+              href="mailto:paul@novendor.ai"
+              className="rounded-lg border border-bm-border/50 bg-white/5 px-3 py-1.5 text-xs font-medium text-bm-muted transition-colors hover:bg-white/10 hover:text-bm-text"
+            >
+              Get in Touch
+            </a>
             <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-1.5">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />

@@ -409,6 +409,17 @@ export function createProposalVersion(proposalId: string) {
   return apiFetch<Proposal>(`${CRO_BASE}/proposals/${proposalId}/version`, { method: "POST" });
 }
 
+export function generateProposal(body: {
+  env_id: string;
+  business_id: string;
+  crm_account_id: string;
+}) {
+  return apiFetch<Proposal>(`${CRO_BASE}/proposals/generate`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 // ── Clients ──────────────────────────────────────────────────────────────────
 
 export function fetchClients(envId: string, businessId: string, opts?: { status?: string }) {
@@ -680,6 +691,13 @@ export function seedStrategicOutreach(body: {
   );
 }
 
+export function advanceStrategicLeadStatus(leadId: string, status: string) {
+  return apiFetch<{ id: string; status: string }>(
+    `${CRO_BASE}/strategic-outreach/leads/${leadId}/status`,
+    { method: "PATCH", body: JSON.stringify({ status }) },
+  );
+}
+
 export function approveStrategicOutreach(sequenceId: string, body: { approved_message: string }) {
   return apiFetch<StrategicOutreachSequence>(
     `${CRO_BASE}/strategic-outreach/outreach/${sequenceId}/approve`,
@@ -903,6 +921,19 @@ export async function fetchAccountOpportunities(accountId: string, envId: string
 
 export async function fetchOpportunityDetail(opportunityId: string, envId: string, businessId: string): Promise<OpportunityDetail> {
   return apiFetch<OpportunityDetail>(`${CRO_BASE}/opportunities/${opportunityId}?env_id=${envId}&business_id=${businessId}`);
+}
+
+export async function createConsultingOpportunity(body: {
+  business_id: string;
+  name: string;
+  amount: string;
+  crm_account_id: string;
+  expected_close_date?: string;
+}): Promise<{ crm_opportunity_id: string; name: string }> {
+  return apiFetch("/bos/api/crm/opportunities", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export async function fetchOpportunityContacts(opportunityId: string, envId: string, businessId: string): Promise<AccountContact[]> {

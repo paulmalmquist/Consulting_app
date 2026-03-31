@@ -223,6 +223,12 @@ class ProposalOut(BaseModel):
     created_at: datetime
 
 
+class ProposalGenerateRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    crm_account_id: UUID
+
+
 class ProposalStatusUpdate(BaseModel):
     status: str = Field(pattern=r"^(draft|sent|viewed|accepted|rejected|expired)$")
     rejection_reason: str | None = None
@@ -523,6 +529,10 @@ class StrategicLeadOut(BaseModel):
     lead_profile_id: UUID
     composite_priority_score: int
     status: str
+
+
+class StrategicLeadAdvanceRequest(BaseModel):
+    status: str = Field(pattern=r"^(Identified|Hypothesis Built|Outreach Drafted|Sent|Engaged|Diagnostic Scheduled|Deliverable Sent|Closed)$")
 
 
 class LeadHypothesisUpsertRequest(BaseModel):

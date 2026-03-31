@@ -44,6 +44,7 @@ from app.schemas.consulting import (
     ProofAssetSummaryOut,
     ProofAssetUpdateRequest,
     ProposalCreateRequest,
+    ProposalGenerateRequest,
     ProposalOut,
     ProposalStatusUpdate,
     RevenueEntryOut,
@@ -72,6 +73,7 @@ from app.schemas.consulting import (
     OutreachSequenceOut,
     StrategicContactCreateRequest,
     StrategicContactOut,
+    StrategicLeadAdvanceRequest,
     StrategicLeadOut,
     StrategicLeadUpsertRequest,
     StrategicOutreachDashboard,
@@ -102,6 +104,7 @@ from app.services import (
     cro_outreach,
     cro_pipeline,
     cro_proof_assets,
+    cro_proposal_generator,
     cro_proposals,
     cro_revenue,
     cro_seed,
@@ -379,6 +382,21 @@ def create_proposal(body: ProposalCreateRequest):
             scope_summary=body.scope_summary, risk_notes=body.risk_notes,
         )
         _log("cro.proposal.created", f"Proposal created: {body.title}")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/proposals/generate", response_model=ProposalOut, status_code=201)
+def generate_proposal(body: ProposalGenerateRequest):
+    """Generate a template-based proposal for an account."""
+    try:
+        result = cro_proposal_generator.generate_proposal(
+            account_id=body.crm_account_id,
+            env_id=body.env_id,
+            business_id=body.business_id,
+        )
+        _log("cro.proposal.generated", f"Proposal generated for account {body.crm_account_id}")
         return result
     except Exception as exc:
         raise _to_http(exc)
@@ -886,6 +904,17 @@ def upsert_strategic_lead(body: StrategicLeadUpsertRequest):
             governance_risk_score=body.governance_risk_score,
             vendor_fragmentation_score=body.vendor_fragmentation_score,
             status=body.status,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch("/strategic-outreach/leads/{lead_id}/status", response_model=StrategicLeadOut)
+def advance_strategic_lead_status(lead_id: UUID, body: StrategicLeadAdvanceRequest):
+    try:
+        return cro_strategic_outreach.advance_strategic_lead_status(
+            strategic_lead_id=lead_id,
+            new_status=body.status,
         )
     except Exception as exc:
         raise _to_http(exc)

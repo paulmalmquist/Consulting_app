@@ -23,19 +23,20 @@ from app.services.reporting_common import normalize_key, resolve_tenant_id
 
 
 _SEED_LEADS = [
-    # ── Client-hunting Tier 1 + Tier 2 targets ──
-    {"name": "ZRS Management", "industry": "real_estate", "ai": "none", "pain": "reporting_chaos", "size": "1000_plus", "budget": 180000, "source": "research_loop"},
-    {"name": "13th Floor Investments", "industry": "real_estate", "ai": "exploring", "pain": "reporting_chaos", "size": "10_50", "budget": 150000, "source": "research_loop"},
-    {"name": "Bay Property Management Group", "industry": "real_estate", "ai": "none", "pain": "efficiency", "size": "200_1000", "budget": 120000, "source": "research_loop"},
-    {"name": "Bilzin Sumberg", "industry": "legal", "ai": "exploring", "pain": "governance_gap", "size": "200_1000", "budget": 100000, "source": "research_loop"},
-    {"name": "Pebb Capital", "industry": "real_estate", "ai": "exploring", "pain": "reporting_chaos", "size": "10_50", "budget": 75000, "source": "research_loop"},
-    # ── Construction PDS targets ──
-    {"name": "McAlvain Construction", "industry": "construction", "ai": "none", "pain": "erp_failure", "size": "200_1000", "budget": 100000, "source": "research_loop"},
-    {"name": "Kaufman Lynn Construction", "industry": "construction", "ai": "none", "pain": "governance_gap", "size": "200_1000", "budget": 80000, "source": "research_loop"},
-    {"name": "Galaxy Builders", "industry": "construction", "ai": "none", "pain": "erp_failure", "size": "50_200", "budget": 60000, "source": "research_loop"},
-    # ── Law firm targets ──
-    {"name": "Weiss Serota Helfman Cole & Bierman", "industry": "legal", "ai": "none", "pain": "governance_gap", "size": "200_1000", "budget": 200000, "source": "research_loop"},
-    {"name": "Stearns Weaver Miller", "industry": "legal", "ai": "exploring", "pain": "reporting_chaos", "size": "200_1000", "budget": 100000, "source": "research_loop"},
+    # ── Client-hunting Tier 1 (high-score targets) ──
+    {"name": "ZRS Management", "industry": "real_estate", "ai": "scaling", "pain": "reporting_chaos", "size": "1000_plus", "budget": 500000, "source": "referral"},       # score: 16+20+12+20+20 = 88
+    {"name": "13th Floor Investments", "industry": "real_estate", "ai": "piloting", "pain": "governance_gap", "size": "200_1000", "budget": 250000, "source": "event"},     # score: 12+20+20+16+16 = 84
+    {"name": "Bay Property Management Group", "industry": "real_estate", "ai": "exploring", "pain": "reporting_chaos", "size": "200_1000", "budget": 150000, "source": "inbound"},  # score: 8+20+20+16+12 = 76
+    # ── Client-hunting Tier 2 (mid-score targets) ──
+    {"name": "Bilzin Sumberg", "industry": "legal", "ai": "exploring", "pain": "governance_gap", "size": "200_1000", "budget": 100000, "source": "partner"},               # score: 8+20+20+16+16 = 80
+    {"name": "Pebb Capital", "industry": "real_estate", "ai": "piloting", "pain": "ai_roi", "size": "50_200", "budget": 200000, "source": "research_loop"},                 # score: 12+16+16+16+10 = 70
+    # ── Construction PDS targets (varied) ──
+    {"name": "McAlvain Construction", "industry": "construction", "ai": "none", "pain": "erp_failure", "size": "200_1000", "budget": 80000, "source": "outbound"},          # score: 4+16+20+10+8 = 58
+    {"name": "Kaufman Lynn Construction", "industry": "construction", "ai": "exploring", "pain": "efficiency", "size": "50_200", "budget": 60000, "source": "research_loop"},  # score: 8+8+16+10+10 = 52
+    {"name": "Galaxy Builders", "industry": "construction", "ai": "none", "pain": "erp_failure", "size": "10_50", "budget": 20000, "source": "outbound"},                   # score: 4+16+8+4+8 = 40
+    # ── Law firm targets (diverse scoring) ──
+    {"name": "Weiss Serota Helfman Cole & Bierman", "industry": "legal", "ai": "embedded", "pain": "compliance", "size": "1000_plus", "budget": 300000, "source": "referral"},  # score: 20+10+12+16+20 = 78
+    {"name": "Stearns Weaver Miller", "industry": "legal", "ai": "none", "pain": "other", "size": "10_50", "budget": 15000, "source": "scrape"},                            # score: 4+4+8+4+4 = 24
 ]
 
 _SEED_CONTACTS = [
@@ -439,9 +440,9 @@ def seed_consulting_environment(*, env_id: str, business_id: UUID) -> dict:
     # ── 12. Proof assets ─────────────────────────────────────────
     counts["proof_assets_seeded"] = 0
     _SEED_PROOF_ASSETS = [
-        {"type": "diagnostic_questionnaire", "title": "AI Operations Diagnostic Questionnaire", "desc": "Structured 30-minute assessment covering AI maturity, reporting workflows, vendor landscape, and governance gaps. Used as first meeting leave-behind.", "status": "draft"},
-        {"type": "offer_sheet", "title": "Consulting Offer Sheet — One Page", "desc": "Single-page overview of Novendor consulting services: AI operations assessment, workflow automation, vendor consolidation, and ongoing advisory retainer.", "status": "draft"},
-        {"type": "workflow_example", "title": "Workflow: Replace Spreadsheet Reporting", "desc": "Before/after showing how a 40-hour monthly close process was reduced to 8 hours via automated data pipeline and dashboard generation.", "status": "draft"},
+        {"type": "diagnostic_questionnaire", "title": "AI Operations Diagnostic Questionnaire", "desc": "Structured 30-minute assessment covering AI maturity, reporting workflows, vendor landscape, and governance gaps. Used as first meeting leave-behind.", "status": "ready"},
+        {"type": "offer_sheet", "title": "Consulting Offer Sheet — One Page", "desc": "Single-page overview of Novendor consulting services: AI operations assessment, workflow automation, vendor consolidation, and ongoing advisory retainer.", "status": "ready"},
+        {"type": "workflow_example", "title": "Workflow: Replace Spreadsheet Reporting", "desc": "Before/after showing how a 40-hour monthly close process was reduced to 8 hours via automated data pipeline and dashboard generation.", "status": "ready"},
         {"type": "workflow_example", "title": "Workflow: AI-Assisted Operational Assessment", "desc": "Walkthrough of the AI-assisted assessment process: intake questionnaire, automated gap analysis, prioritized recommendation deck.", "status": "draft"},
         {"type": "case_study", "title": "REPE Pilot Summary", "desc": "Summary of the REPE intelligence platform pilot: problem statement, approach, 12-week timeline, outcomes, and ROI metrics.", "status": "draft"},
     ]
