@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
 import { SKILLS, getSkillsByMilestoneId, getSkillsByPhaseId, getSkillsByCapabilityTag } from "./skillsData";
@@ -12,7 +12,7 @@ import SkillDetailView, { SkillLogo } from "./SkillDetailView";
  *
  * - Icon grid: 2 rows on mobile, evenly spaced logos only (no pills)
  * - Clicking an icon navigates to a skill detail view
- * - Timeline selection highlights relevant skills
+ * - Timeline selection highlights relevant skills (only after explicit user interaction)
  * - Skill selection can filter/annotate the timeline via capability layer toggles
  */
 export default function SkillsCapabilityMap() {
@@ -36,9 +36,19 @@ export default function SkillsCapabilityMap() {
     })),
   );
 
+  // Track the initial narrative ID so we don't highlight skills on page load.
+  // Only highlight after the user explicitly selects something different.
+  const initialNarrativeIdRef = useRef<string | null | undefined>(undefined);
+  if (initialNarrativeIdRef.current === undefined && selectedNarrativeId != null) {
+    initialNarrativeIdRef.current = selectedNarrativeId;
+  }
+
+  const isUserDrivenSelection =
+    selectedNarrativeId != null && selectedNarrativeId !== initialNarrativeIdRef.current;
+
   /** Skills highlighted by current timeline selection */
   const highlightedSkillIds = useMemo(() => {
-    if (!selectedNarrativeId || !workspace) return new Set<SkillId>();
+    if (!isUserDrivenSelection || !selectedNarrativeId || !workspace) return new Set<SkillId>();
 
     let matched: SkillDefinition[] = [];
 
@@ -75,7 +85,7 @@ export default function SkillsCapabilityMap() {
     }
 
     return new Set(matched.map((s) => s.id));
-  }, [selectedNarrativeKind, selectedNarrativeId, workspace]);
+  }, [isUserDrivenSelection, selectedNarrativeKind, selectedNarrativeId, workspace]);
 
   const selectedSkill = useMemo(
     () => (selectedSkillId ? SKILLS.find((s) => s.id === selectedSkillId) ?? null : null),

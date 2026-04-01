@@ -21,6 +21,7 @@ import ResumeAssistantDock from "./ResumeAssistantDock";
 import ResumeExportPdf from "./ResumeExportPdf";
 import ResumeModuleBoundary from "./ResumeModuleBoundary";
 import SkillsCapabilityMap from "./SkillsCapabilityMap";
+import SystemsBuiltSection from "./SystemsBuiltSection";
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
 import type { ResumeWorkspaceViewModel } from "@/lib/resume/workspace";
 
@@ -247,30 +248,36 @@ export default function ResumeWorkspace({
   }, [activeModule, assistantMetrics, businessId, envId, workspace.identity.name]);
 
   const HERO_METRICS = [
-    { label: "Years", value: "11+" },
+    { label: "Years Experience", value: "11+" },
     { label: "Assets Automated", value: "500+" },
     { label: "Hrs/Mo Saved", value: "160+" },
     { label: "Faster Reporting", value: "50%" },
-    { label: "Less Reconciliation", value: "75%" },
-    { label: "AI Tools", value: "83" },
+    { label: "Reconciliation Reduction", value: "75%" },
   ];
 
   return (
     <div className="space-y-4 md:space-y-6">
       <section className="space-y-3 md:space-y-4">
-        {/* Identity — name + title only */}
+        {/* Identity — name + title + tagline */}
         <div>
           <p className="bm-section-label tracking-[0.1em] md:tracking-[0.16em]">{workspace.identity.name}</p>
-          <h1 className="mt-1.5 text-[1.75rem] leading-tight md:mt-2 md:text-4xl lg:text-5xl">{workspace.identity.title}</h1>
-          <p className="mt-1 text-sm text-bm-muted md:hidden">AI &amp; Data Systems Architect</p>
+          <h1 className="mt-1.5 text-[1.5rem] leading-tight md:mt-2 md:text-4xl lg:text-5xl">
+            <span className="md:inline">AI Data Platform Architect</span>{" "}
+            <span className="hidden text-bm-muted md:inline">—</span>{" "}
+            <br className="md:hidden" />
+            <span className="text-bm-accent">Investment Systems</span>
+          </h1>
+          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-bm-muted md:mt-2 md:text-base">
+            Built governed data + AI systems powering investment decisions across $4B+ AUM
+          </p>
         </div>
 
-        {/* KPI proof — 2-col on mobile, inline strip on desktop */}
-        <div className="grid grid-cols-2 gap-2 md:hidden">
-          {HERO_METRICS.slice(0, 4).map((m) => (
-            <div key={m.label} className="flex min-h-[56px] flex-col justify-center rounded-xl border border-bm-border/30 bg-bm-surface/20 px-3 py-2">
-              <span className="text-xl font-bold tabular-nums leading-tight">{m.value}</span>
-              <span className="mt-0.5 text-[10px] uppercase tracking-[0.08em] text-bm-muted">{m.label}</span>
+        {/* KPI proof strip — all 5 always visible */}
+        <div className="grid grid-cols-3 gap-2 md:hidden">
+          {HERO_METRICS.map((m) => (
+            <div key={m.label} className="flex min-h-[52px] flex-col justify-center rounded-xl border border-bm-border/30 bg-bm-surface/20 px-2.5 py-2">
+              <span className="text-lg font-bold tabular-nums leading-tight">{m.value}</span>
+              <span className="mt-0.5 text-[9px] uppercase tracking-[0.06em] text-bm-muted">{m.label}</span>
             </div>
           ))}
         </div>
@@ -309,6 +316,9 @@ export default function ResumeWorkspace({
 
         <SkillsCapabilityMap />
       </section>
+
+      {/* Systems Built — dedicated proof section */}
+      <SystemsBuiltSection />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div ref={moduleContentRef} className="space-y-6">
