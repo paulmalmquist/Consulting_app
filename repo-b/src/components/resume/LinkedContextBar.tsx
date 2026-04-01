@@ -4,6 +4,55 @@ import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
 
+type EvidenceSection = {
+  module: "architecture" | "bi" | "modeling";
+  title: string;
+  bullets: string[];
+  fromTimeline: boolean;
+};
+
+/** Outcome-driven evidence for each linked module on mobile. */
+function buildMobileEvidence(
+  chips: Array<{ module: "architecture" | "bi" | "modeling"; label: string; fromTimeline: boolean }>,
+): EvidenceSection[] {
+  return chips.map((chip) => {
+    if (chip.module === "architecture") {
+      return {
+        module: "architecture",
+        title: "Data & Systems Architecture",
+        bullets: [
+          "Built centralized platform on Databricks + Azure",
+          "Integrated DealCloud, MRI, and Yardi feeds",
+          "Enabled semantic layer across 6 business units",
+        ],
+        fromTimeline: chip.fromTimeline,
+      };
+    }
+    if (chip.module === "bi") {
+      return {
+        module: "bi",
+        title: "BI & Reporting Impact",
+        bullets: [
+          "Reduced ad hoc reporting burden by 50%",
+          "Delivered governed dashboards for 500+ assets",
+          "Enabled self-serve analytics for portfolio ops",
+        ],
+        fromTimeline: chip.fromTimeline,
+      };
+    }
+    return {
+      module: "modeling",
+      title: "Financial Modeling Engine",
+      bullets: [
+        "Built Python waterfall with near-instant runtime",
+        "Automated pipelines across 500+ properties",
+        "Replaced manual Excel with live scenario analysis",
+      ],
+      fromTimeline: chip.fromTimeline,
+    };
+  });
+}
+
 export default function LinkedContextBar() {
   const {
     workspace,
@@ -68,11 +117,13 @@ export default function LinkedContextBar() {
     return items;
   }, [workspace, highlightArchitectureNodeIds, selectedBiEntityId, modelPresetId, lastBiEntitySource, lastModelPresetSource]);
 
+  const mobileEvidence = useMemo(() => buildMobileEvidence(chips), [chips]);
+
   if (chips.length === 0) return null;
 
   return (
     <>
-      {/* Desktop: pill chips */}
+      {/* Desktop: pill chips — unchanged */}
       <div className="hidden flex-wrap items-center gap-2 pt-3 md:flex">
         <span className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Linked</span>
         {chips.map((chip) => (
@@ -94,33 +145,43 @@ export default function LinkedContextBar() {
         ))}
       </div>
 
-      {/* Mobile: stacked evidence rows */}
-      <div className="space-y-1.5 pt-2 md:hidden">
-        <p className="text-[10px] uppercase tracking-[0.1em] text-bm-muted2">Linked Evidence</p>
-        {chips.map((chip) => {
-          const [title, ...rest] = chip.label.split(": ");
-          const detail = rest.join(": ");
-          return (
-            <button
-              key={chip.module}
-              type="button"
-              onClick={() => setActiveModule(chip.module)}
-              className={`flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left transition ${
-                activeModule === chip.module
-                  ? "border-white/25 bg-white/8"
-                  : "border-bm-border/25 bg-bm-surface/15 hover:border-white/15"
-              }`}
-            >
-              {chip.fromTimeline ? (
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400" />
-              ) : null}
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-[0.08em] text-bm-muted2">{title}</p>
-                {detail && <p className="mt-0.5 truncate text-xs text-bm-text">{detail}</p>}
-              </div>
-            </button>
-          );
-        })}
+      {/* Mobile: outcome-driven evidence cards */}
+      <div className="space-y-2.5 pt-2.5 md:hidden">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-bm-muted">
+          Linked Evidence
+        </p>
+        {mobileEvidence.map((section) => (
+          <button
+            key={section.module}
+            type="button"
+            onClick={() => setActiveModule(section.module)}
+            className={`block w-full rounded-lg border px-3 py-2.5 text-left transition ${
+              activeModule === section.module
+                ? "border-white/25 bg-white/8"
+                : "border-bm-border/25 bg-bm-surface/15 hover:border-white/15"
+            }`}
+          >
+            <div className="flex items-center gap-1.5">
+              {section.fromTimeline && (
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400" />
+              )}
+              <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-bm-text/90">
+                {section.title}
+              </p>
+            </div>
+            <ul className="mt-1.5 space-y-1">
+              {section.bullets.map((bullet) => (
+                <li
+                  key={bullet}
+                  className="flex items-start gap-1.5 text-[12px] leading-[1.35] text-bm-muted"
+                >
+                  <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-bm-muted2/60" />
+                  <span>{bullet}</span>
+                </li>
+              ))}
+            </ul>
+          </button>
+        ))}
       </div>
     </>
   );
