@@ -23,72 +23,53 @@ from app.services.reporting_common import normalize_key, resolve_tenant_id
 
 
 _SEED_LEADS = [
-    # ── Client-hunting Tier 1 (high-score targets) ──
-    {"name": "ZRS Management", "industry": "real_estate", "ai": "scaling", "pain": "reporting_chaos", "size": "1000_plus", "budget": 500000, "source": "referral"},       # score: 16+20+12+20+20 = 88
-    {"name": "13th Floor Investments", "industry": "real_estate", "ai": "piloting", "pain": "governance_gap", "size": "200_1000", "budget": 250000, "source": "event"},     # score: 12+20+20+16+16 = 84
-    {"name": "Bay Property Management Group", "industry": "real_estate", "ai": "exploring", "pain": "reporting_chaos", "size": "200_1000", "budget": 150000, "source": "inbound"},  # score: 8+20+20+16+12 = 76
-    # ── Client-hunting Tier 2 (mid-score targets) ──
-    {"name": "Bilzin Sumberg", "industry": "legal", "ai": "exploring", "pain": "governance_gap", "size": "200_1000", "budget": 100000, "source": "partner"},               # score: 8+20+20+16+16 = 80
-    {"name": "Pebb Capital", "industry": "real_estate", "ai": "piloting", "pain": "ai_roi", "size": "50_200", "budget": 200000, "source": "research_loop"},                 # score: 12+16+16+16+10 = 70
-    # ── Construction PDS targets (varied) ──
-    {"name": "McAlvain Construction", "industry": "construction", "ai": "none", "pain": "erp_failure", "size": "200_1000", "budget": 80000, "source": "outbound"},          # score: 4+16+20+10+8 = 58
-    {"name": "Kaufman Lynn Construction", "industry": "construction", "ai": "exploring", "pain": "efficiency", "size": "50_200", "budget": 60000, "source": "research_loop"},  # score: 8+8+16+10+10 = 52
-    {"name": "Galaxy Builders", "industry": "construction", "ai": "none", "pain": "erp_failure", "size": "10_50", "budget": 20000, "source": "outbound"},                   # score: 4+16+8+4+8 = 40
-    # ── Law firm targets (diverse scoring) ──
-    {"name": "Weiss Serota Helfman Cole & Bierman", "industry": "legal", "ai": "embedded", "pain": "compliance", "size": "1000_plus", "budget": 300000, "source": "referral"},  # score: 20+10+12+16+20 = 78
-    {"name": "Stearns Weaver Miller", "industry": "legal", "ai": "none", "pain": "other", "size": "10_50", "budget": 15000, "source": "scrape"},                            # score: 4+4+8+4+4 = 24
+    # ── Real target accounts from signal discovery (2026-03-26 to 2026-03-30) ──
+    {"name": "Marcus Partners", "industry": "real_estate", "ai": "exploring", "pain": "reporting_chaos", "size": "50_200", "budget": 35000, "source": "research_loop"},
+    {"name": "GAIA Real Estate", "industry": "real_estate", "ai": "exploring", "pain": "efficiency", "size": "50_200", "budget": 7500, "source": "research_loop"},
+    {"name": "Comvest Private Equity", "industry": "financial_services", "ai": "piloting", "pain": "reporting_chaos", "size": "200_1000", "budget": 7500, "source": "research_loop"},
+    {"name": "ACG South Florida", "industry": "professional_services", "ai": "exploring", "pain": "other", "size": "10_50", "budget": 5000, "source": "event"},
+    {"name": "Canopy Real Estate Partners", "industry": "real_estate", "ai": "none", "pain": "reporting_chaos", "size": "10_50", "budget": 35000, "source": "research_loop"},
+    {"name": "Hidden Harbor Capital", "industry": "financial_services", "ai": "exploring", "pain": "efficiency", "size": "50_200", "budget": 7500, "source": "research_loop"},
+    {"name": "Apex Service Partners", "industry": "professional_services", "ai": "exploring", "pain": "reporting_chaos", "size": "1000_plus", "budget": 7500, "source": "research_loop"},
+    {"name": "FIU College of Business", "industry": "education", "ai": "exploring", "pain": "other", "size": "1000_plus", "budget": 5000, "source": "event"},
+    {"name": "Greystar Investment Group", "industry": "real_estate", "ai": "scaling", "pain": "reporting_chaos", "size": "1000_plus", "budget": 35000, "source": "research_loop"},
 ]
 
 _SEED_CONTACTS = [
-    {"lead_idx": 0, "name": "Jackie Impellitier", "email": "jfi@zrsmanagement.com", "title": "COO", "linkedin": None, "role": "decision_maker", "strength": "warm"},
-    {"lead_idx": 1, "name": "Rey Melendi", "email": "rmelendi@13fi.com", "title": "COO & Principal", "linkedin": "linkedin.com/in/rey-melendi-850a9a12", "role": "decision_maker", "strength": "cold"},
-    {"lead_idx": 2, "name": "Tony Cook", "email": "tcook@baymgmtgroup.com", "title": "COO", "linkedin": None, "role": "decision_maker", "strength": "warm"},
-    {"lead_idx": 3, "name": "Michelle Weber", "email": "mweber@bilzin.com", "title": "COO", "linkedin": "linkedin.com/in/michelle-weber-5270275", "role": "decision_maker", "strength": "cold"},
-    {"lead_idx": 4, "name": "Lori Worman", "email": "lworman@pebbcap.com", "title": "MD Operations", "linkedin": None, "role": "decision_maker", "strength": "cold"},
+    {"lead_idx": 0, "name": "Jay McNamara", "email": "jmcnamara@marcuspartners.com", "title": "Managing Director, Operations", "linkedin": "linkedin.com/in/jay-mcnamara-marcus", "role": "decision_maker", "strength": "cold"},
+    {"lead_idx": 1, "name": "Pascual Korchmar", "email": "pkorchmar@gaiare.com", "title": "Managing Director", "linkedin": "linkedin.com/in/pascualkorchmar", "role": "decision_maker", "strength": "cold"},
+    {"lead_idx": 4, "name": "Jay Rollins", "email": "jrollins@canopyrep.com", "title": "Founder & Managing Partner", "linkedin": "linkedin.com/in/jay-rollins-canopy", "role": "decision_maker", "strength": "cold"},
+    {"lead_idx": 5, "name": "Justin Martino", "email": "jmartino@hh-cp.com", "title": "Managing Partner", "linkedin": "linkedin.com/in/justinmartino", "role": "decision_maker", "strength": "cold"},
 ]
 
 _SEED_TEMPLATES = [
     {
-        "name": "Touch 1 — Centralized Ops at Scale (ZRS / PM)",
+        "name": "Touch 1 — REPE Fund LP Reporting (Marcus / Canopy)",
         "channel": "email",
         "category": "cold_outreach",
-        "subject": "Building centralized operations at 100K units",
-        "body": "Hi {{name}},\n\nThe Centralized Services Department you built at ZRS is a significant infrastructure move — it's not easy to maintain standardization across 100K+ units while still letting local markets operate.\n\nWhat I've noticed working with institutional multifamily platforms is that centralization is smooth until reporting to the client side becomes the constraint. At 100K units, quarterly investor reporting typically pulls data from a dozen different systems. The more centralized your operations, the more important a unified visibility layer becomes.\n\nWe help firms build that layer — a single source of truth that feeds investor dashboards, reduces reporting prep time, and surfaces operational issues before they reach the client.\n\nWould you be open to a 20-minute call to talk through how other platforms your size have tackled this?\n\nBest,\nPaul",
+        "subject": "LP reporting after a major fund close",
+        "body": "Hi {{name}},\n\nCongratulations on the fund close — that's a significant milestone.\n\nWhat I've seen working with mid-market REPE firms is that the LP reporting burden scales faster than anyone expects. New fund = new LP base = new reporting requirements. ILPA's Q1 2026 templates are now standard, which means quarterly packages that used to take 2 days now require 2 weeks of data assembly across multiple systems.\n\nWe help firms build automated LP reporting infrastructure — a single data pipeline that feeds standardized ILPA-compliant packages, investor dashboards, and portfolio analytics. The typical result is a 75% reduction in reporting prep time.\n\nWould you be open to a 20-minute call to compare notes on how other firms your size handle this?\n\nBest,\nPaul",
     },
     {
-        "name": "Touch 1 — Vertically Integrated RE Ops (13th Floor)",
+        "name": "Touch 1 — PE Portfolio Operations (Comvest / Hidden Harbor)",
         "channel": "email",
         "category": "cold_outreach",
-        "subject": "Investor reporting and portfolio visibility — vertically integrated RE",
-        "body": "Hi {{name}},\n\nThe challenge of vertically integrated RE is unique: your deal team, development, construction, and asset management teams all generate data the others need, but it's rarely connected in real time.\n\nThe result: quarterly investor reporting becomes a data collection sprint across 4–5 different systems. It's a bottleneck that gets worse as you scale.\n\nWe help vertically integrated firms build a single operational backbone that connects sourcing, development, construction, and asset management. It reduces reporting prep time dramatically and surfaces issues in real time instead of at quarterly close.\n\nWould you be open to a 20-minute call to walk through how other platforms your size approach this?\n\nBest,\nPaul",
+        "subject": "Portfolio reporting across 20+ companies",
+        "body": "Hi {{name}},\n\nManaging a portfolio with dozens of operating companies creates a specific kind of operational challenge: every add-on acquisition brings its own reporting stack, its own data formats, and its own definition of basic metrics.\n\nThe result is a value creation team spending more time collecting and normalizing data than actually analyzing performance. Integration complexity compounds with every new platform company.\n\nWe help PE firms build centralized portfolio visibility — standardized reporting across all portcos, automated performance dashboards, and early warning systems that surface underperformers before quarterly reviews.\n\nWould you be open to a 20-minute call to discuss how firms with similar portfolio sizes approach this?\n\nBest,\nPaul",
     },
     {
-        "name": "Touch 1 — First COO Hire (Weiss Serota / Law)",
+        "name": "Touch 1 — PE-Backed Roll-Up Operations (Apex)",
         "channel": "email",
         "category": "cold_outreach",
-        "subject": "Joining a firm mid-transformation",
-        "body": "Hi {{name}},\n\nCongratulations on taking the COO role at Weiss Serota — that's a significant step for the firm.\n\nI've worked with several government-focused law practices across multiple offices, and there's a pattern I've noticed: when someone steps into that COO seat, the first 90 days usually reveal 3–4 workflows that become genuine bottlenecks as the firm scales. For government practices specifically, it tends to be conflict checks across 4 offices, cross-office matter coordination, and the administrative burden of compliance deadline tracking.\n\nWe help firms build systems around exactly those workflows — not replacing your tools, but connecting them so information flows without constant manual intervention.\n\nWould you be open to a 20-minute call in the next couple weeks to compare notes?\n\nBest,\nPaul",
-    },
-    {
-        "name": "Touch 1 — Commercial RE Law Operations (Bilzin)",
-        "channel": "email",
-        "category": "cold_outreach",
-        "subject": "Operations at a commercial real estate law firm",
-        "body": "Hi {{name}},\n\nBilzin has a strong reputation for handling complex RE transactions and structured finance work — the kind of matters that involve multiple parties, tight deadlines, and heavy document coordination.\n\nFrom working with similar commercial practices, I've noticed that operational leverage doesn't come from billing optimization. It comes from reducing the friction in matter coordination, document tracking, and the administrative burden that comes with high-value multi-party deals.\n\nWe work with law firms to build systems that connect those workflows without replacing what you already have. The result is less firefighting, faster closings, and better clarity on matter profitability.\n\nWould you be open to a 20-minute conversation about what that looks like?\n\nBest,\nPaul",
-    },
-    {
-        "name": "Touch 1 — Multi-Strategy Portfolio Ops (Pebb)",
-        "channel": "email",
-        "category": "cold_outreach",
-        "subject": "Multi-strategy portfolio operations in Boca",
-        "body": "Hi {{name}},\n\nRunning a $2B+ portfolio across student housing, retail, lending, and hospitality under one platform is operationally complex. Each strategy has different investor groups, different KPIs, and different reporting cadences. The result: visibility becomes fragmented unless your operational system is built specifically for multi-strategy portfolios.\n\nWhat makes Pebb particularly interesting is the lending arm — loan servicing adds a layer most RE platforms don't have to manage. That's a separate data flow, a separate compliance framework, and completely different reporting requirements.\n\nWe work with multi-strategy platforms to build a unified operational system that handles that complexity — different reporting for each investor group, but all fed from a single source of truth.\n\nWould you be open to a 20-minute conversation?\n\nBest,\nPaul",
+        "subject": "Operational visibility across 100+ brands",
+        "body": "Hi {{name}},\n\nRunning 107 brands under one platform is operationally unique. Each brand has its own P&L, its own operational cadence, and its own definition of success metrics.\n\nWhat I've seen working with multi-brand platforms is that the reporting gap between what the sponsor needs and what each brand produces grows with every acquisition. The value creation team ends up building one-off Excel models for each review cycle.\n\nWe help multi-brand platforms build a centralized operational layer — real-time performance dashboards, standardized KPI definitions across all brands, and automated exception reporting that surfaces the 5 brands that need attention this week.\n\nWould you be open to a 20-minute conversation?\n\nBest,\nPaul",
     },
     {
         "name": "Touch 2 — LinkedIn Follow-up",
         "channel": "linkedin",
         "category": "social",
         "subject": None,
-        "body": "Hi {{name}}, just connected — I work with {{industry}} firms on operational systems. Curious what your operational priorities look like right now.",
+        "body": "Hi {{name}}, just connected — I work with {{industry}} firms on AI-powered operational systems. Curious what your biggest reporting or ops challenge looks like right now.",
     },
     {
         "name": "Touch 3 — One-Pager Offer",
@@ -195,13 +176,13 @@ def seed_consulting_environment(*, env_id: str, business_id: UUID) -> dict:
                 lead_source=lead["source"],
             )
 
-            # Assign pipeline stages based on actual outreach status per company
-            # 0=ZRS(engaged), 1=13th Floor(meeting), 2=Bay PMG(contacted),
-            # 3=Bilzin(identified), 4=Pebb(research), 5=McAlvain(research),
-            # 6=Kaufman Lynn(research), 7=Galaxy(research), 8=Weiss Serota(identified), 9=Stearns(research)
+            # Assign pipeline stages based on actual research/outreach status per company
+            # 0=Marcus(identified), 1=GAIA(identified), 2=Comvest(research),
+            # 3=ACG(research), 4=Canopy(identified), 5=Hidden Harbor(identified),
+            # 6=Apex(research), 7=FIU(research), 8=Greystar(research)
             lead_stages = [
-                "engaged", "meeting", "contacted", "identified", "research",
-                "research", "research", "research", "identified", "research",
+                "identified", "identified", "research", "research", "identified",
+                "identified", "research", "research", "research",
             ]
             lead_stage = lead_stages[len(account_ids) - 1]
 
@@ -269,37 +250,9 @@ def seed_consulting_environment(*, env_id: str, business_id: UUID) -> dict:
         random.seed(42)  # deterministic for demo
         now = datetime.now(timezone.utc)
 
-        # (acct_idx, contact_idx, tmpl_idx, channel, subject, body_preview, days_ago, replied, sentiment)
-        _OUTREACH_LOG_ENTRIES = [
-            # ZRS Management — Touch 1 sent, reply received, meeting booked
-            (0, 0, 0, "email", "Building centralized operations at 100K units",
-             "The Centralized Services Department you built at ZRS is a significant infrastructure move...",
-             7, True, "positive", True),
-            # ZRS Management — Touch 2 LinkedIn
-            (0, 0, 5, "linkedin", "LinkedIn connection — ZRS operational priorities",
-             "Congrats on stepping into the COO role at ZRS. Curious what the priority is now...",
-             5, True, "positive", False),
-            # 13th Floor — Touch 1 sent
-            (1, 1, 1, "email", "Investor reporting and portfolio visibility — vertically integrated RE",
-             "The challenge of vertically integrated RE is unique: your deal team, development...",
-             5, False, None, False),
-            # Bay PMG — Touch 1 sent, neutral reply
-            (2, 2, 0, "email", "Building centralized operations at 100K units",
-             "What I've noticed working with institutional multifamily platforms is that centralization...",
-             10, True, "neutral", False),
-            # Bilzin Sumberg — Touch 1 sent
-            (3, 3, 3, "email", "Operations at a commercial real estate law firm",
-             "Bilzin has a strong reputation for handling complex RE transactions and structured finance...",
-             4, False, None, False),
-            # Pebb Capital — not yet contacted, placeholder research
-            (4, 4, 4, "email", "Multi-strategy portfolio operations in Boca",
-             "Running a $2B+ portfolio across student housing, retail, lending, and hospitality...",
-             2, False, None, False),
-            # Weiss Serota — Touch 1 drafted, COO name TBD, not yet sent
-            (8, None, 2, "email", "Joining a firm mid-transformation",
-             "Congratulations on taking the COO role at Weiss Serota — that's a significant step...",
-             14, False, None, False),
-        ]
+        # No outreach sent yet — these are all in research/identified stage
+        # Outreach log will be populated as messages are actually sent
+        _OUTREACH_LOG_ENTRIES = []
 
         for entry in _OUTREACH_LOG_ENTRIES:
             (ai, ci, ti, channel, subject, preview, days_ago, replied, sentiment, booked) = entry
@@ -326,23 +279,19 @@ def seed_consulting_environment(*, env_id: str, business_id: UUID) -> dict:
             counts["outreach_logs_seeded"] += 1
 
         # ── 6. Opportunities + Proposals ──────────────────────────────
-        # Realistic deal values from priority-hit-list.md estimates
-        # ZRS: $150K (good retainer candidate, PM), 13th Floor: $100K (multi-entity, $50K–$150K)
-        # Bay PMG: $75K (PM retainer), Bilzin: $100K (mid-range), Pebb: $50K (start small)
+        # Real deal values from target-account-queue matched offers
         _OPP_DATA = [
-            ("meeting",    150000, "ZRS Management — Centralized Reporting Infrastructure",
-             "Unified investor reporting layer across 100K+ units. Centralized data pipeline, automated monthly packages, real-time operational visibility for institutional clients. Foundation Sprint + Reporting Module."),
-            ("identified", 100000, "13th Floor Investments — Vertically Integrated Ops Engine",
-             "Single operational backbone connecting sourcing, development, construction, and asset management. Quarterly investor reporting automation, construction draw processing, cross-entity visibility."),
-            ("contacted",   75000, "Bay Property Management Group — Owner Reporting Automation",
-             "Automated owner reporting pipeline replacing 40+ hours/month of manual report assembly. Maintenance dispatch integration, tenant communication tracking, centralized ops dashboard."),
-            ("identified", 100000, "Bilzin Sumberg — Matter Operations & Profitability Visibility",
-             "Matter coordination workflow automation, document tracking across multi-party transactions, AFA billing profitability dashboard. Reduces firefighting and surfaces matter-level margin."),
-            ("research",    50000, "Pebb Capital — Multi-Strategy Investor Reporting System",
-             "Unified reporting across student housing, retail, lending, and hospitality strategies. Different investor group dashboards fed from single source of truth. Lending arm compliance reporting integration."),
+            ("identified", 35000, "Marcus Partners — Winston REPE Pilot",
+             "LP reporting automation for $875M Fund V. ILPA-compliant quarterly packages, investor dashboards, portfolio analytics. 75% reduction in reporting prep time."),
+            ("identified",  7500, "GAIA Real Estate — AI Diagnostic",
+             "Operational readiness assessment for South Florida expansion. Gap analysis across reporting, vendor landscape, and AI maturity. Actionable 90-day roadmap."),
+            ("research",    7500, "Comvest Private Equity — AI Diagnostic",
+             "Portfolio operations assessment across 166 portfolio companies. Standardize reporting, identify integration bottlenecks, design centralized visibility layer."),
+            ("identified", 35000, "Canopy Real Estate Partners — Winston REPE Pilot",
+             "Greenfield fund ops infrastructure for $75M inaugural fund. LP reporting from day one, ILPA compliance, portfolio tracking. Build right from the start."),
         ]
         stages_for_opps = [d[0] for d in _OPP_DATA]
-        for i in range(5):
+        for i in range(len(_OPP_DATA)):
             acct_id = account_ids[i]
             stage_key, amount_int, opp_name, scope_text = _OPP_DATA[i]
             stage_key = stages_for_opps[i]
@@ -465,54 +414,50 @@ def seed_consulting_environment(*, env_id: str, business_id: UUID) -> dict:
                         counts["revenue_entries_seeded"] += 1
 
         # ── 10. Activities for each lead ──────────────────────────────
-        # Real activity history per company matching actual outreach status
+        # Real research activity per company — all in early stage
         _LEAD_ACTIVITIES = [
-            # 0 — ZRS Management
+            # 0 — Marcus Partners
             [
-                ("email", "Touch 1 sent — Building centralized operations at 100K units", "Sent initial outreach to Jackie Impellitier (COO). Referenced CSD buildout and investor reporting at scale.", 7),
-                ("note", "Positive reply received from Jackie Impellitier", "Jackie replied within 48 hours. Expressed interest. Scheduling 20-minute call.", 5),
-                ("email", "Touch 2 LinkedIn — ZRS follow-up", "Sent LinkedIn connection message referencing COO role transition and operational priorities.", 5),
+                ("note", "Research: $875M Fund V closed, ILPA compliance pressure", "Marcus Partners completed fundraising for largest fund to date ($875M). East Coast expansion. ILPA Q1 2026 templates now required — creates LP reporting urgency.", 5),
+                ("note", "Contact identified: Jay McNamara, MD Operations", "Found via LinkedIn. Managing Director of Operations. Responsible for fund operations and LP reporting. jmcnamara@marcuspartners.com (inferred).", 3),
             ],
-            # 1 — 13th Floor Investments
+            # 1 — GAIA Real Estate
             [
-                ("email", "Touch 1 sent — Investor reporting, vertically integrated RE", "Sent to Rey Melendi (COO & Principal). Focused on cross-department data flow and quarterly reporting bottleneck.", 5),
-                ("note", "Research: vertically integrated structure confirmed", "Confirmed 44 employees, in-house sourcing / dev / construction / PM. rmelendi@13fi.com high confidence.", 6),
+                ("note", "Research: New MD hire, SoFla expansion", "GAIA hired Pascual Korchmar as Managing Director. Expanding into South Florida multifamily. Local presence = warm path for Novendor.", 5),
+                ("note", "Contact confirmed: Pascual Korchmar, MD", "LinkedIn profile confirmed. Recently joined GAIA from prior REPE role. SoFla based. pkorchmar@gaiare.com (inferred from domain).", 3),
             ],
-            # 2 — Bay Property Management Group
+            # 2 — Comvest Private Equity
             [
-                ("email", "Touch 1 sent — Centralized ops outreach", "Sent to Tony Cook (COO). tcook@baymgmtgroup.com confirmed. Focused on multi-state reporting and maintenance dispatch.", 10),
-                ("note", "Neutral reply — not ready to explore yet", "Tony replied saying they are mid-implementation on a new PM platform. Flagged for follow-up in 60 days.", 8),
+                ("note", "Research: $10.4B AUM, 166 portfolio companies", "Comvest: West Palm Beach HQ. 166 portfolio companies. Jan 2026 invested in Corvid Technologies. Active FL add-ons (Bland Landscaping, CSS). Massive portco reporting challenge.", 4),
+                ("note", "Action needed: find value creation team contact", "No named contact yet. Need to search LinkedIn for VP Value Creation or equivalent at Comvest Partners.", 2),
             ],
-            # 3 — Bilzin Sumberg
+            # 3 — ACG South Florida
             [
-                ("email", "Touch 1 sent — Commercial RE law firm operations", "Sent to Michelle Weber (COO). mweber@bilzin.com inferred. Focused on matter coordination and AFA billing visibility.", 4),
-                ("note", "Research: Bilzin scope confirmed", "238 staff, 57 partners, Brickell Ave. Heavy RE transaction volume. No response yet.", 4),
+                ("note", "Research: AI + PE events, DealMAX 2026", "ACG South Florida runs quarterly events focused on middle-market PE. AI + PE ops workshop = pipeline opportunity. DealMAX 2026 on calendar.", 5),
             ],
-            # 4 — Pebb Capital
+            # 4 — Canopy Real Estate Partners
             [
-                ("note", "Research: multi-strategy portfolio confirmed", "$2B+ AUM across student housing, retail, lending, hospitality. Lending arm adds compliance layer.", 3),
-                ("email", "Touch 1 sent — Multi-strategy portfolio ops in Boca", "Sent to Lori Worman (MD Operations). lworman@pebbcap.com inferred. Highlighted lending arm complexity.", 2),
+                ("note", "Research: $75M inaugural fund closed Mar 18", "Canopy RE Partners: Denver-based. Jay Rollins founder. $75M inaugural fund closed March 18, 2026. Emerging sponsor = greenfield ops. No legacy systems.", 4),
+                ("note", "Contact identified: Jay Rollins, Founder", "LinkedIn confirmed. Jay Rollins is Founder & Managing Partner. Need warm intro — checking mutual connections.", 2),
             ],
-            # 5 — McAlvain Construction
+            # 5 — Hidden Harbor Capital
             [
-                ("note", "Research: McAlvain scoped for construction PDS vertical", "Family-owned GC, Southeast. Torry McAlvain Jr. (President). Pre-construction reporting and job cost tracking are likely pain points.", 5),
+                ("note", "Research: active FL roll-up, 24 portcos", "Hidden Harbor: Boca Raton. 24 portfolio companies. Just acquired Paramount Painting. Active roll-up = compounding integration complexity. Justin Martino is MP.", 4),
+                ("note", "Contact identified: Justin Martino, Managing Partner", "LinkedIn confirmed. Justin Martino, Managing Partner at Hidden Harbor Capital Partners. jmartino@hh-cp.com (inferred).", 3),
             ],
-            # 6 — Kaufman Lynn Construction
+            # 6 — Apex Service Partners
             [
-                ("note", "Research: hiring signals detected", "LinkedIn: hiring project controls engineer. Signals investment in reporting infrastructure. Michael Kaufman (Founder/CEO).", 4),
+                ("note", "Research: 107 brands, $1.3B revenue, Alpine-backed", "Apex Service Partners: Tampa HQ. 107 service brands. $1.3B revenue. Backed by Alpine Investors. Massive multi-brand ops challenge.", 5),
+                ("note", "Action needed: find VP Ops or COO", "No named contact yet. Check Alpine Investors operating partner network for intro path.", 2),
             ],
-            # 7 — Galaxy Builders
+            # 7 — FIU College of Business
             [
-                ("note", "Research: smaller GC, lower priority", "Cara DeAnda contact identified. Smaller deal potential. ERP pain likely but deal size limits priority.", 6),
+                ("note", "Research: AI Strategy program, AI 305 Conference", "FIU College of Business runs AI Strategy for Business Leaders exec ed program. AI 305 Conference October 2026. Guest speaking opportunity.", 5),
             ],
-            # 8 — Weiss Serota Helfman Cole & Bierman
+            # 8 — Greystar Investment Group
             [
-                ("note", "Research: first-ever COO hired", "94-attorney firm, 4 offices, government/municipal/RE law. COO name not yet confirmed. Best entry timing in entire list.", 14),
-                ("note", "Action: identify COO name via LinkedIn", "Searching 'COO Weiss Serota' on LinkedIn and via South Florida Bar Association directory. Touch 1 on hold pending name.", 10),
-            ],
-            # 9 — Stearns Weaver Miller
-            [
-                ("note", "Research: Rick Schatz (MD) identified", "318-person firm, multi-practice. rschatz@stearnsweaver.com likely. Lower urgency — no specific trigger event.", 7),
+                ("note", "Research: GEP XII fund raise, 893K+ units globally", "Greystar: largest apartment operator globally. GEP XII fund raise active. 893K+ units. LP reporting burden across multiple fund vehicles is massive.", 3),
+                ("note", "Action needed: find fund ops contact", "No named contact. Need to identify VP Fund Operations or similar at Greystar via LinkedIn.", 1),
             ],
         ]
         counts["activities_seeded"] = 0
@@ -531,29 +476,27 @@ def seed_consulting_environment(*, env_id: str, business_id: UUID) -> dict:
                 counts["activities_seeded"] += 1
 
         # ── 11. Next actions for each lead ────────────────────────────
-        # Real next steps per company from priority-hit-list.md action plan
+        # Real next steps per company — all require action to advance
         today = date.today()
         _LEAD_NEXT_ACTIONS = [
-            # 0 — ZRS Management — engaged, reply received → schedule call
-            ("account", "call", "Schedule 20-minute discovery call with Jackie Impellitier — she replied positively to Touch 1", "urgent", today - timedelta(days=2)),
-            # 1 — 13th Floor Investments — Touch 1 sent 5 days ago → send Touch 2 LinkedIn
-            ("account", "linkedin", "Send Touch 2 LinkedIn message to Rey Melendi (linkedin.com/in/rey-melendi-850a9a12) — 5 days after Touch 1", "high", today),
-            # 2 — Bay PMG — replied not ready → schedule follow-up for 60 days
-            ("account", "follow_up", "Tony Cook said mid-implementation on PM platform — schedule follow-up for June 2026 check-in", "normal", today + timedelta(days=55)),
-            # 3 — Bilzin Sumberg — Touch 1 sent 4 days ago → send Touch 2 LinkedIn at Day 7
-            ("account", "linkedin", "Send Touch 2 LinkedIn message to Michelle Weber — due Day 7 after Touch 1 (mweber@bilzin.com sent 4 days ago)", "high", today + timedelta(days=3)),
-            # 4 — Pebb Capital — Touch 1 just sent → wait for reply, prep one-pager
-            ("account", "task", "Draft multi-strategy one-pager for Pebb Capital — reference lending arm complexity as differentiated angle", "normal", today + timedelta(days=5)),
-            # 5 — McAlvain Construction — research phase → identify contact
-            ("account", "research", "Confirm Torry McAlvain Jr. contact info and identify construction PDS demo fit for McAlvain", "normal", today + timedelta(days=7)),
-            # 6 — Kaufman Lynn Construction — hiring signal → outreach
-            ("account", "email", "Draft Touch 1 for Kaufman Lynn — reference project controls hire as entry angle for reporting infrastructure pitch", "normal", today + timedelta(days=7)),
-            # 7 — Galaxy Builders — low priority, research only
-            ("account", "research", "Confirm deal size potential for Galaxy Builders before investing in sequence — likely smaller engagement", "low", today + timedelta(days=14)),
-            # 8 — Weiss Serota — waiting on COO name → identify then send
-            ("account", "research", "Identify Weiss Serota first-ever COO name via LinkedIn ('COO Weiss Serota') — send Touch 1 within 30 days of their start date", "urgent", today - timedelta(days=3)),
-            # 9 — Stearns Weaver — low urgency, sequence prep
-            ("account", "email", "Queue Touch 1 for Rick Schatz at Stearns Weaver — confirm rschatz@stearnsweaver.com before sending", "low", today + timedelta(days=14)),
+            # 0 — Marcus Partners — contact found → send intro email
+            ("account", "email", "Send intro email to Jay McNamara at Marcus Partners — reference $875M Fund V close + ILPA reporting pressure", "urgent", today + timedelta(days=1)),
+            # 1 — GAIA Real Estate — contact found → LinkedIn connect + intro
+            ("account", "linkedin", "LinkedIn connect with Pascual Korchmar at GAIA Real Estate — reference SoFla expansion + operational readiness", "urgent", today + timedelta(days=1)),
+            # 2 — Comvest — need to find contact first
+            ("account", "research", "Find VP Value Creation or equivalent at Comvest Partners on LinkedIn — 166 portcos need ops visibility", "high", today),
+            # 3 — ACG South Florida — propose workshop
+            ("account", "email", "Email ACG SoFla events team (southflorida@acg.org) — propose AI + PE ops workshop for Q2 2026", "high", today + timedelta(days=2)),
+            # 4 — Canopy RE Partners — find warm intro
+            ("account", "research", "Check LinkedIn mutual connections to Jay Rollins at Canopy RE Partners — need warm intro path", "high", today + timedelta(days=1)),
+            # 5 — Hidden Harbor Capital — research Justin Martino
+            ("account", "research", "Research Justin Martino background at Hidden Harbor Capital — draft personalized intro referencing Paramount Painting acquisition", "normal", today + timedelta(days=2)),
+            # 6 — Apex Service Partners — find ops contact
+            ("account", "research", "Find VP Ops or COO at Apex Service Partners — check Alpine Investors operating partner network for intro", "normal", today + timedelta(days=1)),
+            # 7 — FIU — email exec ed team
+            ("account", "email", "Email fiuExecEd@fiu.edu — propose guest lecture on AI operations in PE/RE for exec ed program", "normal", today + timedelta(days=2)),
+            # 8 — Greystar — find fund ops contact
+            ("account", "research", "Find VP Fund Operations at Greystar on LinkedIn — GEP XII fund raise = LP reporting conversation opener", "normal", today + timedelta(days=3)),
         ]
         counts["next_actions_seeded"] = 0
         for idx, acct_id in enumerate(account_ids):

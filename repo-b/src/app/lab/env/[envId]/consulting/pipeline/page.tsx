@@ -17,8 +17,10 @@ import { useDroppable, useDraggable } from "@dnd-kit/core";
 import {
   fetchLeads,
   fetchPipelineKanban,
+  fetchNextActions,
   advanceOpportunityStage,
   type Lead,
+  type NextAction,
   type PipelineKanbanResult,
   type PipelineKanbanColumn,
   type PipelineKanbanCard,
@@ -169,6 +171,8 @@ export default function PipelinePage({
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
   const [activeCard, setActiveCard] = useState<PipelineKanbanCard | null>(null);
+  const [nextActions, setNextActions] = useState<NextAction[]>([]);
+  const [advanceError, setAdvanceError] = useState<string | null>(null);
   const [closeDialog, setCloseDialog] = useState<{
     opportunityId: string;
     stageKey: string;
@@ -189,8 +193,9 @@ export default function PipelinePage({
     Promise.allSettled([
       fetchPipelineKanban(params.envId, businessId),
       fetchLeads(params.envId, businessId),
+      fetchNextActions(params.envId, businessId),
     ])
-      .then(([kanbanResult, leadsResult]) => {
+      .then(([kanbanResult, leadsResult, actionsResult]) => {
         if (leadsResult.status !== "fulfilled") {
           throw leadsResult.reason;
         }
@@ -200,6 +205,9 @@ export default function PipelinePage({
             : { columns: [], total_pipeline: 0, weighted_pipeline: 0 },
         );
         setLeads(leadsResult.value);
+        if (actionsResult.status === "fulfilled") {
+          setNextActions(actionsResult.value);
+        }
       })
       .catch((err) => {
         setKanban(null);
@@ -242,6 +250,7 @@ export default function PipelinePage({
     }
 
     try {
+      setAdvanceError(null);
       await advanceOpportunityStage({
         env_id: params.envId,
         business_id: businessId,
@@ -250,6 +259,8 @@ export default function PipelinePage({
       });
       loadData();
     } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to advance stage";
+      setAdvanceError(msg);
       console.error("Failed to advance stage:", err);
     }
   }
@@ -301,6 +312,54 @@ export default function PipelinePage({
           {bannerMessage}
         </div>
       ) : null}
+
+      {/* Outreach readiness / stage advancement error */}
+      {advanceError ? (
+        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-400 flex items-center justify-between">
+          <span>{advanceError}</span>
+          <button onClick={() => setAdvanceError(null)} className="text-red-400/60 hover:text-red-400 ml-2 text-xs">dismiss</button>
+        </div>
+      ) : null}
+
+      {/* Deals missing next actions — RED warning */}
+      {kanban && nextActions.length >= 0 && (() => {
+        const allCards = kanban.columns.flatMap((c) => c.cards).filter(c => !["closed_won", "closed_lost"].includes(c.stage_key));
+        // Next actions are keyed by account, so check if any action references the card's account
+        const accountsWithActions = new Set(
+          nextActions.filter((a) => a.status === "pending" || a.status === "in_progress").map((a) => a.entity_id),
+        );
+        // Match by opportunity ID or by account name (best effort since cards have account_name)
+        const actionEntityNames = new Set(
+          nextActions.filter((a) => a.status === "pending" || a.status === "in_progress").map((a) => a.entity_name?.toLowerCase()),
+        );
+        const missing = allCards.filter((c) => {
+          // Check if opportunity ID or account name matches any action entity
+          if (accountsWithActions.has(c.crm_opportunity_id)) return false;
+          if (c.account_name && actionEntityNames.has(c.account_name.toLowerCase())) return false;
+          return true;
+        });
+        if (missing.length === 0) return null;
+        return (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-red-400 mb-1">
+              {missing.length} deal{missing.length !== 1 ? "s" : ""} missing next action
+            </p>
+            <div className="space-y-1">
+              {missing.map((card) => (
+                <Link
+                  key={card.crm_opportunity_id}
+                  href={`/lab/env/${params.envId}/consulting/pipeline/${card.crm_opportunity_id}`}
+                  className="flex items-center gap-2 text-xs text-red-400/80 hover:text-red-400"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+                  <span className="font-medium">{card.name}</span>
+                  <span className="text-red-400/50">— assign next action →</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/18 p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
