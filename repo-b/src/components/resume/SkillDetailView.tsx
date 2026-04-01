@@ -117,6 +117,28 @@ interface SkillDetailViewProps {
   isHighlighted?: boolean;
 }
 
+/** Map phase IDs to company labels for the "where used" section */
+const PHASE_LABELS: Record<string, { company: string; period: string; color: string }> = {
+  "phase-jll-2014-2018": { company: "JLL", period: "2014–2018", color: "#DC2626" },
+  "phase-kayne-2018-2025": { company: "Kayne Anderson", period: "2018–2025", color: "#2563EB" },
+  "phase-jll-2025-present": { company: "JLL", period: "2025–present", color: "#7C3AED" },
+};
+
+/** Key outcome metrics per skill — the proof line shown in the detail view */
+const SKILL_OUTCOMES: Record<string, string[]> = {
+  python: ["160 hrs/month → 30 min", "5 min → instant waterfall runtime", "83 MCP tools deployed"],
+  pyspark: ["500+ property feeds processed", "Bronze/silver/gold architecture", "$4B+ AUM data lineage"],
+  sql: ["50% faster DDQ turnaround", "10-day shorter reporting cycle", "Zero-error validation gates"],
+  databricks: ["$4B+ AUM lakehouse", "10+ client accounts standardized", "Unity Catalog governance"],
+  azure: ["160 hrs/month eliminated", "500+ properties automated", "Governed ingestion contracts"],
+  power_bi: ["50% fewer ad hoc requests", "40+ deals/week visualized", "Fund-to-asset drill-through"],
+  tableau: ["BI capability from zero", "50+ stakeholders served", "Repeatable dashboard delivery"],
+  tabular_editor: ["6 business units served", "Standardized DAX measures", "Self-serve analytics"],
+  snowflake: ["Multi-cloud readiness", "Cross-platform semantic contracts", "Tenant isolation"],
+  openai: ["Conversational analytics layer", "83 MCP tools orchestrated", "RAG pipeline for DDQ"],
+  langchain: ["Multi-step agent workflows", "Streaming AI interfaces", "Citation chain retrieval"],
+};
+
 export default function SkillDetailView({ skill, onBack, isHighlighted }: SkillDetailViewProps) {
   const handleBack = useCallback(
     (e: React.MouseEvent | React.KeyboardEvent) => {
@@ -125,6 +147,12 @@ export default function SkillDetailView({ skill, onBack, isHighlighted }: SkillD
     },
     [onBack],
   );
+
+  const phases = skill.linkedPhaseIds
+    .map((id) => PHASE_LABELS[id])
+    .filter(Boolean);
+
+  const outcomes = SKILL_OUTCOMES[skill.id] ?? [];
 
   return (
     <div
@@ -158,6 +186,43 @@ export default function SkillDetailView({ skill, onBack, isHighlighted }: SkillD
           <span className="ml-auto h-1.5 w-1.5 rounded-full bg-sky-400" title="Linked from timeline" />
         )}
       </div>
+
+      {/* Where Used — company badges with periods */}
+      {phases.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {phases.map((phase) => (
+            <span
+              key={phase.company + phase.period}
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium"
+              style={{
+                backgroundColor: `${phase.color}15`,
+                color: `${phase.color}CC`,
+                border: `1px solid ${phase.color}25`,
+              }}
+            >
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: phase.color }}
+              />
+              {phase.company} · {phase.period}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Key outcomes — metrics proof */}
+      {outcomes.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {outcomes.map((outcome) => (
+            <span
+              key={outcome}
+              className="rounded-full border border-emerald-400/20 bg-emerald-500/8 px-2.5 py-1 text-[11px] text-emerald-200"
+            >
+              {outcome}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Bullets — [action] + [system built] + [outcome] */}
       <ul className="mt-3 space-y-2">

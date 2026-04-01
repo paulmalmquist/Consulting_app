@@ -7,8 +7,8 @@ export function makeResumeWorkspacePayload(): ResumeWorkspacePayload {
   return {
     identity: {
       name: "Paul Malmquist",
-      title: "AI Platform Architect & Investment Data Engineering Leader",
-      tagline: "11 years building production systems at the intersection of data infrastructure, LLM orchestration, and real estate investment management.",
+      title: "AI Data Platform Architect — Investment Systems",
+      tagline: "Built governed data + AI systems powering investment decisions across $4B+ AUM.",
       location: "Lake Worth, FL",
       summary: "Designed and shipped three enterprise-scale platforms: a vertical AI execution environment with 83 production tools, a $4B+ AUM investment data warehouse, and an AI-enabled analytics platform serving a national client portfolio. Deep domain fluency in REPE fund operations, waterfall distributions, and LP reporting. Architecture-first builder: RAG pipelines, API-driven tool orchestration, streaming AI interfaces, governed data lakehouses.",
       badges: ["AI / LLM Engineering", "REPE Data Platform", "Waterfall & LP Modeling", "Governed Lakehouses", "MCP Tool Orchestration"],

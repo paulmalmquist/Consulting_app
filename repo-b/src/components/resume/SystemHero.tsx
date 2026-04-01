@@ -61,7 +61,7 @@ export default function SystemHero({ stats }: { stats: ResumeSystemStats | null 
           <div>
             <h1 className="text-2xl font-bold tracking-tight md:text-3xl">PAUL MALMQUIST</h1>
             <p className="mt-0.5 text-xs tracking-wide text-bm-muted2 md:mt-1 md:text-sm">
-              AI &amp; Data Systems Architect
+              AI Data Platform Architect — Investment Systems
             </p>
           </div>
 
