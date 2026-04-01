@@ -34,11 +34,11 @@ interface ModelTransparencyPanelProps {
 }
 
 export function ModelTransparencyPanel({ agentData, brierHist, agentReasoning }: ModelTransparencyPanelProps) {
-  // Don't render if no agent data
-  if (agentData.length === 0) return null;
-
   const AGENT_REASONING = agentReasoning ?? FALLBACK_REASONING;
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
+
+  // Don't render if no agent data (after hooks to satisfy rules-of-hooks)
+  if (agentData.length === 0) return null;
 
   const totalWeight = agentData.reduce((s, a) => s + a.wt, 0);
   const totalConf = totalWeight > 0
