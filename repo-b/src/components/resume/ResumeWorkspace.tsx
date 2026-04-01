@@ -12,6 +12,7 @@ import {
 import { computeResumeScenario } from "./modelingMath";
 import { deriveResumeBiSlice } from "./biMath";
 import ResumeTimelineModule from "./ResumeTimelineModule";
+import { TimelineEngine } from "./timeline";
 import ResumeArchitectureModule from "./ResumeArchitectureModule";
 import ResumeModelingModule from "./ResumeModelingModule";
 import ResumeBiModule from "./ResumeBiModule";
@@ -319,7 +320,7 @@ export default function ResumeWorkspace({
               message="The career arc could not render, but the rest of the visual resume is still available."
               resetKey={`${envId}-${activeModule}-${workspace.timeline.roles.length}-${workspace.timeline.milestones.length}`}
             >
-              <ResumeTimelineModule timeline={workspace.timeline} />
+              <TimelineEngine />
             </ResumeModuleBoundary>
           ) : null}
           {activeModule === "architecture" ? (
