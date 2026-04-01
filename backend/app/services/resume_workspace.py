@@ -38,43 +38,51 @@ def build_resume_workspace_payload(
     return {
         "identity": {
             "name": "Paul Malmquist",
-            "title": "AI & Data Systems Architect",
-            "tagline": "Systems that turn institutional reporting into live decision infrastructure",
+            "title": "AI Platform Architect & Investment Data Engineering Leader",
+            "tagline": (
+                "11 years building production systems at the intersection of "
+                "data infrastructure, LLM orchestration, and real estate investment management."
+            ),
             "location": summary.get("location") or "Lake Worth, FL",
             "summary": (
-                "Paul builds governed data platforms, financial engines, and AI execution layers "
-                "that replace manual reporting with real-time operating systems."
+                "Designed and shipped three enterprise-scale platforms: a vertical AI execution "
+                "environment with 83 production tools, a $4B+ AUM investment data warehouse, and "
+                "an AI-enabled analytics platform serving a national client portfolio. Deep domain "
+                "fluency in REPE fund operations, waterfall distributions, and LP reporting. "
+                "Architecture-first builder: RAG pipelines, API-driven tool orchestration, "
+                "streaming AI interfaces, governed data lakehouses."
             ),
             "badges": [
-                "Databricks + Azure delivery",
-                "Power BI semantic models",
-                "Waterfall engine modernization",
-                "Winston AI platform",
+                "AI / LLM Engineering",
+                "REPE Data Platform",
+                "Waterfall & LP Modeling",
+                "Governed Lakehouses",
+                "MCP Tool Orchestration",
             ],
             "metrics": [
                 {
                     "metric_key": "properties_integrated",
-                    "label": "Properties Integrated",
+                    "label": "Properties Automated",
                     "value": "500+",
-                    "detail": "Kayne Anderson warehouse + automation programs",
+                    "detail": "160 hrs/month \u2192 30 min via Azure Logic Apps + PySpark ingestion",
                 },
                 {
                     "metric_key": "ddq_turnaround",
                     "label": "DDQ Turnaround",
-                    "value": "-50%",
-                    "detail": "Investor relations response acceleration",
+                    "value": "\u221250%",
+                    "detail": "Investor response accelerated via governed data warehouse",
                 },
                 {
                     "metric_key": "reporting_cycle",
                     "label": "Reporting Cycle",
-                    "value": "-10 days",
-                    "detail": "Quarter-close and executive reporting",
+                    "value": "\u221210 days",
+                    "detail": "Quarter-close via semantic layer replacing fragmented manual pulls",
                 },
                 {
                     "metric_key": "ai_tool_surface",
                     "label": "AI Tool Surface",
                     "value": "83 MCP tools",
-                    "detail": "Winston domain actions and auditability",
+                    "detail": "Winston vertical AI platform \u2014 domain actions, auditability, structured outputs",
                 },
             ],
         },

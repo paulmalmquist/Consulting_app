@@ -73,10 +73,23 @@ export default function ResumeOsPage() {
           });
         }
 
-        // Only upgrade if DB data has meaningful content
+        // Only upgrade if DB data has meaningful content beyond the seed
         const dbHasTimeline = normalized.stats.milestones > 0 || normalized.stats.roles > 0;
         if (dbHasTimeline) {
-          setWorkspace(normalized.workspace);
+          // Merge: use DB workspace but preserve seed's precomputed curves
+          // and identity (seed identity is the authoritative source of truth
+          // from the resume document; backend may lag behind).
+          const merged: ResumeWorkspaceViewModel = {
+            ...normalized.workspace,
+            identity: seedWorkspace.identity,
+            timeline: {
+              ...normalized.workspace.timeline,
+              precomputed_capability_growth:
+                normalized.workspace.timeline.precomputed_capability_growth ??
+                seedWorkspace.timeline.precomputed_capability_growth,
+            },
+          };
+          setWorkspace(merged);
         }
       } catch (cause) {
         if (cancelled) return;

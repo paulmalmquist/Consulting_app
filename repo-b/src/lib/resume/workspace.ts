@@ -477,6 +477,13 @@ function normalizeTimeline(raw: unknown, issues: string[]): ResumeTimeline {
     issues.push("timeline.roles missing or empty");
   }
 
+  // Pass through precomputed capability growth curves if present (from seed data).
+  const precomputedGrowth = record.precomputed_capability_growth;
+  const precomputed =
+    precomputedGrowth && typeof precomputedGrowth === "object" && !Array.isArray(precomputedGrowth)
+      ? (precomputedGrowth as Record<string, Array<{ date: string; value: number }>>)
+      : undefined;
+
   return {
     default_view: defaultView,
     views: views.length ? uniqueStrings([defaultView, ...views]) as ResumeTimelineViewMode[] : [defaultView],
@@ -490,6 +497,7 @@ function normalizeTimeline(raw: unknown, issues: string[]): ResumeTimeline {
     metric_anchors: metricAnchors,
     accomplishment_cards: accomplishmentCards,
     play_story_steps: playStorySteps,
+    precomputed_capability_growth: precomputed,
   };
 }
 
