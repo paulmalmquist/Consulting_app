@@ -130,16 +130,16 @@ export default function ConsultingWorkspaceShell({
         </div>
         <div className="flex items-center gap-2">
           <Link
+            href={`${base}/strategic-outreach`}
+            className="inline-flex h-10 items-center rounded-xl border border-bm-accent/40 bg-bm-accent/10 px-3 text-xs font-semibold text-bm-accent"
+          >
+            Outreach
+          </Link>
+          <Link
             href={`${base}/contacts`}
             className="inline-flex h-10 items-center rounded-xl border border-bm-border/70 bg-bm-surface/25 px-3 text-xs font-medium text-bm-text"
           >
             + Contact
-          </Link>
-          <Link
-            href={`${base}/events`}
-            className="inline-flex h-10 items-center rounded-xl border border-bm-border/70 bg-bm-surface/25 px-3 text-xs font-medium text-bm-text"
-          >
-            + Event
           </Link>
         </div>
       </header>

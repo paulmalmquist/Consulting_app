@@ -183,6 +183,45 @@ def advance_opportunity_stage(
 
         to_stage_id = to_stage["crm_pipeline_stage_id"]
 
+        # ── Outreach readiness check ──────────────────────────────
+        # Advancing to "contacted" or beyond requires: real contact + outreach sent
+        _REQUIRES_OUTREACH = {"contacted", "engaged", "meeting", "qualified", "proposal"}
+        if to_stage_key in _REQUIRES_OUTREACH:
+            # Check contact exists for this opportunity's account
+            cur.execute(
+                """
+                SELECT o.crm_account_id FROM crm_opportunity o
+                WHERE o.crm_opportunity_id = %s
+                """,
+                (str(opportunity_id),),
+            )
+            opp_row = cur.fetchone()
+            if opp_row and opp_row["crm_account_id"]:
+                acct_id = opp_row["crm_account_id"]
+                cur.execute(
+                    "SELECT count(*) AS cnt FROM crm_contact WHERE crm_account_id = %s",
+                    (str(acct_id),),
+                )
+                contact_count = cur.fetchone()["cnt"]
+                if contact_count == 0:
+                    raise ValueError(
+                        f"Cannot advance to '{to_stage_key}': no contact exists for this account. "
+                        "Add a real contact before advancing."
+                    )
+
+                # For contacted+ stages, check outreach exists
+                if to_stage_key in {"contacted", "engaged", "meeting"}:
+                    cur.execute(
+                        "SELECT count(*) AS cnt FROM cro_outreach_log WHERE crm_account_id = %s AND business_id = %s",
+                        (str(acct_id), str(business_id)),
+                    )
+                    outreach_count = cur.fetchone()["cnt"]
+                    if outreach_count == 0:
+                        raise ValueError(
+                            f"Cannot advance to '{to_stage_key}': no outreach logged for this account. "
+                            "Send a message before advancing."
+                        )
+
         # Update opportunity
         new_status = "open"
         if to_stage["is_closed"]:
