@@ -200,9 +200,6 @@ export const SKILLS: SkillDefinition[] = [
   },
 ];
 
-/** Map of skill IDs to definitions for fast lookup */
-export const SKILL_MAP = new Map(SKILLS.map((s) => [s.id, s]));
-
 /** Get skills relevant to a given capability layer */
 export function getSkillsByCapabilityTag(tag: string): SkillDefinition[] {
   return SKILLS.filter((s) => s.capabilityTags.includes(tag));
