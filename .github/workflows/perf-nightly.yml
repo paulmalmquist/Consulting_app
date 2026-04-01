@@ -15,7 +15,7 @@ jobs:
 
     services:
       postgres:
-        image: imresamu/postgis-pgvector:16-3.5
+        image: postgis/postgis:16-3.5
         env:
           POSTGRES_DB: app
           POSTGRES_USER: postgres
