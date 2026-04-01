@@ -20,7 +20,6 @@ import ResumeAssistantDock from "./ResumeAssistantDock";
 import ResumeExportPdf from "./ResumeExportPdf";
 import ResumeModuleBoundary from "./ResumeModuleBoundary";
 import LinkedContextBar from "./LinkedContextBar";
-import CareerTimelineBar from "./CareerTimelineBar";
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
 import type { ResumeWorkspaceViewModel } from "@/lib/resume/workspace";
 
@@ -239,52 +238,36 @@ export default function ResumeWorkspace({
     return () => resetAssistantPageContext();
   }, [activeModule, assistantMetrics, businessId, envId, workspace.identity.name]);
 
+  const HERO_METRICS = [
+    { label: "Years", value: "11+" },
+    { label: "Assets Automated", value: "500+" },
+    { label: "Hrs/Mo Eliminated", value: "160+" },
+    { label: "Faster Reporting", value: "50%" },
+    { label: "Less Reconciliation", value: "75%" },
+    { label: "AI Tools", value: "83" },
+  ];
+
   return (
     <div className="space-y-6">
-      <section className="space-y-1">
-        {/* Identity */}
+      <section className="space-y-4">
+        {/* Identity — name + title only */}
         <div>
           <p className="bm-section-label">{workspace.identity.name}</p>
           <h1 className="mt-2 text-4xl leading-tight sm:text-5xl">{workspace.identity.title}</h1>
-          <p className="mt-3 text-lg text-bm-muted">{workspace.identity.tagline}</p>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-bm-muted">{workspace.identity.summary}</p>
-          {workspace.identity.badges.length > 0 ? (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {workspace.identity.badges.map((badge) => (
-                <span key={badge} className="rounded-full border border-bm-border/35 bg-white/5 px-3 py-1.5 text-xs text-bm-muted2">
-                  {badge}
-                </span>
-              ))}
-            </div>
-          ) : null}
         </div>
 
-        {/* Career timeline bar */}
-        <CareerTimelineBar timeline={workspace.timeline} />
-
-        {/* Hero metrics */}
-        {workspace.identity.metrics.length > 0 ? (
-          <div className="grid gap-3 pt-2 sm:grid-cols-2 xl:grid-cols-4">
-            {workspace.identity.metrics.map((metric) => (
-              <button
-                key={metric.label}
-                type="button"
-                onClick={() => {
-                  if (!metric.metric_key) return;
-                  selectNarrativeItem("metric", metric.metric_key, { switchModule: "timeline" });
-                }}
-                className="rounded-2xl border border-bm-border/40 bg-bm-surface/30 px-4 py-4 text-left transition hover:border-bm-border/70 hover:bg-bm-surface/50"
-              >
-                <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">{metric.label}</p>
-                <p className="mt-2 text-2xl font-semibold">{metric.value}</p>
-                {metric.detail ? <p className="mt-2 text-xs text-bm-muted">{metric.detail}</p> : null}
-              </button>
-            ))}
-          </div>
-        ) : null}
+        {/* Hero metric strip — readable in 3 seconds */}
+        <div className="flex flex-wrap gap-x-8 gap-y-3">
+          {HERO_METRICS.map((m) => (
+            <div key={m.label}>
+              <span className="text-3xl font-bold tabular-nums">{m.value}</span>
+              <span className="ml-1.5 text-xs uppercase tracking-widest text-bm-muted">{m.label}</span>
+            </div>
+          ))}
+        </div>
 
         {/* Module tabs + export */}
-        <div className="flex flex-wrap items-center gap-2 pt-2">
+        <div className="flex flex-wrap items-center gap-2 pt-1">
           {(Object.keys(MODULE_LABELS) as Array<keyof typeof MODULE_LABELS>).map((module) => (
             <button
               key={module}

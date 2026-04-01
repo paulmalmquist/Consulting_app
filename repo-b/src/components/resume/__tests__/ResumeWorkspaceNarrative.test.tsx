@@ -62,69 +62,36 @@ describe("ResumeWorkspace narrative controls", () => {
   });
 
   it("hydrates selection from the URL and restores linked evidence", async () => {
-    currentSearchParams = new URLSearchParams("view=impact&metric=properties_integrated");
+    currentSearchParams = new URLSearchParams("view=impact&milestone=milestone-500-property-automation");
 
     renderWorkspace();
 
     expect(await screen.findByText("Scale stops being a bullet point and becomes evidence of operating leverage.")).toBeInTheDocument();
     expect(screen.getByText("160+ hours/month recaptured and far fewer manual-entry errors.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Composite Impact" })).toBeInTheDocument();
   });
 
-  it("links KPI cards to evidence, supports layer isolation, and clears selection", async () => {
-    const user = userEvent.setup();
-    renderWorkspace();
-
-    await user.click(screen.getByRole("button", { name: /Properties Automated/i }));
-
-    expect(await screen.findByText("Scale stops being a bullet point and becomes evidence of operating leverage.")).toBeInTheDocument();
-    expect(mockRouterReplace).toHaveBeenLastCalledWith(
-      expect.stringContaining("metric=properties_integrated"),
-      { scroll: false },
-    );
-
-    await user.click(screen.getByRole("button", { name: "Capability" }));
-    await user.click(screen.getByRole("button", { name: /AI \/ Agentic Systems/i }));
-
-    expect(await screen.findByText("Winston as a parallel proof point")).toBeInTheDocument();
-    expect(mockRouterReplace).toHaveBeenLastCalledWith(
-      expect.stringContaining("layer=ai_agentic"),
-      { scroll: false },
-    );
-
-    await user.click(screen.getByRole("button", { name: "Clear Selection" }));
-
-    expect(await screen.findByText("Story Evidence")).toBeInTheDocument();
-    expect(screen.queryByText("Winston as a parallel proof point")).not.toBeInTheDocument();
-  });
-
-  it("walks story controls in seeded order and falls back elegantly for sparse evidence", async () => {
-    const user = userEvent.setup();
-    currentSearchParams = new URLSearchParams("view=career&phase=phase-jll-2014-2018");
+  it("clears narrative selection with Escape key", async () => {
+    currentSearchParams = new URLSearchParams("view=career&milestone=milestone-kayne-warehouse-semantic");
 
     renderWorkspace();
 
-    expect(await screen.findByText("JLL (2014-2018)")).toBeInTheDocument();
-    expect(screen.getByText("Select a timeline item to see evidence and metrics.")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Restart" }));
-    await waitFor(() =>
-      expect(mockRouterReplace).toHaveBeenLastCalledWith(
-        expect.stringContaining("milestone=milestone-joined-jll-2014"),
-        { scroll: false },
-      ),
-    );
-
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    await waitFor(() =>
-      expect(mockRouterReplace).toHaveBeenLastCalledWith(
-        expect.stringContaining("milestone=milestone-expanded-bi-scope"),
-        { scroll: false },
-      ),
-    );
+    expect(await screen.findByText("DDQ turnaround became a platform outcome")).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "Escape" });
 
-    expect(await screen.findByText("Story Evidence")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByText("DDQ turnaround became a platform outcome")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("renders hero metric strip and view mode tabs", async () => {
+    renderWorkspace();
+
+    expect(await screen.findByText("Build Journey")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Career" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Capability" })).toBeInTheDocument();
+    expect(screen.getByText("11+")).toBeInTheDocument();
+    expect(screen.getByText("500+")).toBeInTheDocument();
+    expect(screen.getByText("83")).toBeInTheDocument();
   });
 });
