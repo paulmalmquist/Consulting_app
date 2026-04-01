@@ -105,10 +105,10 @@ export default function ResumeAssistantDock({
   }
 
   return (
-    <section className="rounded-[28px] border border-bm-border/60 bg-bm-surface/35 p-5">
-      <p className="bm-section-label">Assistant</p>
-      <h2 className="mt-2 text-xl">Context-aware explanation layer</h2>
-      <p className="mt-2 text-sm text-bm-muted">
+    <section className="rounded-[20px] border border-bm-border/60 bg-bm-surface/35 p-3 md:rounded-[28px] md:p-5">
+      <p className="bm-section-label tracking-[0.1em] md:tracking-[0.16em]">Assistant</p>
+      <h2 className="mt-1.5 text-lg md:mt-2 md:text-xl">Context-aware explanation layer</h2>
+      <p className="mt-1.5 text-sm text-bm-muted md:mt-2">
         Grounded in the current module instead of free-floating markdown responses.
       </p>
 
@@ -127,7 +127,7 @@ export default function ResumeAssistantDock({
         </div>
       ) : null}
 
-      <div className="mt-4 max-h-[420px] space-y-4 overflow-y-auto pr-1">
+      <div className="mt-3 max-h-[280px] space-y-3 overflow-y-auto pr-1 md:mt-4 md:max-h-[420px] md:space-y-4">
         {messages.map((message, index) =>
           message.role === "user" ? (
             <div key={index} className="flex justify-end">

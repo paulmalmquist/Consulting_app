@@ -114,18 +114,21 @@ export default function ResumeTimelineModule({ timeline }: { timeline: ResumeTim
   }
 
   return (
-    <section className="rounded-[28px] border border-bm-border/60 bg-bm-surface/30 p-5 shadow-[0_24px_64px_-48px_rgba(5,12,18,0.95)]">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-lg font-semibold">Build Journey</h2>
-        <div className="flex items-center gap-2">
+    <section className="rounded-[20px] border border-bm-border/60 bg-bm-surface/30 p-3 shadow-[0_24px_64px_-48px_rgba(5,12,18,0.95)] md:rounded-[28px] md:p-5">
+      <div className="flex items-center justify-between gap-2 md:gap-4">
+        <h2 className="shrink-0 text-base font-semibold md:text-lg">
+          <span className="md:hidden">Timeline</span>
+          <span className="hidden md:inline">Build Journey</span>
+        </h2>
+        <div className="-mr-1 flex snap-x snap-mandatory gap-1 overflow-x-auto pr-1 md:flex-wrap md:gap-2 md:overflow-visible">
           {(timelineViews.length > 0 ? timelineViews : (["career", "delivery", "capability", "impact"] as ResumeTimelineViewMode[])).map((view) => (
             <button
               key={view}
               type="button"
               onClick={() => setTimelineView(view)}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+              className={`shrink-0 snap-start rounded-full px-2.5 py-1 text-[11px] font-medium transition md:px-3 md:py-1.5 md:text-xs ${
                 timelineView === view
-                  ? "bg-white/12 text-white"
+                  ? "bg-white/18 font-semibold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.2)]"
                   : "bg-white/5 text-bm-muted hover:bg-white/10 hover:text-bm-text"
               }`}
             >
@@ -135,7 +138,7 @@ export default function ResumeTimelineModule({ timeline }: { timeline: ResumeTim
         </div>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-3 md:mt-4">
         <CompoundingCapabilityGraph timeline={timeline} />
       </div>
     </section>

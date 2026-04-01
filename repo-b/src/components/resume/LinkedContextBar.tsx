@@ -71,25 +71,57 @@ export default function LinkedContextBar() {
   if (chips.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 pt-3">
-      <span className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Linked</span>
-      {chips.map((chip) => (
-        <button
-          key={chip.module}
-          type="button"
-          onClick={() => setActiveModule(chip.module)}
-          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition ${
-            activeModule === chip.module
-              ? "border-white/30 bg-white/12 text-white"
-              : "border-bm-border/35 bg-white/5 text-bm-muted hover:border-white/20 hover:text-bm-text"
-          }`}
-        >
-          {chip.fromTimeline ? (
-            <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
-          ) : null}
-          {chip.label}
-        </button>
-      ))}
-    </div>
+    <>
+      {/* Desktop: pill chips */}
+      <div className="hidden flex-wrap items-center gap-2 pt-3 md:flex">
+        <span className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Linked</span>
+        {chips.map((chip) => (
+          <button
+            key={chip.module}
+            type="button"
+            onClick={() => setActiveModule(chip.module)}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition ${
+              activeModule === chip.module
+                ? "border-white/30 bg-white/12 text-white"
+                : "border-bm-border/35 bg-white/5 text-bm-muted hover:border-white/20 hover:text-bm-text"
+            }`}
+          >
+            {chip.fromTimeline ? (
+              <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+            ) : null}
+            {chip.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Mobile: stacked evidence rows */}
+      <div className="space-y-1.5 pt-2 md:hidden">
+        <p className="text-[10px] uppercase tracking-[0.1em] text-bm-muted2">Linked Evidence</p>
+        {chips.map((chip) => {
+          const [title, ...rest] = chip.label.split(": ");
+          const detail = rest.join(": ");
+          return (
+            <button
+              key={chip.module}
+              type="button"
+              onClick={() => setActiveModule(chip.module)}
+              className={`flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left transition ${
+                activeModule === chip.module
+                  ? "border-white/25 bg-white/8"
+                  : "border-bm-border/25 bg-bm-surface/15 hover:border-white/15"
+              }`}
+            >
+              {chip.fromTimeline ? (
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400" />
+              ) : null}
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-[0.08em] text-bm-muted2">{title}</p>
+                {detail && <p className="mt-0.5 truncate text-xs text-bm-text">{detail}</p>}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </>
   );
 }
