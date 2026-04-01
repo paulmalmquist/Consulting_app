@@ -36,6 +36,7 @@ import { DivergenceTable } from "@/components/market/DivergenceTable";
 import { AgentForecastPanel } from "@/components/market/AgentForecastPanel";
 import { DebugPanel } from "@/components/market/DebugPanel";
 import { CalibrationFooter } from "@/components/market/CalibrationFooter";
+import { MobileDecisionEngine } from "@/components/market/MobileDecisionEngine";
 import type { DecisionTab, AssetScope } from "@/lib/trading-lab/decision-engine-types";
 import type {
   TradingHypothesis,
@@ -214,6 +215,16 @@ export default function TradingLabPage() {
   const [closingPosition, setClosingPosition] = useState<TradingPosition | null>(null);
   const [editingPosition, setEditingPosition] = useState<TradingPosition | null>(null);
 
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   // Decision Engine data (replaces hardcoded mock data)
   const de = useDecisionEngine(envId, assetScope);
   const [showDebug, setShowDebug] = useState(() =>
@@ -356,6 +367,31 @@ export default function TradingLabPage() {
             ))}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Mobile layout — decision-first, no sidebar
+  if (isMobile) {
+    return (
+      <div className={`flex-1 flex flex-col ${t.pageBg} ${t.pageText} font-sans min-h-full transition-colors duration-200`}>
+        {/* Compact mobile header */}
+        <div className={`border-b ${t.headerBorder} px-4 py-2 ${t.headerBg} flex items-center justify-between`}>
+          <h1 className={`text-sm font-bold ${t.accentBold} font-mono`}>
+            DECISION ENGINE
+          </h1>
+          {de.raw?.provenance && (
+            <DataProvenanceBadge
+              seedPct={de.raw.provenance.seedDataPct}
+              lastUpdated={de.raw.provenance.dataFreshness}
+            />
+          )}
+        </div>
+        <MobileDecisionEngine
+          assetScope={assetScope}
+          onScopeChange={setAssetScope}
+          decisionEngine={de}
+        />
       </div>
     );
   }

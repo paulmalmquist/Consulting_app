@@ -76,6 +76,7 @@ export function CommandCenterLayout({
             analogOverlay={data.analogOverlay}
             radarDims={data.radarDims}
             topMatch={topMatch ?? null}
+            episodes={decisionEngine?.raw?.analogs.episodeLibrary}
           />
           <WhatChangedPanel
             realitySignals={data.realitySignals}
