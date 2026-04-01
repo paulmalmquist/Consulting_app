@@ -364,39 +364,37 @@ export default function ResumeContextRail({
   const summary = fallbackSummary ?? moduleFallback;
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-[28px] border border-bm-border/60 bg-bm-surface/35 p-5">
-        <div className="flex items-start justify-between gap-3">
+    <div className="space-y-3 md:space-y-4">
+      <section className="rounded-[20px] border border-bm-border/60 bg-bm-surface/35 p-3 md:rounded-[28px] md:p-5">
+        <div className="flex items-start justify-between gap-2 md:gap-3">
           <div>
-            <p className="bm-section-label">{header}</p>
-            <h2 className="mt-2 text-xl">{summary.title}</h2>
-            <p className="mt-3 text-sm leading-6 text-bm-muted">{summary.summary}</p>
+            <p className="bm-section-label tracking-[0.1em] md:tracking-[0.16em]">{header}</p>
+            <h2 className="mt-1.5 text-lg md:mt-2 md:text-xl">{summary.title}</h2>
+            <p className="mt-2 text-sm leading-6 text-bm-muted md:mt-3">{summary.summary}</p>
           </div>
-          <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-bm-muted2">
+          <div className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] text-bm-muted2 md:px-3 md:py-1 md:text-[10px] md:tracking-[0.16em]">
             {selectedNarrativeId ? "Locked" : hoveredNarrativeId ? "Preview" : "Default"}
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3">
-          <div className="rounded-2xl border border-bm-border/30 bg-black/10 p-4">
-            <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Before</p>
-            <p className="mt-2 text-bm-text">{summary.before}</p>
+        <div className="mt-3 grid gap-2 md:mt-4 md:gap-3">
+          <div className="rounded-xl border border-bm-border/30 bg-black/10 p-3 md:rounded-2xl md:p-4">
+            <p className="text-[10px] uppercase tracking-[0.1em] text-bm-muted2 md:tracking-[0.16em]">Before</p>
+            <p className="mt-1.5 text-sm text-bm-text md:mt-2 md:text-base">{summary.before}</p>
           </div>
-          <div className="rounded-2xl border border-bm-border/30 bg-black/10 p-4">
-            <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">After</p>
-            <p className="mt-2 text-bm-text">{summary.after}</p>
+          <div className="rounded-xl border border-bm-border/30 bg-black/10 p-3 md:rounded-2xl md:p-4">
+            <p className="text-[10px] uppercase tracking-[0.1em] text-bm-muted2 md:tracking-[0.16em]">After</p>
+            <p className="mt-1.5 text-sm text-bm-text md:mt-2 md:text-base">{summary.after}</p>
           </div>
-          <div className="rounded-2xl border border-sky-400/20 bg-sky-500/10 p-4">
-            <p className="text-[10px] uppercase tracking-[0.16em] text-sky-200/80">Stakeholders</p>
-            <p className="mt-2 text-sky-50">{summary.stakeholders}</p>
+          <div className="rounded-xl border border-sky-400/20 bg-sky-500/10 p-3 md:rounded-2xl md:p-4">
+            <p className="text-[10px] uppercase tracking-[0.1em] text-sky-200/80 md:tracking-[0.16em]">Stakeholders</p>
+            <p className="mt-1.5 text-sm text-sky-50 md:mt-2 md:text-base">{summary.stakeholders}</p>
           </div>
         </div>
-
-        {/* Module navigation is handled by the LinkedContextBar above the module tabs */}
       </section>
 
-      <section className="rounded-[28px] border border-bm-border/60 bg-bm-surface/35 p-5">
-        <p className="bm-section-label">Evidence Rail</p>
+      <section className="rounded-[20px] border border-bm-border/60 bg-bm-surface/35 p-3 md:rounded-[28px] md:p-5">
+        <p className="bm-section-label tracking-[0.1em] md:tracking-[0.16em]">Evidence Rail</p>
         {railCards.length === 0 ? (
           <SyntheticEvidence timeline={timeline} kind={effectiveKind} id={effectiveId} />
         ) : (

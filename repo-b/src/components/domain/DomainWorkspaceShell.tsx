@@ -270,25 +270,29 @@ export default function DomainWorkspaceShell({
 
   return (
     <div className="space-y-4">
-      <header className={`sticky top-0 z-30 flex items-center gap-3 border-b border-bm-border/60 bg-bm-bg/95 px-4 py-3 backdrop-blur lg:hidden ${domain === "resume" && items.length === 0 ? "hidden" : ""}`}>
-        <button
-          type="button"
-          onClick={() => setDrawerOpen(true)}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-bm-border/70 bg-bm-surface/25 text-bm-text"
-          aria-label={`Open ${DOMAIN_LABELS[domain]} navigation`}
-        >
-          <Menu size={18} />
-        </button>
+      <header className={`sticky top-0 z-30 flex items-center gap-3 border-b border-bm-border/60 bg-bm-bg/95 backdrop-blur lg:hidden ${domain === "resume" && items.length === 0 ? "hidden" : ""} ${domain === "resume" ? "px-3 py-1.5" : "px-4 py-3"}`}>
+        {items.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-bm-border/70 bg-bm-surface/25 text-bm-text"
+            aria-label={`Open ${DOMAIN_LABELS[domain]} navigation`}
+          >
+            <Menu size={18} />
+          </button>
+        )}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[10px] uppercase tracking-[0.18em] text-bm-muted2">{DOMAIN_LABELS[domain]}</p>
+          <p className="truncate text-[10px] uppercase tracking-[0.14em] text-bm-muted2">{DOMAIN_LABELS[domain]}</p>
           <p className="truncate text-sm font-semibold text-bm-text">{envLabel}</p>
         </div>
-        <Link
-          href={homeHref}
-          className="inline-flex h-10 items-center rounded-xl border border-bm-border/70 bg-bm-surface/25 px-3 text-xs font-medium text-bm-text"
-        >
-          Home
-        </Link>
+        {!isActive(pathname, base) && (
+          <Link
+            href={homeHref}
+            className="inline-flex h-10 items-center rounded-xl border border-bm-border/70 bg-bm-surface/25 px-3 text-xs font-medium text-bm-text"
+          >
+            Home
+          </Link>
+        )}
       </header>
 
       {drawerOpen ? (
@@ -333,21 +337,23 @@ export default function DomainWorkspaceShell({
         </div>
       ) : null}
 
-      <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-4 lg:hidden">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Building2 size={18} className="text-bm-muted2" />
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">Current module</p>
-              <h1 className="text-lg font-semibold text-bm-text">{activeNavLabel}</h1>
+      {domain !== "resume" && (
+        <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-4 lg:hidden">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Building2 size={18} className="text-bm-muted2" />
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">Current module</p>
+                <h1 className="text-lg font-semibold text-bm-text">{activeNavLabel}</h1>
+              </div>
             </div>
+            <p className="text-sm text-bm-muted2">
+              Environment: {environment?.schema_name || envId}
+              {businessId ? ` · Business: ${businessId.slice(0, 8)}` : ""}
+            </p>
           </div>
-          <p className="text-sm text-bm-muted2">
-            Environment: {environment?.schema_name || envId}
-            {businessId ? ` · Business: ${businessId.slice(0, 8)}` : ""}
-          </p>
-        </div>
-      </section>
+        </section>
+      )}
 
       {domain !== "resume" ? (
         <section className="hidden rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-4 lg:block">

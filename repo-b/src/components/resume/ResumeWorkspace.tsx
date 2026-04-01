@@ -30,6 +30,13 @@ const MODULE_LABELS = {
   bi: "BI Dashboard",
 } as const;
 
+const MODULE_LABELS_SHORT = {
+  timeline: "Timeline",
+  architecture: "Arch",
+  modeling: "Modeling",
+  bi: "BI",
+} as const;
+
 export default function ResumeWorkspace({
   envId,
   businessId,
@@ -241,23 +248,32 @@ export default function ResumeWorkspace({
   const HERO_METRICS = [
     { label: "Years", value: "11+" },
     { label: "Assets Automated", value: "500+" },
-    { label: "Hrs/Mo Eliminated", value: "160+" },
+    { label: "Hrs/Mo Saved", value: "160+" },
     { label: "Faster Reporting", value: "50%" },
     { label: "Less Reconciliation", value: "75%" },
     { label: "AI Tools", value: "83" },
   ];
 
   return (
-    <div className="space-y-6">
-      <section className="space-y-4">
+    <div className="space-y-4 md:space-y-6">
+      <section className="space-y-3 md:space-y-4">
         {/* Identity — name + title only */}
         <div>
-          <p className="bm-section-label">{workspace.identity.name}</p>
-          <h1 className="mt-2 text-4xl leading-tight sm:text-5xl">{workspace.identity.title}</h1>
+          <p className="bm-section-label tracking-[0.1em] md:tracking-[0.16em]">{workspace.identity.name}</p>
+          <h1 className="mt-1.5 text-[1.75rem] leading-tight md:mt-2 md:text-4xl lg:text-5xl">{workspace.identity.title}</h1>
+          <p className="mt-1 text-sm text-bm-muted md:hidden">AI &amp; Data Systems Architect</p>
         </div>
 
-        {/* Hero metric strip — readable in 3 seconds */}
-        <div className="flex flex-wrap gap-x-8 gap-y-3">
+        {/* KPI proof — 2-col on mobile, inline strip on desktop */}
+        <div className="grid grid-cols-2 gap-2 md:hidden">
+          {HERO_METRICS.slice(0, 4).map((m) => (
+            <div key={m.label} className="flex min-h-[56px] flex-col justify-center rounded-xl border border-bm-border/30 bg-bm-surface/20 px-3 py-2">
+              <span className="text-xl font-bold tabular-nums leading-tight">{m.value}</span>
+              <span className="mt-0.5 text-[10px] uppercase tracking-[0.08em] text-bm-muted">{m.label}</span>
+            </div>
+          ))}
+        </div>
+        <div className="hidden flex-wrap gap-x-8 gap-y-3 md:flex">
           {HERO_METRICS.map((m) => (
             <div key={m.label}>
               <span className="text-3xl font-bold tabular-nums">{m.value}</span>
@@ -267,22 +283,25 @@ export default function ResumeWorkspace({
         </div>
 
         {/* Module tabs + export */}
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          {(Object.keys(MODULE_LABELS) as Array<keyof typeof MODULE_LABELS>).map((module) => (
-            <button
-              key={module}
-              type="button"
-              onClick={() => setActiveModule(module)}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                activeModule === module
-                  ? "bg-bm-accent/15 text-bm-accent shadow-[0_0_0_1px_rgba(59,130,246,0.35)]"
-                  : "bg-white/5 text-bm-muted hover:bg-white/10 hover:text-bm-text"
-              }`}
-            >
-              {MODULE_LABELS[module]}
-            </button>
-          ))}
-          <div className="ml-auto">
+        <div className="flex items-center gap-2 pt-1">
+          <div className="-mx-1 flex snap-x snap-mandatory gap-1.5 overflow-x-auto px-1 pb-1 md:flex-wrap md:gap-2 md:overflow-visible md:pb-0">
+            {(Object.keys(MODULE_LABELS) as Array<keyof typeof MODULE_LABELS>).map((module) => (
+              <button
+                key={module}
+                type="button"
+                onClick={() => setActiveModule(module)}
+                className={`shrink-0 snap-start rounded-full px-3 py-1.5 text-xs font-medium transition md:px-4 md:py-2 md:text-sm ${
+                  activeModule === module
+                    ? "bg-bm-accent/15 text-bm-accent shadow-[0_0_0_1px_rgba(59,130,246,0.35)]"
+                    : "bg-white/5 text-bm-muted hover:bg-white/10 hover:text-bm-text"
+                }`}
+              >
+                <span className="md:hidden">{MODULE_LABELS_SHORT[module]}</span>
+                <span className="hidden md:inline">{MODULE_LABELS[module]}</span>
+              </button>
+            ))}
+          </div>
+          <div className="ml-auto hidden md:block">
             <ResumeExportPdf contentRef={moduleContentRef} />
           </div>
         </div>
@@ -372,12 +391,17 @@ export default function ResumeWorkspace({
 
       {isMobileViewport ? (
         <div className="space-y-3">
+        {/* Mobile Export — secondary placement */}
+        <div className="flex justify-end md:hidden">
+          <ResumeExportPdf contentRef={moduleContentRef} />
+        </div>
+
         <details
-          className="rounded-[24px] border border-bm-border/60 bg-bm-surface/18 p-4"
+          className="rounded-[20px] border border-bm-border/60 bg-bm-surface/18 p-3"
           open
         >
-          <summary className="cursor-pointer text-sm font-semibold text-bm-text">Context Rail</summary>
-          <div className="mt-4">
+          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.1em] text-bm-muted2">Context Rail</summary>
+          <div className="mt-3">
             <ResumeModuleBoundary
               boundaryId="resume-context-rail-mobile"
               eyebrow="Context Rail"
@@ -397,9 +421,9 @@ export default function ResumeWorkspace({
         </details>
 
         {!readOnly ? (
-          <details className="rounded-[24px] border border-bm-border/60 bg-bm-surface/18 p-4">
-            <summary className="cursor-pointer text-sm font-semibold text-bm-text">Winston</summary>
-            <div className="mt-4">
+          <details className="rounded-[20px] border border-bm-border/60 bg-bm-surface/18 p-3">
+            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.1em] text-bm-muted2">Winston</summary>
+            <div className="mt-3">
               <ResumeModuleBoundary
                 boundaryId="resume-assistant-mobile"
                 eyebrow="Assistant"
