@@ -11,7 +11,11 @@ type EvidenceSection = {
   fromTimeline: boolean;
 };
 
-/** Outcome-driven evidence for each linked module on mobile. */
+/**
+ * Mobile-only outcome-driven evidence, derived from real career data.
+ * Each bullet starts with a strong verb and communicates
+ * WHAT was built + WHY it mattered in ≤60 characters.
+ */
 function buildMobileEvidence(
   chips: Array<{ module: "architecture" | "bi" | "modeling"; label: string; fromTimeline: boolean }>,
 ): EvidenceSection[] {
@@ -19,11 +23,11 @@ function buildMobileEvidence(
     if (chip.module === "architecture") {
       return {
         module: "architecture",
-        title: "Data & Systems Architecture",
+        title: "Data Platform & Architecture",
         bullets: [
-          "Built centralized platform on Databricks + Azure",
-          "Integrated DealCloud, MRI, and Yardi feeds",
-          "Enabled semantic layer across 6 business units",
+          "Built $4B+ AUM warehouse on Databricks + Azure",
+          "Unified DealCloud, MRI, Yardi into gold tables",
+          "Delivered semantic layer across 6 business units",
         ],
         fromTimeline: chip.fromTimeline,
       };
@@ -31,22 +35,22 @@ function buildMobileEvidence(
     if (chip.module === "bi") {
       return {
         module: "bi",
-        title: "BI & Reporting Impact",
+        title: "BI & Investor Reporting",
         bullets: [
-          "Reduced ad hoc reporting burden by 50%",
-          "Delivered governed dashboards for 500+ assets",
-          "Enabled self-serve analytics for portfolio ops",
+          "Cut DDQ turnaround by 50% via governed data",
+          "Accelerated quarter-close by 10 days",
+          "Shipped exec dashboards for 500+ properties",
         ],
         fromTimeline: chip.fromTimeline,
       };
     }
     return {
       module: "modeling",
-      title: "Financial Modeling Engine",
+      title: "Waterfall & Financial Modeling",
       bullets: [
-        "Built Python waterfall with near-instant runtime",
-        "Automated pipelines across 500+ properties",
-        "Replaced manual Excel with live scenario analysis",
+        "Built Python waterfall replacing fragile Excel",
+        "Enabled near-instant LP/GP scenario analysis",
+        "Automated fund distribution modeling end-to-end",
       ],
       fromTimeline: chip.fromTimeline,
     };
@@ -146,7 +150,7 @@ export default function LinkedContextBar() {
       </div>
 
       {/* Mobile: outcome-driven evidence cards */}
-      <div className="space-y-2.5 pt-2.5 md:hidden">
+      <div className="space-y-2 pt-2.5 md:hidden">
         <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-bm-muted">
           Linked Evidence
         </p>
@@ -173,7 +177,7 @@ export default function LinkedContextBar() {
               {section.bullets.map((bullet) => (
                 <li
                   key={bullet}
-                  className="flex items-start gap-1.5 text-[12px] leading-[1.35] text-bm-muted"
+                  className="flex items-start gap-1.5 text-[12px] leading-[1.4] text-bm-muted"
                 >
                   <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-bm-muted2/60" />
                   <span>{bullet}</span>

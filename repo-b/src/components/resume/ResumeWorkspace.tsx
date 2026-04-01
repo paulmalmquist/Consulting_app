@@ -254,19 +254,30 @@ export default function ResumeWorkspace({
     { label: "AI Tools", value: "83" },
   ];
 
+  /** Mobile-specific KPIs — tighter labels, real resume metrics, context-rich. */
+  const MOBILE_KPIS = [
+    { value: "500+", label: "Properties Automated" },
+    { value: "160+", label: "Hrs/Mo Saved" },
+    { value: "−50%", label: "DDQ Turnaround" },
+    { value: "83", label: "AI Tools Shipped" },
+  ];
+
   return (
     <div className="space-y-4 md:space-y-6">
       <section className="space-y-3 md:space-y-4">
-        {/* Identity — name + title only */}
+        {/* Identity — name + title + value prop */}
         <div>
           <p className="bm-section-label tracking-[0.1em] md:tracking-[0.16em]">{workspace.identity.name}</p>
           <h1 className="mt-1.5 text-[1.75rem] leading-tight md:mt-2 md:text-4xl lg:text-5xl">{workspace.identity.title}</h1>
-          <p className="mt-1 text-sm text-bm-muted md:hidden">AI &amp; Data Systems Architect</p>
+          {/* Mobile: concise value proposition from real career data */}
+          <p className="mt-1.5 text-[13px] leading-snug text-bm-muted md:hidden">
+            11 years shipping data platforms, warehouse architecture, and AI tooling for REPE investment management.
+          </p>
         </div>
 
-        {/* KPI proof — 2-col on mobile, inline strip on desktop */}
+        {/* KPI proof — 2-col on mobile with real metrics, inline strip on desktop */}
         <div className="grid grid-cols-2 gap-2 md:hidden">
-          {HERO_METRICS.slice(0, 4).map((m) => (
+          {MOBILE_KPIS.map((m) => (
             <div key={m.label} className="flex min-h-[56px] flex-col justify-center rounded-xl border border-bm-border/30 bg-bm-surface/20 px-3 py-2">
               <span className="text-xl font-bold tabular-nums leading-tight">{m.value}</span>
               <span className="mt-0.5 text-[10px] uppercase tracking-[0.08em] text-bm-muted">{m.label}</span>

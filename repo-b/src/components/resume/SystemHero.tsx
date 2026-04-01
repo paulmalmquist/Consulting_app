@@ -27,22 +27,22 @@ function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string
 
 const PERSPECTIVE_KPIS = {
   executive: [
-    { key: "properties_managed" as const, label: "Properties Managed", suffix: "+" },
-    { key: "hours_saved_monthly" as const, label: "Hours Saved / Month", suffix: "+" },
-    { key: "performance_gain_pct" as const, label: "Performance Gain", suffix: "x" },
-    { key: "mcp_tools" as const, label: "AI Tools Deployed", suffix: "" },
+    { key: "properties_managed" as const, label: "Properties Managed", mobileLabel: "Properties", suffix: "+" },
+    { key: "hours_saved_monthly" as const, label: "Hours Saved / Month", mobileLabel: "Hrs/Mo Saved", suffix: "+" },
+    { key: "performance_gain_pct" as const, label: "Performance Gain", mobileLabel: "Perf Gain", suffix: "x" },
+    { key: "mcp_tools" as const, label: "AI Tools Deployed", mobileLabel: "AI Tools", suffix: "" },
   ],
   engineer: [
-    { key: "mcp_tools" as const, label: "MCP Tools", suffix: "" },
-    { key: "pipelines_built" as const, label: "Pipelines Deployed", suffix: "" },
-    { key: "properties_managed" as const, label: "Properties Integrated", suffix: "+" },
-    { key: "performance_gain_pct" as const, label: "Perf Improvement", suffix: "x" },
+    { key: "mcp_tools" as const, label: "MCP Tools", mobileLabel: "MCP Tools", suffix: "" },
+    { key: "pipelines_built" as const, label: "Pipelines Deployed", mobileLabel: "Pipelines", suffix: "" },
+    { key: "properties_managed" as const, label: "Properties Integrated", mobileLabel: "Properties", suffix: "+" },
+    { key: "performance_gain_pct" as const, label: "Perf Improvement", mobileLabel: "Perf Gain", suffix: "x" },
   ],
   investor: [
-    { key: "properties_managed" as const, label: "Properties Under Management", suffix: "+" },
-    { key: "hours_saved_monthly" as const, label: "Monthly Hours Recaptured", suffix: "+" },
-    { key: "performance_gain_pct" as const, label: "Execution Speed Gain", suffix: "x" },
-    { key: "active_systems" as const, label: "Active Systems", suffix: "" },
+    { key: "properties_managed" as const, label: "Properties Under Management", mobileLabel: "Properties", suffix: "+" },
+    { key: "hours_saved_monthly" as const, label: "Monthly Hours Recaptured", mobileLabel: "Hrs/Mo Saved", suffix: "+" },
+    { key: "performance_gain_pct" as const, label: "Execution Speed Gain", mobileLabel: "Speed Gain", suffix: "x" },
+    { key: "active_systems" as const, label: "Active Systems", mobileLabel: "Systems", suffix: "" },
   ],
 };
 
@@ -118,7 +118,8 @@ export default function SystemHero({ stats }: { stats: ResumeSystemStats | null 
                 className="flex min-h-[52px] flex-col justify-center rounded-xl border border-bm-border/50 bg-bm-surface/30 px-3 py-2 md:px-4 md:py-3"
               >
                 <p className="text-[10px] uppercase tracking-[0.08em] text-bm-muted2 md:tracking-[0.12em]">
-                  {kpi.label}
+                  <span className="md:hidden">{kpi.mobileLabel}</span>
+                  <span className="hidden md:inline">{kpi.label}</span>
                 </p>
                 <p className="mt-0.5 text-xl font-bold tabular-nums md:mt-1 md:text-2xl">
                   <AnimatedNumber
