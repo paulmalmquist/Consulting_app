@@ -19,7 +19,7 @@ import ResumeContextRail from "./ResumeContextRail";
 import ResumeAssistantDock from "./ResumeAssistantDock";
 import ResumeExportPdf from "./ResumeExportPdf";
 import ResumeModuleBoundary from "./ResumeModuleBoundary";
-import LinkedContextBar from "./LinkedContextBar";
+import SkillsCapabilityMap from "./SkillsCapabilityMap";
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
 import type { ResumeWorkspaceViewModel } from "@/lib/resume/workspace";
 
@@ -306,7 +306,7 @@ export default function ResumeWorkspace({
           </div>
         </div>
 
-        <LinkedContextBar />
+        <SkillsCapabilityMap />
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">

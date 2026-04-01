@@ -15,6 +15,7 @@ import type {
   ImpactMetricKey,
   NarrativeSelectionKind,
 } from "./capabilityGraphData";
+import type { SkillId } from "./skillsData";
 
 type ResumeModule = "timeline" | "architecture" | "modeling" | "bi";
 
@@ -43,9 +44,11 @@ type ResumeWorkspaceState = {
   capabilityHoveredLayer: string | null;
   enabledCapabilityLayerIds: string[];
   selectedImpactMetric: ImpactMetricKey;
+  selectedSkillId: SkillId | null;
   lastBiEntitySource: "timeline" | "bi" | "init";
   lastModelPresetSource: "timeline" | "modeling" | "init";
   initialize: (workspace: ResumeWorkspaceViewModel) => void;
+  setSelectedSkillId: (skillId: SkillId | null) => void;
   setActiveModule: (module: ResumeModule) => void;
   setTimelineView: (view: ResumeTimelineViewMode) => void;
   togglePlayStory: () => void;
@@ -216,8 +219,10 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
   capabilityHoveredLayer: null,
   enabledCapabilityLayerIds: [],
   selectedImpactMetric: "impact_composite",
+  selectedSkillId: null,
   lastBiEntitySource: "init",
   lastModelPresetSource: "init",
+  setSelectedSkillId: (skillId) => set({ selectedSkillId: skillId }),
   initialize: (workspace) => {
     // Pick the strongest milestone as default — warehouse/semantic layer milestone shows the most
     // cross-module connections (architecture, BI, modeling). Fall back to first play step or first milestone.
@@ -259,6 +264,7 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
       capabilityHoveredLayer: null,
       enabledCapabilityLayerIds: getVisibleCapabilityLayerIds(workspace.timeline),
       selectedImpactMetric: "impact_composite",
+      selectedSkillId: null,
       lastBiEntitySource: "init",
       lastModelPresetSource: "init",
     });
