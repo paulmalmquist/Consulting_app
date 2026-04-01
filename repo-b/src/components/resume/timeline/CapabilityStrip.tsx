@@ -21,7 +21,7 @@ import {
 // Icon map
 // ---------------------------------------------------------------------------
 
-const ICON_MAP: Record<string, React.FC<{ size?: number; className?: string }>> = {
+const ICON_MAP: Record<string, React.FC<{ size?: number; className?: string; style?: React.CSSProperties }>> = {
   database: Database,
   "bar-chart-3": BarChart3,
   code: Code,
