@@ -3,7 +3,13 @@
 -- Requires PostGIS extension for geometry columns and spatial indexes.
 
 -- Enable PostGIS (graceful no-op if not available)
-CREATE EXTENSION IF NOT EXISTS postgis;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'postgis') THEN
+    CREATE EXTENSION IF NOT EXISTS postgis;
+  END IF;
+END;
+$$;
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- PIPELINE GEOGRAPHY DIMENSION — Census tracts, counties, CBSAs for pipeline map

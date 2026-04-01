@@ -1,8 +1,16 @@
 -- 303_cre_intelligence_graph.sql
 -- CRE Intelligence Graph foundation for Winston.
 
-CREATE EXTENSION IF NOT EXISTS postgis;
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'postgis') THEN
+    CREATE EXTENSION IF NOT EXISTS postgis;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pg_trgm') THEN
+    CREATE EXTENSION IF NOT EXISTS pg_trgm;
+  END IF;
+END;
+$$;
 
 CREATE TABLE IF NOT EXISTS dim_property (
   property_id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
