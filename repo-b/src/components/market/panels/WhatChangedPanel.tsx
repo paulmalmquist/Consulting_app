@@ -76,7 +76,7 @@ export function WhatChangedPanel({ realitySignals, dataSignals }: WhatChangedPan
       </div>
 
       {deltas.length === 0 ? (
-        <p className="text-xs text-bm-muted2 italic">No significant changes today.</p>
+        <p className="text-xs text-bm-muted2">No material changes.</p>
       ) : (
         <div className="space-y-1.5">
           {deltas.map((d) => {

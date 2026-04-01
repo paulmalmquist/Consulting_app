@@ -40,11 +40,15 @@ interface TrapDetectionPanelProps {
 export function TrapDetectionPanel({ trapChecks, positioningData }: TrapDetectionPanelProps) {
   const activeTraps = trapChecks.filter(
     (t) => t.variant === "warning" || t.variant === "danger"
-  ).length;
+  );
+
+  // If no trap checks at all, don't render
+  if (trapChecks.length === 0) return null;
 
   const extremePositions = positioningData.filter((p) => p.extreme);
-  const avgCrowding =
-    positioningData.reduce((s, p) => s + p.crowding, 0) / positioningData.length;
+  const avgCrowding = positioningData.length > 0
+    ? positioningData.reduce((s, p) => s + p.crowding, 0) / positioningData.length
+    : NaN;
 
   return (
     <Card className="p-4">
@@ -52,39 +56,44 @@ export function TrapDetectionPanel({ trapChecks, positioningData }: TrapDetectio
         <p className="text-[10px] font-bold uppercase tracking-wider text-bm-muted2">
           Trap Detector
         </p>
-        <Badge variant={activeTraps > 2 ? "danger" : activeTraps > 0 ? "warning" : "success"}>
-          {activeTraps} ACTIVE
+        <Badge variant={activeTraps.length > 2 ? "danger" : activeTraps.length > 0 ? "warning" : "success"}>
+          {activeTraps.length} ACTIVE
         </Badge>
       </div>
 
-      {/* Summary strip */}
-      <div className="flex items-center gap-4 mb-4 pb-3 border-b border-bm-border/30">
-        <div>
-          <p className="text-[9px] text-bm-muted2 uppercase">Avg Crowding</p>
-          <p
-            className={`text-lg font-mono font-bold ${
-              avgCrowding > 65
-                ? "text-red-400"
-                : avgCrowding > 45
-                  ? "text-amber-400"
-                  : "text-emerald-400"
-            }`}
-          >
-            {avgCrowding.toFixed(0)}
-          </p>
+      {/* Summary strip — only if data exists */}
+      {(Number.isFinite(avgCrowding) || extremePositions.length > 0) && (
+        <div className="flex items-center gap-4 mb-4 pb-3 border-b border-bm-border/30">
+          {Number.isFinite(avgCrowding) && (
+            <div>
+              <p className="text-[9px] text-bm-muted2 uppercase">Avg Crowding</p>
+              <p
+                className={`text-lg font-mono font-bold ${
+                  avgCrowding > 65
+                    ? "text-red-400"
+                    : avgCrowding > 45
+                      ? "text-amber-400"
+                      : "text-emerald-400"
+                }`}
+              >
+                {avgCrowding.toFixed(0)}
+              </p>
+            </div>
+          )}
+          <div>
+            <p className="text-[9px] text-bm-muted2 uppercase">Extreme Positions</p>
+            <p className="text-lg font-mono font-bold text-bm-text">
+              {extremePositions.length}
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="text-[9px] text-bm-muted2 uppercase">Extreme Positions</p>
-          <p className="text-lg font-mono font-bold text-bm-text">
-            {extremePositions.length}
-          </p>
-        </div>
-      </div>
+      )}
 
-      {/* Trap checks */}
+      {/* Trap checks — narrative output instead of raw values */}
       <div className="space-y-1">
         {trapChecks.map((t) => {
           const meta = TRAP_EXPLANATIONS[t.check];
+          const isActive = t.variant === "warning" || t.variant === "danger";
           return (
             <div
               key={t.check}
@@ -96,17 +105,12 @@ export function TrapDetectionPanel({ trapChecks, positioningData }: TrapDetectio
                 </span>
                 <Badge variant={t.variant}>{t.status}</Badge>
               </div>
-              <p className="text-[10px] text-bm-muted2 mb-1">{t.value}</p>
-              {meta && (
-                <p className="text-[10px] text-bm-muted leading-relaxed">
-                  {meta.explanation}
-                </p>
-              )}
-              {meta?.actionAdjustment && (
-                <p className="text-[10px] text-amber-400 mt-1 font-medium">
-                  Action: {meta.actionAdjustment}
-                </p>
-              )}
+              {/* Narrative reasoning instead of raw numeric values */}
+              <p className="text-[10px] text-bm-muted leading-relaxed">
+                {isActive && meta?.actionAdjustment
+                  ? meta.actionAdjustment
+                  : meta?.explanation ?? t.value}
+              </p>
             </div>
           );
         })}

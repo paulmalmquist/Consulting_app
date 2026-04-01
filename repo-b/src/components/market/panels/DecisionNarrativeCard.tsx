@@ -13,6 +13,7 @@ import type {
   AssetScope,
 } from "@/lib/trading-lab/decision-engine-types";
 import type { ApiPrediction } from "@/components/market/hooks/useDecisionEngine";
+import { isValid, safeStr, scenariosValid } from "@/lib/trading-lab/safe-display";
 
 interface DecisionNarrativeCardProps {
   agentData: AgentDataItem[];
@@ -43,9 +44,11 @@ export function DecisionNarrativeCard({
   trapChecks,
 }: DecisionNarrativeCardProps) {
   const bearishCount = agentData.filter((a) => a.dir === "Bearish").length;
-  const totalConf =
-    agentData.reduce((s, a) => s + a.conf * a.wt, 0) /
-    agentData.reduce((s, a) => s + a.wt, 0);
+  const totalWeight = agentData.reduce((s, a) => s + a.wt, 0);
+  const totalConf = totalWeight > 0
+    ? agentData.reduce((s, a) => s + a.conf * a.wt, 0) / totalWeight
+    : NaN;
+  const confidenceValid = isValid(totalConf);
 
   const mismatchCount = mismatchData.filter((m) => m.mismatch > 0.6).length;
   const accelCount = realitySignals.filter((s) => Math.abs(s.accel) > 3).length;
@@ -56,62 +59,67 @@ export function DecisionNarrativeCard({
 
   const scopeLabel = SCOPE_LABELS[assetScope];
 
-  // Determine recommended action
-  const isNoEdge = totalConf < 40;
+  // Determine recommended action — guard against NaN
+  const isNoEdge = !confidenceValid || totalConf < 40;
   const isBearish = bearishCount >= 3;
-  const action = isNoEdge
-    ? "No edge. Do nothing."
-    : isBearish
-      ? "Reduce Risk"
-      : "Hold Current Position";
-  const actionColor = isNoEdge
+  const action = !confidenceValid
+    ? "Insufficient data"
+    : isNoEdge
+      ? "No edge. Do nothing."
+      : isBearish
+        ? "Reduce Risk"
+        : "Hold Current Position";
+  const actionColor = !confidenceValid
     ? "text-bm-muted"
-    : isBearish
-      ? "text-bm-danger"
-      : "text-bm-accent";
+    : isNoEdge
+      ? "text-bm-muted"
+      : isBearish
+        ? "text-bm-danger"
+        : "text-bm-accent";
 
   // Key risk — dynamic from trap checks
   const topTrap = trapChecks?.find(
     (t) => t.variant === "warning" || t.variant === "danger",
   );
   const keyRisk = topTrap
-    ? `${topTrap.check}: ${topTrap.value}`
-    : "Bear trap due to crowded positioning";
+    ? `${topTrap.check}: ${safeStr(topTrap.value)}`
+    : mismatchCount > 0
+      ? "Narrative-reality divergence elevated"
+      : "No elevated risks detected";
 
-  // Scenarios — dynamic from forecast if available
+  // Scenarios — only render if data is valid and sums to ~100%
   const bullProb = forecast
-    ? Math.round((forecast.scenario_bull_prob ?? 0.20) * 100)
-    : 20;
+    ? Math.round((forecast.scenario_bull_prob ?? 0) * 100)
+    : NaN;
   const baseProb = forecast
-    ? Math.round((forecast.scenario_base_prob ?? 0.52) * 100)
-    : 52;
+    ? Math.round((forecast.scenario_base_prob ?? 0) * 100)
+    : NaN;
   const bearProb = forecast
-    ? Math.round((forecast.scenario_bear_prob ?? 0.28) * 100)
-    : 28;
+    ? Math.round((forecast.scenario_bear_prob ?? 0) * 100)
+    : NaN;
 
-  const scenarios = [
+  const showScenarios = scenariosValid(bullProb, baseProb, bearProb);
+
+  const scenarios = showScenarios ? [
     {
       label: "BULL",
       prob: bullProb,
-      ret: "+12%",
       variant: "success" as const,
-      note: "Requires dovish pivot + stabilization",
+      note: forecast?.synthesis_narrative ? "" : "Requires dovish pivot + stabilization",
     },
     {
       label: "BASE",
       prob: baseProb,
-      ret: "-3%",
       variant: "accent" as const,
-      note: "Grinding chop, data-dependent, slow deterioration",
+      note: forecast?.synthesis_narrative ? "" : "Grinding chop, data-dependent, slow deterioration",
     },
     {
       label: "BEAR",
       prob: bearProb,
-      ret: "-18%",
       variant: "danger" as const,
-      note: "Credit contagion, tightening, positioning unwind",
+      note: forecast?.synthesis_narrative ? "" : "Credit contagion, tightening, positioning unwind",
     },
-  ];
+  ] : [];
 
   return (
     <section data-testid="decision-narrative">
@@ -166,7 +174,7 @@ export function DecisionNarrativeCard({
               Confidence
             </p>
             <p className="text-xl font-mono font-bold text-bm-text">
-              {isNoEdge ? "Low" : `${totalConf.toFixed(0)}%`}
+              {confidenceValid ? (isNoEdge ? "Low" : `${totalConf.toFixed(0)}%`) : "Not available"}
             </p>
           </div>
           <div>
@@ -179,31 +187,39 @@ export function DecisionNarrativeCard({
           </div>
         </div>
 
-        {/* Scenario probabilities */}
-        <div>
-          <p className="text-[10px] font-mono uppercase tracking-wider text-bm-muted2 mb-3">
-            SCENARIO PROBABILITIES
-          </p>
-          <div className="grid grid-cols-3 gap-3">
-            {scenarios.map((s) => (
-              <div
-                key={s.label}
-                className="rounded-lg border border-bm-border/50 bg-bm-surface/20 p-3 text-center"
-              >
-                <Badge variant={s.variant} className="mb-1.5">
-                  {s.label}
-                </Badge>
-                <p className="text-2xl font-bold font-mono text-bm-text">
-                  {s.prob}%
-                </p>
-                <p className="text-xs text-bm-text mt-0.5">{s.ret}</p>
-                <p className="text-[10px] text-bm-muted2 mt-1.5 leading-relaxed">
-                  {s.note}
-                </p>
-              </div>
-            ))}
+        {/* Scenario probabilities — only shown if data validates */}
+        {showScenarios && (
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-bm-muted2 mb-3">
+              SCENARIO PROBABILITIES
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              {scenarios.map((s) => (
+                <div
+                  key={s.label}
+                  className="rounded-lg border border-bm-border/50 bg-bm-surface/20 p-3 text-center"
+                >
+                  <Badge variant={s.variant} className="mb-1.5">
+                    {s.label}
+                  </Badge>
+                  <p className="text-2xl font-bold font-mono text-bm-text">
+                    {s.prob}%
+                  </p>
+                  {s.note && (
+                    <p className="text-[10px] text-bm-muted2 mt-1.5 leading-relaxed">
+                      {s.note}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+            {forecast?.synthesis_narrative && (
+              <p className="text-[10px] text-bm-muted mt-3 leading-relaxed">
+                {forecast.synthesis_narrative}
+              </p>
+            )}
           </div>
-        </div>
+        )}
       </Card>
     </section>
   );

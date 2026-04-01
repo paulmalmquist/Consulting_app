@@ -34,14 +34,23 @@ interface ModelTransparencyPanelProps {
 }
 
 export function ModelTransparencyPanel({ agentData, brierHist, agentReasoning }: ModelTransparencyPanelProps) {
+  // Don't render if no agent data
+  if (agentData.length === 0) return null;
+
   const AGENT_REASONING = agentReasoning ?? FALLBACK_REASONING;
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
 
-  const totalConf =
-    agentData.reduce((s, a) => s + a.conf * a.wt, 0) /
-    agentData.reduce((s, a) => s + a.wt, 0);
+  const totalWeight = agentData.reduce((s, a) => s + a.wt, 0);
+  const totalConf = totalWeight > 0
+    ? agentData.reduce((s, a) => s + a.conf * a.wt, 0) / totalWeight
+    : NaN;
+  const confidenceValid = Number.isFinite(totalConf);
 
-  const latestBrier = brierHist[brierHist.length - 1]?.agg ?? 0;
+  const latestBrier = brierHist.length > 0 ? brierHist[brierHist.length - 1]?.agg : NaN;
+  const brierValid = Number.isFinite(latestBrier);
+
+  const bearishCount = agentData.filter((a) => a.dir === "Bearish").length;
+  const ensembleDir = bearishCount >= 3 ? "Bearish Lean" : bearishCount === 0 ? "Bullish Lean" : "Mixed";
 
   return (
     <Card className="p-4">
@@ -49,7 +58,7 @@ export function ModelTransparencyPanel({ agentData, brierHist, agentReasoning }:
         <p className="text-[10px] font-bold uppercase tracking-wider text-bm-muted2">
           Model Transparency
         </p>
-        <Badge>5 AGENTS</Badge>
+        <Badge>{agentData.length} AGENTS</Badge>
       </div>
 
       {/* Aggregate output */}
@@ -57,25 +66,27 @@ export function ModelTransparencyPanel({ agentData, brierHist, agentReasoning }:
         <div>
           <p className="text-[9px] text-bm-muted2 uppercase">Ensemble</p>
           <p className="text-lg font-mono font-bold text-bm-warning">
-            Bearish Lean
+            {ensembleDir}
           </p>
         </div>
         <div>
           <p className="text-[9px] text-bm-muted2 uppercase">Confidence</p>
           <p className="text-lg font-mono font-bold text-bm-text">
-            {totalConf.toFixed(0)}%
+            {confidenceValid ? `${totalConf.toFixed(0)}%` : "Not available"}
           </p>
         </div>
-        <div>
-          <p className="text-[9px] text-bm-muted2 uppercase">90d Brier</p>
-          <p
-            className={`text-lg font-mono font-bold ${
-              latestBrier < 0.2 ? "text-emerald-400" : "text-amber-400"
-            }`}
-          >
-            {latestBrier.toFixed(2)}
-          </p>
-        </div>
+        {brierValid && (
+          <div>
+            <p className="text-[9px] text-bm-muted2 uppercase">90d Brier</p>
+            <p
+              className={`text-lg font-mono font-bold ${
+                latestBrier < 0.2 ? "text-emerald-400" : "text-amber-400"
+              }`}
+            >
+              {latestBrier.toFixed(2)}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Agent rows */}
@@ -154,49 +165,51 @@ export function ModelTransparencyPanel({ agentData, brierHist, agentReasoning }:
         <span className="text-center">Wt</span>
       </div>
 
-      {/* Brier sparkline */}
-      <div>
-        <p className="text-[9px] text-bm-muted2 uppercase tracking-wider mb-1">
-          Calibration History (24w)
-        </p>
-        <ResponsiveContainer width="100%" height={80}>
-          <AreaChart
-            data={brierHist}
-            margin={{ top: 2, right: 4, left: 0, bottom: 2 }}
-          >
-            <CartesianGrid {...GRID_STYLE} />
-            <XAxis dataKey="w" tick={false} axisLine={false} />
-            <YAxis
-              tick={false}
-              axisLine={false}
-              domain={[0.05, 0.35]}
-              width={0}
-            />
-            <Tooltip contentStyle={TOOLTIP_STYLE} />
-            <Area
-              type="monotone"
-              dataKey="base"
-              stroke={CH.red}
-              fill={CH.red}
-              fillOpacity={0.04}
-              strokeDasharray="4 4"
-              name="Coin Flip"
-            />
-            <Area
-              type="monotone"
-              dataKey="agg"
-              stroke={CH.cyan}
-              fill={CH.cyan}
-              fillOpacity={0.08}
-              strokeWidth={1.5}
-              name="Aggregate"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-        <p className="text-[9px] text-bm-muted2 mt-1">
-          Lower = better. Red = coin flip baseline. Target: &lt;0.20
-        </p>
-      </div>
+      {/* Brier sparkline — only render with real data */}
+      {brierHist.length > 0 && (
+        <div>
+          <p className="text-[9px] text-bm-muted2 uppercase tracking-wider mb-1">
+            Calibration History (24w)
+          </p>
+          <ResponsiveContainer width="100%" height={80}>
+            <AreaChart
+              data={brierHist}
+              margin={{ top: 2, right: 4, left: 0, bottom: 2 }}
+            >
+              <CartesianGrid {...GRID_STYLE} />
+              <XAxis dataKey="w" tick={false} axisLine={false} />
+              <YAxis
+                tick={false}
+                axisLine={false}
+                domain={[0.05, 0.35]}
+                width={0}
+              />
+              <Tooltip contentStyle={TOOLTIP_STYLE} />
+              <Area
+                type="monotone"
+                dataKey="base"
+                stroke={CH.red}
+                fill={CH.red}
+                fillOpacity={0.04}
+                strokeDasharray="4 4"
+                name="Coin Flip"
+              />
+              <Area
+                type="monotone"
+                dataKey="agg"
+                stroke={CH.cyan}
+                fill={CH.cyan}
+                fillOpacity={0.08}
+                strokeWidth={1.5}
+                name="Aggregate"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+          <p className="text-[9px] text-bm-muted2 mt-1">
+            Lower = better. Red = coin flip baseline. Target: &lt;0.20
+          </p>
+        </div>
+      )}
     </Card>
   );
 }
