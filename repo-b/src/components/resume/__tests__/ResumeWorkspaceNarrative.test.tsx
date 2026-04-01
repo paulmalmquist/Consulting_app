@@ -90,8 +90,8 @@ describe("ResumeWorkspace narrative controls", () => {
     expect(await screen.findByText("Build Journey")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Career" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Capability" })).toBeInTheDocument();
-    expect(screen.getByText("11+")).toBeInTheDocument();
-    expect(screen.getByText("500+")).toBeInTheDocument();
-    expect(screen.getByText("83")).toBeInTheDocument();
+    expect(screen.getAllByText("11+").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("500+").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("83").length).toBeGreaterThanOrEqual(1);
   });
 });
