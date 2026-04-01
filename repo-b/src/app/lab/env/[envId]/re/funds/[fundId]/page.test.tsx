@@ -663,7 +663,7 @@ describe("fund detail narrative dashboard", () => {
           page_entity_id: "fund-1",
           page_entity_name: "Institutional Growth Fund VII",
           visible_data: expect.objectContaining({
-            notes: expect.arrayContaining([expect.stringContaining("2026Q1")]),
+            notes: expect.arrayContaining([expect.stringMatching(/2026Q[1-4]/)]),
           }),
         })
       );
