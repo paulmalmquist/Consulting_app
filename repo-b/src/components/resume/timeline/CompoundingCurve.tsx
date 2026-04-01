@@ -50,6 +50,7 @@ function useIsMobile(breakpoint = 768) {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (typeof window.matchMedia !== "function") return;
     const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
     const update = () => setIsMobile(mql.matches);
     update();

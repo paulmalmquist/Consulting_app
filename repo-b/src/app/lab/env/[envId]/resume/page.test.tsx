@@ -43,7 +43,7 @@ describe("Resume route page", () => {
     render(<ResumePage />);
 
     expect(screen.getByTestId("resume-workspace")).toBeInTheDocument();
-    expect(screen.getByText("AI Platform Architect & Investment Data Engineering Leader")).toBeInTheDocument();
+    expect(screen.getByText("AI Data Platform Architect — Investment Systems")).toBeInTheDocument();
   });
 
   it("includes all 4 stories from the seed", () => {
@@ -65,7 +65,7 @@ describe("Resume route page", () => {
     render(<ResumePage />);
 
     expect(screen.getByTestId("resume-workspace")).toBeInTheDocument();
-    expect(screen.getByText("AI Platform Architect & Investment Data Engineering Leader")).toBeInTheDocument();
+    expect(screen.getByText("AI Data Platform Architect — Investment Systems")).toBeInTheDocument();
   });
 
   it("renders with context loading — seed always shows", () => {
@@ -96,7 +96,7 @@ describe("Resume route page", () => {
     render(<ResumePage />);
 
     expect(screen.getByTestId("resume-workspace")).toBeInTheDocument();
-    expect(screen.getByText("AI Platform Architect & Investment Data Engineering Leader")).toBeInTheDocument();
+    expect(screen.getByText("AI Data Platform Architect — Investment Systems")).toBeInTheDocument();
   });
 
   it("passes envId and businessId to ResumeWorkspace", () => {
