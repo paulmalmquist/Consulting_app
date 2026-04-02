@@ -367,86 +367,62 @@ export default function ResumeContextRail({
     <div className="space-y-3 md:space-y-4">
       <section className="rounded-[20px] border border-bm-border/60 bg-bm-surface/35 p-3 md:rounded-[28px] md:p-5">
         <div className="flex items-start justify-between gap-2 md:gap-3">
-          <div>
+          <div className="min-w-0">
             <p className="bm-section-label tracking-[0.1em] md:tracking-[0.16em]">{header}</p>
-            <h2 className="mt-1.5 text-lg md:mt-2 md:text-xl">{summary.title}</h2>
-            <p className="mt-2 text-sm leading-6 text-bm-muted md:mt-3">{summary.summary}</p>
+            <h2 className="mt-1 text-base font-semibold md:mt-2 md:text-xl">{summary.title}</h2>
+            <p className="mt-1.5 text-xs leading-relaxed text-bm-muted md:mt-2 md:text-sm md:leading-6">{summary.summary}</p>
           </div>
-          <div className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] text-bm-muted2 md:px-3 md:py-1 md:text-[10px] md:tracking-[0.16em]">
+          <div className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] text-bm-muted2 md:px-3 md:py-1 md:text-[10px]">
             {selectedNarrativeId ? "Locked" : hoveredNarrativeId ? "Preview" : "Default"}
           </div>
         </div>
 
-        <div className="mt-3 grid gap-2 md:mt-4 md:gap-3">
-          <div className="rounded-xl border border-bm-border/30 bg-black/10 p-3 md:rounded-2xl md:p-4">
-            <p className="text-[10px] uppercase tracking-[0.1em] text-bm-muted2 md:tracking-[0.16em]">Before</p>
-            <p className="mt-1.5 text-sm text-bm-text md:mt-2 md:text-base">{summary.before}</p>
+        {/* Before/After — compact on mobile */}
+        <div className="mt-2.5 grid grid-cols-2 gap-2 md:mt-4 md:grid-cols-1 md:gap-3">
+          <div className="rounded-xl border border-bm-border/30 bg-black/10 p-2.5 md:rounded-2xl md:p-4">
+            <p className="text-[9px] uppercase tracking-[0.1em] text-bm-muted2 md:text-[10px] md:tracking-[0.16em]">Before</p>
+            <p className="mt-1 text-xs leading-snug text-bm-text md:mt-2 md:text-base">{summary.before}</p>
           </div>
-          <div className="rounded-xl border border-bm-border/30 bg-black/10 p-3 md:rounded-2xl md:p-4">
-            <p className="text-[10px] uppercase tracking-[0.1em] text-bm-muted2 md:tracking-[0.16em]">After</p>
-            <p className="mt-1.5 text-sm text-bm-text md:mt-2 md:text-base">{summary.after}</p>
-          </div>
-          <div className="rounded-xl border border-sky-400/20 bg-sky-500/10 p-3 md:rounded-2xl md:p-4">
-            <p className="text-[10px] uppercase tracking-[0.1em] text-sky-200/80 md:tracking-[0.16em]">Stakeholders</p>
-            <p className="mt-1.5 text-sm text-sky-50 md:mt-2 md:text-base">{summary.stakeholders}</p>
+          <div className="rounded-xl border border-bm-border/30 bg-black/10 p-2.5 md:rounded-2xl md:p-4">
+            <p className="text-[9px] uppercase tracking-[0.1em] text-bm-muted2 md:text-[10px] md:tracking-[0.16em]">After</p>
+            <p className="mt-1 text-xs leading-snug text-bm-text md:mt-2 md:text-base">{summary.after}</p>
           </div>
         </div>
       </section>
 
       <section className="rounded-[20px] border border-bm-border/60 bg-bm-surface/35 p-3 md:rounded-[28px] md:p-5">
-        <p className="bm-section-label tracking-[0.1em] md:tracking-[0.16em]">Evidence Rail</p>
+        <p className="bm-section-label tracking-[0.1em] md:tracking-[0.16em]">Evidence</p>
         {railCards.length === 0 ? (
           <SyntheticEvidence timeline={timeline} kind={effectiveKind} id={effectiveId} />
         ) : (
-          <div className="mt-4 space-y-4">
+          <div className="mt-3 space-y-3 md:mt-4 md:space-y-4">
             {railCards.map((card) => (
-              <article key={card.card_id} className="rounded-2xl border border-bm-border/35 bg-black/10 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">{card.card_type}</p>
-                    <h3 className="mt-2 text-lg">{card.title}</h3>
+              <article key={card.card_id} className="rounded-xl border border-bm-border/35 bg-black/10 p-3 md:rounded-2xl md:p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[9px] uppercase tracking-[0.16em] text-bm-muted2 md:text-[10px]">{card.card_type}</p>
+                    <h3 className="mt-1 text-sm font-semibold md:mt-2 md:text-lg">{card.title}</h3>
                   </div>
                   {card.company ? (
-                    <span className="rounded-full border border-bm-border/35 bg-white/5 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-bm-muted2">
+                    <span className="shrink-0 rounded-full border border-bm-border/35 bg-white/5 px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] text-bm-muted2 md:px-3 md:py-1 md:text-[10px]">
                       {card.company}
                     </span>
                   ) : null}
                 </div>
 
-                <p className="mt-3 text-sm leading-6 text-bm-muted">{card.short_narrative}</p>
-
-                {card.context ? (
-                  <div className="mt-3">
-                    <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Context</p>
-                    <p className="mt-1 text-sm text-bm-text">{card.context}</p>
-                  </div>
-                ) : null}
-
-                {card.action ? (
-                  <div className="mt-3">
-                    <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Action</p>
-                    <p className="mt-1 text-sm text-bm-text">{card.action}</p>
-                  </div>
-                ) : null}
+                <p className="mt-2 text-xs leading-relaxed text-bm-muted md:mt-3 md:text-sm md:leading-6">{card.short_narrative}</p>
 
                 {card.impact ? (
-                  <div className="mt-3 rounded-2xl border border-emerald-300/20 bg-emerald-500/8 p-3">
-                    <p className="text-[10px] uppercase tracking-[0.16em] text-emerald-100/80">Impact</p>
-                    <p className="mt-1 text-sm text-emerald-50">{card.impact}</p>
-                  </div>
-                ) : null}
-
-                {card.stakeholders ? (
-                  <div className="mt-3">
-                    <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Stakeholders</p>
-                    <p className="mt-1 text-sm text-bm-text">{card.stakeholders}</p>
+                  <div className="mt-2 rounded-xl border border-emerald-300/20 bg-emerald-500/8 p-2.5 md:mt-3 md:p-3">
+                    <p className="text-[9px] uppercase tracking-[0.16em] text-emerald-100/80 md:text-[10px]">Impact</p>
+                    <p className="mt-1 text-xs font-medium text-emerald-50 md:text-sm">{card.impact}</p>
                   </div>
                 ) : null}
 
                 {Object.keys(card.metrics_json).length > 0 ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="mt-2 flex flex-wrap gap-1.5 md:mt-3 md:gap-2">
                     {Object.entries(card.metrics_json).map((entry) => (
-                      <span key={entry[0]} className="rounded-full border border-bm-border/35 bg-white/5 px-3 py-1 text-xs text-bm-muted2">
+                      <span key={entry[0]} className="rounded-full border border-bm-border/35 bg-white/5 px-2 py-0.5 text-[10px] text-bm-muted2 md:px-3 md:py-1 md:text-xs">
                         {formatMetricEntry(entry)}
                       </span>
                     ))}

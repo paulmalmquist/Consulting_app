@@ -1,60 +1,109 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
+import { useShallow } from "zustand/react/shallow";
 import {
   SYSTEMS,
   COMPANY_COLORS,
   type System,
-  type CompanyId,
 } from "./timeline/timelineData";
+import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
 
 /**
- * SystemsBuiltSection — dedicated proof section showing every real system
- * Paul has built, with clickable drill-down into how/why/outcome.
+ * SystemsBuiltSection — standardized proof cards. Each card:
+ *   title + 1-line description + max 3 bullets + 1 bold outcome
  *
- * Data source: SYSTEMS array from timelineData.ts (no hardcoded UI strings).
+ * Connected to the global store:
+ * - highlightedSystemId from timeline interactions highlights a card
+ * - selectedSkillId filters/emphasizes systems using that skill's capabilities
  */
 
-const HERO_METRICS_MAP: Record<string, string> = {
-  "sys-ingestion-automation": "160 hrs/month → 30 min",
-  "sys-warehouse": "50% faster DDQ turnaround",
-  "sys-semantic-layer": "10-day faster reporting",
-  "sys-waterfall-engine": "5 min → near-instant",
-  "sys-ai-platform": "Self-serve analytics",
-  "sys-governance-framework": "100% investor-facing validation",
-  "sys-gold-layer": "10+ clients standardized",
-  "sys-bi-service-line": "BI capability from zero",
+const OUTCOME_LINE: Record<string, string> = {
+  "sys-ingestion-automation": "160 hrs/month → 30 min automated",
+  "sys-warehouse": "6+ systems → 1 governed lakehouse ($4B+ AUM)",
+  "sys-semantic-layer": "10-day faster reporting across 6 business units",
+  "sys-waterfall-engine": "5 min → near-instant scenario analysis",
+  "sys-ai-platform": "Analyst-driven → system-driven insights",
+  "sys-governance-framework": "100% investor-facing data validated",
+  "sys-gold-layer": "10+ client accounts on one standard",
+  "sys-bi-service-line": "BI capability built from zero for 50+ stakeholders",
+};
+
+/** Max 3 bullets per system — tightest proof points */
+const BULLETS: Record<string, string[]> = {
+  "sys-ingestion-automation": [
+    "Azure Logic Apps + PySpark across 500+ properties",
+    "SQL validation gates at every ingestion stage",
+    "Near-zero manual entry errors",
+  ],
+  "sys-warehouse": [
+    "Databricks medallion architecture (bronze/silver/gold)",
+    "DealCloud, MRI, Yardi, Excel consolidated",
+    "DDQ turnaround cut 50%",
+  ],
+  "sys-semantic-layer": [
+    "Tabular models on Databricks gold tables",
+    "Standardized DAX measures for fund KPIs",
+    "Power BI drill-through from fund to asset",
+  ],
+  "sys-waterfall-engine": [
+    "Deterministic Python engine replacing fragile Excel",
+    "Full input-to-output audit trace",
+    "Reusable allocation logic across fund structures",
+  ],
+  "sys-ai-platform": [
+    "Databricks Genie + OpenAI orchestration",
+    "Natural language queries on governed data",
+    "Semantic models as query foundation",
+  ],
+  "sys-governance-framework": [
+    "SQL validation at ingestion, transform, and reporting",
+    "Automated quality checks with alerting",
+    "Data contracts between all source systems",
+  ],
+  "sys-gold-layer": [
+    "Unity Catalog governance in Databricks",
+    "Medallion architecture for multi-tenant delivery",
+    "Enterprise methodology standardization",
+  ],
+  "sys-bi-service-line": [
+    "Tableau dashboards + SQL validation layers",
+    "Repeatable delivery pipeline replacing ad hoc",
+    "Executive-ready reporting for JPMC account",
+  ],
 };
 
 function SystemCard({
   system,
-  isExpanded,
-  onToggle,
+  isHighlighted,
+  isRelatedToSkill,
+  onSelect,
 }: {
   system: System;
-  isExpanded: boolean;
-  onToggle: () => void;
+  isHighlighted: boolean;
+  isRelatedToSkill: boolean;
+  onSelect: () => void;
 }) {
   const company = COMPANY_COLORS[system.company];
-  const heroMetric = HERO_METRICS_MAP[system.id] ?? system.metrics[0]?.value ?? "";
+  const outcome = OUTCOME_LINE[system.id];
+  const bullets = BULLETS[system.id] ?? [];
 
   return (
-    <article
-      className={`rounded-2xl border transition-all duration-200 ${
-        isExpanded
-          ? "border-white/15 bg-bm-surface/40 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.6)]"
-          : "border-bm-border/30 bg-bm-surface/20 hover:border-white/10 hover:bg-bm-surface/30"
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`w-full rounded-2xl border text-left transition-all duration-200 p-4 md:p-5 ${
+        isHighlighted
+          ? "border-white/20 bg-bm-surface/50 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.6)] ring-1 ring-white/10"
+          : isRelatedToSkill
+            ? "border-sky-400/20 bg-sky-500/5"
+            : "border-bm-border/30 bg-bm-surface/20 hover:border-white/10 hover:bg-bm-surface/30"
       }`}
     >
-      {/* Collapsed header — always visible */}
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-start gap-3 p-4 text-left md:gap-4 md:p-5"
-      >
-        {/* Company indicator */}
+      {/* Title row */}
+      <div className="flex items-start gap-3">
         <div
-          className="mt-0.5 h-2 w-2 shrink-0 rounded-full md:mt-1"
+          className="mt-1 h-2 w-2 shrink-0 rounded-full"
           style={{ backgroundColor: company.primary }}
         />
         <div className="min-w-0 flex-1">
@@ -66,113 +115,67 @@ function SystemCard({
               {system.company_label}
             </span>
           </div>
-          <p className="mt-1 text-xs leading-relaxed text-bm-muted md:text-sm">
+
+          {/* 1-line description */}
+          <p className="mt-1 text-xs leading-relaxed text-bm-muted line-clamp-2 md:text-sm">
             {system.description}
           </p>
-          {/* Headline metric — always visible for quick scan */}
-          {heroMetric && (
-            <span
-              className="mt-2 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-medium"
-              style={{
-                backgroundColor: `${company.primary}15`,
-                color: `${company.primary}CC`,
-                border: `1px solid ${company.primary}25`,
-              }}
-            >
-              {heroMetric}
-            </span>
-          )}
-        </div>
-        {/* Expand indicator */}
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
-          className={`shrink-0 text-bm-muted transition-transform duration-200 ${
-            isExpanded ? "rotate-180" : ""
-          }`}
-        >
-          <path
-            d="M4 6l4 4 4-4"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
 
-      {/* Expanded detail — how it works, why it matters, metrics */}
-      {isExpanded && (
-        <div className="animate-in fade-in slide-in-from-top-1 duration-200 border-t border-white/5 px-4 pb-5 pt-4 md:px-5">
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-xl border border-sky-400/15 bg-sky-500/6 p-3">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-sky-300/70">
-                How It Works
-              </p>
-              <p className="mt-1.5 text-sm leading-relaxed text-white/70">
-                {system.how_it_works}
-              </p>
-            </div>
-            <div className="rounded-xl border border-amber-400/15 bg-amber-500/6 p-3">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-amber-300/70">
-                Why It Matters
-              </p>
-              <p className="mt-1.5 text-sm leading-relaxed text-white/70">
-                {system.why_it_matters}
-              </p>
-            </div>
-          </div>
-
-          {/* Metrics */}
-          {system.metrics.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {system.metrics.map((metric, i) => (
-                <div
-                  key={i}
-                  className="rounded-xl border border-white/8 bg-white/3 px-3 py-2"
-                >
-                  <p className="text-[10px] uppercase tracking-wide text-white/40">
-                    {metric.label}
-                  </p>
-                  <p
-                    className="mt-0.5 text-sm font-semibold"
-                    style={{ color: company.primary }}
-                  >
-                    {metric.value}
-                  </p>
-                </div>
+          {/* Max 3 bullets */}
+          {bullets.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {bullets.map((bullet) => (
+                <li key={bullet} className="flex items-start gap-2 text-[11px] leading-snug text-white/50 md:text-xs">
+                  <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-white/25" />
+                  {bullet}
+                </li>
               ))}
-            </div>
+            </ul>
           )}
 
-          {/* Capabilities used */}
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {system.capabilities_used.map((capId) => (
-              <span
-                key={capId}
-                className="rounded-full border border-bm-border/25 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wider text-bm-muted2"
-              >
-                {capId.replace(/_/g, " ")}
-              </span>
-            ))}
-          </div>
+          {/* Bold outcome line */}
+          {outcome && (
+            <p className="mt-2.5 text-xs font-semibold text-white/90 md:text-sm">
+              {outcome}
+            </p>
+          )}
         </div>
-      )}
-    </article>
+      </div>
+    </button>
   );
 }
 
 export default function SystemsBuiltSection() {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const {
+    highlightedSystemId,
+    setHighlightedSystemId,
+    selectedSkillId,
+  } = useResumeWorkspaceStore(
+    useShallow((s) => ({
+      highlightedSystemId: s.highlightedSystemId,
+      setHighlightedSystemId: s.setHighlightedSystemId,
+      selectedSkillId: s.selectedSkillId,
+    })),
+  );
 
-  const handleToggle = useCallback((systemId: string) => {
-    setExpandedId((prev) => (prev === systemId ? null : systemId));
-  }, []);
+  const handleSelect = useCallback(
+    (systemId: string) => {
+      setHighlightedSystemId(highlightedSystemId === systemId ? null : systemId);
+    },
+    [highlightedSystemId, setHighlightedSystemId],
+  );
 
-  // Sort by curve_value (chronological build order)
+  // Sort chronologically
   const sortedSystems = [...SYSTEMS].sort((a, b) => a.curve_value - b.curve_value);
+
+  // When a skill is selected, highlight systems that use that skill as a capability.
+  // Skill IDs (python, sql, databricks, etc.) match the capability IDs in system.capabilities_used.
+  const skillRelatedSystemIds = (() => {
+    if (!selectedSkillId) return new Set<string>();
+    return new Set(
+      SYSTEMS.filter((s) => s.capabilities_used.includes(selectedSkillId)).map((s) => s.id),
+    );
+  })();
 
   return (
     <section className="rounded-[20px] border border-bm-border/60 bg-bm-surface/18 p-3 shadow-[0_24px_64px_-48px_rgba(5,12,18,0.95)] md:rounded-[28px] md:p-5">
@@ -184,9 +187,6 @@ export default function SystemsBuiltSection() {
           <h2 className="mt-1.5 text-lg font-semibold md:mt-2 md:text-xl">
             Production systems replacing manual workflows
           </h2>
-          <p className="mt-1 max-w-2xl text-sm text-bm-muted">
-            Each system solved a real operational problem — click to see how it was built and what it delivered.
-          </p>
         </div>
         <div className="hidden shrink-0 items-center gap-2 text-xs text-bm-muted2 md:flex">
           <span className="flex items-center gap-1.5">
@@ -195,7 +195,7 @@ export default function SystemsBuiltSection() {
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COMPANY_COLORS.kayne.primary }} />
-            Kayne Anderson
+            Kayne
           </span>
         </div>
       </div>
@@ -205,8 +205,9 @@ export default function SystemsBuiltSection() {
           <SystemCard
             key={system.id}
             system={system}
-            isExpanded={expandedId === system.id}
-            onToggle={() => handleToggle(system.id)}
+            isHighlighted={highlightedSystemId === system.id}
+            isRelatedToSkill={skillRelatedSystemIds.has(system.id)}
+            onSelect={() => handleSelect(system.id)}
           />
         ))}
       </div>

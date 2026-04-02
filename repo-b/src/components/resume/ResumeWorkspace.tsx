@@ -11,7 +11,6 @@ import {
 } from "@/lib/commandbar/appContextBridge";
 import { computeResumeScenario } from "./modelingMath";
 import { deriveResumeBiSlice } from "./biMath";
-import ResumeTimelineModule from "./ResumeTimelineModule";
 import { TimelineEngine } from "./timeline";
 import ResumeArchitectureModule from "./ResumeArchitectureModule";
 import ResumeModelingModule from "./ResumeModelingModule";
@@ -402,16 +401,11 @@ export default function ResumeWorkspace({
 
       {isMobileViewport ? (
         <div className="space-y-3">
-        {/* Mobile Export — secondary placement */}
-        <div className="flex justify-end md:hidden">
-          <ResumeExportPdf contentRef={moduleContentRef} />
-        </div>
-
         <details
           className="rounded-[20px] border border-bm-border/60 bg-bm-surface/18 p-3"
           open
         >
-          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.1em] text-bm-muted2">Context Rail</summary>
+          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.1em] text-bm-muted2">Context &amp; Evidence</summary>
           <div className="mt-3">
             <ResumeModuleBoundary
               boundaryId="resume-context-rail-mobile"
@@ -433,7 +427,7 @@ export default function ResumeWorkspace({
 
         {!readOnly ? (
           <details className="rounded-[20px] border border-bm-border/60 bg-bm-surface/18 p-3">
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.1em] text-bm-muted2">Winston</summary>
+            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.1em] text-bm-muted2">Ask Winston</summary>
             <div className="mt-3">
               <ResumeModuleBoundary
                 boundaryId="resume-assistant-mobile"

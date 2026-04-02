@@ -45,10 +45,12 @@ type ResumeWorkspaceState = {
   enabledCapabilityLayerIds: string[];
   selectedImpactMetric: ImpactMetricKey;
   selectedSkillId: SkillId | null;
+  highlightedSystemId: string | null;
   lastBiEntitySource: "timeline" | "bi" | "init";
   lastModelPresetSource: "timeline" | "modeling" | "init";
   initialize: (workspace: ResumeWorkspaceViewModel) => void;
   setSelectedSkillId: (skillId: SkillId | null) => void;
+  setHighlightedSystemId: (systemId: string | null) => void;
   setActiveModule: (module: ResumeModule) => void;
   setTimelineView: (view: ResumeTimelineViewMode) => void;
   togglePlayStory: () => void;
@@ -220,9 +222,11 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
   enabledCapabilityLayerIds: [],
   selectedImpactMetric: "impact_composite",
   selectedSkillId: null,
+  highlightedSystemId: null,
   lastBiEntitySource: "init",
   lastModelPresetSource: "init",
   setSelectedSkillId: (skillId) => set({ selectedSkillId: skillId }),
+  setHighlightedSystemId: (systemId) => set({ highlightedSystemId: systemId }),
   initialize: (workspace) => {
     // Pick the strongest milestone as default — warehouse/semantic layer milestone shows the most
     // cross-module connections (architecture, BI, modeling). Fall back to first play step or first milestone.
@@ -265,6 +269,7 @@ export const useResumeWorkspaceStore = create<ResumeWorkspaceState>((set, get) =
       enabledCapabilityLayerIds: getVisibleCapabilityLayerIds(workspace.timeline),
       selectedImpactMetric: "impact_composite",
       selectedSkillId: null,
+      highlightedSystemId: null,
       lastBiEntitySource: "init",
       lastModelPresetSource: "init",
     });

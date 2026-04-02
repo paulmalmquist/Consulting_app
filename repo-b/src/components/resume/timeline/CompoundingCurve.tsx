@@ -60,6 +60,13 @@ function useIsMobile(breakpoint = 768) {
   return isMobile;
 }
 
+/** 3 key milestone labels shown directly on the graph */
+const KEY_MILESTONES = new Map<string, string>([
+  ["sys-ingestion-automation", "Ingestion Automation"],
+  ["sys-warehouse", "Data Warehouse"],
+  ["sys-ai-platform", "AI Platform"],
+]);
+
 // ---------------------------------------------------------------------------
 // Custom tooltip
 // ---------------------------------------------------------------------------
@@ -202,6 +209,19 @@ function MilestoneDots({
             />
             {/* Hover target (larger invisible circle) */}
             <circle cx={cx} cy={cy} r={16} fill="transparent" />
+            {/* Key milestone labels — shown for 3 landmark systems on desktop */}
+            {!isMobile && KEY_MILESTONES.has(system.id) && (
+              <text
+                x={cx}
+                y={cy - r - 8}
+                textAnchor="middle"
+                fill={isFiltered ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.6)"}
+                fontSize={10}
+                fontWeight={isSelected ? 600 : 400}
+              >
+                {KEY_MILESTONES.get(system.id)}
+              </text>
+            )}
           </g>
         );
       })}
