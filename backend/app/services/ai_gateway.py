@@ -180,9 +180,11 @@ def _rag_cache_get(key: str) -> list[RetrievedChunk] | None:
     _total = _rag_cache_hits + _rag_cache_misses
     if _total > 0 and _total % 100 == 0:
         _hit_rate = round(_rag_cache_hits / _total * 100, 1)
-        logger.info(
-            "RAG cache stats: size=%d hits=%d misses=%d hit_rate=%.1f%%",
-            len(_rag_cache), _rag_cache_hits, _rag_cache_misses, _hit_rate,
+        emit_log(
+            level="info",
+            service="backend",
+            action="ai.gateway.rag_cache_stats",
+            message=f"RAG cache stats: size={len(_rag_cache)} hits={_rag_cache_hits} misses={_rag_cache_misses} hit_rate={_hit_rate}%",
         )
     return chunks
 
