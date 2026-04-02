@@ -84,14 +84,17 @@ describe("ResumeWorkspace narrative controls", () => {
     );
   });
 
-  it("renders hero metric strip and view mode tabs", async () => {
+  it("renders hero metric strip and module tabs", async () => {
     renderWorkspace();
 
-    expect(await screen.findByText("Build Journey")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Career" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Capability" })).toBeInTheDocument();
-    expect(screen.getAllByText("11+").length).toBeGreaterThanOrEqual(1);
+    // Verify KPI metrics render
+    await waitFor(() => {
+      expect(screen.getAllByText("11+").length).toBeGreaterThanOrEqual(1);
+    });
     expect(screen.getAllByText("500+").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("83").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("160+").length).toBeGreaterThanOrEqual(1);
+
+    // Verify module tabs render (button text includes both short and full labels)
+    expect(screen.getAllByText("Timeline").length).toBeGreaterThanOrEqual(1);
   });
 });

@@ -1,39 +1,54 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import CompoundingCurve from "./CompoundingCurve";
 import CapabilityStrip from "./CapabilityStrip";
-import TimelineContextPanel from "./TimelineContextPanel";
+import { useResumeWorkspaceStore } from "../useResumeWorkspaceStore";
+import { SYSTEM_MAP, getEventForSystem } from "./timelineData";
 
 /**
- * TimelineEngine — the main orchestrator for the compounding capability timeline.
+ * TimelineEngine — graph-only timeline with employer color bands and milestone dots.
  *
- * Manages selection state across three interactive layers:
- *   1. CapabilityStrip (above graph) — skill icon filtering
- *   2. CompoundingCurve (the graph) — company regions + system milestone dots
- *   3. TimelineContextPanel (below graph) — context-sensitive proof panel
- *
- * Default state: JLL current phase selected.
+ * Selection state propagates to the Zustand store so skills, systems, and
+ * context rail all react to timeline interactions.
  */
 export default function TimelineEngine() {
   const [selectedEventId, setSelectedEventId] = useState<string | null>("phase-jll-2025-present");
   const [selectedSystemId, setSelectedSystemId] = useState<string | null>(null);
   const [selectedCapabilityId, setSelectedCapabilityId] = useState<string | null>(null);
 
+  const selectNarrativeItem = useResumeWorkspaceStore((s) => s.selectNarrativeItem);
+  const setHighlightedSystemId = useResumeWorkspaceStore((s) => s.setHighlightedSystemId);
+
+  // Propagate timeline selections to global store for cross-section reactivity
+  useEffect(() => {
+    if (selectedSystemId) {
+      const system = SYSTEM_MAP.get(selectedSystemId);
+      if (system) {
+        const parent = getEventForSystem(selectedSystemId);
+        selectNarrativeItem("milestone", selectedSystemId, {
+          switchModule: null,
+        });
+        setHighlightedSystemId(selectedSystemId);
+      }
+    } else if (selectedEventId) {
+      selectNarrativeItem("phase", selectedEventId, { switchModule: null });
+      setHighlightedSystemId(null);
+    }
+  }, [selectedEventId, selectedSystemId, selectNarrativeItem, setHighlightedSystemId]);
+
   const handleSelectEvent = useCallback((eventId: string) => {
     setSelectedEventId(eventId);
-    setSelectedSystemId(null); // Clear system when selecting a phase
-    // Don't clear capability — let it stay as a filter
+    setSelectedSystemId(null);
   }, []);
 
   const handleSelectSystem = useCallback((systemId: string) => {
     setSelectedSystemId(systemId);
-    // Don't clear event — system is a drill-through from a phase
   }, []);
 
   const handleSelectCapability = useCallback((capabilityId: string | null) => {
     setSelectedCapabilityId(capabilityId);
-    setSelectedSystemId(null); // Clear system drill-through when filtering by capability
+    setSelectedSystemId(null);
   }, []);
 
   const handleHoverEvent = useCallback((_eventId: string | null) => {
@@ -48,7 +63,6 @@ export default function TimelineEngine() {
           <span className="md:hidden">Capability Timeline</span>
           <span className="hidden md:inline">Compounding Capability</span>
         </h2>
-        {/* Employer badges — top right */}
         <div className="flex gap-1.5">
           <EmployerBadge
             label="JLL"
@@ -83,18 +97,6 @@ export default function TimelineEngine() {
           onSelectEvent={handleSelectEvent}
           onSelectSystem={handleSelectSystem}
           onHoverEvent={handleHoverEvent}
-        />
-      </div>
-
-      {/* Context panel — high-signal proof */}
-      <div className="mt-3 md:mt-4">
-        <TimelineContextPanel
-          selectedEventId={selectedEventId}
-          selectedSystemId={selectedSystemId}
-          selectedCapabilityId={selectedCapabilityId}
-          onSelectSystem={handleSelectSystem}
-          onSelectEvent={handleSelectEvent}
-          onSelectCapability={handleSelectCapability}
         />
       </div>
     </section>

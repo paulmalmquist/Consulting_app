@@ -24,6 +24,7 @@ export default function SkillsCapabilityMap() {
     workspace,
     toggleCapabilityLayer,
     enabledCapabilityLayerIds,
+    setHighlightedSystemId,
   } = useResumeWorkspaceStore(
     useShallow((state) => ({
       selectedSkillId: state.selectedSkillId,
@@ -33,6 +34,7 @@ export default function SkillsCapabilityMap() {
       workspace: state.workspace,
       toggleCapabilityLayer: state.toggleCapabilityLayer,
       enabledCapabilityLayerIds: state.enabledCapabilityLayerIds,
+      setHighlightedSystemId: state.setHighlightedSystemId,
     })),
   );
 
@@ -95,13 +97,14 @@ export default function SkillsCapabilityMap() {
   const handleSkillClick = useCallback(
     (skillId: SkillId) => {
       if (selectedSkillId === skillId) {
-        // Deselect
         setSelectedSkillId(null);
         return;
       }
       setSelectedSkillId(skillId);
+      // Clear timeline-driven system highlight — skill filtering takes over
+      setHighlightedSystemId(null);
 
-      // When selecting a skill, ensure its capability layers are visible on the timeline
+      // Ensure capability layers are visible on the timeline
       const skill = SKILLS.find((s) => s.id === skillId);
       if (skill) {
         for (const tag of skill.capabilityTags) {
@@ -111,7 +114,7 @@ export default function SkillsCapabilityMap() {
         }
       }
     },
-    [selectedSkillId, setSelectedSkillId, enabledCapabilityLayerIds, toggleCapabilityLayer],
+    [selectedSkillId, setSelectedSkillId, setHighlightedSystemId, enabledCapabilityLayerIds, toggleCapabilityLayer],
   );
 
   const handleBack = useCallback(() => {
