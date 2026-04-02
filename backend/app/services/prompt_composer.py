@@ -71,6 +71,8 @@ class PromptAudit:
     rag_tokens: int = 0
     history_tokens: int = 0
     user_tokens: int = 0
+    domain_block_tokens: int = 0
+    session_context_tokens: int = 0
     total_tokens: int = 0
     domain_blocks_applied: list[str] = field(default_factory=list)
     sections_truncated: list[str] = field(default_factory=list)
@@ -128,10 +130,19 @@ def compose_prompt(
         dynamic_parts.append(mutation_rules)
 
     # 2b. Domain-specific blocks (novendor, credit, resume, etc.)
+    # Domain blocks share the context budget — track their token usage.
     if domain_blocks:
+        _domain_budget = budget.context_max // 2  # domain blocks get half of context budget
+        _domain_used = 0
         for name, block_content in domain_blocks:
+            _block_tokens = _estimate_tokens(block_content)
+            if _domain_used + _block_tokens > _domain_budget:
+                block_content = _truncate_to_budget(block_content, _domain_budget - _domain_used)
+                audit.sections_truncated.append(f"domain:{name}")
+            _domain_used += _estimate_tokens(block_content)
             dynamic_parts.append(block_content)
             audit.domain_blocks_applied.append(name)
+        audit.domain_block_tokens = _domain_used
 
     # 2c. Context block (environment, page, entity, visible data)
     if context_block:
@@ -142,8 +153,14 @@ def compose_prompt(
         dynamic_parts.append(ctx)
 
     # 2d. Session context (prior waterfall runs, etc.)
+    # Budget-checked: session context shares context budget
     if session_context:
-        dynamic_parts.append(session_context)
+        _session_budget = budget.context_max // 4  # session gets quarter of context budget
+        sc = _truncate_to_budget(session_context, _session_budget)
+        audit.session_context_tokens = _estimate_tokens(sc)
+        if audit.session_context_tokens < _estimate_tokens(session_context):
+            audit.sections_truncated.append("session_context")
+        dynamic_parts.append(sc)
 
     # 2e. RAG context (retrieved document chunks)
     if rag_context and budget.rag_max > 0:
@@ -181,6 +198,7 @@ def compose_prompt(
     audit.total_tokens = (
         audit.system_tokens + audit.context_tokens + audit.rag_tokens
         + audit.history_tokens + audit.user_tokens
+        + audit.domain_block_tokens + audit.session_context_tokens
     )
 
     return messages, audit

@@ -355,6 +355,43 @@ def _serialize_log(row: dict) -> dict:
     }
 
 
+# ── Latency Stats ─────────────────────────────────────────────────────────
+
+
+@router.get("/stats")
+def get_gateway_stats(
+    business_id: str | None = None,
+    hours: int = 24,
+    lane: str | None = None,
+):
+    """Aggregated latency statistics by lane — p50/p95, token usage, cache hit rates."""
+    from app.services.ai_gateway_stats import get_latency_stats
+
+    rows = get_latency_stats(
+        business_id=business_id,
+        hours=hours,
+        lane=lane,
+    )
+    return {
+        "window_hours": hours,
+        "lanes": rows,
+    }
+
+
+@router.get("/tool-failures")
+def get_tool_failures(
+    business_id: str | None = None,
+    days: int = 7,
+):
+    """Aggregated tool failure statistics — top failing tools, hallucinated names, missing params."""
+    from app.services.tool_failure_stats import get_tool_failure_stats
+
+    return get_tool_failure_stats(
+        business_id=business_id,
+        days=days,
+    )
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────
 
 

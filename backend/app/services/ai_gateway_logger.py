@@ -46,6 +46,12 @@ def log_request(
     model_ms: int | None = None,
     fallback_used: bool = False,
     error_message: str | None = None,
+    # Latency audit extensions
+    timings_json: dict | None = None,
+    rag_cache_hit: bool = False,
+    embedding_cache_hit: bool = False,
+    prompt_audit_json: dict | None = None,
+    matched_pattern: str | None = None,
 ) -> str | None:
     """Insert one row into ai_gateway_logs. Returns the log id or None on failure."""
     try:
@@ -59,7 +65,9 @@ def log_request(
                     rag_chunks_raw, rag_chunks_used, rag_rerank_method, rag_scores,
                     cost_total, cost_model, cost_embedding, cost_rerank,
                     elapsed_ms, ttft_ms, model_ms,
-                    fallback_used, error_message
+                    fallback_used, error_message,
+                    timings_json, rag_cache_hit, embedding_cache_hit,
+                    prompt_audit_json, matched_pattern
                 ) VALUES (
                     %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s,
@@ -67,6 +75,8 @@ def log_request(
                     %s, %s, %s,
                     %s, %s, %s, %s,
                     %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s,
                     %s, %s, %s,
                     %s, %s
                 ) RETURNING id""",
@@ -101,6 +111,11 @@ def log_request(
                     model_ms,
                     fallback_used,
                     error_message,
+                    json.dumps(timings_json) if timings_json else None,
+                    rag_cache_hit,
+                    embedding_cache_hit,
+                    json.dumps(prompt_audit_json) if prompt_audit_json else None,
+                    matched_pattern,
                 ),
             )
             row = cur.fetchone()

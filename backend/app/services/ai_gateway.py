@@ -155,6 +155,8 @@ def _override_route_for_workflow(
 
 # ── RAG result cache (60s TTL) ────────────────────────────────────────
 _rag_cache: dict[str, tuple[float, list[RetrievedChunk]]] = {}
+_rag_cache_hits = 0
+_rag_cache_misses = 0
 
 
 def _rag_cache_key(query: str, business_id: str, env_id: str | None, entity_id: str | None) -> str:
@@ -163,13 +165,25 @@ def _rag_cache_key(query: str, business_id: str, env_id: str | None, entity_id: 
 
 
 def _rag_cache_get(key: str) -> list[RetrievedChunk] | None:
+    global _rag_cache_hits, _rag_cache_misses
     entry = _rag_cache.get(key)
     if entry is None:
+        _rag_cache_misses += 1
         return None
     ts, chunks = entry
     if time.time() - ts > RAG_CACHE_TTL_SECONDS:
         del _rag_cache[key]
+        _rag_cache_misses += 1
         return None
+    _rag_cache_hits += 1
+    # Periodic aggregate log every 100 cache lookups
+    _total = _rag_cache_hits + _rag_cache_misses
+    if _total > 0 and _total % 100 == 0:
+        _hit_rate = round(_rag_cache_hits / _total * 100, 1)
+        logger.info(
+            "RAG cache stats: size=%d hits=%d misses=%d hit_rate=%.1f%%",
+            len(_rag_cache), _rag_cache_hits, _rag_cache_misses, _hit_rate,
+        )
     return chunks
 
 
@@ -2889,7 +2903,9 @@ async def run_gateway_stream(
         try:
             if cached is not None:
                 rag_chunks_raw = cached
+                timings["rag_cache_hit"] = 1
             else:
+                timings["rag_cache_hit"] = 0
                 _search_kwargs = dict(
                     business_id=uuid.UUID(str(rag_business_id)),
                     env_id=uuid.UUID(str(rag_env_id)) if rag_env_id else None,
@@ -2903,6 +2919,7 @@ async def run_gateway_stream(
                     overfetch=RAG_OVERFETCH if route.use_rerank else None,
                     return_all=route.use_rerank,
                     trace=trace,
+                    timings=timings,
                 )
                 # T-2.3: Query expansion (multi-query retrieval)
                 if getattr(route, "needs_query_expansion", False) and ENABLE_QUERY_EXPANSION:
@@ -2927,11 +2944,24 @@ async def run_gateway_stream(
                     chunks=rag_chunks_raw,
                     top_k=effective_top_k,
                     trace=trace,
+                    timings=timings,
                 )
             else:
+                timings["rerank_ms"] = 0
                 rag_chunks = list(rag_chunks_raw)
-            # Score threshold filter AFTER rerank
-            rag_chunks = [c for c in rag_chunks if c.score >= RAG_MIN_SCORE]
+            # Score threshold filter AFTER rerank — use per-lane threshold
+            _effective_min_score = getattr(route, "rag_min_score", RAG_MIN_SCORE)
+            _pre_threshold_count = len(rag_chunks)
+            rag_chunks = [c for c in rag_chunks if c.score >= _effective_min_score]
+            timings["rag_chunks_threshold_filtered"] = _pre_threshold_count - len(rag_chunks)
+            if _pre_threshold_count > 0 and timings["rag_chunks_threshold_filtered"] > _pre_threshold_count // 2:
+                emit_log(
+                    level="warning",
+                    service="backend",
+                    action="ai.gateway.rag_low_quality",
+                    message=f"Over 50% of retrieved chunks below threshold ({_effective_min_score}): "
+                            f"{timings['rag_chunks_threshold_filtered']}/{_pre_threshold_count} filtered",
+                )
             for chunk in rag_chunks:
                 yield _sse(
                     "citation",
@@ -2970,13 +3000,16 @@ async def run_gateway_stream(
         ).end(metadata={"elapsed_ms": rag_elapsed_ms})
 
     rag_context = ""
+    # Lane-aware chunk truncation: short for quick lookups, full for deep reasoning
+    _LANE_CHUNK_CHAR_LIMITS = {"A": 0, "B": 400, "C": 800, "D": 1600, "F": 0}
+    _chunk_char_limit = _LANE_CHUNK_CHAR_LIMITS.get(route.lane, 800)
     if rag_chunks:
         rag_context = "\n\nRELEVANT DOCUMENT CONTEXT:\n"
         rag_token_budget = route.rag_max_tokens if route.rag_max_tokens > 0 else 9999
         rag_tokens_used = 0
         for idx, chunk in enumerate(rag_chunks, 1):
             # Approximate token count: ~4 chars per token
-            chunk_text = chunk.chunk_text[:800]
+            chunk_text = chunk.chunk_text[:_chunk_char_limit] if _chunk_char_limit > 0 else chunk.chunk_text
             chunk_tokens = len(chunk_text) // 4
             if rag_tokens_used + chunk_tokens > rag_token_budget:
                 break
@@ -2987,7 +3020,13 @@ async def run_gateway_stream(
                 f"{chunk_text}\n"
             )
 
-    timings["rag_search_ms"] = int((time.time() - start) * 1000) - timings["context_resolution_ms"]
+    # rag_search_ms = sum of isolated retrieval stages (or wall-clock fallback)
+    timings["rag_search_ms"] = (
+        timings.get("embedding_ms", 0)
+        + timings.get("vector_search_ms", 0)
+        + timings.get("fts_search_ms", 0)
+        + timings.get("rerank_ms", 0)
+    ) if not route.skip_rag else 0
     context_block = build_context_block(
         context_envelope=normalized_envelope,
         resolved_scope=resolved_scope,
@@ -3119,6 +3158,7 @@ async def run_gateway_stream(
             )
         session_context_str = "## Prior Waterfall Runs This Session\n" + "\n".join(session_lines)
 
+    _t_prompt_start = time.time()
     messages, _prompt_audit = compose_prompt(
         system_base=_SYSTEM_PROMPT_BASE,
         lane=route.lane,
@@ -3132,14 +3172,17 @@ async def run_gateway_stream(
         system_role=system_role,
         workflow_augmentation=_workflow_augmentation,
     )
+    timings["prompt_assembly_ms"] = int((time.time() - _t_prompt_start) * 1000)
     emit_log(level="info", service="backend", action="ai.gateway.prompt_composed",
              message=f"Lane {route.lane}: {_prompt_audit.total_tokens} est. tokens, "
                      f"domains={_prompt_audit.domain_blocks_applied}, "
                      f"truncated={_prompt_audit.sections_truncated}")
 
+    _t_tool_filter_start = time.time()
     openai_tools, tool_name_map = _build_openai_tools_for_lane(
         lane=route.lane, is_write=route.is_write, is_credit=_is_credit, is_resume=_is_resume,
     )
+    timings["tool_filter_ms"] = int((time.time() - _t_tool_filter_start) * 1000)
     if route.skip_tools:
         emit_log(
             level="info",
@@ -3343,6 +3386,18 @@ async def run_gateway_stream(
                     raw_args = {}
             if t_def is not None:
                 raw_args = _maybe_attach_scope(t_def, raw_args, scope_dump)
+                # Pre-flight: warn about missing required params that aren't auto-resolved
+                _auto_resolved = {"env_id", "business_id", "actor"}
+                _required = set(getattr(t_def, "required_params", []) or [])
+                _missing = _required - _auto_resolved - set(raw_args.keys())
+                if _missing:
+                    emit_log(
+                        level="warning",
+                        service="backend",
+                        action="ai.gateway.tool_missing_params",
+                        message=f"Tool '{t_name}' missing required params before execution: {_missing}",
+                        context={"tool_name": t_name, "missing": list(_missing), "provided": list(raw_args.keys())},
+                    )
             tool_tasks.append({
                 "call": tool_call,
                 "tool_name": t_name,
@@ -4032,6 +4087,21 @@ async def run_gateway_stream(
             ttft_ms=timings.get("ttft_ms"),
             model_ms=timings.get("model_ms"),
             fallback_used=_fallback_used,
+            # Latency audit extensions
+            timings_json=timings,
+            rag_cache_hit=bool(timings.get("rag_cache_hit")),
+            embedding_cache_hit=bool(timings.get("embedding_cache_hit")),
+            prompt_audit_json={
+                "total_tokens": _prompt_audit.total_tokens,
+                "system_tokens": _prompt_audit.system_tokens,
+                "context_tokens": _prompt_audit.context_tokens,
+                "rag_tokens": _prompt_audit.rag_tokens,
+                "history_tokens": _prompt_audit.history_tokens,
+                "user_tokens": _prompt_audit.user_tokens,
+                "domain_blocks": _prompt_audit.domain_blocks_applied,
+                "truncated": _prompt_audit.sections_truncated,
+            } if _prompt_audit else None,
+            matched_pattern=getattr(route, "matched_pattern", None),
         )
     except Exception:
         pass  # never block the response for logging

@@ -39,6 +39,9 @@ class RouteDecision:
     needs_query_expansion: bool = False
     needs_structured_retrieval: bool = False
     needs_agentic_executor: bool = False
+    # Latency audit fields
+    rag_min_score: float = 0.30  # per-lane score threshold
+    matched_pattern: str = ""  # which regex pattern matched (for routing audit)
 
 
 # ── Pattern matchers ─────────────────────────────────────────────────────────
@@ -57,6 +60,11 @@ _COUNT_RE = re.compile(
 )
 _SIMPLE_LOOKUP_RE = re.compile(
     r"\b(get|show|tell|what)\b.*\b(fund|asset|investment|deal|snapshot|overview|summary)\b",
+    re.IGNORECASE,
+)
+# Exclude document-seeking language from simple lookup → should go to Lane C with RAG
+_SIMPLE_LOOKUP_EXCLUDE_RE = re.compile(
+    r"\b(thesis|memo|analysis|agreement|lease|lpa|ppm|report|document|filing|prospectus)\b",
     re.IGNORECASE,
 )
 _ANALYTICAL_RE = re.compile(
@@ -147,6 +155,7 @@ def classify_request(
             rag_top_k=0,
             rag_max_tokens=0,
             history_max_tokens=800,
+            matched_pattern="visible_context_shortcut",
         )
 
     # Identity queries
@@ -162,6 +171,7 @@ def classify_request(
             rag_top_k=0,
             rag_max_tokens=0,
             history_max_tokens=800,
+            matched_pattern="identity",
         )
 
     # Count queries with visible data
@@ -183,6 +193,7 @@ def classify_request(
                 rag_top_k=0,
                 rag_max_tokens=0,
                 history_max_tokens=800,
+                matched_pattern="count_visible",
             )
 
     # Write/mutation requests → Lane C (multi-tool for confirmation flow)
@@ -199,6 +210,7 @@ def classify_request(
             rag_top_k=0,
             rag_max_tokens=0,
             history_max_tokens=2000,
+            matched_pattern="write",
         )
 
     # Agentic tasks → Lane D with agentic model
@@ -216,6 +228,8 @@ def classify_request(
             history_max_tokens=4000,
             reasoning_effort="high",
             needs_agentic_executor=True,
+            rag_min_score=0.25,
+            matched_pattern="agentic",
         )
 
     # Deep reasoning
@@ -238,6 +252,8 @@ def classify_request(
             needs_verification=True,
             needs_query_expansion=is_vague,
             needs_structured_retrieval=has_financial_metrics,
+            rag_min_score=0.25,
+            matched_pattern="deep",
         )
 
     # REPE scenario queries → Lane B (fast, 2 tool rounds)
@@ -256,6 +272,8 @@ def classify_request(
             rag_max_tokens=0,
             history_max_tokens=1500,
             needs_structured_retrieval=True,
+            rag_min_score=0.40,
+            matched_pattern="repe_scenario",
         )
 
     # Credit write requests → Lane C (deterministic, tools enabled)
@@ -272,6 +290,7 @@ def classify_request(
             rag_top_k=3,
             rag_max_tokens=1500,
             history_max_tokens=2000,
+            matched_pattern="credit_write",
         )
 
     # Credit policy / corpus queries → Lane C with RAG (walled garden)
@@ -287,6 +306,7 @@ def classify_request(
             rag_top_k=5,
             rag_max_tokens=2000,
             history_max_tokens=2000,
+            matched_pattern="credit_policy",
         )
 
     # Analytical
@@ -309,6 +329,7 @@ def classify_request(
             needs_verification=True,
             needs_query_expansion=is_vague,
             needs_structured_retrieval=has_financial_metrics,
+            matched_pattern="analytical",
         )
 
     # Simple list with visible data → Lane B (tool-backed) so Winston pulls
@@ -334,10 +355,13 @@ def classify_request(
                     rag_top_k=0,
                     rag_max_tokens=0,
                     history_max_tokens=1500,
+                    rag_min_score=0.40,
+                    matched_pattern="simple_list_visible",
                 )
 
     # Simple lookup → Lane B (2 tool rounds, no RAG)
-    if _SIMPLE_LOOKUP_RE.search(message):
+    # Exclude document-seeking queries which need RAG (Lane C)
+    if _SIMPLE_LOOKUP_RE.search(message) and not _SIMPLE_LOOKUP_EXCLUDE_RE.search(message):
         return RouteDecision(
             lane="B",
             skip_rag=True,
@@ -349,6 +373,8 @@ def classify_request(
             rag_top_k=3,
             rag_max_tokens=800,
             history_max_tokens=1500,
+            rag_min_score=0.40,
+            matched_pattern="simple_lookup",
         )
 
     # Document/RAG hints → Lane C with RAG
@@ -369,6 +395,7 @@ def classify_request(
             reasoning_effort="medium",
             needs_verification=True,
             needs_query_expansion=is_vague,
+            matched_pattern="rag_hint",
         )
 
     # Short messages (< 60 chars) without analytical keywords → Lane B
@@ -384,6 +411,8 @@ def classify_request(
             rag_top_k=3,
             rag_max_tokens=800,
             history_max_tokens=1500,
+            rag_min_score=0.40,
+            matched_pattern="short_message",
         )
 
     # Default → Lane C
@@ -404,4 +433,5 @@ def classify_request(
         needs_verification=True,
         needs_query_expansion=is_vague,
         needs_structured_retrieval=has_financial_metrics,
+        matched_pattern="default",
     )

@@ -894,14 +894,22 @@ export function WinstonCompanionProvider({
             };
           });
         },
+        onDone: () => {
+          // Clear thinking immediately when backend sends 'done' event,
+          // rather than waiting for post-stream persistence to close the HTTP stream.
+          setLaneState(lane, (current) => ({
+            ...current,
+            thinking: false,
+            thinkingStatus: undefined,
+          }));
+        },
       });
 
       setLaneState(lane, (current) => ({
         ...current,
         conversationId: conversationId || current.conversationId,
         binding: effectiveBinding,
-        thinking: false,
-        thinkingStatus: undefined,
+        // thinking already cleared by onDone callback when 'done' SSE event arrives
         trace: result.trace,
         debug: result.debug,
       }));

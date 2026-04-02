@@ -4,6 +4,7 @@ from __future__ import annotations
 import functools
 import logging
 import re
+import time
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -597,6 +598,7 @@ def semantic_search(
     overfetch: int | None = None,
     return_all: bool = False,
     trace: Any = None,
+    timings: dict[str, int] | None = None,
 ) -> list[RetrievedChunk]:
     """Semantic similarity search with parent-child context expansion.
 
@@ -607,8 +609,19 @@ def semantic_search(
     When use_hybrid=True, runs both cosine and FTS, merges via RRF.
     Applies metadata boosting and diversity dedup.
     Always scoped by business_id for multi-tenant isolation.
+
+    If *timings* dict is provided, populates granular stage timings:
+    embedding_ms, embedding_cache_hit, vector_search_ms, fts_search_ms.
     """
+    # ── Embedding ────────────────────────────────────────────────────
+    _cache_info_before = _embed_query_cached.cache_info()
+    t0 = time.time()
     query_embedding = _embed_query_cached(query)
+    if timings is not None:
+        timings["embedding_ms"] = int((time.time() - t0) * 1000)
+        _cache_info_after = _embed_query_cached.cache_info()
+        timings["embedding_cache_hit"] = 1 if _cache_info_after.hits > _cache_info_before.hits else 0
+
     where, params = _build_scope_where(business_id, env_id, entity_type, entity_id)
 
     with get_cursor() as cur:
@@ -618,15 +631,23 @@ def semantic_search(
     # Over-fetch for hybrid/rerank pipeline
     fetch_k = overfetch or (top_k * 3 if use_hybrid else top_k)
 
+    # ── Vector search ────────────────────────────────────────────────
+    t0 = time.time()
     if has_vector:
         cosine_results = _cosine_search(query_embedding, where, params, fetch_k)
     else:
         cosine_results = []
+    if timings is not None:
+        timings["vector_search_ms"] = int((time.time() - t0) * 1000)
 
+    # ── FTS search ───────────────────────────────────────────────────
+    t0 = time.time()
     if use_hybrid or not has_vector:
         fts_results = _fts_search(query, where, params, fetch_k)
     else:
         fts_results = []
+    if timings is not None:
+        timings["fts_search_ms"] = int((time.time() - t0) * 1000)
 
     # Merge results
     if use_hybrid and cosine_results and fts_results:

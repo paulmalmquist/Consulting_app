@@ -23,6 +23,7 @@ async def rerank_chunks(
     top_k: int = 5,
     method: str | None = None,
     trace: Any = None,
+    timings: dict[str, int] | None = None,
 ) -> list[RetrievedChunk]:
     """Re-rank chunks using cross-encoder scoring.
 
@@ -32,10 +33,13 @@ async def rerank_chunks(
     - "none": skip re-ranking, return input unchanged
 
     Falls back gracefully on timeout or error.
+    If *timings* dict is provided, populates ``rerank_ms``.
     """
     effective_method = method or RAG_RERANK_METHOD
 
     if effective_method == "none" or len(chunks) <= 1:
+        if timings is not None:
+            timings["rerank_ms"] = 0
         return chunks[:top_k]
 
     start = time.time()
@@ -54,6 +58,8 @@ async def rerank_chunks(
             result = chunks[:top_k]
 
         elapsed_ms = int((time.time() - start) * 1000)
+        if timings is not None:
+            timings["rerank_ms"] = elapsed_ms
         logger.debug("Rerank (%s): %d -> %d chunks in %dms", effective_method, len(chunks), len(result), elapsed_ms)
         if trace is not None:
             try:
@@ -67,9 +73,15 @@ async def rerank_chunks(
         return result
 
     except asyncio.TimeoutError:
-        logger.warning("Rerank timeout (%s) after %.0fms — falling back to input order", effective_method, (time.time() - start) * 1000)
+        elapsed_ms = int((time.time() - start) * 1000)
+        if timings is not None:
+            timings["rerank_ms"] = elapsed_ms
+        logger.warning("Rerank timeout (%s) after %dms — falling back to input order", effective_method, elapsed_ms)
         return chunks[:top_k]
     except Exception:
+        elapsed_ms = int((time.time() - start) * 1000)
+        if timings is not None:
+            timings["rerank_ms"] = elapsed_ms
         logger.exception("Rerank error (%s) — falling back to input order", effective_method)
         return chunks[:top_k]
 
