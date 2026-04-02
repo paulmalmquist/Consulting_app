@@ -52,8 +52,11 @@ class AiCallAudit:
         tools_used: list[str] | None = None,
     ) -> None:
         """Record token usage from a completed AI call."""
-        self.prompt_tokens += prompt_tokens
-        self.completion_tokens += completion_tokens
+        try:
+            self.prompt_tokens += int(prompt_tokens)
+            self.completion_tokens += int(completion_tokens)
+        except (TypeError, ValueError):
+            pass  # Gracefully handle non-int values (e.g., from mocks)
         if tools_used:
             self.tools_used.extend(tools_used)
 
@@ -101,11 +104,14 @@ def log_ai_call(
         audit.fail(str(exc))
         raise
     finally:
-        cost = estimate_cost(
-            model=audit.model,
-            prompt_tokens=audit.prompt_tokens,
-            completion_tokens=audit.completion_tokens,
-        ) if audit.prompt_tokens > 0 else None
+        try:
+            cost = estimate_cost(
+                model=audit.model,
+                prompt_tokens=int(audit.prompt_tokens),
+                completion_tokens=int(audit.completion_tokens),
+            ) if isinstance(audit.prompt_tokens, int) and audit.prompt_tokens > 0 else None
+        except (TypeError, ValueError):
+            cost = None
 
         emit_log(
             level="error" if not audit.success else "info",

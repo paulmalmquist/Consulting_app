@@ -12,6 +12,7 @@ test("ResponseBlockRenderer renders chart, table, and confirmation blocks", () =
         title: "Top Assets",
         columns: ["asset", "noi"],
         rows: [{ asset: "Palm Grove", noi: 125000 }],
+        export_name: "top_assets",
       }}
     />,
   );
@@ -34,6 +35,6 @@ test("ResponseBlockRenderer renders chart, table, and confirmation blocks", () =
     />,
   );
 
-  expect(screen.getByText("Confirmation required")).toBeInTheDocument();
+  expect(screen.getByText("Confirmation Required")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Confirm action" })).toBeInTheDocument();
 });

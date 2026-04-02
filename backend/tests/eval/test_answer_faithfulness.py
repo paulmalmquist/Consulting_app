@@ -36,6 +36,7 @@ def test_query_expansion_returns_variants(mock_openai_completion):
     mock_client, _ = mock_openai_completion
 
     with patch("app.services.query_rewriter.OPENAI_API_KEY", "test-key"), \
+         patch("app.services.ai_client.get_instrumented_client", return_value=mock_client), \
          patch("openai.AsyncOpenAI", return_value=mock_client):
         result = asyncio.get_event_loop().run_until_complete(
             expand_query("What is the cap rate for Ashford Commons?", num_variants=3)
@@ -52,6 +53,7 @@ def test_query_expansion_fallback_on_error():
     mock_client.chat.completions.create = AsyncMock(side_effect=Exception("API error"))
 
     with patch("app.services.query_rewriter.OPENAI_API_KEY", "test-key"), \
+         patch("app.services.ai_client.get_instrumented_client", return_value=mock_client), \
          patch("openai.AsyncOpenAI", return_value=mock_client):
         result = asyncio.get_event_loop().run_until_complete(
             expand_query("test query")
@@ -80,6 +82,7 @@ def test_query_expansion_handles_malformed_json():
     mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
     with patch("app.services.query_rewriter.OPENAI_API_KEY", "test-key"), \
+         patch("app.services.ai_client.get_instrumented_client", return_value=mock_client), \
          patch("openai.AsyncOpenAI", return_value=mock_client):
         result = asyncio.get_event_loop().run_until_complete(
             expand_query("test query")
@@ -98,6 +101,7 @@ def test_query_expansion_handles_code_block_response():
     mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
     with patch("app.services.query_rewriter.OPENAI_API_KEY", "test-key"), \
+         patch("app.services.ai_client.get_instrumented_client", return_value=mock_client), \
          patch("openai.AsyncOpenAI", return_value=mock_client):
         result = asyncio.get_event_loop().run_until_complete(
             expand_query("test query", num_variants=2)
@@ -119,6 +123,7 @@ def test_langfuse_noop_trace_accepted():
     mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
     with patch("app.services.query_rewriter.OPENAI_API_KEY", "test-key"), \
+         patch("app.services.ai_client.get_instrumented_client", return_value=mock_client), \
          patch("openai.AsyncOpenAI", return_value=mock_client):
         result = asyncio.get_event_loop().run_until_complete(
             expand_query("test", trace=NoOpTrace())
