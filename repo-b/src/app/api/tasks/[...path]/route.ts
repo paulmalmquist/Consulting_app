@@ -3,8 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_BOS_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.BOS_API_ORIGIN ||
   "http://127.0.0.1:8000";
 
 async function forward(request: NextRequest, path: string[]) {

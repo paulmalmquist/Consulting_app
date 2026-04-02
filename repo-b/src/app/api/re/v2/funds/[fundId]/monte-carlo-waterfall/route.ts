@@ -9,7 +9,7 @@ export async function POST(
   { params }: { params: { fundId: string } }
 ) {
   const body = await request.json();
-  const backendUrl = process.env.BOS_API_URL || "http://localhost:8000";
+  const backendUrl = process.env.BOS_API_ORIGIN || "http://localhost:8000";
 
   try {
     const res = await fetch(`${backendUrl}/api/re/v2/funds/${params.fundId}/monte-carlo-waterfall`, {

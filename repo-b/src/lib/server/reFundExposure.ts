@@ -197,7 +197,7 @@ export function aggregateFundExposureFromAssets(
   assets: BaseScenarioAssetContribution[],
   options?: { includeDebug?: boolean }
 ): FundExposureInsightsResult {
-  const includeDebug = options?.includeDebug ?? process.env.NODE_ENV !== "production";
+  const includeDebug = options?.includeDebug ?? false;
   const sectorBuckets = new Map<string, BucketAccumulator>();
   const geographicBuckets = new Map<string, BucketAccumulator>();
   const basisCounts: Record<Exclude<WeightBasis, "none">, number> = {

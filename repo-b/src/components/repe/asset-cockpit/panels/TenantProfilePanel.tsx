@@ -1,15 +1,12 @@
 "use client";
 
-import type { ReV2AssetDetail, ReLeaseTenant } from "@/lib/bos-api";
+import type { ReLeaseTenant } from "@/lib/bos-api";
 import SectionHeader from "../shared/SectionHeader";
 import HeroMetricCard from "../shared/HeroMetricCard";
 import HorizontalBar from "../shared/HorizontalBar";
 import { BRIEFING_COLORS, BRIEFING_CONTAINER } from "../shared/briefing-colors";
-import { getMockTenantProfile } from "../mock-data";
 
 interface Props {
-  detail: ReV2AssetDetail;
-  /** Real tenant data from /leasing/tenants API. When provided, overrides mock. */
   realTenants?: ReLeaseTenant[];
   realWalt?: number | null;
 }
@@ -22,13 +19,10 @@ function Pill({ label, className }: { label: string; className: string }) {
   );
 }
 
-export default function TenantProfilePanel({ detail, realTenants, realWalt }: Props) {
-  const useReal = realTenants && realTenants.length > 0;
-  const mock = useReal ? null : getMockTenantProfile(detail);
-  const tenants = useReal
-    ? realTenants.map((t) => ({ name: t.name, gla_pct: t.gla_pct, lease_end: new Date(t.expiration_date).getFullYear().toString(), is_anchor: t.is_anchor }))
-    : (mock?.tenants ?? []).map((t) => ({ ...t, is_anchor: false }));
-  const walt = useReal ? (realWalt ?? 0) : (mock?.walt ?? 0);
+export default function TenantProfilePanel({ realTenants, realWalt }: Props) {
+  if (!realTenants || realTenants.length === 0) return null;
+  const tenants = realTenants.map((t) => ({ name: t.name, gla_pct: t.gla_pct, lease_end: new Date(t.expiration_date).getFullYear().toString(), is_anchor: t.is_anchor }));
+  const walt = realWalt ?? 0;
 
   return (
     <div className={BRIEFING_CONTAINER}>

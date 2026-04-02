@@ -12,18 +12,15 @@ import {
 } from "recharts";
 import SectionHeader from "../shared/SectionHeader";
 import { BRIEFING_COLORS, BRIEFING_CONTAINER, BRIEFING_CARD } from "../shared/briefing-colors";
-import { getMockLeaseExpiration } from "../mock-data";
 import type { ReLeaseExpirationBucket } from "@/lib/bos-api";
 
 interface Props {
-  /** Real expiration buckets from /leasing/expiration API. When provided, overrides mock. */
   realBuckets?: ReLeaseExpirationBucket[];
 }
 
 export default function LeaseExpirationPanel({ realBuckets }: Props = {}) {
-  const data = (realBuckets && realBuckets.length > 0)
-    ? realBuckets
-    : getMockLeaseExpiration();
+  if (!realBuckets || realBuckets.length === 0) return null;
+  const data = realBuckets;
 
   return (
     <div className={BRIEFING_CONTAINER}>

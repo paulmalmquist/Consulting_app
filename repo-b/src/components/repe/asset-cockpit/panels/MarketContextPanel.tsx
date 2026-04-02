@@ -4,14 +4,21 @@ import type { ReV2AssetDetail } from "@/lib/bos-api";
 import SectionHeader from "../shared/SectionHeader";
 import SecondaryMetric from "../shared/SecondaryMetric";
 import { BRIEFING_CONTAINER } from "../shared/briefing-colors";
-import { getMockMarketContext } from "../mock-data";
+
+interface MarketContextData {
+  market_vacancy: number;
+  submarket_vacancy: number;
+  rent_growth: number;
+}
 
 interface Props {
   detail: ReV2AssetDetail;
+  marketContext?: MarketContextData | null;
 }
 
-export default function MarketContextPanel({ detail }: Props) {
-  const mc = getMockMarketContext();
+export default function MarketContextPanel({ detail, marketContext }: Props) {
+  if (!marketContext) return null;
+  const mc = marketContext;
   const market = detail.property?.market ?? detail.property?.msa ?? "Market";
 
   return (

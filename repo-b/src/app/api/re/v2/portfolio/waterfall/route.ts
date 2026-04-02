@@ -6,7 +6,7 @@ export async function OPTIONS() {
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const backendUrl = process.env.BOS_API_URL || "http://localhost:8000";
+  const backendUrl = process.env.BOS_API_ORIGIN || "http://localhost:8000";
 
   try {
     const res = await fetch(`${backendUrl}/api/re/v2/portfolio/waterfall`, {

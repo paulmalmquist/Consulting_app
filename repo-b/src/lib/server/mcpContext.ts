@@ -6,22 +6,15 @@ function normalizeBaseUrl(input: string) {
 }
 
 function resolveBosBaseUrl(origin: string) {
-  const configured =
-    process.env.BOS_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_BOS_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (configured && configured.trim()) return normalizeBaseUrl(configured.trim());
+  const configured = (process.env.BOS_API_ORIGIN || "").trim();
+  if (configured) return normalizeBaseUrl(configured);
   return normalizeBaseUrl(origin);
 }
 
 function resolveLabBaseUrl(origin: string) {
-  const configured =
-    process.env.LAB_API_BASE_URL ||
-    process.env.DEMO_API_BASE_URL ||
-    process.env.DEMO_API_ORIGIN ||
-    process.env.NEXT_PUBLIC_DEMO_API_BASE_URL;
-  if (configured && configured.trim() && !configured.trim().startsWith("/")) {
-    return normalizeBaseUrl(configured.trim());
+  const configured = (process.env.BOS_API_ORIGIN || "").trim();
+  if (configured && !configured.startsWith("/")) {
+    return normalizeBaseUrl(configured);
   }
   return normalizeBaseUrl(origin);
 }

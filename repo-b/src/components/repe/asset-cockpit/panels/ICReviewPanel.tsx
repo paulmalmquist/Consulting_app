@@ -2,7 +2,6 @@
 
 import SectionHeader from "../shared/SectionHeader";
 import { BRIEFING_CONTAINER } from "../shared/briefing-colors";
-import { getMockICReview } from "../mock-data";
 
 const STATUS_STYLES: Record<string, string> = {
   approved: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-200 dark:border-green-500/20",
@@ -10,8 +9,15 @@ const STATUS_STYLES: Record<string, string> = {
   conditional: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/20",
 };
 
-export default function ICReviewPanel() {
-  const review = getMockICReview();
+interface ICReview {
+  status: string;
+  date: string;
+  notes: string;
+  members: string[];
+}
+
+export default function ICReviewPanel({ review }: { review?: ICReview | null }) {
+  if (!review) return null;
 
   return (
     <div className={BRIEFING_CONTAINER}>

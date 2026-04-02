@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 
-const API_BASE = process.env.NEXT_PUBLIC_BOS_API_URL || "http://localhost:8000";
+const API_BASE = ""; // Same-origin — routes through proxy handlers
 
 type GraphNode = {
   node_id: string;

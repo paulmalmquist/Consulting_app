@@ -12,7 +12,6 @@ import { fmtMoney, fmtPct, fmtX } from "./format-utils";
 import SectionHeader from "./shared/SectionHeader";
 import SecondaryMetric from "./shared/SecondaryMetric";
 import { BRIEFING_CONTAINER, BRIEFING_CARD } from "./shared/briefing-colors";
-import { getMockLoanDetails } from "./mock-data";
 
 interface CovenantDef {
   covenant_type: string;
@@ -69,8 +68,7 @@ export default function DebtSection({ financialState, periods, assetId }: Props)
       debt_balance: Number(p.debt_balance ?? 0),
     }));
 
-  // Use real covenant data when available, fall back to mock
-  const mockLoan = getMockLoanDetails();
+  // Use real covenant data only — no mock fallback
   const primaryLoan = covenantData?.loans?.[0];
   const loan = primaryLoan
     ? {
@@ -82,7 +80,7 @@ export default function DebtSection({ financialState, periods, assetId }: Props)
         amortization: "—",
         loan_type: "—",
       }
-    : mockLoan;
+    : null;
 
   // Maturity warning: flag loans maturing within 18 months
   const maturityWarnings: { loanName: string; monthsLeft: number }[] = [];
@@ -210,18 +208,20 @@ export default function DebtSection({ financialState, periods, assetId }: Props)
       )}
 
       {/* Loan Details */}
-      <div className={BRIEFING_CONTAINER}>
-        <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2">
-          Loan Details
-        </h3>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <SecondaryMetric label="Lender" value={loan.lender} />
-          <SecondaryMetric label="Interest Rate" value={`${loan.rate.toFixed(2)}%`} />
-          <SecondaryMetric label="Maturity" value={loan.maturity} />
-          <SecondaryMetric label="Amortization" value={loan.amortization} />
-          <SecondaryMetric label="Loan Type" value={loan.loan_type} />
+      {loan && (
+        <div className={BRIEFING_CONTAINER}>
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2">
+            Loan Details
+          </h3>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <SecondaryMetric label="Lender" value={loan.lender} />
+            <SecondaryMetric label="Interest Rate" value={`${loan.rate.toFixed(2)}%`} />
+            <SecondaryMetric label="Maturity" value={loan.maturity} />
+            <SecondaryMetric label="Amortization" value={loan.amortization} />
+            <SecondaryMetric label="Loan Type" value={loan.loan_type} />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Maturity & Covenant Alerts */}
       {maturityWarnings.length > 0 && (

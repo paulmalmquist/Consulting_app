@@ -2,14 +2,8 @@
  * BOS API proxy — same-origin catch-all that forwards /bos/* requests
  * to the Business OS backend (FastAPI at backend/).
  *
- * This mirrors the pattern used by /v1/[...path]/route.ts for the Demo Lab
- * backend, but targets the BOS API (port 8000 by default).
- *
- * WHY: bos-api.ts previously called the backend directly from the browser,
- * requiring NEXT_PUBLIC_BOS_API_BASE_URL to be set correctly in production.
- * In production (Vercel), this meant cross-origin requests that either
- * failed due to CORS or because the env var defaulted to localhost:8000.
- * Using a same-origin proxy eliminates both failure modes.
+ * All browser API calls route through this proxy. The upstream is resolved
+ * from BOS_API_ORIGIN (server-side only) or inferred from the request hostname.
  */
 import { NextRequest } from "next/server";
 import {
@@ -22,20 +16,8 @@ import {
 export const runtime = "nodejs";
 
 function inferUpstreamOrigin(request: NextRequest): string {
-  // Explicit BOS API origin takes priority
-  const configured =
-    process.env.BOS_API_ORIGIN ||
-    process.env.NEXT_PUBLIC_BOS_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (configured) return configured.replace(/\/+$/, "");
-
-  // Fall back to the Demo Lab backend — in a unified deployment,
-  // both /v1/* and /api/* are served by the same process.
-  const demoOrigin =
-    process.env.DEMO_API_ORIGIN ||
-    process.env.DEMO_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_DEMO_API_BASE_URL;
-  if (demoOrigin) return demoOrigin.replace(/\/+$/, "");
+  const configured = (process.env.BOS_API_ORIGIN || "").trim().replace(/\/+$/, "");
+  if (configured) return configured;
 
   const hostHeader =
     request.headers.get("x-forwarded-host") || request.headers.get("host") || "";

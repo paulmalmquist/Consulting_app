@@ -234,8 +234,7 @@ interface TaggedIntent extends DashboardIntent {
 }
 
 const BOS_BASE = (
-  process.env.NEXT_PUBLIC_BOS_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.BOS_API_ORIGIN ||
   "http://localhost:8000"
 ).replace(/\/$/, "");
 

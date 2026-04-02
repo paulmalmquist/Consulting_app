@@ -366,10 +366,10 @@ export default function CockpitSection({
           title="Income Stability & Tenant Quality"
         />
 
-        <TenantProfilePanel detail={detail} />
+        <TenantProfilePanel />
         <div className="grid gap-4 lg:grid-cols-2">
           <LeaseExpirationPanel />
-          <RentEconomicsPanel detail={detail} />
+          <RentEconomicsPanel />
         </div>
 
         {/* Leasing Signals strip — shown when real lease data is available */}
@@ -409,7 +409,7 @@ export default function CockpitSection({
       {/* ═══════════════════════════════════════════════════════════════ */}
       {/*  MARKET & CONTEXT                                              */}
       {/* ═══════════════════════════════════════════════════════════════ */}
-      <MarketContextPanel detail={detail} />
+      <MarketContextPanel detail={detail} marketContext={null} />
 
       {/* ═══════════════════════════════════════════════════════════════ */}
       {/*  CAPITAL DEPLOYMENT                                            */}
@@ -422,7 +422,7 @@ export default function CockpitSection({
 
         <div className="grid gap-4 lg:grid-cols-2">
           <CapExTrackingPanel />
-          <ValueDriversPanel financialState={financialState} periods={periods} />
+          <ValueDriversPanel />
         </div>
       </section>
 
@@ -436,15 +436,15 @@ export default function CockpitSection({
         />
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <InvestmentThesisCard />
-          <ICReviewPanel />
+          <InvestmentThesisCard data={null} />
+          <ICReviewPanel review={null} />
         </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════ */}
       {/*  RISK & MONITORING                                             */}
       {/* ═══════════════════════════════════════════════════════════════ */}
-      <RiskIndicatorsPanel financialState={financialState} />
+      <RiskIndicatorsPanel />
     </div>
   );
 }

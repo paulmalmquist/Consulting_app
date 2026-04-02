@@ -11,27 +11,10 @@ function requestOrigin(request: NextRequest): string {
 }
 
 function inferUpstreamOrigin(request: NextRequest): string {
-  const candidates = [
-    process.env.BOS_API_ORIGIN,
-    process.env.NEXT_PUBLIC_BOS_API_BASE_URL,
-    process.env.NEXT_PUBLIC_API_BASE_URL,
-    process.env.DEMO_API_ORIGIN,
-    process.env.DEMO_API_BASE_URL,
-    process.env.NEXT_PUBLIC_DEMO_API_BASE_URL,
-  ];
-
-  for (const raw of candidates) {
-    const v = (raw || "").trim();
-    if (!v) continue;
-    if (v.startsWith("/")) {
-      return requestOrigin(request);
-    }
-    try {
-      const parsed = new URL(v);
-      return parsed.origin;
-    } catch {
-      continue;
-    }
+  const configured = (process.env.BOS_API_ORIGIN || "").trim();
+  if (configured) {
+    if (configured.startsWith("/")) return requestOrigin(request);
+    try { return new URL(configured).origin; } catch { /* fall through */ }
   }
 
   const hostHeader =

@@ -2,7 +2,6 @@
 
 import SectionHeader from "../shared/SectionHeader";
 import { BRIEFING_CONTAINER, BRIEFING_CARD } from "../shared/briefing-colors";
-import { getMockCapExProjects } from "../mock-data";
 import { fmtMoney } from "../format-utils";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -17,8 +16,16 @@ const STATUS_LABELS: Record<string, string> = {
   planned: "Planned",
 };
 
-export default function CapExTrackingPanel() {
-  const projects = getMockCapExProjects();
+interface CapExProject {
+  name: string;
+  status: string;
+  budget: number;
+  spent: number;
+  completion_pct: number;
+}
+
+export default function CapExTrackingPanel({ projects }: { projects?: CapExProject[] | null }) {
+  if (!projects || projects.length === 0) return null;
   const totalBudget = projects.reduce((s, p) => s + p.budget, 0);
   const totalSpent = projects.reduce((s, p) => s + p.spent, 0);
 
