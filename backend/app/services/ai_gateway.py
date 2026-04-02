@@ -25,7 +25,7 @@ from app.services.assistant_scope import (
     resolve_visible_context_policy,
 )
 from app.services.repe_intent import classify_repe_intent
-from app.services.run_narrator import CLEAN_ERROR_MESSAGE, RunNarrator
+from app.services.run_narrator import RunNarrator
 from app.services.failure_modes import get_tool_failure_message
 from app.services.repe_scenario_schema import build_clarification_question, resolve_scenario_params
 from app.services.repe_session import get_session, summarize_waterfall_run, update_session
@@ -41,7 +41,7 @@ from app.services.assistant_blocks import (
     legacy_structured_result_to_blocks,
     markdown_block,
 )
-from app.services.prompt_composer import compose_prompt, PromptAudit
+from app.services.prompt_composer import compose_prompt
 
 # ── Singleton OpenAI client (reuse HTTP connection pool) ──────────
 import openai as _openai_mod
