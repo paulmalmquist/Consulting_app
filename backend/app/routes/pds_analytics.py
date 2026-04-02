@@ -76,6 +76,7 @@ async def predict_delay(request: Request, req: PredictDelayRequest):
 
         from app.config import OPENAI_API_KEY, OPENAI_CHAT_MODEL_STANDARD
         from app.services.model_registry import sanitize_params
+        from app.services.gateway_audit import log_ai_call
         import openai
         import json
 
@@ -104,7 +105,18 @@ Return JSON with:
             max_tokens=512,
             temperature=0,
         )
-        response = await client.chat.completions.create(**create_kwargs)
+        with log_ai_call(
+            service="pds_analytics.predict_delay",
+            model=OPENAI_CHAT_MODEL_STANDARD,
+            env_id=req.env_id,
+            business_id=req.business_id,
+        ) as audit:
+            response = await client.chat.completions.create(**create_kwargs)
+            if response.usage:
+                audit.record(
+                    prompt_tokens=response.usage.prompt_tokens,
+                    completion_tokens=response.usage.completion_tokens,
+                )
         content = (response.choices[0].message.content or "{}").strip()
         if content.startswith("```"):
             content = content.split("\n", 1)[1].rsplit("```", 1)[0].strip()

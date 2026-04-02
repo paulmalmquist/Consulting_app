@@ -5,7 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 import type { AssistantResponseBlock } from "@/lib/commandbar/types";
 import { askResumeAssistant } from "@/lib/bos-api";
 import { logError } from "@/lib/logging/logger";
-import ResponseBlockRenderer from "@/components/winston/ResponseBlockRenderer";
+import ResponseBlockRenderer from "@/components/copilot/ResponseBlockRenderer";
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
 
 type ResumeAssistantMessage =

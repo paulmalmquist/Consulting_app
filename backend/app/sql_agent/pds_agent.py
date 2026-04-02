@@ -112,9 +112,10 @@ async def run_pds_agent(
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY not configured")
 
-    import openai
+    from app.services.ai_client import get_instrumented_client
+    from app.services.gateway_audit import log_ai_call
 
-    client = openai.AsyncOpenAI(api_key=OPENAI_API_KEY)
+    client = get_instrumented_client()
 
     system = _PDS_SYSTEM.format(catalog=pds_catalog_text())
 
@@ -128,10 +129,13 @@ async def run_pds_agent(
         temperature=0,
     )
 
-    response = await asyncio.wait_for(
-        client.chat.completions.create(**create_kwargs),
-        timeout=30.0,
-    )
+    with log_ai_call(service="pds_agent", model=OPENAI_CHAT_MODEL_STANDARD, env_id=env_id, business_id=business_id) as audit:
+        response = await asyncio.wait_for(
+            client.chat.completions.create(**create_kwargs),
+            timeout=30.0,
+        )
+        if response.usage:
+            audit.record(prompt_tokens=response.usage.prompt_tokens, completion_tokens=response.usage.completion_tokens)
 
     content = (response.choices[0].message.content or "{}").strip()
     if content.startswith("```"):

@@ -64,9 +64,10 @@ async def generate_sql(
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY not configured")
 
-    import openai
+    from app.services.ai_client import get_instrumented_client
+    from app.services.gateway_audit import log_ai_call
 
-    client = openai.AsyncOpenAI(api_key=OPENAI_API_KEY)
+    client = get_instrumented_client()
 
     system = _SQL_SYSTEM.format(catalog=catalog_text())
 
@@ -86,10 +87,13 @@ async def generate_sql(
         temperature=0,
     )
 
-    response = await asyncio.wait_for(
-        client.chat.completions.create(**create_kwargs),
-        timeout=20.0,
-    )
+    with log_ai_call(service="sql_agent.generate_sql", model=OPENAI_CHAT_MODEL_STANDARD, business_id=business_id) as audit:
+        response = await asyncio.wait_for(
+            client.chat.completions.create(**create_kwargs),
+            timeout=20.0,
+        )
+        if response.usage:
+            audit.record(prompt_tokens=response.usage.prompt_tokens, completion_tokens=response.usage.completion_tokens)
 
     sql = (response.choices[0].message.content or "").strip()
 

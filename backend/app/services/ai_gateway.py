@@ -26,6 +26,7 @@ from app.services.assistant_scope import (
 )
 from app.services.repe_intent import classify_repe_intent
 from app.services.run_narrator import CLEAN_ERROR_MESSAGE, RunNarrator
+from app.services.failure_modes import get_tool_failure_message
 from app.services.repe_scenario_schema import build_clarification_question, resolve_scenario_params
 from app.services.repe_session import get_session, summarize_waterfall_run, update_session
 from app.services.cost_tracker import estimate_cost
@@ -40,6 +41,7 @@ from app.services.assistant_blocks import (
     legacy_structured_result_to_blocks,
     markdown_block,
 )
+from app.services.prompt_composer import compose_prompt, PromptAudit
 
 # ── Singleton OpenAI client (reuse HTTP connection pool) ──────────
 import openai as _openai_mod
@@ -568,6 +570,10 @@ def _maybe_attach_scope(tool_def, args: dict[str, Any], resolved_scope: dict[str
 
 
 def _sse(event: str, data: dict[str, Any]) -> str:
+    # Sanitize streamed tokens to prevent internal context leakage
+    if event == "token" and "text" in data:
+        from app.services.response_sanitizer import sanitize_response_token
+        data = {**data, "text": sanitize_response_token(data["text"])}
     return f"event: {event}\ndata: {json.dumps(_json_safe(data), ensure_ascii=True)}\n\n"
 
 
@@ -2987,62 +2993,36 @@ async def run_gateway_stream(
         resolved_scope=resolved_scope,
         additional_instructions=visible_context_policy["instructions"],
     )
-    session_state = get_session(str(conversation_id) if conversation_id else None)
-    if session_state and session_state.waterfall_runs:
-        session_lines = []
-        for item in session_state.waterfall_runs[-10:]:
-            session_lines.append(
-                f"- {item.get('scenario_name') or item.get('run_id')}: "
-                f"IRR={item.get('key_metrics', {}).get('irr')}, "
-                f"TVPI={item.get('key_metrics', {}).get('tvpi')}, "
-                f"NAV={item.get('key_metrics', {}).get('nav')}, "
-                f"Carry={item.get('key_metrics', {}).get('carry')}"
-            )
-        context_block += "\n\n## Prior Waterfall Runs This Session\n" + "\n".join(session_lines)
     effective_model = route.model or OPENAI_CHAT_MODEL
     # Reasoning / o-series models use "developer" role instead of "system"
     _caps = get_caps(effective_model)
     system_role = "developer" if (_caps.supports_reasoning_effort and not _caps.supports_temperature) else "system"
 
-    # ── Prompt caching: stable base prompt first (>=1024 tokens), dynamic
-    #    content second.  OpenAI caches matching prefixes automatically so
-    #    keeping the base prompt identical across requests enables cache hits.
-    messages: list[dict[str, Any]] = [
-        {"role": system_role, "content": _SYSTEM_PROMPT_BASE},
-    ]
-
-    # Dynamic blocks: mutation rules, Novendor prompt, context, RAG
-    _dynamic_parts: list[str] = []
-    if _has_write_tools():
-        _dynamic_parts.append(_MUTATION_RULES_BLOCK)
-    else:
-        _dynamic_parts.append(_READ_ONLY_BLOCK)
-    if _is_novendor_environment(
-        environment_name=normalized_envelope.ui.active_environment_name,
-        environment_id=normalized_envelope.ui.active_environment_id,
-    ):
-        _dynamic_parts.append(_NOVENDOR_PREDICTION_MARKET_PROMPT)
+    # ── Determine domain blocks for this environment ────────────────
     _is_credit = _is_credit_environment(
         environment_name=normalized_envelope.ui.active_environment_name,
         environment_id=normalized_envelope.ui.active_environment_id,
         industry=getattr(normalized_envelope.ui, "industry", None),
     )
-    if _is_credit:
-        _dynamic_parts.append(_CREDIT_DOMAIN_BLOCK)
     _is_resume = _is_resume_environment(
         environment_name=normalized_envelope.ui.active_environment_name,
         environment_id=normalized_envelope.ui.active_environment_id,
         industry=getattr(normalized_envelope.ui, "industry", None),
     )
+    _domain_blocks: list[tuple[str, str]] = []
+    if _is_novendor_environment(
+        environment_name=normalized_envelope.ui.active_environment_name,
+        environment_id=normalized_envelope.ui.active_environment_id,
+    ):
+        _domain_blocks.append(("novendor", _NOVENDOR_PREDICTION_MARKET_PROMPT))
+    if _is_credit:
+        _domain_blocks.append(("credit", _CREDIT_DOMAIN_BLOCK))
     if _is_resume:
-        _dynamic_parts.append(_RESUME_DOMAIN_BLOCK)
-    _dynamic_parts.append(context_block)
-    if rag_context:
-        _dynamic_parts.append(rag_context)
-    messages.append({"role": system_role, "content": "\n\n".join(_dynamic_parts)})
+        _domain_blocks.append(("resume", _RESUME_DOMAIN_BLOCK))
 
     # ── Conversation history (token-budgeted per lane) ────────────
     _history_start = time.time()
+    history_msgs: list[dict[str, str]] = []
     if conversation_id:
         try:
             from app.services import ai_conversations as convo_svc
@@ -3054,13 +3034,8 @@ async def run_gateway_stream(
             recent = [m for m in history if m["role"] in ("user", "assistant")][-max_history:]
             history_token_budget = route.history_max_tokens
             history_tokens_used = 0
-            # Walk backwards (most recent first) to prioritize recent context
-            history_msgs: list[dict[str, str]] = []
             for msg in reversed(recent):
                 content = msg["content"] or ""
-                # Only inject [Prior tool calls: ...] for lanes that have tools enabled.
-                # Lane A (skip_tools=True) has no tool definitions, so injecting tool call
-                # text causes the model to echo it verbatim into the response (Bug 0).
                 if msg["role"] == "assistant" and msg.get("tool_calls") and not route.skip_tools:
                     stored_tcs = msg["tool_calls"]
                     if isinstance(stored_tcs, str):
@@ -3074,34 +3049,25 @@ async def run_gateway_stream(
                             args = tc.get("args", {})
                             tc_parts.append(f"{tc['name']}({json.dumps(args, default=str)})")
                         content += f"\n\n[Prior tool calls: {'; '.join(tc_parts)}]"
-                msg_tokens = len(content) // 4  # ~4 chars per token approximation
+                msg_tokens = len(content) // 4
                 if history_tokens_used + msg_tokens > history_token_budget:
                     break
                 history_tokens_used += msg_tokens
                 history_msgs.append({"role": msg["role"], "content": content})
-            # Reverse back to chronological order
-            for msg in reversed(history_msgs):
-                messages.append(msg)
+            history_msgs.reverse()
         except Exception:
             pass
     timings["history_load_ms"] = int((time.time() - _history_start) * 1000)
 
-    # ── Workflow context injection ──────────────────────────────────────
-    # When a pending workflow is active (slot-fill or confirmation), extract
-    # known params from the prior annotation AND from tool_calls JSON, then
-    # inject them into the user message so the LLM cannot lose them.
-    effective_message = message
+    # ── Workflow context augmentation ──────────────────────────────────
+    _workflow_augmentation = ""
     if _pending_workflow:
         import re as _re
         known_params_parts: list[str] = []
-
-        # Source 1: Text annotation "Known parameters: ..."
         wf_content = _pending_workflow.get("content") or ""
         kp_match = _re.search(r"Known parameters:\s*(.+?)(?:\.\s*(?:If|The|NEVER))", wf_content)
         if kp_match:
             known_params_parts.append(kp_match.group(1).strip().rstrip("."))
-
-        # Source 2: Tool call args from prior pending tool_calls (more structured)
         wf_tool_calls = _pending_workflow.get("tool_calls")
         if wf_tool_calls and isinstance(wf_tool_calls, list):
             for tc in wf_tool_calls:
@@ -3112,54 +3078,64 @@ async def run_gateway_stream(
                     except Exception:
                         tc_args = {}
                 if isinstance(tc_args, dict):
-                    # Include all non-null, non-confirmed params
                     param_strs = [f"{k}={v}" for k, v in tc_args.items()
                                   if v is not None and k not in ("confirmed", "scope", "resolved_scope")]
                     if param_strs:
                         known_params_parts.append("; ".join(param_strs))
-
-                # Also include provided params from tool result (needs_input responses)
                 tc_result = tc.get("result") or tc.get("tool_result")
                 if isinstance(tc_result, dict) and tc_result.get("provided"):
                     provided = tc_result["provided"]
                     param_strs = [f"{k}={v}" for k, v in provided.items() if v is not None]
                     if param_strs:
                         known_params_parts.append("; ".join(param_strs))
-
         if known_params_parts:
             all_params = "; ".join(known_params_parts)
             wf_type = _pending_workflow.get("type", "workflow")
             is_confirm = _CONFIRM_KEYWORDS.search(message.strip())
             if is_confirm:
-                effective_message = (
+                _workflow_augmentation = (
                     f"[CONTEXT: User is confirming a pending {wf_type}. "
                     f"Previously collected parameters: {all_params}. "
-                    f"Call the SAME tool with confirmed=true and ALL these parameters.]\n\n"
-                    f"{message}"
+                    f"Call the SAME tool with confirmed=true and ALL these parameters.]"
                 )
             else:
-                effective_message = (
+                _workflow_augmentation = (
                     f"[CONTEXT: Active {wf_type}. Previously collected parameters: {all_params}. "
-                    f"MERGE the user's new values below with ALL previously collected parameters when calling the tool.]\n\n"
-                    f"{message}"
+                    f"MERGE the user's new values below with ALL previously collected parameters when calling the tool.]"
                 )
 
-    messages.append({"role": "user", "content": effective_message})
+    # ── Unified prompt assembly via compose_prompt ────────────────────
+    session_context_str = ""
+    session_state = get_session(str(conversation_id) if conversation_id else None)
+    if session_state and session_state.waterfall_runs:
+        session_lines = []
+        for item in session_state.waterfall_runs[-10:]:
+            session_lines.append(
+                f"- {item.get('scenario_name') or item.get('run_id')}: "
+                f"IRR={item.get('key_metrics', {}).get('irr')}, "
+                f"TVPI={item.get('key_metrics', {}).get('tvpi')}, "
+                f"NAV={item.get('key_metrics', {}).get('nav')}, "
+                f"Carry={item.get('key_metrics', {}).get('carry')}"
+            )
+        session_context_str = "## Prior Waterfall Runs This Session\n" + "\n".join(session_lines)
 
-    # ── A9: Context window overflow guard ─────────────────────────────
-    # Estimate total tokens and trim history if approaching context limit.
-    _caps = get_caps(route.model or OPENAI_CHAT_MODEL)
-    _total_chars = sum(len(m.get("content") or "") for m in messages)
-    _approx_tokens = _total_chars // 4  # ~4 chars per token
-    _max_context = _caps.max_context_tokens
-    _headroom = _max_context - _caps.max_output_tokens - 2000  # 2k buffer for tools
-    if _approx_tokens > _headroom and len(messages) > 2:
-        # Trim oldest history messages (keep system + user), from index 1
-        while _approx_tokens > _headroom and len(messages) > 2:
-            removed = messages.pop(1)  # remove oldest after system prompt
-            _approx_tokens -= len(removed.get("content") or "") // 4
-        emit_log(level="warning", service="backend", action="ai.gateway.context_trimmed",
-                 message=f"Context window guard: trimmed history to fit {_headroom} token budget")
+    messages, _prompt_audit = compose_prompt(
+        system_base=_SYSTEM_PROMPT_BASE,
+        lane=route.lane,
+        context_block=context_block,
+        rag_context=rag_context,
+        history=history_msgs,
+        user_message=message,
+        domain_blocks=_domain_blocks,
+        mutation_rules=_MUTATION_RULES_BLOCK if _has_write_tools() else _READ_ONLY_BLOCK,
+        session_context=session_context_str,
+        system_role=system_role,
+        workflow_augmentation=_workflow_augmentation,
+    )
+    emit_log(level="info", service="backend", action="ai.gateway.prompt_composed",
+             message=f"Lane {route.lane}: {_prompt_audit.total_tokens} est. tokens, "
+                     f"domains={_prompt_audit.domain_blocks_applied}, "
+                     f"truncated={_prompt_audit.sections_truncated}")
 
     openai_tools, tool_name_map = _build_openai_tools_for_lane(
         lane=route.lane, is_write=route.is_write, is_credit=_is_credit, is_resume=_is_resume,
@@ -3322,7 +3298,7 @@ async def run_gateway_stream(
             break
 
         if round_num >= AI_MAX_TOOL_ROUNDS:
-            yield _sse("error", {"message": f"Max tool rounds ({AI_MAX_TOOL_ROUNDS}) reached"})
+            yield _sse("error", {"message": "This query required more processing steps than allowed. Try a simpler question or break it into parts."})
             break
 
         messages.append(
@@ -3514,7 +3490,7 @@ async def run_gateway_stream(
                     "result_preview": _preview(tool_result, max_chars=400),
                     "duration_ms": tool_duration_ms,
                     "success": tool_success,
-                    "error": None if tool_success else CLEAN_ERROR_MESSAGE,
+                    "error": None if tool_success else get_tool_failure_message(tool_name, tool_error_msg or "Unknown error"),
                     "row_count": row_count,
                     "is_write": is_write_tool,
                     "pending_confirmation": is_pending_confirmation,
@@ -3705,7 +3681,7 @@ async def run_gateway_stream(
         except Exception as fb_err:
             emit_log(level="error", service="backend", action="ai.gateway.final_answer_error",
                      message=f"Final answer fallback failed: {type(fb_err).__name__}: {fb_err}")
-            yield _sse("error", {"message": f"Fallback synthesis failed: {str(fb_err)[:200]}"})
+            yield _sse("error", {"message": "Winston could not synthesize a response from the available data. Please try rephrasing your question."})
 
     # ── Compute metrics and emit done BEFORE persistence ─────────────
     # Emit the stream-terminating `done` event before any DB writes so
@@ -3819,6 +3795,45 @@ async def run_gateway_stream(
             "resolved_scope": scope_dump,
             "response_blocks": response_blocks,
         },
+    )
+
+    # ── Unified audit log — single structured record per request ─────
+    emit_log(
+        level="info",
+        service="backend",
+        action="ai.gateway.request_complete",
+        message=(
+            f"[gateway] lane={route.lane} model={route.model or OPENAI_CHAT_MODEL} "
+            f"path={execution_path} tokens={total_prompt_tokens + total_completion_tokens} "
+            f"(prompt={total_prompt_tokens} completion={total_completion_tokens} cached={total_cached_tokens}) "
+            f"tools={tool_call_count} rag_chunks={len(rag_chunks)} "
+            f"elapsed={elapsed_ms}ms ttft={timings.get('ttft_ms', 'n/a')}ms"
+        ),
+        context={
+            "lane": route.lane,
+            "model": route.model or OPENAI_CHAT_MODEL,
+            "execution_path": execution_path,
+            "prompt_tokens": total_prompt_tokens,
+            "completion_tokens": total_completion_tokens,
+            "cached_tokens": total_cached_tokens,
+            "tool_call_count": tool_call_count,
+            "tool_names": [t.get("tool_name") for t in tool_timeline if isinstance(t, dict)],
+            "rag_chunks_used": len(rag_chunks),
+            "rag_rerank_method": RAG_RERANK_METHOD if route.use_rerank else "none",
+            "elapsed_ms": elapsed_ms,
+            "timings": timings,
+            "cost_estimate": cost_info,
+            "response_block_count": len(response_blocks),
+            "warnings": warnings,
+            "session_id": session_id,
+            "conversation_id": str(conversation_id) if conversation_id else None,
+            "prompt_audit": {
+                "total_tokens": _prompt_audit.total_tokens,
+                "domains": _prompt_audit.domain_blocks_applied,
+                "truncated": _prompt_audit.sections_truncated,
+            } if _prompt_audit else None,
+        },
+        duration_ms=elapsed_ms,
     )
 
     # ── Post-stream persistence (non-blocking for the client) ─────────

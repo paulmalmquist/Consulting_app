@@ -123,24 +123,31 @@ class ExtractionService:
             raise RuntimeError("AI Gateway disabled: set OPENAI_API_KEY")
 
         import openai
+        from app.services.gateway_audit import log_ai_call
 
         client = openai.OpenAI(api_key=OPENAI_API_KEY)
-        response = client.chat.completions.create(
-            model=OPENAI_CHAT_MODEL_STANDARD,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You extract structured document data. "
-                        "Return valid JSON only with no markdown or commentary."
-                    ),
-                },
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0,
-            max_tokens=2_000,
-            response_format={"type": "json_object"},
-        )
+        with log_ai_call(service="extraction", model=OPENAI_CHAT_MODEL_STANDARD) as audit:
+            response = client.chat.completions.create(
+                model=OPENAI_CHAT_MODEL_STANDARD,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You extract structured document data. "
+                            "Return valid JSON only with no markdown or commentary."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0,
+                max_tokens=2_000,
+                response_format={"type": "json_object"},
+            )
+            if response.usage:
+                audit.record(
+                    prompt_tokens=response.usage.prompt_tokens,
+                    completion_tokens=response.usage.completion_tokens,
+                )
         return response.choices[0].message.content or "{}"
 
     def _parse_and_validate(self, raw: str, schema: dict) -> dict | None:

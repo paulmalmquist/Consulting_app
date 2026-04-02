@@ -34,19 +34,23 @@ async def expand_query(
         return [query]
 
     try:
-        import openai
+        from app.services.ai_client import get_instrumented_client
+        from app.services.gateway_audit import log_ai_call
 
-        client = openai.AsyncOpenAI(api_key=OPENAI_API_KEY)
+        client = get_instrumented_client()
         _create_kwargs = sanitize_params(
             OPENAI_CHAT_MODEL_FAST,
             messages=[{"role": "user", "content": _EXPAND_PROMPT.format(n=num_variants, query=query)}],
             max_tokens=256,
             temperature=0.7,
         )
-        response = await asyncio.wait_for(
-            client.chat.completions.create(**_create_kwargs),
-            timeout=1.5,
-        )
+        with log_ai_call(service="query_rewriter", model=OPENAI_CHAT_MODEL_FAST) as audit:
+            response = await asyncio.wait_for(
+                client.chat.completions.create(**_create_kwargs),
+                timeout=1.5,
+            )
+            if response.usage:
+                audit.record(prompt_tokens=response.usage.prompt_tokens, completion_tokens=response.usage.completion_tokens)
 
         content = (response.choices[0].message.content or "[]").strip()
         if content.startswith("```"):
