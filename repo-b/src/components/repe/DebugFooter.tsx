@@ -24,9 +24,7 @@ function DebugFooterInner({
 
   useEffect(() => {
     if (!debug) return;
-    const base =
-      process.env.NEXT_PUBLIC_BOS_API_BASE_URL ||
-      (typeof window !== "undefined" ? window.location.origin : "");
+    const base = typeof window !== "undefined" ? window.location.origin : "";
     setApiBase(base);
 
     // Listen for fetch events to track last API call

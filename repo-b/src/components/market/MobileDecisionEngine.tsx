@@ -75,7 +75,7 @@ function validateIntegrity(
   if (!hasData(traps)) missing.push("trap-detector");
   if (!forecast) missing.push("forecast-pipeline");
 
-  if (missing.length > 0 && process.env.NODE_ENV === "development") {
+  if (missing.length > 0) {
     console.warn("[DecisionEngine] Missing pipelines:", missing.join(", "));
   }
 

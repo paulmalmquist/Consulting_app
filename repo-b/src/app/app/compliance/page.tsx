@@ -21,7 +21,7 @@ type EventRow = {
   action_type: string;
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_BOS_API_BASE_URL || "http://localhost:8000";
+const API_BASE = ""; // Same-origin — routes through /bos proxy
 
 export default function CompliancePage() {
   const [controls, setControls] = useState<Control[]>([]);

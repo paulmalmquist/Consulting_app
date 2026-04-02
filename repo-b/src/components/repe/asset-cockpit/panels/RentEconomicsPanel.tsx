@@ -1,26 +1,23 @@
 "use client";
 
-import type { ReV2AssetDetail, ReLeaseEconomics } from "@/lib/bos-api";
+import type { ReLeaseEconomics } from "@/lib/bos-api";
 import SectionHeader from "../shared/SectionHeader";
 import SecondaryMetric from "../shared/SecondaryMetric";
 import { BRIEFING_CONTAINER } from "../shared/briefing-colors";
-import { getMockRentEconomics } from "../mock-data";
 import { fmtSfPsf } from "../format-utils";
 
 interface Props {
-  detail: ReV2AssetDetail;
-  /** Real economics from /leasing/economics API. When provided, overrides mock. */
   realEconomics?: ReLeaseEconomics | null;
 }
 
-export default function RentEconomicsPanel({ detail, realEconomics }: Props) {
-  const mock = getMockRentEconomics(detail);
+export default function RentEconomicsPanel({ realEconomics }: Props) {
+  if (!realEconomics) return null;
   const re = {
-    avg_rent_psf:       realEconomics?.in_place_psf       ?? mock.avg_rent_psf,
-    market_rent_psf:    realEconomics?.market_rent_psf     ?? mock.market_rent_psf,
-    mark_to_market_pct: realEconomics?.mark_to_market_pct != null
+    avg_rent_psf:       realEconomics.in_place_psf ?? 0,
+    market_rent_psf:    realEconomics.market_rent_psf ?? 0,
+    mark_to_market_pct: realEconomics.mark_to_market_pct != null
       ? Number(realEconomics.mark_to_market_pct) * 100
-      : mock.mark_to_market_pct,
+      : 0,
   };
   const isPositive = re.mark_to_market_pct >= 0;
 

@@ -218,11 +218,10 @@ export function DealGeoMap({
   }, []);
 
   // Filter markers to only those with valid geographic coordinates.
-  // Invalid coords are logged in development so data issues are surfaced.
   const validMarkers = useMemo(() => {
     return markers.filter((m) => {
       const valid = isValidCoord(m.marker.lat, m.marker.lon);
-      if (!valid && process.env.NODE_ENV === "development") {
+      if (!valid) {
         console.warn(
           "[DealGeoMap] Skipping marker with invalid coordinates",
           m.node.dealId,

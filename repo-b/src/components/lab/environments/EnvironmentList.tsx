@@ -43,7 +43,7 @@ export function EnvironmentList({
       if (!byId.has(env.env_id)) byId.set(env.env_id, env);
     }
     const values = [...byId.values()];
-    if (process.env.NODE_ENV !== "production" && values.length < before) {
+    if (values.length < before) {
       // eslint-disable-next-line no-console
       console.warn(
         JSON.stringify({

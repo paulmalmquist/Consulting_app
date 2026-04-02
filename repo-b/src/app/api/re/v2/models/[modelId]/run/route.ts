@@ -13,25 +13,9 @@ function getCurrentQuarter(): string {
 }
 
 function getBackendOrigin(): string | null {
-  const candidates = [
-    process.env.BOS_API_ORIGIN,
-    process.env.BOS_API_URL,
-    process.env.BUSINESS_OS_API_URL,
-    process.env.NEXT_PUBLIC_BOS_API_BASE_URL,
-    process.env.NEXT_PUBLIC_API_BASE_URL,
-  ];
-
-  for (const raw of candidates) {
-    const value = (raw || "").trim();
-    if (!value) continue;
-    try {
-      return new URL(value).origin;
-    } catch {
-      continue;
-    }
-  }
-
-  return null;
+  const configured = (process.env.BOS_API_ORIGIN || "").trim();
+  if (!configured) return null;
+  try { return new URL(configured).origin; } catch { return null; }
 }
 
 async function extractErrorMessage(response: Response): Promise<string> {

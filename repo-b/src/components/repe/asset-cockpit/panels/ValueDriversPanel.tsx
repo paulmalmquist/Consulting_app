@@ -1,18 +1,23 @@
 "use client";
 
-import type { ReV2AssetQuarterState, ReV2AssetPeriod } from "@/lib/bos-api";
 import SectionHeader from "../shared/SectionHeader";
 import HorizontalBar from "../shared/HorizontalBar";
 import { BRIEFING_COLORS, BRIEFING_CONTAINER } from "../shared/briefing-colors";
-import { getMockValueDrivers } from "../mock-data";
 
-interface Props {
-  financialState: ReV2AssetQuarterState | null;
-  periods: ReV2AssetPeriod[];
+interface ValueDriverData {
+  noi_growth: number;
+  cap_rate_change: number;
+  capex_impact: number;
+  total: number;
 }
 
-export default function ValueDriversPanel({ financialState, periods }: Props) {
-  const vd = getMockValueDrivers(financialState, periods);
+interface Props {
+  valueDrivers?: ValueDriverData | null;
+}
+
+export default function ValueDriversPanel({ valueDrivers }: Props) {
+  if (!valueDrivers) return null;
+  const vd = valueDrivers;
 
   const drivers = [
     { label: "NOI Growth", value: vd.noi_growth, color: BRIEFING_COLORS.performance },

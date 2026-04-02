@@ -1,13 +1,10 @@
 /**
  * Business OS API client.
  *
- * In production, calls default to the same-origin Next.js proxy at
- * /bos/[...path]/route.ts (e.g. /bos/api/repe/context) to avoid CORS issues.
- * If NEXT_PUBLIC_BOS_API_BASE_URL (or NEXT_PUBLIC_API_BASE_URL) is explicitly
- * configured, the browser calls that backend directly.
- *
- * In development (localhost), calls go directly to the FastAPI backend
- * at http://localhost:8000 for simpler debugging.
+ * All browser calls route through the same-origin /bos proxy at
+ * /bos/[...path]/route.ts (e.g. /bos/api/repe/context). The proxy
+ * forwards to the canonical FastAPI backend via BOS_API_ORIGIN.
+ * This is the same code path in local dev and production.
  */
 import { logError, logInfo } from "@/lib/logging/logger";
 import type { AssistantResponseBlock } from "@/lib/commandbar/types";
@@ -48,48 +45,18 @@ import type {
 } from "@/types/pds";
 
 /**
- * Resolve the BOS API base origin and whether to use the /bos proxy prefix.
+ * BOS API routing — single code path.
  *
- * In development (localhost), we call the backend directly.
- * In production, explicit browser API base URLs are honored when configured.
- * Otherwise we route through the same-origin /bos proxy.
+ * All browser requests go through the same-origin /bos proxy, which forwards
+ * to the canonical FastAPI backend. This is the same path in local dev and
+ * production — no env-based branching.
  */
 const _bosConfig = (() => {
-  const configuredRaw =
-    process.env.NEXT_PUBLIC_BOS_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
-    "";
-  const configured =
-    typeof window !== "undefined" && configuredRaw.startsWith("/")
-      ? window.location.origin
-      : configuredRaw.replace(/\/+$/, "");
-
   if (typeof window !== "undefined") {
-    const isLocalHost =
-      window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1";
-    const looksLocalApi =
-      configured.includes("localhost") || configured.includes("127.0.0.1");
-
-    // If an explicit browser-safe backend URL is configured, prefer it.
-    // This supports deployments where route handlers (/bos/*) are unavailable.
-    if (configured) {
-      // Guardrail: ignore localhost API URLs in production.
-      if (!isLocalHost && looksLocalApi) {
-        return { origin: window.location.origin, proxyPrefix: "/bos" };
-      }
-      return { origin: configured, proxyPrefix: "" };
-    }
-
-    if (isLocalHost) {
-      return { origin: "http://localhost:8000", proxyPrefix: "" };
-    }
-
-    // Production: same-origin proxy at /bos/*
     return { origin: window.location.origin, proxyPrefix: "/bos" };
   }
-
-  return { origin: configured || "http://localhost:8000", proxyPrefix: "" };
+  // Server-side (SSR) — not used for browser fetches but satisfies module init.
+  return { origin: "http://localhost:8000", proxyPrefix: "/bos" };
 })();
 
 const API_BASE = _bosConfig.origin;
@@ -108,8 +75,6 @@ function makeRequestId(): string {
 }
 
 function getRunIdForRequest(): string | null {
-  const mode = process.env.NODE_ENV;
-  if (mode === "production") return null;
   if (typeof window === "undefined") return null;
   try {
     return window.localStorage.getItem("bm_run_id");
@@ -199,7 +164,7 @@ export async function bosFetch<T>(path: string, options: RequestInit & { params?
         (res.status === 404 || res.status === 405)
       ) {
         msg =
-          "Business OS API route is not available in this deployment. Check /bos route handlers or NEXT_PUBLIC_BOS_API_BASE_URL.";
+          "Business OS API route is not available in this deployment. Check /bos route handlers or BOS_API_ORIGIN.";
         payload = {
           error_code: "PROXY_ROUTE_MISSING",
           message: msg,
