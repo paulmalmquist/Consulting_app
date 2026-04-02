@@ -20,7 +20,7 @@ export default async function ResumeAdminPage() {
 
   const membership = findMembershipBySlug(session, "resume");
   if (!membership || !sessionHasManagerAccess(session, { slug: "resume" })) {
-    redirect("/resume/unauthorized");
+    redirect(environmentLoginPath("resume"));
   }
 
   redirect(

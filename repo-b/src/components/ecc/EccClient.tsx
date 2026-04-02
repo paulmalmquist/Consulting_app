@@ -711,13 +711,13 @@ export function EccAdminClient({ envId }: { envId: string }) {
       <Card className="rounded-3xl border border-bm-border/60 bg-bm-surface/20">
         <CardContent className="space-y-4 p-4">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Demo Controls</p>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Environment Controls</p>
             <p className="text-xl font-semibold tracking-[-0.02em]">Deterministic, resettable, auditable</p>
           </div>
           <div className="rounded-2xl border border-bm-border/60 bg-bm-bg/40 p-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold text-bm-text">Demo Mode</p>
+                <p className="text-sm font-semibold text-bm-text">Sample Data Mode</p>
                 <p className="text-xs text-bm-muted">{summary}</p>
               </div>
               <Button
@@ -752,7 +752,7 @@ export function EccAdminClient({ envId }: { envId: string }) {
               }}
               disabled={busy}
             >
-              Reset Demo
+              Reset Data
             </Button>
             <Button
               onClick={async () => {

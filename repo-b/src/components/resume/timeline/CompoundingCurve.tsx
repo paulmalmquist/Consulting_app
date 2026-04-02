@@ -50,6 +50,7 @@ function useIsMobile(breakpoint = 768) {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (typeof window.matchMedia !== "function") return;
     const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
     const update = () => setIsMobile(mql.matches);
     update();
@@ -59,9 +60,32 @@ function useIsMobile(breakpoint = 768) {
   return isMobile;
 }
 
+/** 3 key milestone labels shown directly on the graph */
+const KEY_MILESTONES = new Map<string, string>([
+  ["sys-ingestion-automation", "Ingestion Automation"],
+  ["sys-warehouse", "Data Warehouse"],
+  ["sys-ai-platform", "AI Platform"],
+]);
+
 // ---------------------------------------------------------------------------
 // Custom tooltip
 // ---------------------------------------------------------------------------
+
+/** Find the nearest system milestone to a given timestamp */
+function findNearestSystem(ts: number): System | null {
+  let nearest: System | null = null;
+  let minDist = Infinity;
+  const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+  for (const system of SYSTEMS) {
+    const sysTs = new Date(`${system.date}T00:00:00Z`).getTime();
+    const dist = Math.abs(ts - sysTs);
+    if (dist < minDist && dist < THIRTY_DAYS * 3) {
+      minDist = dist;
+      nearest = system;
+    }
+  }
+  return nearest;
+}
 
 function CurveTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: CurvePoint }> }) {
   if (!active || !payload?.[0]) return null;
@@ -69,6 +93,7 @@ function CurveTooltip({ active, payload }: { active?: boolean; payload?: Array<{
   const date = new Date(`${point.date}T00:00:00Z`);
   const label = date.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
   const company = point.company ? COMPANY_COLORS[point.company] : null;
+  const nearSystem = findNearestSystem(point.ts);
 
   return (
     <div className="rounded-xl border border-white/15 bg-[hsl(216,31%,8%)] px-3 py-2 shadow-2xl">
@@ -76,9 +101,20 @@ function CurveTooltip({ active, payload }: { active?: boolean; payload?: Array<{
       {company && (
         <p className="mt-0.5 text-[10px] text-white/50">{company.label}</p>
       )}
-      <p className="mt-1 text-xs font-semibold text-white">
-        Capability: {Math.round(point.value)}
-      </p>
+      {nearSystem ? (
+        <>
+          <p className="mt-1 text-xs font-semibold text-white">{nearSystem.name}</p>
+          {nearSystem.metrics.slice(0, 2).map((m, i) => (
+            <p key={i} className="mt-0.5 text-[10px] text-white/60">
+              {m.label}: <span className="font-medium text-white/80">{m.value}</span>
+            </p>
+          ))}
+        </>
+      ) : (
+        <p className="mt-1 text-xs font-semibold text-white">
+          Capability: {Math.round(point.value)}
+        </p>
+      )}
     </div>
   );
 }
@@ -173,6 +209,19 @@ function MilestoneDots({
             />
             {/* Hover target (larger invisible circle) */}
             <circle cx={cx} cy={cy} r={16} fill="transparent" />
+            {/* Key milestone labels — shown for 3 landmark systems on desktop */}
+            {!isMobile && KEY_MILESTONES.has(system.id) && (
+              <text
+                x={cx}
+                y={cy - r - 8}
+                textAnchor="middle"
+                fill={isFiltered ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.6)"}
+                fontSize={10}
+                fontWeight={isSelected ? 600 : 400}
+              >
+                {KEY_MILESTONES.get(system.id)}
+              </text>
+            )}
           </g>
         );
       })}

@@ -1,12 +1,18 @@
 "use client";
 
-import type { ReV2AssetQuarterState } from "@/lib/bos-api";
 import SectionHeader from "../shared/SectionHeader";
 import { BRIEFING_CONTAINER } from "../shared/briefing-colors";
-import { getMockRiskIndicators, type RiskSeverity } from "../mock-data";
+
+type RiskSeverity = "high" | "medium" | "low";
+
+interface RiskIndicator {
+  label: string;
+  severity: RiskSeverity;
+  description: string;
+}
 
 interface Props {
-  financialState: ReV2AssetQuarterState | null;
+  risks?: RiskIndicator[] | null;
 }
 
 const SEVERITY_STYLES: Record<RiskSeverity, string> = {
@@ -21,8 +27,8 @@ const SEVERITY_DOT: Record<RiskSeverity, string> = {
   low:    "bg-bm-borderStrong",
 };
 
-export default function RiskIndicatorsPanel({ financialState }: Props) {
-  const risks = getMockRiskIndicators(financialState);
+export default function RiskIndicatorsPanel({ risks }: Props) {
+  if (!risks || risks.length === 0) return null;
 
   return (
     <div className={BRIEFING_CONTAINER}>

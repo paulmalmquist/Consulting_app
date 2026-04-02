@@ -1,42 +1,17 @@
-// Demo Lab browser API base.
+// Lab browser API base.
 //
-// `/v1/*` now resolves through the same-origin route handler in
-// `src/app/v1/[...path]/route.ts`, which forwards to the canonical backend.
-// Browser callers can still override the base URL, but the canonical runtime
-// owner is `backend/`, not a separate Demo Lab service.
+// All browser requests resolve through same-origin route handlers which
+// forward to the canonical FastAPI backend. Single code path for local
+// dev and production.
 export const API_BASE_URL =
-  (() => {
-    const configuredRaw =
-      process.env.NEXT_PUBLIC_DEMO_API_BASE_URL ||
-      process.env.NEXT_PUBLIC_API_BASE_URL ||
-      "";
-    const configured =
-      typeof window !== "undefined" && configuredRaw.startsWith("/")
-        ? window.location.origin
-        : configuredRaw.replace(/\/+$/, "");
-
-    // Guardrail: if a production deploy accidentally has a localhost base URL
-    // configured, ignore it and use same-origin so the `/v1/*` proxy works.
-    if (typeof window !== "undefined") {
-      const isLocalHost =
-        window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1";
-      const looksLocalApi =
-        configured.includes("localhost") || configured.includes("127.0.0.1");
-
-      if (!configured) return window.location.origin;
-      if (!isLocalHost && looksLocalApi) return window.location.origin;
-    }
-
-    return configured || (typeof window !== "undefined" ? window.location.origin : "");
-  })();
+  typeof window !== "undefined" ? window.location.origin : "";
 
 type ApiOptions = RequestInit & { params?: Record<string, string | undefined> };
 
 export async function apiFetch<T>(path: string, options: ApiOptions = {}) {
   if (!API_BASE_URL) {
     throw new Error(
-      "Lab API is not configured. Set NEXT_PUBLIC_DEMO_API_BASE_URL (direct) or configure the /v1 proxy via BOS_API_ORIGIN / DEMO_API_ORIGIN."
+      "Lab API is not configured. Ensure the /v1 proxy is available via BOS_API_ORIGIN."
     );
   }
 

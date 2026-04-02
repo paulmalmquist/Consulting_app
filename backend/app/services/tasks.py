@@ -85,15 +85,9 @@ LEFT JOIN app.task_sprint sp ON sp.id = i.sprint_id
 """
 
 
-def _is_dev_mode() -> bool:
-    mode = (
-        os.getenv("BM_ENV")
-        or os.getenv("APP_ENV")
-        or os.getenv("ENV")
-        or os.getenv("PYTHON_ENV")
-        or "development"
-    ).strip().lower()
-    return mode in {"dev", "development", "local", "test"} or os.getenv("BM_DEV_MODE") == "1"
+def _is_seed_allowed() -> bool:
+    """Seed endpoints are allowed unless explicitly disabled via BM_DISABLE_SEED=1."""
+    return os.getenv("BM_DISABLE_SEED") != "1"
 
 
 def _normalize_project_key(value: str) -> str:
@@ -1250,8 +1244,8 @@ def get_task_metrics(project_id: UUID | None = None) -> dict[str, Any]:
 
 
 def seed_novendor_winston_build() -> dict[str, Any]:
-    if not _is_dev_mode():
-        raise PermissionError("Seed endpoint is only enabled in local/dev mode")
+    if not _is_seed_allowed():
+        raise PermissionError("Seed endpoint is disabled (BM_DISABLE_SEED=1)")
 
     with get_cursor() as cur:
         cur.execute(

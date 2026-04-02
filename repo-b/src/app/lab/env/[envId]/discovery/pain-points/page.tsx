@@ -4,7 +4,7 @@ import React, { FormEvent, useEffect, useState } from "react";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 
 import { fmtMoney } from '@/lib/format-utils';
-const API_BASE = process.env.NEXT_PUBLIC_BOS_API_URL || "http://localhost:8000";
+const API_BASE = ""; // Same-origin — routes through proxy handlers
 
 function severityBadge(level: string) {
   const base = "inline-block rounded-full px-2 py-0.5 text-xs font-medium";

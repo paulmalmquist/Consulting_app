@@ -105,21 +105,20 @@ export default function ResumeAssistantDock({
   }
 
   return (
-    <section className="rounded-[20px] border border-bm-border/60 bg-bm-surface/35 p-3 md:rounded-[28px] md:p-5">
+    <section className="rounded-[20px] border border-bm-border/60 bg-bm-surface/35 p-3 md:rounded-[28px] md:p-4">
       <p className="bm-section-label tracking-[0.1em] md:tracking-[0.16em]">Assistant</p>
-      <h2 className="mt-1.5 text-lg md:mt-2 md:text-xl">Context-aware explanation layer</h2>
-      <p className="mt-1.5 text-sm text-bm-muted md:mt-2">
-        Grounded in the current module instead of free-floating markdown responses.
+      <p className="mt-1 text-xs text-bm-muted">
+        Context-aware — grounded in the active module.
       </p>
 
       {messages.length === 0 ? (
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-1.5">
           {starters.map((starter) => (
             <button
               key={starter}
               type="button"
               onClick={() => sendQuestion(starter)}
-              className="rounded-full border border-bm-border/35 bg-white/5 px-3 py-1.5 text-xs text-bm-muted transition hover:border-white/25 hover:text-bm-text"
+              className="rounded-full border border-bm-border/35 bg-white/5 px-2.5 py-1 text-[11px] text-bm-muted transition hover:border-white/25 hover:text-bm-text"
             >
               {starter}
             </button>
@@ -127,33 +126,33 @@ export default function ResumeAssistantDock({
         </div>
       ) : null}
 
-      <div className="mt-3 max-h-[280px] space-y-3 overflow-y-auto pr-1 md:mt-4 md:max-h-[420px] md:space-y-4">
+      <div className="mt-2 max-h-[200px] space-y-2 overflow-y-auto pr-1 md:mt-3 md:max-h-[320px] md:space-y-3">
         {messages.map((message, index) =>
           message.role === "user" ? (
             <div key={index} className="flex justify-end">
-              <div className="max-w-[85%] rounded-2xl bg-sky-500/20 px-4 py-3 text-sm text-sky-50">{message.text}</div>
+              <div className="max-w-[85%] rounded-xl bg-sky-500/20 px-3 py-2 text-xs text-sky-50">{message.text}</div>
             </div>
           ) : (
-            <div key={index} className="space-y-3">
+            <div key={index} className="space-y-2">
               {message.blocks.map((block) => (
-                <div key={block.block_id} className="rounded-2xl border border-bm-border/30 bg-black/10 p-4">
+                <div key={block.block_id} className="rounded-xl border border-bm-border/30 bg-black/10 p-3">
                   <ResponseBlockRenderer block={block} />
                 </div>
               ))}
             </div>
           ),
         )}
-        {loading ? <div className="text-sm text-bm-muted2">Analyzing current context...</div> : null}
+        {loading ? <div className="text-xs text-bm-muted2">Analyzing context...</div> : null}
       </div>
 
-      {(suggestedQuestions.length > 0 || messages.length > 0) && (
-        <div className="mt-4 flex flex-wrap gap-2">
+      {suggestedQuestions.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
           {suggestedQuestions.map((question) => (
             <button
               key={question}
               type="button"
               onClick={() => sendQuestion(question)}
-              className="rounded-full border border-bm-border/35 bg-white/5 px-3 py-1.5 text-xs text-bm-muted transition hover:border-white/25 hover:text-bm-text"
+              className="rounded-full border border-bm-border/35 bg-white/5 px-2.5 py-1 text-[11px] text-bm-muted transition hover:border-white/25 hover:text-bm-text"
             >
               {question}
             </button>
@@ -166,18 +165,18 @@ export default function ResumeAssistantDock({
           event.preventDefault();
           void sendQuestion(input);
         }}
-        className="mt-4 flex gap-2"
+        className="mt-3 flex gap-2"
       >
         <input
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          placeholder="Ask about the current timeline, architecture, model, or BI slice..."
-          className="flex-1 rounded-2xl border border-bm-border/35 bg-black/10 px-4 py-3 text-sm text-bm-text placeholder:text-bm-muted2 focus:border-white/25 focus:outline-none"
+          placeholder="Ask about this module..."
+          className="flex-1 rounded-xl border border-bm-border/35 bg-black/10 px-3 py-2 text-xs text-bm-text placeholder:text-bm-muted2 focus:border-white/25 focus:outline-none"
         />
         <button
           type="submit"
           disabled={loading || !input.trim()}
-          className="rounded-2xl border border-sky-400/30 bg-sky-500/15 px-4 py-3 text-sm text-sky-100 transition hover:bg-sky-500/25 disabled:opacity-40"
+          className="rounded-xl border border-sky-400/30 bg-sky-500/15 px-3 py-2 text-xs text-sky-100 transition hover:bg-sky-500/25 disabled:opacity-40"
         >
           Ask
         </button>

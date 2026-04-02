@@ -2098,3 +2098,12 @@ Follow the existing pattern:
   `BOS_API_ORIGIN=http://127.0.0.1:8000 NEXT_PUBLIC_BOS_API_BASE_URL=http://127.0.0.1:8000 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 DEMO_API_ORIGIN=http://127.0.0.1:8000 DEMO_API_BASE_URL=http://127.0.0.1:8000 NEXT_PUBLIC_DEMO_API_BASE_URL=http://127.0.0.1:8000 npx playwright test tests/app-public-mobile.spec.ts tests/admin-environments-layout.spec.ts tests/resume-workspace.spec.ts --project=chromium`
 - Control Tower Playwright specs are intentionally skipped under the current bypass-auth harness because the local harness resolves `/lab/system/control-tower` back through `/app`. Re-enable once a stable admin-session harness exists.
 - Local webkit/iPhone Playwright coverage is currently blocked on missing browser binaries. Install with `npx playwright install` before expecting the `webkit` project to run.
+
+## Logo / Wordmark Typography
+
+- The Mandalore display font has decorative fills on A and O glyphs that don't match the brand. These are overridden at the CSS `@font-face` level using `unicode-range` so every `.font-command` element gets clean A/O automatically — no per-component spans needed.
+- The O override uses system sans-serif (Inter → Helvetica Neue → Arial) via `local()`. The A override uses a self-hosted woff2 with a custom-drawn thin glyph (hairline Didot-inspired, ~400 bytes).
+- Three A variants live in `repo-b/src/app/fonts/logo-a/`: v1-geometric (ultra-thin sans), v2-hairline (Didot-inspired serif, active), v3-condensed (narrow light sans). Swap by changing the `src` line in the `MandaloreA Override` @font-face in `globals.css`.
+- The `@font-face` unicode-range approach is zero-JS, zero-CLS, and automatically applies to any text using `.font-command` without touching component code. Prefer this over span-wrapping individual letters.
+- When refining individual logo glyphs, keep font files tiny (subset to only the characters you need). A single-glyph woff2 is ~400 bytes — no performance concern.
+- If the O and A treatments feel imbalanced after a change, the O is system sans-serif (Inter) and can be swapped to a custom woff2 the same way. Keep the two @font-face declarations separate so they can evolve independently.

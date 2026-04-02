@@ -8,16 +8,11 @@ import {
 } from "@/lib/server/sessionAuth";
 
 function inferBosOrigin(request: NextRequest | Request): string {
-  const configured =
-    process.env.BOS_API_ORIGIN ||
-    process.env.NEXT_PUBLIC_BOS_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
-    process.env.DEMO_API_ORIGIN ||
-    process.env.DEMO_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_DEMO_API_BASE_URL ||
-    "";
-  if (configured) return configured.trim().replace(/\/+$/, "");
+  // Single canonical env var for the backend origin (server-side only).
+  const configured = (process.env.BOS_API_ORIGIN || "").trim().replace(/\/+$/, "");
+  if (configured) return configured;
 
+  // Fallback: infer from the incoming request hostname.
   const hostHeader =
     request.headers.get("x-forwarded-host") || request.headers.get("host") || "";
   const hostname = hostHeader.split(",")[0].trim().split(":")[0].toLowerCase();

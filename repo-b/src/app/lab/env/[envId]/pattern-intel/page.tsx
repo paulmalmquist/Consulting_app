@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 import Link from "next/link";
 
-const API_BASE = process.env.NEXT_PUBLIC_BOS_API_URL || "http://localhost:8000";
+const API_BASE = ""; // Same-origin — routes through proxy handlers
 
 type DashboardKpis = {
   total_engagements: number;

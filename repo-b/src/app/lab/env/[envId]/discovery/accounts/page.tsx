@@ -3,7 +3,7 @@
 import React, { FormEvent, useEffect, useState } from "react";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 
-const API_BASE = process.env.NEXT_PUBLIC_BOS_API_URL || "http://localhost:8000";
+const API_BASE = ""; // Same-origin — routes through proxy handlers
 
 function fmtDate(d?: string | null): string {
   if (!d) return "\u2014";

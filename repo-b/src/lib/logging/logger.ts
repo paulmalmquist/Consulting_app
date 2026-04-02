@@ -46,12 +46,7 @@ function currentRoute(): string | null {
   }
 }
 
-function shouldLog(): boolean {
-  return process.env.NODE_ENV !== "production";
-}
-
 function emit(level: LogLevel, action: string, message: string, context: LogContext = {}): void {
-  if (!shouldLog()) return;
 
   const payload = {
     ts: isoNow(),

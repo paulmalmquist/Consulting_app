@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
 import { SKILLS, getSkillsByMilestoneId, getSkillsByPhaseId, getSkillsByCapabilityTag } from "./skillsData";
@@ -12,7 +12,7 @@ import SkillDetailView, { SkillLogo } from "./SkillDetailView";
  *
  * - Icon grid: 2 rows on mobile, evenly spaced logos only (no pills)
  * - Clicking an icon navigates to a skill detail view
- * - Timeline selection highlights relevant skills
+ * - Timeline selection highlights relevant skills (only after explicit user interaction)
  * - Skill selection can filter/annotate the timeline via capability layer toggles
  */
 export default function SkillsCapabilityMap() {
@@ -24,6 +24,7 @@ export default function SkillsCapabilityMap() {
     workspace,
     toggleCapabilityLayer,
     enabledCapabilityLayerIds,
+    setHighlightedSystemId,
   } = useResumeWorkspaceStore(
     useShallow((state) => ({
       selectedSkillId: state.selectedSkillId,
@@ -33,12 +34,23 @@ export default function SkillsCapabilityMap() {
       workspace: state.workspace,
       toggleCapabilityLayer: state.toggleCapabilityLayer,
       enabledCapabilityLayerIds: state.enabledCapabilityLayerIds,
+      setHighlightedSystemId: state.setHighlightedSystemId,
     })),
   );
 
+  // Track the initial narrative ID so we don't highlight skills on page load.
+  // Only highlight after the user explicitly selects something different.
+  const initialNarrativeIdRef = useRef<string | null | undefined>(undefined);
+  if (initialNarrativeIdRef.current === undefined && selectedNarrativeId != null) {
+    initialNarrativeIdRef.current = selectedNarrativeId;
+  }
+
+  const isUserDrivenSelection =
+    selectedNarrativeId != null && selectedNarrativeId !== initialNarrativeIdRef.current;
+
   /** Skills highlighted by current timeline selection */
   const highlightedSkillIds = useMemo(() => {
-    if (!selectedNarrativeId || !workspace) return new Set<SkillId>();
+    if (!isUserDrivenSelection || !selectedNarrativeId || !workspace) return new Set<SkillId>();
 
     let matched: SkillDefinition[] = [];
 
@@ -75,7 +87,7 @@ export default function SkillsCapabilityMap() {
     }
 
     return new Set(matched.map((s) => s.id));
-  }, [selectedNarrativeKind, selectedNarrativeId, workspace]);
+  }, [isUserDrivenSelection, selectedNarrativeKind, selectedNarrativeId, workspace]);
 
   const selectedSkill = useMemo(
     () => (selectedSkillId ? SKILLS.find((s) => s.id === selectedSkillId) ?? null : null),
@@ -85,13 +97,14 @@ export default function SkillsCapabilityMap() {
   const handleSkillClick = useCallback(
     (skillId: SkillId) => {
       if (selectedSkillId === skillId) {
-        // Deselect
         setSelectedSkillId(null);
         return;
       }
       setSelectedSkillId(skillId);
+      // Clear timeline-driven system highlight — skill filtering takes over
+      setHighlightedSystemId(null);
 
-      // When selecting a skill, ensure its capability layers are visible on the timeline
+      // Ensure capability layers are visible on the timeline
       const skill = SKILLS.find((s) => s.id === skillId);
       if (skill) {
         for (const tag of skill.capabilityTags) {
@@ -101,7 +114,7 @@ export default function SkillsCapabilityMap() {
         }
       }
     },
-    [selectedSkillId, setSelectedSkillId, enabledCapabilityLayerIds, toggleCapabilityLayer],
+    [selectedSkillId, setSelectedSkillId, setHighlightedSystemId, enabledCapabilityLayerIds, toggleCapabilityLayer],
   );
 
   const handleBack = useCallback(() => {

@@ -2,10 +2,15 @@
 
 import SectionHeader from "../shared/SectionHeader";
 import { BRIEFING_COLORS, BRIEFING_CONTAINER } from "../shared/briefing-colors";
-import { getMockInvestmentThesis } from "../mock-data";
 
-export default function InvestmentThesisCard() {
-  const { thesis, key_drivers } = getMockInvestmentThesis();
+interface InvestmentThesisData {
+  thesis: string;
+  key_drivers: string[];
+}
+
+export default function InvestmentThesisCard({ data }: { data?: InvestmentThesisData | null }) {
+  if (!data) return null;
+  const { thesis, key_drivers } = data;
 
   return (
     <div

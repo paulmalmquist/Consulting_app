@@ -1,12 +1,8 @@
 "use client";
 
 import type {
-  ResumeCapabilityLayer,
   ResumeCareerPhase,
-  ResumeMetricAnchor,
   ResumeTimeline,
-  ResumeTimelineInitiative,
-  ResumeTimelineMilestone,
   ResumeTimelineRole,
   ResumeTimelineViewMode,
 } from "@/lib/bos-api";
@@ -167,26 +163,6 @@ function milestoneImpactValue(metrics: Record<string, string | number>) {
 
 export function getTimelinePhases(timeline: ResumeTimeline) {
   return [...timeline.phases].sort((left, right) => left.display_order - right.display_order);
-}
-
-export function getCapabilityLayerById(timeline: ResumeTimeline, layerId: string) {
-  return timeline.capability_layers.find((layer) => layer.layer_id === layerId) ?? null;
-}
-
-export function getMetricAnchorByKey(timeline: ResumeTimeline, metricKey: string) {
-  return timeline.metric_anchors.find((anchor) => anchor.hero_metric_key === metricKey) ?? null;
-}
-
-export function getMilestoneById(timeline: ResumeTimeline, milestoneId: string) {
-  return timeline.milestones.find((milestone) => milestone.milestone_id === milestoneId) ?? null;
-}
-
-export function getPhaseById(timeline: ResumeTimeline, phaseId: string) {
-  return timeline.phases.find((phase) => phase.phase_id === phaseId) ?? null;
-}
-
-export function getVisibleCapabilityLayerIds(timeline: ResumeTimeline) {
-  return timeline.capability_layers.filter((layer) => layer.is_visible).map((layer) => layer.layer_id);
 }
 
 /** Linearly interpolate between pre-computed curve anchor points. */
@@ -354,92 +330,10 @@ export function getSeriesForView(
   ];
 }
 
-export function getPhaseRangeBounds(phase: ResumeCareerPhase) {
-  return {
-    start: parseDate(phase.start_date).getTime(),
-    end: parseDate(phase.end_date ?? phase.start_date).getTime(),
-  };
-}
-
-export function getMilestonesForPhase(timeline: ResumeTimeline, phaseId: string) {
-  return timeline.milestones.filter((milestone) => milestone.phase_id === phaseId);
-}
-
-export function getRepresentativeTimelineId(
-  timeline: ResumeTimeline,
-  selectionKind: NarrativeSelectionKind,
-  selectionId: string,
-) {
-  if (selectionKind === "milestone" || selectionKind === "initiative" || selectionKind === "role") {
-    return selectionId;
-  }
-
-  if (selectionKind === "phase") {
-    return (
-      getMilestonesForPhase(timeline, selectionId).sort((left, right) => {
-        const leftOrder = left.play_order ?? 999;
-        const rightOrder = right.play_order ?? 999;
-        if (leftOrder !== rightOrder) return leftOrder - rightOrder;
-        return parseDate(left.date).getTime() - parseDate(right.date).getTime();
-      })[0]?.milestone_id ??
-      timeline.initiatives.find((initiative) => initiative.phase_id === selectionId)?.initiative_id ??
-      null
-    );
-  }
-
-  if (selectionKind === "layer") {
-    return (
-      timeline.milestones.find((milestone) => milestone.capability_tags.includes(selectionId))?.milestone_id ??
-      timeline.initiatives.find((initiative) => initiative.capability_tags.includes(selectionId))?.initiative_id ??
-      null
-    );
-  }
-
-  if (selectionKind === "metric") {
-    const anchor = getMetricAnchorByKey(timeline, selectionId);
-    if (!anchor) return null;
-    return (
-      anchor.linked_milestone_ids[0] ??
-      anchor.linked_phase_ids[0] ??
-      anchor.linked_capability_layer_ids[0] ??
-      null
-    );
-  }
-
-  return null;
-}
-
-export function getImpactMetricLabel(metric: ImpactMetricKey) {
-  return IMPACT_SERIES_META.find((series) => series.key === metric)?.label ?? "Composite Impact";
-}
-
 export function getImpactMetricOptions(): Array<{ key: ImpactMetricKey; label: string; color: string }> {
   return IMPACT_SERIES_META.map((series) => ({
     key: series.key,
     label: series.label,
     color: series.color,
   }));
-}
-
-export function getRoleById(timeline: ResumeTimeline, roleId: string) {
-  return timeline.roles.find((role) => role.timeline_role_id === roleId) ?? null;
-}
-
-export function getInitiativeById(timeline: ResumeTimeline, initiativeId: string) {
-  return timeline.initiatives.find((initiative) => initiative.initiative_id === initiativeId) ?? null;
-}
-
-export function getTimelineItemTitle(timeline: ResumeTimeline, kind: NarrativeSelectionKind, id: string | null) {
-  if (!id) return null;
-  if (kind === "phase") return getPhaseById(timeline, id)?.phase_name ?? null;
-  if (kind === "milestone") return getMilestoneById(timeline, id)?.title ?? null;
-  if (kind === "initiative") return getInitiativeById(timeline, id)?.title ?? null;
-  if (kind === "metric") return getMetricAnchorByKey(timeline, id)?.title ?? null;
-  if (kind === "layer") return getCapabilityLayerById(timeline, id)?.name ?? null;
-  if (kind === "role") return getRoleById(timeline, id)?.title ?? null;
-  return null;
-}
-
-export function easeInOutCubic(t: number) {
-  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
