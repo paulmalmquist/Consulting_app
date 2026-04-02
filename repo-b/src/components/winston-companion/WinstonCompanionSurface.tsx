@@ -73,13 +73,13 @@ function ThreadViewport({
             <article
               key={message.id}
               className={cn(
-                "rounded-[28px] border px-4 py-4",
+                "rounded-2xl px-4 py-3",
                 isUser
-                  ? "ml-auto max-w-3xl border-bm-accent/20 bg-bm-accent/10"
-                  : "max-w-5xl border-bm-border/50 bg-bm-surface/18",
+                  ? "ml-auto max-w-3xl bg-bm-accent/10"
+                  : "max-w-5xl border border-bm-border/30 bg-bm-surface/20",
               )}
             >
-              <div className={cn("text-[11px] uppercase tracking-[0.18em]", isUser ? "text-bm-accent" : "text-bm-muted2")}>
+              <div className={cn("text-[10px] font-medium uppercase tracking-[0.14em]", isUser ? "text-bm-accent" : "text-bm-muted2")}>
                 {isUser ? "You" : "Winston"}
               </div>
               {!isUser && message.responseBlocks?.length ? (
@@ -99,11 +99,10 @@ function ThreadViewport({
         })}
 
         {thinking ? (
-          <div className="max-w-4xl rounded-[28px] border border-bm-border/50 bg-bm-surface/12 px-5 py-4">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-bm-muted2">Winston</div>
-            <div className="mt-3 flex items-center gap-3">
-              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-bm-accent animate-pulse" />
-              <span className="text-sm text-bm-muted">{thinkingStatus || "Working through the context..."}</span>
+          <div className="max-w-4xl rounded-2xl border border-bm-border/30 bg-bm-surface/20 px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-2 w-2 rounded-full bg-bm-accent animate-pulse" />
+              <span className="text-sm text-bm-muted">{thinkingStatus || "Processing..."}</span>
             </div>
           </div>
         ) : null}
@@ -154,14 +153,14 @@ function ConversationComposer({
         </div>
       ) : null}
 
-      <div className="rounded-[28px] border border-bm-border/55 bg-bm-bg/70 p-3 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.6)]">
+      <div className="rounded-2xl border border-bm-border/40 bg-bm-bg p-3 shadow-sm">
         <textarea
           value={activeState.draft}
           onChange={(event) => setDraft(activeLane, event.target.value)}
-          rows={compact ? 3 : 4}
-          placeholder={currentContext ? `Ask Winston from ${laneLabel(activeLane).toLowerCase()} mode...` : "Ask Winston..."}
+          rows={compact ? 2 : 3}
+          placeholder={currentContext ? `Ask about ${currentContext.scopeLabel || "this page"}...` : "Ask Winston..."}
           data-testid="global-commandbar-input"
-          className="min-h-[80px] w-full resize-none border-0 bg-transparent text-sm leading-6 text-bm-text outline-none placeholder:text-bm-muted2"
+          className="min-h-[60px] w-full resize-none border-0 bg-transparent text-sm leading-6 text-bm-text outline-none placeholder:text-bm-muted2"
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
@@ -254,11 +253,10 @@ function ContextCard() {
   if (!currentContext) return null;
 
   return (
-    <section className="rounded-[24px] border border-bm-border/50 bg-bm-surface/18 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-bm-muted2">Current context</p>
-          <h2 className="mt-2 text-lg font-semibold text-bm-text">{currentContext.currentNarrative}</h2>
+    <section className="rounded-2xl border border-bm-border/30 bg-bm-surface/15 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-semibold text-bm-text">{currentContext.currentNarrative}</h2>
         </div>
         <LaneSwitcher />
       </div>
@@ -468,12 +466,12 @@ function WorkspaceContent({
         {activeState.messages.length === 0 ? (
           <div className={cn("border-b border-bm-border/40", drawer ? "px-4 py-6" : "px-6 py-8")}>
             <div className="rounded-[28px] border border-dashed border-bm-border/50 bg-bm-bg/45 p-6">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-bm-muted2">Winston companion</p>
-              <h2 className="mt-2 text-xl font-semibold text-bm-text">
-                {currentContext?.currentNarrative || "Always-on operating companion"}
+              <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Winston companion</p>
+              <h2 className="mt-2 text-lg font-semibold text-bm-text">
+                {currentContext?.currentNarrative || "Ready"}
               </h2>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-bm-muted">
-                Start from the current page, keep the thread pinned when it matters, or pivot into broader business-level exploration when you need to move.
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-bm-muted">
+                Ask about this page, run analyses, or explore your portfolio.
               </p>
             </div>
           </div>
@@ -596,7 +594,7 @@ export function WinstonCompanionRoot() {
       >
         <div
           className={cn(
-            "absolute inset-0 bg-slate-950/35 backdrop-blur-[3px] transition-opacity duration-300 motion-reduce:transition-none",
+            "absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-[3px] transition-opacity duration-300 motion-reduce:transition-none",
             open ? "opacity-100" : "opacity-0",
           )}
           onClick={closeDrawer}
@@ -609,27 +607,26 @@ export function WinstonCompanionRoot() {
           aria-modal="true"
           aria-label="Winston companion"
           className={cn(
-            "absolute right-0 top-0 flex h-full w-full max-w-[42rem] flex-col border-l border-white/10 bg-[linear-gradient(180deg,rgba(17,25,36,0.98),rgba(10,16,24,0.98))] shadow-[-32px_0_80px_-36px_rgba(0,0,0,0.85)] transition duration-300 motion-reduce:transition-none",
+            "absolute right-0 top-0 flex h-full w-full max-w-[42rem] flex-col border-l border-bm-border/30 bg-bm-bg shadow-[-32px_0_80px_-36px_rgba(0,0,0,0.5)] transition duration-300 motion-reduce:transition-none",
             "sm:w-[36rem]",
             open ? "translate-x-0 opacity-100" : "translate-x-full opacity-0",
           )}
         >
-          <header className="border-b border-white/10 px-4 py-4 sm:px-5">
+          <header className="border-b border-bm-border/40 px-4 py-4 sm:px-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
-                <WinstonAvatar className="h-12 w-12 border-white/60 bg-white/95" priority />
+                <WinstonAvatar className="h-10 w-10 border-bm-border/50 bg-bm-surface" priority />
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-bm-muted2">Winston companion</p>
-                  <h1 className="text-lg font-semibold text-white">Always-on operating companion</h1>
-                  <p className="mt-1 text-sm text-slate-300">
-                    {currentContext?.routeLabel || "Ready to help"}{currentContext?.envName ? ` · ${currentContext.envName}` : ""}
-                  </p>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Winston companion</p>
+                  <h1 className="text-base font-semibold text-bm-text">
+                    {currentContext?.envName || "Operating companion"}
+                  </h1>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={closeDrawer}
-                className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-300 transition hover:bg-white/10 hover:text-white"
+                className="rounded-full border border-bm-border/40 p-2 text-bm-muted transition hover:bg-bm-surface/40 hover:text-bm-text"
                 aria-label="Close Winston companion"
               >
                 <PanelRightClose size={18} />
@@ -637,8 +634,8 @@ export function WinstonCompanionRoot() {
             </div>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
-            <div className="space-y-4">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            <div className="space-y-3">
               <WorkspaceContent drawer />
               <WorkspaceUtilities drawer />
             </div>
@@ -664,15 +661,15 @@ export function WinstonCompanionWorkspace() {
 
   return (
     <div className="space-y-5">
-      <section className="rounded-[32px] border border-bm-border/55 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_42%),linear-gradient(180deg,rgba(19,27,39,0.96),rgba(11,17,26,0.94))] p-5 shadow-[0_28px_80px_-48px_rgba(0,0,0,0.8)]">
+      <section className="rounded-[32px] border border-bm-border/55 bg-bm-surface/40 p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            <WinstonAvatar className="h-16 w-16 border-white/70 bg-white/95" priority />
+            <WinstonAvatar className="h-14 w-14 border-bm-border/50 bg-bm-surface" priority />
             <div>
-              <p className="text-[11px] uppercase tracking-[0.18em] text-bm-muted2">Winston workspace</p>
-              <h1 className="mt-1 text-2xl font-semibold text-white">Full companion environment</h1>
-              <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-300">
-                Keep contextual threads pinned when you need precision, switch into general mode when you want broader business reasoning, and move across entities without losing your place.
+              <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Winston workspace</p>
+              <h1 className="mt-1 text-xl font-semibold text-bm-text">Operating companion</h1>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-bm-muted">
+                Context-aware threads pinned to your current page. Switch lanes for broader reasoning.
               </p>
             </div>
           </div>
