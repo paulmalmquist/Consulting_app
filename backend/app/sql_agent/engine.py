@@ -21,7 +21,7 @@ from app.sql_agent.chart_recommender import ChartRecommendation, recommend_chart
 from app.sql_agent.executor import ExecutionResult, execute_sql
 from app.sql_agent.query_classifier import QueryClassification, QueryType, classify_query
 from app.sql_agent.query_templates import get_template, list_templates, render_template
-from app.sql_agent.validator import ValidationResult, validate_sql
+from app.sql_agent.validator import validate_sql
 
 logger = logging.getLogger(__name__)
 
