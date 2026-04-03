@@ -14,7 +14,7 @@ Each template declares:
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from app.sql_agent.query_classifier import QueryType

@@ -3653,7 +3653,7 @@ async def run_gateway_stream(
                             scope_label=resolved_scope.entity_name,
                         )
                     except Exception:
-                        logger.exception("Failed to create pending action record")
+                        emit_log(level="error", service="backend", action="ai.gateway.pending_action_error", message="Failed to create pending action record")
             elif not tool_success and tool_error_msg:
                 tool_error_block = error_block(
                     title=f"{tool_name} failed",
