@@ -2,17 +2,20 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Archive,
   ArrowUpRight,
   Bot,
+  ChevronDown,
   ChevronRight,
   Compass,
   History,
   MessageSquarePlus,
+  MoreVertical,
   PanelRightClose,
   Search,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
@@ -56,10 +59,21 @@ function ThreadViewport({
   compact?: boolean;
 }) {
   const endRef = useRef<HTMLDivElement | null>(null);
+  const { activeLane, sendPrompt, setDraft } = useWinstonCompanion();
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, thinking, thinkingStatus]);
+
+  const handleConfirm = () => {
+    void sendPrompt(activeLane, "Yes, confirm.");
+  };
+  const handleCancel = () => {
+    void sendPrompt(activeLane, "Cancel.");
+  };
+  const handleEdit = () => {
+    setDraft(activeLane, "Actually, change ");
+  };
 
   return (
     <div
@@ -85,7 +99,13 @@ function ThreadViewport({
               {!isUser && message.responseBlocks?.length ? (
                 <div className="mt-3 space-y-3">
                   {message.responseBlocks.map((block) => (
-                    <ResponseBlockRenderer key={block.block_id} block={block} />
+                    <ResponseBlockRenderer
+                      key={block.block_id}
+                      block={block}
+                      onConfirmAction={handleConfirm}
+                      onCancelAction={handleCancel}
+                      onEditAction={handleEdit}
+                    />
                   ))}
                   {message.content && !hasMarkdownBlock(message.responseBlocks) ? (
                     <div className="whitespace-pre-wrap text-sm leading-7 text-bm-text">{message.content}</div>
@@ -204,10 +224,12 @@ function ConversationComposer({
   );
 }
 
-function SuggestionStrip({ compact = false }: { compact?: boolean }) {
-  const { currentContext, activeLane, setDraft } = useWinstonCompanion();
+function SuggestionStrip({ compact = false, hideWhenActive = false }: { compact?: boolean; hideWhenActive?: boolean }) {
+  const { currentContext, activeLane, activeState, setDraft } = useWinstonCompanion();
 
   if (!currentContext?.suggestions.length) return null;
+  // In compact/drawer mode, hide suggestions once conversation has messages
+  if (hideWhenActive && activeState.messages.length > 0) return null;
 
   return (
     <div className={cn("flex flex-wrap gap-2", compact ? "px-4 pb-2" : "px-6 pb-2")}>
@@ -277,6 +299,51 @@ function ContextCard() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+/** Compact horizontal thread picker for drawer/mobile mode. */
+function RecentThreadStrip() {
+  const {
+    activeLane,
+    activeState,
+    recentConversations,
+    loadConversation,
+    resetLane,
+  } = useWinstonCompanion();
+
+  if (!recentConversations.length) return null;
+
+  return (
+    <div className="px-4 py-2">
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+        <button
+          type="button"
+          onClick={() => resetLane(activeLane)}
+          className="shrink-0 rounded-full border border-bm-accent/40 bg-bm-accent/10 px-3 py-1.5 text-xs font-medium text-bm-accent transition hover:bg-bm-accent/20"
+        >
+          + New
+        </button>
+        {recentConversations.slice(0, 6).map((conversation) => {
+          const active = conversation.conversation_id === activeState.conversationId;
+          return (
+            <button
+              key={conversation.conversation_id}
+              type="button"
+              onClick={() => void loadConversation(conversation.conversation_id, activeLane)}
+              className={cn(
+                "shrink-0 max-w-[160px] truncate rounded-full border px-3 py-1.5 text-xs transition",
+                active
+                  ? "border-bm-accent/40 bg-bm-accent/15 font-medium text-bm-text"
+                  : "border-bm-border/50 bg-bm-bg/60 text-bm-muted2 hover:text-bm-text",
+              )}
+            >
+              {conversation.title || conversation.scope_label || "Untitled"}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -416,6 +483,33 @@ function AdvancedPanel() {
   );
 }
 
+/** Overflow menu for drawer mode — Explore + Dev behind a single toggle. */
+function DrawerOverflowMenu() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="px-4 pb-3">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between rounded-2xl border border-bm-border/40 bg-bm-surface/10 px-4 py-2.5 text-xs font-medium text-bm-muted2 transition hover:text-bm-text"
+      >
+        <span className="flex items-center gap-2">
+          <MoreVertical size={14} />
+          Explore &amp; tools
+        </span>
+        <ChevronDown size={14} className={cn("transition", open && "rotate-180")} />
+      </button>
+      {open ? (
+        <div className="mt-3 space-y-3">
+          <ExplorePanel />
+          <AdvancedPanel />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function WorkspaceUtilities({ drawer = false }: { drawer?: boolean }) {
   return (
     <div className={cn("space-y-4", drawer ? "" : "sticky top-6")}>
@@ -435,25 +529,44 @@ function WorkspaceContent({
 
   return (
     <>
-      <ContextCard />
+      {/* In drawer mode: skip ContextCard (header already shows context),
+          show compact thread strip instead of full RecentConversations */}
+      {drawer ? (
+        <RecentThreadStrip />
+      ) : (
+        <ContextCard />
+      )}
 
       <section className={cn("overflow-hidden rounded-[28px] border border-bm-border/55 bg-bm-surface/10")}>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-bm-border/45 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Bot size={15} className="text-bm-muted2" />
-            <div>
-              <p className="text-sm font-semibold text-bm-text">
-                {activeLane === "contextual" ? "Pinned contextual thread" : "General Winston thread"}
-              </p>
-              <p className="text-xs text-bm-muted2">
-                {currentContext?.scopeLabel || "Workspace"}{activeState.conversationId ? " · conversation attached" : " · new conversation"}
-              </p>
+        {/* Simplified header — single line in drawer, full in workspace */}
+        <div className={cn(
+          "flex items-center justify-between gap-3 border-b border-bm-border/45",
+          drawer ? "px-4 py-2" : "px-4 py-3",
+        )}>
+          <div className="flex items-center gap-2 min-w-0">
+            {drawer ? null : <Bot size={15} className="text-bm-muted2" />}
+            <div className="min-w-0">
+              {drawer ? (
+                <p className="truncate text-xs text-bm-muted2">
+                  <LaneSwitcher />
+                  {activeState.conversationId ? " · active thread" : ""}
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-bm-text">
+                    {activeLane === "contextual" ? "Pinned contextual thread" : "General Winston thread"}
+                  </p>
+                  <p className="text-xs text-bm-muted2">
+                    {currentContext?.scopeLabel || "Workspace"}{activeState.conversationId ? " · conversation attached" : " · new conversation"}
+                  </p>
+                </>
+              )}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Button type="button" variant="secondary" size="sm" onClick={() => resetLane(activeLane)}>
               <MessageSquarePlus size={14} />
-              New Thread
+              {drawer ? null : "New Thread"}
             </Button>
             {drawer ? (
               <Button type="button" size="sm" onClick={openFullWorkspace}>
@@ -464,20 +577,25 @@ function WorkspaceContent({
         </div>
 
         {activeState.messages.length === 0 ? (
-          <div className={cn("border-b border-bm-border/40", drawer ? "px-4 py-6" : "px-6 py-8")}>
-            <div className="rounded-[28px] border border-dashed border-bm-border/50 bg-bm-bg/45 p-6">
-              <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Winston companion</p>
-              <h2 className="mt-2 text-lg font-semibold text-bm-text">
+          <div className={cn("border-b border-bm-border/40", drawer ? "px-4 py-4" : "px-6 py-8")}>
+            <div className={cn(
+              "rounded-[28px] border border-dashed border-bm-border/50 bg-bm-bg/45",
+              drawer ? "p-4" : "p-6",
+            )}>
+              {drawer ? null : (
+                <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Winston companion</p>
+              )}
+              <h2 className={cn("font-semibold text-bm-text", drawer ? "text-sm" : "mt-2 text-lg")}>
                 {currentContext?.currentNarrative || "Ready"}
               </h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-bm-muted">
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-bm-muted">
                 Ask about this page, run analyses, or explore your portfolio.
               </p>
             </div>
           </div>
         ) : null}
 
-        <SuggestionStrip compact={drawer} />
+        <SuggestionStrip compact={drawer} hideWhenActive={drawer} />
         <ThreadViewport
           messages={activeState.messages}
           thinking={activeState.thinking}
@@ -612,32 +730,31 @@ export function WinstonCompanionRoot() {
             open ? "translate-x-0 opacity-100" : "translate-x-full opacity-0",
           )}
         >
-          <header className="border-b border-bm-border/40 px-4 py-4 sm:px-5">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <WinstonAvatar className="h-10 w-10 border-bm-border/50 bg-bm-surface" priority />
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Winston companion</p>
-                  <h1 className="text-base font-semibold text-bm-text">
-                    {currentContext?.envName || "Operating companion"}
+          <header className="border-b border-bm-border/40 px-4 py-3 sm:px-5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <WinstonAvatar className="h-9 w-9 shrink-0 border-bm-border/50 bg-bm-surface" priority />
+                <div className="min-w-0">
+                  <h1 className="truncate text-sm font-semibold text-bm-text">
+                    {currentContext?.currentNarrative || currentContext?.envName || "Winston"}
                   </h1>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={closeDrawer}
-                className="rounded-full border border-bm-border/40 p-2 text-bm-muted transition hover:bg-bm-surface/40 hover:text-bm-text"
+                className="shrink-0 rounded-full border border-bm-border/40 p-2 text-bm-muted transition hover:bg-bm-surface/40 hover:text-bm-text"
                 aria-label="Close Winston companion"
               >
-                <PanelRightClose size={18} />
+                <X size={16} />
               </button>
             </div>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-            <div className="space-y-3">
+          <div className="min-h-0 flex-1 overflow-y-auto py-2">
+            <div className="space-y-2">
               <WorkspaceContent drawer />
-              <WorkspaceUtilities drawer />
+              <DrawerOverflowMenu />
             </div>
           </div>
         </div>
