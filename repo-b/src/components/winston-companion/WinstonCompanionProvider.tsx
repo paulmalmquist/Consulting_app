@@ -73,6 +73,9 @@ type LaneBinding = {
   lastRoute: string | null;
 };
 
+/** Terminal state for every assistant turn. */
+type TerminalState = "complete" | "awaiting_confirmation" | "blocked_missing_info" | "failed" | null;
+
 type LaneState = {
   conversationId: string | null;
   draft: string;
@@ -81,6 +84,7 @@ type LaneState = {
   binding: LaneBinding | null;
   thinking: boolean;
   thinkingStatus?: string;
+  terminalState: TerminalState;
   trace: AssistantApiTrace | null;
   debug: AskAiDebug | null;
 };
@@ -131,6 +135,7 @@ const EMPTY_LANE: LaneState = {
   binding: null,
   thinking: false,
   thinkingStatus: undefined,
+  terminalState: null,
   trace: null,
   debug: null,
 };
@@ -800,6 +805,7 @@ export function WinstonCompanionProvider({
       draft: promptOverride ? current.draft : "",
       thinking: true,
       thinkingStatus: "Grounding in the current workspace...",
+      terminalState: null,
       messages: [
         ...current.messages,
         userMessage,
@@ -894,13 +900,15 @@ export function WinstonCompanionProvider({
             };
           });
         },
-        onDone: () => {
+        onDone: (payload) => {
           // Clear thinking immediately when backend sends 'done' event,
           // rather than waiting for post-stream persistence to close the HTTP stream.
+          const terminalState = (payload as Record<string, unknown>)?.terminal_state as TerminalState || "complete";
           setLaneState(lane, (current) => ({
             ...current,
             thinking: false,
             thinkingStatus: undefined,
+            terminalState,
           }));
         },
       });
@@ -930,6 +938,7 @@ export function WinstonCompanionProvider({
         ...current,
         thinking: false,
         thinkingStatus: undefined,
+        terminalState: "failed",
         messages: current.messages.map((item) =>
           item.id === assistantId
             ? {

@@ -22,9 +22,13 @@ import GroundingBadge from "@/components/winston/blocks/GroundingBadge";
 export default function ResponseBlockRenderer({
   block,
   onConfirmAction,
+  onCancelAction,
+  onEditAction,
 }: {
   block: AssistantResponseBlock;
   onConfirmAction?: (block: Extract<AssistantResponseBlock, { type: "confirmation" }>) => void;
+  onCancelAction?: (block: Extract<AssistantResponseBlock, { type: "confirmation" }>) => void;
+  onEditAction?: (block: Extract<AssistantResponseBlock, { type: "confirmation" }>) => void;
 }) {
   switch (block.type) {
     case "markdown_text":
@@ -57,6 +61,8 @@ export default function ResponseBlockRenderer({
         <ConfirmationBlock
           block={block}
           onConfirm={() => onConfirmAction?.(block)}
+          onCancel={() => onCancelAction?.(block)}
+          onEdit={() => onEditAction?.(block)}
         />
       );
 

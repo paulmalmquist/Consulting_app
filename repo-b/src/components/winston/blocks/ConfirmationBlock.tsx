@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import type { AssistantResponseBlock } from "@/lib/commandbar/types";
 
 type ConfirmBlock = Extract<AssistantResponseBlock, { type: "confirmation" }>;
@@ -9,16 +9,20 @@ export default function ConfirmationBlock({
   block,
   onConfirm,
   onCancel,
+  onEdit,
 }: {
   block: ConfirmBlock;
   onConfirm?: () => void;
   onCancel?: () => void;
+  onEdit?: () => void;
 }) {
+  const [resolved, setResolved] = useState<"confirmed" | "cancelled" | null>(null);
+
   return (
     <div className="my-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
       <div className="flex items-center gap-2 mb-2">
         <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-300">
-          Confirmation Required
+          {resolved === "confirmed" ? "Confirmed" : resolved === "cancelled" ? "Cancelled" : "Confirmation Required"}
         </span>
       </div>
       <p className="text-sm font-semibold text-bm-text mb-1">{block.action}</p>
@@ -38,22 +42,43 @@ export default function ConfirmationBlock({
           Missing: {block.missing_fields.join(", ")}
         </p>
       )}
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={onConfirm}
-          className="rounded-md bg-bm-accent/20 border border-bm-accent/40 px-3 py-1.5 text-sm font-medium text-bm-text hover:bg-bm-accent/30 transition-colors"
-        >
-          {block.confirm_label || "Confirm"}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-md border border-bm-border/40 px-3 py-1.5 text-sm text-bm-muted hover:text-bm-text transition-colors"
-        >
-          Cancel
-        </button>
-      </div>
+      {resolved ? (
+        <p className="text-xs text-bm-muted2 italic">
+          {resolved === "confirmed" ? "Action confirmed — executing..." : "Action cancelled."}
+        </p>
+      ) : (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setResolved("confirmed");
+              onConfirm?.();
+            }}
+            className="rounded-md bg-bm-accent/20 border border-bm-accent/40 px-3 py-1.5 text-sm font-medium text-bm-text hover:bg-bm-accent/30 transition-colors"
+          >
+            {block.confirm_label || "Confirm"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setResolved("cancelled");
+              onCancel?.();
+            }}
+            className="rounded-md border border-bm-border/40 px-3 py-1.5 text-sm text-bm-muted hover:text-bm-text transition-colors"
+          >
+            Cancel
+          </button>
+          {onEdit ? (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="rounded-md border border-bm-border/40 px-3 py-1.5 text-sm text-bm-muted hover:text-bm-text transition-colors"
+            >
+              Edit
+            </button>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

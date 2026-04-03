@@ -41,6 +41,10 @@ from app.services.assistant_blocks import (
     legacy_structured_result_to_blocks,
     markdown_block,
 )
+from app.services.pending_action_manager import (
+    check_and_resolve as check_pending_action,
+    create_pending_action,
+)
 from app.services.prompt_composer import compose_prompt
 
 # ── Singleton OpenAI client (reuse HTTP connection pool) ──────────
@@ -2724,10 +2728,16 @@ async def run_gateway_stream(
         input=message,
     )
 
-    # ── Kick off workflow check in parallel with context resolution ──
+    # ── Kick off workflow check + pending action check in parallel ──
     _workflow_task = asyncio.ensure_future(
         asyncio.get_event_loop().run_in_executor(
             None, _check_pending_workflow, conversation_id
+        )
+    )
+    _pending_action_task = asyncio.ensure_future(
+        asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: check_pending_action(str(conversation_id), message) if conversation_id else None,
         )
     )
 
@@ -2802,6 +2812,47 @@ async def run_gateway_stream(
             message=f"Active workflow detected ({_pending_workflow['type']}), "
                     f"route overridden to Lane {route.lane} (skip_tools={route.skip_tools})",
             context={"workflow_type": _pending_workflow["type"], "original_lane": route.lane},
+        )
+
+    # ── Pending action resolution (durable state machine) ─────────────
+    _pending_action_result = await _pending_action_task
+    _terminal_state = "complete"  # default terminal state for this turn
+    if _pending_action_result and _pending_action_result.get("intent") == "cancel":
+        # User cancelled — emit done immediately with cancelled state
+        pa = _pending_action_result["pending_action"]
+        yield _sse("status", {"message": "Action cancelled."})
+        yield _sse("token", {"text": f"Cancelled the pending {pa.get('action_type', 'action')}. Let me know if you'd like to do something else."})
+        timings["total_ms"] = int((time.time() - start) * 1000)
+        yield _sse("done", {
+            "session_id": session_id,
+            "terminal_state": "complete",
+            "trace": {
+                "execution_path": "chat", "lane": "A", "model": "none",
+                "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
+                "tool_call_count": 0, "tool_timeline": [], "data_sources": [],
+                "citations": [], "rag_chunks_used": 0,
+                "warnings": ["Pending action cancelled by user"],
+                "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+                "repe": None, "visible_context_shortcut": False, "timings": timings,
+            },
+            "prompt_tokens": 0, "completion_tokens": 0, "tool_calls": 0,
+            "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+            "response_blocks": [markdown_block(f"Cancelled the pending {pa.get('action_type', 'action')}.")],
+        })
+        return
+    elif _pending_action_result and _pending_action_result.get("intent") == "confirm":
+        # User confirmed — override route to ensure tools are available
+        _workflow_override_applied = True
+        route = RouteDecision(
+            lane="C", skip_rag=True, skip_tools=False,
+            max_tool_rounds=3, max_tokens=1024, temperature=0.2,
+            is_write=True, model=route.model or OPENAI_CHAT_MODEL,
+            rag_top_k=0, rag_max_tokens=0, history_max_tokens=2000,
+        )
+        emit_log(
+            level="info", service="backend", action="ai.gateway.pending_action_confirmed",
+            message=f"User confirmed pending action {_pending_action_result['pending_action'].get('action_type')}",
+            context={"pending_action_id": str(_pending_action_result["pending_action"]["pending_action_id"])},
         )
 
     # Emit status immediately so frontend shows processing started
@@ -3584,6 +3635,25 @@ async def run_gateway_stream(
                     },
                 )
                 yield _sse("response_block", {"block": confirm_block})
+                # Create durable pending action record
+                _terminal_state = "awaiting_confirmation"
+                if conversation_id and resolved_scope.business_id:
+                    try:
+                        create_pending_action(
+                            conversation_id=str(conversation_id),
+                            business_id=resolved_scope.business_id,
+                            env_id=resolved_scope.environment_id,
+                            actor=actor,
+                            skill_id=tool_name,
+                            action_type=tool_result.get("action", tool_name),
+                            params_json=tool_result.get("provided") or raw_args,
+                            missing_fields=tool_result.get("missing_fields") or tool_result.get("required_fields"),
+                            scope_type=resolved_scope.entity_type,
+                            scope_id=resolved_scope.entity_id,
+                            scope_label=resolved_scope.entity_name,
+                        )
+                    except Exception:
+                        logger.exception("Failed to create pending action record")
             elif not tool_success and tool_error_msg:
                 tool_error_block = error_block(
                     title=f"{tool_name} failed",
@@ -3810,10 +3880,18 @@ async def run_gateway_stream(
     if collected_content.strip():
         response_blocks.insert(0, markdown_block(collected_content.strip()))
 
+    # Determine terminal state for this turn
+    if _terminal_state == "complete" and not collected_content and tool_call_count == 0:
+        _terminal_state = "complete"  # empty but valid
+    # If we had errors and no content, mark as failed
+    if not collected_content and not response_blocks and warnings:
+        _terminal_state = "failed"
+
     yield _sse(
         "done",
         {
             "session_id": session_id,
+            "terminal_state": _terminal_state,
             "trace": {
                 "execution_path": execution_path,
                 "lane": route.lane,
