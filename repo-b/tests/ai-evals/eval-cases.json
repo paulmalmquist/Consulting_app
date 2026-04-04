@@ -172,5 +172,80 @@
         "reject_contains_any": ["NOI is", "$", "Meridian", "asset", "fund"]
       }
     ]
+  },
+  {
+    "id": "fund-detail-performance-summary",
+    "description": "Fund detail page supports broad performance summary",
+    "env_slug": "meridian",
+    "nav_path": "/lab/env/env-meridian/re/funds",
+    "prompts": [
+      {
+        "user": "Give me a rundown of this fund's performance",
+        "require_contains_any": [
+          "Fund", "IRR", "TVPI", "NAV", "NOI", "performance", "return"
+        ],
+        "reject_contains_any": ["Not available in the current context", "Novendor", "Paul Malmquist"]
+      }
+    ]
+  },
+  {
+    "id": "fund-detail-data-basis",
+    "description": "Fund detail page explains its data sources",
+    "env_slug": "meridian",
+    "nav_path": "/lab/env/env-meridian/re/funds",
+    "prompts": [
+      {
+        "user": "What data is this based on?",
+        "require_contains_any": [
+          "based on", "source", "data", "page", "visible", "context"
+        ],
+        "reject_contains_any": ["I queried external systems", "Novendor"]
+      }
+    ]
+  },
+  {
+    "id": "re-overview-all-funds",
+    "description": "RE overview supports portfolio-level fund performance questions",
+    "env_slug": "meridian",
+    "nav_path": "/lab/env/env-meridian/re",
+    "prompts": [
+      {
+        "user": "Give me a rundown of each fund's performance",
+        "require_contains_any": [
+          "Fund", "performance", "portfolio"
+        ],
+        "reject_contains_any": ["Not available in the current context", "Novendor", "Paul Malmquist"]
+      }
+    ]
+  },
+  {
+    "id": "asset-detail-cap-rate",
+    "description": "Asset detail page answers cap rate questions with asset name",
+    "env_slug": "meridian",
+    "nav_path": "/lab/env/env-meridian/re/assets",
+    "prompts": [
+      {
+        "user": "What's the cap rate on this asset?",
+        "require_contains_any": [
+          "cap rate", "Ashford", "%"
+        ],
+        "reject_contains_any": ["Not available in the current context", "Novendor"]
+      }
+    ]
+  },
+  {
+    "id": "deals-create-confirmation",
+    "description": "Deals page handles write intent with confirmation",
+    "env_slug": "meridian",
+    "nav_path": "/lab/env/env-meridian/re/deals",
+    "prompts": [
+      {
+        "user": "Create a new deal called Meridian West",
+        "require_contains_any": [
+          "Meridian West", "confirm", "create", "proceed"
+        ],
+        "reject_contains_any": ["created successfully", "saved", "executed"]
+      }
+    ]
   }
 ]

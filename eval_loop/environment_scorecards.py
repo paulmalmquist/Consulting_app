@@ -47,6 +47,18 @@ def build_environment_scorecards(results: list[dict[str, Any]]) -> list[dict[str
         low_confidence_dispatch = sum(1 for item in env_results if item.get("low_confidence_dispatch"))
         invalid_dispatch = sum(1 for item in env_results if item.get("invalid_dispatch"))
         dispatch_code_disagreement = sum(1 for item in env_results if item.get("dispatch_code_disagreement"))
+        # Retrieval empty rate: among scenarios where retrieval was actually used, how many got empty results
+        retrieval_actually_used = [
+            item for item in env_results
+            if (item.get("turn_receipt") or {}).get("retrieval", {}).get("used")
+        ]
+        retrieval_actually_empty = sum(
+            1 for item in retrieval_actually_used
+            if (item.get("turn_receipt") or {}).get("retrieval", {}).get("status") == "empty"
+        )
+        # Product pass rate for this environment
+        product_items = [item for item in env_results if item.get("product_pass") is not None]
+        product_pass_count = sum(1 for item in product_items if item.get("product_pass"))
         pass_rate = round(pass_count / max(total, 1), 4)
         overall_score = round(
             (
@@ -83,6 +95,8 @@ def build_environment_scorecards(results: list[dict[str, Any]]) -> list[dict[str
                 "low_confidence_dispatch_rate": round(low_confidence_dispatch / max(total, 1), 4),
                 "invalid_dispatch_rate": round(invalid_dispatch / max(total, 1), 4),
                 "dispatch_code_disagreement_rate": round(dispatch_code_disagreement / max(total, 1), 4),
+                "retrieval_empty_rate": round(retrieval_actually_empty / max(len(retrieval_actually_used), 1), 4) if retrieval_actually_used else None,
+                "product_pass_rate": round(product_pass_count / max(len(product_items), 1), 4) if product_items else None,
                 "top_failure_categories": failure_counter.most_common(3),
                 "overall_score": overall_score,
             }

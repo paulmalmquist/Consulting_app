@@ -45,6 +45,23 @@ def summarize_run(*, run_id: str, cycle: int, suite: str, results: list[dict[str
     low_confidence_dispatch_rate = round(sum(1 for result in results if result.get("low_confidence_dispatch")) / max(len(results), 1), 4)
     invalid_dispatch_rate = round(sum(1 for result in results if result.get("invalid_dispatch")) / max(len(results), 1), 4)
     dispatch_code_disagreement_rate = round(sum(1 for result in results if result.get("dispatch_code_disagreement")) / max(len(results), 1), 4)
+
+    # Product pass rate (only for scenarios that have product_expected)
+    product_results = [r for r in results if r.get("product_pass") is not None]
+    product_pass_count = sum(1 for r in product_results if r.get("product_pass"))
+    product_pass_rate = round(product_pass_count / max(len(product_results), 1), 4) if product_results else None
+
+    # Retrieval empty rate (scenarios where retrieval was used but returned empty)
+    retrieval_used_results = [
+        r for r in results
+        if (r.get("turn_receipt") or {}).get("retrieval", {}).get("used")
+    ]
+    retrieval_empty_count = sum(
+        1 for r in retrieval_used_results
+        if (r.get("turn_receipt") or {}).get("retrieval", {}).get("status") == "empty"
+    )
+    retrieval_empty_rate = round(retrieval_empty_count / max(len(retrieval_used_results), 1), 4) if retrieval_used_results else None
+
     return {
         "run_id": run_id,
         "cycle": cycle,
@@ -63,6 +80,10 @@ def summarize_run(*, run_id: str, cycle: int, suite: str, results: list[dict[str
         "low_confidence_dispatch_rate": low_confidence_dispatch_rate,
         "invalid_dispatch_rate": invalid_dispatch_rate,
         "dispatch_code_disagreement_rate": dispatch_code_disagreement_rate,
+        "product_pass_rate": product_pass_rate,
+        "product_pass_count": product_pass_count if product_results else None,
+        "product_scenario_count": len(product_results) if product_results else None,
+        "retrieval_empty_rate": retrieval_empty_rate,
     }
 
 
@@ -265,6 +286,46 @@ def _render_latest_summary(
             lines.append(f"- fallback `{reason}`: {count}")
     lines.extend(["", "## Cross-Environment Contamination"])
     lines.extend(contamination_lines or ["- No contamination detected in this cycle."])
+
+    # Product usefulness section
+    product_results = [result for result in results if result.get("product_pass") is not None]
+    if product_results:
+        product_passed = [r for r in product_results if r.get("product_pass")]
+        runtime_pass_product_fail = [
+            r for r in product_results
+            if r.get("passed") and not r.get("product_pass")
+        ]
+        lines.extend([
+            "",
+            "## Product Usefulness",
+            f"- Product pass rate: `{len(product_passed)}/{len(product_results)}`",
+        ])
+        # Per-page breakdown
+        page_buckets: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for r in product_results:
+            page = r.get("page_type") or "default"
+            page_buckets[page].append(r)
+        for page, page_results in sorted(page_buckets.items()):
+            page_pass = sum(1 for r in page_results if r.get("product_pass"))
+            lines.append(f"- `{page}`: `{page_pass}/{len(page_results)}`")
+        if runtime_pass_product_fail:
+            lines.append("- Runtime passed but product failed:")
+            for r in runtime_pass_product_fail[:8]:
+                lines.append(f"  - `{r['scenario_id']}`")
+    else:
+        lines.extend([
+            "",
+            "## Product Usefulness",
+            "- No scenarios with product_expected defined.",
+        ])
+
+    # Retrieval empty rate section
+    if summary.get("retrieval_empty_rate") is not None:
+        lines.extend([
+            "",
+            "## Retrieval Empty Rate",
+            f"- Retrieval empty rate: `{summary['retrieval_empty_rate']}`",
+        ])
 
     lines.extend(["", "## What Degraded Correctly"])
     if correctly_degraded:
@@ -480,3 +541,50 @@ def write_reports(
 
     proof_rows = _priority_proof_rows(results)
     (out_dir / "groundedness_proof.json").write_text(json.dumps(proof_rows, indent=2) + "\n")
+
+
+def merge_frontend_results(
+    *,
+    backend_summary: dict[str, Any],
+    frontend_results_path: Path,
+) -> dict[str, Any]:
+    """Merge Playwright frontend eval results into the backend summary.
+
+    Reads the ai-eval-results.json produced by the Playwright eval harness
+    and appends a frontend section to the summary dict.
+    """
+    if not frontend_results_path.exists():
+        return {**backend_summary, "frontend_eval": None}
+
+    try:
+        frontend_data = json.loads(frontend_results_path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {**backend_summary, "frontend_eval": {"error": "failed to parse frontend results"}}
+
+    cases = frontend_data if isinstance(frontend_data, list) else frontend_data.get("cases", [])
+    total = len(cases)
+    passed = sum(1 for c in cases if c.get("passed"))
+
+    per_env: dict[str, dict[str, int]] = defaultdict(lambda: {"total": 0, "passed": 0})
+    for case in cases:
+        env = case.get("env_slug") or "unknown"
+        per_env[env]["total"] += 1
+        if case.get("passed"):
+            per_env[env]["passed"] += 1
+
+    failed_cases = [
+        {"id": c.get("id"), "env_slug": c.get("env_slug"), "failed_prompts": c.get("failed_prompts", [])}
+        for c in cases
+        if not c.get("passed")
+    ]
+
+    return {
+        **backend_summary,
+        "frontend_eval": {
+            "total": total,
+            "passed": passed,
+            "pass_rate": round(passed / max(total, 1), 4),
+            "per_environment": dict(per_env),
+            "failed_cases": failed_cases[:20],
+        },
+    }

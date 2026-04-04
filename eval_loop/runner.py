@@ -125,6 +125,7 @@ async def run_assistant_turn(
         active_business_name=active.get("active_business_name"),
         omit_environment=active.get("omit_environment", False),
         thread=active.get("thread"),
+        page_type=active.get("page_type"),
     )
     conversation_id = uuid.uuid5(uuid.NAMESPACE_URL, f"winston-eval:{scenario['id']}")
 
@@ -574,6 +575,18 @@ async def run_suite(
                 regression_type = "pass_to_fail"
             elif previous.get("cross_environment_contamination", 0) == 0 and record.get("cross_environment_contamination", 0) == 1:
                 regression_type = "contamination_regression"
+
+            # Latency regression: flag if duration increased by >50%
+            prev_duration = previous.get("duration_ms")
+            curr_duration = record.get("duration_ms")
+            if (
+                regression_type is None
+                and prev_duration
+                and curr_duration
+                and curr_duration > prev_duration * 1.5
+            ):
+                regression_type = "latency_regression"
+
             if regression_type:
                 regression = {
                     "run_id": run_id,
@@ -586,6 +599,8 @@ async def run_suite(
                         "previous_failure_category": previous.get("failure_category"),
                         "current_failure_category": record.get("failure_category"),
                         "receipt_diff": receipt_diff.get("diffs", []),
+                        "previous_duration_ms": prev_duration,
+                        "current_duration_ms": curr_duration,
                     },
                 }
                 regressions.append(regression)

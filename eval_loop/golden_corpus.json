@@ -24,7 +24,12 @@
         "answer_must_not_include": ["NOI drops", "cap rate", "underwriting"],
         "max_duration_ms": 10000
       },
-      "mutations": ["sloppy_tone", "data_source", "continue_prior_context"]
+      "mutations": ["sloppy_tone", "data_source", "continue_prior_context"],
+      "product_expected": {
+        "should_answer": false,
+        "must_reference_entity": false,
+        "forbidden_generic_degraded": false
+      }
     },
     {
       "id": "golden_noi_down_vs_underwriting_meridian",
@@ -46,7 +51,13 @@
         "max_duration_ms": 18000,
         "contamination_terms": ["Novendor", "Paul Malmquist"]
       },
-      "mutations": ["terse", "sloppy_tone", "data_source", "justification"]
+      "mutations": ["terse", "sloppy_tone", "data_source", "justification"],
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["NOI", "underwriting", "variance"],
+        "must_reference_entity": true,
+        "forbidden_generic_degraded": true
+      }
     },
     {
       "id": "golden_generate_lp_summary_meridian",
@@ -67,7 +78,13 @@
         "answer_must_not_include": ["Paul Malmquist", "Novendor"],
         "max_duration_ms": 22000
       },
-      "mutations": ["executive_tone", "data_source"]
+      "mutations": ["executive_tone", "data_source"],
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["LP", "summary", "investor", "quarterly"],
+        "must_reference_entity": false,
+        "forbidden_generic_degraded": true
+      }
     },
     {
       "id": "golden_follow_up_today_novendor",
@@ -88,7 +105,13 @@
         "max_duration_ms": 18000,
         "contamination_terms": ["Fund One", "Meridian"]
       },
-      "mutations": ["terse", "executive_tone", "sloppy_tone"]
+      "mutations": ["terse", "executive_tone", "sloppy_tone"],
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["follow up", "today", "client"],
+        "must_reference_entity": false,
+        "forbidden_generic_degraded": true
+      }
     },
     {
       "id": "golden_what_am_i_looking_at_meridian",
@@ -108,7 +131,13 @@
         "answer_must_not_include": ["Novendor", "Paul Malmquist"],
         "max_duration_ms": 12000
       },
-      "mutations": ["terse", "data_source", "sloppy_tone"]
+      "mutations": ["terse", "data_source", "sloppy_tone"],
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["Meridian"],
+        "must_reference_entity": true,
+        "forbidden_generic_degraded": true
+      }
     },
     {
       "id": "golden_create_deal_meridian_west",
@@ -131,7 +160,13 @@
         "answer_must_not_include": ["created successfully", "saved", "executed write"],
         "max_duration_ms": 20000
       },
-      "mutations": ["executive_tone", "sloppy_tone"]
+      "mutations": ["executive_tone", "sloppy_tone"],
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["create", "deal", "Meridian West", "confirm"],
+        "must_reference_entity": false,
+        "forbidden_generic_degraded": true
+      }
     },
     {
       "id": "golden_data_basis_meridian",
@@ -151,7 +186,13 @@
         "answer_must_not_include": ["made it up", "external memory"],
         "max_duration_ms": 15000
       },
-      "mutations": ["terse", "justification"]
+      "mutations": ["terse", "justification"],
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["data", "source", "based on", "context"],
+        "must_reference_entity": false,
+        "forbidden_generic_degraded": true
+      }
     },
     {
       "id": "golden_exact_source_meridian",
@@ -171,7 +212,13 @@
         "answer_must_not_include": ["I know from memory"],
         "max_duration_ms": 16000
       },
-      "mutations": ["executive_tone"]
+      "mutations": ["executive_tone"],
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["source", "data", "context", "page"],
+        "must_reference_entity": false,
+        "forbidden_generic_degraded": true
+      }
     },
     {
       "id": "golden_debt_risk_meridian",
@@ -192,7 +239,13 @@
         "answer_must_not_include": ["Paul Malmquist", "Novendor"],
         "max_duration_ms": 20000
       },
-      "mutations": ["terse", "sloppy_tone"]
+      "mutations": ["terse", "sloppy_tone"],
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["debt", "risk", "DSCR", "leverage"],
+        "must_reference_entity": false,
+        "forbidden_generic_degraded": true
+      }
     },
     {
       "id": "golden_occupancy_blank_meridian",
@@ -213,7 +266,13 @@
         "answer_must_not_include": ["Novendor", "Paul Malmquist"],
         "max_duration_ms": 18000
       },
-      "mutations": ["data_source", "justification"]
+      "mutations": ["data_source", "justification"],
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["occupancy", "blank", "missing", "data"],
+        "must_reference_entity": false,
+        "forbidden_generic_degraded": true
+      }
     }
   ]
 }

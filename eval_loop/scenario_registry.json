@@ -389,6 +389,350 @@
       }
     },
     {
+      "id": "fund_detail_performance_summary",
+      "family": "page_contract",
+      "suite": ["smoke", "full"],
+      "environment": "meridian",
+      "page_type": "fund_detail",
+      "message": "Give me a rundown of this fund's performance",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["B_LOOKUP", "C_ANALYSIS"],
+        "allowed_skills": ["run_analysis", "explain_metric"],
+        "status": "success",
+        "answer_must_include": ["Fund One"],
+        "answer_must_not_include": ["Novendor", "Paul Malmquist", "Not available in the current context"],
+        "max_duration_ms": 20000,
+        "contamination_terms": ["Novendor", "Paul Malmquist"]
+      },
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["performance", "IRR", "TVPI", "NAV", "NOI", "return"],
+        "must_reference_entity": true,
+        "forbidden_generic_degraded": true
+      },
+      "mutations": ["terse", "executive_tone", "sloppy_tone"],
+      "playwright": true
+    },
+    {
+      "id": "fund_detail_data_basis",
+      "family": "page_contract",
+      "suite": ["smoke", "full"],
+      "environment": "meridian",
+      "page_type": "fund_detail",
+      "message": "What data is this based on?",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["A_FAST", "B_LOOKUP", "C_ANALYSIS"],
+        "allowed_skills": ["lookup_entity", "run_analysis"],
+        "status": "success",
+        "retrieval_used": true,
+        "answer_must_include": ["Fund One"],
+        "answer_must_not_include": ["I queried external systems"],
+        "max_duration_ms": 18000
+      },
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["source", "data", "based on", "visible", "page"],
+        "must_reference_entity": true,
+        "forbidden_generic_degraded": true
+      },
+      "mutations": ["source_request"],
+      "playwright": true
+    },
+    {
+      "id": "fund_detail_ambiguous_other",
+      "family": "page_contract",
+      "suite": ["full"],
+      "environment": "meridian",
+      "page_type": "fund_detail",
+      "message": "Compare this to the other fund",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["B_LOOKUP", "C_ANALYSIS"],
+        "allowed_skills": ["run_analysis", "explain_metric"],
+        "answer_must_not_include": ["Novendor"],
+        "max_duration_ms": 20000
+      },
+      "mutations": ["pronoun_heavy"]
+    },
+    {
+      "id": "re_overview_all_funds",
+      "family": "page_contract",
+      "suite": ["smoke", "full"],
+      "environment": "meridian",
+      "page_type": "re_overview",
+      "message": "Give me a rundown of each fund's performance",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["B_LOOKUP", "C_ANALYSIS", "D_DEEP"],
+        "allowed_skills": ["run_analysis", "explain_metric"],
+        "status": "success",
+        "answer_must_include": ["Fund"],
+        "answer_must_not_include": ["Novendor", "Paul Malmquist", "Not available in the current context"],
+        "max_duration_ms": 25000,
+        "contamination_terms": ["Novendor", "Paul Malmquist"]
+      },
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["fund", "performance", "portfolio"],
+        "must_reference_entity": false,
+        "forbidden_generic_degraded": true
+      },
+      "mutations": ["terse", "broad"],
+      "playwright": true
+    },
+    {
+      "id": "re_overview_underperformer",
+      "family": "page_contract",
+      "suite": ["full"],
+      "environment": "meridian",
+      "page_type": "re_overview",
+      "message": "Which fund is underperforming?",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["B_LOOKUP", "C_ANALYSIS"],
+        "allowed_skills": ["explain_metric", "run_analysis"],
+        "status": "success",
+        "answer_must_not_include": ["Novendor", "Not available in the current context"],
+        "max_duration_ms": 20000
+      },
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["fund", "underperform", "performance", "below"],
+        "must_reference_entity": false,
+        "forbidden_generic_degraded": true
+      }
+    },
+    {
+      "id": "re_overview_whats_standing_out",
+      "family": "page_contract",
+      "suite": ["full"],
+      "environment": "meridian",
+      "page_type": "re_overview",
+      "message": "What stands out here?",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["A_FAST", "B_LOOKUP", "C_ANALYSIS"],
+        "status": "success",
+        "answer_must_not_include": ["Novendor", "Not available in the current context"],
+        "max_duration_ms": 20000
+      },
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["fund", "portfolio"],
+        "must_reference_entity": false,
+        "forbidden_generic_degraded": true
+      },
+      "mutations": ["terse", "broad"]
+    },
+    {
+      "id": "asset_detail_cap_rate",
+      "family": "page_contract",
+      "suite": ["smoke", "full"],
+      "environment": "meridian",
+      "page_type": "asset_detail",
+      "message": "What's the cap rate on this asset?",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["A_FAST", "B_LOOKUP"],
+        "allowed_skills": ["lookup_entity", "explain_metric"],
+        "status": "success",
+        "retrieval_used": false,
+        "answer_must_include": ["cap rate", "Ashford"],
+        "answer_must_not_include": ["Novendor", "Not available in the current context"],
+        "max_duration_ms": 12000
+      },
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["cap rate", "Ashford"],
+        "must_reference_entity": true,
+        "forbidden_generic_degraded": true
+      },
+      "mutations": ["terse"]
+    },
+    {
+      "id": "asset_detail_downside_scenario",
+      "family": "page_contract",
+      "suite": ["full"],
+      "environment": "meridian",
+      "page_type": "asset_detail",
+      "message": "Run a downside scenario on this asset",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["C_ANALYSIS", "D_DEEP"],
+        "allowed_skills": ["run_analysis"],
+        "answer_must_include": ["Ashford"],
+        "answer_must_not_include": ["Novendor"],
+        "max_duration_ms": 25000
+      },
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["scenario", "downside", "Ashford"],
+        "must_reference_entity": true,
+        "forbidden_generic_degraded": true
+      }
+    },
+    {
+      "id": "asset_detail_fix_number",
+      "family": "page_contract",
+      "suite": ["full"],
+      "environment": "meridian",
+      "page_type": "asset_detail",
+      "message": "Fix this number",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["B_LOOKUP", "C_ANALYSIS"],
+        "allowed_skills": ["create_entity"],
+        "status": "success",
+        "pending_action_status": "awaiting_confirmation",
+        "answer_must_not_include": ["updated successfully", "saved"],
+        "max_duration_ms": 15000
+      }
+    },
+    {
+      "id": "deals_create_meridian_west",
+      "family": "page_contract",
+      "suite": ["smoke", "full"],
+      "environment": "meridian",
+      "page_type": "deals",
+      "message": "Create a new deal called Meridian West",
+      "expected": {
+        "context_status": "resolved",
+        "lane": "C_ANALYSIS",
+        "skill": "create_entity",
+        "status": "success",
+        "retrieval_used": false,
+        "pending_action_status": "awaiting_confirmation",
+        "pending_action_action": "create_deal",
+        "response_block_types": ["confirmation"],
+        "answer_must_include": ["Meridian West", "confirm"],
+        "answer_must_not_include": ["created successfully", "saved"],
+        "max_duration_ms": 18000
+      },
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["create", "deal", "Meridian West", "confirm"],
+        "must_reference_entity": false,
+        "forbidden_generic_degraded": true
+      },
+      "playwright": true
+    },
+    {
+      "id": "deals_show_pipeline",
+      "family": "page_contract",
+      "suite": ["full"],
+      "environment": "meridian",
+      "page_type": "deals",
+      "message": "Show me all deals in the pipeline",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["A_FAST", "B_LOOKUP"],
+        "allowed_skills": ["lookup_entity"],
+        "status": "success",
+        "retrieval_used": false,
+        "answer_must_not_include": ["Novendor", "Not available in the current context"],
+        "max_duration_ms": 15000
+      },
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["deal", "pipeline"],
+        "must_reference_entity": false,
+        "forbidden_generic_degraded": true
+      }
+    },
+    {
+      "id": "fund_detail_broad_question",
+      "family": "page_contract",
+      "suite": ["smoke", "full"],
+      "environment": "meridian",
+      "page_type": "fund_detail",
+      "message": "What's going on here?",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["A_FAST", "B_LOOKUP", "C_ANALYSIS"],
+        "status": "success",
+        "answer_must_include": ["Fund One"],
+        "answer_must_not_include": ["Novendor", "Not available in the current context"],
+        "max_duration_ms": 18000
+      },
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["Fund One"],
+        "must_reference_entity": true,
+        "forbidden_generic_degraded": true
+      },
+      "mutations": ["terse", "broad"]
+    },
+    {
+      "id": "fund_detail_noi_underwriting",
+      "family": "page_contract",
+      "suite": ["full"],
+      "environment": "meridian",
+      "page_type": "fund_detail",
+      "message": "Why is NOI down vs underwriting?",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["C_ANALYSIS", "D_DEEP"],
+        "allowed_skills": ["run_analysis", "explain_metric"],
+        "retrieval_used": true,
+        "answer_must_include": ["NOI"],
+        "answer_must_not_include": ["Novendor"],
+        "max_duration_ms": 25000
+      },
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["NOI", "underwriting", "variance", "below"],
+        "must_reference_entity": true,
+        "forbidden_generic_degraded": true
+      }
+    },
+    {
+      "id": "fund_detail_use_whatever_data",
+      "family": "page_contract",
+      "suite": ["full"],
+      "environment": "meridian",
+      "page_type": "fund_detail",
+      "message": "Use whatever data you have",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["A_FAST", "B_LOOKUP", "C_ANALYSIS"],
+        "status": "success",
+        "answer_must_include": ["Fund One"],
+        "answer_must_not_include": ["Not available in the current context"],
+        "max_duration_ms": 18000
+      },
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["Fund One", "data"],
+        "must_reference_entity": true,
+        "forbidden_generic_degraded": true
+      },
+      "mutations": ["sloppy_tone"]
+    },
+    {
+      "id": "novendor_follow_up_today",
+      "family": "page_contract",
+      "suite": ["full"],
+      "environment": "novendor",
+      "page_type": "operations",
+      "message": "Who should I follow up with today?",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["B_LOOKUP", "C_ANALYSIS"],
+        "status": "success",
+        "answer_must_not_include": ["Meridian", "Fund One", "Not available in the current context"],
+        "max_duration_ms": 18000,
+        "contamination_terms": ["Meridian", "Fund One"]
+      },
+      "product_expected": {
+        "should_answer": true,
+        "usefulness_keywords": ["follow up", "today", "client"],
+        "must_reference_entity": false,
+        "forbidden_generic_degraded": true
+      }
+    },
+    {
       "id": "tool_unknown_name",
       "family": "tool_engine",
       "suite": ["smoke", "full"],

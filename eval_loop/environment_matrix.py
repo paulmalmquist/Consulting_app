@@ -142,6 +142,83 @@ _ENV_DEFAULTS: dict[str, dict[str, Any]] = {
 }
 
 
+_PAGE_DEFAULTS: dict[str, dict[str, Any]] = {
+    "meridian:fund_detail": {
+        "route": "/lab/env/{env_id}/re/funds/fund_1",
+        "surface": "fund_detail",
+        "active_environment_name": "Meridian",
+        "active_business_name": "Meridian Capital Management",
+        "selected_entities": [
+            {"entity_type": "fund", "entity_id": "fund_1", "name": "Fund One", "source": "route"},
+        ],
+        "visible_data": {
+            "funds": [
+                {"entity_type": "fund", "entity_id": "fund_1", "name": "Fund One"},
+            ],
+            "metrics": {"irr": "12.4%", "tvpi": "1.35x", "nav": "$142M", "noi": "$8.2M"},
+            "notes": ["Environment is Meridian", "Viewing Fund One detail page"],
+        },
+    },
+    "meridian:asset_detail": {
+        "route": "/lab/env/{env_id}/re/assets/asset_1",
+        "surface": "asset_detail",
+        "active_environment_name": "Meridian",
+        "active_business_name": "Meridian Capital Management",
+        "selected_entities": [
+            {"entity_type": "asset", "entity_id": "asset_1", "name": "Ashford Commons", "source": "route"},
+        ],
+        "visible_data": {
+            "assets": [
+                {"entity_type": "asset", "entity_id": "asset_1", "name": "Ashford Commons"},
+            ],
+            "metrics": {"cap_rate": "5.8%", "occupancy": "94%", "noi": "$2.1M", "dscr": "1.42"},
+            "notes": ["Environment is Meridian", "Viewing Ashford Commons asset detail"],
+        },
+    },
+    "meridian:re_overview": {
+        "route": "/lab/env/{env_id}/re",
+        "surface": "re_overview",
+        "active_environment_name": "Meridian",
+        "active_business_name": "Meridian Capital Management",
+        "selected_entities": [],
+        "visible_data": {
+            "funds": [
+                {"entity_type": "fund", "entity_id": "fund_1", "name": "Fund One"},
+                {"entity_type": "fund", "entity_id": "fund_2", "name": "Fund Two"},
+                {"entity_type": "fund", "entity_id": "fund_3", "name": "Fund Three"},
+            ],
+            "notes": ["Environment is Meridian", "RE portfolio overview showing all funds"],
+        },
+    },
+    "meridian:deals": {
+        "route": "/lab/env/{env_id}/re/deals",
+        "surface": "deal_pipeline",
+        "active_environment_name": "Meridian",
+        "active_business_name": "Meridian Capital Management",
+        "selected_entities": [],
+        "visible_data": {
+            "pipeline_items": [
+                {"entity_type": "deal", "entity_id": "deal_1", "name": "200 Main Street"},
+            ],
+            "notes": ["Environment is Meridian", "Deal pipeline view"],
+        },
+    },
+    "novendor:operations": {
+        "route": "/lab/env/{env_id}/consulting/operations",
+        "surface": "operations_workspace",
+        "active_environment_name": "Novendor",
+        "active_business_name": "Novendor",
+        "selected_entities": [],
+        "visible_data": {
+            "notes": ["Environment is Novendor", "Operations follow-up view"],
+            "pipeline_items": [
+                {"entity_type": "client", "entity_id": "client_1", "name": "Novendor Client One"},
+            ],
+        },
+    },
+}
+
+
 def discover_environment_bindings(backend_origin: str, timeout_seconds: float = 5.0) -> dict[str, EnvironmentBinding]:
     url = backend_origin.rstrip("/") + "/v1/environments"
     req = urllib.request.Request(url, headers={"Accept": "application/json"})
@@ -264,6 +341,7 @@ def build_context_envelope(
     session_roles: list[str] | None = None,
     thread: dict[str, Any] | None = None,
     omit_environment: bool = False,
+    page_type: str | None = None,
 ) -> dict[str, Any]:
     if environment is None or omit_environment:
         return {
@@ -292,6 +370,14 @@ def build_context_envelope(
         ),
     )
     defaults = deepcopy(_ENV_DEFAULTS.get(environment, {}))
+
+    # Merge page-level defaults when page_type is specified
+    if page_type:
+        page_key = f"{environment}:{page_type}"
+        page_defaults = deepcopy(_PAGE_DEFAULTS.get(page_key, {}))
+        if page_defaults:
+            defaults.update(page_defaults)
+
     final_route = route or defaults.get("route", "/lab/env/{env_id}").format(env_id=binding.env_id)
     final_surface = surface or defaults.get("surface", "assistant")
     final_selected = deepcopy(selected_entities if selected_entities is not None else defaults.get("selected_entities", []))

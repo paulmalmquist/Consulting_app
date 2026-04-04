@@ -132,6 +132,109 @@ def _append_mismatch(
     )
 
 
+_GENERIC_DEGRADED_PHRASES = [
+    "not available in the current context",
+    "context not available",
+    "i cannot determine",
+    "unable to determine",
+    "no data available",
+]
+
+
+def score_product_pass(
+    *,
+    scenario: dict[str, Any],
+    result: dict[str, Any],
+    runtime_passed: bool,
+) -> dict[str, Any]:
+    """Score whether the response was actually useful as a product answer.
+
+    A scenario can pass the runtime (no hallucination, safe degradation) but
+    still fail the product (the page should have supported the request).
+    """
+    product_expected = scenario.get("product_expected")
+    if not product_expected:
+        return {"product_pass": None, "product_score": None, "product_mismatches": []}
+
+    response_text = (result.get("response_text") or "").strip()
+    receipt = result.get("turn_receipt") or {}
+    status = receipt.get("status")
+    mismatches: list[dict[str, Any]] = []
+    score = 100.0
+
+    # Check: should_answer — if true, a degraded response is a product failure
+    should_answer = product_expected.get("should_answer", True)
+    if should_answer and status == "degraded":
+        score -= 40.0
+        _append_mismatch(
+            mismatches,
+            category="product_degraded_on_supported_page",
+            field="should_answer",
+            expected=True,
+            actual=f"status={status}, degraded_reason={receipt.get('degraded_reason')}",
+        )
+
+    # Check: forbidden_generic_degraded — generic "not available" phrases are product failures
+    if product_expected.get("forbidden_generic_degraded") and response_text:
+        lowered = response_text.lower()
+        for phrase in _GENERIC_DEGRADED_PHRASES:
+            if phrase in lowered:
+                score -= 30.0
+                _append_mismatch(
+                    mismatches,
+                    category="product_generic_degraded",
+                    field="forbidden_generic_degraded",
+                    expected="specific answer or specific degradation reason",
+                    actual=phrase,
+                )
+                break
+
+    # Check: usefulness_keywords — response should contain domain-relevant terms
+    usefulness_keywords = product_expected.get("usefulness_keywords", [])
+    if usefulness_keywords and response_text:
+        if not _contains_any(response_text, usefulness_keywords):
+            score -= 20.0
+            _append_mismatch(
+                mismatches,
+                category="product_missing_usefulness",
+                field="usefulness_keywords",
+                expected=usefulness_keywords,
+                actual=response_text[:300],
+            )
+
+    # Check: must_reference_entity — response must mention the selected entity by name
+    if product_expected.get("must_reference_entity") and response_text:
+        selected = scenario.get("selected_entities") or []
+        # Also check page_type defaults for entity names
+        entity_names = [e.get("name") for e in selected if e.get("name")]
+        if not entity_names:
+            # Fall back to visible_data entity names
+            visible = scenario.get("visible_data") or {}
+            for key in ("funds", "assets", "pipeline_items", "investments"):
+                for item in visible.get(key, []):
+                    if item.get("name"):
+                        entity_names.append(item["name"])
+        if entity_names and not _contains_any(response_text, entity_names):
+            score -= 20.0
+            _append_mismatch(
+                mismatches,
+                category="product_missing_entity_reference",
+                field="must_reference_entity",
+                expected=entity_names,
+                actual=response_text[:300],
+            )
+
+    product_pass = score >= 70.0 and not any(
+        m["category"] == "product_degraded_on_supported_page" for m in mismatches
+    )
+
+    return {
+        "product_pass": product_pass,
+        "product_score": round(max(0.0, score), 2),
+        "product_mismatches": mismatches,
+    }
+
+
 def score_assistant_scenario(*, scenario: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
     expected = scenario.get("expected", {})
     receipt = result.get("turn_receipt") or {}
@@ -413,9 +516,17 @@ def score_assistant_scenario(*, scenario: dict[str, Any], result: dict[str, Any]
         and not anti_smoothness_failed
         and receipt_completeness >= 1.0
     )
+
+    product_result = score_product_pass(
+        scenario=scenario, result=result, runtime_passed=passed,
+    )
+
     return {
         "score": round(final_score, 2),
         "passed": passed,
+        "product_pass": product_result["product_pass"],
+        "product_score": product_result["product_score"],
+        "product_mismatches": product_result["product_mismatches"],
         "failure_category": failure_category,
         "mismatches": mismatches,
         "tool_count": len(tool_names),
