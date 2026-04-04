@@ -100,6 +100,7 @@
     "repo-b/src/app/api/re/v2/funds/[fundId]/capital-timeline/route.ts",
     "repo-b/src/app/api/re/v2/funds/[fundId]/debt-covenants/route.ts",
     "repo-b/src/app/api/re/v2/funds/[fundId]/exposure/route.ts",
+    "repo-b/src/app/api/re/v2/funds/[fundId]/pipeline-status/route.ts",
     "repo-b/src/app/api/re/v2/funds/[fundId]/investment-rollup/[quarter]/route.ts",
     "repo-b/src/app/api/re/v2/funds/[fundId]/investments/route.ts",
     "repo-b/src/app/api/re/v2/funds/[fundId]/irr-contribution/route.ts",
