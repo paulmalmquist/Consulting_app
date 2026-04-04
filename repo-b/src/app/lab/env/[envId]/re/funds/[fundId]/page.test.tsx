@@ -602,8 +602,13 @@ describe("fund detail narrative dashboard", () => {
 
     renderPage();
 
+    // Wait for the loading skeleton itself (not just the container) to appear —
+    // avoids a race where the container renders before the fund loads (loading=false)
+    // and the skeleton only appears after the fund effect re-runs (loading=true).
     const exposure = await screen.findByTestId("exposure-insights");
-    expect(within(exposure).getByTestId("exposure-insights-loading")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(within(exposure).getByTestId("exposure-insights-loading")).toBeInTheDocument();
+    });
     expect(within(exposure).queryByText("No sector allocation is available yet.")).not.toBeInTheDocument();
 
     resolveExposure(makeExposurePayload());
