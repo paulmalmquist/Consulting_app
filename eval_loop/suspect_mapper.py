@@ -24,6 +24,11 @@ SUSPECT_RULES: dict[str, list[dict[str, str]]] = {
     ],
     "routing_failure": [
         {
+            "path": "backend/app/assistant_runtime/dispatch_engine.py",
+            "confidence": "high",
+            "reason": "Structured dispatch may be producing invalid or weak routing proposals before normalization.",
+        },
+        {
             "path": "backend/app/assistant_runtime/skill_router.py",
             "confidence": "high",
             "reason": "Skill selection did not line up with explicit scenario expectations.",
@@ -35,6 +40,11 @@ SUSPECT_RULES: dict[str, list[dict[str, str]]] = {
         },
     ],
     "lane_failure": [
+        {
+            "path": "backend/app/assistant_runtime/dispatch_engine.py",
+            "confidence": "medium",
+            "reason": "Normalization may be promoting or suppressing lanes incorrectly after model dispatch.",
+        },
         {
             "path": "backend/app/services/request_router.py",
             "confidence": "high",
@@ -130,6 +140,11 @@ SUSPECT_RULES: dict[str, list[dict[str, str]]] = {
     ],
     "performance_failure": [
         {
+            "path": "backend/app/assistant_runtime/dispatch_engine.py",
+            "confidence": "medium",
+            "reason": "Fallback or disagreement-heavy dispatch may be forcing slower code paths than necessary.",
+        },
+        {
             "path": "backend/app/services/request_router.py",
             "confidence": "medium",
             "reason": "Lane escalation may be making simple prompts too expensive.",
@@ -172,4 +187,3 @@ def build_suspect_heatmap(results: list[dict[str, Any]]) -> dict[str, int]:
         for suspect in result.get("suspected_files", []):
             counter[suspect["path"]] += 1
     return dict(counter.most_common())
-

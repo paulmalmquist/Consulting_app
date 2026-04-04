@@ -16,6 +16,46 @@ class EnvironmentBinding:
     label: str
 
 
+_FALLBACK_BINDINGS: dict[str, EnvironmentBinding] = {
+    "novendor": EnvironmentBinding(
+        slug="novendor",
+        env_id="11111111-1111-4111-8111-111111111111",
+        business_id="21111111-1111-4111-8111-111111111111",
+        label="Novendor",
+    ),
+    "floyorker": EnvironmentBinding(
+        slug="floyorker",
+        env_id="22222222-2222-4222-8222-222222222222",
+        business_id="32222222-2222-4222-8222-222222222222",
+        label="Floyorker",
+    ),
+    "stone-pds": EnvironmentBinding(
+        slug="stone-pds",
+        env_id="33333333-3333-4333-8333-333333333333",
+        business_id="43333333-3333-4333-8333-333333333333",
+        label="Stone PDS",
+    ),
+    "meridian": EnvironmentBinding(
+        slug="meridian",
+        env_id="44444444-4444-4444-8444-444444444444",
+        business_id="54444444-4444-4444-8444-444444444444",
+        label="Meridian",
+    ),
+    "resume": EnvironmentBinding(
+        slug="resume",
+        env_id="55555555-5555-4555-8555-555555555555",
+        business_id="65555555-5555-4555-8555-555555555555",
+        label="Resume",
+    ),
+    "trading": EnvironmentBinding(
+        slug="trading",
+        env_id="66666666-6666-4666-8666-666666666666",
+        business_id="76666666-6666-4666-8666-666666666666",
+        label="Trading Platform",
+    ),
+}
+
+
 _ENV_DEFAULTS: dict[str, dict[str, Any]] = {
     "novendor": {
         "route": "/lab/env/{env_id}/consulting",
@@ -156,11 +196,14 @@ def build_context_envelope(
             },
         }
 
-    binding = bindings.get(environment) or EnvironmentBinding(
-        slug=environment,
-        env_id=f"env-{environment}",
-        business_id=None,
-        label=_ENV_DEFAULTS.get(environment, {}).get("active_environment_name", environment),
+    binding = bindings.get(environment) or _FALLBACK_BINDINGS.get(
+        environment,
+        EnvironmentBinding(
+            slug=environment,
+            env_id="99999999-9999-4999-8999-999999999999",
+            business_id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            label=_ENV_DEFAULTS.get(environment, {}).get("active_environment_name", environment),
+        ),
     )
     defaults = deepcopy(_ENV_DEFAULTS.get(environment, {}))
     final_route = route or defaults.get("route", "/lab/env/{env_id}").format(env_id=binding.env_id)

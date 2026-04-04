@@ -9,15 +9,17 @@ from dataclasses import dataclass
 from typing import Any, AsyncGenerator
 
 from app.assistant_runtime.context_resolver import resolve_runtime_context
+from app.assistant_runtime.dispatch_engine import dispatch_request
 from app.assistant_runtime.degraded_responses import degraded_blocks, degraded_message
 from app.assistant_runtime.execution_engine import execute_tool_calls, prepare_tools
 from app.assistant_runtime.prompt_registry import compose_runtime_messages
-from app.assistant_runtime.retrieval_orchestrator import execute_retrieval
-from app.assistant_runtime.skill_router import route_skill
+from app.assistant_runtime.retrieval_orchestrator import RetrievalExecution, execute_retrieval
+from app.assistant_runtime.skill_registry import skill_requires_grounding
 from app.assistant_runtime.turn_receipts import (
     ContextResolutionStatus,
     DegradedReason,
     Lane,
+    RetrievalReceipt,
     RetrievalStatus,
     ToolStatus,
     TurnReceipt,
@@ -34,7 +36,6 @@ from app.services.ai_client import get_instrumented_client
 from app.services.assistant_blocks import citations_block, confirmation_block, markdown_block
 from app.services.assistant_scope import build_context_block, resolve_visible_context_policy
 from app.services.model_registry import get_caps, map_openai_error, sanitize_params
-from app.services.request_router import classify_request
 from app.services.rag_indexer import RetrievedChunk
 
 _SOURCE_AUDIT_RE = re.compile(
@@ -108,6 +109,7 @@ def _build_trace(
     response_blocks: list[dict[str, Any]],
     timings: dict[str, int | None] | None = None,
 ) -> dict[str, Any]:
+    dispatch = turn_receipt.dispatch.normalized
     tool_timeline = [
         {
             "step": idx + 1,
@@ -147,6 +149,10 @@ def _build_trace(
             "degraded": turn_receipt.status != TurnStatus.SUCCESS,
             "tools_enabled": len(turn_receipt.tools) > 0,
             "rag_enabled": turn_receipt.retrieval.used,
+            "dispatch_source": dispatch.source,
+            "dispatch_confidence": dispatch.confidence,
+            "dispatch_fallback_used": dispatch.fallback_used,
+            "dispatch_fallback_reason": dispatch.fallback_reason,
             "timings": timings or {},
         },
         "response_block_count": len(response_blocks),
@@ -317,15 +323,29 @@ async def run_request_lifecycle(
         context_envelope=normalized_envelope,
         user_message=message,
     )
-    route = classify_request(
+    dispatch = await dispatch_request(
         message=message,
         context_envelope=normalized_envelope,
         resolved_scope=resolved_scope,
+        context=context_receipt,
         visible_context_shortcut=visible_context_policy["disable_tools"],
     )
+    route = dispatch.route
     lane = legacy_code_to_lane(route.lane)
-    routed_skill = route_skill(message=message, lane=lane, route=route, context=context_receipt)
+    routed_skill = dispatch.routed_skill
     timings["route_selection_ms"] = int((time.perf_counter() - route_started) * 1000)
+
+    emit_log(
+        level="info",
+        service="backend",
+        action="assistant_runtime.dispatch_selected",
+        message="Selected Winston dispatch path",
+        context={
+            "request_id": request_id,
+            "dispatch_raw": dispatch.trace.raw.model_dump(mode="json") if dispatch.trace.raw else None,
+            "dispatch_normalized": dispatch.trace.normalized.model_dump(mode="json"),
+        },
+    )
 
     yield _sse(
         "status",
@@ -333,6 +353,7 @@ async def run_request_lifecycle(
             "message": f"Processing {lane.value} with {routed_skill.selection.skill_id or 'no_skill'}",
             "lane": lane.value,
             "skill_id": routed_skill.selection.skill_id,
+            "dispatch_source": dispatch.trace.normalized.source,
         },
     )
 
@@ -344,19 +365,34 @@ async def run_request_lifecycle(
     elif routed_skill.definition is None:
         degraded_reason = DegradedReason.NO_SKILL_MATCH
 
-    retrieval_started = time.perf_counter()
-    retrieval_execution = await execute_retrieval(
-        route=route,
-        retrieval_policy=routed_skill.definition.retrieval_policy if routed_skill.definition else "none",
-        message=message,
-        business_id=resolved_scope.business_id or (str(business_id) if business_id else None),
-        env_id=resolved_scope.environment_id or (str(env_id) if env_id else None),
-        entity_type=resolved_scope.entity_type or entity_type,
-        entity_id=resolved_scope.entity_id or (str(entity_id) if entity_id else None),
-    )
-    timings["retrieval_ms"] = int((time.perf_counter() - retrieval_started) * 1000)
-    if retrieval_execution.receipt.status == RetrievalStatus.EMPTY and routed_skill.definition is not None:
-        degraded_reason = degraded_reason or DegradedReason.RETRIEVAL_EMPTY
+    if degraded_reason in {
+        DegradedReason.MISSING_CONTEXT,
+        DegradedReason.AMBIGUOUS_CONTEXT,
+        DegradedReason.NO_SKILL_MATCH,
+    }:
+        retrieval_execution = RetrievalExecution(
+            chunks=[],
+            context_text="",
+            receipt=RetrievalReceipt(used=False, result_count=0, status=RetrievalStatus.OK),
+        )
+        timings["retrieval_ms"] = 0
+    else:
+        retrieval_started = time.perf_counter()
+        retrieval_execution = await execute_retrieval(
+            route=route,
+            retrieval_policy=routed_skill.definition.retrieval_policy if routed_skill.definition else "none",
+            message=message,
+            business_id=resolved_scope.business_id or (str(business_id) if business_id else None),
+            env_id=resolved_scope.environment_id or (str(env_id) if env_id else None),
+            entity_type=resolved_scope.entity_type or entity_type,
+            entity_id=resolved_scope.entity_id or (str(entity_id) if entity_id else None),
+        )
+        timings["retrieval_ms"] = int((time.perf_counter() - retrieval_started) * 1000)
+        if (
+            retrieval_execution.receipt.status == RetrievalStatus.EMPTY
+            and skill_requires_grounding(routed_skill.selection.skill_id, message=message)
+        ):
+            degraded_reason = degraded_reason or DegradedReason.RETRIEVAL_EMPTY
 
     response_blocks: list[dict[str, Any]] = []
     if retrieval_execution.chunks:
@@ -370,6 +406,8 @@ async def run_request_lifecycle(
         turn_receipt = TurnReceipt(
             request_id=request_id,
             lane=lane,
+            dispatch=dispatch.trace,
+            fallback_reason=dispatch.trace.normalized.fallback_reason,
             context=context_receipt,
             skill=routed_skill.selection,
             tools=[],
@@ -415,6 +453,8 @@ async def run_request_lifecycle(
         turn_receipt = TurnReceipt(
             request_id=request_id,
             lane=lane,
+            dispatch=dispatch.trace,
+            fallback_reason=dispatch.trace.normalized.fallback_reason,
             context=context_receipt,
             skill=routed_skill.selection,
             tools=[],
@@ -500,6 +540,8 @@ async def run_request_lifecycle(
             turn_receipt = TurnReceipt(
                 request_id=request_id,
                 lane=lane,
+                dispatch=dispatch.trace,
+                fallback_reason=dispatch.trace.normalized.fallback_reason,
                 context=context_receipt,
                 skill=routed_skill.selection,
                 tools=tool_receipts,
@@ -600,6 +642,8 @@ async def run_request_lifecycle(
     turn_receipt = TurnReceipt(
         request_id=request_id,
         lane=lane,
+        dispatch=dispatch.trace,
+        fallback_reason=dispatch.trace.normalized.fallback_reason,
         context=context_receipt,
         skill=routed_skill.selection,
         tools=tool_receipts,

@@ -128,10 +128,19 @@ class RegressionStore:
             "receipt_completeness": "real",
             "trace_fidelity": "real",
             "latency_bucket": "text",
+            "fallback_used": "integer default 0",
+            "fallback_reason": "text",
+            "low_confidence_dispatch": "integer default 0",
+            "invalid_dispatch": "integer default 0",
+            "dispatch_code_disagreement": "integer default 0",
         }
         summary_columns = {
             "receipt_completeness_avg": "real",
             "trace_fidelity_avg": "real",
+            "fallback_rate": "real",
+            "low_confidence_dispatch_rate": "real",
+            "invalid_dispatch_rate": "real",
+            "dispatch_code_disagreement_rate": "real",
         }
         for column, column_type in scenario_run_columns.items():
             self._ensure_column("scenario_runs", column, column_type)
@@ -154,6 +163,10 @@ class RegressionStore:
         decoded["passed"] = bool(decoded.get("passed"))
         decoded["golden"] = bool(decoded.get("golden"))
         decoded["high_value"] = bool(decoded.get("high_value"))
+        decoded["fallback_used"] = bool(decoded.get("fallback_used"))
+        decoded["low_confidence_dispatch"] = bool(decoded.get("low_confidence_dispatch"))
+        decoded["invalid_dispatch"] = bool(decoded.get("invalid_dispatch"))
+        decoded["dispatch_code_disagreement"] = bool(decoded.get("dispatch_code_disagreement"))
         return decoded
 
     def last_run_for_scenario(self, scenario_id: str, *, exclude_run_id: str | None = None) -> dict[str, Any] | None:
@@ -189,8 +202,9 @@ class RegressionStore:
               retrieval_count, tool_count, family, parent_scenario_id, mutation_family,
               mutation_label, golden, high_value, chaos_profile, chaos_seed,
               chaos_injections_json, contamination_details_json, suspected_files_json,
-              receipt_diff_json, receipt_completeness, trace_fidelity, latency_bucket
-            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              receipt_diff_json, receipt_completeness, trace_fidelity, latency_bucket,
+              fallback_used, fallback_reason, low_confidence_dispatch, invalid_dispatch, dispatch_code_disagreement
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 record["run_id"],
@@ -227,6 +241,11 @@ class RegressionStore:
                 record.get("receipt_completeness"),
                 record.get("trace_fidelity"),
                 record.get("latency_bucket"),
+                1 if record.get("fallback_used") else 0,
+                record.get("fallback_reason"),
+                1 if record.get("low_confidence_dispatch") else 0,
+                1 if record.get("invalid_dispatch") else 0,
+                1 if record.get("dispatch_code_disagreement") else 0,
             ),
         )
         self.conn.commit()
@@ -237,8 +256,9 @@ class RegressionStore:
             insert into scenario_summaries (
               run_id, cycle, suite, scenario_count, passed_count, failed_count,
               median_latency_ms, p95_latency_ms, degraded_rate, hallucination_rate,
-              contamination_rate, receipt_completeness_avg, trace_fidelity_avg
-            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              contamination_rate, receipt_completeness_avg, trace_fidelity_avg,
+              fallback_rate, low_confidence_dispatch_rate, invalid_dispatch_rate, dispatch_code_disagreement_rate
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 summary["run_id"],
@@ -254,6 +274,10 @@ class RegressionStore:
                 summary.get("contamination_rate"),
                 summary.get("receipt_completeness_avg"),
                 summary.get("trace_fidelity_avg"),
+                summary.get("fallback_rate"),
+                summary.get("low_confidence_dispatch_rate"),
+                summary.get("invalid_dispatch_rate"),
+                summary.get("dispatch_code_disagreement_rate"),
             ),
         )
         self.conn.commit()

@@ -18,9 +18,15 @@ def _snapshot(record: dict[str, Any]) -> dict[str, Any]:
     context = receipt.get("context") or {}
     retrieval = receipt.get("retrieval") or {}
     skill = receipt.get("skill") or {}
+    dispatch = (receipt.get("dispatch") or {}).get("normalized") or {}
     return {
         "lane": receipt.get("lane"),
         "skill_id": skill.get("skill_id"),
+        "dispatch_source": dispatch.get("source"),
+        "dispatch_confidence": dispatch.get("confidence"),
+        "dispatch_ambiguity": dispatch.get("ambiguity_level"),
+        "dispatch_fallback_used": dispatch.get("fallback_used"),
+        "dispatch_fallback_reason": dispatch.get("fallback_reason") or receipt.get("fallback_reason"),
         "context_status": context.get("resolution_status"),
         "environment_id": context.get("environment_id"),
         "entity_type": context.get("entity_type"),
@@ -64,4 +70,3 @@ def _humanize_diff(field: str, before: Any, after: Any) -> str:
         sign = "+" if delta >= 0 else ""
         return f"{label} changed: {before} -> {after} ({sign}{delta} ms)"
     return f"{label} changed: {before} -> {after}"
-

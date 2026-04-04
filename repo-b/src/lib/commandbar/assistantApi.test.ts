@@ -155,6 +155,27 @@ describe("assistantApi contract behavior", () => {
           turn_receipt: {
             request_id: "req_runtime",
             lane: "B_LOOKUP",
+            dispatch: {
+              raw: {
+                skill: "lookup_entity",
+                lane: "B_LOOKUP",
+                needs_retrieval: false,
+                write_intent: false,
+                ambiguity_level: "low",
+                confidence: 0.91,
+              },
+              normalized: {
+                source: "model",
+                skill_id: "lookup_entity",
+                lane: "B_LOOKUP",
+                needs_retrieval: false,
+                write_intent: false,
+                ambiguity_level: "low",
+                confidence: 0.91,
+                fallback_used: false,
+                notes: [],
+              },
+            },
             context: {
               environment_id: "env_123",
               entity_type: "environment",
@@ -215,6 +236,7 @@ describe("assistantApi contract behavior", () => {
     });
     expect(result.debug.turnReceipt).toMatchObject({
       lane: "B_LOOKUP",
+      dispatch: { normalized: { source: "model" } },
       skill: { skill_id: "lookup_entity" },
       tools: [{ tool_name: "repe.get_environment_snapshot", status: "success" }],
     });

@@ -89,6 +89,8 @@ OPENAI_CHAT_MODEL_CODING: str = os.getenv("OPENAI_CHAT_MODEL_CODING", "gpt-5")
 OPENAI_CHAT_MODEL_AGENTIC: str = os.getenv("OPENAI_CHAT_MODEL_AGENTIC", "gpt-5")
 OPENAI_CHAT_MODEL_VERIFY: str = os.getenv("OPENAI_CHAT_MODEL_VERIFY", "gpt-5-mini")
 OPENAI_CHAT_MODEL_FALLBACK: str = os.getenv("OPENAI_CHAT_MODEL_FALLBACK", "gpt-5-mini")
+OPENAI_CHAT_MODEL_DISPATCH: str = os.getenv("OPENAI_CHAT_MODEL_DISPATCH", OPENAI_CHAT_MODEL_FAST)
+OPENAI_DISPATCH_CONFIDENCE_THRESHOLD: float = float(os.getenv("OPENAI_DISPATCH_CONFIDENCE_THRESHOLD", "0.35"))
 
 # ── Pipeline feature flags (all default off for safe rollout) ────
 ENABLE_QUERY_EXPANSION: bool = os.getenv("ENABLE_QUERY_EXPANSION", "false").lower() == "true"

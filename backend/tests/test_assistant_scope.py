@@ -237,6 +237,92 @@ def test_runtime_context_marks_multi_selected_pronoun_prompt_ambiguous(monkeypat
     assert "Multiple selected entities" in runtime_context.receipt.notes[0]
 
 
+def test_runtime_context_marks_other_fund_prompt_ambiguous(monkeypatch):
+    monkeypatch.setattr(assistant_scope_svc, "resolve_env_business_context", _resolved_env_context)
+
+    envelope = _envelope(
+        ui={
+            "route": "/lab/env/env_123/re/funds",
+            "surface": "fund_portfolio",
+            "active_environment_id": "env_123",
+            "active_business_id": "biz_123",
+            "schema_name": "env_meridian_capital",
+            "industry": "repe",
+            "page_entity_type": "environment",
+            "page_entity_id": "env_123",
+            "selected_entities": [
+                {"entity_type": "fund", "entity_id": "fund_1", "name": "IGF VII", "source": "selection"},
+                {"entity_type": "fund", "entity_id": "fund_2", "name": "IGF VIII", "source": "selection"},
+            ],
+            "visible_data": {
+                "funds": [
+                    {"entity_type": "fund", "entity_id": "fund_1", "name": "IGF VII"},
+                    {"entity_type": "fund", "entity_id": "fund_2", "name": "IGF VIII"},
+                ],
+                "investments": [],
+                "assets": [],
+                "models": [],
+                "pipeline_items": [],
+            },
+        }
+    )
+
+    runtime_context = resolve_runtime_context(
+        context_envelope=envelope,
+        env_id="env_123",
+        business_id="biz_123",
+        conversation_id="conv_123",
+        actor="user:env_123",
+        message="Open the other fund",
+    )
+
+    assert runtime_context.receipt.resolution_status == "ambiguous_context"
+    assert runtime_context.receipt.entity_id is None
+
+
+def test_runtime_context_marks_second_one_prompt_ambiguous(monkeypatch):
+    monkeypatch.setattr(assistant_scope_svc, "resolve_env_business_context", _resolved_env_context)
+
+    envelope = _envelope(
+        ui={
+            "route": "/lab/env/env_123/re/funds",
+            "surface": "fund_portfolio",
+            "active_environment_id": "env_123",
+            "active_business_id": "biz_123",
+            "schema_name": "env_meridian_capital",
+            "industry": "repe",
+            "page_entity_type": "environment",
+            "page_entity_id": "env_123",
+            "selected_entities": [
+                {"entity_type": "fund", "entity_id": "fund_1", "name": "IGF VII", "source": "selection"},
+                {"entity_type": "fund", "entity_id": "fund_2", "name": "IGF VIII", "source": "selection"},
+            ],
+            "visible_data": {
+                "funds": [
+                    {"entity_type": "fund", "entity_id": "fund_1", "name": "IGF VII"},
+                    {"entity_type": "fund", "entity_id": "fund_2", "name": "IGF VIII"},
+                ],
+                "investments": [],
+                "assets": [],
+                "models": [],
+                "pipeline_items": [],
+            },
+        }
+    )
+
+    runtime_context = resolve_runtime_context(
+        context_envelope=envelope,
+        env_id="env_123",
+        business_id="biz_123",
+        conversation_id="conv_123",
+        actor="user:env_123",
+        message="What about the second one",
+    )
+
+    assert runtime_context.receipt.resolution_status == "ambiguous_context"
+    assert runtime_context.receipt.entity_id is None
+
+
 def test_resolve_scope_defaults_to_active_environment_for_generic_prompt(monkeypatch):
     monkeypatch.setattr(assistant_scope_svc, "resolve_env_business_context", _resolved_env_context)
 

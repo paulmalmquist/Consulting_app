@@ -245,6 +245,7 @@ export type DispatchDecision = {
   ambiguity_level: DispatchAmbiguity;
   confidence: number;
   fallback_used: boolean;
+  fallback_reason?: string | null;
   notes: string[];
 };
 
@@ -272,6 +273,7 @@ export type TurnReceipt = {
   request_id: string;
   lane: Lane;
   dispatch?: DispatchTrace | null;
+  fallback_reason?: string | null;
   context: ContextReceipt;
   skill: SkillSelection;
   tools: ToolReceipt[];

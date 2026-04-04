@@ -33,7 +33,9 @@ export const metadata: Metadata = {
     images: ["/og-winston.png"],
   },
   icons: {
-    icon: "/favicon.ico",
+    icon: [{ url: "/favicon.ico?v=bowtie", type: "image/png" }],
+    apple: "/apple-touch-icon.png?v=bowtie",
+    shortcut: "/favicon.ico?v=bowtie",
   },
   robots: {
     index: false,

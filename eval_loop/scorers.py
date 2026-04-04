@@ -43,7 +43,7 @@ def _receipt_completeness(receipt: dict[str, Any] | None) -> float:
     total = 0
     present = 0
 
-    top_level = ["request_id", "lane", "context", "skill", "tools", "retrieval", "status"]
+    top_level = ["request_id", "lane", "dispatch", "fallback_reason", "context", "skill", "tools", "retrieval", "status"]
     total += len(top_level)
     present += _required_keys_present(receipt, top_level)
 
@@ -61,6 +61,27 @@ def _receipt_completeness(receipt: dict[str, Any] | None) -> float:
     retrieval_keys = ["used", "result_count", "status"]
     total += len(retrieval_keys)
     present += _required_keys_present(retrieval, retrieval_keys)
+
+    dispatch = receipt.get("dispatch")
+    dispatch_keys = ["normalized"]
+    total += len(dispatch_keys)
+    present += _required_keys_present(dispatch, dispatch_keys)
+
+    dispatch_normalized = (dispatch or {}).get("normalized")
+    normalized_keys = [
+        "source",
+        "skill_id",
+        "lane",
+        "needs_retrieval",
+        "write_intent",
+        "ambiguity_level",
+        "confidence",
+        "fallback_used",
+        "fallback_reason",
+        "notes",
+    ]
+    total += len(normalized_keys)
+    present += _required_keys_present(dispatch_normalized, normalized_keys)
 
     return round(present / max(total, 1), 4)
 
@@ -122,8 +143,15 @@ def score_assistant_scenario(*, scenario: dict[str, Any], result: dict[str, Any]
     skill = receipt.get("skill") or {}
     retrieval = receipt.get("retrieval") or {}
     tools = receipt.get("tools") or []
+    dispatch = (receipt.get("dispatch") or {}).get("normalized") or {}
+    raw_dispatch = (receipt.get("dispatch") or {}).get("raw") or {}
     tool_names = [tool.get("tool_name") for tool in tools]
     tool_statuses = [tool.get("status") for tool in tools]
+    response_block_types = [
+        block.get("type")
+        for block in (result.get("response_blocks") or [])
+        if isinstance(block, dict)
+    ]
 
     context_ok = True
     for field in ("context_status", "environment_id", "entity_type", "entity_id"):
@@ -262,6 +290,16 @@ def score_assistant_scenario(*, scenario: dict[str, Any], result: dict[str, Any]
     if tool_ok:
         base_score += WEIGHTS["tool_safety"]
 
+    expected_block_types = expected.get("response_block_types") or []
+    if expected_block_types and any(block_type not in response_block_types for block_type in expected_block_types):
+        _append_mismatch(
+            mismatches,
+            category="rendering_failure",
+            field="response_block_types",
+            expected=expected_block_types,
+            actual=response_block_types,
+        )
+
     contamination_details = result.get("contamination_details") or {}
     contamination_ok = not contamination_details.get("contaminated")
     if contamination_ok:
@@ -326,6 +364,20 @@ def score_assistant_scenario(*, scenario: dict[str, Any], result: dict[str, Any]
     hallucination_proxy = 1 if must_not and not _contains_none(response_text, must_not) else 0
     anti_smoothness_failed = bool(response_text and answer_ok and (receipt_completeness < 1.0 or failure_category))
     critical_failure = any(is_critical_failure(mismatch.get("category")) for mismatch in mismatches)
+    fallback_reason = receipt.get("fallback_reason") or dispatch.get("fallback_reason")
+    fallback_used = bool(dispatch.get("fallback_used"))
+    low_confidence_dispatch = fallback_reason == "low_confidence_dispatch"
+    invalid_dispatch = fallback_reason in {
+        "dispatcher_invalid_json",
+        "dispatcher_invalid_schema",
+        "dispatcher_invalid_response",
+    }
+    disagreement_fields = [
+        field
+        for field in ("skill", "lane", "needs_retrieval", "write_intent", "ambiguity_level")
+        if raw_dispatch and raw_dispatch.get(field) != dispatch.get("skill_id" if field == "skill" else field)
+    ]
+    dispatch_code_disagreement = bool(disagreement_fields)
 
     passed = (
         final_score >= 85.0
@@ -347,6 +399,12 @@ def score_assistant_scenario(*, scenario: dict[str, Any], result: dict[str, Any]
         "latency_bucket": _latency_bucket(result.get("duration_ms"), passed, expected.get("max_duration_ms")),
         "trace_summary": {"execution_path": (result.get("trace") or {}).get("execution_path"), "lane": (result.get("trace") or {}).get("lane")},
         "anti_smoothness_failed": anti_smoothness_failed,
+        "fallback_used": fallback_used,
+        "fallback_reason": fallback_reason,
+        "low_confidence_dispatch": low_confidence_dispatch,
+        "invalid_dispatch": invalid_dispatch,
+        "dispatch_code_disagreement": dispatch_code_disagreement,
+        "dispatch_code_disagreement_fields": disagreement_fields,
     }
 
 

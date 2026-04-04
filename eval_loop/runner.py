@@ -476,6 +476,12 @@ async def run_suite(
                 "receipt_completeness": 0.0,
                 "trace_fidelity": 0.0,
                 "latency_bucket": "fast_wrong",
+                "fallback_used": False,
+                "fallback_reason": None,
+                "low_confidence_dispatch": False,
+                "invalid_dispatch": False,
+                "dispatch_code_disagreement": False,
+                "dispatch_code_disagreement_fields": [],
                 "latency_breakdown": {
                     "total_duration_ms": 0,
                     "time_to_first_token_ms": None,
@@ -536,6 +542,11 @@ async def run_suite(
             "receipt_completeness": scored.get("receipt_completeness"),
             "trace_fidelity": scored.get("trace_fidelity"),
             "latency_bucket": scored.get("latency_bucket"),
+            "fallback_used": scored.get("fallback_used", False),
+            "fallback_reason": scored.get("fallback_reason"),
+            "low_confidence_dispatch": scored.get("low_confidence_dispatch", False),
+            "invalid_dispatch": scored.get("invalid_dispatch", False),
+            "dispatch_code_disagreement": scored.get("dispatch_code_disagreement", False),
             "expected": scenario.get("expected", {}),
         }
         results.append(record)

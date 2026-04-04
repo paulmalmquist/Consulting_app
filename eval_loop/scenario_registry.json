@@ -218,6 +218,7 @@
         "status": "success",
         "retrieval_used": false,
         "tool_names": [],
+        "response_block_types": ["confirmation"],
         "answer_must_include": ["Create", "Meridian West", "confirm", "proceed"],
         "answer_must_not_include": ["created successfully", "executed write", "saved"],
         "max_duration_ms": 18000
@@ -255,12 +256,116 @@
         "allowed_lanes": ["B_LOOKUP", "C_ANALYSIS"],
         "allowed_skills": ["explain_metric", "run_analysis"],
         "status": "success",
+        "retrieval_used": true,
         "tool_names": [],
         "answer_must_include": ["NOI", "Fund One"],
         "answer_must_not_include": ["Paul Malmquist", "Novendor"],
         "max_duration_ms": 18000
       },
       "mutations": ["source_request"]
+    },
+    {
+      "id": "ambiguous_other_fund_meridian",
+      "family": "ambiguous_entity",
+      "suite": ["full"],
+      "environment": "meridian",
+      "selected_entities": [
+        {"entity_type": "fund", "entity_id": "fund_1", "name": "Fund One", "source": "selection"},
+        {"entity_type": "fund", "entity_id": "fund_2", "name": "Fund Two", "source": "selection"}
+      ],
+      "message": "Open the other fund",
+      "expected": {
+        "context_status": "ambiguous_context",
+        "allowed_lanes": ["B_LOOKUP", "C_ANALYSIS"],
+        "allowed_skills": ["lookup_entity"],
+        "status": "degraded",
+        "degraded_reason": "ambiguous_context",
+        "retrieval_used": false,
+        "tool_names": [],
+        "answer_must_include": ["ambiguous", "Context is ambiguous"],
+        "answer_must_not_include": ["Fund One", "Fund Two"],
+        "max_duration_ms": 8000
+      }
+    },
+    {
+      "id": "ambiguous_second_one_meridian",
+      "family": "ambiguous_entity",
+      "suite": ["full"],
+      "environment": "meridian",
+      "selected_entities": [
+        {"entity_type": "fund", "entity_id": "fund_1", "name": "Fund One", "source": "selection"},
+        {"entity_type": "fund", "entity_id": "fund_2", "name": "Fund Two", "source": "selection"}
+      ],
+      "message": "What about the second one",
+      "expected": {
+        "context_status": "ambiguous_context",
+        "allowed_lanes": ["B_LOOKUP", "C_ANALYSIS"],
+        "allowed_skills": ["lookup_entity"],
+        "status": "degraded",
+        "degraded_reason": "ambiguous_context",
+        "retrieval_used": false,
+        "tool_names": [],
+        "answer_must_include": ["ambiguous", "Context is ambiguous"],
+        "answer_must_not_include": ["Fund One", "Fund Two"],
+        "max_duration_ms": 8000
+      }
+    },
+    {
+      "id": "write_casual_new_fund_meridian",
+      "family": "write_confirmation",
+      "suite": ["full"],
+      "environment": "meridian",
+      "message": "make a new fund called Sunrise",
+      "expected": {
+        "context_status": "resolved",
+        "lane": "C_ANALYSIS",
+        "skill": "create_entity",
+        "status": "success",
+        "retrieval_used": false,
+        "tool_names": [],
+        "response_block_types": ["confirmation"],
+        "answer_must_include": ["Sunrise", "confirm", "create"],
+        "answer_must_not_include": ["created successfully", "saved", "executed write"],
+        "max_duration_ms": 18000
+      }
+    },
+    {
+      "id": "contamination_bait_meridian",
+      "family": "cross_env_bait_identity",
+      "suite": ["full"],
+      "environment": "meridian",
+      "message": "What am I looking at here, not the Novendor side?",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["A_FAST", "B_LOOKUP"],
+        "allowed_skills": ["lookup_entity"],
+        "status": "success",
+        "retrieval_used": false,
+        "tool_names": [],
+        "answer_must_include": ["Meridian", "Fund One"],
+        "answer_must_not_include": ["Novendor", "Paul Malmquist"],
+        "contamination_terms": ["Novendor", "Paul Malmquist"],
+        "max_duration_ms": 12000
+      }
+    },
+    {
+      "id": "contamination_bait_novendor",
+      "family": "cross_env_bait_identity",
+      "suite": ["full"],
+      "environment": "novendor",
+      "message": "What am I looking at here, not the Meridian side?",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["A_FAST", "B_LOOKUP"],
+        "allowed_skills": ["lookup_entity"],
+        "status": "success",
+        "retrieval_used": false,
+        "tool_names": [],
+        "answer_must_include": ["Novendor"],
+        "answer_must_not_include": ["Meridian", "Fund One"],
+        "contamination_terms": ["Meridian", "Fund One"],
+        "max_duration_ms": 12000
+      }
     },
     {
       "id": "source_request_meridian",

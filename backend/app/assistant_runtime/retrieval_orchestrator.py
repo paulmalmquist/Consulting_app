@@ -63,8 +63,14 @@ async def execute_retrieval(
             receipt=RetrievalReceipt(used=True, result_count=0, status=RetrievalStatus.EMPTY),
         )
 
-    entity_uuid = _coerce_uuid(entity_id) if entity_id else None
-    if entity_id and entity_uuid is None:
+    effective_entity_type = entity_type
+    effective_entity_id = entity_id
+    if entity_type == "environment":
+        effective_entity_type = None
+        effective_entity_id = None
+
+    entity_uuid = _coerce_uuid(effective_entity_id) if effective_entity_id else None
+    if effective_entity_id and entity_uuid is None:
         return RetrievalExecution(
             chunks=[],
             context_text="",
@@ -76,7 +82,7 @@ async def execute_retrieval(
         query=message,
         business_id=business_uuid,
         env_id=_coerce_uuid(env_id) if env_id else None,
-        entity_type=entity_type,
+        entity_type=effective_entity_type,
         entity_id=entity_uuid,
         top_k=top_k,
         use_hybrid=route.use_hybrid,

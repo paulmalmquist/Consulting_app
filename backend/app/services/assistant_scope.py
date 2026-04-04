@@ -37,7 +37,7 @@ def _set_env_cache(env_id: str | None, business_id: str | None, data: dict[str, 
             _env_cache.pop(k, None)
 
 _SPACE_RE = re.compile(r"[^a-z0-9]+")
-_DEICTIC_RE = re.compile(r"\b(this|current|selected|that|these|those|it|here)\b")
+_DEICTIC_RE = re.compile(r"\b(this|current|selected|that|these|those|it|here|other|second|first|next|previous)\b")
 _LIST_QUERY_RE = re.compile(r"\b(which|what|list|show|give|tell)\b.*\b(funds?|assets?|investments?|deals?|models?|pipeline)\b")
 _COUNT_QUERY_RE = re.compile(r"\b(how many|count|number of|total)\b.*\b(funds?|assets?|investments?|deals?|models?|pipeline|entities)\b")
 _IDENTITY_QUERY_RE = re.compile(r"\b(what|which)\b.*\b(environment|env|page|workspace|module|schema|industry)\b")

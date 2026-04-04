@@ -28,6 +28,10 @@ def summarize_run(*, run_id: str, cycle: int, suite: str, results: list[dict[str
     contamination_rate = round(sum(result.get("cross_environment_contamination", 0) for result in results) / max(len(results), 1), 4)
     receipt_completeness_avg = round(sum(float(result.get("receipt_completeness") or 0.0) for result in results) / max(len(results), 1), 4)
     trace_fidelity_avg = round(sum(float(result.get("trace_fidelity") or 0.0) for result in results) / max(len(results), 1), 4)
+    fallback_rate = round(sum(1 for result in results if result.get("fallback_used")) / max(len(results), 1), 4)
+    low_confidence_dispatch_rate = round(sum(1 for result in results if result.get("low_confidence_dispatch")) / max(len(results), 1), 4)
+    invalid_dispatch_rate = round(sum(1 for result in results if result.get("invalid_dispatch")) / max(len(results), 1), 4)
+    dispatch_code_disagreement_rate = round(sum(1 for result in results if result.get("dispatch_code_disagreement")) / max(len(results), 1), 4)
     return {
         "run_id": run_id,
         "cycle": cycle,
@@ -42,6 +46,10 @@ def summarize_run(*, run_id: str, cycle: int, suite: str, results: list[dict[str
         "contamination_rate": contamination_rate,
         "receipt_completeness_avg": receipt_completeness_avg,
         "trace_fidelity_avg": trace_fidelity_avg,
+        "fallback_rate": fallback_rate,
+        "low_confidence_dispatch_rate": low_confidence_dispatch_rate,
+        "invalid_dispatch_rate": invalid_dispatch_rate,
+        "dispatch_code_disagreement_rate": dispatch_code_disagreement_rate,
     }
 
 
@@ -104,6 +112,7 @@ def _render_latest_summary(
         contamination_lines.append(
             f"- `{env}` contamination `{stats['contamination_rate']}` context leak `{stats['context_leak_rate']}` retrieval leak `{stats['retrieval_leak_rate']}` answer leak `{stats['answer_leak_rate']}`"
         )
+    fallback_reasons = Counter(result.get("fallback_reason") for result in results if result.get("fallback_reason"))
 
     lines = [
         "# Latest Summary",
@@ -114,6 +123,10 @@ def _render_latest_summary(
         f"- P95 latency: `{summary['p95_latency_ms']}ms`",
         f"- Receipt completeness avg: `{summary['receipt_completeness_avg']}`",
         f"- Trace fidelity avg: `{summary['trace_fidelity_avg']}`",
+        f"- Fallback rate: `{summary['fallback_rate']}`",
+        f"- Low-confidence dispatch rate: `{summary['low_confidence_dispatch_rate']}`",
+        f"- Invalid dispatch rate: `{summary['invalid_dispatch_rate']}`",
+        f"- Dispatch/code disagreement rate: `{summary['dispatch_code_disagreement_rate']}`",
         "",
         "## What Failed Most Often",
     ]
@@ -135,9 +148,18 @@ def _render_latest_summary(
             f"- `slow_correct`: {latency_buckets.get('slow_correct', 0)}",
             f"- `slow_wrong`: {latency_buckets.get('slow_wrong', 0)}",
             "",
+            "## Fallback Integrity",
+            f"- Fallback invocations: `{sum(1 for result in results if result.get('fallback_used'))}`",
+            f"- Low-confidence dispatches: `{sum(1 for result in results if result.get('low_confidence_dispatch'))}`",
+            f"- Invalid dispatches: `{sum(1 for result in results if result.get('invalid_dispatch'))}`",
+            f"- Dispatch/code disagreements: `{sum(1 for result in results if result.get('dispatch_code_disagreement'))}`",
+            "",
             "## Cross-Environment Contamination",
         ]
     )
+    if fallback_reasons:
+        for reason, count in fallback_reasons.most_common(5):
+            lines.append(f"- fallback `{reason}`: {count}")
     lines.extend(contamination_lines or ["- No contamination detected in this cycle."])
 
     lines.extend(["", "## What Degraded Correctly"])
@@ -287,6 +309,10 @@ def write_reports(
                 f"- Median latency: {card['median_latency_ms']}ms",
                 f"- P95 latency: {card['p95_latency_ms']}ms",
                 f"- Frontend render success: {card['frontend_render_success_rate']}",
+                f"- Fallback rate: {card['fallback_rate']}",
+                f"- Low-confidence dispatch rate: {card['low_confidence_dispatch_rate']}",
+                f"- Invalid dispatch rate: {card['invalid_dispatch_rate']}",
+                f"- Dispatch/code disagreement rate: {card['dispatch_code_disagreement_rate']}",
                 f"- Top failures: {', '.join(f'{key}:{value}' for key, value in card['top_failure_categories']) or 'none'}",
                 "",
             ]

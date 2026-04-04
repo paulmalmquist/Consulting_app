@@ -218,6 +218,7 @@ function OverviewTab({
             label="Dispatch confidence"
             value={typeof dispatchDecision?.confidence === "number" ? dispatchDecision.confidence.toFixed(2) : "Missing from receipt"}
           />
+          <KV label="Fallback reason" value={dispatchDecision?.fallback_reason || turnReceipt.fallback_reason} />
           <KV label="Status" value={turnReceipt.status} />
           <KV label="Degraded reason" value={turnReceipt.degraded_reason} />
           <KV
@@ -709,6 +710,7 @@ function RuntimeTab({
           label="Dispatch confidence"
           value={typeof dispatchDecision?.confidence === "number" ? dispatchDecision.confidence.toFixed(2) : "Missing from receipt"}
         />
+        <KV label="Fallback reason" value={dispatchDecision?.fallback_reason || turnReceipt?.fallback_reason} />
         <KV label="Turn status" value={turnReceipt?.status} />
         <KV label="Degraded reason" value={turnReceipt?.degraded_reason} />
         <KV label="Tool calls" value={receiptTools.length || winstonTrace?.tool_call_count} />

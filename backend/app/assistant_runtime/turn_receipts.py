@@ -71,6 +71,18 @@ class DegradedReason(StrEnum):
     NO_SKILL_MATCH = "no_skill_match"
 
 
+class DispatchAmbiguity(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class DispatchSource(StrEnum):
+    MODEL = "model"
+    LEGACY_FALLBACK = "legacy_fallback"
+    DETERMINISTIC_GUARDRAIL = "deterministic_guardrail"
+
+
 class SkillDefinition(BaseModel):
     model_config = {"extra": "forbid"}
 
@@ -102,6 +114,39 @@ class SkillSelection(BaseModel):
     triggers_matched: list[str] = Field(default_factory=list)
 
 
+class DispatchProposal(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    skill: str | None = None
+    lane: Lane | None = None
+    needs_retrieval: bool = False
+    write_intent: bool = False
+    ambiguity_level: DispatchAmbiguity = DispatchAmbiguity.LOW
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
+class DispatchDecision(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    source: DispatchSource
+    skill_id: str | None = None
+    lane: Lane
+    needs_retrieval: bool
+    write_intent: bool
+    ambiguity_level: DispatchAmbiguity
+    confidence: float = Field(ge=0.0, le=1.0)
+    fallback_used: bool = False
+    fallback_reason: str | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
+class DispatchTrace(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    raw: DispatchProposal | None = None
+    normalized: DispatchDecision
+
+
 class ToolReceipt(BaseModel):
     model_config = {"extra": "forbid"}
 
@@ -126,6 +171,8 @@ class TurnReceipt(BaseModel):
 
     request_id: str
     lane: Lane
+    dispatch: DispatchTrace
+    fallback_reason: str | None = None
     context: ContextReceipt
     skill: SkillSelection
     tools: list[ToolReceipt] = Field(default_factory=list)
@@ -164,4 +211,3 @@ def legacy_code_to_lane(code: str) -> Lane:
         "C": Lane.C_ANALYSIS,
         "D": Lane.D_DEEP,
     }.get(code, Lane.B_LOOKUP)
-

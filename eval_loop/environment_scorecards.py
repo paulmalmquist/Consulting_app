@@ -43,6 +43,10 @@ def build_environment_scorecards(results: list[dict[str, Any]]) -> list[dict[str
         contamination_ok = sum(1 for item in env_results if not item.get("contamination_details", {}).get("contaminated"))
         frontend_cases = [item for item in env_results if item.get("kind") == "frontend_contract"]
         frontend_render_success = sum(1 for item in frontend_cases if item.get("passed"))
+        fallback_used = sum(1 for item in env_results if item.get("fallback_used"))
+        low_confidence_dispatch = sum(1 for item in env_results if item.get("low_confidence_dispatch"))
+        invalid_dispatch = sum(1 for item in env_results if item.get("invalid_dispatch"))
+        dispatch_code_disagreement = sum(1 for item in env_results if item.get("dispatch_code_disagreement"))
         pass_rate = round(pass_count / max(total, 1), 4)
         overall_score = round(
             (
@@ -75,6 +79,10 @@ def build_environment_scorecards(results: list[dict[str, Any]]) -> list[dict[str
                 "median_latency_ms": _median(durations),
                 "p95_latency_ms": _p95(durations),
                 "frontend_render_success_rate": round(frontend_render_success / max(len(frontend_cases), 1), 4) if frontend_cases else 1.0,
+                "fallback_rate": round(fallback_used / max(total, 1), 4),
+                "low_confidence_dispatch_rate": round(low_confidence_dispatch / max(total, 1), 4),
+                "invalid_dispatch_rate": round(invalid_dispatch / max(total, 1), 4),
+                "dispatch_code_disagreement_rate": round(dispatch_code_disagreement / max(total, 1), 4),
                 "top_failure_categories": failure_counter.most_common(3),
                 "overall_score": overall_score,
             }
@@ -103,6 +111,10 @@ def write_environment_scorecards(out_dir: Path, scorecards: list[dict[str, Any]]
                 f"- Median latency: {card['median_latency_ms']}ms",
                 f"- P95 latency: {card['p95_latency_ms']}ms",
                 f"- Frontend render success: {card['frontend_render_success_rate']}",
+                f"- Fallback rate: {card['fallback_rate']}",
+                f"- Low-confidence dispatch rate: {card['low_confidence_dispatch_rate']}",
+                f"- Invalid dispatch rate: {card['invalid_dispatch_rate']}",
+                f"- Dispatch/code disagreement rate: {card['dispatch_code_disagreement_rate']}",
                 f"- Top failures: {', '.join(f'{k}:{v}' for k, v in card['top_failure_categories']) or 'none'}",
                 "",
             ]

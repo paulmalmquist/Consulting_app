@@ -8,7 +8,7 @@ from app.assistant_runtime.turn_receipts import ContextReceipt, ContextResolutio
 from app.schemas.ai_gateway import AssistantContextEnvelope, AssistantSelectedEntity, ResolvedAssistantScope
 from app.services.assistant_scope import ensure_context_envelope, resolve_assistant_scope
 
-_DEICTIC_RE = re.compile(r"\b(this|that|current|selected|it|these|those)\b", re.IGNORECASE)
+_DEICTIC_RE = re.compile(r"\b(this|that|current|selected|it|these|those|other|second|first|next|previous)\b", re.IGNORECASE)
 _SPACE_RE = re.compile(r"[^a-z0-9]+")
 
 

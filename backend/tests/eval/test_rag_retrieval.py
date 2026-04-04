@@ -72,6 +72,17 @@ class FakeRagCursor:
         return []
 
 
+class AssertingFtsCursor(FakeRagCursor):
+    def __init__(self):
+        super().__init__(cosine_rows=[], fts_rows=[])
+        self.calls: list[tuple[str, list | None]] = []
+
+    def execute(self, sql, params=None):
+        self._call_count += 1
+        self.calls.append((sql, list(params) if params is not None else None))
+        return self
+
+
 @pytest.fixture
 def mock_embedding():
     """Mock the embedding function to return a fixed vector."""
@@ -246,3 +257,33 @@ def test_metadata_boost_prefers_scope_match(mock_embedding):
     # The matching chunk should now score higher than the other
     scores = {c.chunk_id: c.score for c in boosted}
     assert scores[chunk_match.chunk_id] > scores[chunk_other.chunk_id]
+
+
+def test_hybrid_search_orders_fts_params_correctly(mock_embedding):
+    business_id = uuid.uuid4()
+    env_id = uuid.uuid4()
+    cursor = AssertingFtsCursor()
+
+    @contextmanager
+    def mock_cursor():
+        yield cursor
+
+    with patch("app.services.rag_indexer.get_cursor", mock_cursor):
+        semantic_search(
+            query="Paul Malmquist",
+            business_id=business_id,
+            env_id=env_id,
+            entity_type=None,
+            entity_id=None,
+            top_k=3,
+            use_hybrid=True,
+        )
+
+    assert len(cursor.calls) >= 3
+    fts_sql, fts_params = cursor.calls[2]
+    assert "plainto_tsquery('english', %s)" in fts_sql
+    assert fts_params is not None
+    assert fts_params[0] == "Paul Malmquist"
+    assert fts_params[1] == str(business_id)
+    assert fts_params[2] == str(env_id)
+    assert fts_params[3] == "Paul Malmquist"

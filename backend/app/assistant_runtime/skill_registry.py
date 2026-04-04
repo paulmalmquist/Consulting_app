@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from app.assistant_runtime.turn_receipts import (
     ConfirmationMode,
     RetrievalPolicy,
@@ -120,6 +122,30 @@ SKILLS: tuple[SkillDefinition, ...] = (
 
 SKILL_BY_ID = {skill.id: skill for skill in SKILLS}
 
+_GROUNDED_CONTEXT_RE = re.compile(
+    r"\b("
+    r"variance|underwriting|occupancy|debt watch|watchlist|lender|debt risk|risk|noi|irr|tvpi|dpi|dscr|ltv|"
+    r"blank|down vs|why is|this fund|this asset|this deal|this investment|latest|current|today|"
+    r"changes|source|basis|based on|summary|lp summary"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def skill_requires_grounding(skill_id: str | None, *, message: str | None = None) -> bool:
+    if not skill_id:
+        return False
+    skill = SKILL_BY_ID.get(skill_id)
+    if skill is None:
+        return False
+    if skill.retrieval_policy == RetrievalPolicy.FULL:
+        return True
+    if skill.retrieval_policy == RetrievalPolicy.NONE:
+        return False
+    if skill_id in {"lookup_entity", "explain_metric"}:
+        return bool(_GROUNDED_CONTEXT_RE.search(message or ""))
+    return False
+
 
 def validate_skill_registry() -> None:
     seen: set[str] = set()
@@ -131,4 +157,3 @@ def validate_skill_registry() -> None:
             raise ValueError(f"Skill {skill.id} must declare at least one trigger")
         if not skill.allowed_tool_tags:
             raise ValueError(f"Skill {skill.id} must declare allowed_tool_tags")
-

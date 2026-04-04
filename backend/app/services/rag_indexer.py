@@ -484,7 +484,7 @@ def _fts_search(
             ORDER BY score DESC
             LIMIT %s
             """,
-            params + [query, query, top_k],
+            [query] + params + [query, top_k],
         )
         return _rows_to_chunks(cur.fetchall(), method="fts")
 

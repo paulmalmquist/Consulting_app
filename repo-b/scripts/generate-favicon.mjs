@@ -14,9 +14,15 @@ function generateIcon(size) {
   // Transparent background
   ctx.clearRect(0, 0, size, size);
 
-  // Rounded rect background — primary blue
+  drawRoundedRect(ctx, size, "#3b6eb5");
+  drawBowtie(ctx, size, "#ffffff");
+
+  return canvas;
+}
+
+function drawRoundedRect(ctx, size, fillStyle) {
   const r = size * 0.18;
-  ctx.fillStyle = "#3b6eb5";
+  ctx.fillStyle = fillStyle;
   ctx.beginPath();
   ctx.moveTo(r, 0);
   ctx.lineTo(size - r, 0);
@@ -29,15 +35,56 @@ function generateIcon(size) {
   ctx.quadraticCurveTo(0, 0, r, 0);
   ctx.closePath();
   ctx.fill();
+}
 
-  // "W" letter
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `bold ${size * 0.6}px sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("W", size / 2, size / 2 + size * 0.03);
+function drawBowtie(ctx, size, fillStyle) {
+  const scale = size / 24;
+  ctx.save();
+  ctx.fillStyle = fillStyle;
+  ctx.translate(size * 0.5, size * 0.5);
+  ctx.scale(scale, scale);
+  ctx.translate(-12, -12);
 
-  return canvas;
+  ctx.beginPath();
+  ctx.moveTo(2, 6.5);
+  ctx.lineTo(11, 11.2);
+  ctx.lineTo(11, 12.8);
+  ctx.lineTo(2, 17.5);
+  ctx.lineTo(4.3, 12);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(22, 6.5);
+  ctx.lineTo(13, 11.2);
+  ctx.lineTo(13, 12.8);
+  ctx.lineTo(22, 17.5);
+  ctx.lineTo(19.7, 12);
+  ctx.closePath();
+  ctx.fill();
+
+  const knotWidth = 2;
+  const knotHeight = 4;
+  const knotRadius = 0.4;
+  roundRectPath(ctx, 11, 10, knotWidth, knotHeight, knotRadius);
+  ctx.fill();
+  ctx.restore();
+}
+
+function roundRectPath(ctx, x, y, width, height, radius) {
+  const right = x + width;
+  const bottom = y + height;
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(right - radius, y);
+  ctx.quadraticCurveTo(right, y, right, y + radius);
+  ctx.lineTo(right, bottom - radius);
+  ctx.quadraticCurveTo(right, bottom, right - radius, bottom);
+  ctx.lineTo(x + radius, bottom);
+  ctx.quadraticCurveTo(x, bottom, x, bottom - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
 }
 
 // 32x32 for favicon.ico (saved as PNG — browsers accept PNG favicons)

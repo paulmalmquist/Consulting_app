@@ -22,6 +22,25 @@ def _normalize(text: str) -> str:
     return " ".join((text or "").lower().split())
 
 
+def build_routed_skill(*, message: str, skill_id: str | None, confidence: float) -> RoutedSkill:
+    if not skill_id or skill_id not in SKILL_BY_ID:
+        return RoutedSkill(
+            definition=None,
+            selection=SkillSelection(skill_id=None, confidence=max(0.0, min(1.0, confidence)), triggers_matched=[]),
+        )
+    skill = SKILL_BY_ID[skill_id]
+    text = _normalize(message)
+    matches = [trigger for trigger in skill.triggers if trigger in text]
+    return RoutedSkill(
+        definition=skill,
+        selection=SkillSelection(
+            skill_id=skill.id,
+            confidence=round(max(0.0, min(1.0, confidence)), 2),
+            triggers_matched=matches,
+        ),
+    )
+
+
 def route_skill(*, message: str, lane: Lane, route: RouteDecision, context: ContextReceipt) -> RoutedSkill:
     text = _normalize(message)
     best_skill: SkillDefinition | None = None
@@ -49,6 +68,9 @@ def route_skill(*, message: str, lane: Lane, route: RouteDecision, context: Cont
         elif lane in (Lane.C_ANALYSIS, Lane.D_DEEP):
             best_skill = SKILL_BY_ID["run_analysis"]
             best_score = 5
+        elif context.resolution_status == "ambiguous_context":
+            best_skill = SKILL_BY_ID["lookup_entity"]
+            best_score = 4
         elif context.resolution_status == "resolved":
             best_skill = SKILL_BY_ID["lookup_entity"]
             best_score = 4
@@ -70,4 +92,3 @@ def route_skill(*, message: str, lane: Lane, route: RouteDecision, context: Cont
             triggers_matched=best_matches,
         ),
     )
-

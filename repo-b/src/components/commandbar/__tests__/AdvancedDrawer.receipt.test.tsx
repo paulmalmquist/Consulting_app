@@ -50,6 +50,27 @@ const baseDebug: AskAiDebug = {
   turnReceipt: {
     request_id: "req_123",
     lane: "C_ANALYSIS",
+    dispatch: {
+      raw: {
+        skill: "run_analysis",
+        lane: "C_ANALYSIS",
+        needs_retrieval: true,
+        write_intent: false,
+        ambiguity_level: "low",
+        confidence: 0.8,
+      },
+      normalized: {
+        source: "model",
+        skill_id: "run_analysis",
+        lane: "C_ANALYSIS",
+        needs_retrieval: true,
+        write_intent: false,
+        ambiguity_level: "low",
+        confidence: 0.8,
+        fallback_used: false,
+        notes: [],
+      },
+    },
     context: {
       environment_id: "env_123",
       entity_type: "fund",
@@ -104,6 +125,7 @@ test("AdvancedDrawer renders canonical turn receipt fields", () => {
   expect(screen.getByText("Canonical Turn Receipt")).toBeInTheDocument();
   expect(screen.getByText("C_ANALYSIS")).toBeInTheDocument();
   expect(screen.getByText("run_analysis")).toBeInTheDocument();
+  expect(screen.getAllByText("model").length).toBeGreaterThan(0);
   expect(screen.getAllByText("retrieval_empty").length).toBeGreaterThan(0);
   expect(screen.getByText(/Resolved Scope/i)).toBeInTheDocument();
 });
@@ -153,6 +175,7 @@ test("AdvancedDrawer fails visibly when receipt fields are missing", () => {
     turnReceipt: {
       ...baseDebug.turnReceipt!,
       lane: undefined,
+      dispatch: undefined,
       skill: undefined,
       retrieval: undefined,
     },
