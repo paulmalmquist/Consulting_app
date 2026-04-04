@@ -173,71 +173,81 @@ export async function sendAndWaitForResponse(
   const input = page.getByTestId("global-commandbar-input");
   const output = page.getByTestId("global-commandbar-output");
 
-  // Type the message character by character — this reliably triggers React onChange
-  // on controlled inputs (fill() can miss the onChange dispatch in some React setups).
-  console.log("[eval] typing message:", userText.slice(0, 40));
-  await input.focus();
-  await input.pressSequentially(userText, { delay: 10 });
-  console.log("[eval] typed, waiting for React state update...");
-
-  // Wait for React to process the onChange events
-  await page.waitForTimeout(500);
-
-  // Verify the Send button is now enabled (draft should be non-empty)
-  const sendBtn = page.getByRole("button", { name: "Send" });
-  const sendEnabled = await sendBtn.isEnabled().catch(() => false);
-  console.log(`[eval] Send button enabled=${sendEnabled}`);
-
-  if (sendEnabled) {
-    await sendBtn.click({ force: true });
-    console.log("[eval] Send button clicked");
-  } else {
-    // Fall back to Enter key
-    console.log("[eval] Send disabled, pressing Enter...");
-    await input.press("Enter");
-    console.log("[eval] Enter pressed");
+  // Use the test API exposed by WinstonCompanionProvider (on localhost).
+  // Direct DOM interaction doesn't work because the companion's focus trap and React's
+  // controlled input prevent Playwright's fill/type from updating React state.
+  //
+  // The test API is set via useEffect, so we may need to wait for React hydration.
+  console.log("[eval] waiting for __winston_test API to be available...");
+  let sent = "no_api";
+  for (let attempt = 0; attempt < 20; attempt++) {
+    sent = await page.evaluate(
+      (text) => {
+        const api = (window as any).__winston_test;
+        if (!api?.sendPrompt) return "no_api";
+        api.sendPrompt(text);
+        return "ok";
+      },
+      userText,
+    );
+    if (sent === "ok") break;
+    await page.waitForTimeout(500);
   }
-  console.log("[eval] message sent, polling for response...");
+  console.log(`[eval] sendPrompt result: ${sent} (after retries)`);
 
-  // Wait for response: poll the output area until we see text that wasn't there before.
-  // The output container holds ALL messages; after sending, the assistant response
-  // streams in. We use a text-stability check instead of toBeEmpty to handle
-  // output areas that have structural markup even when empty.
-  let responseText = "";
-  let stableCount = 0;
+  // Wait for the response to complete by watching the Send button:
+  // WinstonCompanionProvider sets thinking=false when the SSE stream finishes,
+  // which re-enables the Send button. This is more reliable than text stability
+  // because the AI may have long pauses between status messages and the final response.
+  console.log("[eval] waiting for response (watching Send button state)...");
+
+  const sendBtn = page.getByRole("button", { name: "Send" });
+  let pollCount = 0;
   const pollStart = Date.now();
 
-  let pollCount = 0;
+  // Give the send a moment to start (thinking=true)
+  await page.waitForTimeout(1000);
+
+  let lastText = "";
+  let stableCount = 0;
+
   while (Date.now() - pollStart < timeoutMs) {
-    const currentText = (await output.textContent()) ?? "";
     pollCount++;
-    // Log first 5 polls and then every 10th
+    const currentText = (await output.textContent()) ?? "";
+    const enabled = await sendBtn.isEnabled().catch(() => false);
+
     if (pollCount <= 5 || pollCount % 10 === 0) {
-      console.log(`[eval] poll #${pollCount}: text length=${currentText.length}, text=${JSON.stringify(currentText.slice(0, 100))}`);
+      console.log(`[eval] poll #${pollCount}: sendEnabled=${enabled}, output_len=${currentText.length}, text="${currentText.slice(0, 80)}"`);
     }
 
-    // Look for text that appeared AFTER our sent message
-    // The output includes user messages + assistant messages
-    if (currentText.length > 0 && currentText !== responseText) {
-      responseText = currentText;
-      stableCount = 0;
-    } else if (currentText.length > 0) {
-      stableCount++;
-    }
-
-    // Text has been stable for ~2s (4 × 500ms) → stream is done
-    if (stableCount >= 4 && responseText.length > 0) {
-      console.log(`[eval] response stabilized after ${pollCount} polls, length=${responseText.length}`);
+    // Primary signal: Send button re-enabled (thinking=false)
+    if (enabled && pollCount > 2) {
+      console.log(`[eval] response complete (send re-enabled) after ${pollCount} polls (${Date.now() - pollStart}ms)`);
       break;
     }
+
+    // Fallback signal: output text stable for 8s (16 × 500ms) and not just a status message
+    if (currentText.length > 0 && currentText === lastText) {
+      stableCount++;
+    } else {
+      stableCount = 0;
+    }
+    lastText = currentText;
+
+    if (stableCount >= 16 && currentText.length > 100) {
+      console.log(`[eval] response complete (text stable) after ${pollCount} polls (${Date.now() - pollStart}ms)`);
+      break;
+    }
+
     await page.waitForTimeout(500);
   }
 
-  // Brief stabilization for final React state flush
-  await page.waitForTimeout(300);
+  // Final stabilization for DOM updates
+  await page.waitForTimeout(500);
 
-  // Re-read final text
-  return (await output.textContent()) ?? "";
+  const finalText = (await output.textContent()) ?? "";
+  console.log(`[eval] final output length=${finalText.length}, text="${finalText.slice(0, 150)}"`);
+  return finalText;
 }
 
 /**

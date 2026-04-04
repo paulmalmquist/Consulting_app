@@ -1137,6 +1137,26 @@ export function WinstonCompanionProvider({
     ],
   );
 
+  // Expose a test API for Playwright e2e eval tests.
+  // Always expose when on localhost — no flag check needed.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    if (!isLocal) return;
+
+    (window as any).__winston_test = {
+      setDraft: (text: string) => {
+        setLaneState(activeLane, (current) => ({ ...current, draft: text }));
+      },
+      sendPrompt: (text?: string) => sendPrompt(activeLane, text),
+      getActiveLane: () => activeLane,
+    };
+
+    return () => {
+      delete (window as any).__winston_test;
+    };
+  }, [activeLane, sendPrompt]);
+
   return (
     <WinstonCompanionContextStore.Provider value={value}>
       {children}

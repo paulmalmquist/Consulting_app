@@ -148,6 +148,10 @@ function OverviewTab({
   onRunDiagnostics: () => void;
 }) {
   const turnReceipt: TurnReceipt | null = debug?.turnReceipt || null;
+  const receiptLane = typeof turnReceipt?.lane === "string" ? turnReceipt.lane : undefined;
+  const receiptSkill = turnReceipt?.skill?.skill_id;
+  const receiptTools = Array.isArray(turnReceipt?.tools) ? turnReceipt.tools : [];
+  const receiptRetrieval = turnReceipt?.retrieval;
   return (
     <div className="space-y-2">
       {/* Execution summary */}
@@ -180,11 +184,17 @@ function OverviewTab({
         )}
         {!winstonTrace && turnReceipt && (
           <>
-            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${laneBadgeColor(turnReceipt.lane.split("_", 1)[0])}`}>
-              {turnReceipt.lane}
-            </span>
+            {receiptLane ? (
+              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${laneBadgeColor(receiptLane.split("_", 1)[0])}`}>
+                {receiptLane}
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded-full border border-red-500/30 px-2 py-0.5 text-[10px] font-medium text-red-300">
+                Missing lane
+              </span>
+            )}
             <span className="text-[10px] text-bm-muted2">
-              {turnReceipt.tools.length} tool{turnReceipt.tools.length !== 1 ? "s" : ""}
+              {receiptTools.length} tool{receiptTools.length !== 1 ? "s" : ""}
             </span>
             <span className="text-[10px] text-bm-muted2">
               {turnReceipt.status}
@@ -200,11 +210,18 @@ function OverviewTab({
       {turnReceipt && (
         <div className="rounded-md bg-bm-surface/20 px-2 py-1.5">
           <p className="text-[10px] text-bm-muted2 uppercase tracking-wider mb-1">Canonical Turn Receipt</p>
-          <KV label="Lane" value={turnReceipt.lane} />
-          <KV label="Skill" value={turnReceipt.skill.skill_id} />
+          <KV label="Lane" value={receiptLane || "Missing from receipt"} />
+          <KV label="Skill" value={receiptSkill || "Missing from receipt"} />
           <KV label="Status" value={turnReceipt.status} />
           <KV label="Degraded reason" value={turnReceipt.degraded_reason} />
-          <KV label="Retrieval" value={turnReceipt.retrieval.used ? `${turnReceipt.retrieval.status} (${turnReceipt.retrieval.result_count})` : "unused"} />
+          <KV
+            label="Retrieval"
+            value={
+              receiptRetrieval
+                ? (receiptRetrieval.used ? `${receiptRetrieval.status} (${receiptRetrieval.result_count})` : "unused")
+                : "Missing from receipt"
+            }
+          />
         </div>
       )}
 
@@ -323,11 +340,11 @@ function ContextTab({
       {turnReceipt && (
         <div className="rounded-md bg-bm-surface/20 px-2 py-1.5">
           <p className="text-[10px] text-bm-muted2 uppercase tracking-wider mb-1">Context Receipt</p>
-          <KV label="Resolution" value={turnReceipt.context.resolution_status} />
-          <KV label="Environment" value={turnReceipt.context.environment_id} mono />
-          <KV label="Entity type" value={turnReceipt.context.entity_type} />
-          <KV label="Entity ID" value={turnReceipt.context.entity_id} mono />
-          <KV label="Notes" value={turnReceipt.context.notes?.join("; ")} />
+          <KV label="Resolution" value={turnReceipt.context?.resolution_status || "Missing from receipt"} />
+          <KV label="Environment" value={turnReceipt.context?.environment_id} mono />
+          <KV label="Entity type" value={turnReceipt.context?.entity_type} />
+          <KV label="Entity ID" value={turnReceipt.context?.entity_id} mono />
+          <KV label="Notes" value={turnReceipt.context?.notes?.join("; ")} />
         </div>
       )}
 
@@ -362,6 +379,10 @@ function TraceTab({
 }) {
   const timeline: WinstonToolTimeline[] = winstonTrace?.tool_timeline || [];
   const turnReceipt = debug?.turnReceipt;
+  const receiptTools = Array.isArray(turnReceipt?.tools) ? turnReceipt.tools : [];
+  const receiptLane = typeof turnReceipt?.lane === "string" ? turnReceipt.lane : undefined;
+  const receiptSkill = turnReceipt?.skill?.skill_id;
+  const receiptRetrieval = turnReceipt?.retrieval;
 
   return (
     <div className="space-y-2">
@@ -432,10 +453,10 @@ function TraceTab({
 
       {turnReceipt && (
         <CollapsibleSection title="Tool Receipts">
-          {turnReceipt.tools.length === 0 ? (
+          {receiptTools.length === 0 ? (
             <p className="text-[10px] text-bm-muted2">No tool receipts were emitted.</p>
           ) : (
-            turnReceipt.tools.map((tool, i) => (
+            receiptTools.map((tool, i) => (
               <div key={`${tool.tool_name}_${i}`} className="mb-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-mono text-bm-text/80">{tool.tool_name}</span>
@@ -669,12 +690,12 @@ function RuntimeTab({
       <div className="rounded-md bg-bm-surface/20 px-2 py-1.5">
         <p className="text-[10px] text-bm-muted2 uppercase tracking-wider mb-1">Execution</p>
         <KV label="Path" value={winstonTrace?.execution_path} />
-        <KV label="Lane" value={turnReceipt?.lane || (winstonTrace?.lane ? `Lane ${winstonTrace.lane}` : undefined)} />
-        <KV label="Skill" value={turnReceipt?.skill.skill_id} />
+        <KV label="Lane" value={receiptLane || (winstonTrace?.lane ? `Lane ${winstonTrace.lane}` : "Missing from receipt")} />
+        <KV label="Skill" value={receiptSkill || "Missing from receipt"} />
         <KV label="Turn status" value={turnReceipt?.status} />
         <KV label="Degraded reason" value={turnReceipt?.degraded_reason} />
-        <KV label="Tool calls" value={turnReceipt?.tools.length ?? winstonTrace?.tool_call_count} />
-        <KV label="RAG chunks" value={turnReceipt?.retrieval.result_count ?? winstonTrace?.rag_chunks_used} />
+        <KV label="Tool calls" value={receiptTools.length || winstonTrace?.tool_call_count} />
+        <KV label="RAG chunks" value={receiptRetrieval?.result_count ?? winstonTrace?.rag_chunks_used} />
         <KV label="Citations" value={winstonTrace?.citations?.length} />
       </div>
 

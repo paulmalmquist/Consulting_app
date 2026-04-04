@@ -135,10 +135,11 @@ test.describe("Winston AI evals", () => {
         const claims = buildEvalClaims(envId, evalCase.env_slug, envIdBySlug, bizIdBySlug);
         await installEvalSession(context, baseURL, claims);
 
-        // Seed localStorage so the app shell knows which business/env we're in
+        // Seed localStorage and set the Playwright bypass flag for the test API
         const bizId = bizIdBySlug[evalCase.env_slug] ?? "";
         await page.addInitScript(
           ([eid, bid]) => {
+            (window as any).__PLAYWRIGHT_BYPASS_AUTH = true;
             localStorage.setItem("demo_lab_env_id", eid);
             if (bid) localStorage.setItem("bos_business_id", bid);
           },
