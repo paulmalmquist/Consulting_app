@@ -86,6 +86,13 @@ export type DegradedReason =
   | "retrieval_empty"
   | "no_skill_match";
 
+export type DispatchAmbiguity = "low" | "medium" | "high";
+
+export type DispatchSource =
+  | "model"
+  | "legacy_fallback"
+  | "deterministic_guardrail";
+
 export type SkillDefinition = {
   id: string;
   description: string;
@@ -220,6 +227,32 @@ export type SkillSelection = {
   triggers_matched: string[];
 };
 
+export type DispatchProposal = {
+  skill?: string | null;
+  lane?: Lane | null;
+  needs_retrieval: boolean;
+  write_intent: boolean;
+  ambiguity_level: DispatchAmbiguity;
+  confidence: number;
+};
+
+export type DispatchDecision = {
+  source: DispatchSource;
+  skill_id?: string | null;
+  lane: Lane;
+  needs_retrieval: boolean;
+  write_intent: boolean;
+  ambiguity_level: DispatchAmbiguity;
+  confidence: number;
+  fallback_used: boolean;
+  notes: string[];
+};
+
+export type DispatchTrace = {
+  raw?: DispatchProposal | null;
+  normalized: DispatchDecision;
+};
+
 export type ToolReceipt = {
   tool_name: string;
   status: ToolReceiptStatus;
@@ -238,6 +271,7 @@ export type RetrievalReceipt = {
 export type TurnReceipt = {
   request_id: string;
   lane: Lane;
+  dispatch?: DispatchTrace | null;
   context: ContextReceipt;
   skill: SkillSelection;
   tools: ToolReceipt[];
