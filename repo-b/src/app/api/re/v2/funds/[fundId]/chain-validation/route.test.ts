@@ -185,8 +185,8 @@ function makeRequest(url: string): Request {
   return new Request(url);
 }
 
-function makeParams(obj: Record<string, string>) {
-  return { params: obj };
+function makeParams<T extends Record<string, string>>(obj: T) {
+  return { params: obj } as { params: T };
 }
 
 async function fetchJson(res: Response): Promise<Record<string, unknown>> {

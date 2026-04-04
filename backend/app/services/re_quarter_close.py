@@ -283,7 +283,6 @@ def _compute_asset_state(
     capex = Decimal("0")
     # Null-reason codes — populated below when a metric cannot be computed
     value_reason: str | None = None
-    occupancy_reason: str | None = None
     debt_reason: str | None = None
     noi_reason: str | None = None
     debt_service = Decimal("0")

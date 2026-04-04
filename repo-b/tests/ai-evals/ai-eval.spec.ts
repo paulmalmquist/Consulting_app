@@ -76,20 +76,51 @@ fs.mkdirSync(artifactsDir, { recursive: true });
 
 const allResults: CaseResult[] = [];
 
+// ── Env ID discovery from real backend ─────────────────────────────────
+// Maps slug → real env_id and slug → business_id, populated in beforeAll.
+const envIdBySlug: Record<string, string> = {};
+const bizIdBySlug: Record<string, string> = {};
+
+const BACKEND_ORIGIN = process.env.BOS_API_ORIGIN || "http://localhost:8000";
+
 // ── Test suite ───────────────────────────────────────────────────────
 
-test.describe.serial("Winston AI evals", () => {
+test.describe("Winston AI evals", () => {
+  test.beforeAll(async () => {
+    // Discover real environment IDs from the backend so we don't use fake IDs
+    try {
+      const resp = await fetch(`${BACKEND_ORIGIN}/v1/environments`);
+      if (resp.ok) {
+        const data = (await resp.json()) as {
+          environments: { env_id: string; slug: string; business_id: string | null }[];
+        };
+        for (const env of data.environments) {
+          if (env.slug) {
+            envIdBySlug[env.slug] = env.env_id;
+            if (env.business_id) bizIdBySlug[env.slug] = env.business_id;
+          }
+        }
+        console.log(
+          `Discovered ${Object.keys(envIdBySlug).length} environments:`,
+          Object.entries(envIdBySlug)
+            .map(([s, id]) => `${s}=${id.slice(0, 8)}…`)
+            .join(", "),
+        );
+      }
+    } catch (err) {
+      console.warn("Could not discover environments from backend:", err);
+    }
+  });
+
   for (const evalCase of cases) {
     test(evalCase.id, async ({ page, context, baseURL }, testInfo) => {
       if (!baseURL) throw new Error("baseURL missing from playwright config");
 
-      // Resolve env_id: static envs use "env-{slug}", meridian uses a real DB env_id
-      // For local dev, meridian is typically a real env created in the demo lab.
-      // Fall back to "env-meridian" if no real env is available.
+      // Resolve env_id from discovered environments, with fallback to env var or fake ID
       const envId =
-        evalCase.env_slug === "meridian"
-          ? process.env.AI_EVAL_MERIDIAN_ENV_ID ?? "env-meridian"
-          : `env-${evalCase.env_slug}`;
+        envIdBySlug[evalCase.env_slug] ??
+        process.env[`AI_EVAL_${evalCase.env_slug.toUpperCase()}_ENV_ID`] ??
+        `env-${evalCase.env_slug}`;
 
       const caseResult: CaseResult = {
         id: evalCase.id,
@@ -100,12 +131,24 @@ test.describe.serial("Winston AI evals", () => {
       };
 
       try {
-        // Install authenticated session
-        const claims = buildEvalClaims(envId, evalCase.env_slug);
+        // Install authenticated session with real env_ids in memberships
+        const claims = buildEvalClaims(envId, evalCase.env_slug, envIdBySlug, bizIdBySlug);
         await installEvalSession(context, baseURL, claims);
 
-        // Navigate to the target page
-        const navPath = evalCase.nav_path ?? `/lab/env/${envId}/`;
+        // Seed localStorage so the app shell knows which business/env we're in
+        const bizId = bizIdBySlug[evalCase.env_slug] ?? "";
+        await page.addInitScript(
+          ([eid, bid]) => {
+            localStorage.setItem("demo_lab_env_id", eid);
+            if (bid) localStorage.setItem("bos_business_id", bid);
+          },
+          [envId, bizId],
+        );
+
+        // Navigate to the target page, replacing placeholder env IDs with real ones
+        let navPath = evalCase.nav_path ?? `/lab/env/${envId}/`;
+        // Replace any hardcoded "env-{slug}" in nav_path with the real env_id
+        navPath = navPath.replace(/env-[a-z_-]+(?=\/)/, envId);
         await page.goto(navPath, { waitUntil: "domcontentloaded" });
 
         // Open Winston companion panel

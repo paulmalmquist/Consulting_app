@@ -99,14 +99,14 @@ async function installPlatformSession(
     },
     {
       name: "demo_lab_env_id",
-      value: claims.active_env_id,
+      value: claims.active_env_id ?? "",
       domain: url.hostname,
       path: "/",
       sameSite: "Lax",
     },
     {
       name: "bm_env_slug",
-      value: claims.active_env_slug,
+      value: claims.active_env_slug ?? "",
       domain: url.hostname,
       path: "/",
       sameSite: "Lax",

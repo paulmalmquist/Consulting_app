@@ -12,7 +12,7 @@ os.environ.setdefault("_BM_SKIP_DB_CHECK", "1")
 from pydantic import BaseModel
 
 from app.assistant_runtime.degraded_responses import degraded_message
-from app.assistant_runtime.execution_engine import derive_permission_mode, prepare_tools
+from app.assistant_runtime.execution_engine import prepare_tools
 from app.assistant_runtime.prompt_registry import validate_prompt_registry
 from app.assistant_runtime.skill_registry import validate_skill_registry
 from app.assistant_runtime.skill_router import route_skill

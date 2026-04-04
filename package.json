@@ -1,6 +1,7 @@
 {
   "scripts": {
     "validate:instructions": "node scripts/validate_instruction_docs.mjs",
+    "validate:assistant-runtime": "node scripts/validate_assistant_runtime.mjs",
     "test:instructions": "node --test tests/instruction-routing/*.test.mjs",
     "guardrails:repo": "node scripts/check_repo_guardrails.mjs"
   },

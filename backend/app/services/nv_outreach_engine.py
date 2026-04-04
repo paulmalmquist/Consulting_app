@@ -11,7 +11,6 @@ There is no second implementation of ranking or readiness logic.
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
-from decimal import Decimal
 from uuid import UUID
 
 from app.db import get_cursor
@@ -443,8 +442,7 @@ def build_daily_brief(env_id: str, business_id: UUID) -> dict:
             return _empty_brief(env_id, business_id)
 
         # ── Pre-fetch hypothesis, contact, trigger for all leads (N+1 guard) ──
-        lead_profile_ids = [str(l["lead_profile_id"]) for l in leads]
-        crm_account_ids  = [str(l["crm_account_id"]) for l in leads]
+        lead_profile_ids = [str(lead["lead_profile_id"]) for lead in leads]
 
         cur.execute(
             "SELECT lead_profile_id, primary_wedge_angle, top_2_capabilities "
@@ -618,7 +616,7 @@ def build_daily_brief(env_id: str, business_id: UUID) -> dict:
             })
 
         # ── Weekly strip ──────────────────────────────────────────────────────
-        outreach_stats = cro_metrics_engine.compute_outreach_30d(
+        cro_metrics_engine.compute_outreach_30d(
             cur, env_id, business_id
         )
 

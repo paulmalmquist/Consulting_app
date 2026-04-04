@@ -133,5 +133,44 @@
         ]
       }
     ]
+  },
+  {
+    "id": "novendor-no-fund-hallucination",
+    "description": "Does not hallucinate real-estate fund context inside Novendor",
+    "env_slug": "novendor",
+    "nav_path": "/lab/env/env-novendor",
+    "prompts": [
+      {
+        "user": "Which fund am I looking at right now?",
+        "require_contains_any": [
+          "not available",
+          "no fund",
+          "cannot determine",
+          "missing",
+          "not in this context",
+          "unavailable"
+        ],
+        "reject_contains_any": ["Meridian", "IGF", "fund i", "fund ii"]
+      }
+    ]
+  },
+  {
+    "id": "resume-no-portfolio-drift",
+    "description": "Resume context stays resume context for portfolio-style prompts",
+    "env_slug": "resume",
+    "nav_path": "/lab/env/env-resume/resume",
+    "prompts": [
+      {
+        "user": "Show me the current portfolio NOI.",
+        "require_contains_any": [
+          "not available",
+          "resume",
+          "no portfolio",
+          "cannot determine",
+          "missing"
+        ],
+        "reject_contains_any": ["NOI is", "$", "Meridian", "asset", "fund"]
+      }
+    ]
   }
 ]

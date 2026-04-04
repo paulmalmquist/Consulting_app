@@ -80,6 +80,9 @@ jobs:
       - name: Repo guardrails
         run: node scripts/check_repo_guardrails.mjs
 
+      - name: Assistant runtime validation
+        run: node scripts/validate_assistant_runtime.mjs
+
   frontend-quality:
     name: Frontend Lint + Typecheck + Unit
     runs-on: ubuntu-latest

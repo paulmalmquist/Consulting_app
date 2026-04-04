@@ -22,26 +22,12 @@ process.env.BM_SESSION_SECRET =
 export function buildEvalClaims(
   activeEnvId: string,
   activeEnvSlug: EnvironmentSlug,
+  envMap: Record<string, string> = {},
+  bizMap: Record<string, string> = {},
 ): PlatformSessionClaims {
-  const meridianMembership =
-    activeEnvSlug === "meridian"
-      ? [
-          {
-            env_id: activeEnvId,
-            env_slug: "meridian" as EnvironmentSlug,
-            client_name: "Meridian Capital Management",
-            role: "owner" as const,
-            status: "active" as const,
-            auth_mode: "private" as const,
-            is_default: false,
-            business_id: null,
-            tenant_id: null,
-            industry: "repe",
-            industry_type: "repe",
-            workspace_template_key: "repe",
-          },
-        ]
-      : [];
+  // Use real env_ids/business_ids from backend discovery when available
+  const eid = (slug: string) => envMap[slug] ?? `env-${slug}`;
+  const bid = (slug: string) => bizMap[slug] ?? null;
 
   return {
     v: 1,
@@ -58,34 +44,47 @@ export function buildEvalClaims(
     active_role: "owner",
     memberships: [
       {
-        env_id: "env-novendor",
+        env_id: eid("novendor"),
         env_slug: "novendor" as EnvironmentSlug,
         client_name: "Novendor",
         role: "owner",
         status: "active",
         auth_mode: "private",
-        is_default: true,
-        business_id: "biz-novendor",
-        tenant_id: "tenant-novendor",
+        is_default: activeEnvSlug === "novendor",
+        business_id: bid("novendor"),
+        tenant_id: null,
         industry: "consulting",
         industry_type: "consulting",
         workspace_template_key: "consulting_revenue_os",
       },
       {
-        env_id: "env-resume",
+        env_id: eid("resume"),
         env_slug: "resume" as EnvironmentSlug,
         client_name: "Paul Malmquist Resume",
         role: "owner",
         status: "active",
         auth_mode: "hybrid",
-        is_default: false,
-        business_id: "biz-resume",
-        tenant_id: "tenant-resume",
+        is_default: activeEnvSlug === "resume",
+        business_id: bid("resume"),
+        tenant_id: null,
         industry: "visual_resume",
         industry_type: "visual_resume",
         workspace_template_key: "visual_resume",
       },
-      ...meridianMembership,
+      {
+        env_id: eid("meridian"),
+        env_slug: "meridian" as EnvironmentSlug,
+        client_name: "Meridian Capital Management",
+        role: "owner",
+        status: "active",
+        auth_mode: "private",
+        is_default: activeEnvSlug === "meridian",
+        business_id: bid("meridian"),
+        tenant_id: null,
+        industry: "repe",
+        industry_type: "repe",
+        workspace_template_key: "repe",
+      },
     ],
   };
 }
@@ -113,14 +112,14 @@ export async function installEvalSession(
     },
     {
       name: "demo_lab_env_id",
-      value: claims.active_env_id,
+      value: claims.active_env_id ?? "",
       domain: url.hostname,
       path: "/",
       sameSite: "Lax",
     },
     {
       name: "bm_env_slug",
-      value: claims.active_env_slug,
+      value: claims.active_env_slug ?? "",
       domain: url.hostname,
       path: "/",
       sameSite: "Lax",
@@ -134,15 +133,21 @@ export async function installEvalSession(
  * Click the companion toggle and wait for the dialog to appear.
  */
 export async function openWinstonCompanion(page: Page): Promise<void> {
+  // Wait for the toggle to be visible (page may still be hydrating)
   const toggle = page.getByTestId("global-commandbar-toggle");
-  // Toggle may already be open; only click if dialog not visible
-  const dialog = page.getByRole("dialog", { name: /Winston/i });
-  if (!(await dialog.isVisible())) {
+  await expect(toggle).toBeVisible({ timeout: 15_000 });
+
+  // Click to open if the companion dialog isn't already showing
+  const dialog = page.locator('[role="dialog"][aria-label="Winston companion"]');
+  const isAlreadyOpen = await dialog.isVisible().catch(() => false);
+  if (!isAlreadyOpen) {
     await toggle.click();
   }
-  // Wait for the input to be ready
+
+  // Wait for the dialog AND the input to be ready
+  await expect(dialog).toBeVisible({ timeout: 10_000 });
   await expect(page.getByTestId("global-commandbar-input")).toBeVisible({
-    timeout: 10_000,
+    timeout: 5_000,
   });
 }
 
@@ -163,33 +168,49 @@ export async function sendAndWaitForResponse(
 ): Promise<string> {
   const input = page.getByTestId("global-commandbar-input");
   const output = page.getByTestId("global-commandbar-output");
-  // Send button is inside the companion panel, disabled while thinking=true
-  const sendBtn = page
-    .locator('[data-testid="global-commandbar-input"]')
-    .locator("..") // parent form/container
-    .getByRole("button", { name: /send/i });
 
+  // Focus the input and type the message (type() triggers React onChange reliably)
+  await input.click();
   await input.fill(userText);
 
-  // Use keyboard submit as fallback if button selector is fragile
-  await input.press("Enter");
+  // Small wait for React state to pick up the new draft value
+  await page.waitForTimeout(200);
 
-  // Wait for at least one token to appear in the output
-  await expect(output).not.toBeEmpty({ timeout: 15_000 });
+  // Click the Send button explicitly — more reliable than Enter across layouts.
+  // The button is a sibling of the textarea inside the composer div.
+  const sendBtn = page.getByRole("button", { name: "Send" });
+  await sendBtn.click();
 
-  // Wait for stream to complete: Send button re-enables when thinking=false
-  // (fired by onDone callback in WinstonCompanionProvider)
-  try {
-    await expect(sendBtn).toBeEnabled({ timeout: timeoutMs });
-  } catch {
-    // If Send button selector fails, fall back to a fixed wait
-    // This can happen if the companion layout changes
-    await page.waitForTimeout(5_000);
+  // Wait for response: poll the output area until we see text that wasn't there before.
+  // The output container holds ALL messages; after sending, the assistant response
+  // streams in. We use a text-stability check instead of toBeEmpty to handle
+  // output areas that have structural markup even when empty.
+  let responseText = "";
+  let stableCount = 0;
+  const pollStart = Date.now();
+
+  while (Date.now() - pollStart < timeoutMs) {
+    const currentText = (await output.textContent()) ?? "";
+    // Look for text that appeared AFTER our sent message
+    // The output includes user messages + assistant messages
+    if (currentText.length > 0 && currentText !== responseText) {
+      responseText = currentText;
+      stableCount = 0;
+    } else if (currentText.length > 0) {
+      stableCount++;
+    }
+
+    // Text has been stable for ~2s (4 × 500ms) → stream is done
+    if (stableCount >= 4 && responseText.length > 0) {
+      break;
+    }
+    await page.waitForTimeout(500);
   }
 
-  // Brief stabilization for React state flush after SSE done
-  await page.waitForTimeout(400);
+  // Brief stabilization for final React state flush
+  await page.waitForTimeout(300);
 
+  // Re-read final text
   return (await output.textContent()) ?? "";
 }
 

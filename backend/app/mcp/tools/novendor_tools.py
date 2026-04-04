@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from uuid import UUID
 
 from app.db import get_cursor
 from app.mcp.auth import McpContext
@@ -273,7 +272,7 @@ def _find_missing_contact_fields(ctx: McpContext, inp: FindMissingContactFieldsI
                 "company_name": None,
                 "contacts": [],
                 "readiness_blocker": "No strategic lead record for this account",
-                "suggested_research": f"Create a strategic lead record first",
+                "suggested_research": "Create a strategic lead record first",
             }
 
         cur.execute(
@@ -446,7 +445,6 @@ def _draft_outreach_message(ctx: McpContext, inp: DraftOutreachMessageInput) -> 
 
         # Assemble personalization elements
         elements_used = []
-        draft_parts = []
 
         contact = brief["contacts"][0] if brief["contacts"] else None
         hyp = brief["hypothesis"]

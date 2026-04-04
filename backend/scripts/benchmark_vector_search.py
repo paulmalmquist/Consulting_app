@@ -97,7 +97,7 @@ def run_benchmark(business_id: str, runs: int = 10, use_hybrid: bool = False):
             timings: dict[str, int] = {}
             t0 = time.time()
             try:
-                chunks = semantic_search(
+                semantic_search(
                     query=query,
                     business_id=bid,
                     top_k=5,

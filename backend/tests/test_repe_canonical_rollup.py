@@ -19,7 +19,7 @@ layer (re_quarter_close._compute_asset_state logic) rather than a live DB.
 from __future__ import annotations
 
 from decimal import Decimal
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -30,7 +30,6 @@ def _mock_cur(*, asset_row=None, loan=None, operating_row=None, acct_rollup=None
               occ_row=None, acct_rows=None, prior_aqs=None):
     """Return a MagicMock cursor wired to return given rows in order."""
     cur = MagicMock()
-    side_effects = []
 
     # 1st execute: asset + deal + property_asset
     if asset_row is not None:
@@ -90,7 +89,6 @@ class TestNavFallbackChain:
 
     def test_cost_basis_fallback_when_no_noi(self):
         """When NOI=0, asset_value falls back to cost_basis (not zero)."""
-        from app.services.re_quarter_close import _d
         noi = Decimal("0")
         cost_basis = Decimal("15000000")
         cap_rate = Decimal("0.15")
