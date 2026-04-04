@@ -29,6 +29,21 @@ const OUTCOME_LINE: Record<string, string> = {
   "sys-bi-service-line": "BI capability built from zero for 50+ stakeholders",
 };
 
+/** Human-readable stack label per capability ID */
+const STACK_LABEL: Record<string, string> = {
+  python: "Python",
+  sql: "SQL",
+  databricks: "Databricks",
+  azure: "Azure",
+  power_bi: "Power BI",
+  tableau: "Tableau",
+  tabular: "Tabular",
+  snowflake: "Snowflake",
+  openai: "OpenAI",
+  langchain: "LangChain",
+  pyspark: "PySpark",
+};
+
 /** Max 3 bullets per system — tightest proof points */
 const BULLETS: Record<string, string[]> = {
   "sys-ingestion-automation": [
@@ -88,56 +103,109 @@ function SystemCard({
   const outcome = OUTCOME_LINE[system.id];
   const bullets = BULLETS[system.id] ?? [];
 
+  const stackLabels = system.capabilities_used
+    .map((id) => STACK_LABEL[id])
+    .filter(Boolean)
+    .slice(0, 4);
+
   return (
     <button
       type="button"
       onClick={onSelect}
-      className={`w-full rounded-2xl border text-left transition-all duration-200 p-4 md:p-5 ${
-        isHighlighted
-          ? "border-white/20 bg-bm-surface/50 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.6)] ring-1 ring-white/10"
+      className="group w-full border-t text-left transition-all duration-200"
+      style={{
+        borderColor: isHighlighted
+          ? "rgba(200,146,58,0.45)"
           : isRelatedToSkill
-            ? "border-sky-400/20 bg-sky-500/5"
-            : "border-bm-border/30 bg-bm-surface/20 hover:border-white/10 hover:bg-bm-surface/30"
-      }`}
+            ? "rgba(96,144,176,0.3)"
+            : "rgba(200,146,58,0.15)",
+      }}
     >
-      {/* Title row */}
-      <div className="flex items-start gap-3">
-        <div
-          className="mt-1 h-2 w-2 shrink-0 rounded-full"
-          style={{ backgroundColor: company.primary }}
-        />
-        <div className="min-w-0 flex-1">
+      <div
+        className="grid grid-cols-[1fr_auto] gap-4 py-4 transition-colors duration-200 md:py-5"
+        style={{
+          background: isHighlighted
+            ? "rgba(200,146,58,0.06)"
+            : isRelatedToSkill
+              ? "rgba(96,144,176,0.04)"
+              : "transparent",
+        }}
+      >
+        {/* Left — identity + stack + description */}
+        <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h3 className="text-sm font-semibold text-bm-text md:text-base">
+            <div
+              className="h-1.5 w-1.5 shrink-0 self-center rounded-full"
+              style={{ backgroundColor: company.primary }}
+            />
+            <h3
+              className="resume-editorial text-[clamp(15px,1.6vw,19px)] font-medium leading-snug"
+              style={{ color: "var(--ros-text, #f0e0c0)" }}
+            >
               {system.name}
             </h3>
-            <span className="text-[10px] uppercase tracking-wider text-bm-muted2">
+            <span
+              className="resume-label text-[9px] tracking-[0.2em]"
+              style={{ color: "var(--ros-text-dim, #9a8a76)" }}
+            >
               {system.company_label}
             </span>
           </div>
 
-          {/* 1-line description */}
-          <p className="mt-1 text-xs leading-relaxed text-bm-muted line-clamp-2 md:text-sm">
+          {/* Stack tags */}
+          {stackLabels.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {stackLabels.map((lbl) => (
+                <span
+                  key={lbl}
+                  className="resume-label rounded px-1.5 py-0.5 text-[8px] tracking-[0.18em]"
+                  style={{
+                    color: "var(--ros-text-dim, #9a8a76)",
+                    border: "1px solid rgba(150,130,100,0.22)",
+                    background: "rgba(255,255,255,0.02)",
+                  }}
+                >
+                  {lbl}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Description */}
+          <p
+            className="mt-2 line-clamp-2 text-[11px] leading-relaxed tracking-[0.06em] md:text-[12px]"
+            style={{ color: "rgba(154,138,118,0.7)" }}
+          >
             {system.description}
           </p>
 
-          {/* Max 3 bullets */}
+          {/* Bullets (compact, desktop only) */}
           {bullets.length > 0 && (
-            <ul className="mt-2 space-y-1">
+            <ul className="mt-2 hidden space-y-0.5 md:block">
               {bullets.map((bullet) => (
-                <li key={bullet} className="flex items-start gap-2 text-[11px] leading-snug text-white/50 md:text-xs">
-                  <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-white/25" />
+                <li
+                  key={bullet}
+                  className="flex items-start gap-2 text-[10px] leading-snug tracking-[0.04em]"
+                  style={{ color: "rgba(154,138,118,0.5)" }}
+                >
+                  <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-[rgba(154,138,118,0.3)]" />
                   {bullet}
                 </li>
               ))}
             </ul>
           )}
+        </div>
 
-          {/* Bold outcome line */}
+        {/* Right — outcome metrics */}
+        <div className="flex shrink-0 flex-col items-end justify-start gap-1.5 pt-0.5">
           {outcome && (
-            <p className="mt-2.5 text-xs font-semibold text-white/90 md:text-sm">
+            <span
+              className="resume-label text-right text-[10px] leading-snug tracking-[0.06em] md:text-[11px]"
+              style={{ color: "var(--ros-text, #f0e0c0)" }}
+            >
+              <span style={{ color: "var(--ros-accent-warm, #c84b2a)" }}>• </span>
               {outcome}
-            </p>
+            </span>
           )}
         </div>
       </div>
@@ -178,29 +246,38 @@ export default function SystemsBuiltSection() {
   })();
 
   return (
-    <section className="rounded-[20px] border border-bm-border/60 bg-bm-surface/18 p-3 shadow-[0_24px_64px_-48px_rgba(5,12,18,0.95)] md:rounded-[28px] md:p-5">
-      <div className="flex items-baseline justify-between gap-3">
+    <section>
+      {/* Section header */}
+      <div className="mb-2 flex items-baseline justify-between gap-3">
         <div>
-          <p className="bm-section-label tracking-[0.1em] md:tracking-[0.16em]">
-            Systems Built
+          <p
+            className="resume-label text-[9px] tracking-[0.32em]"
+            style={{ color: "var(--ros-text-dim, #9a8a76)" }}
+          >
+            <span style={{ color: "var(--ros-text, #f0e0c0)" }}>Systems</span>{" "}
+            in Production
           </p>
-          <h2 className="mt-1.5 text-lg font-semibold md:mt-2 md:text-xl">
-            Production systems replacing manual workflows
-          </h2>
         </div>
-        <div className="hidden shrink-0 items-center gap-2 text-xs text-bm-muted2 md:flex">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COMPANY_COLORS.jll.primary }} />
+        <div className="hidden shrink-0 items-center gap-4 md:flex">
+          <span
+            className="resume-label flex items-center gap-1.5 text-[9px] tracking-[0.2em]"
+            style={{ color: "var(--ros-text-dim, #9a8a76)" }}
+          >
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: COMPANY_COLORS.jll.primary }} />
             JLL
           </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COMPANY_COLORS.kayne.primary }} />
+          <span
+            className="resume-label flex items-center gap-1.5 text-[9px] tracking-[0.2em]"
+            style={{ color: "var(--ros-text-dim, #9a8a76)" }}
+          >
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: COMPANY_COLORS.kayne.primary }} />
             Kayne
           </span>
         </div>
       </div>
 
-      <div className="mt-4 space-y-2 md:mt-5">
+      {/* System entries — no card borders, divided by top borders */}
+      <div>
         {sortedSystems.map((system) => (
           <SystemCard
             key={system.id}

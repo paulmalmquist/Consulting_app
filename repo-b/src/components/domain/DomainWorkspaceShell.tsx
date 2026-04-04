@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Building2, Menu, X } from "lucide-react";
 import { DomainSlug, useDomainEnv } from "@/components/domain/DomainEnvProvider";
+import { WorkspaceContextLoader } from "@/components/ui/WinstonLoader";
 
 function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -244,11 +245,7 @@ export default function DomainWorkspaceShell({
   }, [drawerOpen]);
 
   if (loading) {
-    return (
-      <div className="rounded-xl border border-bm-border/70 p-5 text-sm text-bm-muted2">
-        Resolving environment context...
-      </div>
-    );
+    return <WorkspaceContextLoader />;
   }
 
   if (error) {

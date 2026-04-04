@@ -255,194 +255,279 @@ export default function ResumeWorkspace({
   ];
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <section className="space-y-3 md:space-y-4">
-        {/* Identity — name + title + tagline */}
-        <div>
-          <p className="bm-section-label tracking-[0.1em] md:tracking-[0.16em]">{workspace.identity.name}</p>
-          <h1 className="mt-1.5 text-[1.5rem] leading-tight md:mt-2 md:text-4xl lg:text-5xl">
-            <span className="md:inline">AI Data Platform Architect</span>{" "}
-            <span className="hidden text-bm-muted md:inline">—</span>{" "}
-            <br className="md:hidden" />
-            <span className="text-bm-accent">Investment Systems</span>
+    <div className="resume-os relative -mx-4 -mt-4 overflow-hidden px-4 pt-6 md:-mx-6 md:-mt-6 md:px-8 md:pt-10 lg:px-12">
+      {/* Atmospheric glows — right warm, left cool */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute right-[5%] top-0 h-[360px] w-[420px] rounded-full"
+        style={{ background: "radial-gradient(ellipse, rgba(200,74,42,0.18) 0%, transparent 70%)" }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-[10%] top-[20%] h-[480px] w-[560px] rounded-full"
+        style={{ background: "radial-gradient(ellipse, rgba(15,10,5,0.6) 0%, transparent 70%)" }}
+      />
+      {/* Grain overlay */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.28]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.07'/%3E%3C/svg%3E")`,
+          backgroundSize: "128px 128px",
+        }}
+      />
+
+      <div className="relative z-10 space-y-8 pb-16 md:space-y-12">
+
+        {/* ── HERO ──────────────────────────────────────────────────── */}
+        <header className="text-center">
+          <p
+            className="resume-label text-[10px] tracking-[0.28em] md:text-[11px]"
+            style={{ color: "var(--ros-text-dim)" }}
+          >
+            {workspace.identity.name}
+          </p>
+          <h1
+            className="resume-editorial mt-2 text-[clamp(2.6rem,7vw,5.4rem)] leading-[1.05]"
+            style={{ textShadow: "0 0 80px rgba(200,100,40,0.28)" }}
+          >
+            AI Data Platform Architect
           </h1>
-          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-bm-muted md:mt-2 md:text-base">
+          <p
+            className="resume-label mt-2 text-[clamp(11px,1.4vw,16px)] tracking-[0.2em] font-light"
+            style={{ color: "var(--ros-text-muted)" }}
+          >
+            Investment Systems
+          </p>
+          <p
+            className="mx-auto mt-3 max-w-xl text-[11px] leading-relaxed tracking-[0.1em] md:text-[13px]"
+            style={{ color: "var(--ros-text-dim)" }}
+          >
             Built governed data + AI systems powering investment decisions across $4B+ AUM
           </p>
+        </header>
+
+        {/* ── TIMELINE ─────────────────────────────────────────────── */}
+        <div ref={moduleContentRef}>
+          <ResumeModuleBoundary
+            boundaryId="resume-timeline-hero"
+            eyebrow="Timeline"
+            title="Timeline temporarily unavailable"
+            message="The career arc could not render, but the rest of the visual resume is still available."
+            resetKey={`${envId}-timeline-hero-${workspace.timeline.roles.length}-${workspace.timeline.milestones.length}`}
+          >
+            <TimelineEngine />
+          </ResumeModuleBoundary>
         </div>
 
-        {/* KPI proof strip — all 5 always visible */}
-        <div className="grid grid-cols-3 gap-2 md:hidden">
-          {HERO_METRICS.map((m) => (
-            <div key={m.label} className="flex min-h-[52px] flex-col justify-center rounded-xl border border-bm-border/30 bg-bm-surface/20 px-2.5 py-2">
-              <span className="text-lg font-bold tabular-nums leading-tight">{m.value}</span>
-              <span className="mt-0.5 text-[9px] uppercase tracking-[0.06em] text-bm-muted">{m.label}</span>
-            </div>
-          ))}
-        </div>
-        <div className="hidden flex-wrap gap-x-8 gap-y-3 md:flex">
-          {HERO_METRICS.map((m) => (
+        {/* ── KPI STRIP ────────────────────────────────────────────── */}
+        <div
+          className="flex flex-wrap items-center justify-center gap-x-6 gap-y-4 border-y py-5 text-center sm:gap-x-10 md:gap-x-14"
+          style={{ borderColor: "var(--ros-border)" }}
+        >
+          {HERO_METRICS.map((m, i) => (
             <div key={m.label}>
-              <span className="text-3xl font-bold tabular-nums">{m.value}</span>
-              <span className="ml-1.5 text-xs uppercase tracking-widest text-bm-muted">{m.label}</span>
+              {i > 0 && (
+                <span
+                  className="mr-6 hidden select-none sm:mr-10 sm:inline md:mr-14"
+                  style={{ color: "var(--ros-border)" }}
+                >
+                  |
+                </span>
+              )}
+              <span
+                className="resume-editorial text-[clamp(1.8rem,3.5vw,2.8rem)] leading-none"
+                style={{ color: "var(--ros-text)" }}
+              >
+                {m.value}
+              </span>
+              <span
+                className="resume-label ml-2 text-[9px] tracking-[0.28em]"
+                style={{ color: "var(--ros-text-dim)" }}
+              >
+                {m.label}
+              </span>
             </div>
           ))}
         </div>
 
-        {/* Module tabs + export */}
-        <div className="flex items-center gap-2 pt-1">
-          <div className="-mx-1 flex snap-x snap-mandatory gap-1.5 overflow-x-auto px-1 pb-1 md:flex-wrap md:gap-2 md:overflow-visible md:pb-0">
-            {(Object.keys(MODULE_LABELS) as Array<keyof typeof MODULE_LABELS>).map((module) => (
-              <button
-                key={module}
-                type="button"
-                onClick={() => setActiveModule(module)}
-                className={`shrink-0 snap-start rounded-full px-3 py-1.5 text-xs font-medium transition md:px-4 md:py-2 md:text-sm ${
-                  activeModule === module
-                    ? "bg-bm-accent/15 text-bm-accent shadow-[0_0_0_1px_rgba(59,130,246,0.35)]"
-                    : "bg-white/5 text-bm-muted hover:bg-white/10 hover:text-bm-text"
-                }`}
-              >
-                <span className="md:hidden">{MODULE_LABELS_SHORT[module]}</span>
-                <span className="hidden md:inline">{MODULE_LABELS[module]}</span>
-              </button>
-            ))}
-          </div>
-          <div className="ml-auto hidden md:block">
-            <ResumeExportPdf contentRef={moduleContentRef} />
-          </div>
-        </div>
-
+        {/* ── SKILLS ───────────────────────────────────────────────── */}
         <SkillsCapabilityMap />
-      </section>
 
-      {/* Systems Built — dedicated proof section */}
-      <SystemsBuiltSection />
+        {/* ── SYSTEMS IN PRODUCTION ────────────────────────────────── */}
+        <SystemsBuiltSection />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div ref={moduleContentRef} className="space-y-6">
-          {activeModule === "timeline" ? (
-            <ResumeModuleBoundary
-              boundaryId="resume-timeline"
-              eyebrow="Timeline"
-              title="Timeline temporarily unavailable"
-              message="The career arc could not render, but the rest of the visual resume is still available."
-              resetKey={`${envId}-${activeModule}-${workspace.timeline.roles.length}-${workspace.timeline.milestones.length}`}
+        {/* ── EXPLORE DEEPER (Architecture / Modeling / BI) ────────── */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-3">
+            <span
+              className="resume-label hidden text-[9px] tracking-[0.3em] md:block"
+              style={{ color: "var(--ros-text-dim)" }}
             >
-              <TimelineEngine />
-            </ResumeModuleBoundary>
-          ) : null}
-          {activeModule === "architecture" ? (
-            <ResumeModuleBoundary
-              boundaryId="resume-architecture"
-              eyebrow="Architecture"
-              title="Visualization failed to render"
-              message="The architecture map could not render in this session. The rest of the visual resume is still available."
-              resetKey={`${envId}-${activeModule}-${workspace.architecture.nodes.length}-${workspace.architecture.edges.length}`}
-            >
-              <ResumeArchitectureModule architecture={workspace.architecture} />
-            </ResumeModuleBoundary>
-          ) : null}
-          {activeModule === "modeling" ? (
-            <ResumeModuleBoundary
-              boundaryId="resume-modeling"
-              eyebrow="Modeling"
-              title="Visualization failed to render"
-              message="The modeling view hit a rendering issue, but the rest of the visual resume is still available."
-              resetKey={`${envId}-${activeModule}-${workspace.modeling.presets.length}-${modelOutputs.annualCashFlows.length}`}
-            >
-              <ResumeModelingModule modeling={workspace.modeling} outputs={modelOutputs} />
-            </ResumeModuleBoundary>
-          ) : null}
-          {activeModule === "bi" ? (
-            <ResumeModuleBoundary
-              boundaryId="resume-bi"
-              eyebrow="BI Module"
-              title="Visualization failed to render"
-              message="The analytics slice could not render cleanly, but the rest of the visual resume is still available."
-              resetKey={`${envId}-${activeModule}-${workspace.bi.entities.length}-${workspace.bi.periods.length}`}
-            >
-              <ResumeBiModule bi={workspace.bi} />
-            </ResumeModuleBoundary>
-          ) : null}
-        </div>
+              Explore deeper
+            </span>
+            <div className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 md:overflow-visible md:pb-0">
+              {(["architecture", "modeling", "bi"] as const).map((module) => (
+                <button
+                  key={module}
+                  type="button"
+                  onClick={() => setActiveModule(activeModule === module ? "timeline" : module)}
+                  className="shrink-0 snap-start rounded-full px-3 py-1.5 text-[11px] font-medium tracking-widest transition-all duration-200 md:px-4 md:py-2 md:text-xs"
+                  style={
+                    activeModule === module
+                      ? {
+                          background: "rgba(200,74,42,0.14)",
+                          border: "1px solid rgba(200,74,42,0.4)",
+                          color: "var(--ros-accent-warm)",
+                        }
+                      : {
+                          background: "rgba(255,255,255,0.04)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          color: "var(--ros-text-dim)",
+                        }
+                  }
+                >
+                  {MODULE_LABELS[module]}
+                </button>
+              ))}
+            </div>
+            <div className="ml-auto hidden md:block">
+              <ResumeExportPdf contentRef={moduleContentRef} />
+            </div>
+          </div>
 
-        {!isMobileViewport ? (
-          <div className="space-y-6">
-            <ResumeModuleBoundary
-              boundaryId="resume-context-rail"
-              eyebrow="Context Rail"
-              title="Resume data unavailable"
-              message="The supporting narrative rail could not render, but the main resume modules remain available."
-              resetKey={`${envId}-${activeModule}-${biSlice.entity.entity_id}`}
+          {activeModule !== "timeline" ? (
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="space-y-6">
+                {activeModule === "architecture" ? (
+                  <ResumeModuleBoundary
+                    boundaryId="resume-architecture"
+                    eyebrow="Architecture"
+                    title="Visualization failed to render"
+                    message="The architecture map could not render in this session."
+                    resetKey={`${envId}-${activeModule}-${workspace.architecture.nodes.length}`}
+                  >
+                    <ResumeArchitectureModule architecture={workspace.architecture} />
+                  </ResumeModuleBoundary>
+                ) : null}
+                {activeModule === "modeling" ? (
+                  <ResumeModuleBoundary
+                    boundaryId="resume-modeling"
+                    eyebrow="Modeling"
+                    title="Visualization failed to render"
+                    message="The modeling view hit a rendering issue."
+                    resetKey={`${envId}-${activeModule}-${workspace.modeling.presets.length}`}
+                  >
+                    <ResumeModelingModule modeling={workspace.modeling} outputs={modelOutputs} />
+                  </ResumeModuleBoundary>
+                ) : null}
+                {activeModule === "bi" ? (
+                  <ResumeModuleBoundary
+                    boundaryId="resume-bi"
+                    eyebrow="BI Module"
+                    title="Visualization failed to render"
+                    message="The analytics slice could not render cleanly."
+                    resetKey={`${envId}-${activeModule}-${workspace.bi.entities.length}`}
+                  >
+                    <ResumeBiModule bi={workspace.bi} />
+                  </ResumeModuleBoundary>
+                ) : null}
+              </div>
+
+              {!isMobileViewport ? (
+                <div className="space-y-6">
+                  <ResumeModuleBoundary
+                    boundaryId="resume-context-rail"
+                    eyebrow="Context Rail"
+                    title="Resume data unavailable"
+                    message="The supporting narrative rail could not render."
+                    resetKey={`${envId}-${activeModule}-${biSlice.entity.entity_id}`}
+                  >
+                    <ResumeContextRail
+                      timeline={workspace.timeline}
+                      architecture={workspace.architecture}
+                      stories={workspace.stories}
+                      modelingOutputs={modelOutputs}
+                      biEntity={biSlice.entity}
+                    />
+                  </ResumeModuleBoundary>
+                  {!readOnly ? (
+                    <ResumeModuleBoundary
+                      boundaryId="resume-assistant"
+                      eyebrow="Assistant"
+                      title="Resume data unavailable"
+                      message="The contextual assistant failed to render."
+                      resetKey={`${envId}-${activeModule}`}
+                    >
+                      <ResumeAssistantDock envId={envId} businessId={businessId} metrics={assistantMetrics} />
+                    </ResumeModuleBoundary>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+
+        {/* ── MOBILE CONTEXT + ASSISTANT ───────────────────────────── */}
+        {isMobileViewport ? (
+          <div className="space-y-3">
+            <details
+              className="rounded-2xl border p-3"
+              style={{ borderColor: "var(--ros-border)", background: "var(--ros-surface)" }}
+              open
             >
-              <ResumeContextRail
-                timeline={workspace.timeline}
-                architecture={workspace.architecture}
-                stories={workspace.stories}
-                modelingOutputs={modelOutputs}
-                biEntity={biSlice.entity}
-              />
-            </ResumeModuleBoundary>
-            {!readOnly ? (
-              <ResumeModuleBoundary
-                boundaryId="resume-assistant"
-                eyebrow="Assistant"
-                title="Resume data unavailable"
-                message="The contextual assistant failed to render. You can still use the visual resume modules directly."
-                resetKey={`${envId}-${activeModule}`}
+              <summary
+                className="resume-label cursor-pointer text-[10px] tracking-[0.18em]"
+                style={{ color: "var(--ros-text-dim)" }}
               >
-                <ResumeAssistantDock envId={envId} businessId={businessId} metrics={assistantMetrics} />
-              </ResumeModuleBoundary>
+                Context &amp; Evidence
+              </summary>
+              <div className="mt-3">
+                <ResumeModuleBoundary
+                  boundaryId="resume-context-rail-mobile"
+                  eyebrow="Context Rail"
+                  title="Resume data unavailable"
+                  message="The supporting narrative rail could not render."
+                  resetKey={`${envId}-${activeModule}-${biSlice.entity.entity_id}-mobile`}
+                >
+                  <ResumeContextRail
+                    timeline={workspace.timeline}
+                    architecture={workspace.architecture}
+                    stories={workspace.stories}
+                    modelingOutputs={modelOutputs}
+                    biEntity={biSlice.entity}
+                  />
+                </ResumeModuleBoundary>
+              </div>
+            </details>
+            {!readOnly ? (
+              <details
+                className="rounded-2xl border p-3"
+                style={{ borderColor: "var(--ros-border)", background: "var(--ros-surface)" }}
+              >
+                <summary
+                  className="resume-label cursor-pointer text-[10px] tracking-[0.18em]"
+                  style={{ color: "var(--ros-text-dim)" }}
+                >
+                  Ask Winston
+                </summary>
+                <div className="mt-3">
+                  <ResumeModuleBoundary
+                    boundaryId="resume-assistant-mobile"
+                    eyebrow="Assistant"
+                    title="Resume data unavailable"
+                    message="The contextual assistant failed to render."
+                    resetKey={`${envId}-${activeModule}-mobile`}
+                  >
+                    <ResumeAssistantDock envId={envId} businessId={businessId} metrics={assistantMetrics} />
+                  </ResumeModuleBoundary>
+                </div>
+              </details>
             ) : null}
           </div>
         ) : null}
+
       </div>
-
-      {isMobileViewport ? (
-        <div className="space-y-3">
-        <details
-          className="rounded-[20px] border border-bm-border/60 bg-bm-surface/18 p-3"
-          open
-        >
-          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.1em] text-bm-muted2">Context &amp; Evidence</summary>
-          <div className="mt-3">
-            <ResumeModuleBoundary
-              boundaryId="resume-context-rail-mobile"
-              eyebrow="Context Rail"
-              title="Resume data unavailable"
-              message="The supporting narrative rail could not render, but the main resume modules remain available."
-              resetKey={`${envId}-${activeModule}-${biSlice.entity.entity_id}-mobile`}
-            >
-              <ResumeContextRail
-                timeline={workspace.timeline}
-                architecture={workspace.architecture}
-                stories={workspace.stories}
-                modelingOutputs={modelOutputs}
-                biEntity={biSlice.entity}
-              />
-            </ResumeModuleBoundary>
-          </div>
-        </details>
-
-        {!readOnly ? (
-          <details className="rounded-[20px] border border-bm-border/60 bg-bm-surface/18 p-3">
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.1em] text-bm-muted2">Ask Winston</summary>
-            <div className="mt-3">
-              <ResumeModuleBoundary
-                boundaryId="resume-assistant-mobile"
-                eyebrow="Assistant"
-                title="Resume data unavailable"
-                message="The contextual assistant failed to render. You can still use the visual resume modules directly."
-                resetKey={`${envId}-${activeModule}-mobile`}
-              >
-                <ResumeAssistantDock envId={envId} businessId={businessId} metrics={assistantMetrics} />
-              </ResumeModuleBoundary>
-            </div>
-          </details>
-        ) : null}
-        </div>
-      ) : null}
     </div>
   );
 }

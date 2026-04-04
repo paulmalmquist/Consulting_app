@@ -25,6 +25,7 @@ import {
   isRepePathActive,
 } from "@/components/repe/workspace/repeNavigation";
 import ThemeToggle from "@/components/ThemeToggle";
+import { WorkspaceContextLoader } from "@/components/ui/WinstonLoader";
 
 const STAGE_OPTIONS = [
   { value: "sourcing", label: "Sourced" },
@@ -653,11 +654,7 @@ export default function RepeWorkspaceShell({
   // ── Loading / error states ────────────────────────────────────────────────
 
   if (loading) {
-    return (
-      <div className="px-6 py-10 text-sm text-bm-muted2">
-        Resolving environment context…
-      </div>
-    );
+    return <div className="px-6 py-10"><WorkspaceContextLoader label="Loading workspace" /></div>;
   }
 
   if (error) {

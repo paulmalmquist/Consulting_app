@@ -79,6 +79,41 @@ module.exports = {
           "0%, 80%, 100%": { opacity: "0.3", transform: "scale(0.8)" },
           "40%": { opacity: "1", transform: "scale(1)" },
         },
+        // Winston Loader keyframes
+        "loader-spin-fast": {
+          "0%": { transform: "rotate(0deg)" },
+          "100%": { transform: "rotate(360deg)" },
+        },
+        "loader-spin-slow": {
+          "0%": { transform: "rotate(0deg)" },
+          "100%": { transform: "rotate(360deg)" },
+        },
+        "loader-pulse": {
+          "0%, 100%": { transform: "scale(1)", opacity: "0.9" },
+          "50%": { transform: "scale(1.06)", opacity: "1" },
+        },
+        "loader-ai-pulse": {
+          "0%, 100%": { transform: "scale(1)", opacity: "0.85" },
+          "33%": { transform: "scale(1.04)", opacity: "1" },
+          "66%": { transform: "scale(0.97)", opacity: "0.9" },
+        },
+        "loader-fade-in": {
+          "0%": { opacity: "0", transform: "scale(0.7)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        "loader-fade-out": {
+          "0%": { opacity: "1", transform: "scale(1)" },
+          "100%": { opacity: "0", transform: "scale(0.6)" },
+        },
+        "loader-settle": {
+          "0%": { transform: "rotate(var(--settle-from, 0deg)) scale(1)" },
+          "60%": { transform: "rotate(0deg) scale(1.08)" },
+          "100%": { transform: "rotate(0deg) scale(1)" },
+        },
+        "loader-ring": {
+          "0%": { transform: "scale(1)", opacity: "0.6" },
+          "100%": { transform: "scale(1.9)", opacity: "0" },
+        },
       },
       animation: {
         "winston-spin": "winston-spin 2s linear infinite",
@@ -87,6 +122,15 @@ module.exports = {
         "winston-dot-1": "winston-dot-pulse 1.4s ease-in-out infinite 0s",
         "winston-dot-2": "winston-dot-pulse 1.4s ease-in-out infinite 0.2s",
         "winston-dot-3": "winston-dot-pulse 1.4s ease-in-out infinite 0.4s",
+        // Winston Loader animations
+        "loader-spin-fast": "loader-spin-fast 0.7s linear infinite",
+        "loader-spin-slow": "loader-spin-slow 2.2s cubic-bezier(0.4,0,0.6,1) infinite",
+        "loader-pulse": "loader-pulse 1.8s ease-in-out infinite",
+        "loader-ai-pulse": "loader-ai-pulse 2.4s ease-in-out infinite",
+        "loader-fade-in": "loader-fade-in 0.15s ease-out forwards",
+        "loader-fade-out": "loader-fade-out 0.4s ease-in forwards",
+        "loader-settle": "loader-settle 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards",
+        "loader-ring": "loader-ring 1.2s ease-out infinite",
       },
     }
   },

@@ -13,31 +13,16 @@
   font-display: swap;
 }
 
-/*
- * Logo "A" override — thin editorial treatment for Mandalore A/a glyphs.
- *
- * Three variants available (swap the src to change):
- *   v1-geometric  — ultra-thin strokes (26u), narrow apex, no serifs
- *   v2-hairline   — Didot-inspired high-contrast, hairline crossbar, serif feet
- *   v3-condensed  — light condensed sans, narrower width (490u vs 560u)
- *   v4-angular    — Mandalore-sympathetic: flat-top apex, angled crossbar, ~34u strokes  ← ACTIVE
- *
- * Design intent: quietly distinctive, editorial luxury, not startup novelty.
- */
+/* Override Mandalore A — use Inter's clean geometric uppercase A instead of
+   Mandalore's decorative glyph, keeping visual rhythm with the rest of the word */
 @font-face {
   font-family: "MandaloreA Override";
-  /* Active: v4 angular — Mandalore-sympathetic flat-top apex, angled crossbar */
-  src: url('./fonts/logo-a/logo-a-v4-angular.woff2') format('woff2');
-  /* Variant 1: geometric thin sans A
-  src: url('./fonts/logo-a/logo-a-v1-geometric.woff2') format('woff2'); */
-  /* Variant 2: Didot-inspired hairline serif A
-  src: url('./fonts/logo-a/logo-a-v2-hairline.woff2') format('woff2'); */
-  /* Variant 3: condensed light sans A
-  src: url('./fonts/logo-a/logo-a-v3-condensed.woff2') format('woff2'); */
+  src: local("Inter"), local("Helvetica Neue"), local("Arial");
   unicode-range: U+0041, U+0061; /* A, a */
   font-weight: 100 900;
   font-display: swap;
 }
+
 
 @layer base {
   :root {
@@ -275,6 +260,64 @@
 /* iOS safe area padding */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ─── Resume OS: cinematic editorial skin ─────────────────────────────────── */
+/* Scoped to .resume-os so it never bleeds into the rest of the platform.      */
+
+.resume-os {
+  --ros-bg:            #120d08;
+  --ros-bg-2:          #0d0905;
+  --ros-surface:       rgba(24, 18, 12, 0.92);
+  --ros-border:        rgba(200, 146, 58, 0.18);
+  --ros-border-light:  rgba(200, 146, 58, 0.1);
+  --ros-text:          #f0e0c0;
+  --ros-text-muted:    #c8b090;
+  --ros-text-dim:      #9a8a76;
+  --ros-accent-warm:   #c84b2a;
+  --ros-accent-cool:   #6090b0;
+  --ros-accent-gold:   #c8923a;
+  --ros-font-editorial: var(--font-editorial, "Georgia", serif);
+  --ros-font-label:     var(--font-label, "system-ui", sans-serif);
+}
+
+.resume-os {
+  background-color: var(--ros-bg);
+  color: var(--ros-text);
+  font-family: var(--ros-font-label);
+}
+
+.resume-os h1 {
+  font-family: var(--ros-font-editorial);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--ros-text);
+}
+
+.resume-editorial {
+  font-family: var(--ros-font-editorial);
+}
+
+.resume-label {
+  font-family: var(--ros-font-label);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 200;
+}
+
+@keyframes resume-node-in {
+  0%   { opacity: 0; transform: scale(0); }
+  60%  { opacity: 1; transform: scale(1.2); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes resume-glow-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%       { opacity: 1; }
+}
+
+.resume-glow-pulse {
+  animation: resume-glow-pulse 2s ease-in-out infinite;
 }
 
 /* Respect reduced-motion preference */

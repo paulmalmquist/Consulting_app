@@ -56,31 +56,86 @@ export default function TimelineEngine() {
   }, []);
 
   return (
-    <section className="rounded-[20px] border border-bm-border/60 bg-bm-surface/30 p-3 shadow-[0_24px_64px_-48px_rgba(5,12,18,0.95)] md:rounded-[28px] md:p-5">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 md:gap-4">
-        <h2 className="shrink-0 text-base font-semibold md:text-lg">
-          <span className="md:hidden">Capability Timeline</span>
-          <span className="hidden md:inline">Compounding Capability</span>
-        </h2>
-        <div className="flex gap-1.5">
-          <EmployerBadge
-            label="JLL"
-            color="#DC2626"
-            isActive={selectedEventId === "phase-jll-2014-2018" || selectedEventId === "phase-jll-2025-present"}
-            onClick={() => handleSelectEvent("phase-jll-2025-present")}
-          />
-          <EmployerBadge
-            label="Kayne"
-            color="#2563EB"
-            isActive={selectedEventId === "phase-kayne-2018-2025"}
-            onClick={() => handleSelectEvent("phase-kayne-2018-2025")}
-          />
+    <section
+      className="relative overflow-hidden rounded-2xl md:rounded-3xl"
+      style={{
+        background: "rgba(14,10,6,0.6)",
+        border: "1px solid rgba(200,146,58,0.18)",
+        boxShadow: "0 32px 80px -40px rgba(4,2,1,0.9)",
+      }}
+    >
+      {/* Header row: Kayne logo | title | JLL logo */}
+      <div
+        className="flex items-center justify-between gap-4 px-4 pt-4 md:px-6 md:pt-5"
+      >
+        {/* Kayne Anderson mark */}
+        <button
+          type="button"
+          onClick={() => handleSelectEvent("phase-kayne-2018-2025")}
+          className={`flex shrink-0 items-center gap-2 transition-opacity ${
+            selectedEventId === "phase-kayne-2018-2025" ? "opacity-100" : "opacity-50 hover:opacity-75"
+          }`}
+        >
+          <span
+            className="resume-editorial text-[28px] leading-none md:text-[34px]"
+            style={{ color: "#c8923a", fontWeight: 600 }}
+          >
+            𝒦
+          </span>
+          <div className="hidden sm:block">
+            <div
+              className="resume-label text-[9px] tracking-[0.26em]"
+              style={{ color: "#c8923a" }}
+            >
+              Kayne Anderson
+            </div>
+            <div
+              className="resume-label text-[7px] tracking-[0.3em] opacity-55"
+              style={{ color: "#c8923a" }}
+            >
+              Real Estate
+            </div>
+          </div>
+        </button>
+
+        {/* Center title */}
+        <div className="text-center">
+          <h2
+            className="resume-label text-[10px] tracking-[0.28em] md:text-[11px]"
+            style={{ color: "rgba(200,176,144,0.6)" }}
+          >
+            <span className="sm:hidden">Capability Arc</span>
+            <span className="hidden sm:inline">Compounding Capability</span>
+          </h2>
         </div>
+
+        {/* JLL mark */}
+        <button
+          type="button"
+          onClick={() => handleSelectEvent("phase-jll-2025-present")}
+          className={`flex shrink-0 flex-col items-end transition-opacity ${
+            selectedEventId === "phase-jll-2014-2018" || selectedEventId === "phase-jll-2025-present"
+              ? "opacity-100"
+              : "opacity-50 hover:opacity-75"
+          }`}
+        >
+          <span
+            className="resume-label text-[18px] tracking-[0.15em] leading-none"
+            style={{ color: "#c84b2a" }}
+          >
+            JLL
+          </span>
+          <span
+            className="resume-label hidden text-[7px] tracking-[0.24em] opacity-55 sm:block"
+            style={{ color: "#c84b2a" }}
+          >
+            Present
+          </span>
+        </button>
       </div>
 
-      {/* Capability strip — interactive skill icons */}
-      <div className="mt-3 md:mt-4">
+      {/* Capability strip */}
+      <div className="mt-3 px-3 md:mt-4 md:px-5">
         <CapabilityStrip
           selectedCapabilityId={selectedCapabilityId}
           selectedEventId={selectedEventId}
@@ -88,8 +143,8 @@ export default function TimelineEngine() {
         />
       </div>
 
-      {/* The graph — centerpiece */}
-      <div className="mt-3 md:mt-4">
+      {/* The graph */}
+      <div className="mt-2 px-2 pb-3 md:mt-3 md:px-4 md:pb-5">
         <CompoundingCurve
           selectedEventId={selectedEventId}
           selectedSystemId={selectedSystemId}
@@ -103,36 +158,3 @@ export default function TimelineEngine() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Employer badge — top-right filter buttons
-// ---------------------------------------------------------------------------
-
-function EmployerBadge({
-  label,
-  color,
-  isActive,
-  onClick,
-}: {
-  label: string;
-  color: string;
-  isActive: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition md:px-3 md:py-1.5 md:text-xs ${
-        isActive
-          ? "font-semibold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.2)]"
-          : "text-white/50 hover:text-white/70"
-      }`}
-      style={{
-        backgroundColor: isActive ? `${color}25` : "rgba(255,255,255,0.05)",
-        borderColor: isActive ? `${color}40` : "transparent",
-      }}
-    >
-      {label}
-    </button>
-  );
-}

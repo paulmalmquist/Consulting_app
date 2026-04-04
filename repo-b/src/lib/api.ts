@@ -3,6 +3,8 @@
 // All browser requests resolve through same-origin route handlers which
 // forward to the canonical FastAPI backend. Single code path for local
 // dev and production.
+import { winstonLoader } from "@/lib/loading-state";
+
 export const API_BASE_URL =
   typeof window !== "undefined" ? window.location.origin : "";
 
@@ -19,6 +21,8 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}) {
     (typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `req_${Math.random().toString(16).slice(2)}_${Date.now()}`);
+
+  if (typeof window !== "undefined") winstonLoader.apiStart();
 
   const url = new URL(path, API_BASE_URL);
   if (options.params) {
@@ -41,6 +45,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}) {
       }
     });
   } catch (err) {
+    if (typeof window !== "undefined") winstonLoader.apiEnd();
     // eslint-disable-next-line no-console
     console.error("apiFetch network error", {
       requestId,
@@ -51,6 +56,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}) {
   }
 
   if (!response.ok) {
+    if (typeof window !== "undefined") winstonLoader.apiEnd();
     let message = "Request failed";
     let debugBody: unknown = undefined;
     const contentType = response.headers.get("content-type") || "";
@@ -87,5 +93,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}) {
     throw new Error(`${message} (req: ${requestId})`);
   }
 
-  return (await response.json()) as T;
+  const result = (await response.json()) as T;
+  if (typeof window !== "undefined") winstonLoader.apiEnd();
+  return result;
 }

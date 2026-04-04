@@ -7,6 +7,7 @@
  * This is the same code path in local dev and production.
  */
 import { logError, logInfo } from "@/lib/logging/logger";
+import { winstonLoader } from "@/lib/loading-state";
 import type { AssistantResponseBlock } from "@/lib/commandbar/types";
 import type { AccountSummary, ExecutionControlState, ExecutionEvent, ExecutionOrder, PortfolioPosition, PostTradeReview, PromotionChecklist, TradeIntent, TradeRiskCheck } from "@/lib/trades/types";
 import type {
@@ -111,6 +112,7 @@ export async function bosFetch<T>(path: string, options: RequestInit & { params?
     run_id: runId,
     payload_size: payloadSize,
   });
+  if (typeof window !== "undefined") winstonLoader.apiStart();
 
   const isFormData =
     typeof FormData !== "undefined" && options.body instanceof FormData;
@@ -190,6 +192,7 @@ export async function bosFetch<T>(path: string, options: RequestInit & { params?
       response_request_id: responseRequestId,
       duration_ms: durationMs,
     });
+    if (typeof window !== "undefined") winstonLoader.apiEnd();
     const error = new Error(
       responseRequestId ? `${msg} (req: ${responseRequestId})` : msg
     ) as BosApiError;
@@ -207,6 +210,7 @@ export async function bosFetch<T>(path: string, options: RequestInit & { params?
     response_request_id: responseRequestId,
     duration_ms: durationMs,
   });
+  if (typeof window !== "undefined") winstonLoader.apiEnd();
   return res.json() as Promise<T>;
 }
 

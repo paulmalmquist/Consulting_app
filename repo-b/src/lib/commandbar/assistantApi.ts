@@ -7,6 +7,7 @@ import type {
   ResolvedAssistantScope,
   RunStatus,
 } from "@/lib/commandbar/types";
+import { winstonLoader } from "@/lib/loading-state";
 import {
   type AssistantPlan,
   codexHealthSchema,
@@ -1016,6 +1017,8 @@ export async function streamAi(input: {
 
     const reader = response.body?.getReader();
     if (reader) {
+      // Signal that AI is now streaming — drives the "thinking" loader phase.
+      winstonLoader.aiStart();
       // Safety net: if the 90s timeout fires, force-cancel a potentially hung reader.
       // The abort signal passed to fetch() does not reliably cancel an already-received
       // response body's ReadableStream — wire it directly to reader.cancel().
@@ -1259,6 +1262,8 @@ export async function streamAi(input: {
       },
     };
   } finally {
+    // Always clear AI streaming state — covers success, error, and abort paths.
+    winstonLoader.aiEnd();
     cancel();
   }
 }

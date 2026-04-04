@@ -23,6 +23,7 @@ import type { AssistantResponseBlock } from "@/lib/commandbar/types";
 import type { CommandMessage } from "@/lib/commandbar/store";
 import { useWinstonCompanion, companionLauncherOffsetClass } from "@/components/winston-companion/WinstonCompanionProvider";
 import WinstonAvatar from "@/components/winston-companion/WinstonAvatar";
+import { useWinstonLoader } from "@/lib/loading-state";
 import ResponseBlockRenderer from "@/components/copilot/ResponseBlockRenderer";
 
 function formatConversationTime(value: string | null) {
@@ -684,7 +685,11 @@ export function WinstonCompanionRoot() {
     closeDrawer,
     currentContext,
   } = useWinstonCompanion();
+  const loaderPhase = useWinstonLoader((s) => s.phase);
   const dialogRef = useDialogFocusTrap(open, closeDrawer);
+
+  // Brief arrival glow when the loader transitions to complete/idle into this button
+  const isArriving = loaderPhase === "complete";
 
   if (!shouldRender) return null;
 
@@ -700,7 +705,12 @@ export function WinstonCompanionRoot() {
           companionLauncherOffsetClass(launcherRaised),
         )}
       >
+        {/* Persistent slow-pulse ring */}
         <span className="pointer-events-none absolute inset-0 rounded-full bg-bm-accent/10 opacity-70 animate-[pulse_6s_ease-in-out_infinite]" />
+        {/* Arrival glow — fires once when loader resolves into this button */}
+        {isArriving && (
+          <span className="pointer-events-none absolute inset-[-4px] rounded-full border-2 border-bm-accent/60 animate-[loader-ring_0.9s_ease-out_forwards]" />
+        )}
         <WinstonAvatar className="h-12 w-12 border-white/70 bg-white shadow-[0_10px_26px_-18px_rgba(0,0,0,0.7)]" priority />
       </button>
 

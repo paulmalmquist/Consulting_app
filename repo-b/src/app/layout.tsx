@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Inter_Tight, JetBrains_Mono } from "next/font/google";
+import { Cormorant_Garamond, Inter, Inter_Tight, JetBrains_Mono, Josefin_Sans } from "next/font/google";
 import "@fontsource/league-gothic/400.css";
 import "./globals.css";
 import Providers from "@/components/Providers";
@@ -68,6 +68,20 @@ const monoFont = JetBrains_Mono({
   display: "swap",
 });
 
+const editorialFont = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+  variable: "--font-editorial",
+  display: "swap",
+});
+
+const labelFont = Josefin_Sans({
+  subsets: ["latin"],
+  weight: ["100", "200", "300", "400", "600"],
+  variable: "--font-label",
+  display: "swap",
+});
+
 export default function RootLayout({
   children
 }: {
@@ -76,7 +90,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable} ${mandaloreCommand.variable}`}
+      className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable} ${mandaloreCommand.variable} ${editorialFont.variable} ${labelFont.variable}`}
     >
       <body>
         <Providers>{children}</Providers>
