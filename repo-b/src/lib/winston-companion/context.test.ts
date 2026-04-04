@@ -90,7 +90,7 @@ describe("winston companion context", () => {
 
     expect(context.scopeKey).toBe("fund:fund_1");
     expect(context.scopeLabel).toBe("Institutional Growth Fund VII");
-    expect(context.currentNarrative).toContain("Meridian Capital Management");
+    expect(context.currentNarrative).toBe("Institutional Growth Fund VII");
     expect(context.quickLinks.some((item) => item.href.endsWith("/capital-calls"))).toBe(true);
     expect(context.suggestions.some((item) => item.prompt.includes("Institutional Growth Fund VII"))).toBe(true);
   });
@@ -123,7 +123,7 @@ describe("winston companion context", () => {
     });
 
     expect(context.routeLabel).toBe("Resume");
-    expect(context.currentNarrative).toContain("Meridian Capital Management");
+    expect(context.currentNarrative).toBe("Paul Malmquist");
     expect(context.quickLinks.some((item) => item.href.endsWith("/resume"))).toBe(true);
     expect(context.suggestions.some((item) => item.label.includes("Explain this resume"))).toBe(true);
   });
