@@ -152,6 +152,7 @@ function OverviewTab({
   const receiptSkill = turnReceipt?.skill?.skill_id;
   const receiptTools = Array.isArray(turnReceipt?.tools) ? turnReceipt.tools : [];
   const receiptRetrieval = turnReceipt?.retrieval;
+  const dispatchDecision = turnReceipt?.dispatch?.normalized;
   return (
     <div className="space-y-2">
       {/* Execution summary */}
@@ -212,6 +213,11 @@ function OverviewTab({
           <p className="text-[10px] text-bm-muted2 uppercase tracking-wider mb-1">Canonical Turn Receipt</p>
           <KV label="Lane" value={receiptLane || "Missing from receipt"} />
           <KV label="Skill" value={receiptSkill || "Missing from receipt"} />
+          <KV label="Dispatch source" value={dispatchDecision?.source || "Missing from receipt"} />
+          <KV
+            label="Dispatch confidence"
+            value={typeof dispatchDecision?.confidence === "number" ? dispatchDecision.confidence.toFixed(2) : "Missing from receipt"}
+          />
           <KV label="Status" value={turnReceipt.status} />
           <KV label="Degraded reason" value={turnReceipt.degraded_reason} />
           <KV
@@ -383,6 +389,7 @@ function TraceTab({
   const receiptLane = typeof turnReceipt?.lane === "string" ? turnReceipt.lane : undefined;
   const receiptSkill = turnReceipt?.skill?.skill_id;
   const receiptRetrieval = turnReceipt?.retrieval;
+  const dispatchDecision = turnReceipt?.dispatch?.normalized;
 
   return (
     <div className="space-y-2">
@@ -675,6 +682,11 @@ function RuntimeTab({
   debug: AskAiDebug | null;
 }) {
   const turnReceipt = debug?.turnReceipt;
+  const receiptLane = typeof turnReceipt?.lane === "string" ? turnReceipt.lane : undefined;
+  const receiptSkill = turnReceipt?.skill?.skill_id;
+  const receiptTools = Array.isArray(turnReceipt?.tools) ? turnReceipt.tools : [];
+  const receiptRetrieval = turnReceipt?.retrieval;
+  const dispatchDecision = turnReceipt?.dispatch?.normalized;
   return (
     <div className="space-y-2">
       <div className="rounded-md bg-bm-surface/20 px-2 py-1.5">
@@ -692,6 +704,11 @@ function RuntimeTab({
         <KV label="Path" value={winstonTrace?.execution_path} />
         <KV label="Lane" value={receiptLane || (winstonTrace?.lane ? `Lane ${winstonTrace.lane}` : "Missing from receipt")} />
         <KV label="Skill" value={receiptSkill || "Missing from receipt"} />
+        <KV label="Dispatch source" value={dispatchDecision?.source || "Missing from receipt"} />
+        <KV
+          label="Dispatch confidence"
+          value={typeof dispatchDecision?.confidence === "number" ? dispatchDecision.confidence.toFixed(2) : "Missing from receipt"}
+        />
         <KV label="Turn status" value={turnReceipt?.status} />
         <KV label="Degraded reason" value={turnReceipt?.degraded_reason} />
         <KV label="Tool calls" value={receiptTools.length || winstonTrace?.tool_call_count} />
