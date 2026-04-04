@@ -24,7 +24,6 @@ import {
   getActiveRepeGroupKey,
   isRepePathActive,
 } from "@/components/repe/workspace/repeNavigation";
-import ThemeToggle from "@/components/ThemeToggle";
 import { WorkspaceContextLoader } from "@/components/ui/WinstonLoader";
 
 const STAGE_OPTIONS = [
@@ -567,7 +566,6 @@ function TopUtilityNav({
           {link.label}
         </Link>
       ))}
-      {showAll && <ThemeToggle />}
     </nav>
   );
 }

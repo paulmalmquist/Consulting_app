@@ -4,7 +4,6 @@ import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-import ThemeToggle from "@/components/ThemeToggle";
 import { useEnv } from "@/components/EnvProvider";
 import { humanIndustry } from "@/components/lab/environments/constants";
 import { Select } from "@/components/ui/Select";
@@ -111,7 +110,6 @@ function AppIndexPageInner() {
               <h1 className="font-command text-[1.4rem] uppercase tracking-[0.08em] text-white">Winston</h1>
             </div>
             <div className="flex items-center gap-2">
-              <ThemeToggle />
               <button
                 type="button"
                 onClick={() => void logoutPlatformSession()}
@@ -375,7 +373,6 @@ function AppIndexPageInner() {
 
         <main className="flex min-h-screen flex-col px-6 py-6 lg:px-10 lg:py-10">
           <div className="flex items-center justify-end gap-2">
-            <ThemeToggle />
             <button
               type="button"
               onClick={() => void logoutPlatformSession()}
