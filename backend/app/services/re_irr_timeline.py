@@ -22,7 +22,13 @@ def get_irr_timeline(*, fund_id: UUID, env_id: str, business_id: UUID) -> list[d
         )
         rows = cur.fetchall()
     emit_log(level="info", service="backend", action="re.irr_timeline.fetched",
-             message=f"IRR timeline: {len(rows)} quarters", context={"fund_id": str(fund_id)})
+             message=f"IRR timeline: {len(rows)} quarters",
+             context={"fund_id": str(fund_id), "env_id": env_id, "row_count": len(rows), "query": "re_fund_quarter_state"})
+    if not rows:
+        emit_log(level="warning", service="backend", action="re.irr_timeline.empty",
+                 message="IRR timeline empty — no snapshot rows found for fund",
+                 context={"fund_id": str(fund_id), "env_id": env_id, "query": "re_fund_quarter_state",
+                          "failure_reason": "NO_SNAPSHOT"})
     return [
         {
             "quarter": r["quarter"],
@@ -53,7 +59,13 @@ def get_capital_timeline(*, fund_id: UUID, env_id: str, business_id: UUID) -> li
         )
         rows = cur.fetchall()
     emit_log(level="info", service="backend", action="re.capital_timeline.fetched",
-             message=f"Capital timeline: {len(rows)} quarters", context={"fund_id": str(fund_id)})
+             message=f"Capital timeline: {len(rows)} quarters",
+             context={"fund_id": str(fund_id), "env_id": env_id, "row_count": len(rows), "query": "re_partner_quarter_metrics"})
+    if not rows:
+        emit_log(level="warning", service="backend", action="re.capital_timeline.empty",
+                 message="Capital timeline empty — no partner metrics rows found for fund",
+                 context={"fund_id": str(fund_id), "env_id": env_id, "query": "re_partner_quarter_metrics",
+                          "failure_reason": "NO_SNAPSHOT"})
     return [
         {
             "quarter": r["quarter"],
@@ -85,7 +97,14 @@ def get_irr_contribution(*, fund_id: UUID, env_id: str, business_id: UUID, quart
         )
         rows = cur.fetchall()
     emit_log(level="info", service="backend", action="re.irr_contribution.fetched",
-             message=f"IRR contribution: {len(rows)} investments", context={"fund_id": str(fund_id)})
+             message=f"IRR contribution: {len(rows)} investments",
+             context={"fund_id": str(fund_id), "env_id": env_id, "quarter": quarter,
+                      "row_count": len(rows), "query": "re_investment_quarter_metrics"})
+    if not rows:
+        emit_log(level="warning", service="backend", action="re.irr_contribution.empty",
+                 message="IRR contribution empty — no investment metrics rows found for fund/quarter",
+                 context={"fund_id": str(fund_id), "env_id": env_id, "quarter": quarter,
+                          "query": "re_investment_quarter_metrics", "failure_reason": "NO_SNAPSHOT"})
     return [
         {
             "investment_id": str(r["investment_id"]),

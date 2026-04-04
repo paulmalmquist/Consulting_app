@@ -76,6 +76,7 @@ import {
   getFundExposureInsights,
   type FundExposureInsights as FundExposureInsightsPayload,
   type FundExposureSummary as FundExposureSummaryPayload,
+  runReV2QuarterClose,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
@@ -561,8 +562,8 @@ function FundValueCreationCard({
           </div>
         ) : (
           <NarrativeEmptyState
-            title="Value-creation history will appear after quarter-close data is available."
-            detail="The chart combines cumulative called capital, realized distributions, and NAV by quarter."
+            title="Financial engine has not been run for this fund."
+            detail="No quarter-close snapshots found. Run Quarter Close from the Actions menu to compute NAV, IRR, and capital metrics."
           />
         )}
       </div>
@@ -687,8 +688,8 @@ function PortfolioAllocationCard({
           </div>
         ) : (
           <NarrativeEmptyState
-            title="Allocation will populate after sector or market rollups are available."
-            detail="The panel uses existing portfolio weights, so no new data model is required."
+            title="No sector allocation data available."
+            detail="Sector exposure requires property type to be set on each asset and at least one quarter-close snapshot."
           />
         )}
       </div>
@@ -761,8 +762,8 @@ function PerformanceDriversCard({
         ) : (
           <div className="[&>div]:rounded-md">
             <NarrativeEmptyState
-              title="Contribution data populates after capital calls and quarter-close runs."
-              detail="This panel stays investment-level to avoid overstating asset-level attribution precision."
+              title="No IRR contribution data for this quarter."
+              detail="Run Quarter Close to compute per-investment IRR attribution. Requires capital calls and at least one linked asset per investment."
             />
           </div>
         )}
@@ -884,7 +885,7 @@ function ExposureInsightsCard({
           ) : (
             <NarrativeEmptyState
               title={activeEmptyLabel}
-              detail="This section only stays empty when no sector or geography can be inferred from any linked portfolio records."
+              detail="Missing location metadata — sector and geography exposure requires market, state, or MSA set on each linked asset."
             />
           )}
         </div>
@@ -1040,8 +1041,8 @@ function CapitalActivityCard({
         ) : (
           <div className="[&>div]:rounded-md">
             <NarrativeEmptyState
-              title="Capital activity will populate after quarter-close runs or capital ledger entries."
-              detail="Each closed quarter adds cumulative called capital and returned capital to the timeline."
+              title="No capital activity found for this fund."
+              detail="Capital timeline requires at least one capital call or distribution and a quarter-close snapshot. Run Quarter Close from the Actions menu."
             />
           </div>
         )}
@@ -1085,12 +1086,13 @@ function useFundOverviewData({
     let cancelled = false;
 
     const fetchOverviewData = async () => {
+      console.log("[FundDetailPage] context", { env_id: envId, fund_id: fundId, period: quarter });
       const [nextRollup, nextIrrTimeline, nextCapitalTimeline, nextIrrContrib, nextExposure] = await Promise.all([
-        getFundValuationRollup(fund.fund_id, quarter).catch(() => null),
+        getFundValuationRollup(fund.fund_id, quarter, undefined, envId).catch(() => null),
         getIrrTimeline({ fund_id: fundId, env_id: envId, business_id: businessId || fund.business_id }).catch(() => []),
         getCapitalTimeline({ fund_id: fundId, env_id: envId, business_id: businessId || fund.business_id }).catch(() => []),
         getIrrContribution({ fund_id: fundId, env_id: envId, business_id: businessId || fund.business_id, quarter }).catch(() => []),
-        getFundExposureInsights({ fund_id: fundId, quarter }).catch(() => null),
+        getFundExposureInsights({ fund_id: fundId, quarter, env_id: envId }).catch(() => null),
       ]);
 
       return {
@@ -1207,6 +1209,7 @@ export default function FundDetailPage({
   const [lastCloseQuarter, setLastCloseQuarter] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [runningClose, setRunningClose] = useState(false);
   const actionsMenuRef = useRef<HTMLDivElement | null>(null);
   const quarter = pickCurrentQuarter();
 
@@ -1247,6 +1250,20 @@ export default function FundDetailPage({
       setLineageLoading(false);
     }
   }, [businessId, envId, params.fundId, quarter]);
+
+  const handleRunQuarterClose = useCallback(async () => {
+    if (runningClose) return;
+    setRunningClose(true);
+    try {
+      await runReV2QuarterClose(params.fundId, { quarter });
+      push({ title: "Quarter Close complete", description: `Snapshot computed for ${quarter}.`, variant: "success" });
+      await refreshCanonical();
+    } catch (err) {
+      push({ title: "Quarter Close failed", description: err instanceof Error ? err.message : "Unknown error", variant: "error" });
+    } finally {
+      setRunningClose(false);
+    }
+  }, [params.fundId, push, quarter, refreshCanonical, runningClose]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1699,6 +1716,8 @@ export default function FundDetailPage({
           businessId={businessId}
           quarter={quarter}
           overviewData={overviewData}
+          onRunQuarterClose={handleRunQuarterClose}
+          runningClose={runningClose}
         />
       )}
       {tab === "Asset Variance" && envId && businessId && (
@@ -1753,7 +1772,7 @@ export default function FundDetailPage({
           quarter={quarter}
         />
       )}
-      <DebugFooter envId={envId} fundId={params.fundId} businessId={businessId} />
+      <DebugFooter envId={envId} fundId={params.fundId} businessId={businessId} quarter={quarter} />
       <EntityLineagePanel
         open={lineageOpen}
         onOpenChange={setLineageOpen}
@@ -2100,7 +2119,7 @@ function BaseScenarioSummaryCard({ baseScenario }: { baseScenario: FundBaseScena
   );
 }
 
-function OverviewTab({ investments, investmentRollup, fund, fundState, baseScenario, envId, businessId, quarter, overviewData }: {
+function OverviewTab({ investments, investmentRollup, fund, fundState, baseScenario, envId, businessId, quarter, overviewData, onRunQuarterClose, runningClose }: {
   investments: ReV2Investment[];
   investmentRollup: ReV2FundInvestmentRollupRow[];
   fund: RepeFundDetail["fund"] | undefined;
@@ -2110,6 +2129,8 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
   businessId: string | null;
   quarter: string;
   overviewData: FundOverviewData;
+  onRunQuarterClose?: () => void;
+  runningClose?: boolean;
 }) {
   const isDebtFund = fund?.strategy === "debt";
 
@@ -2205,8 +2226,28 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
     return <DebtOverviewTab envId={envId} businessId={businessId || ""} fundId={fund!.fund_id} quarter={quarter} fundState={fundState} />;
   }
 
+  const noFinancialState = !overviewData.loading && !fundState && !overviewData.rollup;
+
   return (
     <div className="space-y-4">
+      {noFinancialState && (
+        <div className="flex items-center gap-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+          <span className="flex-1 text-sm text-amber-700">
+            No financial state found for <strong>{quarter}</strong>. Run the financial engine to compute NAV, IRR, and capital metrics.
+          </span>
+          {onRunQuarterClose && (
+            <button
+              onClick={onRunQuarterClose}
+              disabled={runningClose}
+              className="shrink-0 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+            >
+              {runningClose ? "Running…" : "Run Quarter Close"}
+            </button>
+          )}
+        </div>
+      )}
+
       <BaseScenarioSummaryCard baseScenario={baseScenario} />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
@@ -2272,8 +2313,8 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
         ) : (
           <div className="p-5">
             <NarrativeEmptyState
-              title="No portfolio investments are available yet."
-              detail="Add investments to this fund to populate the holdings table and the asset drill-down rows."
+              title="No assets linked to this fund."
+              detail="Link investments under the Investments tab. Each investment must contain at least one asset for portfolio metrics to populate."
             />
           </div>
         )}

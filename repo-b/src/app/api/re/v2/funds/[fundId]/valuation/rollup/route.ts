@@ -25,6 +25,14 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const quarter = searchParams.get("quarter");
   const scenarioId = searchParams.get("scenario_id");
+  const envId = searchParams.get("env_id");
+
+  if (!envId) {
+    console.warn("[re/v2/funds/valuation/rollup] env_id not provided — tenant isolation cannot be verified", {
+      fundId: params.fundId,
+      quarter,
+    });
+  }
 
   if (!quarter) {
     return Response.json({ error_code: "MISSING_PARAM", message: "quarter is required" }, { status: 400 });
