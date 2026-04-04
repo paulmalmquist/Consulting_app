@@ -173,18 +173,31 @@ export async function sendAndWaitForResponse(
   const input = page.getByTestId("global-commandbar-input");
   const output = page.getByTestId("global-commandbar-output");
 
-  // Focus the input and type the message (type() triggers React onChange reliably)
-  await input.click();
-  await input.fill(userText);
+  // Type the message character by character — this reliably triggers React onChange
+  // on controlled inputs (fill() can miss the onChange dispatch in some React setups).
+  console.log("[eval] typing message:", userText.slice(0, 40));
+  await input.focus();
+  await input.pressSequentially(userText, { delay: 10 });
+  console.log("[eval] typed, waiting for React state update...");
 
-  // Small wait for React state to pick up the new draft value
-  await page.waitForTimeout(200);
+  // Wait for React to process the onChange events
+  await page.waitForTimeout(500);
 
-  // Click the Send button explicitly — more reliable than Enter across layouts.
+  // Verify the Send button is now enabled (draft should be non-empty)
   const sendBtn = page.getByRole("button", { name: "Send" });
-  console.log("[eval] clicking Send button...");
-  await sendBtn.click();
-  console.log("[eval] Send clicked, waiting for response...");
+  const sendEnabled = await sendBtn.isEnabled().catch(() => false);
+  console.log(`[eval] Send button enabled=${sendEnabled}`);
+
+  if (sendEnabled) {
+    await sendBtn.click({ force: true });
+    console.log("[eval] Send button clicked");
+  } else {
+    // Fall back to Enter key
+    console.log("[eval] Send disabled, pressing Enter...");
+    await input.press("Enter");
+    console.log("[eval] Enter pressed");
+  }
+  console.log("[eval] message sent, polling for response...");
 
   // Wait for response: poll the output area until we see text that wasn't there before.
   // The output container holds ALL messages; after sending, the assistant response
@@ -194,8 +207,15 @@ export async function sendAndWaitForResponse(
   let stableCount = 0;
   const pollStart = Date.now();
 
+  let pollCount = 0;
   while (Date.now() - pollStart < timeoutMs) {
     const currentText = (await output.textContent()) ?? "";
+    pollCount++;
+    // Log first 5 polls and then every 10th
+    if (pollCount <= 5 || pollCount % 10 === 0) {
+      console.log(`[eval] poll #${pollCount}: text length=${currentText.length}, text=${JSON.stringify(currentText.slice(0, 100))}`);
+    }
+
     // Look for text that appeared AFTER our sent message
     // The output includes user messages + assistant messages
     if (currentText.length > 0 && currentText !== responseText) {
@@ -207,6 +227,7 @@ export async function sendAndWaitForResponse(
 
     // Text has been stable for ~2s (4 × 500ms) → stream is done
     if (stableCount >= 4 && responseText.length > 0) {
+      console.log(`[eval] response stabilized after ${pollCount} polls, length=${responseText.length}`);
       break;
     }
     await page.waitForTimeout(500);
