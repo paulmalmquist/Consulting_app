@@ -1259,7 +1259,7 @@ export default function FundDetailPage({
       push({ title: "Quarter Close complete", description: `Snapshot computed for ${quarter}.`, variant: "success" });
       await refreshCanonical();
     } catch (err) {
-      push({ title: "Quarter Close failed", description: err instanceof Error ? err.message : "Unknown error", variant: "error" });
+      push({ title: "Quarter Close failed", description: err instanceof Error ? err.message : "Unknown error", variant: "danger" });
     } finally {
       setRunningClose(false);
     }
