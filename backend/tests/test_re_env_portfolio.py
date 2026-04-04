@@ -65,7 +65,7 @@ def test_returns_warning_and_null_nav_when_no_quarter_state(monkeypatch):
     assert result["portfolio_nav"] is None
     assert result["active_assets"] == 12
     assert result["warnings"] == [
-        "No fund quarter state rows found for quarter 2026Q1 and scenario base."
+        "No fund quarter state rows found for quarter 2026Q1 and scenario base. Run a quarter close to compute portfolio NAV."
     ]
 
 

@@ -218,7 +218,7 @@ function MessageQueuePanel({ queue }: { queue: MessageQueueItem[] }) {
       <SectionHeader label="Message Queue" count={queue.length} />
       {queue.length === 0 ? (
         <p className="px-3 py-4 text-xs text-bm-muted2">
-          No drafted messages. Use "Draft outreach" on an account.
+          No drafted messages. Use &ldquo;Draft outreach&rdquo; on an account.
         </p>
       ) : (
         <div className="divide-y divide-bm-border/25">

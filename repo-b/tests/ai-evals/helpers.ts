@@ -136,19 +136,23 @@ export async function openWinstonCompanion(page: Page): Promise<void> {
   // Wait for the toggle to be visible (page may still be hydrating)
   const toggle = page.getByTestId("global-commandbar-toggle");
   await expect(toggle).toBeVisible({ timeout: 15_000 });
+  console.log("[eval] toggle visible, clicking...");
 
   // Click to open if the companion dialog isn't already showing
   const dialog = page.locator('[role="dialog"][aria-label="Winston companion"]');
   const isAlreadyOpen = await dialog.isVisible().catch(() => false);
   if (!isAlreadyOpen) {
     await toggle.click();
+    console.log("[eval] toggle clicked");
   }
 
   // Wait for the dialog AND the input to be ready
   await expect(dialog).toBeVisible({ timeout: 10_000 });
+  console.log("[eval] dialog visible");
   await expect(page.getByTestId("global-commandbar-input")).toBeVisible({
     timeout: 5_000,
   });
+  console.log("[eval] input visible, companion ready");
 }
 
 /**
@@ -177,9 +181,10 @@ export async function sendAndWaitForResponse(
   await page.waitForTimeout(200);
 
   // Click the Send button explicitly — more reliable than Enter across layouts.
-  // The button is a sibling of the textarea inside the composer div.
   const sendBtn = page.getByRole("button", { name: "Send" });
+  console.log("[eval] clicking Send button...");
   await sendBtn.click();
+  console.log("[eval] Send clicked, waiting for response...");
 
   // Wait for response: poll the output area until we see text that wasn't there before.
   // The output container holds ALL messages; after sending, the assistant response
