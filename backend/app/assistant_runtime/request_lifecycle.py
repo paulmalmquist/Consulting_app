@@ -512,7 +512,14 @@ async def run_request_lifecycle(
                 {
                     "session_id": session_id,
                     "turn_receipt": turn_receipt.model_dump(mode="json"),
-                    "trace": _build_trace(turn_receipt=turn_receipt, model=effective_model, elapsed_ms=int((time.time() - started_at) * 1000), resolved_scope=scope_dump, response_blocks=response_blocks),
+                    "trace": _build_trace(
+                        turn_receipt=turn_receipt,
+                        model=effective_model,
+                        elapsed_ms=int((time.time() - started_at) * 1000),
+                        resolved_scope=scope_dump,
+                        response_blocks=response_blocks,
+                        timings=timings,
+                    ),
                     "response_blocks": response_blocks,
                     "resolved_scope": scope_dump,
                 },
@@ -561,13 +568,6 @@ async def run_request_lifecycle(
                 ],
             }
         )
-        executed = await execute_tool_calls(
-            collected_tool_calls=collected_tool_calls,
-            prepared_tools=prepared_tools,
-            ctx=ctx,
-            resolved_scope=scope_dump,
-        )
-        tool_execution_ms += int((time.perf_counter() - retrieval_started) * 0)  # preserve key below
         tool_started = time.perf_counter()
         executed = await execute_tool_calls(
             collected_tool_calls=collected_tool_calls,

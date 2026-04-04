@@ -4,18 +4,19 @@ from __future__ import annotations
 
 import asyncio
 import os
+from types import SimpleNamespace
 
 os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/test")
 os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
 os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-key")
 os.environ.setdefault("_BM_SKIP_DB_CHECK", "1")
 
-import pytest
 from pydantic import BaseModel
 
 from app.assistant_runtime.degraded_responses import degraded_message
 from app.assistant_runtime.execution_engine import prepare_tools
 from app.assistant_runtime.prompt_registry import validate_prompt_registry
+from app.assistant_runtime.request_lifecycle import _deterministic_fast_response
 from app.assistant_runtime.retrieval_orchestrator import execute_retrieval
 from app.assistant_runtime.skill_registry import validate_skill_registry
 from app.assistant_runtime.skill_router import route_skill
@@ -28,6 +29,7 @@ from app.assistant_runtime.turn_receipts import (
     RetrievalStatus,
     permission_satisfies,
 )
+from app.schemas.ai_gateway import AssistantContextEnvelope
 from app.mcp.registry import ToolDef, ToolRegistry
 from app.services.request_router import RouteDecision
 
@@ -40,6 +42,29 @@ class _DummyInput(BaseModel):
 
 def _dummy_handler(ctx, inp):
     return {"ok": True, "x": inp.x}
+
+
+def _runtime_envelope() -> AssistantContextEnvelope:
+    return AssistantContextEnvelope.model_validate(
+        {
+            "session": {"roles": ["env_user"], "org_id": "biz_123", "session_env_id": "env_123"},
+            "ui": {
+                "route": "/lab/env/env_123/re/funds/fund_1",
+                "surface": "fund_detail",
+                "active_environment_id": "env_123",
+                "active_environment_name": "Meridian",
+                "active_business_id": "biz_123",
+                "page_entity_type": "fund",
+                "page_entity_id": "fund_1",
+                "page_entity_name": "Fund One",
+                "selected_entities": [
+                    {"entity_type": "fund", "entity_id": "fund_1", "name": "Fund One", "source": "page"}
+                ],
+                "visible_data": {"funds": [], "investments": [], "assets": [], "models": [], "pipeline_items": []},
+            },
+            "thread": {"assistant_mode": "environment_copilot", "scope_type": "environment", "scope_id": "env_123"},
+        }
+    )
 
 
 def test_skill_registry_and_prompts_validate():
@@ -132,6 +157,64 @@ def test_prepare_tools_filters_by_lane_and_permission():
 def test_degraded_messages_are_explicit():
     assert degraded_message(DegradedReason.MISSING_CONTEXT) == "Context not available."
     assert degraded_message(DegradedReason.RETRIEVAL_EMPTY) == "Not available in the current context."
+
+
+def test_deterministic_fast_response_handles_identity_prompt():
+    fast = _deterministic_fast_response(
+        message="What am I looking at?",
+        lane=Lane.A_FAST,
+        routed_skill=SimpleNamespace(selection=SimpleNamespace(skill_id="lookup_entity")),
+        resolved_scope=SimpleNamespace(entity_type="fund", entity_name="Fund One", environment_id="env_123"),
+        context_receipt=ContextReceipt(
+            environment_id="env_123",
+            entity_type="fund",
+            entity_id="fund_1",
+            resolution_status=ContextResolutionStatus.RESOLVED,
+        ),
+        envelope=_runtime_envelope(),
+        retrieval_execution=SimpleNamespace(receipt=SimpleNamespace(used=False, result_count=0)),
+    )
+    assert fast is not None
+    assert "Fund One" in fast.text
+
+
+def test_deterministic_fast_response_handles_source_audit_prompt():
+    fast = _deterministic_fast_response(
+        message="What data is this based on?",
+        lane=Lane.C_ANALYSIS,
+        routed_skill=SimpleNamespace(selection=SimpleNamespace(skill_id="run_analysis")),
+        resolved_scope=SimpleNamespace(entity_type="fund", entity_name="Fund One", environment_id="env_123"),
+        context_receipt=ContextReceipt(
+            environment_id="env_123",
+            entity_type="fund",
+            entity_id="fund_1",
+            resolution_status=ContextResolutionStatus.RESOLVED,
+        ),
+        envelope=_runtime_envelope(),
+        retrieval_execution=SimpleNamespace(receipt=SimpleNamespace(used=False, result_count=0)),
+    )
+    assert fast is not None
+    assert "No retrieval sources or tools were used" in fast.text
+
+
+def test_deterministic_fast_response_handles_write_confirmation_prompt():
+    fast = _deterministic_fast_response(
+        message="Create a new deal called Meridian West",
+        lane=Lane.C_ANALYSIS,
+        routed_skill=SimpleNamespace(selection=SimpleNamespace(skill_id="create_entity")),
+        resolved_scope=SimpleNamespace(entity_type="environment", entity_name="Meridian", environment_id="env_123"),
+        context_receipt=ContextReceipt(
+            environment_id="env_123",
+            entity_type="environment",
+            entity_id="env_123",
+            resolution_status=ContextResolutionStatus.RESOLVED,
+        ),
+        envelope=_runtime_envelope(),
+        retrieval_execution=SimpleNamespace(receipt=SimpleNamespace(used=False, result_count=0)),
+    )
+    assert fast is not None
+    assert "Confirm to proceed" in fast.text
+    assert any(block["type"] == "confirmation" for block in fast.response_blocks)
 
 
 def test_execute_retrieval_degrades_cleanly_for_non_uuid_entity_scope(monkeypatch):
