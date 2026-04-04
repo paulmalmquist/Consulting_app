@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import urllib.error
 import urllib.request
 from copy import deepcopy
@@ -148,11 +149,11 @@ def discover_environment_bindings(backend_origin: str, timeout_seconds: float = 
         with urllib.request.urlopen(req, timeout=timeout_seconds) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
-        return {}
+        payload = None
 
     bindings: dict[str, EnvironmentBinding] = {}
-    for env in payload.get("environments", []):
-        slug = env.get("slug")
+    for env in (payload or {}).get("environments", []):
+        slug = env.get("slug") or _slug_from_label(env.get("client_name") or env.get("name"))
         env_id = env.get("env_id")
         if not slug or not env_id:
             continue
@@ -161,6 +162,91 @@ def discover_environment_bindings(backend_origin: str, timeout_seconds: float = 
             env_id=env_id,
             business_id=env.get("business_id"),
             label=env.get("client_name") or env.get("name") or slug,
+        )
+
+    db_bindings = _discover_environment_bindings_from_db()
+    for slug, binding in db_bindings.items():
+        existing = bindings.get(slug)
+        if existing is None:
+            bindings[slug] = binding
+            continue
+        if existing.business_id:
+            continue
+        bindings[slug] = EnvironmentBinding(
+            slug=existing.slug,
+            env_id=existing.env_id or binding.env_id,
+            business_id=binding.business_id,
+            label=existing.label or binding.label,
+        )
+    return bindings
+
+
+def _slug_from_label(label: str | None) -> str | None:
+    if not label:
+        return None
+    lowered = label.strip().lower()
+    known = {
+        "novendor": "novendor",
+        "floyorker": "floyorker",
+        "stone pds": "stone-pds",
+        "stone-pds": "stone-pds",
+        "meridian capital management": "meridian",
+        "meridian": "meridian",
+        "my resume": "resume",
+        "resume": "resume",
+        "trading platform": "trading",
+    }
+    if lowered in known:
+        return known[lowered]
+    for needle, slug in known.items():
+        if needle in lowered:
+            return slug
+    slug = "-".join(part for part in lowered.replace("/", " ").split() if part)
+    return slug or None
+
+
+def _database_url() -> str | None:
+    return (
+        os.environ.get("DATABASE_URL")
+        or os.environ.get("SUPABASE_DB_URL")
+        or os.environ.get("POSTGRES_URL")
+    )
+
+
+def _discover_environment_bindings_from_db() -> dict[str, EnvironmentBinding]:
+    database_url = _database_url()
+    if not database_url:
+        return {}
+
+    try:
+        import psycopg
+    except Exception:
+        return {}
+
+    try:
+        with psycopg.connect(database_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT env_id::text, client_name, business_id::text
+                    FROM app.environments
+                    ORDER BY client_name
+                    """
+                )
+                rows = cur.fetchall()
+    except Exception:
+        return {}
+
+    bindings: dict[str, EnvironmentBinding] = {}
+    for env_id, client_name, business_id in rows:
+        slug = _slug_from_label(client_name)
+        if not slug or not env_id:
+            continue
+        bindings[slug] = EnvironmentBinding(
+            slug=slug,
+            env_id=env_id,
+            business_id=business_id,
+            label=client_name or slug,
         )
     return bindings
 

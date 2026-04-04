@@ -175,6 +175,55 @@ def test_resolve_scope_uses_single_selected_entity_for_pronoun_prompt(monkeypatc
     assert resolved.source == "selected_ui_entity"
 
 
+def test_resolve_scope_uses_single_selected_entity_for_metric_focus_prompt(monkeypatch):
+    monkeypatch.setattr(assistant_scope_svc, "resolve_env_business_context", _resolved_env_context)
+
+    envelope = _envelope(
+        ui={
+            "route": "/lab/env/env_123/re/funds/fund_1",
+            "surface": "fund_detail",
+            "active_environment_id": "env_123",
+            "active_business_id": "biz_123",
+            "schema_name": "env_meridian_capital",
+            "industry": "repe",
+            "page_entity_type": "fund",
+            "page_entity_id": "fund_1",
+            "page_entity_name": "IGF VII",
+            "selected_entities": [
+                {
+                    "entity_type": "fund",
+                    "entity_id": "fund_1",
+                    "name": "IGF VII",
+                    "source": "page",
+                }
+            ],
+            "visible_data": {
+                "funds": [
+                    {
+                        "entity_type": "fund",
+                        "entity_id": "fund_1",
+                        "name": "IGF VII",
+                    }
+                ],
+                "investments": [],
+                "assets": [],
+                "models": [],
+                "pipeline_items": [],
+            },
+        }
+    )
+
+    resolved = assistant_scope_svc.resolve_assistant_scope(
+        user="user:env_123",
+        context_envelope=envelope,
+        user_message="Why is NOI down vs underwriting?",
+    )
+
+    assert resolved.resolved_scope_type == "fund"
+    assert resolved.entity_id == "fund_1"
+    assert resolved.source == "metric_focus_entity"
+
+
 def test_runtime_context_marks_multi_selected_pronoun_prompt_ambiguous(monkeypatch):
     monkeypatch.setattr(assistant_scope_svc, "resolve_env_business_context", _resolved_env_context)
 

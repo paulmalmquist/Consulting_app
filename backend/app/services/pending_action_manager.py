@@ -17,11 +17,15 @@ from __future__ import annotations
 import json
 import logging
 import re
+import uuid
 from typing import Any
+
+import psycopg.errors
 
 from app.db import get_cursor
 
 logger = logging.getLogger(__name__)
+_PENDING_ACTIONS_TABLE_READY = False
 
 # ── Confirmation / cancellation patterns ─────────────────────────────
 
@@ -58,6 +62,56 @@ def classify_user_intent(message: str) -> str:
     return "other"
 
 
+def _ensure_pending_actions_table() -> None:
+    """Bootstrap the durable pending-actions table for local/dev runtimes.
+
+    The eval loop and local Winston runtime now depend on pending-action
+    receipts. Some local databases do not yet have the table, so we create the
+    minimal canonical schema lazily instead of failing every turn.
+    """
+    global _PENDING_ACTIONS_TABLE_READY
+    if _PENDING_ACTIONS_TABLE_READY:
+        return
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS ai_pending_actions (
+              pending_action_id uuid PRIMARY KEY,
+              conversation_id uuid NOT NULL,
+              message_id uuid NULL,
+              business_id uuid NOT NULL,
+              env_id uuid NULL,
+              actor text NULL,
+              skill_id text NULL,
+              action_type text NOT NULL,
+              params_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+              missing_fields jsonb NULL,
+              status text NOT NULL DEFAULT 'awaiting_confirmation',
+              resolution_message text NULL,
+              scope_type text NULL,
+              scope_id text NULL,
+              scope_label text NULL,
+              expires_at timestamptz NOT NULL,
+              created_at timestamptz NOT NULL DEFAULT now(),
+              resolved_at timestamptz NULL
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_ai_pending_actions_conversation_status
+            ON ai_pending_actions (conversation_id, status)
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_ai_pending_actions_created_at
+            ON ai_pending_actions (created_at DESC)
+            """
+        )
+    _PENDING_ACTIONS_TABLE_READY = True
+
+
 # ── CRUD ─────────────────────────────────────────────────────────────
 
 def create_pending_action(
@@ -79,6 +133,8 @@ def create_pending_action(
     """Create a pending action record.  Supersedes any existing pending action
     for the same conversation."""
     try:
+        _ensure_pending_actions_table()
+        pending_action_id = str(uuid.uuid4())
         with get_cursor() as cur:
             # Supersede any existing pending actions for this conversation
             cur.execute(
@@ -90,17 +146,18 @@ def create_pending_action(
 
             cur.execute(
                 """INSERT INTO ai_pending_actions (
-                     conversation_id, message_id, business_id, env_id, actor,
+                     pending_action_id, conversation_id, message_id, business_id, env_id, actor,
                      skill_id, action_type, params_json, missing_fields,
                      scope_type, scope_id, scope_label,
                      expires_at
                    ) VALUES (
-                     %s, %s, %s, %s, %s,
+                     %s, %s, %s, %s, %s, %s,
                      %s, %s, %s, %s,
                      %s, %s, %s,
                      now() + interval '%s minutes'
                    ) RETURNING *""",
                 (
+                    pending_action_id,
                     conversation_id,
                     message_id,
                     business_id,
@@ -117,6 +174,52 @@ def create_pending_action(
                 ),
             )
             return cur.fetchone()
+    except psycopg.errors.UndefinedTable:
+        _PENDING_ACTIONS_TABLE_READY = False
+        logger.warning("Pending action table was missing; retrying after bootstrap")
+        try:
+            _ensure_pending_actions_table()
+            pending_action_id = str(uuid.uuid4())
+            with get_cursor() as cur:
+                cur.execute(
+                    """UPDATE ai_pending_actions
+                       SET status = 'superseded', resolved_at = now()
+                       WHERE conversation_id = %s AND status = 'awaiting_confirmation'""",
+                    (conversation_id,),
+                )
+                cur.execute(
+                    """INSERT INTO ai_pending_actions (
+                         pending_action_id, conversation_id, message_id, business_id, env_id, actor,
+                         skill_id, action_type, params_json, missing_fields,
+                         scope_type, scope_id, scope_label,
+                         expires_at
+                       ) VALUES (
+                         %s, %s, %s, %s, %s, %s,
+                         %s, %s, %s, %s,
+                         %s, %s, %s,
+                         now() + interval '%s minutes'
+                       ) RETURNING *""",
+                    (
+                        pending_action_id,
+                        conversation_id,
+                        message_id,
+                        business_id,
+                        env_id,
+                        actor,
+                        skill_id,
+                        action_type,
+                        json.dumps(params_json or {}),
+                        json.dumps(missing_fields) if missing_fields else None,
+                        scope_type,
+                        scope_id,
+                        scope_label,
+                        expires_minutes,
+                    ),
+                )
+                return cur.fetchone()
+        except Exception:
+            logger.exception("Failed to create pending action after bootstrapping table")
+            return None
     except Exception:
         logger.exception("Failed to create pending action")
         return None
@@ -125,6 +228,7 @@ def create_pending_action(
 def get_pending_action(conversation_id: str) -> dict[str, Any] | None:
     """Get the active pending action for a conversation, if any."""
     try:
+        _ensure_pending_actions_table()
         with get_cursor() as cur:
             cur.execute(
                 """SELECT * FROM ai_pending_actions
@@ -136,6 +240,13 @@ def get_pending_action(conversation_id: str) -> dict[str, Any] | None:
                 (conversation_id,),
             )
             return cur.fetchone()
+    except psycopg.errors.UndefinedTable:
+        globals()["_PENDING_ACTIONS_TABLE_READY"] = False
+        try:
+            _ensure_pending_actions_table()
+        except Exception:
+            logger.exception("Failed to bootstrap pending action table while fetching")
+        return None
     except Exception:
         logger.exception("Failed to fetch pending action")
         return None
@@ -149,6 +260,7 @@ def resolve_pending_action(
 ) -> dict[str, Any] | None:
     """Resolve a pending action to a terminal status."""
     try:
+        _ensure_pending_actions_table()
         with get_cursor() as cur:
             cur.execute(
                 """UPDATE ai_pending_actions
@@ -160,6 +272,13 @@ def resolve_pending_action(
                 (new_status, resolution_message, pending_action_id),
             )
             return cur.fetchone()
+    except psycopg.errors.UndefinedTable:
+        globals()["_PENDING_ACTIONS_TABLE_READY"] = False
+        try:
+            _ensure_pending_actions_table()
+        except Exception:
+            logger.exception("Failed to bootstrap pending action table while resolving")
+        return None
     except Exception:
         logger.exception("Failed to resolve pending action")
         return None
@@ -168,6 +287,7 @@ def resolve_pending_action(
 def expire_stale_actions() -> int:
     """Mark expired pending actions.  Called by nightly audit."""
     try:
+        _ensure_pending_actions_table()
         with get_cursor() as cur:
             cur.execute(
                 """UPDATE ai_pending_actions
@@ -176,6 +296,13 @@ def expire_stale_actions() -> int:
                      AND expires_at <= now()""",
             )
             return cur.rowcount
+    except psycopg.errors.UndefinedTable:
+        globals()["_PENDING_ACTIONS_TABLE_READY"] = False
+        try:
+            _ensure_pending_actions_table()
+        except Exception:
+            logger.exception("Failed to bootstrap pending action table while expiring")
+        return 0
     except Exception:
         logger.exception("Failed to expire stale actions")
         return 0
@@ -194,6 +321,7 @@ def list_unresolved_actions(
         params.append(business_id)
     where = "WHERE " + " AND ".join(clauses)
     try:
+        _ensure_pending_actions_table()
         with get_cursor() as cur:
             cur.execute(
                 f"""SELECT * FROM ai_pending_actions {where}
@@ -201,6 +329,13 @@ def list_unresolved_actions(
                 params + [limit],
             )
             return cur.fetchall()
+    except psycopg.errors.UndefinedTable:
+        globals()["_PENDING_ACTIONS_TABLE_READY"] = False
+        try:
+            _ensure_pending_actions_table()
+        except Exception:
+            logger.exception("Failed to bootstrap pending action table while listing")
+        return []
     except Exception:
         logger.exception("Failed to list unresolved actions")
         return []

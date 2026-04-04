@@ -76,6 +76,12 @@ export type ToolReceiptStatus = "success" | "failed" | "denied";
 
 export type RetrievalStatus = "ok" | "empty";
 
+export type StructuredPrecheckStatus =
+  | "ok"
+  | "empty"
+  | "unavailable"
+  | "error";
+
 export type TurnStatus = "success" | "degraded" | "failed";
 
 export type DegradedReason =
@@ -92,6 +98,13 @@ export type DispatchSource =
   | "model"
   | "legacy_fallback"
   | "deterministic_guardrail";
+
+export type PendingActionStatus =
+  | "awaiting_confirmation"
+  | "confirmed"
+  | "cancelled"
+  | "superseded"
+  | "expired";
 
 export type SkillDefinition = {
   id: string;
@@ -267,6 +280,35 @@ export type RetrievalReceipt = {
   used: boolean;
   result_count: number;
   status: RetrievalStatus;
+  debug?: RetrievalDebugReceipt | null;
+};
+
+export type StructuredPrecheckReceipt = {
+  name: string;
+  source: string;
+  status: StructuredPrecheckStatus;
+  scoped: boolean;
+  result_count: number;
+  evidence: Record<string, unknown>;
+  notes: string[];
+  error?: string | null;
+};
+
+export type RetrievalDebugReceipt = {
+  query_text: string;
+  scope_filters: Record<string, unknown>;
+  strategy: string;
+  top_hits: Array<Record<string, unknown>>;
+  structured_prechecks: StructuredPrecheckReceipt[];
+  empty_reason?: string | null;
+};
+
+export type PendingActionReceipt = {
+  pending_action_id: string;
+  status: PendingActionStatus;
+  action_type: string;
+  scope_label?: string | null;
+  confirmation_required: boolean;
 };
 
 export type TurnReceipt = {
@@ -278,6 +320,7 @@ export type TurnReceipt = {
   skill: SkillSelection;
   tools: ToolReceipt[];
   retrieval: RetrievalReceipt;
+  pending_action?: PendingActionReceipt | null;
   status: TurnStatus;
   degraded_reason?: DegradedReason | null;
 };

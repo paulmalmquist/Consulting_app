@@ -97,6 +97,38 @@ const baseDebug: AskAiDebug = {
       used: true,
       result_count: 0,
       status: "empty",
+      debug: {
+        query_text: "Why is NOI down vs underwriting?",
+        scope_filters: {
+          business_id: "biz_123",
+          env_id: "env_123",
+          entity_type: "fund",
+          entity_id: "fund_1",
+          entity_id_filter_applied: false,
+        },
+        strategy: "structured_precheck+semantic",
+        top_hits: [],
+        structured_prechecks: [
+          {
+            name: "meridian_noi_variance",
+            source: "finance.noi_variance",
+            status: "error",
+            scoped: true,
+            result_count: 0,
+            evidence: { env_id: "env_123", business_id: "biz_123" },
+            notes: ["Structured Meridian variance precheck failed."],
+            error: "column a.property_type does not exist",
+          },
+        ],
+        empty_reason: "structured_precheck_error",
+      },
+    },
+    pending_action: {
+      pending_action_id: "pending_123",
+      status: "awaiting_confirmation",
+      action_type: "create_deal",
+      scope_label: "Fund One in Meridian",
+      confirmation_required: true,
     },
     status: "degraded",
     degraded_reason: "retrieval_empty",
@@ -127,6 +159,8 @@ test("AdvancedDrawer renders canonical turn receipt fields", () => {
   expect(screen.getByText("run_analysis")).toBeInTheDocument();
   expect(screen.getAllByText("model").length).toBeGreaterThan(0);
   expect(screen.getAllByText("retrieval_empty").length).toBeGreaterThan(0);
+  expect(screen.getByText(/awaiting_confirmation \(create_deal\)/i)).toBeInTheDocument();
+  expect(screen.getByText(/structured_precheck_error/i)).toBeInTheDocument();
   expect(screen.getByText(/Resolved Scope/i)).toBeInTheDocument();
 });
 
@@ -166,6 +200,10 @@ test("AdvancedDrawer survives malformed tool receipt output", () => {
   fireEvent.click(screen.getByRole("button", { name: /Tool Receipts/i }));
   expect(screen.getByText("eval.synthetic_failure")).toBeInTheDocument();
   expect(screen.getByText(/tool exploded/i)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /Retrieval Debug/i }));
+  expect(screen.getAllByText(/structured_precheck_error/i).length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole("button", { name: /Pending Action/i }));
+  expect(screen.getByText(/pending_123/i)).toBeInTheDocument();
 });
 
 test("AdvancedDrawer fails visibly when receipt fields are missing", () => {

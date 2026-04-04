@@ -184,9 +184,9 @@ def _noi_variance(ctx: McpContext, inp: NoiVarianceInput) -> dict:
               v.fund_id::text,
               v.asset_id::text,
               a.name AS asset_name,
-              a.property_type,
-              a.address_city,
-              a.address_state,
+              COALESCE(pa.property_type, a.asset_type) AS property_type,
+              pa.city AS address_city,
+              pa.state AS address_state,
               v.quarter,
               v.line_code,
               v.actual_amount::text,
@@ -195,8 +195,9 @@ def _noi_variance(ctx: McpContext, inp: NoiVarianceInput) -> dict:
               v.variance_pct::text
             FROM re_asset_variance_qtr v
             JOIN repe_asset a ON a.asset_id = v.asset_id
+            LEFT JOIN repe_property_asset pa ON pa.asset_id = a.asset_id
             WHERE {where}
-            ORDER BY a.name, v.line_code
+            ORDER BY v.quarter DESC, a.name, v.line_code
             """,
             params,
         )

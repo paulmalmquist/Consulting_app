@@ -259,6 +259,28 @@ def score_assistant_scenario(*, scenario: dict[str, Any], result: dict[str, Any]
     if retrieval_ok:
         base_score += WEIGHTS["retrieval"]
 
+    pending_action = receipt.get("pending_action") or {}
+    expected_pending_status = expected.get("pending_action_status")
+    if expected_pending_status and pending_action.get("status") != expected_pending_status:
+        tool_ok = False
+        _append_mismatch(
+            mismatches,
+            category="tool_policy_failure",
+            field="pending_action_status",
+            expected=expected_pending_status,
+            actual=pending_action.get("status"),
+        )
+    expected_pending_action = expected.get("pending_action_action")
+    if expected_pending_action and pending_action.get("action_type") != expected_pending_action:
+        tool_ok = False
+        _append_mismatch(
+            mismatches,
+            category="tool_policy_failure",
+            field="pending_action_action",
+            expected=expected_pending_action,
+            actual=pending_action.get("action_type"),
+        )
+
     tool_ok = True
     if expected.get("tool_names") is not None and tool_names != expected.get("tool_names"):
         tool_ok = False
@@ -367,11 +389,17 @@ def score_assistant_scenario(*, scenario: dict[str, Any], result: dict[str, Any]
     fallback_reason = receipt.get("fallback_reason") or dispatch.get("fallback_reason")
     fallback_used = bool(dispatch.get("fallback_used"))
     low_confidence_dispatch = fallback_reason == "low_confidence_dispatch"
-    invalid_dispatch = fallback_reason in {
-        "dispatcher_invalid_json",
-        "dispatcher_invalid_schema",
-        "dispatcher_invalid_response",
-    }
+    invalid_dispatch = bool(fallback_reason) and (
+        fallback_reason.startswith("dispatcher_error:")
+        or fallback_reason in {
+            "dispatcher_invalid_json",
+            "dispatcher_invalid_schema",
+            "dispatcher_invalid_response",
+            "dispatcher_empty_output",
+            "dispatcher_truncated",
+            "dispatcher_no_choices",
+        }
+    )
     disagreement_fields = [
         field
         for field in ("skill", "lane", "needs_retrieval", "write_intent", "ambiguity_level")

@@ -17,8 +17,10 @@ def _snapshot(record: dict[str, Any]) -> dict[str, Any]:
     tools, tool_statuses = _tool_snapshot(record)
     context = receipt.get("context") or {}
     retrieval = receipt.get("retrieval") or {}
+    retrieval_debug = retrieval.get("debug") or {}
     skill = receipt.get("skill") or {}
     dispatch = (receipt.get("dispatch") or {}).get("normalized") or {}
+    pending_action = receipt.get("pending_action") or {}
     return {
         "lane": receipt.get("lane"),
         "skill_id": skill.get("skill_id"),
@@ -34,8 +36,12 @@ def _snapshot(record: dict[str, Any]) -> dict[str, Any]:
         "retrieval_used": retrieval.get("used"),
         "retrieval_result_count": retrieval.get("result_count"),
         "retrieval_status": retrieval.get("status"),
+        "retrieval_strategy": retrieval_debug.get("strategy"),
+        "retrieval_empty_reason": retrieval_debug.get("empty_reason"),
         "tool_names": tools,
         "tool_statuses": tool_statuses,
+        "pending_action_status": pending_action.get("status"),
+        "pending_action_action": pending_action.get("action_type"),
         "degraded_reason": receipt.get("degraded_reason"),
         "status": receipt.get("status"),
         "duration_ms": record.get("duration_ms"),

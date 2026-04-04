@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import uuid
 from types import SimpleNamespace
 
 os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/test")
@@ -34,9 +35,13 @@ from app.assistant_runtime.turn_receipts import (
     DispatchTrace,
     DegradedReason,
     Lane,
+    PendingActionStatus,
     PermissionMode,
     RetrievalReceipt,
+    RetrievalDebugReceipt,
     RetrievalStatus,
+    StructuredPrecheckReceipt,
+    StructuredPrecheckStatus,
     permission_satisfies,
 )
 from app.schemas.ai_gateway import AssistantContextEnvelope
@@ -55,22 +60,33 @@ def _dummy_handler(ctx, inp):
 
 
 class _FakeCompletionResponse:
-    def __init__(self, payload: str):
-        self.choices = [SimpleNamespace(message=SimpleNamespace(content=payload))]
+    def __init__(self, payload: str, *, finish_reason: str = "stop"):
+        self.choices = [SimpleNamespace(message=SimpleNamespace(content=payload), finish_reason=finish_reason)]
 
 
 class _FakeAsyncCompletions:
-    def __init__(self, payload: str):
-        self.payload = payload
+    def __init__(self, payload: str | list[str] | list[tuple[str, str]]):
+        if isinstance(payload, list):
+            self.payloads = list(payload)
+        else:
+            self.payloads = [payload]
         self.calls: list[dict[str, object]] = []
 
     async def create(self, **kwargs):
         self.calls.append(kwargs)
-        return _FakeCompletionResponse(self.payload)
+        if len(self.payloads) > 1:
+            item = self.payloads.pop(0)
+        else:
+            item = self.payloads[0]
+        if isinstance(item, tuple):
+            payload, finish_reason = item
+        else:
+            payload, finish_reason = item, "stop"
+        return _FakeCompletionResponse(payload, finish_reason=finish_reason)
 
 
 class _FakeAsyncClient:
-    def __init__(self, payload: str):
+    def __init__(self, payload: str | list[str] | list[tuple[str, str]]):
         self.chat = SimpleNamespace(completions=_FakeAsyncCompletions(payload))
 
 
@@ -309,6 +325,118 @@ def test_deterministic_fast_response_handles_write_confirmation_prompt():
     assert any(block["type"] == "confirmation" for block in fast.response_blocks)
 
 
+def test_deterministic_fast_response_handles_structured_follow_up_prompt():
+    fast = _deterministic_fast_response(
+        message="Who should I follow up with today?",
+        lane=Lane.B_LOOKUP,
+        routed_skill=SimpleNamespace(selection=SimpleNamespace(skill_id="lookup_entity")),
+        resolved_scope=SimpleNamespace(entity_type="environment", entity_name="Novendor", environment_id="env_123"),
+        context_receipt=ContextReceipt(
+            environment_id="env_123",
+            entity_type="environment",
+            entity_id="env_123",
+            resolution_status=ContextResolutionStatus.RESOLVED,
+        ),
+        envelope=_runtime_envelope().model_copy(
+            update={
+                "ui": _runtime_envelope().ui.model_copy(
+                    update={"active_environment_name": "Novendor", "page_entity_name": "Novendor"}
+                )
+            }
+        ),
+        retrieval_execution=SimpleNamespace(
+            receipt=RetrievalReceipt(
+                used=True,
+                result_count=3,
+                status=RetrievalStatus.OK,
+                debug=RetrievalDebugReceipt(
+                    query_text="Who should I follow up with today?",
+                    scope_filters={"business_id": "biz_123", "env_id": "env_123"},
+                    strategy="structured_precheck+semantic",
+                    top_hits=[
+                        {
+                            "source": "structured:novendor.tasks.list_tasks_due_today",
+                            "label": "Follow up with Cortland",
+                            "priority": "urgent",
+                            "due_date": "2026-04-04",
+                        }
+                    ],
+                    structured_prechecks=[
+                        StructuredPrecheckReceipt(
+                            name="novendor_follow_up_today",
+                            source="novendor.tasks.list_tasks_due_today",
+                            status=StructuredPrecheckStatus.OK,
+                            scoped=True,
+                            result_count=3,
+                            evidence={"today_count": 1, "overdue_count": 2},
+                        )
+                    ],
+                ),
+            )
+        ),
+    )
+    assert fast is not None
+    assert "Novendor follow up priorities" in fast.text
+    assert "Follow up with Cortland" in fast.text
+
+
+def test_deterministic_fast_response_handles_structured_noi_prompt():
+    fast = _deterministic_fast_response(
+        message="Why is NOI down vs underwriting?",
+        lane=Lane.C_ANALYSIS,
+        routed_skill=SimpleNamespace(selection=SimpleNamespace(skill_id="run_analysis")),
+        resolved_scope=SimpleNamespace(entity_type="fund", entity_name="Fund One", environment_id="env_123"),
+        context_receipt=ContextReceipt(
+            environment_id="env_123",
+            entity_type="fund",
+            entity_id="fund_1",
+            resolution_status=ContextResolutionStatus.RESOLVED,
+        ),
+        envelope=_runtime_envelope(),
+        retrieval_execution=SimpleNamespace(
+            receipt=RetrievalReceipt(
+                used=True,
+                result_count=5,
+                status=RetrievalStatus.OK,
+                debug=RetrievalDebugReceipt(
+                    query_text="Why is NOI down vs underwriting?",
+                    scope_filters={"business_id": "biz_123", "env_id": "env_123", "entity_id": "fund_1"},
+                    strategy="structured_precheck+hybrid+rerank",
+                    top_hits=[
+                        {
+                            "source": "structured:finance.noi_variance",
+                            "label": "Riverfront Apartments",
+                            "line_code": "RENT",
+                            "variance_amount": "2013521.37",
+                            "variance_pct": "0.9115",
+                        }
+                    ],
+                    structured_prechecks=[
+                        StructuredPrecheckReceipt(
+                            name="meridian_noi_variance",
+                            source="finance.noi_variance",
+                            status=StructuredPrecheckStatus.OK,
+                            scoped=True,
+                            result_count=372,
+                            evidence={
+                                "summary": {
+                                    "total_actual": "68339372.36",
+                                    "total_plan": "44249257.84",
+                                    "total_variance": "24090114.52",
+                                    "avg_variance_pct": "-0.04",
+                                }
+                            },
+                        )
+                    ],
+                ),
+            )
+        ),
+    )
+    assert fast is not None
+    assert "NOI is not down vs underwriting" in fast.text
+    assert "Fund One" in fast.text
+
+
 def test_dispatch_request_uses_structured_model_dispatch(monkeypatch):
     runtime_context = _runtime_context("compare irr trends across our funds")
     fake_client = _FakeAsyncClient(
@@ -367,8 +495,49 @@ def test_dispatch_request_falls_back_when_dispatch_output_is_invalid(monkeypatch
     assert outcome.route.lane == "C"
 
 
+def test_dispatch_request_retries_after_truncated_dispatch(monkeypatch):
+    runtime_context = _runtime_context("Generate LP summary")
+    fake_client = _FakeAsyncClient(
+        [
+            ("", "length"),
+            (
+                json.dumps(
+                    {
+                        "skill": "generate_lp_summary",
+                        "lane": "D_DEEP",
+                        "needs_retrieval": True,
+                        "write_intent": False,
+                        "ambiguity_level": "low",
+                        "confidence": 0.82,
+                    }
+                ),
+                "stop",
+            ),
+        ]
+    )
+    monkeypatch.setattr("app.assistant_runtime.dispatch_engine.get_instrumented_client", lambda: fake_client)
+
+    outcome = asyncio.run(
+        dispatch_request(
+            message="Generate LP summary",
+            context_envelope=runtime_context.envelope,
+            resolved_scope=runtime_context.resolved_scope,
+            context=runtime_context.receipt,
+            visible_context_shortcut=False,
+        )
+    )
+
+    assert outcome.trace.normalized.source == DispatchSource.MODEL
+    assert outcome.trace.normalized.fallback_used is False
+    assert outcome.trace.normalized.skill_id == "generate_lp_summary"
+    assert outcome.trace.normalized.needs_retrieval is True
+    assert "dispatch_retry_after:dispatcher_truncated" in outcome.trace.normalized.notes
+    assert "dispatch_retry_succeeded_after:dispatcher_truncated" in outcome.trace.normalized.notes
+    assert len(fake_client.chat.completions.calls) == 2
+
+
 def test_dispatch_request_suppresses_retrieval_for_simple_lookup(monkeypatch):
-    runtime_context = _runtime_context("What fund is this?")
+    runtime_context = _runtime_context("Show me this fund")
     fake_client = _FakeAsyncClient(
         json.dumps(
             {
@@ -385,7 +554,7 @@ def test_dispatch_request_suppresses_retrieval_for_simple_lookup(monkeypatch):
 
     outcome = asyncio.run(
         dispatch_request(
-            message="What fund is this?",
+            message="Show me this fund",
             context_envelope=runtime_context.envelope,
             resolved_scope=runtime_context.resolved_scope,
             context=runtime_context.receipt,
@@ -445,8 +614,32 @@ def test_dispatch_request_preserves_lookup_shape_for_ambiguous_context(monkeypat
     assert "deterministic_ambiguity_guardrail" in outcome.trace.normalized.notes
 
 
+def test_dispatch_request_uses_deterministic_guardrail_for_metric_anomaly(monkeypatch):
+    runtime_context = _runtime_context("Why is NOI down vs underwriting?")
+    monkeypatch.setattr(
+        "app.assistant_runtime.dispatch_engine.get_instrumented_client",
+        lambda: (_ for _ in ()).throw(AssertionError("dispatcher model should not be called")),
+    )
+
+    outcome = asyncio.run(
+        dispatch_request(
+            message="Why is NOI down vs underwriting?",
+            context_envelope=runtime_context.envelope,
+            resolved_scope=runtime_context.resolved_scope,
+            context=runtime_context.receipt,
+            visible_context_shortcut=False,
+        )
+    )
+
+    assert outcome.trace.normalized.source == DispatchSource.DETERMINISTIC_GUARDRAIL
+    assert outcome.trace.normalized.skill_id == "explain_metric"
+    assert outcome.trace.normalized.needs_retrieval is True
+    assert outcome.trace.normalized.lane == Lane.C_ANALYSIS
+    assert "deterministic_metric_anomaly_guardrail" in outcome.trace.normalized.notes
+
+
 def test_dispatch_request_forces_grounding_for_contextual_metric(monkeypatch):
-    runtime_context = _runtime_context("Explain NOI variance for this fund")
+    runtime_context = _runtime_context("Explain TVPI for this fund")
     fake_client = _FakeAsyncClient(
         json.dumps(
             {
@@ -463,7 +656,7 @@ def test_dispatch_request_forces_grounding_for_contextual_metric(monkeypatch):
 
     outcome = asyncio.run(
         dispatch_request(
-            message="Explain NOI variance for this fund",
+            message="Explain TVPI for this fund",
             context_envelope=runtime_context.envelope,
             resolved_scope=runtime_context.resolved_scope,
             context=runtime_context.receipt,
@@ -692,14 +885,24 @@ def test_execute_retrieval_degrades_cleanly_for_non_uuid_entity_scope(monkeypatc
         use_hybrid=False,
     )
 
-    called = False
+    captured: dict[str, object] = {}
 
-    def _fake_search(**_kwargs):
-        nonlocal called
-        called = True
+    def _fake_search(**kwargs):
+        captured.update(kwargs)
         return []
 
     monkeypatch.setattr("app.assistant_runtime.retrieval_orchestrator.semantic_search", _fake_search)
+    monkeypatch.setattr(
+        "app.assistant_runtime.retrieval_orchestrator._run_structured_prechecks",
+        lambda **_kwargs: SimpleNamespace(
+            context_text="",
+            result_count=0,
+            prechecks=[],
+            top_hits=[],
+            strategy_suffix=None,
+            empty_reason=None,
+        ),
+    )
 
     execution = asyncio.run(
         execute_retrieval(
@@ -713,10 +916,13 @@ def test_execute_retrieval_degrades_cleanly_for_non_uuid_entity_scope(monkeypatc
         )
     )
 
-    assert called is False
+    assert captured["entity_type"] is None
+    assert captured["entity_id"] is None
     assert execution.receipt.used is True
     assert execution.receipt.result_count == 0
     assert execution.receipt.status == RetrievalStatus.EMPTY
+    assert execution.receipt.debug is not None
+    assert execution.receipt.debug.empty_reason == "no_scoped_results"
 
 
 def test_execute_retrieval_uses_env_scope_without_environment_entity_filter(monkeypatch):
@@ -757,6 +963,17 @@ def test_execute_retrieval_uses_env_scope_without_environment_entity_filter(monk
         ]
 
     monkeypatch.setattr("app.assistant_runtime.retrieval_orchestrator.semantic_search", _fake_search)
+    monkeypatch.setattr(
+        "app.assistant_runtime.retrieval_orchestrator._run_structured_prechecks",
+        lambda **_kwargs: SimpleNamespace(
+            context_text="",
+            result_count=0,
+            prechecks=[],
+            top_hits=[],
+            strategy_suffix=None,
+            empty_reason=None,
+        ),
+    )
 
     execution = asyncio.run(
         execute_retrieval(
@@ -775,3 +992,189 @@ def test_execute_retrieval_uses_env_scope_without_environment_entity_filter(monk
     assert execution.receipt.used is True
     assert execution.receipt.result_count == 1
     assert execution.receipt.status == RetrievalStatus.OK
+    assert execution.receipt.debug is not None
+    assert execution.receipt.debug.scope_filters["entity_id_filter_applied"] is False
+
+
+def test_dispatch_request_normalizes_metric_anomaly_prompt(monkeypatch):
+    runtime_context = _runtime_context("Why is occupancy blank?")
+    monkeypatch.setattr(
+        "app.assistant_runtime.dispatch_engine.get_instrumented_client",
+        lambda: (_ for _ in ()).throw(AssertionError("dispatcher model should not be called")),
+    )
+
+    outcome = asyncio.run(
+        dispatch_request(
+            message="Why is occupancy blank?",
+            context_envelope=runtime_context.envelope,
+            resolved_scope=runtime_context.resolved_scope,
+            context=runtime_context.receipt,
+            visible_context_shortcut=False,
+        )
+    )
+
+    assert outcome.trace.normalized.skill_id == "explain_metric"
+    assert outcome.trace.normalized.needs_retrieval is True
+    assert outcome.trace.normalized.source == DispatchSource.DETERMINISTIC_GUARDRAIL
+    assert "deterministic_metric_anomaly_guardrail" in outcome.trace.normalized.notes
+
+
+def test_dispatch_request_normalizes_debt_risk_to_analysis(monkeypatch):
+    runtime_context = _runtime_context("Show me debt risk")
+    outcome = asyncio.run(
+        dispatch_request(
+            message="Show me debt risk",
+            context_envelope=runtime_context.envelope,
+            resolved_scope=runtime_context.resolved_scope,
+            context=runtime_context.receipt,
+            visible_context_shortcut=False,
+        )
+    )
+
+    assert outcome.trace.normalized.skill_id == "run_analysis"
+    assert outcome.trace.normalized.needs_retrieval is True
+    assert "deterministic_debt_risk_guardrail" in outcome.trace.normalized.notes
+
+
+def test_execute_retrieval_uses_structured_precheck_when_available(monkeypatch):
+    route = RouteDecision(
+        lane="C",
+        skip_rag=False,
+        skip_tools=False,
+        max_tool_rounds=2,
+        max_tokens=512,
+        temperature=0.1,
+        is_write=False,
+        model="gpt-5-mini",
+        rag_top_k=5,
+        use_rerank=False,
+        use_hybrid=False,
+    )
+
+    monkeypatch.setattr("app.assistant_runtime.retrieval_orchestrator.semantic_search", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        "app.assistant_runtime.retrieval_orchestrator._run_structured_prechecks",
+        lambda **_kwargs: SimpleNamespace(
+            context_text="STRUCTURED TASK CONTEXT:\n- Follow up with Cortland",
+            result_count=2,
+            prechecks=[
+                StructuredPrecheckReceipt(
+                    name="novendor_follow_up_today",
+                    source="novendor.tasks.list_tasks_due_today",
+                    status=StructuredPrecheckStatus.OK,
+                    scoped=True,
+                    result_count=2,
+                    evidence={"env_id": "env_123", "business_id": "biz_123"},
+                    notes=["Structured due-today task source evaluated."],
+                )
+            ],
+            top_hits=[{"source": "structured:novendor.tasks.list_tasks_due_today", "label": "Follow up with Cortland"}],
+            strategy_suffix="structured_precheck",
+            empty_reason=None,
+        ),
+    )
+
+    execution = asyncio.run(
+        execute_retrieval(
+            route=route,
+            retrieval_policy="full",
+            message="Who should I follow up with today?",
+            business_id="a1b2c3d4-0001-0001-0001-000000000001",
+            env_id="a1b2c3d4-0001-0001-0003-000000000001",
+            entity_type="environment",
+            entity_id="a1b2c3d4-0001-0001-0003-000000000001",
+        )
+    )
+
+    assert execution.receipt.used is True
+    assert execution.receipt.status == RetrievalStatus.OK
+    assert execution.receipt.result_count == 2
+    assert execution.receipt.debug is not None
+    assert execution.receipt.debug.strategy.startswith("structured_precheck")
+    assert execution.receipt.debug.structured_prechecks[0].status == StructuredPrecheckStatus.OK
+    assert "STRUCTURED TASK CONTEXT" in execution.context_text
+
+
+def test_request_lifecycle_emits_pending_action_receipt_for_write_confirmation(monkeypatch):
+    async def _fake_dispatch_request(**_kwargs):
+        route = RouteDecision(
+            lane="C",
+            skip_rag=True,
+            skip_tools=True,
+            max_tool_rounds=0,
+            max_tokens=512,
+            temperature=0.1,
+            is_write=True,
+            model="gpt-5-mini",
+            rag_top_k=0,
+            rag_max_tokens=0,
+            history_max_tokens=800,
+            matched_pattern="write",
+        )
+        trace = DispatchTrace(
+            raw=DispatchProposal(
+                skill="create_entity",
+                lane=Lane.C_ANALYSIS,
+                needs_retrieval=False,
+                write_intent=True,
+                ambiguity_level=DispatchAmbiguity.LOW,
+                confidence=0.95,
+            ),
+            normalized=DispatchDecision(
+                source=DispatchSource.DETERMINISTIC_GUARDRAIL,
+                skill_id="create_entity",
+                lane=Lane.C_ANALYSIS,
+                needs_retrieval=False,
+                write_intent=True,
+                ambiguity_level=DispatchAmbiguity.LOW,
+                confidence=0.95,
+                fallback_used=False,
+                notes=["deterministic_write_guardrail"],
+            ),
+        )
+        return DispatchOutcome(
+            trace=trace,
+            route=route,
+            routed_skill=build_routed_skill(
+                message="Create a new deal called Meridian West",
+                skill_id="create_entity",
+                confidence=0.95,
+            ),
+        )
+
+    async def _fake_execute_retrieval(**_kwargs):
+        return SimpleNamespace(
+            receipt=RetrievalReceipt(used=False, result_count=0, status=RetrievalStatus.OK),
+            chunks=[],
+            context_text="",
+        )
+
+    monkeypatch.setattr("app.assistant_runtime.request_lifecycle.OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr("app.assistant_runtime.request_lifecycle.dispatch_request", _fake_dispatch_request)
+    monkeypatch.setattr("app.assistant_runtime.request_lifecycle.execute_retrieval", _fake_execute_retrieval)
+    monkeypatch.setattr("app.assistant_runtime.request_lifecycle.check_pending_action", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        "app.assistant_runtime.request_lifecycle.create_pending_action",
+        lambda **_kwargs: {
+            "pending_action_id": "pending_123",
+            "action_type": "create_deal",
+            "scope_label": "Fund One in Meridian",
+        },
+    )
+
+    events = asyncio.run(
+        _collect_sse_events(
+            run_request_lifecycle(
+                message="Create a new deal called Meridian West",
+                context_envelope=_runtime_envelope(),
+                conversation_id=uuid.uuid4(),
+                actor="tester",
+            )
+        )
+    )
+    payload = _done_payload(events)
+    receipt = payload["turn_receipt"]
+
+    assert receipt["status"] == "success"
+    assert receipt["pending_action"]["status"] == PendingActionStatus.AWAITING_CONFIRMATION
+    assert receipt["pending_action"]["action_type"] == "create_deal"

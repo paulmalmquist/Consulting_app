@@ -41,6 +41,10 @@ _DEICTIC_RE = re.compile(r"\b(this|current|selected|that|these|those|it|here|oth
 _LIST_QUERY_RE = re.compile(r"\b(which|what|list|show|give|tell)\b.*\b(funds?|assets?|investments?|deals?|models?|pipeline)\b")
 _COUNT_QUERY_RE = re.compile(r"\b(how many|count|number of|total)\b.*\b(funds?|assets?|investments?|deals?|models?|pipeline|entities)\b")
 _IDENTITY_QUERY_RE = re.compile(r"\b(what|which)\b.*\b(environment|env|page|workspace|module|schema|industry)\b")
+_FOCUSED_METRIC_RE = re.compile(
+    r"\b(why|explain|variance|underwriting|occupancy|noi|debt risk|watchlist|debt watch|down vs|blank)\b",
+    re.IGNORECASE,
+)
 _SIMPLE_META_KEYWORDS = ("strategy", "vintage", "status", "type", "name", "stage", "target_size", "committed")
 _ENTITY_KEYWORDS: dict[str, tuple[str, ...]] = {
     "fund": ("fund", "vehicle"),
@@ -217,6 +221,20 @@ def _selected_focus_entity(
     return None
 
 
+def _single_metric_focus_entity(
+    *,
+    message: str,
+    envelope: AssistantContextEnvelope,
+) -> AssistantSelectedEntity | None:
+    normalized = _normalize_text(message)
+    if not normalized or not _FOCUSED_METRIC_RE.search(normalized):
+        return None
+    candidates = _focus_candidates(envelope)
+    if len(candidates) == 1:
+        return candidates[0]
+    return None
+
+
 def _context_base(
     *,
     envelope: AssistantContextEnvelope,
@@ -340,6 +358,18 @@ def resolve_assistant_scope(
             entity_name=explicit_entity.name,
             confidence=0.98,
             source="message:ui_context",
+            **base,
+        )
+
+    metric_focus_entity = _single_metric_focus_entity(message=user_message, envelope=context_envelope)
+    if metric_focus_entity is not None:
+        return ResolvedAssistantScope(
+            resolved_scope_type=metric_focus_entity.entity_type,
+            entity_type=metric_focus_entity.entity_type,
+            entity_id=metric_focus_entity.entity_id,
+            entity_name=metric_focus_entity.name,
+            confidence=0.9,
+            source="metric_focus_entity",
             **base,
         )
 

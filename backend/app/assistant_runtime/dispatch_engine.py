@@ -40,7 +40,7 @@ _SOURCE_AUDIT_RE = re.compile(
     re.IGNORECASE,
 )
 _IDENTITY_PROMPT_RE = re.compile(
-    r"\b(what am i looking at|what page|which page|what environment|where am i|which environment|what is this)\b",
+    r"\b(what am i looking at|what page|which page|what environment|where am i|which environment|what is this|what (?:fund|deal|asset|property|investment|client) is this)\b",
     re.IGNORECASE,
 )
 _AMBIGUOUS_DEICTIC_RE = re.compile(
@@ -49,6 +49,11 @@ _AMBIGUOUS_DEICTIC_RE = re.compile(
 )
 _CREATE_ENTITY_RE = re.compile(
     r"\b(?:create|add|make|set up|register|new)\s+(?:a\s+|an\s+)?(?:fund|deal|asset|property|investment)\b",
+    re.IGNORECASE,
+)
+_DEBT_RISK_RE = re.compile(r"\b(debt risk|debt watch|watchlist)\b", re.IGNORECASE)
+_METRIC_ANOMALY_RE = re.compile(
+    r"\b(blank|variance|underwriting|occupancy|noi|down vs|debt risk|debt watch|watchlist)\b",
     re.IGNORECASE,
 )
 
@@ -102,6 +107,12 @@ class DispatchOutcome:
     routed_skill: RoutedSkill
 
 
+class DispatchModelFailure(ValueError):
+    def __init__(self, reason: str):
+        super().__init__(reason)
+        self.reason = reason
+
+
 def _flatten_content(content: Any) -> str:
     if isinstance(content, str):
         return content
@@ -120,6 +131,8 @@ def _flatten_content(content: Any) -> str:
 
 def _parse_dispatch_payload(payload: str) -> DispatchProposal:
     text = (payload or "").strip()
+    if not text:
+        raise DispatchModelFailure("dispatcher_empty_output")
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.IGNORECASE | re.DOTALL)
     return DispatchProposal.model_validate(json.loads(text))
@@ -164,6 +177,32 @@ def _deterministic_dispatch(*, message: str, context: ContextReceipt) -> Dispatc
             confidence=0.96,
             fallback_used=False,
             notes=["deterministic_source_audit_guardrail"],
+        )
+        return DispatchTrace(raw=None, normalized=decision)
+    if context.resolution_status == ContextResolutionStatus.RESOLVED and _DEBT_RISK_RE.search(normalized_message):
+        decision = DispatchDecision(
+            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
+            skill_id="run_analysis",
+            lane=Lane.C_ANALYSIS,
+            needs_retrieval=True,
+            write_intent=False,
+            ambiguity_level=DispatchAmbiguity.LOW,
+            confidence=0.97,
+            fallback_used=False,
+            notes=["deterministic_debt_risk_guardrail"],
+        )
+        return DispatchTrace(raw=None, normalized=decision)
+    if context.resolution_status == ContextResolutionStatus.RESOLVED and _METRIC_ANOMALY_RE.search(normalized_message):
+        decision = DispatchDecision(
+            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
+            skill_id="run_analysis" if _DEBT_RISK_RE.search(normalized_message) else "explain_metric",
+            lane=Lane.C_ANALYSIS,
+            needs_retrieval=True,
+            write_intent=False,
+            ambiguity_level=DispatchAmbiguity.LOW,
+            confidence=0.96,
+            fallback_used=False,
+            notes=["deterministic_metric_anomaly_guardrail"],
         )
         return DispatchTrace(raw=None, normalized=decision)
     if _CREATE_ENTITY_RE.search(normalized_message):
@@ -253,15 +292,15 @@ def _dispatch_messages(
     ]
 
 
-async def _model_dispatch(
+def _dispatch_params(
     *,
     message: str,
     context_envelope: AssistantContextEnvelope,
     resolved_scope: ResolvedAssistantScope,
     context: ContextReceipt,
     visible_context_shortcut: bool,
-) -> DispatchProposal:
-    client = get_instrumented_client()
+    max_tokens: int,
+) -> dict[str, Any]:
     params = sanitize_params(
         OPENAI_CHAT_MODEL_DISPATCH,
         messages=_dispatch_messages(
@@ -271,17 +310,72 @@ async def _model_dispatch(
             context=context,
             visible_context_shortcut=visible_context_shortcut,
         ),
-        max_tokens=220,
+        max_tokens=max_tokens,
         reasoning_effort="low",
         stream=False,
+        temperature=0,
     )
     params["response_format"] = _DISPATCH_SCHEMA
     params["seed"] = 7
-    completion = await client.chat.completions.create(**params)
-    if not completion.choices:
-        raise ValueError("Dispatcher returned no choices")
-    content = _flatten_content(completion.choices[0].message.content)
-    return _parse_dispatch_payload(content)
+    return params
+
+
+async def _model_dispatch(
+    *,
+    message: str,
+    context_envelope: AssistantContextEnvelope,
+    resolved_scope: ResolvedAssistantScope,
+    context: ContextReceipt,
+    visible_context_shortcut: bool,
+) -> tuple[DispatchProposal, list[str]]:
+    client = get_instrumented_client()
+    retry_notes: list[str] = []
+    last_failure: str | None = None
+    for idx, max_tokens in enumerate((220, 360)):
+        params = _dispatch_params(
+            message=message,
+            context_envelope=context_envelope,
+            resolved_scope=resolved_scope,
+            context=context,
+            visible_context_shortcut=visible_context_shortcut,
+            max_tokens=max_tokens,
+        )
+        completion = await client.chat.completions.create(**params)
+        if not completion.choices:
+            last_failure = "dispatcher_no_choices"
+        else:
+            choice = completion.choices[0]
+            content = _flatten_content(choice.message.content)
+            finish_reason = str(getattr(choice, "finish_reason", "") or "").lower()
+            if not (content or "").strip():
+                last_failure = "dispatcher_truncated" if finish_reason == "length" else "dispatcher_empty_output"
+            else:
+                try:
+                    proposal = _parse_dispatch_payload(content)
+                except DispatchModelFailure as exc:
+                    last_failure = exc.reason
+                except json.JSONDecodeError:
+                    last_failure = "dispatcher_invalid_json"
+                except ValidationError:
+                    last_failure = "dispatcher_invalid_schema"
+                else:
+                    if idx > 0 and retry_notes:
+                        retry_notes.append(f"dispatch_retry_succeeded_after:{last_failure or 'unknown'}")
+                    return proposal, retry_notes
+
+        if idx == 0 and last_failure in {
+            "dispatcher_truncated",
+            "dispatcher_empty_output",
+            "dispatcher_invalid_json",
+            "dispatcher_invalid_schema",
+            "dispatcher_invalid_response",
+            "dispatcher_no_choices",
+        }:
+            retry_notes.append(f"dispatch_retry_after:{last_failure}")
+            continue
+        raise DispatchModelFailure(last_failure or "dispatcher_invalid_response")
+
+    raise DispatchModelFailure(last_failure or "dispatcher_invalid_response")
 
 
 def _fallback_trace(
@@ -314,6 +408,7 @@ def _normalize_dispatch(
     context: ContextReceipt,
     message: str,
     fallback_reason: str | None = None,
+    extra_notes: list[str] | None = None,
 ) -> DispatchTrace:
     if proposal is None:
         return _fallback_trace(
@@ -322,7 +417,7 @@ def _normalize_dispatch(
             reason=fallback_reason or "dispatcher_unavailable",
         )
 
-    notes: list[str] = []
+    notes: list[str] = list(extra_notes or [])
     fallback_used = False
     lane = proposal.lane or legacy_code_to_lane(fallback_route.lane)
     if not isinstance(lane, Lane):
@@ -372,6 +467,16 @@ def _normalize_dispatch(
             notes.append("spurious_write_intent_suppressed")
 
     skill_def = SKILL_BY_ID.get(skill_id) if skill_id else None
+    if _METRIC_ANOMALY_RE.search(message or "") and skill_id in {None, "lookup_entity", "explain_metric"}:
+        if re.search(r"\b(debt risk|debt watch|watchlist)\b", message or "", re.IGNORECASE):
+            skill_id = "run_analysis"
+        elif re.search(r"\b(why|explain|blank|variance|underwriting|occupancy|noi|down vs)\b", message or "", re.IGNORECASE):
+            skill_id = "explain_metric"
+        else:
+            skill_id = "run_analysis"
+        notes.append("metric_anomaly_skill_normalized")
+        skill_def = SKILL_BY_ID.get(skill_id) if skill_id else None
+
     needs_retrieval = proposal.needs_retrieval
     if skill_id == "lookup_entity" and fallback_route.skip_rag:
         needs_retrieval = False
@@ -530,24 +635,19 @@ async def dispatch_request(
         return DispatchOutcome(trace=deterministic, route=route, routed_skill=skill)
 
     proposal: DispatchProposal | None = None
+    dispatch_notes: list[str] = []
     fallback_reason: str | None = None
     try:
-        proposal = await _model_dispatch(
+        proposal, dispatch_notes = await _model_dispatch(
             message=message,
             context_envelope=context_envelope,
             resolved_scope=resolved_scope,
             context=context,
             visible_context_shortcut=visible_context_shortcut,
         )
-    except json.JSONDecodeError:
+    except DispatchModelFailure as exc:
         proposal = None
-        fallback_reason = "dispatcher_invalid_json"
-    except ValidationError:
-        proposal = None
-        fallback_reason = "dispatcher_invalid_schema"
-    except ValueError:
-        proposal = None
-        fallback_reason = "dispatcher_invalid_response"
+        fallback_reason = exc.reason
     except Exception as exc:
         mapped = map_openai_error(exc, OPENAI_CHAT_MODEL_DISPATCH)
         proposal = None
@@ -571,6 +671,7 @@ async def dispatch_request(
         context=context,
         message=message,
         fallback_reason=fallback_reason,
+        extra_notes=dispatch_notes,
     )
     route = _route_from_dispatch(normalized=trace.normalized, fallback_route=fallback_route)
     skill = build_routed_skill(

@@ -126,12 +126,14 @@ async def run_assistant_turn(
         omit_environment=active.get("omit_environment", False),
         thread=active.get("thread"),
     )
+    conversation_id = uuid.uuid5(uuid.NAMESPACE_URL, f"winston-eval:{scenario['id']}")
 
     with _chaos_exit_stack(chaos_plan):
         parsed = await collect_runtime_turn(
             run_request_lifecycle(
                 message=active["message"],
                 actor="eval_loop",
+                conversation_id=conversation_id,
                 context_envelope=envelope,
             )
         )
@@ -548,6 +550,7 @@ async def run_suite(
             "invalid_dispatch": scored.get("invalid_dispatch", False),
             "dispatch_code_disagreement": scored.get("dispatch_code_disagreement", False),
             "expected": scenario.get("expected", {}),
+            "previous_record": previous,
         }
         results.append(record)
         store.insert_run(record)

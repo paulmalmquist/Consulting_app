@@ -56,6 +56,13 @@ class RetrievalStatus(StrEnum):
     EMPTY = "empty"
 
 
+class StructuredPrecheckStatus(StrEnum):
+    OK = "ok"
+    EMPTY = "empty"
+    UNAVAILABLE = "unavailable"
+    ERROR = "error"
+
+
 class TurnStatus(StrEnum):
     SUCCESS = "success"
     DEGRADED = "degraded"
@@ -81,6 +88,14 @@ class DispatchSource(StrEnum):
     MODEL = "model"
     LEGACY_FALLBACK = "legacy_fallback"
     DETERMINISTIC_GUARDRAIL = "deterministic_guardrail"
+
+
+class PendingActionStatus(StrEnum):
+    AWAITING_CONFIRMATION = "awaiting_confirmation"
+    CONFIRMED = "confirmed"
+    CANCELLED = "cancelled"
+    SUPERSEDED = "superseded"
+    EXPIRED = "expired"
 
 
 class SkillDefinition(BaseModel):
@@ -158,12 +173,47 @@ class ToolReceipt(BaseModel):
     error: str | None = None
 
 
+class StructuredPrecheckReceipt(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    name: str
+    source: str
+    status: StructuredPrecheckStatus
+    scoped: bool = False
+    result_count: int = 0
+    evidence: dict[str, Any] = Field(default_factory=dict)
+    notes: list[str] = Field(default_factory=list)
+    error: str | None = None
+
+
+class RetrievalDebugReceipt(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    query_text: str
+    scope_filters: dict[str, Any] = Field(default_factory=dict)
+    strategy: str
+    top_hits: list[dict[str, Any]] = Field(default_factory=list)
+    structured_prechecks: list[StructuredPrecheckReceipt] = Field(default_factory=list)
+    empty_reason: str | None = None
+
+
 class RetrievalReceipt(BaseModel):
     model_config = {"extra": "forbid"}
 
     used: bool
     result_count: int
     status: RetrievalStatus
+    debug: RetrievalDebugReceipt | None = None
+
+
+class PendingActionReceipt(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    pending_action_id: str
+    status: PendingActionStatus
+    action_type: str
+    scope_label: str | None = None
+    confirmation_required: bool = True
 
 
 class TurnReceipt(BaseModel):
@@ -177,6 +227,7 @@ class TurnReceipt(BaseModel):
     skill: SkillSelection
     tools: list[ToolReceipt] = Field(default_factory=list)
     retrieval: RetrievalReceipt
+    pending_action: PendingActionReceipt | None = None
     status: TurnStatus
     degraded_reason: DegradedReason | None = None
 

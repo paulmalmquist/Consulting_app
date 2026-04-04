@@ -6,6 +6,7 @@ import re
 import time
 import uuid
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from typing import Any, AsyncGenerator
 
 from app.assistant_runtime.context_resolver import resolve_runtime_context
@@ -17,10 +18,18 @@ from app.assistant_runtime.retrieval_orchestrator import RetrievalExecution, exe
 from app.assistant_runtime.skill_registry import skill_requires_grounding
 from app.assistant_runtime.turn_receipts import (
     ContextResolutionStatus,
+    DispatchAmbiguity,
+    DispatchDecision,
+    DispatchSource,
+    DispatchTrace,
     DegradedReason,
     Lane,
+    PendingActionReceipt,
+    PendingActionStatus,
     RetrievalReceipt,
     RetrievalStatus,
+    SkillSelection,
+    StructuredPrecheckStatus,
     ToolStatus,
     TurnReceipt,
     TurnStatus,
@@ -36,6 +45,10 @@ from app.services.ai_client import get_instrumented_client
 from app.services.assistant_blocks import citations_block, confirmation_block, markdown_block
 from app.services.assistant_scope import build_context_block, resolve_visible_context_policy
 from app.services.model_registry import get_caps, map_openai_error, sanitize_params
+from app.services.pending_action_manager import (
+    check_and_resolve as check_pending_action,
+    create_pending_action,
+)
 from app.services.rag_indexer import RetrievedChunk
 
 _SOURCE_AUDIT_RE = re.compile(
@@ -57,6 +70,48 @@ _CREATE_ENTITY_RE = re.compile(
 class FastResponse:
     text: str
     response_blocks: list[dict[str, Any]]
+    pending_action: dict[str, Any] | None = None
+
+
+def _to_decimal(value: Any) -> Decimal | None:
+    if value is None:
+        return None
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+
+def _format_currency(value: Any, *, signed: bool = False) -> str:
+    amount = _to_decimal(value)
+    if amount is None:
+        return "n/a"
+    formatted = f"{abs(amount):,.2f}"
+    if signed:
+        if amount > 0:
+            return f"+{formatted}"
+        if amount < 0:
+            return f"-{formatted}"
+    return formatted
+
+
+def _format_percent(value: Any) -> str:
+    amount = _to_decimal(value)
+    if amount is None:
+        return "n/a"
+    if abs(amount) <= Decimal("1"):
+        amount *= Decimal("100")
+    return f"{amount:.1f}%"
+
+
+def _structured_precheck_lookup(receipt: RetrievalReceipt, name: str) -> tuple[Any | None, Any | None]:
+    debug = getattr(receipt, "debug", None)
+    if debug is None:
+        return None, None
+    for precheck in getattr(debug, "structured_prechecks", []):
+        if precheck.name == name:
+            return precheck, debug
+    return None, debug
 
 
 def _json_safe(value: Any) -> Any:
@@ -153,6 +208,8 @@ def _build_trace(
             "dispatch_confidence": dispatch.confidence,
             "dispatch_fallback_used": dispatch.fallback_used,
             "dispatch_fallback_reason": dispatch.fallback_reason,
+            "pending_action": turn_receipt.pending_action.model_dump(mode="json") if turn_receipt.pending_action else None,
+            "retrieval_debug": turn_receipt.retrieval.debug.model_dump(mode="json") if turn_receipt.retrieval.debug else None,
             "timings": timings or {},
         },
         "response_block_count": len(response_blocks),
@@ -230,7 +287,118 @@ def _build_write_confirmation_fast_response(message: str) -> FastResponse | None
         provided_params={"entity_type": entity_type, "name": name} if name else {"entity_type": entity_type},
         missing_fields=[] if name else ["name"],
     )
-    return FastResponse(text=text, response_blocks=[markdown_block(text), block])
+    return FastResponse(
+        text=text,
+        response_blocks=[markdown_block(text), block],
+        pending_action={
+            "action_type": f"create_{entity_type}",
+            "params_json": {"entity_type": entity_type, "name": name} if name else {"entity_type": entity_type},
+            "missing_fields": [] if name else ["name"],
+        },
+    )
+
+
+def _build_follow_up_structured_fast_response(
+    *,
+    resolved_scope: Any,
+    envelope: AssistantContextEnvelope,
+    retrieval_execution: RetrievalExecution,
+) -> FastResponse | None:
+    precheck, debug = _structured_precheck_lookup(retrieval_execution.receipt, "novendor_follow_up_today")
+    if (
+        precheck is None
+        or debug is None
+        or precheck.status != StructuredPrecheckStatus.OK
+        or not debug.top_hits
+    ):
+        return None
+
+    evidence = precheck.evidence or {}
+    today_count = int(evidence.get("today_count") or 0)
+    overdue_count = int(evidence.get("overdue_count") or 0)
+    environment_name = envelope.ui.active_environment_name or resolved_scope.entity_name or "Novendor"
+    lines = [
+        f"{environment_name} follow up priorities for today are grounded in the structured task list.",
+        f"- Tasks due today: {today_count}",
+        f"- Overdue open tasks: {overdue_count}",
+    ]
+    for idx, hit in enumerate(debug.top_hits[:5], start=1):
+        label = hit.get("label") or "Unnamed task"
+        priority = hit.get("priority") or "normal"
+        due = hit.get("due_date") or "unspecified"
+        lines.append(f"{idx}. {label} (priority={priority}, due={due})")
+    text = "\n".join(lines)
+    return FastResponse(text=text, response_blocks=[markdown_block(text)])
+
+
+def _build_noi_variance_structured_fast_response(
+    *,
+    message: str,
+    resolved_scope: Any,
+    envelope: AssistantContextEnvelope,
+    retrieval_execution: RetrievalExecution,
+) -> FastResponse | None:
+    precheck, debug = _structured_precheck_lookup(retrieval_execution.receipt, "meridian_noi_variance")
+    if (
+        precheck is None
+        or debug is None
+        or precheck.status != StructuredPrecheckStatus.OK
+        or not debug.top_hits
+    ):
+        return None
+
+    summary = (precheck.evidence or {}).get("summary") or {}
+    total_actual = summary.get("total_actual")
+    total_plan = summary.get("total_plan")
+    total_variance = _to_decimal(summary.get("total_variance"))
+    avg_variance_pct = summary.get("avg_variance_pct")
+    scope_label = _format_scope_label(resolved_scope=resolved_scope, envelope=envelope)
+
+    prompt = (message or "").lower()
+    if "down vs underwriting" in prompt:
+        direction = "not down vs underwriting" if (total_variance or Decimal("0")) >= 0 else "down vs underwriting"
+        intro = f"At {scope_label}, NOI is {direction} in the current structured variance view."
+    else:
+        intro = f"NOI variance for {scope_label} is grounded in the current structured underwriting comparison."
+
+    lines = [
+        intro,
+        f"- Total actual NOI: {_format_currency(total_actual)}",
+        f"- Total underwriting plan: {_format_currency(total_plan)}",
+        f"- Total variance: {_format_currency(total_variance, signed=True)}",
+        f"- Average variance pct: {_format_percent(avg_variance_pct)}",
+        "- Top visible drivers:",
+    ]
+    for hit in debug.top_hits[:5]:
+        label = hit.get("label") or "Unknown asset"
+        line_code = hit.get("line_code") or "line item"
+        variance_amount = _format_currency(hit.get("variance_amount"), signed=True)
+        variance_pct = _format_percent(hit.get("variance_pct"))
+        lines.append(f"  {label} / {line_code}: {variance_amount} ({variance_pct})")
+
+    text = "\n".join(lines)
+    return FastResponse(text=text, response_blocks=[markdown_block(text)])
+
+
+def _pending_action_receipt(
+    pending_row: dict[str, Any] | None,
+    *,
+    fallback_action_type: str | None = None,
+    fallback_scope_label: str | None = None,
+    status: PendingActionStatus = PendingActionStatus.AWAITING_CONFIRMATION,
+) -> PendingActionReceipt | None:
+    if not pending_row and not fallback_action_type:
+        return None
+    pending_action_id = str((pending_row or {}).get("pending_action_id") or f"pending_{uuid.uuid4()}")
+    action_type = str((pending_row or {}).get("action_type") or fallback_action_type or "pending_action")
+    scope_label = (pending_row or {}).get("scope_label") or fallback_scope_label
+    return PendingActionReceipt(
+        pending_action_id=pending_action_id,
+        status=status,
+        action_type=action_type,
+        scope_label=scope_label,
+        confirmation_required=True,
+    )
 
 
 def _deterministic_fast_response(
@@ -256,6 +424,23 @@ def _deterministic_fast_response(
             retrieval_count=retrieval_execution.receipt.result_count,
             tool_count=0,
         )
+
+    structured_follow_up = _build_follow_up_structured_fast_response(
+        resolved_scope=resolved_scope,
+        envelope=envelope,
+        retrieval_execution=retrieval_execution,
+    )
+    if structured_follow_up is not None:
+        return structured_follow_up
+
+    structured_noi = _build_noi_variance_structured_fast_response(
+        message=normalized_message,
+        resolved_scope=resolved_scope,
+        envelope=envelope,
+        retrieval_execution=retrieval_execution,
+    )
+    if structured_noi is not None:
+        return structured_noi
 
     if skill_id == "create_entity" and lane == Lane.C_ANALYSIS and not retrieval_execution.receipt.used:
         return _build_write_confirmation_fast_response(normalized_message)
@@ -308,6 +493,17 @@ async def run_request_lifecycle(
     resolved_scope = runtime_context.resolved_scope
     context_receipt = runtime_context.receipt
     scope_dump = resolved_scope.model_dump()
+    pending_action_state: PendingActionReceipt | None = None
+
+    pending_resolution: dict[str, Any] | None = None
+    if conversation_id:
+        try:
+            pending_resolution = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: check_pending_action(str(conversation_id), message),
+            )
+        except Exception:
+            pending_resolution = None
 
     emit_log(
         level="info",
@@ -317,6 +513,76 @@ async def run_request_lifecycle(
         context={"request_id": request_id, "resolved_scope": scope_dump, "context_receipt": context_receipt.model_dump()},
     )
     yield _sse("context", {"context_envelope": normalized_envelope.model_dump(), "resolved_scope": scope_dump})
+
+    if pending_resolution and pending_resolution.get("intent") in {"cancel", "confirm"}:
+        intent = str(pending_resolution.get("intent"))
+        pending_row = pending_resolution.get("pending_action") or {}
+        pending_status = (
+            PendingActionStatus.CANCELLED
+            if intent == "cancel"
+            else PendingActionStatus.CONFIRMED
+        )
+        pending_action_state = _pending_action_receipt(
+            pending_row,
+            fallback_scope_label=_format_scope_label(resolved_scope=resolved_scope, envelope=normalized_envelope),
+            status=pending_status,
+        )
+        message_text = (
+            f"Cancelled the pending {pending_row.get('action_type', 'action')}."
+            if intent == "cancel"
+            else f"Confirmed the pending {pending_row.get('action_type', 'action')}."
+        )
+        response_blocks = [markdown_block(message_text)]
+        turn_receipt = TurnReceipt(
+            request_id=request_id,
+            lane=Lane.A_FAST,
+            dispatch=DispatchTrace(
+                raw=None,
+                normalized=DispatchDecision(
+                    source=DispatchSource.DETERMINISTIC_GUARDRAIL,
+                    skill_id="create_entity",
+                    lane=Lane.A_FAST,
+                    needs_retrieval=False,
+                    write_intent=False,
+                    ambiguity_level=DispatchAmbiguity.LOW,
+                    confidence=1.0,
+                    fallback_used=False,
+                    notes=[f"pending_action_{intent}"],
+                ),
+            ),
+            fallback_reason=None,
+            context=context_receipt,
+            skill=SkillSelection(
+                skill_id="create_entity",
+                confidence=1.0,
+                triggers_matched=[intent],
+            ),
+            tools=[],
+            retrieval=RetrievalReceipt(used=False, result_count=0, status=RetrievalStatus.OK),
+            pending_action=pending_action_state,
+            status=TurnStatus.SUCCESS,
+            degraded_reason=None,
+        )
+        timings["render_completion_ms"] = int((time.time() - started_at) * 1000)
+        yield _sse("token", {"text": message_text})
+        yield _sse(
+            "done",
+            {
+                "session_id": session_id,
+                "turn_receipt": turn_receipt.model_dump(mode="json"),
+                "trace": _build_trace(
+                    turn_receipt=turn_receipt,
+                    model="none",
+                    elapsed_ms=timings["render_completion_ms"] or 0,
+                    resolved_scope=scope_dump,
+                    response_blocks=response_blocks,
+                    timings=timings,
+                ),
+                "response_blocks": response_blocks,
+                "resolved_scope": scope_dump,
+            },
+        )
+        return
 
     route_started = time.perf_counter()
     visible_context_policy = resolve_visible_context_policy(
@@ -412,6 +678,7 @@ async def run_request_lifecycle(
             skill=routed_skill.selection,
             tools=[],
             retrieval=retrieval_execution.receipt,
+            pending_action=pending_action_state,
             status=TurnStatus.DEGRADED,
             degraded_reason=degraded_reason,
         )
@@ -446,6 +713,41 @@ async def run_request_lifecycle(
         retrieval_execution=retrieval_execution,
     )
     if fast_response is not None:
+        if (
+            fast_response.pending_action
+            and conversation_id
+            and resolved_scope.business_id
+        ):
+            try:
+                pending_row = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: create_pending_action(
+                        conversation_id=str(conversation_id),
+                        business_id=str(resolved_scope.business_id),
+                        env_id=str(resolved_scope.environment_id) if resolved_scope.environment_id else None,
+                        actor=actor,
+                        skill_id=routed_skill.selection.skill_id,
+                        action_type=str(fast_response.pending_action.get("action_type") or "pending_action"),
+                        params_json=fast_response.pending_action.get("params_json") or {},
+                        missing_fields=fast_response.pending_action.get("missing_fields") or [],
+                        scope_type=resolved_scope.entity_type,
+                        scope_id=resolved_scope.entity_id,
+                        scope_label=_format_scope_label(resolved_scope=resolved_scope, envelope=normalized_envelope),
+                    ),
+                )
+                pending_action_state = _pending_action_receipt(
+                    pending_row,
+                    fallback_action_type=str(fast_response.pending_action.get("action_type") or "pending_action"),
+                    fallback_scope_label=_format_scope_label(resolved_scope=resolved_scope, envelope=normalized_envelope),
+                    status=PendingActionStatus.AWAITING_CONFIRMATION,
+                )
+            except Exception:
+                pending_action_state = _pending_action_receipt(
+                    None,
+                    fallback_action_type=str(fast_response.pending_action.get("action_type") or "pending_action"),
+                    fallback_scope_label=_format_scope_label(resolved_scope=resolved_scope, envelope=normalized_envelope),
+                    status=PendingActionStatus.AWAITING_CONFIRMATION,
+                )
         timings["first_token_ms"] = int((time.time() - started_at) * 1000)
         for block in fast_response.response_blocks:
             yield _sse("response_block", {"block": block})
@@ -459,6 +761,7 @@ async def run_request_lifecycle(
             skill=routed_skill.selection,
             tools=[],
             retrieval=retrieval_execution.receipt,
+            pending_action=pending_action_state,
             status=TurnStatus.SUCCESS,
             degraded_reason=None,
         )
@@ -546,6 +849,7 @@ async def run_request_lifecycle(
                 skill=routed_skill.selection,
                 tools=tool_receipts,
                 retrieval=retrieval_execution.receipt,
+                pending_action=pending_action_state,
                 status=TurnStatus.FAILED,
                 degraded_reason=DegradedReason.TOOL_FAILED,
             )
@@ -633,6 +937,39 @@ async def run_request_lifecycle(
                 )
                 response_blocks.append(confirm_block)
                 yield _sse("response_block", {"block": confirm_block})
+                if conversation_id and resolved_scope.business_id:
+                    try:
+                        pending_row = await asyncio.get_event_loop().run_in_executor(
+                            None,
+                            lambda: create_pending_action(
+                                conversation_id=str(conversation_id),
+                                business_id=str(resolved_scope.business_id),
+                                env_id=str(resolved_scope.environment_id) if resolved_scope.environment_id else None,
+                                actor=actor,
+                                skill_id=routed_skill.selection.skill_id,
+                                action_type=str(item.receipt.output.get("action") or item.receipt.tool_name),
+                                params_json=item.receipt.output.get("provided") or item.receipt.input,
+                                missing_fields=item.receipt.output.get("missing_fields")
+                                or item.receipt.output.get("required_fields")
+                                or [],
+                                scope_type=resolved_scope.entity_type,
+                                scope_id=resolved_scope.entity_id,
+                                scope_label=_format_scope_label(resolved_scope=resolved_scope, envelope=normalized_envelope),
+                            ),
+                        )
+                        pending_action_state = _pending_action_receipt(
+                            pending_row,
+                            fallback_action_type=str(item.receipt.output.get("action") or item.receipt.tool_name),
+                            fallback_scope_label=_format_scope_label(resolved_scope=resolved_scope, envelope=normalized_envelope),
+                            status=PendingActionStatus.AWAITING_CONFIRMATION,
+                        )
+                    except Exception:
+                        pending_action_state = _pending_action_receipt(
+                            None,
+                            fallback_action_type=str(item.receipt.output.get("action") or item.receipt.tool_name),
+                            fallback_scope_label=_format_scope_label(resolved_scope=resolved_scope, envelope=normalized_envelope),
+                            status=PendingActionStatus.AWAITING_CONFIRMATION,
+                        )
             messages.append(item.tool_message)
 
     if collected_content.strip():
@@ -648,6 +985,7 @@ async def run_request_lifecycle(
         skill=routed_skill.selection,
         tools=tool_receipts,
         retrieval=retrieval_execution.receipt,
+        pending_action=pending_action_state,
         status=final_status,
         degraded_reason=final_reason,
     )

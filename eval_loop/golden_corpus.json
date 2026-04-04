@@ -124,6 +124,8 @@
         "skill": "create_entity",
         "status": "success",
         "tool_names": [],
+        "pending_action_status": "awaiting_confirmation",
+        "pending_action_action": "create_deal",
         "response_block_types": ["confirmation"],
         "answer_must_include": ["Meridian West", "confirm"],
         "answer_must_not_include": ["created successfully", "saved", "executed write"],

@@ -125,7 +125,7 @@ SKILL_BY_ID = {skill.id: skill for skill in SKILLS}
 _GROUNDED_CONTEXT_RE = re.compile(
     r"\b("
     r"variance|underwriting|occupancy|debt watch|watchlist|lender|debt risk|risk|noi|irr|tvpi|dpi|dscr|ltv|"
-    r"blank|down vs|why is|this fund|this asset|this deal|this investment|latest|current|today|"
+    r"blank|down vs|why is|latest|today|"
     r"changes|source|basis|based on|summary|lp summary"
     r")\b",
     re.IGNORECASE,

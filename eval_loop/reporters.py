@@ -6,6 +6,19 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
+GROUNDEDNESS_SCENARIOS = [
+    "golden_noi_down_vs_underwriting_meridian",
+    "golden_generate_lp_summary_meridian",
+    "golden_follow_up_today_novendor",
+    "golden_debt_risk_meridian",
+    "golden_occupancy_blank_meridian",
+    "meridian_explain_noi_variance",
+]
+PRIORITY_PROOF_SCENARIOS = [
+    "golden_noi_down_vs_underwriting_meridian",
+    "golden_follow_up_today_novendor",
+]
+
 
 def _median(values: list[int]) -> float:
     return round(statistics.median(values), 2) if values else 0.0
@@ -77,6 +90,98 @@ def _failure_clusters(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
             }
         )
     return sorted(out, key=lambda item: (-item["count"], item["category"]))
+
+
+def _classify_grounded_root_cause(record: dict[str, Any]) -> str | None:
+    receipt = (record.get("turn_receipt") or {}) if isinstance(record, dict) else {}
+    retrieval = receipt.get("retrieval") or {}
+    debug = retrieval.get("debug") or {}
+    mismatches = record.get("mismatches") or []
+    context = receipt.get("context") or {}
+    structured = debug.get("structured_prechecks") or []
+
+    if any(mismatch.get("category") == "routing_failure" for mismatch in mismatches):
+        return "wrong_scope"
+    if debug.get("empty_reason") == "invalid_entity_id":
+        return "wrong_scope"
+    if context.get("entity_type") == "environment" and any(term in record.get("scenario_id", "") for term in ("occupancy", "noi", "lp_summary", "debt")):
+        return "wrong_scope"
+    if structured and all(item.get("status") in {"unavailable", "error"} for item in structured):
+        return "structured_source_needed"
+    if structured and any(item.get("status") == "empty" for item in structured) and not debug.get("top_hits"):
+        return "data_missing"
+    if debug.get("top_hits") and debug.get("empty_reason") == "hits_below_threshold":
+        return "reranking_miss"
+    if debug.get("top_hits") and retrieval.get("status") == "empty":
+        return "weak_query"
+    if retrieval.get("status") == "empty":
+        return "structured_source_needed"
+    return None
+
+
+def _grounded_root_cause_rows(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        scenario_id = result.get("scenario_id")
+        if scenario_id not in GROUNDEDNESS_SCENARIOS:
+            continue
+        evidence_record = result.get("previous_record") if result.get("passed") and result.get("previous_record") else result
+        receipt = (evidence_record.get("turn_receipt") or {}) if isinstance(evidence_record, dict) else {}
+        retrieval = receipt.get("retrieval") or {}
+        debug = retrieval.get("debug") or {}
+        context = receipt.get("context") or {}
+        skill = receipt.get("skill") or {}
+        rows.append(
+            {
+                "scenario_id": scenario_id,
+                "status": result.get("turn_receipt", {}).get("status"),
+                "expected_skill": (result.get("expected") or {}).get("skill") or (result.get("expected") or {}).get("allowed_skills"),
+                "actual_skill": skill.get("skill_id"),
+                "expected_lane": (result.get("expected") or {}).get("lane") or (result.get("expected") or {}).get("allowed_lanes"),
+                "actual_lane": receipt.get("lane"),
+                "resolved_context": {
+                    "environment_id": context.get("environment_id"),
+                    "entity_type": context.get("entity_type"),
+                    "entity_id": context.get("entity_id"),
+                    "resolution_status": context.get("resolution_status"),
+                },
+                "retrieval_query": debug.get("query_text"),
+                "scope_filters": debug.get("scope_filters"),
+                "top_hits": debug.get("top_hits"),
+                "structured_prechecks": debug.get("structured_prechecks"),
+                "root_cause": _classify_grounded_root_cause(evidence_record),
+            }
+        )
+    return rows
+
+
+def _priority_proof_rows(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    by_id = {result.get("scenario_id"): result for result in results}
+    for scenario_id in PRIORITY_PROOF_SCENARIOS:
+        current = by_id.get(scenario_id)
+        if not current:
+            continue
+        before = current.get("previous_record") or {}
+        after_receipt = current.get("turn_receipt") or {}
+        before_receipt = before.get("turn_receipt") or {}
+        rows.append(
+            {
+                "scenario_id": scenario_id,
+                "before_trace": {
+                    "status": before_receipt.get("status"),
+                    "degraded_reason": before_receipt.get("degraded_reason"),
+                    "retrieval": before_receipt.get("retrieval"),
+                },
+                "after_trace": {
+                    "status": after_receipt.get("status"),
+                    "degraded_reason": after_receipt.get("degraded_reason"),
+                    "retrieval": after_receipt.get("retrieval"),
+                },
+                "receipt_diff": current.get("receipt_diff"),
+            }
+        )
+    return rows
 
 
 def _render_latest_summary(
@@ -153,13 +258,12 @@ def _render_latest_summary(
             f"- Low-confidence dispatches: `{sum(1 for result in results if result.get('low_confidence_dispatch'))}`",
             f"- Invalid dispatches: `{sum(1 for result in results if result.get('invalid_dispatch'))}`",
             f"- Dispatch/code disagreements: `{sum(1 for result in results if result.get('dispatch_code_disagreement'))}`",
-            "",
-            "## Cross-Environment Contamination",
         ]
     )
     if fallback_reasons:
         for reason, count in fallback_reasons.most_common(5):
             lines.append(f"- fallback `{reason}`: {count}")
+    lines.extend(["", "## Cross-Environment Contamination"])
     lines.extend(contamination_lines or ["- No contamination detected in this cycle."])
 
     lines.extend(["", "## What Degraded Correctly"])
@@ -348,3 +452,31 @@ def write_reports(
     (out_dir / "failure_clusters.json").write_text(json.dumps(failure_clusters, indent=2) + "\n")
     (out_dir / "suspect_file_heatmap.json").write_text(json.dumps(suspect_heatmap, indent=2) + "\n")
     (out_dir / "receipt_diffs.json").write_text(json.dumps(receipt_diffs, indent=2) + "\n")
+
+    root_cause_rows = _grounded_root_cause_rows(results)
+    (out_dir / "groundedness_root_causes.json").write_text(json.dumps(root_cause_rows, indent=2) + "\n")
+    root_md = ["# Groundedness Root Causes", ""]
+    if root_cause_rows:
+        for row in root_cause_rows:
+            root_md.extend(
+                [
+                    f"## {row['scenario_id']}",
+                    f"- Root cause: {row['root_cause']}",
+                    f"- Expected skill: {row['expected_skill']}",
+                    f"- Actual skill: {row['actual_skill']}",
+                    f"- Expected lane: {row['expected_lane']}",
+                    f"- Actual lane: {row['actual_lane']}",
+                    f"- Context: {json.dumps(row['resolved_context'])}",
+                    f"- Query: {row['retrieval_query']}",
+                    f"- Scope filters: {json.dumps(row['scope_filters'])}",
+                    f"- Top hits: {json.dumps(row['top_hits'])}",
+                    f"- Structured prechecks: {json.dumps(row['structured_prechecks'])}",
+                    "",
+                ]
+            )
+    else:
+        root_md.append("- No groundedness scenarios were recorded in this run.")
+    (out_dir / "groundedness_root_causes.md").write_text("\n".join(root_md) + "\n")
+
+    proof_rows = _priority_proof_rows(results)
+    (out_dir / "groundedness_proof.json").write_text(json.dumps(proof_rows, indent=2) + "\n")

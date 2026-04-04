@@ -153,6 +153,8 @@ function OverviewTab({
   const receiptTools = Array.isArray(turnReceipt?.tools) ? turnReceipt.tools : [];
   const receiptRetrieval = turnReceipt?.retrieval;
   const dispatchDecision = turnReceipt?.dispatch?.normalized;
+  const pendingAction = turnReceipt?.pending_action;
+  const retrievalDebug = receiptRetrieval?.debug;
   return (
     <div className="space-y-2">
       {/* Execution summary */}
@@ -221,6 +223,7 @@ function OverviewTab({
           <KV label="Fallback reason" value={dispatchDecision?.fallback_reason || turnReceipt.fallback_reason} />
           <KV label="Status" value={turnReceipt.status} />
           <KV label="Degraded reason" value={turnReceipt.degraded_reason} />
+          <KV label="Pending action" value={pendingAction ? `${pendingAction.status} (${pendingAction.action_type})` : undefined} />
           <KV
             label="Retrieval"
             value={
@@ -229,6 +232,7 @@ function OverviewTab({
                 : "Missing from receipt"
             }
           />
+          <KV label="Retrieval empty reason" value={retrievalDebug?.empty_reason} />
         </div>
       )}
 
@@ -391,6 +395,8 @@ function TraceTab({
   const receiptSkill = turnReceipt?.skill?.skill_id;
   const receiptRetrieval = turnReceipt?.retrieval;
   const dispatchDecision = turnReceipt?.dispatch?.normalized;
+  const retrievalDebug = receiptRetrieval?.debug;
+  const pendingAction = turnReceipt?.pending_action;
 
   return (
     <div className="space-y-2">
@@ -483,6 +489,31 @@ function TraceTab({
               </div>
             ))
           )}
+        </CollapsibleSection>
+      )}
+
+      {retrievalDebug && (
+        <CollapsibleSection title="Retrieval Debug">
+          <KV label="Strategy" value={retrievalDebug.strategy} />
+          <KV label="Query" value={retrievalDebug.query_text} />
+          <KV label="Empty reason" value={retrievalDebug.empty_reason} />
+          <KV
+            label="Structured prechecks"
+            value={retrievalDebug.structured_prechecks.map((item) => `${item.name}:${item.status}`).join(", ")}
+          />
+          <pre className="mt-1 max-h-40 overflow-auto rounded bg-bm-bg/80 p-1.5 text-[9px] text-bm-muted2 font-mono whitespace-pre-wrap">
+            {JSON.stringify(retrievalDebug, null, 2)}
+          </pre>
+        </CollapsibleSection>
+      )}
+
+      {pendingAction && (
+        <CollapsibleSection title="Pending Action">
+          <KV label="Status" value={pendingAction.status} />
+          <KV label="Action" value={pendingAction.action_type} />
+          <KV label="Scope" value={pendingAction.scope_label} />
+          <KV label="Pending action ID" value={pendingAction.pending_action_id} mono />
+          <KV label="Confirmation required" value={pendingAction.confirmation_required ? "Yes" : "No"} />
         </CollapsibleSection>
       )}
 
@@ -688,6 +719,8 @@ function RuntimeTab({
   const receiptTools = Array.isArray(turnReceipt?.tools) ? turnReceipt.tools : [];
   const receiptRetrieval = turnReceipt?.retrieval;
   const dispatchDecision = turnReceipt?.dispatch?.normalized;
+  const retrievalDebug = receiptRetrieval?.debug;
+  const pendingAction = turnReceipt?.pending_action;
   return (
     <div className="space-y-2">
       <div className="rounded-md bg-bm-surface/20 px-2 py-1.5">
@@ -713,9 +746,12 @@ function RuntimeTab({
         <KV label="Fallback reason" value={dispatchDecision?.fallback_reason || turnReceipt?.fallback_reason} />
         <KV label="Turn status" value={turnReceipt?.status} />
         <KV label="Degraded reason" value={turnReceipt?.degraded_reason} />
+        <KV label="Pending action" value={pendingAction ? `${pendingAction.status} (${pendingAction.action_type})` : undefined} />
         <KV label="Tool calls" value={receiptTools.length || winstonTrace?.tool_call_count} />
         <KV label="RAG chunks" value={receiptRetrieval?.result_count ?? winstonTrace?.rag_chunks_used} />
         <KV label="Citations" value={winstonTrace?.citations?.length} />
+        <KV label="Retrieval strategy" value={retrievalDebug?.strategy} />
+        <KV label="Retrieval empty reason" value={retrievalDebug?.empty_reason} />
       </div>
 
       {/* Timings breakdown */}
