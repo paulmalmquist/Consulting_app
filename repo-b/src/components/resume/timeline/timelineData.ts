@@ -419,6 +419,131 @@ export interface CurvePoint {
   event_id: string | null;
 }
 
+// ---------------------------------------------------------------------------
+// Stacked capability chart data — per-skill layer points
+// ---------------------------------------------------------------------------
+
+export interface StackedPoint {
+  ts: number;
+  date: string;
+  company: CompanyId | null;
+  event_id: string | null;
+  /** One key per capability id — value = capability depth at this point (0..100) */
+  [capabilityId: string]: number | string | CompanyId | null;
+}
+
+/**
+ * Anchor definitions per skill: { ts, value } pairs.
+ * Values represent relative depth of that skill at that date (0–100 scale).
+ * Skills accumulate — once learned, they don't drop to zero.
+ */
+const SKILL_ANCHORS: Record<string, Array<{ date: string; value: number }>> = {
+  sql: [
+    { date: "2014-08-01", value: 5 },
+    { date: "2015-06-01", value: 18 },
+    { date: "2016-06-01", value: 32 },
+    { date: "2017-03-01", value: 42 },
+    { date: "2018-01-31", value: 50 },
+    { date: "2019-06-01", value: 62 },
+    { date: "2021-06-01", value: 74 },
+    { date: "2023-01-01", value: 84 },
+    { date: "2025-04-01", value: 88 },
+    { date: "2026-04-01", value: 92 },
+  ],
+  tableau: [
+    { date: "2014-08-01", value: 4 },
+    { date: "2015-06-01", value: 14 },
+    { date: "2016-06-01", value: 24 },
+    { date: "2017-03-01", value: 32 },
+    { date: "2018-01-31", value: 36 },
+    { date: "2019-06-01", value: 36 }, // holds — no longer primary
+    { date: "2026-04-01", value: 36 },
+  ],
+  python: [
+    { date: "2014-08-01", value: 0 },
+    { date: "2018-02-01", value: 4 },
+    { date: "2019-06-01", value: 16 },
+    { date: "2020-06-01", value: 30 },
+    { date: "2022-06-01", value: 46 },
+    { date: "2024-02-01", value: 64 },
+    { date: "2025-04-01", value: 70 },
+    { date: "2026-04-01", value: 78 },
+  ],
+  azure: [
+    { date: "2014-08-01", value: 0 },
+    { date: "2018-02-01", value: 4 },
+    { date: "2019-06-01", value: 18 },
+    { date: "2021-06-01", value: 32 },
+    { date: "2023-07-01", value: 44 },
+    { date: "2025-03-31", value: 48 },
+    { date: "2026-04-01", value: 48 }, // holds — primary at Kayne
+  ],
+  databricks: [
+    { date: "2014-08-01", value: 0 },
+    { date: "2019-06-01", value: 8 },
+    { date: "2020-06-01", value: 22 },
+    { date: "2021-06-01", value: 38 },
+    { date: "2022-06-01", value: 54 },
+    { date: "2023-07-01", value: 66 },
+    { date: "2024-02-01", value: 74 },
+    { date: "2025-06-01", value: 84 },
+    { date: "2026-04-01", value: 90 },
+  ],
+  power_bi: [
+    { date: "2014-08-01", value: 0 },
+    { date: "2019-06-01", value: 6 },
+    { date: "2020-06-01", value: 18 },
+    { date: "2022-06-01", value: 32 },
+    { date: "2023-07-01", value: 46 },
+    { date: "2025-03-31", value: 52 },
+    { date: "2026-04-01", value: 52 }, // holds
+  ],
+  openai: [
+    { date: "2014-08-01", value: 0 },
+    { date: "2024-10-01", value: 0 },
+    { date: "2025-04-01", value: 8 },
+    { date: "2025-09-01", value: 28 },
+    { date: "2026-04-01", value: 46 },
+  ],
+};
+
+/** Build stacked area chart data — one row per month, one key per skill. */
+export function buildStackedCurveData(): StackedPoint[] {
+  const startDate = new Date("2014-08-01T00:00:00Z");
+  const endDate = new Date("2026-04-01T00:00:00Z");
+  const cursor = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), 1));
+  const events = TIMELINE_EVENTS;
+  const points: StackedPoint[] = [];
+
+  while (cursor <= endDate) {
+    const ts = cursor.getTime();
+    const dateStr = cursor.toISOString().slice(0, 10);
+
+    let company: CompanyId | null = null;
+    let eventId: string | null = null;
+    for (const event of events) {
+      const start = new Date(`${event.start_date}T00:00:00Z`).getTime();
+      const end = event.end_date
+        ? new Date(`${event.end_date}T00:00:00Z`).getTime()
+        : new Date("2026-12-31T00:00:00Z").getTime();
+      if (ts >= start && ts <= end) {
+        company = event.company;
+        eventId = event.id;
+        break;
+      }
+    }
+
+    const point: StackedPoint = { ts, date: dateStr, company, event_id: eventId };
+    for (const [capId, anchors] of Object.entries(SKILL_ANCHORS)) {
+      point[capId] = interpolate(ts, anchors);
+    }
+    points.push(point);
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+
+  return points;
+}
+
 /**
  * Build the cumulative capability curve from anchor points.
  * Returns monthly data points with interpolated values.

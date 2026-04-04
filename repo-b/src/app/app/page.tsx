@@ -329,10 +329,16 @@ function AppIndexPageInner() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <div className="font-command text-[1rem] uppercase tracking-[0.08em] text-white">
-                            {environment.client_name}
-                          </div>
-                          <p className="mt-1 text-xs uppercase tracking-[0.18em] text-white/42">
+                          {["NOVENDOR", "FLOYORKER"].includes(environment.client_name?.toUpperCase()) ? (
+                            <div className="font-command text-[1rem] uppercase tracking-[0.08em] text-white">
+                              {environment.client_name}
+                            </div>
+                          ) : (
+                            <div className="text-sm font-medium text-white">
+                              {environment.client_name}
+                            </div>
+                          )}
+                          <p className="mt-1 text-xs leading-5 text-white/46">
                             {humanIndustry(environment.industry_type || environment.industry)}
                           </p>
                         </div>

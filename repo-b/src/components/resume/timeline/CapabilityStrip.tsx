@@ -79,7 +79,7 @@ export default function CapabilityStrip({
               isSelected
                 ? "bg-white/12 shadow-[0_0_0_1px_rgba(255,255,255,0.2)]"
                 : isDimmed
-                  ? "opacity-30"
+                  ? "opacity-45"
                   : "hover:bg-white/8"
             }`}
           >
@@ -97,10 +97,10 @@ export default function CapabilityStrip({
             >
               {Icon && (
                 <Icon
-                  size={isMobileCheck() ? 16 : 18}
+                  size={isMobileCheck() ? 20 : 22}
                   className="transition-colors"
                   style={{
-                    color: isSelected || isActive ? capability.color : "rgba(156,163,175,0.5)",
+                    color: isSelected || isActive ? capability.color : "rgba(200,190,175,0.65)",
                   }}
                 />
               )}
@@ -108,12 +108,12 @@ export default function CapabilityStrip({
 
             {/* Label */}
             <span
-              className={`text-[9px] font-medium leading-none transition-colors md:text-[10px] ${
+              className={`text-[10px] font-medium leading-none transition-colors md:text-[11px] ${
                 isSelected
                   ? "text-white"
                   : isActive
-                    ? "text-white/70"
-                    : "text-white/30"
+                    ? "text-white/85"
+                    : "text-white/45"
               }`}
             >
               {capability.name}
@@ -167,14 +167,14 @@ function CompanyBadge({ company }: { company: CompanyId }) {
     winston: "W",
   };
   const colors: Record<CompanyId, string> = {
-    jll: "rgba(220,38,38,0.3)",
-    kayne: "rgba(37,99,235,0.3)",
-    winston: "rgba(115,115,115,0.3)",
+    jll: "rgba(220,38,38,0.45)",
+    kayne: "rgba(37,99,235,0.45)",
+    winston: "rgba(115,115,115,0.45)",
   };
 
   return (
     <span
-      className="rounded px-1 py-0.5 text-[8px] font-semibold leading-none text-white/60"
+      className="rounded px-1 py-0.5 text-[9px] font-semibold leading-none text-white/75"
       style={{ backgroundColor: colors[company] }}
     >
       {labels[company]}

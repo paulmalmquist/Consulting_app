@@ -13,14 +13,41 @@ import {
   YAxis,
 } from "recharts";
 import {
-  buildCurveData,
+  buildStackedCurveData,
+  CAPABILITIES,
   COMPANY_COLORS,
   SYSTEMS,
   TIMELINE_EVENTS,
   type CompanyId,
-  type CurvePoint,
+  type StackedPoint,
   type System,
 } from "./timelineData";
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/** Ordered skill layers — bottom to top of stacked chart */
+const SKILL_LAYER_ORDER = [
+  "sql",
+  "tableau",
+  "azure",
+  "python",
+  "power_bi",
+  "databricks",
+  "openai",
+] as const;
+
+/** Editorial colors per skill (warm/cool palette matching the cinematic skin) */
+const SKILL_COLORS: Record<string, string> = {
+  sql:        "#7a9eb8",   // steel blue
+  tableau:    "#c8923a",   // gold
+  azure:      "#4a90c4",   // azure blue
+  python:     "#5b8fa8",   // slate blue
+  power_bi:   "#d4a843",   // warm amber
+  databricks: "#c84b2a",   // warm red
+  openai:     "#9b6bb5",   // purple
+};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,7 +87,7 @@ function useIsMobile(breakpoint = 768) {
   return isMobile;
 }
 
-/** 3 key milestone labels shown directly on the graph */
+/** 3 key milestone labels shown on the graph */
 const KEY_MILESTONES = new Map<string, string>([
   ["sys-ingestion-automation", "Ingestion Automation"],
   ["sys-warehouse", "Data Warehouse"],
@@ -71,15 +98,14 @@ const KEY_MILESTONES = new Map<string, string>([
 // Custom tooltip
 // ---------------------------------------------------------------------------
 
-/** Find the nearest system milestone to a given timestamp */
 function findNearestSystem(ts: number): System | null {
   let nearest: System | null = null;
   let minDist = Infinity;
-  const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+  const NINETY_DAYS = 90 * 24 * 60 * 60 * 1000;
   for (const system of SYSTEMS) {
     const sysTs = new Date(`${system.date}T00:00:00Z`).getTime();
     const dist = Math.abs(ts - sysTs);
-    if (dist < minDist && dist < THIRTY_DAYS * 3) {
+    if (dist < minDist && dist < NINETY_DAYS) {
       minDist = dist;
       nearest = system;
     }
@@ -87,52 +113,87 @@ function findNearestSystem(ts: number): System | null {
   return nearest;
 }
 
-function CurveTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: CurvePoint }> }) {
+function StackedTooltip({
+  active,
+  payload,
+  selectedCapabilityId,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload: StackedPoint; dataKey?: string; value?: number; fill?: string }>;
+  selectedCapabilityId: string | null;
+}) {
   if (!active || !payload?.[0]) return null;
   const point = payload[0].payload;
   const date = new Date(`${point.date}T00:00:00Z`);
   const label = date.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
-  const company = point.company ? COMPANY_COLORS[point.company] : null;
+  const company = point.company ? COMPANY_COLORS[point.company as CompanyId] : null;
   const nearSystem = findNearestSystem(point.ts);
 
+  // Build skill depths for this point
+  const skillDepths = SKILL_LAYER_ORDER
+    .map((id) => ({
+      id,
+      name: CAPABILITIES.find((c) => c.id === id)?.name ?? id,
+      value: typeof point[id] === "number" ? Math.round(point[id] as number) : 0,
+      color: SKILL_COLORS[id] ?? "#888",
+    }))
+    .filter((s) => s.value > 0)
+    .sort((a, b) => b.value - a.value);
+
   return (
-    <div className="rounded-xl border border-white/15 bg-[hsl(216,31%,8%)] px-3 py-2 shadow-2xl">
+    <div className="rounded-xl border border-white/15 bg-[rgba(12,8,5,0.96)] px-3 py-2.5 shadow-2xl">
       <p className="text-[11px] font-medium text-white/90">{label}</p>
       {company && (
-        <p className="mt-0.5 text-[10px] text-white/50">{company.label}</p>
+        <p className="mt-0.5 text-[10px]" style={{ color: company.primary }}>
+          {company.label}
+        </p>
       )}
       {nearSystem ? (
-        <>
-          <p className="mt-1 text-xs font-semibold text-white">{nearSystem.name}</p>
+        <div className="mt-1.5 border-t border-white/10 pt-1.5">
+          <p className="text-[11px] font-semibold text-white">{nearSystem.name}</p>
           {nearSystem.metrics.slice(0, 2).map((m, i) => (
             <p key={i} className="mt-0.5 text-[10px] text-white/60">
               {m.label}: <span className="font-medium text-white/80">{m.value}</span>
             </p>
           ))}
-        </>
-      ) : (
-        <p className="mt-1 text-xs font-semibold text-white">
-          Capability: {Math.round(point.value)}
-        </p>
-      )}
+        </div>
+      ) : null}
+      <div className="mt-1.5 border-t border-white/10 pt-1.5 space-y-0.5">
+        {skillDepths.slice(0, 4).map((s) => (
+          <div key={s.id} className="flex items-center gap-2">
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ backgroundColor: s.color }}
+            />
+            <span
+              className="text-[10px]"
+              style={{
+                color: selectedCapabilityId === s.id ? s.color : "rgba(210,200,185,0.7)",
+                fontWeight: selectedCapabilityId === s.id ? 600 : 400,
+              }}
+            >
+              {s.name}
+            </span>
+            <span className="ml-auto text-[10px] text-white/40">{s.value}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Milestone dot renderer (custom SVG layer)
+// Milestone dot renderer
 // ---------------------------------------------------------------------------
 
 interface MilestoneDotsProps {
   systems: System[];
-  curveData: CurvePoint[];
   chartLeft: number;
   chartTop: number;
   chartWidth: number;
   chartHeight: number;
   xMin: number;
   xMax: number;
-  yMin: number;
   yMax: number;
   selectedSystemId: string | null;
   filteredSystemIds: Set<string> | null;
@@ -142,14 +203,12 @@ interface MilestoneDotsProps {
 
 function MilestoneDots({
   systems,
-  curveData,
   chartLeft,
   chartTop,
   chartWidth,
   chartHeight,
   xMin,
   xMax,
-  yMin,
   yMax,
   selectedSystemId,
   filteredSystemIds,
@@ -159,14 +218,19 @@ function MilestoneDots({
   if (chartWidth <= 0 || chartHeight <= 0) return null;
 
   const toX = (ts: number) => chartLeft + ((ts - xMin) / (xMax - xMin)) * chartWidth;
-  const toY = (val: number) => chartTop + chartHeight - ((val - yMin) / (yMax - yMin)) * chartHeight;
+  // Milestone dots sit at the top of the stacked chart at the time of each system
+  // We use a fixed y position (near the top) since the chart height itself represents
+  // compounding capability — dots float at the "ceiling" of stacked capability at that date
+  const toY = (curveValue: number) =>
+    chartTop + chartHeight - (curveValue / yMax) * chartHeight;
 
   return (
     <g>
       {systems.map((system) => {
         const ts = new Date(`${system.date}T00:00:00Z`).getTime();
         const cx = toX(ts);
-        const cy = toY(system.curve_value);
+        // Position dot at 85% of yMax scaled to chart height (near the top of the stack)
+        const cy = toY(Math.min(system.curve_value * 0.28, yMax * 0.88));
         const isSelected = selectedSystemId === system.id;
         const isFiltered = filteredSystemIds !== null && !filteredSystemIds.has(system.id);
         const company = COMPANY_COLORS[system.company];
@@ -177,9 +241,8 @@ function MilestoneDots({
             key={system.id}
             style={{ cursor: "pointer" }}
             onClick={() => onSelect(system.id)}
-            opacity={isFiltered ? 0.2 : 1}
+            opacity={isFiltered ? 0.18 : 1}
           >
-            {/* Glow ring */}
             {isSelected && (
               <circle
                 cx={cx}
@@ -191,32 +254,29 @@ function MilestoneDots({
                 strokeOpacity={0.4}
               />
             )}
-            {/* Outer ring */}
             <circle
               cx={cx}
               cy={cy}
               r={r}
-              fill={isSelected ? company.primary : "hsl(216,31%,12%)"}
+              fill={isSelected ? company.primary : "rgba(12,8,5,0.85)"}
               stroke={company.primary}
               strokeWidth={isSelected ? 2.5 : 1.5}
             />
-            {/* Inner dot */}
             <circle
               cx={cx}
               cy={cy}
               r={r * 0.4}
               fill={isSelected ? "#fff" : company.primary}
             />
-            {/* Hover target (larger invisible circle) */}
+            {/* Invisible hit target */}
             <circle cx={cx} cy={cy} r={16} fill="transparent" />
-            {/* Key milestone labels — shown for 3 landmark systems on desktop */}
             {!isMobile && KEY_MILESTONES.has(system.id) && (
               <text
                 x={cx}
-                y={cy - r - 8}
+                y={cy - r - 7}
                 textAnchor="middle"
-                fill={isFiltered ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.6)"}
-                fontSize={10}
+                fill={isFiltered ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.8)"}
+                fontSize={11}
                 fontWeight={isSelected ? 600 : 400}
               >
                 {KEY_MILESTONES.get(system.id)}
@@ -286,23 +346,21 @@ function PhaseLabels({
             onMouseEnter={() => onHover(event.id)}
             onMouseLeave={() => onHover(null)}
           >
-            {/* Clickable region background */}
             <rect
               x={x1}
               y={chartTop - 28}
               width={x2 - x1}
               height={24}
               rx={6}
-              fill={isSelected ? company.primary : isHovered ? company.primary : "transparent"}
+              fill={isSelected || isHovered ? company.primary : "transparent"}
               fillOpacity={isSelected ? 0.2 : isHovered ? 0.1 : 0}
             />
-            {/* Label */}
             {!isMobile && (
               <text
                 x={midX}
                 y={chartTop - 14}
                 textAnchor="middle"
-                fill={isSelected ? company.primary : "rgba(156,163,175,0.7)"}
+                fill={isSelected ? company.primary : "rgba(210,200,185,0.85)"}
                 fontSize={11}
                 fontWeight={isSelected ? 600 : 400}
               >
@@ -318,13 +376,12 @@ function PhaseLabels({
 }
 
 // ---------------------------------------------------------------------------
-// Overlay layer — wraps phase labels + milestone dots for Recharts Customized
+// Overlay layer
 // ---------------------------------------------------------------------------
 
 function OverlayLayer({
   events,
   systems,
-  curveData,
   chartDims,
   xMin,
   xMax,
@@ -340,7 +397,6 @@ function OverlayLayer({
 }: {
   events: typeof TIMELINE_EVENTS;
   systems: typeof SYSTEMS;
-  curveData: CurvePoint[];
   chartDims: { left: number; top: number; width: number; height: number };
   xMin: number;
   xMax: number;
@@ -371,14 +427,12 @@ function OverlayLayer({
       />
       <MilestoneDots
         systems={systems}
-        curveData={curveData}
         chartLeft={chartDims.left}
         chartTop={chartDims.top}
         chartWidth={chartDims.width}
         chartHeight={chartDims.height}
         xMin={xMin}
         xMax={xMax}
-        yMin={0}
         yMax={yMax}
         selectedSystemId={selectedSystemId}
         filteredSystemIds={filteredSystemIds}
@@ -386,6 +440,49 @@ function OverlayLayer({
         isMobile={isMobile}
       />
     </g>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Skill legend
+// ---------------------------------------------------------------------------
+
+function SkillLegend({
+  selectedCapabilityId,
+  onSelect,
+}: {
+  selectedCapabilityId: string | null;
+  onSelect: (id: string | null) => void;
+}) {
+  return (
+    <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 px-2">
+      {SKILL_LAYER_ORDER.map((id) => {
+        const cap = CAPABILITIES.find((c) => c.id === id);
+        if (!cap) return null;
+        const isSelected = selectedCapabilityId === id;
+        const isDimmed = selectedCapabilityId !== null && !isSelected;
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onSelect(isSelected ? null : id)}
+            className="flex items-center gap-1.5 transition-opacity"
+            style={{ opacity: isDimmed ? 0.35 : 1 }}
+          >
+            <span
+              className="h-2 w-2 shrink-0 rounded-sm"
+              style={{ backgroundColor: SKILL_COLORS[id] }}
+            />
+            <span
+              className="resume-label text-[9px] tracking-[0.16em]"
+              style={{ color: isSelected ? SKILL_COLORS[id] : "rgba(200,186,168,0.7)" }}
+            >
+              {cap.name}
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -405,27 +502,37 @@ export default function CompoundingCurve({
   const chartRef = useRef<HTMLDivElement>(null);
   const [chartDims, setChartDims] = useState({ left: 0, top: 0, width: 0, height: 0 });
   const [hoveredEventId, setHoveredEventId] = useState<string | null>(null);
+  const [localSelectedCapability, setLocalSelectedCapability] = useState<string | null>(null);
 
-  const curveData = useMemo(() => buildCurveData(), []);
-  const yMax = useMemo(() => Math.ceil(Math.max(...curveData.map((p) => p.value)) * 1.08), [curveData]);
-  const xMin = curveData[0]?.ts ?? 0;
-  const xMax = curveData[curveData.length - 1]?.ts ?? 0;
+  // The active capability filter is either driven externally (via CapabilityStrip) or locally (via legend)
+  const activeCapabilityId = selectedCapabilityId ?? localSelectedCapability;
 
-  // Filter systems by selected capability
-  const filteredSystemIds = useMemo(() => {
-    if (!selectedCapabilityId) return null;
-    const ids = new Set(
-      SYSTEMS.filter((s) => s.capabilities_used.includes(selectedCapabilityId)).map((s) => s.id),
+  const stackedData = useMemo(() => buildStackedCurveData(), []);
+  const xMin = stackedData[0]?.ts ?? 0;
+  const xMax = stackedData[stackedData.length - 1]?.ts ?? 0;
+
+  // yMax = sum of all skill max values + 10% headroom
+  const yMax = useMemo(() => {
+    const maxTotal = Math.max(
+      ...stackedData.map((p) =>
+        SKILL_LAYER_ORDER.reduce((sum, id) => sum + (typeof p[id] === "number" ? (p[id] as number) : 0), 0),
+      ),
     );
-    return ids;
-  }, [selectedCapabilityId]);
+    return Math.ceil(maxTotal * 1.1);
+  }, [stackedData]);
 
-  const chartHeight = isMobile ? 280 : 420;
+  const filteredSystemIds = useMemo(() => {
+    if (!activeCapabilityId) return null;
+    return new Set(
+      SYSTEMS.filter((s) => s.capabilities_used.includes(activeCapabilityId)).map((s) => s.id),
+    );
+  }, [activeCapabilityId]);
+
+  const chartHeight = isMobile ? 260 : 400;
   const chartMargin = isMobile
     ? { top: 36, right: 8, bottom: 4, left: 0 }
     : { top: 44, right: 24, bottom: 6, left: 4 };
 
-  // Track chart area dimensions for custom SVG overlays
   const handleChartUpdate = useCallback(() => {
     if (!chartRef.current) return;
     const svg = chartRef.current.querySelector(".recharts-wrapper svg");
@@ -446,31 +553,13 @@ export default function CompoundingCurve({
     const ro = new ResizeObserver(handleChartUpdate);
     if (chartRef.current) ro.observe(chartRef.current);
     return () => ro.disconnect();
-  }, [handleChartUpdate, curveData]);
+  }, [handleChartUpdate, stackedData]);
 
-  // Delayed chart dims update after render
   useEffect(() => {
     const timer = setTimeout(handleChartUpdate, 100);
     return () => clearTimeout(timer);
   }, [handleChartUpdate]);
 
-  // Build gradient segments for company-colored fill
-  const gradientStops = useMemo(() => {
-    const stops: Array<{ offset: string; color: string }> = [];
-    if (curveData.length === 0) return stops;
-
-    let lastCompany: CompanyId | null = null;
-    for (const point of curveData) {
-      if (point.company !== lastCompany && point.company) {
-        const pct = ((point.ts - xMin) / (xMax - xMin)) * 100;
-        stops.push({ offset: `${pct}%`, color: COMPANY_COLORS[point.company].primary });
-        lastCompany = point.company;
-      }
-    }
-    return stops;
-  }, [curveData, xMin, xMax]);
-
-  // Phase boundary lines
   const phaseBoundaries = useMemo(() => {
     return TIMELINE_EVENTS.slice(1).map((event) => ({
       x: new Date(`${event.start_date}T00:00:00Z`).getTime(),
@@ -483,54 +572,51 @@ export default function CompoundingCurve({
       <div className="rounded-[20px] border border-bm-border/40 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.005))] p-2 md:rounded-[28px] md:p-4">
         <ResponsiveContainer width="100%" height={chartHeight}>
           <ComposedChart
-            data={curveData}
+            data={stackedData}
             margin={chartMargin}
             onClick={(state) => {
-              const payload = state?.activePayload?.[0]?.payload as CurvePoint | undefined;
-              if (payload?.event_id) onSelectEvent(payload.event_id);
+              const payload = state?.activePayload?.[0]?.payload as StackedPoint | undefined;
+              if (payload?.event_id) onSelectEvent(payload.event_id as string);
             }}
             onMouseMove={(state) => {
-              const payload = state?.activePayload?.[0]?.payload as CurvePoint | undefined;
-              onHoverEvent(payload?.event_id ?? null);
+              const payload = state?.activePayload?.[0]?.payload as StackedPoint | undefined;
+              onHoverEvent((payload?.event_id as string) ?? null);
             }}
             onMouseLeave={() => onHoverEvent(null)}
           >
             <defs>
-              {/* Company-segmented gradient for the curve stroke */}
-              <linearGradient id="curve-stroke-grad" x1="0" y1="0" x2="1" y2="0">
-                {gradientStops.map((stop, i) => (
-                  <stop key={i} offset={stop.offset} stopColor={stop.color} />
-                ))}
-              </linearGradient>
-              {/* Fill gradient */}
-              <linearGradient id="curve-fill-grad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgba(59,130,246,0.18)" />
-                <stop offset="100%" stopColor="rgba(59,130,246,0.01)" />
-              </linearGradient>
-              {/* Per-company fill gradients */}
-              {(Object.entries(COMPANY_COLORS) as [CompanyId, typeof COMPANY_COLORS.jll][]).map(
-                ([id, c]) => (
-                  <linearGradient key={id} id={`fill-${id}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={c.primary} stopOpacity={0.16} />
-                    <stop offset="100%" stopColor={c.primary} stopOpacity={0.01} />
+              {SKILL_LAYER_ORDER.map((id) => {
+                const color = SKILL_COLORS[id];
+                const isDimmed = activeCapabilityId !== null && activeCapabilityId !== id;
+                return (
+                  <linearGradient key={id} id={`fill-skill-${id}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="0%"
+                      stopColor={color}
+                      stopOpacity={isDimmed ? 0.04 : 0.55}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor={color}
+                      stopOpacity={isDimmed ? 0.01 : 0.08}
+                    />
                   </linearGradient>
-                ),
-              )}
+                );
+              })}
             </defs>
 
             <CartesianGrid
-              stroke="rgba(255,255,255,0.06)"
+              stroke="rgba(255,255,255,0.09)"
               strokeDasharray="3 8"
               horizontal
               vertical={false}
             />
 
-            {/* Phase boundary lines */}
             {phaseBoundaries.map((boundary, i) => (
               <ReferenceLine
                 key={i}
                 x={boundary.x}
-                stroke="rgba(255,255,255,0.15)"
+                stroke="rgba(255,255,255,0.22)"
                 strokeWidth={1}
                 strokeDasharray="6 4"
               />
@@ -541,35 +627,50 @@ export default function CompoundingCurve({
               type="number"
               domain={["dataMin", "dataMax"]}
               tickFormatter={tickLabel}
-              tick={{ fill: "rgba(156,163,175,0.6)", fontSize: isMobile ? 10 : 11 }}
+              tick={{ fill: "rgba(210,200,185,0.75)", fontSize: isMobile ? 11 : 12 }}
               tickLine={false}
               axisLine={false}
               minTickGap={isMobile ? 60 : 80}
             />
             <YAxis domain={[0, yMax]} tick={false} tickLine={false} axisLine={false} width={0} />
 
-            <Tooltip content={<CurveTooltip />} cursor={{ stroke: "rgba(255,255,255,0.15)", strokeWidth: 1 }} />
-
-            {/* The single cumulative curve */}
-            <Area
-              type="monotone"
-              dataKey="value"
-              stroke="url(#curve-stroke-grad)"
-              strokeWidth={isMobile ? 2.5 : 3}
-              fill="url(#curve-fill-grad)"
-              fillOpacity={1}
-              isAnimationActive={false}
-              dot={false}
-              activeDot={{ r: isMobile ? 4 : 5, fill: "#3B82F6", stroke: "#fff", strokeWidth: 2 }}
+            <Tooltip
+              content={
+                <StackedTooltip selectedCapabilityId={activeCapabilityId} />
+              }
+              cursor={{ stroke: "rgba(255,255,255,0.22)", strokeWidth: 1 }}
             />
 
-            {/* Custom SVG overlays for milestones and phase labels */}
+            {/* Stacked areas — bottom to top */}
+            {SKILL_LAYER_ORDER.map((id) => {
+              const isDimmed = activeCapabilityId !== null && activeCapabilityId !== id;
+              const color = SKILL_COLORS[id];
+              return (
+                <Area
+                  key={id}
+                  type="monotone"
+                  dataKey={id}
+                  stackId="skills"
+                  stroke={isDimmed ? `${color}22` : color}
+                  strokeWidth={isDimmed ? 0.5 : activeCapabilityId === id ? 2 : 1}
+                  fill={`url(#fill-skill-${id})`}
+                  fillOpacity={1}
+                  isAnimationActive={false}
+                  dot={false}
+                  activeDot={
+                    activeCapabilityId === id
+                      ? { r: isMobile ? 4 : 5, fill: color, stroke: "#fff", strokeWidth: 2 }
+                      : false
+                  }
+                />
+              );
+            })}
+
             <Customized
               component={
                 <OverlayLayer
                   events={TIMELINE_EVENTS}
                   systems={SYSTEMS}
-                  curveData={curveData}
                   chartDims={chartDims}
                   xMin={xMin}
                   xMax={xMax}
@@ -587,6 +688,14 @@ export default function CompoundingCurve({
             />
           </ComposedChart>
         </ResponsiveContainer>
+
+        {/* Skill legend below chart */}
+        <SkillLegend
+          selectedCapabilityId={activeCapabilityId}
+          onSelect={(id) => {
+            setLocalSelectedCapability(id);
+          }}
+        />
       </div>
     </div>
   );

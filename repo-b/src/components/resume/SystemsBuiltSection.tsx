@@ -145,8 +145,8 @@ function SystemCard({
               {system.name}
             </h3>
             <span
-              className="resume-label text-[9px] tracking-[0.2em]"
-              style={{ color: "var(--ros-text-dim, #9a8a76)" }}
+              className="resume-label text-[10px] tracking-[0.2em]"
+              style={{ color: "var(--ros-text-dim, #b8a890)" }}
             >
               {system.company_label}
             </span>
@@ -158,11 +158,11 @@ function SystemCard({
               {stackLabels.map((lbl) => (
                 <span
                   key={lbl}
-                  className="resume-label rounded px-1.5 py-0.5 text-[8px] tracking-[0.18em]"
+                  className="resume-label rounded px-1.5 py-0.5 text-[9px] tracking-[0.18em]"
                   style={{
-                    color: "var(--ros-text-dim, #9a8a76)",
-                    border: "1px solid rgba(150,130,100,0.22)",
-                    background: "rgba(255,255,255,0.02)",
+                    color: "var(--ros-text-dim, #b8a890)",
+                    border: "1px solid rgba(150,130,100,0.35)",
+                    background: "rgba(255,255,255,0.03)",
                   }}
                 >
                   {lbl}
@@ -174,7 +174,7 @@ function SystemCard({
           {/* Description */}
           <p
             className="mt-2 line-clamp-2 text-[11px] leading-relaxed tracking-[0.06em] md:text-[12px]"
-            style={{ color: "rgba(154,138,118,0.7)" }}
+            style={{ color: "rgba(200,186,168,0.85)" }}
           >
             {system.description}
           </p>
@@ -186,9 +186,9 @@ function SystemCard({
                 <li
                   key={bullet}
                   className="flex items-start gap-2 text-[10px] leading-snug tracking-[0.04em]"
-                  style={{ color: "rgba(154,138,118,0.5)" }}
+                  style={{ color: "rgba(200,186,168,0.65)" }}
                 >
-                  <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-[rgba(154,138,118,0.3)]" />
+                  <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-[rgba(200,186,168,0.4)]" />
                   {bullet}
                 </li>
               ))}
@@ -251,8 +251,8 @@ export default function SystemsBuiltSection() {
       <div className="mb-2 flex items-baseline justify-between gap-3">
         <div>
           <p
-            className="resume-label text-[9px] tracking-[0.32em]"
-            style={{ color: "var(--ros-text-dim, #9a8a76)" }}
+            className="resume-label text-[10px] tracking-[0.32em]"
+            style={{ color: "var(--ros-text-dim, #b8a890)" }}
           >
             <span style={{ color: "var(--ros-text, #f0e0c0)" }}>Systems</span>{" "}
             in Production
@@ -260,15 +260,15 @@ export default function SystemsBuiltSection() {
         </div>
         <div className="hidden shrink-0 items-center gap-4 md:flex">
           <span
-            className="resume-label flex items-center gap-1.5 text-[9px] tracking-[0.2em]"
-            style={{ color: "var(--ros-text-dim, #9a8a76)" }}
+            className="resume-label flex items-center gap-1.5 text-[10px] tracking-[0.2em]"
+            style={{ color: "var(--ros-text-dim, #b8a890)" }}
           >
             <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: COMPANY_COLORS.jll.primary }} />
             JLL
           </span>
           <span
-            className="resume-label flex items-center gap-1.5 text-[9px] tracking-[0.2em]"
-            style={{ color: "var(--ros-text-dim, #9a8a76)" }}
+            className="resume-label flex items-center gap-1.5 text-[10px] tracking-[0.2em]"
+            style={{ color: "var(--ros-text-dim, #b8a890)" }}
           >
             <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: COMPANY_COLORS.kayne.primary }} />
             Kayne

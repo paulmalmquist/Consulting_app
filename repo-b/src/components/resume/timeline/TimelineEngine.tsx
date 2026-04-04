@@ -73,7 +73,7 @@ export default function TimelineEngine() {
           type="button"
           onClick={() => handleSelectEvent("phase-kayne-2018-2025")}
           className={`flex shrink-0 items-center gap-2 transition-opacity ${
-            selectedEventId === "phase-kayne-2018-2025" ? "opacity-100" : "opacity-50 hover:opacity-75"
+            selectedEventId === "phase-kayne-2018-2025" ? "opacity-100" : "opacity-60 hover:opacity-80"
           }`}
         >
           <span
@@ -84,13 +84,13 @@ export default function TimelineEngine() {
           </span>
           <div className="hidden sm:block">
             <div
-              className="resume-label text-[9px] tracking-[0.26em]"
+              className="resume-label text-[10px] tracking-[0.26em]"
               style={{ color: "#c8923a" }}
             >
               Kayne Anderson
             </div>
             <div
-              className="resume-label text-[7px] tracking-[0.3em] opacity-55"
+              className="resume-label text-[8px] tracking-[0.3em] opacity-70"
               style={{ color: "#c8923a" }}
             >
               Real Estate
@@ -102,7 +102,7 @@ export default function TimelineEngine() {
         <div className="text-center">
           <h2
             className="resume-label text-[10px] tracking-[0.28em] md:text-[11px]"
-            style={{ color: "rgba(200,176,144,0.6)" }}
+            style={{ color: "rgba(220,196,164,0.85)" }}
           >
             <span className="sm:hidden">Capability Arc</span>
             <span className="hidden sm:inline">Compounding Capability</span>
@@ -116,17 +116,17 @@ export default function TimelineEngine() {
           className={`flex shrink-0 flex-col items-end transition-opacity ${
             selectedEventId === "phase-jll-2014-2018" || selectedEventId === "phase-jll-2025-present"
               ? "opacity-100"
-              : "opacity-50 hover:opacity-75"
+              : "opacity-60 hover:opacity-80"
           }`}
         >
           <span
-            className="resume-label text-[18px] tracking-[0.15em] leading-none"
+            className="resume-label text-[20px] tracking-[0.15em] leading-none"
             style={{ color: "#c84b2a" }}
           >
             JLL
           </span>
           <span
-            className="resume-label hidden text-[7px] tracking-[0.24em] opacity-55 sm:block"
+            className="resume-label hidden text-[8px] tracking-[0.24em] opacity-70 sm:block"
             style={{ color: "#c84b2a" }}
           >
             Present

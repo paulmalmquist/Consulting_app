@@ -14,8 +14,8 @@ function generateIcon(size) {
   // Transparent background
   ctx.clearRect(0, 0, size, size);
 
-  drawRoundedRect(ctx, size, "#3b6eb5");
-  drawBowtie(ctx, size, "#ffffff");
+  drawRoundedRect(ctx, size, "#ffffff");
+  drawBowtie(ctx, size, "#000000");
 
   return canvas;
 }

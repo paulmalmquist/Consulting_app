@@ -281,27 +281,29 @@ export default function ResumeWorkspace({
 
         {/* ── HERO ──────────────────────────────────────────────────── */}
         <header className="text-center">
-          <p
-            className="resume-label text-[10px] tracking-[0.28em] md:text-[11px]"
-            style={{ color: "var(--ros-text-dim)" }}
+          <h1
+            className="resume-editorial text-[clamp(3rem,8vw,6rem)] uppercase leading-[1.05]"
+            style={{
+              color: "var(--ros-text-bright)",
+              fontWeight: 500,
+              letterSpacing: "0.1em",
+              textShadow: "0 0 80px rgba(200,100,40,0.3)",
+            }}
           >
             {workspace.identity.name}
-          </p>
-          <h1
-            className="resume-editorial mt-2 text-[clamp(2.6rem,7vw,5.4rem)] leading-[1.05]"
-            style={{ textShadow: "0 0 80px rgba(200,100,40,0.28)" }}
-          >
-            AI Data Platform Architect
           </h1>
           <p
-            className="resume-label mt-2 text-[clamp(11px,1.4vw,16px)] tracking-[0.2em] font-light"
+            className="resume-label mt-3 text-[clamp(12px,1.8vw,18px)] tracking-[0.2em]"
             style={{ color: "var(--ros-text-muted)" }}
           >
-            Investment Systems
+            AI Data Platform Architect
+            <span className="mx-2 hidden sm:inline" style={{ color: "var(--ros-text-dim)" }}>—</span>
+            <br className="sm:hidden" />
+            <span style={{ color: "var(--ros-accent-gold)" }}>Investment Systems</span>
           </p>
           <p
-            className="mx-auto mt-3 max-w-xl text-[11px] leading-relaxed tracking-[0.1em] md:text-[13px]"
-            style={{ color: "var(--ros-text-dim)" }}
+            className="mx-auto mt-3 max-w-xl text-[12px] leading-relaxed tracking-[0.08em] md:text-[14px]"
+            style={{ color: "var(--ros-text-muted)" }}
           >
             Built governed data + AI systems powering investment decisions across $4B+ AUM
           </p>
@@ -330,19 +332,19 @@ export default function ResumeWorkspace({
               {i > 0 && (
                 <span
                   className="mr-6 hidden select-none sm:mr-10 sm:inline md:mr-14"
-                  style={{ color: "var(--ros-border)" }}
+                  style={{ color: "var(--ros-text-dim)" }}
                 >
                   |
                 </span>
               )}
               <span
-                className="resume-editorial text-[clamp(1.8rem,3.5vw,2.8rem)] leading-none"
+                className="resume-editorial text-[clamp(2rem,4vw,3.2rem)] leading-none"
                 style={{ color: "var(--ros-text)" }}
               >
                 {m.value}
               </span>
               <span
-                className="resume-label ml-2 text-[9px] tracking-[0.28em]"
+                className="resume-label ml-2 text-[10px] tracking-[0.28em]"
                 style={{ color: "var(--ros-text-dim)" }}
               >
                 {m.label}
