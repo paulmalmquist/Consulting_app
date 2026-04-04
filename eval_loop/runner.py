@@ -550,6 +550,10 @@ async def run_suite(
             "low_confidence_dispatch": scored.get("low_confidence_dispatch", False),
             "invalid_dispatch": scored.get("invalid_dispatch", False),
             "dispatch_code_disagreement": scored.get("dispatch_code_disagreement", False),
+            "product_pass": scored.get("product_pass"),
+            "product_score": scored.get("product_score"),
+            "product_mismatches": scored.get("product_mismatches", []),
+            "page_type": scenario.get("page_type"),
             "expected": scenario.get("expected", {}),
             "previous_record": previous,
         }
