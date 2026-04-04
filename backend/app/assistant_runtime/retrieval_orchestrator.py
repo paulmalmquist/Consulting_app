@@ -17,6 +17,15 @@ class RetrievalExecution:
     receipt: RetrievalReceipt
 
 
+def _coerce_uuid(value: str | None) -> uuid.UUID | None:
+    if not value:
+        return None
+    try:
+        return uuid.UUID(str(value))
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
 def _build_rag_context(chunks: list[RetrievedChunk], *, char_limit: int) -> str:
     if not chunks:
         return ""
@@ -46,13 +55,29 @@ async def execute_retrieval(
             receipt=RetrievalReceipt(used=False, result_count=0, status=RetrievalStatus.OK),
         )
 
+    business_uuid = _coerce_uuid(business_id)
+    if business_uuid is None:
+        return RetrievalExecution(
+            chunks=[],
+            context_text="",
+            receipt=RetrievalReceipt(used=True, result_count=0, status=RetrievalStatus.EMPTY),
+        )
+
+    entity_uuid = _coerce_uuid(entity_id) if entity_id else None
+    if entity_id and entity_uuid is None:
+        return RetrievalExecution(
+            chunks=[],
+            context_text="",
+            receipt=RetrievalReceipt(used=True, result_count=0, status=RetrievalStatus.EMPTY),
+        )
+
     top_k = route.rag_top_k if route.rag_top_k > 0 else RAG_TOP_K
     raw_chunks = semantic_search(
         query=message,
-        business_id=uuid.UUID(str(business_id)),
-        env_id=uuid.UUID(str(env_id)) if env_id else None,
+        business_id=business_uuid,
+        env_id=_coerce_uuid(env_id) if env_id else None,
         entity_type=entity_type,
-        entity_id=uuid.UUID(str(entity_id)) if entity_id else None,
+        entity_id=entity_uuid,
         top_k=top_k,
         use_hybrid=route.use_hybrid,
         overfetch=RAG_OVERFETCH if route.use_rerank else None,
@@ -77,4 +102,3 @@ async def execute_retrieval(
         context_text=_build_rag_context(chunks, char_limit=char_limit),
         receipt=RetrievalReceipt(used=True, result_count=len(chunks), status=RetrievalStatus.OK),
     )
-

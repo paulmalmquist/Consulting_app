@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 import uuid
+from dataclasses import dataclass
 from typing import Any, AsyncGenerator
 
 from app.assistant_runtime.context_resolver import resolve_runtime_context
@@ -34,6 +36,26 @@ from app.services.assistant_scope import build_context_block, resolve_visible_co
 from app.services.model_registry import get_caps, map_openai_error, sanitize_params
 from app.services.request_router import classify_request
 from app.services.rag_indexer import RetrievedChunk
+
+_SOURCE_AUDIT_RE = re.compile(
+    r"\b(what data is this based on|what is this based on|what data did you use|what source(?:s)? did you use|"
+    r"exact data source|data source|what tool did you use|which tool did you use|why did you answer that|justify|justification)\b",
+    re.IGNORECASE,
+)
+_IDENTITY_PROMPT_RE = re.compile(
+    r"\b(what am i looking at|what page|which page|what environment|where am i|which environment|what is this)\b",
+    re.IGNORECASE,
+)
+_CREATE_ENTITY_RE = re.compile(
+    r"\b(?:create|add|make|set up|register|new)\s+(?:a\s+|an\s+)?(?P<entity>fund|deal|asset|property|investment)\b(?:\s+called\s+(?P<name>.+))?",
+    re.IGNORECASE,
+)
+
+
+@dataclass(frozen=True)
+class FastResponse:
+    text: str
+    response_blocks: list[dict[str, Any]]
 
 
 def _json_safe(value: Any) -> Any:
@@ -77,7 +99,15 @@ def _citation_items(chunks: list[RetrievedChunk]) -> list[dict[str, Any]]:
     ]
 
 
-def _build_trace(*, turn_receipt: TurnReceipt, model: str, elapsed_ms: int, resolved_scope: dict[str, Any], response_blocks: list[dict[str, Any]]) -> dict[str, Any]:
+def _build_trace(
+    *,
+    turn_receipt: TurnReceipt,
+    model: str,
+    elapsed_ms: int,
+    resolved_scope: dict[str, Any],
+    response_blocks: list[dict[str, Any]],
+    timings: dict[str, int | None] | None = None,
+) -> dict[str, Any]:
     tool_timeline = [
         {
             "step": idx + 1,
@@ -117,6 +147,7 @@ def _build_trace(*, turn_receipt: TurnReceipt, model: str, elapsed_ms: int, reso
             "degraded": turn_receipt.status != TurnStatus.SUCCESS,
             "tools_enabled": len(turn_receipt.tools) > 0,
             "rag_enabled": turn_receipt.retrieval.used,
+            "timings": timings or {},
         },
         "response_block_count": len(response_blocks),
     }
@@ -130,6 +161,103 @@ def _status_from_tools(tool_statuses: list[ToolStatus]) -> tuple[TurnStatus, Deg
     if any(status == ToolStatus.FAILED for status in tool_statuses):
         return TurnStatus.DEGRADED, DegradedReason.TOOL_FAILED
     return TurnStatus.SUCCESS, None
+
+
+def _format_scope_label(*, resolved_scope: Any, envelope: AssistantContextEnvelope) -> str:
+    if resolved_scope.entity_type == "environment":
+        return resolved_scope.entity_name or envelope.ui.active_environment_name or "the current environment"
+    if resolved_scope.entity_name:
+        env_name = envelope.ui.active_environment_name or resolved_scope.environment_id
+        if env_name:
+            return f"{resolved_scope.entity_name} in {env_name}"
+        return resolved_scope.entity_name
+    return envelope.ui.active_environment_name or "the current context"
+
+
+def _build_identity_fast_response(*, resolved_scope: Any, envelope: AssistantContextEnvelope) -> FastResponse | None:
+    label = _format_scope_label(resolved_scope=resolved_scope, envelope=envelope)
+    if resolved_scope.entity_type == "environment":
+        text = f"You are in {label}."
+    elif resolved_scope.entity_type:
+        article = "an" if resolved_scope.entity_type[:1].lower() in {"a", "e", "i", "o", "u"} else "a"
+        text = f"You are looking at {article} {resolved_scope.entity_type} view for {label}."
+    else:
+        text = f"You are in {label}."
+    return FastResponse(text=text, response_blocks=[markdown_block(text)])
+
+
+def _build_source_audit_fast_response(
+    *,
+    resolved_scope: Any,
+    envelope: AssistantContextEnvelope,
+    retrieval_used: bool,
+    retrieval_count: int,
+    tool_count: int,
+) -> FastResponse:
+    scope_label = _format_scope_label(resolved_scope=resolved_scope, envelope=envelope)
+    if retrieval_used:
+        text = (
+            f"This answer is grounded in the current context for {scope_label}. "
+            f"Retrieval was used and returned {retrieval_count} scoped result(s). "
+            f"Tool calls used: {tool_count}."
+        )
+    else:
+        text = (
+            f"This answer is based on the current UI context for {scope_label}. "
+            f"No retrieval sources or tools were used for this turn."
+        )
+    return FastResponse(text=text, response_blocks=[markdown_block(text)])
+
+
+def _build_write_confirmation_fast_response(message: str) -> FastResponse | None:
+    match = _CREATE_ENTITY_RE.search(message or "")
+    if not match:
+        return None
+    entity_type = (match.group("entity") or "record").lower()
+    raw_name = (match.group("name") or "").strip().strip("'\"")
+    name = raw_name.rstrip("?.!,") if raw_name else None
+    label = f"{entity_type} '{name}'" if name else entity_type
+    text = f"Ready to create {label}. Confirm to proceed."
+    block = confirmation_block(
+        action=f"create_{entity_type}",
+        summary=text,
+        provided_params={"entity_type": entity_type, "name": name} if name else {"entity_type": entity_type},
+        missing_fields=[] if name else ["name"],
+    )
+    return FastResponse(text=text, response_blocks=[markdown_block(text), block])
+
+
+def _deterministic_fast_response(
+    *,
+    message: str,
+    lane: Lane,
+    routed_skill: Any,
+    resolved_scope: Any,
+    context_receipt: Any,
+    envelope: AssistantContextEnvelope,
+    retrieval_execution: Any,
+) -> FastResponse | None:
+    if context_receipt.resolution_status != ContextResolutionStatus.RESOLVED:
+        return None
+    normalized_message = message or ""
+    skill_id = routed_skill.selection.skill_id
+
+    if _SOURCE_AUDIT_RE.search(normalized_message):
+        return _build_source_audit_fast_response(
+            resolved_scope=resolved_scope,
+            envelope=envelope,
+            retrieval_used=retrieval_execution.receipt.used,
+            retrieval_count=retrieval_execution.receipt.result_count,
+            tool_count=0,
+        )
+
+    if skill_id == "create_entity" and lane == Lane.C_ANALYSIS and not retrieval_execution.receipt.used:
+        return _build_write_confirmation_fast_response(normalized_message)
+
+    if skill_id == "lookup_entity" and lane == Lane.A_FAST and _IDENTITY_PROMPT_RE.search(normalized_message):
+        return _build_identity_fast_response(resolved_scope=resolved_scope, envelope=envelope)
+
+    return None
 
 
 async def run_request_lifecycle(
@@ -147,11 +275,20 @@ async def run_request_lifecycle(
     request_id = f"req_{uuid.uuid4()}"
     started_at = time.time()
     session_id = session_id or str(uuid.uuid4())
+    timings: dict[str, int | None] = {
+        "context_resolution_ms": None,
+        "route_selection_ms": None,
+        "retrieval_ms": None,
+        "first_token_ms": None,
+        "tool_execution_ms": None,
+        "render_completion_ms": None,
+    }
 
     if not OPENAI_API_KEY:
         yield _sse("error", {"message": "OPENAI_API_KEY not configured"})
         return
 
+    context_started = time.perf_counter()
     runtime_context = resolve_runtime_context(
         context_envelope=context_envelope,
         env_id=str(env_id) if env_id else None,
@@ -160,6 +297,7 @@ async def run_request_lifecycle(
         actor=actor,
         message=message,
     )
+    timings["context_resolution_ms"] = int((time.perf_counter() - context_started) * 1000)
     normalized_envelope = runtime_context.envelope
     resolved_scope = runtime_context.resolved_scope
     context_receipt = runtime_context.receipt
@@ -174,6 +312,7 @@ async def run_request_lifecycle(
     )
     yield _sse("context", {"context_envelope": normalized_envelope.model_dump(), "resolved_scope": scope_dump})
 
+    route_started = time.perf_counter()
     visible_context_policy = resolve_visible_context_policy(
         context_envelope=normalized_envelope,
         user_message=message,
@@ -186,6 +325,7 @@ async def run_request_lifecycle(
     )
     lane = legacy_code_to_lane(route.lane)
     routed_skill = route_skill(message=message, lane=lane, route=route, context=context_receipt)
+    timings["route_selection_ms"] = int((time.perf_counter() - route_started) * 1000)
 
     yield _sse(
         "status",
@@ -204,6 +344,7 @@ async def run_request_lifecycle(
     elif routed_skill.definition is None:
         degraded_reason = DegradedReason.NO_SKILL_MATCH
 
+    retrieval_started = time.perf_counter()
     retrieval_execution = await execute_retrieval(
         route=route,
         retrieval_policy=routed_skill.definition.retrieval_policy if routed_skill.definition else "none",
@@ -213,6 +354,7 @@ async def run_request_lifecycle(
         entity_type=resolved_scope.entity_type or entity_type,
         entity_id=resolved_scope.entity_id or (str(entity_id) if entity_id else None),
     )
+    timings["retrieval_ms"] = int((time.perf_counter() - retrieval_started) * 1000)
     if retrieval_execution.receipt.status == RetrievalStatus.EMPTY and routed_skill.definition is not None:
         degraded_reason = degraded_reason or DegradedReason.RETRIEVAL_EMPTY
 
@@ -248,8 +390,54 @@ async def run_request_lifecycle(
                     elapsed_ms=int((time.time() - started_at) * 1000),
                     resolved_scope=scope_dump,
                     response_blocks=response_blocks,
+                    timings=timings,
                 ),
                 "response_blocks": response_blocks,
+                "resolved_scope": scope_dump,
+            },
+        )
+        return
+
+    fast_response = _deterministic_fast_response(
+        message=message,
+        lane=lane,
+        routed_skill=routed_skill,
+        resolved_scope=resolved_scope,
+        context_receipt=context_receipt,
+        envelope=normalized_envelope,
+        retrieval_execution=retrieval_execution,
+    )
+    if fast_response is not None:
+        timings["first_token_ms"] = int((time.time() - started_at) * 1000)
+        for block in fast_response.response_blocks:
+            yield _sse("response_block", {"block": block})
+        yield _sse("token", {"text": fast_response.text})
+        turn_receipt = TurnReceipt(
+            request_id=request_id,
+            lane=lane,
+            context=context_receipt,
+            skill=routed_skill.selection,
+            tools=[],
+            retrieval=retrieval_execution.receipt,
+            status=TurnStatus.SUCCESS,
+            degraded_reason=None,
+        )
+        elapsed_ms = int((time.time() - started_at) * 1000)
+        timings["render_completion_ms"] = elapsed_ms
+        yield _sse(
+            "done",
+            {
+                "session_id": session_id,
+                "turn_receipt": turn_receipt.model_dump(mode="json"),
+                "trace": _build_trace(
+                    turn_receipt=turn_receipt,
+                    model=route.model,
+                    elapsed_ms=elapsed_ms,
+                    resolved_scope=scope_dump,
+                    response_blocks=fast_response.response_blocks,
+                    timings=timings,
+                ),
+                "response_blocks": fast_response.response_blocks,
                 "resolved_scope": scope_dump,
             },
         )
@@ -292,6 +480,7 @@ async def run_request_lifecycle(
     client = get_instrumented_client()
     collected_content = ""
     tool_receipts = []
+    tool_execution_ms = 0
 
     for _round in range(AI_MAX_TOOL_ROUNDS + 1):
         stream_kwargs = sanitize_params(
@@ -337,6 +526,8 @@ async def run_request_lifecycle(
                 continue
             delta = chunk.choices[0].delta
             if delta.content:
+                if timings["first_token_ms"] is None:
+                    timings["first_token_ms"] = int((time.time() - started_at) * 1000)
                 round_content += delta.content
                 collected_content += delta.content
                 yield _sse("token", {"text": delta.content})
@@ -376,6 +567,15 @@ async def run_request_lifecycle(
             ctx=ctx,
             resolved_scope=scope_dump,
         )
+        tool_execution_ms += int((time.perf_counter() - retrieval_started) * 0)  # preserve key below
+        tool_started = time.perf_counter()
+        executed = await execute_tool_calls(
+            collected_tool_calls=collected_tool_calls,
+            prepared_tools=prepared_tools,
+            ctx=ctx,
+            resolved_scope=scope_dump,
+        )
+        tool_execution_ms += int((time.perf_counter() - tool_started) * 1000)
         for item in executed:
             tool_receipts.append(item.receipt)
             payload = dict(item.event_payload)
@@ -412,12 +612,15 @@ async def run_request_lifecycle(
         yield _sse("token", {"text": degraded_message(final_reason or DegradedReason.TOOL_FAILED)})
 
     elapsed_ms = int((time.time() - started_at) * 1000)
+    timings["tool_execution_ms"] = tool_execution_ms
+    timings["render_completion_ms"] = elapsed_ms
     trace = _build_trace(
         turn_receipt=turn_receipt,
         model=effective_model,
         elapsed_ms=elapsed_ms,
         resolved_scope=scope_dump,
         response_blocks=response_blocks,
+        timings=timings,
     )
     yield _sse(
         "done",

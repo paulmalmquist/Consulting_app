@@ -37,7 +37,7 @@ def _set_env_cache(env_id: str | None, business_id: str | None, data: dict[str, 
             _env_cache.pop(k, None)
 
 _SPACE_RE = re.compile(r"[^a-z0-9]+")
-_DEICTIC_RE = re.compile(r"\b(this|current|selected|that|these|it|here)\b")
+_DEICTIC_RE = re.compile(r"\b(this|current|selected|that|these|those|it|here)\b")
 _LIST_QUERY_RE = re.compile(r"\b(which|what|list|show|give|tell)\b.*\b(funds?|assets?|investments?|deals?|models?|pipeline)\b")
 _COUNT_QUERY_RE = re.compile(r"\b(how many|count|number of|total)\b.*\b(funds?|assets?|investments?|deals?|models?|pipeline|entities)\b")
 _IDENTITY_QUERY_RE = re.compile(r"\b(what|which)\b.*\b(environment|env|page|workspace|module|schema|industry)\b")
@@ -177,19 +177,43 @@ def _message_refers_to_selected_scope(message: str, entity_type: str | None) -> 
     return any(keyword in normalized for keyword in keywords)
 
 
+def _focus_candidates(envelope: AssistantContextEnvelope) -> list[AssistantSelectedEntity]:
+    candidates: list[AssistantSelectedEntity] = []
+    seen: set[tuple[str, str]] = set()
+
+    def append(entity: AssistantSelectedEntity | None) -> None:
+        if entity is None or entity.entity_type == "environment":
+            return
+        key = (entity.entity_type, entity.entity_id)
+        if key in seen:
+            return
+        seen.add(key)
+        candidates.append(entity)
+
+    for entity in envelope.ui.selected_entities:
+        append(entity)
+    append(_entity_from_page(envelope))
+    return candidates
+
+
 def _selected_focus_entity(
     *,
     message: str,
     envelope: AssistantContextEnvelope,
 ) -> AssistantSelectedEntity | None:
-    for entity in envelope.ui.selected_entities:
-        if entity.entity_type == "environment":
-            continue
-        if _message_refers_to_selected_scope(message, entity.entity_type):
-            return entity
-    page_entity = _entity_from_page(envelope)
-    if page_entity and page_entity.entity_type != "environment" and _message_refers_to_selected_scope(message, page_entity.entity_type):
-        return page_entity
+    normalized = _normalize_text(message)
+    if not normalized or not _DEICTIC_RE.search(normalized):
+        return None
+
+    candidates = _focus_candidates(envelope)
+    if not candidates:
+        return None
+    if len(candidates) == 1:
+        return candidates[0]
+
+    narrowed = [entity for entity in candidates if _message_refers_to_selected_scope(message, entity.entity_type)]
+    if len(narrowed) == 1:
+        return narrowed[0]
     return None
 
 

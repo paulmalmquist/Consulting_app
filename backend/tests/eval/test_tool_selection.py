@@ -98,3 +98,39 @@ def test_visible_context_shortcut_forces_lane_a(minimal_envelope, minimal_scope)
     assert route.lane == "A"
     assert route.skip_rag is True
     assert route.skip_tools is True
+
+
+def test_lp_summary_routes_to_analysis_with_rag(minimal_envelope, minimal_scope):
+    route = classify_request(
+        message="Generate LP summary",
+        context_envelope=minimal_envelope,
+        resolved_scope=minimal_scope,
+        visible_context_shortcut=False,
+    )
+    assert route.lane == "C"
+    assert route.skip_rag is False
+    assert route.matched_pattern == "lp_summary"
+
+
+def test_debt_watch_summary_routes_to_retrieval_path(minimal_envelope, minimal_scope):
+    route = classify_request(
+        message="Summarize the latest debt watch changes for this fund",
+        context_envelope=minimal_envelope,
+        resolved_scope=minimal_scope,
+        visible_context_shortcut=False,
+    )
+    assert route.lane == "C"
+    assert route.skip_rag is False
+    assert route.matched_pattern == "debt_watch"
+
+
+def test_data_source_prompt_routes_to_grounded_retrieval(minimal_envelope, minimal_scope):
+    route = classify_request(
+        message="What data is this based on?",
+        context_envelope=minimal_envelope,
+        resolved_scope=minimal_scope,
+        visible_context_shortcut=False,
+    )
+    assert route.lane == "C"
+    assert route.skip_rag is False
+    assert route.matched_pattern == "source_audit"

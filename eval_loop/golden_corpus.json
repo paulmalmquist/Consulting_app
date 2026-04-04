@@ -1,0 +1,212 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "id": "golden_downside_asset_missing_context",
+      "golden": true,
+      "high_value": true,
+      "family": "golden_downside",
+      "suite": ["full"],
+      "environment": null,
+      "omit_environment": true,
+      "route": "/assistant",
+      "surface": "global_assistant",
+      "message": "Run a downside scenario on this asset",
+      "expected": {
+        "context_status": "missing_context",
+        "lane": "C_ANALYSIS",
+        "allowed_skills": ["run_analysis"],
+        "status": "degraded",
+        "degraded_reason": "missing_context",
+        "retrieval_used": false,
+        "tool_names": [],
+        "answer_must_include": ["Context not available"],
+        "answer_must_not_include": ["NOI drops", "cap rate", "underwriting"],
+        "max_duration_ms": 10000
+      },
+      "mutations": ["sloppy_tone", "data_source", "continue_prior_context"]
+    },
+    {
+      "id": "golden_noi_down_vs_underwriting_meridian",
+      "golden": true,
+      "high_value": true,
+      "family": "golden_noi_underwriting",
+      "suite": ["full"],
+      "environment": "meridian",
+      "message": "Why is NOI down vs underwriting?",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["B_LOOKUP", "C_ANALYSIS"],
+        "allowed_skills": ["explain_metric", "run_analysis"],
+        "status": "success",
+        "tool_names": [],
+        "answer_must_include": ["NOI", "underwriting"],
+        "answer_must_not_include": ["Paul Malmquist", "Novendor"],
+        "max_duration_ms": 18000,
+        "contamination_terms": ["Novendor", "Paul Malmquist"]
+      },
+      "mutations": ["terse", "sloppy_tone", "data_source", "justification"]
+    },
+    {
+      "id": "golden_generate_lp_summary_meridian",
+      "golden": true,
+      "high_value": true,
+      "family": "golden_lp_summary",
+      "suite": ["full"],
+      "environment": "meridian",
+      "message": "Generate LP summary",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["C_ANALYSIS", "D_DEEP"],
+        "allowed_skills": ["generate_lp_summary", "run_analysis"],
+        "status": "success",
+        "tool_names": [],
+        "answer_must_include": ["LP", "summary"],
+        "answer_must_not_include": ["Paul Malmquist", "Novendor"],
+        "max_duration_ms": 22000
+      },
+      "mutations": ["executive_tone", "data_source"]
+    },
+    {
+      "id": "golden_follow_up_today_novendor",
+      "golden": true,
+      "high_value": true,
+      "family": "golden_follow_up",
+      "suite": ["full"],
+      "environment": "novendor",
+      "message": "Who should I follow up with today?",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["A_FAST", "B_LOOKUP", "C_ANALYSIS"],
+        "allowed_skills": ["lookup_entity", "run_analysis"],
+        "status": "success",
+        "tool_names": [],
+        "answer_must_include": ["follow up", "Novendor"],
+        "answer_must_not_include": ["Fund One", "Meridian"],
+        "max_duration_ms": 18000,
+        "contamination_terms": ["Fund One", "Meridian"]
+      },
+      "mutations": ["terse", "executive_tone", "sloppy_tone"]
+    },
+    {
+      "id": "golden_what_am_i_looking_at_meridian",
+      "golden": true,
+      "high_value": true,
+      "family": "golden_identity",
+      "suite": ["full"],
+      "environment": "meridian",
+      "message": "What am I looking at?",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["A_FAST", "B_LOOKUP"],
+        "allowed_skills": ["lookup_entity"],
+        "status": "success",
+        "tool_names": [],
+        "answer_must_include": ["Meridian", "Fund One"],
+        "answer_must_not_include": ["Novendor", "Paul Malmquist"],
+        "max_duration_ms": 12000
+      },
+      "mutations": ["terse", "data_source", "sloppy_tone"]
+    },
+    {
+      "id": "golden_create_deal_meridian_west",
+      "golden": true,
+      "high_value": true,
+      "family": "golden_create_deal",
+      "suite": ["full"],
+      "environment": "meridian",
+      "message": "Create a deal called Meridian West",
+      "expected": {
+        "context_status": "resolved",
+        "lane": "C_ANALYSIS",
+        "skill": "create_entity",
+        "status": "success",
+        "tool_names": [],
+        "answer_must_include": ["Meridian West", "confirm"],
+        "answer_must_not_include": ["created successfully", "saved", "executed write"],
+        "max_duration_ms": 20000
+      },
+      "mutations": ["executive_tone", "sloppy_tone"]
+    },
+    {
+      "id": "golden_data_basis_meridian",
+      "golden": true,
+      "high_value": true,
+      "family": "golden_data_basis",
+      "suite": ["full"],
+      "environment": "meridian",
+      "message": "What data is this based on?",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["A_FAST", "B_LOOKUP"],
+        "allowed_skills": ["lookup_entity", "run_analysis"],
+        "status": "success",
+        "tool_names": [],
+        "answer_must_include": ["data", "context", "based on"],
+        "answer_must_not_include": ["made it up", "external memory"],
+        "max_duration_ms": 15000
+      },
+      "mutations": ["terse", "justification"]
+    },
+    {
+      "id": "golden_exact_source_meridian",
+      "golden": true,
+      "high_value": true,
+      "family": "golden_exact_source",
+      "suite": ["full"],
+      "environment": "meridian",
+      "message": "What exact data source did you use?",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["A_FAST", "B_LOOKUP", "C_ANALYSIS"],
+        "allowed_skills": ["lookup_entity", "run_analysis"],
+        "status": "success",
+        "tool_names": [],
+        "answer_must_include": ["source", "context", "page"],
+        "answer_must_not_include": ["I know from memory"],
+        "max_duration_ms": 16000
+      },
+      "mutations": ["executive_tone"]
+    },
+    {
+      "id": "golden_debt_risk_meridian",
+      "golden": true,
+      "high_value": true,
+      "family": "golden_debt_risk",
+      "suite": ["full"],
+      "environment": "meridian",
+      "message": "Show me debt risk",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["B_LOOKUP", "C_ANALYSIS"],
+        "allowed_skills": ["lookup_entity", "run_analysis"],
+        "status": "success",
+        "tool_names": [],
+        "answer_must_include": ["debt", "risk"],
+        "answer_must_not_include": ["Paul Malmquist", "Novendor"],
+        "max_duration_ms": 20000
+      },
+      "mutations": ["terse", "sloppy_tone"]
+    },
+    {
+      "id": "golden_occupancy_blank_meridian",
+      "golden": true,
+      "high_value": true,
+      "family": "golden_occupancy_blank",
+      "suite": ["full"],
+      "environment": "meridian",
+      "message": "Why is occupancy blank?",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["B_LOOKUP", "C_ANALYSIS"],
+        "allowed_skills": ["explain_metric", "run_analysis"],
+        "status": "success",
+        "tool_names": [],
+        "answer_must_include": ["occupancy"],
+        "answer_must_not_include": ["Novendor", "Paul Malmquist"],
+        "max_duration_ms": 18000
+      },
+      "mutations": ["data_source", "justification"]
+    }
+  ]
+}

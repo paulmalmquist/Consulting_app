@@ -71,6 +71,22 @@ _ANALYTICAL_RE = re.compile(
     r"\b(compare|analyze|trend|forecast|scenario|irr|tvpi|dpi|waterfall|attribution|benchmark|correlation)\b",
     re.IGNORECASE,
 )
+_LP_SUMMARY_RE = re.compile(
+    r"\b(generate|draft|prepare)?\s*(an?\s+)?(lp summary|lp report|investor update|investor summary|quarterly letter)\b|"
+    r"\b(capital call|distribution notice)\b",
+    re.IGNORECASE,
+)
+_DEBT_WATCH_RE = re.compile(
+    r"\b(debt watch|watchlist|lender update|debt changes?)\b",
+    re.IGNORECASE,
+)
+_SOURCE_AUDIT_RE = re.compile(
+    r"\b(what data is this based on|what is this based on|what data did you use|what source(?:s)? did you use|"
+    r"exact data source|data source|what tool did you use|which tool did you use|why did you answer that|"
+    r"justify|justification)\b",
+    re.IGNORECASE,
+)
+_RECENCY_RE = re.compile(r"\b(latest|recent|current|today)\b", re.IGNORECASE)
 _DEEP_RE = re.compile(
     r"\b(dashboard|build|create|generate report|root cause|explain why|deep dive|monte carlo)\b",
     re.IGNORECASE,
@@ -307,6 +323,63 @@ def classify_request(
             rag_max_tokens=2000,
             history_max_tokens=2000,
             matched_pattern="credit_policy",
+        )
+
+    if _LP_SUMMARY_RE.search(message):
+        return RouteDecision(
+            lane="C",
+            skip_rag=False,
+            skip_tools=False,
+            max_tool_rounds=3,
+            max_tokens=2048,
+            temperature=0.1,
+            model=OPENAI_CHAT_MODEL_STANDARD,
+            rag_top_k=6,
+            rag_max_tokens=2200,
+            history_max_tokens=3000,
+            use_rerank=True,
+            use_hybrid=True,
+            reasoning_effort="medium",
+            needs_verification=True,
+            matched_pattern="lp_summary",
+        )
+
+    if _DEBT_WATCH_RE.search(message) and (_RECENCY_RE.search(message) or "summar" in message.lower()):
+        return RouteDecision(
+            lane="C",
+            skip_rag=False,
+            skip_tools=False,
+            max_tool_rounds=2,
+            max_tokens=1536,
+            temperature=0.1,
+            model=OPENAI_CHAT_MODEL_STANDARD,
+            rag_top_k=5,
+            rag_max_tokens=2000,
+            history_max_tokens=2500,
+            use_rerank=True,
+            use_hybrid=True,
+            reasoning_effort="medium",
+            needs_verification=True,
+            matched_pattern="debt_watch",
+        )
+
+    if _SOURCE_AUDIT_RE.search(message):
+        return RouteDecision(
+            lane="C",
+            skip_rag=False,
+            skip_tools=False,
+            max_tool_rounds=2,
+            max_tokens=1536,
+            temperature=0.0,
+            model=OPENAI_CHAT_MODEL_STANDARD,
+            rag_top_k=5,
+            rag_max_tokens=1800,
+            history_max_tokens=2500,
+            use_rerank=True,
+            use_hybrid=True,
+            reasoning_effort="medium",
+            needs_verification=True,
+            matched_pattern="source_audit",
         )
 
     # Analytical

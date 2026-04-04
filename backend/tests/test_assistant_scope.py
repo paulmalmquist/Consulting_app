@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+from app.assistant_runtime.context_resolver import resolve_runtime_context
 from app.schemas.ai_gateway import AssistantContextEnvelope
 from app.services import assistant_scope as assistant_scope_svc
 
@@ -123,6 +124,117 @@ def test_resolve_scope_uses_selected_entity_for_deictic_prompt(monkeypatch):
     assert resolved.resolved_scope_type == "fund"
     assert resolved.entity_id == "fund_1"
     assert resolved.source == "selected_ui_entity"
+
+
+def test_resolve_scope_uses_single_selected_entity_for_pronoun_prompt(monkeypatch):
+    monkeypatch.setattr(assistant_scope_svc, "resolve_env_business_context", _resolved_env_context)
+
+    envelope = _envelope(
+        ui={
+            "route": "/lab/env/env_123/re/funds/fund_1",
+            "surface": "fund_detail",
+            "active_environment_id": "env_123",
+            "active_business_id": "biz_123",
+            "schema_name": "env_meridian_capital",
+            "industry": "repe",
+            "page_entity_type": "fund",
+            "page_entity_id": "fund_1",
+            "page_entity_name": "IGF VII",
+            "selected_entities": [
+                {
+                    "entity_type": "fund",
+                    "entity_id": "fund_1",
+                    "name": "IGF VII",
+                    "source": "page",
+                }
+            ],
+            "visible_data": {
+                "funds": [
+                    {
+                        "entity_type": "fund",
+                        "entity_id": "fund_1",
+                        "name": "IGF VII",
+                    }
+                ],
+                "investments": [],
+                "assets": [],
+                "models": [],
+                "pipeline_items": [],
+            },
+        }
+    )
+
+    resolved = assistant_scope_svc.resolve_assistant_scope(
+        user="user:env_123",
+        context_envelope=envelope,
+        user_message="Show me this one",
+    )
+
+    assert resolved.resolved_scope_type == "fund"
+    assert resolved.entity_id == "fund_1"
+    assert resolved.source == "selected_ui_entity"
+
+
+def test_runtime_context_marks_multi_selected_pronoun_prompt_ambiguous(monkeypatch):
+    monkeypatch.setattr(assistant_scope_svc, "resolve_env_business_context", _resolved_env_context)
+
+    envelope = _envelope(
+        ui={
+            "route": "/lab/env/env_123/re/funds",
+            "surface": "fund_portfolio",
+            "active_environment_id": "env_123",
+            "active_business_id": "biz_123",
+            "schema_name": "env_meridian_capital",
+            "industry": "repe",
+            "page_entity_type": "environment",
+            "page_entity_id": "env_123",
+            "selected_entities": [
+                {
+                    "entity_type": "fund",
+                    "entity_id": "fund_1",
+                    "name": "IGF VII",
+                    "source": "selection",
+                },
+                {
+                    "entity_type": "fund",
+                    "entity_id": "fund_2",
+                    "name": "IGF VIII",
+                    "source": "selection",
+                },
+            ],
+            "visible_data": {
+                "funds": [
+                    {
+                        "entity_type": "fund",
+                        "entity_id": "fund_1",
+                        "name": "IGF VII",
+                    },
+                    {
+                        "entity_type": "fund",
+                        "entity_id": "fund_2",
+                        "name": "IGF VIII",
+                    },
+                ],
+                "investments": [],
+                "assets": [],
+                "models": [],
+                "pipeline_items": [],
+            },
+        }
+    )
+
+    runtime_context = resolve_runtime_context(
+        context_envelope=envelope,
+        env_id="env_123",
+        business_id="biz_123",
+        conversation_id="conv_123",
+        actor="user:env_123",
+        message="Show me this one",
+    )
+
+    assert runtime_context.receipt.resolution_status == "ambiguous_context"
+    assert runtime_context.receipt.entity_id is None
+    assert "Multiple selected entities" in runtime_context.receipt.notes[0]
 
 
 def test_resolve_scope_defaults_to_active_environment_for_generic_prompt(monkeypatch):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 
 os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/test")
@@ -9,11 +10,13 @@ os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
 os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-key")
 os.environ.setdefault("_BM_SKIP_DB_CHECK", "1")
 
+import pytest
 from pydantic import BaseModel
 
 from app.assistant_runtime.degraded_responses import degraded_message
 from app.assistant_runtime.execution_engine import prepare_tools
 from app.assistant_runtime.prompt_registry import validate_prompt_registry
+from app.assistant_runtime.retrieval_orchestrator import execute_retrieval
 from app.assistant_runtime.skill_registry import validate_skill_registry
 from app.assistant_runtime.skill_router import route_skill
 from app.assistant_runtime.turn_receipts import (
@@ -22,6 +25,7 @@ from app.assistant_runtime.turn_receipts import (
     DegradedReason,
     Lane,
     PermissionMode,
+    RetrievalStatus,
     permission_satisfies,
 )
 from app.mcp.registry import ToolDef, ToolRegistry
@@ -128,3 +132,45 @@ def test_prepare_tools_filters_by_lane_and_permission():
 def test_degraded_messages_are_explicit():
     assert degraded_message(DegradedReason.MISSING_CONTEXT) == "Context not available."
     assert degraded_message(DegradedReason.RETRIEVAL_EMPTY) == "Not available in the current context."
+
+
+def test_execute_retrieval_degrades_cleanly_for_non_uuid_entity_scope(monkeypatch):
+    route = RouteDecision(
+        lane="C",
+        skip_rag=False,
+        skip_tools=False,
+        max_tool_rounds=2,
+        max_tokens=512,
+        temperature=0.1,
+        is_write=False,
+        model="gpt-5-mini",
+        rag_top_k=5,
+        use_rerank=False,
+        use_hybrid=False,
+    )
+
+    called = False
+
+    def _fake_search(**_kwargs):
+        nonlocal called
+        called = True
+        return []
+
+    monkeypatch.setattr("app.assistant_runtime.retrieval_orchestrator.semantic_search", _fake_search)
+
+    execution = asyncio.run(
+        execute_retrieval(
+            route=route,
+            retrieval_policy="full",
+            message="Summarize the latest debt watch changes for this fund",
+            business_id="a1b2c3d4-0001-0001-0001-000000000001",
+            env_id="a1b2c3d4-0001-0001-0003-000000000001",
+            entity_type="fund",
+            entity_id="fund_1",
+        )
+    )
+
+    assert called is False
+    assert execution.receipt.used is True
+    assert execution.receipt.result_count == 0
+    assert execution.receipt.status == RetrievalStatus.EMPTY

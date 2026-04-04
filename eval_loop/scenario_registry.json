@@ -1,0 +1,352 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "id": "env_identity_meridian",
+      "family": "what_am_i_looking_at",
+      "suite": ["smoke", "full"],
+      "environment": "meridian",
+      "message": "What am I looking at?",
+      "expected": {
+        "context_status": "resolved",
+        "lane": "A_FAST",
+        "allowed_skills": ["lookup_entity"],
+        "status": "success",
+        "retrieval_used": false,
+        "tool_names": [],
+        "answer_must_include": ["Meridian", "Fund One"],
+        "answer_must_not_include": ["Novendor", "Paul Malmquist", "Stone PDS"],
+        "max_duration_ms": 12000,
+        "max_first_token_ms": 8000,
+        "contamination_terms": ["Novendor", "Paul Malmquist", "Stone PDS"]
+      },
+      "mutations": ["terse", "source_request"]
+    },
+    {
+      "id": "env_identity_novendor",
+      "family": "what_am_i_looking_at",
+      "suite": ["smoke", "full"],
+      "environment": "novendor",
+      "message": "What am I looking at?",
+      "expected": {
+        "context_status": "resolved",
+        "lane": "A_FAST",
+        "allowed_skills": ["lookup_entity"],
+        "status": "success",
+        "retrieval_used": false,
+        "tool_names": [],
+        "answer_must_include": ["Novendor"],
+        "answer_must_not_include": ["Meridian", "Fund One", "Paul Malmquist"],
+        "max_duration_ms": 12000,
+        "contamination_terms": ["Meridian", "Fund One", "Paul Malmquist"]
+      },
+      "mutations": ["terse"]
+    },
+    {
+      "id": "env_identity_resume",
+      "family": "what_am_i_looking_at",
+      "suite": ["smoke", "full"],
+      "environment": "resume",
+      "message": "What am I looking at?",
+      "expected": {
+        "context_status": "resolved",
+        "lane": "A_FAST",
+        "allowed_skills": ["lookup_entity"],
+        "status": "success",
+        "retrieval_used": false,
+        "tool_names": [],
+        "answer_must_include": ["resume", "Paul"],
+        "answer_must_not_include": ["Meridian", "Fund One", "Novendor"],
+        "max_duration_ms": 12000,
+        "contamination_terms": ["Meridian", "Fund One", "Novendor"]
+      },
+      "mutations": ["executive_tone"]
+    },
+    {
+      "id": "env_identity_stone_pds",
+      "family": "what_am_i_looking_at",
+      "suite": ["full"],
+      "environment": "stone-pds",
+      "message": "What am I looking at?",
+      "expected": {
+        "context_status": "resolved",
+        "lane": "A_FAST",
+        "allowed_skills": ["lookup_entity"],
+        "status": "success",
+        "retrieval_used": false,
+        "tool_names": [],
+        "answer_must_include": ["Stone PDS", "Tower Retrofit"],
+        "answer_must_not_include": ["Meridian", "Fund One", "Paul Malmquist"],
+        "max_duration_ms": 15000
+      },
+      "mutations": ["terse"]
+    },
+    {
+      "id": "env_identity_floyorker",
+      "family": "what_am_i_looking_at",
+      "suite": ["full"],
+      "environment": "floyorker",
+      "message": "What am I looking at?",
+      "expected": {
+        "context_status": "resolved",
+        "lane": "A_FAST",
+        "allowed_skills": ["lookup_entity"],
+        "status": "success",
+        "retrieval_used": false,
+        "tool_names": [],
+        "answer_must_include": ["Floyorker", "Weekend Guide"],
+        "answer_must_not_include": ["Meridian", "Fund One", "Novendor"],
+        "max_duration_ms": 15000
+      },
+      "mutations": ["terse"]
+    },
+    {
+      "id": "env_identity_trading",
+      "family": "what_am_i_looking_at",
+      "suite": ["full"],
+      "environment": "trading",
+      "message": "What am I looking at?",
+      "expected": {
+        "context_status": "resolved",
+        "lane": "A_FAST",
+        "allowed_skills": ["lookup_entity"],
+        "status": "success",
+        "retrieval_used": false,
+        "tool_names": [],
+        "answer_must_include": ["Trading", "Core Book"],
+        "answer_must_not_include": ["Meridian", "Paul Malmquist", "Novendor"],
+        "max_duration_ms": 15000
+      },
+      "mutations": ["executive_tone"]
+    },
+    {
+      "id": "meridian_selected_fund_identity",
+      "family": "selected_entity_lookup",
+      "suite": ["smoke", "full"],
+      "environment": "meridian",
+      "message": "What fund is this?",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["A_FAST", "B_LOOKUP"],
+        "allowed_skills": ["lookup_entity"],
+        "status": "success",
+        "retrieval_used": false,
+        "tool_names": [],
+        "answer_must_include": ["Fund One"],
+        "answer_must_not_include": ["Fund Two", "Novendor"],
+        "max_duration_ms": 12000,
+        "forbidden_lanes": ["D_DEEP"]
+      },
+      "mutations": ["terse"]
+    },
+    {
+      "id": "novendor_no_fund_context",
+      "family": "selected_entity_lookup",
+      "suite": ["smoke", "full"],
+      "environment": "novendor",
+      "message": "What fund is this?",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["A_FAST", "B_LOOKUP"],
+        "allowed_skills": ["lookup_entity"],
+        "status": "success",
+        "retrieval_used": false,
+        "tool_names": [],
+        "answer_must_include": ["not available", "not in this context", "cannot determine", "no fund"],
+        "answer_must_not_include": ["Fund One", "Meridian"],
+        "max_duration_ms": 12000
+      },
+      "mutations": ["terse"]
+    },
+    {
+      "id": "missing_context_downside_asset",
+      "family": "analysis_missing_context",
+      "suite": ["smoke", "full"],
+      "environment": null,
+      "omit_environment": true,
+      "route": "/assistant",
+      "surface": "global_assistant",
+      "message": "Run a downside scenario on this asset",
+      "expected": {
+        "context_status": "missing_context",
+        "lane": "C_ANALYSIS",
+        "allowed_skills": ["run_analysis"],
+        "status": "degraded",
+        "degraded_reason": "missing_context",
+        "retrieval_used": false,
+        "tool_names": [],
+        "answer_must_include": ["Context not available"],
+        "answer_must_not_include": ["Based on the asset", "NOI", "cap rate", "Fund One"],
+        "max_duration_ms": 8000
+      },
+      "mutations": ["executive_tone"]
+    },
+    {
+      "id": "ambiguous_entity_meridian",
+      "family": "ambiguous_entity",
+      "suite": ["smoke", "full"],
+      "environment": "meridian",
+      "selected_entities": [
+        {"entity_type": "fund", "entity_id": "fund_1", "name": "Fund One", "source": "selection"},
+        {"entity_type": "fund", "entity_id": "fund_2", "name": "Fund Two", "source": "selection"}
+      ],
+      "message": "Show me this one",
+      "expected": {
+        "context_status": "ambiguous_context",
+        "allowed_lanes": ["B_LOOKUP", "C_ANALYSIS"],
+        "allowed_skills": ["lookup_entity"],
+        "status": "degraded",
+        "degraded_reason": "ambiguous_context",
+        "retrieval_used": false,
+        "tool_names": [],
+        "answer_must_include": ["ambiguous", "Context is ambiguous"],
+        "answer_must_not_include": ["Fund One overview", "Fund Two overview"],
+        "max_duration_ms": 8000
+      },
+      "mutations": ["ambiguity"]
+    },
+    {
+      "id": "write_without_confirmation_deal",
+      "family": "write_confirmation",
+      "suite": ["smoke", "full"],
+      "environment": "meridian",
+      "message": "Create a new deal called Meridian West",
+      "expected": {
+        "context_status": "resolved",
+        "lane": "C_ANALYSIS",
+        "skill": "create_entity",
+        "status": "success",
+        "retrieval_used": false,
+        "tool_names": [],
+        "answer_must_include": ["Create", "Meridian West", "confirm", "proceed"],
+        "answer_must_not_include": ["created successfully", "executed write", "saved"],
+        "max_duration_ms": 18000
+      },
+      "mutations": ["executive_tone"]
+    },
+    {
+      "id": "retrieval_empty_debt_watch_meridian",
+      "family": "retrieval_boundary",
+      "suite": ["smoke", "full"],
+      "environment": "meridian",
+      "message": "Summarize the latest debt watch changes for this fund",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["B_LOOKUP", "C_ANALYSIS"],
+        "allowed_skills": ["run_analysis", "lookup_entity"],
+        "status": "degraded",
+        "degraded_reason": "retrieval_empty",
+        "retrieval_used": true,
+        "retrieval_status": "empty",
+        "tool_names": [],
+        "answer_must_include": ["Not available", "current context"],
+        "answer_must_not_include": ["debt watch increased", "spread widened", "lender update"],
+        "max_duration_ms": 22000
+      }
+    },
+    {
+      "id": "meridian_explain_noi_variance",
+      "family": "skill_boundary",
+      "suite": ["full"],
+      "environment": "meridian",
+      "message": "Explain NOI variance for this fund",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["B_LOOKUP", "C_ANALYSIS"],
+        "allowed_skills": ["explain_metric", "run_analysis"],
+        "status": "success",
+        "tool_names": [],
+        "answer_must_include": ["NOI", "Fund One"],
+        "answer_must_not_include": ["Paul Malmquist", "Novendor"],
+        "max_duration_ms": 18000
+      },
+      "mutations": ["source_request"]
+    },
+    {
+      "id": "source_request_meridian",
+      "family": "source_request",
+      "suite": ["full"],
+      "environment": "meridian",
+      "message": "What data is this based on?",
+      "expected": {
+        "context_status": "resolved",
+        "allowed_lanes": ["A_FAST", "B_LOOKUP"],
+        "allowed_skills": ["lookup_entity", "run_analysis"],
+        "status": "success",
+        "tool_names": [],
+        "answer_must_include": ["based on", "current page", "context"],
+        "answer_must_not_include": ["I queried external systems"],
+        "max_duration_ms": 15000
+      }
+    },
+    {
+      "id": "tool_unknown_name",
+      "family": "tool_engine",
+      "suite": ["smoke", "full"],
+      "kind": "tool_engine",
+      "environment": "meridian",
+      "message": "simulate unknown tool",
+      "tool_fixture": {
+        "type": "unknown"
+      },
+      "expected": {
+        "tool_names": ["missing__tool"],
+        "tool_statuses": ["failed"],
+        "answer_must_include": ["Unknown tool"]
+      }
+    },
+    {
+      "id": "tool_failure_normalized",
+      "family": "tool_engine",
+      "suite": ["smoke", "full"],
+      "kind": "tool_engine",
+      "environment": "meridian",
+      "message": "simulate failing tool",
+      "tool_fixture": {
+        "type": "failure",
+        "tool_name": "eval.synthetic_failure",
+        "args": {"name": "boom"}
+      },
+      "expected": {
+        "tool_names": ["eval.synthetic_failure"],
+        "tool_statuses": ["failed"],
+        "answer_must_include": ["simulated tool failure"]
+      }
+    },
+    {
+      "id": "tool_denied_without_permission",
+      "family": "tool_engine",
+      "suite": ["smoke", "full"],
+      "kind": "tool_engine",
+      "environment": "meridian",
+      "message": "simulate denied write tool",
+      "tool_fixture": {
+        "type": "denied",
+        "tool_name": "eval.synthetic_write"
+      },
+      "expected": {
+        "tool_names": ["eval.synthetic_write"],
+        "tool_statuses": ["denied"],
+        "answer_must_include": ["Permission denied"]
+      }
+    },
+    {
+      "id": "frontend_trace_receipt_render",
+      "family": "frontend_trace",
+      "suite": ["smoke", "full"],
+      "kind": "frontend_contract",
+      "environment": "meridian",
+      "frontend_command": "npm run test:unit -- src/components/commandbar/__tests__/AdvancedDrawer.receipt.test.tsx",
+      "expected": {}
+    },
+    {
+      "id": "frontend_trace_malformed_tool_render",
+      "family": "frontend_trace",
+      "suite": ["full"],
+      "kind": "frontend_contract",
+      "environment": "meridian",
+      "frontend_command": "npm run test:unit -- src/components/commandbar/__tests__/AdvancedDrawer.receipt.test.tsx",
+      "expected": {}
+    }
+  ]
+}
