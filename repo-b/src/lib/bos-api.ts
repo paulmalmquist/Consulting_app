@@ -6226,10 +6226,11 @@ export type FundValuationRollup = {
 export function getFundValuationRollup(
   fundId: string,
   quarter: string,
-  scenarioId?: string
+  scenarioId?: string,
+  envId?: string
 ): Promise<FundValuationRollup> {
   return directFetch(`/api/re/v2/funds/${fundId}/valuation/rollup`, {
-    params: { quarter, scenario_id: scenarioId },
+    params: { quarter, scenario_id: scenarioId, env_id: envId },
   });
 }
 
@@ -6568,11 +6569,13 @@ export function getFundExposureInsights(params: {
   fund_id: string;
   quarter: string;
   scenario_id?: string;
+  env_id?: string;
 }): Promise<FundExposureInsights> {
   return directFetch(`/api/re/v2/funds/${params.fund_id}/exposure`, {
     params: {
       quarter: params.quarter,
       scenario_id: params.scenario_id,
+      env_id: params.env_id,
     },
   });
 }

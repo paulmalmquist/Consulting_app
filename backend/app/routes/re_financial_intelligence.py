@@ -58,6 +58,7 @@ from app.services import (
     re_fi_seed_v2,
     re_fund_metrics,
     re_irr_timeline,
+    re_pipeline_diagnostic,
     re_property_comps,
     re_run_engine,
     re_sale_scenario,
@@ -997,6 +998,35 @@ def export_fund_report(
             iter([xlsx_bytes]),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": f"attachment; filename=fund_report_{quarter}.xlsx"},
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Pipeline Diagnostic ──────────────────────────────────────────────────────
+
+@router.get("/funds/{fund_id}/pipeline-status")
+def get_pipeline_status(
+    fund_id: UUID,
+    env_id: str = Query(...),
+    quarter: str = Query(...),
+):
+    """Return a diagnostic snapshot of the fund data pipeline for a given quarter.
+
+    Checks:
+      - fund_exists   — repe_fund row present
+      - investment_count — linked re_investment rows
+      - asset_count   — linked repe_asset rows (via repe_deal)
+      - snapshot_exists — re_fund_quarter_state row for this quarter
+      - time_series_points — total historical snapshot rows
+
+    Returns failure_reason: NO_FUND | NO_ASSETS | NO_SNAPSHOT | null
+    """
+    try:
+        return re_pipeline_diagnostic.get_fund_pipeline_status(
+            fund_id=fund_id,
+            env_id=env_id,
+            quarter=quarter,
         )
     except Exception as exc:
         raise _to_http(exc)
