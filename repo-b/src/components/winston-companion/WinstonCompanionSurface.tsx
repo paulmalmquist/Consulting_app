@@ -2,19 +2,15 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   ArrowUpRight,
   Bot,
-  ChevronDown,
   ChevronRight,
   Compass,
   History,
   MessageSquarePlus,
-  MoreVertical,
-  PanelRightClose,
-  Search,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -25,6 +21,7 @@ import { useWinstonCompanion, companionLauncherOffsetClass } from "@/components/
 import WinstonAvatar from "@/components/winston-companion/WinstonAvatar";
 import { useWinstonLoader } from "@/lib/loading-state";
 import ResponseBlockRenderer from "@/components/copilot/ResponseBlockRenderer";
+import { getGreeting } from "@/lib/winston-companion/greetings";
 
 function formatConversationTime(value: string | null) {
   if (!value) return "Now";
@@ -42,10 +39,6 @@ function formatConversationTime(value: string | null) {
 
 function hasMarkdownBlock(blocks: AssistantResponseBlock[] | null | undefined) {
   return Boolean(blocks?.some((block) => block.type === "markdown_text"));
-}
-
-function laneLabel(lane: "contextual" | "general") {
-  return lane === "contextual" ? "Contextual" : "General";
 }
 
 function ThreadViewport({
@@ -136,9 +129,11 @@ function ThreadViewport({
 function ConversationComposer({
   compact = false,
   showAttach = false,
+  greeting,
 }: {
   compact?: boolean;
   showAttach?: boolean;
+  greeting?: string;
 }) {
   const {
     activeLane,
@@ -150,6 +145,12 @@ function ConversationComposer({
     removeAttachment,
   } = useWinstonCompanion();
   const fileRef = useRef<HTMLInputElement | null>(null);
+
+  const placeholder = activeState.messages.length > 0
+    ? currentContext?.scopeLabel && currentContext.scopeLabel !== "General"
+      ? `Ask about ${currentContext.scopeLabel}...`
+      : "Ask Winston..."
+    : (greeting ?? "How may I be of service?");
 
   return (
     <div className={cn("border-t border-bm-border/50", compact ? "px-4 py-4" : "px-6 py-5")}>
@@ -179,7 +180,7 @@ function ConversationComposer({
           value={activeState.draft}
           onChange={(event) => setDraft(activeLane, event.target.value)}
           rows={compact ? 2 : 3}
-          placeholder={currentContext ? `Ask about ${currentContext.scopeLabel || "this page"}...` : "Ask Winston..."}
+          placeholder={placeholder}
           data-testid="global-commandbar-input"
           className="min-h-[60px] w-full resize-none border-0 bg-transparent text-sm leading-6 text-bm-text outline-none placeholder:text-bm-muted2"
           onKeyDown={(event) => {
@@ -189,36 +190,28 @@ function ConversationComposer({
             }
           }}
         />
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs text-bm-muted2">
-            <span className="rounded-full border border-bm-border/40 px-2 py-1">
-              {laneLabel(activeLane)}
-            </span>
-            {currentContext?.scopeLabel ? <span>{currentContext.scopeLabel}</span> : null}
-          </div>
-          <div className="flex items-center gap-2">
-            {showAttach ? (
-              <>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  className="hidden"
-                  accept=".pdf,.docx,.xlsx,.csv,.txt,.md,.json"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) void uploadAttachment(activeLane, file);
-                    event.currentTarget.value = "";
-                  }}
-                />
-                <Button type="button" variant="secondary" size="sm" onClick={() => fileRef.current?.click()}>
-                  Attach
-                </Button>
-              </>
-            ) : null}
-            <Button type="button" size="sm" onClick={() => void sendPrompt(activeLane)} disabled={activeState.thinking || !activeState.draft.trim()}>
-              Send
-            </Button>
-          </div>
+        <div className="mt-3 flex items-center justify-end gap-2">
+          {showAttach ? (
+            <>
+              <input
+                ref={fileRef}
+                type="file"
+                className="hidden"
+                accept=".pdf,.docx,.xlsx,.csv,.txt,.md,.json"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void uploadAttachment(activeLane, file);
+                  event.currentTarget.value = "";
+                }}
+              />
+              <Button type="button" variant="secondary" size="sm" onClick={() => fileRef.current?.click()}>
+                Attach
+              </Button>
+            </>
+          ) : null}
+          <Button type="button" size="sm" onClick={() => void sendPrompt(activeLane)} disabled={activeState.thinking || !activeState.draft.trim()}>
+            Send
+          </Button>
         </div>
       </div>
     </div>
@@ -245,61 +238,6 @@ function SuggestionStrip({ compact = false, hideWhenActive = false }: { compact?
         </button>
       ))}
     </div>
-  );
-}
-
-function LaneSwitcher() {
-  const { activeLane, setActiveLane } = useWinstonCompanion();
-
-  return (
-    <div className="inline-flex rounded-full border border-bm-border/50 bg-bm-bg/70 p-1">
-      {(["contextual", "general"] as const).map((lane) => (
-        <button
-          key={lane}
-          type="button"
-          onClick={() => setActiveLane(lane)}
-          className={cn(
-            "rounded-full px-3 py-1.5 text-xs font-medium uppercase tracking-[0.14em] transition",
-            activeLane === lane ? "bg-bm-accent text-bm-accentContrast" : "text-bm-muted2 hover:text-bm-text",
-          )}
-        >
-          {laneLabel(lane)}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function ContextCard() {
-  const { currentContext, activeLane, contextualBinding, activeBinding, needsContextAdoption, adoptCurrentContext } = useWinstonCompanion();
-
-  if (!currentContext) return null;
-
-  return (
-    <section className="rounded-2xl border border-bm-border/30 bg-bm-surface/15 p-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="truncate text-sm font-semibold text-bm-text">{currentContext.currentNarrative}</h2>
-        </div>
-        <LaneSwitcher />
-      </div>
-      <div className="mt-3 flex flex-wrap gap-2 text-xs text-bm-muted2">
-        <span className="rounded-full border border-bm-border/50 px-2.5 py-1">{currentContext.routeLabel}</span>
-        {activeBinding?.scopeLabel ? <span className="rounded-full border border-bm-border/50 px-2.5 py-1">Thread: {activeBinding.scopeLabel}</span> : null}
-      </div>
-      {activeLane === "contextual" && contextualBinding?.scopeLabel && contextualBinding.scopeKey !== currentContext.scopeKey ? (
-        <div className="mt-4 rounded-2xl border border-bm-accent/30 bg-bm-accent/10 p-3">
-          <p className="text-sm text-bm-text">
-            This thread is still pinned to <span className="font-semibold">{contextualBinding.scopeLabel}</span>.
-          </p>
-          <div className="mt-3 flex gap-2">
-            <Button type="button" size="sm" onClick={adoptCurrentContext} disabled={!needsContextAdoption}>
-              Adopt Current Context
-            </Button>
-          </div>
-        </div>
-      ) : null}
-    </section>
   );
 }
 
@@ -359,11 +297,9 @@ function RecentConversations() {
 
   return (
     <section className="rounded-[24px] border border-bm-border/50 bg-bm-surface/14 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <History size={15} className="text-bm-muted2" />
-          <p className="text-sm font-semibold text-bm-text">Recent {laneLabel(activeLane).toLowerCase()} threads</p>
-        </div>
+      <div className="flex items-center gap-2">
+        <History size={15} className="text-bm-muted2" />
+        <p className="text-sm font-semibold text-bm-text">Recent threads</p>
       </div>
       <div className="mt-3 space-y-2">
         {recentConversations.length ? recentConversations.slice(0, 8).map((conversation) => {
@@ -387,7 +323,7 @@ function RecentConversations() {
                       {conversation.title || conversation.scope_label || conversation.context_summary || "Untitled conversation"}
                     </p>
                     <p className="mt-1 text-xs text-bm-muted2">
-                      {conversation.scope_label || laneLabel(conversation.thread_kind)} · {formatConversationTime(conversation.updated_at)}
+                      {conversation.scope_label || ""} · {formatConversationTime(conversation.updated_at)}
                     </p>
                   </div>
                   <ChevronRight size={15} className="shrink-0 text-bm-muted2" />
@@ -410,7 +346,7 @@ function RecentConversations() {
           );
         }) : (
           <div className="rounded-2xl border border-dashed border-bm-border/50 px-3 py-4 text-sm text-bm-muted2">
-            No saved threads yet for this lane.
+            No saved threads yet.
           </div>
         )}
       </div>
@@ -427,10 +363,9 @@ function ExplorePanel() {
     <section className="rounded-[24px] border border-bm-border/50 bg-bm-surface/14 p-4">
       <div className="flex items-center gap-2">
         <Compass size={15} className="text-bm-muted2" />
-        <p className="text-sm font-semibold text-bm-text">Explore elsewhere</p>
+        <p className="text-sm font-semibold text-bm-text">Explore</p>
       </div>
       <div className="mt-3 flex items-center gap-2 rounded-2xl border border-bm-border/50 bg-bm-bg/70 px-3 py-2">
-        <Search size={14} className="text-bm-muted2" />
         <input
           value={exploreQuery}
           onChange={(event) => setExploreQuery(event.target.value)}
@@ -457,7 +392,7 @@ function ExplorePanel() {
           </div>
         )}
       </div>
-      {exploreLoading ? <p className="mt-3 text-xs text-bm-muted2">Searching the environment…</p> : null}
+      {exploreLoading ? <p className="mt-3 text-xs text-bm-muted2">Searching…</p> : null}
     </section>
   );
 }
@@ -484,33 +419,6 @@ function AdvancedPanel() {
   );
 }
 
-/** Overflow menu for drawer mode — Explore + Dev behind a single toggle. */
-function DrawerOverflowMenu() {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="px-4 pb-3">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between rounded-2xl border border-bm-border/40 bg-bm-surface/10 px-4 py-2.5 text-xs font-medium text-bm-muted2 transition hover:text-bm-text"
-      >
-        <span className="flex items-center gap-2">
-          <MoreVertical size={14} />
-          Explore &amp; tools
-        </span>
-        <ChevronDown size={14} className={cn("transition", open && "rotate-180")} />
-      </button>
-      {open ? (
-        <div className="mt-3 space-y-3">
-          <ExplorePanel />
-          <AdvancedPanel />
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function WorkspaceUtilities({ drawer = false }: { drawer?: boolean }) {
   return (
     <div className={cn("space-y-4", drawer ? "" : "sticky top-6")}>
@@ -526,72 +434,52 @@ function WorkspaceContent({
 }: {
   drawer?: boolean;
 }) {
-  const { currentContext, activeState, activeLane, resetLane, openFullWorkspace } = useWinstonCompanion();
+  const { currentContext, activeState, activeLane, resetLane } = useWinstonCompanion();
+
+  const greeting = useMemo(
+    () => getGreeting(currentContext?.routeLabel, currentContext?.scopeLabel),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentContext?.routeLabel, currentContext?.scopeLabel],
+  );
 
   return (
     <>
-      {/* In drawer mode: skip ContextCard (header already shows context),
-          show compact thread strip instead of full RecentConversations */}
-      {drawer ? (
-        <RecentThreadStrip />
-      ) : (
-        <ContextCard />
-      )}
+      {drawer ? <RecentThreadStrip /> : null}
 
       <section className={cn("overflow-hidden rounded-[28px] border border-bm-border/55 bg-bm-surface/10")}>
-        {/* Simplified header — single line in drawer, full in workspace */}
+        {/* Thread section header */}
         <div className={cn(
-          "flex items-center justify-between gap-3 border-b border-bm-border/45",
-          drawer ? "px-4 py-2" : "px-4 py-3",
+          "flex items-center justify-between gap-3",
+          drawer ? "px-4 py-2.5" : "px-4 py-3",
         )}>
           <div className="flex items-center gap-2 min-w-0">
             {drawer ? null : <Bot size={15} className="text-bm-muted2" />}
-            <div className="min-w-0">
-              {drawer ? (
-                <p className="truncate text-xs text-bm-muted2">
-                  <LaneSwitcher />
-                  {activeState.conversationId ? " · active thread" : ""}
-                </p>
-              ) : (
-                <>
-                  <p className="text-sm font-semibold text-bm-text">
-                    {activeLane === "contextual" ? "Pinned contextual thread" : "General Winston thread"}
-                  </p>
-                  <p className="text-xs text-bm-muted2">
-                    {currentContext?.scopeLabel || "Workspace"}{activeState.conversationId ? " · conversation attached" : " · new conversation"}
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button type="button" variant="secondary" size="sm" onClick={() => resetLane(activeLane)}>
-              <MessageSquarePlus size={14} />
-              {drawer ? null : "New Thread"}
-            </Button>
-            {drawer ? (
-              <Button type="button" size="sm" onClick={openFullWorkspace}>
-                Open Winston
-              </Button>
+            {!drawer ? (
+              <p className="text-sm font-semibold text-bm-text">
+                {activeLane === "contextual" ? "Contextual thread" : "General thread"}
+              </p>
             ) : null}
           </div>
+          <Button type="button" variant="secondary" size="sm" onClick={() => resetLane(activeLane)}>
+            <MessageSquarePlus size={14} />
+            {drawer ? null : "New Thread"}
+          </Button>
         </div>
 
         {activeState.messages.length === 0 ? (
-          <div className={cn("border-b border-bm-border/40", drawer ? "px-4 py-4" : "px-6 py-8")}>
+          <div className={cn("border-t border-bm-border/30", drawer ? "px-4 py-4" : "px-6 py-8")}>
             <div className={cn(
               "rounded-[28px] border border-dashed border-bm-border/50 bg-bm-bg/45",
               drawer ? "p-4" : "p-6",
             )}>
-              {drawer ? null : (
-                <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Winston companion</p>
-              )}
               <h2 className={cn("font-semibold text-bm-text", drawer ? "text-sm" : "mt-2 text-lg")}>
-                {currentContext?.currentNarrative || "Ready"}
+                {greeting}
               </h2>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-bm-muted">
-                Ask about this page, run analyses, or explore your portfolio.
-              </p>
+              {!drawer ? (
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-bm-muted">
+                  Ask about this page, run analyses, or explore your portfolio.
+                </p>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -603,7 +491,7 @@ function WorkspaceContent({
           thinkingStatus={activeState.thinkingStatus}
           compact={drawer}
         />
-        <ConversationComposer compact={drawer} showAttach={!drawer} />
+        <ConversationComposer compact={drawer} showAttach={!drawer} greeting={greeting} />
       </section>
     </>
   );
@@ -693,6 +581,10 @@ export function WinstonCompanionRoot() {
 
   if (!shouldRender) return null;
 
+  const scopeSubtitle = currentContext?.scopeLabel && currentContext.scopeLabel !== "General"
+    ? currentContext.scopeLabel
+    : null;
+
   return (
     <>
       <button
@@ -745,9 +637,10 @@ export function WinstonCompanionRoot() {
               <div className="flex items-center gap-3 min-w-0">
                 <WinstonAvatar className="h-9 w-9 shrink-0 border-bm-border/50 bg-bm-surface" priority />
                 <div className="min-w-0">
-                  <h1 className="truncate text-sm font-semibold text-bm-text">
-                    {currentContext?.currentNarrative || currentContext?.envName || "Winston"}
-                  </h1>
+                  <h1 className="text-sm font-semibold text-bm-text">Ask Winston</h1>
+                  {scopeSubtitle ? (
+                    <p className="truncate text-xs text-bm-muted2">{scopeSubtitle}</p>
+                  ) : null}
                 </div>
               </div>
               <button
@@ -764,7 +657,9 @@ export function WinstonCompanionRoot() {
           <div className="min-h-0 flex-1 overflow-y-auto py-2">
             <div className="space-y-2">
               <WorkspaceContent drawer />
-              <DrawerOverflowMenu />
+              <div className="px-4 pb-3">
+                <ExplorePanel />
+              </div>
             </div>
           </div>
         </div>
@@ -775,7 +670,7 @@ export function WinstonCompanionRoot() {
 
 export function WinstonCompanionWorkspace() {
   const searchParams = useSearchParams();
-  const { hydrateFromQuery, openDrawer, setActiveLane } = useWinstonCompanion();
+  const { hydrateFromQuery, setActiveLane } = useWinstonCompanion();
   const conversationId = searchParams.get("conversation_id");
   const laneParam = searchParams.get("lane");
 
@@ -789,29 +684,13 @@ export function WinstonCompanionWorkspace() {
   return (
     <div className="space-y-5">
       <section className="rounded-[32px] border border-bm-border/55 bg-bm-surface/40 p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <WinstonAvatar className="h-14 w-14 border-bm-border/50 bg-bm-surface" priority />
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Winston workspace</p>
-              <h1 className="mt-1 text-xl font-semibold text-bm-text">Operating companion</h1>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-bm-muted">
-                Context-aware threads pinned to your current page. Switch lanes for broader reasoning.
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" variant="secondary" size="sm" onClick={() => openDrawer()}>
-              <PanelRightClose size={14} />
-              Open Drawer
-            </Button>
-            <Link
-              href="/app/winston"
-              className="inline-flex items-center gap-2 rounded-full border border-bm-border/50 px-4 py-2 text-sm text-bm-text transition hover:bg-bm-surface/20"
-            >
-              Global Winston
-              <ArrowUpRight size={14} />
-            </Link>
+        <div className="flex items-center gap-4">
+          <WinstonAvatar className="h-14 w-14 border-bm-border/50 bg-bm-surface" priority />
+          <div>
+            <h1 className="text-xl font-semibold text-bm-text">Ask Winston</h1>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-bm-muted">
+              Context-aware threads pinned to your current page.
+            </p>
           </div>
         </div>
       </section>
@@ -833,7 +712,7 @@ export function WinstonCompanionWorkspace() {
           </div>
         </details>
         <details className="rounded-[24px] border border-bm-border/50 bg-bm-surface/12 p-4">
-          <summary className="cursor-pointer text-sm font-semibold text-bm-text">Explore and tools</summary>
+          <summary className="cursor-pointer text-sm font-semibold text-bm-text">Explore</summary>
           <div className="mt-4 space-y-4">
             <ExplorePanel />
             <AdvancedPanel />

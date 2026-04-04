@@ -878,6 +878,8 @@ export async function streamAi(input: {
   env_id?: string;
   conversation_id?: string;
   context_envelope?: AssistantContextEnvelope;
+  pending_continuation?: boolean;
+  pending_question_text?: string;
   onStatus?: (status: string) => void;
   onContext?: StreamAiHandlers["onContext"];
   onToken?: StreamAiHandlers["onToken"];
@@ -924,6 +926,8 @@ export async function streamAi(input: {
         conversation_id: input.conversation_id || null,
         context_envelope: input.context_envelope || null,
         session_id: requestId,
+        pending_continuation: input.pending_continuation ?? false,
+        pending_question_text: input.pending_question_text ?? null,
       }),
       signal,
     });

@@ -115,10 +115,10 @@ function SystemCard({
       className="group w-full border-t text-left transition-all duration-200"
       style={{
         borderColor: isHighlighted
-          ? "rgba(200,146,58,0.45)"
+          ? "rgba(200,146,58,0.55)"
           : isRelatedToSkill
-            ? "rgba(96,144,176,0.3)"
-            : "rgba(200,146,58,0.15)",
+            ? "rgba(96,144,176,0.35)"
+            : "rgba(200,146,58,0.22)",
       }}
     >
       <div
@@ -160,9 +160,9 @@ function SystemCard({
                   key={lbl}
                   className="resume-label rounded px-1.5 py-0.5 text-[9px] tracking-[0.18em]"
                   style={{
-                    color: "var(--ros-text-dim, #b8a890)",
-                    border: "1px solid rgba(150,130,100,0.35)",
-                    background: "rgba(255,255,255,0.03)",
+                    color: "var(--ros-text-muted, #e4d0b4)",
+                    border: "1px solid rgba(180,160,120,0.45)",
+                    background: "rgba(255,255,255,0.04)",
                   }}
                 >
                   {lbl}
@@ -173,8 +173,8 @@ function SystemCard({
 
           {/* Description */}
           <p
-            className="mt-2 line-clamp-2 text-[11px] leading-relaxed tracking-[0.06em] md:text-[12px]"
-            style={{ color: "rgba(200,186,168,0.85)" }}
+            className="mt-2 line-clamp-2 text-[11px] leading-[1.65] tracking-[0.04em] md:text-[12px]"
+            style={{ color: "rgba(230,215,195,0.92)" }}
           >
             {system.description}
           </p>
@@ -185,10 +185,10 @@ function SystemCard({
               {bullets.map((bullet) => (
                 <li
                   key={bullet}
-                  className="flex items-start gap-2 text-[10px] leading-snug tracking-[0.04em]"
-                  style={{ color: "rgba(200,186,168,0.65)" }}
+                  className="flex items-start gap-2 text-[10px] leading-snug tracking-[0.03em]"
+                  style={{ color: "rgba(225,210,190,0.80)" }}
                 >
-                  <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-[rgba(200,186,168,0.4)]" />
+                  <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-[rgba(210,190,160,0.55)]" />
                   {bullet}
                 </li>
               ))}

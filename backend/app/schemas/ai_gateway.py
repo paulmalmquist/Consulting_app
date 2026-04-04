@@ -129,6 +129,8 @@ class GatewayAskRequest(BaseModel):
     entity_type: str | None = None
     entity_id: UUID | None = None
     context_envelope: AssistantContextEnvelope | None = None
+    pending_continuation: bool = False
+    pending_question_text: str | None = None
 
 
 class GatewayIndexRequest(BaseModel):

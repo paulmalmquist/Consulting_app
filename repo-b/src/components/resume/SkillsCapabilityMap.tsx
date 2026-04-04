@@ -137,7 +137,10 @@ export default function SkillsCapabilityMap() {
   // Icon grid — logos only, 2 rows on mobile, evenly spaced
   return (
     <div className="pt-3">
-      <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-bm-muted2">
+      <p
+        className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.1em]"
+        style={{ color: "var(--ros-text-muted)" }}
+      >
         Relevant Skills
       </p>
       <div className="grid grid-cols-6 gap-x-2 gap-y-3 md:flex md:flex-wrap md:gap-3">
@@ -152,7 +155,7 @@ export default function SkillsCapabilityMap() {
               className={`group relative flex flex-col items-center gap-1.5 rounded-lg p-2 transition ${
                 isHighlighted
                   ? "bg-sky-400/10 ring-1 ring-sky-400/30"
-                  : "bg-white/[0.03] hover:bg-white/[0.08]"
+                  : "bg-white/[0.06] hover:bg-white/[0.10]"
               }`}
             >
               <div
@@ -166,8 +169,8 @@ export default function SkillsCapabilityMap() {
                 <SkillLogo skillId={skill.id} size={28} />
               </div>
               <span
-                className={`text-[9px] font-medium uppercase tracking-wider transition md:text-[10px] ${
-                  isHighlighted ? "text-bm-text/90" : "text-bm-muted2 group-hover:text-bm-muted"
+                className={`text-[9px] font-medium uppercase tracking-[0.08em] transition md:text-[10px] ${
+                  isHighlighted ? "text-bm-text/90" : "text-bm-muted group-hover:text-bm-text"
                 }`}
               >
                 {skill.shortName}

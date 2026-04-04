@@ -87,6 +87,8 @@ type LaneState = {
   terminalState: TerminalState;
   trace: AssistantApiTrace | null;
   debug: AskAiDebug | null;
+  /** Last assistant message text if it ended with a question (pending clarification). */
+  pendingQuestion: string | null;
 };
 
 type WinstonCompanionContextValue = {
@@ -138,6 +140,7 @@ const EMPTY_LANE: LaneState = {
   terminalState: null,
   trace: null,
   debug: null,
+  pendingQuestion: null,
 };
 
 function readRouteEnvId(pathname: string | null): string | null {
@@ -779,6 +782,12 @@ export function WinstonCompanionProvider({
     const laneState = lane === "general" ? generalState : contextualState;
     const binding = lane === "general" ? generalBinding : contextualBinding;
     const message = (promptOverride ?? laneState.draft).trim();
+
+    // Capture and clear any pending clarification question before this send
+    const pendingQuestion = laneState.pendingQuestion;
+    if (pendingQuestion) {
+      setLaneState(lane, (current) => ({ ...current, pendingQuestion: null }));
+    }
     const businessId = binding?.businessId || currentContext.businessId;
     const envId = binding?.envId || currentContext.envId;
 
@@ -862,6 +871,8 @@ export function WinstonCompanionProvider({
         env_id: envId || undefined,
         conversation_id: conversationId || undefined,
         context_envelope: envelope,
+        pending_continuation: pendingQuestion !== null,
+        pending_question_text: pendingQuestion ?? undefined,
         onStatus: (status) => {
           setLaneState(lane, (current) => ({
             ...current,
@@ -904,12 +915,19 @@ export function WinstonCompanionProvider({
           // Clear thinking immediately when backend sends 'done' event,
           // rather than waiting for post-stream persistence to close the HTTP stream.
           const terminalState = (payload as Record<string, unknown>)?.terminal_state as TerminalState || "complete";
-          setLaneState(lane, (current) => ({
-            ...current,
-            thinking: false,
-            thinkingStatus: undefined,
-            terminalState,
-          }));
+          setLaneState(lane, (current) => {
+            // Detect if the last assistant message ended with a question (pending clarification).
+            const lastMsg = [...current.messages].reverse().find((m) => m.role === "assistant");
+            const lastText = (lastMsg?.content ?? "").trim();
+            const newPendingQuestion = lastText.endsWith("?") ? lastText : null;
+            return {
+              ...current,
+              thinking: false,
+              thinkingStatus: undefined,
+              terminalState,
+              pendingQuestion: newPendingQuestion,
+            };
+          });
         },
       });
 

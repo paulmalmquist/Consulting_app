@@ -74,6 +74,7 @@ claw-code-main/
 
 # Claude local settings
 .claude/
+hf_toke.txt
 
 # Local test/runtime artifacts
 artifacts/

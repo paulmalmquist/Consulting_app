@@ -266,18 +266,18 @@
 /* Scoped to .resume-os so it never bleeds into the rest of the platform.      */
 
 .resume-os {
-  --ros-bg:            #120d08;
-  --ros-bg-2:          #0d0905;
-  --ros-surface:       rgba(24, 18, 12, 0.92);
-  --ros-border:        rgba(200, 146, 58, 0.25);
-  --ros-border-light:  rgba(200, 146, 58, 0.16);
-  --ros-text-bright:   #fff5e0;
-  --ros-text:          #f0e0c0;
-  --ros-text-muted:    #d8c4a0;
-  --ros-text-dim:      #b8a890;
-  --ros-accent-warm:   #c84b2a;
+  --ros-bg:            #080604;
+  --ros-bg-2:          #050403;
+  --ros-surface:       rgba(12, 9, 6, 0.96);
+  --ros-border:        rgba(200, 146, 58, 0.32);
+  --ros-border-light:  rgba(200, 146, 58, 0.20);
+  --ros-text-bright:   #fff8ec;
+  --ros-text:          #f5e8d0;
+  --ros-text-muted:    #e4d0b4;
+  --ros-text-dim:      #c8b89e;
+  --ros-accent-warm:   #d05530;
   --ros-accent-cool:   #6090b0;
-  --ros-accent-gold:   #c8923a;
+  --ros-accent-gold:   #d49840;
   --ros-font-editorial: var(--font-editorial, "Georgia", serif);
   --ros-font-label:     var(--font-label, "system-ui", sans-serif);
 }
@@ -301,9 +301,9 @@
 
 .resume-label {
   font-family: var(--ros-font-label);
-  letter-spacing: 0.22em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  font-weight: 300;
+  font-weight: 500;
 }
 
 @keyframes resume-node-in {

@@ -93,16 +93,10 @@ function buildNarrative(envelope: AssistantContextEnvelope, routeLabel: string, 
   const envName = envelope.ui.active_environment_name || envelope.ui.active_environment_id;
   const businessName = envelope.ui.active_business_name || envelope.ui.active_business_id;
 
-  if (scopeLabel !== "General" && envName) {
-    return `You're in ${envName} -> ${scopeLabel}`;
-  }
-  if (businessName && routeLabel) {
-    return `You're viewing ${routeLabel} in ${businessName}`;
-  }
-  if (envName && routeLabel) {
-    return `You're on ${routeLabel} for ${envName}`;
-  }
-  return `You're on ${routeLabel}`;
+  if (scopeLabel !== "General") return scopeLabel;
+  if (businessName) return businessName;
+  if (envName) return envName;
+  return routeLabel;
 }
 
 function buildQuickLinks(envelope: AssistantContextEnvelope): WinstonQuickLink[] {
