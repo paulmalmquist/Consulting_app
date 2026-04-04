@@ -254,13 +254,13 @@ export function WinstonShell({
         className={cn(
           "flex-1 w-full",
           /* Tablet grid */
-          "md:grid md:gap-5 md:px-5 md:py-3",
+          "md:grid md:gap-4 md:px-4 md:py-3",
           hasTabletSidebar ? "md:grid-cols-[76px_minmax(0,1fr)]" : "md:grid-cols-[minmax(0,1fr)]",
-          /* Desktop grid */
-          "xl:grid xl:gap-5 xl:px-6 xl:py-2",
+          /* Desktop grid — tight gap, controlled gutter */
+          "xl:grid xl:gap-0 xl:px-0 xl:py-2",
           hasRail
-            ? "xl:grid-cols-[288px_minmax(0,1fr)_280px]"
-            : "xl:grid-cols-[288px_minmax(0,1fr)]",
+            ? "xl:grid-cols-[272px_minmax(0,1fr)_280px]"
+            : "xl:grid-cols-[272px_minmax(0,1fr)]",
           /* Mobile: padding-bottom for bottom nav */
           hasMobileNav && "pb-20 md:pb-0 xl:pb-0"
         )}
@@ -282,7 +282,7 @@ export function WinstonShell({
         </aside>
 
         {/* ── Main workspace ── */}
-        <main className="min-w-0 max-w-[1560px] px-4 py-4 md:px-0 md:py-0 xl:px-0 xl:py-0 xl:border-l xl:border-bm-border/[0.06] xl:pl-5">
+        <main className="min-w-0 px-4 py-4 md:px-0 md:py-0 xl:border-l xl:border-bm-border/[0.06] xl:px-6 xl:py-0 2xl:px-8">
           {children}
         </main>
 

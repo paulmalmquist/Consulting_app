@@ -9138,7 +9138,7 @@ export function getCapitalActivity(params: {
   grain?: "monthly" | "quarterly";
   fund_id?: string;
 }): Promise<CapitalActivityResponse> {
-  return bosFetch("/api/re/v2/funds/capital-activity", { params });
+  return directFetch("/api/re/v2/funds/capital-activity", { params });
 }
 
 export interface AssetMapPoint {
@@ -9179,7 +9179,7 @@ export function getAssetMapPoints(params: {
   fund_id?: string;
   status?: "owned" | "pipeline" | "disposed" | "all";
 }): Promise<AssetMapResponse> {
-  return bosFetch("/api/re/v2/funds/asset-map", { params });
+  return directFetch("/api/re/v2/funds/asset-map", { params });
 }
 
 
