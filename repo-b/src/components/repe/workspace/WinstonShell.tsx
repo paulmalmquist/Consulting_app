@@ -252,7 +252,7 @@ export function WinstonShell({
       ───────────────────────────────────────────────────────────────────── */}
       <div
         className={cn(
-          "mx-auto flex-1 w-full max-w-[2200px]",
+          "flex-1 w-full",
           /* Tablet grid */
           "md:grid md:gap-5 md:px-5 md:py-3",
           hasTabletSidebar ? "md:grid-cols-[76px_minmax(0,1fr)]" : "md:grid-cols-[minmax(0,1fr)]",
@@ -282,7 +282,7 @@ export function WinstonShell({
         </aside>
 
         {/* ── Main workspace ── */}
-        <main className="min-w-0 px-4 py-4 md:px-0 md:py-0 xl:px-0 xl:py-0 xl:border-l xl:border-bm-border/[0.06] xl:pl-5">
+        <main className="min-w-0 max-w-[1560px] px-4 py-4 md:px-0 md:py-0 xl:px-0 xl:py-0 xl:border-l xl:border-bm-border/[0.06] xl:pl-5">
           {children}
         </main>
 
