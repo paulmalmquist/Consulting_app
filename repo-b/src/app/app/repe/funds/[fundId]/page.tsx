@@ -18,19 +18,15 @@ import {
   ReV2QuarterCloseResult,
 } from "@/lib/bos-api";
 import RepeEntityDocuments from "@/components/repe/RepeEntityDocuments";
-import { KpiStrip, type KpiDef } from "@/components/repe/asset-cockpit/KpiStrip";
 import { useRepeBasePath, useRepeContext } from "@/lib/repe-context";
+import { fmtMoney, fmtMultiple, fmtPct } from "@/lib/format-utils";
 
-import { fmtMoney, fmtMultiple } from '@/lib/format-utils';
+// ─── Utilities ───────────────────────────────────────────────────────────────
+
 function pickCurrentQuarter(): string {
   const d = new Date();
   const q = Math.floor(d.getUTCMonth() / 3) + 1;
   return `${d.getUTCFullYear()}Q${q}`;
-}
-
-function fmtPercent(v: string | number | null | undefined): string {
-  if (v === null || v === undefined) return "—";
-  return `${(Number(v) * 100).toFixed(1)}%`;
 }
 
 const STAGE_LABELS: Record<string, string> = {
@@ -52,6 +48,489 @@ const MODULES = [
 ] as const;
 
 type ModuleKey = (typeof MODULES)[number];
+
+// ─── View-model adapters ──────────────────────────────────────────────────────
+
+function deriveCapitalProgress(fundState: ReV2FundQuarterState | null): {
+  calledPct: number;
+  distributedPct: number;
+} {
+  const committed = Number(fundState?.total_committed ?? 0);
+  if (!committed) return { calledPct: 0, distributedPct: 0 };
+  const calledPct = Math.min(1, Math.max(0, Number(fundState?.total_called ?? 0) / committed));
+  const distributedPct = Math.min(1, Math.max(0, Number(fundState?.total_distributed ?? 0) / committed));
+  return { calledPct, distributedPct };
+}
+
+function deriveFundStatus(status: string | undefined): {
+  label: string;
+  tone: "amber" | "blue" | "muted";
+} {
+  if (!status) return { label: "—", tone: "muted" };
+  if (status === "investing") return { label: "Investing", tone: "blue" };
+  if (status === "fundraising") return { label: "Fundraising", tone: "amber" };
+  if (status === "harvesting") return { label: "Harvesting", tone: "amber" };
+  if (status === "closed") return { label: "Closed", tone: "muted" };
+  return { label: status.charAt(0).toUpperCase() + status.slice(1), tone: "muted" };
+}
+
+function returnTone(v: number | null | undefined, threshold: number): string {
+  if (v == null) return "text-bm-muted2";
+  return Number(v) >= threshold ? "text-bm-success" : "text-bm-muted2";
+}
+
+function stagePillClasses(stage: string): string {
+  const base = "font-mono text-[10px] font-semibold uppercase tracking-[0.32em] border px-2.5 py-0.5";
+  switch (stage) {
+    case "sourcing":     return `${base} border-bm-border/[0.2] text-bm-muted2`;
+    case "underwriting": return `${base} border-bm-warning/30 text-bm-warning`;
+    case "ic":           return `${base} border-bm-accent/30 text-bm-accent`;
+    case "closing":      return `${base} border-bm-success/30 text-bm-success`;
+    case "operating":    return `${base} border-bm-success/40 text-bm-success`;
+    case "exited":       return `${base} border-bm-border/[0.2] text-bm-muted2`;
+    default:             return `${base} border-bm-border/[0.2] text-bm-muted2`;
+  }
+}
+
+// ─── Section components ───────────────────────────────────────────────────────
+
+function FundCommandHeader({
+  detail,
+  quarter,
+  closing,
+  closeResult,
+  fundId,
+  basePath,
+  onQuarterClose,
+}: {
+  detail: RepeFundDetail | null;
+  quarter: string;
+  closing: boolean;
+  closeResult: ReV2QuarterCloseResult | null;
+  fundId: string;
+  basePath: string;
+  onQuarterClose: () => void;
+}) {
+  const fund = detail?.fund;
+  const latestTerms = detail?.terms?.[0];
+  const status = deriveFundStatus(fund?.status);
+
+  const pillClasses = {
+    amber: "border-bm-warning/40 text-bm-warning",
+    blue:  "border-bm-accent/40 text-bm-accent",
+    muted: "border-bm-border/[0.2] text-bm-muted2",
+  }[status.tone];
+
+  return (
+    <div>
+      {/* Main header */}
+      <div className="pb-8 border-b border-bm-border/[0.1]">
+        <div className="flex flex-col items-start justify-between gap-6 lg:flex-row lg:items-start">
+          {/* Identity */}
+          <div className="min-w-0 flex-1">
+            <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-bm-muted2">
+              Fund{fund?.vintage_year ? ` · Vintage ${fund.vintage_year}` : ""}
+            </p>
+            <h1 className="mt-2 font-editorial text-[2.4rem] font-medium leading-[1.1] tracking-[-0.025em] text-bm-text sm:text-[2.8rem]">
+              {fund?.name ?? "—"}
+            </h1>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-bm-muted">
+                {[fund?.strategy, fund?.sub_strategy].filter(Boolean).join(" · ")}
+                {fund?.target_size ? ` · Target ${fmtMoney(fund.target_size)}` : ""}
+              </p>
+              {fund?.status && (
+                <span className={`border px-3 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.32em] ${pillClasses}`}>
+                  {status.label}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Link
+              href={`${basePath}/sustainability?section=portfolio-footprint&fundId=${fundId}`}
+              className="border border-bm-border/[0.15] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-bm-muted transition-colors hover:border-bm-border/30 hover:text-bm-text"
+            >
+              Sustainability
+            </Link>
+            <button
+              onClick={onQuarterClose}
+              disabled={closing}
+              className="border border-bm-accent/30 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-bm-accent transition-colors hover:bg-bm-accent/[0.06] disabled:opacity-50"
+            >
+              {closing ? "Closing..." : `Close ${quarter}`}
+            </button>
+            <Link
+              href={`${basePath}/deals?fund=${fundId}`}
+              className="border border-bm-border/[0.15] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-bm-muted transition-colors hover:border-bm-border/30 hover:text-bm-text"
+            >
+              + Investment
+            </Link>
+          </div>
+        </div>
+
+        {/* Terms DL */}
+        {latestTerms && (
+          <dl className="mt-6 flex flex-wrap gap-x-10 gap-y-4 border-t border-bm-border/[0.1] pt-6">
+            {latestTerms.preferred_return_rate != null && (
+              <div>
+                <dt className="font-mono text-[10px] uppercase tracking-[0.34em] text-bm-muted2">Pref Return</dt>
+                <dd className="mt-1 font-editorial text-[1.4rem] font-medium leading-none tabular-nums text-bm-text">
+                  {fmtPct(latestTerms.preferred_return_rate)}
+                </dd>
+              </div>
+            )}
+            {latestTerms.carry_rate != null && (
+              <div>
+                <dt className="font-mono text-[10px] uppercase tracking-[0.34em] text-bm-muted2">Carry</dt>
+                <dd className="mt-1 font-editorial text-[1.4rem] font-medium leading-none tabular-nums text-bm-text">
+                  {fmtPct(latestTerms.carry_rate)}
+                </dd>
+              </div>
+            )}
+            {latestTerms.waterfall_style && (
+              <div>
+                <dt className="font-mono text-[10px] uppercase tracking-[0.34em] text-bm-muted2">Waterfall</dt>
+                <dd className="mt-1 font-editorial text-[1.4rem] font-medium leading-none capitalize text-bm-text">
+                  {latestTerms.waterfall_style}
+                </dd>
+              </div>
+            )}
+            {latestTerms.management_fee_rate != null && (
+              <div>
+                <dt className="font-mono text-[10px] uppercase tracking-[0.34em] text-bm-muted2">Mgmt Fee</dt>
+                <dd className="mt-1 font-editorial text-[1.4rem] font-medium leading-none tabular-nums text-bm-text">
+                  {fmtPct(latestTerms.management_fee_rate)}
+                </dd>
+              </div>
+            )}
+          </dl>
+        )}
+      </div>
+
+      {/* Quarter Close result strip */}
+      {closeResult && (
+        <div
+          className={`border-b py-3 font-mono text-[11px] ${
+            closeResult.status === "success"
+              ? "border-bm-success/40 text-bm-success"
+              : "border-bm-danger/40 text-bm-danger"
+          }`}
+        >
+          Quarter Close: {closeResult.status}
+          {closeResult.status === "success" && (
+            <span className="ml-4 text-bm-muted2">
+              {closeResult.assets_processed} assets · {closeResult.jvs_processed} JVs · {closeResult.investments_processed} investments
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FundCapitalSection({ fundState }: { fundState: ReV2FundQuarterState | null }) {
+  const { calledPct, distributedPct } = deriveCapitalProgress(fundState);
+
+  const metrics = [
+    { label: "NAV", value: fmtMoney(fundState?.portfolio_nav) },
+    { label: "Committed", value: fmtMoney(fundState?.total_committed) },
+    { label: "Called", value: fmtMoney(fundState?.total_called) },
+    { label: "Distributed", value: fmtMoney(fundState?.total_distributed) },
+  ];
+
+  return (
+    <div className="py-8 pr-0 lg:border-r lg:border-bm-border/[0.1] lg:pr-8">
+      <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-bm-muted2">Capital</p>
+      <h2 className="mt-2 font-editorial text-[2.2rem] font-medium tracking-[-0.025em] text-bm-text">
+        Accounts
+      </h2>
+
+      <div className="mt-6 grid grid-cols-2 gap-x-8 gap-y-6">
+        {metrics.map(({ label, value }) => (
+          <div key={label}>
+            <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-bm-muted2">{label}</p>
+            <p className={`mt-1 font-editorial text-[2.4rem] font-medium leading-none tracking-[-0.03em] tabular-nums ${value === "—" ? "text-bm-muted2" : "text-bm-text"}`}>
+              {value}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* Progress bars */}
+      <div className="mt-8 space-y-4">
+        <div>
+          <div className="mb-1.5 flex items-baseline justify-between">
+            <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-bm-muted2">Called</span>
+            <span className="font-mono text-[10px] text-bm-muted2">{(calledPct * 100).toFixed(1)}%</span>
+          </div>
+          <div className="h-[1.5px] w-full bg-bm-border/[0.15]">
+            <div className="h-[1.5px] bg-bm-accent transition-all" style={{ width: `${calledPct * 100}%` }} />
+          </div>
+        </div>
+        <div>
+          <div className="mb-1.5 flex items-baseline justify-between">
+            <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-bm-muted2">Distributed</span>
+            <span className="font-mono text-[10px] text-bm-muted2">{(distributedPct * 100).toFixed(1)}%</span>
+          </div>
+          <div className="h-[1.5px] w-full bg-bm-border/[0.15]">
+            <div className="h-[1.5px] bg-bm-success transition-all" style={{ width: `${distributedPct * 100}%` }} />
+          </div>
+        </div>
+      </div>
+
+      {!fundState && (
+        <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.18em] text-bm-muted2">
+          No quarter state — run a Quarter Close to generate metrics.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function FundReturnsSection({
+  fundState,
+  fundMetrics,
+}: {
+  fundState: ReV2FundQuarterState | null;
+  fundMetrics: ReV2FundMetrics | null;
+}) {
+  const rows: { label: string; value: string; tone: string }[] = [
+    {
+      label: "DPI",
+      value: fmtMultiple(fundState?.dpi),
+      tone: returnTone(fundState?.dpi, 1.0),
+    },
+    {
+      label: "RVPI",
+      value: fmtMultiple(fundState?.rvpi),
+      tone: returnTone(fundState?.rvpi, 0),
+    },
+    {
+      label: "TVPI",
+      value: fmtMultiple(fundState?.tvpi),
+      tone: returnTone(fundState?.tvpi, 1.0),
+    },
+    {
+      label: "Gross IRR",
+      value: fmtPct(fundState?.gross_irr),
+      tone: returnTone(fundState?.gross_irr, 0.08),
+    },
+    {
+      label: "Net IRR",
+      value: fmtPct(fundState?.net_irr ?? fundMetrics?.irr),
+      tone: returnTone(fundState?.net_irr ?? fundMetrics?.irr, 0.08),
+    },
+  ];
+
+  return (
+    <div className="py-8 lg:pl-8">
+      <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-bm-muted2">Performance</p>
+      <h2 className="mt-2 font-editorial text-[2.2rem] font-medium tracking-[-0.025em] text-bm-text">
+        Returns
+      </h2>
+
+      <div className="mt-6 divide-y divide-bm-border/[0.08]">
+        {rows.map(({ label, value, tone }) => (
+          <div key={label} className="flex items-baseline justify-between py-4">
+            <span className="font-mono text-[10px] uppercase tracking-[0.34em] text-bm-muted2">{label}</span>
+            <span className={`font-editorial text-[2rem] font-medium leading-none tracking-[-0.02em] tabular-nums ${value === "—" ? "text-bm-muted2" : tone}`}>
+              {value}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FundPortfolioStatePanel({
+  deals,
+  totalAssets,
+  scenarios,
+  fundState,
+}: {
+  deals: RepeDeal[];
+  totalAssets: number;
+  scenarios: ReV2Scenario[];
+  fundState: ReV2FundQuarterState | null;
+}) {
+  const stats = [
+    { label: "Investments", value: deals.length },
+    { label: "Assets", value: totalAssets },
+    { label: "Scenarios", value: scenarios.length },
+  ];
+
+  return (
+    <div className="py-8 pr-0 lg:border-r lg:border-bm-border/[0.1] lg:pr-8">
+      <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-bm-muted2">Portfolio</p>
+      <h2 className="mt-2 font-editorial text-[2.2rem] font-medium tracking-[-0.025em] text-bm-text">
+        State
+      </h2>
+
+      <div className="mt-6 space-y-6">
+        {stats.map(({ label, value }) => (
+          <div key={label} className="border-b border-bm-border/[0.08] pb-6 last:border-b-0 last:pb-0">
+            <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-bm-muted2">{label}</p>
+            <p className="mt-1 font-editorial text-[3rem] font-medium leading-none tracking-[-0.03em] tabular-nums text-bm-text">
+              {value}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {!fundState && (
+        <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.18em] text-bm-muted2">
+          No quarter state — run a Quarter Close to generate fund metrics.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function FundValueCreationPanel() {
+  return (
+    <div className="py-8 lg:pl-8">
+      <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-bm-muted2">Analytics</p>
+      <h2 className="mt-2 font-editorial text-[2.2rem] font-medium tracking-[-0.025em] text-bm-text">
+        Value Creation
+      </h2>
+
+      <div className="mt-6 flex min-h-[240px] flex-col items-center justify-center border border-bm-border/[0.1] px-8 py-12 text-center">
+        {/* Decorative placeholder lines */}
+        <svg
+          viewBox="0 0 120 48"
+          className="mb-5 h-10 w-24 opacity-20"
+          aria-hidden="true"
+          fill="none"
+        >
+          <line x1="0" y1="40" x2="30" y2="32" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="30" y1="32" x2="60" y2="22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="60" y1="22" x2="90" y2="14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="90" y1="14" x2="120" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <rect x="0" y="40" width="12" height="6" fill="currentColor" opacity="0.5" />
+          <rect x="30" y="36" width="12" height="10" fill="currentColor" opacity="0.5" />
+          <rect x="60" y="28" width="12" height="18" fill="currentColor" opacity="0.5" />
+          <rect x="90" y="20" width="12" height="26" fill="currentColor" opacity="0.5" />
+        </svg>
+        <p className="font-editorial text-[1.4rem] font-medium text-bm-muted">
+          Value Creation Chart
+        </p>
+        <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-bm-muted2">
+          Time-series data not yet available.
+        </p>
+        <p className="mt-1 font-mono text-[10px] text-bm-muted2/60">
+          Run quarter closes to populate NAV history.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function FundOperatingGrid({
+  deals,
+  assetCounts,
+  basePath,
+}: {
+  deals: RepeDeal[];
+  assetCounts: Record<string, number>;
+  basePath: string;
+}) {
+  return (
+    <div>
+      <div className="mb-6 flex flex-col items-start justify-between gap-4 border-b border-bm-border/[0.1] pb-6 sm:flex-row sm:items-end">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-bm-muted2">Portfolio / Current Quarter</p>
+          <h2 className="mt-2 font-editorial text-[2.2rem] font-medium tracking-[-0.025em] text-bm-text">
+            Operating Grid
+          </h2>
+        </div>
+        <Link
+          href={`${basePath}/deals`}
+          className="shrink-0 border border-bm-border/[0.15] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-bm-muted transition-colors hover:border-bm-border/30 hover:text-bm-text"
+        >
+          + New Investment
+        </Link>
+      </div>
+
+      {deals.length === 0 ? (
+        <div className="py-16 text-center">
+          <p className="font-editorial text-[1.4rem] font-medium text-bm-muted">No investments yet.</p>
+          <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-bm-muted2">
+            Add an investment to begin tracking portfolio performance.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px]">
+              <thead>
+                <tr className="border-b border-bm-border/[0.1]">
+                  {["Investment", "Type", "Stage", "Assets", "Sponsor", "Target Close", "NOI *", "Occupancy *", "LTV *"].map((col) => (
+                    <th
+                      key={col}
+                      className="py-3 pr-6 text-left font-mono text-[10px] uppercase tracking-[0.28em] text-bm-muted2 last:pr-0"
+                    >
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {deals.map((deal) => (
+                  <tr
+                    key={deal.deal_id}
+                    className="group cursor-pointer border-b border-bm-border/[0.06] transition-colors hover:bg-bm-surface/[0.04]"
+                    onClick={() => { window.location.href = `${basePath}/deals/${deal.deal_id}`; }}
+                  >
+                    <td className="py-4 pr-6">
+                      <Link
+                        href={`${basePath}/deals/${deal.deal_id}`}
+                        className="font-sans text-sm font-medium text-bm-text transition-colors group-hover:text-bm-accent"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {deal.name}
+                      </Link>
+                    </td>
+                    <td className="py-4 pr-6">
+                      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-bm-muted">
+                        {deal.deal_type}
+                      </span>
+                    </td>
+                    <td className="py-4 pr-6">
+                      <span className={stagePillClasses(deal.stage)}>
+                        {STAGE_LABELS[deal.stage] ?? deal.stage}
+                      </span>
+                    </td>
+                    <td className="py-4 pr-6 font-mono text-sm tabular-nums text-bm-muted2">
+                      {assetCounts[deal.deal_id] ?? 0}
+                    </td>
+                    <td className="py-4 pr-6 font-sans text-sm text-bm-muted2">
+                      {deal.sponsor ?? "—"}
+                    </td>
+                    <td className="py-4 pr-6 font-mono text-[11px] text-bm-muted2">
+                      {deal.target_close_date?.slice(0, 10) ?? "—"}
+                    </td>
+                    <td className="py-4 pr-6 font-mono text-[11px] text-bm-muted2/50">—</td>
+                    <td className="py-4 pr-6 font-mono text-[11px] text-bm-muted2/50">—</td>
+                    <td className="py-4 font-mono text-[11px] text-bm-muted2/50">—</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 font-mono text-[10px] text-bm-muted2/50">
+            * Asset-level fields (NOI, Occupancy, LTV) are loaded per-investment. Open a deal to view operating metrics.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function RepeFundDetailPage({ params }: { params: { fundId: string } }) {
   const { businessId, environmentId } = useRepeContext();
@@ -117,233 +596,211 @@ export default function RepeFundDetailPage({ params }: { params: { fundId: strin
       setCloseResult(result);
       if (result.fund_state) setFundState(result.fund_state);
       if (result.fund_metrics) setFundMetrics(result.fund_metrics);
-    } catch (err) {
+    } catch {
       setCloseResult({ status: "failed", run_id: "", fund_id: params.fundId, quarter, assets_processed: 0, jvs_processed: 0, investments_processed: 0 });
     } finally {
       setClosing(false);
     }
   };
 
-  if (loading) return <div className="p-6 text-sm text-bm-muted2">Loading fund...</div>;
-  if (error) return <div className="p-6 text-sm text-red-400">{error}</div>;
+  if (loading) {
+    return (
+      <div className="py-16 text-center">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-bm-muted2">Loading fund...</p>
+      </div>
+    );
+  }
 
-  const fund = detail?.fund;
-  const terms = detail?.terms ?? [];
-  const latestTerms = terms[0];
+  if (error) {
+    return (
+      <div className="py-16 text-center">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-bm-danger">{error}</p>
+      </div>
+    );
+  }
+
   const totalAssets = Object.values(assetCounts).reduce((s, n) => s + n, 0);
-  const kpis: KpiDef[] = [
-    { label: "NAV", value: fmtMoney(fundState?.portfolio_nav) },
-    { label: "Committed", value: fmtMoney(fundState?.total_committed) },
-    { label: "Called", value: fmtMoney(fundState?.total_called) },
-    { label: "Distributed", value: fmtMoney(fundState?.total_distributed) },
-    { label: "DPI", value: fmtMultiple(fundState?.dpi) },
-    { label: "TVPI", value: fmtMultiple(fundState?.tvpi) },
-    { label: "IRR", value: fmtPercent(fundMetrics?.irr) },
-  ];
 
   return (
-    <section className="flex flex-col gap-4" data-testid="re-fund-homepage">
-      <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Fund</p>
-            <h1 className="mt-1 font-display text-xl font-semibold text-bm-text">{fund?.name || "—"}</h1>
-            <p className="mt-1 font-mono text-xs text-bm-muted">
-              {fund?.strategy?.toUpperCase()}{fund?.sub_strategy ? ` · ${fund.sub_strategy}` : ""}
-              {fund?.vintage_year ? ` · Vintage ${fund.vintage_year}` : ""}
-              {fund?.status ? ` · ${fund.status.charAt(0).toUpperCase() + fund.status.slice(1)}` : ""}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Link
-              href={`${basePath}/sustainability?section=portfolio-footprint&fundId=${params.fundId}`}
-              className="rounded-md border border-bm-border/30 px-3 py-1.5 text-sm transition-colors duration-100 hover:bg-bm-surface/20"
-            >
-              Sustainability
-            </Link>
-            <button
-              onClick={handleQuarterClose}
-              disabled={closing}
-              className="rounded-md bg-bm-accent px-3 py-1.5 text-sm font-medium text-white transition-colors duration-100 hover:bg-bm-accent/90 disabled:opacity-50"
-            >
-              {closing ? "Closing..." : `Close ${quarter}`}
-            </button>
-            <Link
-              href={`${basePath}/deals?fund=${params.fundId}`}
-              className="rounded-md border border-bm-border/30 px-3 py-1.5 text-sm transition-colors duration-100 hover:bg-bm-surface/20"
-            >
-              + Investment
-            </Link>
-          </div>
-        </div>
+    <section className="flex flex-col" data-testid="re-fund-homepage">
 
-        {latestTerms && (
-          <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-            <div><dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Pref Return</dt><dd className="font-semibold tabular-nums">{fmtPercent(latestTerms.preferred_return_rate)}</dd></div>
-            <div><dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Carry</dt><dd className="font-semibold tabular-nums">{fmtPercent(latestTerms.carry_rate)}</dd></div>
-            <div><dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Waterfall</dt><dd className="font-semibold capitalize">{latestTerms.waterfall_style || "—"}</dd></div>
-            {fund?.target_size ? <div><dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Target Size</dt><dd className="font-semibold tabular-nums">{fmtMoney(fund.target_size)}</dd></div> : null}
-          </dl>
-        )}
-      </div>
+      {/* Header */}
+      <FundCommandHeader
+        detail={detail}
+        quarter={quarter}
+        closing={closing}
+        closeResult={closeResult}
+        fundId={params.fundId}
+        basePath={basePath}
+        onQuarterClose={handleQuarterClose}
+      />
 
-      <KpiStrip kpis={kpis} />
-
-      {closeResult && (
-        <div className={`rounded-lg border p-4 text-sm ${closeResult.status === "success" ? "border-green-500/50 bg-green-500/10" : "border-red-500/50 bg-red-500/10"}`}>
-          <p className="font-medium">Quarter Close: {closeResult.status}</p>
-          {closeResult.status === "success" && (
-            <p className="mt-1 text-bm-muted2">
-              Processed {closeResult.assets_processed} assets, {closeResult.jvs_processed} JVs, {closeResult.investments_processed} investments
-            </p>
-          )}
-        </div>
-      )}
-
-      <div className="flex flex-wrap gap-1 rounded-lg border border-bm-border/20 bg-bm-surface/40 p-1">
+      {/* Tab navigation — underline style */}
+      <nav className="-mb-px flex gap-0 border-b border-bm-border/[0.1] overflow-x-auto">
         {MODULES.map((label) => (
           <button
             key={label}
             type="button"
             onClick={() => setModuleTab(label)}
-            className={`rounded-md px-2.5 py-1.5 font-mono text-xs transition-colors duration-100 ${
+            className={[
+              "shrink-0 border-b-[1.5px] px-4 py-3 font-mono text-[10px] uppercase tracking-[0.28em] transition-colors",
               moduleTab === label
-                ? "bg-bm-surface/30 text-bm-text"
-                : "text-bm-muted hover:bg-bm-surface/20 hover:text-bm-text"
-            }`}
+                ? "border-b-bm-text text-bm-text"
+                : "border-b-transparent text-bm-muted2 hover:text-bm-muted",
+            ].join(" ")}
           >
             {label}
           </button>
         ))}
-      </div>
+      </nav>
 
-      {moduleTab === "Dashboard" && (
-        <div className="flex flex-col gap-3">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-4">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Investments</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums">{deals.length}</p>
+      {/* Tab content */}
+      <div className="pt-0">
+
+        {/* Dashboard — full command sheet layout */}
+        {moduleTab === "Dashboard" && (
+          <div>
+            {/* Row 1: Capital + Returns */}
+            <div className="grid grid-cols-1 border-b border-bm-border/[0.1] lg:grid-cols-12">
+              <div className="lg:col-span-7">
+                <FundCapitalSection fundState={fundState} />
+              </div>
+              <div className="border-t border-bm-border/[0.1] lg:col-span-5 lg:border-t-0">
+                <FundReturnsSection fundState={fundState} fundMetrics={fundMetrics} />
+              </div>
             </div>
-            <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-4">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Assets</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums">{totalAssets}</p>
-            </div>
-            <div className="rounded-lg border border-bm-border/20 bg-bm-surface/40 p-4">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Scenarios</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums">{scenarios.length}</p>
+
+            {/* Row 2: Portfolio State + Value Creation */}
+            <div className="grid grid-cols-1 lg:grid-cols-12">
+              <div className="lg:col-span-4">
+                <FundPortfolioStatePanel
+                  deals={deals}
+                  totalAssets={totalAssets}
+                  scenarios={scenarios}
+                  fundState={fundState}
+                />
+              </div>
+              <div className="border-t border-bm-border/[0.1] lg:col-span-8 lg:border-t-0">
+                <FundValueCreationPanel />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Investments Table */}
-      {moduleTab === "Investments" && (
-        <div>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Investments</h2>
-            <Link href={`${basePath}/deals?fund=${params.fundId}`} className="rounded-lg border border-bm-border px-3 py-1.5 text-xs hover:bg-bm-surface/40">+ New</Link>
+        {/* Investments / Operating Grid */}
+        {moduleTab === "Investments" && (
+          <div className="pt-8">
+            <FundOperatingGrid deals={deals} assetCounts={assetCounts} basePath={basePath} />
           </div>
-          {deals.length === 0 ? (
-            <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 text-center text-sm text-bm-muted2">No investments yet.</div>
-          ) : (
-            <div className="rounded-xl border border-bm-border/70 overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-bm-border/50 bg-bm-surface/30 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
-                    <th className="px-4 py-3 font-medium">Investment</th>
-                    <th className="px-4 py-3 font-medium">Stage</th>
-                    <th className="px-4 py-3 font-medium text-right">Assets</th>
-                    <th className="px-4 py-3 font-medium">Sponsor</th>
-                    <th className="px-4 py-3 font-medium">Target Close</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-bm-border/40">
-                  {deals.map((deal) => (
-                    <tr
-                      key={deal.deal_id}
-                      className="group cursor-pointer transition-colors duration-100 hover:bg-bm-surface/20"
-                      onClick={() => window.location.href = `${basePath}/deals/${deal.deal_id}`}
-                    >
-                      <td className="px-4 py-3">
-                        <Link
-                          href={`${basePath}/deals/${deal.deal_id}`}
-                          className="font-medium text-bm-text transition-colors duration-100 group-hover:text-bm-accent"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {deal.name}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3"><span className="rounded-full border border-bm-border/70 px-2 py-0.5 text-xs">{STAGE_LABELS[deal.stage] || deal.stage}</span></td>
-                      <td className="px-4 py-3 text-right tabular-nums text-bm-muted2">{assetCounts[deal.deal_id] ?? 0}</td>
-                      <td className="px-4 py-3 text-bm-muted2">{deal.sponsor || "—"}</td>
-                      <td className="px-4 py-3 text-bm-muted2">{deal.target_close_date?.slice(0, 10) || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+        )}
 
-      {/* Capital */}
-      {moduleTab === "Capital" && (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Capital Accounts</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-lg border border-bm-border/60 p-3"><p className="text-xs text-bm-muted2">Committed</p><p className="mt-1 font-medium">{fmtMoney(fundState?.total_committed)}</p></div>
-            <div className="rounded-lg border border-bm-border/60 p-3"><p className="text-xs text-bm-muted2">Called</p><p className="mt-1 font-medium">{fmtMoney(fundState?.total_called)}</p></div>
-            <div className="rounded-lg border border-bm-border/60 p-3"><p className="text-xs text-bm-muted2">Distributed</p><p className="mt-1 font-medium">{fmtMoney(fundState?.total_distributed)}</p></div>
-            <div className="rounded-lg border border-bm-border/60 p-3"><p className="text-xs text-bm-muted2">NAV</p><p className="mt-1 font-medium">{fmtMoney(fundState?.portfolio_nav)}</p></div>
-          </div>
-        </div>
-      )}
-
-      {/* Scenarios */}
-      {moduleTab === "Scenarios" && (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-5 space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Scenarios</h2>
-          {scenarios.length === 0 ? (
-            <p className="text-sm text-bm-muted2">No scenarios configured. Base scenario is created automatically with the fund.</p>
-          ) : (
-            <div className="space-y-2">
-              {scenarios.map((s) => (
-                <div key={s.scenario_id} className="rounded-lg border border-bm-border/60 px-3 py-2 flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{s.name}</p>
-                    <p className="text-xs text-bm-muted2">{s.scenario_type}{s.is_base ? " (Base)" : ""}</p>
-                  </div>
-                  <span className="rounded-full bg-bm-surface/40 px-2 py-0.5 text-xs">{s.status}</span>
+        {/* Capital tab — flat metric grid */}
+        {moduleTab === "Capital" && (
+          <div className="py-8">
+            <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-bm-muted2">Capital Accounts</p>
+            <h2 className="mt-2 font-editorial text-[2.2rem] font-medium tracking-[-0.025em] text-bm-text">
+              Fund Capital
+            </h2>
+            <div className="mt-6 grid grid-cols-2 gap-px border border-bm-border/[0.1] sm:grid-cols-4">
+              {[
+                { label: "Committed", value: fmtMoney(fundState?.total_committed) },
+                { label: "Called", value: fmtMoney(fundState?.total_called) },
+                { label: "Distributed", value: fmtMoney(fundState?.total_distributed) },
+                { label: "NAV", value: fmtMoney(fundState?.portfolio_nav) },
+              ].map(({ label, value }) => (
+                <div key={label} className="bg-bm-bg p-6">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-bm-muted2">{label}</p>
+                  <p className={`mt-2 font-editorial text-[2.4rem] font-medium leading-none tracking-[-0.03em] tabular-nums ${value === "—" ? "text-bm-muted2" : "text-bm-text"}`}>
+                    {value}
+                  </p>
                 </div>
               ))}
             </div>
-          )}
-        </div>
-      )}
+            {!fundState && (
+              <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.18em] text-bm-muted2">
+                No quarter state — run a Quarter Close to generate capital metrics.
+              </p>
+            )}
+          </div>
+        )}
 
-      {/* Audit */}
-      {moduleTab === "Audit" && (
-        <div className="rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-bm-muted2">Audit Trail</h2>
-          <ul className="mt-3 space-y-2 text-sm">
-            <li className="rounded-lg border border-bm-border/60 px-3 py-2">
-              <p className="font-medium">fund.created</p>
-              <p className="text-xs text-bm-muted2">{fund?.created_at?.slice(0, 19).replace("T", " ") || "—"}</p>
-            </li>
-            {deals.map((deal) => (
-              <li key={deal.deal_id} className="rounded-lg border border-bm-border/60 px-3 py-2">
-                <p className="font-medium">investment.linked · {deal.name}</p>
-                <p className="text-xs text-bm-muted2">{deal.created_at?.slice(0, 19).replace("T", " ")}</p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+        {/* Scenarios */}
+        {moduleTab === "Scenarios" && (
+          <div className="py-8">
+            <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-bm-muted2">Fund</p>
+            <h2 className="mt-2 font-editorial text-[2.2rem] font-medium tracking-[-0.025em] text-bm-text">
+              Scenarios
+            </h2>
 
-      {/* Attachments */}
-      {moduleTab === "Attachments" && businessId && environmentId && (
-        <RepeEntityDocuments businessId={businessId} envId={environmentId} entityType="fund" entityId={params.fundId} />
-      )}
+            {scenarios.length === 0 ? (
+              <div className="mt-8 py-12 text-center">
+                <p className="font-editorial text-[1.4rem] font-medium text-bm-muted">No scenarios configured.</p>
+                <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-bm-muted2">
+                  A base scenario is created automatically with the fund.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-6 divide-y divide-bm-border/[0.08]">
+                {scenarios.map((s) => (
+                  <div key={s.scenario_id} className="flex items-center justify-between py-4">
+                    <div>
+                      <p className="font-sans text-sm font-medium text-bm-text">{s.name}</p>
+                      <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-bm-muted2">
+                        {s.scenario_type}{s.is_base ? " · Base" : ""}
+                      </p>
+                    </div>
+                    <span className="border border-bm-border/[0.2] px-3 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.28em] text-bm-muted2">
+                      {s.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Audit */}
+        {moduleTab === "Audit" && (
+          <div className="py-8">
+            <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-bm-muted2">System</p>
+            <h2 className="mt-2 font-editorial text-[2.2rem] font-medium tracking-[-0.025em] text-bm-text">
+              Audit Trail
+            </h2>
+
+            <div className="mt-6 divide-y divide-bm-border/[0.06]">
+              <div className="py-4">
+                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-bm-text">fund.created</p>
+                <p className="mt-1 font-mono text-[10px] text-bm-muted2">
+                  {detail?.fund?.created_at?.slice(0, 19).replace("T", " ") ?? "—"}
+                </p>
+              </div>
+              {deals.map((deal) => (
+                <div key={deal.deal_id} className="py-4">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-bm-text">
+                    investment.linked · {deal.name}
+                  </p>
+                  <p className="mt-1 font-mono text-[10px] text-bm-muted2">
+                    {deal.created_at?.slice(0, 19).replace("T", " ")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Attachments */}
+        {moduleTab === "Attachments" && businessId && environmentId && (
+          <div className="py-6">
+            <RepeEntityDocuments
+              businessId={businessId}
+              envId={environmentId}
+              entityType="fund"
+              entityId={params.fundId}
+            />
+          </div>
+        )}
+
+      </div>
     </section>
   );
 }
