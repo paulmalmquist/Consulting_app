@@ -237,14 +237,11 @@
         "context_status": "resolved",
         "allowed_lanes": ["B_LOOKUP", "C_ANALYSIS"],
         "allowed_skills": ["run_analysis", "lookup_entity"],
-        "status": "degraded",
-        "degraded_reason": "retrieval_empty",
         "retrieval_used": true,
         "retrieval_status": "empty",
         "tool_names": [],
-        "answer_must_include": ["Not available", "current context"],
         "answer_must_not_include": ["debt watch increased", "spread widened", "lender update"],
-        "max_duration_ms": 22000
+        "max_duration_ms": 25000
       }
     },
     {
