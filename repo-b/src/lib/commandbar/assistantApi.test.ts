@@ -150,7 +150,36 @@ describe("assistantApi contract behavior", () => {
           result: { fund_count: 1 },
         })}\n\n`));
         controller.enqueue(encoder.encode(`event: token\ndata: ${JSON.stringify({ text: "IGF VII" })}\n\n`));
-        controller.enqueue(encoder.encode(`event: done\ndata: ${JSON.stringify({ tool_calls: 1 })}\n\n`));
+        controller.enqueue(encoder.encode(`event: done\ndata: ${JSON.stringify({
+          tool_calls: 1,
+          turn_receipt: {
+            request_id: "req_runtime",
+            lane: "B_LOOKUP",
+            context: {
+              environment_id: "env_123",
+              entity_type: "environment",
+              entity_id: "env_123",
+              resolution_status: "resolved",
+              notes: [],
+            },
+            skill: {
+              skill_id: "lookup_entity",
+              confidence: 0.91,
+              triggers_matched: ["which"],
+            },
+            tools: [
+              {
+                tool_name: "repe.get_environment_snapshot",
+                status: "success",
+                permission_mode: "retrieve",
+                input: {},
+                output: { fund_count: 1 },
+              },
+            ],
+            retrieval: { used: false, result_count: 0, status: "ok" },
+            status: "success",
+          },
+        })}\n\n`));
         controller.close();
       },
     });
@@ -183,6 +212,11 @@ describe("assistantApi contract behavior", () => {
     expect(result.debug.toolResults[0]).toMatchObject({
       tool_name: "repe.get_environment_snapshot",
       result: { fund_count: 1 },
+    });
+    expect(result.debug.turnReceipt).toMatchObject({
+      lane: "B_LOOKUP",
+      skill: { skill_id: "lookup_entity" },
+      tools: [{ tool_name: "repe.get_environment_snapshot", status: "success" }],
     });
   });
 

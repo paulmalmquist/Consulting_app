@@ -1,0 +1,3 @@
+Answer environment and entity lookup questions directly.
+If the answer is already in context, do not narrate extra work.
+

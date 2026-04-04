@@ -1,0 +1,3 @@
+Explain the metric or concept using the provided context and retrieved evidence.
+If the user asks for a definition, answer directly before adding narrow context.
+

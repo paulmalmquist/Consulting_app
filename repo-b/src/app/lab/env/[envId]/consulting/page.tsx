@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
 import { NextActionPanel } from "@/components/consulting/NextActionPanel";
+import { OutreachFlightDeck } from "@/components/consulting/OutreachFlightDeck";
 import { Card, CardContent } from "@/components/ui/Card";
 import {
   fetchTodayOverdue,
@@ -13,16 +14,15 @@ import {
   fetchSchemaHealth,
   fetchProofAssets,
   fetchOutreachLog,
+  fetchDailyBrief,
   resetAndReseed,
-  TARGET_QUEUE,
-  PROOF_ASSET_GAPS,
   type TodayOverdue,
   type Lead,
   type MetricsSnapshot,
   type SchemaHealth,
   type ProofAsset,
   type OutreachLogEntry,
-  type TargetQueueItem,
+  type DailyBrief,
 } from "@/lib/cro-api";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 
@@ -82,10 +82,9 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
   const [health, setHealth] = useState<SchemaHealth | null>(null);
   const [proofAssets, setProofAssets] = useState<ProofAsset[]>([]);
   const [outreachLog, setOutreachLog] = useState<OutreachLogEntry[]>([]);
+  const [brief, setBrief] = useState<DailyBrief | null>(null);
   const [dataLoading, setDataLoading] = useState(false);
   const [reseedLoading, setReseedLoading] = useState(false);
-  const [promotingCompany, setPromotingCompany] = useState<string | null>(null);
-  const [promotedCompanies, setPromotedCompanies] = useState<Set<string>>(new Set());
 
   const reloadAll = useCallback(async () => {
     if (!businessId) return;
@@ -99,6 +98,7 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
         fetchSchemaHealth(),
         fetchProofAssets(params.envId, businessId),
         fetchOutreachLog(params.envId, businessId),
+        fetchDailyBrief(params.envId, businessId),
       ]);
       if (results[0].status === "fulfilled") setActionData(results[0].value);
       if (results[1].status === "fulfilled") setTopLeads(results[1].value);
@@ -107,6 +107,7 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
       if (results[4].status === "fulfilled") setHealth(results[4].value);
       if (results[5].status === "fulfilled") setProofAssets(results[5].value);
       if (results[6].status === "fulfilled") setOutreachLog(results[6].value);
+      if (results[7].status === "fulfilled") setBrief(results[7].value);
     } catch (err) {
       console.error("Failed to load command center data:", err);
     } finally {
@@ -154,34 +155,6 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
     }
   }, [params.envId, businessId, reloadAll]);
 
-  const handlePromote = useCallback(async (target: TargetQueueItem) => {
-    if (!businessId || promotedCompanies.has(target.company)) return;
-    setPromotingCompany(target.company);
-    try {
-      const res = await fetch(`/bos/api/consulting/leads`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          env_id: params.envId,
-          business_id: businessId,
-          company_name: target.company,
-          lead_source: "client_hunting",
-          contact_name: target.contact,
-          contact_email: target.email || undefined,
-          contact_title: target.contactTitle,
-          contact_linkedin: target.linkedin || undefined,
-        }),
-      });
-      if (res.ok) {
-        setPromotedCompanies((prev) => new Set([...prev, target.company]));
-        void reloadAll();
-      }
-    } catch (err) {
-      console.error("Promote failed:", err);
-    } finally {
-      setPromotingCompany(null);
-    }
-  }, [params.envId, businessId, promotedCompanies, reloadAll]);
 
   // Pipeline metrics
   const pipelineMetrics = useMemo(
@@ -210,24 +183,11 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
   const assetsTotal = proofAssets.length;
   const hasNoActions = !actionData || (actionData.today_count === 0 && actionData.overdue_count === 0);
 
-  // Deals missing next actions (from target queue)
-  const dealsWithoutActions = TARGET_QUEUE.filter((t) => !t.nextAction);
-
-  // Outreach-ready targets: have contact + email + offer
-  const outreachReady = TARGET_QUEUE.filter(
-    (t) => t.contact && t.email && !t.email.startsWith("[") && t.email !== "" && t.offer && (t.stage === "researched" || t.stage === "outreach_ready"),
-  );
-
-  // Blocked targets: no real contact
-  const blockedTargets = TARGET_QUEUE.filter(
-    (t) => !t.contact || t.contact.includes("Team") || t.contact.includes("Leadership") || !t.email || t.email === "",
-  );
-
   // Generate forced actions from system state
   const forcedActions: Array<{ label: string; href?: string; action?: string; priority: "critical" | "high" | "normal" }> = [];
 
   if (pipelineEmpty && accountsInCRM === 0) {
-    forcedActions.push({ label: "No accounts in CRM — promote targets below to start pipeline", action: "scroll_targets", priority: "critical" });
+    forcedActions.push({ label: "No accounts in CRM — seed or add targets via Strategic Outreach", href: `/lab/env/${params.envId}/consulting/strategic-outreach`, priority: "critical" });
   }
   if (accountsInCRM > 0 && pipelineEmpty) {
     forcedActions.push({ label: `${accountsInCRM} accounts in CRM with no open opportunities — create deals`, href: `/lab/env/${params.envId}/consulting/pipeline`, priority: "critical" });
@@ -239,9 +199,6 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
   }
   if (accountsInCRM > 0 && metrics?.outreach_count_30d === 0) {
     forcedActions.push({ label: "Accounts exist but ZERO outreach — send messages this week", href: `/lab/env/${params.envId}/consulting/strategic-outreach`, priority: "critical" });
-  }
-  if (blockedTargets.length > 0) {
-    forcedActions.push({ label: `${blockedTargets.length} deals blocked — no real contact found`, action: "scroll_gaps", priority: "high" });
   }
 
   const dayRhythm = getDayLabel();
@@ -258,6 +215,15 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
           </p>
         </div>
       ) : null}
+
+      {/* ── OUTREACH FLIGHT DECK ─────────────────────────────────────── */}
+      {brief && (
+        <OutreachFlightDeck
+          brief={brief}
+          envId={params.envId}
+          onRefresh={reloadAll}
+        />
+      )}
 
       {/* ── SECTION 1: TODAY — DUE NOW ───────────────────────────────── */}
       <section>
@@ -290,32 +256,32 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
                 <Link
                   key={idx}
                   href={fa.href}
-                  className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-2.5 rounded border px-3 py-2 text-xs font-medium transition-colors ${
                     fa.priority === "critical"
-                      ? "border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                      ? "border-red-500/35 bg-red-500/8 text-red-400 hover:bg-red-500/15"
                       : fa.priority === "high"
-                      ? "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
-                      : "border-bm-border/50 bg-bm-surface/10 text-bm-text hover:bg-bm-surface/20"
+                      ? "border-amber-500/35 bg-amber-500/8 text-amber-400 hover:bg-amber-500/15"
+                      : "border-bm-border/40 bg-bm-surface/10 text-bm-text hover:bg-bm-surface/20"
                   }`}
                 >
-                  <span className={`h-2 w-2 rounded-full flex-shrink-0 ${
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${
                     fa.priority === "critical" ? "bg-red-400 animate-pulse" : fa.priority === "high" ? "bg-amber-400" : "bg-bm-muted2"
                   }`} />
                   {fa.label}
-                  <span className="ml-auto text-xs opacity-60">→</span>
+                  <span className="ml-auto text-bm-muted2/60">→</span>
                 </Link>
               ) : (
                 <div
                   key={idx}
-                  className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium ${
+                  className={`flex items-center gap-2.5 rounded border px-3 py-2 text-xs font-medium ${
                     fa.priority === "critical"
-                      ? "border-red-500/40 bg-red-500/10 text-red-400"
+                      ? "border-red-500/35 bg-red-500/8 text-red-400"
                       : fa.priority === "high"
-                      ? "border-amber-500/40 bg-amber-500/10 text-amber-400"
-                      : "border-bm-border/50 bg-bm-surface/10 text-bm-text"
+                      ? "border-amber-500/35 bg-amber-500/8 text-amber-400"
+                      : "border-bm-border/40 bg-bm-surface/10 text-bm-text"
                   }`}
                 >
-                  <span className={`h-2 w-2 rounded-full flex-shrink-0 ${
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${
                     fa.priority === "critical" ? "bg-red-400 animate-pulse" : fa.priority === "high" ? "bg-amber-400" : "bg-bm-muted2"
                   }`} />
                   {fa.label}
@@ -353,73 +319,6 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
         ) : null}
       </section>
 
-      {/* ── SECTION 2: OUTREACH QUEUE — ready to send ────────────────── */}
-      <section>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2 font-semibold">
-            Outreach Ready ({outreachReady.length})
-          </p>
-          <Link href={`/lab/env/${params.envId}/consulting/strategic-outreach`} className="text-xs text-bm-accent hover:underline">
-            Full outreach →
-          </Link>
-        </div>
-        {outreachReady.length > 0 ? (
-          <div className="space-y-2">
-            {outreachReady.map((target) => {
-              const alreadyInCRM = topLeads.some((l) => l.company_name.toLowerCase().includes(target.company.toLowerCase().split(" ")[0]));
-              const promoted = promotedCompanies.has(target.company) || alreadyInCRM;
-              return (
-                <div
-                  key={target.company}
-                  className={`rounded-xl border px-4 py-3 ${
-                    promoted ? "border-emerald-500/30 bg-emerald-500/5" : "border-bm-accent/30 bg-bm-accent/5"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-semibold text-bm-text">{target.company}</span>
-                        <span className="text-[9px] font-bold text-bm-accent border border-bm-accent/30 rounded px-1 py-0.5">{target.offerValue}</span>
-                        {promoted && <span className="text-[10px] text-emerald-400 font-medium">✓ CRM</span>}
-                      </div>
-                      <p className="mt-1 text-xs text-bm-text">
-                        {target.contact} · <span className="text-bm-muted2">{target.contactTitle}</span>
-                      </p>
-                      <p className="mt-1 text-[11px] text-bm-accent/80 font-medium">{target.nextAction}</p>
-                    </div>
-                    <div className="flex flex-col gap-1.5 shrink-0">
-                      {!promoted && (
-                        <button
-                          onClick={() => void handlePromote(target)}
-                          disabled={promotingCompany === target.company}
-                          className="rounded-lg border border-bm-accent/40 bg-bm-accent/10 px-3 py-2 text-xs font-semibold text-bm-accent hover:bg-bm-accent/20 disabled:opacity-50 transition-colors whitespace-nowrap"
-                        >
-                          {promotingCompany === target.company ? "Adding…" : "Promote →"}
-                        </button>
-                      )}
-                      {target.linkedin && (
-                        <a
-                          href={target.linkedin}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-lg border border-bm-border/50 bg-bm-surface/20 px-3 py-2 text-xs text-bm-muted2 hover:text-bm-text text-center transition-colors"
-                        >
-                          LinkedIn
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-bm-border/40 bg-bm-surface/10 px-4 py-3 text-sm text-bm-muted2">
-            No outreach-ready targets. Enrich contacts below to unlock.
-          </div>
-        )}
-      </section>
-
       {/* ── SECTION 3: PIPELINE SNAPSHOT (compressed) ────────────────── */}
       <section>
         <div className="flex items-center justify-between mb-2">
@@ -431,31 +330,31 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
 
         {/* Real vs Potential pipeline values */}
         <div className="grid grid-cols-2 gap-2 mb-2">
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-center">
-            <p className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold">Real Pipeline</p>
-            <p className="text-lg font-bold text-emerald-400">{fmtCurrency(pipelineMetrics.real)}</p>
-            <p className="text-[10px] text-bm-muted2">contact + outreach</p>
+          <div className="rounded border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-center">
+            <p className="text-[9px] uppercase tracking-wider text-emerald-400 font-semibold">Real Pipeline</p>
+            <p className="text-base font-bold text-emerald-400">{fmtCurrency(pipelineMetrics.real)}</p>
+            <p className="text-[9px] text-bm-muted2">contact + outreach</p>
           </div>
-          <div className="rounded-lg border border-bm-border/40 bg-bm-surface/10 px-3 py-2 text-center">
-            <p className="text-[10px] uppercase tracking-wider text-bm-muted2 font-semibold">Potential</p>
-            <p className="text-lg font-bold text-bm-muted2">{fmtCurrency(pipelineMetrics.potential)}</p>
-            <p className="text-[10px] text-bm-muted2">needs outreach</p>
+          <div className="rounded border border-bm-border/40 bg-bm-surface/10 px-3 py-2 text-center">
+            <p className="text-[9px] uppercase tracking-wider text-bm-muted2 font-semibold">Potential</p>
+            <p className="text-base font-bold text-bm-muted2">{fmtCurrency(pipelineMetrics.potential)}</p>
+            <p className="text-[9px] text-bm-muted2">needs outreach</p>
           </div>
         </div>
 
         {/* Compact stage strip */}
         {kanban?.columns?.length ? (
-          <div className="flex gap-1.5 overflow-x-auto pb-1">
+          <div className="flex gap-1 overflow-x-auto pb-1">
             {kanban.columns
               .filter((col) => !["closed_won", "closed_lost"].includes(col.stage_key))
               .map((col) => (
                 <Link
                   key={col.stage_key}
                   href={`/lab/env/${params.envId}/consulting/pipeline`}
-                  className="flex-1 min-w-[70px] rounded-lg border border-bm-border/40 bg-bm-surface/10 px-2 py-1.5 text-center hover:bg-bm-surface/20 transition-colors"
+                  className="flex-1 min-w-[60px] rounded border border-bm-border/35 bg-bm-surface/8 px-2 py-1.5 text-center hover:bg-bm-surface/15 transition-colors"
                 >
                   <p className="text-[9px] uppercase tracking-wider text-bm-muted2 truncate">{col.stage_label}</p>
-                  <p className={`text-base font-semibold ${col.cards.length === 0 ? "text-bm-muted2/40" : "text-bm-text"}`}>
+                  <p className={`text-sm font-semibold ${col.cards.length === 0 ? "text-bm-muted2/30" : "text-bm-text"}`}>
                     {col.cards.length}
                   </p>
                 </Link>
@@ -464,139 +363,31 @@ export default function ConsultingCommandCenter({ params }: { params: { envId: s
         ) : null}
       </section>
 
-      {/* ── SECTION 4: FOLLOW-UPS / NEEDS ACTION ──────────────────────── */}
-      {blockedTargets.length > 0 ? (
-        <section id="gaps-report">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs uppercase tracking-[0.12em] text-red-400 font-semibold">
-              Blocked — No Contact ({blockedTargets.length})
-            </p>
-          </div>
-          <div className="space-y-2">
-            {blockedTargets.map((target) => (
-              <div
-                key={target.company}
-                className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-red-500 flex-shrink-0" />
-                      <span className="text-sm font-semibold text-bm-text">{target.company}</span>
-                      <span className="text-[9px] text-red-400 font-bold uppercase px-1.5 py-0.5 border border-red-500/30 rounded">Blocked</span>
-                    </div>
-                    <p className="mt-1 text-xs text-bm-muted2">{target.segment} · {target.offerValue}</p>
-                    <p className="mt-1 text-[11px] text-red-400/80 font-medium">{target.nextAction}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {/* ── SECTION 5: TARGET QUEUE (remaining) ─────────────────────── */}
-      <section id="target-queue">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2 font-semibold">All Targets ({TARGET_QUEUE.length})</p>
-        </div>
-        <div className="space-y-2">
-          {TARGET_QUEUE.filter(
-            (t) => !outreachReady.includes(t) && !blockedTargets.includes(t),
-          ).map((target) => {
-            const alreadyInCRM = topLeads.some((l) => l.company_name.toLowerCase().includes(target.company.toLowerCase().split(" ")[0]));
-            const promoted = promotedCompanies.has(target.company) || alreadyInCRM;
-            return (
-              <div
-                key={target.company}
-                className={`rounded-xl border px-4 py-3 transition-colors ${
-                  promoted ? "border-emerald-500/30 bg-emerald-500/5" : "border-bm-border/40 bg-bm-surface/10"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-semibold text-bm-text">{target.company}</span>
-                      <span className="text-[9px] font-bold text-bm-muted2 border border-bm-border/40 rounded px-1 py-0.5">{target.segment}</span>
-                      {promoted && <span className="text-[10px] text-emerald-400 font-medium">✓ CRM</span>}
-                    </div>
-                    <p className="mt-1 text-xs text-bm-muted2">{target.signal}</p>
-                    <p className="mt-1 text-xs text-bm-text/70">
-                      <span className="text-bm-muted2">Contact:</span> {target.contact} · {target.contactTitle}
-                    </p>
-                    <p className="mt-1 text-[11px] text-bm-accent/80 font-medium">{target.nextAction}</p>
-                    <p className="mt-0.5 text-[10px] text-bm-muted2">Due: {target.nextActionDue}</p>
-                  </div>
-                  {!promoted && (
-                    <button
-                      onClick={() => void handlePromote(target)}
-                      disabled={promotingCompany === target.company}
-                      className="flex-shrink-0 rounded-lg border border-bm-accent/40 bg-bm-accent/10 px-3 py-2 text-xs font-semibold text-bm-accent hover:bg-bm-accent/20 disabled:opacity-50 transition-colors whitespace-nowrap"
-                    >
-                      {promotingCompany === target.company ? "Adding…" : "Promote →"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ── SECTION 6: PROOF ASSET STATUS (compact) ──────────────────── */}
+      {/* ── SECTION 5: KPI STRIP ─────────────────────────────────────── */}
       <section>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2 font-semibold">Proof Assets</p>
-          <Link href={`/lab/env/${params.envId}/consulting/proof-assets`} className="text-xs text-bm-accent hover:underline">
-            Manage
-          </Link>
-        </div>
-        <div className="rounded-xl border border-bm-border/50 bg-bm-surface/10 divide-y divide-bm-border/30">
-          {PROOF_ASSET_GAPS.map((required) => {
-            const found = proofAssets.find((a) => a.title.toLowerCase().includes(required.title.toLowerCase().split(" ")[0].toLowerCase()));
-            const assetStatus = found ? found.status : "missing";
-            return (
-              <div key={required.title} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                <p className="text-xs text-bm-text font-medium truncate flex-1">{required.title}</p>
-                <span className={`flex-shrink-0 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                  assetStatus === "ready" ? "bg-emerald-500/20 text-emerald-400" :
-                  assetStatus === "draft" ? "bg-amber-500/20 text-amber-400" :
-                  assetStatus === "needs_update" ? "bg-orange-500/20 text-orange-400" :
-                  "bg-red-500/20 text-red-400"
-                }`}>
-                  {assetStatus === "missing" ? "Missing" : assetStatus.replace("_", " ")}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ── SECTION 7: KPI STRIP (compact) ───────────────────────────── */}
-      <section>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-1.5">
           <Link
             href={`/lab/env/${params.envId}/consulting/strategic-outreach`}
-            className="rounded-lg border border-bm-border/40 bg-bm-surface/10 px-3 py-2 text-center hover:bg-bm-surface/20"
+            className="rounded border border-bm-border/35 bg-bm-surface/8 px-3 py-2 text-center hover:bg-bm-surface/15"
           >
             <p className="text-[9px] uppercase tracking-wider text-bm-muted2">Outreach 30d</p>
-            <p className={`text-lg font-semibold ${(metrics?.outreach_count_30d ?? 0) === 0 ? "text-red-400" : "text-bm-text"}`}>
+            <p className={`text-base font-semibold ${(metrics?.outreach_count_30d ?? 0) === 0 ? "text-red-400" : "text-bm-text"}`}>
               {metrics?.outreach_count_30d ?? 0}
             </p>
           </Link>
           <Link
             href={`/lab/env/${params.envId}/consulting/pipeline`}
-            className="rounded-lg border border-bm-border/40 bg-bm-surface/10 px-3 py-2 text-center hover:bg-bm-surface/20"
+            className="rounded border border-bm-border/35 bg-bm-surface/8 px-3 py-2 text-center hover:bg-bm-surface/15"
           >
             <p className="text-[9px] uppercase tracking-wider text-bm-muted2">Open Deals</p>
-            <p className="text-lg font-semibold text-bm-text">{metrics?.open_opportunities ?? 0}</p>
+            <p className="text-base font-semibold text-bm-text">{metrics?.open_opportunities ?? 0}</p>
           </Link>
           <Link
             href={`/lab/env/${params.envId}/consulting/clients`}
-            className="rounded-lg border border-bm-border/40 bg-bm-surface/10 px-3 py-2 text-center hover:bg-bm-surface/20"
+            className="rounded border border-bm-border/35 bg-bm-surface/8 px-3 py-2 text-center hover:bg-bm-surface/15"
           >
             <p className="text-[9px] uppercase tracking-wider text-bm-muted2">Clients</p>
-            <p className="text-lg font-semibold text-bm-text">{metrics?.active_clients ?? 0}</p>
+            <p className="text-base font-semibold text-bm-text">{metrics?.active_clients ?? 0}</p>
           </Link>
         </div>
       </section>

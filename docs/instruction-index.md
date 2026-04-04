@@ -1,8 +1,8 @@
 ---
 id: instruction-index
 kind: reference
-status: active
-source_of_truth: true
+status: informational
+source_of_truth: false
 topic: instruction-registry
 owners:
   - docs
@@ -15,17 +15,18 @@ triggers:
   - markdown registry
 entrypoint: false
 handoff_to: []
-when_to_use: "Use when you need the complete registry of routed markdown docs or need to confirm whether a doc has been normalized."
-when_not_to_use: "Do not use as the primary router when CLAUDE.md or a more specific routed entrypoint already matches the request."
+when_to_use: "Use only as a human-facing overview of routed markdown docs that still exist on disk."
+when_not_to_use: "Do not use as the source of truth for assistant runtime skills, prompts, or routing."
 surface_paths:
   - docs/
 notes:
-  - Every routed markdown doc must appear in this registry.
+  - Assistant runtime skills are canonical in backend/app/assistant_runtime/skill_registry.py.
+  - This file is informational only and must not declare phantom runtime features.
 ---
 
 # Instruction Index
 
-This file is the human-facing registry for every routed markdown doc in the repo. `CLAUDE.md` is the only global router. Everything else is either a downstream entrypoint or a supporting reference.
+This file is a human-facing overview of routed markdown docs that still exist on disk. `CLAUDE.md` remains the top-level markdown router. The deterministic assistant runtime does not route from this document; runtime skills live in `backend/app/assistant_runtime/skill_registry.py`.
 
 ## Primary Entry Points
 
@@ -53,27 +54,16 @@ This file is the human-facing registry for every routed markdown doc in the repo
 | `feature-dev` | `skill` | `active` | `backend, repo-b, repo-c, scripts, orchestration` | `yes` | `.skills/feature-dev/SKILL.md` |
 | `research-ingest` | `skill` | `active` | `docs, cross-repo` | `yes` | `.skills/research-ingest/SKILL.md` |
 | `credit-decisioning` | `skill` | `active` | `backend, repo-b` | `yes` | `.skills/credit-decisioning/SKILL.md` |
-| `winston-router` | `skill` | `active` | `cross-repo` | `yes` | `skills/winston-router/SKILL.md` |
-| `winston-session-bootstrap` | `skill` | `active` | `cross-repo` | `yes` | `skills/winston-session-bootstrap/SKILL.md` |
-| `winston-chat-workspace` | `skill` | `active` | `repo-b, backend` | `yes` | `skills/winston-chat-workspace/SKILL.md` |
-| `winston-dashboard-composition` | `skill` | `active` | `repo-b, backend` | `yes` | `skills/winston-dashboard-composition/SKILL.md` |
-| `winston-agentic-build` | `skill` | `active` | `backend, repo-b` | `yes` | `skills/winston-agentic-build/SKILL.md` |
-| `winston-remediation-playbook` | `skill` | `active` | `docs, backend, repo-b` | `yes` | `skills/winston-remediation-playbook/SKILL.md` |
-| `winston-prompt-normalization` | `skill` | `active` | `docs, cross-repo` | `yes` | `skills/winston-prompt-normalization/SKILL.md` |
-| `winston-ai-architecture` | `skill` | `active` | `backend, repo-b, docs` | `yes` | `skills/winston-ai-architecture/SKILL.md` |
-| `winston-document-pipeline` | `skill` | `active` | `backend, repo-b` | `yes` | `skills/winston-document-pipeline/SKILL.md` |
-| `winston-performance-architecture` | `skill` | `active` | `backend, repo-b` | `yes` | `skills/winston-performance-architecture/SKILL.md` |
-| `winston-credit-environment` | `skill` | `active` | `backend, repo-b, supabase` | `yes` | `skills/winston-credit-environment/SKILL.md` |
-| `winston-development-bridge` | `skill` | `active` | `backend, repo-b, supabase` | `yes` | `skills/winston-development-bridge/SKILL.md` |
-| `winston-pds-delivery` | `skill` | `active` | `backend, repo-b, docs` | `yes` | `skills/winston-pds-delivery/SKILL.md` |
+| `winston-post-deploy-verify` | `skill` | `active` | `cross-repo` | `yes` | `skills/winston-post-deploy-verify/SKILL.md` |
+| `historyrhymes` | `skill` | `active` | `cross-repo` | `yes` | `skills/historyrhymes/SKILL.md` |
+| `market-rotation-engine` | `skill` | `active` | `cross-repo` | `yes` | `skills/market-rotation-engine/SKILL.md` |
+| `msa-rotation-engine` | `skill` | `active` | `cross-repo` | `yes` | `skills/msa-rotation-engine/SKILL.md` |
 | `winston-agentic-prompt` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/WINSTON_AGENTIC_PROMPT.md` |
 | `winston-behavior-guardrails` | `prompt` | `active` | `docs, backend` | `yes` | `docs/WINSTON_BEHAVIOR_GUARDRAILS_PROMPT.md` |
 | `winston-document-asset-creation` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/WINSTON_DOCUMENT_ASSET_CREATION_PROMPT.md` |
 | `winston-latency-optimization` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/WINSTON_LATENCY_OPTIMIZATION_PROMPT.md` |
 | `winston-reranking-model-dispatch` | `prompt` | `active` | `docs, backend` | `yes` | `docs/WINSTON_RERANKING_AND_MODEL_DISPATCH_PROMPT.md` |
 | `winston-credit-decisioning-prompt` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/WINSTON_CREDIT_DECISIONING_PROMPT.md` |
-| `winston-sales-intelligence` | `skill` | `active` | `docs, cross-repo` | `yes` | `skills/winston-sales-intelligence/SKILL.md` |
-| `winston-demo-generator` | `skill` | `active` | `docs, cross-repo` | `yes` | `skills/winston-demo-generator/SKILL.md` |
 | `winston-sales-intelligence-prompt` | `prompt` | `active` | `docs, cross-repo` | `no` | `docs/WINSTON_SALES_INTELLIGENCE_PROMPT.md` |
 
 ## Supporting And Registry Docs

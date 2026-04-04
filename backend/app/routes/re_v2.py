@@ -174,6 +174,34 @@ def get_environment_portfolio_kpis(
         raise _to_http(exc)
 
 
+@router.get("/environments/{env_id}/portfolio-readiness")
+def get_environment_portfolio_readiness(
+    env_id: UUID,
+    request: Request,
+    quarter: str = Query(...),
+    scenario_id: UUID | None = Query(None),
+):
+    """
+    Returns data-completeness counts for all active assets in the environment.
+    Used to populate the readiness panel on the portfolio page instead of
+    showing silent blanks for unvalued / ungeooded assets.
+    """
+    try:
+        resolved = repe_context.resolve_repe_business_context(
+            request=request,
+            env_id=str(env_id),
+            allow_create=True,
+        )
+        return re_env_portfolio.get_portfolio_readiness(
+            env_id=env_id,
+            business_id=resolved.business_id,
+            quarter=quarter,
+            scenario_id=scenario_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
 # ── Investments ───────────────────────────────────────────────────────────────
 
 @router.get("/funds/{fund_id}/investments", response_model=list[ReInvestmentOut])
@@ -436,6 +464,96 @@ def get_fund_quarter_state(
             if not row:
                 raise LookupError(f"No fund state for {fund_id} quarter {quarter}")
             return row
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/funds/{fund_id}/base-scenario")
+def get_fund_base_scenario(
+    fund_id: UUID,
+    quarter: str = Query(...),
+    scenario_id: UUID | None = Query(None),
+):
+    """
+    Returns per-asset status classification for a fund at the given quarter.
+    Asset status_category is derived from explicit asset_status and re_asset_realization
+    records — never inferred from missing valuation data.
+    Used by the fund detail page to correctly count active/disposed/pipeline assets
+    and attribute returns to the right cohort.
+    """
+    try:
+        with get_cursor() as cur:
+            scenario_clause = "aqs.scenario_id = %s" if scenario_id else "aqs.scenario_id IS NULL"
+            cur.execute(
+                f"""
+                SELECT
+                  a.asset_id,
+                  a.name AS asset_name,
+                  a.asset_status,
+                  -- Explicit status category — NEVER inferred from missing valuation
+                  CASE
+                    WHEN a.asset_status = 'pipeline'                               THEN 'pipeline'
+                    WHEN a.asset_status IN ('disposed','realized','written_off')    THEN 'disposed'
+                    WHEN rlz.asset_id IS NOT NULL                                   THEN 'disposed'
+                    ELSE 'active'
+                  END AS status_category,
+                  aqs.nav,
+                  aqs.asset_value,
+                  aqs.noi,
+                  aqs.occupancy,
+                  aqs.debt_balance,
+                  aqs.ltv,
+                  aqs.dscr,
+                  aqs.value_source,
+                  -- Null-reason codes so the UI can show why a metric is missing
+                  CASE
+                    WHEN aqs.asset_value IS NULL THEN 'no_valuation_available'
+                    WHEN aqs.value_source = 'cost_basis_fallback' THEN 'cost_basis_fallback'
+                    WHEN aqs.value_source = 'prior_period_value' THEN 'prior_period_value'
+                    ELSE NULL
+                  END AS value_reason,
+                  CASE
+                    WHEN aqs.occupancy IS NULL AND a.asset_status NOT IN ('disposed','pipeline') THEN 'no_operating_data'
+                    ELSE NULL
+                  END AS occupancy_reason,
+                  CASE
+                    WHEN aqs.debt_balance IS NULL AND aqs.ltv IS NULL THEN 'no_debt_data'
+                    ELSE NULL
+                  END AS debt_reason,
+                  rlz.sale_date,
+                  rlz.gross_sale_price,
+                  rlz.attributable_proceeds,
+                  d.invested_capital AS cost_basis
+                FROM repe_asset a
+                JOIN repe_deal d ON d.deal_id = a.deal_id
+                LEFT JOIN LATERAL (
+                  SELECT asset_id, nav, asset_value, noi, occupancy,
+                    debt_balance, ltv, dscr, value_source
+                  FROM re_asset_quarter_state
+                  WHERE asset_id = a.asset_id AND quarter = %s AND {scenario_clause}
+                  ORDER BY created_at DESC LIMIT 1
+                ) aqs ON true
+                LEFT JOIN re_asset_realization rlz ON rlz.asset_id = a.asset_id
+                WHERE d.fund_id = %s
+                ORDER BY a.name
+                """,
+                [quarter] + ([str(scenario_id)] if scenario_id else []) + [str(fund_id)],
+            )
+            rows = cur.fetchall()
+        return {
+            "fund_id": str(fund_id),
+            "quarter": quarter,
+            "scenario_id": str(scenario_id) if scenario_id else None,
+            "assets": [dict(r) for r in rows],
+            "summary": {
+                "total": len(rows),
+                "active": sum(1 for r in rows if r.get("status_category") == "active"),
+                "disposed": sum(1 for r in rows if r.get("status_category") == "disposed"),
+                "pipeline": sum(1 for r in rows if r.get("status_category") == "pipeline"),
+                "valued": sum(1 for r in rows if r.get("asset_value") is not None),
+                "missing_valuation": sum(1 for r in rows if r.get("asset_value") is None),
+            },
+        }
     except Exception as exc:
         raise _to_http(exc)
 

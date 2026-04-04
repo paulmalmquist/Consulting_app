@@ -167,15 +167,15 @@ export default function ConsultingWorkspaceShell({
                 <X size={16} />
               </button>
             </div>
-            <nav className="mt-4 space-y-1.5 overflow-y-auto" data-testid="consulting-left-nav-mobile">
+            <nav className="mt-4 space-y-0.5 overflow-y-auto" data-testid="consulting-left-nav-mobile">
               {navItems.map((item) => (
                 <Link
                   key={`${item.href}-mobile`}
                   href={item.href}
-                  className={`block rounded-lg border px-3 py-2.5 text-sm transition ${
+                  className={`block border-l-2 px-3 py-2 text-sm transition-colors ${
                     isActive(pathname, item.href, item.isBase)
-                      ? "border-bm-accent/45 bg-bm-accent/10 text-bm-text"
-                      : "border-transparent text-bm-muted hover:bg-bm-surface/30 hover:text-bm-text"
+                      ? "border-l-bm-accent bg-bm-surface/15 font-semibold text-bm-text"
+                      : "border-l-transparent text-bm-muted hover:bg-bm-surface/10 hover:text-bm-text"
                   }`}
                 >
                   {item.label}
@@ -186,79 +186,45 @@ export default function ConsultingWorkspaceShell({
         </div>
       ) : null}
 
-      <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-4 lg:hidden">
-        <div className="space-y-2">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">Current section</p>
-              <h1 className="text-lg font-display font-semibold tracking-tight text-bm-text">{activeNavLabel}</h1>
-            </div>
-            <Link
-              href={homeHref}
-              className="inline-flex items-center rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
-              data-testid="global-home-button-mobile"
-            >
-              Environment
-            </Link>
-          </div>
-          <p className="text-sm text-bm-muted2">
-            {environment?.schema_name || environment?.client_name || "Consulting Workspace"}
-            {businessId ? ` · ${businessId.slice(0, 8)}` : ""}
-          </p>
+      {/* Desktop header — flat separator, no card */}
+      <header className="hidden items-center justify-between border-b border-bm-border/40 px-2 py-3 lg:flex">
+        <div className="flex items-center gap-3">
+          <h1 className="text-sm font-semibold text-bm-text">{envLabel}</h1>
+          <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-bm-muted2">
+            Consulting Revenue Engine
+          </span>
         </div>
-      </section>
-
-      <section className="hidden rounded-2xl border border-bm-border/70 bg-bm-surface/25 p-4 lg:block">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-display font-semibold tracking-tight">{envLabel}</h1>
-              <span className="inline-flex items-center gap-1 rounded-full border border-bm-border/70 px-2.5 py-1 text-xs text-bm-muted2">
-                Consulting Revenue Engine
-              </span>
-            </div>
-            <p className="text-xs text-bm-muted2">
-              {environment?.schema_name || environment?.client_name || "Consulting Workspace"}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={homeHref}
-              className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
-              data-testid="global-home-button"
-            >
-              Home
-            </Link>
-            <Link
-              href={`${base}/contacts`}
-              className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
-            >
-              + Contact
-            </Link>
-            <Link
-              href={`${base}/events`}
-              className="inline-flex items-center gap-1 rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
-            >
-              + Event
-            </Link>
-          </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href={homeHref}
+            className="rounded border border-bm-border/50 px-3 py-1.5 text-xs text-bm-muted2 hover:text-bm-text"
+            data-testid="global-home-button"
+          >
+            ← Env
+          </Link>
+          <Link
+            href={`${base}/contacts`}
+            className="rounded border border-bm-border/50 px-3 py-1.5 text-xs text-bm-muted2 hover:text-bm-text"
+          >
+            + Contact
+          </Link>
         </div>
-      </section>
+      </header>
 
-      <div className="grid gap-4 lg:grid-cols-[220px,1fr]">
+      <div className="grid gap-4 lg:grid-cols-[196px,1fr]">
         <aside
-          className="hidden rounded-xl border border-bm-border/70 bg-bm-bg p-3 h-fit lg:block"
+          className="hidden h-fit border-r border-bm-border/30 py-2 pr-2 lg:block"
           data-testid="consulting-sidebar"
         >
-          <nav className="space-y-1.5" data-testid="consulting-left-nav">
+          <nav className="space-y-0.5" data-testid="consulting-left-nav">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`block rounded-lg border px-3 py-2.5 text-sm transition-[transform,box-shadow] duration-[120ms] ${
+                className={`block border-l-2 px-3 py-2 text-xs transition-colors ${
                   isActive(pathname, item.href, item.isBase)
-                    ? "bg-bm-surface/30 text-bm-text border-transparent border-l-2 border-l-bm-accent font-medium"
-                    : "text-bm-muted border-transparent hover:bg-bm-surface/30 hover:text-bm-text"
+                    ? "border-l-bm-accent bg-bm-surface/15 font-semibold text-bm-text"
+                    : "border-l-transparent text-bm-muted hover:bg-bm-surface/10 hover:text-bm-text"
                 }`}
               >
                 {item.label}

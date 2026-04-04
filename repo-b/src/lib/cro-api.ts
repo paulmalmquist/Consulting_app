@@ -1326,3 +1326,107 @@ export const PROOF_ASSET_GAPS = [
   { title: "Case Study / REPE Pilot Summary", description: "Anonymized outcome from first engagement", status: "missing" as const },
   { title: "LinkedIn Sequence Template", description: "3-touch LinkedIn + email outreach cadence", status: "missing" as const },
 ];
+
+// ── Daily Outreach Brief ──────────────────────────────────────────────────────
+// Mirrors DailyBriefOut + sub-types from backend/app/schemas/consulting.py
+
+export type ReadinessSignals = {
+  named_contact: boolean;
+  titled_contact: boolean;
+  channel_available: boolean;
+  warm_intro_path: boolean;
+  pain_thesis: boolean;
+  matched_offer: boolean;
+  proof_asset: boolean;
+  next_step_defined: boolean;
+};
+
+export type BestShotItem = {
+  crm_account_id: string;
+  company_name: string;
+  contact_name: string | null;
+  contact_title: string | null;
+  vertical: string | null;
+  matched_offer: string | null;
+  why_now_trigger: string | null;
+  recommended_channel: string;
+  cta: string;
+  readiness_score: number;
+  readiness_signals: ReadinessSignals;
+  missing_signals: string[];
+  composite_priority_score: number;
+};
+
+export type BlockingIssueBucket = { crm_account_id: string; company_name: string };
+
+export type BlockingIssueSummary = {
+  missing_contact: number;
+  missing_channel: number;
+  missing_pain_thesis: number;
+  missing_matched_offer: number;
+  missing_proof_asset: number;
+  no_followup_scheduled: number;
+  total_blocked: number;
+  by_bucket: Record<string, BlockingIssueBucket[]>;
+};
+
+export type MessageQueueItem = {
+  lead_profile_id: string;
+  outreach_sequence_id: string;
+  company_name: string;
+  contact_name: string | null;
+  channel: string;
+  sequence_stage: number;
+  draft_preview: string;
+  proof_asset_attached: boolean;
+  send_ready: boolean;
+  followup_due_date: string | null;
+};
+
+export type ObjectionItem = {
+  id: string;
+  objection_type: string;
+  summary: string;
+  response_strategy: string | null;
+  confidence: number | null;
+  outcome: string | null;
+};
+
+export type ProofReadinessItem = {
+  asset_type: string;
+  title: string;
+  status: "ready" | "draft" | "needs_update" | "missing";
+  action_label: string | null;
+  linked_offer_type: string | null;
+  required_for_outreach: boolean;
+};
+
+export type WeeklyStripItem = {
+  week_start: string;
+  touches_target: number;
+  sent: number;
+  replies: number;
+  meetings_booked: number;
+  proposals_sent: number;
+  reply_rate_pct: number | null;
+};
+
+export type DailyBrief = {
+  generated_at: string;
+  env_id: string;
+  business_id: string;
+  best_shots: BestShotItem[];
+  blocking_issues: BlockingIssueSummary;
+  message_queue: MessageQueueItem[];
+  objection_radar: ObjectionItem[];
+  proof_readiness: ProofReadinessItem[];
+  weekly_strip: WeeklyStripItem;
+  total_active_leads: number;
+  ready_now_count: number;
+};
+
+export function fetchDailyBrief(envId: string, businessId: string) {
+  return apiFetch<DailyBrief>(
+    `${CRO_BASE}/daily-brief?env_id=${encodeURIComponent(envId)}&business_id=${encodeURIComponent(businessId)}`
+  );
+}

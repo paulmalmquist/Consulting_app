@@ -67,7 +67,7 @@ openaikey.txt
 .orchestration/logs/*.json
 .orchestration/logs/*.jsonl
 .orchestration/sessions/*.json
-
+claw-code-main/
 # OS files
 .DS_Store
 .vercel

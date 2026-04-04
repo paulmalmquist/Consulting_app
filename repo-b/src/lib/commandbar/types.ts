@@ -51,6 +51,52 @@ export type AssistantScopeType =
   | "global"
   | "unknown";
 
+export type Lane = "A_FAST" | "B_LOOKUP" | "C_ANALYSIS" | "D_DEEP";
+
+export type RetrievalPolicy = "none" | "light" | "full";
+
+export type ConfirmationMode = "none" | "required" | "conditional";
+
+export type PermissionMode =
+  | "read"
+  | "retrieve"
+  | "analyze"
+  | "write_confirmed"
+  | "write_auto"
+  | "privileged";
+
+export type SideEffectClass = "read" | "write";
+
+export type ContextResolutionStatus =
+  | "resolved"
+  | "missing_context"
+  | "ambiguous_context";
+
+export type ToolReceiptStatus = "success" | "failed" | "denied";
+
+export type RetrievalStatus = "ok" | "empty";
+
+export type TurnStatus = "success" | "degraded" | "failed";
+
+export type DegradedReason =
+  | "missing_context"
+  | "ambiguous_context"
+  | "tool_denied"
+  | "tool_failed"
+  | "retrieval_empty"
+  | "no_skill_match";
+
+export type SkillDefinition = {
+  id: string;
+  description: string;
+  triggers: string[];
+  capability_tags: string[];
+  allowed_tool_tags: string[];
+  retrieval_policy: RetrievalPolicy;
+  confirmation_mode: ConfirmationMode;
+  response_blocks: string[];
+};
+
 export type AssistantSelectedEntity = {
   entity_type: AssistantEntityType | string;
   entity_id: string;
@@ -158,6 +204,46 @@ export type AssistantCitationItem = {
   entity_type?: string | null;
   entity_id?: string | null;
   section_heading?: string | null;
+};
+
+export type ContextReceipt = {
+  environment_id?: string | null;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  resolution_status: ContextResolutionStatus;
+  notes?: string[];
+};
+
+export type SkillSelection = {
+  skill_id?: string | null;
+  confidence: number;
+  triggers_matched: string[];
+};
+
+export type ToolReceipt = {
+  tool_name: string;
+  status: ToolReceiptStatus;
+  permission_mode: PermissionMode;
+  input?: unknown;
+  output?: unknown;
+  error?: string | null;
+};
+
+export type RetrievalReceipt = {
+  used: boolean;
+  result_count: number;
+  status: RetrievalStatus;
+};
+
+export type TurnReceipt = {
+  request_id: string;
+  lane: Lane;
+  context: ContextReceipt;
+  skill: SkillSelection;
+  tools: ToolReceipt[];
+  retrieval: RetrievalReceipt;
+  status: TurnStatus;
+  degraded_reason?: DegradedReason | null;
 };
 
 export type AssistantToolActivityItem = {

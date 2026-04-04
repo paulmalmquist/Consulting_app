@@ -82,6 +82,7 @@ from app.schemas.consulting import (
     StrategicOutreachSeedResult,
     TriggerSignalCreateRequest,
     TriggerSignalOut,
+    DailyBriefOut,
 )
 from app.schemas.local_training import (
     LocalTrainingActivityCreateRequest,
@@ -111,6 +112,7 @@ from app.services import (
     cro_loops,
     cro_strategic_outreach,
     local_training_crm,
+    nv_outreach_engine,
 )
 
 router = APIRouter(prefix="/api/consulting", tags=["consulting-revenue-os"])
@@ -1483,6 +1485,29 @@ def stale_records_route(
     try:
         return cro_metrics_engine.get_stale_records(
             env_id=env_id, business_id=business_id, stale_days=stale_days,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Daily Outreach Brief
+# ═══════════════════════════════════════════════════════════════════════
+
+@router.get("/daily-brief", response_model=DailyBriefOut)
+def daily_brief_route(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    """Assemble the operator's daily outreach brief.
+
+    Returns best shots, blocking issues, message queue, objection radar,
+    proof readiness, and weekly conversion strip — all ranked by the same
+    scoring engine used by the novendor.* MCP tools.
+    """
+    try:
+        return nv_outreach_engine.build_daily_brief(
+            env_id=env_id, business_id=business_id,
         )
     except Exception as exc:
         raise _to_http(exc)

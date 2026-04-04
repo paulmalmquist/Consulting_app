@@ -912,3 +912,103 @@ class OrphanOpportunityOut(BaseModel):
 class StaleRecordsOut(BaseModel):
     stale_accounts: list[StaleAccountOut]
     orphan_opportunities: list[OrphanOpportunityOut]
+
+
+# ── Daily Outreach Brief ─────────────────────────────────────────────────────
+
+class ReadinessSignals(BaseModel):
+    named_contact: bool
+    titled_contact: bool
+    channel_available: bool
+    warm_intro_path: bool
+    pain_thesis: bool
+    matched_offer: bool
+    proof_asset: bool
+    next_step_defined: bool
+
+
+class BestShotItem(BaseModel):
+    crm_account_id: str
+    company_name: str
+    contact_name: str | None = None
+    contact_title: str | None = None
+    vertical: str | None = None
+    matched_offer: str | None = None
+    why_now_trigger: str | None = None
+    recommended_channel: str
+    cta: str
+    readiness_score: int
+    readiness_signals: ReadinessSignals
+    missing_signals: list[str]
+    composite_priority_score: int
+
+
+class BlockingIssueBucket(BaseModel):
+    crm_account_id: str
+    company_name: str
+
+
+class BlockingIssueSummary(BaseModel):
+    missing_contact: int
+    missing_channel: int
+    missing_pain_thesis: int
+    missing_matched_offer: int
+    missing_proof_asset: int
+    no_followup_scheduled: int
+    total_blocked: int
+    by_bucket: dict[str, list[BlockingIssueBucket]]
+
+
+class MessageQueueItem(BaseModel):
+    lead_profile_id: str
+    outreach_sequence_id: str
+    company_name: str
+    contact_name: str | None = None
+    channel: str
+    sequence_stage: int
+    draft_preview: str
+    proof_asset_attached: bool
+    send_ready: bool
+    followup_due_date: str | None = None
+
+
+class ObjectionItem(BaseModel):
+    id: str
+    objection_type: str
+    summary: str
+    response_strategy: str | None = None
+    confidence: int | None = None
+    outcome: str | None = None
+
+
+class ProofReadinessItem(BaseModel):
+    asset_type: str
+    title: str
+    status: str
+    action_label: str | None = None
+    linked_offer_type: str | None = None
+    required_for_outreach: bool
+
+
+class WeeklyStripItem(BaseModel):
+    week_start: str
+    touches_target: int
+    sent: int
+    replies: int
+    meetings_booked: int
+    proposals_sent: int
+    reply_rate_pct: float | None = None
+
+
+class DailyBriefOut(BaseModel):
+    generated_at: str
+    env_id: str
+    business_id: str
+    best_shots: list[BestShotItem]
+    blocking_issues: BlockingIssueSummary
+    message_queue: list[MessageQueueItem]
+    objection_radar: list[ObjectionItem]
+    proof_readiness: list[ProofReadinessItem]
+    weekly_strip: WeeklyStripItem
+    total_active_leads: int
+    ready_now_count: int

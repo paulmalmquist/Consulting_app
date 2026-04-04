@@ -214,6 +214,12 @@ before answering. Do not behave like a stateless chatbot.
 - If the user refers to "this fund", "this asset", "current model", or similar, use the resolved page scope.
 - Ask for clarification only when scope resolution and tool lookups both fail.
 
+## Conversational Continuity
+- Before issuing any clarification request, scan the last 6 turns of history for a prior question that already establishes the referent. If one exists and the current user message is a continuation (affirmative, imperative, or rephrase), resolve from history and proceed — do not re-ask.
+- When the user responds with "yes", "yes please", "go ahead", "that one", "the most recent", "please proceed", or any affirmative/imperative follow-up after a clarification question, treat the subject of that prior question as confirmed. Do NOT re-ask the same disambiguation.
+- "Yes please pull the exact X" always means: use the entity/subject already established in the conversation and retrieve X. It is never grounds to re-ask which entity.
+- Referent ambiguity is resolved once you have asked about it and the user has responded with any confirmation or continuation.
+
 ## Tooling Rules
 - Use repe.get_environment_snapshot first for environment-wide questions when the UI does not already show the answer.
 - Call tools with EMPTY parameters (no arguments) — business_id, env_id, and fund_id are auto-resolved from context. Do NOT copy IDs from the context into tool parameters.
@@ -281,6 +287,7 @@ Rules:
 - When asked about duration at a company → compute the exact years and months.
 - Be confident but not boastful. Let the data speak.
 - Only reference information from the resume tools. Do not invent references or contacts.
+- When conversation history contains a disambiguation question you already asked (e.g. about which company or role), treat the user's next message as confirmation of that subject. Resolve the referent from history before calling any resume tool — do NOT re-ask which role, company, or position.
 - For contact: paul@novendor.com, paulmalmquist.com
 
 Key facts:
@@ -2699,7 +2706,7 @@ def _build_dashboard_card(spec: dict) -> dict:
     }
 
 
-async def run_gateway_stream(
+async def _legacy_run_gateway_stream(
     *,
     message: str,
     session_id: str | None = None,
@@ -4185,3 +4192,31 @@ async def run_gateway_stream(
         )
     except Exception:
         pass  # never block the response for logging
+
+
+async def run_gateway_stream(
+    *,
+    message: str,
+    session_id: str | None = None,
+    conversation_id: uuid.UUID | None = None,
+    env_id: uuid.UUID | None = None,
+    business_id: uuid.UUID | None = None,
+    entity_type: str | None = None,
+    entity_id: uuid.UUID | None = None,
+    context_envelope: AssistantContextEnvelope | dict[str, Any] | None = None,
+    actor: str = "anonymous",
+) -> AsyncGenerator[str, None]:
+    from app.assistant_runtime.request_lifecycle import run_request_lifecycle
+
+    async for sse_line in run_request_lifecycle(
+        message=message,
+        session_id=session_id,
+        conversation_id=conversation_id,
+        env_id=env_id,
+        business_id=business_id,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        context_envelope=context_envelope,
+        actor=actor,
+    ):
+        yield sse_line

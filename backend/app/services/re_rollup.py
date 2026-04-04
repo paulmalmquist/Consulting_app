@@ -143,15 +143,22 @@ def rollup_investment(
 
         for s in jv_states:
             ownership = Decimal(s["ownership_percent"] or 0)
-            nav = Decimal(s["nav"] or 0)
+            # NULL nav means the asset has no valuation — do NOT coerce to 0.
+            # Coercing to 0 would collapse the fund's NAV for unvalued assets.
+            # Skip from nav aggregation; still include debt for LTV tracking.
+            raw_nav = s.get("nav")
+            nav = Decimal(raw_nav) if raw_nav is not None else None
             debt = Decimal(s["debt_balance"] or 0)
             cash = Decimal(s["cash_balance"] or 0)
-            gross = nav + debt - cash
-            agg_nav += nav * ownership
+            if nav is not None:
+                gross = nav + debt - cash
+                agg_nav += nav * ownership
+                owned_gross_value += gross * ownership
+            else:
+                gross = Decimal("0")
             gross_asset_value += gross
             debt_balance += debt * ownership
             cash_balance += cash * ownership
-            owned_gross_value += gross * ownership
             hashes.append(f"jv:{s['inputs_hash']}:{ownership}")
 
         direct_params = [str(investment_id), quarter]
@@ -175,15 +182,19 @@ def rollup_investment(
         direct_asset_states = cur.fetchall()
 
         for s in direct_asset_states:
-            asset_value = Decimal(s["asset_value"] or 0)
-            nav = Decimal(s["nav"] or 0)
+            raw_nav = s.get("nav")
+            raw_asset_value = s.get("asset_value")
+            # NULL nav = unvalued asset — exclude from NAV sum but still track debt.
+            nav = Decimal(raw_nav) if raw_nav is not None else None
+            asset_value = Decimal(raw_asset_value) if raw_asset_value is not None else Decimal("0")
             debt = Decimal(s["debt_balance"] or 0)
             cash = Decimal(s["cash_balance"] or 0)
-            agg_nav += nav
+            if nav is not None:
+                agg_nav += nav
+                owned_gross_value += asset_value
             gross_asset_value += asset_value
             debt_balance += debt
             cash_balance += cash
-            owned_gross_value += asset_value
             hashes.append(f"asset:{s['inputs_hash']}")
 
         # Get investment capital figures
@@ -291,9 +302,16 @@ def rollup_fund(
 
         portfolio_nav = _zero()
         hashes = []
+        # Track how many investments have a real NAV vs NULL (pending valuation).
+        # A fund with some NULL-NAV investments should not report as zero NAV.
+        valued_investment_count = 0
 
         for s in inv_states:
-            portfolio_nav += Decimal(s["effective_nav"] or 0)
+            raw = s.get("effective_nav")
+            if raw is not None:
+                portfolio_nav += Decimal(raw)
+                valued_investment_count += 1
+            # NULL effective_nav = investment has no quarter-close yet; exclude from sum.
             hashes.append(s["inputs_hash"])
 
         asset_params = [str(fund_id), quarter]

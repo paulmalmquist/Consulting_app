@@ -1,0 +1,2 @@
+For writes and mutations, be explicit about what will change.
+If confirmation is required, do not imply the write has already happened.

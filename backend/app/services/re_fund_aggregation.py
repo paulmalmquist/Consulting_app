@@ -68,16 +68,16 @@ def compute(*, fin_fund_id: str, quarter: str) -> dict:
             "nav_share": str(share.quantize(FOUR_PLACES, ROUND_HALF_UP)),
         })
 
-    # Maturity wall from loans
+    # Maturity wall from loans — single batch query instead of N+1 per asset
     maturity_wall = {}
-    with get_cursor() as cur:
-        for s in states:
+    asset_ids = [str(s["fin_asset_investment_id"]) for s in states]
+    if asset_ids:
+        with get_cursor() as cur:
             cur.execute(
-                "SELECT maturity_date FROM re_loan WHERE fin_asset_investment_id = %s",
-                (str(s["fin_asset_investment_id"]),),
+                "SELECT maturity_date FROM re_loan WHERE fin_asset_investment_id = ANY(%s::uuid[])",
+                (asset_ids,),
             )
-            loans = cur.fetchall()
-            for loan in loans:
+            for loan in cur.fetchall():
                 if loan.get("maturity_date"):
                     year = str(loan["maturity_date"])[:4]
                     maturity_wall[year] = maturity_wall.get(year, 0) + 1

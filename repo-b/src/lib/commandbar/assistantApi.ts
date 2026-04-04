@@ -6,6 +6,7 @@ import type {
   ExecutionPlan,
   ResolvedAssistantScope,
   RunStatus,
+  TurnReceipt,
 } from "@/lib/commandbar/types";
 import { winstonLoader } from "@/lib/loading-state";
 import {
@@ -143,6 +144,7 @@ export type AskAiDebug = {
   responseBlocks?: AssistantResponseBlock[];
   done?: unknown;
   trace?: WinstonTrace | null;
+  turnReceipt?: TurnReceipt | null;
   eventLog: SSEEvent[];
 };
 
@@ -903,6 +905,7 @@ export async function streamAi(input: {
         citations: [],
         responseBlocks: [],
         trace: null,
+        turnReceipt: null,
         eventLog: [],
       },
     };
@@ -976,6 +979,7 @@ export async function streamAi(input: {
           citations: [],
           responseBlocks: [],
           trace: null,
+          turnReceipt: null,
           eventLog: [{ seq: 0, timestamp: Date.now(), elapsedMs: 0, eventType: "unavailable", payload: { reason, runtime, status: response.status }, summary: `Unavailable: ${reason}` }],
         },
       };
@@ -993,6 +997,7 @@ export async function streamAi(input: {
       citations: [],
       responseBlocks: [],
       trace: null,
+      turnReceipt: null,
       eventLog: [],
     };
     let sseSeq = 0;
@@ -1176,12 +1181,19 @@ export async function streamAi(input: {
               if (parsed.trace) {
                 debug.trace = parsed.trace as WinstonTrace;
               }
+              if (parsed.turn_receipt) {
+                debug.turnReceipt = parsed.turn_receipt as TurnReceipt;
+              }
               if (Array.isArray(parsed.response_blocks) && parsed.response_blocks.length > 0) {
                 debug.responseBlocks = parsed.response_blocks as AssistantResponseBlock[];
               }
               const t = parsed.trace;
-              logSSE("done", { lane: t?.lane, path: t?.execution_path, tools: t?.tool_call_count, elapsed: t?.elapsed_ms, tokens: t?.total_tokens },
-                `Lane ${t?.lane || "?"} | ${t?.execution_path || "?"} | ${t?.tool_call_count || 0} tools | ${t?.elapsed_ms || 0}ms | ${t?.total_tokens || 0} tokens`);
+              const r = parsed.turn_receipt as TurnReceipt | undefined;
+              logSSE(
+                "done",
+                { lane: r?.lane || t?.lane, path: t?.execution_path, tools: r?.tools?.length ?? t?.tool_call_count, elapsed: t?.elapsed_ms, tokens: t?.total_tokens, status: r?.status, degraded_reason: r?.degraded_reason },
+                `Lane ${r?.lane || t?.lane || "?"} | ${t?.execution_path || "?"} | ${r?.tools?.length ?? t?.tool_call_count ?? 0} tools | ${t?.elapsed_ms || 0}ms | ${r?.status || "unknown"}`,
+              );
               input.onDone?.(parsed);
               continue;
             }
@@ -1258,6 +1270,7 @@ export async function streamAi(input: {
         citations: [],
         responseBlocks: [],
         trace: null,
+        turnReceipt: null,
         eventLog: [],
       },
     };

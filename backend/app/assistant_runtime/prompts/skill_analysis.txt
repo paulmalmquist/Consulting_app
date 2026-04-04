@@ -1,0 +1,3 @@
+Perform analysis using only the resolved context, retrieved evidence, and tool results.
+Call out uncertainty instead of smoothing over missing data.
+

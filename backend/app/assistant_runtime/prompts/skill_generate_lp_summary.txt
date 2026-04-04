@@ -1,0 +1,3 @@
+Generate investor-facing summaries grounded in the available fund, report, and document context.
+Do not fabricate report sections that were not retrieved or computed.
+

@@ -1,0 +1,137 @@
+[
+  {
+    "id": "meridian-funds-context",
+    "description": "Knows active environment name",
+    "env_slug": "meridian",
+    "nav_path": null,
+    "prompts": [
+      {
+        "user": "What environment am I in right now?",
+        "require_contains_any": ["Meridian"],
+        "reject_contains_any": ["Novendor", "resume", "Paul"]
+      }
+    ]
+  },
+  {
+    "id": "resume-page-identity",
+    "description": "Knows it is Paul Malmquist's resume",
+    "env_slug": "resume",
+    "nav_path": "/lab/env/env-resume/resume",
+    "prompts": [
+      {
+        "user": "Whose resume is this?",
+        "require_contains_any": ["Paul", "Malmquist"],
+        "reject_contains_any": ["I don't know", "cannot determine"]
+      }
+    ]
+  },
+  {
+    "id": "resume-kayne-followup",
+    "description": "REGRESSION: no re-ask after prior disambiguation — the Kayne Anderson test",
+    "env_slug": "resume",
+    "nav_path": "/lab/env/env-resume/resume",
+    "prompts": [
+      {
+        "user": "when did paul start at kayne anderson",
+        "allow_clarification": true
+      },
+      {
+        "user": "yes please pull the exact start date",
+        "require_contains_any": [
+          "201", "202",
+          "January", "February", "March", "April", "May", "June",
+          "July", "August", "September", "October", "November", "December",
+          "Kayne", "Anderson", "start", "date"
+        ],
+        "reject_contains_any": [
+          "Which role",
+          "What role",
+          "which position",
+          "could you clarify which role",
+          "clarify which",
+          "which specific role",
+          "which one",
+          "which role at Kayne"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "meridian-missing-data-honest",
+    "description": "Says unavailable rather than fabricating pipeline deals",
+    "env_slug": "meridian",
+    "nav_path": null,
+    "prompts": [
+      {
+        "user": "Show me pipeline deals we haven't entered yet",
+        "require_contains_any": [
+          "not available", "unavailable", "no data", "missing",
+          "no deals", "empty", "cannot find", "don't have", "no pipeline"
+        ],
+        "reject_contains_any": ["Aurora", "Foundry", "I'll create", "Here are"]
+      }
+    ]
+  },
+  {
+    "id": "meridian-map-empty-honest",
+    "description": "Honest about absence of geographic/location data",
+    "env_slug": "meridian",
+    "nav_path": null,
+    "prompts": [
+      {
+        "user": "Where are all our assets located on a map?",
+        "require_contains_any": [
+          "no geographic", "no location", "no geo", "not available",
+          "no assets", "cannot show", "no map data", "no asset location",
+          "unavailable", "missing"
+        ],
+        "reject_contains_any": ["New York", "Chicago", "Los Angeles", "Dallas", "Miami"]
+      }
+    ]
+  },
+  {
+    "id": "context-switch-to-resume",
+    "description": "After navigating to resume environment, reflects correct page context",
+    "env_slug": "resume",
+    "nav_path": "/lab/env/env-resume/resume",
+    "prompts": [
+      {
+        "user": "What page am I looking at?",
+        "require_contains_any": ["resume", "Resume", "Paul"],
+        "reject_contains_any": ["real estate", "fund", "Meridian", "Novendor"]
+      }
+    ]
+  },
+  {
+    "id": "novendor-env-identity",
+    "description": "Identifies Novendor as the active environment",
+    "env_slug": "novendor",
+    "nav_path": "/lab/env/env-novendor",
+    "prompts": [
+      {
+        "user": "What company environment is this?",
+        "require_contains_any": ["Novendor"],
+        "reject_contains_any": ["Meridian", "resume", "Paul Malmquist"]
+      }
+    ]
+  },
+  {
+    "id": "resume-paul-skills",
+    "description": "Can answer factual questions about Paul's technical background",
+    "env_slug": "resume",
+    "nav_path": "/lab/env/env-resume/resume",
+    "prompts": [
+      {
+        "user": "What are Paul's core technical skills?",
+        "require_contains_any": [
+          "Python", "SQL", "data", "AI", "platform",
+          "engineering", "analytics", "FastAPI", "React", "TypeScript"
+        ],
+        "reject_contains_any": [
+          "I don't know", "cannot answer", "no information available",
+          "not sure", "unable to"
+        ]
+      }
+    ]
+  }
+]

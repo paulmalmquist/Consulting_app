@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Type
 
+from app.assistant_runtime.turn_receipts import PermissionMode, SideEffectClass
 from pydantic import BaseModel
 
 
@@ -29,6 +30,20 @@ class ToolDef:
     audit_policy: AuditPolicy = field(default_factory=AuditPolicy)
     handler: Callable | None = None
     tags: frozenset[str] = field(default_factory=frozenset)
+    side_effect_class: SideEffectClass | None = None
+    permission_required: PermissionMode | None = None
+    lane_tags: tuple[str, ...] = ()
+    skill_tags: tuple[str, ...] = ()
+    confirmation_required: bool | None = None
+    result_adapter: str = "passthrough"
+
+    def __post_init__(self) -> None:
+        if self.side_effect_class is not None and not isinstance(self.side_effect_class, SideEffectClass):
+            raise ValueError(f"Invalid side_effect_class for {self.name}: {self.side_effect_class}")
+        if self.permission_required is not None and not isinstance(self.permission_required, PermissionMode):
+            raise ValueError(f"Invalid permission_required for {self.name}: {self.permission_required}")
+        if self.result_adapter.strip() == "":
+            raise ValueError(f"result_adapter must be non-empty for {self.name}")
 
     @property
     def input_schema(self) -> dict:
@@ -39,6 +54,52 @@ class ToolDef:
         if self.output_model:
             return self.output_model.model_json_schema()
         return None
+
+    def manifest(self) -> dict[str, Any]:
+        side_effect_class = self.side_effect_class or (
+            SideEffectClass.WRITE if self.permission == "write" else SideEffectClass.READ
+        )
+        permission_required = self.permission_required or (
+            PermissionMode.WRITE_CONFIRMED if self.permission == "write" else PermissionMode.READ
+        )
+        lane_tags = self.lane_tags or _default_lane_tags(self.permission, self.tags, self.module)
+        skill_tags = self.skill_tags or _default_skill_tags(self.tags, self.module, self.permission)
+        confirmation_required = (
+            self.confirmation_required
+            if self.confirmation_required is not None
+            else self.permission == "write"
+        )
+        return {
+            "name": self.name,
+            "description": self.description,
+            "input_schema": self.input_schema,
+            "side_effect_class": side_effect_class.value,
+            "permission_required": permission_required.value,
+            "lane_tags": list(lane_tags),
+            "skill_tags": list(skill_tags),
+            "confirmation_required": confirmation_required,
+            "result_adapter": self.result_adapter,
+        }
+
+
+def _default_lane_tags(permission: str, tags: frozenset[str], module: str) -> tuple[str, ...]:
+    if permission == "write":
+        return ("C", "D")
+    if "analysis" in tags or "report" in tags or "investor" in tags or module in {"documents", "report", "audit"}:
+        return ("B", "C", "D")
+    if "infra" in tags or module in {"repo", "bm"}:
+        return ("B", "C")
+    return ("A", "B", "C", "D")
+
+
+def _default_skill_tags(tags: frozenset[str], module: str, permission: str) -> tuple[str, ...]:
+    derived = set(tags)
+    derived.add(module)
+    if permission == "write":
+        derived.add("write")
+    if not derived:
+        derived.add("core")
+    return tuple(sorted(derived))
 
 
 class ToolRegistry:
@@ -80,6 +141,7 @@ class ToolRegistry:
                 "permission": t.permission,
                 "input_schema": t.input_schema,
                 "output_schema": t.output_schema,
+                **t.manifest(),
             }
             for t in self._tools.values()
         ]

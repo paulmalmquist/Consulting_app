@@ -16,8 +16,12 @@ from app.services import re_sustainability
 from app.services import re_waterfall_runtime
 
 
-def _q(v: Decimal | None) -> Decimal | None:
-    return Decimal(v).quantize(Decimal("0.000000000001")) if v is not None else None
+def _q(v) -> Decimal | None:  # noqa: ANN001
+    """Quantize a numeric value for storage; propagates None as NULL."""
+    if v is None:
+        return None
+    d = v if isinstance(v, Decimal) else Decimal(str(v))
+    return d.quantize(Decimal("0.000000000001"))
 
 
 def _compute_hash(data: dict) -> str:
@@ -277,6 +281,11 @@ def _compute_asset_state(
     other_income = Decimal("0")
     opex = Decimal("0")
     capex = Decimal("0")
+    # Null-reason codes — populated below when a metric cannot be computed
+    value_reason: str | None = None
+    occupancy_reason: str | None = None
+    debt_reason: str | None = None
+    noi_reason: str | None = None
     debt_service = Decimal("0")
     leasing_costs = Decimal("0")
     tenant_improvements = Decimal("0")
@@ -505,26 +514,64 @@ def _compute_asset_state(
         if cap_rate_delta_bps:
             cap_rate = (cap_rate + (_d(cap_rate_delta_bps) / Decimal("10000"))).quantize(Decimal("0.0001"))
         if valuation_method == "cap_rate" and noi > 0 and cap_rate > 0:
+            # Preferred: direct cap valuation
             asset_value = (noi / cap_rate).quantize(Decimal("0.01"))
-        else:
+        elif cost_basis > 0:
+            # Fallback 1: use cost basis rather than silently zeroing NAV
             asset_value = cost_basis
+            value_reason = "cost_basis_fallback"
+        else:
+            # Fallback 2: last known value from re_asset_quarter_state prior period
+            # (best-effort to avoid zero NAV; caller may pass None if unavailable)
+            cur.execute(
+                """
+                SELECT asset_value FROM re_asset_quarter_state
+                WHERE asset_id = %s AND asset_value > 0
+                ORDER BY quarter DESC, created_at DESC
+                LIMIT 1
+                """,
+                (str(asset_id),),
+            )
+            prior = cur.fetchone()
+            if prior and prior.get("asset_value"):
+                asset_value = _d(prior["asset_value"])
+                value_reason = "prior_period_value"
+            else:
+                # No valuation can be derived — mark explicitly, do not write zero NAV
+                asset_value = None  # type: ignore[assignment]
+                value_reason = "no_valuation_available"
     else:
-        asset_value = max(cost_basis, debt_balance, revenue)
+        _candidates = [v for v in [cost_basis, debt_balance, revenue] if v > 0]
+        asset_value = max(_candidates) if _candidates else None  # type: ignore[assignment]
+        if asset_value is None:
+            value_reason = "no_valuation_available"
 
-    implied_equity_value = (asset_value - debt_balance).quantize(Decimal("0.01"))
-    nav = (implied_equity_value + cash_balance).quantize(Decimal("0.01"))
+    if asset_value is not None:
+        implied_equity_value = (_d(asset_value) - debt_balance).quantize(Decimal("0.01"))
+        nav = (implied_equity_value + cash_balance).quantize(Decimal("0.01"))
+    else:
+        # Do NOT write zero NAV — write NULL and surface reason code.
+        # Zero NAV would collapse fund rollups for all assets without valuation data.
+        implied_equity_value = None  # type: ignore[assignment]
+        nav = None  # type: ignore[assignment]
+        noi_reason = noi_reason or ("no_operating_data" if noi == 0 and not operating_row else None)
 
-    if asset_value > 0:
-        ltv = (debt_balance / asset_value).quantize(Decimal("0.0001"))
+    _av = _d(asset_value) if asset_value is not None else Decimal("0")
+    if _av > 0 and debt_balance > 0:
+        ltv = (debt_balance / _av).quantize(Decimal("0.0001"))
+    elif _av > 0 and loan is None:
+        debt_reason = "no_debt_data"
     elif loan and loan.get("ltv") is not None:
         ltv = _d(loan.get("ltv")).quantize(Decimal("0.0001"))
+    else:
+        debt_reason = debt_reason or ("no_debt_data" if not loan else None)
 
-    if debt_service > 0:
+    if debt_service > 0 and noi != 0:
         dscr = (noi / debt_service).quantize(Decimal("0.0001"))
     elif loan and loan.get("dscr") is not None:
         dscr = _d(loan.get("dscr")).quantize(Decimal("0.0001"))
 
-    if debt_balance > 0:
+    if debt_balance > 0 and noi != 0:
         debt_yield = (noi / debt_balance).quantize(Decimal("0.0001"))
 
     inputs_hash = _compute_hash({
@@ -543,7 +590,8 @@ def _compute_asset_state(
         "free_rent": str(free_rent),
         "cash_balance": str(cash_balance),
         "debt_balance": str(debt_balance),
-        "asset_value": str(asset_value),
+        "asset_value": str(asset_value) if asset_value is not None else None,
+        "value_reason": value_reason,
         "valuation_method": valuation_method,
         "value_source": value_source,
         "sustainability_inputs_hash": sustainability.get("sustainability_inputs_hash"),
