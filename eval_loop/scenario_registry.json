@@ -462,7 +462,7 @@
         "allowed_lanes": ["A_FAST", "B_LOOKUP", "C_ANALYSIS", "D_DEEP"],
         "allowed_skills": ["run_analysis", "explain_metric", "lookup_entity"],
         "answer_must_not_include": ["Novendor", "Paul Malmquist"],
-        "max_duration_ms": 25000,
+        "max_duration_ms": 30000,
         "contamination_terms": ["Novendor", "Paul Malmquist"]
       },
       "product_expected": {

@@ -13,6 +13,10 @@ from app.assistant_runtime.context_resolver import resolve_runtime_context
 from app.assistant_runtime.dispatch_engine import dispatch_request
 from app.assistant_runtime.degraded_responses import degraded_blocks, degraded_message
 from app.assistant_runtime.execution_engine import execute_tool_calls, prepare_tools
+from app.assistant_runtime.harness.audit_logger import HarnessAuditLogger
+from app.assistant_runtime.harness.harness_types import HarnessConfig, LifecyclePhase
+from app.assistant_runtime.harness.lifecycle import LifecycleManager
+from app.assistant_runtime.harness.quality_gate import run_gates
 from app.assistant_runtime.prompt_registry import compose_runtime_messages
 from app.assistant_runtime.retrieval_orchestrator import RetrievalExecution, execute_retrieval
 from app.assistant_runtime.skill_registry import skill_requires_grounding
@@ -478,6 +482,16 @@ async def run_request_lifecycle(
         "render_completion_ms": None,
     }
 
+    # Initialize harness layer (read-only instrumentation)
+    harness_config = HarnessConfig()
+    lifecycle = LifecycleManager(config=harness_config)
+    harness_logger = HarnessAuditLogger(
+        request_id=request_id,
+        conversation_id=str(conversation_id) if conversation_id else None,
+        env_id=str(env_id) if env_id else None,
+    )
+    lifecycle.checkpoint(LifecyclePhase.SESSION_START, context_summary={"actor": actor})
+
     if not OPENAI_API_KEY:
         yield _sse("error", {"message": "OPENAI_API_KEY not configured"})
         return
@@ -504,6 +518,18 @@ async def run_request_lifecycle(
         thread_entity_state=thread_entity_state,
     )
     timings["context_resolution_ms"] = int((time.perf_counter() - context_started) * 1000)
+    lifecycle.checkpoint(LifecyclePhase.PRE_DISPATCH, context_summary={
+        "resolution_status": runtime_context.receipt.resolution_status,
+        "entity_id": runtime_context.resolved_scope.entity_id,
+        "inherited": runtime_context.receipt.inherited_entity_id is not None,
+    })
+    # Log context carry-forward if entity was inherited from thread state
+    if runtime_context.receipt.inherited_entity_id:
+        harness_logger.log_context_carry_forward(
+            inherited_entity_id=runtime_context.receipt.inherited_entity_id,
+            inherited_entity_source=runtime_context.receipt.inherited_entity_source,
+            entity_name=runtime_context.resolved_scope.entity_name,
+        )
     normalized_envelope = runtime_context.envelope
     resolved_scope = runtime_context.resolved_scope
     context_receipt = runtime_context.receipt
@@ -669,6 +695,26 @@ async def run_request_lifecycle(
     lane = legacy_code_to_lane(route.lane)
     routed_skill = dispatch.routed_skill
     timings["route_selection_ms"] = int((time.perf_counter() - route_started) * 1000)
+    lifecycle.checkpoint(LifecyclePhase.POST_DISPATCH, context_summary={
+        "skill": routed_skill.selection.skill_id,
+        "lane": lane.value if lane else None,
+        "confidence": dispatch.trace.normalized.confidence,
+    })
+
+    # Run quality gates after dispatch (log-only, does not alter control flow)
+    post_dispatch_gates = run_gates(
+        context=context_receipt,
+        dispatch=dispatch.trace.normalized,
+        thread_entity_state=thread_entity_state,
+    )
+    for gate_result in post_dispatch_gates:
+        if not gate_result.passed:
+            harness_logger.log_gate_result(
+                gate_result.gate_name,
+                passed=gate_result.passed,
+                message=gate_result.message,
+                severity=gate_result.severity.value,
+            )
 
     emit_log(
         level="info",
@@ -1059,6 +1105,32 @@ async def run_request_lifecycle(
         response_blocks.insert(0, markdown_block(collected_content.strip()))
 
     final_status, final_reason = _status_from_tools([receipt.status for receipt in tool_receipts])
+
+    # Run final quality gates with full context
+    lifecycle.checkpoint(LifecyclePhase.PRE_RESPONSE)
+    visible = normalized_envelope.ui.visible_data if normalized_envelope.ui.visible_data else None
+    has_visible = visible is not None and any([
+        visible.funds, visible.assets, visible.investments,
+        visible.metrics, visible.pipeline_items, visible.models,
+    ])
+    final_gates = run_gates(
+        context=context_receipt,
+        dispatch=dispatch.trace.normalized,
+        retrieval=retrieval_execution.receipt,
+        has_visible_context=has_visible,
+        response_text=collected_content,
+        thread_entity_state=thread_entity_state,
+    )
+    gate_dicts = [g.to_dict() for g in final_gates if not g.passed] or None
+    for gate_result in (final_gates or []):
+        if not gate_result.passed:
+            harness_logger.log_gate_result(
+                gate_result.gate_name,
+                passed=gate_result.passed,
+                message=gate_result.message,
+                severity=gate_result.severity.value,
+            )
+
     turn_receipt = TurnReceipt(
         request_id=request_id,
         lane=lane,
@@ -1071,6 +1143,7 @@ async def run_request_lifecycle(
         pending_action=pending_action_state,
         status=final_status,
         degraded_reason=final_reason,
+        quality_gates=gate_dicts,
     )
     if final_status == TurnStatus.DEGRADED and not collected_content.strip():
         response_blocks = degraded_blocks(final_reason or DegradedReason.TOOL_FAILED) + response_blocks
