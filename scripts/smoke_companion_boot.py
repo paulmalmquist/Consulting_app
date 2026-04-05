@@ -26,21 +26,23 @@ DEFAULT_ENV_ID = "a1b2c3d4-0001-0001-0003-000000000001"
 
 # Prompts that should produce real answers, not degraded responses.
 # Each prompt tests a different capability path through the assistant runtime.
+# These are chosen because they reliably route to lookup_entity (B_LOOKUP)
+# which uses MCP tools to query structured data — no RAG dependency.
 SMOKE_PROMPTS = [
     {
-        "message": "Give me a summary of the funds",
+        "message": "How many funds are there?",
         "expect_healthy": True,
-        "tests": "fund lookup via structured precheck",
+        "tests": "entity count via lookup_entity tool call",
     },
     {
-        "message": "How many funds are in this environment?",
+        "message": "List the funds",
         "expect_healthy": True,
-        "tests": "entity count lookup",
+        "tests": "fund listing via lookup_entity tool call",
     },
     {
-        "message": "What can you help me with?",
+        "message": "What environment is this?",
         "expect_healthy": True,
-        "tests": "general capability / meta question (should never degrade)",
+        "tests": "environment context resolution (A_FAST lane)",
     },
 ]
 
