@@ -298,12 +298,18 @@ def seed_consulting_environment(*, env_id: str, business_id: UUID) -> dict:
             opp_status = "won" if stage_key == "closed_won" else "open"
             amount = Decimal(str(amount_int))
 
+            # Execution cube: thesis / pain / winston_angle per deal
+            _thesis = "Operational data platform for investment decision-making"
+            _pain = _SEED_LEADS[i].get("pain", "reporting_chaos")
+            _angle = "AI-enabled execution system replaces manual workflow and reduces headcount dependency"
+
             cur.execute(
                 """
                 INSERT INTO crm_opportunity
                   (tenant_id, business_id, crm_account_id, crm_pipeline_stage_id,
-                   name, status, amount, expected_close_date)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                   name, status, amount, expected_close_date,
+                   thesis, pain, winston_angle)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING crm_opportunity_id
                 """,
                 (
@@ -312,6 +318,7 @@ def seed_consulting_environment(*, env_id: str, business_id: UUID) -> dict:
                     opp_name,
                     opp_status, str(amount),
                     (date.today() + timedelta(days=30 * (i + 1))).isoformat(),
+                    _thesis, _pain, _angle,
                 ),
             )
             opp = cur.fetchone()

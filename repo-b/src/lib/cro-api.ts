@@ -1430,3 +1430,136 @@ export function fetchDailyBrief(envId: string, businessId: string) {
     `${CRO_BASE}/daily-brief?env_id=${encodeURIComponent(envId)}&business_id=${encodeURIComponent(businessId)}`
   );
 }
+
+// ── Revenue Execution OS — Deal-centric types ───────────────────────────────
+
+export type ComputedStatus = "NeedsAttention" | "ReadyToAct" | "Waiting" | "OnTrack" | "Closed";
+
+export type Deal = {
+  crm_opportunity_id: string;
+  name: string;
+  amount: number;
+  opp_status: string;
+  thesis: string | null;
+  pain: string | null;
+  winston_angle: string | null;
+  expected_close_date: string | null;
+  created_at: string;
+  updated_at: string | null;
+  crm_account_id: string | null;
+  account_name: string | null;
+  industry: string | null;
+  stage_key: string | null;
+  stage_label: string | null;
+  stage_order: number | null;
+  last_activity_at: string | null;
+  last_activity_direction: string | null;
+  last_activity_type: string | null;
+  next_action_id: string | null;
+  next_action_due: string | null;
+  next_action_description: string | null;
+  next_action_type: string | null;
+  next_action_status: string | null;
+  computed_status: ComputedStatus;
+};
+
+export type PipelineStripItem = {
+  stage_key: string;
+  stage_label: string;
+  stage_order: number;
+  deal_count: number;
+  total_value: number;
+  stale_count: number;
+};
+
+export type IndustryBreakdownItem = {
+  industry: string;
+  deal_count: number;
+  total_value: number;
+  needs_attention_count: number;
+};
+
+export type StuckMoneyItem = {
+  crm_opportunity_id: string;
+  name: string;
+  amount: number;
+  account_name: string | null;
+  industry: string | null;
+  stage_label: string | null;
+  next_action_due: string | null;
+  next_action_description: string | null;
+};
+
+export type OutreachSnapshotData = {
+  sent_7d: number;
+  replies_7d: number;
+  meetings_7d: number;
+  reply_rate_7d: number;
+};
+
+export type DealSummary = {
+  pipeline_strip: PipelineStripItem[];
+  industry_breakdown: IndustryBreakdownItem[];
+  stuck_money: StuckMoneyItem[];
+  outreach_7d: OutreachSnapshotData;
+};
+
+export type DealFilters = {
+  industry?: string;
+  stage_key?: string;
+  computed_status?: string;
+  min_value?: number;
+  max_value?: number;
+  last_activity_days?: number;
+  include_closed?: boolean;
+};
+
+export function fetchDeals(envId: string, businessId: string, filters?: DealFilters) {
+  const params = new URLSearchParams({
+    env_id: envId,
+    business_id: businessId,
+  });
+  if (filters) {
+    Object.entries(filters).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== "") params.set(k, String(v));
+    });
+  }
+  return apiFetch<Deal[]>(`${CRO_BASE}/deals?${params.toString()}`);
+}
+
+export function fetchDealSummary(envId: string, businessId: string) {
+  return apiFetch<DealSummary>(
+    `${CRO_BASE}/deals/summary?env_id=${encodeURIComponent(envId)}&business_id=${encodeURIComponent(businessId)}`
+  );
+}
+
+export function logDealActivity(
+  dealId: string,
+  body: {
+    env_id: string;
+    business_id: string;
+    activity_type: string;
+    subject: string;
+    direction?: string;
+    outcome?: string;
+    next_step?: string;
+    create_next_action?: boolean;
+    next_action_description?: string;
+    next_action_due?: string;
+  },
+) {
+  return apiFetch<{ crm_activity_id: string; next_action_id: string | null; logged: boolean }>(
+    `${CRO_BASE}/deals/${dealId}/log-activity`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export function ingestLeads(body: { env_id: string; business_id: string; source_path?: string }) {
+  return apiFetch<{
+    accounts_created: number;
+    contacts_created: number;
+    opportunities_created: number;
+    skipped_dupes: number;
+    errors: string[] | null;
+  }>(`${CRO_BASE}/ingest-leads`, { method: "POST", body: JSON.stringify(body) });
+}

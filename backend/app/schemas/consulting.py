@@ -1012,3 +1012,102 @@ class DailyBriefOut(BaseModel):
     weekly_strip: WeeklyStripItem
     total_active_leads: int
     ready_now_count: int
+
+
+# ─── Revenue Execution OS — Deal-centric schemas ────────────────────────────
+
+
+class DealOut(BaseModel):
+    crm_opportunity_id: str
+    name: str
+    amount: float
+    opp_status: str
+    thesis: str | None = None
+    pain: str | None = None
+    winston_angle: str | None = None
+    expected_close_date: str | None = None
+    created_at: str
+    updated_at: str | None = None
+    crm_account_id: str | None = None
+    account_name: str | None = None
+    industry: str | None = None
+    stage_key: str | None = None
+    stage_label: str | None = None
+    stage_order: int | None = None
+    last_activity_at: str | None = None
+    last_activity_direction: str | None = None
+    last_activity_type: str | None = None
+    next_action_id: str | None = None
+    next_action_due: str | None = None
+    next_action_description: str | None = None
+    next_action_type: str | None = None
+    next_action_status: str | None = None
+    computed_status: str  # NeedsAttention | ReadyToAct | Waiting | OnTrack | Closed
+
+
+class PipelineStripItem(BaseModel):
+    stage_key: str
+    stage_label: str
+    stage_order: int
+    deal_count: int
+    total_value: float
+    stale_count: int
+
+
+class IndustryBreakdownItem(BaseModel):
+    industry: str
+    deal_count: int
+    total_value: float
+    needs_attention_count: int
+
+
+class StuckMoneyItem(BaseModel):
+    crm_opportunity_id: str
+    name: str
+    amount: float
+    account_name: str | None = None
+    industry: str | None = None
+    stage_label: str | None = None
+    next_action_due: str | None = None
+    next_action_description: str | None = None
+
+
+class OutreachSnapshotItem(BaseModel):
+    sent_7d: int
+    replies_7d: int
+    meetings_7d: int
+    reply_rate_7d: float
+
+
+class DealSummaryOut(BaseModel):
+    pipeline_strip: list[PipelineStripItem]
+    industry_breakdown: list[IndustryBreakdownItem]
+    stuck_money: list[StuckMoneyItem]
+    outreach_7d: OutreachSnapshotItem
+
+
+class LogActivityRequest(BaseModel):
+    env_id: str
+    business_id: str
+    activity_type: str  # call, email, meeting, note, task, other
+    subject: str
+    direction: str | None = None  # outbound, inbound
+    outcome: str | None = None
+    next_step: str | None = None
+    create_next_action: bool = False
+    next_action_description: str | None = None
+    next_action_due: str | None = None  # ISO date
+
+
+class IngestLeadsRequest(BaseModel):
+    env_id: str
+    business_id: str
+    source_path: str | None = None
+
+
+class IngestLeadsResult(BaseModel):
+    accounts_created: int
+    contacts_created: int
+    opportunities_created: int
+    skipped_dupes: int
+    errors: list[str] | None = None

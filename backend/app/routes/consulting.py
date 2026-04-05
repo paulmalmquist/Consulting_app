@@ -83,6 +83,11 @@ from app.schemas.consulting import (
     TriggerSignalCreateRequest,
     TriggerSignalOut,
     DailyBriefOut,
+    DealOut,
+    DealSummaryOut,
+    IngestLeadsRequest,
+    IngestLeadsResult,
+    LogActivityRequest,
 )
 from app.schemas.local_training import (
     LocalTrainingActivityCreateRequest,
@@ -95,6 +100,7 @@ from app.schemas.local_training import (
 )
 from app.services import (
     cro_clients,
+    cro_deal_status,
     cro_demo_readiness,
     cro_engagements,
     cro_entity_detail,
@@ -111,6 +117,7 @@ from app.services import (
     cro_seed,
     cro_loops,
     cro_strategic_outreach,
+    lead_ingest,
     local_training_crm,
     nv_outreach_engine,
 )
@@ -1508,6 +1515,135 @@ def daily_brief_route(
     try:
         return nv_outreach_engine.build_daily_brief(
             env_id=env_id, business_id=business_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Revenue Execution OS — Deal-centric endpoints
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@router.get("/deals", response_model=list[DealOut])
+def list_deals(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    industry: str | None = Query(None),
+    stage_key: str | None = Query(None),
+    computed_status: str | None = Query(None),
+    min_value: float | None = Query(None),
+    max_value: float | None = Query(None),
+    last_activity_days: int | None = Query(None),
+    include_closed: bool = Query(False),
+    limit: int = Query(200, le=500),
+):
+    """Return deals with inline-computed execution status.
+
+    Primary data source for the Attack List command center.
+    """
+    _log("deals.list", "Fetching deals with computed status", env_id=env_id)
+    try:
+        rows = cro_deal_status.get_deals_with_status(
+            env_id=env_id,
+            business_id=business_id,
+            industry=industry,
+            stage_key=stage_key,
+            computed_status=computed_status,
+            min_value=Decimal(str(min_value)) if min_value is not None else None,
+            max_value=Decimal(str(max_value)) if max_value is not None else None,
+            last_activity_days=last_activity_days,
+            include_closed=include_closed,
+            limit=limit,
+        )
+        return rows
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/deals/summary", response_model=DealSummaryOut)
+def deal_summary(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    """Return pipeline strip, industry breakdown, stuck money, and outreach snapshot."""
+    _log("deals.summary", "Computing deal summary", env_id=env_id)
+    try:
+        return cro_deal_status.get_deal_summary(
+            env_id=env_id, business_id=business_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/deals/{deal_id}/log-activity")
+def log_deal_activity(deal_id: UUID, body: LogActivityRequest):
+    """Log an activity against a deal and optionally create a follow-up next action."""
+    _log("deals.log_activity", f"Logging {body.activity_type} on deal {deal_id}", env_id=body.env_id)
+    try:
+        from app.db import get_cursor
+        from app.services.reporting_common import resolve_tenant_id
+
+        with get_cursor() as cur:
+            tenant_id = resolve_tenant_id(cur, UUID(body.business_id))
+
+            # Insert activity
+            cur.execute(
+                """
+                INSERT INTO crm_activity
+                  (tenant_id, env_id, business_id, crm_opportunity_id,
+                   activity_type, subject, activity_at, direction, outcome, next_step)
+                VALUES (%s, %s, %s, %s, %s, %s, now(), %s, %s, %s)
+                RETURNING crm_activity_id
+                """,
+                (
+                    tenant_id, body.env_id, body.business_id, str(deal_id),
+                    body.activity_type, body.subject,
+                    body.direction, body.outcome, body.next_step,
+                ),
+            )
+            activity_row = cur.fetchone()
+            activity_id = str(activity_row["crm_activity_id"])
+
+            # Optionally create a follow-up next action
+            next_action_id = None
+            if body.create_next_action and body.next_action_description:
+                from datetime import date, timedelta
+                due = body.next_action_due or str(date.today() + timedelta(days=3))
+                cur.execute(
+                    """
+                    INSERT INTO cro_next_action
+                      (tenant_id, env_id, business_id, entity_type, entity_id,
+                       action_type, description, due_date, status, priority)
+                    VALUES (%s, %s, %s, 'opportunity', %s, %s, %s, %s, 'pending', 'normal')
+                    RETURNING id
+                    """,
+                    (
+                        tenant_id, body.env_id, body.business_id, str(deal_id),
+                        body.activity_type, body.next_action_description, due,
+                    ),
+                )
+                na_row = cur.fetchone()
+                next_action_id = str(na_row["id"])
+
+        return {
+            "crm_activity_id": activity_id,
+            "next_action_id": next_action_id,
+            "logged": True,
+        }
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/ingest-leads", response_model=IngestLeadsResult)
+def ingest_leads_route(body: IngestLeadsRequest):
+    """Ingest leads from the Job Search directory into the CRM."""
+    _log("leads.ingest", "Starting lead ingest", env_id=body.env_id)
+    try:
+        return lead_ingest.ingest_from_search_md(
+            env_id=body.env_id,
+            business_id=UUID(body.business_id),
+            file_path=body.source_path,
         )
     except Exception as exc:
         raise _to_http(exc)
