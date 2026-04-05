@@ -154,7 +154,23 @@ class GatewayHealthResponse(BaseModel):
     model: str
     embedding_model: str
     rag_available: bool
+    winston_ready: bool = False
+    winston_schema_version: str | None = None
     message: str | None = None
+
+
+class WinstonReadinessResponse(BaseModel):
+    ok: bool
+    enabled: bool
+    schema_version_marker: str
+    required_columns: list[str]
+    required_indexes: list[str]
+    missing_columns: list[str]
+    missing_indexes: list[str]
+    supported_launch_surface_ids: list[str]
+    allowed_thread_kinds: list[str]
+    allowed_scope_types: list[str]
+    issues: list[str]
 
 
 # ── Conversation schemas ─────────────────────────────────────────────────────

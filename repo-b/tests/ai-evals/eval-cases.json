@@ -298,5 +298,47 @@
         "reject_contains_any": ["Meridian", "Fund One", "Fund Two", "IGF"]
       }
     ]
+  },
+  {
+    "id": "fund-detail-first-mile-followup",
+    "description": "Fund detail companion boot succeeds and preserves selected fund scope into the immediate follow-up turn",
+    "env_slug": "meridian",
+    "nav_path": "/lab/env/env-meridian/re/funds/a1b2c3d4-0003-0030-0001-000000000001",
+    "prompts": [
+      {
+        "user": "Give me a summary of this fund please",
+        "allow_clarification": true,
+        "require_contains_any": [
+          "Fund",
+          "NOI",
+          "NAV",
+          "IRR",
+          "TVPI",
+          "performance",
+          "summary"
+        ],
+        "reject_contains_any": [
+          "Something went wrong starting the conversation",
+          "Not available in the current context"
+        ]
+      },
+      {
+        "user": "keep going with the same fund",
+        "require_contains_any": [
+          "Fund",
+          "NOI",
+          "NAV",
+          "IRR",
+          "TVPI",
+          "performance"
+        ],
+        "reject_contains_any": [
+          "which fund",
+          "what fund",
+          "missing context",
+          "Not available in the current context"
+        ]
+      }
+    ]
   }
 ]

@@ -94,6 +94,22 @@ describe("buildAssistantContextEnvelope", () => {
     });
   });
 
+  it("maps the supported RE overview launch surface to environment scope", () => {
+    const envelope = buildAssistantContextEnvelope({
+      context: {
+        route: "/lab/env/env_123/re",
+        currentEnvId: "env_123",
+        currentBusinessId: "biz_123",
+      },
+      snapshot: null,
+    });
+
+    expect(envelope.ui.surface).toBe("re_workspace");
+    expect(envelope.ui.active_module).toBe("re");
+    expect(envelope.thread.scope_type).toBe("environment");
+    expect(envelope.thread.scope_id).toBe("env_123");
+  });
+
   it("recognizes the resume route as a dedicated resume workspace surface", () => {
     const envelope = buildAssistantContextEnvelope({
       context: {

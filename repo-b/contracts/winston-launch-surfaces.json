@@ -1,0 +1,40 @@
+{
+  "schema_version_marker": "424_winston_conversation_metadata",
+  "surfaces": [
+    {
+      "id": "re_fund_detail",
+      "route_pattern": "^/lab/env/[^/]+/re/funds/[^/]+(?:/|$)",
+      "surface": "fund_detail",
+      "thread_kind": "contextual",
+      "scope_type": "fund",
+      "required_context_fields": [
+        "ui.route",
+        "ui.active_environment_id",
+        "ui.active_business_id",
+        "ui.page_entity_type",
+        "ui.page_entity_id",
+        "thread.scope_type",
+        "thread.scope_id"
+      ],
+      "launch_source": "winston_companion_contextual",
+      "entity_selection_required": true,
+      "expected_degraded_behavior": "If grounded fund data is unavailable, say the fund is identified but grounded performance is unavailable instead of claiming missing context."
+    },
+    {
+      "id": "re_environment_overview",
+      "route_pattern": "^/lab/env/[^/]+/re/?$",
+      "surface": "re_workspace",
+      "thread_kind": "contextual",
+      "scope_type": "environment",
+      "required_context_fields": [
+        "ui.route",
+        "ui.active_environment_id",
+        "ui.active_business_id",
+        "thread.scope_type"
+      ],
+      "launch_source": "winston_companion_contextual",
+      "entity_selection_required": false,
+      "expected_degraded_behavior": "If portfolio-wide grounding is partial, keep environment scope and degrade precisely instead of showing bootstrap failure."
+    }
+  ]
+}

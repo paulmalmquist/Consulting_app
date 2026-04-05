@@ -30,6 +30,7 @@ from app.schemas.ai_gateway import (
 )
 from app.services.ai_gateway import run_gateway_stream
 from app.services import ai_conversations as convo_svc
+from app.services.winston_readiness import ensure_winston_companion_ready, get_winston_readiness
 
 router = APIRouter(prefix="/api/ai/gateway", tags=["ai-gateway"])
 logger = logging.getLogger(__name__)
@@ -39,6 +40,7 @@ logger = logging.getLogger(__name__)
 def gateway_health(request: Request) -> GatewayHealthResponse:
     require_authenticated_request(request)
     rag_available = False
+    readiness = get_winston_readiness()
     try:
         from app.db import get_cursor
 
@@ -53,8 +55,16 @@ def gateway_health(request: Request) -> GatewayHealthResponse:
         model=OPENAI_CHAT_MODEL,
         embedding_model=OPENAI_EMBEDDING_MODEL,
         rag_available=rag_available,
+        winston_ready=readiness.ok,
+        winston_schema_version=readiness.schema_version_marker,
         message=None if AI_GATEWAY_ENABLED else "Set OPENAI_API_KEY to enable",
     )
+
+
+@router.get("/winston-readiness")
+def winston_readiness(request: Request):
+    require_authenticated_request(request)
+    return get_winston_readiness().to_dict()
 
 
 @router.post("/ask")
@@ -187,6 +197,7 @@ def index_document_endpoint(payload: GatewayIndexRequest, request: Request) -> G
 @router.post("/conversations", response_model=ConversationDetailResponse)
 def create_conversation(payload: ConversationCreateRequest, request: Request):
     try:
+        ensure_winston_companion_ready()
         if payload.env_id:
             require_environment_access(request, env_id=payload.env_id)
         else:

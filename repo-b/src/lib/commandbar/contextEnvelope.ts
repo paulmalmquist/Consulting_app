@@ -1,4 +1,5 @@
 import { readAssistantAppContext } from "@/lib/commandbar/appContextBridge";
+import { matchWinstonLaunchSurface } from "@/lib/winston-companion/launchSurfaces";
 import type {
   AssistantContextEnvelope,
   AssistantEntityType,
@@ -44,6 +45,24 @@ function routeDescriptor(route: string | null): RouteDescriptor {
       activeModule: null,
       pageEntityType: null,
       pageEntityId: null,
+    };
+  }
+
+  const supportedSurface = matchWinstonLaunchSurface(route);
+  if (supportedSurface) {
+    const entityId =
+      supportedSurface.scope_type === "environment" || supportedSurface.scope_type === "business"
+        ? null
+        : route.split("/").filter(Boolean).at(-1) || null;
+
+    return {
+      surface: supportedSurface.surface,
+      activeModule:
+        supportedSurface.surface === "re_workspace" || supportedSurface.surface === "fund_detail"
+          ? "re"
+          : null,
+      pageEntityType: supportedSurface.scope_type,
+      pageEntityId: entityId,
     };
   }
 
@@ -151,7 +170,7 @@ export function buildAssistantContextEnvelope(params: {
   launchSource?: string;
 }): AssistantContextEnvelope {
   const bridge = readAssistantAppContext();
-  const route = params.context.route || bridge?.page.route || params.snapshot?.route || null;
+  const route = bridge?.page.route || params.context.route || params.snapshot?.route || null;
   const parsed = routeDescriptor(route);
   const session = parseSessionCookie();
 

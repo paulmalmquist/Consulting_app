@@ -726,15 +726,19 @@ export async function checkCodexHealth(signal?: AbortSignal) {
       model: string;
       embedding_model: string;
       rag_available: boolean;
+      winston_ready?: boolean;
+      winston_schema_version?: string | null;
       message: string | null;
     }>({ endpoint, method: "GET", signal, timeoutMs: 10_000 });
 
     const data = response.data;
     return {
       health: {
-        ok: data.enabled,
+        ok: data.enabled && (data.winston_ready ?? true),
         mode: data.enabled ? "gateway" : "disabled",
-        message: data.message || `Model: ${data.model}, RAG: ${data.rag_available ? "available" : "unavailable"}`,
+        message:
+          data.message
+          || `Model: ${data.model}, RAG: ${data.rag_available ? "available" : "unavailable"}, Winston: ${(data.winston_ready ?? true) ? "ready" : "not ready"}`,
       },
       latencyMs: Date.now() - started,
       trace: response.trace,
@@ -1379,6 +1383,7 @@ export async function createConversation(input: {
   last_route?: string | null;
 }): Promise<ConversationDetail> {
   const envId = normalizeUuid(input.env_id);
+  const startedAt = Date.now();
   const res = await fetch("/api/ai/gateway/conversations", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1397,17 +1402,38 @@ export async function createConversation(input: {
   const bodyText = await res.text();
   if (!res.ok) {
     const detail = readErrorDetail(bodyText, res.status);
-    console.error("Conversation creation failed", {
+    console.error("[winston-bootstrap]", {
+      event: "create_conversation_failed",
       status: res.status,
       detail,
+      bootstrap_latency_ms: Date.now() - startedAt,
       business_id: input.business_id,
       env_id: input.env_id || null,
       normalized_env_id: envId,
       thread_kind: input.thread_kind || "general",
+      scope_type: input.scope_type || null,
+      scope_id: input.scope_id || null,
+      scope_label: input.scope_label || null,
+      launch_source: input.launch_source || null,
+      route: input.last_route || null,
     });
     throw new Error(detail);
   }
-  return JSON.parse(bodyText) as ConversationDetail;
+  const detail = JSON.parse(bodyText) as ConversationDetail;
+  console.info("[winston-bootstrap]", {
+    event: "create_conversation_succeeded",
+    bootstrap_latency_ms: Date.now() - startedAt,
+    business_id: input.business_id,
+    env_id: input.env_id || null,
+    thread_kind: detail.thread_kind,
+    scope_type: detail.scope_type || null,
+    scope_id: detail.scope_id || null,
+    scope_label: detail.scope_label || null,
+    launch_source: detail.launch_source || null,
+    route: input.last_route || null,
+    conversation_id: detail.conversation_id,
+  });
+  return detail;
 }
 
 export async function listConversations(

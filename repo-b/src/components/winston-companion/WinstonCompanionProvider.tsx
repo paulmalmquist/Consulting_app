@@ -782,6 +782,10 @@ export function WinstonCompanionProvider({
     const laneState = lane === "general" ? generalState : contextualState;
     const binding = lane === "general" ? generalBinding : contextualBinding;
     const message = (promptOverride ?? laneState.draft).trim();
+    const traceId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `trace_${Date.now()}`;
 
     // Capture and clear any pending clarification question before this send
     const pendingQuestion = laneState.pendingQuestion;
@@ -808,6 +812,7 @@ export function WinstonCompanionProvider({
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `assistant_${Date.now()}`;
+    let firstTokenLogged = false;
 
     setLaneState(lane, (current) => ({
       ...current,
@@ -831,6 +836,25 @@ export function WinstonCompanionProvider({
 
     let conversationId = laneState.conversationId;
     let effectiveBinding = laneState.binding || binding;
+    const bootstrapStartedAt = Date.now();
+
+    console.info("[winston-companion]", {
+      event: "prompt_started",
+      trace_id: traceId,
+      conversation_id: conversationId || null,
+      env_id: envId || null,
+      business_id: businessId,
+      route: pathname || currentContext.route || null,
+      launch_source: `winston_companion_${lane}`,
+      thread_kind: lane,
+      scope_type: effectiveBinding?.scopeType || currentContext.scopeType,
+      scope_id: effectiveBinding?.scopeId || null,
+      scope_label: effectiveBinding?.scopeLabel || currentContext.scopeLabel,
+      selected_entity_memory: laneState.binding?.scopeId || null,
+      continuity_status: conversationId ? "follow_up" : "bootstrap",
+      inherited_scope: laneState.binding?.scopeKey || null,
+      pending_question_text: pendingQuestion,
+    });
 
     try {
       if (!conversationId) {
@@ -852,6 +876,21 @@ export function WinstonCompanionProvider({
           conversationId: detail.conversation_id,
           binding: effectiveBinding,
         }));
+        console.info("[winston-companion]", {
+          event: "bootstrap_succeeded",
+          trace_id: traceId,
+          conversation_id: detail.conversation_id,
+          env_id: detail.env_id || envId || null,
+          business_id: businessId,
+          route: pathname || currentContext.route || null,
+          launch_source: detail.launch_source || `winston_companion_${lane}`,
+          thread_kind: detail.thread_kind,
+          scope_type: detail.scope_type || effectiveBinding?.scopeType || null,
+          scope_id: detail.scope_id || effectiveBinding?.scopeId || null,
+          scope_label: detail.scope_label || effectiveBinding?.scopeLabel || null,
+          create_conversation_result: "success",
+          bootstrap_latency_ms: Date.now() - bootstrapStartedAt,
+        });
         await refreshConversations();
       }
 
@@ -880,6 +919,15 @@ export function WinstonCompanionProvider({
           }));
         },
         onToken: (token) => {
+          if (!firstTokenLogged && token.trim()) {
+            firstTokenLogged = true;
+            console.info("[winston-companion]", {
+              event: "first_token_received",
+              trace_id: traceId,
+              conversation_id: conversationId || null,
+              first_token_latency_ms: Date.now() - bootstrapStartedAt,
+            });
+          }
           setLaneState(lane, (current) => {
             const messages = [...current.messages];
             const last = messages[messages.length - 1];
@@ -928,6 +976,17 @@ export function WinstonCompanionProvider({
               pendingQuestion: newPendingQuestion,
             };
           });
+          console.info("[winston-companion]", {
+            event: "stream_done",
+            trace_id: traceId,
+            conversation_id: conversationId || null,
+            continuity_status: laneState.conversationId ? "continued" : "booted",
+            inherited_scope: laneState.binding?.scopeKey || null,
+            selected_entity_memory: effectiveBinding?.scopeId || null,
+            lost_context_suspected: false,
+            degraded_reason: (payload as Record<string, unknown>)?.degraded_reason || null,
+            stream_start_result: "success",
+          });
         },
       });
 
@@ -942,10 +1001,21 @@ export function WinstonCompanionProvider({
       await refreshConversations();
     } catch (error) {
       console.error("Winston companion request failed", {
+        trace_id: traceId,
         lane,
         businessId,
         envId,
         conversationId: conversationId || laneState.conversationId || null,
+        route: pathname || currentContext.route || null,
+        launch_source: `winston_companion_${lane}`,
+        thread_kind: lane,
+        scope_type: effectiveBinding?.scopeType || currentContext.scopeType,
+        scope_id: effectiveBinding?.scopeId || null,
+        scope_label: effectiveBinding?.scopeLabel || currentContext.scopeLabel,
+        create_conversation_result: conversationId ? "success" : "failed",
+        stream_start_result: conversationId ? "failed" : "not_started",
+        bootstrap_latency_ms: Date.now() - bootstrapStartedAt,
+        continuity_status: laneState.conversationId ? "follow_up_failed" : "bootstrap_failed",
         error,
       });
       const userMessage =
@@ -1168,12 +1238,20 @@ export function WinstonCompanionProvider({
       },
       sendPrompt: (text?: string) => sendPrompt(activeLane, text),
       getActiveLane: () => activeLane,
+      getState: () => ({
+        activeLane,
+        activeState: activeLane === "general" ? generalState : contextualState,
+        generalState,
+        contextualState,
+        currentContext,
+        contextSnapshot,
+      }),
     };
 
     return () => {
       delete (window as any).__winston_test;
     };
-  }, [activeLane, sendPrompt]);
+  }, [activeLane, contextSnapshot, contextualState, currentContext, generalState, sendPrompt]);
 
   return (
     <WinstonCompanionContextStore.Provider value={value}>

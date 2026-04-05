@@ -93,6 +93,66 @@ if (!exists(evalCasesPath)) {
   }
 }
 
+const launchSurfaceContractPath = "repo-b/contracts/winston-launch-surfaces.json";
+if (!exists(launchSurfaceContractPath)) {
+  errors.push(`Missing Winston launch surface contract: ${launchSurfaceContractPath}`);
+} else {
+  const contract = JSON.parse(read(launchSurfaceContractPath));
+  const requiredSurfaceKeys = [
+    "id",
+    "route_pattern",
+    "surface",
+    "thread_kind",
+    "scope_type",
+    "required_context_fields",
+    "launch_source",
+    "entity_selection_required",
+    "expected_degraded_behavior",
+  ];
+  if (contract.schema_version_marker !== "424_winston_conversation_metadata") {
+    errors.push(`${launchSurfaceContractPath} must declare schema_version_marker=424_winston_conversation_metadata`);
+  }
+  if (!Array.isArray(contract.surfaces) || contract.surfaces.length < 2) {
+    errors.push(`${launchSurfaceContractPath} must define at least 2 supported Winston launch surfaces`);
+  } else {
+    const requiredIds = new Set(["re_fund_detail", "re_environment_overview"]);
+    for (const surface of contract.surfaces) {
+      for (const key of requiredSurfaceKeys) {
+        if (!(key in surface)) {
+          errors.push(`Launch surface ${surface.id || "<unknown>"} missing key ${key}`);
+        }
+      }
+      requiredIds.delete(surface.id);
+    }
+    for (const missingId of requiredIds) {
+      errors.push(`Launch surface contract missing required surface ${missingId}`);
+    }
+  }
+}
+
+const conversationMigrationPath = "repo-b/db/schema/424_winston_conversation_metadata.sql";
+if (!exists(conversationMigrationPath)) {
+  errors.push(`Missing Winston conversation migration: ${conversationMigrationPath}`);
+} else {
+  const migration = read(conversationMigrationPath);
+  for (const column of [
+    "thread_kind",
+    "scope_type",
+    "scope_id",
+    "scope_label",
+    "launch_source",
+    "context_summary",
+    "last_route",
+  ]) {
+    if (!migration.includes(column)) {
+      errors.push(`${conversationMigrationPath} must include ${column}`);
+    }
+  }
+  if (!migration.includes("idx_ai_conversations_business_thread_kind")) {
+    errors.push(`${conversationMigrationPath} must include idx_ai_conversations_business_thread_kind`);
+  }
+}
+
 // Harness directory must exist
 if (!exists("backend/app/assistant_runtime/harness/__init__.py")) {
   errors.push("Missing harness directory: backend/app/assistant_runtime/harness/");
