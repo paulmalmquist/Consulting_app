@@ -1018,27 +1018,26 @@ class DailyBriefOut(BaseModel):
 
 
 class DealOut(BaseModel):
-    crm_opportunity_id: str
+    crm_opportunity_id: UUID
     name: str
-    amount: float
+    amount: Decimal
     opp_status: str
     thesis: str | None = None
     pain: str | None = None
     winston_angle: str | None = None
-    expected_close_date: str | None = None
-    created_at: str
-    updated_at: str | None = None
-    crm_account_id: str | None = None
+    expected_close_date: date | None = None
+    created_at: datetime
+    crm_account_id: UUID | None = None
     account_name: str | None = None
     industry: str | None = None
     stage_key: str | None = None
     stage_label: str | None = None
     stage_order: int | None = None
-    last_activity_at: str | None = None
+    last_activity_at: datetime | None = None
     last_activity_direction: str | None = None
     last_activity_type: str | None = None
-    next_action_id: str | None = None
-    next_action_due: str | None = None
+    next_action_id: UUID | None = None
+    next_action_due: date | None = None
     next_action_description: str | None = None
     next_action_type: str | None = None
     next_action_status: str | None = None
@@ -1050,25 +1049,25 @@ class PipelineStripItem(BaseModel):
     stage_label: str
     stage_order: int
     deal_count: int
-    total_value: float
+    total_value: Decimal
     stale_count: int
 
 
 class IndustryBreakdownItem(BaseModel):
     industry: str
     deal_count: int
-    total_value: float
+    total_value: Decimal
     needs_attention_count: int
 
 
 class StuckMoneyItem(BaseModel):
-    crm_opportunity_id: str
+    crm_opportunity_id: UUID
     name: str
-    amount: float
+    amount: Decimal
     account_name: str | None = None
     industry: str | None = None
     stage_label: str | None = None
-    next_action_due: str | None = None
+    next_action_due: date | None = None
     next_action_description: str | None = None
 
 
@@ -1076,7 +1075,7 @@ class OutreachSnapshotItem(BaseModel):
     sent_7d: int
     replies_7d: int
     meetings_7d: int
-    reply_rate_7d: float
+    reply_rate_7d: Decimal
 
 
 class DealSummaryOut(BaseModel):
