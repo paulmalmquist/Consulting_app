@@ -36,7 +36,7 @@ async function collectSchemaDuplicatePrefixes() {
   const files = await fs.readdir(schemaDir);
   const counts = new Map();
   for (const file of files) {
-    const match = file.match(/^(\d{3})[^/]*\.sql$/);
+    const match = file.match(/^(\d{4})[^/]*\.sql$/);
     if (!match) continue;
     counts.set(match[1], (counts.get(match[1]) || 0) + 1);
   }
