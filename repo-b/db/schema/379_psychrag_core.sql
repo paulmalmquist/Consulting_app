@@ -36,6 +36,14 @@ CREATE TABLE IF NOT EXISTS psychrag_practices (
   updated_at          timestamptz NOT NULL DEFAULT now()
 );
 
+-- CI schema-gate runs against vanilla Postgres instead of a full Supabase bootstrapped
+-- database. Provide a minimal auth.users stub when that schema is missing.
+CREATE SCHEMA IF NOT EXISTS auth;
+
+CREATE TABLE IF NOT EXISTS auth.users (
+  id uuid PRIMARY KEY
+);
+
 CREATE TABLE IF NOT EXISTS psychrag_profiles (
   id                  uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   practice_id         uuid NOT NULL REFERENCES psychrag_practices(id) ON DELETE CASCADE,
