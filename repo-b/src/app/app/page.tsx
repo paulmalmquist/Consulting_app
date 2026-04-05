@@ -4,20 +4,16 @@ import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
+import AccountMenu from "@/components/AccountMenu";
 import { useEnv } from "@/components/EnvProvider";
 import { humanIndustry } from "@/components/lab/environments/constants";
-import { Select } from "@/components/ui/Select";
-import { buttonVariants } from "@/components/ui/buttonVariants";
 import { cn } from "@/lib/cn";
 import {
   environmentCatalog,
   isEnvironmentSlug,
   type EnvironmentSlug,
 } from "@/lib/environmentAuth";
-import {
-  logoutPlatformSession,
-  switchPlatformEnvironment,
-} from "@/lib/platformSessionClient";
+import { switchPlatformEnvironment } from "@/lib/platformSessionClient";
 
 function environmentTone(environment: { slug?: string | null }) {
   if (environment.slug && isEnvironmentSlug(environment.slug)) {
@@ -102,22 +98,13 @@ function AppIndexPageInner() {
         }}
       />
 
+      {/* ── Mobile layout ────────────────────────────────────────────── */}
       <div className="relative z-10 lg:hidden">
-        <div className="sticky top-0 z-20 border-b border-white/10 bg-[rgba(8,10,15,0.92)] px-4 py-4 backdrop-blur-xl">
+        {/* Header */}
+        <div className="sticky top-0 z-20 border-b border-white/10 bg-[rgba(8,10,15,0.92)] px-4 py-3 backdrop-blur-xl">
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.24em] text-white/42">Authenticated home</p>
-              <h1 className="font-command text-[1.4rem] uppercase tracking-[0.08em] text-white">Winston</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void logoutPlatformSession()}
-                className={buttonVariants({ variant: "secondary", size: "sm" })}
-              >
-                Sign out
-              </button>
-            </div>
+            <h1 className="font-command text-[1.4rem] uppercase tracking-[0.08em] text-white">Winston</h1>
+            <AccountMenu />
           </div>
         </div>
 
@@ -134,126 +121,103 @@ function AppIndexPageInner() {
             </div>
           ) : null}
 
+          {/* Current environment card */}
           <section className="rounded-[1.8rem] border border-white/10 bg-white/[0.04] p-5 backdrop-blur-md">
-            <div className="space-y-2">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-white/42">Current environment</p>
-              <h2 className="font-command text-[1.8rem] uppercase tracking-[0.08em] text-white">
-                {selectedEnvironment ? selectedEnvironment.client_name : "No environment selected"}
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-white/42">Current workspace</p>
+              <h2 className="text-[1.8rem] font-semibold tracking-tight text-white">
+                {selectedEnvironment ? selectedEnvironment.client_name : "No workspace selected"}
               </h2>
               <p className="text-sm leading-6 text-white/66">
                 {selectedEnvironment
-                  ? `Mobile opens straight into ${humanIndustry(selectedEnvironment.industry_type || selectedEnvironment.industry)} while keeping your provisioned workspace list one interaction away.`
-                  : "Choose the environment you want to enter. Access remains scoped to provisioned workspaces."}
+                  ? "Your active workspace. Tap any environment below to enter directly."
+                  : "Select a workspace below to get started."}
               </p>
             </div>
 
-            <div className="mt-5 space-y-3">
-              <label className="block space-y-2 text-sm text-white/60">
-                <span>Environment</span>
-                <Select
-                  value={selectedEnvironment?.env_id || ""}
-                  onChange={(event) => selectEnv(event.target.value)}
-                  disabled={loading || environments.length === 0}
-                  className="h-12 border-white/12 bg-white/[0.05] text-white"
-                >
-                  {environments.length === 0 ? <option value="">No environments available</option> : null}
-                  {environments.map((environment) => (
-                    <option key={environment.env_id} value={environment.env_id}>
-                      {environment.client_name}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-
-              {selectedEnvironment ? (
-                <div
-                  className="rounded-2xl border px-4 py-4"
-                  style={{
-                    borderColor: `rgba(${environmentTone(selectedEnvironment).glow}, 0.36)`,
-                    boxShadow: `0 18px 36px -28px rgba(${environmentTone(selectedEnvironment).glow}, 0.6)`,
-                    backgroundColor: "rgba(255,255,255,0.03)",
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-white/42">
-                        {humanIndustry(selectedEnvironment.industry_type || selectedEnvironment.industry)}
-                      </p>
-                      <p className="mt-2 text-sm text-white/72">
-                        {selectedEnvironment.schema_name || "Provisioned workspace"}
-                      </p>
-                    </div>
-                    <span
-                      className="mt-1 inline-flex h-3 w-3 rounded-full"
-                      style={{ backgroundColor: `rgba(${environmentTone(selectedEnvironment).glow}, 0.95)` }}
-                    />
-                  </div>
-                </div>
-              ) : null}
-
+            {selectedEnvironment ? (
               <button
                 type="button"
-                onClick={() => {
-                  if (selectedEnvironment) {
-                    void openEnvironment(selectedEnvironment.env_id, selectedEnvironment.slug || null);
-                  }
+                onClick={() => void openEnvironment(selectedEnvironment.env_id, selectedEnvironment.slug || null)}
+                disabled={openingEnvId === selectedEnvironment.env_id}
+                className="mt-5 w-full rounded-2xl border px-4 py-4 text-left transition-[transform,filter] duration-150 hover:-translate-y-[1px] hover:brightness-105 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-70"
+                style={{
+                  borderColor: `rgba(${environmentTone(selectedEnvironment).glow}, 0.36)`,
+                  boxShadow: `0 18px 36px -28px rgba(${environmentTone(selectedEnvironment).glow}, 0.6)`,
+                  backgroundColor: "rgba(255,255,255,0.03)",
                 }}
-                disabled={!selectedEnvironment || openingEnvId === selectedEnvironment.env_id}
-                className="inline-flex h-12 w-full items-center justify-center rounded-xl bg-[linear-gradient(135deg,rgba(58,208,173,0.95),rgba(38,198,218,0.92))] px-5 text-sm font-semibold uppercase tracking-[0.18em] text-slate-950 transition-[transform,filter] duration-150 hover:-translate-y-[1px] hover:brightness-105 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {selectedEnvironment && openingEnvId === selectedEnvironment.env_id ? "Opening..." : "Open workspace"}
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-white/42">
+                      {humanIndustry(selectedEnvironment.industry_type || selectedEnvironment.industry)}
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-white/80">
+                      {openingEnvId === selectedEnvironment.env_id ? "Opening…" : "Tap to enter"}
+                    </p>
+                  </div>
+                  <span
+                    className="inline-flex h-3 w-3 shrink-0 rounded-full"
+                    style={{ backgroundColor: `rgba(${environmentTone(selectedEnvironment).glow}, 0.95)` }}
+                  />
+                </div>
               </button>
-            </div>
+            ) : null}
           </section>
 
+          {/* Provisioned workspaces list */}
           <section className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] uppercase tracking-[0.18em] text-white/42">Provisioned workspaces</p>
-                <p className="mt-1 text-sm text-white/66">{loading ? "Resolving environment access..." : `${environments.length} available to this account`}</p>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-white/42">Workspaces</p>
+                <p className="mt-1 text-sm text-white/66">
+                  {loading ? "Resolving access…" : `${environments.length} available`}
+                </p>
               </div>
-              <span className="text-xs uppercase tracking-[0.16em] text-white/42">Scoped</span>
             </div>
             <div className="mt-4 space-y-2">
               {loading ? (
                 <>
-                  <div className="h-16 rounded-2xl border border-white/10 bg-white/[0.04]" />
-                  <div className="h-16 rounded-2xl border border-white/10 bg-white/[0.04]" />
+                  <div className="h-[4.5rem] rounded-2xl border border-white/10 bg-white/[0.04]" />
+                  <div className="h-[4.5rem] rounded-2xl border border-white/10 bg-white/[0.04]" />
                 </>
               ) : environments.length === 0 ? (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-sm text-white/58">
-                  No environments are provisioned to this account yet.
+                  No workspaces are provisioned to this account yet.
                 </div>
               ) : (
                 environments.map((environment) => {
                   const isActive = selectedEnvironment?.env_id === environment.env_id;
+                  const isOpening = openingEnvId === environment.env_id;
                   return (
                     <button
                       key={`mobile-${environment.env_id}`}
                       type="button"
-                      onClick={() => selectEnv(environment.env_id)}
+                      onClick={() => void openEnvironment(environment.env_id, environment.slug || null)}
+                      disabled={isOpening}
                       className={cn(
-                        "w-full rounded-2xl border px-4 py-3 text-left transition-[transform,border-color,background-color] duration-150",
+                        "w-full rounded-2xl border px-4 py-4 text-left transition-[transform,border-color,background-color] duration-150 active:scale-[0.98]",
                         isActive
                           ? "bg-white/[0.08] text-white"
                           : "bg-white/[0.03] text-white/78 hover:-translate-y-[1px] hover:bg-white/[0.05]",
+                        isOpening && "pointer-events-none opacity-70",
                       )}
                       style={{
                         borderColor: isActive ? `rgba(${environmentTone(environment).glow}, 0.42)` : "rgba(255,255,255,0.08)",
                       }}
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center justify-between gap-3">
                         <div>
-                          <div className="font-command text-[0.98rem] uppercase tracking-[0.08em] text-white">
+                          <div className="text-sm font-semibold text-white">
                             {environment.client_name}
                           </div>
-                          <p className="mt-1 text-xs uppercase tracking-[0.18em] text-white/42">
+                          <p className="mt-0.5 text-xs uppercase tracking-[0.18em] text-white/42">
                             {humanIndustry(environment.industry_type || environment.industry)}
                           </p>
                         </div>
                         <span
-                          className="mt-1 inline-flex h-2.5 w-2.5 rounded-full"
-                          style={{ backgroundColor: `rgba(${environmentTone(environment).glow}, 0.9)` }}
+                          className="inline-flex h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: `rgba(${environmentTone(environment).glow}, ${isOpening ? 0.5 : 0.9})` }}
                         />
                       </div>
                     </button>
@@ -283,10 +247,10 @@ function AppIndexPageInner() {
         </main>
       </div>
 
+      {/* ── Desktop layout ────────────────────────────────────────────── */}
       <div className="relative z-10 hidden min-h-screen lg:grid lg:grid-cols-[320px_minmax(0,1fr)]">
         <aside className="border-b border-white/10 bg-[rgba(8,10,15,0.86)] px-5 py-6 backdrop-blur-xl lg:border-b-0 lg:border-r">
           <div className="space-y-2">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-white/42">Authenticated home</p>
             <h1 className="font-command text-[2rem] uppercase tracking-[0.08em] text-white">Winston</h1>
             <p className="text-sm leading-6 text-white/58">
               Login grants capability. Environment grants scope.
@@ -294,7 +258,7 @@ function AppIndexPageInner() {
           </div>
 
           <div className="mt-8 space-y-3">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">Available environments</p>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">Available workspaces</p>
             {loading ? (
               <div className="space-y-2">
                 <div className="h-16 rounded-2xl border border-white/10 bg-white/[0.04]" />
@@ -302,23 +266,26 @@ function AppIndexPageInner() {
               </div>
             ) : environments.length === 0 ? (
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-sm text-white/58">
-                No environments are provisioned to this account yet.
+                No workspaces are provisioned to this account yet.
               </div>
             ) : (
               <div className="space-y-2">
                 {environments.map((environment) => {
                   const isActive = selectedEnvironment?.env_id === environment.env_id;
+                  const isOpening = openingEnvId === environment.env_id;
                   const tone = environmentTone(environment);
                   return (
                     <button
                       key={environment.env_id}
                       type="button"
                       onClick={() => void openEnvironment(environment.env_id, environment.slug || null)}
+                      disabled={isOpening}
                       className={cn(
-                        "w-full rounded-2xl border px-4 py-3 text-left transition-[transform,border-color,background-color] duration-150",
+                        "w-full rounded-2xl border px-4 py-3 text-left transition-[transform,border-color,background-color] duration-150 active:scale-[0.98]",
                         isActive
                           ? "bg-white/[0.08] text-white"
                           : "bg-white/[0.03] text-white/78 hover:-translate-y-[1px] hover:bg-white/[0.05]",
+                        isOpening && "pointer-events-none opacity-70",
                       )}
                       style={{
                         borderColor: isActive ? `rgba(${tone.glow}, 0.42)` : "rgba(255,255,255,0.08)",
@@ -327,22 +294,16 @@ function AppIndexPageInner() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          {["NOVENDOR", "FLOYORKER"].includes(environment.client_name?.toUpperCase()) ? (
-                            <div className="font-command text-[1rem] uppercase tracking-[0.08em] text-white">
-                              {environment.client_name}
-                            </div>
-                          ) : (
-                            <div className="text-sm font-medium text-white">
-                              {environment.client_name}
-                            </div>
-                          )}
+                          <div className="text-sm font-semibold text-white">
+                            {environment.client_name}
+                          </div>
                           <p className="mt-1 text-xs leading-5 text-white/46">
                             {humanIndustry(environment.industry_type || environment.industry)}
                           </p>
                         </div>
                         <span
-                          className="mt-1 inline-flex h-2.5 w-2.5 rounded-full"
-                          style={{ backgroundColor: `rgba(${tone.glow}, 0.9)` }}
+                          className="mt-1 inline-flex h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: `rgba(${tone.glow}, ${isOpening ? 0.5 : 0.9})` }}
                         />
                       </div>
                     </button>
@@ -373,13 +334,7 @@ function AppIndexPageInner() {
 
         <main className="flex min-h-screen flex-col px-6 py-6 lg:px-10 lg:py-10">
           <div className="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => void logoutPlatformSession()}
-              className={buttonVariants({ variant: "secondary", size: "sm" })}
-            >
-              Sign out
-            </button>
+            <AccountMenu />
           </div>
 
           <div className="flex flex-1 items-center">
@@ -398,25 +353,20 @@ function AppIndexPageInner() {
 
               <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-md lg:p-8">
                 <p className="text-[11px] uppercase tracking-[0.22em] text-white/42">Workspace access</p>
-                <h2 className="font-command mt-3 text-[clamp(2rem,4vw,3rem)] uppercase tracking-[0.08em] text-white">
-                  {selectedEnvironment ? selectedEnvironment.client_name : "No environment selected"}
+                <h2 className="mt-3 text-[clamp(2rem,4vw,3rem)] font-semibold tracking-tight text-white">
+                  {selectedEnvironment ? selectedEnvironment.client_name : "No workspace selected"}
                 </h2>
                 <p className="mt-4 max-w-2xl text-base leading-7 text-white/66">
                   {selectedEnvironment
-                    ? `This account can enter ${humanIndustry(selectedEnvironment.industry_type || selectedEnvironment.industry)}. Choose it from the rail or continue directly into the workspace.`
+                    ? `Your workspace access is ready. Select an environment from the left to enter.`
                     : "Access is provisioned per environment. Once a workspace is assigned to your account, it will appear in the rail on the left."}
                 </p>
 
                 {selectedEnvironment ? (
-                  <div className="mt-6 flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => void openEnvironment(selectedEnvironment.env_id, selectedEnvironment.slug || null)}
-                      disabled={openingEnvId === selectedEnvironment.env_id}
-                      className="inline-flex h-12 items-center justify-center rounded-xl bg-[linear-gradient(135deg,rgba(58,208,173,0.95),rgba(38,198,218,0.92))] px-5 text-sm font-semibold uppercase tracking-[0.18em] text-slate-950 transition-[transform,filter] duration-150 hover:-translate-y-[1px] hover:brightness-105 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {openingEnvId === selectedEnvironment.env_id ? "Opening..." : "Open workspace"}
-                    </button>
+                  <div className="mt-6">
+                    <p className="text-xs uppercase tracking-[0.18em] text-white/42">
+                      {humanIndustry(selectedEnvironment.industry_type || selectedEnvironment.industry)}
+                    </p>
                   </div>
                 ) : null}
               </div>
