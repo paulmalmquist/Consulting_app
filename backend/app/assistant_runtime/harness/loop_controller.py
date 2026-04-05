@@ -6,7 +6,7 @@ Framework only — not yet wired to the tool execution loop.
 from __future__ import annotations
 
 import time
-from typing import Any, AsyncGenerator, Callable
+from typing import Any, Callable
 
 from app.assistant_runtime.harness.harness_types import (
     HarnessConfig,
