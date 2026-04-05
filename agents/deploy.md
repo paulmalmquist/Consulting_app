@@ -84,6 +84,13 @@ Before deploy:
 - confirm whether migration files were added/changed
 - summarize exactly what changed that affects runtime behavior
 
+If files under `repo-b/db/schema/`, `backend/scripts/check_winston_schema.py`, or schema-dependent backend contracts changed:
+- prefer a local CI-parity schema check before push instead of waiting for GitHub Actions to fail first
+- when Docker is available, run `./scripts/local_db_schema_gate.sh`
+- treat that local gate as the default pre-push check for schema work
+- if Docker is unavailable, say that explicitly and continue with remote CI as the fallback verifier
+- do not claim schema confidence if neither the local gate nor CI has passed
+
 If there are uncommitted changes, do not silently deploy a different state than the repo head. State clearly what is being deployed.
 
 ## 2. Backend deploy preparation

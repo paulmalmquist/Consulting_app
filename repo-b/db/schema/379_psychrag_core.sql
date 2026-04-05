@@ -40,6 +40,15 @@ CREATE TABLE IF NOT EXISTS psychrag_practices (
 -- database. Provide a minimal auth.users stub when that schema is missing.
 CREATE SCHEMA IF NOT EXISTS auth;
 
+CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
+LANGUAGE sql STABLE
+AS $$
+  SELECT COALESCE(
+    NULLIF((COALESCE(NULLIF(current_setting('request.jwt.claims', true), ''), '{}')::json ->> 'sub'), ''),
+    NULLIF(current_setting('app.current_user_id', true), '')
+  )::uuid;
+$$;
+
 CREATE TABLE IF NOT EXISTS auth.users (
   id uuid PRIMARY KEY
 );

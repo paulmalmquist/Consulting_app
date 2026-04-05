@@ -33,5 +33,10 @@ CREATE INDEX IF NOT EXISTS idx_market_regime_snapshot_tenant
 -- RLS: tenant-scoped read, service-role write
 ALTER TABLE public.market_regime_snapshot ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "tenant_read_regime" ON public.market_regime_snapshot
-  FOR SELECT USING (tenant_id = auth.uid() OR tenant_id IS NULL);
+DO $$
+BEGIN
+  CREATE POLICY "tenant_read_regime" ON public.market_regime_snapshot
+    FOR SELECT USING (tenant_id = auth.uid() OR tenant_id IS NULL);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
