@@ -204,7 +204,7 @@ def ingest_from_search_md(
     errors: list[str] = []
 
     with get_cursor() as cur:
-        tenant_id = resolve_tenant_id(cur, business_id)
+        tenant_id = str(resolve_tenant_id(cur, business_id))
         bid = str(business_id)
 
         # Get pipeline stage IDs
@@ -229,7 +229,7 @@ def ingest_from_search_md(
                         stage_id = stage_map.get(stage_key, default_stage_id)
 
                         acct_id, is_new = _upsert_account(
-                            cur, tenant_id, env_id, bid, company,
+                            cur, tenant_id, bid, company,
                             industry=infer_industry(company, row.get("role", "")),
                         )
                         if is_new:
@@ -240,7 +240,7 @@ def ingest_from_search_md(
                         # Create contacts
                         contact_infos = _extract_contact_info(row.get("contact", ""))
                         for ci in contact_infos:
-                            if _create_contact(cur, tenant_id, env_id, bid, acct_id, ci):
+                            if _create_contact(cur, tenant_id, bid, acct_id, ci):
                                 contacts_created += 1
 
                         # Create opportunity (active interviews are high priority)
@@ -275,7 +275,7 @@ def ingest_from_search_md(
                         industry = infer_industry(company, notes)
 
                         acct_id, is_new = _upsert_account(
-                            cur, tenant_id, env_id, bid, company,
+                            cur, tenant_id, bid, company,
                             industry=industry,
                         )
                         if is_new:
@@ -294,7 +294,7 @@ def ingest_from_search_md(
                         for ci in contact_infos:
                             if not ci.get("email") and email_raw:
                                 ci["email"] = _extract_email(email_raw)
-                            if _create_contact(cur, tenant_id, env_id, bid, acct_id, ci):
+                            if _create_contact(cur, tenant_id, bid, acct_id, ci):
                                 contacts_created += 1
 
                         # Create opportunity
@@ -322,7 +322,7 @@ def ingest_from_search_md(
                         continue
                     try:
                         acct_id, is_new = _upsert_account(
-                            cur, tenant_id, env_id, bid, company,
+                            cur, tenant_id, bid, company,
                             industry="Other",
                         )
                         if is_new:
@@ -333,7 +333,7 @@ def ingest_from_search_md(
                         email = _extract_email(email_raw)
                         if contact_name and contact_name.lower() not in ("team", "—"):
                             if _create_contact(
-                                cur, tenant_id, env_id, bid, acct_id,
+                                cur, tenant_id, bid, acct_id,
                                 {"name": contact_name, "title": row.get("specialization"), "email": email},
                             ):
                                 contacts_created += 1
@@ -351,14 +351,14 @@ def ingest_from_search_md(
                         continue
                     try:
                         acct_id, is_new = _upsert_account(
-                            cur, tenant_id, env_id, bid, company,
+                            cur, tenant_id, bid, company,
                             industry=infer_industry(company, row.get("notes", "")),
                         )
                         if is_new:
                             accounts_created += 1
 
                         if _create_contact(
-                            cur, tenant_id, env_id, bid, acct_id,
+                            cur, tenant_id, bid, acct_id,
                             {"name": person, "title": None, "email": None},
                         ):
                             contacts_created += 1
@@ -379,7 +379,7 @@ def ingest_from_search_md(
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _upsert_account(
-    cur, tenant_id: str, env_id: str, business_id: str, name: str,
+    cur, tenant_id: str, business_id: str, name: str,
     *, industry: str = "Other",
 ) -> tuple[str, bool]:
     """Find or create a crm_account. Returns (account_id, is_new)."""
@@ -405,17 +405,17 @@ def _upsert_account(
 
     cur.execute(
         """
-        INSERT INTO crm_account (tenant_id, env_id, business_id, name, industry, created_at)
-        VALUES (%s, %s, %s, %s, %s, now())
+        INSERT INTO crm_account (tenant_id, business_id, name, industry, created_at)
+        VALUES (%s, %s, %s, %s, now())
         RETURNING crm_account_id
         """,
-        (tenant_id, env_id, business_id, name, industry),
+        (tenant_id, business_id, name, industry),
     )
     return str(cur.fetchone()["crm_account_id"]), True
 
 
 def _create_contact(
-    cur, tenant_id: str, env_id: str, business_id: str, account_id: str,
+    cur, tenant_id: str, business_id: str, account_id: str,
     info: dict,
 ) -> bool:
     """Create a crm_contact if one doesn't exist with the same name on the account."""
@@ -438,11 +438,11 @@ def _create_contact(
     cur.execute(
         """
         INSERT INTO crm_contact
-          (tenant_id, env_id, business_id, crm_account_id, full_name, title, email, created_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, now())
+          (tenant_id, business_id, crm_account_id, full_name, title, email, created_at)
+        VALUES (%s, %s, %s, %s, %s, %s, now())
         """,
         (
-            tenant_id, env_id, business_id, account_id,
+            tenant_id, business_id, account_id,
             name, info.get("title"), info.get("email"),
         ),
     )
@@ -475,13 +475,13 @@ def _create_opportunity(
     cur.execute(
         """
         INSERT INTO crm_opportunity
-          (tenant_id, env_id, business_id, crm_account_id, crm_pipeline_stage_id,
+          (tenant_id, business_id, crm_account_id, crm_pipeline_stage_id,
            name, amount, status, thesis, pain, winston_angle, created_at, updated_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, 'open', %s, %s, %s, now(), now())
+        VALUES (%s, %s, %s, %s, %s, %s, 'open', %s, %s, %s, now(), now())
         RETURNING crm_opportunity_id
         """,
         (
-            tenant_id, env_id, business_id, account_id, stage_id,
+            tenant_id, business_id, account_id, stage_id,
             f"{company_name} — Consulting Engagement",
             amount, thesis, pain, winston_angle,
         ),
@@ -489,17 +489,17 @@ def _create_opportunity(
     opp_row = cur.fetchone()
     opp_id = str(opp_row["crm_opportunity_id"])
 
-    # Create initial next action
+    # Create initial next action — cro_next_action uses env_id (not tenant_id)
     cur.execute(
         """
         INSERT INTO cro_next_action
-          (tenant_id, env_id, business_id, entity_type, entity_id,
+          (env_id, business_id, entity_type, entity_id,
            action_type, description, due_date, status, priority)
-        VALUES (%s, %s, %s, 'opportunity', %s, 'research',
+        VALUES (%s, %s, 'opportunity', %s, 'research',
                 %s, %s, 'pending', 'normal')
         """,
         (
-            tenant_id, env_id, business_id, opp_id,
+            env_id, business_id, opp_id,
             f"Research {company_name} + identify decision maker",
             str(date.today() + timedelta(days=1)),
         ),

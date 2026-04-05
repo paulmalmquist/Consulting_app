@@ -1585,19 +1585,19 @@ def log_deal_activity(deal_id: UUID, body: LogActivityRequest):
         from app.services.reporting_common import resolve_tenant_id
 
         with get_cursor() as cur:
-            tenant_id = resolve_tenant_id(cur, UUID(body.business_id))
+            tenant_id = str(resolve_tenant_id(cur, UUID(body.business_id)))
 
-            # Insert activity
+            # Insert activity — crm_activity uses tenant_id, no env_id column
             cur.execute(
                 """
                 INSERT INTO crm_activity
-                  (tenant_id, env_id, business_id, crm_opportunity_id,
+                  (tenant_id, business_id, crm_opportunity_id,
                    activity_type, subject, activity_at, direction, outcome, next_step)
-                VALUES (%s, %s, %s, %s, %s, %s, now(), %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, now(), %s, %s, %s)
                 RETURNING crm_activity_id
                 """,
                 (
-                    tenant_id, body.env_id, body.business_id, str(deal_id),
+                    tenant_id, body.business_id, str(deal_id),
                     body.activity_type, body.subject,
                     body.direction, body.outcome, body.next_step,
                 ),
@@ -1605,7 +1605,7 @@ def log_deal_activity(deal_id: UUID, body: LogActivityRequest):
             activity_row = cur.fetchone()
             activity_id = str(activity_row["crm_activity_id"])
 
-            # Optionally create a follow-up next action
+            # Optionally create a follow-up next action — cro_next_action uses env_id, no tenant_id
             next_action_id = None
             if body.create_next_action and body.next_action_description:
                 from datetime import date, timedelta
@@ -1613,13 +1613,13 @@ def log_deal_activity(deal_id: UUID, body: LogActivityRequest):
                 cur.execute(
                     """
                     INSERT INTO cro_next_action
-                      (tenant_id, env_id, business_id, entity_type, entity_id,
+                      (env_id, business_id, entity_type, entity_id,
                        action_type, description, due_date, status, priority)
-                    VALUES (%s, %s, %s, 'opportunity', %s, %s, %s, %s, 'pending', 'normal')
+                    VALUES (%s, %s, 'opportunity', %s, %s, %s, %s, 'pending', 'normal')
                     RETURNING id
                     """,
                     (
-                        tenant_id, body.env_id, body.business_id, str(deal_id),
+                        body.env_id, body.business_id, str(deal_id),
                         body.activity_type, body.next_action_description, due,
                     ),
                 )

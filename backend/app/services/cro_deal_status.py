@@ -8,6 +8,10 @@ Statuses:
   ReadyToAct     – next action due within 24 hours
   Waiting        – last activity was outbound with no inbound response
   OnTrack        – everything else
+
+Column note:
+  crm_* tables use tenant_id (resolved from business_id via public.business)
+  cro_* tables use env_id (passed directly from the route)
 """
 from __future__ import annotations
 
@@ -15,11 +19,13 @@ from decimal import Decimal
 from uuid import UUID
 
 from app.db import get_cursor
+from app.services.reporting_common import resolve_tenant_id
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Core query: deals with computed status
 # ──────────────────────────────────────────────────────────────────────────────
 
+# Params order: %s = env_id (for cro_next_action), %s = tenant_id, %s = business_id
 _DEALS_SQL = """
 SELECT
   o.crm_opportunity_id,
@@ -69,7 +75,7 @@ SELECT
         WHERE ia.crm_opportunity_id = o.crm_opportunity_id
           AND ia.direction = 'inbound'
           AND ia.activity_at > la.activity_at
-          AND ia.env_id = o.env_id
+          AND ia.tenant_id = o.tenant_id
       )
       THEN 'Waiting'
     ELSE 'OnTrack'
@@ -83,7 +89,7 @@ LEFT JOIN LATERAL (
   SELECT activity_at, direction, activity_type
   FROM crm_activity
   WHERE crm_opportunity_id = o.crm_opportunity_id
-    AND env_id = o.env_id
+    AND tenant_id = o.tenant_id
   ORDER BY activity_at DESC
   LIMIT 1
 ) la ON true
@@ -92,12 +98,12 @@ LEFT JOIN LATERAL (
   FROM cro_next_action
   WHERE entity_type = 'opportunity'
     AND entity_id = o.crm_opportunity_id
-    AND env_id = o.env_id
+    AND env_id = %s
     AND status IN ('pending', 'in_progress')
   ORDER BY due_date ASC
   LIMIT 1
 ) na ON true
-WHERE o.env_id = %s
+WHERE o.tenant_id = %s
   AND o.business_id = %s
 """
 
@@ -121,7 +127,8 @@ def get_deals_with_status(
     so Postgres can still push down the lateral joins efficiently.
     """
     with get_cursor() as cur:
-        params: list = [env_id, str(business_id)]
+        tenant_id = resolve_tenant_id(cur, business_id)
+        params: list = [env_id, str(tenant_id), str(business_id)]
 
         # Build the base query; closed deals excluded by default
         base = _DEALS_SQL
@@ -183,6 +190,7 @@ def get_deal_summary(*, env_id: str, business_id: UUID) -> dict:
     Single round-trip with multiple queries executed sequentially on one cursor.
     """
     with get_cursor() as cur:
+        tenant_id = str(resolve_tenant_id(cur, business_id))
         bid = str(business_id)
 
         # 1. Pipeline strip: stage → count, total, stale
@@ -203,11 +211,11 @@ def get_deal_summary(*, env_id: str, business_id: UUID) -> dict:
               ) AS stale_count
             FROM crm_opportunity o
             JOIN crm_pipeline_stage s ON s.crm_pipeline_stage_id = o.crm_pipeline_stage_id
-            WHERE o.env_id = %s AND o.business_id = %s AND o.status = 'open'
+            WHERE o.tenant_id = %s AND o.business_id = %s AND o.status = 'open'
             GROUP BY s.key, s.label, s.stage_order
             ORDER BY s.stage_order
             """,
-            (env_id, bid),
+            (tenant_id, bid),
         )
         pipeline_strip = cur.fetchall()
 
@@ -228,10 +236,10 @@ def get_deal_summary(*, env_id: str, business_id: UUID) -> dict:
               LEFT JOIN LATERAL (
                 SELECT id, due_date, status FROM cro_next_action
                 WHERE entity_type = 'opportunity' AND entity_id = o.crm_opportunity_id
-                  AND env_id = o.env_id AND status IN ('pending', 'in_progress')
+                  AND env_id = %s AND status IN ('pending', 'in_progress')
                 ORDER BY due_date ASC LIMIT 1
               ) na ON true
-              WHERE o.env_id = %s AND o.business_id = %s AND o.status = 'open'
+              WHERE o.tenant_id = %s AND o.business_id = %s AND o.status = 'open'
             )
             SELECT
               COALESCE(industry, 'Unknown') AS industry,
@@ -242,7 +250,7 @@ def get_deal_summary(*, env_id: str, business_id: UUID) -> dict:
             GROUP BY COALESCE(industry, 'Unknown')
             ORDER BY total_value DESC
             """,
-            (env_id, bid),
+            (env_id, tenant_id, bid),
         )
         industry_breakdown = cur.fetchall()
 
@@ -264,20 +272,20 @@ def get_deal_summary(*, env_id: str, business_id: UUID) -> dict:
             LEFT JOIN LATERAL (
               SELECT id, due_date, description, status FROM cro_next_action
               WHERE entity_type = 'opportunity' AND entity_id = o.crm_opportunity_id
-                AND env_id = o.env_id AND status IN ('pending', 'in_progress')
+                AND env_id = %s AND status IN ('pending', 'in_progress')
               ORDER BY due_date ASC LIMIT 1
             ) na ON true
-            WHERE o.env_id = %s AND o.business_id = %s AND o.status = 'open'
+            WHERE o.tenant_id = %s AND o.business_id = %s AND o.status = 'open'
               AND o.amount > 0
               AND (na.id IS NULL OR (na.due_date < CURRENT_DATE AND na.status = 'pending'))
             ORDER BY o.amount DESC
             LIMIT 10
             """,
-            (env_id, bid),
+            (env_id, tenant_id, bid),
         )
         stuck_money = cur.fetchall()
 
-        # 4. Outreach snapshot (7 days)
+        # 4. Outreach snapshot (7 days) — cro_outreach_log uses env_id
         cur.execute(
             """
             SELECT
