@@ -638,7 +638,6 @@ async def run_request_lifecycle(
     _continuation_dispatch: object | None = None
     if pending_continuation and _CONFIRM_RE.match(message.strip()):
         from app.assistant_runtime.dispatch_engine import DispatchOutcome, build_routed_skill
-        from app.assistant_runtime.turn_receipts import DispatchTrace
         from app.services.request_router import RouteDecision
 
         _cont_decision = DispatchDecision(
