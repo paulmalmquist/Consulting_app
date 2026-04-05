@@ -164,18 +164,29 @@ If frontend changes are included or frontend depends on new backend behavior:
 
 ## 8. Live smoke test through the real site
 
-After deploy, run a real production-like smoke test through the actual site.
+After deploy, run the automated smoke test:
 
-Minimum Winston smoke test:
-- open a real environment page
-- open Ask Winston
-- create a conversation
-- send a first message
-- verify either:
-  - streamed assistant response begins successfully, or
-  - a precise degraded error appears
+```bash
+python scripts/smoke_companion_boot.py
+```
 
-A generic bootstrap failure such as "Something went wrong starting the conversation" counts as a deploy failure.
+This runs with production defaults (no arguments needed) and checks:
+- `/health/ready` returns 200 with `ready: true`
+- Winston schema contract passes (all required columns present)
+- Conversation create succeeds (catches KeyErrors, schema mismatches, auth issues)
+- First message produces a **healthy** response (not degraded)
+
+The test parses the full SSE stream and inspects the `turn_receipt` for:
+- `status == "success"` (not "degraded" or "failed")
+- `degraded_reason == null`
+- `runtime.degraded == false`
+- No known degraded messages in response text
+
+A degraded response (e.g., "Not available in the current context") counts as a deploy failure, not just a bootstrap crash.
+
+Exit code 0 = all checks pass. Exit code 1 = any check failed.
+
+If the smoke test fails on response quality but readiness and bootstrap pass, the deploy is **runtime unhealthy** — the app boots but does not produce useful answers.
 
 ## 9. Produce a deploy receipt
 
