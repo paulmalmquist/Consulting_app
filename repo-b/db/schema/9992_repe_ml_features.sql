@@ -40,20 +40,27 @@ CREATE TABLE IF NOT EXISTS repe_ml_features (
 
   -- Computation metadata
   inputs_hash           TEXT,
-  computed_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
-
-  UNIQUE (asset_id, quarter, COALESCE(scenario_id, '00000000-0000-0000-0000-000000000000'::uuid))
+  computed_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_repe_ml_features_asset_quarter_scenario
+  ON repe_ml_features (
+    asset_id,
+    quarter,
+    COALESCE(scenario_id, '00000000-0000-0000-0000-000000000000'::uuid)
+  );
 
 ALTER TABLE repe_ml_features ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY repe_ml_features_tenant_isolation ON repe_ml_features
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY repe_ml_features_tenant_isolation ON repe_ml_features
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE INDEX idx_repe_ml_features_asset_quarter
+CREATE INDEX IF NOT EXISTS idx_repe_ml_features_asset_quarter
   ON repe_ml_features (asset_id, quarter);
 
-CREATE INDEX idx_repe_ml_features_env
+CREATE INDEX IF NOT EXISTS idx_repe_ml_features_env
   ON repe_ml_features (env_id, quarter);
 
 COMMENT ON TABLE repe_ml_features IS

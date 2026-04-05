@@ -243,6 +243,15 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 -- Read-only policies for global/public lookup tables
 -- ====================================================================
 
+-- Supabase-managed roles like authenticated do not exist on a plain local
+-- Postgres bootstrap. Create a no-login compatibility stub so the policy DDL
+-- stays portable while preserving the intended target role name.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    CREATE ROLE authenticated NOLOGIN;
+  END IF;
+END $$;
+
 DO $$ BEGIN
   CREATE POLICY permission_read_authenticated ON permission
     FOR SELECT TO authenticated

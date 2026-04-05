@@ -107,9 +107,19 @@ CREATE TABLE IF NOT EXISTS nv_training_event (
     updated_at                timestamptz NOT NULL DEFAULT now()
 );
 
-ALTER TABLE nv_contact_profile
-    ADD CONSTRAINT fk_nv_contact_first_event
-    FOREIGN KEY (first_event_attended_id) REFERENCES nv_training_event(id) ON DELETE SET NULL;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'fk_nv_contact_first_event'
+          AND conrelid = 'nv_contact_profile'::regclass
+    ) THEN
+        ALTER TABLE nv_contact_profile
+            ADD CONSTRAINT fk_nv_contact_first_event
+            FOREIGN KEY (first_event_attended_id) REFERENCES nv_training_event(id) ON DELETE SET NULL;
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS nv_campaign (
     id                        uuid PRIMARY KEY DEFAULT gen_random_uuid(),

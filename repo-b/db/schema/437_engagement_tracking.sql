@@ -25,10 +25,12 @@ CREATE TABLE IF NOT EXISTS cro_engagement_event (
 
 ALTER TABLE cro_engagement_event ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY cro_engagement_event_tenant_isolation
-    ON cro_engagement_event
-    FOR ALL
-    USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+    CREATE POLICY cro_engagement_event_tenant_isolation
+        ON cro_engagement_event
+        FOR ALL
+        USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 COMMENT ON TABLE cro_engagement_event IS 'Tracks email open (pixel) and click (redirect) events for outreach engagement analytics. Owned by consulting-revenue-os.';
 

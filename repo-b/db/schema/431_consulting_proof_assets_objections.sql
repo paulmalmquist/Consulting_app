@@ -30,11 +30,13 @@ CREATE TABLE IF NOT EXISTS cro_proof_asset (
 );
 
 ALTER TABLE cro_proof_asset ENABLE ROW LEVEL SECURITY;
-CREATE POLICY cro_proof_asset_tenant ON cro_proof_asset
-    USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+    CREATE POLICY cro_proof_asset_tenant ON cro_proof_asset
+        USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE INDEX idx_cro_proof_asset_env ON cro_proof_asset (env_id, business_id);
-CREATE INDEX idx_cro_proof_asset_status ON cro_proof_asset (env_id, status);
+CREATE INDEX IF NOT EXISTS idx_cro_proof_asset_env ON cro_proof_asset (env_id, business_id);
+CREATE INDEX IF NOT EXISTS idx_cro_proof_asset_status ON cro_proof_asset (env_id, status);
 
 COMMENT ON TABLE cro_proof_asset IS
     'Reusable proof collateral (questionnaires, offer sheets, workflow examples) for the Consulting Revenue OS. Owned by consulting module.';
@@ -67,12 +69,14 @@ CREATE TABLE IF NOT EXISTS cro_objection (
 );
 
 ALTER TABLE cro_objection ENABLE ROW LEVEL SECURITY;
-CREATE POLICY cro_objection_tenant ON cro_objection
-    USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+    CREATE POLICY cro_objection_tenant ON cro_objection
+        USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE INDEX idx_cro_objection_env ON cro_objection (env_id, business_id);
-CREATE INDEX idx_cro_objection_type ON cro_objection (env_id, objection_type);
-CREATE INDEX idx_cro_objection_outcome ON cro_objection (env_id, outcome);
+CREATE INDEX IF NOT EXISTS idx_cro_objection_env ON cro_objection (env_id, business_id);
+CREATE INDEX IF NOT EXISTS idx_cro_objection_type ON cro_objection (env_id, objection_type);
+CREATE INDEX IF NOT EXISTS idx_cro_objection_outcome ON cro_objection (env_id, outcome);
 
 COMMENT ON TABLE cro_objection IS
     'Objection and product-feedback log tied to accounts/opportunities. Owned by consulting module.';
@@ -98,10 +102,12 @@ CREATE TABLE IF NOT EXISTS cro_demo_readiness (
 );
 
 ALTER TABLE cro_demo_readiness ENABLE ROW LEVEL SECURITY;
-CREATE POLICY cro_demo_readiness_tenant ON cro_demo_readiness
-    USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+    CREATE POLICY cro_demo_readiness_tenant ON cro_demo_readiness
+        USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE INDEX idx_cro_demo_readiness_env ON cro_demo_readiness (env_id, business_id);
+CREATE INDEX IF NOT EXISTS idx_cro_demo_readiness_env ON cro_demo_readiness (env_id, business_id);
 
 COMMENT ON TABLE cro_demo_readiness IS
     'Demo readiness status per product vertical. Owned by consulting module.';

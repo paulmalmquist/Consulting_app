@@ -25,8 +25,10 @@ CREATE TABLE IF NOT EXISTS ai_tool_calls (
 
 ALTER TABLE ai_tool_calls ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY ai_tool_calls_tenant_isolation ON ai_tool_calls
-  USING (business_id = current_setting('app.current_business_id', true)::uuid);
+DO $$ BEGIN
+  CREATE POLICY ai_tool_calls_tenant_isolation ON ai_tool_calls
+    USING (business_id = current_setting('app.current_business_id', true)::uuid);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_ai_tool_calls_conversation
   ON ai_tool_calls (conversation_id, created_at DESC);
@@ -59,8 +61,10 @@ CREATE TABLE IF NOT EXISTS ai_ui_events (
 
 ALTER TABLE ai_ui_events ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY ai_ui_events_tenant_isolation ON ai_ui_events
-  USING (business_id = current_setting('app.current_business_id', true)::uuid);
+DO $$ BEGIN
+  CREATE POLICY ai_ui_events_tenant_isolation ON ai_ui_events
+    USING (business_id = current_setting('app.current_business_id', true)::uuid);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_ai_ui_events_business
   ON ai_ui_events (business_id, event_type, created_at DESC);
@@ -94,9 +98,11 @@ CREATE TABLE IF NOT EXISTS ai_skill_candidates (
 
 ALTER TABLE ai_skill_candidates ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY ai_skill_candidates_tenant_isolation ON ai_skill_candidates
-  USING (business_id = current_setting('app.current_business_id', true)::uuid
-         OR business_id IS NULL);
+DO $$ BEGIN
+  CREATE POLICY ai_skill_candidates_tenant_isolation ON ai_skill_candidates
+    USING (business_id = current_setting('app.current_business_id', true)::uuid
+           OR business_id IS NULL);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_skill_candidates_signature
   ON ai_skill_candidates (pattern_signature);
@@ -136,9 +142,11 @@ CREATE TABLE IF NOT EXISTS ai_audit_findings (
 
 ALTER TABLE ai_audit_findings ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY ai_audit_findings_tenant_isolation ON ai_audit_findings
-  USING (business_id = current_setting('app.current_business_id', true)::uuid
-         OR business_id IS NULL);
+DO $$ BEGIN
+  CREATE POLICY ai_audit_findings_tenant_isolation ON ai_audit_findings
+    USING (business_id = current_setting('app.current_business_id', true)::uuid
+           OR business_id IS NULL);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_ai_audit_findings_run
   ON ai_audit_findings (audit_run_id, finding_type);

@@ -4,6 +4,7 @@
 DO $$
 DECLARE
   _tbl text;
+  _env_id_type text;
 BEGIN
   FOR _tbl IN
     SELECT c.table_name
@@ -34,6 +35,18 @@ BEGIN
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', _tbl);
 
+    SELECT data_type
+    INTO _env_id_type
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = _tbl
+      AND column_name = 'env_id';
+
+    IF _env_id_type IS NULL THEN
+      RAISE NOTICE 'Skipping %. env_id column not present.', _tbl;
+      CONTINUE;
+    END IF;
+
     IF NOT EXISTS (
       SELECT 1
       FROM pg_policies
@@ -41,14 +54,25 @@ BEGIN
         AND tablename = _tbl
         AND policyname = 'tenant_isolation'
     ) THEN
-      EXECUTE format(
-        $policy$
-        CREATE POLICY tenant_isolation ON %I
-          USING (env_id = current_setting('app.env_id', true))
-          WITH CHECK (env_id = current_setting('app.env_id', true))
-        $policy$,
-        _tbl
-      );
+      IF _env_id_type = 'uuid' THEN
+        EXECUTE format(
+          $policy$
+          CREATE POLICY tenant_isolation ON %I
+            USING (env_id = NULLIF(current_setting('app.env_id', true), '')::uuid)
+            WITH CHECK (env_id = NULLIF(current_setting('app.env_id', true), '')::uuid)
+          $policy$,
+          _tbl
+        );
+      ELSE
+        EXECUTE format(
+          $policy$
+          CREATE POLICY tenant_isolation ON %I
+            USING (env_id = current_setting('app.env_id', true))
+            WITH CHECK (env_id = current_setting('app.env_id', true))
+          $policy$,
+          _tbl
+        );
+      END IF;
     END IF;
   END LOOP;
 END $$;

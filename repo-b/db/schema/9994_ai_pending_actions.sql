@@ -45,8 +45,10 @@ CREATE TABLE IF NOT EXISTS ai_pending_actions (
 
 ALTER TABLE ai_pending_actions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY ai_pending_actions_tenant_isolation ON ai_pending_actions
-  USING (business_id = current_setting('app.current_business_id', true)::uuid);
+DO $$ BEGIN
+  CREATE POLICY ai_pending_actions_tenant_isolation ON ai_pending_actions
+    USING (business_id = current_setting('app.current_business_id', true)::uuid);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_ai_pending_actions_conversation
   ON ai_pending_actions (conversation_id, status, created_at DESC);
