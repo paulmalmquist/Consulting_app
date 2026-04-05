@@ -1,7 +1,5 @@
 """Tests for /health/live, /health/ready, and /health endpoints."""
 
-from unittest.mock import patch
-
 import app.observability.deploy_state as ds_mod
 from app.observability.deploy_state import DeployState
 

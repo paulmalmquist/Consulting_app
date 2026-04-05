@@ -236,7 +236,7 @@ def create_conversation(payload: ConversationCreateRequest, request: Request):
             status_code=500,
             detail={"error_code": "WINSTON_READINESS_FAILED", "message": msg},
         )
-    except Exception as exc:
+    except Exception:
         logger.exception(
             "Conversation creation failed for business=%s env=%s actor=%s",
             payload.business_id,

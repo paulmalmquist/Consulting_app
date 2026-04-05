@@ -179,12 +179,6 @@ def _match_db_entity(
 
     # If in-memory matching found nothing, try fuzzy DB lookup for misspellings
     if not results and len(_normalize_text(message)) >= 5:
-        env_uuid = None
-        if env_id:
-            try:
-                env_uuid = _UUID(env_id)
-            except (ValueError, TypeError):
-                pass
         results = search_entities_by_name_fuzzy_db(query=message, business_id=biz_uuid)
 
     if not results:

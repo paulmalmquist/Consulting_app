@@ -2,7 +2,6 @@
 from uuid import UUID
 
 from app.services.entity_search import (
-    EntitySearchResult,
     _CachedEntity,
     _normalize,
     _score_contains,
