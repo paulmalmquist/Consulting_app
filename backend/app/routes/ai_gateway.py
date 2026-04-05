@@ -84,6 +84,8 @@ async def gateway_ask(payload: GatewayAskRequest, request: Request) -> Streaming
             entity_id=payload.entity_id,
             context_envelope=payload.context_envelope,
             actor=actor,
+            pending_continuation=payload.pending_continuation,
+            pending_question_text=payload.pending_question_text,
         ):
             yield sse_line.encode("utf-8")
 

@@ -64,78 +64,8 @@ export default function TimelineEngine() {
         boxShadow: "0 32px 80px -40px rgba(4,2,1,0.9)",
       }}
     >
-      {/* Header row: Kayne logo | title | JLL logo */}
-      <div
-        className="flex items-center justify-between gap-4 px-4 pt-4 md:px-6 md:pt-5"
-      >
-        {/* Kayne Anderson mark */}
-        <button
-          type="button"
-          onClick={() => handleSelectEvent("phase-kayne-2018-2025")}
-          className={`flex shrink-0 items-center gap-2 transition-opacity ${
-            selectedEventId === "phase-kayne-2018-2025" ? "opacity-100" : "opacity-60 hover:opacity-80"
-          }`}
-        >
-          <span
-            className="resume-editorial text-[28px] leading-none md:text-[34px]"
-            style={{ color: "#c8923a", fontWeight: 600 }}
-          >
-            𝒦
-          </span>
-          <div className="hidden sm:block">
-            <div
-              className="resume-label text-[10px] tracking-[0.26em]"
-              style={{ color: "#c8923a" }}
-            >
-              Kayne Anderson
-            </div>
-            <div
-              className="resume-label text-[8px] tracking-[0.3em] opacity-70"
-              style={{ color: "#c8923a" }}
-            >
-              Real Estate
-            </div>
-          </div>
-        </button>
-
-        {/* Center title */}
-        <div className="text-center">
-          <h2
-            className="resume-label text-[10px] tracking-[0.28em] md:text-[11px]"
-            style={{ color: "rgba(220,196,164,0.85)" }}
-          >
-            <span className="sm:hidden">Capability Arc</span>
-            <span className="hidden sm:inline">Compounding Capability</span>
-          </h2>
-        </div>
-
-        {/* JLL mark */}
-        <button
-          type="button"
-          onClick={() => handleSelectEvent("phase-jll-2025-present")}
-          className={`flex shrink-0 flex-col items-end transition-opacity ${
-            selectedEventId === "phase-jll-2014-2018" || selectedEventId === "phase-jll-2025-present"
-              ? "opacity-100"
-              : "opacity-60 hover:opacity-80"
-          }`}
-        >
-          <span
-            className="resume-label text-[20px] tracking-[0.15em] leading-none"
-            style={{ color: "#c84b2a" }}
-          >
-            JLL
-          </span>
-          <span
-            className="resume-label hidden text-[8px] tracking-[0.24em] opacity-70 sm:block"
-            style={{ color: "#c84b2a" }}
-          >
-            Present
-          </span>
-        </button>
-      </div>
-
       {/* Capability strip */}
-      <div className="mt-3 px-3 md:mt-4 md:px-5">
+      <div className="px-3 pt-4 md:px-5 md:pt-5">
         <CapabilityStrip
           selectedCapabilityId={selectedCapabilityId}
           selectedEventId={selectedEventId}

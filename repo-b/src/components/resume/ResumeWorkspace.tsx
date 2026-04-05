@@ -309,19 +309,6 @@ export default function ResumeWorkspace({
           </p>
         </header>
 
-        {/* ── TIMELINE ─────────────────────────────────────────────── */}
-        <div ref={moduleContentRef}>
-          <ResumeModuleBoundary
-            boundaryId="resume-timeline-hero"
-            eyebrow="Timeline"
-            title="Timeline temporarily unavailable"
-            message="The career arc could not render, but the rest of the visual resume is still available."
-            resetKey={`${envId}-timeline-hero-${workspace.timeline.roles.length}-${workspace.timeline.milestones.length}`}
-          >
-            <TimelineEngine />
-          </ResumeModuleBoundary>
-        </div>
-
         {/* ── KPI STRIP ────────────────────────────────────────────── */}
         <div
           className="flex flex-wrap items-center justify-center gap-x-6 gap-y-4 border-y py-5 text-center sm:gap-x-10 md:gap-x-14"
@@ -351,6 +338,19 @@ export default function ResumeWorkspace({
               </span>
             </div>
           ))}
+        </div>
+
+        {/* ── TIMELINE ─────────────────────────────────────────────── */}
+        <div ref={moduleContentRef}>
+          <ResumeModuleBoundary
+            boundaryId="resume-timeline-hero"
+            eyebrow="Timeline"
+            title="Timeline temporarily unavailable"
+            message="The career arc could not render, but the rest of the visual resume is still available."
+            resetKey={`${envId}-timeline-hero-${workspace.timeline.roles.length}-${workspace.timeline.milestones.length}`}
+          >
+            <TimelineEngine />
+          </ResumeModuleBoundary>
         </div>
 
         {/* ── SKILLS ───────────────────────────────────────────────── */}

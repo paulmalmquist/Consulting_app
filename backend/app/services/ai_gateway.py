@@ -4205,6 +4205,8 @@ async def run_gateway_stream(
     entity_id: uuid.UUID | None = None,
     context_envelope: AssistantContextEnvelope | dict[str, Any] | None = None,
     actor: str = "anonymous",
+    pending_continuation: bool = False,
+    pending_question_text: str | None = None,
 ) -> AsyncGenerator[str, None]:
     from app.assistant_runtime.request_lifecycle import run_request_lifecycle
 
@@ -4218,5 +4220,7 @@ async def run_gateway_stream(
         entity_id=entity_id,
         context_envelope=context_envelope,
         actor=actor,
+        pending_continuation=pending_continuation,
+        pending_question_text=pending_question_text,
     ):
         yield sse_line

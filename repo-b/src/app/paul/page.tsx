@@ -69,17 +69,6 @@ export default function PaulPage() {
           </p>
         </header>
 
-        {/* TIMELINE — stacked capability chart */}
-        <ResumeModuleBoundary
-          boundaryId="paul-timeline"
-          eyebrow="Timeline"
-          title="Timeline temporarily unavailable"
-          message="The career arc could not render."
-          resetKey="paul-timeline-v1"
-        >
-          <TimelineEngine />
-        </ResumeModuleBoundary>
-
         {/* KPI STRIP */}
         <div
           className="flex flex-wrap items-center justify-center gap-x-6 gap-y-4 border-y py-5 text-center sm:gap-x-10 md:gap-x-14"
@@ -110,6 +99,17 @@ export default function PaulPage() {
             </div>
           ))}
         </div>
+
+        {/* TIMELINE — stacked capability chart */}
+        <ResumeModuleBoundary
+          boundaryId="paul-timeline"
+          eyebrow="Timeline"
+          title="Timeline temporarily unavailable"
+          message="The career arc could not render."
+          resetKey="paul-timeline-v1"
+        >
+          <TimelineEngine />
+        </ResumeModuleBoundary>
 
         {/* SKILLS */}
         <SkillsCapabilityMap />

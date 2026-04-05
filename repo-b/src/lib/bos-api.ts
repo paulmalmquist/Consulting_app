@@ -4834,10 +4834,14 @@ export type ReV2EnvironmentPortfolioKpis = {
   env_id: string;
   business_id: string;
   quarter: string;
+  effective_quarter: string;
   scenario_id?: string | null;
   fund_count: number;
   total_commitments: string;
   portfolio_nav?: string | null;
+  gross_irr?: string | null;
+  net_irr?: string | null;
+  weighted_dscr?: string | null;
   active_assets: number;
   warnings: string[];
 };

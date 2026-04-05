@@ -1,12 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   Background,
-  Controls,
   MarkerType,
-  MiniMap,
   Position,
   ReactFlow,
   useReactFlow,
@@ -37,15 +35,11 @@ const BORDER_COLORS: Record<string, string> = {
 
 function ArchitectureFlowInner({ architecture }: { architecture: ResumeArchitecture }) {
   const {
-    architectureView,
-    setArchitectureView,
     selectedArchitectureNodeId,
     selectArchitectureNode,
     highlightArchitectureNodeIds,
   } = useResumeWorkspaceStore(
     useShallow((state) => ({
-      architectureView: state.architectureView,
-      setArchitectureView: state.setArchitectureView,
       selectedArchitectureNodeId: state.selectedArchitectureNodeId,
       selectArchitectureNode: state.selectArchitectureNode,
       highlightArchitectureNodeIds: state.highlightArchitectureNodeIds,
@@ -73,6 +67,16 @@ function ArchitectureFlowInner({ architecture }: { architecture: ResumeArchitect
     };
   }, [highlightArchitectureNodeIds, fitView]);
 
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
   const nodes = useMemo<Node[]>(
     () =>
       architecture.nodes.map((node) => {
@@ -85,10 +89,10 @@ function ArchitectureFlowInner({ architecture }: { architecture: ResumeArchitect
           data: {
             label: (
               <div className="space-y-2">
-                <div className="text-[10px] uppercase tracking-[0.18em] text-white/55">{node.group}</div>
+                <div className="text-[10px] uppercase tracking-[0.1em] text-white/55">{node.group}</div>
                 <div className="text-sm font-semibold text-white">{node.label}</div>
-                <div className="text-xs leading-5 text-white/70">
-                  {architectureView === "technical" ? node.description : node.business_problem}
+                <div className="text-xs leading-5 text-white/85">
+                  {node.description}
                 </div>
                 {node.tools.length > 0 ? (
                   <div className="flex flex-wrap gap-1 pt-1">
@@ -122,7 +126,7 @@ function ArchitectureFlowInner({ architecture }: { architecture: ResumeArchitect
           targetPosition: Position.Left,
         };
       }),
-    [architecture.nodes, architectureView, selectedArchitectureNodeId, highlightSet, hasHighlights],
+    [architecture.nodes, selectedArchitectureNodeId, highlightSet, hasHighlights],
   );
 
   const edges = useMemo<Edge[]>(
@@ -136,7 +140,7 @@ function ArchitectureFlowInner({ architecture }: { architecture: ResumeArchitect
           id: edge.edge_id,
           source: edge.source,
           target: edge.target,
-          label: architectureView === "technical" ? edge.technical_label : edge.impact_label,
+          label: edge.technical_label,
           animated: isActiveEdge || !hasHighlights,
           markerEnd: {
             type: MarkerType.ArrowClosed,
@@ -157,7 +161,7 @@ function ArchitectureFlowInner({ architecture }: { architecture: ResumeArchitect
           },
         };
       }),
-    [architecture.edges, architectureView, highlightSet, hasHighlights],
+    [architecture.edges, highlightSet, hasHighlights],
   );
 
   const selectedNode = useMemo(
@@ -182,44 +186,74 @@ function ArchitectureFlowInner({ architecture }: { architecture: ResumeArchitect
             This is the same story expressed in system form: source systems, ingestion, processing, AI, and consumption.
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-bm-border/30 bg-white/5 p-1">
-          {(["technical", "business"] as const).map((view) => (
-            <button
-              key={view}
-              type="button"
-              onClick={() => setArchitectureView(view)}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                architectureView === view ? "bg-white/12 text-white" : "text-bm-muted hover:text-bm-text"
-              }`}
-            >
-              {view === "technical" ? "Technical View" : "Business Impact View"}
-            </button>
-          ))}
-        </div>
       </div>
 
-      <div className="mt-5 h-[640px] overflow-hidden rounded-[24px] border border-bm-border/30 bg-[radial-gradient(circle_at_top,rgba(96,165,250,0.09),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))]">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          fitView
-          proOptions={{ hideAttribution: true }}
-          nodesConnectable={false}
-          nodesDraggable={false}
-          onNodeClick={handleNodeClick}
-        >
-          <Background gap={24} color="rgba(255,255,255,0.06)" />
-          <Controls showInteractive={false} position="bottom-right" />
-          <MiniMap
-            nodeColor={(node) => {
-              const archNode = architecture.nodes.find((n) => n.node_id === String(node.id));
-              return BORDER_COLORS[archNode?.layer ?? "processing"] ?? BORDER_COLORS.processing;
-            }}
-            maskColor="rgba(4, 8, 12, 0.55)"
-            pannable
-          />
-        </ReactFlow>
-      </div>
+      {isMobile ? (
+        <div className="mt-5 space-y-3">
+          {(["source", "ingestion", "processing", "ai", "consumption"] as const).map((layer) => {
+            const layerNodes = architecture.nodes.filter((n) => n.layer === layer);
+            if (layerNodes.length === 0) return null;
+            return (
+              <div
+                key={layer}
+                className="rounded-[18px] border border-bm-border/30 p-4"
+                style={{ background: LAYER_COLORS[layer] ?? "rgba(255,255,255,0.04)" }}
+              >
+                <p
+                  className="mb-3 border-b pb-1.5 text-[9px] uppercase tracking-[0.2em] text-white/50"
+                  style={{ borderColor: `${BORDER_COLORS[layer]}40` }}
+                >
+                  {layer}
+                </p>
+                <div className="space-y-2">
+                  {layerNodes.map((node) => (
+                    <div
+                      key={node.node_id}
+                      className="cursor-pointer rounded-[12px] p-3"
+                      style={{
+                        border: `1px solid ${selectedArchitectureNodeId === node.node_id ? "#ffffff" : BORDER_COLORS[layer]}`,
+                        background: "rgba(0,0,0,0.2)",
+                      }}
+                      onClick={() =>
+                        selectArchitectureNode(
+                          selectedArchitectureNodeId === node.node_id ? null : node.node_id,
+                        )
+                      }
+                    >
+                      <div className="text-[10px] uppercase tracking-[0.1em] text-white/50">{node.group}</div>
+                      <div className="mt-1 text-sm font-semibold text-white">{node.label}</div>
+                      <div className="mt-1 text-xs leading-5 text-white/85">{node.description}</div>
+                      {node.tools.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {node.tools.slice(0, 3).map((tool) => (
+                            <span key={tool} className="rounded-full bg-white/8 px-1.5 py-0.5 text-[9px] text-white/50">
+                              {tool}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="mt-5 h-[640px] overflow-hidden rounded-[24px] border border-bm-border/30 bg-[radial-gradient(circle_at_top,rgba(96,165,250,0.09),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))]">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            fitView
+            proOptions={{ hideAttribution: true }}
+            nodesConnectable={false}
+            nodesDraggable={false}
+            onNodeClick={handleNodeClick}
+          >
+            <Background gap={24} color="rgba(255,255,255,0.06)" />
+          </ReactFlow>
+        </div>
+      )}
 
       {selectedNode ? <ArchitectureNodeDetail node={selectedNode} /> : null}
 

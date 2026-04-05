@@ -46,6 +46,7 @@ from app.services.assistant_blocks import citations_block, confirmation_block, m
 from app.services.assistant_scope import build_context_block, resolve_visible_context_policy
 from app.services.model_registry import get_caps, map_openai_error, sanitize_params
 from app.services.pending_action_manager import (
+    _CONFIRM_RE,
     check_and_resolve as check_pending_action,
     create_pending_action,
 )
@@ -462,6 +463,8 @@ async def run_request_lifecycle(
     entity_id: uuid.UUID | None = None,
     context_envelope: AssistantContextEnvelope | dict[str, Any] | None = None,
     actor: str = "anonymous",
+    pending_continuation: bool = False,
+    pending_question_text: str | None = None,
 ) -> AsyncGenerator[str, None]:
     request_id = f"req_{uuid.uuid4()}"
     started_at = time.time()
@@ -589,13 +592,67 @@ async def run_request_lifecycle(
         context_envelope=normalized_envelope,
         user_message=message,
     )
-    dispatch = await dispatch_request(
-        message=message,
-        context_envelope=normalized_envelope,
-        resolved_scope=resolved_scope,
-        context=context_receipt,
-        visible_context_shortcut=visible_context_policy["disable_tools"],
-    )
+
+    # ── Pending-continuation guardrail ───────────────────────────────────────
+    # When the frontend signals that the user is answering a clarifying question
+    # Winston just asked (e.g. "yes"), bypass the LLM dispatcher and route
+    # directly to Lane C so the original task resumes instead of reclassifying.
+    _continuation_dispatch: object | None = None
+    if pending_continuation and _CONFIRM_RE.match(message.strip()):
+        from app.assistant_runtime.dispatch_engine import DispatchOutcome, build_routed_skill
+        from app.assistant_runtime.turn_receipts import DispatchTrace
+        from app.services.request_router import RouteDecision
+
+        _cont_decision = DispatchDecision(
+            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
+            skill_id="run_analysis",
+            lane=Lane.C_ANALYSIS,
+            needs_retrieval=False,
+            write_intent=False,
+            ambiguity_level=DispatchAmbiguity.LOW,
+            confidence=0.97,
+            fallback_used=False,
+            notes=["pending_continuation_guardrail"],
+        )
+        _cont_trace = DispatchTrace(raw=None, normalized=_cont_decision)
+        _cont_route = RouteDecision(
+            lane="C",
+            skip_rag=True,
+            skip_tools=False,
+            max_tool_rounds=3,
+            max_tokens=1024,
+            temperature=0.2,
+            is_write=False,
+            history_max_tokens=2500,
+        )
+        _cont_skill = build_routed_skill(
+            message=message,
+            skill_id="run_analysis",
+            confidence=0.97,
+        )
+        _continuation_dispatch = DispatchOutcome(
+            trace=_cont_trace,
+            route=_cont_route,
+            routed_skill=_cont_skill,
+        )
+        emit_log(
+            level="info",
+            service="backend",
+            action="assistant_runtime.pending_continuation_override",
+            message="Routing continuation reply directly to Lane C — skipping LLM dispatch",
+            context={"prior_question": (pending_question_text or "")[:200]},
+        )
+
+    if _continuation_dispatch is not None:
+        dispatch = _continuation_dispatch
+    else:
+        dispatch = await dispatch_request(
+            message=message,
+            context_envelope=normalized_envelope,
+            resolved_scope=resolved_scope,
+            context=context_receipt,
+            visible_context_shortcut=visible_context_policy["disable_tools"],
+        )
     route = dispatch.route
     lane = legacy_code_to_lane(route.lane)
     routed_skill = dispatch.routed_skill
