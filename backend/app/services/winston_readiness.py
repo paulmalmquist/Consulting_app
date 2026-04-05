@@ -67,6 +67,9 @@ def _repo_root() -> Path:
 
 
 def _launch_surfaces_path() -> Path:
+    bundled = Path(__file__).resolve().parents[1] / "contracts" / "winston-launch-surfaces.json"
+    if bundled.exists():
+        return bundled
     return _repo_root() / "repo-b" / "contracts" / "winston-launch-surfaces.json"
 
 
