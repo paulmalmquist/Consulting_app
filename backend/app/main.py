@@ -106,7 +106,11 @@ async def lifespan(app: FastAPI):
         context={"git_sha": git_sha, "python_version": resolve_python_version()},
     )
 
-    skip_db = os.environ.get("_BM_SKIP_DB_CHECK") == "1"
+    # _BM_SKIP_DB_CHECK is set by app.mcp.server at import time so the MCP
+    # stdio entrypoint can list tools without a database.  The web server
+    # always has DATABASE_URL, so override the flag here.
+    from app.config import DATABASE_URL as _db_url
+    skip_db = os.environ.get("_BM_SKIP_DB_CHECK") == "1" and not _db_url
     db_connected = False
     schema_ok = False
     schema_issues: list[str] = []
