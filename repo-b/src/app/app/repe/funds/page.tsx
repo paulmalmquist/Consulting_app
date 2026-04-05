@@ -23,7 +23,7 @@ import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/co
 import { KpiStrip, type KpiDef } from "@/components/repe/asset-cockpit/KpiStrip";
 import { StateCard } from "@/components/ui/StateCard";
 import { useToast } from "@/components/ui/Toast";
-import { fmtMoney } from '@/lib/format-utils';
+import { fmtMoney, fmtPct } from '@/lib/format-utils';
 import {
   RepeIndexScaffold,
   reIndexActionClass,
@@ -235,8 +235,10 @@ function RepeFundsPageContent() {
   const uniqueStrategies = new Set(filteredFunds.map((f) => f.strategy)).size;
   const activeFundCount = filteredFunds.filter((f) => f.status === "investing").length;
 
+  const effectiveQuarter = (portfolioKpis?.effective_quarter ?? quarter).replace("Q", " Q");
+
   const kpis = useMemo<KpiDef[]>(
-    () => [
+    () => ([
       {
         label: "Funds",
         value: String(filteredFunds.length),
@@ -251,15 +253,30 @@ function RepeFundsPageContent() {
       {
         label: "Portfolio NAV",
         value: fmtMoney(portfolioKpis?.portfolio_nav),
-        delta: portfolioKpis ? { value: quarter.replace("Q", " Q"), tone: "neutral" as const } : undefined,
+        delta: portfolioKpis ? { value: effectiveQuarter, tone: "neutral" as const } : undefined,
       },
       {
         label: "Active Assets",
         value: portfolioKpis ? String(portfolioKpis.active_assets) : "—",
         delta: activeFundCount > 0 ? { value: `across ${activeFundCount} active ${activeFundCount === 1 ? "fund" : "funds"}`, tone: "neutral" as const } : undefined,
       },
-    ],
-    [filteredFunds, portfolioKpis, uniqueStrategies, activeFundCount, quarter]
+      portfolioKpis?.gross_irr ? {
+        label: "Gross IRR",
+        value: fmtPct(portfolioKpis.gross_irr),
+        delta: { value: effectiveQuarter, tone: "neutral" as const },
+      } : undefined,
+      portfolioKpis?.net_irr ? {
+        label: "Net IRR",
+        value: fmtPct(portfolioKpis.net_irr),
+        delta: { value: "Net of fees & carry", tone: "neutral" as const },
+      } : undefined,
+      portfolioKpis?.weighted_dscr ? {
+        label: "WTD DSCR",
+        value: `${Number(portfolioKpis.weighted_dscr).toFixed(2)}x`,
+        delta: { value: "Debt service coverage", tone: "neutral" as const },
+      } : undefined,
+    ] as (KpiDef | undefined)[]).filter((k): k is KpiDef => k !== undefined),
+    [filteredFunds, portfolioKpis, uniqueStrategies, activeFundCount, effectiveQuarter]
   );
 
   useEffect(() => {

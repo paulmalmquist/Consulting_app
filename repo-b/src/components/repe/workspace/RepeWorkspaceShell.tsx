@@ -736,15 +736,27 @@ export default function RepeWorkspaceShell({
         businessId={businessId}
         base={base}
       />
-      <div className="space-y-2 xl:space-y-3">
-        <TopUtilityNav
-          pathname={pathname}
-          base={base}
-          homeHref={homeHref}
-          className="hidden items-center justify-end gap-4 xl:flex"
-          testId="repe-utility-nav"
-        />
-        {children}
+      <div className="flex flex-col min-h-0">
+        {/* Shell nav strip — desktop only: WINSTON brand + section links */}
+        <div className="hidden xl:flex items-center justify-between h-10
+                        border-b border-bm-border/[0.06] px-6 2xl:px-8 shrink-0">
+          <span
+            className="font-command text-[10px] font-bold uppercase tracking-[0.24em] text-bm-muted2/50 select-none"
+            aria-hidden="true"
+          >
+            Winston
+          </span>
+          <TopUtilityNav
+            pathname={pathname}
+            base={base}
+            homeHref={homeHref}
+            className="flex items-center gap-6"
+            testId="repe-utility-nav"
+          />
+        </div>
+        <div className="flex-1 min-h-0">
+          {children}
+        </div>
       </div>
     </WinstonShell>
   );

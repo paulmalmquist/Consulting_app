@@ -270,10 +270,12 @@ export default function ReFundListPage() {
             variant="band"
             kpis={[
               {
-                label: "Funds / Assets",
-                value: portfolioKpis
-                  ? `${portfolioKpis.fund_count} / ${portfolioKpis.active_assets}`
-                  : "—",
+                label: "Funds",
+                value: portfolioKpis ? String(portfolioKpis.fund_count) : "—",
+              },
+              {
+                label: "Active Assets",
+                value: portfolioKpis ? String(portfolioKpis.active_assets) : "—",
               },
               { label: "Total Commitments", value: fmtMoneyOrDash(portfolioKpis?.total_commitments) },
               { label: "Portfolio NAV", value: fmtMoneyOrDash(portfolioKpis?.portfolio_nav) },

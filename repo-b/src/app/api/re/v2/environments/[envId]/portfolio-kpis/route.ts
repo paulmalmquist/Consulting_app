@@ -10,7 +10,11 @@ export async function OPTIONS() {
  * GET /api/re/v2/environments/[envId]/portfolio-kpis
  *
  * Returns high-level portfolio KPIs for the environment:
- * fund count, total commitments, portfolio NAV, active assets.
+ * fund count, total commitments, portfolio NAV, gross/net IRR,
+ * weighted DSCR, and active asset count.
+ *
+ * If no quarter-state rows match the requested quarter, falls back to
+ * the most recent available quarter and sets effective_quarter accordingly.
  */
 export async function GET(
   request: Request,
@@ -22,9 +26,13 @@ export async function GET(
       env_id: params.envId,
       business_id: null,
       quarter: null,
+      effective_quarter: null,
       fund_count: 0,
       total_commitments: "0",
       portfolio_nav: null,
+      gross_irr: null,
+      net_irr: null,
+      weighted_dscr: null,
       active_assets: 0,
       warnings: ["Database not available"],
     });
@@ -45,9 +53,13 @@ export async function GET(
         env_id: params.envId,
         business_id: null,
         quarter,
+        effective_quarter: quarter,
         fund_count: 0,
         total_commitments: "0",
         portfolio_nav: null,
+        gross_irr: null,
+        net_irr: null,
+        weighted_dscr: null,
         active_assets: 0,
         warnings: ["No business binding found for environment"],
       });
@@ -63,15 +75,47 @@ export async function GET(
       [businessId]
     );
 
-    // Portfolio NAV from fund quarter states
-    const navRes = await pool.query(
-      `SELECT COALESCE(SUM(portfolio_nav), 0)::text AS portfolio_nav
-       FROM re_fund_quarter_state
-       WHERE fund_id IN (SELECT fund_id FROM repe_fund WHERE business_id = $1::uuid)
-         AND quarter = $2
-         AND scenario_id IS NULL`,
-      [businessId, quarter]
-    );
+    // Portfolio metrics from fund quarter states (NAV-weighted IRR/DSCR)
+    const metricsQuery = `
+      SELECT
+        COALESCE(SUM(portfolio_nav), 0)::text AS portfolio_nav,
+        CASE WHEN SUM(portfolio_nav) > 0
+          THEN (SUM(COALESCE(gross_irr, 0) * portfolio_nav) / SUM(portfolio_nav))::text
+          ELSE NULL END AS gross_irr,
+        CASE WHEN SUM(portfolio_nav) > 0
+          THEN (SUM(COALESCE(net_irr, 0) * portfolio_nav) / SUM(portfolio_nav))::text
+          ELSE NULL END AS net_irr,
+        CASE WHEN SUM(portfolio_nav) > 0
+          THEN (SUM(COALESCE(weighted_dscr, 0) * portfolio_nav) / SUM(portfolio_nav))::text
+          ELSE NULL END AS weighted_dscr
+      FROM re_fund_quarter_state
+      WHERE fund_id IN (SELECT fund_id FROM repe_fund WHERE business_id = $1::uuid)
+        AND quarter = $2
+        AND scenario_id IS NULL`;
+
+    let metricsRes = await pool.query(metricsQuery, [businessId, quarter]);
+    let effectiveQuarter = quarter;
+    const warnings: string[] = [];
+
+    // If no NAV for the requested quarter, fall back to the most recent available quarter
+    const navValue = metricsRes.rows[0]?.portfolio_nav;
+    if (!navValue || navValue === "0") {
+      const fallbackRes = await pool.query(
+        `SELECT quarter FROM re_fund_quarter_state
+         WHERE fund_id IN (SELECT fund_id FROM repe_fund WHERE business_id = $1::uuid)
+           AND scenario_id IS NULL
+         ORDER BY quarter DESC LIMIT 1`,
+        [businessId]
+      );
+      const fallbackQuarter = fallbackRes.rows[0]?.quarter;
+      if (fallbackQuarter && fallbackQuarter !== quarter) {
+        metricsRes = await pool.query(metricsQuery, [businessId, fallbackQuarter]);
+        effectiveQuarter = fallbackQuarter;
+        warnings.push(`No data for ${quarter}; showing ${fallbackQuarter}`);
+      } else {
+        warnings.push(`No portfolio NAV found for ${quarter}. Run a quarter close to compute.`);
+      }
+    }
 
     // Active assets count
     const assetsRes = await pool.query(
@@ -84,19 +128,19 @@ export async function GET(
       [businessId]
     );
 
-    const warnings: string[] = [];
-    const portfolioNav = navRes.rows[0]?.portfolio_nav;
-    if (!portfolioNav || portfolioNav === "0") {
-      warnings.push(`No portfolio NAV found for ${quarter}. Run a quarter close to compute.`);
-    }
+    const portfolioNav = metricsRes.rows[0]?.portfolio_nav;
 
     return Response.json({
       env_id: params.envId,
       business_id: businessId,
       quarter,
+      effective_quarter: effectiveQuarter,
       fund_count: fundsRes.rows[0]?.fund_count || 0,
       total_commitments: fundsRes.rows[0]?.total_commitments || "0",
       portfolio_nav: portfolioNav !== "0" ? portfolioNav : null,
+      gross_irr: metricsRes.rows[0]?.gross_irr ?? null,
+      net_irr: metricsRes.rows[0]?.net_irr ?? null,
+      weighted_dscr: metricsRes.rows[0]?.weighted_dscr ?? null,
       active_assets: assetsRes.rows[0]?.active_assets || 0,
       warnings,
     });
@@ -106,9 +150,13 @@ export async function GET(
       env_id: params.envId,
       business_id: null,
       quarter,
+      effective_quarter: quarter,
       fund_count: 0,
       total_commitments: "0",
       portfolio_nav: null,
+      gross_irr: null,
+      net_irr: null,
+      weighted_dscr: null,
       active_assets: 0,
       warnings: [String(err)],
     });
