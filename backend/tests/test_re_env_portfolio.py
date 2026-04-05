@@ -45,6 +45,8 @@ def test_returns_warning_and_null_nav_when_no_quarter_state(monkeypatch):
             "total_commitments": Decimal("490000000"),
             "portfolio_nav": None,
             "active_assets": 12,
+            "gross_irr": None,
+            "net_irr": None,
         }
     )
 
@@ -64,6 +66,8 @@ def test_returns_warning_and_null_nav_when_no_quarter_state(monkeypatch):
     assert result["total_commitments"] == "490000000"
     assert result["portfolio_nav"] is None
     assert result["active_assets"] == 12
+    assert result["gross_irr"] is None
+    assert result["net_irr"] is None
     assert result["warnings"] == [
         "No fund quarter state rows found for quarter 2026Q1 and scenario base. Run a quarter close to compute portfolio NAV."
     ]
@@ -76,6 +80,8 @@ def test_serializes_numeric_values_as_strings(monkeypatch):
             "total_commitments": Decimal("1000000.50"),
             "portfolio_nav": Decimal("2000000.75"),
             "active_assets": 4,
+            "gross_irr": Decimal("0.145"),
+            "net_irr": Decimal("0.118"),
         }
     )
 
@@ -94,4 +100,6 @@ def test_serializes_numeric_values_as_strings(monkeypatch):
 
     assert result["total_commitments"] == "1000000.50"
     assert result["portfolio_nav"] == "2000000.75"
+    assert result["gross_irr"] == "0.145"
+    assert result["net_irr"] == "0.118"
     assert result["warnings"] == []

@@ -158,8 +158,8 @@ def get_portfolio_kpis(
         "total_commitments": _money_to_string(row["total_commitments"]) or "0",
         "portfolio_nav": _money_to_string(row["portfolio_nav"]),
         "active_assets": row["active_assets"] or 0,
-        "gross_irr": _money_to_string(row["gross_irr"]),
-        "net_irr": _money_to_string(row["net_irr"]),
+        "gross_irr": _money_to_string(row.get("gross_irr")) if row else None,
+        "net_irr": _money_to_string(row.get("net_irr")) if row else None,
         "warnings": warnings,
     }
 
