@@ -42,9 +42,17 @@ def main() -> int:
         for issue in result.issues:
             print(f"    - {issue}")
 
+    # Schema contract check cares about schema validity, not gateway enablement.
+    # AI_GATEWAY_ENABLED=false is expected in CI (no OpenAI key). The schema is
+    # still valid if no columns/indexes are missing and no issues were found.
+    schema_ok = not result.missing_columns and not result.missing_indexes and not result.issues
+
     print()
-    if result.ok:
-        print("  Result: PASS")
+    if schema_ok:
+        if not result.enabled:
+            print("  Result: PASS (schema valid; AI gateway disabled — expected in CI)")
+        else:
+            print("  Result: PASS")
         print("=" * 60)
         return 0
     else:
