@@ -18,14 +18,21 @@ from app.config import RAG_MIN_SCORE, RAG_OVERFETCH, RAG_TOP_K
 from app.mcp.auth import McpContext
 from app.mcp.schemas.novendor_tools import ListTasksDueTodayInput
 from app.mcp.schemas.repe_analysis_tools import NoiVarianceInput
+from app.mcp.schemas.repe_tools import ListFundsInput
 from app.mcp.tools.novendor_tools import _list_tasks_due_today
 from app.mcp.tools.repe_analysis_tools import _noi_variance
+from app.mcp.tools.repe_tools import _list_funds
 from app.services.rag_indexer import RetrievedChunk, semantic_search
 from app.services.rag_reranker import rerank_chunks
 from app.services.request_router import RouteDecision
 
 _FOLLOW_UP_RE = re.compile(r"\b(follow up|follow-up|next action|today)\b", re.IGNORECASE)
 _NOI_VARIANCE_RE = re.compile(r"\b(noi|underwriting|down vs|variance)\b", re.IGNORECASE)
+_FUND_SUMMARY_RE = re.compile(
+    r"\b(summary|overview|snapshot|list|show|describe)\b.*\b(fund|funds|portfolio)\b"
+    r"|\b(fund|funds|portfolio)\b.*\b(summary|overview|snapshot|list|show|describe)\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -352,6 +359,101 @@ def _meridian_variance_precheck(
         )
 
 
+def _fund_summary_precheck(
+    *,
+    message: str,
+    business_uuid: uuid.UUID | None,
+    env_id: str | None,
+    entity_type: str | None,
+    entity_id: str | None,
+) -> StructuredRetrievalResult:
+    if business_uuid is None or not _FUND_SUMMARY_RE.search(message or ""):
+        return StructuredRetrievalResult()
+
+    try:
+        ctx = _structured_ctx(
+            business_id=str(business_uuid),
+            env_id=env_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+        )
+        result = _list_funds(ctx, ListFundsInput(business_id=business_uuid))
+        funds = result.get("funds", [])
+        total = result.get("total", 0)
+
+        if not funds:
+            return StructuredRetrievalResult(
+                prechecks=[
+                    StructuredPrecheckReceipt(
+                        name="fund_summary",
+                        source="repe.list_funds",
+                        status=StructuredPrecheckStatus.EMPTY,
+                        scoped=True,
+                        result_count=0,
+                        evidence={"business_id": str(business_uuid), "env_id": env_id},
+                        notes=["No funds found for this business."],
+                    )
+                ],
+                empty_reason="no_funds_found",
+            )
+
+        lines = [f"FUND PORTFOLIO SUMMARY ({total} funds):"]
+        for fund in funds[:20]:
+            name = fund.get("name") or fund.get("fund_name") or "Unnamed"
+            strategy = fund.get("strategy") or fund.get("fund_type") or ""
+            vintage = fund.get("vintage_year") or ""
+            status = fund.get("status") or ""
+            parts = [name]
+            if strategy:
+                parts.append(f"strategy={strategy}")
+            if vintage:
+                parts.append(f"vintage={vintage}")
+            if status:
+                parts.append(f"status={status}")
+            lines.append(f"  - {' | '.join(parts)}")
+
+        precheck = StructuredPrecheckReceipt(
+            name="fund_summary",
+            source="repe.list_funds",
+            status=StructuredPrecheckStatus.HIT,
+            scoped=True,
+            result_count=total,
+            evidence={"business_id": str(business_uuid), "env_id": env_id},
+            notes=[f"Fetched {total} fund(s) from structured data."],
+        )
+        return StructuredRetrievalResult(
+            context_text="\n".join(lines),
+            result_count=total,
+            prechecks=[precheck],
+            top_hits=[
+                {
+                    "source": "structured:repe.list_funds",
+                    "label": f.get("name") or f.get("fund_name"),
+                    "fund_id": str(f.get("fund_id", "")),
+                    "strategy": f.get("strategy") or f.get("fund_type"),
+                }
+                for f in funds[:5]
+            ],
+            strategy_suffix="structured_precheck",
+        )
+    except Exception as exc:
+        return StructuredRetrievalResult(
+            prechecks=[
+                StructuredPrecheckReceipt(
+                    name="fund_summary",
+                    source="repe.list_funds",
+                    status=StructuredPrecheckStatus.ERROR,
+                    scoped=True,
+                    result_count=0,
+                    evidence={"business_id": str(business_uuid), "env_id": env_id},
+                    error=str(exc)[:500],
+                    notes=["Fund summary precheck failed."],
+                )
+            ],
+            empty_reason="structured_precheck_error",
+        )
+
+
 def _run_structured_prechecks(
     *,
     message: str,
@@ -374,13 +476,21 @@ def _run_structured_prechecks(
         entity_type=entity_type,
         entity_id=entity_id,
     )
+    fund_summary = _fund_summary_precheck(
+        message=message,
+        business_uuid=business_uuid,
+        env_id=env_id,
+        entity_type=entity_type,
+        entity_id=entity_id,
+    )
 
-    prechecks = [*novendor.prechecks, *meridian.prechecks]
-    context_text = _merge_context_parts([novendor.context_text, meridian.context_text])
-    top_hits = [*novendor.top_hits, *meridian.top_hits][:5]
-    result_count = novendor.result_count + meridian.result_count
-    strategy_parts = [item for item in [novendor.strategy_suffix, meridian.strategy_suffix] if item]
-    empty_reason = novendor.empty_reason or meridian.empty_reason
+    all_results = [novendor, meridian, fund_summary]
+    prechecks = [pc for r in all_results for pc in r.prechecks]
+    context_text = _merge_context_parts([r.context_text for r in all_results])
+    top_hits = [hit for r in all_results for hit in r.top_hits][:5]
+    result_count = sum(r.result_count for r in all_results)
+    strategy_parts = [r.strategy_suffix for r in all_results if r.strategy_suffix]
+    empty_reason = next((r.empty_reason for r in all_results if r.empty_reason), None)
     return StructuredRetrievalResult(
         context_text=context_text,
         result_count=result_count,

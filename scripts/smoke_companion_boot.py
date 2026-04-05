@@ -24,12 +24,23 @@ DEFAULT_BASE_URL = "https://authentic-sparkle-production-7f37.up.railway.app"
 DEFAULT_BUSINESS_ID = "a1b2c3d4-0001-0001-0001-000000000001"
 DEFAULT_ENV_ID = "a1b2c3d4-0001-0001-0003-000000000001"
 
-# Prompts that should produce real answers, not degraded responses
+# Prompts that should produce real answers, not degraded responses.
+# Each prompt tests a different capability path through the assistant runtime.
 SMOKE_PROMPTS = [
     {
         "message": "Give me a summary of the funds",
-        "expect_skill": None,  # any skill is fine
         "expect_healthy": True,
+        "tests": "fund lookup via structured precheck",
+    },
+    {
+        "message": "How many funds are in this environment?",
+        "expect_healthy": True,
+        "tests": "entity count lookup",
+    },
+    {
+        "message": "What can you help me with?",
+        "expect_healthy": True,
+        "tests": "general capability / meta question (should never degrade)",
     },
 ]
 
