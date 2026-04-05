@@ -248,6 +248,58 @@ After any deploy, the system has three layers of validation that run independent
 
 Reference: `automated_testing_strategy.md` documents the full target-state architecture including ephemeral DB gates, post-deploy validation, rollback procedures, and property-based testing priorities.
 
+## Docker Cleanup
+
+### Environment classification
+
+| Environment | Type | Docker cleanup needed? |
+|---|---|---|
+| Railway (backend deploy) | Ephemeral container | No — each deploy is a fresh image, old images are garbage collected by Railway |
+| GitHub Actions CI | Ephemeral runner | No — runner is destroyed after each job |
+| Local development machine | Persistent | **Yes** — repeated `local_db_schema_gate.sh` runs and Docker builds accumulate stale images, dangling layers, and build cache |
+
+Docker cleanup is **mandatory on persistent environments** and **skipped on ephemeral environments**.
+
+### Cleanup script
+
+`scripts/docker_cleanup.sh` handles all Docker cleanup with three modes:
+
+| Mode | When | What it removes |
+|---|---|---|
+| `--pre` (default) | Before each backend build | Dangling images, stopped containers, build cache |
+| `--post` | After successful deploy + health check | All unused images and full build cache |
+| `--deep` | Scheduled periodic (weekly) | Full system prune including unused volumes |
+| `--report` | Anytime | Reports disk usage, no cleanup |
+
+### Integration into deploy workflow
+
+**Pre-deploy** (step 2.5 — after deploy preparation, before deploy):
+```bash
+./scripts/docker_cleanup.sh --pre
+```
+
+**Post-deploy** (step 8.5 — after smoke test passes):
+```bash
+./scripts/docker_cleanup.sh --post
+```
+
+### Guardrails
+
+- Never removes the currently running container/image (Docker prune excludes running containers by design)
+- Never removes named volumes unless `--deep` is explicitly passed
+- Captures `docker system df` before/after cleanup
+- Writes a JSON receipt to `artifacts/docker-cleanup/` with image counts and reclaimed stats
+- If Docker is not installed or daemon is not running, the script exits cleanly with SKIP status
+
+### Scheduled deep cleanup
+
+For persistent machines, run weekly:
+```bash
+./scripts/docker_cleanup.sh --deep
+```
+
+This removes all unused images, containers, build cache, and volumes. Only use in environments where volume deletion is safe (not on machines hosting persistent databases in Docker volumes).
+
 ## Important behavioral rules
 
 - Do not confuse local passing tests with production readiness.
