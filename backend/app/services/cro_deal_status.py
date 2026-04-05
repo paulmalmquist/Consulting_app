@@ -11,12 +11,10 @@ Statuses:
 """
 from __future__ import annotations
 
-from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID
 
 from app.db import get_cursor
-from app.services.reporting_common import resolve_tenant_id
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Core query: deals with computed status
