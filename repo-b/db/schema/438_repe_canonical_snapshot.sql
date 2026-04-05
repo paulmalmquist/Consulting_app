@@ -71,9 +71,11 @@ COMMENT ON COLUMN repe_asset.asset_status IS
 
 -- re_fund_quarter_state has gross_irr / net_irr columns (added in schema 270)
 -- but re_rollup.rollup_fund() never populated them — they stayed NULL.
--- re_fund_quarter_metrics (written by re_metrics.compute_fund_metrics()) has
--- the actual computed values. Copy them back so one SELECT on quarter_state
--- returns all KPIs without a join.
+-- re_fund_quarter_metrics (written by re_metrics.compute_fund_metrics()) stores
+-- a single canonical irr column on clean installs. Older commentary around this
+-- migration referred to gross_irr / net_irr there, but those columns are not
+-- present in the schema. Backfill gross_irr from irr, and only use irr as a
+-- net_irr fallback when no explicit net value already exists.
 
 ALTER TABLE re_fund_quarter_state
   ADD COLUMN IF NOT EXISTS gross_irr     numeric(18,8),
@@ -82,8 +84,8 @@ ALTER TABLE re_fund_quarter_state
 -- Backfill from re_fund_quarter_metrics for all existing rows
 UPDATE re_fund_quarter_state fqs
 SET
-  gross_irr = fqm.gross_irr,
-  net_irr   = fqm.net_irr
+  gross_irr = COALESCE(fqs.gross_irr, fqm.irr),
+  net_irr   = COALESCE(fqs.net_irr, fqm.irr)
 FROM re_fund_quarter_metrics fqm
 WHERE fqm.fund_id   = fqs.fund_id
   AND fqm.quarter   = fqs.quarter
@@ -139,5 +141,8 @@ ON CONFLICT DO NOTHING;
 -- To force a refresh, call: \i repo-b/db/schema/361_re_summary_views.sql
 -- or run the full migration pipeline.
 
-RAISE NOTICE '438: Canonical snapshot schema additions complete. '
-  'asset_status backfilled, null-reason columns added, gross_irr/net_irr propagated.';
+DO $$
+BEGIN
+  RAISE NOTICE '438: Canonical snapshot schema additions complete. '
+    'asset_status backfilled, null-reason columns added, gross_irr/net_irr propagated.';
+END $$;

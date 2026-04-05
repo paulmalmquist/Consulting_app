@@ -87,7 +87,7 @@ def _navigation_suggestions_for_reason(
     if entity_name:
         related_queries.append({
             "type": "query",
-            "label": f"List all funds in this environment",
+            "label": "List all funds in this environment",
             "message": "How many funds are in this environment?",
         })
         if entity_type == "fund":

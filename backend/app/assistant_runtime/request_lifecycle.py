@@ -11,7 +11,7 @@ from typing import Any, AsyncGenerator
 
 from app.assistant_runtime.context_resolver import resolve_runtime_context
 from app.assistant_runtime.dispatch_engine import dispatch_request
-from app.assistant_runtime.degraded_responses import degraded_blocks, degraded_blocks_with_context, degraded_message
+from app.assistant_runtime.degraded_responses import degraded_blocks_with_context, degraded_message
 from app.assistant_runtime.suggestion_templates import build_suggested_actions
 from app.assistant_runtime.execution_engine import execute_tool_calls, prepare_tools
 from app.assistant_runtime.harness.audit_logger import HarnessAuditLogger
