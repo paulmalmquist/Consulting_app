@@ -772,18 +772,19 @@ async def run_request_lifecycle(
             retrieval_execution.receipt.status == RetrievalStatus.EMPTY
             and skill_requires_grounding(routed_skill.selection.skill_id, message=message)
         ):
-            # Before degrading, check if visible_data can serve as a fallback source.
-            # Pages with funds/assets/metrics in visible_data can still produce useful
-            # answers from the LLM without RAG documents.
+            # Before degrading, check if visible_data or structured prechecks
+            # can serve as a fallback source.
             visible = normalized_envelope.ui.visible_data if normalized_envelope.ui.visible_data else None
             has_visible_context = visible is not None and any([
                 visible.funds, visible.assets, visible.investments,
                 visible.metrics, visible.pipeline_items, visible.models,
             ])
-            if has_visible_context:
-                # Skip degradation — let the LLM answer from the visible context
-                # already present in the system prompt. The retrieval was empty but
-                # the page has enough data to produce a useful answer.
+            # Structured prechecks (fund summary, NOI variance, etc.) inject
+            # context_text directly — if present, the LLM has enough to answer.
+            has_structured_context = bool(retrieval_execution.context_text and retrieval_execution.context_text.strip())
+            if has_visible_context or has_structured_context:
+                # Skip degradation — the LLM has enough data from visible context
+                # or structured prechecks to produce a useful answer.
                 pass
             else:
                 degraded_reason = degraded_reason or DegradedReason.RETRIEVAL_EMPTY
