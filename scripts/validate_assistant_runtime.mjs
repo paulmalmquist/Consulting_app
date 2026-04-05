@@ -88,9 +88,19 @@ if (!exists(evalCasesPath)) {
   errors.push(`Missing golden scenario file: ${evalCasesPath}`);
 } else {
   const evalCases = JSON.parse(read(evalCasesPath));
-  if (!Array.isArray(evalCases) || evalCases.length < 10) {
-    errors.push(`Expected at least 10 golden assistant eval scenarios in ${evalCasesPath}`);
+  if (!Array.isArray(evalCases) || evalCases.length < 15) {
+    errors.push(`Expected at least 15 golden assistant eval scenarios in ${evalCasesPath} (found ${evalCases.length})`);
   }
+}
+
+// Harness directory must exist
+if (!exists("backend/app/assistant_runtime/harness/__init__.py")) {
+  errors.push("Missing harness directory: backend/app/assistant_runtime/harness/");
+}
+
+// ContextReceipt must have inherited_entity_id for thread state carry-forward
+if (!frontendTypes.includes("inherited_entity_id")) {
+  errors.push("Frontend ContextReceipt missing inherited_entity_id field");
 }
 
 if (errors.length > 0) {
