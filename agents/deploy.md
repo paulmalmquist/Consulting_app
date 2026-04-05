@@ -49,3 +49,181 @@ Rules:
 - Use `sync-winston` only for guarded fetch/pull status; use your own runtime tools for commit/push/deploy actions.
 - Do not attempt ACP harness delegation for push/deploy work unless the user explicitly says `use Claude` or `use Codex`.
 - Do not emit internal routing commentary. Report only the active deploy result, blockers, CI state, deploy state, and verification outcome.
+
+---
+
+# Deploy Skill Contract
+
+When the user says "deploy", "ship it", "push to prod", "release", "railway up", or any equivalent phrase, DO NOT interpret that as "just push code" or "just run deployment commands."
+
+Deploy always means the full release workflow below.
+
+## 0. Precondition
+
+Before deploying, identify:
+- target environment: local / staging / production
+- frontend target
+- backend target
+- database target
+- git commit SHA being deployed
+
+If target is not explicit, default to:
+- backend: Railway production service
+- frontend: Vercel production
+- database: production database configured for backend
+
+Print these targets before proceeding.
+
+## 1. Verify code state
+
+Before deploy:
+- confirm working tree status
+- confirm current branch
+- confirm commit SHA
+- confirm whether local changes are uncommitted
+- confirm whether migration files were added/changed
+- summarize exactly what changed that affects runtime behavior
+
+If there are uncommitted changes, do not silently deploy a different state than the repo head. State clearly what is being deployed.
+
+## 2. Backend deploy preparation
+
+Before backend deploy:
+- inspect migration files
+- determine expected schema head revision
+- determine whether code introduces new required DB columns, constraints, indexes, or tables
+- identify any Winston-critical schema dependencies, especially:
+  - ai_conversations
+  - ai_messages
+  - assistant scope/context fields
+  - any conversation bootstrap metadata columns
+
+## 3. Deploy backend
+
+Deploy backend to Railway using the project's canonical deploy method.
+Do not stop after issuing the deploy command.
+
+Immediately after deploy:
+- capture deployment identifier if available
+- capture service URL
+- capture latest startup logs
+- capture current running git SHA if exposed
+
+## 4. Run migrations explicitly
+
+After backend deploy, explicitly run the migration step for the target backend/database.
+Never assume migrations ran automatically.
+
+After migration:
+- capture migration command output
+- record migration revision now present in DB
+- compare DB revision to code head revision
+- fail the deploy if they do not match
+
+## 5. Run schema contract validation
+
+After migrations, run a schema validation check against the target database.
+
+This check must verify all Winston-critical tables/columns required for conversation bootstrap and assistant runtime.
+
+Minimum required checks:
+- ai_conversations exists
+- ai_messages exists
+- required ai_conversations metadata columns exist:
+  - thread_kind
+  - scope_type
+  - scope_id
+  - scope_label
+  - launch_source
+  - context_summary
+  - last_route
+
+If any required schema element is missing:
+- mark deploy as failed
+- do not describe deployment as complete
+- surface the exact missing items
+
+## 6. Readiness verification
+
+After schema validation:
+- call liveness endpoint (`GET /health/live`)
+- call readiness endpoint (`GET /health/ready`)
+- verify database connectivity
+- verify schema contract passed
+- verify backend is ready for traffic
+
+Do not treat "process booted" as success.
+Only "ready for traffic" counts.
+
+## 7. Frontend deploy
+
+If frontend changes are included or frontend depends on new backend behavior:
+- deploy frontend
+- verify production frontend is pointing at the intended backend
+- verify environment variables and API base URLs are aligned with the deployed backend
+
+## 8. Live smoke test through the real site
+
+After deploy, run a real production-like smoke test through the actual site.
+
+Minimum Winston smoke test:
+- open a real environment page
+- open Ask Winston
+- create a conversation
+- send a first message
+- verify either:
+  - streamed assistant response begins successfully, or
+  - a precise degraded error appears
+
+A generic bootstrap failure such as "Something went wrong starting the conversation" counts as a deploy failure.
+
+## 9. Produce a deploy receipt
+
+Every deploy must end with a receipt containing:
+
+- timestamp
+- target environment
+- frontend target
+- backend target
+- database fingerprint (sanitized)
+- git SHA deployed
+- migration head in code
+- migration revision in DB
+- schema contract result
+- readiness result
+- smoke test result
+- links/IDs for deployment logs if available
+- exact failing step if deployment is not healthy
+
+## 10. Final status language
+
+Never say "deployed successfully" unless all of the following are true:
+- backend deployed
+- migrations ran successfully
+- DB revision matches code head
+- schema contract passed
+- readiness passed
+- live smoke test passed
+
+Otherwise say:
+- "deployment incomplete"
+- "deployment failed at step X"
+- or "runtime unhealthy despite code deploy"
+
+## Important behavioral rules
+
+- Do not confuse local passing tests with production readiness.
+- Do not stop at build success.
+- Do not assume migrations ran.
+- Do not assume Railway and the app are using the same database without verification.
+- Do not call a deploy healthy unless the first real Winston conversation works.
+
+## If the user says "deploy"
+
+Return:
+1. what target is being deployed
+2. what changed
+3. what migrations are expected
+4. whether schema contract passed
+5. whether Winston first-message smoke test passed
+6. final deploy status

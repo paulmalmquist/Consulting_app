@@ -1018,10 +1018,20 @@ export function WinstonCompanionProvider({
         continuity_status: laneState.conversationId ? "follow_up_failed" : "bootstrap_failed",
         error,
       });
-      const userMessage =
-        conversationId || laneState.conversationId
-          ? "Winston ran into a response error. Please try again."
-          : "Something went wrong starting the conversation. Please try again.";
+      const errorCode = (error as { errorCode?: string })?.errorCode || null;
+      const statusCode = (error as { status?: number })?.status || null;
+      let userMessage: string;
+      if (errorCode === "SCHEMA_NOT_MIGRATED") {
+        userMessage = "Winston cannot start \u2014 database schema is not up to date.";
+      } else if (statusCode === 401 || errorCode === "AUTH_EXPIRED") {
+        userMessage = "Session expired. Please refresh and sign in again.";
+      } else if (errorCode === "WINSTON_READINESS_FAILED") {
+        userMessage = "Winston is temporarily unavailable. Please try again shortly.";
+      } else if (conversationId || laneState.conversationId) {
+        userMessage = "Winston ran into a response error. Please try again.";
+      } else {
+        userMessage = "Something went wrong starting the conversation. Please try again.";
+      }
       setLaneState(lane, (current) => ({
         ...current,
         thinking: false,

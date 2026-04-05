@@ -162,6 +162,7 @@ _GET_CURSOR_TARGETS = [
     "app.services.local_training_crm.get_cursor",
     "app.services.trading_lab_service.get_cursor",
     "app.services.resume.get_cursor",
+    "app.services.winston_readiness.get_cursor",
 ]
 
 

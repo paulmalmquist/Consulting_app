@@ -1361,13 +1361,35 @@ function normalizeUuid(value?: string | null): string | null {
   return UUID_RE.test(trimmed) ? trimmed : null;
 }
 
-function readErrorDetail(bodyText: string, fallbackStatus: number): string {
-  if (!bodyText.trim()) return `HTTP ${fallbackStatus}`;
+interface ParsedError {
+  message: string;
+  errorCode: string | null;
+}
+
+function readErrorDetail(bodyText: string, fallbackStatus: number): ParsedError {
+  if (!bodyText.trim()) return { message: `HTTP ${fallbackStatus}`, errorCode: null };
   try {
-    const parsed = JSON.parse(bodyText) as { detail?: string; error?: string; message?: string };
-    return parsed.detail || parsed.error || parsed.message || bodyText;
+    const parsed = JSON.parse(bodyText) as {
+      detail?: string | { error_code?: string; message?: string };
+      error?: string;
+      message?: string;
+      error_code?: string;
+    };
+    // FastAPI wraps structured errors in { detail: { error_code, message } }
+    if (typeof parsed.detail === "object" && parsed.detail !== null) {
+      return {
+        message: parsed.detail.message || JSON.stringify(parsed.detail),
+        errorCode: parsed.detail.error_code || null,
+      };
+    }
+    const message =
+      (typeof parsed.detail === "string" ? parsed.detail : null) ||
+      parsed.error ||
+      parsed.message ||
+      bodyText;
+    return { message, errorCode: parsed.error_code || null };
   } catch {
-    return bodyText;
+    return { message: bodyText, errorCode: null };
   }
 }
 
@@ -1401,11 +1423,12 @@ export async function createConversation(input: {
   });
   const bodyText = await res.text();
   if (!res.ok) {
-    const detail = readErrorDetail(bodyText, res.status);
+    const { message, errorCode } = readErrorDetail(bodyText, res.status);
     console.error("[winston-bootstrap]", {
       event: "create_conversation_failed",
       status: res.status,
-      detail,
+      detail: message,
+      error_code: errorCode,
       bootstrap_latency_ms: Date.now() - startedAt,
       business_id: input.business_id,
       env_id: input.env_id || null,
@@ -1417,7 +1440,10 @@ export async function createConversation(input: {
       launch_source: input.launch_source || null,
       route: input.last_route || null,
     });
-    throw new Error(detail);
+    const err = new Error(message) as Error & { errorCode: string | null; status: number };
+    err.errorCode = errorCode;
+    err.status = res.status;
+    throw err;
   }
   const detail = JSON.parse(bodyText) as ConversationDetail;
   console.info("[winston-bootstrap]", {

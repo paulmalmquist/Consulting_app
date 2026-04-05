@@ -1,14 +1,25 @@
+import os
+import time
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.config import ALLOWED_ORIGINS
+from app.config import ALLOWED_ORIGINS, AI_GATEWAY_ENABLED
 from app.auth.middleware import AuthMiddleware
 from app.middleware import RequestLoggingMiddleware
 from app.mcp.registry import registry as _tool_registry
 from app.mcp.http_transport import router as mcp_http_router
 from app.mcp.server import _register_all_tools
 from app.observability.logger import emit_log
+from app.observability.deploy_state import (
+    DeployState,
+    set_deploy_state,
+    resolve_git_sha,
+    resolve_db_fingerprint,
+    resolve_python_version,
+)
 from app.routes import (
     metrics,
     metrics_query,
@@ -83,7 +94,115 @@ from app.routes import trading
 from app.routes import trades
 from app.routes import sql_agent as sql_agent_routes
 
-app = FastAPI(title="Business OS API", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    t0 = time.monotonic()
+    git_sha = resolve_git_sha()
+    db_fp = resolve_db_fingerprint()
+
+    emit_log(
+        level="info", service="backend", action="startup.begin",
+        message="Backend starting",
+        context={"git_sha": git_sha, "python_version": resolve_python_version()},
+    )
+
+    skip_db = os.environ.get("_BM_SKIP_DB_CHECK") == "1"
+    db_connected = False
+    schema_ok = False
+    schema_issues: list[str] = []
+
+    if skip_db:
+        emit_log(
+            level="info", service="backend", action="startup.db_check_skipped",
+            message="DB check skipped (_BM_SKIP_DB_CHECK=1)", context={},
+        )
+    else:
+        try:
+            from app.db import _get_pool
+            _get_pool()
+            db_connected = True
+            emit_log(
+                level="info", service="backend", action="startup.db_connect_ok",
+                message="Database pool opened",
+                context={"db_fingerprint": db_fp},
+            )
+        except Exception as exc:
+            emit_log(
+                level="error", service="backend", action="startup.db_connect_failed",
+                message="Database connection failed",
+                context={"db_fingerprint": db_fp}, error=exc,
+            )
+
+        if db_connected:
+            try:
+                from app.services.winston_readiness import get_winston_readiness
+                readiness = get_winston_readiness()
+                schema_ok = readiness.ok
+                schema_issues = readiness.issues
+                if schema_ok:
+                    emit_log(
+                        level="info", service="backend", action="startup.schema_contract_passed",
+                        message="Winston schema contract passed",
+                        context={
+                            "marker": readiness.schema_version_marker,
+                            "surfaces": len(readiness.supported_launch_surface_ids),
+                        },
+                    )
+                else:
+                    emit_log(
+                        level="warn", service="backend", action="startup.schema_contract_failed",
+                        message="Winston schema contract failed",
+                        context={
+                            "issues": readiness.issues,
+                            "missing_columns": readiness.missing_columns,
+                            "missing_indexes": readiness.missing_indexes,
+                        },
+                    )
+            except Exception as exc:
+                schema_issues = [f"Schema contract check error: {exc}"]
+                emit_log(
+                    level="error", service="backend", action="startup.schema_contract_failed",
+                    message="Schema contract check raised an exception",
+                    context={}, error=exc,
+                )
+
+    emit_log(
+        level="info", service="backend", action="startup.assistant_boot_enabled",
+        message=f"AI gateway enabled: {AI_GATEWAY_ENABLED}",
+        context={"ai_gateway_enabled": AI_GATEWAY_ENABLED},
+    )
+
+    elapsed_ms = int((time.monotonic() - t0) * 1000)
+    state = DeployState(
+        booted_at=emit_log.__module__,  # placeholder, replaced below
+        git_sha=git_sha,
+        db_fingerprint=db_fp,
+        schema_contract_ok=schema_ok,
+        schema_issues=schema_issues,
+        db_connected=db_connected,
+        startup_duration_ms=elapsed_ms,
+        assistant_boot_enabled=AI_GATEWAY_ENABLED,
+    )
+    # Use proper ISO timestamp
+    from app.observability.logger import _iso_now
+    state.booted_at = _iso_now()
+    set_deploy_state(state)
+
+    emit_log(
+        level="info", service="backend", action="startup.complete",
+        message="Backend startup complete",
+        context={"ready": db_connected and schema_ok, "duration_ms": elapsed_ms},
+    )
+
+    yield
+
+    emit_log(
+        level="info", service="backend", action="shutdown.begin",
+        message="Backend shutting down", context={},
+    )
+
+
+app = FastAPI(title="Business OS API", version="0.1.0", lifespan=lifespan)
 
 # Register all MCP tools so the AI gateway can expose them to OpenAI tool-calling.
 # Without this, _build_openai_tools() returns an empty list and Winston has zero tools.

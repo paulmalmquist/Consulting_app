@@ -219,6 +219,23 @@ def create_conversation(payload: ConversationCreateRequest, request: Request):
         return _serialize_conversation(row, messages=[], message_count=0)
     except HTTPException:
         raise
+    except RuntimeError as exc:
+        msg = str(exc)
+        logger.exception(
+            "Conversation creation failed for business=%s env=%s actor=%s",
+            payload.business_id,
+            payload.env_id,
+            request.headers.get("x-bm-actor", "anonymous"),
+        )
+        if "missing required Winston" in msg or "missing" in msg.lower() and "column" in msg.lower():
+            raise HTTPException(
+                status_code=503,
+                detail={"error_code": "SCHEMA_NOT_MIGRATED", "message": msg},
+            )
+        raise HTTPException(
+            status_code=500,
+            detail={"error_code": "WINSTON_READINESS_FAILED", "message": msg},
+        )
     except Exception as exc:
         logger.exception(
             "Conversation creation failed for business=%s env=%s actor=%s",
@@ -226,7 +243,10 @@ def create_conversation(payload: ConversationCreateRequest, request: Request):
             payload.env_id,
             request.headers.get("x-bm-actor", "anonymous"),
         )
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(
+            status_code=500,
+            detail={"error_code": "INTERNAL_ERROR", "message": "Conversation creation failed"},
+        )
 
 
 @router.get("/conversations")

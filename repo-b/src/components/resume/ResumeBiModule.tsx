@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   BarChart,
@@ -11,16 +11,23 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { ArrowRight, Binary, Database, Eye, Network, SearchCode, TableProperties, Waypoints, X } from "lucide-react";
 import { fmtMoney, fmtPct } from "@/lib/format-utils";
 import type { ResumeBi, ResumeBiEntity, ResumeBiPoint } from "@/lib/bos-api";
 import TrendLineChart from "@/components/charts/TrendLineChart";
 import ResumeFallbackCard from "./ResumeFallbackCard";
-import { deriveResumeBiSlice, type ResumeBiSlice } from "./biMath";
+import {
+  buildResumeBiInspectionView,
+  deriveResumeBiSlice,
+  findDefaultResumeBiEntityId,
+  type ResumeBiInspectionView,
+  type ResumeBiSlice,
+} from "./biMath";
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
 
-function PanelFallback({ title, body }: { title: string; body: string }) {
+function CompactPrompt({ title, body }: { title: string; body: string }) {
   return (
-    <div className="flex h-[260px] flex-col justify-center rounded-2xl border border-bm-border/35 bg-black/10 p-4">
+    <div className="flex min-h-[124px] flex-col justify-center rounded-2xl border border-bm-border/25 bg-black/10 p-4">
       <h3 className="text-sm font-semibold">{title}</h3>
       <p className="mt-2 text-xs leading-5 text-bm-muted2">{body}</p>
     </div>
@@ -30,9 +37,9 @@ function PanelFallback({ title, body }: { title: string; body: string }) {
 function MarketMap({ markets }: { markets: ResumeBiSlice["marketBreakdown"] }) {
   if (markets.length === 0) {
     return (
-      <PanelFallback
-        title="Market footprint unavailable"
-        body="No market coordinates are available for the current BI slice, so the geographic footprint is temporarily hidden."
+      <CompactPrompt
+        title="Market footprint activates on drill"
+        body="Select a portfolio or drill from timeline to activate the market layer and reveal the geographic footprint."
       />
     );
   }
@@ -81,12 +88,16 @@ function computeDelta(current: number, previous: number): { delta: number; direc
 function BiKpiStrip({
   trend,
   kpis,
+  context,
+  hasMeaningfulData,
 }: {
   trend: ResumeBiPoint[];
   kpis: { portfolio_value: number; noi: number; occupancy: number; irr: number };
+  context: "demo" | "awaiting_selection";
+  hasMeaningfulData: boolean;
 }) {
   const prevPeriod = trend.length >= 2 ? trend[trend.length - 2] : null;
-  const deltas = prevPeriod
+  const deltas = prevPeriod && hasMeaningfulData
     ? {
         portfolio_value: computeDelta(kpis.portfolio_value, prevPeriod.value),
         noi: computeDelta(kpis.noi, prevPeriod.noi),
@@ -103,58 +114,234 @@ function BiKpiStrip({
   ];
 
   return (
-    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="mt-5">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">KPI Summary</span>
+        <span
+          className={`rounded-full border px-2.5 py-1 text-[11px] ${
+            context === "demo"
+              ? "border-emerald-400/30 bg-emerald-500/12 text-emerald-200"
+              : "border-amber-300/30 bg-amber-500/12 text-amber-100"
+          }`}
+        >
+          {context === "demo" ? "Demo dataset" : "Awaiting selection"}
+        </span>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {items.map((kpi) => (
         <div key={kpi.label} className="rounded-2xl border border-bm-border/35 bg-black/10 px-4 py-4">
           <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">{kpi.label}</p>
           <div className="mt-2 flex items-baseline gap-2">
-            <p className="text-xl font-semibold">{kpi.value}</p>
-            {kpi.delta && kpi.delta.direction !== "flat" ? (
+            <p className="text-xl font-semibold">{hasMeaningfulData ? kpi.value : "—"}</p>
+            {kpi.delta && kpi.delta.direction !== "flat" && hasMeaningfulData ? (
               <span className={`text-xs ${kpi.delta.direction === "up" ? "text-emerald-400" : "text-red-400"}`}>
                 {kpi.delta.direction === "up" ? "+" : ""}{fmtPct(kpi.delta.delta)}
               </span>
             ) : null}
           </div>
+          {!hasMeaningfulData ? (
+            <p className="mt-2 text-xs text-bm-muted2">Choose a drill path to activate this metric.</p>
+          ) : null}
         </div>
       ))}
+      </div>
     </div>
   );
 }
 
-function ReverseLinks({ entity }: { entity: ResumeBiEntity }) {
-  const { selectNarrativeItem } = useResumeWorkspaceStore(
+const LINEAGE_NODES: Array<{
+  key: string;
+  label: string;
+  nodeId: string;
+  icon: typeof Database;
+  tint: string;
+}> = [
+  { key: "warehouse", label: "Warehouse", nodeId: "azure_data_lake", icon: Database, tint: "text-sky-200" },
+  { key: "semantic", label: "Semantic Layer", nodeId: "semantic_models", icon: Binary, tint: "text-emerald-200" },
+  { key: "gold", label: "Gold Tables", nodeId: "gold_tables", icon: TableProperties, tint: "text-amber-100" },
+  { key: "bi", label: "BI Model", nodeId: "bi_dashboards", icon: Waypoints, tint: "text-violet-200" },
+  { key: "etl", label: "ETL", nodeId: "databricks_etl", icon: Network, tint: "text-cyan-200" },
+];
+
+function DataLineage({
+  onInspect,
+}: {
+  onInspect: (focusLabel?: string) => void;
+}) {
+  const { setActiveModule, selectArchitectureNode } = useResumeWorkspaceStore(
     useShallow((state) => ({
-      selectNarrativeItem: state.selectNarrativeItem,
+      setActiveModule: state.setActiveModule,
+      selectArchitectureNode: state.selectArchitectureNode,
     })),
   );
 
   return (
-    <div className="mt-4 rounded-2xl border border-bm-border/25 bg-white/4 px-4 py-3">
-      <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Connected to</p>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {entity.linked_timeline_ids.map((timelineId) => (
-          <button
-            key={timelineId}
-            type="button"
-            onClick={() => selectNarrativeItem("initiative", timelineId, { switchModule: "timeline" })}
-            className="rounded-full border border-sky-400/30 bg-sky-400/8 px-2.5 py-1 text-[11px] text-sky-300 transition hover:bg-sky-400/16"
-          >
-            {timelineId.replace(/^(initiative-|milestone-)/, "").replaceAll("-", " ")}
-          </button>
-        ))}
-        {entity.linked_architecture_node_ids.map((nodeId) => (
-          <button
-            key={nodeId}
-            type="button"
-            onClick={() => {
-              useResumeWorkspaceStore.getState().selectArchitectureNode(nodeId);
-              useResumeWorkspaceStore.getState().setActiveModule("architecture");
-            }}
-            className="rounded-full border border-violet-400/30 bg-violet-400/8 px-2.5 py-1 text-[11px] text-violet-300 transition hover:bg-violet-400/16"
-          >
-            {nodeId.replaceAll("_", " ")}
-          </button>
-        ))}
+    <div className="mt-5 rounded-[24px] border border-bm-border/30 bg-white/6 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">Data Lineage</p>
+          <p className="mt-1 text-sm text-bm-muted">Trace the current view back to the governed system layers behind it.</p>
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        {LINEAGE_NODES.map((node, index) => {
+          const Icon = node.icon;
+          return (
+            <div key={node.key} className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  selectArchitectureNode(node.nodeId);
+                  setActiveModule("architecture");
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/15 px-3 py-2 text-sm text-bm-text transition hover:border-white/30 hover:bg-white/10"
+              >
+                <Icon className={`h-4 w-4 ${node.tint}`} />
+                <span>{node.label}</span>
+              </button>
+              <button
+                type="button"
+                aria-label={`Inspect ${node.label}`}
+                onClick={() => onInspect(node.label)}
+                className="inline-flex items-center rounded-full border border-white/12 bg-white/6 p-2 text-bm-muted transition hover:text-white"
+              >
+                <SearchCode className="h-3.5 w-3.5" />
+              </button>
+              {index < LINEAGE_NODES.length - 1 ? <ArrowRight className="h-4 w-4 text-bm-muted2" /> : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DrillPathIndicator({
+  slice,
+  rootId,
+  lastBiEntitySource,
+  onSelect,
+}: {
+  slice: ResumeBiSlice;
+  rootId: string;
+  lastBiEntitySource: "timeline" | "bi" | "init";
+  onSelect: (entityId: string) => void;
+}) {
+  const slots: Array<ResumeBiEntity["level"]> = ["portfolio", "fund", "investment", "asset"];
+  const byLevel = new Map(slice.breadcrumb.map((entity) => [entity.level, entity]));
+
+  return (
+    <div className="mt-5 rounded-2xl border border-bm-border/30 bg-black/10 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Drill Path</p>
+          <p className="mt-1 text-sm text-bm-muted">Portfolio to asset context stays synchronized across KPIs, charts, and detail rows.</p>
+        </div>
+        {lastBiEntitySource === "timeline" && slice.entity.entity_id !== rootId ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-400/25 bg-sky-400/8 px-2.5 py-1 text-[11px] text-sky-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+            from timeline
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-4 grid gap-2 md:grid-cols-4">
+        {slots.map((level) => {
+          const entity = byLevel.get(level);
+          const isCurrent = entity?.entity_id === slice.entity.entity_id;
+          return (
+            <button
+              key={level}
+              type="button"
+              onClick={() => entity && onSelect(entity.entity_id)}
+              disabled={!entity}
+              className={`rounded-2xl border px-4 py-3 text-left transition ${
+                isCurrent
+                  ? "border-white/35 bg-white/12 text-white"
+                  : entity
+                    ? "border-bm-border/35 bg-white/5 text-bm-text hover:border-white/25 hover:bg-white/8"
+                    : "border-bm-border/20 bg-black/10 text-bm-muted2"
+              }`}
+            >
+              <p className="text-[10px] uppercase tracking-[0.14em]">{level}</p>
+              <p className="mt-2 text-sm font-medium">{entity?.name ?? "Not selected"}</p>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function InspectionPanel({
+  view,
+  onClose,
+}: {
+  view: ResumeBiInspectionView;
+  onClose: () => void;
+}) {
+  return (
+    <div className="mt-5 rounded-[24px] border border-white/12 bg-[#08111d] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">Inspect This View</p>
+          <h3 className="mt-2 text-lg font-semibold">{view.title}</h3>
+          <p className="mt-2 text-sm text-bm-muted">{view.summary}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex items-center rounded-full border border-white/12 bg-white/6 p-2 text-bm-muted transition hover:text-white"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Pseudo-SQL</p>
+          <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs leading-6 text-sky-100">
+            <code>{view.sql}</code>
+          </pre>
+        </div>
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Source Tables</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {view.sourceTables.map((table) => (
+                <span key={table} className="rounded-full border border-sky-400/20 bg-sky-500/10 px-2.5 py-1 text-xs text-sky-100">
+                  {table}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Joins / Transformations</p>
+            <div className="mt-3 space-y-2 text-xs text-bm-muted">
+              {[...view.joins, ...view.transformations].map((entry) => (
+                <p key={entry}>{entry}</p>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Filters Applied</p>
+            <div className="mt-3 space-y-2 text-xs text-bm-muted">
+              {view.filters.map((entry) => (
+                <p key={entry}>{entry}</p>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Metric Definitions</p>
+            <div className="mt-3 space-y-3 text-xs text-bm-muted">
+              {view.metricDefinitions.map((metric) => (
+                <div key={metric.label}>
+                  <p className="font-medium text-bm-text">{metric.label}</p>
+                  <p className="mt-1">{metric.definition}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -176,6 +363,8 @@ export default function ResumeBiModule({ bi }: { bi: ResumeBi }) {
       lastBiEntitySource: state.lastBiEntitySource,
     })),
   );
+  const [inspectionFocus, setInspectionFocus] = useState<string | undefined>(undefined);
+  const [inspectionOpen, setInspectionOpen] = useState(false);
 
   const slice = useMemo(
     () =>
@@ -186,7 +375,18 @@ export default function ResumeBiModule({ bi }: { bi: ResumeBi }) {
       }),
     [bi, selectedBiEntityId, biFilters.market, biFilters.propertyType, biFilters.period],
   );
+  const inspectionView = useMemo(
+    () => buildResumeBiInspectionView(slice, biFilters, inspectionFocus),
+    [slice, biFilters, inspectionFocus],
+  );
   const hasAssetData = bi.entities.some((entity) => entity.level === "asset");
+
+  useEffect(() => {
+    if (!hasAssetData) return;
+    if (selectedBiEntityId !== bi.root_entity_id) return;
+    if (slice.hasMeaningfulData) return;
+    selectBiEntity(findDefaultResumeBiEntityId(bi));
+  }, [bi, hasAssetData, selectBiEntity, selectedBiEntityId, slice.hasMeaningfulData]);
 
   if (!hasAssetData) {
     return (
@@ -210,6 +410,17 @@ export default function ResumeBiModule({ bi }: { bi: ResumeBi }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setInspectionFocus(undefined);
+              setInspectionOpen((open) => !open);
+            }}
+            className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/6 px-3 py-1.5 text-xs text-bm-text transition hover:border-white/25 hover:bg-white/10"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            Inspect this view
+          </button>
           <select
             value={biFilters.market}
             onChange={(event) => setBiFilters({ market: event.target.value })}
@@ -242,33 +453,29 @@ export default function ResumeBiModule({ bi }: { bi: ResumeBi }) {
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-bm-muted2">
-        {slice.breadcrumb.map((crumb, index) => (
-          <button
-            key={crumb.entity_id}
-            type="button"
-            onClick={() => selectBiEntity(crumb.entity_id)}
-            className={`rounded-full border px-3 py-1 transition ${
-              index === slice.breadcrumb.length - 1
-                ? "border-white/35 bg-white/12 text-white"
-                : "border-bm-border/35 bg-white/5 hover:border-white/25 hover:text-bm-text"
-            }`}
-          >
-            {crumb.name}
-          </button>
-        ))}
-        {lastBiEntitySource === "timeline" && selectedBiEntityId !== bi.root_entity_id ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-400/25 bg-sky-400/8 px-2.5 py-1 text-[11px] text-sky-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
-            from timeline
-          </span>
-        ) : null}
-      </div>
+      <DataLineage
+        onInspect={(focusLabel) => {
+          setInspectionFocus(focusLabel);
+          setInspectionOpen(true);
+        }}
+      />
 
-      <BiKpiStrip trend={slice.entity.trend} kpis={slice.kpis} />
+      <BiKpiStrip
+        trend={slice.entity.trend}
+        kpis={slice.kpis}
+        context={slice.kpiContext}
+        hasMeaningfulData={slice.hasMeaningfulData}
+      />
 
-      {selectedBiEntityId !== bi.root_entity_id && slice.entity.linked_timeline_ids.length > 0 ? (
-        <ReverseLinks entity={slice.entity} />
+      <DrillPathIndicator
+        slice={slice}
+        rootId={bi.root_entity_id}
+        lastBiEntitySource={lastBiEntitySource}
+        onSelect={selectBiEntity}
+      />
+
+      {inspectionOpen ? (
+        <InspectionPanel view={inspectionView} onClose={() => setInspectionOpen(false)} />
       ) : null}
 
       <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_1fr_0.95fr]">
@@ -277,7 +484,7 @@ export default function ResumeBiModule({ bi }: { bi: ResumeBi }) {
             <h3 className="text-sm font-semibold">Portfolio by sector</h3>
             <p className="mt-1 text-xs text-bm-muted2">Where value concentrates in the visible slice.</p>
           </div>
-          <div className="mt-4 h-[260px]">
+          <div className={`mt-4 ${slice.sectorBreakdown.length > 0 ? "h-[260px]" : ""}`}>
             {slice.sectorBreakdown.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={slice.sectorBreakdown}>
@@ -289,9 +496,9 @@ export default function ResumeBiModule({ bi }: { bi: ResumeBi }) {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <PanelFallback
-                title="Sector breakdown unavailable"
-                body="No sector mix is available for the current drill path, so this chart is temporarily hidden."
+              <CompactPrompt
+                title="Sector chart activates on selection"
+                body="Select a portfolio or drill from timeline to activate sector context for the current slice."
               />
             )}
           </div>
@@ -302,7 +509,7 @@ export default function ResumeBiModule({ bi }: { bi: ResumeBi }) {
             <h3 className="text-sm font-semibold">NOI trend</h3>
             <p className="mt-1 text-xs text-bm-muted2">Trend stays synced as the drill path changes.</p>
           </div>
-          <div className="mt-4 h-[260px]">
+          <div className={`mt-4 ${slice.trend.length > 0 ? "h-[260px]" : ""}`}>
             {slice.trend.length > 0 ? (
               <TrendLineChart
                 data={slice.trend}
@@ -314,9 +521,9 @@ export default function ResumeBiModule({ bi }: { bi: ResumeBi }) {
                 height={260}
               />
             ) : (
-              <PanelFallback
-                title="Trend unavailable"
-                body="The selected BI slice does not include a usable time series, so the trend chart is temporarily hidden."
+              <CompactPrompt
+                title="Trend activates on drill"
+                body="Select a portfolio or drill from timeline to activate the time series for this view."
               />
             )}
           </div>
@@ -329,7 +536,7 @@ export default function ResumeBiModule({ bi }: { bi: ResumeBi }) {
         <div className="flex items-center justify-between gap-3 border-b border-bm-border/20 px-4 py-3">
           <div>
             <h3 className="text-sm font-semibold">Detail table</h3>
-            <p className="mt-1 text-xs text-bm-muted2">Click deeper when child records exist.</p>
+            <p className="mt-1 text-xs text-bm-muted2">Click a row to update the KPI row, charts, and inspection layer.</p>
           </div>
           <div className="text-xs text-bm-muted2">{slice.visibleChildren.length} visible child rows</div>
         </div>
