@@ -113,7 +113,8 @@ def create_conversation(
         "last_route": last_route,
     }
     for column in _available_optional_columns():
-        insert_payload[column] = optional_values[column]
+        if column in optional_values:
+            insert_payload[column] = optional_values[column]
 
     returning = _selectable_conversation_columns(include_actor=True)
 
