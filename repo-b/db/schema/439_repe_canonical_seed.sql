@@ -19,15 +19,11 @@
 
 DO $$
 DECLARE
-  -- Seed fund UUIDs (set in 378_scenario_v2_seed.sql)
-  v_fund_va  uuid := 'a0000001-0000-0000-0000-000000000001';
-  v_fund_cp  uuid := 'a0000001-0000-0000-0000-000000000002';
-  v_fund_op  uuid := 'a0000001-0000-0000-0000-000000000003';
-
-  -- Seed asset UUIDs (set in 378_scenario_v2_seed.sql / 265 base seed)
-  -- Value-Add assets (5): c0000001-...-001 through -005
-  -- Core-Plus assets (6): c0000001-...-006 through -011
-  -- Opportunistic assets (4): c0000001-...-012 through -015
+  -- Resolve current canonical assets dynamically instead of trusting legacy UUIDs.
+  -- Clean installs may have already consumed the old IDs via ON CONFLICT DO NOTHING,
+  -- so we anchor on fund + asset names and skip safely if the expected seed set is
+  -- not present.
+  v_assets uuid[] := ARRAY[]::uuid[];
 
   -- Quarters to seed (6 most recent)
   v_quarters text[] := ARRAY['2024Q3','2024Q4','2025Q1','2025Q2','2025Q3','2025Q4'];
@@ -44,6 +40,43 @@ DECLARE
   v_ltv         numeric;
   v_dscr        numeric;
 BEGIN
+  WITH expected_assets(ord, fund_name, asset_name) AS (
+    VALUES
+      (1,  'Atlas Value-Add Fund IV',     'Parkview Gardens MF'),
+      (2,  'Atlas Value-Add Fund IV',     'Lakeshore Terrace MF'),
+      (3,  'Atlas Value-Add Fund IV',     'Metro Logistics Hub'),
+      (4,  'Atlas Value-Add Fund IV',     'Riverside Industrial'),
+      (5,  'Atlas Value-Add Fund IV',     'Sunset Ridge Apartments'),
+      (6,  'Meridian Core-Plus Income',   'Beacon Tower Office'),
+      (7,  'Meridian Core-Plus Income',   'Harbor Square Retail'),
+      (8,  'Meridian Core-Plus Income',   'Midtown Crossing MF'),
+      (9,  'Meridian Core-Plus Income',   'Westgate Office Park'),
+      (10, 'Meridian Core-Plus Income',   'The Promenade Retail'),
+      (11, 'Meridian Core-Plus Income',   'Skyline Luxury Residences'),
+      (12, 'Summit Opportunistic III',    'Heritage Senior Living'),
+      (13, 'Summit Opportunistic III',    'Oakwood Memory Care'),
+      (14, 'Summit Opportunistic III',    'Commerce Park Flex'),
+      (15, 'Summit Opportunistic III',    'Gateway Distribution Ctr')
+  )
+  SELECT array_agg(resolved.asset_id ORDER BY resolved.ord)
+  INTO v_assets
+  FROM (
+    SELECT e.ord, a.asset_id
+    FROM expected_assets e
+    JOIN repe_fund f
+      ON f.name = e.fund_name
+    JOIN repe_deal d
+      ON d.fund_id = f.fund_id
+    JOIN repe_asset a
+      ON a.deal_id = d.deal_id
+     AND a.name = e.asset_name
+  ) resolved;
+
+  IF COALESCE(array_length(v_assets, 1), 0) <> 15 THEN
+    RAISE NOTICE '439: Expected 15 canonical seed assets but found %. Skipping quarter-state seed.',
+      COALESCE(array_length(v_assets, 1), 0);
+    RETURN;
+  END IF;
 
   -- ── Value-Add Fund IV assets ───────────────────────────────────────────────
 
@@ -60,7 +93,7 @@ BEGIN
       value_reason, occupancy_reason, debt_reason, noi_reason,
       inputs_hash
     ) VALUES (
-      'c0000001-0000-0000-0000-000000000001', v_q, NULL, v_seed_run_id, 'accrual',
+      v_assets[1], v_q, NULL, v_seed_run_id, 'accrual',
       875000, 1300000, 45000, 470000, 55000, 260000,
       0, 0, 0, 560000,
       0.92, 14500000, 0,
@@ -83,7 +116,7 @@ BEGIN
       value_reason, occupancy_reason, debt_reason, noi_reason,
       inputs_hash
     ) VALUES (
-      'c0000001-0000-0000-0000-000000000002', v_q, NULL, v_seed_run_id, 'accrual',
+      v_assets[2], v_q, NULL, v_seed_run_id, 'accrual',
       720000, 1050000, 30000, 360000, 40000, 210000,
       0, 0, 0, 470000,
       0.89, 11200000, 0,
@@ -106,7 +139,7 @@ BEGIN
       value_reason, occupancy_reason, debt_reason, noi_reason,
       inputs_hash
     ) VALUES (
-      'c0000001-0000-0000-0000-000000000003', v_q, NULL, v_seed_run_id, 'accrual',
+      v_assets[3], v_q, NULL, v_seed_run_id, 'accrual',
       980000, 1450000, 55000, 525000, 65000, 290000,
       0, 0, 0, 625000,
       0.87, 15800000, 0,
@@ -129,7 +162,7 @@ BEGIN
       value_reason, occupancy_reason, debt_reason, noi_reason,
       inputs_hash
     ) VALUES (
-      'c0000001-0000-0000-0000-000000000004', v_q, NULL, v_seed_run_id, 'accrual',
+      v_assets[4], v_q, NULL, v_seed_run_id, 'accrual',
       630000, 920000, 25000, 315000, 35000, 190000,
       0, 0, 0, 405000,
       0.91, 10000000, 0,
@@ -152,7 +185,7 @@ BEGIN
       value_reason, occupancy_reason, debt_reason, noi_reason,
       inputs_hash
     ) VALUES (
-      'c0000001-0000-0000-0000-000000000005', v_q, NULL, v_seed_run_id, 'accrual',
+      v_assets[5], v_q, NULL, v_seed_run_id, 'accrual',
       810000, 1160000, 40000, 390000, 50000, 240000,
       0, 0, 0, 520000,
       0.93, 12800000, 0,
@@ -177,7 +210,7 @@ BEGIN
       value_reason, occupancy_reason, debt_reason, noi_reason,
       inputs_hash
     ) VALUES (
-      'c0000001-0000-0000-0000-000000000006', v_q, NULL, v_seed_run_id, 'accrual',
+      v_assets[6], v_q, NULL, v_seed_run_id, 'accrual',
       1250000, 1800000, 0, 550000, 120000, 370000,
       85000, 40000, 0, 635000,
       0.88, 22000000, 0,
@@ -200,7 +233,7 @@ BEGIN
       value_reason, occupancy_reason, debt_reason, noi_reason,
       inputs_hash
     ) VALUES (
-      'c0000001-0000-0000-0000-000000000007', v_q, NULL, v_seed_run_id, 'accrual',
+      v_assets[7], v_q, NULL, v_seed_run_id, 'accrual',
       1420000, 1900000, 0, 480000, 90000, 420000,
       0, 0, 0, 910000,
       0.95, 23500000, 0,
@@ -223,7 +256,7 @@ BEGIN
       value_reason, occupancy_reason, debt_reason, noi_reason,
       inputs_hash
     ) VALUES (
-      'c0000001-0000-0000-0000-000000000008', v_q, NULL, v_seed_run_id, 'accrual',
+      v_assets[8], v_q, NULL, v_seed_run_id, 'accrual',
       1100000, 1650000, 0, 550000, 130000, 325000,
       90000, 45000, 0, 510000,
       0.85, 18200000, 0,
@@ -246,7 +279,7 @@ BEGIN
       value_reason, occupancy_reason, debt_reason, noi_reason,
       inputs_hash
     ) VALUES (
-      'c0000001-0000-0000-0000-000000000009', v_q, NULL, v_seed_run_id, 'accrual',
+      v_assets[9], v_q, NULL, v_seed_run_id, 'accrual',
       950000, 1350000, 0, 400000, 80000, 280000,
       0, 0, 0, 590000,
       0.90, 15700000, 0,
@@ -269,7 +302,7 @@ BEGIN
       value_reason, occupancy_reason, debt_reason, noi_reason,
       inputs_hash
     ) VALUES (
-      'c0000001-0000-0000-0000-000000000010', v_q, NULL, v_seed_run_id, 'accrual',
+      v_assets[10], v_q, NULL, v_seed_run_id, 'accrual',
       820000, 1170000, 35000, 385000, 45000, 245000,
       0, 0, 0, 530000,
       0.94, 13500000, 0,
@@ -292,7 +325,7 @@ BEGIN
       value_reason, occupancy_reason, debt_reason, noi_reason,
       inputs_hash
     ) VALUES (
-      'c0000001-0000-0000-0000-000000000011', v_q, NULL, v_seed_run_id, 'accrual',
+      v_assets[11], v_q, NULL, v_seed_run_id, 'accrual',
       760000, 1090000, 30000, 360000, 42000, 225000,
       0, 0, 0, 493000,
       0.92, 12400000, 0,
@@ -317,7 +350,7 @@ BEGIN
       value_reason, occupancy_reason, debt_reason, noi_reason,
       inputs_hash
     ) VALUES (
-      'c0000001-0000-0000-0000-000000000012', v_q, NULL, v_seed_run_id, 'accrual',
+      v_assets[12], v_q, NULL, v_seed_run_id, 'accrual',
       1100000, 1700000, 50000, 650000, 180000, 325000,
       0, 0, 0, 595000,
       0.86, 19000000, 0,
@@ -340,7 +373,7 @@ BEGIN
       value_reason, occupancy_reason, debt_reason, noi_reason,
       inputs_hash
     ) VALUES (
-      'c0000001-0000-0000-0000-000000000013', v_q, NULL, v_seed_run_id, 'accrual',
+      v_assets[13], v_q, NULL, v_seed_run_id, 'accrual',
       1380000, 1870000, 0, 490000, 130000, 410000,
       0, 0, 0, 840000,
       0.91, 22800000, 0,
@@ -363,7 +396,7 @@ BEGIN
       value_reason, occupancy_reason, debt_reason, noi_reason,
       inputs_hash
     ) VALUES (
-      'c0000001-0000-0000-0000-000000000014', v_q, NULL, v_seed_run_id, 'accrual',
+      v_assets[14], v_q, NULL, v_seed_run_id, 'accrual',
       930000, 1340000, 40000, 450000, 70000, 275000,
       0, 0, 0, 585000,
       0.90, 15400000, 0,
@@ -386,7 +419,7 @@ BEGIN
       value_reason, occupancy_reason, debt_reason, noi_reason,
       inputs_hash
     ) VALUES (
-      'c0000001-0000-0000-0000-000000000015', v_q, NULL, v_seed_run_id, 'accrual',
+      v_assets[15], v_q, NULL, v_seed_run_id, 'accrual',
       680000, 990000, 25000, 335000, 50000, 200000,
       0, 0, 0, 430000,
       0.88, 11200000, 0,
