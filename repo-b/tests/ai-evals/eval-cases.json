@@ -247,5 +247,56 @@
         "reject_contains_any": ["created successfully", "saved", "executed"]
       }
     ]
+  },
+  {
+    "id": "meridian-fund-clarification-carryforward",
+    "description": "REGRESSION: clarified fund selection must carry forward to follow-up turn",
+    "env_slug": "meridian",
+    "nav_path": null,
+    "prompts": [
+      {
+        "user": "which assets across our funds have been performing the best",
+        "allow_clarification": true
+      },
+      {
+        "user": "yes the first one",
+        "require_contains_any": ["selected", "Got it", "Fund", "fund"],
+        "allow_clarification": true
+      },
+      {
+        "user": "show me the fund summary",
+        "require_contains_any": ["Fund", "IRR", "TVPI", "NAV", "performance", "summary"],
+        "reject_contains_any": ["Not available in the current context"]
+      }
+    ]
+  },
+  {
+    "id": "meridian-write-requires-confirmation",
+    "description": "Write intent must produce confirmation, never silent execution",
+    "env_slug": "meridian",
+    "nav_path": null,
+    "prompts": [
+      {
+        "user": "update the occupancy to 92 percent",
+        "require_contains_any": ["confirm", "proceed", "update", "change"],
+        "reject_contains_any": ["updated successfully", "saved", "done"]
+      }
+    ]
+  },
+  {
+    "id": "novendor-no-meridian-bleed",
+    "description": "Novendor environment must not leak Meridian fund data",
+    "env_slug": "novendor",
+    "nav_path": "/lab/env/env-novendor",
+    "prompts": [
+      {
+        "user": "Show me the fund performance data",
+        "require_contains_any": [
+          "not available", "no fund", "Novendor",
+          "cannot determine", "unavailable"
+        ],
+        "reject_contains_any": ["Meridian", "Fund One", "Fund Two", "IGF"]
+      }
+    ]
   }
 ]
