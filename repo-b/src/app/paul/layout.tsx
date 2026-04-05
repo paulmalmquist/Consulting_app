@@ -35,7 +35,7 @@ export const metadata: Metadata = {
 export default function PaulLayout({ children }: { children: React.ReactNode }) {
   // Standalone public layout — no auth shell, no DomainEnvProvider, no sidebar
   return (
-    <div className="min-h-screen" style={{ background: "#120d08" }}>
+    <div className="min-h-screen" style={{ background: "var(--ros-bg, #120d08)" }}>
       {children}
     </div>
   );

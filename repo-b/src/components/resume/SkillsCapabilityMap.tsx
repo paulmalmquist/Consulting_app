@@ -138,10 +138,11 @@ export default function SkillsCapabilityMap() {
   return (
     <div className="pt-3">
       <p
-        className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.1em]"
-        style={{ color: "var(--ros-text-muted)" }}
+        className="resume-label mb-2.5 text-[10px] tracking-[0.2em]"
+        style={{ color: "var(--ros-text-dim)" }}
       >
-        Relevant Skills
+        <span style={{ color: "var(--ros-text)" }}>Skills</span>{" "}
+        &amp; Capabilities
       </p>
       <div className="grid grid-cols-6 gap-x-2 gap-y-3 md:flex md:flex-wrap md:gap-3">
         {SKILLS.map((skill) => {
@@ -152,26 +153,31 @@ export default function SkillsCapabilityMap() {
               type="button"
               onClick={() => handleSkillClick(skill.id)}
               title={skill.name}
-              className={`group relative flex flex-col items-center gap-1.5 rounded-lg p-2 transition ${
-                isHighlighted
-                  ? "bg-sky-400/10 ring-1 ring-sky-400/30"
-                  : "bg-white/[0.06] hover:bg-white/[0.10]"
-              }`}
+              className="group relative flex flex-col items-center gap-1.5 rounded-lg p-2 transition"
+              style={{
+                background: isHighlighted
+                  ? "rgba(56,189,248,0.10)"
+                  : "var(--ros-pill-bg, rgba(255,255,255,0.07))",
+                boxShadow: isHighlighted ? "inset 0 0 0 1px rgba(56,189,248,0.30)" : "none",
+              }}
             >
               <div
-                className={`transition ${
-                  isHighlighted
-                    ? "text-bm-text"
-                    : "text-bm-muted group-hover:text-bm-text"
-                }`}
-                style={isHighlighted ? { color: skill.color } : undefined}
+                className="transition"
+                style={{
+                  color: isHighlighted
+                    ? skill.color
+                    : "var(--ros-icon-inactive, rgba(210,195,175,0.70))",
+                }}
               >
                 <SkillLogo skillId={skill.id} size={28} />
               </div>
               <span
-                className={`text-[9px] font-medium uppercase tracking-[0.08em] transition md:text-[10px] ${
-                  isHighlighted ? "text-bm-text/90" : "text-bm-muted group-hover:text-bm-text"
-                }`}
+                className="text-[9px] font-medium uppercase tracking-[0.08em] transition md:text-[10px]"
+                style={{
+                  color: isHighlighted
+                    ? "var(--ros-text, rgba(255,255,255,0.90))"
+                    : "var(--ros-text-dim, rgba(255,255,255,0.60))",
+                }}
               >
                 {skill.shortName}
               </span>

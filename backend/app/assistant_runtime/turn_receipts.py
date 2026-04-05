@@ -119,6 +119,8 @@ class ContextReceipt(BaseModel):
     entity_id: str | None = None
     resolution_status: ContextResolutionStatus
     notes: list[str] = Field(default_factory=list)
+    inherited_entity_id: str | None = None
+    inherited_entity_source: str | None = None
 
 
 class SkillSelection(BaseModel):
@@ -230,6 +232,7 @@ class TurnReceipt(BaseModel):
     pending_action: PendingActionReceipt | None = None
     status: TurnStatus
     degraded_reason: DegradedReason | None = None
+    quality_gates: list[dict[str, Any]] | None = None
 
 
 _PERMISSION_ORDER: dict[PermissionMode, int] = {

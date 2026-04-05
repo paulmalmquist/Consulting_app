@@ -118,7 +118,7 @@ function SystemCard({
           ? "rgba(200,146,58,0.55)"
           : isRelatedToSkill
             ? "rgba(96,144,176,0.35)"
-            : "rgba(200,146,58,0.22)",
+            : "var(--ros-border, rgba(200,146,58,0.30))",
       }}
     >
       <div
@@ -160,9 +160,9 @@ function SystemCard({
                   key={lbl}
                   className="resume-label rounded px-1.5 py-0.5 text-[9px] tracking-[0.18em]"
                   style={{
-                    color: "var(--ros-text-muted, #e4d0b4)",
-                    border: "1px solid rgba(180,160,120,0.45)",
-                    background: "rgba(255,255,255,0.04)",
+                    color: "var(--ros-text-muted, #d8c4a8)",
+                    border: "1px solid var(--ros-pill-border, rgba(180,160,120,0.50))",
+                    background: "var(--ros-pill-bg, rgba(255,255,255,0.07))",
                   }}
                 >
                   {lbl}
@@ -186,9 +186,9 @@ function SystemCard({
                 <li
                   key={bullet}
                   className="flex items-start gap-2 text-[10px] leading-snug tracking-[0.03em]"
-                  style={{ color: "rgba(225,210,190,0.80)" }}
+                  style={{ color: "var(--ros-text-muted, rgba(225,210,190,0.85))" }}
                 >
-                  <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-[rgba(210,190,160,0.55)]" />
+                  <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full" style={{ background: "var(--ros-text-dim, rgba(210,190,160,0.65))" }} />
                   {bullet}
                 </li>
               ))}

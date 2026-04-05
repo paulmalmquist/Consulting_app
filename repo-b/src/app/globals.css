@@ -265,6 +265,7 @@
 /* ─── Resume OS: cinematic editorial skin ─────────────────────────────────── */
 /* Scoped to .resume-os so it never bleeds into the rest of the platform.      */
 
+/* Dark mode (default) */
 .resume-os {
   --ros-bg:            #080604;
   --ros-bg-2:          #050403;
@@ -273,13 +274,43 @@
   --ros-border-light:  rgba(200, 146, 58, 0.20);
   --ros-text-bright:   #fff8ec;
   --ros-text:          #f5e8d0;
-  --ros-text-muted:    #e4d0b4;
-  --ros-text-dim:      #c8b89e;
+  --ros-text-muted:    #d8c4a8;
+  --ros-text-dim:      #b8a890;
   --ros-accent-warm:   #d05530;
   --ros-accent-cool:   #6090b0;
   --ros-accent-gold:   #d49840;
+  --ros-chart-label:   rgba(225, 215, 200, 0.88);
+  --ros-chart-grid:    rgba(255, 255, 255, 0.10);
+  --ros-chart-legend:  rgba(215, 200, 180, 0.82);
+  --ros-pill-bg:       rgba(255, 255, 255, 0.07);
+  --ros-pill-border:   rgba(180, 160, 120, 0.50);
+  --ros-icon-inactive: rgba(210, 195, 175, 0.70);
+  --ros-card-bg:       rgba(16, 12, 8, 0.65);
   --ros-font-editorial: var(--font-editorial, "Georgia", serif);
   --ros-font-label:     var(--font-label, "system-ui", sans-serif);
+}
+
+/* Light mode */
+html[data-theme="light"] .resume-os {
+  --ros-bg:            #f8f5f0;
+  --ros-bg-2:          #f0ebe4;
+  --ros-surface:       rgba(255, 252, 248, 0.96);
+  --ros-border:        rgba(160, 120, 60, 0.28);
+  --ros-border-light:  rgba(160, 120, 60, 0.16);
+  --ros-text-bright:   #1a1510;
+  --ros-text:          #2c2418;
+  --ros-text-muted:    #5c4e3c;
+  --ros-text-dim:      #7a6c5a;
+  --ros-accent-warm:   #b83d1c;
+  --ros-accent-cool:   #3a6e90;
+  --ros-accent-gold:   #a87828;
+  --ros-chart-label:   rgba(44, 36, 24, 0.80);
+  --ros-chart-grid:    rgba(0, 0, 0, 0.08);
+  --ros-chart-legend:  rgba(60, 50, 36, 0.75);
+  --ros-pill-bg:       rgba(0, 0, 0, 0.04);
+  --ros-pill-border:   rgba(160, 140, 100, 0.40);
+  --ros-icon-inactive: rgba(90, 78, 60, 0.65);
+  --ros-card-bg:       rgba(255, 250, 244, 0.80);
 }
 
 .resume-os {

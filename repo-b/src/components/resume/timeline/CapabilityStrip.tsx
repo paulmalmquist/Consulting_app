@@ -1,35 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  Database,
-  BarChart3,
-  Code,
-  Layers,
-  PieChart,
-  Cloud,
-  Brain,
-} from "lucide-react";
+import { SkillLogo } from "../SkillDetailView";
 import {
   CAPABILITIES,
   TIMELINE_EVENTS,
   type Capability,
   type CompanyId,
 } from "./timelineData";
-
-// ---------------------------------------------------------------------------
-// Icon map
-// ---------------------------------------------------------------------------
-
-const ICON_MAP: Record<string, React.FC<{ size?: number; className?: string; style?: React.CSSProperties }>> = {
-  database: Database,
-  "bar-chart-3": BarChart3,
-  code: Code,
-  layers: Layers,
-  "pie-chart": PieChart,
-  cloud: Cloud,
-  brain: Brain,
-};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -61,7 +39,6 @@ export default function CapabilityStrip({
   return (
     <div className="flex items-center justify-center gap-1.5 md:gap-3">
       {CAPABILITIES.map((capability) => {
-        const Icon = ICON_MAP[capability.icon];
         const isSelected = selectedCapabilityId === capability.id;
         const isActive =
           activeCapabilityIds.size === 0 || activeCapabilityIds.has(capability.id);
@@ -79,7 +56,7 @@ export default function CapabilityStrip({
               isSelected
                 ? "bg-white/12 shadow-[0_0_0_1px_rgba(255,255,255,0.2)]"
                 : isDimmed
-                  ? "opacity-45"
+                  ? "opacity-55"
                   : "hover:bg-white/8"
             }`}
           >
@@ -89,32 +66,26 @@ export default function CapabilityStrip({
               style={{
                 backgroundColor: isSelected
                   ? `${capability.color}25`
-                  : "rgba(255,255,255,0.04)",
+                  : "var(--ros-pill-bg, rgba(255,255,255,0.07))",
                 border: isSelected
                   ? `1px solid ${capability.color}40`
                   : "1px solid transparent",
+                color: isSelected || isActive ? capability.color : "var(--ros-icon-inactive, rgba(210,195,175,0.70))",
               }}
             >
-              {Icon && (
-                <Icon
-                  size={isMobileCheck() ? 20 : 22}
-                  className="transition-colors"
-                  style={{
-                    color: isSelected || isActive ? capability.color : "rgba(200,190,175,0.65)",
-                  }}
-                />
-              )}
+              <SkillLogo skillId={capability.id} size={isMobileCheck() ? 20 : 22} />
             </div>
 
             {/* Label */}
             <span
-              className={`text-[10px] font-medium leading-none transition-colors md:text-[11px] ${
-                isSelected
-                  ? "text-white"
+              className="text-[10px] font-medium leading-none transition-colors md:text-[11px]"
+              style={{
+                color: isSelected
+                  ? "var(--ros-text-bright, #fff)"
                   : isActive
-                    ? "text-white/85"
-                    : "text-white/45"
-              }`}
+                    ? "var(--ros-text-muted, rgba(255,255,255,0.85))"
+                    : "var(--ros-text-dim, rgba(255,255,255,0.55))",
+              }}
             >
               {capability.name}
             </span>

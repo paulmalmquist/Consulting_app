@@ -229,11 +229,12 @@ export default function SkillDetailView({ skill, onBack, isHighlighted }: SkillD
         {skill.bullets.map((bullet) => (
           <li
             key={bullet.text}
-            className="flex items-start gap-2 text-[12.5px] leading-[1.4] text-bm-muted"
+            className="flex items-start gap-2 text-[12.5px] leading-[1.4]"
+            style={{ color: "var(--ros-text-muted, hsl(215,12%,72%))" }}
           >
             <span
               className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full"
-              style={{ backgroundColor: skill.color, opacity: 0.6 }}
+              style={{ backgroundColor: skill.color, opacity: 0.75 }}
             />
             <span>{bullet.text}</span>
           </li>
@@ -245,7 +246,12 @@ export default function SkillDetailView({ skill, onBack, isHighlighted }: SkillD
         {skill.capabilityTags.map((tag) => (
           <span
             key={tag}
-            className="rounded-full border border-bm-border/25 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wider text-bm-muted2"
+            className="rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider"
+            style={{
+              border: "1px solid var(--ros-pill-border, rgba(180,160,120,0.40))",
+              background: "var(--ros-pill-bg, rgba(255,255,255,0.07))",
+              color: "var(--ros-text-dim, hsl(215,10%,58%))",
+            }}
           >
             {tag.replace(/_/g, " ")}
           </span>

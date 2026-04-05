@@ -59,8 +59,8 @@ export default function TimelineEngine() {
     <section
       className="relative overflow-hidden rounded-2xl md:rounded-3xl"
       style={{
-        background: "rgba(14,10,6,0.6)",
-        border: "1px solid rgba(200,146,58,0.18)",
+        background: "var(--ros-card-bg, rgba(14,10,6,0.6))",
+        border: "1px solid var(--ros-border-light, rgba(200,146,58,0.18))",
         boxShadow: "0 32px 80px -40px rgba(4,2,1,0.9)",
       }}
     >

@@ -152,8 +152,8 @@ function StackedTooltip({
         <div className="mt-1.5 border-t border-white/10 pt-1.5">
           <p className="text-[11px] font-semibold text-white">{nearSystem.name}</p>
           {nearSystem.metrics.slice(0, 2).map((m, i) => (
-            <p key={i} className="mt-0.5 text-[10px] text-white/60">
-              {m.label}: <span className="font-medium text-white/80">{m.value}</span>
+            <p key={i} className="mt-0.5 text-[10px] text-white/70">
+              {m.label}: <span className="font-medium text-white/90">{m.value}</span>
             </p>
           ))}
         </div>
@@ -168,13 +168,13 @@ function StackedTooltip({
             <span
               className="text-[10px]"
               style={{
-                color: selectedCapabilityId === s.id ? s.color : "rgba(210,200,185,0.7)",
+                color: selectedCapabilityId === s.id ? s.color : "var(--ros-chart-legend, rgba(215,200,180,0.82))",
                 fontWeight: selectedCapabilityId === s.id ? 600 : 400,
               }}
             >
               {s.name}
             </span>
-            <span className="ml-auto text-[10px] text-white/40">{s.value}</span>
+            <span className="ml-auto text-[10px] text-white/55">{s.value}</span>
           </div>
         ))}
       </div>
@@ -275,7 +275,7 @@ function MilestoneDots({
                 x={cx}
                 y={cy - r - 7}
                 textAnchor="middle"
-                fill={isFiltered ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.8)"}
+                fill={isFiltered ? "var(--ros-text-dim, rgba(255,255,255,0.40))" : "var(--ros-chart-label, rgba(225,215,200,0.92))"}
                 fontSize={11}
                 fontWeight={isSelected ? 600 : 400}
               >
@@ -360,7 +360,7 @@ function PhaseLabels({
                 x={midX}
                 y={chartTop - 14}
                 textAnchor="middle"
-                fill={isSelected ? company.primary : "rgba(210,200,185,0.85)"}
+                fill={isSelected ? company.primary : "var(--ros-chart-label, rgba(225,215,200,0.90))"}
                 fontSize={11}
                 fontWeight={isSelected ? 600 : 400}
               >
@@ -467,7 +467,7 @@ function SkillLegend({
             type="button"
             onClick={() => onSelect(isSelected ? null : id)}
             className="flex items-center gap-1.5 transition-opacity"
-            style={{ opacity: isDimmed ? 0.35 : 1 }}
+            style={{ opacity: isDimmed ? 0.45 : 1 }}
           >
             <span
               className="h-2 w-2 shrink-0 rounded-sm"
@@ -475,7 +475,7 @@ function SkillLegend({
             />
             <span
               className="resume-label text-[9px] tracking-[0.16em]"
-              style={{ color: isSelected ? SKILL_COLORS[id] : "rgba(200,186,168,0.7)" }}
+              style={{ color: isSelected ? SKILL_COLORS[id] : "var(--ros-chart-legend, rgba(215,200,180,0.82))" }}
             >
               {cap.name}
             </span>
@@ -606,7 +606,7 @@ export default function CompoundingCurve({
             </defs>
 
             <CartesianGrid
-              stroke="rgba(255,255,255,0.09)"
+              stroke="var(--ros-chart-grid, rgba(255,255,255,0.10))"
               strokeDasharray="3 8"
               horizontal
               vertical={false}
@@ -627,7 +627,7 @@ export default function CompoundingCurve({
               type="number"
               domain={["dataMin", "dataMax"]}
               tickFormatter={tickLabel}
-              tick={{ fill: "rgba(210,200,185,0.75)", fontSize: isMobile ? 11 : 12 }}
+              tick={{ fill: "var(--ros-chart-label, rgba(225,215,200,0.88))", fontSize: isMobile ? 11 : 12 }}
               tickLine={false}
               axisLine={false}
               minTickGap={isMobile ? 60 : 80}

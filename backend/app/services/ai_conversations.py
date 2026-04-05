@@ -20,6 +20,7 @@ _OPTIONAL_CONVERSATION_COLUMNS = (
     "launch_source",
     "context_summary",
     "last_route",
+    "thread_entity_state",
 )
 
 
@@ -77,6 +78,7 @@ def _normalize_conversation_row(row: dict[str, Any] | None) -> dict[str, Any] | 
     normalized.setdefault("launch_source", None)
     normalized.setdefault("context_summary", None)
     normalized.setdefault("last_route", None)
+    normalized.setdefault("thread_entity_state", None)
     normalized.setdefault("actor", "anonymous")
     return normalized
 
@@ -232,3 +234,109 @@ def archive_conversation(*, conversation_id: UUID) -> bool:
             (str(conversation_id),),
         )
         return cur.fetchone() is not None
+
+
+# ── Thread entity state ──────────────────────────────────────────────
+
+_THREAD_ENTITY_STATE_BOOTSTRAPPED = False
+
+_MAX_RESOLVED_ENTITIES = 10
+
+
+def _ensure_thread_entity_state_column() -> None:
+    """Lazily add thread_entity_state JSONB column if missing."""
+    global _THREAD_ENTITY_STATE_BOOTSTRAPPED
+    if _THREAD_ENTITY_STATE_BOOTSTRAPPED:
+        return
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """ALTER TABLE ai_conversations
+                   ADD COLUMN IF NOT EXISTS thread_entity_state JSONB"""
+            )
+        _THREAD_ENTITY_STATE_BOOTSTRAPPED = True
+        # Bust the cached column list so the column is recognized
+        _conversation_table_columns.cache_clear()
+    except Exception:
+        pass
+
+
+def get_thread_entity_state(conversation_id: str | UUID) -> dict[str, Any] | None:
+    """Read thread entity state for a conversation."""
+    _ensure_thread_entity_state_column()
+    if "thread_entity_state" not in _conversation_table_columns():
+        return None
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """SELECT thread_entity_state
+                   FROM ai_conversations
+                   WHERE conversation_id = %s""",
+                (str(conversation_id),),
+            )
+            row = cur.fetchone()
+            if row is None:
+                return None
+            raw = row["thread_entity_state"] if isinstance(row, dict) else row[0]
+            if raw is None:
+                return None
+            import json
+            return json.loads(raw) if isinstance(raw, str) else raw
+    except Exception:
+        return None
+
+
+def update_thread_entity_state(
+    conversation_id: str | UUID,
+    *,
+    entity_type: str,
+    entity_id: str,
+    name: str | None = None,
+    source: str = "clarification",
+    turn_request_id: str | None = None,
+) -> None:
+    """Persist a resolved entity into the conversation's thread entity state.
+
+    Maintains a bounded list of resolved_entities (max 10, evicts oldest).
+    """
+    import json
+    from datetime import datetime, timezone
+
+    _ensure_thread_entity_state_column()
+    if "thread_entity_state" not in _conversation_table_columns():
+        return
+
+    current = get_thread_entity_state(conversation_id) or {}
+    entities = current.get("resolved_entities", [])
+
+    new_entry = {
+        "entity_type": entity_type,
+        "entity_id": entity_id,
+        "name": name,
+        "resolved_at": datetime.now(timezone.utc).isoformat(),
+        "source": source,
+        "turn_request_id": turn_request_id,
+    }
+
+    # Remove existing entry for same entity to avoid duplicates
+    entities = [
+        e for e in entities
+        if not (e.get("entity_type") == entity_type and e.get("entity_id") == entity_id)
+    ]
+    entities.append(new_entry)
+
+    # Cap at max entries, evict oldest
+    if len(entities) > _MAX_RESOLVED_ENTITIES:
+        entities = entities[-_MAX_RESOLVED_ENTITIES:]
+
+    state = {"resolved_entities": entities}
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """UPDATE ai_conversations
+                   SET thread_entity_state = %s, updated_at = now()
+                   WHERE conversation_id = %s""",
+                (json.dumps(state), str(conversation_id)),
+            )
+    except Exception:
+        pass
