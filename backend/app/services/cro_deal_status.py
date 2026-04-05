@@ -37,7 +37,6 @@ SELECT
   o.winston_angle,
   o.expected_close_date,
   o.created_at,
-  o.updated_at,
   a.crm_account_id,
   a.name                                  AS account_name,
   a.industry,

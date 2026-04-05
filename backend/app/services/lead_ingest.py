@@ -476,8 +476,8 @@ def _create_opportunity(
         """
         INSERT INTO crm_opportunity
           (tenant_id, business_id, crm_account_id, crm_pipeline_stage_id,
-           name, amount, status, thesis, pain, winston_angle, created_at, updated_at)
-        VALUES (%s, %s, %s, %s, %s, %s, 'open', %s, %s, %s, now(), now())
+           name, amount, status, thesis, pain, winston_angle, created_at)
+        VALUES (%s, %s, %s, %s, %s, %s, 'open', %s, %s, %s, now())
         RETURNING crm_opportunity_id
         """,
         (
