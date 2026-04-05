@@ -4,10 +4,9 @@ import Link from "next/link";
 import React from "react";
 import { usePathname } from "next/navigation";
 import { useEnv } from "@/components/EnvProvider";
-import ThemeToggle from "@/components/ThemeToggle";
+import AccountMenu from "@/components/AccountMenu";
 import { cn } from "@/lib/cn";
 import { buttonVariants } from "@/components/ui/buttonVariants";
-import { logoutPlatformSession } from "@/lib/platformSessionClient";
 
 function HomeIcon({ size = 18 }: { size?: number }) {
   return (
@@ -37,15 +36,10 @@ export default function AppShell({
   const { selectedEnv } = useEnv();
   const isImmersiveRoute = /^\/lab\/env\/[^/]+\/markets(\/|$)/.test(pathname);
 
-  const logout = async () => {
-    await logoutPlatformSession();
-  };
-
   return (
     <div className="min-h-screen bg-bm-bg text-bm-text flex flex-col">
       {!isImmersiveRoute ? (
         <header className="absolute top-0 right-0 z-50 flex items-center gap-3 p-4">
-          <ThemeToggle />
           <Link
             href="/app"
             className={cn(
@@ -57,15 +51,7 @@ export default function AppShell({
             <HomeIcon size={18} />
             Home
           </Link>
-          <button
-            onClick={logout}
-            className={cn(
-              buttonVariants({ variant: "secondary", size: "sm" }),
-              "rounded-lg px-4 py-2 text-sm"
-            )}
-          >
-            Sign out
-          </button>
+          <AccountMenu />
         </header>
       ) : null}
       <main className={cn("flex-1", isImmersiveRoute ? "overflow-y-auto" : "p-6 pt-14")}>
