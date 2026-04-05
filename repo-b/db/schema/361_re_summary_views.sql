@@ -246,7 +246,13 @@ FROM repe_asset a
 JOIN repe_property_asset pa ON pa.asset_id = a.asset_id
 JOIN repe_deal d ON d.deal_id = a.deal_id
 LEFT JOIN best_state bs ON bs.asset_id = a.asset_id
-LEFT JOIN re_loan_detail l ON l.asset_id = a.asset_id
+LEFT JOIN LATERAL (
+  SELECT loan.rate
+  FROM re_loan loan
+  WHERE loan.asset_id = a.asset_id
+  ORDER BY loan.created_at DESC, loan.id DESC
+  LIMIT 1
+) l ON true
 ORDER BY a.asset_id, bs.quarter DESC;
 
 -- ═══════════════════════════════════════════════════════════════════════
