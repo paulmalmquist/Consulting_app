@@ -23,6 +23,27 @@ WHERE NOT EXISTS (
   WHERE b.slug = seed.slug
 );
 
+INSERT INTO business (business_id, tenant_id, name, slug, region)
+SELECT
+  ab.business_id,
+  ab.tenant_id,
+  ab.name,
+  ab.slug,
+  ab.region
+FROM app.businesses ab
+WHERE ab.slug IN ('meridian-capital', 'stone-pds')
+  AND EXISTS (
+    SELECT 1
+    FROM tenant t
+    WHERE t.tenant_id = ab.tenant_id
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM business b
+    WHERE b.tenant_id = ab.tenant_id
+      AND b.slug = ab.slug
+  );
+
 WITH target AS (
   SELECT env_id
   FROM app.environments
@@ -104,8 +125,12 @@ WHERE NOT EXISTS (
 );
 
 INSERT INTO app.env_business_bindings (env_id, business_id)
-SELECT e.env_id, e.business_id
+SELECT e.env_id, b.business_id
 FROM app.environments e
+JOIN app.businesses ab
+  ON ab.business_id = e.business_id
+JOIN business b
+  ON b.tenant_id = ab.tenant_id
+ AND b.slug = ab.slug
 WHERE e.slug IN ('meridian', 'stone-pds')
-  AND e.business_id IS NOT NULL
-ON CONFLICT (env_id, business_id) DO NOTHING;
+ON CONFLICT (env_id) DO NOTHING;

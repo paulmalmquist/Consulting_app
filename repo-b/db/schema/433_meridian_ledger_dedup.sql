@@ -66,33 +66,37 @@ BEGIN
     AND partner_id = v_sovereign_id;
 
   -- Re-seed correct contributions for Sovereign Wealth Fund in MRF III
-  INSERT INTO re_capital_ledger_entry
-    (fund_id, partner_id, entry_type, amount, amount_base, effective_date, quarter, memo, source)
-  SELECT
-    v_mrf_fund,
-    v_sovereign_id,
-    'contribution',
-    amt,
-    amt,
-    dt::date,
-    qtr,
-    memo,
-    'generated'
-  FROM (VALUES
-    (25000000::numeric, '2025-01-15', '2025Q1', 'Capital call 1 - 2025Q1 (pro-rata 10.0%%)'),
-    (20000000::numeric, '2025-04-15', '2025Q2', 'Capital call 2 - 2025Q2 (pro-rata 10.0%%)'),
-    (15000000::numeric, '2025-07-15', '2025Q3', 'Capital call 3 - 2025Q3 (pro-rata 10.0%%)'),
-    (12000000::numeric, '2025-10-15', '2025Q4', 'Capital call 4 - 2025Q4 (pro-rata 10.0%%)'),
-    (8000000::numeric,  '2026-01-15', '2026Q1', 'Capital call 5 - 2026Q1 (pro-rata 10.0%%)'),
-    (5000000::numeric,  '2026-04-15', '2026Q2', 'Capital call 6 - 2026Q2 (pro-rata 10.0%%)')
-  ) AS v(amt, dt, qtr, memo)
-  WHERE NOT EXISTS (
-    SELECT 1 FROM re_capital_ledger_entry cle
-    WHERE cle.fund_id = v_mrf_fund
-      AND cle.partner_id = v_sovereign_id
-      AND cle.entry_type = 'contribution'
-      AND cle.effective_date = v.dt::date
-  );
+  IF v_sovereign_id IS NOT NULL THEN
+    INSERT INTO re_capital_ledger_entry
+      (fund_id, partner_id, entry_type, amount, amount_base, effective_date, quarter, memo, source)
+    SELECT
+      v_mrf_fund,
+      v_sovereign_id,
+      'contribution',
+      amt,
+      amt,
+      dt::date,
+      qtr,
+      memo,
+      'generated'
+    FROM (VALUES
+      (25000000::numeric, '2025-01-15', '2025Q1', 'Capital call 1 - 2025Q1 (pro-rata 10.0%%)'),
+      (20000000::numeric, '2025-04-15', '2025Q2', 'Capital call 2 - 2025Q2 (pro-rata 10.0%%)'),
+      (15000000::numeric, '2025-07-15', '2025Q3', 'Capital call 3 - 2025Q3 (pro-rata 10.0%%)'),
+      (12000000::numeric, '2025-10-15', '2025Q4', 'Capital call 4 - 2025Q4 (pro-rata 10.0%%)'),
+      (8000000::numeric,  '2026-01-15', '2026Q1', 'Capital call 5 - 2026Q1 (pro-rata 10.0%%)'),
+      (5000000::numeric,  '2026-04-15', '2026Q2', 'Capital call 6 - 2026Q2 (pro-rata 10.0%%)')
+    ) AS v(amt, dt, qtr, memo)
+    WHERE NOT EXISTS (
+      SELECT 1 FROM re_capital_ledger_entry cle
+      WHERE cle.fund_id = v_mrf_fund
+        AND cle.partner_id = v_sovereign_id
+        AND cle.entry_type = 'contribution'
+        AND cle.effective_date = v.dt::date
+    );
+  ELSE
+    RAISE NOTICE '433: Sovereign Wealth Fund partner not found, skipping MRF III correction block';
+  END IF;
 
   -- ═══════════════════════════════════════════════════════════════════════
   -- III. IGF VII fund_quarter_state — update with corrected totals.

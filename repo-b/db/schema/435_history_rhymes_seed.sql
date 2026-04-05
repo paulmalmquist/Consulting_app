@@ -337,9 +337,9 @@ INSERT INTO public.analog_matches (query_date, asset_class, matches, source)
 VALUES (
   '2026-03-28',
   'multi',
-  (SELECT jsonb_build_array(
+  jsonb_build_array(
     jsonb_build_object(
-      'episode_id', id::text,
+      'episode_id', (SELECT id::text FROM public.episodes WHERE name LIKE '2022 Luna%' LIMIT 1),
       'episode_name', '2022 Luna/3AC/FTX Crypto Contagion Cascade',
       'rhyme_score', 0.78,
       'cosine_sim', 0.84,
@@ -349,7 +349,7 @@ VALUES (
       'key_divergence', 'labor market holding longer this cycle',
       'rank', 1
     )
-   FROM public.episodes WHERE name LIKE '2022 Luna%' LIMIT 1)
+  )
   || jsonb_build_array(
     jsonb_build_object(
       'episode_name', '2007-2009 Global Financial Crisis',

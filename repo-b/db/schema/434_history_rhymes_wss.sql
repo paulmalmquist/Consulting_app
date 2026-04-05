@@ -191,7 +191,7 @@ CREATE TABLE IF NOT EXISTS public.wss_reality_signals (
     signal_type VARCHAR(100),
     metric_name VARCHAR(200),
     value DECIMAL(12,4),
-    trend_direction VARCHAR(10),
+    trend_direction VARCHAR(30),
     acceleration_score DECIMAL(8,4),
     acceleration_change DECIMAL(8,4),
     geographic_scope VARCHAR(100),
@@ -200,6 +200,9 @@ CREATE TABLE IF NOT EXISTS public.wss_reality_signals (
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE IF EXISTS public.wss_reality_signals
+    ALTER COLUMN trend_direction TYPE VARCHAR(30);
 
 CREATE INDEX IF NOT EXISTS idx_reality_signals_date ON public.wss_reality_signals(signal_date);
 CREATE INDEX IF NOT EXISTS idx_reality_signals_domain ON public.wss_reality_signals(domain);
@@ -212,12 +215,15 @@ CREATE TABLE IF NOT EXISTS public.wss_data_signals (
     reported_value DECIMAL(12,4),
     expected_value DECIMAL(12,4),
     surprise_score DECIMAL(8,4),
-    trend_direction VARCHAR(10),
+    trend_direction VARCHAR(30),
     revision_history JSONB,
     source VARCHAR(200) DEFAULT 'seed',
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE IF EXISTS public.wss_data_signals
+    ALTER COLUMN trend_direction TYPE VARCHAR(30);
 
 CREATE INDEX IF NOT EXISTS idx_data_signals_date ON public.wss_data_signals(signal_date);
 
@@ -253,10 +259,13 @@ CREATE TABLE IF NOT EXISTS public.wss_positioning_signals (
     value_numeric DECIMAL(12,4),
     crowding_score DECIMAL(5,2),
     extreme_flag BOOLEAN DEFAULT FALSE,
-    trend_direction VARCHAR(10),
+    trend_direction VARCHAR(30),
     source VARCHAR(200) DEFAULT 'seed',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE IF EXISTS public.wss_positioning_signals
+    ALTER COLUMN trend_direction TYPE VARCHAR(30);
 
 CREATE INDEX IF NOT EXISTS idx_positioning_signals_date ON public.wss_positioning_signals(signal_date);
 CREATE INDEX IF NOT EXISTS idx_positioning_signals_asset ON public.wss_positioning_signals(asset);

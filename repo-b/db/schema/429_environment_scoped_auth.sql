@@ -71,6 +71,39 @@ WHERE NOT EXISTS (
   WHERE b.slug = seed.slug
 );
 
+INSERT INTO tenant (tenant_id, name, slug)
+SELECT
+  at.tenant_id,
+  at.name,
+  trim(both '-' FROM regexp_replace(lower(at.name), '[^a-z0-9]+', '-', 'g'))
+FROM app.tenants at
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM tenant t
+  WHERE t.tenant_id = at.tenant_id
+);
+
+INSERT INTO business (business_id, tenant_id, name, slug, region)
+SELECT
+  ab.business_id,
+  ab.tenant_id,
+  ab.name,
+  ab.slug,
+  ab.region
+FROM app.businesses ab
+WHERE ab.slug IN ('novendor', 'floyorker', 'resume-admin', 'trading-platform')
+  AND EXISTS (
+    SELECT 1
+    FROM tenant t
+    WHERE t.tenant_id = ab.tenant_id
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM business b
+    WHERE b.tenant_id = ab.tenant_id
+      AND b.slug = ab.slug
+  );
+
 WITH target AS (
   SELECT env_id
   FROM app.environments
@@ -205,11 +238,15 @@ WHERE NOT EXISTS (
 );
 
 INSERT INTO app.env_business_bindings (env_id, business_id)
-SELECT e.env_id, e.business_id
+SELECT e.env_id, b.business_id
 FROM app.environments e
+JOIN app.businesses ab
+  ON ab.business_id = e.business_id
+JOIN business b
+  ON b.tenant_id = ab.tenant_id
+ AND b.slug = ab.slug
 WHERE e.slug IN ('novendor', 'floyorker', 'resume', 'trading')
-  AND e.business_id IS NOT NULL
-ON CONFLICT (env_id, business_id) DO NOTHING;
+ON CONFLICT (env_id) DO NOTHING;
 
 ALTER TABLE IF EXISTS app.environments
   ALTER COLUMN slug SET NOT NULL;
