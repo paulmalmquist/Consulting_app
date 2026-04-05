@@ -112,6 +112,98 @@ jobs:
       - name: Unit tests
         run: npm run test:unit
 
+  db-schema-gate:
+    name: DB Schema Gate (apply + verify)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.5
+        env:
+          POSTGRES_DB: app
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d app"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: repo-b/package-lock.json
+
+      - name: Install repo-b deps
+        working-directory: repo-b
+        run: npm ci
+
+      - name: Apply schema bundle
+        run: make db:migrate
+
+      - name: Apply schema bundle again (idempotency check)
+        run: make db:migrate
+
+      - name: Verify schema + seed baseline
+        run: make db:verify
+
+      - name: Backend schema contract check
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt -q
+          python scripts/check_winston_schema.py
+
+  production-smoke:
+    name: Production Smoke Test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [backend-lint, frontend-quality, db-schema-gate]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run Winston production smoke test
+        run: python scripts/smoke_companion_boot.py --json-only > smoke-result.json || true
+
+      - name: Check smoke result
+        run: |
+          python3 -c "
+          import json, sys
+          with open('smoke-result.json') as f:
+              r = json.load(f)
+          s = r.get('summary', {})
+          print(f'Readiness: {\"PASS\" if s.get(\"readiness\") else \"FAIL\"}')
+          print(f'Schema:    {\"PASS\" if s.get(\"schema_ok\") else \"FAIL\"}')
+          print(f'Bootstrap: {\"PASS\" if s.get(\"bootstrap_ok\") else \"FAIL\"}')
+          h = s.get('prompts_healthy', 0)
+          t = s.get('prompts_total', 0)
+          print(f'Prompts:   {h}/{t} healthy')
+          print(f'Overall:   {r.get(\"result\", \"UNKNOWN\")}')
+          # Don't fail the CI job — smoke is observational for now
+          # When ready to make it a hard gate, uncomment:
+          # if not r.get('passed'): sys.exit(1)
+          "
+
+      - name: Upload smoke result
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-test-result
+          path: smoke-result.json
+
   winston-first-mile:
     name: Winston First-Mile Release Gate
     runs-on: ubuntu-latest

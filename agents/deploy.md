@@ -221,6 +221,26 @@ Otherwise say:
 - "deployment failed at step X"
 - or "runtime unhealthy despite code deploy"
 
+## Continuous monitoring
+
+After any deploy, the system has three layers of validation that run independently:
+
+1. **CI pipeline** (`.github/workflows/ci.yml`):
+   - `db-schema-gate`: applies schema to ephemeral Postgres, verifies idempotency, runs `check_winston_schema.py`
+   - `production-smoke`: runs `smoke_companion_boot.py` on push to main (observational, not blocking yet)
+   - Artifacts: `smoke-test-result` JSON uploaded per run
+
+2. **Health monitor** (`scripts/winston_health_monitor.py`):
+   - Runs smoke test and stores results in `artifacts/production-loop/health-checks/`
+   - `--report` shows trend analysis with regression detection
+   - Hourly cron checks production health between deploys
+
+3. **Deploy receipt** (`backend/scripts/generate_deploy_receipt.py`):
+   - Captures readiness, schema contract, Winston readiness per deploy
+   - Stored in `artifacts/deploy-receipts/`
+
+Reference: `automated_testing_strategy.md` documents the full target-state architecture including ephemeral DB gates, post-deploy validation, rollback procedures, and property-based testing priorities.
+
 ## Important behavioral rules
 
 - Do not confuse local passing tests with production readiness.
