@@ -115,6 +115,11 @@ export type SkillDefinition = {
   retrieval_policy: RetrievalPolicy;
   confirmation_mode: ConfirmationMode;
   response_blocks: string[];
+  preferred_loop_pattern?: string | null;
+  default_mode?: string | null;
+  requires_quality_gate?: boolean;
+  requires_grounding?: boolean | null;
+  max_tool_calls?: number | null;
 };
 
 export type AssistantSelectedEntity = {

@@ -109,6 +109,12 @@ class SkillDefinition(BaseModel):
     retrieval_policy: RetrievalPolicy
     confirmation_mode: ConfirmationMode
     response_blocks: list[str]
+    # Harness metadata (optional, backward-compatible)
+    preferred_loop_pattern: str | None = None
+    default_mode: str | None = None
+    requires_quality_gate: bool = True
+    requires_grounding: bool | None = None
+    max_tool_calls: int | None = None
 
 
 class ContextReceipt(BaseModel):

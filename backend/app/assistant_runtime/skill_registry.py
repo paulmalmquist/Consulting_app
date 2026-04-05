@@ -31,6 +31,8 @@ SKILLS: tuple[SkillDefinition, ...] = (
         retrieval_policy=RetrievalPolicy.LIGHT,
         confirmation_mode=ConfirmationMode.NONE,
         response_blocks=["markdown_text", "citations", "tool_activity"],
+        preferred_loop_pattern="investigate",
+        max_tool_calls=3,
     ),
     SkillDefinition(
         id="explain_metric",
@@ -53,6 +55,8 @@ SKILLS: tuple[SkillDefinition, ...] = (
         retrieval_policy=RetrievalPolicy.LIGHT,
         confirmation_mode=ConfirmationMode.NONE,
         response_blocks=["markdown_text", "citations"],
+        preferred_loop_pattern="investigate",
+        max_tool_calls=3,
     ),
     SkillDefinition(
         id="run_analysis",
@@ -77,6 +81,9 @@ SKILLS: tuple[SkillDefinition, ...] = (
         retrieval_policy=RetrievalPolicy.FULL,
         confirmation_mode=ConfirmationMode.NONE,
         response_blocks=["markdown_text", "citations", "workflow_result"],
+        preferred_loop_pattern="analyze",
+        requires_grounding=True,
+        max_tool_calls=5,
     ),
     SkillDefinition(
         id="generate_lp_summary",
@@ -95,6 +102,9 @@ SKILLS: tuple[SkillDefinition, ...] = (
         retrieval_policy=RetrievalPolicy.FULL,
         confirmation_mode=ConfirmationMode.NONE,
         response_blocks=["markdown_text", "workflow_result", "citations"],
+        preferred_loop_pattern="analyze",
+        requires_grounding=True,
+        max_tool_calls=5,
     ),
     SkillDefinition(
         id="create_entity",
@@ -117,6 +127,8 @@ SKILLS: tuple[SkillDefinition, ...] = (
         retrieval_policy=RetrievalPolicy.NONE,
         confirmation_mode=ConfirmationMode.REQUIRED,
         response_blocks=["markdown_text", "confirmation", "error"],
+        preferred_loop_pattern="execute",
+        max_tool_calls=2,
     ),
 )
 
