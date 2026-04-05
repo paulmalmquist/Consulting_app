@@ -482,6 +482,17 @@ async def run_request_lifecycle(
         yield _sse("error", {"message": "OPENAI_API_KEY not configured"})
         return
 
+    # Load thread entity state for conversation context carry-forward
+    thread_entity_state: dict[str, Any] | None = None
+    if conversation_id:
+        try:
+            thread_entity_state = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: convo_svc.get_thread_entity_state(str(conversation_id)),
+            )
+        except Exception:
+            thread_entity_state = None
+
     context_started = time.perf_counter()
     runtime_context = resolve_runtime_context(
         context_envelope=context_envelope,
@@ -490,6 +501,7 @@ async def run_request_lifecycle(
         conversation_id=str(conversation_id) if conversation_id else None,
         actor=actor,
         message=message,
+        thread_entity_state=thread_entity_state,
     )
     timings["context_resolution_ms"] = int((time.perf_counter() - context_started) * 1000)
     normalized_envelope = runtime_context.envelope
@@ -1104,6 +1116,32 @@ async def run_request_lifecycle(
             )
         except Exception:
             pass
+
+        # Persist resolved entity to thread state for conversation carry-forward
+        if (
+            turn_receipt.status != TurnStatus.FAILED
+            and resolved_scope.entity_id
+            and context_receipt.resolution_status == ContextResolutionStatus.RESOLVED
+        ):
+            try:
+                _entity_id = resolved_scope.entity_id
+                _entity_type = resolved_scope.entity_type
+                _entity_name = resolved_scope.entity_name
+                _req_id = request_id
+                _conv_id = conversation_id
+                await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: convo_svc.update_thread_entity_state(
+                        _conv_id,
+                        entity_type=_entity_type or "unknown",
+                        entity_id=_entity_id,
+                        name=_entity_name,
+                        source="resolved_scope",
+                        turn_request_id=_req_id,
+                    ),
+                )
+            except Exception:
+                pass
 
     try:
         audit_svc.record_event(

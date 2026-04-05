@@ -232,6 +232,8 @@ export type ContextReceipt = {
   entity_id?: string | null;
   resolution_status: ContextResolutionStatus;
   notes?: string[];
+  inherited_entity_id?: string | null;
+  inherited_entity_source?: string | null;
 };
 
 export type SkillSelection = {
@@ -323,6 +325,7 @@ export type TurnReceipt = {
   pending_action?: PendingActionReceipt | null;
   status: TurnStatus;
   degraded_reason?: DegradedReason | null;
+  quality_gates?: Array<{ gate: string; passed: boolean; message?: string }> | null;
 };
 
 export type AssistantToolActivityItem = {
