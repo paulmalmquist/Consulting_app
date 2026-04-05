@@ -163,6 +163,7 @@ _GET_CURSOR_TARGETS = [
     "app.services.trading_lab_service.get_cursor",
     "app.services.resume.get_cursor",
     "app.services.winston_readiness.get_cursor",
+    "app.services.entity_search.get_cursor",
 ]
 
 

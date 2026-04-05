@@ -12,6 +12,7 @@ from app.schemas.ai_gateway import (
     AssistantVisibleRecord,
     ResolvedAssistantScope,
 )
+from app.services.entity_search import search_entities_by_name, search_entities_by_name_fuzzy_db
 from app.services.env_context import EnvContextError, resolve_env_business_context
 
 # ── Environment context cache (5-minute TTL) ────────────────────────
@@ -150,6 +151,62 @@ def _match_explicit_entity(
         if name and name in normalized_message:
             return entity
     return None
+
+
+def _match_db_entity(
+    *,
+    message: str,
+    business_id: str | None,
+    env_id: str | None,
+) -> AssistantSelectedEntity | None:
+    """Resolve an entity name from the user message via database lookup.
+
+    This is the fallback when the entity is not in the context envelope
+    (not on the current page or visible data). Searches across all funds,
+    assets, and deals within the business using multi-strategy matching.
+    """
+    if not business_id:
+        return None
+    try:
+        from uuid import UUID as _UUID
+        biz_uuid = _UUID(business_id)
+    except (ValueError, TypeError):
+        return None
+
+    # Use the full normalized message as the search query — the entity
+    # search service handles token overlap and substring matching
+    results = search_entities_by_name(query=message, business_id=biz_uuid)
+
+    # If in-memory matching found nothing, try fuzzy DB lookup for misspellings
+    if not results and len(_normalize_text(message)) >= 5:
+        env_uuid = None
+        if env_id:
+            try:
+                env_uuid = _UUID(env_id)
+            except (ValueError, TypeError):
+                pass
+        results = search_entities_by_name_fuzzy_db(query=message, business_id=biz_uuid)
+
+    if not results:
+        return None
+
+    best = results[0]
+
+    # If disambiguation is needed (top candidates too close), don't pick
+    # the wrong one — let downstream handle ambiguity
+    if best.disambiguation_needed:
+        return None
+
+    # Require a minimum score to avoid false positives
+    if best.score < 0.4:
+        return None
+
+    return AssistantSelectedEntity(
+        entity_type=best.entity_type,
+        entity_id=best.entity_id,
+        name=best.name,
+        source="db_lookup",
+    )
 
 
 def _find_visible_record(
@@ -382,6 +439,24 @@ def resolve_assistant_scope(
             entity_name=selected_entity.name,
             confidence=0.94,
             source="selected_ui_entity",
+            **base,
+        )
+
+    # DB entity lookup — resolves named entities not visible on the current page
+    # but present in the environment's data (funds, assets, deals).
+    db_entity = _match_db_entity(
+        message=user_message,
+        business_id=base.get("business_id"),
+        env_id=base.get("environment_id"),
+    )
+    if db_entity is not None:
+        return ResolvedAssistantScope(
+            resolved_scope_type=db_entity.entity_type,
+            entity_type=db_entity.entity_type,
+            entity_id=db_entity.entity_id,
+            entity_name=db_entity.name,
+            confidence=0.92,
+            source="message:db_lookup",
             **base,
         )
 
