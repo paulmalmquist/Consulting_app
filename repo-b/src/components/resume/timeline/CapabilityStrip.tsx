@@ -70,7 +70,7 @@ export default function CapabilityStrip({
                 border: isSelected
                   ? `1px solid ${capability.color}40`
                   : "1px solid transparent",
-                color: isSelected || isActive ? capability.color : "var(--ros-icon-inactive, rgba(210,195,175,0.70))",
+                color: capability.color,
               }}
             >
               <SkillLogo skillId={capability.id} size={isMobileCheck() ? 20 : 22} />
@@ -82,9 +82,7 @@ export default function CapabilityStrip({
               style={{
                 color: isSelected
                   ? "var(--ros-text-bright, #fff)"
-                  : isActive
-                    ? "var(--ros-text-muted, rgba(255,255,255,0.85))"
-                    : "var(--ros-text-dim, rgba(255,255,255,0.55))",
+                  : "var(--ros-text-muted, rgba(255,255,255,0.82))",
               }}
             >
               {capability.name}

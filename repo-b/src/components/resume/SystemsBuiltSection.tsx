@@ -44,47 +44,47 @@ const STACK_LABEL: Record<string, string> = {
   pyspark: "PySpark",
 };
 
-/** Max 3 bullets per system — tightest proof points */
+/** Max 3 bullets per system — progression narrative: primitive → automation → governance → systems → modeling → AI */
 const BULLETS: Record<string, string[]> = {
+  "sys-bi-service-line": [
+    "Manual ad-hoc requests → repeatable SQL + Tableau delivery pipeline",
+    "Executive-ready reporting for JPMC account from zero BI capability",
+    "50+ stakeholders served without a formal data team",
+  ],
   "sys-ingestion-automation": [
-    "Azure Logic Apps + PySpark across 500+ properties",
-    "SQL validation gates at every ingestion stage",
-    "Near-zero manual entry errors",
+    "Manual property portal downloads → Azure Logic Apps + PySpark (500+ properties)",
+    "SQL validation gates at every ingestion stage eliminated manual errors",
+    "160 hrs/month analyst work → ~30 min automated",
   ],
   "sys-warehouse": [
-    "Databricks medallion architecture (bronze/silver/gold)",
-    "DealCloud, MRI, Yardi, Excel consolidated",
-    "DDQ turnaround cut 50%",
-  ],
-  "sys-semantic-layer": [
-    "Tabular models on Databricks gold tables",
-    "Standardized DAX measures for fund KPIs",
-    "Power BI drill-through from fund to asset",
-  ],
-  "sys-waterfall-engine": [
-    "Deterministic Python engine replacing fragile Excel",
-    "Full input-to-output audit trace",
-    "Reusable allocation logic across fund structures",
-  ],
-  "sys-ai-platform": [
-    "Databricks Genie + OpenAI orchestration",
-    "Natural language queries on governed data",
-    "Semantic models as query foundation",
+    "Fragmented DealCloud, MRI, Yardi, Excel → single Databricks medallion lakehouse",
+    "Governed bronze/silver/gold architecture with Unity Catalog",
+    "DDQ turnaround cut 50% — investor-facing data fully validated",
   ],
   "sys-governance-framework": [
-    "SQL validation at ingestion, transform, and reporting",
-    "Automated quality checks with alerting",
-    "Data contracts between all source systems",
+    "Ad-hoc validation → SQL contracts at ingestion, transform, and reporting layers",
+    "Automated quality checks with alerting across all source systems",
+    "100% investor-facing data covered by validation contracts",
+  ],
+  "sys-semantic-layer": [
+    "Raw gold tables → standardized Tabular models with reusable DAX measures",
+    "Power BI drill-through from fund to asset across 6 business units",
+    "10-day faster quarterly reporting cycle vs. pre-automation baseline",
+  ],
+  "sys-waterfall-engine": [
+    "Fragile Excel waterfalls → deterministic Python engine with full audit trace",
+    "Reusable allocation logic across fund structures",
+    "5 min → near-instant scenario analysis turnaround",
   ],
   "sys-gold-layer": [
-    "Unity Catalog governance in Databricks",
-    "Medallion architecture for multi-tenant delivery",
-    "Enterprise methodology standardization",
+    "Multi-client data delivery standardized on Unity Catalog medallion architecture",
+    "10+ client accounts on one governed framework",
+    "Enterprise methodology replacing ad-hoc per-client SQL",
   ],
-  "sys-bi-service-line": [
-    "Tableau dashboards + SQL validation layers",
-    "Repeatable delivery pipeline replacing ad hoc",
-    "Executive-ready reporting for JPMC account",
+  "sys-ai-platform": [
+    "Governed semantic models → natural language query foundation via Databricks Genie",
+    "OpenAI orchestration on top of validated gold layer data",
+    "Analyst-driven ad-hoc queries → system-driven insight surfacing",
   ],
 };
 
