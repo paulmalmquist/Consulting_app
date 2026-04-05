@@ -29,11 +29,31 @@ def get_portfolio_kpis(
     env_text = str(env_id)
     business_text = str(business_id)
     scenario_text = str(scenario_id) if scenario_id else None
-    scenario_clause = "s.scenario_id = %s::uuid" if scenario_text else "s.scenario_id IS NULL"
-    params: list[str] = [business_text, quarter]
+
+    # Build scenario filter once — reused across all sub-queries that reference
+    # re_fund_quarter_state. "s" is the alias in each subquery.
     if scenario_text:
-        params.append(scenario_text)
-    params.extend([business_text, business_text, business_text])
+        sc_clause = "s.scenario_id = %s::uuid"
+        sc_params: list[str] = [scenario_text]
+    else:
+        sc_clause = "s.scenario_id IS NULL"
+        sc_params = []
+
+    # Parameter list for the full query (positional %s, left to right):
+    # 1. CTE latest_nav    : business_id, quarter  [+ scenario if set]
+    # 2. fund_count        : business_id
+    # 3. total_commitments : business_id
+    # 4. active_assets     : business_id
+    # 5. gross_irr subq    : business_id, quarter  (no scenario filter — include all scenarios)
+    # 6. net_irr subq      : business_id, quarter  (no scenario filter — include all scenarios)
+    params: list[str] = (
+        [business_text, quarter] + sc_params          # CTE
+        + [business_text]                              # fund_count
+        + [business_text]                              # total_commitments
+        + [business_text]                              # active_assets
+        + [business_text, quarter]                     # gross_irr (base scenario only, no extra param)
+        + [business_text, quarter]                     # net_irr   (base scenario only, no extra param)
+    )
 
     with get_cursor() as cur:
         cur.execute(
@@ -46,7 +66,7 @@ def get_portfolio_kpis(
               JOIN repe_fund f ON f.fund_id = s.fund_id
               WHERE f.business_id = %s::uuid
                 AND s.quarter = %s
-                AND {scenario_clause}
+                AND {sc_clause}
               ORDER BY s.fund_id, s.created_at DESC
             )
             SELECT
@@ -79,7 +99,43 @@ def get_portfolio_kpis(
                   -- NULL = never assigned a status (legacy rows); treated as active.
                   -- Explicit 'disposed', 'realized', 'written_off', 'pipeline' are excluded.
                   AND {_ACTIVE_STATUS_SQL}
-              ) AS active_assets
+              ) AS active_assets,
+              (
+                -- NAV-weighted gross IRR across all funds for this quarter (base scenario)
+                SELECT
+                  SUM(s.gross_irr * s.portfolio_nav) / NULLIF(SUM(s.portfolio_nav), 0)
+                FROM (
+                  SELECT DISTINCT ON (si.fund_id)
+                    si.gross_irr,
+                    si.portfolio_nav
+                  FROM re_fund_quarter_state si
+                  JOIN repe_fund f ON f.fund_id = si.fund_id
+                  WHERE f.business_id = %s::uuid
+                    AND si.quarter = %s
+                    AND si.scenario_id IS NULL
+                    AND si.gross_irr IS NOT NULL
+                    AND si.portfolio_nav > 0
+                  ORDER BY si.fund_id, si.created_at DESC
+                ) s
+              ) AS gross_irr,
+              (
+                -- NAV-weighted net IRR across all funds for this quarter (base scenario)
+                SELECT
+                  SUM(s.net_irr * s.portfolio_nav) / NULLIF(SUM(s.portfolio_nav), 0)
+                FROM (
+                  SELECT DISTINCT ON (si.fund_id)
+                    si.net_irr,
+                    si.portfolio_nav
+                  FROM re_fund_quarter_state si
+                  JOIN repe_fund f ON f.fund_id = si.fund_id
+                  WHERE f.business_id = %s::uuid
+                    AND si.quarter = %s
+                    AND si.scenario_id IS NULL
+                    AND si.net_irr IS NOT NULL
+                    AND si.portfolio_nav > 0
+                  ORDER BY si.fund_id, si.created_at DESC
+                ) s
+              ) AS net_irr
             """,
             params,
         )
@@ -102,6 +158,8 @@ def get_portfolio_kpis(
         "total_commitments": _money_to_string(row["total_commitments"]) or "0",
         "portfolio_nav": _money_to_string(row["portfolio_nav"]),
         "active_assets": row["active_assets"] or 0,
+        "gross_irr": _money_to_string(row["gross_irr"]),
+        "net_irr": _money_to_string(row["net_irr"]),
         "warnings": warnings,
     }
 

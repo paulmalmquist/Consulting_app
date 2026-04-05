@@ -1190,18 +1190,21 @@ async def run_request_lifecycle(
         except Exception:
             pass
 
-        # Persist resolved entity to thread state for conversation carry-forward
+        # Persist resolved entity + active metric/timeframe to thread state
         if (
             turn_receipt.status != TurnStatus.FAILED
             and resolved_scope.entity_id
-            and context_receipt.resolution_status == ContextResolutionStatus.RESOLVED
         ):
             try:
+                from app.assistant_runtime.metric_normalizer import extract_metric, extract_timeframe
                 _entity_id = resolved_scope.entity_id
                 _entity_type = resolved_scope.entity_type
                 _entity_name = resolved_scope.entity_name
                 _req_id = request_id
                 _conv_id = conversation_id
+                _metric = extract_metric(message)
+                _timeframe = extract_timeframe(message)
+                _skill_id = turn_receipt.skill.skill_id if turn_receipt.skill else None
                 await asyncio.get_event_loop().run_in_executor(
                     None,
                     lambda: convo_svc.update_thread_entity_state(
@@ -1211,6 +1214,9 @@ async def run_request_lifecycle(
                         name=_entity_name,
                         source="resolved_scope",
                         turn_request_id=_req_id,
+                        active_metric=_metric,
+                        active_timeframe=_timeframe,
+                        last_skill_id=_skill_id,
                     ),
                 )
             except Exception:

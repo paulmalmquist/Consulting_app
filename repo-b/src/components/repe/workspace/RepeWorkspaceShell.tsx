@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { Upload } from "lucide-react";
+import { WinstonUmbrellaMenu } from "@/components/repe/workspace/WinstonUmbrellaMenu";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { RepeSidebarCompactRail, RepeSidebarNav } from "@/components/repe/workspace/RepeSidebarNav";
@@ -541,7 +542,7 @@ function TopUtilityNav({
   testId?: string;
 }) {
   const links = [
-    { href: homeHref, label: "Home", isActive: pathname === homeHref, testId: "global-home-button" },
+    { href: homeHref, label: "Overview", isActive: pathname === homeHref, testId: "global-home-button" },
     { href: base, label: "Funds", isActive: isRepePathActive(pathname, base, true) },
     { href: `${base}/deals`, label: "Investments", isActive: isRepePathActive(pathname, `${base}/deals`, false) },
     { href: `${base}/assets`, label: "Assets", isActive: isRepePathActive(pathname, `${base}/assets`, false) },
@@ -737,15 +738,10 @@ export default function RepeWorkspaceShell({
         base={base}
       />
       <div className="flex flex-col min-h-0">
-        {/* Shell nav strip — desktop only: WINSTON brand + section links */}
+        {/* Shell nav strip — desktop only: WINSTON umbrella menu + section links */}
         <div className="hidden xl:flex items-center justify-between h-10
                         border-b border-bm-border/[0.06] px-6 2xl:px-8 shrink-0">
-          <span
-            className="font-command text-[10px] font-bold uppercase tracking-[0.24em] text-bm-muted2/50 select-none"
-            aria-hidden="true"
-          >
-            Winston
-          </span>
+          <WinstonUmbrellaMenu />
           <TopUtilityNav
             pathname={pathname}
             base={base}

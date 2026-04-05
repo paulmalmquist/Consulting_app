@@ -4,14 +4,15 @@
 -- Safe to re-run: uses ON CONFLICT DO NOTHING and deterministic UUIDs.
 
 INSERT INTO re_waterfall_definition (definition_id, fund_id, name, waterfall_type, version, is_active)
-VALUES (
+SELECT
   'a1b2c3d4-af01-0001-0001-000000000001'::uuid,
-  'a1b2c3d4-0003-0030-0001-000000000001'::uuid,
+  f.fund_id,
   'Default',
   'european',
   1,
   true
-)
+FROM repe_fund f
+WHERE f.fund_id = 'a1b2c3d4-0003-0030-0001-000000000001'::uuid
 ON CONFLICT DO NOTHING;
 
 -- Tier 1: Return of Capital (LP receives 100% until contributed capital is returned)

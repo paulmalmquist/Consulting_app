@@ -382,6 +382,8 @@ class ReEnvironmentPortfolioKpisOut(BaseModel):
     total_commitments: str
     portfolio_nav: str | None = None
     active_assets: int
+    gross_irr: str | None = None
+    net_irr: str | None = None
     warnings: list[str] = Field(default_factory=list)
 
 

@@ -279,8 +279,18 @@ export default function ReFundListPage() {
               },
               { label: "Total Commitments", value: fmtMoneyOrDash(portfolioKpis?.total_commitments) },
               { label: "Portfolio NAV", value: fmtMoneyOrDash(portfolioKpis?.portfolio_nav) },
-              { label: "Gross IRR", value: computedGrossIrr },
-              { label: "Net IRR", value: computedNetIrr },
+              {
+                label: "Gross IRR",
+                value: portfolioKpis?.gross_irr != null
+                  ? fmtPct(parseFloat(portfolioKpis.gross_irr))
+                  : computedGrossIrr,
+              },
+              {
+                label: "Net IRR",
+                value: portfolioKpis?.net_irr != null
+                  ? fmtPct(parseFloat(portfolioKpis.net_irr))
+                  : computedNetIrr,
+              },
               { label: "Wtd DSCR", value: computedDscr },
             ]}
           />
@@ -395,25 +405,32 @@ export default function ReFundListPage() {
                       <td className="px-3 py-3 align-middle text-[12px] tracking-[0.04em] text-bm-muted2">
                         {fund.vintage_year}
                       </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}
+                          title={fund.state == null ? `No quarter state for ${quarter}` : undefined}>
                         {fmtMoney(fund.state?.total_committed)}
                       </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}
+                          title={fund.state?.portfolio_nav == null ? `No NAV data for ${quarter}` : undefined}>
                         {fmtMoney(fund.state?.portfolio_nav)}
                       </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}
+                          title={fund.state?.gross_irr == null ? `No IRR data for ${quarter} — run quarter close` : undefined}>
                         {fmtPct(fund.state?.gross_irr)}
                       </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}
+                          title={fund.state?.net_irr == null ? `No net IRR data for ${quarter} — run quarter close` : undefined}>
                         {fmtPct(fund.state?.net_irr)}
                       </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}
+                          title={fund.state?.dpi == null ? `No DPI data for ${quarter}` : undefined}>
                         {fmtMultiple(fund.state?.dpi)}
                       </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}
+                          title={fund.state?.tvpi == null ? `No TVPI data for ${quarter}` : undefined}>
                         {fmtMultiple(fund.state?.tvpi)}
                       </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}
+                          title={pctInvested == null ? `No capital data for ${quarter}` : undefined}>
                         {pctInvested != null ? `${(pctInvested * 100).toFixed(0)}%` : "—"}
                       </td>
                       <td className="px-3 py-3 align-middle">

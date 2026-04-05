@@ -295,10 +295,15 @@ def update_thread_entity_state(
     name: str | None = None,
     source: str = "clarification",
     turn_request_id: str | None = None,
+    active_metric: dict | None = None,
+    active_timeframe: dict | None = None,
+    last_skill_id: str | None = None,
 ) -> None:
-    """Persist a resolved entity into the conversation's thread entity state.
+    """Persist resolved entity and active context into thread state.
 
-    Maintains a bounded list of resolved_entities (max 10, evicts oldest).
+    Maintains:
+    - resolved_entities: bounded list (max 10, evicts oldest)
+    - active_context: current entity, metric, timeframe with confidence/source
     """
     import json
     from datetime import datetime, timezone
@@ -309,12 +314,15 @@ def update_thread_entity_state(
 
     current = get_thread_entity_state(conversation_id) or {}
     entities = current.get("resolved_entities", [])
+    prev_context = current.get("active_context", {})
+
+    now_iso = datetime.now(timezone.utc).isoformat()
 
     new_entry = {
         "entity_type": entity_type,
         "entity_id": entity_id,
         "name": name,
-        "resolved_at": datetime.now(timezone.utc).isoformat(),
+        "resolved_at": now_iso,
         "source": source,
         "turn_request_id": turn_request_id,
     }
@@ -330,7 +338,44 @@ def update_thread_entity_state(
     if len(entities) > _MAX_RESOLVED_ENTITIES:
         entities = entities[-_MAX_RESOLVED_ENTITIES:]
 
-    state = {"resolved_entities": entities}
+    # Build active_context with confidence + source per field
+    prev_entity_id = (prev_context.get("entity") or {}).get("id")
+    entity_switched = prev_entity_id and prev_entity_id != entity_id
+
+    active_context: dict[str, Any] = {
+        "entity": {
+            "type": entity_type,
+            "id": entity_id,
+            "name": name,
+            "confidence": 0.97,
+            "source": source,
+        },
+        "last_skill_id": last_skill_id,
+        "updated_at": now_iso,
+    }
+
+    # Metric: use new if provided, otherwise inherit from previous (unless entity switched)
+    if active_metric and active_metric.get("confidence", 0) >= 0.5:
+        active_context["metric"] = active_metric
+    elif not entity_switched and prev_context.get("metric"):
+        # Inherit but mark as prior_turn
+        inherited = dict(prev_context["metric"])
+        inherited["source"] = "prior_turn"
+        active_context["metric"] = inherited
+    # else: no metric context
+
+    # Timeframe: same logic
+    if active_timeframe and active_timeframe.get("confidence", 0) >= 0.5:
+        active_context["timeframe"] = active_timeframe
+    elif not entity_switched and prev_context.get("timeframe"):
+        inherited = dict(prev_context["timeframe"])
+        inherited["source"] = "prior_turn"
+        active_context["timeframe"] = inherited
+
+    state = {
+        "resolved_entities": entities,
+        "active_context": active_context,
+    }
     try:
         with get_cursor() as cur:
             cur.execute(
