@@ -134,9 +134,9 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
 
             <a
               href="/paul"
-              className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-white/40 transition-colors hover:text-white/70"
+              className="inline-flex items-center gap-2.5 rounded-full border border-white/18 bg-white/[0.06] px-5 py-2 text-[11px] uppercase tracking-[0.2em] text-white/70 transition-all hover:border-white/30 hover:bg-white/[0.10] hover:text-white"
             >
-              <span className="h-px w-4 bg-current" />
+              <span className="h-px w-3.5 bg-current" />
               View Resume
             </a>
 
