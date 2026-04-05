@@ -423,6 +423,16 @@ export type AssistantResponseBlock =
       tool_count: number;
       firm_data_tools: number;
       sources?: Array<{ tool_name: string; is_firm_data: boolean }>;
+    }
+  | {
+      type: "navigation_suggestion";
+      block_id: string;
+      suggestions: Array<{
+        type?: string;
+        label: string;
+        path?: string;
+        message?: string;
+      }>;
     };
 
 export type CommandContext = {

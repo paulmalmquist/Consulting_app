@@ -52,8 +52,38 @@ _CREATE_ENTITY_RE = re.compile(
     re.IGNORECASE,
 )
 _DEBT_RISK_RE = re.compile(r"\b(debt risk|debt watch|watchlist)\b", re.IGNORECASE)
+
+# ── Per-intent metric regexes (checked in specificity order) ─────────
+_RANK_METRIC_RE = re.compile(
+    r"\b(best|worst|top\s*\d*|bottom\s*\d*|rank|ranking|highest|lowest|"
+    r"(?:best|worst|top|bottom)\s+performing|underperforming|outperforming|"
+    r"sort\s+by|order\s+by|leaderboard|compare\s+all)\b",
+    re.IGNORECASE,
+)
+_TREND_METRIC_RE = re.compile(
+    r"\b(trend|over\s+time|trailing\s+\d+|ttm|ltm|quarterly\s+trend|monthly\s+trend|"
+    r"year\s+over\s+year|yoy|time\s+series|historical|"
+    r"past\s+\d+\s+(?:months?|quarters?|years?)|"
+    r"last\s+\d+\s+(?:months?|quarters?|years?)|"
+    r"last\s+twelve\s+months)\b",
+    re.IGNORECASE,
+)
+_VARIANCE_METRIC_RE = re.compile(
+    r"\b(variance|underwriting|down\s+vs|vs\s+plan|vs\s+budget|deviation|shortfall|"
+    r"miss(?:ed)?|gap|below\s+plan|above\s+plan|off\s+track|"
+    r"why\s+is\s+.*(?:down|low|negative|below|off))\b",
+    re.IGNORECASE,
+)
+_COMPARE_ENTITIES_RE = re.compile(
+    r"\b(?:compare\s+\w+\s+(?:to|and|vs|with)\s+\w+|"
+    r"\w+\s+vs\.?\s+\w+|"
+    r"head\s+to\s+head|side\s+by\s+side|"
+    r"how\s+does\s+\w+\s+compare|difference\s+between|stack\s+up)\b",
+    re.IGNORECASE,
+)
 _METRIC_ANOMALY_RE = re.compile(
-    r"\b(blank|variance|underwriting|occupancy|noi|down vs|debt risk|debt watch|watchlist)\b",
+    r"\b(blank|variance|underwriting|occupancy|noi|down vs|debt risk|debt watch|watchlist|"
+    r"irr|tvpi|dpi|dscr|ltv|cap rate|revenue|expenses|ncf)\b",
     re.IGNORECASE,
 )
 
@@ -192,6 +222,60 @@ def _deterministic_dispatch(*, message: str, context: ContextReceipt) -> Dispatc
             notes=["deterministic_debt_risk_guardrail"],
         )
         return DispatchTrace(raw=None, normalized=decision)
+    # ── Per-intent metric guardrails (most specific first) ──────────
+    if context.resolution_status == ContextResolutionStatus.RESOLVED and _RANK_METRIC_RE.search(normalized_message):
+        decision = DispatchDecision(
+            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
+            skill_id="rank_metric",
+            lane=Lane.C_ANALYSIS,
+            needs_retrieval=True,
+            write_intent=False,
+            ambiguity_level=DispatchAmbiguity.LOW,
+            confidence=0.96,
+            fallback_used=False,
+            notes=["deterministic_rank_metric_guardrail"],
+        )
+        return DispatchTrace(raw=None, normalized=decision)
+    if context.resolution_status == ContextResolutionStatus.RESOLVED and _VARIANCE_METRIC_RE.search(normalized_message):
+        decision = DispatchDecision(
+            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
+            skill_id="explain_metric_variance",
+            lane=Lane.C_ANALYSIS,
+            needs_retrieval=True,
+            write_intent=False,
+            ambiguity_level=DispatchAmbiguity.LOW,
+            confidence=0.96,
+            fallback_used=False,
+            notes=["deterministic_variance_guardrail"],
+        )
+        return DispatchTrace(raw=None, normalized=decision)
+    if context.resolution_status == ContextResolutionStatus.RESOLVED and _TREND_METRIC_RE.search(normalized_message):
+        decision = DispatchDecision(
+            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
+            skill_id="trend_metric",
+            lane=Lane.C_ANALYSIS,
+            needs_retrieval=True,
+            write_intent=False,
+            ambiguity_level=DispatchAmbiguity.LOW,
+            confidence=0.96,
+            fallback_used=False,
+            notes=["deterministic_trend_metric_guardrail"],
+        )
+        return DispatchTrace(raw=None, normalized=decision)
+    if context.resolution_status == ContextResolutionStatus.RESOLVED and _COMPARE_ENTITIES_RE.search(normalized_message):
+        decision = DispatchDecision(
+            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
+            skill_id="compare_entities",
+            lane=Lane.C_ANALYSIS,
+            needs_retrieval=True,
+            write_intent=False,
+            ambiguity_level=DispatchAmbiguity.LOW,
+            confidence=0.96,
+            fallback_used=False,
+            notes=["deterministic_compare_entities_guardrail"],
+        )
+        return DispatchTrace(raw=None, normalized=decision)
+    # Generic metric mention — simple lookup unless debt risk
     if context.resolution_status == ContextResolutionStatus.RESOLVED and _METRIC_ANOMALY_RE.search(normalized_message):
         decision = DispatchDecision(
             source=DispatchSource.DETERMINISTIC_GUARDRAIL,
@@ -270,7 +354,14 @@ def _dispatch_messages(
         "Set needs_retrieval=true only when the answer needs grounded document/data lookup beyond current UI context.\n"
         "Set write_intent=true only for create/update/delete/mutate requests.\n"
         "Set ambiguity_level=high when the prompt relies on pronouns or stale context and current scope is missing or ambiguous.\n"
-        "Confidence must be a number between 0 and 1.\n"
+        "Confidence must be a number between 0 and 1.\n\n"
+        "METRIC SKILL ROUTING — pick the most specific skill:\n"
+        "- explain_metric: simple value lookup (\"What is the NOI?\", \"Show me current IRR\")\n"
+        "- rank_metric: ranked entity comparison (\"Best performing assets by NOI\", \"Top 5 funds by IRR\")\n"
+        "- trend_metric: time-series or trend (\"NOI trend past 12 months\", \"Quarterly occupancy over time\")\n"
+        "- explain_metric_variance: variance to plan/underwriting (\"Why is NOI down vs underwriting?\", \"Variance to budget\")\n"
+        "- compare_entities: head-to-head entity comparison (\"Compare Fund A to Fund B\", \"Riverfront vs Oakwood\")\n"
+        "- run_analysis: general analytical work that doesn't fit above (\"Deep dive on portfolio risk\", \"Scenario analysis\")\n\n"
         "Available skills:\n"
         + "\n".join(skill_lines)
     )
@@ -467,14 +558,23 @@ def _normalize_dispatch(
             notes.append("spurious_write_intent_suppressed")
 
     skill_def = SKILL_BY_ID.get(skill_id) if skill_id else None
+    # Fine-grained metric skill normalization — try specific intents first
     if _METRIC_ANOMALY_RE.search(message or "") and skill_id in {None, "lookup_entity", "explain_metric"}:
-        if re.search(r"\b(debt risk|debt watch|watchlist)\b", message or "", re.IGNORECASE):
+        if _DEBT_RISK_RE.search(message or ""):
             skill_id = "run_analysis"
-        elif re.search(r"\b(why|explain|blank|variance|underwriting|occupancy|noi|down vs)\b", message or "", re.IGNORECASE):
+        elif _RANK_METRIC_RE.search(message or ""):
+            skill_id = "rank_metric"
+        elif _VARIANCE_METRIC_RE.search(message or ""):
+            skill_id = "explain_metric_variance"
+        elif _TREND_METRIC_RE.search(message or ""):
+            skill_id = "trend_metric"
+        elif _COMPARE_ENTITIES_RE.search(message or ""):
+            skill_id = "compare_entities"
+        elif re.search(r"\b(why|explain|blank|down vs)\b", message or "", re.IGNORECASE):
             skill_id = "explain_metric"
         else:
-            skill_id = "run_analysis"
-        notes.append("metric_anomaly_skill_normalized")
+            skill_id = "explain_metric"
+        notes.append("metric_skill_normalized")
         skill_def = SKILL_BY_ID.get(skill_id) if skill_id else None
 
     needs_retrieval = proposal.needs_retrieval
@@ -493,14 +593,16 @@ def _normalize_dispatch(
     if context.resolution_status == ContextResolutionStatus.AMBIGUOUS_CONTEXT and lane == Lane.A_FAST:
         lane = Lane.B_LOOKUP
         notes.append("ambiguous_context_lane_promoted")
+    _ANALYSIS_LANE_SKILLS = {"explain_metric", "run_analysis", "generate_lp_summary",
+                              "rank_metric", "trend_metric", "explain_metric_variance", "compare_entities"}
     if needs_retrieval and lane == Lane.A_FAST:
-        lane = Lane.C_ANALYSIS if skill_id in {"explain_metric", "run_analysis", "generate_lp_summary"} else Lane.B_LOOKUP
+        lane = Lane.C_ANALYSIS if skill_id in _ANALYSIS_LANE_SKILLS else Lane.B_LOOKUP
         notes.append("grounded_lane_promoted")
     if skill_id == "generate_lp_summary" and lane in (Lane.A_FAST, Lane.B_LOOKUP):
         lane = Lane.C_ANALYSIS
         needs_retrieval = True
         notes.append("lp_summary_lane_promoted")
-    if skill_id == "run_analysis" and lane == Lane.A_FAST:
+    if skill_id in {"run_analysis", "rank_metric", "trend_metric", "explain_metric_variance", "compare_entities"} and lane == Lane.A_FAST:
         lane = Lane.B_LOOKUP if not needs_retrieval else Lane.C_ANALYSIS
         notes.append("analysis_lane_promoted")
     if context.resolution_status != "resolved" and proposal.ambiguity_level == DispatchAmbiguity.LOW:

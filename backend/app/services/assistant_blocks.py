@@ -174,6 +174,18 @@ def tool_activity_block(
     }
 
 
+def navigation_suggestion_block(
+    suggestions: Iterable[dict[str, Any]],
+    *,
+    block_id: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "type": "navigation_suggestion",
+        "block_id": block_id or _block_id("nav"),
+        "suggestions": list(suggestions),
+    }
+
+
 def _summary_from_card(card: dict[str, Any], result_type: str) -> str:
     summary_parts: list[str] = []
     subtitle = card.get("subtitle")

@@ -154,6 +154,7 @@ export type StreamAiHandlers = {
     resolvedScope?: ResolvedAssistantScope | null;
   }) => void;
   onStatus?: (status: string, payload?: unknown) => void;
+  onProgress?: (stage: string, message: string) => void;
   onToken?: (token: string) => void;
   onToolActivity?: (event: AssistantToolEvent) => void;
   onResponseBlock?: (block: AssistantResponseBlock) => void;
@@ -885,6 +886,7 @@ export async function streamAi(input: {
   pending_continuation?: boolean;
   pending_question_text?: string;
   onStatus?: (status: string) => void;
+  onProgress?: StreamAiHandlers["onProgress"];
   onContext?: StreamAiHandlers["onContext"];
   onToken?: StreamAiHandlers["onToken"];
   onToolActivity?: StreamAiHandlers["onToolActivity"];
@@ -1080,6 +1082,12 @@ export async function streamAi(input: {
             else if (currentEvent === "status" && parsed.message) {
               logSSE("status", parsed, parsed.message);
               input.onStatus?.(parsed.message);
+              continue;
+            }
+            // Progress event — inline loading status update
+            else if (currentEvent === "progress" && parsed.stage) {
+              logSSE("progress", parsed, `[${parsed.stage}] ${parsed.message || ""}`);
+              input.onProgress?.(parsed.stage, parsed.message || "");
               continue;
             }
             // FastAPI "token" event: {"text": "..."}

@@ -40,7 +40,7 @@ SKILLS: tuple[SkillDefinition, ...] = (
     ),
     SkillDefinition(
         id="explain_metric",
-        description="Explain a metric, definition, or focused data point.",
+        description="Explain a single metric value, definition, or focused data point lookup.",
         triggers=[
             "explain",
             "what is",
@@ -53,6 +53,10 @@ SKILLS: tuple[SkillDefinition, ...] = (
             "noi",
             "dscr",
             "ltv",
+            "show me",
+            "current",
+            "cap rate",
+            "occupancy",
         ],
         capability_tags=["lookup", "analysis"],
         allowed_tool_tags=["repe", "finance", "analysis", "document", "credit", "resume", "sql_agent"],
@@ -63,17 +67,120 @@ SKILLS: tuple[SkillDefinition, ...] = (
         max_tool_calls=3,
     ),
     SkillDefinition(
+        id="rank_metric",
+        description="Rank or compare multiple entities by a metric (best, worst, top N).",
+        triggers=[
+            "best",
+            "worst",
+            "top",
+            "bottom",
+            "rank",
+            "ranking",
+            "compare all",
+            "highest",
+            "lowest",
+            "performing",
+            "underperforming",
+            "outperforming",
+            "sort by",
+            "order by",
+            "leaderboard",
+        ],
+        capability_tags=["analysis"],
+        allowed_tool_tags=["repe", "finance", "analysis", "sql_agent"],
+        retrieval_policy=RetrievalPolicy.FULL,
+        confirmation_mode=ConfirmationMode.NONE,
+        response_blocks=["markdown_text", "citations", "workflow_result"],
+        preferred_loop_pattern="analyze",
+        requires_grounding=True,
+        max_tool_calls=5,
+    ),
+    SkillDefinition(
+        id="trend_metric",
+        description="Show metric trend over time, time-series, or period-over-period change.",
+        triggers=[
+            "trend",
+            "over time",
+            "trailing",
+            "ttm",
+            "ltm",
+            "quarterly trend",
+            "monthly trend",
+            "year over year",
+            "yoy",
+            "period",
+            "historical",
+            "time series",
+            "past",
+            "last 12",
+        ],
+        capability_tags=["analysis"],
+        allowed_tool_tags=["repe", "finance", "analysis", "sql_agent"],
+        retrieval_policy=RetrievalPolicy.FULL,
+        confirmation_mode=ConfirmationMode.NONE,
+        response_blocks=["markdown_text", "citations", "workflow_result"],
+        preferred_loop_pattern="analyze",
+        requires_grounding=True,
+        max_tool_calls=5,
+    ),
+    SkillDefinition(
+        id="explain_metric_variance",
+        description="Explain variance, deviation from underwriting, plan, or budget.",
+        triggers=[
+            "variance",
+            "underwriting",
+            "down vs",
+            "why is",
+            "vs plan",
+            "vs budget",
+            "deviation",
+            "shortfall",
+            "miss",
+            "gap",
+            "below plan",
+            "above plan",
+            "off track",
+        ],
+        capability_tags=["analysis"],
+        allowed_tool_tags=["repe", "finance", "analysis", "document", "sql_agent"],
+        retrieval_policy=RetrievalPolicy.FULL,
+        confirmation_mode=ConfirmationMode.NONE,
+        response_blocks=["markdown_text", "citations", "workflow_result"],
+        preferred_loop_pattern="analyze",
+        requires_grounding=True,
+        max_tool_calls=5,
+    ),
+    SkillDefinition(
+        id="compare_entities",
+        description="Head-to-head comparison of two or more named entities.",
+        triggers=[
+            "compare",
+            "vs",
+            "versus",
+            "head to head",
+            "side by side",
+            "how does",
+            "difference between",
+            "stack up",
+        ],
+        capability_tags=["analysis"],
+        allowed_tool_tags=["repe", "finance", "analysis", "document", "sql_agent"],
+        retrieval_policy=RetrievalPolicy.FULL,
+        confirmation_mode=ConfirmationMode.NONE,
+        response_blocks=["markdown_text", "citations", "workflow_result"],
+        preferred_loop_pattern="analyze",
+        requires_grounding=True,
+        max_tool_calls=5,
+    ),
+    SkillDefinition(
         id="run_analysis",
-        description="Run comparative or analytical work that may need retrieval and tools.",
+        description="Run general analytical work — forecasts, scenarios, deep dives, reports.",
         triggers=[
             "analyze",
             "analysis",
-            "compare",
-            "trend",
             "forecast",
             "scenario",
             "deep dive",
-            "why",
             "correlation",
             "benchmark",
             "report",
@@ -142,7 +249,11 @@ _GROUNDED_CONTEXT_RE = re.compile(
     r"\b("
     r"variance|underwriting|occupancy|debt watch|watchlist|lender|debt risk|risk|noi|irr|tvpi|dpi|dscr|ltv|"
     r"blank|down vs|why is|latest|today|"
-    r"changes|source|basis|based on|summary|lp summary"
+    r"changes|source|basis|based on|summary|lp summary|"
+    r"best|worst|top|bottom|rank|highest|lowest|performing|"
+    r"trend|over time|trailing|ttm|ltm|quarterly|monthly|historical|"
+    r"vs plan|vs budget|deviation|shortfall|gap|"
+    r"compare|vs|versus|side by side"
     r")\b",
     re.IGNORECASE,
 )
@@ -158,6 +269,7 @@ def skill_requires_grounding(skill_id: str | None, *, message: str | None = None
         return True
     if skill.retrieval_policy == RetrievalPolicy.NONE:
         return False
+    # LIGHT skills only need grounding when message contains metric/data keywords
     if skill_id in {"lookup_entity", "explain_metric"}:
         return bool(_GROUNDED_CONTEXT_RE.search(message or ""))
     return False

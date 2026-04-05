@@ -28,13 +28,16 @@ _GENERIC_DEGRADED_PHRASES = [
     "unable to determine",
 ]
 
-_GROUNDING_SKILLS = {"run_analysis", "generate_lp_summary"}
+_GROUNDING_SKILLS = {"run_analysis", "generate_lp_summary", "rank_metric", "trend_metric", "explain_metric_variance", "compare_entities"}
 
 _VALID_LANE_SKILL_PAIRS: dict[str, set[str]] = {
     "A_FAST": {"lookup_entity"},
     "B_LOOKUP": {"lookup_entity", "explain_metric", "run_analysis", "create_entity"},
-    "C_ANALYSIS": {"run_analysis", "explain_metric", "generate_lp_summary", "create_entity", "lookup_entity"},
-    "D_DEEP": {"run_analysis", "generate_lp_summary"},
+    "C_ANALYSIS": {
+        "run_analysis", "explain_metric", "generate_lp_summary", "create_entity", "lookup_entity",
+        "rank_metric", "trend_metric", "explain_metric_variance", "compare_entities",
+    },
+    "D_DEEP": {"run_analysis", "generate_lp_summary", "rank_metric", "trend_metric", "explain_metric_variance", "compare_entities"},
 }
 
 

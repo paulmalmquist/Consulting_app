@@ -76,6 +76,13 @@ type LaneBinding = {
 /** Terminal state for every assistant turn. */
 type TerminalState = "complete" | "awaiting_confirmation" | "blocked_missing_info" | "failed" | null;
 
+type SuggestedAction = {
+  type: "query" | "navigate";
+  label: string;
+  message?: string;
+  path?: string;
+};
+
 type LaneState = {
   conversationId: string | null;
   draft: string;
@@ -89,6 +96,8 @@ type LaneState = {
   debug: AskAiDebug | null;
   /** Last assistant message text if it ended with a question (pending clarification). */
   pendingQuestion: string | null;
+  /** Backend-generated suggested next actions after a turn completes. */
+  suggestedActions: SuggestedAction[];
 };
 
 type WinstonCompanionContextValue = {
@@ -141,6 +150,7 @@ const EMPTY_LANE: LaneState = {
   trace: null,
   debug: null,
   pendingQuestion: null,
+  suggestedActions: [],
 };
 
 function readRouteEnvId(pathname: string | null): string | null {
@@ -918,6 +928,12 @@ export function WinstonCompanionProvider({
             thinkingStatus: status,
           }));
         },
+        onProgress: (_stage, message) => {
+          setLaneState(lane, (current) => ({
+            ...current,
+            thinkingStatus: message,
+          }));
+        },
         onToken: (token) => {
           if (!firstTokenLogged && token.trim()) {
             firstTokenLogged = true;
@@ -962,7 +978,11 @@ export function WinstonCompanionProvider({
         onDone: (payload) => {
           // Clear thinking immediately when backend sends 'done' event,
           // rather than waiting for post-stream persistence to close the HTTP stream.
-          const terminalState = (payload as Record<string, unknown>)?.terminal_state as TerminalState || "complete";
+          const donePayload = payload as Record<string, unknown>;
+          const terminalState = donePayload?.terminal_state as TerminalState || "complete";
+          const backendActions = Array.isArray(donePayload?.suggested_actions)
+            ? (donePayload.suggested_actions as SuggestedAction[])
+            : [];
           setLaneState(lane, (current) => {
             // Detect if the last assistant message ended with a question (pending clarification).
             const lastMsg = [...current.messages].reverse().find((m) => m.role === "assistant");
@@ -974,6 +994,7 @@ export function WinstonCompanionProvider({
               thinkingStatus: undefined,
               terminalState,
               pendingQuestion: newPendingQuestion,
+              suggestedActions: backendActions,
             };
           });
           console.info("[winston-companion]", {

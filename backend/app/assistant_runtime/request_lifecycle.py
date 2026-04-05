@@ -11,7 +11,8 @@ from typing import Any, AsyncGenerator
 
 from app.assistant_runtime.context_resolver import resolve_runtime_context
 from app.assistant_runtime.dispatch_engine import dispatch_request
-from app.assistant_runtime.degraded_responses import degraded_blocks, degraded_message
+from app.assistant_runtime.degraded_responses import degraded_blocks, degraded_blocks_with_context, degraded_message
+from app.assistant_runtime.suggestion_templates import build_suggested_actions
 from app.assistant_runtime.execution_engine import execute_tool_calls, prepare_tools
 from app.assistant_runtime.harness.audit_logger import HarnessAuditLogger
 from app.assistant_runtime.harness.harness_types import HarnessConfig, LifecyclePhase
@@ -736,6 +737,7 @@ async def run_request_lifecycle(
             "dispatch_source": dispatch.trace.normalized.source,
         },
     )
+    yield _sse("progress", {"stage": "resolving_context", "message": "One moment, resolving context..."})
 
     degraded_reason: DegradedReason | None = None
     if context_receipt.resolution_status == ContextResolutionStatus.MISSING_CONTEXT and lane != Lane.A_FAST:
@@ -757,6 +759,7 @@ async def run_request_lifecycle(
         )
         timings["retrieval_ms"] = 0
     else:
+        yield _sse("progress", {"stage": "retrieving_data", "message": "Reviewing financial records..."})
         retrieval_started = time.perf_counter()
         retrieval_execution = await execute_retrieval(
             route=route,
@@ -796,8 +799,15 @@ async def run_request_lifecycle(
         yield _sse("response_block", {"block": citation_block})
 
     if degraded_reason is not None:
-        blocks = degraded_blocks(degraded_reason)
-        response_blocks = blocks + response_blocks
+        context_blocks, message_text = degraded_blocks_with_context(
+            degraded_reason,
+            entity_type=resolved_scope.entity_type,
+            entity_id=resolved_scope.entity_id,
+            entity_name=resolved_scope.entity_name,
+            env_id=resolved_scope.environment_id,
+            skill_id=routed_skill.selection.skill_id,
+        )
+        response_blocks = context_blocks + response_blocks
         turn_receipt = TurnReceipt(
             request_id=request_id,
             lane=lane,
@@ -811,7 +821,6 @@ async def run_request_lifecycle(
             status=TurnStatus.DEGRADED,
             degraded_reason=degraded_reason,
         )
-        message_text = degraded_message(degraded_reason)
         yield _sse("token", {"text": message_text})
         yield _sse(
             "done",
@@ -953,6 +962,7 @@ async def run_request_lifecycle(
     collected_content = ""
     tool_receipts = []
     tool_execution_ms = 0
+    yield _sse("progress", {"stage": "computing", "message": "I'll pull that up for you..."})
 
     for _round in range(AI_MAX_TOOL_ROUNDS + 1):
         stream_kwargs = sanitize_params(
@@ -1146,8 +1156,16 @@ async def run_request_lifecycle(
         quality_gates=gate_dicts,
     )
     if final_status == TurnStatus.DEGRADED and not collected_content.strip():
-        response_blocks = degraded_blocks(final_reason or DegradedReason.TOOL_FAILED) + response_blocks
-        yield _sse("token", {"text": degraded_message(final_reason or DegradedReason.TOOL_FAILED)})
+        late_blocks, late_msg = degraded_blocks_with_context(
+            final_reason or DegradedReason.TOOL_FAILED,
+            entity_type=resolved_scope.entity_type,
+            entity_id=resolved_scope.entity_id,
+            entity_name=resolved_scope.entity_name,
+            env_id=resolved_scope.environment_id,
+            skill_id=routed_skill.selection.skill_id,
+        )
+        response_blocks = late_blocks + response_blocks
+        yield _sse("token", {"text": late_msg})
 
     elapsed_ms = int((time.time() - started_at) * 1000)
     timings["tool_execution_ms"] = tool_execution_ms
@@ -1160,6 +1178,25 @@ async def run_request_lifecycle(
         response_blocks=response_blocks,
         timings=timings,
     )
+
+    # Build dynamic suggested_actions based on skill + entity context
+    _active_metric_name = None
+    try:
+        from app.assistant_runtime.metric_normalizer import extract_metric
+        _m = extract_metric(message)
+        if _m:
+            _active_metric_name = _m.get("normalized")
+    except Exception:
+        pass
+    suggested_actions = build_suggested_actions(
+        skill_id=routed_skill.selection.skill_id,
+        entity_type=resolved_scope.entity_type,
+        entity_id=resolved_scope.entity_id,
+        entity_name=resolved_scope.entity_name,
+        env_id=resolved_scope.environment_id,
+        active_metric=_active_metric_name,
+    )
+
     yield _sse(
         "done",
         {
@@ -1168,6 +1205,7 @@ async def run_request_lifecycle(
             "trace": trace,
             "response_blocks": response_blocks,
             "resolved_scope": scope_dump,
+            "suggested_actions": suggested_actions,
         },
     )
 

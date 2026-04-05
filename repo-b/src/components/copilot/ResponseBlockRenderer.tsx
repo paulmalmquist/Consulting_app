@@ -72,7 +72,45 @@ export default function ResponseBlockRenderer({
     case "grounding_badge":
       return <GroundingBadge block={block} />;
 
+    case "navigation_suggestion":
+      return <NavigationSuggestionBlock block={block} />;
+
     default:
       return null;
   }
+}
+
+function NavigationSuggestionBlock({
+  block,
+}: {
+  block: Extract<AssistantResponseBlock, { type: "navigation_suggestion" }>;
+}) {
+  const suggestions = block.suggestions || [];
+  if (!suggestions.length) return null;
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {suggestions.map((s, idx) => {
+        if (s.path) {
+          return (
+            <a
+              key={idx}
+              href={s.path}
+              className="inline-flex items-center gap-1 rounded-full border border-bm-accent/30 bg-bm-accent/8 px-3 py-1 text-xs text-bm-accent transition hover:bg-bm-accent/15"
+            >
+              → {s.label}
+            </a>
+          );
+        }
+        return (
+          <span
+            key={idx}
+            className="inline-flex items-center rounded-full border border-bm-border/40 bg-bm-surface/12 px-3 py-1 text-xs text-bm-muted"
+          >
+            {s.label}
+          </span>
+        );
+      })}
+    </div>
+  );
 }

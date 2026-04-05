@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
@@ -21,6 +21,8 @@ import { useWinstonCompanion, companionLauncherOffsetClass } from "@/components/
 import WinstonAvatar from "@/components/winston-companion/WinstonAvatar";
 import { useWinstonLoader } from "@/lib/loading-state";
 import ResponseBlockRenderer from "@/components/copilot/ResponseBlockRenderer";
+import SplitPane from "@/components/winston-companion/SplitPane";
+import LoadingBlock from "@/components/winston-companion/LoadingBlock";
 import { getGreeting } from "@/lib/winston-companion/greetings";
 
 function formatConversationTime(value: string | null) {
@@ -113,11 +115,8 @@ function ThreadViewport({
         })}
 
         {thinking ? (
-          <div className="max-w-4xl rounded-2xl border border-bm-border/30 bg-bm-surface/20 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-2 w-2 rounded-full bg-bm-accent animate-pulse" />
-              <span className="text-sm text-bm-muted">{thinkingStatus || "Processing..."}</span>
-            </div>
+          <div className="max-w-4xl rounded-2xl border border-bm-border/30 bg-bm-surface/20">
+            <LoadingBlock message={thinkingStatus} />
           </div>
         ) : null}
         <div ref={endRef} />
@@ -219,15 +218,50 @@ function ConversationComposer({
 }
 
 function SuggestionStrip({ compact = false, hideWhenActive = false }: { compact?: boolean; hideWhenActive?: boolean }) {
-  const { currentContext, activeLane, activeState, setDraft } = useWinstonCompanion();
+  const { currentContext, activeLane, activeState, setDraft, sendPrompt } = useWinstonCompanion();
+  const router = useRouter();
 
-  if (!currentContext?.suggestions.length) return null;
-  // In compact/drawer mode, hide suggestions once conversation has messages
-  if (hideWhenActive && activeState.messages.length > 0) return null;
+  // Prefer backend-generated suggested_actions after a turn completes
+  const backendActions = activeState.suggestedActions || [];
+  const staticSuggestions = currentContext?.suggestions || [];
+  const hasBackendActions = backendActions.length > 0 && activeState.messages.length > 0;
+
+  if (!hasBackendActions && !staticSuggestions.length) return null;
+  // In compact/drawer mode, hide static suggestions once conversation has messages
+  if (!hasBackendActions && hideWhenActive && activeState.messages.length > 0) return null;
+
+  if (hasBackendActions) {
+    return (
+      <div className={cn("flex flex-wrap gap-2", compact ? "px-4 pb-2" : "px-6 pb-2")}>
+        {backendActions.slice(0, 4).map((action, idx) => (
+          <button
+            key={`sa-${idx}`}
+            type="button"
+            onClick={() => {
+              if (action.type === "navigate" && action.path) {
+                router.push(action.path);
+              } else if (action.message) {
+                setDraft(activeLane, action.message);
+                void sendPrompt(activeLane, action.message);
+              }
+            }}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-xs transition",
+              action.type === "navigate"
+                ? "border-bm-accent/30 bg-bm-accent/8 text-bm-accent hover:bg-bm-accent/15"
+                : "border-bm-border/50 bg-bm-surface/12 text-bm-muted hover:border-bm-accent/35 hover:text-bm-text"
+            )}
+          >
+            {action.type === "navigate" ? "→ " : ""}{action.label}
+          </button>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className={cn("flex flex-wrap gap-2", compact ? "px-4 pb-2" : "px-6 pb-2")}>
-      {currentContext.suggestions.map((suggestion) => (
+      {staticSuggestions.map((suggestion) => (
         <button
           key={suggestion.id}
           type="button"
@@ -446,10 +480,13 @@ function WorkspaceContent({
     <>
       {drawer ? <RecentThreadStrip /> : null}
 
-      <section className={cn("overflow-hidden rounded-[28px] border border-bm-border/55 bg-bm-surface/10")}>
+      <section className={cn(
+        "overflow-hidden rounded-[28px] border border-bm-border/55 bg-bm-surface/10",
+        drawer && "flex min-h-0 flex-1 flex-col",
+      )}>
         {/* Thread section header */}
         <div className={cn(
-          "flex items-center justify-between gap-3",
+          "flex-shrink-0 flex items-center justify-between gap-3",
           drawer ? "px-4 py-2.5" : "px-4 py-3",
         )}>
           <div className="flex items-center gap-2 min-w-0">
@@ -467,7 +504,7 @@ function WorkspaceContent({
         </div>
 
         {activeState.messages.length === 0 ? (
-          <div className={cn("border-t border-bm-border/30", drawer ? "px-4 py-4" : "px-6 py-8")}>
+          <div className={cn("flex-shrink-0 border-t border-bm-border/30", drawer ? "px-4 py-4" : "px-6 py-8")}>
             <div className={cn(
               "rounded-[28px] border border-dashed border-bm-border/50 bg-bm-bg/45",
               drawer ? "p-4" : "p-6",
@@ -654,14 +691,19 @@ export function WinstonCompanionRoot() {
             </div>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto py-2">
-            <div className="space-y-2">
-              <WorkspaceContent drawer />
-              <div className="px-4 pb-3">
+          <SplitPane
+            chatPane={
+              <div className="flex min-h-0 flex-1 flex-col py-2">
+                <WorkspaceContent drawer />
+              </div>
+            }
+            explorePane={
+              <div className="px-4 pb-3 space-y-2">
+                <SuggestionStrip compact hideWhenActive={false} />
                 <ExplorePanel />
               </div>
-            </div>
-          </div>
+            }
+          />
         </div>
       </div>
     </>
