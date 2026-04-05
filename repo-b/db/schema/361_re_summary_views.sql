@@ -4,6 +4,12 @@
 --
 -- Depends on: 285 (rollup tables), 270 (quarter state, partners), 299 (pipeline)
 
+-- Location columns are referenced by the asset operating summary below.
+-- Bootstrap them here so clean-schema applies do not depend on a later migration.
+ALTER TABLE IF EXISTS repe_property_asset
+  ADD COLUMN IF NOT EXISTS latitude NUMERIC(10,7),
+  ADD COLUMN IF NOT EXISTS longitude NUMERIC(10,7);
+
 -- ═══════════════════════════════════════════════════════════════════════
 -- 1. FUND PORTFOLIO SUMMARY
 -- Per-fund: asset count, total NAV, weighted occupancy, weighted LTV, NOI
