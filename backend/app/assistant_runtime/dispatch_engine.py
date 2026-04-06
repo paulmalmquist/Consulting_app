@@ -5,18 +5,15 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from app.assistant_runtime.skill_registry import SKILL_BY_ID, skill_requires_grounding
 from app.assistant_runtime.skill_router import RoutedSkill, build_routed_skill, route_skill
 from app.assistant_runtime.turn_receipts import (
     ContextReceipt,
     DispatchAmbiguity,
     DispatchDecision,
-    DispatchProposal,
     DispatchSource,
     DispatchTrace,
     ContextResolutionStatus,
     Lane,
-    RetrievalPolicy,
     legacy_code_to_lane,
 )
 from app.config import (
@@ -32,11 +29,8 @@ from app.services.ai_client import get_instrumented_client
 from app.services.model_registry import map_openai_error, sanitize_params
 from app.services.request_router import RouteDecision, classify_request
 
-_SOURCE_AUDIT_RE = re.compile(
-    r"\b(what data is this based on|what is this based on|what data did you use|what source(?:s)? did you use|"
-    r"exact data source|data source|what tool did you use|which tool did you use|why did you answer that|justify|justification)\b",
-    re.IGNORECASE,
-)
+# ── Fast-path regex guardrails (identity, create, ambiguity only) ─────
+# All other routing goes through the tiny router model.
 _IDENTITY_PROMPT_RE = re.compile(
     r"\b(what am i looking at|what page|which page|what environment|where am i|which environment|what is this|what (?:fund|deal|asset|property|investment|client) is this)\b",
     re.IGNORECASE,
@@ -48,90 +42,6 @@ _AMBIGUOUS_DEICTIC_RE = re.compile(
 _CREATE_ENTITY_RE = re.compile(
     r"\b(?:create|add|make|set up|register|new)\s+(?:a\s+|an\s+)?(?:fund|deal|asset|property|investment|"
     r"account|opportunity|lead|activity|contact|engagement|proposal)\b",
-    re.IGNORECASE,
-)
-_DEBT_RISK_RE = re.compile(r"\b(debt risk|debt watch|watchlist)\b", re.IGNORECASE)
-
-# ── Fund/portfolio summary guardrail ─────────────────────────────────
-_FUND_SUMMARY_RE = re.compile(
-    r"\b(?:(?:summary|overview|snapshot|list|show)\s+(?:of\s+)?(?:the\s+)?(?:funds?|portfolio)|"
-    r"(?:funds?|portfolio)\s+(?:summary|overview|snapshot|list)|"
-    r"(?:list|show|give)\s+(?:me\s+)?(?:the\s+)?(?:all\s+)?funds?|"
-    r"how\s+many\s+funds?|what\s+funds?)\b",
-    re.IGNORECASE,
-)
-
-# ── Fund holdings / portfolio breakdown guardrail ────────────────────
-# Must not match "portfolio strategy" or "portfolio performance" (analysis queries).
-# Only matches holdings-specific phrases.
-_FUND_HOLDINGS_RE = re.compile(
-    r"\b(?:holdings?|"
-    r"(?:current\s+)?(?:portfolio|assets)\s+(?:breakdown|composition|allocation)|"
-    r"breakdown\s+(?:of\s+)?(?:current\s+)?(?:holdings?|portfolio|assets)|"
-    r"what\s+(?:does\s+(?:it|this|this\s+fund|the\s+fund)\s+)?own|"
-    r"(?:show|list|give)\s+(?:me\s+)?(?:the\s+)?(?:holdings?|assets\s+in)|"
-    r"assets?\s+(?:in\s+)?(?:this|the)\s+fund|"
-    r"underlying\s+assets?|"
-    r"what\s+(?:assets?|properties)\s+(?:are\s+)?(?:in|under))\b",
-    re.IGNORECASE,
-)
-
-# ── Fund metrics guardrail ───────────────────────────────────────────
-_FUND_METRICS_RE = re.compile(
-    r"\b(?:(?:fund|portfolio)\s+metrics|metrics\s+for|"
-    r"(?:get|show|what\s+are)\s+(?:the\s+)?(?:fund\s+)?metrics)\b",
-    re.IGNORECASE,
-)
-
-# ── Resume / biographical guardrail ──────────────────────────────────
-_RESUME_QUERY_RE = re.compile(
-    r"\b(?:(?:when\s+did|where\s+did|how\s+long)\s+(?:paul|he)|"
-    r"(?:paul'?s?|his)\s+(?:experience|career|role|skills?|background|resume|cv|timeline|work)|"
-    r"(?:summarize|describe|tell\s+me\s+about|explain)\s+(?:paul'?s?|his|the)\s+(?:experience|career|role|time|work|background)|"
-    r"kayne\s+anderson|jll|novendor|jpmc|jp\s*morgan)\b",
-    re.IGNORECASE,
-)
-
-# ── CRM follow-up / activity guardrail ───────────────────────────────
-_CRM_ACTIVITY_RE = re.compile(
-    r"\b(?:follow\s*up|next\s+action|pending\s+task|overdue|"
-    r"(?:who|what)\s+(?:should\s+)?(?:i|we)\s+(?:follow|reach|contact|call)|"
-    r"pipeline\s+(?:summary|scoreboard|status)|"
-    r"(?:list|show)\s+(?:my\s+)?(?:leads?|accounts?|opportunities|activities))\b",
-    re.IGNORECASE,
-)
-
-# ── Per-intent metric regexes (checked in specificity order) ─────────
-_RANK_METRIC_RE = re.compile(
-    r"\b(best|worst|top\s*\d*|bottom\s*\d*|rank|ranking|highest|lowest|"
-    r"(?:best|worst|top|bottom)\s+performing|underperforming|outperforming|"
-    r"sort\s+by|order\s+by|leaderboard|compare\s+all)\b",
-    re.IGNORECASE,
-)
-_TREND_METRIC_RE = re.compile(
-    r"\b(trend|over\s+time|trailing\s+\d+|ttm|ltm|quarterly\s+trend|monthly\s+trend|"
-    r"year\s+over\s+year|yoy|time\s+series|historical|"
-    r"past\s+\d+\s+(?:months?|quarters?|years?)|"
-    r"last\s+\d+\s+(?:months?|quarters?|years?)|"
-    r"last\s+twelve\s+months)\b",
-    re.IGNORECASE,
-)
-_VARIANCE_METRIC_RE = re.compile(
-    r"\b(variance|underwriting|down\s+vs|vs\s+plan|vs\s+budget|deviation|shortfall|"
-    r"miss(?:ed)?|gap|below\s+plan|above\s+plan|off\s+track|"
-    r"why\s+is\s+.*(?:down|low|negative|below|off))\b",
-    re.IGNORECASE,
-)
-_COMPARE_ENTITIES_RE = re.compile(
-    r"\b(?:compare\s+\w+\s+(?:to|and|vs|with)\s+\w+|"
-    r"\w+\s+vs\.?\s+\w+|"
-    r"head\s+to\s+head|side\s+by\s+side|"
-    r"how\s+does\s+\w+\s+compare|difference\s+between|stack\s+up)\b",
-    re.IGNORECASE,
-)
-_METRIC_ANOMALY_RE = re.compile(
-    r"\b(blank|variance|underwriting|occupancy|noi|down vs|debt risk|debt watch|watchlist|"
-    r"irr|tvpi|dpi|dscr|ltv|cap rate|revenue|expenses|ncf)\b",
     re.IGNORECASE,
 )
 
@@ -297,15 +207,6 @@ def _flatten_content(content: Any) -> str:
     return str(content or "")
 
 
-def _parse_dispatch_payload(payload: str) -> DispatchProposal:
-    text = (payload or "").strip()
-    if not text:
-        raise DispatchModelFailure("dispatcher_empty_output")
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.IGNORECASE | re.DOTALL)
-    return DispatchProposal.model_validate(json.loads(text))
-
-
 def _deterministic_dispatch(*, message: str, context: ContextReceipt) -> DispatchTrace | None:
     """Fast-path regex guardrails that bypass the router model entirely.
 
@@ -352,54 +253,25 @@ def _deterministic_dispatch(*, message: str, context: ContextReceipt) -> Dispatc
     return None
 
 
-def _context_summary(
-    *,
-    context_envelope: AssistantContextEnvelope,
-    resolved_scope: ResolvedAssistantScope,
-    context: ContextReceipt,
-    visible_context_shortcut: bool,
-) -> dict[str, Any]:
-    return {
-        "message_route": context_envelope.ui.route,
-        "surface": context_envelope.ui.surface,
-        "active_environment_id": context_envelope.ui.active_environment_id,
-        "active_environment_name": context_envelope.ui.active_environment_name,
-        "page_entity_type": context_envelope.ui.page_entity_type,
-        "page_entity_id": context_envelope.ui.page_entity_id,
-        "page_entity_name": context_envelope.ui.page_entity_name,
-        "selected_entities": [
-            {
-                "entity_type": item.entity_type,
-                "entity_id": item.entity_id,
-                "name": item.name,
-                "source": item.source,
-            }
-            for item in context_envelope.ui.selected_entities[:4]
-        ],
-        "resolved_scope": resolved_scope.model_dump(mode="json"),
-        "context_receipt": context.model_dump(mode="json"),
-        "visible_context_shortcut": visible_context_shortcut,
-    }
-
-
 _ROUTER_SYSTEM_PROMPT = (
-    "You are a domain intent classifier. Return ONLY JSON matching the schema.\n\n"
-    "Valid environments: repe, resume, crm, pds, unknown\n"
-    "Valid entity_types: fund, asset, investment, project, account, opportunity, person, unknown\n"
-    "Valid actions: summary, detail, holdings, list, rank, metric_lookup, trend, compare, variance, create, update, explain, search, draft_email, unknown\n"
-    "Valid metrics: noi, irr, tvpi, dpi, nav, occupancy, ltv, dscr, revenue, expenses, ncf, none\n"
-    "Valid timeframe_types: latest, quarter, ttm, ltm, custom, none\n"
-    "Valid clarification_fields: entity, metric, timeframe, action, none\n\n"
-    "Rules:\n"
-    '- "holdings", "breakdown", "what does it own", "assets in fund" → action=holdings\n'
-    '- "best/worst/top/rank/performing" → action=rank\n'
-    '- "trend/over time/quarterly/historical" → action=trend\n'
-    '- "variance/vs budget/underwriting/below plan" → action=variance\n'
-    '- "compare X to Y" / "X vs Y" → action=compare\n'
-    '- Resume/career/Paul/biography questions → environment=resume, entity_type=person\n'
-    "- If entity name is mentioned, extract it into entity_name\n"
-    "- Set needs_clarification=true only when a required field cannot be inferred\n"
-    "- confidence: 0.9+ if clear, 0.7-0.9 if reasonable, <0.7 if ambiguous"
+    "You are a domain intent classifier for a real estate private equity AI platform. "
+    "Return ONLY JSON matching the schema. Do not explain.\n\n"
+    "Enums:\n"
+    "  environment: repe, resume, crm, pds, unknown\n"
+    "  entity_type: fund, asset, investment, project, account, opportunity, person, unknown\n"
+    "  action: summary, detail, holdings, list, rank, metric_lookup, trend, compare, variance, create, update, explain, search, draft_email, unknown\n"
+    "  metric: noi, irr, tvpi, dpi, nav, occupancy, ltv, dscr, revenue, expenses, ncf, none\n"
+    "  timeframe_type: latest, quarter, ttm, ltm, custom, none\n"
+    "  clarification_field: entity, metric, timeframe, action, none\n\n"
+    "Examples:\n"
+    '{"message":"give me a rundown of the funds"} → {"environment":"repe","entity_type":"fund","entity_name":null,"action":"summary","metric":"none","timeframe_type":"none","timeframe_value":null,"needs_clarification":false,"clarification_field":"none","confidence":0.92}\n'
+    '{"message":"walk me through what IGF VII owns"} → {"environment":"repe","entity_type":"fund","entity_name":"IGF VII","action":"holdings","metric":"none","timeframe_type":"none","timeframe_value":null,"needs_clarification":false,"clarification_field":"none","confidence":0.95}\n'
+    '{"message":"best performing assets by NOI"} → {"environment":"repe","entity_type":"asset","entity_name":null,"action":"rank","metric":"noi","timeframe_type":"latest","timeframe_value":null,"needs_clarification":false,"clarification_field":"none","confidence":0.93}\n'
+    '{"message":"what is the occupancy for Riverfront Residences"} → {"environment":"repe","entity_type":"asset","entity_name":"Riverfront Residences","action":"metric_lookup","metric":"occupancy","timeframe_type":"latest","timeframe_value":null,"needs_clarification":false,"clarification_field":"none","confidence":0.94}\n'
+    '{"message":"when did Paul start at Kayne Anderson"} → {"environment":"resume","entity_type":"person","entity_name":"Paul","action":"explain","metric":"none","timeframe_type":"none","timeframe_value":null,"needs_clarification":false,"clarification_field":"none","confidence":0.91}\n'
+    '{"message":"NOI trend for 2025"} → {"environment":"repe","entity_type":"unknown","entity_name":null,"action":"trend","metric":"noi","timeframe_type":"custom","timeframe_value":"2025","needs_clarification":true,"clarification_field":"entity","confidence":0.78}\n'
+    '{"message":"compare actual vs budget"} → {"environment":"repe","entity_type":"unknown","entity_name":null,"action":"variance","metric":"none","timeframe_type":"latest","timeframe_value":null,"needs_clarification":false,"clarification_field":"none","confidence":0.88}\n'
+    '{"message":"who should I follow up with today"} → {"environment":"crm","entity_type":"account","entity_name":null,"action":"search","metric":"none","timeframe_type":"latest","timeframe_value":null,"needs_clarification":false,"clarification_field":"none","confidence":0.87}\n'
 )
 
 
@@ -543,7 +415,7 @@ def _fallback_trace(
 
 def _normalize_dispatch(
     *,
-    proposal: DispatchProposal | RouterIntent | None,
+    proposal: RouterIntent | None,
     fallback_route: RouteDecision,
     fallback_skill: RoutedSkill,
     context: ContextReceipt,
@@ -563,14 +435,23 @@ def _normalize_dispatch(
     # ── RouterIntent path (new closed-enum router) ────────────────────
     if isinstance(proposal, RouterIntent):
         if proposal.confidence < OPENAI_DISPATCH_CONFIDENCE_THRESHOLD:
-            notes.append("low_confidence_router")
+            # Low confidence: use lookup_entity as safe default instead of
+            # falling back to the legacy regex system (which is less reliable
+            # than even a low-confidence model output).
+            notes.append("low_confidence_router_safe_default")
             return DispatchTrace(
                 raw=None,
-                normalized=_fallback_trace(
-                    fallback_route=fallback_route,
-                    fallback_skill=fallback_skill,
-                    reason="low_confidence_router",
-                ).normalized,
+                normalized=DispatchDecision(
+                    source=DispatchSource.MODEL,
+                    skill_id="lookup_entity",
+                    lane=Lane.B_LOOKUP,
+                    needs_retrieval=True,
+                    write_intent=False,
+                    ambiguity_level=DispatchAmbiguity.HIGH,
+                    confidence=round(proposal.confidence, 2),
+                    fallback_used=False,
+                    notes=notes + [f"router:{proposal.entity_type}/{proposal.action}"],
+                ),
             )
 
         skill_id, lane, needs_retrieval, write_intent = _map_intent_to_skill(proposal)
@@ -593,119 +474,13 @@ def _normalize_dispatch(
         )
         return DispatchTrace(raw=None, normalized=normalized)
 
-    # ── Legacy DispatchProposal path (backward compat) ────────────────
-    fallback_used = False
-    lane = proposal.lane or legacy_code_to_lane(fallback_route.lane)
-    if not isinstance(lane, Lane):
-        lane = Lane(lane)
-
-    skill_id = proposal.skill
-    if skill_id is not None and skill_id not in SKILL_BY_ID:
-        notes.append(f"unknown_skill:{skill_id}")
-        skill_id = None
-
-    if proposal.confidence < OPENAI_DISPATCH_CONFIDENCE_THRESHOLD:
-        notes.append("low_confidence_dispatch")
-        fallback_used = True
-
-    if fallback_used:
-        return DispatchTrace(
-            raw=proposal,
-            normalized=_fallback_trace(
-                fallback_route=fallback_route,
-                fallback_skill=fallback_skill,
-                reason="low_confidence_dispatch",
-            ).normalized,
-        )
-
-    if skill_id is None and fallback_skill.selection.skill_id and proposal.confidence < 0.5:
-        notes.append("missing_skill_fell_back")
-        return DispatchTrace(
-            raw=proposal,
-            normalized=_fallback_trace(
-                fallback_route=fallback_route,
-                fallback_skill=fallback_skill,
-                reason="missing_skill_fell_back",
-            ).normalized,
-        )
-
-    if context.resolution_status == ContextResolutionStatus.AMBIGUOUS_CONTEXT and skill_id is None and fallback_skill.selection.skill_id:
-        skill_id = fallback_skill.selection.skill_id
-        notes.append("ambiguous_context_forced_fallback_skill")
-
-    normalized_write_intent = proposal.write_intent
-    if proposal.write_intent and skill_id != "create_entity":
-        if fallback_route.is_write or _CREATE_ENTITY_RE.search(message):
-            notes.append("write_intent_forced_create_entity")
-            skill_id = "create_entity"
-        else:
-            normalized_write_intent = False
-            notes.append("spurious_write_intent_suppressed")
-
-    skill_def = SKILL_BY_ID.get(skill_id) if skill_id else None
-    # Fine-grained metric skill normalization — try specific intents first
-    if _METRIC_ANOMALY_RE.search(message or "") and skill_id in {None, "lookup_entity", "explain_metric"}:
-        if _DEBT_RISK_RE.search(message or ""):
-            skill_id = "run_analysis"
-        elif _RANK_METRIC_RE.search(message or ""):
-            skill_id = "rank_metric"
-        elif _VARIANCE_METRIC_RE.search(message or ""):
-            skill_id = "explain_metric_variance"
-        elif _TREND_METRIC_RE.search(message or ""):
-            skill_id = "trend_metric"
-        elif _COMPARE_ENTITIES_RE.search(message or ""):
-            skill_id = "compare_entities"
-        elif re.search(r"\b(why|explain|blank|down vs)\b", message or "", re.IGNORECASE):
-            skill_id = "explain_metric"
-        else:
-            skill_id = "explain_metric"
-        notes.append("metric_skill_normalized")
-        skill_def = SKILL_BY_ID.get(skill_id) if skill_id else None
-
-    needs_retrieval = proposal.needs_retrieval
-    if skill_id == "lookup_entity" and fallback_route.skip_rag:
-        needs_retrieval = False
-        notes.append("lookup_retrieval_suppressed")
-    if skill_requires_grounding(skill_id, message=message):
-        needs_retrieval = True
-        notes.append("retrieval_required_by_skill")
-    if skill_def and skill_def.retrieval_policy == RetrievalPolicy.NONE:
-        needs_retrieval = False
-
-    if skill_id == "create_entity" and lane in (Lane.A_FAST, Lane.B_LOOKUP):
-        lane = Lane.C_ANALYSIS
-        notes.append("write_lane_promoted")
-    if context.resolution_status == ContextResolutionStatus.AMBIGUOUS_CONTEXT and lane == Lane.A_FAST:
-        lane = Lane.B_LOOKUP
-        notes.append("ambiguous_context_lane_promoted")
-    _ANALYSIS_LANE_SKILLS = {"explain_metric", "run_analysis", "generate_lp_summary",
-                              "rank_metric", "trend_metric", "explain_metric_variance", "compare_entities"}
-    if needs_retrieval and lane == Lane.A_FAST:
-        lane = Lane.C_ANALYSIS if skill_id in _ANALYSIS_LANE_SKILLS else Lane.B_LOOKUP
-        notes.append("grounded_lane_promoted")
-    if skill_id == "generate_lp_summary" and lane in (Lane.A_FAST, Lane.B_LOOKUP):
-        lane = Lane.C_ANALYSIS
-        needs_retrieval = True
-        notes.append("lp_summary_lane_promoted")
-    if skill_id in {"run_analysis", "rank_metric", "trend_metric", "explain_metric_variance", "compare_entities"} and lane == Lane.A_FAST:
-        lane = Lane.B_LOOKUP if not needs_retrieval else Lane.C_ANALYSIS
-        notes.append("analysis_lane_promoted")
-    if context.resolution_status != "resolved" and proposal.ambiguity_level == DispatchAmbiguity.LOW:
-        notes.append("context_scope_non_resolved")
-
-    normalized = DispatchDecision(
-        source=DispatchSource.MODEL,
-        skill_id=skill_id,
-        lane=lane,
-        needs_retrieval=needs_retrieval,
-        write_intent=normalized_write_intent,
-        ambiguity_level=proposal.ambiguity_level,
-        confidence=round(proposal.confidence, 2),
-        fallback_used=False,
-        fallback_reason=None,
-        notes=notes,
+    # If we reach here, proposal is an unexpected type — fall back safely
+    notes.append("unexpected_proposal_type")
+    return _fallback_trace(
+        fallback_route=fallback_route,
+        fallback_skill=fallback_skill,
+        reason="unexpected_proposal_type",
     )
-    return DispatchTrace(raw=proposal, normalized=normalized)
 
 
 def _route_from_dispatch(
@@ -821,7 +596,7 @@ async def dispatch_request(
         )
         return DispatchOutcome(trace=deterministic, route=route, routed_skill=skill)
 
-    proposal: DispatchProposal | None = None
+    proposal: RouterIntent | None = None
     dispatch_notes: list[str] = []
     fallback_reason: str | None = None
     try:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.assistant_runtime.skill_registry import SKILLS, SKILL_BY_ID
+from app.assistant_runtime.skill_registry import SKILL_BY_ID
 from app.assistant_runtime.turn_receipts import (
     ContextReceipt,
     Lane,
@@ -18,77 +18,36 @@ class RoutedSkill:
     selection: SkillSelection
 
 
-def _normalize(text: str) -> str:
-    return " ".join((text or "").lower().split())
-
-
 def build_routed_skill(*, message: str, skill_id: str | None, confidence: float) -> RoutedSkill:
-    if not skill_id or skill_id not in SKILL_BY_ID:
-        return RoutedSkill(
-            definition=None,
-            selection=SkillSelection(skill_id=None, confidence=max(0.0, min(1.0, confidence)), triggers_matched=[]),
-        )
-    skill = SKILL_BY_ID[skill_id]
-    text = _normalize(message)
-    matches = [trigger for trigger in skill.triggers if trigger in text]
+    """Hydrate a RoutedSkill from a known skill_id. No matching logic —
+    the model classifier or deterministic guardrail already decided."""
+    skill = SKILL_BY_ID.get(skill_id) if skill_id else None
     return RoutedSkill(
         definition=skill,
         selection=SkillSelection(
-            skill_id=skill.id,
+            skill_id=skill_id if skill else None,
             confidence=round(max(0.0, min(1.0, confidence)), 2),
-            triggers_matched=matches,
+            triggers_matched=[],
         ),
     )
 
 
 def route_skill(*, message: str, lane: Lane, route: RouteDecision, context: ContextReceipt) -> RoutedSkill:
-    text = _normalize(message)
-    best_skill: SkillDefinition | None = None
-    best_matches: list[str] = []
-    best_score = -1
+    """Last-resort fallback when the model dispatcher fails entirely.
 
-    for skill in SKILLS:
-        matches = [trigger for trigger in skill.triggers if trigger in text]
-        score = len(matches) * 10
-        if route.is_write and "write" in skill.capability_tags:
-            score += 5
-        if lane in (Lane.C_ANALYSIS, Lane.D_DEEP) and "analysis" in skill.capability_tags:
-            score += 2
-        if lane in (Lane.A_FAST, Lane.B_LOOKUP) and "lookup" in skill.capability_tags:
-            score += 2
-        if score > best_score and matches:
-            best_skill = skill
-            best_matches = matches
-            best_score = score
+    Returns a safe default skill with low confidence so downstream knows
+    this is a weak signal. Model dispatch should have fired before this.
+    """
+    if route.is_write:
+        skill_id = "create_entity"
+    else:
+        skill_id = "lookup_entity"
 
-    if best_skill is None:
-        if route.is_write:
-            best_skill = SKILL_BY_ID["create_entity"]
-            best_score = 6
-        elif lane in (Lane.C_ANALYSIS, Lane.D_DEEP):
-            best_skill = SKILL_BY_ID["run_analysis"]
-            best_score = 5
-        elif context.resolution_status == "ambiguous_context":
-            best_skill = SKILL_BY_ID["lookup_entity"]
-            best_score = 4
-        elif context.resolution_status == "resolved":
-            best_skill = SKILL_BY_ID["lookup_entity"]
-            best_score = 4
-
-    if best_skill is None:
-        return RoutedSkill(
-            definition=None,
-            selection=SkillSelection(skill_id=None, confidence=0.0, triggers_matched=[]),
-        )
-
-    confidence = min(1.0, 0.45 + (0.1 * len(best_matches)) + (0.05 if route.is_write else 0.0))
-    if not best_matches:
-        confidence = max(confidence, 0.55)
     return RoutedSkill(
-        definition=best_skill,
+        definition=SKILL_BY_ID[skill_id],
         selection=SkillSelection(
-            skill_id=best_skill.id,
-            confidence=round(confidence, 2),
-            triggers_matched=best_matches,
+            skill_id=skill_id,
+            confidence=0.40,
+            triggers_matched=[],
         ),
     )

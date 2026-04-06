@@ -186,7 +186,9 @@ def test_permission_ordering_is_deterministic():
     assert permission_satisfies(PermissionMode.WRITE_CONFIRMED, PermissionMode.ANALYZE) is True
 
 
-def test_route_skill_is_deterministic_for_analysis():
+def test_route_skill_is_safe_fallback():
+    """route_skill is now a last-resort fallback that returns lookup_entity
+    with low confidence. Model dispatch handles all real routing."""
     route = RouteDecision(
         lane="C",
         skip_rag=False,
@@ -209,9 +211,9 @@ def test_route_skill_is_deterministic_for_analysis():
         route=route,
         context=context,
     )
-    assert routed.selection.skill_id == "run_analysis"
-    assert routed.selection.confidence > 0
-    assert "benchmark" in routed.selection.triggers_matched or "correlation" in routed.selection.triggers_matched
+    assert routed.selection.skill_id == "lookup_entity"
+    assert routed.selection.confidence == 0.40
+    assert routed.selection.triggers_matched == []
 
 
 def test_prepare_tools_filters_by_lane_and_permission():
