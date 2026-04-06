@@ -61,11 +61,28 @@ _TIMEFRAME_RE = re.compile(
 _QUARTER_RE = re.compile(r"\bQ([1-4])\s*(\d{4})\b", re.IGNORECASE)
 
 
-def extract_metric(message: str) -> dict | None:
+def extract_metric(message: str, *, business_id: str | None = None) -> dict | None:
     """Extract the primary metric from a user message.
 
-    Returns: {"normalized": str, "raw": str, "confidence": float} or None
+    When business_id is provided, the DB semantic catalog is tried first so
+    that newly-added or client-specific metrics are recognized without a code
+    change.  Falls back to the static _METRIC_SYNONYMS if the DB returns no
+    match or is unavailable.
+
+    Returns: {"normalized": str, "raw": str, "confidence": float, "source": str} or None
     """
+    # ── DB-aware path ─────────────────────────────────────────────────
+    if business_id:
+        try:
+            from app.services.semantic_runtime import SemanticMetricRegistry
+            registry = SemanticMetricRegistry(business_id)
+            db_result = registry.extract(message)
+            if db_result:
+                return db_result
+        except Exception:
+            pass  # DB unavailable — fall through to static lookup
+
+    # ── Static fallback ───────────────────────────────────────────────
     m = _METRIC_RE.search(message)
     if not m:
         return None

@@ -146,13 +146,17 @@ jobs:
         working-directory: repo-b
         run: npm ci
 
-      - name: Install pgvector in PostGIS container
+      - name: Bootstrap pgvector in PostGIS container
         run: |
-          # Install pgvector extension into the running PostGIS container
-          docker exec $(docker ps -q --filter ancestor=postgis/postgis:16-3.5) bash -c \
-            "apt-get update -qq && apt-get install -y -qq postgresql-16-pgvector > /dev/null 2>&1 || true"
-          # Create the extension (may fail silently if install didn't work)
-          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d app -c "CREATE EXTENSION IF NOT EXISTS vector;" || true
+          POSTGIS_CID=$(docker ps -q --filter ancestor=postgis/postgis:16-3.5 | head -n 1)
+          if [ -z "$POSTGIS_CID" ]; then
+            echo "No running PostGIS container found"
+            exit 1
+          fi
+          docker exec "$POSTGIS_CID" bash -lc "apt-get update -qq && apt-get install -y -qq postgresql-16-pgvector"
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d app -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d app -At -c "SELECT extname FROM pg_extension WHERE extname = 'vector';" | grep -qx "vector"
+          echo "pgvector bootstrap complete — vector extension confirmed in pg_extension"
 
       - name: Apply schema bundle
         run: make db:migrate

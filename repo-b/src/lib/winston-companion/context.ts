@@ -1,4 +1,5 @@
 import type { AssistantContextEnvelope, AssistantSelectedEntity, AssistantVisibleData, ContextSnapshot } from "@/lib/commandbar/types";
+import type { WidgetContext, WidgetContextAdapter } from "./widget-adapters/types";
 
 export type WinstonLane = "contextual" | "general";
 
@@ -233,11 +234,26 @@ export function shouldRaiseWinstonLauncher(pathname: string | null) {
   return MOBILE_NAV_ROUTE_PATTERNS.some((pattern) => pattern.test(pathname));
 }
 
+/** Merge widget adapter captures into the visible_data envelope. */
+function _mergeWidgetContexts(
+  visibleData: AssistantVisibleData | null,
+  adapters: WidgetContextAdapter[] | undefined,
+): AssistantVisibleData | null {
+  if (!adapters?.length) return visibleData;
+  const widgets: WidgetContext[] = adapters
+    .map((a) => a.capture())
+    .filter((w): w is WidgetContext => w !== null);
+  if (!widgets.length) return visibleData;
+  return { ...(visibleData ?? {}), widgets };
+}
+
 export function buildCompanionContext(params: {
   envelope: AssistantContextEnvelope;
   snapshot: ContextSnapshot | null;
+  /** Optional widget adapters that publish concise context about visible UI elements. */
+  adapters?: WidgetContextAdapter[];
 }): WinstonCompanionContext {
-  const { envelope } = params;
+  const { envelope, adapters } = params;
   const routeLabel = routeLabelFromSurface(envelope.ui.surface || null, envelope.ui.route || null);
   const scopeType = String(envelope.thread.scope_type || envelope.ui.page_entity_type || "global");
   const scopeId = envelope.thread.scope_id || envelope.ui.page_entity_id || envelope.ui.active_environment_id || envelope.ui.active_business_id || null;
@@ -259,7 +275,7 @@ export function buildCompanionContext(params: {
     scopeLabel,
     currentNarrative: buildNarrative(envelope, routeLabel, scopeLabel),
     selectedEntities: envelope.ui.selected_entities,
-    visibleData: envelope.ui.visible_data || null,
+    visibleData: _mergeWidgetContexts(envelope.ui.visible_data || null, adapters),
     quickLinks: buildQuickLinks(envelope),
     suggestions: buildSuggestions(envelope, routeLabel, scopeLabel),
     searchPlaceholder: `Search beyond ${scopeLabel === "General" ? routeLabel : scopeLabel}...`,

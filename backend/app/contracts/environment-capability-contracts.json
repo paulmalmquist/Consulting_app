@@ -1,0 +1,68 @@
+{
+  "repe": {
+    "template_domains": ["repe"],
+    "tool_tags": ["repe", "finance", "analysis", "document", "env"],
+    "skill_ids": [
+      "rank_metric",
+      "explain_metric",
+      "trend_metric",
+      "explain_metric_variance",
+      "generate_lp_summary",
+      "create_entity"
+    ],
+    "grounding_tables": [
+      "re_asset_quarter_state",
+      "re_fund_quarter_state",
+      "re_loan_detail",
+      "re_asset_occupancy_quarter"
+    ]
+  },
+  "pds": {
+    "template_domains": ["pds"],
+    "tool_tags": ["pds", "finance", "analysis"],
+    "skill_ids": [
+      "rank_metric",
+      "explain_metric",
+      "explain_metric_variance"
+    ],
+    "grounding_tables": [
+      "pds_projects",
+      "pds_budget_lines",
+      "pds_contracts"
+    ]
+  },
+  "crm": {
+    "template_domains": ["crm"],
+    "tool_tags": ["crm", "novendor", "core"],
+    "skill_ids": [
+      "lookup_entity",
+      "create_entity"
+    ],
+    "grounding_tables": [
+      "nv_opportunities",
+      "nv_contacts",
+      "nv_accounts"
+    ]
+  },
+  "resume": {
+    "template_domains": [],
+    "tool_tags": ["resume", "core", "meta"],
+    "skill_ids": [
+      "lookup_entity",
+      "explain_metric"
+    ],
+    "grounding_tables": [
+      "resume_kpi",
+      "resume_experience"
+    ]
+  },
+  "trading": {
+    "template_domains": [],
+    "tool_tags": ["trading", "finance"],
+    "skill_ids": [
+      "explain_metric",
+      "trend_metric"
+    ],
+    "grounding_tables": []
+  }
+}

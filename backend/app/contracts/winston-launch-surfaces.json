@@ -21,6 +21,41 @@
       "expected_degraded_behavior": "If grounded fund data is unavailable, say the fund is identified but grounded performance is unavailable instead of claiming missing context."
     },
     {
+      "id": "re_asset_detail",
+      "route_pattern": "^/lab/env/[^/]+/re/assets/[^/]+(?:/|$)",
+      "surface": "asset_detail",
+      "thread_kind": "contextual",
+      "scope_type": "asset",
+      "required_context_fields": [
+        "ui.route",
+        "ui.active_environment_id",
+        "ui.active_business_id",
+        "ui.page_entity_type",
+        "ui.page_entity_id",
+        "thread.scope_type",
+        "thread.scope_id"
+      ],
+      "launch_source": "winston_companion_contextual",
+      "entity_selection_required": true,
+      "expected_degraded_behavior": "If grounded asset data is unavailable, identify the asset by name and degrade to general REPE context rather than failing."
+    },
+    {
+      "id": "re_dashboard",
+      "route_pattern": "^/lab/env/[^/]+/re/dashboards",
+      "surface": "re_dashboard",
+      "thread_kind": "contextual",
+      "scope_type": "environment",
+      "required_context_fields": [
+        "ui.route",
+        "ui.active_environment_id",
+        "ui.active_business_id",
+        "thread.scope_type"
+      ],
+      "launch_source": "winston_companion_contextual",
+      "entity_selection_required": false,
+      "expected_degraded_behavior": "If dashboard context is missing, continue as environment-scoped copilot with full REPE capabilities."
+    },
+    {
       "id": "re_environment_overview",
       "route_pattern": "^/lab/env/[^/]+/re/?$",
       "surface": "re_workspace",
@@ -35,6 +70,54 @@
       "launch_source": "winston_companion_contextual",
       "entity_selection_required": false,
       "expected_degraded_behavior": "If portfolio-wide grounding is partial, keep environment scope and degrade precisely instead of showing bootstrap failure."
+    },
+    {
+      "id": "resume_workspace",
+      "route_pattern": "^/lab/env/[^/]+/resume",
+      "surface": "resume",
+      "thread_kind": "contextual",
+      "scope_type": "environment",
+      "required_context_fields": [
+        "ui.route",
+        "ui.active_environment_id",
+        "ui.active_business_id",
+        "thread.scope_type"
+      ],
+      "launch_source": "winston_companion_contextual",
+      "entity_selection_required": false,
+      "expected_degraded_behavior": "If resume data is unavailable, acknowledge the workspace and offer to help with general career questions."
+    },
+    {
+      "id": "novendor_crm",
+      "route_pattern": "^/lab/env/[^/]+/novendor",
+      "surface": "novendor_crm",
+      "thread_kind": "contextual",
+      "scope_type": "environment",
+      "required_context_fields": [
+        "ui.route",
+        "ui.active_environment_id",
+        "ui.active_business_id",
+        "thread.scope_type"
+      ],
+      "launch_source": "winston_companion_contextual",
+      "entity_selection_required": false,
+      "expected_degraded_behavior": "If CRM data is unavailable, acknowledge the CRM workspace and offer navigation help."
+    },
+    {
+      "id": "pds_workspace",
+      "route_pattern": "^/lab/env/[^/]+/pds",
+      "surface": "pds_workspace",
+      "thread_kind": "contextual",
+      "scope_type": "environment",
+      "required_context_fields": [
+        "ui.route",
+        "ui.active_environment_id",
+        "ui.active_business_id",
+        "thread.scope_type"
+      ],
+      "launch_source": "winston_companion_contextual",
+      "entity_selection_required": false,
+      "expected_degraded_behavior": "If PDS project data is unavailable, acknowledge the workspace and offer to help with project tracking questions."
     }
   ]
 }

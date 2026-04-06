@@ -115,7 +115,7 @@ _PDS_KEYWORDS = frozenset({
 })
 
 _CRM_KEYWORDS = frozenset({
-    "opportunity", "account", "contact", "lead", "pipeline stage",
+    "opportunity", "opportunities", "account", "contact", "lead", "pipeline stage",
     "win rate", "close date", "prospect", "vendor", "crm",
     "activity", "outreach", "proposal", "engagement",
 })
@@ -234,6 +234,13 @@ def _classify_domain(q: str) -> str:
 
 def _match_template(q: str, query_type: QueryType, domain: str) -> str | None:
     """Try to match a deterministic query template key."""
+    # ── Cross-domain explicit matches (unambiguous CRM signals) ──────
+    # Run before domain blocks so "pipeline summary" doesn't get lost in PDS.
+    if "stale" in q and "opportunit" in q:
+        return "crm.stale_opportunities"
+    if "pipeline" in q and any(kw in q for kw in ("summary", "overview", "review")):
+        return "crm.pipeline_summary"
+
     # REPE templates
     if domain == "repe":
         # "NOI movers" → always route to noi_movers regardless of query type

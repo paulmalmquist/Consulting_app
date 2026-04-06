@@ -638,6 +638,98 @@ def _tool_activity_item(
     }
 
 
+# ── Pending-Query Template Execution ────────────────────────────────────────
+
+
+async def _stream_template_result(
+    *,
+    template_key: str,
+    params: dict,
+    session_id: str,
+    scope_dump: dict,
+    timings: dict,
+    start: float,
+) -> AsyncGenerator[str, None]:
+    """Execute a SQL template directly and stream the results as SSE.
+
+    Used by the pending-query continuation path when all slots are resolved.
+    Does not call an LLM — pure deterministic execution.
+    """
+    import time as _time
+    from app.sql_agent.query_templates import render_template
+    from app.sql_agent.executor import execute_sql
+
+    yield _sse("status", {"message": "Running query...", "stage": "compute", "progress": 0.3})
+
+    try:
+        sql, clean_params = render_template(template_key, params)
+    except ValueError as e:
+        err = f"Could not run query: {e}"
+        yield _sse("token", {"text": err})
+        timings["total_ms"] = int((_time.time() - start) * 1000)
+        yield _sse("done", {
+            "session_id": session_id,
+            "trace": {
+                "execution_path": "continuation_template", "lane": "F", "model": "none",
+                "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
+                "tool_call_count": 0, "tool_timeline": [], "data_sources": [],
+                "citations": [], "rag_chunks_used": 0, "warnings": [str(e)],
+                "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+                "repe": None, "visible_context_shortcut": False, "timings": timings,
+            },
+            "prompt_tokens": 0, "completion_tokens": 0, "tool_calls": 0,
+            "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+            "response_blocks": [markdown_block(err)],
+        })
+        return
+
+    result = execute_sql(sql, clean_params, row_limit=50)
+    timings["total_ms"] = int((_time.time() - start) * 1000)
+
+    if result.error:
+        err = f"Query failed: {result.error}"
+        yield _sse("token", {"text": err})
+        yield _sse("done", {
+            "session_id": session_id,
+            "trace": {
+                "execution_path": "continuation_template", "lane": "F", "model": "none",
+                "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
+                "tool_call_count": 1, "tool_timeline": [], "data_sources": [template_key],
+                "citations": [], "rag_chunks_used": 0, "warnings": [result.error],
+                "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+                "repe": None, "visible_context_shortcut": False, "timings": timings,
+            },
+            "prompt_tokens": 0, "completion_tokens": 0, "tool_calls": 1,
+            "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+            "response_blocks": [markdown_block(err)],
+        })
+        return
+
+    # Emit structured result + markdown summary
+    table_data = {"columns": result.columns, "rows": result.rows, "row_count": result.row_count}
+    yield _sse("structured_result", {"result_type": "query_result", "template_key": template_key, "data": table_data})
+
+    summary_lines = [f"**{template_key.split('.')[-1].replace('_', ' ').title()}**",
+                     f"Returned {result.row_count} row{'s' if result.row_count != 1 else ''}."]
+    summary = "\n".join(summary_lines)
+    response_block = markdown_block(summary)
+    yield _sse("token", {"text": summary})
+    yield _sse("done", {
+        "session_id": session_id,
+        "trace": {
+            "execution_path": "continuation_template", "lane": "F", "model": "none",
+            "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
+            "tool_call_count": 1, "tool_timeline": [template_key], "data_sources": [template_key],
+            "citations": [], "rag_chunks_used": 0, "warnings": [],
+            "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+            "repe": None, "visible_context_shortcut": False, "timings": timings,
+        },
+        "prompt_tokens": 0, "completion_tokens": 0, "tool_calls": 1,
+        "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+        "response_blocks": [response_block],
+    })
+
+
 # ── REPE Fast-Path Engine ────────────────────────────────────────────────────
 
 async def _run_repe_fast_path(
@@ -2904,6 +2996,78 @@ async def _legacy_run_gateway_stream(
         "env_id": resolved_scope.environment_id,
         "scope": scope_dump,
     }, tags=[f"lane:{route.lane}"])
+
+    # ── Pending-query continuation (read slot-filling) ────────────────
+    # Must run BEFORE the REPE fast-path so short responses like "2026Q1"
+    # or "NOI" are never reclassified as fresh queries.
+    _thread_id = str(conversation_id) if conversation_id else None
+    if _thread_id:
+        from app.assistant_runtime.continuation_detector import (
+            is_continuation,
+            is_cancellation,
+            resolve_continuation,
+        )
+        from app.assistant_runtime.pending_query import get_pending_query
+
+        if is_continuation(message, _thread_id):
+            _pq = get_pending_query(_thread_id)
+            if is_cancellation(message):
+                # User bailed out
+                from app.assistant_runtime.pending_query import clear_pending_query
+                clear_pending_query(_thread_id)
+                _cancel_text = "Got it — I've cancelled that query. What else can I help with?"
+                yield _sse("token", {"text": _cancel_text})
+                timings["total_ms"] = int((time.time() - start) * 1000)
+                yield _sse("done", {
+                    "session_id": session_id,
+                    "trace": {
+                        "execution_path": "continuation_cancel", "lane": "A", "model": "none",
+                        "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
+                        "tool_call_count": 0, "tool_timeline": [], "data_sources": [],
+                        "citations": [], "rag_chunks_used": 0, "warnings": [],
+                        "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+                        "repe": None, "visible_context_shortcut": False, "timings": timings,
+                    },
+                    "prompt_tokens": 0, "completion_tokens": 0, "tool_calls": 0,
+                    "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+                    "response_blocks": [markdown_block(_cancel_text)],
+                })
+                return
+            completed = resolve_continuation(message, _thread_id)
+            if completed and not completed.get("cancelled"):
+                # All slots resolved — execute the template directly
+                async for sse_line in _stream_template_result(
+                    template_key=completed["template_key"],
+                    params=completed["params"],
+                    session_id=session_id,
+                    scope_dump=scope_dump,
+                    timings=timings,
+                    start=start,
+                ):
+                    yield sse_line
+                return
+            elif _pq and _pq.missing_slots:
+                # Still needs more slots
+                from app.assistant_runtime.pending_query import clarification_for_slot
+                next_slot = _pq.missing_slots[0]
+                clarification = _pq.slot_prompts.get(next_slot) or clarification_for_slot(next_slot)
+                yield _sse("token", {"text": clarification})
+                timings["total_ms"] = int((time.time() - start) * 1000)
+                yield _sse("done", {
+                    "session_id": session_id,
+                    "trace": {
+                        "execution_path": "continuation_slot", "lane": "A", "model": "none",
+                        "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
+                        "tool_call_count": 0, "tool_timeline": [], "data_sources": [],
+                        "citations": [], "rag_chunks_used": 0, "warnings": [],
+                        "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+                        "repe": None, "visible_context_shortcut": False, "timings": timings,
+                    },
+                    "prompt_tokens": 0, "completion_tokens": 0, "tool_calls": 0,
+                    "elapsed_ms": timings["total_ms"], "resolved_scope": scope_dump,
+                    "response_blocks": [markdown_block(clarification)],
+                })
+                return
 
     # ── REPE Fast-Path — bypass LLM for high-confidence finance queries ──
     _intent_start = time.time()

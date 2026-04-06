@@ -93,6 +93,7 @@ from app.routes import market_correlation
 from app.routes import trading
 from app.routes import trades
 from app.routes import sql_agent as sql_agent_routes
+from app.routes import capability as capability_routes
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -358,4 +359,5 @@ app.include_router(epi_routes.router)
 app.include_router(semantic_catalog.router)
 app.include_router(analytics.router)
 app.include_router(sql_agent_routes.router)
+app.include_router(capability_routes.router)
 app.include_router(mcp_http_router)
