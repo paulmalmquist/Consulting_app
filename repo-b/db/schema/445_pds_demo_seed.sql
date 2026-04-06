@@ -70,7 +70,7 @@ BEGIN
      0, (now() + interval '45 days')::date, 25, 'active'),
     -- AT RISK: Lab Buildout — 40% spent but 15% over forecast, change orders pending
     (v_proj_lab, v_env_id, v_business_id, v_program_id,
-     'Research Lab Buildout — Building C', 'design',
+     'Research Lab Buildout — Building C', 'preconstruction',
      'Marcus Rivera', 8700000, 5200000, 3480000,
      9800000, 435000, 110000,
      650000, (now() + interval '20 days')::date, 72, 'active'),
