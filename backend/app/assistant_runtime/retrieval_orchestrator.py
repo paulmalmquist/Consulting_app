@@ -33,6 +33,10 @@ _FUND_SUMMARY_RE = re.compile(
     r"|\b(fund|funds|portfolio)\b.*\b(summary|overview|snapshot|list|show|describe)\b",
     re.IGNORECASE,
 )
+_FUND_HOLDINGS_RE = re.compile(
+    r"\b(holdings?|breakdown|(?:assets?\s+in|what\s+does\s+it\s+own|portfolio\s+composition|underlying))\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -454,6 +458,93 @@ def _fund_summary_precheck(
         )
 
 
+def _fund_holdings_precheck(
+    *,
+    message: str,
+    business_uuid: uuid.UUID | None,
+    env_id: str | None,
+    entity_type: str | None,
+    entity_id: str | None,
+) -> StructuredRetrievalResult:
+    """Fetch holdings (assets) for a fund when a holdings query is detected."""
+    if business_uuid is None or not _FUND_HOLDINGS_RE.search(message or ""):
+        return StructuredRetrievalResult()
+    if entity_type != "fund" or not entity_id:
+        return StructuredRetrievalResult()
+
+    try:
+        from app.mcp.schemas.repe_tools import ListAssetsInput
+        from app.mcp.tools.repe_tools import _list_assets
+
+        ctx = _structured_ctx(
+            business_id=str(business_uuid),
+            env_id=env_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+        )
+        result = _list_assets(ctx, ListAssetsInput(fund_id=uuid.UUID(entity_id)))
+        assets = result.get("assets", [])
+        total = result.get("total", 0)
+
+        if not assets:
+            return StructuredRetrievalResult(
+                prechecks=[
+                    StructuredPrecheckReceipt(
+                        name="fund_holdings",
+                        source="repe.list_assets",
+                        status=StructuredPrecheckStatus.EMPTY,
+                        scoped=True,
+                        result_count=0,
+                        notes=["This fund currently has no recorded holdings."],
+                    )
+                ],
+                empty_reason="no_holdings_found",
+            )
+
+        lines = [f"FUND HOLDINGS ({total} assets):"]
+        for asset in assets[:20]:
+            name = asset.get("name") or "Unnamed"
+            ptype = asset.get("property_type") or ""
+            city = asset.get("city") or ""
+            state = asset.get("state") or ""
+            loc = f"{city}, {state}" if city else ""
+            parts = [name]
+            if ptype:
+                parts.append(f"type={ptype}")
+            if loc:
+                parts.append(f"location={loc}")
+            lines.append("  - " + " | ".join(parts))
+
+        return StructuredRetrievalResult(
+            context_text="\n".join(lines),
+            result_count=total,
+            prechecks=[
+                StructuredPrecheckReceipt(
+                    name="fund_holdings",
+                    source="repe.list_assets",
+                    status=StructuredPrecheckStatus.OK,
+                    scoped=True,
+                    result_count=total,
+                )
+            ],
+            top_hits=[{"name": a.get("name"), "property_type": a.get("property_type")} for a in assets[:5]],
+            strategy_suffix="fund_holdings",
+        )
+    except Exception as exc:
+        return StructuredRetrievalResult(
+            prechecks=[
+                StructuredPrecheckReceipt(
+                    name="fund_holdings",
+                    source="repe.list_assets",
+                    status=StructuredPrecheckStatus.ERROR,
+                    error=str(exc)[:500],
+                    notes=["Fund holdings precheck failed."],
+                )
+            ],
+            empty_reason="structured_precheck_error",
+        )
+
+
 def _run_structured_prechecks(
     *,
     message: str,
@@ -483,8 +574,15 @@ def _run_structured_prechecks(
         entity_type=entity_type,
         entity_id=entity_id,
     )
+    fund_holdings = _fund_holdings_precheck(
+        message=message,
+        business_uuid=business_uuid,
+        env_id=env_id,
+        entity_type=entity_type,
+        entity_id=entity_id,
+    )
 
-    all_results = [novendor, meridian, fund_summary]
+    all_results = [novendor, meridian, fund_summary, fund_holdings]
     prechecks = [pc for r in all_results for pc in r.prechecks]
     context_text = _merge_context_parts([r.context_text for r in all_results])
     top_hits = [hit for r in all_results for hit in r.top_hits][:5]

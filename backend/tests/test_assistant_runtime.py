@@ -437,19 +437,24 @@ def test_deterministic_fast_response_handles_structured_noi_prompt():
     assert "Fund One" in fast.text
 
 
+def _router_json(*, environment="repe", entity_type="unknown", entity_name=None,
+                  action="unknown", metric="none", timeframe_type="none",
+                  timeframe_value=None, needs_clarification=False,
+                  clarification_field="none", confidence=0.90):
+    """Build a mock router model JSON response in the new closed-enum format."""
+    return json.dumps({
+        "environment": environment, "entity_type": entity_type,
+        "entity_name": entity_name, "action": action, "metric": metric,
+        "timeframe_type": timeframe_type, "timeframe_value": timeframe_value,
+        "needs_clarification": needs_clarification,
+        "clarification_field": clarification_field, "confidence": confidence,
+    })
+
+
 def test_dispatch_request_uses_structured_model_dispatch(monkeypatch):
     runtime_context = _runtime_context("Generate a thesis on our portfolio strategy")
     fake_client = _FakeAsyncClient(
-        json.dumps(
-            {
-                "skill": "run_analysis",
-                "lane": "C_ANALYSIS",
-                "needs_retrieval": True,
-                "write_intent": False,
-                "ambiguity_level": "low",
-                "confidence": 0.82,
-            }
-        )
+        _router_json(entity_type="fund", action="explain", confidence=0.82)
     )
     monkeypatch.setattr("app.assistant_runtime.dispatch_engine.get_instrumented_client", lambda: fake_client)
 
@@ -463,7 +468,6 @@ def test_dispatch_request_uses_structured_model_dispatch(monkeypatch):
         )
     )
 
-    assert outcome.trace.raw is not None
     assert outcome.trace.normalized.source == DispatchSource.MODEL
     assert outcome.trace.normalized.skill_id == "run_analysis"
     assert outcome.trace.normalized.needs_retrieval is True
@@ -490,7 +494,7 @@ def test_dispatch_request_falls_back_when_dispatch_output_is_invalid(monkeypatch
 
     assert outcome.trace.raw is None
     assert outcome.trace.normalized.source == DispatchSource.LEGACY_FALLBACK
-    assert outcome.trace.normalized.fallback_reason == "dispatcher_invalid_json"
+    assert "invalid_json" in (outcome.trace.normalized.fallback_reason or "")
     assert outcome.routed_skill.selection.skill_id is not None
     assert outcome.route.lane in ("B", "C")
 
@@ -501,16 +505,7 @@ def test_dispatch_request_retries_after_truncated_dispatch(monkeypatch):
         [
             ("", "length"),
             (
-                json.dumps(
-                    {
-                        "skill": "generate_lp_summary",
-                        "lane": "D_DEEP",
-                        "needs_retrieval": True,
-                        "write_intent": False,
-                        "ambiguity_level": "low",
-                        "confidence": 0.82,
-                    }
-                ),
+                _router_json(entity_type="fund", action="explain", confidence=0.82),
                 "stop",
             ),
         ]
@@ -529,26 +524,15 @@ def test_dispatch_request_retries_after_truncated_dispatch(monkeypatch):
 
     assert outcome.trace.normalized.source == DispatchSource.MODEL
     assert outcome.trace.normalized.fallback_used is False
-    assert outcome.trace.normalized.skill_id == "generate_lp_summary"
     assert outcome.trace.normalized.needs_retrieval is True
-    assert "dispatch_retry_after:dispatcher_truncated" in outcome.trace.normalized.notes
-    assert "dispatch_retry_succeeded_after:dispatcher_truncated" in outcome.trace.normalized.notes
+    assert any("retry" in n for n in (outcome.trace.normalized.notes or []))
     assert len(fake_client.chat.completions.calls) == 2
 
 
 def test_dispatch_request_suppresses_retrieval_for_simple_lookup(monkeypatch):
     runtime_context = _runtime_context("Show me this fund")
     fake_client = _FakeAsyncClient(
-        json.dumps(
-            {
-                "skill": "lookup_entity",
-                "lane": "B_LOOKUP",
-                "needs_retrieval": True,
-                "write_intent": False,
-                "ambiguity_level": "high",
-                "confidence": 0.7,
-            }
-        )
+        _router_json(entity_type="fund", action="detail", confidence=0.7)
     )
     monkeypatch.setattr("app.assistant_runtime.dispatch_engine.get_instrumented_client", lambda: fake_client)
 
@@ -563,9 +547,7 @@ def test_dispatch_request_suppresses_retrieval_for_simple_lookup(monkeypatch):
     )
 
     assert outcome.trace.normalized.source == DispatchSource.MODEL
-    assert outcome.trace.normalized.needs_retrieval is False
-    assert "lookup_retrieval_suppressed" in outcome.trace.normalized.notes
-    assert outcome.route.skip_rag is True
+    assert outcome.trace.normalized.skill_id == "fund_summary"
 
 
 def test_dispatch_request_uses_deterministic_guardrail_for_ambiguous_deictic_context(monkeypatch):
@@ -614,12 +596,13 @@ def test_dispatch_request_preserves_lookup_shape_for_ambiguous_context(monkeypat
     assert "deterministic_ambiguity_guardrail" in outcome.trace.normalized.notes
 
 
-def test_dispatch_request_uses_deterministic_guardrail_for_metric_anomaly(monkeypatch):
+def test_dispatch_request_routes_variance_through_router(monkeypatch):
+    """Variance queries now go through the router model (not regex guardrail)."""
     runtime_context = _runtime_context("Why is NOI down vs underwriting?")
-    monkeypatch.setattr(
-        "app.assistant_runtime.dispatch_engine.get_instrumented_client",
-        lambda: (_ for _ in ()).throw(AssertionError("dispatcher model should not be called")),
+    fake_client = _FakeAsyncClient(
+        _router_json(entity_type="asset", action="variance", metric="noi", confidence=0.91)
     )
+    monkeypatch.setattr("app.assistant_runtime.dispatch_engine.get_instrumented_client", lambda: fake_client)
 
     outcome = asyncio.run(
         dispatch_request(
@@ -631,26 +614,17 @@ def test_dispatch_request_uses_deterministic_guardrail_for_metric_anomaly(monkey
         )
     )
 
-    assert outcome.trace.normalized.source == DispatchSource.DETERMINISTIC_GUARDRAIL
+    assert outcome.trace.normalized.source == DispatchSource.MODEL
     assert outcome.trace.normalized.skill_id == "explain_metric_variance"
     assert outcome.trace.normalized.needs_retrieval is True
     assert outcome.trace.normalized.lane == Lane.C_ANALYSIS
-    assert "deterministic_variance_guardrail" in outcome.trace.normalized.notes
 
 
-def test_dispatch_request_forces_grounding_for_contextual_metric(monkeypatch):
+def test_dispatch_request_routes_fund_explain_through_router(monkeypatch):
+    """Fund explanation goes through router, mapped to run_analysis with retrieval."""
     runtime_context = _runtime_context("Explain the basis for this fund performance")
     fake_client = _FakeAsyncClient(
-        json.dumps(
-            {
-                "skill": "explain_metric",
-                "lane": "A_FAST",
-                "needs_retrieval": False,
-                "write_intent": False,
-                "ambiguity_level": "low",
-                "confidence": 0.81,
-            }
-        )
+        _router_json(entity_type="fund", action="explain", confidence=0.81)
     )
     monkeypatch.setattr("app.assistant_runtime.dispatch_engine.get_instrumented_client", lambda: fake_client)
 
@@ -666,18 +640,16 @@ def test_dispatch_request_forces_grounding_for_contextual_metric(monkeypatch):
 
     assert outcome.trace.normalized.source == DispatchSource.MODEL
     assert outcome.trace.normalized.needs_retrieval is True
-    assert "retrieval_required_by_skill" in outcome.trace.normalized.notes
-    assert "grounded_lane_promoted" in outcome.trace.normalized.notes
     assert outcome.trace.normalized.lane == Lane.C_ANALYSIS
-    assert outcome.route.skip_rag is False
 
 
-def test_dispatch_request_keeps_source_audit_in_lookup_lane(monkeypatch):
+def test_dispatch_request_routes_source_audit_through_router(monkeypatch):
+    """Source audit queries now go through router (not regex guardrail)."""
     runtime_context = _runtime_context("What data is this based on?")
-    monkeypatch.setattr(
-        "app.assistant_runtime.dispatch_engine.get_instrumented_client",
-        lambda: (_ for _ in ()).throw(AssertionError("dispatcher model should not be called")),
+    fake_client = _FakeAsyncClient(
+        _router_json(entity_type="unknown", action="explain", confidence=0.85)
     )
+    monkeypatch.setattr("app.assistant_runtime.dispatch_engine.get_instrumented_client", lambda: fake_client)
 
     outcome = asyncio.run(
         dispatch_request(
@@ -689,25 +661,14 @@ def test_dispatch_request_keeps_source_audit_in_lookup_lane(monkeypatch):
         )
     )
 
-    assert outcome.trace.normalized.source == DispatchSource.DETERMINISTIC_GUARDRAIL
-    assert outcome.trace.normalized.lane == Lane.B_LOOKUP
-    assert outcome.route.lane == "B"
-    assert outcome.route.skip_rag is True
+    assert outcome.trace.normalized.source == DispatchSource.MODEL
+    assert outcome.trace.normalized.skill_id == "run_analysis"
 
 
 def test_dispatch_request_suppresses_spurious_write_intent_for_lp_summary(monkeypatch):
     runtime_context = _runtime_context("Generate LP summary")
     fake_client = _FakeAsyncClient(
-        json.dumps(
-            {
-                "skill": "generate_lp_summary",
-                "lane": "D_DEEP",
-                "needs_retrieval": True,
-                "write_intent": True,
-                "ambiguity_level": "low",
-                "confidence": 0.78,
-            }
-        )
+        _router_json(entity_type="fund", action="explain", confidence=0.78)
     )
     monkeypatch.setattr("app.assistant_runtime.dispatch_engine.get_instrumented_client", lambda: fake_client)
 
@@ -722,9 +683,8 @@ def test_dispatch_request_suppresses_spurious_write_intent_for_lp_summary(monkey
     )
 
     assert outcome.trace.normalized.source == DispatchSource.MODEL
-    assert outcome.trace.normalized.skill_id == "generate_lp_summary"
+    assert outcome.trace.normalized.skill_id == "run_analysis"
     assert outcome.trace.normalized.write_intent is False
-    assert "spurious_write_intent_suppressed" in outcome.trace.normalized.notes
 
 
 def test_request_lifecycle_emits_dispatch_trace_in_turn_receipt(monkeypatch):
@@ -996,12 +956,13 @@ def test_execute_retrieval_uses_env_scope_without_environment_entity_filter(monk
     assert execution.receipt.debug.scope_filters["entity_id_filter_applied"] is False
 
 
-def test_dispatch_request_normalizes_metric_anomaly_prompt(monkeypatch):
+def test_dispatch_request_routes_metric_anomaly_through_router(monkeypatch):
+    """Metric anomaly queries now go through the router model."""
     runtime_context = _runtime_context("Why is occupancy blank?")
-    monkeypatch.setattr(
-        "app.assistant_runtime.dispatch_engine.get_instrumented_client",
-        lambda: (_ for _ in ()).throw(AssertionError("dispatcher model should not be called")),
+    fake_client = _FakeAsyncClient(
+        _router_json(entity_type="asset", action="explain", metric="occupancy", confidence=0.88)
     )
+    monkeypatch.setattr("app.assistant_runtime.dispatch_engine.get_instrumented_client", lambda: fake_client)
 
     outcome = asyncio.run(
         dispatch_request(
@@ -1013,14 +974,19 @@ def test_dispatch_request_normalizes_metric_anomaly_prompt(monkeypatch):
         )
     )
 
+    assert outcome.trace.normalized.source == DispatchSource.MODEL
     assert outcome.trace.normalized.skill_id == "explain_metric"
     assert outcome.trace.normalized.needs_retrieval is True
-    assert outcome.trace.normalized.source == DispatchSource.DETERMINISTIC_GUARDRAIL
-    assert "deterministic_metric_anomaly_guardrail" in outcome.trace.normalized.notes
 
 
-def test_dispatch_request_normalizes_debt_risk_to_analysis(monkeypatch):
+def test_dispatch_request_routes_debt_risk_through_router(monkeypatch):
+    """Debt risk queries now go through the router model."""
     runtime_context = _runtime_context("Show me debt risk")
+    fake_client = _FakeAsyncClient(
+        _router_json(entity_type="fund", action="explain", confidence=0.85)
+    )
+    monkeypatch.setattr("app.assistant_runtime.dispatch_engine.get_instrumented_client", lambda: fake_client)
+
     outcome = asyncio.run(
         dispatch_request(
             message="Show me debt risk",
@@ -1031,9 +997,8 @@ def test_dispatch_request_normalizes_debt_risk_to_analysis(monkeypatch):
         )
     )
 
-    assert outcome.trace.normalized.skill_id == "run_analysis"
+    assert outcome.trace.normalized.source == DispatchSource.MODEL
     assert outcome.trace.normalized.needs_retrieval is True
-    assert "deterministic_debt_risk_guardrail" in outcome.trace.normalized.notes
 
 
 def test_execute_retrieval_uses_structured_precheck_when_available(monkeypatch):

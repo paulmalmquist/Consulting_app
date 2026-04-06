@@ -68,8 +68,12 @@ def is_continuation(message: str, thread_id: str) -> bool:
     if _NEW_QUESTION_STARTERS.match(q) and len(q.split()) > 4:
         return False
 
-    # Affirmative/negative slot completion
-    if _AFFIRMATIVE_RE.match(lower) or _NEGATIVE_RE.match(lower):
+    # Affirmative/negative slot completion — but only if the message is short.
+    # "yes" alone = continuation. "yes breakdown of current holdings" = new intent.
+    word_count = len(q.split())
+    if _NEGATIVE_RE.match(lower):
+        return True
+    if _AFFIRMATIVE_RE.match(lower) and word_count <= 3:
         return True
 
     # Quarter reference

@@ -63,6 +63,21 @@ _FUND_SUMMARY_RE = re.compile(
     re.IGNORECASE,
 )
 
+# ── Fund holdings / portfolio breakdown guardrail ────────────────────
+# Must not match "portfolio strategy" or "portfolio performance" (analysis queries).
+# Only matches holdings-specific phrases.
+_FUND_HOLDINGS_RE = re.compile(
+    r"\b(?:holdings?|"
+    r"(?:current\s+)?(?:portfolio|assets)\s+(?:breakdown|composition|allocation)|"
+    r"breakdown\s+(?:of\s+)?(?:current\s+)?(?:holdings?|portfolio|assets)|"
+    r"what\s+(?:does\s+(?:it|this|this\s+fund|the\s+fund)\s+)?own|"
+    r"(?:show|list|give)\s+(?:me\s+)?(?:the\s+)?(?:holdings?|assets\s+in)|"
+    r"assets?\s+(?:in\s+)?(?:this|the)\s+fund|"
+    r"underlying\s+assets?|"
+    r"what\s+(?:assets?|properties)\s+(?:are\s+)?(?:in|under))\b",
+    re.IGNORECASE,
+)
+
 # ── Fund metrics guardrail ───────────────────────────────────────────
 _FUND_METRICS_RE = re.compile(
     r"\b(?:(?:fund|portfolio)\s+metrics|metrics\s+for|"
@@ -122,47 +137,137 @@ _METRIC_ANOMALY_RE = re.compile(
     re.IGNORECASE,
 )
 
-_DISPATCH_SCHEMA = {
+# ═══════════════════════════════════════════════════════════════════════
+# Tiny Router — closed enum schema for domain intent classification
+# ═══════════════════════════════════════════════════════════════════════
+
+_ENV_ENUM = ["repe", "resume", "crm", "pds", "unknown"]
+_ENTITY_TYPE_ENUM = ["fund", "asset", "investment", "project", "account", "opportunity", "person", "unknown"]
+_ACTION_ENUM = [
+    "summary", "detail", "holdings", "list", "rank", "metric_lookup",
+    "trend", "compare", "variance", "create", "update", "explain",
+    "search", "draft_email", "unknown",
+]
+_METRIC_ENUM = ["noi", "irr", "tvpi", "dpi", "nav", "occupancy", "ltv", "dscr", "revenue", "expenses", "ncf", "none"]
+_TIMEFRAME_ENUM = ["latest", "quarter", "ttm", "ltm", "custom", "none"]
+_CLARIFICATION_FIELD_ENUM = ["entity", "metric", "timeframe", "action", "none"]
+
+_ROUTER_SCHEMA = {
     "type": "json_schema",
     "json_schema": {
-        "name": "winston_dispatch",
+        "name": "winston_router",
         "strict": True,
         "schema": {
             "type": "object",
             "additionalProperties": False,
             "properties": {
-                "skill": {
-                    "anyOf": [{"type": "string"}, {"type": "null"}],
-                },
-                "lane": {
-                    "anyOf": [
-                        {"type": "string", "enum": [lane.value for lane in Lane]},
-                        {"type": "null"},
-                    ],
-                },
-                "needs_retrieval": {"type": "boolean"},
-                "write_intent": {"type": "boolean"},
-                "ambiguity_level": {
-                    "type": "string",
-                    "enum": [level.value for level in DispatchAmbiguity],
-                },
-                "confidence": {
-                    "type": "number",
-                    "minimum": 0.0,
-                    "maximum": 1.0,
-                },
+                "environment":        {"type": "string", "enum": _ENV_ENUM},
+                "entity_type":        {"type": "string", "enum": _ENTITY_TYPE_ENUM},
+                "entity_name":        {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                "action":             {"type": "string", "enum": _ACTION_ENUM},
+                "metric":             {"type": "string", "enum": _METRIC_ENUM},
+                "timeframe_type":     {"type": "string", "enum": _TIMEFRAME_ENUM},
+                "timeframe_value":    {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                "needs_clarification":{"type": "boolean"},
+                "clarification_field":{"type": "string", "enum": _CLARIFICATION_FIELD_ENUM},
+                "confidence":         {"type": "number"},
             },
             "required": [
-                "skill",
-                "lane",
-                "needs_retrieval",
-                "write_intent",
-                "ambiguity_level",
-                "confidence",
+                "environment", "entity_type", "entity_name", "action",
+                "metric", "timeframe_type", "timeframe_value",
+                "needs_clarification", "clarification_field", "confidence",
             ],
         },
     },
 }
+
+
+@dataclass(frozen=True)
+class RouterIntent:
+    """Typed, closed-enum output from the tiny router model."""
+    environment: str
+    entity_type: str
+    entity_name: str | None
+    action: str
+    metric: str
+    timeframe_type: str
+    timeframe_value: str | None
+    needs_clarification: bool
+    clarification_field: str
+    confidence: float
+
+
+# ── Deterministic intent → skill mapping table ───────────────────────
+# Tuple: (skill_id, lane, needs_retrieval, write_intent)
+_IntentMapping = tuple[str, Lane, bool, bool]
+
+_INTENT_MAP: dict[tuple[str, str], _IntentMapping] = {
+    # REPE fund actions
+    ("fund", "summary"):       ("fund_summary",             Lane.B_LOOKUP,   True,  False),
+    ("fund", "detail"):        ("fund_summary",             Lane.B_LOOKUP,   True,  False),
+    ("fund", "holdings"):      ("fund_holdings",            Lane.C_ANALYSIS, True,  False),
+    ("fund", "list"):          ("fund_summary",             Lane.B_LOOKUP,   True,  False),
+    ("fund", "metric_lookup"): ("explain_metric",           Lane.C_ANALYSIS, True,  False),
+    ("fund", "trend"):         ("trend_metric",             Lane.C_ANALYSIS, True,  False),
+    ("fund", "rank"):          ("rank_metric",              Lane.C_ANALYSIS, True,  False),
+    ("fund", "explain"):       ("run_analysis",             Lane.C_ANALYSIS, True,  False),
+    # REPE asset actions
+    ("asset", "summary"):      ("lookup_entity",            Lane.B_LOOKUP,   True,  False),
+    ("asset", "detail"):       ("lookup_entity",            Lane.B_LOOKUP,   True,  False),
+    ("asset", "metric_lookup"):("explain_metric",           Lane.C_ANALYSIS, True,  False),
+    ("asset", "rank"):         ("rank_metric",              Lane.C_ANALYSIS, True,  False),
+    ("asset", "trend"):        ("trend_metric",             Lane.C_ANALYSIS, True,  False),
+    ("asset", "list"):         ("lookup_entity",            Lane.B_LOOKUP,   True,  False),
+    ("asset", "explain"):      ("explain_metric",           Lane.C_ANALYSIS, True,  False),
+    # Investment
+    ("investment", "summary"): ("lookup_entity",            Lane.B_LOOKUP,   True,  False),
+    ("investment", "detail"):  ("lookup_entity",            Lane.B_LOOKUP,   True,  False),
+    # Resume / person
+    ("person", "explain"):     ("resume_qa",                Lane.C_ANALYSIS, True,  False),
+    ("person", "summary"):     ("resume_qa",                Lane.C_ANALYSIS, True,  False),
+    ("person", "detail"):      ("resume_qa",                Lane.C_ANALYSIS, True,  False),
+    ("person", "search"):      ("resume_qa",                Lane.C_ANALYSIS, True,  False),
+    ("person", "draft_email"): ("draft_email",              Lane.C_ANALYSIS, False, True),
+    # CRM
+    ("account", "list"):       ("lookup_entity",            Lane.C_ANALYSIS, True,  False),
+    ("account", "search"):     ("lookup_entity",            Lane.C_ANALYSIS, True,  False),
+    ("account", "summary"):    ("lookup_entity",            Lane.C_ANALYSIS, True,  False),
+    ("opportunity", "list"):   ("lookup_entity",            Lane.C_ANALYSIS, True,  False),
+    ("opportunity", "summary"):("lookup_entity",            Lane.C_ANALYSIS, True,  False),
+    # PDS
+    ("project", "summary"):    ("lookup_entity",            Lane.C_ANALYSIS, True,  False),
+    ("project", "list"):       ("lookup_entity",            Lane.C_ANALYSIS, True,  False),
+    ("project", "detail"):     ("lookup_entity",            Lane.C_ANALYSIS, True,  False),
+}
+
+# Wildcard fallbacks: match any entity_type
+_INTENT_WILDCARD: dict[str, _IntentMapping] = {
+    "variance":     ("explain_metric_variance",  Lane.C_ANALYSIS, True,  False),
+    "compare":      ("compare_entities",         Lane.C_ANALYSIS, True,  False),
+    "create":       ("create_entity",            Lane.C_ANALYSIS, False, True),
+    "update":       ("create_entity",            Lane.C_ANALYSIS, False, True),
+    "explain":      ("run_analysis",             Lane.C_ANALYSIS, True,  False),
+    "search":       ("lookup_entity",            Lane.B_LOOKUP,   True,  False),
+    "list":         ("lookup_entity",            Lane.B_LOOKUP,   True,  False),
+    "summary":      ("lookup_entity",            Lane.B_LOOKUP,   True,  False),
+    "detail":       ("lookup_entity",            Lane.B_LOOKUP,   True,  False),
+    "holdings":     ("fund_holdings",            Lane.C_ANALYSIS, True,  False),
+    "metric_lookup":("explain_metric",           Lane.C_ANALYSIS, True,  False),
+    "rank":         ("rank_metric",              Lane.C_ANALYSIS, True,  False),
+    "trend":        ("trend_metric",             Lane.C_ANALYSIS, True,  False),
+    "draft_email":  ("draft_email",              Lane.C_ANALYSIS, False, True),
+    "unknown":      ("run_analysis",             Lane.C_ANALYSIS, True,  False),
+}
+
+
+def _map_intent_to_skill(intent: RouterIntent) -> _IntentMapping:
+    """Deterministic lookup: router intent → (skill_id, lane, retrieval, write)."""
+    key = (intent.entity_type, intent.action)
+    if key in _INTENT_MAP:
+        return _INTENT_MAP[key]
+    if intent.action in _INTENT_WILDCARD:
+        return _INTENT_WILDCARD[intent.action]
+    return ("run_analysis", Lane.C_ANALYSIS, True, False)
 
 
 @dataclass(frozen=True)
@@ -204,196 +309,48 @@ def _parse_dispatch_payload(payload: str) -> DispatchProposal:
 
 
 def _deterministic_dispatch(*, message: str, context: ContextReceipt) -> DispatchTrace | None:
+    """Fast-path regex guardrails that bypass the router model entirely.
+
+    Only kept for the most unambiguous, zero-latency patterns:
+    - Identity questions ("what page is this")
+    - Create/write intent ("create a new fund")
+    - Ambiguous deictic references with missing context
+
+    All other routing goes through the tiny router model.
+    """
     normalized_message = message or ""
+
+    # Ambiguous context + deictic reference → force lookup
     if context.resolution_status == ContextResolutionStatus.AMBIGUOUS_CONTEXT and _AMBIGUOUS_DEICTIC_RE.search(normalized_message):
-        decision = DispatchDecision(
+        return DispatchTrace(raw=None, normalized=DispatchDecision(
             source=DispatchSource.DETERMINISTIC_GUARDRAIL,
-            skill_id="lookup_entity",
-            lane=Lane.B_LOOKUP,
-            needs_retrieval=False,
-            write_intent=False,
-            ambiguity_level=DispatchAmbiguity.HIGH,
-            confidence=0.99,
-            fallback_used=False,
-            notes=["deterministic_ambiguity_guardrail"],
-        )
-        return DispatchTrace(raw=None, normalized=decision)
+            skill_id="lookup_entity", lane=Lane.B_LOOKUP,
+            needs_retrieval=False, write_intent=False,
+            ambiguity_level=DispatchAmbiguity.HIGH, confidence=0.99,
+            fallback_used=False, notes=["deterministic_ambiguity_guardrail"],
+        ))
+
+    # Identity questions ("what page is this", "what environment")
     if context.resolution_status == ContextResolutionStatus.RESOLVED and _IDENTITY_PROMPT_RE.search(normalized_message):
-        decision = DispatchDecision(
+        return DispatchTrace(raw=None, normalized=DispatchDecision(
             source=DispatchSource.DETERMINISTIC_GUARDRAIL,
-            skill_id="lookup_entity",
-            lane=Lane.A_FAST,
-            needs_retrieval=False,
-            write_intent=False,
-            ambiguity_level=DispatchAmbiguity.LOW,
-            confidence=1.0,
-            fallback_used=False,
-            notes=["deterministic_identity_guardrail"],
-        )
-        return DispatchTrace(raw=None, normalized=decision)
-    if context.resolution_status == ContextResolutionStatus.RESOLVED and _SOURCE_AUDIT_RE.search(normalized_message):
-        decision = DispatchDecision(
-            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
-            skill_id="run_analysis",
-            lane=Lane.B_LOOKUP,
-            needs_retrieval=False,
-            write_intent=False,
-            ambiguity_level=DispatchAmbiguity.LOW,
-            confidence=0.96,
-            fallback_used=False,
-            notes=["deterministic_source_audit_guardrail"],
-        )
-        return DispatchTrace(raw=None, normalized=decision)
-    if context.resolution_status == ContextResolutionStatus.RESOLVED and _DEBT_RISK_RE.search(normalized_message):
-        decision = DispatchDecision(
-            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
-            skill_id="run_analysis",
-            lane=Lane.C_ANALYSIS,
-            needs_retrieval=True,
-            write_intent=False,
-            ambiguity_level=DispatchAmbiguity.LOW,
-            confidence=0.97,
-            fallback_used=False,
-            notes=["deterministic_debt_risk_guardrail"],
-        )
-        return DispatchTrace(raw=None, normalized=decision)
-    # ── Per-intent metric guardrails (most specific first) ──────────
-    if context.resolution_status == ContextResolutionStatus.RESOLVED and _RANK_METRIC_RE.search(normalized_message):
-        decision = DispatchDecision(
-            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
-            skill_id="rank_metric",
-            lane=Lane.C_ANALYSIS,
-            needs_retrieval=True,
-            write_intent=False,
-            ambiguity_level=DispatchAmbiguity.LOW,
-            confidence=0.96,
-            fallback_used=False,
-            notes=["deterministic_rank_metric_guardrail"],
-        )
-        return DispatchTrace(raw=None, normalized=decision)
-    if context.resolution_status == ContextResolutionStatus.RESOLVED and _VARIANCE_METRIC_RE.search(normalized_message):
-        decision = DispatchDecision(
-            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
-            skill_id="explain_metric_variance",
-            lane=Lane.C_ANALYSIS,
-            needs_retrieval=True,
-            write_intent=False,
-            ambiguity_level=DispatchAmbiguity.LOW,
-            confidence=0.96,
-            fallback_used=False,
-            notes=["deterministic_variance_guardrail"],
-        )
-        return DispatchTrace(raw=None, normalized=decision)
-    if context.resolution_status == ContextResolutionStatus.RESOLVED and _TREND_METRIC_RE.search(normalized_message):
-        decision = DispatchDecision(
-            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
-            skill_id="trend_metric",
-            lane=Lane.C_ANALYSIS,
-            needs_retrieval=True,
-            write_intent=False,
-            ambiguity_level=DispatchAmbiguity.LOW,
-            confidence=0.96,
-            fallback_used=False,
-            notes=["deterministic_trend_metric_guardrail"],
-        )
-        return DispatchTrace(raw=None, normalized=decision)
-    if context.resolution_status == ContextResolutionStatus.RESOLVED and _COMPARE_ENTITIES_RE.search(normalized_message):
-        decision = DispatchDecision(
-            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
-            skill_id="compare_entities",
-            lane=Lane.C_ANALYSIS,
-            needs_retrieval=True,
-            write_intent=False,
-            ambiguity_level=DispatchAmbiguity.LOW,
-            confidence=0.96,
-            fallback_used=False,
-            notes=["deterministic_compare_entities_guardrail"],
-        )
-        return DispatchTrace(raw=None, normalized=decision)
-    # Generic metric mention — simple lookup unless debt risk
-    if context.resolution_status == ContextResolutionStatus.RESOLVED and _METRIC_ANOMALY_RE.search(normalized_message):
-        decision = DispatchDecision(
-            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
-            skill_id="run_analysis" if _DEBT_RISK_RE.search(normalized_message) else "explain_metric",
-            lane=Lane.C_ANALYSIS,
-            needs_retrieval=True,
-            write_intent=False,
-            ambiguity_level=DispatchAmbiguity.LOW,
-            confidence=0.96,
-            fallback_used=False,
-            notes=["deterministic_metric_anomaly_guardrail"],
-        )
-        return DispatchTrace(raw=None, normalized=decision)
-    # ── Fund/portfolio summary (no context requirement) ─────────────
-    if _FUND_SUMMARY_RE.search(normalized_message):
-        decision = DispatchDecision(
-            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
-            skill_id="lookup_entity",
-            lane=Lane.B_LOOKUP,
-            needs_retrieval=True,
-            write_intent=False,
-            ambiguity_level=DispatchAmbiguity.LOW,
-            confidence=0.97,
-            fallback_used=False,
-            notes=["deterministic_fund_summary_guardrail"],
-        )
-        return DispatchTrace(raw=None, normalized=decision)
-    # ── Fund metrics for a named entity ──────────────────────────────
-    if _FUND_METRICS_RE.search(normalized_message):
-        decision = DispatchDecision(
-            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
-            skill_id="explain_metric",
-            lane=Lane.C_ANALYSIS,
-            needs_retrieval=True,
-            write_intent=False,
-            ambiguity_level=DispatchAmbiguity.LOW,
-            confidence=0.97,
-            fallback_used=False,
-            notes=["deterministic_fund_metrics_guardrail"],
-        )
-        return DispatchTrace(raw=None, normalized=decision)
-    # ── Resume / biographical queries (no context requirement) ────────
-    if _RESUME_QUERY_RE.search(normalized_message):
-        decision = DispatchDecision(
-            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
-            skill_id="run_analysis",
-            lane=Lane.C_ANALYSIS,
-            needs_retrieval=True,
-            write_intent=False,
-            ambiguity_level=DispatchAmbiguity.LOW,
-            confidence=0.97,
-            fallback_used=False,
-            notes=["deterministic_resume_guardrail"],
-        )
-        return DispatchTrace(raw=None, normalized=decision)
-    # ── CRM activity / follow-up queries ─────────────────────────────
-    if _CRM_ACTIVITY_RE.search(normalized_message):
-        decision = DispatchDecision(
-            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
-            skill_id="lookup_entity",
-            lane=Lane.C_ANALYSIS,
-            needs_retrieval=True,
-            write_intent=False,
-            ambiguity_level=DispatchAmbiguity.LOW,
-            confidence=0.96,
-            fallback_used=False,
-            notes=["deterministic_crm_activity_guardrail"],
-        )
-        return DispatchTrace(raw=None, normalized=decision)
-    # ── Create entity (broadest pattern, must be last) ────────────────
+            skill_id="lookup_entity", lane=Lane.A_FAST,
+            needs_retrieval=False, write_intent=False,
+            ambiguity_level=DispatchAmbiguity.LOW, confidence=1.0,
+            fallback_used=False, notes=["deterministic_identity_guardrail"],
+        ))
+
+    # Create / write intent ("create a new fund", "add an opportunity")
     if _CREATE_ENTITY_RE.search(normalized_message):
-        decision = DispatchDecision(
+        return DispatchTrace(raw=None, normalized=DispatchDecision(
             source=DispatchSource.DETERMINISTIC_GUARDRAIL,
-            skill_id="create_entity",
-            lane=Lane.C_ANALYSIS,
-            needs_retrieval=False,
-            write_intent=True,
-            ambiguity_level=DispatchAmbiguity.LOW,
-            confidence=0.98,
-            fallback_used=False,
-            notes=["deterministic_write_guardrail"],
-        )
-        return DispatchTrace(raw=None, normalized=decision)
+            skill_id="create_entity", lane=Lane.C_ANALYSIS,
+            needs_retrieval=False, write_intent=True,
+            ambiguity_level=DispatchAmbiguity.LOW, confidence=0.98,
+            fallback_used=False, notes=["deterministic_write_guardrail"],
+        ))
+
+    # Everything else → router model
     return None
 
 
@@ -427,80 +384,93 @@ def _context_summary(
     }
 
 
-def _dispatch_messages(
+_ROUTER_SYSTEM_PROMPT = (
+    "You are a domain intent classifier. Return ONLY JSON matching the schema.\n\n"
+    "Valid environments: repe, resume, crm, pds, unknown\n"
+    "Valid entity_types: fund, asset, investment, project, account, opportunity, person, unknown\n"
+    "Valid actions: summary, detail, holdings, list, rank, metric_lookup, trend, compare, variance, create, update, explain, search, draft_email, unknown\n"
+    "Valid metrics: noi, irr, tvpi, dpi, nav, occupancy, ltv, dscr, revenue, expenses, ncf, none\n"
+    "Valid timeframe_types: latest, quarter, ttm, ltm, custom, none\n"
+    "Valid clarification_fields: entity, metric, timeframe, action, none\n\n"
+    "Rules:\n"
+    '- "holdings", "breakdown", "what does it own", "assets in fund" → action=holdings\n'
+    '- "best/worst/top/rank/performing" → action=rank\n'
+    '- "trend/over time/quarterly/historical" → action=trend\n'
+    '- "variance/vs budget/underwriting/below plan" → action=variance\n'
+    '- "compare X to Y" / "X vs Y" → action=compare\n'
+    '- Resume/career/Paul/biography questions → environment=resume, entity_type=person\n'
+    "- If entity name is mentioned, extract it into entity_name\n"
+    "- Set needs_clarification=true only when a required field cannot be inferred\n"
+    "- confidence: 0.9+ if clear, 0.7-0.9 if reasonable, <0.7 if ambiguous"
+)
+
+
+def _router_messages(
     *,
     message: str,
     context_envelope: AssistantContextEnvelope,
     resolved_scope: ResolvedAssistantScope,
-    context: ContextReceipt,
-    visible_context_shortcut: bool,
 ) -> list[dict[str, str]]:
-    skill_lines = [
-        f"- {skill.id}: {skill.description} | retrieval={skill.retrieval_policy.value} | confirmation={skill.confirmation_mode.value}"
-        for skill in SKILL_BY_ID.values()
-    ]
-    system = (
-        "You are Winston's dispatcher. Return only JSON matching the provided schema.\n"
-        "Choose the smallest sufficient lane.\n"
-        "Use skill=null only when no listed skill fits.\n"
-        "Set needs_retrieval=true only when the answer needs grounded document/data lookup beyond current UI context.\n"
-        "Set write_intent=true only for create/update/delete/mutate requests.\n"
-        "Set ambiguity_level=high when the prompt relies on pronouns or stale context and current scope is missing or ambiguous.\n"
-        "Confidence must be a number between 0 and 1.\n\n"
-        "METRIC SKILL ROUTING — pick the most specific skill:\n"
-        "- explain_metric: simple value lookup (\"What is the NOI?\", \"Show me current IRR\")\n"
-        "- rank_metric: ranked entity comparison (\"Best performing assets by NOI\", \"Top 5 funds by IRR\")\n"
-        "- trend_metric: time-series or trend (\"NOI trend past 12 months\", \"Quarterly occupancy over time\")\n"
-        "- explain_metric_variance: variance to plan/underwriting (\"Why is NOI down vs underwriting?\", \"Variance to budget\")\n"
-        "- compare_entities: head-to-head entity comparison (\"Compare Fund A to Fund B\", \"Riverfront vs Oakwood\")\n"
-        "- run_analysis: general analytical work that doesn't fit above (\"Deep dive on portfolio risk\", \"Scenario analysis\")\n\n"
-        "Available skills:\n"
-        + "\n".join(skill_lines)
-    )
-    user = json.dumps(
-        {
-            "message": message,
-            "context": _context_summary(
-                context_envelope=context_envelope,
-                resolved_scope=resolved_scope,
-                context=context,
-                visible_context_shortcut=visible_context_shortcut,
-            ),
-        },
-        ensure_ascii=True,
-    )
+    """Build the tiny router prompt. Minimal context, no skill definitions."""
+    ctx = {
+        "environment": context_envelope.ui.active_environment_name or "",
+        "page_entity_type": context_envelope.ui.page_entity_type or "",
+        "page_entity_name": context_envelope.ui.page_entity_name or "",
+        "scope_type": resolved_scope.resolved_scope_type or "",
+        "entity_type": resolved_scope.entity_type or "",
+        "entity_name": resolved_scope.entity_name or "",
+    }
+    user = json.dumps({"message": message, "context": ctx}, ensure_ascii=True)
     return [
-        {"role": "system", "content": system},
+        {"role": "system", "content": _ROUTER_SYSTEM_PROMPT},
         {"role": "user", "content": user},
     ]
 
 
-def _dispatch_params(
+def _router_params(
     *,
     message: str,
     context_envelope: AssistantContextEnvelope,
     resolved_scope: ResolvedAssistantScope,
-    context: ContextReceipt,
-    visible_context_shortcut: bool,
     max_tokens: int,
 ) -> dict[str, Any]:
     params = sanitize_params(
         OPENAI_CHAT_MODEL_DISPATCH,
-        messages=_dispatch_messages(
+        messages=_router_messages(
             message=message,
             context_envelope=context_envelope,
             resolved_scope=resolved_scope,
-            context=context,
-            visible_context_shortcut=visible_context_shortcut,
         ),
         max_tokens=max_tokens,
         reasoning_effort="low",
         stream=False,
         temperature=0,
     )
-    params["response_format"] = _DISPATCH_SCHEMA
+    params["response_format"] = _ROUTER_SCHEMA
     params["seed"] = 7
     return params
+
+
+def _parse_router_intent(payload: str) -> RouterIntent:
+    """Parse strict JSON from the router model into a RouterIntent."""
+    text = (payload or "").strip()
+    if not text:
+        raise DispatchModelFailure("router_empty_output")
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.IGNORECASE | re.DOTALL)
+    data = json.loads(text)
+    return RouterIntent(
+        environment=data.get("environment", "unknown"),
+        entity_type=data.get("entity_type", "unknown"),
+        entity_name=data.get("entity_name"),
+        action=data.get("action", "unknown"),
+        metric=data.get("metric", "none"),
+        timeframe_type=data.get("timeframe_type", "none"),
+        timeframe_value=data.get("timeframe_value"),
+        needs_clarification=data.get("needs_clarification", False),
+        clarification_field=data.get("clarification_field", "none"),
+        confidence=float(data.get("confidence", 0.5)),
+    )
 
 
 async def _model_dispatch(
@@ -510,55 +480,45 @@ async def _model_dispatch(
     resolved_scope: ResolvedAssistantScope,
     context: ContextReceipt,
     visible_context_shortcut: bool,
-) -> tuple[DispatchProposal, list[str]]:
+) -> tuple[RouterIntent, list[str]]:
+    """Call the tiny router model and parse a RouterIntent."""
     client = get_instrumented_client()
     retry_notes: list[str] = []
     last_failure: str | None = None
     for idx, max_tokens in enumerate((220, 360)):
-        params = _dispatch_params(
+        params = _router_params(
             message=message,
             context_envelope=context_envelope,
             resolved_scope=resolved_scope,
-            context=context,
-            visible_context_shortcut=visible_context_shortcut,
             max_tokens=max_tokens,
         )
         completion = await client.chat.completions.create(**params)
         if not completion.choices:
-            last_failure = "dispatcher_no_choices"
+            last_failure = "router_no_choices"
         else:
             choice = completion.choices[0]
             content = _flatten_content(choice.message.content)
             finish_reason = str(getattr(choice, "finish_reason", "") or "").lower()
             if not (content or "").strip():
-                last_failure = "dispatcher_truncated" if finish_reason == "length" else "dispatcher_empty_output"
+                last_failure = "router_truncated" if finish_reason == "length" else "router_empty_output"
             else:
                 try:
-                    proposal = _parse_dispatch_payload(content)
+                    intent = _parse_router_intent(content)
                 except DispatchModelFailure as exc:
                     last_failure = exc.reason
-                except json.JSONDecodeError:
-                    last_failure = "dispatcher_invalid_json"
-                except ValidationError:
-                    last_failure = "dispatcher_invalid_schema"
+                except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+                    last_failure = "router_invalid_json"
                 else:
                     if idx > 0 and retry_notes:
-                        retry_notes.append(f"dispatch_retry_succeeded_after:{last_failure or 'unknown'}")
-                    return proposal, retry_notes
+                        retry_notes.append(f"router_retry_succeeded_after:{last_failure or 'unknown'}")
+                    return intent, retry_notes
 
-        if idx == 0 and last_failure in {
-            "dispatcher_truncated",
-            "dispatcher_empty_output",
-            "dispatcher_invalid_json",
-            "dispatcher_invalid_schema",
-            "dispatcher_invalid_response",
-            "dispatcher_no_choices",
-        }:
-            retry_notes.append(f"dispatch_retry_after:{last_failure}")
+        if idx == 0 and last_failure:
+            retry_notes.append(f"router_retry_after:{last_failure}")
             continue
-        raise DispatchModelFailure(last_failure or "dispatcher_invalid_response")
+        raise DispatchModelFailure(last_failure or "router_invalid_response")
 
-    raise DispatchModelFailure(last_failure or "dispatcher_invalid_response")
+    raise DispatchModelFailure(last_failure or "router_invalid_response")
 
 
 def _fallback_trace(
@@ -585,7 +545,7 @@ def _fallback_trace(
 
 def _normalize_dispatch(
     *,
-    proposal: DispatchProposal | None,
+    proposal: DispatchProposal | RouterIntent | None,
     fallback_route: RouteDecision,
     fallback_skill: RoutedSkill,
     context: ContextReceipt,
@@ -601,6 +561,41 @@ def _normalize_dispatch(
         )
 
     notes: list[str] = list(extra_notes or [])
+
+    # ── RouterIntent path (new closed-enum router) ────────────────────
+    if isinstance(proposal, RouterIntent):
+        if proposal.confidence < OPENAI_DISPATCH_CONFIDENCE_THRESHOLD:
+            notes.append("low_confidence_router")
+            return DispatchTrace(
+                raw=None,
+                normalized=_fallback_trace(
+                    fallback_route=fallback_route,
+                    fallback_skill=fallback_skill,
+                    reason="low_confidence_router",
+                ).normalized,
+            )
+
+        skill_id, lane, needs_retrieval, write_intent = _map_intent_to_skill(proposal)
+        notes.append(f"router:{proposal.entity_type}/{proposal.action}")
+        if proposal.entity_name:
+            notes.append(f"entity_name:{proposal.entity_name}")
+        if proposal.metric and proposal.metric != "none":
+            notes.append(f"metric:{proposal.metric}")
+
+        normalized = DispatchDecision(
+            source=DispatchSource.MODEL,
+            skill_id=skill_id,
+            lane=lane,
+            needs_retrieval=needs_retrieval,
+            write_intent=write_intent,
+            ambiguity_level=DispatchAmbiguity.HIGH if proposal.needs_clarification else DispatchAmbiguity.LOW,
+            confidence=round(proposal.confidence, 2),
+            fallback_used=False,
+            notes=notes,
+        )
+        return DispatchTrace(raw=None, normalized=normalized)
+
+    # ── Legacy DispatchProposal path (backward compat) ────────────────
     fallback_used = False
     lane = proposal.lane or legacy_code_to_lane(fallback_route.lane)
     if not isinstance(lane, Lane):

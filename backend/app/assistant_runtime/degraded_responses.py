@@ -34,6 +34,7 @@ _SKILL_FALLBACKS: dict[str, str] = {
     "create_entity": "I can help create new entities. Specify what you'd like to create — for example, 'create a new fund named [name]'.",
     "project_risk": "I can show at-risk projects. Try 'which projects are at risk?' or specify a project name.",
     "lookup_entity": "I can look up entities in this environment. Try asking about a specific fund, asset, account, or project by name.",
+    "fund_holdings": "This fund currently has no recorded holdings in the system. You can explore pipeline deals, target sectors, or add assets to build the portfolio.",
 }
 
 

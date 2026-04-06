@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import re
-
 from app.assistant_runtime.turn_receipts import (
     ConfirmationMode,
     RetrievalPolicy,
@@ -218,6 +216,56 @@ SKILLS: tuple[SkillDefinition, ...] = (
         max_tool_calls=5,
     ),
     SkillDefinition(
+        id="fund_summary",
+        description="List and summarize funds in the portfolio — names, strategies, vintages, status.",
+        triggers=["summary", "funds", "portfolio", "list funds", "how many funds"],
+        capability_tags=["lookup", "read"],
+        allowed_tool_tags=["core", "repe", "finance"],
+        retrieval_policy=RetrievalPolicy.LIGHT,
+        confirmation_mode=ConfirmationMode.NONE,
+        response_blocks=["markdown_text", "table", "kpi_group"],
+        preferred_loop_pattern="investigate",
+        max_tool_calls=2,
+    ),
+    SkillDefinition(
+        id="fund_holdings",
+        description="Show assets, investments, and properties under a specific fund.",
+        triggers=["holdings", "breakdown", "portfolio breakdown", "what does it own", "assets in fund"],
+        capability_tags=["lookup", "read"],
+        allowed_tool_tags=["core", "repe", "finance"],
+        retrieval_policy=RetrievalPolicy.FULL,
+        confirmation_mode=ConfirmationMode.NONE,
+        response_blocks=["markdown_text", "table", "citations"],
+        preferred_loop_pattern="investigate",
+        requires_grounding=True,
+        max_tool_calls=3,
+    ),
+    SkillDefinition(
+        id="resume_qa",
+        description="Answer career, resume, and biographical questions using RAG narrative documents.",
+        triggers=["resume", "career", "experience", "when did paul", "kayne anderson", "jll", "novendor"],
+        capability_tags=["lookup", "read"],
+        allowed_tool_tags=["resume", "document"],
+        retrieval_policy=RetrievalPolicy.FULL,
+        confirmation_mode=ConfirmationMode.NONE,
+        response_blocks=["markdown_text", "citations"],
+        preferred_loop_pattern="investigate",
+        requires_grounding=True,
+        max_tool_calls=3,
+    ),
+    SkillDefinition(
+        id="draft_email",
+        description="Draft an outreach or employer email for review before sending.",
+        triggers=["draft email", "outreach", "email employer", "send email"],
+        capability_tags=["write"],
+        allowed_tool_tags=["resume", "write", "novendor"],
+        retrieval_policy=RetrievalPolicy.NONE,
+        confirmation_mode=ConfirmationMode.REQUIRED,
+        response_blocks=["markdown_text", "confirmation"],
+        preferred_loop_pattern="execute",
+        max_tool_calls=2,
+    ),
+    SkillDefinition(
         id="create_entity",
         description="Create or mutate an entity or workflow record with confirmation.",
         triggers=[
@@ -245,21 +293,22 @@ SKILLS: tuple[SkillDefinition, ...] = (
 
 SKILL_BY_ID = {skill.id: skill for skill in SKILLS}
 
-_GROUNDED_CONTEXT_RE = re.compile(
-    r"\b("
-    r"variance|underwriting|occupancy|debt watch|watchlist|lender|debt risk|risk|noi|irr|tvpi|dpi|dscr|ltv|"
-    r"blank|down vs|why is|latest|today|"
-    r"changes|source|basis|based on|summary|lp summary|"
-    r"best|worst|top|bottom|rank|highest|lowest|performing|"
-    r"trend|over time|trailing|ttm|ltm|quarterly|monthly|historical|"
-    r"vs plan|vs budget|deviation|shortfall|gap|"
-    r"compare|vs|versus|side by side"
-    r")\b",
-    re.IGNORECASE,
-)
+# Descriptions map — used by the tiny router model to understand what each skill does.
+# This replaces the trigger-matching approach with LLM-driven classification.
+SKILL_DESCRIPTIONS = {skill.id: skill.description for skill in SKILLS}
 
 
 def skill_requires_grounding(skill_id: str | None, *, message: str | None = None) -> bool:
+    """Determine if a skill needs retrieval/grounding based on its retrieval_policy.
+
+    FULL → always grounded (analytical, comparison, trend, etc.)
+    NONE → never grounded (write actions, confirmations)
+    LIGHT → grounded by default (the router already decided retrieval was needed)
+
+    The old approach used a regex (_GROUNDED_CONTEXT_RE) to decide grounding
+    for LIGHT skills. That's removed — the router model sets needs_retrieval
+    on the DispatchDecision, which is the authoritative signal.
+    """
     if not skill_id:
         return False
     skill = SKILL_BY_ID.get(skill_id)
@@ -269,10 +318,9 @@ def skill_requires_grounding(skill_id: str | None, *, message: str | None = None
         return True
     if skill.retrieval_policy == RetrievalPolicy.NONE:
         return False
-    # LIGHT skills only need grounding when message contains metric/data keywords
-    if skill_id in {"lookup_entity", "explain_metric"}:
-        return bool(_GROUNDED_CONTEXT_RE.search(message or ""))
-    return False
+    # LIGHT skills: default to grounded. The router decides if retrieval
+    # is actually needed via needs_retrieval on the dispatch decision.
+    return True
 
 
 def validate_skill_registry() -> None:
@@ -281,7 +329,5 @@ def validate_skill_registry() -> None:
         if skill.id in seen:
             raise ValueError(f"Duplicate skill id: {skill.id}")
         seen.add(skill.id)
-        if not skill.triggers:
-            raise ValueError(f"Skill {skill.id} must declare at least one trigger")
         if not skill.allowed_tool_tags:
             raise ValueError(f"Skill {skill.id} must declare allowed_tool_tags")
