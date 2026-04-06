@@ -299,28 +299,29 @@ SKILL_DESCRIPTIONS = {skill.id: skill.description for skill in SKILLS}
 
 
 def skill_requires_grounding(skill_id: str | None, *, message: str | None = None) -> bool:
-    """Determine if a skill needs retrieval/grounding based on its retrieval_policy.
+    """Determine if a skill requires RAG grounding before tool execution.
 
-    FULL → always grounded (analytical, comparison, trend, etc.)
-    NONE → never grounded (write actions, confirmations)
-    LIGHT → grounded by default (the router already decided retrieval was needed)
-
-    The old approach used a regex (_GROUNDED_CONTEXT_RE) to decide grounding
-    for LIGHT skills. That's removed — the router model sets needs_retrieval
-    on the DispatchDecision, which is the authoritative signal.
+    Explicit requires_grounding on the SkillDefinition always wins.
+    If not set, falls back to retrieval_policy:
+      FULL → always grounded (analytical/comparison skills with no tool fallback)
+      NONE → never grounded (write actions, confirmations)
+      LIGHT → not grounded by default — tool-capable skills fetch their own data;
+              explicit requires_grounding=True opts individual skills back in.
     """
     if not skill_id:
         return False
     skill = SKILL_BY_ID.get(skill_id)
     if skill is None:
         return False
+    # Explicit field wins over policy inference
+    if skill.requires_grounding is not None:
+        return skill.requires_grounding
     if skill.retrieval_policy == RetrievalPolicy.FULL:
         return True
     if skill.retrieval_policy == RetrievalPolicy.NONE:
         return False
-    # LIGHT skills: default to grounded. The router decides if retrieval
-    # is actually needed via needs_retrieval on the dispatch decision.
-    return True
+    # LIGHT: tool-capable skills handle their own data — don't block on empty RAG
+    return False
 
 
 def validate_skill_registry() -> None:
