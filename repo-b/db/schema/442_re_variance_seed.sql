@@ -125,11 +125,12 @@ BEGIN
 
         -- Derive vacancy loss (assume 5-10% of gross revenue)
         -- We use asset_id hash to make each asset deterministically different
-        v_actual_vac := ROUND(v_actual_rev * (0.05 + (('x' || substr(v_asset.asset_id::text, 1, 8))::bit(32)::int::numeric % 6) * 0.01), 0);
+        -- Strip dashes from uuid text before hex-casting (uuid contains '-' at positions 9,14,19,24)
+        v_actual_vac := ROUND(v_actual_rev * (0.05 + (('x' || substr(replace(v_asset.asset_id::text, '-', ''), 1, 8))::bit(32)::int::numeric % 6) * 0.01), 0);
 
         -- Assign per-asset variance factors based on deterministic hash of asset_id
         -- This gives realistic variation without randomness (seed is stable on re-run)
-        CASE (('x' || substr(v_asset.asset_id::text, 10, 8))::bit(32)::int::numeric % 5)
+        CASE (('x' || substr(replace(v_asset.asset_id::text, '-', ''), 9, 8))::bit(32)::int::numeric % 5)
           WHEN 0 THEN  -- asset beats budget: revenue up, expense under
             v_var_rev_factor := 0.97;   -- budget was 3% lower → actual beat it
             v_var_exp_factor := 1.04;   -- budget assumed 4% higher opex → actual under

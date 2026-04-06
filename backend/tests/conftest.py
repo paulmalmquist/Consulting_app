@@ -185,6 +185,27 @@ def fake_cursor():
 
 
 @pytest.fixture
+def db_conn():
+    """Real psycopg2 connection for integration tests.
+
+    Skipped automatically when no reachable Postgres is configured via
+    DATABASE_URL, so integration tests are a no-op in the standard CI unit
+    run (they require the DB Schema Gate environment to pass).
+    """
+    import psycopg2
+    url = os.environ.get("DATABASE_URL", "")
+    try:
+        conn = psycopg2.connect(url, cursor_factory=psycopg2.extras.RealDictCursor)
+    except Exception as exc:
+        pytest.skip(f"db_conn: no reachable Postgres ({exc})")
+        return
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
+@pytest.fixture
 def fake_storage():
     """Mock the SupabaseStorageRepository used by document routes."""
     mock = MagicMock()
