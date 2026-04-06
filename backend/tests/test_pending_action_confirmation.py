@@ -7,7 +7,6 @@ and all accumulated parameters.
 from __future__ import annotations
 
 import json
-import re
 
 
 def test_confirm_keywords_match_positive():

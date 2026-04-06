@@ -10,7 +10,6 @@ Run integration tests with: pytest tests/test_variance_seed.py -v -m integration
 from __future__ import annotations
 
 import os
-import re
 
 import pytest
 

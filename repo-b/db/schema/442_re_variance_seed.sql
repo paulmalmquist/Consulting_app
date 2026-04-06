@@ -54,7 +54,6 @@ DECLARE
   v_var_rev_factor  numeric;
   v_var_exp_factor  numeric;
 
-  v_has_col_scenario boolean;
 BEGIN
 
   -- Resolve first available business_id
@@ -71,12 +70,6 @@ BEGIN
     RAISE NOTICE '442_re_variance_seed: variance rows already present for business %, skipping', v_biz_id;
     RETURN;
   END IF;
-
-  -- Check whether re_asset_quarter_state has a scenario_id column (schema guard)
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 're_asset_quarter_state' AND column_name = 'scenario_id'
-  ) INTO v_has_col_scenario;
 
   -- Loop: for each fund × quarter → insert one re_run, then insert variance rows for each asset
   FOR v_fund IN
@@ -114,30 +107,16 @@ BEGIN
       LOOP
 
         -- Read actual amounts from the canonical quarter-state seed
-        IF v_has_col_scenario THEN
-          SELECT
-            COALESCE(qs.revenue, 0),
-            COALESCE(qs.opex, 0),
-            COALESCE(qs.noi, 0)
-          INTO v_actual_rev, v_actual_opex, v_actual_noi
-          FROM re_asset_quarter_state qs
-          WHERE qs.asset_id = v_asset.asset_id
-            AND qs.quarter  = v_q
-            AND (qs.scenario_id IS NULL OR qs.scenario_id = 'base')
-          ORDER BY qs.quarter DESC
-          LIMIT 1;
-        ELSE
-          SELECT
-            COALESCE(qs.revenue, 0),
-            COALESCE(qs.opex, 0),
-            COALESCE(qs.noi, 0)
-          INTO v_actual_rev, v_actual_opex, v_actual_noi
-          FROM re_asset_quarter_state qs
-          WHERE qs.asset_id = v_asset.asset_id
-            AND qs.quarter  = v_q
-          ORDER BY qs.quarter DESC
-          LIMIT 1;
-        END IF;
+        SELECT
+          COALESCE(qs.revenue, 0),
+          COALESCE(qs.opex, 0),
+          COALESCE(qs.noi, 0)
+        INTO v_actual_rev, v_actual_opex, v_actual_noi
+        FROM re_asset_quarter_state qs
+        WHERE qs.asset_id = v_asset.asset_id
+          AND qs.quarter  = v_q
+        ORDER BY qs.quarter DESC
+        LIMIT 1;
 
         -- Skip if no quarter-state row exists for this asset×quarter
         IF v_actual_rev = 0 AND v_actual_opex = 0 THEN
