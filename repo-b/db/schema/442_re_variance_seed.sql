@@ -106,6 +106,11 @@ BEGIN
         WHERE d.fund_id = v_fund.fund_id
       LOOP
 
+        -- Reset before SELECT so missing rows don't carry forward prior values
+        v_actual_rev  := 0;
+        v_actual_opex := 0;
+        v_actual_noi  := 0;
+
         -- Read actual amounts from the canonical quarter-state seed
         SELECT
           COALESCE(qs.revenue, 0),
@@ -119,7 +124,8 @@ BEGIN
         LIMIT 1;
 
         -- Skip if no quarter-state row exists for this asset×quarter
-        IF v_actual_rev = 0 AND v_actual_opex = 0 THEN
+        -- (SELECT INTO leaves variables NULL when no row is found; NULL != 0)
+        IF COALESCE(v_actual_rev, 0) = 0 AND COALESCE(v_actual_opex, 0) = 0 THEN
           CONTINUE;
         END IF;
 

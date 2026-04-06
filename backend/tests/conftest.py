@@ -186,16 +186,22 @@ def fake_cursor():
 
 @pytest.fixture
 def db_conn():
-    """Real psycopg2 connection for integration tests.
+    """Real DB connection for integration tests (psycopg3 dict-row cursor).
 
     Skipped automatically when no reachable Postgres is configured via
     DATABASE_URL, so integration tests are a no-op in the standard CI unit
     run (they require the DB Schema Gate environment to pass).
     """
-    import psycopg2
+    try:
+        import psycopg
+        from psycopg.rows import dict_row
+    except ImportError:
+        pytest.skip("db_conn: psycopg not installed")
+        return
+
     url = os.environ.get("DATABASE_URL", "")
     try:
-        conn = psycopg2.connect(url, cursor_factory=psycopg2.extras.RealDictCursor)
+        conn = psycopg.connect(url, row_factory=dict_row)
     except Exception as exc:
         pytest.skip(f"db_conn: no reachable Postgres ({exc})")
         return
