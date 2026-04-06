@@ -146,7 +146,7 @@ When a request touches client portability or white-labeling, keep the three-laye
 - Prefer capability flags and environment manifests over scattered per-client conditionals in routes, components, or services.
 - New-client onboarding should trend toward `load config + bind secrets + run bootstrap`, not repo-wide source edits.
 - If a request is specifically about forkability or transferability, route planning to `agents/architect.md`; for implementation, keep the owning surface but still use `PORTABILITY.MD` as a design constraint.
-
+  
 ## Database Guardrails
 
 Every autonomous coding session that can touch SQL, seeds, schema contracts, or direct-DB handlers must read [`ARCHITECTURE.md`](/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/ARCHITECTURE.md) before proposing or writing a migration.

@@ -117,7 +117,7 @@ describe("ResumeWorkspace narrative controls", () => {
       expect(screen.getAllByText("11+").length).toBeGreaterThanOrEqual(1);
     });
     expect(screen.getAllByText("500+").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("160+").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("160 hrs").length).toBeGreaterThanOrEqual(1);
 
     // Verify module tabs render (button text includes both short and full labels)
     expect(screen.getAllByText("Timeline").length).toBeGreaterThanOrEqual(1);

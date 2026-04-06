@@ -729,6 +729,7 @@ export default function RepeWorkspaceShell({
       headerLabel={envLabel}
       headerAction={headerAction}
       mobileNavItems={mobileNavItems}
+      winstonMenu={<WinstonUmbrellaMenu />}
     >
       <InvestmentIntakeDialog
         open={investmentDialogOpen}
@@ -738,10 +739,9 @@ export default function RepeWorkspaceShell({
         base={base}
       />
       <div className="flex flex-col min-h-0">
-        {/* Shell nav strip — desktop only: WINSTON umbrella menu + section links */}
-        <div className="hidden xl:flex items-center justify-between h-10
+        {/* Section links strip — desktop only */}
+        <div className="hidden xl:flex items-center justify-end h-10
                         border-b border-bm-border/[0.06] px-6 2xl:px-8 shrink-0">
-          <WinstonUmbrellaMenu />
           <TopUtilityNav
             pathname={pathname}
             base={base}

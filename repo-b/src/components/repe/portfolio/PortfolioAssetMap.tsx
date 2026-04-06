@@ -63,7 +63,7 @@ export function PortfolioAssetMap({
       ) : (
         <>
           {/* Summary callouts */}
-          <div className="flex flex-wrap gap-x-8 gap-y-2 border-b border-bm-border/20 pb-3">
+          <div className="flex flex-wrap gap-x-5 sm:gap-x-8 gap-y-2 border-b border-bm-border/20 pb-3">
             <SummaryMetric label="Owned Assets" value={summary?.owned_assets ?? 0} />
             <SummaryMetric label="Pipeline Assets" value={summary?.pipeline_assets ?? 0} />
             <SummaryMetric label="Markets" value={summary?.markets ?? 0} />
@@ -88,7 +88,7 @@ export function PortfolioAssetMap({
           </div>
 
           {/* Map */}
-          <div className="h-[320px] rounded-lg overflow-hidden border border-bm-border/20">
+          <div className="h-[200px] sm:h-[260px] lg:h-[320px] rounded-lg overflow-hidden border border-bm-border/20">
             {mounted && <MapInner points={filtered} />}
           </div>
           {(() => {

@@ -64,10 +64,10 @@ describe("AppShell", () => {
     expect(screen.getByText("test content")).toBeInTheDocument();
   });
 
-  test("renders sign out button", () => {
+  test("renders account menu button", () => {
     render(<AppShell><div>content</div></AppShell>);
 
-    expect(screen.getByText("Sign out")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /account menu/i })).toBeInTheDocument();
   });
 
   test("hides the global utility header on immersive trading routes", () => {
@@ -77,7 +77,7 @@ describe("AppShell", () => {
 
     expect(screen.queryByTestId("theme-toggle")).not.toBeInTheDocument();
     expect(screen.queryByTestId("global-home-button")).not.toBeInTheDocument();
-    expect(screen.queryByText("Sign out")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /account menu/i })).not.toBeInTheDocument();
   });
 
   test("no sidebar is rendered", () => {

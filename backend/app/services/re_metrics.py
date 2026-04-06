@@ -85,7 +85,14 @@ def compute_fund_irr_from_ledger(
     nav: Decimal,
     as_of_date: date,
     as_of_quarter: str | None = None,
+    gross_only: bool = False,
 ) -> Decimal | None:
+    """Compute fund IRR from re_capital_ledger_entry.
+
+    When gross_only=True, excludes management fee entries so the result
+    reflects pre-fee performance (gross IRR). When False, fees are treated
+    as additional outflows (net IRR).
+    """
     with get_cursor() as cur:
         conditions = ["fund_id = %s"]
         params: list = [str(fund_id)]
@@ -113,7 +120,8 @@ def compute_fund_irr_from_ledger(
             cashflows.append((dt, -abs(amt)))
         elif r["entry_type"] in ("distribution", "recallable_dist"):
             cashflows.append((dt, abs(amt)))
-        elif r["entry_type"] == "fee":
+        elif r["entry_type"] == "fee" and not gross_only:
+            # Include fees as additional outflows only for net IRR
             cashflows.append((dt, -abs(amt)))
         elif r["entry_type"] == "reversal":
             cashflows.append((dt, amt))
@@ -307,11 +315,22 @@ def compute_fund_metrics(
 
     dpi = compute_dpi(distributed, contributed)
     tvpi = compute_tvpi(distributed, fund_nav, contributed)
-    irr = compute_fund_irr_from_ledger(
+
+    # Gross IRR: capital calls + distributions + terminal NAV, fees excluded
+    gross_irr = compute_fund_irr_from_ledger(
         fund_id=fund_id,
         nav=fund_nav,
         as_of_date=as_of_date,
         as_of_quarter=quarter,
+        gross_only=True,
+    )
+    # Net IRR: same flows but management fees added as additional outflows
+    net_irr = compute_fund_irr_from_ledger(
+        fund_id=fund_id,
+        nav=fund_nav,
+        as_of_date=as_of_date,
+        as_of_quarter=quarter,
+        gross_only=False,
     )
 
     with get_cursor() as cur:
@@ -339,12 +358,12 @@ def compute_fund_metrics(
                 str(scenario_id) if scenario_id else None,
                 str(run_id),
                 _q(contributed), _q(distributed), _q(fund_nav),
-                _q(dpi), _q(tvpi), _q(irr),
+                _q(dpi), _q(tvpi), _q(gross_irr),
             ),
         )
         row = cur.fetchone()
         scenario_clause = "scenario_id = %s" if scenario_id else "scenario_id IS NULL"
-        params = [_q(irr), _q(irr), str(fund_id), quarter]
+        params = [_q(gross_irr), _q(net_irr), str(fund_id), quarter]
         if scenario_id:
             params.append(str(scenario_id))
         cur.execute(

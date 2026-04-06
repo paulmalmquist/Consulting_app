@@ -42,7 +42,7 @@ export function KpiStrip({
     return (
       <div
         className={cn(
-          "grid grid-cols-2 border-b border-bm-border/40 pb-1 md:grid-cols-2",
+          "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 border-b border-bm-border/40 pb-1",
           desktopColsClass,
           className
         )}
@@ -51,11 +51,10 @@ export function KpiStrip({
           <div
             key={kpi.label}
             className={cn(
-              "min-w-0 space-y-2 px-0 py-4 md:py-5 xl:pr-6",
+              "min-w-0 space-y-2 px-3 py-4 md:py-5 xl:px-6",
               index < kpis.length - 1 && "border-b border-bm-border/15 xl:border-b-0",
-              index % 2 === 0 ? "pr-4 md:pr-6" : "pl-4 md:pl-6",
               index >= 2 && "pt-5 xl:pt-4",
-              index > 0 && "xl:border-l xl:border-bm-border/20 xl:pl-6",
+              index > 0 && "xl:border-l xl:border-bm-border/20",
               kpi.className
             )}
           >

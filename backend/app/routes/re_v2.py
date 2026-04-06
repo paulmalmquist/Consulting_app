@@ -747,6 +747,111 @@ def run_quarter_close(fund_id: UUID, body: ReQuarterCloseRequest):
         raise _to_http(exc)
 
 
+# ── IRR Traceability ──────────────────────────────────────────────────────────
+
+@router.get("/funds/{fund_id}/irr-trace")
+def get_fund_irr_trace(fund_id: UUID, quarter: str = Query(...)):
+    """Return the cash flow series behind the fund's IRR for a given quarter.
+
+    Reads re_capital_ledger_entry (contributions negative, distributions positive)
+    plus the quarter-end NAV as terminal inflow. Also returns the computed gross
+    and net IRR so the caller can verify the numbers match re_fund_quarter_state.
+    """
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT entry_id, entry_type, amount_base, effective_date, quarter, memo
+                FROM re_capital_ledger_entry
+                WHERE fund_id = %s
+                  AND quarter <= %s
+                  AND entry_type IN ('contribution', 'commitment', 'distribution', 'recallable_dist', 'fee')
+                ORDER BY effective_date, created_at
+                """,
+                (str(fund_id), quarter),
+            )
+            ledger_rows = cur.fetchall()
+
+            cur.execute(
+                """
+                SELECT portfolio_nav, gross_irr, net_irr
+                FROM re_fund_quarter_state
+                WHERE fund_id = %s AND quarter = %s AND scenario_id IS NULL
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                (str(fund_id), quarter),
+            )
+            state = cur.fetchone()
+
+            cur.execute(
+                """
+                SELECT SUM(committed_amount) AS total_committed
+                FROM re_partner_commitment
+                WHERE fund_id = %s
+                """,
+                (str(fund_id),),
+            )
+            commitment_row = cur.fetchone()
+
+        cashflows = []
+        for r in ledger_rows:
+            amt = float(r["amount_base"] or 0)
+            entry_type = r["entry_type"]
+            if entry_type in ("contribution", "commitment"):
+                signed = -abs(amt)
+                role = "outflow"
+            elif entry_type in ("distribution", "recallable_dist"):
+                signed = abs(amt)
+                role = "inflow"
+            elif entry_type == "fee":
+                signed = -abs(amt)
+                role = "fee_outflow"
+            else:
+                continue
+
+            cashflows.append({
+                "entry_id": str(r["entry_id"]),
+                "entry_type": entry_type,
+                "role": role,
+                "amount": abs(amt),
+                "signed_amount": signed,
+                "date": str(r["effective_date"]),
+                "quarter": r["quarter"],
+                "memo": r["memo"],
+            })
+
+        nav = float(state["portfolio_nav"] or 0) if state else 0
+        if nav > 0:
+            year = int(quarter[:4])
+            q = int(quarter[-1])
+            month = q * 3
+            day = 31 if month in (3, 12) else 30
+            terminal_date = f"{year}-{month:02d}-{day:02d}"
+            cashflows.append({
+                "entry_id": None,
+                "entry_type": "terminal_nav",
+                "role": "inflow",
+                "amount": nav,
+                "signed_amount": nav,
+                "date": terminal_date,
+                "quarter": quarter,
+                "memo": "Terminal NAV (unrealized value)",
+            })
+
+        return {
+            "fund_id": str(fund_id),
+            "quarter": quarter,
+            "gross_irr": float(state["gross_irr"]) if state and state.get("gross_irr") is not None else None,
+            "net_irr": float(state["net_irr"]) if state and state.get("net_irr") is not None else None,
+            "portfolio_nav": nav,
+            "total_committed": float(commitment_row["total_committed"] or 0) if commitment_row else 0,
+            "cashflow_count": len(cashflows),
+            "cashflows": cashflows,
+        }
+    except Exception as exc:
+        raise _to_http(exc)
+
+
 # ── Waterfall ─────────────────────────────────────────────────────────────────
 
 @router.post("/funds/{fund_id}/waterfall/run", response_model=ReWaterfallRunOut)

@@ -164,12 +164,11 @@ export function buildRepeNavGroups({
 }
 
 export function buildRepeMobileNavItems(base: string): MobileNavItem[] {
-  const companionHref = `${base.replace(/\/re$/, "")}/copilot`;
   return [
-    { href: `${base}/pipeline`, label: "Pipeline", icon: "pipeline", matchPrefix: true },
-    { href: base, label: "Funds", icon: "funds", matchPrefix: false },
-    { href: companionHref, label: "Winston", icon: "winston", matchPrefix: true },
+    { href: `${base}/pipeline`,  label: "Pipeline",  icon: "pipeline",  matchPrefix: true },
+    { href: base,                label: "Funds",     icon: "funds",     matchPrefix: false },
+    { href: `${base}/assets`,    label: "Assets",    icon: "assets",    matchPrefix: true },
     { href: `${base}/investors`, label: "Investors", icon: "investors", matchPrefix: true },
-    { href: `${base}/reports`, label: "Reports", icon: "reports", matchPrefix: true },
+    { href: `${base}/reports`,   label: "Reports",   icon: "reports",   matchPrefix: true },
   ];
 }

@@ -22,8 +22,17 @@ import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { fmtMoney, fmtMultiple, fmtPct } from '@/lib/format-utils';
 import { PortfolioAssetMap } from "@/components/repe/portfolio/PortfolioAssetMap";
-import { TrendLineChart } from "@/components/charts";
-import { CHART_COLORS } from "@/components/charts/chart-theme";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
+import { CHART_COLORS, TOOLTIP_STYLE, AXIS_TICK_STYLE, GRID_STYLE, fmtCompact } from "@/components/charts/chart-theme";
 import {
   RepeIndexScaffold,
   reIndexNumericCellClass,
@@ -142,29 +151,18 @@ export default function ReFundListPage() {
       .finally(() => setMapLoading(false));
   }, [envId]);
 
-  // Aggregate for the TrendLineChart: reshape into { quarter, fund1, fund2, ... }
-  const chartData = useMemo(() => {
-    const fundsWithState = funds.filter((f) => f.state);
-    if (fundsWithState.length === 0) return [];
-    // Group by quarter
-    const quarterMap: Record<string, Record<string, number>> = {};
-    for (const f of fundsWithState) {
-      const q = f.state!.quarter;
-      if (!quarterMap[q]) quarterMap[q] = { quarter: 0 } as unknown as Record<string, number>;
-      quarterMap[q][f.name] = Number(f.state![timeMetric] ?? 0);
-    }
-    return Object.entries(quarterMap).map(([q, vals]) => ({ quarter: q, ...vals }));
-  }, [funds, timeMetric]);
+  const isMultiplier = timeMetric === "dpi" || timeMetric === "tvpi";
 
-  const chartLines = useMemo(() => {
+  // Cross-sectional fund comparison for the current quarter
+  const comparisonBarData = useMemo(() => {
     return funds
       .filter((f) => f.state)
       .map((f, i) => ({
-        key: f.name,
-        label: f.name,
+        name: f.name,
+        value: Number(f.state![timeMetric] ?? 0),
         color: FUND_COLORS[i % FUND_COLORS.length],
       }));
-  }, [funds]);
+  }, [funds, timeMetric]);
 
   // NAV-weighted average across funds
   function navWeightedAvg(field: "gross_irr" | "net_irr"): string {
@@ -179,6 +177,37 @@ export default function ReFundListPage() {
   // Compute weighted portfolio-level KPIs from fund states
   const computedGrossIrr = useMemo(() => navWeightedAvg("gross_irr"), [funds]);
   const computedNetIrr = useMemo(() => navWeightedAvg("net_irr"), [funds]);
+
+  // Sanity indicators: median gross IRR and per-fund percentile rank
+  const irrSanity = useMemo(() => {
+    const valid = funds
+      .map((f, i) => ({ idx: i, irr: f.state?.gross_irr != null ? Number(f.state.gross_irr) : null }))
+      .filter((x): x is { idx: number; irr: number } => x.irr !== null);
+
+    if (valid.length === 0) return { median: null, ranks: {} as Record<number, string> };
+
+    const sorted = [...valid].sort((a, b) => a.irr - b.irr);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 === 0
+      ? (sorted[mid - 1].irr + sorted[mid].irr) / 2
+      : sorted[mid].irr;
+
+    // Sanity check: warn if all IRRs are within 0.5% of each other
+    const spread = sorted[sorted.length - 1].irr - sorted[0].irr;
+    if (spread < 0.005 && valid.length > 1) {
+      console.warn("[IRR sanity] All funds have near-identical gross IRR — cash flows may not be differentiated");
+    }
+
+    const ranks: Record<number, string> = {};
+    valid.forEach((x) => {
+      const rank = sorted.findIndex((s) => s.idx === x.idx) + 1;
+      const pct = Math.round((rank / sorted.length) * 100);
+      const delta = x.irr - median;
+      ranks[x.idx] = delta >= 0 ? `+${(delta * 100).toFixed(1)}pp vs median` : `${(delta * 100).toFixed(1)}pp vs median`;
+    });
+
+    return { median, ranks };
+  }, [funds]);
 
   const computedDscr = useMemo(() => {
     const withDscr = funds.filter((f) => f.state?.weighted_dscr != null);
@@ -299,7 +328,7 @@ export default function ReFundListPage() {
       >
         {/* ── SIGNAL BAR ── */}
         {!loading && signals.length > 0 && (
-          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-bm-border/20 bg-bm-surface/[0.02] px-3 py-1.5">
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-bm-border/20 bg-bm-surface/[0.02] px-4 py-1.5">
             <span className="text-[9px] uppercase tracking-[0.14em] text-bm-muted2 font-semibold">Signals</span>
             {signals.map((s, i) => (
               <span key={i} className="flex items-center gap-1.5 text-xs">
@@ -315,44 +344,72 @@ export default function ReFundListPage() {
           </div>
         )}
 
-        {/* ── MAP + TIME SERIES (60/40) ── */}
+        {/* ── FUND COMPARISON + MAP (analytics first on mobile, 60/40 on desktop) ── */}
         {!loading && funds.length > 0 && (
           <div className="grid gap-3 lg:grid-cols-[3fr_2fr]">
-            {/* Portfolio Asset Map */}
-            <PortfolioAssetMap data={mapData} loading={mapLoading} />
 
-            {/* Portfolio Trends */}
-            <div className="rounded-lg border border-bm-border/30 bg-bm-surface/[0.02] p-4 space-y-2">
+            <div className="order-1 lg:order-2 rounded-lg border border-bm-border/30 bg-bm-surface/[0.02] p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold tracking-tight text-bm-text">
-                  Portfolio Trends
-                </h3>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={timeMetric}
-                    onChange={(e) => setTimeMetric(e.target.value as TimeMetric)}
-                    className="rounded border border-bm-border bg-bm-surface px-2 py-0.5 text-[11px] text-bm-text focus:border-bm-accent focus:outline-none"
-                  >
-                    {TIME_METRIC_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold tracking-tight text-bm-text">Fund Comparison</h3>
+                  <p className="text-[10px] text-bm-muted2 mt-0.5">As of {quarter} · point-in-time</p>
                 </div>
+                <select
+                  value={timeMetric}
+                  onChange={(e) => setTimeMetric(e.target.value as TimeMetric)}
+                  className="rounded border border-bm-border bg-bm-surface px-2 py-0.5 text-[11px] text-bm-text focus:border-bm-accent focus:outline-none"
+                >
+                  {TIME_METRIC_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
               </div>
-              {chartData.length > 0 && chartLines.length > 0 ? (
-                <TrendLineChart
-                  data={chartData}
-                  lines={chartLines}
-                  format={timeMetric === "dpi" || timeMetric === "tvpi" ? "number" : "dollar"}
-                  height={280}
-                  showLegend={chartLines.length <= 6}
-                />
+              {comparisonBarData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={comparisonBarData} margin={{ top: 8, right: 8, left: 4, bottom: 32 }}>
+                    <CartesianGrid vertical={false} {...GRID_STYLE} />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ ...AXIS_TICK_STYLE, fontSize: 10 }}
+                      axisLine={false}
+                      tickLine={false}
+                      angle={-35}
+                      textAnchor="end"
+                      interval={0}
+                    />
+                    <YAxis
+                      tick={AXIS_TICK_STYLE}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v: number) => isMultiplier ? fmtMultiple(v) : fmtCompact(v)}
+                      width={56}
+                    />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      formatter={(value: number) => [
+                        isMultiplier ? fmtMultiple(value) : fmtCompact(value),
+                        TIME_METRIC_OPTIONS.find((o) => o.value === timeMetric)?.label ?? timeMetric,
+                      ]}
+                      labelStyle={{ color: "hsl(210, 24%, 94%)", fontWeight: 600 }}
+                    />
+                    <Bar dataKey="value" radius={[3, 3, 0, 0]} maxBarSize={48}>
+                      {comparisonBarData.map((entry, index) => (
+                        <Cell key={`${entry.name}-${index}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-[280px] text-sm text-bm-muted2">
-                  No time series data available
+                <div className="flex items-center justify-center h-[240px] text-sm text-bm-muted2">
+                  No fund data available
                 </div>
               )}
             </div>
+
+            <div className="order-2 lg:order-1">
+              <PortfolioAssetMap data={mapData} loading={mapLoading} />
+            </div>
+
           </div>
         )}
 
@@ -388,10 +445,11 @@ export default function ReFundListPage() {
                   </tr>
                 </thead>
                 <tbody className={reIndexTableBodyClass}>
-                  {funds.map((fund) => {
+                  {funds.map((fund, fundIdx) => {
                     const pctInvested = fund.state?.total_committed && fund.state?.total_called
                       ? Number(fund.state.total_called) / Number(fund.state.total_committed)
                       : null;
+                    const irrVariance = irrSanity.ranks[fundIdx] ?? null;
                     return (
                     <tr key={fund.fund_id} className={reIndexTableRowClass}>
                       <td className="px-3 py-3 align-middle">
@@ -414,8 +472,13 @@ export default function ReFundListPage() {
                         {fmtMoney(fund.state?.portfolio_nav)}
                       </td>
                       <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}
-                          title={fund.state?.gross_irr == null ? `No IRR data for ${quarter} — run quarter close` : undefined}>
-                        {fmtPct(fund.state?.gross_irr)}
+                          title={fund.state?.gross_irr == null ? `No IRR data for ${quarter} — run quarter close` : (irrVariance ?? undefined)}>
+                        <span>{fmtPct(fund.state?.gross_irr)}</span>
+                        {irrVariance && fund.state?.gross_irr != null && (
+                          <span className="block text-[9px] text-bm-muted2/60 leading-none mt-0.5">
+                            {irrVariance}
+                          </span>
+                        )}
                       </td>
                       <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}
                           title={fund.state?.net_irr == null ? `No net IRR data for ${quarter} — run quarter close` : undefined}>

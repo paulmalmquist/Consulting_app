@@ -42,6 +42,8 @@ export interface WinstonShellProps {
   /** Items for the mobile bottom nav. If omitted, bottom nav is not rendered. */
   mobileNavItems?: MobileNavItem[];
   className?: string;
+  /** Branded menu rendered at true top-left on all breakpoints (e.g. WinstonUmbrellaMenu) */
+  winstonMenu?: React.ReactNode;
 }
 
 export function WinstonShell({
@@ -53,6 +55,7 @@ export function WinstonShell({
   tabletSidebar,
   mobileNavItems,
   className,
+  winstonMenu,
 }: WinstonShellProps) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -104,11 +107,13 @@ export function WinstonShell({
           <Menu size={20} />
         </button>
 
-        {headerLabel && (
+        {winstonMenu ? (
+          <div className="flex-1 min-w-0">{winstonMenu}</div>
+        ) : headerLabel ? (
           <span className="font-display text-sm font-semibold tracking-tight truncate flex-1">
             {headerLabel}
           </span>
-        )}
+        ) : null}
 
         {/* Right side: optional action + context rail toggle */}
         <div className="ml-auto flex items-center gap-2 shrink-0">
@@ -276,8 +281,15 @@ export function WinstonShell({
 
         {/* ── Left sidebar — desktop only ── */}
         <aside className="hidden xl:block min-w-0" aria-label="Sidebar navigation">
-          <div className="sticky top-4">
-            {sidebar}
+          <div className="sticky top-0">
+            {winstonMenu && (
+              <div className="flex items-center h-10 px-4 border-b border-bm-border/[0.06] bg-bm-bg">
+                {winstonMenu}
+              </div>
+            )}
+            <div className={winstonMenu ? "pt-2" : "pt-4"}>
+              {sidebar}
+            </div>
           </div>
         </aside>
 

@@ -24,7 +24,6 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import WinstonAvatar from "@/components/winston-companion/WinstonAvatar";
 
 export interface MobileNavItem {
   href: string;
@@ -32,6 +31,7 @@ export interface MobileNavItem {
   icon:
     | "pipeline"
     | "funds"
+    | "assets"
     | "investors"
     | "reports"
     | "winston"
@@ -50,6 +50,7 @@ type LucideIcon = React.ComponentType<{ size?: number; className?: string; strok
 const ICON_MAP: Record<MobileNavItem["icon"], LucideIcon> = {
   pipeline: Radar      as LucideIcon,
   funds:    Landmark   as LucideIcon,
+  assets:   Building2  as LucideIcon,
   investors: Users     as LucideIcon,
   reports:  BarChart3  as LucideIcon,
   winston:  Landmark   as LucideIcon,
@@ -96,65 +97,38 @@ export function MobileBottomNav({ items }: { items: MobileNavItem[] }) {
         {items.map((item) => {
           const active = isItemActive(pathname, item);
           const Icon = ICON_MAP[item.icon];
-          const isWinston = item.icon === "winston";
 
           return (
             <li key={item.href} className="flex-1 flex justify-center">
-              {isWinston ? (
-                /* Winston — elevated pill in the center */
-                <Link
-                  href={item.href}
-                  aria-label="Open Winston AI"
-                  aria-current={active ? "page" : undefined}
+              <Link
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1 w-full h-full",
+                  "transition-colors duration-fast",
+                  active
+                    ? "text-bm-accent"
+                    : "text-bm-muted hover:text-bm-text"
+                )}
+              >
+                {/* Active indicator bar above icon */}
+                <span
+                  aria-hidden="true"
                   className={cn(
-                    "flex flex-col items-center justify-center gap-0.5",
-                    /* Raised pill */
-                    "relative -translate-y-3",
-                    "w-14 h-14 rounded-full",
-                    "shadow-[0_4px_16px_-4px_rgba(0,0,0,0.5)]",
-                    "transition-all duration-fast",
-                    active
-                      ? "bg-bm-accent text-bm-accentContrast shadow-[0_4px_20px_-4px_hsl(var(--bm-accent)/0.6)]"
-                      : "bg-bm-surface border border-bm-border/20 text-bm-muted hover:text-bm-text"
+                    "absolute top-2 h-0.5 w-4 rounded-full transition-opacity duration-fast",
+                    active ? "opacity-100 bg-bm-accent" : "opacity-0"
+                  )}
+                />
+                <Icon size={20} strokeWidth={active ? 2 : 1.5} />
+                <span
+                  className={cn(
+                    "text-[10px] tracking-wide transition-all duration-fast",
+                    active ? "font-semibold" : "font-normal opacity-70"
                   )}
                 >
-                  <WinstonAvatar className="h-9 w-9 border-white/65 bg-white/95 shadow-none" />
-                  <span className="text-[9px] font-semibold tracking-wide">
-                    {item.label}
-                  </span>
-                </Link>
-              ) : (
-                /* Standard tab */
-                <Link
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "flex flex-col items-center justify-center gap-1 w-full h-full",
-                    "transition-colors duration-fast",
-                    active
-                      ? "text-bm-accent"
-                      : "text-bm-muted hover:text-bm-text"
-                  )}
-                >
-                  {/* Active indicator dot above icon */}
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      "absolute top-2 h-0.5 w-4 rounded-full transition-opacity duration-fast",
-                      active ? "opacity-100 bg-bm-accent" : "opacity-0"
-                    )}
-                  />
-                  <Icon size={20} strokeWidth={active ? 2 : 1.5} />
-                  <span
-                    className={cn(
-                      "text-[10px] tracking-wide transition-all duration-fast",
-                      active ? "font-semibold" : "font-normal opacity-70"
-                    )}
-                  >
-                    {item.label}
-                  </span>
-                </Link>
-              )}
+                  {item.label}
+                </span>
+              </Link>
             </li>
           );
         })}
