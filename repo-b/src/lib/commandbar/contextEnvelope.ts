@@ -76,8 +76,10 @@ function routeDescriptor(route: string | null): RouteDescriptor {
   const supportedSurface = matchWinstonLaunchSurface(route);
   if (supportedSurface) {
     const entityId =
-      supportedSurface.scope_type === "environment" || supportedSurface.scope_type === "business"
+      supportedSurface.scope_type === "business"
         ? null
+        : supportedSurface.scope_type === "environment"
+        ? (route.match(/\/lab\/env\/([^/]+)/) || [])[1] || null
         : route.split("/").filter(Boolean).at(-1) || null;
 
     return {
