@@ -233,8 +233,8 @@ export default function SystemsBuiltSection() {
     [highlightedSystemId, setHighlightedSystemId],
   );
 
-  // Sort chronologically
-  const sortedSystems = [...SYSTEMS].sort((a, b) => a.curve_value - b.curve_value);
+  // Most recent first — what he's doing now leads, earliest work trails
+  const sortedSystems = [...SYSTEMS].sort((a, b) => b.curve_value - a.curve_value);
 
   // When a skill is selected, highlight systems that use that skill as a capability.
   // Skill IDs (python, sql, databricks, etc.) match the capability IDs in system.capabilities_used.

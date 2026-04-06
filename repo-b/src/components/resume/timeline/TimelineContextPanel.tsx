@@ -98,8 +98,8 @@ function DefaultPanel({ onSelectEvent }: { onSelectEvent: (id: string) => void }
         Compounding Capability Over Time
       </h3>
       <p className="mt-2 text-sm leading-relaxed text-white/60">
-        Click a <strong className="text-white/80">company region</strong> to see what was built there.
-        Click a <strong className="text-white/80">milestone dot</strong> on the curve to drill into a specific system.
+        Hover a <strong className="text-white/80">role bar</strong> to see what was built and delivered in that role.
+        Click a <strong className="text-white/80">company region</strong> to see the full phase detail.
         Click a <strong className="text-white/80">skill icon</strong> above to filter by capability.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
