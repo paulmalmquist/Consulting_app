@@ -1,13 +1,21 @@
 """Golden path tests v2 — Winston behavior correctness across environments.
 
-Tests the deterministic dispatch pipeline, entity resolution, structured
-prechecks, and degradation behavior. Does NOT require a running LLM.
+Tests the intent → skill mapping table, entity extraction, degradation contract,
+and the remaining deterministic guardrails. Does NOT require a running LLM.
+
+Architecture note: _deterministic_dispatch only fires for create/write intent,
+identity questions, and ambiguous deictic references. All other routing goes
+through the tiny router model; we validate that path via _map_intent_to_skill().
 """
 from __future__ import annotations
 
 import pytest
 
-from app.assistant_runtime.dispatch_engine import _deterministic_dispatch
+from app.assistant_runtime.dispatch_engine import (
+    RouterIntent,
+    _deterministic_dispatch,
+    _map_intent_to_skill,
+)
 from app.assistant_runtime.turn_receipts import (
     ContextReceipt,
     ContextResolutionStatus,
@@ -30,130 +38,125 @@ def _resolved_context(**kw) -> ContextReceipt:
 def _missing_context(**kw) -> ContextReceipt:
     return ContextReceipt(resolution_status=ContextResolutionStatus.MISSING_CONTEXT, **kw)
 
+def _intent(*, entity_type="unknown", action="unknown", **kw) -> RouterIntent:
+    defaults = dict(
+        environment="repe", entity_name=None, metric="none",
+        timeframe_type="none", timeframe_value=None,
+        needs_clarification=False, clarification_field="none", confidence=0.9,
+    )
+    defaults.update(kw)
+    return RouterIntent(entity_type=entity_type, action=action, **defaults)
+
 
 # ── GP-1: Fund Summary ──────────────────────────────────────────────
 
 class TestGP1FundSummary:
-    @pytest.mark.parametrize("message", [
-        "give me a summary of the funds",
-        "list all funds",
-        "show me the funds",
-        "what funds are in this portfolio",
-        "fund summary",
-        "portfolio overview",
-        "how many funds do we have",
-    ])
-    def test_routes_deterministically(self, message):
-        trace = _deterministic_dispatch(message=message, context=_missing_context())
-        assert trace is not None, f"'{message}' should match fund summary guardrail"
-        d = trace.normalized
-        assert d.source == DispatchSource.DETERMINISTIC_GUARDRAIL
-        assert d.skill_id == "lookup_entity"
-        assert d.needs_retrieval is True
-        assert d.confidence >= 0.95
+    @pytest.mark.parametrize("action", ["summary", "list", "detail"])
+    def test_maps_to_fund_summary(self, action):
+        skill_id, lane, needs_retrieval, write_intent = _map_intent_to_skill(
+            _intent(entity_type="fund", action=action)
+        )
+        assert skill_id == "fund_summary"
+        assert lane == Lane.B_LOOKUP
+        assert needs_retrieval is True
+        assert write_intent is False
 
 
 # ── GP-2: Fund Metrics ──────────────────────────────────────────────
 
 class TestGP2FundMetrics:
-    @pytest.mark.parametrize("message", [
-        "get fund metrics for Meridian Core-Plus Income",
-        "fund metrics for Atlas Value-Add Fund IV",
-        "show me metrics for the fund",
-        "what are the fund metrics",
-    ])
-    def test_routes_deterministically(self, message):
-        trace = _deterministic_dispatch(message=message, context=_missing_context())
-        assert trace is not None, f"'{message}' should match fund metrics guardrail"
-        d = trace.normalized
-        assert d.source == DispatchSource.DETERMINISTIC_GUARDRAIL
-        assert d.skill_id == "explain_metric"
-        assert d.needs_retrieval is True
+    def test_fund_metric_lookup_maps_to_explain_metric(self):
+        skill_id, lane, needs_retrieval, _ = _map_intent_to_skill(
+            _intent(entity_type="fund", action="metric_lookup")
+        )
+        assert skill_id == "explain_metric"
+        assert needs_retrieval is True
+
+    def test_asset_metric_lookup_maps_to_explain_metric(self):
+        skill_id, lane, needs_retrieval, _ = _map_intent_to_skill(
+            _intent(entity_type="asset", action="metric_lookup")
+        )
+        assert skill_id == "explain_metric"
+
+    def test_wildcard_metric_lookup(self):
+        skill_id, _, _, _ = _map_intent_to_skill(
+            _intent(entity_type="unknown", action="metric_lookup")
+        )
+        assert skill_id == "explain_metric"
 
 
 # ── GP-3: Asset Ranking ─────────────────────────────────────────────
 
 class TestGP3AssetRanking:
-    @pytest.mark.parametrize("message", [
-        "best performing assets",
-        "top 5 assets by NOI",
-        "rank assets by occupancy",
-        "worst performing properties",
-        "highest NOI assets",
-    ])
-    def test_routes_deterministically_with_context(self, message):
-        trace = _deterministic_dispatch(message=message, context=_resolved_context())
-        assert trace is not None, f"'{message}' should match rank_metric guardrail"
-        assert trace.normalized.skill_id == "rank_metric"
-        assert trace.normalized.lane == Lane.C_ANALYSIS
-        assert trace.normalized.needs_retrieval is True
+    @pytest.mark.parametrize("entity_type", ["asset", "fund", "unknown"])
+    def test_rank_maps_to_rank_metric(self, entity_type):
+        skill_id, lane, needs_retrieval, _ = _map_intent_to_skill(
+            _intent(entity_type=entity_type, action="rank")
+        )
+        assert skill_id == "rank_metric"
+        assert lane == Lane.C_ANALYSIS
+        assert needs_retrieval is True
 
 
 # ── GP-4: Asset Metric Lookup ────────────────────────────────────────
 
 class TestGP4AssetMetric:
-    @pytest.mark.parametrize("message", [
-        "what is the NOI for Parkview Gardens",
-        "show me the IRR for Atlas Value-Add Fund IV",
-        "occupancy for Midtown Crossing",
-    ])
-    def test_routes_to_explain_metric(self, message):
-        trace = _deterministic_dispatch(message=message, context=_resolved_context())
-        assert trace is not None, f"'{message}' should match metric guardrail"
-        assert trace.normalized.skill_id == "explain_metric"
-        assert trace.normalized.needs_retrieval is True
+    def test_asset_explain_maps_to_explain_metric(self):
+        skill_id, _, _, _ = _map_intent_to_skill(
+            _intent(entity_type="asset", action="explain")
+        )
+        assert skill_id == "explain_metric"
+
+    def test_asset_metric_lookup(self):
+        skill_id, _, _, _ = _map_intent_to_skill(
+            _intent(entity_type="asset", action="metric_lookup")
+        )
+        assert skill_id == "explain_metric"
 
 
 # ── GP-5: Budget Variance ───────────────────────────────────────────
 
 class TestGP5BudgetVariance:
-    @pytest.mark.parametrize("message", [
-        "compare actual vs budget",
-        "explain the variance",
-        "why is NOI below plan",
-    ])
-    def test_routes_to_variance(self, message):
-        trace = _deterministic_dispatch(message=message, context=_resolved_context())
-        assert trace is not None, f"'{message}' should match variance guardrail"
-        assert trace.normalized.skill_id == "explain_metric_variance"
+    @pytest.mark.parametrize("entity_type", ["fund", "asset", "unknown"])
+    def test_variance_maps_to_explain_metric_variance(self, entity_type):
+        skill_id, lane, _, _ = _map_intent_to_skill(
+            _intent(entity_type=entity_type, action="variance")
+        )
+        assert skill_id == "explain_metric_variance"
+        assert lane == Lane.C_ANALYSIS
 
 
 # ── GP-6/7: Resume Queries ──────────────────────────────────────────
 
 class TestGP67Resume:
-    @pytest.mark.parametrize("message", [
-        "when did Paul start at JLL",
-        "summarize Paul's experience at Kayne Anderson",
-        "what did Paul do at Novendor",
-        "Paul's career timeline",
-    ])
-    def test_routes_deterministically_with_retrieval(self, message):
-        trace = _deterministic_dispatch(message=message, context=_missing_context())
-        assert trace is not None, f"'{message}' should match resume guardrail"
-        d = trace.normalized
-        assert d.source == DispatchSource.DETERMINISTIC_GUARDRAIL
-        assert d.skill_id == "run_analysis"
-        assert d.needs_retrieval is True
-        assert d.confidence >= 0.95
+    @pytest.mark.parametrize("action", ["explain", "summary", "detail", "search"])
+    def test_person_maps_to_resume_qa(self, action):
+        skill_id, lane, needs_retrieval, _ = _map_intent_to_skill(
+            _intent(entity_type="person", action=action, environment="resume")
+        )
+        assert skill_id == "resume_qa"
+        assert needs_retrieval is True
 
 
 # ── GP-9: CRM Activity ──────────────────────────────────────────────
 
 class TestGP9CRMActivity:
-    @pytest.mark.parametrize("message", [
-        "who should I follow up with today",
-        "show my leads",
-        "list accounts",
-        "pipeline summary",
+    @pytest.mark.parametrize("entity_type,action", [
+        ("account", "list"),
+        ("account", "search"),
+        ("account", "summary"),
+        ("opportunity", "list"),
+        ("opportunity", "summary"),
     ])
-    def test_routes_deterministically(self, message):
-        trace = _deterministic_dispatch(message=message, context=_missing_context())
-        assert trace is not None, f"'{message}' should match CRM activity guardrail"
-        assert trace.normalized.source == DispatchSource.DETERMINISTIC_GUARDRAIL
-        assert trace.normalized.needs_retrieval is True
+    def test_crm_maps_to_lookup_entity(self, entity_type, action):
+        skill_id, lane, needs_retrieval, _ = _map_intent_to_skill(
+            _intent(entity_type=entity_type, action=action, environment="crm")
+        )
+        assert skill_id == "lookup_entity"
+        assert needs_retrieval is True
 
 
-# ── GP-10: Create Entity ────────────────────────────────────────────
+# ── GP-10: Create Entity (still deterministic) ──────────────────────
 
 class TestGP10CreateEntity:
     @pytest.mark.parametrize("message", [
@@ -169,6 +172,22 @@ class TestGP10CreateEntity:
         assert trace.normalized.skill_id == "create_entity"
         assert trace.normalized.write_intent is True
         assert trace.normalized.confidence >= 0.95
+
+
+# ── GP-11: Identity (still deterministic) ───────────────────────────
+
+class TestGP11Identity:
+    @pytest.mark.parametrize("message", [
+        "what page is this",
+        "what environment is this",
+        "which fund am I looking at",
+    ])
+    def test_identity_routes_deterministically(self, message):
+        trace = _deterministic_dispatch(message=message, context=_resolved_context())
+        assert trace is not None, f"'{message}' should match identity guardrail"
+        assert trace.normalized.skill_id == "lookup_entity"
+        assert trace.normalized.lane == Lane.A_FAST
+        assert trace.normalized.source == DispatchSource.DETERMINISTIC_GUARDRAIL
 
 
 # ── Entity Name Extraction ──────────────────────────────────────────
