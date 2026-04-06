@@ -48,10 +48,45 @@ _AMBIGUOUS_DEICTIC_RE = re.compile(
     re.IGNORECASE,
 )
 _CREATE_ENTITY_RE = re.compile(
-    r"\b(?:create|add|make|set up|register|new)\s+(?:a\s+|an\s+)?(?:fund|deal|asset|property|investment)\b",
+    r"\b(?:create|add|make|set up|register|new)\s+(?:a\s+|an\s+)?(?:fund|deal|asset|property|investment|"
+    r"account|opportunity|lead|activity|contact|engagement|proposal)\b",
     re.IGNORECASE,
 )
 _DEBT_RISK_RE = re.compile(r"\b(debt risk|debt watch|watchlist)\b", re.IGNORECASE)
+
+# ── Fund/portfolio summary guardrail ─────────────────────────────────
+_FUND_SUMMARY_RE = re.compile(
+    r"\b(?:(?:summary|overview|snapshot|list|show)\s+(?:of\s+)?(?:the\s+)?(?:funds?|portfolio)|"
+    r"(?:funds?|portfolio)\s+(?:summary|overview|snapshot|list)|"
+    r"(?:list|show|give)\s+(?:me\s+)?(?:the\s+)?(?:all\s+)?funds?|"
+    r"how\s+many\s+funds?|what\s+funds?)\b",
+    re.IGNORECASE,
+)
+
+# ── Fund metrics guardrail ───────────────────────────────────────────
+_FUND_METRICS_RE = re.compile(
+    r"\b(?:(?:fund|portfolio)\s+metrics|metrics\s+for|"
+    r"(?:get|show|what\s+are)\s+(?:the\s+)?(?:fund\s+)?metrics)\b",
+    re.IGNORECASE,
+)
+
+# ── Resume / biographical guardrail ──────────────────────────────────
+_RESUME_QUERY_RE = re.compile(
+    r"\b(?:(?:when\s+did|where\s+did|how\s+long)\s+(?:paul|he)|"
+    r"(?:paul'?s?|his)\s+(?:experience|career|role|skills?|background|resume|cv|timeline|work)|"
+    r"(?:summarize|describe|tell\s+me\s+about|explain)\s+(?:paul'?s?|his|the)\s+(?:experience|career|role|time|work|background)|"
+    r"kayne\s+anderson|jll|novendor|jpmc|jp\s*morgan)\b",
+    re.IGNORECASE,
+)
+
+# ── CRM follow-up / activity guardrail ───────────────────────────────
+_CRM_ACTIVITY_RE = re.compile(
+    r"\b(?:follow\s*up|next\s+action|pending\s+task|overdue|"
+    r"(?:who|what)\s+(?:should\s+)?(?:i|we)\s+(?:follow|reach|contact|call)|"
+    r"pipeline\s+(?:summary|scoreboard|status)|"
+    r"(?:list|show)\s+(?:my\s+)?(?:leads?|accounts?|opportunities|activities))\b",
+    re.IGNORECASE,
+)
 
 # ── Per-intent metric regexes (checked in specificity order) ─────────
 _RANK_METRIC_RE = re.compile(
@@ -289,6 +324,63 @@ def _deterministic_dispatch(*, message: str, context: ContextReceipt) -> Dispatc
             notes=["deterministic_metric_anomaly_guardrail"],
         )
         return DispatchTrace(raw=None, normalized=decision)
+    # ── Fund/portfolio summary (no context requirement) ─────────────
+    if _FUND_SUMMARY_RE.search(normalized_message):
+        decision = DispatchDecision(
+            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
+            skill_id="lookup_entity",
+            lane=Lane.B_LOOKUP,
+            needs_retrieval=True,
+            write_intent=False,
+            ambiguity_level=DispatchAmbiguity.LOW,
+            confidence=0.97,
+            fallback_used=False,
+            notes=["deterministic_fund_summary_guardrail"],
+        )
+        return DispatchTrace(raw=None, normalized=decision)
+    # ── Fund metrics for a named entity ──────────────────────────────
+    if _FUND_METRICS_RE.search(normalized_message):
+        decision = DispatchDecision(
+            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
+            skill_id="explain_metric",
+            lane=Lane.C_ANALYSIS,
+            needs_retrieval=True,
+            write_intent=False,
+            ambiguity_level=DispatchAmbiguity.LOW,
+            confidence=0.97,
+            fallback_used=False,
+            notes=["deterministic_fund_metrics_guardrail"],
+        )
+        return DispatchTrace(raw=None, normalized=decision)
+    # ── Resume / biographical queries (no context requirement) ────────
+    if _RESUME_QUERY_RE.search(normalized_message):
+        decision = DispatchDecision(
+            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
+            skill_id="run_analysis",
+            lane=Lane.C_ANALYSIS,
+            needs_retrieval=True,
+            write_intent=False,
+            ambiguity_level=DispatchAmbiguity.LOW,
+            confidence=0.97,
+            fallback_used=False,
+            notes=["deterministic_resume_guardrail"],
+        )
+        return DispatchTrace(raw=None, normalized=decision)
+    # ── CRM activity / follow-up queries ─────────────────────────────
+    if _CRM_ACTIVITY_RE.search(normalized_message):
+        decision = DispatchDecision(
+            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
+            skill_id="lookup_entity",
+            lane=Lane.C_ANALYSIS,
+            needs_retrieval=True,
+            write_intent=False,
+            ambiguity_level=DispatchAmbiguity.LOW,
+            confidence=0.96,
+            fallback_used=False,
+            notes=["deterministic_crm_activity_guardrail"],
+        )
+        return DispatchTrace(raw=None, normalized=decision)
+    # ── Create entity (broadest pattern, must be last) ────────────────
     if _CREATE_ENTITY_RE.search(normalized_message):
         decision = DispatchDecision(
             source=DispatchSource.DETERMINISTIC_GUARDRAIL,

@@ -9,6 +9,7 @@ import CitationsBlock from "@/components/winston/blocks/CitationsBlock";
 import ToolActivityBlock from "@/components/winston/blocks/ToolActivityBlock";
 import WorkflowResultBlock from "@/components/winston/blocks/WorkflowResultBlock";
 import ConfirmationBlock from "@/components/winston/blocks/ConfirmationBlock";
+import type { PendingActionResult } from "@/components/winston/blocks/ConfirmationBlock";
 import ErrorBlock from "@/components/winston/blocks/ErrorBlock";
 import GroundingBadge from "@/components/winston/blocks/GroundingBadge";
 
@@ -24,11 +25,14 @@ export default function ResponseBlockRenderer({
   onConfirmAction,
   onCancelAction,
   onEditAction,
+  executionResult,
 }: {
   block: AssistantResponseBlock;
   onConfirmAction?: (block: Extract<AssistantResponseBlock, { type: "confirmation" }>) => void;
   onCancelAction?: (block: Extract<AssistantResponseBlock, { type: "confirmation" }>) => void;
   onEditAction?: (block: Extract<AssistantResponseBlock, { type: "confirmation" }>) => void;
+  /** Backend execution result for pending action confirmations. */
+  executionResult?: PendingActionResult | null;
 }) {
   switch (block.type) {
     case "markdown_text":
@@ -63,6 +67,7 @@ export default function ResponseBlockRenderer({
           onConfirm={() => onConfirmAction?.(block)}
           onCancel={() => onCancelAction?.(block)}
           onEdit={() => onEditAction?.(block)}
+          executionResult={executionResult}
         />
       );
 

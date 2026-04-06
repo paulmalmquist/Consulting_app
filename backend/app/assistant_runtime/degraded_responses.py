@@ -14,6 +14,26 @@ _MESSAGES: dict[DegradedReason, str] = {
     DegradedReason.TOOL_FAILED: "A required tool failed during execution.",
     DegradedReason.RETRIEVAL_EMPTY: "Not available in the current context.",
     DegradedReason.NO_SKILL_MATCH: "Winston could not determine the task type for this request.",
+    DegradedReason.NO_RESPONSE: "I wasn't able to generate a response for this request.",
+}
+
+# Intent-specific fallback messages keyed by skill_id.
+# When the LLM returns empty content, these provide a useful degraded response
+# instead of a generic apology.
+_SKILL_FALLBACKS: dict[str, str] = {
+    "fund_summary": "I can list the funds in this environment. Try asking 'list all funds' or navigate to the funds page.",
+    "fund_metrics": "I can look up fund metrics if you specify the fund name and quarter. Try 'fund metrics for [fund name], [quarter]'.",
+    "asset_metrics": "I can look up asset metrics. Specify the asset name and metric — for example, 'NOI for [asset name]'.",
+    "asset_ranking": "I can rank assets by a specific metric. Try 'rank assets by NOI' or 'best performing assets by occupancy'.",
+    "rank_metric": "I can rank assets by a specific metric. Try 'rank assets by NOI' or 'best performing assets by occupancy'.",
+    "explain_metric": "I can look up specific metrics. Try naming the entity and metric — for example, 'NOI for [asset name]' or 'IRR for [fund name]'.",
+    "explain_metric_variance": "I can explain variances when budget or underwriting data is available. This environment may not have comparison data loaded yet.",
+    "resume_qa": "I can answer questions about Paul's career, skills, and experience. Try asking about a specific role or time period.",
+    "run_analysis": "I can analyze data in this environment. Try asking about a specific metric, entity, or time period.",
+    "budget_variance": "I can explain budget variances if you specify the project. Try 'budget variance for [project name]'.",
+    "create_entity": "I can help create new entities. Specify what you'd like to create — for example, 'create a new fund named [name]'.",
+    "project_risk": "I can show at-risk projects. Try 'which projects are at risk?' or specify a project name.",
+    "lookup_entity": "I can look up entities in this environment. Try asking about a specific fund, asset, account, or project by name.",
 }
 
 
@@ -141,6 +161,11 @@ def _build_context_message(
             "'show me', 'compare', 'trend', or 'explain'."
         )
 
+    if reason == DegradedReason.NO_RESPONSE:
+        if skill_id and skill_id in _SKILL_FALLBACKS:
+            return _SKILL_FALLBACKS[skill_id]
+        return "I wasn't able to generate a response for this request. Try rephrasing or specifying more context."
+
     return _MESSAGES[reason]
 
 
@@ -184,3 +209,25 @@ def degraded_blocks_with_context(
     )
 
     return blocks, message_text
+
+
+def empty_response_fallback(
+    *,
+    skill_id: str | None = None,
+    entity_type: str | None = None,
+    entity_id: str | None = None,
+    entity_name: str | None = None,
+    env_id: str | None = None,
+) -> tuple[list[dict[str, Any]], str]:
+    """Safety-net fallback when the LLM produces empty content and no response blocks.
+
+    Uses intent-specific messages when possible. Never returns an empty response.
+    """
+    return degraded_blocks_with_context(
+        DegradedReason.NO_RESPONSE,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        entity_name=entity_name,
+        env_id=env_id,
+        skill_id=skill_id,
+    )

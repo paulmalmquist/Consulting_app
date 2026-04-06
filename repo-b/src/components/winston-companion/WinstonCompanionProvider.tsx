@@ -98,6 +98,8 @@ type LaneState = {
   pendingQuestion: string | null;
   /** Backend-generated suggested next actions after a turn completes. */
   suggestedActions: SuggestedAction[];
+  /** Execution result for the most recent pending action confirmation. */
+  pendingActionResult: { status: "executed" | "failed"; action_type?: string; tool_name?: string; success: boolean; error?: string | null } | null;
 };
 
 type WinstonCompanionContextValue = {
@@ -151,6 +153,7 @@ const EMPTY_LANE: LaneState = {
   debug: null,
   pendingQuestion: null,
   suggestedActions: [],
+  pendingActionResult: null,
 };
 
 function readRouteEnvId(pathname: string | null): string | null {
@@ -983,6 +986,7 @@ export function WinstonCompanionProvider({
           const backendActions = Array.isArray(donePayload?.suggested_actions)
             ? (donePayload.suggested_actions as SuggestedAction[])
             : [];
+          const pendingActionResult = donePayload?.pending_action_result as LaneState["pendingActionResult"] ?? null;
           setLaneState(lane, (current) => {
             // Detect if the last assistant message ended with a question (pending clarification).
             const lastMsg = [...current.messages].reverse().find((m) => m.role === "assistant");
@@ -995,6 +999,7 @@ export function WinstonCompanionProvider({
               terminalState,
               pendingQuestion: newPendingQuestion,
               suggestedActions: backendActions,
+              pendingActionResult,
             };
           });
           console.info("[winston-companion]", {

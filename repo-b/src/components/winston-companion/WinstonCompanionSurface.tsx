@@ -55,7 +55,7 @@ function ThreadViewport({
   compact?: boolean;
 }) {
   const endRef = useRef<HTMLDivElement | null>(null);
-  const { activeLane, sendPrompt, setDraft } = useWinstonCompanion();
+  const { activeLane, sendPrompt, setDraft, activeState } = useWinstonCompanion();
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -101,6 +101,7 @@ function ThreadViewport({
                       onConfirmAction={handleConfirm}
                       onCancelAction={handleCancel}
                       onEditAction={handleEdit}
+                      executionResult={block.type === "confirmation" ? activeState.pendingActionResult : undefined}
                     />
                   ))}
                   {message.content && !hasMarkdownBlock(message.responseBlocks) ? (

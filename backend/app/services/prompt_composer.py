@@ -20,8 +20,11 @@ Usage:
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 # ── Token budget per lane ────────────────────────────────────────────
@@ -174,12 +177,18 @@ def compose_prompt(
         messages.append({"role": system_role, "content": "\n\n".join(dynamic_parts)})
 
     # ── Section 3: Conversation history (oldest to newest) ──
+    # Hard cap: max 6 history messages to prevent prompt bloat from long threads
+    MAX_HISTORY_MESSAGES = 6
     if history:
+        # Take the most recent messages (trim from the front)
+        capped_history = history[-MAX_HISTORY_MESSAGES:] if len(history) > MAX_HISTORY_MESSAGES else history
+        if len(capped_history) < len(history):
+            audit.sections_truncated.append(f"history_count:{len(history)}->{len(capped_history)}")
         history_tokens_used = 0
-        for msg in history:
+        for msg in capped_history:
             msg_tokens = _estimate_tokens(msg.get("content", ""))
             if history_tokens_used + msg_tokens > budget.history_max:
-                audit.sections_truncated.append("history")
+                audit.sections_truncated.append("history_tokens")
                 break
             history_tokens_used += msg_tokens
             messages.append({"role": msg["role"], "content": msg["content"]})
@@ -200,5 +209,18 @@ def compose_prompt(
         + audit.history_tokens + audit.user_tokens
         + audit.domain_block_tokens + audit.session_context_tokens
     )
+
+    # ── Token budget instrumentation ──
+    if audit.sections_truncated:
+        logger.info(
+            "Prompt truncated: lane=%s total_est=%d truncated=%s",
+            lane, audit.total_tokens, ",".join(audit.sections_truncated),
+        )
+    if audit.total_tokens > 12000:
+        logger.warning(
+            "Large prompt: lane=%s total_est=%d (sys=%d ctx=%d rag=%d hist=%d user=%d)",
+            lane, audit.total_tokens, audit.system_tokens, audit.context_tokens,
+            audit.rag_tokens, audit.history_tokens, audit.user_tokens,
+        )
 
     return messages, audit

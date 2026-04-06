@@ -76,6 +76,7 @@ class DegradedReason(StrEnum):
     TOOL_FAILED = "tool_failed"
     RETRIEVAL_EMPTY = "retrieval_empty"
     NO_SKILL_MATCH = "no_skill_match"
+    NO_RESPONSE = "no_response"
 
 
 class DispatchAmbiguity(StrEnum):
@@ -96,6 +97,8 @@ class PendingActionStatus(StrEnum):
     CANCELLED = "cancelled"
     SUPERSEDED = "superseded"
     EXPIRED = "expired"
+    EXECUTED = "executed"
+    FAILED = "failed"
 
 
 class SkillDefinition(BaseModel):

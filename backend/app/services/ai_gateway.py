@@ -3841,6 +3841,7 @@ async def _legacy_run_gateway_stream(
                             actor=actor,
                             skill_id=tool_name,
                             action_type=tool_result.get("action", tool_name),
+                            tool_name=tool_name,
                             params_json=tool_result.get("provided") or raw_args,
                             missing_fields=tool_result.get("missing_fields") or tool_result.get("required_fields"),
                             scope_type=resolved_scope.entity_type,

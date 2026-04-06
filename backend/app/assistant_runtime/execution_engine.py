@@ -56,10 +56,24 @@ def _strip_schema(schema: dict[str, Any]) -> dict[str, Any]:
 
 
 def _attach_scope(tool_def: ToolDef, args: dict[str, Any], resolved_scope: dict[str, Any]) -> dict[str, Any]:
+    """Re-inject scope fields that _strip_schema removed from the OpenAI tool schema.
+
+    Handles two patterns:
+    - ``resolved_scope`` nested object (REPE tools)
+    - Direct ``env_id``/``business_id`` fields (CRM / legacy tools)
+
+    ResolvedAssistantScope uses ``environment_id`` while CRM tools use ``env_id``,
+    so we map between them.
+    """
     fields = getattr(tool_def.input_model, "model_fields", {})
     merged = dict(args)
     if "resolved_scope" in fields and "resolved_scope" not in merged:
         merged["resolved_scope"] = resolved_scope
+    # Re-inject fields stripped by _strip_schema for legacy tool schemas
+    if "env_id" in fields and "env_id" not in merged:
+        merged["env_id"] = resolved_scope.get("env_id") or resolved_scope.get("environment_id")
+    if "business_id" in fields and "business_id" not in merged:
+        merged["business_id"] = resolved_scope.get("business_id")
     return merged
 
 

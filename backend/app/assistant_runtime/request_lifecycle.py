@@ -54,6 +54,7 @@ from app.services.pending_action_manager import (
     _CONFIRM_RE,
     check_and_resolve as check_pending_action,
     create_pending_action,
+    execute_confirmed_action,
 )
 from app.services.rag_indexer import RetrievedChunk
 
@@ -298,6 +299,7 @@ def _build_write_confirmation_fast_response(message: str) -> FastResponse | None
         response_blocks=[markdown_block(text), block],
         pending_action={
             "action_type": f"create_{entity_type}",
+            "tool_name": f"repe.create_{entity_type}",
             "params_json": {"entity_type": entity_type, "name": name} if name else {"entity_type": entity_type},
             "missing_fields": [] if name else ["name"],
         },
@@ -559,22 +561,57 @@ async def run_request_lifecycle(
     if pending_resolution and pending_resolution.get("intent") in {"cancel", "confirm"}:
         intent = str(pending_resolution.get("intent"))
         pending_row = pending_resolution.get("pending_action") or {}
-        pending_status = (
-            PendingActionStatus.CANCELLED
-            if intent == "cancel"
-            else PendingActionStatus.CONFIRMED
-        )
+        pa_id = str(pending_row.get("pending_action_id", ""))
+        action_type = pending_row.get("action_type", "action")
+
+        if intent == "cancel":
+            # ── Cancel: acknowledge and return ─────────────────────────
+            pending_status = PendingActionStatus.CANCELLED
+            message_text = f"Cancelled the pending {action_type}."
+            response_blocks = [markdown_block(message_text)]
+            pending_action_result = None
+        else:
+            # ── Confirm: execute the stored tool ───────────────────────
+            execution = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: execute_confirmed_action(
+                    pa_id,
+                    resolved_scope=scope_dump,
+                    actor=actor,
+                ),
+            )
+            exec_success = execution.get("success", False)
+            exec_tool = execution.get("tool_name", action_type)
+
+            if exec_success:
+                pending_status = PendingActionStatus.EXECUTED
+                exec_result = execution.get("result", {})
+                # Build a meaningful message from tool result
+                if isinstance(exec_result, dict) and exec_result.get("message"):
+                    message_text = str(exec_result["message"])
+                else:
+                    message_text = f"Done — {action_type} completed successfully."
+                response_blocks = [markdown_block(message_text)]
+            else:
+                pending_status = PendingActionStatus.FAILED
+                error_msg = execution.get("error", "Unknown error")
+                message_text = f"The {action_type} failed: {error_msg}"
+                response_blocks = [markdown_block(message_text)]
+
+            pending_action_result = {
+                "pending_action_id": pa_id,
+                "status": pending_status.value,
+                "action_type": action_type,
+                "tool_name": exec_tool,
+                "success": exec_success,
+                "error": execution.get("error") if not exec_success else None,
+            }
+
         pending_action_state = _pending_action_receipt(
             pending_row,
             fallback_scope_label=_format_scope_label(resolved_scope=resolved_scope, envelope=normalized_envelope),
             status=pending_status,
         )
-        message_text = (
-            f"Cancelled the pending {pending_row.get('action_type', 'action')}."
-            if intent == "cancel"
-            else f"Confirmed the pending {pending_row.get('action_type', 'action')}."
-        )
-        response_blocks = [markdown_block(message_text)]
         turn_receipt = TurnReceipt(
             request_id=request_id,
             lane=Lane.A_FAST,
@@ -585,7 +622,7 @@ async def run_request_lifecycle(
                     skill_id="create_entity",
                     lane=Lane.A_FAST,
                     needs_retrieval=False,
-                    write_intent=False,
+                    write_intent=intent == "confirm",
                     ambiguity_level=DispatchAmbiguity.LOW,
                     confidence=1.0,
                     fallback_used=False,
@@ -602,28 +639,28 @@ async def run_request_lifecycle(
             tools=[],
             retrieval=RetrievalReceipt(used=False, result_count=0, status=RetrievalStatus.OK),
             pending_action=pending_action_state,
-            status=TurnStatus.SUCCESS,
-            degraded_reason=None,
+            status=TurnStatus.SUCCESS if pending_status != PendingActionStatus.FAILED else TurnStatus.DEGRADED,
+            degraded_reason=DegradedReason.TOOL_FAILED if pending_status == PendingActionStatus.FAILED else None,
         )
         timings["render_completion_ms"] = int((time.time() - started_at) * 1000)
         yield _sse("token", {"text": message_text})
-        yield _sse(
-            "done",
-            {
-                "session_id": session_id,
-                "turn_receipt": turn_receipt.model_dump(mode="json"),
-                "trace": _build_trace(
-                    turn_receipt=turn_receipt,
-                    model="none",
-                    elapsed_ms=timings["render_completion_ms"] or 0,
-                    resolved_scope=scope_dump,
-                    response_blocks=response_blocks,
-                    timings=timings,
-                ),
-                "response_blocks": response_blocks,
-                "resolved_scope": scope_dump,
-            },
-        )
+        done_payload: dict[str, Any] = {
+            "session_id": session_id,
+            "turn_receipt": turn_receipt.model_dump(mode="json"),
+            "trace": _build_trace(
+                turn_receipt=turn_receipt,
+                model="none",
+                elapsed_ms=timings["render_completion_ms"] or 0,
+                resolved_scope=scope_dump,
+                response_blocks=response_blocks,
+                timings=timings,
+            ),
+            "response_blocks": response_blocks,
+            "resolved_scope": scope_dump,
+        }
+        if intent == "confirm" and pending_action_result:
+            done_payload["pending_action_result"] = pending_action_result
+        yield _sse("done", done_payload)
         return
 
     route_started = time.perf_counter()
@@ -634,10 +671,25 @@ async def run_request_lifecycle(
 
     # ── Pending-continuation guardrail ───────────────────────────────────────
     # When the frontend signals that the user is answering a clarifying question
-    # Winston just asked (e.g. "yes"), bypass the LLM dispatcher and route
-    # directly to Lane C so the original task resumes instead of reclassifying.
+    # Winston just asked a clarifying question. Short replies like "yes", "2026Q1",
+    # "NOI", or "10" should resume the prior intent rather than being reclassified.
+    # Check confirmation patterns first, then use the continuation detector for
+    # value-type slot fills (quarters, metrics, numbers, short phrases).
     _continuation_dispatch: object | None = None
-    if pending_continuation and _CONFIRM_RE.match(message.strip()):
+    _is_continuation_reply = False
+    if pending_continuation:
+        if _CONFIRM_RE.match(message.strip()):
+            _is_continuation_reply = True
+        else:
+            try:
+                from app.assistant_runtime.continuation_detector import is_continuation
+                # Use conversation_id as thread_id for pending_query lookup
+                _thread_key = str(conversation_id) if conversation_id else ""
+                _is_continuation_reply = is_continuation(message, _thread_key)
+            except Exception:
+                # Fall back to simple heuristic: short messages when continuation is flagged
+                _is_continuation_reply = len(message.strip().split()) <= 3
+    if _is_continuation_reply:
         from app.assistant_runtime.dispatch_engine import DispatchOutcome, build_routed_skill
         from app.services.request_router import RouteDecision
 
@@ -866,6 +918,7 @@ async def run_request_lifecycle(
                         actor=actor,
                         skill_id=routed_skill.selection.skill_id,
                         action_type=str(fast_response.pending_action.get("action_type") or "pending_action"),
+                        tool_name=fast_response.pending_action.get("tool_name"),
                         params_json=fast_response.pending_action.get("params_json") or {},
                         missing_fields=fast_response.pending_action.get("missing_fields") or [],
                         scope_type=resolved_scope.entity_type,
@@ -1087,6 +1140,7 @@ async def run_request_lifecycle(
                                 actor=actor,
                                 skill_id=routed_skill.selection.skill_id,
                                 action_type=str(item.receipt.output.get("action") or item.receipt.tool_name),
+                                tool_name=item.receipt.tool_name,
                                 params_json=item.receipt.output.get("provided") or item.receipt.input,
                                 missing_fields=item.receipt.output.get("missing_fields")
                                 or item.receipt.output.get("required_fields")
@@ -1166,6 +1220,23 @@ async def run_request_lifecycle(
         )
         response_blocks = late_blocks + response_blocks
         yield _sse("token", {"text": late_msg})
+
+    # ── Minimum response contract: never emit an empty assistant bubble ──
+    if not collected_content.strip() and not response_blocks:
+        from app.assistant_runtime.degraded_responses import empty_response_fallback
+        fallback_blocks, fallback_msg = empty_response_fallback(
+            skill_id=routed_skill.selection.skill_id,
+            entity_type=resolved_scope.entity_type,
+            entity_id=resolved_scope.entity_id,
+            entity_name=resolved_scope.entity_name,
+            env_id=resolved_scope.environment_id,
+        )
+        response_blocks = fallback_blocks
+        collected_content = fallback_msg
+        final_status = TurnStatus.DEGRADED
+        final_reason = DegradedReason.NO_RESPONSE
+        turn_receipt = turn_receipt.model_copy(update={"status": final_status, "degraded_reason": final_reason})
+        yield _sse("token", {"text": fallback_msg})
 
     elapsed_ms = int((time.time() - started_at) * 1000)
     timings["tool_execution_ms"] = tool_execution_ms

@@ -135,6 +135,18 @@ def _score_contains(query_norm: str, entity: _CachedEntity) -> float | None:
     return None
 
 
+_NOISE_WORDS = frozenset({
+    "fund", "asset", "property", "capital", "management", "group", "inc",
+    "llc", "partners", "advisors", "advisory", "the", "a", "an", "for",
+    "of", "in", "at", "by", "real", "estate", "investment", "investments",
+})
+
+
+def _significant_tokens(text: str) -> set[str]:
+    """Extract significant tokens by stripping common noise words."""
+    return {t for t in text.split() if len(t) >= 3 and t not in _NOISE_WORDS}
+
+
 def _score_token_overlap(query_norm: str, entity: _CachedEntity) -> float | None:
     """Score based on shared tokens — handles partial name mentions."""
     query_tokens = set(query_norm.split())
@@ -151,6 +163,29 @@ def _score_token_overlap(query_norm: str, entity: _CachedEntity) -> float | None
     coverage = len(overlap) / len(entity_tokens)
     if coverage >= 0.5:
         return 0.85 * coverage
+    return None
+
+
+def _score_significant_word(query_norm: str, entity: _CachedEntity) -> float | None:
+    """Score based on significant-word overlap — strips noise like 'fund', 'capital', etc.
+
+    Handles cases where user says "Meridian Real Estate Fund III" and the entity
+    is "Meridian Core-Plus Income" — standard token overlap fails because coverage
+    is too low, but the significant word "meridian" should still surface it.
+    """
+    q_sig = _significant_tokens(query_norm)
+    e_sig = _significant_tokens(entity.normalized_name)
+    if not q_sig or not e_sig:
+        return None
+    overlap = q_sig & e_sig
+    if not overlap:
+        return None
+    # Score based on how many significant entity tokens matched
+    coverage = len(overlap) / len(e_sig)
+    if coverage >= 0.5:
+        return 0.80 * coverage  # High confidence
+    if len(overlap) >= 1:
+        return 0.70 * (len(overlap) / max(len(e_sig), len(q_sig)))  # Partial match
     return None
 
 
@@ -187,6 +222,7 @@ def search_entities_by_name(
             ("prefix", _score_prefix),
             ("contains", _score_contains),
             ("token_overlap", _score_token_overlap),
+            ("significant_word", _score_significant_word),
         ]:
             score = scorer(query_norm, entity)
             if score is not None and (best_score is None or score > best_score):

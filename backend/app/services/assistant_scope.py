@@ -153,6 +153,47 @@ def _match_explicit_entity(
     return None
 
 
+_ENTITY_NAME_EXTRACTORS = [
+    # "for <entity name>" — most common pattern
+    re.compile(r"\bfor\s+(.{3,60})$", re.IGNORECASE),
+    # "of <entity name>"
+    re.compile(r"\bof\s+(.{3,60})$", re.IGNORECASE),
+    # "at <entity name>"
+    re.compile(r"\bat\s+(.{3,60})$", re.IGNORECASE),
+    # "in <entity name>"
+    re.compile(r"\bin\s+(.{3,60})$", re.IGNORECASE),
+]
+
+# Noise tokens to strip from extracted entity name candidates
+_NOISE_SUFFIXES = re.compile(
+    r"\s*(?:fund|asset|property|deal|investment|please|thanks|thank you)?\s*$",
+    re.IGNORECASE,
+)
+
+
+def _extract_entity_candidates(message: str) -> list[str]:
+    """Extract likely entity name substrings from a user message.
+
+    Returns a list of candidates, most specific first: extracted names, then
+    the full message as a fallback.
+    """
+    candidates: list[str] = []
+    text = message.strip().rstrip("?!.")
+
+    for pattern in _ENTITY_NAME_EXTRACTORS:
+        m = pattern.search(text)
+        if m:
+            candidate = m.group(1).strip()
+            # Remove trailing noise words
+            candidate = _NOISE_SUFFIXES.sub("", candidate).strip()
+            if len(candidate) >= 3:
+                candidates.append(candidate)
+
+    # Always include the full message as final fallback
+    candidates.append(message)
+    return candidates
+
+
 def _match_db_entity(
     *,
     message: str,
@@ -164,6 +205,8 @@ def _match_db_entity(
     This is the fallback when the entity is not in the context envelope
     (not on the current page or visible data). Searches across all funds,
     assets, and deals within the business using multi-strategy matching.
+
+    Tries extracted entity name candidates first, then the full message.
     """
     if not business_id:
         return None
@@ -173,13 +216,18 @@ def _match_db_entity(
     except (ValueError, TypeError):
         return None
 
-    # Use the full normalized message as the search query — the entity
-    # search service handles token overlap and substring matching
-    results = search_entities_by_name(query=message, business_id=biz_uuid)
-
-    # If in-memory matching found nothing, try fuzzy DB lookup for misspellings
-    if not results and len(_normalize_text(message)) >= 5:
-        results = search_entities_by_name_fuzzy_db(query=message, business_id=biz_uuid)
+    # Try extracted entity name candidates before the full message
+    candidates = _extract_entity_candidates(message)
+    results: list = []
+    for candidate in candidates:
+        results = search_entities_by_name(query=candidate, business_id=biz_uuid)
+        if results and results[0].score >= 0.4:
+            break
+        # Try fuzzy DB lookup for misspellings
+        if not results and len(_normalize_text(candidate)) >= 5:
+            results = search_entities_by_name_fuzzy_db(query=candidate, business_id=biz_uuid)
+            if results and results[0].score >= 0.4:
+                break
 
     if not results:
         return None
@@ -201,6 +249,43 @@ def _match_db_entity(
         name=best.name,
         source="db_lookup",
     )
+
+
+def get_entity_suggestion(
+    *,
+    message: str,
+    business_id: str | None,
+) -> dict[str, str] | None:
+    """Return the best partial entity match as a suggestion when auto-resolve fails.
+
+    Returns dict with entity_type, entity_id, name, score if a partial match
+    exists (score > 0.25), or None if nothing is close.
+    Used by degraded response to say "Did you mean X?"
+    """
+    if not business_id:
+        return None
+    try:
+        from uuid import UUID as _UUID
+        biz_uuid = _UUID(business_id)
+    except (ValueError, TypeError):
+        return None
+
+    candidates = _extract_entity_candidates(message)
+    best_result = None
+    for candidate in candidates:
+        results = search_entities_by_name(query=candidate, business_id=biz_uuid)
+        if results and (best_result is None or results[0].score > best_result.score):
+            best_result = results[0]
+
+    if best_result and best_result.score > 0.25:
+        return {
+            "entity_type": best_result.entity_type,
+            "entity_id": best_result.entity_id,
+            "name": best_result.name,
+            "score": str(round(best_result.score, 2)),
+            "match_strategy": best_result.match_strategy,
+        }
+    return None
 
 
 def _find_visible_record(
