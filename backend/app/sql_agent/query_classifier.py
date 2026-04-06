@@ -235,9 +235,25 @@ def _match_template(q: str, query_type: QueryType, domain: str) -> str | None:
     """Try to match a deterministic query template key."""
     # REPE templates
     if domain == "repe":
-        if "noi" in q and query_type == QueryType.RANKED_COMPARISON:
+        # "NOI movers" → always route to noi_movers regardless of query type
+        if "noi" in q and "mover" in q:
             return "repe.noi_movers"
+        # "best/worst/top/bottom performing assets" with no explicit metric → rank by NOI
+        if query_type == QueryType.RANKED_COMPARISON and "fund" not in q:
+            if any(kw in q for kw in ("best", "worst", "top", "bottom",
+                                       "performing", "performance", "rank")):
+                return "repe.noi_ranked"
+        if "noi" in q and query_type == QueryType.RANKED_COMPARISON:
+            # noi_movers = change between periods; noi_ranked = absolute value ranking
+            if any(kw in q for kw in ("change", "mover", "moved", "delta", "swing",
+                                       "quarter over quarter", "qoq", "shift")):
+                return "repe.noi_movers"
+            return "repe.noi_ranked"
         if "noi" in q and query_type == QueryType.TIME_SERIES:
+            # Period-comparison queries (movers) land here when TIME_SERIES wins scoring
+            if any(kw in q for kw in ("change", "mover", "moved", "delta", "shift",
+                                       "quarter over quarter", "qoq")):
+                return "repe.noi_movers"
             return "repe.noi_trend"
         if "occupancy" in q and query_type == QueryType.TIME_SERIES:
             return "repe.occupancy_trend"

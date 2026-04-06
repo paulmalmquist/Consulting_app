@@ -8374,7 +8374,7 @@ export type ResumeBiEntity = {
 
 export type ResumeBi = {
   root_entity_id: string;
-  levels: Array<"portfolio" | "fund" | "investment" | "asset">;
+  levels: ReadonlyArray<"portfolio" | "fund" | "investment" | "asset">;
   markets: string[];
   property_types: string[];
   periods: string[];

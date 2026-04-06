@@ -2822,6 +2822,7 @@ async def _legacy_run_gateway_stream(
         )
 
     # ── Pending action resolution (durable state machine) ─────────────
+    _pending_action_augmentation: str = ""
     _pending_action_result = await _pending_action_task
     _terminal_state = "complete"  # default terminal state for this turn
     if _pending_action_result and _pending_action_result.get("intent") == "cancel":
@@ -2861,6 +2862,24 @@ async def _legacy_run_gateway_stream(
             message=f"User confirmed pending action {_pending_action_result['pending_action'].get('action_type')}",
             context={"pending_action_id": str(_pending_action_result["pending_action"]["pending_action_id"])},
         )
+        # Inject stored params so LLM receives them and can call the write tool
+        # with confirmed=true + all accumulated parameters from prior turns.
+        _pa = _pending_action_result["pending_action"]
+        _pa_params = _pa.get("params_json") or {}
+        _pa_action = _pa.get("action_type", "action")
+        _pa_skill = _pa.get("skill_id") or ""
+        if _pa_params:
+            _pending_action_augmentation = (
+                f"[CONTEXT: User is confirming a pending {_pa_action}. "
+                f"Previously collected parameters: {json.dumps(_pa_params)}. "
+                f"Call tool '{_pa_skill}' with confirmed=true and ALL these parameters. "
+                f"Do NOT omit or modify any parameter.]"
+            )
+        else:
+            _pending_action_augmentation = (
+                f"[CONTEXT: User is confirming a pending {_pa_action}. "
+                f"Call tool '{_pa_skill}' with confirmed=true.]"
+            )
 
     # Emit status immediately so frontend shows processing started
     yield _sse(
@@ -3159,8 +3178,13 @@ async def _legacy_run_gateway_stream(
     timings["history_load_ms"] = int((time.time() - _history_start) * 1000)
 
     # ── Workflow context augmentation ──────────────────────────────────
+    # Prefer durable pending-action params (from ai_pending_actions table) over
+    # conversation-history scan (_pending_workflow), because the durable record
+    # is the authoritative source of accumulated slot values across turns.
     _workflow_augmentation = ""
-    if _pending_workflow:
+    if _pending_action_augmentation:
+        _workflow_augmentation = _pending_action_augmentation
+    elif _pending_workflow:
         import re as _re
         known_params_parts: list[str] = []
         wf_content = _pending_workflow.get("content") or ""

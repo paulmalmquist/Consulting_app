@@ -121,3 +121,16 @@ class CreateAssetInput(BaseModel):
     deal_id: UUID | None = Field(default=None, description="Deal ID — auto-resolved from scope if omitted")
     scope: ToolScopeInput | None = None
     resolved_scope: ResolvedScopeInput | None = None
+
+
+class RankAssetsInput(BaseModel):
+    model_config = {"extra": "ignore"}
+
+    metric: str = Field(default="noi", description="Metric to rank by: noi, nav, occupancy, dscr, ltv, revenue, asset_value")
+    sort_dir: Literal["desc", "asc"] = Field(default="desc", description="Sort direction: desc (best first) or asc (worst first)")
+    limit: int = Field(default=10, description="Number of assets to return (max 100)")
+    quarter: str | None = Field(default=None, description="Quarter to query (YYYYQN format). Defaults to latest available.")
+    fund_id: UUID | None = Field(default=None, description="Filter to a specific fund. Defaults to all funds in portfolio.")
+    business_id: UUID | None = Field(default=None, description="Auto-resolved from context")
+    scope: ToolScopeInput | None = None
+    resolved_scope: ResolvedScopeInput | None = None

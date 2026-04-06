@@ -53,12 +53,8 @@ def _navigation_suggestions_for_reason(
     if reason == DegradedReason.RETRIEVAL_EMPTY:
         if entity_type == "fund" and entity_id and env_id:
             suggestions.append({
-                "label": f"View {entity_name or 'Fund'} overview",
+                "label": f"View {entity_name or 'Fund'} detail",
                 "path": f"/lab/env/{env_id}/re/funds/{entity_id}",
-            })
-            suggestions.append({
-                "label": f"View {entity_name or 'Fund'} financials",
-                "path": f"/lab/env/{env_id}/re/funds/{entity_id}/financials",
             })
         elif entity_type == "asset" and entity_id and env_id:
             suggestions.append({

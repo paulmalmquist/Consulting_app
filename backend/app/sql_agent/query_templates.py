@@ -77,6 +77,42 @@ LIMIT %(limit)s""",
         tags=frozenset({"noi", "movers"}),
     ),
     QueryTemplate(
+        key="repe.noi_ranked",
+        description="Assets ranked by absolute NOI for the latest (or specified) quarter",
+        sql="""\
+SELECT
+    a.name            AS asset_name,
+    a.property_type,
+    a.market,
+    qs.noi,
+    qs.revenue,
+    qs.opex,
+    qs.occupancy,
+    qs.quarter
+FROM re_asset_quarter_state qs
+JOIN repe_asset a  ON a.asset_id  = qs.asset_id
+JOIN repe_deal  d  ON d.deal_id   = a.deal_id
+JOIN repe_fund  f  ON f.fund_id   = d.fund_id
+WHERE f.business_id = %(business_id)s::uuid
+  AND qs.quarter = COALESCE(
+        %(quarter)s::text,
+        (SELECT MAX(qs2.quarter)
+         FROM re_asset_quarter_state qs2
+         JOIN repe_asset a2 ON a2.asset_id = qs2.asset_id
+         JOIN repe_deal  d2 ON d2.deal_id  = a2.deal_id
+         JOIN repe_fund  f2 ON f2.fund_id  = d2.fund_id
+         WHERE f2.business_id = %(business_id)s::uuid)
+      )
+ORDER BY qs.noi DESC
+LIMIT %(limit)s""",
+        required_params=frozenset({"business_id"}),
+        optional_params=frozenset({"quarter", "limit"}),
+        default_chart="bar",
+        query_type=QueryType.RANKED_COMPARISON,
+        domain="repe",
+        tags=frozenset({"noi", "ranking", "assets", "performance"}),
+    ),
+    QueryTemplate(
         key="repe.noi_trend",
         description="NOI trend by quarter for an asset or all assets",
         sql="""\

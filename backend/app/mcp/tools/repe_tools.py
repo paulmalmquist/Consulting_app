@@ -15,6 +15,7 @@ from app.mcp.schemas.repe_tools import (
     ListAssetsInput,
     ListDealsInput,
     ListFundsInput,
+    RankAssetsInput,
     ResolvedScopeInput,
     ToolScopeInput,
 )
@@ -360,6 +361,92 @@ def _create_asset(ctx: McpContext, inp: CreateAssetInput) -> dict:
     return {"asset": _serialize(asset), "created": True}
 
 
+_RANK_ALLOWED_METRICS = frozenset({
+    "noi", "nav", "occupancy", "dscr", "ltv", "revenue", "asset_value"
+})
+
+
+def _rank_assets(ctx: McpContext, inp: RankAssetsInput) -> dict:
+    from app.db import get_cursor
+
+    business_id = _resolve_business_id(inp, ctx)
+    metric = (inp.metric or "noi").lower()
+    if metric not in _RANK_ALLOWED_METRICS:
+        metric = "noi"
+    sort_dir = "DESC" if inp.sort_dir != "asc" else "ASC"
+    limit = max(1, min(inp.limit or 10, 100))
+
+    with get_cursor() as cur:
+        # Resolve latest available quarter if none supplied
+        if inp.quarter:
+            quarter = inp.quarter
+        else:
+            cur.execute(
+                """
+                SELECT MAX(qs.quarter) AS q
+                FROM re_asset_quarter_state qs
+                JOIN repe_asset a ON a.asset_id = qs.asset_id
+                JOIN repe_deal  d ON d.deal_id  = a.deal_id
+                JOIN repe_fund  f ON f.fund_id  = d.fund_id
+                WHERE f.business_id = %s::uuid
+                """,
+                (str(business_id),),
+            )
+            row = cur.fetchone()
+            quarter = row["q"] if row and row.get("q") else None
+
+        if not quarter:
+            return {
+                "assets": [],
+                "metric": metric,
+                "quarter": None,
+                "total": 0,
+                "message": "No quarter state data found for this portfolio.",
+            }
+
+        fund_clause = ""
+        params: list = [str(business_id), quarter]
+        if inp.fund_id:
+            fund_clause = "AND f.fund_id = %s::uuid"
+            params.append(str(inp.fund_id))
+        params.append(limit)
+
+        # metric column validated against allowlist above — safe to interpolate
+        cur.execute(
+            f"""
+            SELECT
+                a.name              AS asset_name,
+                a.property_type,
+                a.market,
+                qs.{metric}         AS metric_value,
+                qs.noi,
+                qs.occupancy,
+                qs.asset_value,
+                qs.quarter
+            FROM re_asset_quarter_state qs
+            JOIN repe_asset a ON a.asset_id = qs.asset_id
+            JOIN repe_deal  d ON d.deal_id  = a.deal_id
+            JOIN repe_fund  f ON f.fund_id  = d.fund_id
+            WHERE f.business_id = %s::uuid
+              AND qs.quarter = %s
+              {fund_clause}
+              AND qs.{metric} IS NOT NULL
+            ORDER BY qs.{metric} {sort_dir}
+            LIMIT %s
+            """,
+            params,
+        )
+        rows = cur.fetchall()
+
+    return {
+        "assets": _serialize(rows),
+        "metric": metric,
+        "sort_dir": inp.sort_dir,
+        "quarter": quarter,
+        "total": len(rows),
+    }
+
+
 def register_repe_tools() -> None:
     policy = AuditPolicy(redact_keys=[], max_input_bytes_to_log=5000, max_output_bytes_to_log=10000)
 
@@ -452,6 +539,23 @@ def register_repe_tools() -> None:
             audit_policy=policy,
             handler=_get_environment_snapshot,
             tags=frozenset({"repe", "core"}),
+        )
+    )
+
+    registry.register(
+        ToolDef(
+            name="repe.rank_assets",
+            description=(
+                "Rank portfolio assets by a chosen metric (noi, nav, occupancy, dscr, ltv, revenue, asset_value). "
+                "Returns the top or bottom N assets for the specified or latest available quarter. "
+                "Use for prompts like 'best performing assets', 'top assets by NOI', 'worst DSCR'."
+            ),
+            module="repe",
+            permission="read",
+            input_model=RankAssetsInput,
+            audit_policy=policy,
+            handler=_rank_assets,
+            tags=frozenset({"repe", "core", "analysis", "ranking"}),
         )
     )
 

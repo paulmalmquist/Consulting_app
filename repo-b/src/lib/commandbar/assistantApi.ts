@@ -98,7 +98,7 @@ export type WinstonTrace = {
   rag_chunks_used: number;
   warnings: string[];
   elapsed_ms: number;
-  resolved_scope: Record<string, unknown> | null;
+  resolved_scope: ResolvedAssistantScope | null;
   repe: WinstonRepeMetadata | null;
   visible_context_shortcut: boolean;
   reasoning_effort?: string | null;
@@ -124,6 +124,8 @@ export type WinstonTrace = {
     tools_enabled?: boolean;
     rag_enabled?: boolean;
   };
+  /** Number of structured response blocks in the assistant reply. */
+  response_block_count?: number | null;
 };
 
 export type SSEEvent = {
@@ -136,7 +138,7 @@ export type SSEEvent = {
 };
 
 export type AskAiDebug = {
-  contextEnvelope?: AssistantContextEnvelope;
+  contextEnvelope?: AssistantContextEnvelope | null;
   resolvedScope?: ResolvedAssistantScope | null;
   toolCalls: AssistantToolEvent[];
   toolResults: AssistantToolEvent[];
@@ -1074,7 +1076,7 @@ export async function streamAi(input: {
               debug.resolvedScope = parsed.resolved_scope || null;
               logSSE("context", parsed, `scope=${parsed.resolved_scope?.resolved_scope_type || "none"} env=${parsed.resolved_scope?.environment_id || "none"}`);
               input.onContext?.({
-                contextEnvelope: debug.contextEnvelope,
+                contextEnvelope: debug.contextEnvelope ?? undefined,
                 resolvedScope: debug.resolvedScope,
               });
             }
