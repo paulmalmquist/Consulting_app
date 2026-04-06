@@ -102,7 +102,8 @@ _REPE_KEYWORDS = frozenset({
     "capital account", "occupancy", "rent", "lease", "covenant",
     "vintage", "sponsor", "equity", "gp", "lp", "partner",
     "repe", "real estate", "private equity", "multifamily", "office",
-    "industrial", "retail", "hotel", "valuation", "nav",
+    "industrial", "retail", "hotel", "valuation", "nav", "rvpi",
+    "debt", "maturity", "gross irr", "net irr",
 })
 
 _PDS_KEYWORDS = frozenset({
@@ -259,12 +260,27 @@ def _match_template(q: str, query_type: QueryType, domain: str) -> str | None:
             return "repe.occupancy_trend"
         if "occupancy" in q and query_type == QueryType.RANKED_COMPARISON:
             return "repe.occupancy_ranked"
+        # Fund return rankings — specific metric beats generic fund_returns
+        if "irr" in q and query_type == QueryType.RANKED_COMPARISON:
+            return "repe.irr_ranked"
+        if "tvpi" in q and query_type == QueryType.RANKED_COMPARISON:
+            return "repe.tvpi_ranked"
+        if "nav" in q and query_type == QueryType.RANKED_COMPARISON and "fund" in q:
+            return "repe.nav_ranked"
         if ("irr" in q or "tvpi" in q or "dpi" in q) and "fund" in q:
             return "repe.fund_returns"
+        # Asset-level debt rankings
+        if "dscr" in q and query_type == QueryType.RANKED_COMPARISON:
+            return "repe.dscr_ranked"
+        if "ltv" in q and query_type == QueryType.RANKED_COMPARISON:
+            return "repe.ltv_ranked"
+        # Debt maturity (canonical template with correct column names)
+        if "matur" in q and ("loan" in q or "debt" in q or "maturity" in q):
+            return "repe.debt_maturity"
         if "covenant" in q or "dscr" in q or "ltv" in q:
             return "repe.covenant_status"
         if "loan" in q and ("maturing" in q or "maturity" in q):
-            return "repe.loans_maturing"
+            return "repe.debt_maturity"
         if "budget" in q and "variance" in q:
             return "repe.budget_variance"
 

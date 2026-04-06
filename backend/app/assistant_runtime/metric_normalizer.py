@@ -20,6 +20,11 @@ _METRIC_SYNONYMS: dict[str, list[str]] = {
     "revenue": ["revenue", "gross revenue", "rental revenue", "income"],
     "expenses": ["expenses", "opex", "operating expenses"],
     "ncf": ["ncf", "net cash flow", "cash flow"],
+    "gross_irr": ["gross irr", "gross return", "pre-fee irr", "pre fee irr"],
+    "net_irr": ["net irr", "net return", "after-fee irr", "after fee irr"],
+    "debt_yield": ["debt yield", "dy", "noi/debt", "noi to debt"],
+    "rvpi": ["rvpi", "residual value", "residual value to paid in", "unrealized multiple"],
+    "ttm_noi": ["ttm noi", "trailing noi", "ltm noi", "trailing 12 noi", "trailing twelve months noi"],
 }
 
 _METRIC_LOOKUP: dict[str, str] = {}

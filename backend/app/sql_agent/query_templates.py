@@ -207,6 +207,185 @@ LIMIT %(limit)s""",
         domain="repe",
         tags=frozenset({"fund", "returns", "irr", "tvpi"}),
     ),
+    # ── Fund return rankings ──────────────────────────────────────────────────
+    QueryTemplate(
+        key="repe.irr_ranked",
+        description="Funds ranked by gross IRR for the latest (or specified) quarter",
+        sql="""\
+SELECT f.name          AS fund_name,
+       f.vintage_year,
+       f.fund_type,
+       fs.gross_irr,
+       fs.net_irr,
+       fs.tvpi,
+       fs.dpi,
+       fs.rvpi,
+       fs.quarter
+FROM re_fund_quarter_state fs
+JOIN repe_fund f ON f.fund_id = fs.fund_id
+WHERE f.business_id = %(business_id)s::uuid
+  AND fs.quarter = COALESCE(
+        %(quarter)s::text,
+        (SELECT MAX(fs2.quarter)
+         FROM re_fund_quarter_state fs2
+         JOIN repe_fund f2 ON f2.fund_id = fs2.fund_id
+         WHERE f2.business_id = %(business_id)s::uuid)
+      )
+ORDER BY fs.gross_irr DESC NULLS LAST
+LIMIT %(limit)s""",
+        required_params=frozenset({"business_id"}),
+        optional_params=frozenset({"quarter", "limit"}),
+        default_chart="bar",
+        query_type=QueryType.RANKED_COMPARISON,
+        domain="repe",
+        tags=frozenset({"fund", "irr", "ranking", "returns"}),
+    ),
+    QueryTemplate(
+        key="repe.tvpi_ranked",
+        description="Funds ranked by TVPI for the latest (or specified) quarter",
+        sql="""\
+SELECT f.name          AS fund_name,
+       f.vintage_year,
+       f.fund_type,
+       fs.tvpi,
+       fs.dpi,
+       fs.rvpi,
+       fs.gross_irr,
+       fs.portfolio_nav,
+       fs.quarter
+FROM re_fund_quarter_state fs
+JOIN repe_fund f ON f.fund_id = fs.fund_id
+WHERE f.business_id = %(business_id)s::uuid
+  AND fs.quarter = COALESCE(
+        %(quarter)s::text,
+        (SELECT MAX(fs2.quarter)
+         FROM re_fund_quarter_state fs2
+         JOIN repe_fund f2 ON f2.fund_id = fs2.fund_id
+         WHERE f2.business_id = %(business_id)s::uuid)
+      )
+ORDER BY fs.tvpi DESC NULLS LAST
+LIMIT %(limit)s""",
+        required_params=frozenset({"business_id"}),
+        optional_params=frozenset({"quarter", "limit"}),
+        default_chart="bar",
+        query_type=QueryType.RANKED_COMPARISON,
+        domain="repe",
+        tags=frozenset({"fund", "tvpi", "ranking", "returns"}),
+    ),
+    QueryTemplate(
+        key="repe.nav_ranked",
+        description="Funds ranked by NAV for the latest (or specified) quarter",
+        sql="""\
+SELECT f.name          AS fund_name,
+       f.vintage_year,
+       f.fund_type,
+       fs.portfolio_nav,
+       fs.total_called,
+       fs.total_distributed,
+       fs.tvpi,
+       fs.quarter
+FROM re_fund_quarter_state fs
+JOIN repe_fund f ON f.fund_id = fs.fund_id
+WHERE f.business_id = %(business_id)s::uuid
+  AND fs.quarter = COALESCE(
+        %(quarter)s::text,
+        (SELECT MAX(fs2.quarter)
+         FROM re_fund_quarter_state fs2
+         JOIN repe_fund f2 ON f2.fund_id = fs2.fund_id
+         WHERE f2.business_id = %(business_id)s::uuid)
+      )
+ORDER BY fs.portfolio_nav DESC NULLS LAST
+LIMIT %(limit)s""",
+        required_params=frozenset({"business_id"}),
+        optional_params=frozenset({"quarter", "limit"}),
+        default_chart="bar",
+        query_type=QueryType.RANKED_COMPARISON,
+        domain="repe",
+        tags=frozenset({"fund", "nav", "ranking"}),
+    ),
+    # ── Asset-level debt rankings ─────────────────────────────────────────────
+    QueryTemplate(
+        key="repe.dscr_ranked",
+        description="Assets ranked by DSCR (current state from re_loan_detail)",
+        sql="""\
+SELECT a.name          AS asset_name,
+       a.property_type,
+       a.market,
+       ld.dscr,
+       ld.ltv,
+       ld.current_balance,
+       ld.coupon,
+       ld.maturity_date
+FROM re_loan_detail ld
+JOIN repe_asset a  ON a.asset_id  = ld.asset_id
+JOIN repe_deal  d  ON d.deal_id   = a.deal_id
+JOIN repe_fund  f  ON f.fund_id   = d.fund_id
+WHERE f.business_id = %(business_id)s::uuid
+  AND ld.dscr IS NOT NULL
+ORDER BY ld.dscr DESC NULLS LAST
+LIMIT %(limit)s""",
+        required_params=frozenset({"business_id"}),
+        optional_params=frozenset({"limit"}),
+        default_chart="bar",
+        query_type=QueryType.RANKED_COMPARISON,
+        domain="repe",
+        tags=frozenset({"assets", "dscr", "ranking", "debt"}),
+    ),
+    QueryTemplate(
+        key="repe.ltv_ranked",
+        description="Assets ranked by LTV (ascending — lower is better leverage)",
+        sql="""\
+SELECT a.name          AS asset_name,
+       a.property_type,
+       a.market,
+       ld.ltv,
+       ld.dscr,
+       ld.current_balance,
+       ld.coupon,
+       ld.maturity_date
+FROM re_loan_detail ld
+JOIN repe_asset a  ON a.asset_id  = ld.asset_id
+JOIN repe_deal  d  ON d.deal_id   = a.deal_id
+JOIN repe_fund  f  ON f.fund_id   = d.fund_id
+WHERE f.business_id = %(business_id)s::uuid
+  AND ld.ltv IS NOT NULL
+ORDER BY ld.ltv ASC NULLS LAST
+LIMIT %(limit)s""",
+        required_params=frozenset({"business_id"}),
+        optional_params=frozenset({"limit"}),
+        default_chart="bar",
+        query_type=QueryType.RANKED_COMPARISON,
+        domain="repe",
+        tags=frozenset({"assets", "ltv", "ranking", "debt"}),
+    ),
+    # ── Debt maturity schedule ────────────────────────────────────────────────
+    QueryTemplate(
+        key="repe.debt_maturity",
+        description="Loans maturing within N months (canonical re_loan columns)",
+        sql="""\
+SELECT a.name          AS asset_name,
+       f.name          AS fund_name,
+       l.loan_name,
+       l.upb           AS loan_balance,
+       l.rate          AS interest_rate,
+       l.maturity,
+       l.maturity - CURRENT_DATE AS days_to_maturity
+FROM re_loan l
+JOIN repe_asset a  ON a.asset_id  = l.asset_id
+JOIN repe_deal  d  ON d.deal_id   = a.deal_id
+JOIN repe_fund  f  ON f.fund_id   = d.fund_id
+WHERE f.business_id = %(business_id)s::uuid
+  AND l.maturity IS NOT NULL
+  AND l.maturity <= CURRENT_DATE + (INTERVAL '1 month' * %(months_ahead)s::int)
+ORDER BY l.maturity ASC
+LIMIT %(limit)s""",
+        required_params=frozenset({"business_id"}),
+        optional_params=frozenset({"months_ahead", "limit"}),
+        default_chart="table",
+        query_type=QueryType.FILTERED_LIST,
+        domain="repe",
+        tags=frozenset({"debt", "maturity", "loans"}),
+    ),
     QueryTemplate(
         key="repe.covenant_status",
         description="Covenant compliance status for all loans",

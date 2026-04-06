@@ -651,7 +651,7 @@ export function WinstonCompanionRoot() {
       >
         <div
           className={cn(
-            "absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-[3px] transition-opacity duration-300 motion-reduce:transition-none",
+            "absolute inset-0 bg-black/30 dark:bg-black/50 transition-opacity duration-300 motion-reduce:transition-none",
             open ? "opacity-100" : "opacity-0",
           )}
           onClick={closeDrawer}
