@@ -20,7 +20,7 @@
  * center (12,12 in a 24×24 viewBox), not the container's top-left corner.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import { useWinstonLoader, type LoaderPhase } from "@/lib/loading-state";
 import { WinstonBowtieIcon } from "@/components/winston-companion/WinstonAvatar";
@@ -31,24 +31,8 @@ const FAB_RIGHT  = 24; // px  (md:right-6)
 const FAB_SIZE   = 64; // px  (h-16 w-16)
 
 export default function WinstonLoader() {
-  const phase      = useWinstonLoader((s) => s.phase);
-  const storeLabel = useWinstonLoader((s) => s.label);
-  const [visibleLabel, setVisibleLabel] = useState<string | null>(null);
-  const [mounted, setMounted]           = useState(false);
-  const labelTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Label appears only after 800ms of sustained loading
-  useEffect(() => {
-    if (labelTimer.current) { clearTimeout(labelTimer.current); labelTimer.current = null; }
-    if (phase === "loading_slow" || phase === "thinking") {
-      labelTimer.current = setTimeout(() => {
-        setVisibleLabel(storeLabel ?? labelForPhase(phase));
-      }, 800);
-    } else {
-      setVisibleLabel(null);
-    }
-    return () => { if (labelTimer.current) clearTimeout(labelTimer.current); };
-  }, [phase, storeLabel]);
+  const phase   = useWinstonLoader((s) => s.phase);
+  const [mounted, setMounted] = useState(false);
 
   // SSR guard
   useEffect(() => { setMounted(true); }, []);
@@ -59,24 +43,10 @@ export default function WinstonLoader() {
   return (
     <div
       aria-live="polite"
-      aria-label={visibleLabel ?? "Loading"}
-      className={cn(
-        "pointer-events-none fixed z-[200] flex flex-col items-center justify-center gap-3",
-        isComplete ? "inset-auto" : "inset-0",
-      )}
-      style={isComplete ? { bottom: FAB_BOTTOM, right: FAB_RIGHT, width: FAB_SIZE, height: FAB_SIZE } : undefined}
+      aria-label="Loading"
+      className="pointer-events-none fixed z-[200] flex flex-col items-center justify-center gap-3 inset-auto"
+      style={{ bottom: FAB_BOTTOM, right: FAB_RIGHT, width: FAB_SIZE, height: FAB_SIZE }}
     >
-      {/* Subtle backdrop — fades in only on slow/thinking phases so fast loads don't interrupt */}
-      {!isComplete && (
-        <div
-          className={cn(
-            "absolute inset-0 transition-opacity duration-500",
-            phase === "loading_fast"
-              ? "opacity-0"
-              : "opacity-100 bg-[rgba(5,7,11,0.14)] backdrop-blur-[1px]",
-          )}
-        />
-      )}
 
       {/* Button shell — same visual identity as the persistent FAB */}
       <div
@@ -123,12 +93,6 @@ export default function WinstonLoader() {
         />
       </div>
 
-      {/* Microcopy — only after 800ms, only on non-complete phases */}
-      {!isComplete && visibleLabel && (
-        <p className="relative z-10 font-mono text-[11px] uppercase tracking-[0.18em] text-white/70 animate-[winston-fade-in_0.2s_ease-out]">
-          {visibleLabel}
-        </p>
-      )}
     </div>
   );
 }
@@ -158,14 +122,6 @@ function bowtieAnimationClass(phase: LoaderPhase): string {
 
     default:
       return "";
-  }
-}
-
-function labelForPhase(phase: LoaderPhase): string {
-  switch (phase) {
-    case "loading_slow": return "Preparing data";
-    case "thinking":     return "Preparing AI context";
-    default:             return "Loading";
   }
 }
 
