@@ -38,6 +38,31 @@ function normalizeName(value: string | null | undefined) {
   return (value || "").trim().toLowerCase();
 }
 
+function _moduleFromSurface(surface: string | null): string | null {
+  if (!surface) return null;
+  if (
+    surface.startsWith("re_") ||
+    surface === "fund_detail" ||
+    surface === "asset_detail" ||
+    surface.includes("fund") ||
+    surface.includes("asset") ||
+    surface.includes("investment") ||
+    surface.includes("model") ||
+    surface.includes("capital_call") ||
+    surface.includes("distribution") ||
+    surface.includes("development") ||
+    surface.includes("pipeline")
+  ) return "re";
+  if (surface === "resume_workspace") return "resume";
+  if (surface === "pds_workspace") return "pds";
+  if (surface === "consulting_workspace") return "consulting";
+  if (surface === "credit_workspace") return "credit";
+  if (surface === "novendor_crm") return "novendor";
+  if (surface === "winston_workspace") return "copilot";
+  if (surface === "environment_workspace") return "lab";
+  return null;
+}
+
 function routeDescriptor(route: string | null): RouteDescriptor {
   if (!route) {
     return {
@@ -57,10 +82,7 @@ function routeDescriptor(route: string | null): RouteDescriptor {
 
     return {
       surface: supportedSurface.surface,
-      activeModule:
-        supportedSurface.surface === "re_workspace" || supportedSurface.surface === "fund_detail"
-          ? "re"
-          : null,
+      activeModule: _moduleFromSurface(supportedSurface.surface),
       pageEntityType: supportedSurface.scope_type,
       pageEntityId: entityId,
     };
