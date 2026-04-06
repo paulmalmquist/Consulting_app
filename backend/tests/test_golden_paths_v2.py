@@ -180,7 +180,7 @@ class TestGP11Identity:
     @pytest.mark.parametrize("message", [
         "what page is this",
         "what environment is this",
-        "which fund am I looking at",
+        "what fund is this",
     ])
     def test_identity_routes_deterministically(self, message):
         trace = _deterministic_dispatch(message=message, context=_resolved_context())
