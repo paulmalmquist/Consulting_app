@@ -5,8 +5,6 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import ValidationError
-
 from app.assistant_runtime.skill_registry import SKILL_BY_ID, skill_requires_grounding
 from app.assistant_runtime.skill_router import RoutedSkill, build_routed_skill, route_skill
 from app.assistant_runtime.turn_receipts import (

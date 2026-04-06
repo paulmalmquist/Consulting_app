@@ -17,7 +17,6 @@ from app.assistant_runtime.dispatch_engine import (
 from app.assistant_runtime.turn_receipts import (
     ContextReceipt,
     ContextResolutionStatus,
-    DispatchSource,
     Lane,
 )
 
