@@ -408,6 +408,98 @@ export const SYSTEMS: System[] = [
 export const SYSTEM_MAP = new Map(SYSTEMS.map((s) => [s.id, s]));
 
 // ---------------------------------------------------------------------------
+// Career roles (title-level progression within each company phase)
+// ---------------------------------------------------------------------------
+
+export interface CareerRole {
+  id: string;
+  title: string;              // exact title from resume
+  short_title: string;        // abbreviated for bar label
+  company: CompanyId;
+  start_date: string;         // ISO YYYY-MM-DD
+  end_date: string | null;    // null = present (renders to chart xMax)
+  level: number;              // normalized 0–1 seniority height
+  impact_summary: string;     // one-line summary shown on hover
+  systems: string[];          // System.id[] built during this role
+  primary_capabilities: string[]; // Capability.id[] that accelerated here
+}
+
+export const ROLES: CareerRole[] = [
+  {
+    id: "role-jll-coordinator",
+    title: "Project Coordinator",
+    short_title: "Coordinator",
+    company: "jll",
+    start_date: "2014-08-01",
+    end_date: "2015-06-30",
+    level: 0.20,
+    impact_summary: "Established reporting rhythms and data governance foundations for the JPMC account.",
+    systems: [],
+    primary_capabilities: ["sql"],
+  },
+  {
+    id: "role-jll-analyst",
+    title: "Business Analyst / PMO",
+    short_title: "Analyst",
+    company: "jll",
+    start_date: "2015-07-01",
+    end_date: "2016-06-30",
+    level: 0.28,
+    impact_summary: "Systematized BI delivery and built the SQL validation layer that underpinned all dashboard output.",
+    systems: [],
+    primary_capabilities: ["sql", "tableau"],
+  },
+  {
+    id: "role-jll-senior-analyst",
+    title: "Senior Analyst, BI & Analytics",
+    short_title: "Sr. Analyst",
+    company: "jll",
+    start_date: "2016-07-01",
+    end_date: "2018-01-31",
+    level: 0.38,
+    impact_summary: "Built JLL's first governed BI service line — repeatable dashboards and executive-ready reporting for 50+ stakeholders.",
+    systems: ["sys-bi-service-line"],
+    primary_capabilities: ["sql", "tableau"],
+  },
+  {
+    id: "role-kayne-senior-associate",
+    title: "Senior Associate",
+    short_title: "Sr. Associate",
+    company: "kayne",
+    start_date: "2018-02-01",
+    end_date: "2020-06-30",
+    level: 0.52,
+    impact_summary: "Replaced 160+ hrs/month of manual partner accounting with governed Azure and PySpark pipelines across 500+ properties.",
+    systems: ["sys-ingestion-automation"],
+    primary_capabilities: ["python", "azure", "sql"],
+  },
+  {
+    id: "role-kayne-vp",
+    title: "Vice President, Data Platform Engineering & FP&A",
+    short_title: "VP",
+    company: "kayne",
+    start_date: "2020-07-01",
+    end_date: "2025-03-31",
+    level: 0.75,
+    impact_summary: "Built the full investment data platform: governed lakehouse, semantic layer, waterfall engine. $4B+ AUM on a single source of truth.",
+    systems: ["sys-warehouse", "sys-semantic-layer", "sys-governance-framework", "sys-waterfall-engine"],
+    primary_capabilities: ["databricks", "python", "power_bi", "azure", "sql"],
+  },
+  {
+    id: "role-jll-director",
+    title: "Director, AI Data Platform & Analytics",
+    short_title: "Director",
+    company: "jll",
+    start_date: "2025-04-01",
+    end_date: null,
+    level: 0.95,
+    impact_summary: "Scaling the full data + AI playbook across PDS Americas. 10+ client accounts on a governed Gold Layer. Conversational analytics live.",
+    systems: ["sys-gold-layer", "sys-ai-platform"],
+    primary_capabilities: ["databricks", "openai", "python", "sql"],
+  },
+];
+
+// ---------------------------------------------------------------------------
 // Cumulative curve data — pre-computed growth curve
 // ---------------------------------------------------------------------------
 

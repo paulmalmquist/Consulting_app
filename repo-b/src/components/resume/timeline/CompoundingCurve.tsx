@@ -16,8 +16,10 @@ import {
   buildStackedCurveData,
   CAPABILITIES,
   COMPANY_COLORS,
+  ROLES,
   SYSTEMS,
   TIMELINE_EVENTS,
+  type CareerRole,
   type CompanyId,
   type StackedPoint,
   type System,
@@ -179,6 +181,126 @@ function StackedTooltip({
         ))}
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Role progression bars
+// ---------------------------------------------------------------------------
+
+interface RoleBarsProps {
+  roles: CareerRole[];
+  chartLeft: number;
+  chartTop: number;
+  chartWidth: number;
+  chartHeight: number;
+  xMin: number;
+  xMax: number;
+  isMobile: boolean;
+}
+
+function fmtRoleDate(iso: string) {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function RoleBars({
+  roles,
+  chartLeft,
+  chartTop,
+  chartWidth,
+  chartHeight,
+  xMin,
+  xMax,
+  isMobile,
+}: RoleBarsProps) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  if (chartWidth <= 0 || chartHeight <= 0) return null;
+
+  const toX = (ts: number) => chartLeft + ((ts - xMin) / (xMax - xMin)) * chartWidth;
+
+  return (
+    <g>
+      {roles.map((role) => {
+        const startTs = new Date(`${role.start_date}T00:00:00Z`).getTime();
+        const endTs = role.end_date
+          ? new Date(`${role.end_date}T00:00:00Z`).getTime()
+          : xMax;
+        const x1 = toX(startTs);
+        const x2 = toX(endTs);
+        const barW = Math.max(x2 - x1, 2);
+        const barH = role.level * chartHeight;
+        const y = chartTop + chartHeight - barH;
+        const isHovered = hoveredId === role.id;
+        const company = COMPANY_COLORS[role.company];
+        const dateRange = `${fmtRoleDate(role.start_date)} – ${role.end_date ? fmtRoleDate(role.end_date) : "Present"}`;
+
+        return (
+          <g
+            key={role.id}
+            onMouseEnter={() => !isMobile && setHoveredId(role.id)}
+            onMouseLeave={() => setHoveredId(null)}
+          >
+            <rect
+              x={x1}
+              y={y}
+              width={barW}
+              height={barH}
+              rx={6}
+              fill={company.primary}
+              fillOpacity={isHovered ? 0.28 : 0.13}
+              filter="url(#role-bar-blur)"
+            />
+            {!isMobile && barW > 80 && (
+              <text
+                x={x1 + 10}
+                y={y + 14}
+                fill={company.primary}
+                fillOpacity={isHovered ? 0.90 : 0.55}
+                fontSize={9}
+                fontWeight={isHovered ? 600 : 400}
+              >
+                {role.short_title}
+              </text>
+            )}
+            {isHovered && !isMobile && (
+              <foreignObject
+                x={Math.min(x1 + 8, chartLeft + chartWidth - 220)}
+                y={Math.max(y - 72, chartTop)}
+                width={210}
+                height={80}
+                style={{ overflow: "visible", pointerEvents: "none" }}
+              >
+                <div
+                  style={{
+                    background: "rgba(12,8,5,0.96)",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    borderRadius: 10,
+                    padding: "8px 10px",
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                    pointerEvents: "none",
+                  }}
+                >
+                  <p style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.92)", margin: 0 }}>
+                    {role.title}
+                  </p>
+                  <p style={{ fontSize: 10, color: company.primary, margin: "2px 0 0" }}>
+                    {dateRange}
+                  </p>
+                  <p style={{ fontSize: 10, color: "rgba(215,200,180,0.80)", margin: "4px 0 0", lineHeight: 1.4 }}>
+                    {role.impact_summary}
+                  </p>
+                </div>
+              </foreignObject>
+            )}
+          </g>
+        );
+      })}
+    </g>
   );
 }
 
@@ -382,6 +504,7 @@ function PhaseLabels({
 function OverlayLayer({
   events,
   systems,
+  roles,
   chartDims,
   xMin,
   xMax,
@@ -397,6 +520,7 @@ function OverlayLayer({
 }: {
   events: typeof TIMELINE_EVENTS;
   systems: typeof SYSTEMS;
+  roles: CareerRole[];
   chartDims: { left: number; top: number; width: number; height: number };
   xMin: number;
   xMax: number;
@@ -412,6 +536,16 @@ function OverlayLayer({
 }) {
   return (
     <g>
+      <RoleBars
+        roles={roles}
+        chartLeft={chartDims.left}
+        chartTop={chartDims.top}
+        chartWidth={chartDims.width}
+        chartHeight={chartDims.height}
+        xMin={xMin}
+        xMax={xMax}
+        isMobile={isMobile}
+      />
       <PhaseLabels
         events={events}
         chartLeft={chartDims.left}
@@ -585,6 +719,9 @@ export default function CompoundingCurve({
             onMouseLeave={() => onHoverEvent(null)}
           >
             <defs>
+              <filter id="role-bar-blur" x="-5%" y="-5%" width="110%" height="110%">
+                <feGaussianBlur stdDeviation="1.5" />
+              </filter>
               {SKILL_LAYER_ORDER.map((id) => {
                 const color = SKILL_COLORS[id];
                 const isDimmed = activeCapabilityId !== null && activeCapabilityId !== id;
@@ -671,6 +808,7 @@ export default function CompoundingCurve({
                 <OverlayLayer
                   events={TIMELINE_EVENTS}
                   systems={SYSTEMS}
+                  roles={ROLES}
                   chartDims={chartDims}
                   xMin={xMin}
                   xMax={xMax}
