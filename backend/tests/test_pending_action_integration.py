@@ -8,9 +8,6 @@ import json
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-import pytest
-
-
 class TestExecuteConfirmedAction:
     """Test execute_confirmed_action with mocked dependencies."""
 

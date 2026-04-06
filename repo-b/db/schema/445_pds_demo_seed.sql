@@ -12,17 +12,17 @@ DECLARE
   v_business_id uuid;
 
   -- Program
-  v_program_id uuid := 'e0000001-0000-pds0-0001-000000000001';
+  v_program_id uuid := 'e0000001-0000-4da0-0001-000000000001';
 
   -- Projects
-  v_proj_hq       uuid := 'e0000001-0000-pds0-0002-000000000001';
-  v_proj_lab      uuid := 'e0000001-0000-pds0-0002-000000000002';
-  v_proj_parking  uuid := 'e0000001-0000-pds0-0002-000000000003';
+  v_proj_hq       uuid := 'e0000001-0000-4da0-0002-000000000001';
+  v_proj_lab      uuid := 'e0000001-0000-4da0-0002-000000000002';
+  v_proj_parking  uuid := 'e0000001-0000-4da0-0002-000000000003';
 
   -- Budget versions
-  v_bv_hq       uuid := 'e0000001-0000-pds0-0003-000000000001';
-  v_bv_lab      uuid := 'e0000001-0000-pds0-0003-000000000002';
-  v_bv_parking  uuid := 'e0000001-0000-pds0-0003-000000000003';
+  v_bv_hq       uuid := 'e0000001-0000-4da0-0003-000000000001';
+  v_bv_lab      uuid := 'e0000001-0000-4da0-0003-000000000002';
+  v_bv_parking  uuid := 'e0000001-0000-4da0-0003-000000000003';
 
 BEGIN
   -- Resolve Stone PDS environment
