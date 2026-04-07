@@ -37,7 +37,10 @@ export default function CapabilityStrip({
   }, [selectedEventId]);
 
   return (
-    <div className="flex items-center justify-center gap-1.5 md:gap-3">
+    <div
+      className="flex items-center justify-center gap-1 md:gap-3"
+      style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}
+    >
       {CAPABILITIES.map((capability) => {
         const isSelected = selectedCapabilityId === capability.id;
         const isActive =
@@ -52,7 +55,7 @@ export default function CapabilityStrip({
               onSelectCapability(isSelected ? null : capability.id)
             }
             title={capability.name}
-            className={`group relative flex flex-col items-center gap-1 rounded-xl px-2 py-1.5 transition-all duration-200 md:px-3 md:py-2 ${
+            className={`group relative flex shrink-0 flex-col items-center gap-0.5 rounded-xl px-1.5 py-1 transition-all duration-200 md:gap-1 md:px-3 md:py-2 ${
               isSelected
                 ? "bg-white/12 shadow-[0_0_0_1px_rgba(255,255,255,0.2)]"
                 : isDimmed
@@ -62,7 +65,7 @@ export default function CapabilityStrip({
           >
             {/* Icon */}
             <div
-              className="flex h-8 w-8 items-center justify-center rounded-lg transition-all md:h-9 md:w-9"
+              className="flex h-7 w-7 items-center justify-center rounded-lg transition-all md:h-9 md:w-9"
               style={{
                 backgroundColor: isSelected
                   ? `${capability.color}25`
@@ -73,12 +76,12 @@ export default function CapabilityStrip({
                 color: capability.color,
               }}
             >
-              <SkillLogo skillId={capability.id} size={isMobileCheck() ? 20 : 22} />
+              <SkillLogo skillId={capability.id} size={isMobileCheck() ? 16 : 22} />
             </div>
 
             {/* Label */}
             <span
-              className="text-[10px] font-medium leading-none transition-colors md:text-[11px]"
+              className="text-[9px] font-medium leading-none transition-colors md:text-[11px]"
               style={{
                 color: isSelected
                   ? "var(--ros-text-bright, #fff)"

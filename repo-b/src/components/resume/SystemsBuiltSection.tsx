@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   SYSTEMS,
@@ -10,8 +10,10 @@ import {
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
 
 /**
- * SystemsBuiltSection — standardized proof cards. Each card:
- *   title + 1-line description + max 3 bullets + 1 bold outcome
+ * SystemsBuiltSection — standardized proof cards, mobile-first.
+ *
+ * Desktop: full grid with bullets visible.
+ * Mobile: card-style entries with 1-2 visible bullets + expand/collapse.
  *
  * Connected to the global store:
  * - highlightedSystemId from timeline interactions highlights a card
@@ -99,6 +101,7 @@ function SystemCard({
   isRelatedToSkill: boolean;
   onSelect: () => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const company = COMPANY_COLORS[system.company];
   const outcome = OUTCOME_LINE[system.id];
   const bullets = BULLETS[system.id] ?? [];
@@ -107,6 +110,10 @@ function SystemCard({
     .map((id) => STACK_LABEL[id])
     .filter(Boolean)
     .slice(0, 4);
+
+  // Mobile: show first 2 bullets by default, rest on expand
+  const visibleBullets = expanded ? bullets : bullets.slice(0, 2);
+  const hasMore = bullets.length > 2;
 
   return (
     <button
@@ -122,7 +129,7 @@ function SystemCard({
       }}
     >
       <div
-        className="grid grid-cols-[1fr_auto] gap-4 py-4 transition-colors duration-200 md:py-5"
+        className="py-5 transition-colors duration-200 md:py-5"
         style={{
           background: isHighlighted
             ? "rgba(200,146,58,0.06)"
@@ -131,83 +138,100 @@ function SystemCard({
               : "transparent",
         }}
       >
-        {/* Left — identity + stack + description */}
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <div
-              className="h-1.5 w-1.5 shrink-0 self-center rounded-full"
-              style={{ backgroundColor: company.primary }}
-            />
-            <h3
-              className="resume-editorial text-[clamp(15px,1.6vw,19px)] font-medium leading-snug"
-              style={{ color: "var(--ros-text, #f0e0c0)" }}
-            >
-              {system.name}
-            </h3>
-            <span
-              className="resume-label text-[10px] tracking-[0.2em]"
-              style={{ color: "var(--ros-text-dim, #b8a890)" }}
-            >
-              {system.company_label}
-            </span>
-          </div>
-
-          {/* Stack tags */}
-          {stackLabels.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {stackLabels.map((lbl) => (
-                <span
-                  key={lbl}
-                  className="resume-label rounded px-1.5 py-0.5 text-[9px] tracking-[0.18em]"
-                  style={{
-                    color: "var(--ros-text-muted, #d8c4a8)",
-                    border: "1px solid var(--ros-pill-border, rgba(180,160,120,0.50))",
-                    background: "var(--ros-pill-bg, rgba(255,255,255,0.07))",
-                  }}
-                >
-                  {lbl}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Description */}
-          <p
-            className="mt-2 line-clamp-2 text-[11px] leading-[1.65] tracking-[0.04em] md:text-[12px]"
-            style={{ color: "rgba(230,215,195,0.92)" }}
+        {/* Row 1: Title + Company */}
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <div
+            className="h-1.5 w-1.5 shrink-0 self-center rounded-full"
+            style={{ backgroundColor: company.primary }}
+          />
+          <h3
+            className="resume-editorial font-medium leading-snug"
+            style={{
+              color: "var(--ros-text, #f0e0c0)",
+              fontSize: "clamp(16px, 1.6vw, 19px)",
+            }}
           >
-            {system.description}
+            {system.name}
+          </h3>
+          <span
+            className="resume-label text-[10px] tracking-[0.2em]"
+            style={{ color: "var(--ros-text-dim, #b8a890)" }}
+          >
+            {system.company_label}
+          </span>
+        </div>
+
+        {/* Row 2: Stack tags */}
+        {stackLabels.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {stackLabels.map((lbl) => (
+              <span
+                key={lbl}
+                className="resume-label rounded px-1.5 py-0.5 text-[9px] tracking-[0.18em]"
+                style={{
+                  color: "var(--ros-text-muted, #d8c4a8)",
+                  border: "1px solid var(--ros-pill-border, rgba(180,160,120,0.50))",
+                  background: "var(--ros-pill-bg, rgba(255,255,255,0.07))",
+                }}
+              >
+                {lbl}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Row 3: Outcome metric — consistently below tags on all screen sizes */}
+        {outcome && (
+          <p
+            className="mt-2.5 text-[12px] font-medium leading-snug tracking-[0.02em] md:text-[11px]"
+            style={{ color: "var(--ros-text, #f0e0c0)" }}
+          >
+            <span style={{ color: "var(--ros-accent-warm, #c84b2a)" }}>→ </span>
+            {outcome}
           </p>
+        )}
 
-          {/* Bullets (compact, desktop only) */}
-          {bullets.length > 0 && (
-            <ul className="mt-2 hidden space-y-0.5 md:block">
-              {bullets.map((bullet) => (
-                <li
-                  key={bullet}
-                  className="flex items-start gap-2 text-[10px] leading-snug tracking-[0.03em]"
-                  style={{ color: "var(--ros-text-muted, rgba(225,210,190,0.85))" }}
-                >
-                  <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full" style={{ background: "var(--ros-text-dim, rgba(210,190,160,0.65))" }} />
-                  {bullet}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        {/* Row 4: Description */}
+        <p
+          className="mt-2 text-[13px] leading-[1.7] tracking-[0.02em] md:text-[12px] md:leading-[1.65]"
+          style={{ color: "rgba(230,215,195,0.88)" }}
+        >
+          {system.description}
+        </p>
 
-        {/* Right — outcome metrics */}
-        <div className="flex shrink-0 flex-col items-end justify-start gap-1.5 pt-0.5">
-          {outcome && (
-            <span
-              className="resume-label text-right text-[10px] leading-snug tracking-[0.06em] md:text-[11px]"
-              style={{ color: "var(--ros-text, #f0e0c0)" }}
-            >
-              <span style={{ color: "var(--ros-accent-warm, #c84b2a)" }}>• </span>
-              {outcome}
-            </span>
-          )}
-        </div>
+        {/* Row 5: Bullets — visible on all breakpoints */}
+        {visibleBullets.length > 0 && (
+          <ul className="mt-3 space-y-2 md:mt-2 md:space-y-1">
+            {visibleBullets.map((bullet) => (
+              <li
+                key={bullet}
+                className="flex items-start gap-2.5 text-[12px] leading-[1.65] tracking-[0.02em] md:text-[11px] md:leading-snug md:gap-2"
+                style={{ color: "var(--ros-text-muted, rgba(225,210,190,0.85))" }}
+              >
+                <span
+                  className="mt-[7px] h-1 w-1 shrink-0 rounded-full md:mt-[5px]"
+                  style={{ background: "var(--ros-text-dim, rgba(210,190,160,0.65))" }}
+                />
+                <span>{bullet}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/* Expand/collapse for additional bullets on mobile */}
+        {hasMore && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded(!expanded);
+            }}
+            className="mt-2 block text-[11px] tracking-[0.04em] md:hidden"
+            style={{ color: "var(--ros-accent-gold, #c8923a)", opacity: 0.8 }}
+          >
+            {expanded ? "Show less" : `+${bullets.length - 2} more`}
+          </button>
+        )}
       </div>
     </button>
   );
@@ -237,7 +261,6 @@ export default function SystemsBuiltSection() {
   const sortedSystems = [...SYSTEMS].sort((a, b) => b.curve_value - a.curve_value);
 
   // When a skill is selected, highlight systems that use that skill as a capability.
-  // Skill IDs (python, sql, databricks, etc.) match the capability IDs in system.capabilities_used.
   const skillRelatedSystemIds = (() => {
     if (!selectedSkillId) return new Set<string>();
     return new Set(
@@ -276,7 +299,7 @@ export default function SystemsBuiltSection() {
         </div>
       </div>
 
-      {/* System entries — no card borders, divided by top borders */}
+      {/* System entries */}
       <div>
         {sortedSystems.map((system) => (
           <SystemCard

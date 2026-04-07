@@ -65,7 +65,7 @@ export default function TimelineEngine() {
       }}
     >
       {/* Capability strip */}
-      <div className="px-3 pt-4 md:px-5 md:pt-5">
+      <div className="px-2 pt-3 md:px-5 md:pt-5">
         <CapabilityStrip
           selectedCapabilityId={selectedCapabilityId}
           selectedEventId={selectedEventId}
@@ -74,7 +74,7 @@ export default function TimelineEngine() {
       </div>
 
       {/* The graph */}
-      <div className="mt-2 px-2 pb-3 md:mt-3 md:px-4 md:pb-5">
+      <div className="mt-1 px-1.5 pb-2 md:mt-3 md:px-4 md:pb-5">
         <CompoundingCurve
           selectedEventId={selectedEventId}
           selectedSystemId={selectedSystemId}
@@ -84,6 +84,14 @@ export default function TimelineEngine() {
           onHoverEvent={handleHoverEvent}
         />
       </div>
+
+      {/* Chart interpretation line — tells the reader what the graph shows */}
+      <p
+        className="px-3 pb-3 text-center text-[11px] leading-relaxed tracking-[0.04em] md:px-5 md:pb-5 md:text-[12px]"
+        style={{ color: "var(--ros-text-dim, rgba(184,168,144,0.7))" }}
+      >
+        Skill layers compound over time — each new system builds on the last
+      </p>
     </section>
   );
 }

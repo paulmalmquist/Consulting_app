@@ -126,7 +126,7 @@ export default function PaulPage() {
         }}
       />
 
-      <div className="relative z-10 space-y-8 pb-20 md:space-y-12">
+      <div className="relative z-10 space-y-6 pb-20 md:space-y-12">
 
         {/* HERO */}
         <header className="text-center">

@@ -49,6 +49,17 @@ const SKILL_COLORS: Record<string, string> = {
   openai:     "#9b6bb5",   // purple
 };
 
+/** Short legend labels for mobile */
+const SKILL_SHORT: Record<string, string> = {
+  sql: "SQL",
+  tableau: "Tab",
+  azure: "Az",
+  python: "Py",
+  power_bi: "PBI",
+  databricks: "DBX",
+  openai: "AI",
+};
+
 // System reference line labels — only the 3 most legible anchors
 const SYSTEM_LABELS = new Map<string, string>([
   ["sys-ingestion-automation", "Ingestion"],
@@ -92,6 +103,21 @@ function useIsMobile(breakpoint = 768) {
     return () => mql.removeEventListener("change", update);
   }, [breakpoint]);
   return isMobile;
+}
+
+/** Detect landscape phone (short height + narrow width) */
+function useIsLandscapePhone() {
+  const [isLandscape, setIsLandscape] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (typeof window.matchMedia !== "function") return;
+    const mql = window.matchMedia("(max-height: 500px) and (max-width: 932px) and (orientation: landscape)");
+    const update = () => setIsLandscape(mql.matches);
+    update();
+    mql.addEventListener("change", update);
+    return () => mql.removeEventListener("change", update);
+  }, []);
+  return isLandscape;
 }
 
 function fmtRoleDate(iso: string) {
@@ -482,12 +508,22 @@ function OverlayLayer({
 function SkillLegend({
   selectedCapabilityId,
   onSelect,
+  isMobile,
 }: {
   selectedCapabilityId: string | null;
   onSelect: (id: string | null) => void;
+  isMobile: boolean;
 }) {
   return (
-    <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 px-2">
+    <div
+      className="mt-2 flex justify-center gap-x-3 gap-y-1 px-2"
+      style={{
+        // On mobile, allow horizontal scroll if legend overflows
+        ...(isMobile
+          ? { overflowX: "auto", WebkitOverflowScrolling: "touch", flexWrap: "nowrap", justifyContent: "flex-start", paddingBottom: 4 }
+          : { flexWrap: "wrap" }),
+      }}
+    >
       {SKILL_LAYER_ORDER.map((id) => {
         const cap = CAPABILITIES.find((c) => c.id === id);
         if (!cap) return null;
@@ -498,7 +534,7 @@ function SkillLegend({
             key={id}
             type="button"
             onClick={() => onSelect(isSelected ? null : id)}
-            className="flex items-center gap-1.5 transition-opacity"
+            className="flex shrink-0 items-center gap-1.5 transition-opacity"
             style={{ opacity: isDimmed ? 0.45 : 1 }}
           >
             <span
@@ -506,10 +542,13 @@ function SkillLegend({
               style={{ backgroundColor: SKILL_COLORS[id] }}
             />
             <span
-              className="resume-label text-[9px] tracking-[0.16em]"
-              style={{ color: isSelected ? SKILL_COLORS[id] : "var(--ros-chart-legend, rgba(215,200,180,0.82))" }}
+              className="resume-label whitespace-nowrap tracking-[0.16em]"
+              style={{
+                fontSize: isMobile ? 8 : 9,
+                color: isSelected ? SKILL_COLORS[id] : "var(--ros-chart-legend, rgba(215,200,180,0.82))",
+              }}
             >
-              {cap.name}
+              {isMobile ? (SKILL_SHORT[id] ?? cap.name) : cap.name}
             </span>
           </button>
         );
@@ -531,6 +570,7 @@ export default function CompoundingCurve({
   onHoverEvent,
 }: CompoundingCurveProps) {
   const isMobile = useIsMobile();
+  const isLandscape = useIsLandscapePhone();
   const chartRef = useRef<HTMLDivElement>(null);
   const [chartDims, setChartDims] = useState({ left: 0, top: 0, width: 0, height: 0 });
   const [hoveredEventId, setHoveredEventId] = useState<string | null>(null);
@@ -551,10 +591,13 @@ export default function CompoundingCurve({
     return Math.ceil(maxTotal * 1.1);
   }, [stackedData]);
 
-  const chartHeight = isMobile ? 280 : 420;
-  const chartMargin = isMobile
-    ? { top: 36, right: 8, bottom: 4, left: 0 }
-    : { top: 44, right: 24, bottom: 6, left: 4 };
+  // Strict mobile heights: portrait vs landscape vs desktop
+  const chartHeight = isLandscape ? 200 : isMobile ? 260 : 420;
+  const chartMargin = isLandscape
+    ? { top: 24, right: 6, bottom: 4, left: 0 }
+    : isMobile
+      ? { top: 32, right: 8, bottom: 4, left: 0 }
+      : { top: 44, right: 24, bottom: 6, left: 4 };
 
   const handleChartUpdate = useCallback(() => {
     if (!chartRef.current) return;
@@ -592,7 +635,15 @@ export default function CompoundingCurve({
 
   return (
     <div ref={chartRef} className="relative">
-      <div className="rounded-[20px] border border-bm-border/40 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.005))] p-2 md:rounded-[28px] md:p-4">
+      {/* Chart container — strict overflow-hidden, consistent radius and padding */}
+      <div
+        className="overflow-hidden rounded-2xl border border-bm-border/40 p-2 md:rounded-[28px] md:p-4"
+        style={{
+          background: "linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.005))",
+          // Fixed height on mobile to prevent content-driven stretching
+          ...(isMobile ? { height: isLandscape ? 240 : 300 } : {}),
+        }}
+      >
         <ResponsiveContainer width="100%" height={chartHeight}>
           <ComposedChart
             data={stackedData}
@@ -656,10 +707,13 @@ export default function CompoundingCurve({
               type="number"
               domain={["dataMin", "dataMax"]}
               tickFormatter={tickLabel}
-              tick={{ fill: "var(--ros-chart-label, rgba(225,215,200,0.88))", fontSize: isMobile ? 11 : 12 }}
+              tick={{
+                fill: "var(--ros-chart-label, rgba(225,215,200,0.88))",
+                fontSize: isLandscape ? 9 : isMobile ? 10 : 12,
+              }}
               tickLine={false}
               axisLine={false}
-              minTickGap={isMobile ? 60 : 80}
+              minTickGap={isLandscape ? 50 : isMobile ? 55 : 80}
             />
             <YAxis domain={[0, yMax]} tick={false} tickLine={false} axisLine={false} width={0} />
 
@@ -702,14 +756,16 @@ export default function CompoundingCurve({
             />
           </ComposedChart>
         </ResponsiveContainer>
-
-        <SkillLegend
-          selectedCapabilityId={activeCapabilityId}
-          onSelect={(id) => {
-            setLocalSelectedCapability(id);
-          }}
-        />
       </div>
+
+      {/* Legend — scrollable on mobile */}
+      <SkillLegend
+        selectedCapabilityId={activeCapabilityId}
+        onSelect={(id) => {
+          setLocalSelectedCapability(id);
+        }}
+        isMobile={isMobile}
+      />
     </div>
   );
 }
