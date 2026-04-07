@@ -10,14 +10,10 @@ import {
 import { useResumeWorkspaceStore } from "./useResumeWorkspaceStore";
 
 /**
- * SystemsBuiltSection — standardized proof cards, mobile-first.
+ * SystemsBuiltSection — proof cards, mobile-first.
  *
- * Desktop: full grid with bullets visible.
- * Mobile: card-style entries with 1-2 visible bullets + expand/collapse.
- *
- * Connected to the global store:
- * - highlightedSystemId from timeline interactions highlights a card
- * - selectedSkillId filters/emphasizes systems using that skill's capabilities
+ * Mobile: vertical cards with 1-2 visible bullets + expand/collapse.
+ * Desktop: same vertical list with all bullets shown.
  */
 
 const OUTCOME_LINE: Record<string, string> = {
@@ -31,7 +27,6 @@ const OUTCOME_LINE: Record<string, string> = {
   "sys-bi-service-line": "BI capability built from zero for 50+ stakeholders",
 };
 
-/** Human-readable stack label per capability ID */
 const STACK_LABEL: Record<string, string> = {
   python: "Python",
   sql: "SQL",
@@ -46,7 +41,6 @@ const STACK_LABEL: Record<string, string> = {
   pyspark: "PySpark",
 };
 
-/** Max 3 bullets per system — progression narrative: primitive → automation → governance → systems → modeling → AI */
 const BULLETS: Record<string, string[]> = {
   "sys-bi-service-line": [
     "Manual ad-hoc requests → repeatable SQL + Tableau delivery pipeline",
@@ -111,7 +105,7 @@ function SystemCard({
     .filter(Boolean)
     .slice(0, 4);
 
-  // Mobile: show first 2 bullets by default, rest on expand
+  // Mobile: show first 2 bullets, rest behind expand
   const visibleBullets = expanded ? bullets : bullets.slice(0, 2);
   const hasMore = bullets.length > 2;
 
@@ -125,11 +119,11 @@ function SystemCard({
           ? "rgba(200,146,58,0.55)"
           : isRelatedToSkill
             ? "rgba(96,144,176,0.35)"
-            : "var(--ros-border, rgba(200,146,58,0.30))",
+            : "var(--ros-border)",
       }}
     >
       <div
-        className="py-5 transition-colors duration-200 md:py-5"
+        className="px-1 py-5 transition-colors duration-200 md:px-0 md:py-5"
         style={{
           background: isHighlighted
             ? "rgba(200,146,58,0.06)"
@@ -138,40 +132,39 @@ function SystemCard({
               : "transparent",
         }}
       >
-        {/* Row 1: Title + Company */}
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <div
-            className="h-1.5 w-1.5 shrink-0 self-center rounded-full"
+        {/* Title + Company — clear hierarchy */}
+        <h3
+          className="resume-editorial font-medium leading-snug"
+          style={{
+            color: "var(--ros-text-bright)",
+            fontSize: "clamp(17px, 1.6vw, 20px)",
+          }}
+        >
+          <span
+            className="mr-2 inline-block h-2 w-2 rounded-full align-middle"
             style={{ backgroundColor: company.primary }}
           />
-          <h3
-            className="resume-editorial font-medium leading-snug"
-            style={{
-              color: "var(--ros-text, #f0e0c0)",
-              fontSize: "clamp(16px, 1.6vw, 19px)",
-            }}
-          >
-            {system.name}
-          </h3>
-          <span
-            className="resume-label text-[10px] tracking-[0.2em]"
-            style={{ color: "var(--ros-text-dim, #b8a890)" }}
-          >
-            {system.company_label}
-          </span>
-        </div>
+          {system.name}
+        </h3>
 
-        {/* Row 2: Stack tags */}
+        <span
+          className="mt-1 block text-[11px] font-semibold tracking-[0.1em] uppercase"
+          style={{ color: "var(--ros-text-dim)" }}
+        >
+          {system.company_label}
+        </span>
+
+        {/* Stack tags */}
         {stackLabels.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
             {stackLabels.map((lbl) => (
               <span
                 key={lbl}
-                className="resume-label rounded px-1.5 py-0.5 text-[9px] tracking-[0.18em]"
+                className="rounded px-1.5 py-0.5 text-[10px] font-medium tracking-[0.06em]"
                 style={{
-                  color: "var(--ros-text-muted, #d8c4a8)",
-                  border: "1px solid var(--ros-pill-border, rgba(180,160,120,0.50))",
-                  background: "var(--ros-pill-bg, rgba(255,255,255,0.07))",
+                  color: "var(--ros-text-muted)",
+                  border: "1px solid var(--ros-pill-border)",
+                  background: "var(--ros-pill-bg)",
                 }}
               >
                 {lbl}
@@ -180,37 +173,37 @@ function SystemCard({
           </div>
         )}
 
-        {/* Row 3: Outcome metric — consistently below tags on all screen sizes */}
+        {/* Outcome metric — bold, separated */}
         {outcome && (
           <p
-            className="mt-2.5 text-[12px] font-medium leading-snug tracking-[0.02em] md:text-[11px]"
-            style={{ color: "var(--ros-text, #f0e0c0)" }}
+            className="mt-3 text-[13px] font-semibold leading-snug md:text-[12px]"
+            style={{ color: "var(--ros-text)" }}
           >
-            <span style={{ color: "var(--ros-accent-warm, #c84b2a)" }}>→ </span>
+            <span style={{ color: "var(--ros-accent-warm)" }}>→ </span>
             {outcome}
           </p>
         )}
 
-        {/* Row 4: Description */}
+        {/* Description */}
         <p
-          className="mt-2 text-[13px] leading-[1.7] tracking-[0.02em] md:text-[12px] md:leading-[1.65]"
-          style={{ color: "rgba(230,215,195,0.88)" }}
+          className="mt-2 text-[13px] leading-[1.75] md:text-[12px] md:leading-[1.65]"
+          style={{ color: "var(--ros-text-muted)" }}
         >
           {system.description}
         </p>
 
-        {/* Row 5: Bullets — visible on all breakpoints */}
+        {/* Bullets — always visible, capped on mobile */}
         {visibleBullets.length > 0 && (
-          <ul className="mt-3 space-y-2 md:mt-2 md:space-y-1">
+          <ul className="mt-3 space-y-2.5 md:mt-2 md:space-y-1.5">
             {visibleBullets.map((bullet) => (
               <li
                 key={bullet}
-                className="flex items-start gap-2.5 text-[12px] leading-[1.65] tracking-[0.02em] md:text-[11px] md:leading-snug md:gap-2"
-                style={{ color: "var(--ros-text-muted, rgba(225,210,190,0.85))" }}
+                className="flex items-start gap-3 text-[13px] leading-[1.7] md:text-[11px] md:leading-[1.6] md:gap-2"
+                style={{ color: "var(--ros-text-muted)" }}
               >
                 <span
-                  className="mt-[7px] h-1 w-1 shrink-0 rounded-full md:mt-[5px]"
-                  style={{ background: "var(--ros-text-dim, rgba(210,190,160,0.65))" }}
+                  className="mt-[8px] h-1 w-1 shrink-0 rounded-full md:mt-[6px]"
+                  style={{ background: "var(--ros-accent-warm)" }}
                 />
                 <span>{bullet}</span>
               </li>
@@ -218,7 +211,7 @@ function SystemCard({
           </ul>
         )}
 
-        {/* Expand/collapse for additional bullets on mobile */}
+        {/* Expand/collapse on mobile */}
         {hasMore && (
           <button
             type="button"
@@ -226,8 +219,8 @@ function SystemCard({
               e.stopPropagation();
               setExpanded(!expanded);
             }}
-            className="mt-2 block text-[11px] tracking-[0.04em] md:hidden"
-            style={{ color: "var(--ros-accent-gold, #c8923a)", opacity: 0.8 }}
+            className="mt-2 block text-[12px] font-medium md:hidden"
+            style={{ color: "var(--ros-accent-gold)" }}
           >
             {expanded ? "Show less" : `+${bullets.length - 2} more`}
           </button>
@@ -257,10 +250,8 @@ export default function SystemsBuiltSection() {
     [highlightedSystemId, setHighlightedSystemId],
   );
 
-  // Most recent first — what he's doing now leads, earliest work trails
   const sortedSystems = [...SYSTEMS].sort((a, b) => b.curve_value - a.curve_value);
 
-  // When a skill is selected, highlight systems that use that skill as a capability.
   const skillRelatedSystemIds = (() => {
     if (!selectedSkillId) return new Set<string>();
     return new Set(
@@ -270,28 +261,25 @@ export default function SystemsBuiltSection() {
 
   return (
     <section>
-      {/* Section header */}
-      <div className="mb-2 flex items-baseline justify-between gap-3">
-        <div>
-          <p
-            className="resume-label text-[10px] tracking-[0.32em]"
-            style={{ color: "var(--ros-text-dim, #b8a890)" }}
-          >
-            <span style={{ color: "var(--ros-text, #f0e0c0)" }}>Systems</span>{" "}
-            in Production
-          </p>
-        </div>
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <p
+          className="text-[11px] font-semibold tracking-[0.2em] uppercase"
+          style={{ color: "var(--ros-text-dim)" }}
+        >
+          <span style={{ color: "var(--ros-text)" }}>Systems</span>{" "}
+          in Production
+        </p>
         <div className="hidden shrink-0 items-center gap-4 md:flex">
           <span
-            className="resume-label flex items-center gap-1.5 text-[10px] tracking-[0.2em]"
-            style={{ color: "var(--ros-text-dim, #b8a890)" }}
+            className="flex items-center gap-1.5 text-[10px] font-medium tracking-[0.12em] uppercase"
+            style={{ color: "var(--ros-text-dim)" }}
           >
             <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: COMPANY_COLORS.jll.primary }} />
             JLL
           </span>
           <span
-            className="resume-label flex items-center gap-1.5 text-[10px] tracking-[0.2em]"
-            style={{ color: "var(--ros-text-dim, #b8a890)" }}
+            className="flex items-center gap-1.5 text-[10px] font-medium tracking-[0.12em] uppercase"
+            style={{ color: "var(--ros-text-dim)" }}
           >
             <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: COMPANY_COLORS.kayne.primary }} />
             Kayne
@@ -299,7 +287,6 @@ export default function SystemsBuiltSection() {
         </div>
       </div>
 
-      {/* System entries */}
       <div>
         {sortedSystems.map((system) => (
           <SystemCard

@@ -27,6 +27,8 @@ import {
   DecisionLayer,
   PositioningSection,
   SignalStack,
+  MarketStateStrip,
+  TrapSummaryCard,
 } from "@/components/market/HistoryRhymesTab";
 import { TrapDetectorFullView } from "@/components/market/TrapDetectorFullView";
 import { useDecisionEngine } from "@/components/market/hooks/useDecisionEngine";
@@ -660,16 +662,31 @@ export default function TradingLabPage() {
           {/* HISTORY RHYMES TAB */}
           {activeTab === "history-rhymes" && (
             <div className="space-y-6">
+              <MarketStateStrip
+                agents={de.raw?.agents.calibration}
+                trapChecks={de.trapChecks}
+                forecast={de.raw?.forecasts.current}
+                signalCounts={de.raw ? {
+                  reality: de.raw.signals.reality.length,
+                  data: de.raw.signals.data.length,
+                  narrative: de.raw.signals.narrative.length,
+                  episodes: de.raw.analogs.episodeLibrary.length,
+                  analogs: de.raw.analogs.topMatch?.matches?.length ?? 0,
+                  traps: de.raw.traps.checks.length,
+                } : undefined}
+              />
               <AnalogForecast
                 analogOverlay={de.analogOverlay}
                 radarDims={de.radarDims}
                 topMatch={de.raw?.analogs.topMatch ?? null}
+                forecast={de.raw?.forecasts.current ?? null}
               />
               <SignalStack
                 realitySignals={de.realitySignals}
                 dataSignals={de.dataSignals}
                 narrativeState={de.narrativeState}
               />
+              <TrapSummaryCard trapChecks={de.trapChecks} />
               <SupportingDetail
                 mismatchData={de.mismatchData}
                 silenceEvents={de.silenceEvents}

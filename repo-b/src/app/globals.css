@@ -290,36 +290,38 @@
   --ros-font-label:     var(--font-label, "system-ui", sans-serif);
 }
 
-/* Light mode */
+/* Light mode — high contrast for mobile readability */
 html[data-theme="light"] .resume-os {
   --ros-bg:            #f8f5f0;
   --ros-bg-2:          #f0ebe4;
   --ros-surface:       rgba(255, 252, 248, 0.96);
-  --ros-border:        rgba(160, 120, 60, 0.28);
-  --ros-border-light:  rgba(160, 120, 60, 0.16);
-  --ros-text-bright:   #1a1510;
-  --ros-text:          #2c2418;
-  --ros-text-muted:    #5c4e3c;
-  --ros-text-dim:      #7a6c5a;
-  --ros-accent-warm:   #b83d1c;
-  --ros-accent-cool:   #3a6e90;
-  --ros-accent-gold:   #a87828;
-  --ros-chart-label:   rgba(44, 36, 24, 0.80);
-  --ros-chart-grid:    rgba(0, 0, 0, 0.08);
-  --ros-chart-legend:  rgba(60, 50, 36, 0.75);
-  --ros-pill-bg:       rgba(0, 0, 0, 0.04);
-  --ros-pill-border:   rgba(160, 140, 100, 0.40);
-  --ros-icon-inactive: rgba(90, 78, 60, 0.65);
-  --ros-card-bg:       rgba(255, 250, 244, 0.80);
+  --ros-border:        rgba(140, 100, 50, 0.24);
+  --ros-border-light:  rgba(140, 100, 50, 0.14);
+  --ros-text-bright:   #141210;
+  --ros-text:          #1e1a14;
+  --ros-text-muted:    #3d3428;
+  --ros-text-dim:      #5a4e40;
+  --ros-accent-warm:   #a83518;
+  --ros-accent-cool:   #2d5e7e;
+  --ros-accent-gold:   #8a6320;
+  --ros-chart-label:   rgba(30, 26, 20, 0.82);
+  --ros-chart-grid:    rgba(0, 0, 0, 0.10);
+  --ros-chart-legend:  rgba(40, 34, 24, 0.78);
+  --ros-pill-bg:       rgba(0, 0, 0, 0.05);
+  --ros-pill-border:   rgba(120, 100, 70, 0.35);
+  --ros-icon-inactive: rgba(70, 60, 44, 0.70);
+  --ros-card-bg:       rgba(255, 250, 244, 0.85);
 }
 
 .resume-os {
   background-color: var(--ros-bg);
   color: var(--ros-text);
-  font-family: var(--ros-font-label);
+  /* Sans-serif base for all body/small text — readable on mobile */
+  font-family: var(--font-body, system-ui, -apple-system, sans-serif);
 }
 
 .resume-os h1 {
+  /* Serif only for the main name heading */
   font-family: var(--ros-font-editorial);
   font-weight: 400;
   letter-spacing: 0.04em;
@@ -327,14 +329,16 @@ html[data-theme="light"] .resume-os {
 }
 
 .resume-editorial {
+  /* Serif for major headings only — system titles, section names */
   font-family: var(--ros-font-editorial);
 }
 
 .resume-label {
-  font-family: var(--ros-font-label);
-  letter-spacing: 0.16em;
+  /* Sans-serif for all labels, tags, metadata */
+  font-family: var(--font-body, system-ui, -apple-system, sans-serif);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 @keyframes resume-node-in {

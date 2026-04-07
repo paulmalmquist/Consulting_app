@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/Badge";
 import {
   CHART_COLORS, TOOLTIP_STYLE, AXIS_TICK_STYLE, GRID_STYLE,
 } from "@/components/charts/chart-theme";
+import type { RealitySignal, DataSignal, NarrativeItem } from "@/lib/trading-lab/decision-engine-types";
 
 /* ── Chart hex constants (Recharts needs raw hex, not CSS vars) ── */
 
@@ -147,29 +148,79 @@ export function SectionHeader({ title, children }: { title: string; children?: R
   );
 }
 
-export function MarketStateStrip() {
-  const metrics = [
-    { label: "Regime", value: "LATE", sub: "Dalio Phase 3 - tightening stress", variant: "accent" as const },
-    { label: "Divergence Score", value: "0.74", sub: "Reality != Narrative on 3/5 topics", variant: "warning" as const },
-    { label: "Acceleration Alerts", value: "4", sub: "2nd derivative anomalies", variant: "danger" as const },
-    { label: "Silence Events", value: "5", sub: "Major narratives gone quiet", variant: "default" as const },
-  ];
+interface MarketStateStripProps {
+  agents?: { direction: string; confidence: number; current_weight: number }[];
+  trapChecks?: { status: string; variant: string; value: string }[];
+  forecast?: { scenario_bull_prob: number; scenario_base_prob: number; scenario_bear_prob: number; synthesis_narrative: string; direction: string; direction_confidence: number } | null;
+  signalCounts?: { reality: number; data: number; narrative: number; episodes: number; analogs: number; traps: number };
+}
+
+export function MarketStateStrip({ agents, trapChecks, forecast, signalCounts }: MarketStateStripProps = {}) {
+  // Derive regime from agent consensus
+  const agentList = agents ?? [];
+  const bearish = agentList.filter((a) => a.direction === "Bearish").length;
+  const bullish = agentList.filter((a) => a.direction === "Bullish").length;
+  const totalWeight = agentList.reduce((s, a) => s + (a.current_weight || 0), 0);
+  const weightedConf = totalWeight > 0
+    ? agentList.reduce((s, a) => s + (a.confidence || 0) * (a.current_weight || 0), 0) / totalWeight
+    : 0;
+  const regimeLabel = bearish >= 3 ? "Late-Cycle Tightening" : bullish >= 3 ? "Risk-On Expansion" : "Transitional";
+  const agreeCount = Math.max(bearish, bullish);
+  const agreeTotal = agentList.length || 5;
+
+  const trapsActive = (trapChecks ?? []).filter((t) => t.variant === "warning" || t.variant === "danger").length;
+  const conf = forecast?.direction_confidence ?? weightedConf / 100;
+  const counts = signalCounts;
 
   return (
     <section data-testid="market-state">
-      <SectionHeader title="Market State" />
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {metrics.map(m => (
-          <Card key={m.label} className="p-4">
-            <p className="font-mono text-[10px] uppercase tracking-wider text-bm-muted2 mb-1">{m.label}</p>
-            <p className="text-xl font-bold font-mono text-bm-text">{m.value}</p>
-            <p className="text-[10px] text-bm-muted2 mt-1">{m.sub}</p>
-          </Card>
-        ))}
-      </div>
-      <p className="text-xs text-bm-muted italic mt-3">
-        Late-cycle tightening with rising narrative divergence. Consumer stress signals accelerating while official data remains sticky.
-      </p>
+      {/* Regime Card */}
+      <Card className="p-5 mb-4">
+        <div className="flex flex-wrap items-start gap-6">
+          <div className="flex-1 min-w-[200px]">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-bm-muted2 mb-1">Current Regime</p>
+            <p className="text-lg font-bold text-bm-text">{regimeLabel}</p>
+            <div className="flex items-center gap-4 mt-2">
+              <div>
+                <span className="text-[9px] text-bm-muted2 block">Confidence</span>
+                <span className="font-mono text-sm text-bm-accent">{(conf * 100).toFixed(0)}%</span>
+              </div>
+              <div>
+                <span className="text-[9px] text-bm-muted2 block">Signal Agreement</span>
+                <span className="font-mono text-sm text-bm-text">{agreeCount} / {agreeTotal} aligned</span>
+              </div>
+              <div>
+                <span className="text-[9px] text-bm-muted2 block">Active Traps</span>
+                <span className={`font-mono text-sm ${trapsActive > 0 ? "text-amber-400" : "text-emerald-400"}`}>{trapsActive}</span>
+              </div>
+            </div>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-bm-muted2 mb-1">Direction</p>
+            <p className={`text-lg font-bold font-mono ${bearish > bullish ? "text-red-400" : bullish > bearish ? "text-emerald-400" : "text-amber-400"}`}>
+              {bearish > bullish ? "Bearish Lean" : bullish > bearish ? "Bullish Lean" : "Mixed"}
+            </p>
+          </div>
+        </div>
+        {forecast?.synthesis_narrative && (
+          <p className="text-xs text-bm-muted mt-3 leading-relaxed">{forecast.synthesis_narrative}</p>
+        )}
+      </Card>
+
+      {/* Decision Basis Strip */}
+      {counts && (
+        <div className="flex flex-wrap items-center gap-4 px-2 mb-4 text-[10px] text-bm-muted2">
+          <span className="font-mono">{counts.reality + counts.data + counts.narrative} signals ingested</span>
+          <span className="text-bm-border">|</span>
+          <span className="font-mono">{counts.episodes} episodes compared</span>
+          <span className="text-bm-border">|</span>
+          <span className="font-mono">{counts.analogs} analogs surfaced</span>
+          <span className="text-bm-border">|</span>
+          <span className="font-mono">{counts.traps} trap checks active</span>
+          <span className="text-bm-border">|</span>
+          <span className="font-mono">last refresh: {new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+        </div>
+      )}
     </section>
   );
 }
@@ -209,18 +260,30 @@ export function DecisionLayer({ agentData: propAgents }: { agentData?: typeof ag
 interface AnalogForecastProps {
   analogOverlay?: typeof analogOverlay;
   radarDims?: typeof radarDims;
-  topMatch?: { matches: Array<{ episode_name: string; rhyme_score: number; key_similarity: string }> } | null;
+  topMatch?: { matches: Array<{
+    episode_name: string; rhyme_score: number; key_similarity: string; key_divergence: string;
+    cosine_sim: number; dtw_distance: number; categorical_match: number;
+    match_dimensions?: Record<string, number>; what_would_break_it?: string; rank: number;
+  }> } | null;
+  forecast?: { scenario_bull_prob: number; scenario_base_prob: number; scenario_bear_prob: number; synthesis_narrative: string } | null;
 }
 
-export function AnalogForecast({ analogOverlay: propOverlay, radarDims: propRadar, topMatch }: AnalogForecastProps = {}) {
+export function AnalogForecast({ analogOverlay: propOverlay, radarDims: propRadar, topMatch, forecast }: AnalogForecastProps = {}) {
+  const [expandedAnalog, setExpandedAnalog] = useState(0);
   const overlayData = propOverlay ?? analogOverlay;
   const radarData = propRadar ?? radarDims;
-  const topAnalog = topMatch?.matches?.[0];
+  const matches = topMatch?.matches ?? [];
+  const topAnalog = matches[0];
+
   const scenarios = [
-    { label: "BULL", prob: 20, ret: "+12%", variant: "success" as const, note: "Requires dovish pivot + CRE stabilization" },
-    { label: "BASE", prob: 52, ret: "-3%", variant: "accent" as const, note: "Grinding chop, data-dependent Fed, slow deterioration" },
-    { label: "BEAR", prob: 28, ret: "-18%", variant: "danger" as const, note: "CRE contagion, credit tightening, positioning unwind" },
+    { label: "BULL", prob: forecast ? Math.round(forecast.scenario_bull_prob * 100) : 20, ret: "+12%", variant: "success" as const, note: "Requires dovish pivot + CRE stabilization" },
+    { label: "BASE", prob: forecast ? Math.round(forecast.scenario_base_prob * 100) : 52, ret: "-3%", variant: "accent" as const, note: "Grinding chop, data-dependent Fed, slow deterioration" },
+    { label: "BEAR", prob: forecast ? Math.round(forecast.scenario_bear_prob * 100) : 28, ret: "-18%", variant: "danger" as const, note: "CRE contagion, credit tightening, positioning unwind" },
   ];
+
+  // Chart line names from actual matches
+  const matchNames = matches.map((m) => m.episode_name.split(" ").slice(0, 3).join(" "));
+  const analogColors = [CH.purple, CH.red, CH.amber];
 
   return (
     <section data-testid="analog-forecast">
@@ -228,20 +291,86 @@ export function AnalogForecast({ analogOverlay: propOverlay, radarDims: propRada
         <Badge variant="accent">LIVE</Badge>
       </SectionHeader>
 
-      {/* Top analog callout */}
-      <Card className="p-4 mb-3">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs text-bm-muted2 uppercase tracking-wider">Top Analog</p>
-            <p className="text-sm font-semibold text-bm-text mt-1">{topAnalog?.episode_name ?? "2022 Rate Cycle"}</p>
-            <p className="text-[10px] text-bm-muted mt-1">Key similarity: {topAnalog?.key_similarity ?? "tightening + leverage stress"}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-bm-muted2 uppercase tracking-wider">Rhyme Score</p>
-            <p className="text-2xl font-bold font-mono text-bm-accent mt-1">{(topAnalog?.rhyme_score ?? 0.78).toFixed(2)}</p>
-          </div>
-        </div>
-      </Card>
+      {/* Top 3 Analogs */}
+      <div className="space-y-2 mb-4">
+        {(matches.length > 0 ? matches : [{ episode_name: "2022 Rate Cycle", rhyme_score: 0.78, key_similarity: "tightening + leverage stress", key_divergence: "labor market holding longer", cosine_sim: 0.84, dtw_distance: 0.31, categorical_match: 0.65, rank: 1 }]).map((m, idx) => (
+          <Card key={m.episode_name} className={`p-4 cursor-pointer transition-all ${expandedAnalog === idx ? "ring-1 ring-bm-accent/40" : ""}`} onClick={() => setExpandedAnalog(idx)}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className={`font-mono text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center ${idx === 0 ? "bg-bm-accent/20 text-bm-accent" : "bg-bm-surface text-bm-muted2"}`}>
+                  {m.rank ?? idx + 1}
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-bm-text">{m.episode_name}</p>
+                  {expandedAnalog !== idx && (
+                    <p className="text-[10px] text-bm-muted mt-0.5">{m.key_similarity}</p>
+                  )}
+                </div>
+              </div>
+              <p className="text-xl font-bold font-mono text-bm-accent">{m.rhyme_score.toFixed(2)}</p>
+            </div>
+
+            {/* Expanded: score breakdown + reasoning */}
+            {expandedAnalog === idx && (
+              <div className="mt-4 space-y-3">
+                {/* Score breakdown bars */}
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { label: "Structural", score: m.cosine_sim, desc: "Cosine similarity" },
+                    { label: "Path", score: 1 - m.dtw_distance, desc: "1 - DTW distance" },
+                    { label: "Context", score: m.categorical_match, desc: "Regime + category" },
+                  ].map((bar) => (
+                    <div key={bar.label}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[9px] text-bm-muted2 uppercase">{bar.label}</span>
+                        <span className="text-[10px] font-mono text-bm-muted">{(bar.score * 100).toFixed(0)}%</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-bm-bg overflow-hidden">
+                        <div className="h-full rounded-full bg-bm-accent/60" style={{ width: `${bar.score * 100}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Match dimensions if available */}
+                {m.match_dimensions && (
+                  <div>
+                    <p className="text-[9px] text-bm-muted2 uppercase tracking-wider mb-2">Dimension Scores</p>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(m.match_dimensions).map(([dim, score]) => (
+                        <span key={dim} className="inline-flex items-center gap-1 bg-bm-surface/40 rounded px-2 py-1 text-[10px]">
+                          <span className="text-bm-muted2">{dim}</span>
+                          <span className={`font-mono ${score >= 0.75 ? "text-emerald-400" : score >= 0.6 ? "text-amber-400" : "text-red-400"}`}>{(score * 100).toFixed(0)}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Why matched / What's different */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="bg-bm-surface/20 rounded-lg p-3">
+                    <p className="text-[9px] text-emerald-400 uppercase tracking-wider mb-1">Why This Matched</p>
+                    <p className="text-xs text-bm-text leading-relaxed">{m.key_similarity}</p>
+                  </div>
+                  <div className="bg-bm-surface/20 rounded-lg p-3">
+                    <p className="text-[9px] text-amber-400 uppercase tracking-wider mb-1">Key Differences</p>
+                    <p className="text-xs text-bm-text leading-relaxed">{m.key_divergence}</p>
+                  </div>
+                </div>
+
+                {/* What would break it */}
+                {m.what_would_break_it && (
+                  <div className="bg-bm-surface/20 rounded-lg p-3">
+                    <p className="text-[9px] text-red-400 uppercase tracking-wider mb-1">What Would Break This Analog</p>
+                    <p className="text-xs text-bm-text leading-relaxed">{m.what_would_break_it}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </Card>
+        ))}
+      </div>
 
       {/* Scenario probabilities */}
       <div className="grid grid-cols-3 gap-3 mb-4">
@@ -269,8 +398,8 @@ export function AnalogForecast({ analogOverlay: propOverlay, radarDims: propRada
               <YAxis tick={AXIS_TICK_STYLE} tickLine={false} axisLine={{ stroke: CH.grid }} domain={["auto", "auto"]} />
               <Tooltip contentStyle={TOOLTIP_STYLE} />
               <Line type="monotone" dataKey="current" stroke={CH.cyan} strokeWidth={2.5} dot={false} name="Current" />
-              <Line type="monotone" dataKey="gfc" stroke={CH.red} strokeWidth={1.5} strokeDasharray="6 3" dot={false} name="GFC 2008" opacity={0.7} />
-              <Line type="monotone" dataKey="crypto22" stroke={CH.purple} strokeWidth={1.5} strokeDasharray="4 4" dot={false} name="Crypto 2022" opacity={0.7} />
+              <Line type="monotone" dataKey="crypto22" stroke={analogColors[0]} strokeWidth={1.5} strokeDasharray="6 3" dot={false} name={matchNames[0] ?? "Analog 1"} opacity={0.7} />
+              <Line type="monotone" dataKey="gfc" stroke={analogColors[1]} strokeWidth={1.5} strokeDasharray="4 4" dot={false} name={matchNames[1] ?? "Analog 2"} opacity={0.7} />
             </LineChart>
           </ResponsiveContainer>
         </Card>
@@ -285,8 +414,8 @@ export function AnalogForecast({ analogOverlay: propOverlay, radarDims: propRada
               <PolarAngleAxis dataKey="d" tick={{ fill: CH.axis, fontSize: 9 }} />
               <PolarRadiusAxis tick={false} axisLine={false} domain={[0, 1]} />
               <Radar name="Current" dataKey="current" stroke={CH.cyan} fill={CH.cyan} fillOpacity={0.12} strokeWidth={2} />
-              <Radar name="GFC" dataKey="gfc" stroke={CH.red} fill="none" strokeWidth={1.5} strokeDasharray="4 2" />
-              <Radar name="Crypto 22" dataKey="crypto22" stroke={CH.purple} fill="none" strokeWidth={1.5} strokeDasharray="4 2" />
+              <Radar name={matchNames[1] ?? "GFC"} dataKey="gfc" stroke={CH.red} fill="none" strokeWidth={1.5} strokeDasharray="4 2" />
+              <Radar name={matchNames[0] ?? "Crypto 22"} dataKey="crypto22" stroke={CH.purple} fill="none" strokeWidth={1.5} strokeDasharray="4 2" />
             </RadarChart>
           </ResponsiveContainer>
         </Card>
@@ -384,16 +513,16 @@ export function PositioningSection({ positioningData: propPos, agentData: propAg
 }
 
 interface SignalStackProps {
-  realitySignals?: typeof realitySignals;
-  dataSignals?: typeof dataSignals;
-  narrativeState?: typeof narrativeState;
+  realitySignals?: RealitySignal[];
+  dataSignals?: DataSignal[];
+  narrativeState?: NarrativeItem[];
 }
 
 export function SignalStack({ realitySignals: propReality, dataSignals: propData, narrativeState: propNarrative }: SignalStackProps = {}) {
-  const [open, setOpen] = useState(false);
-  const realityRows = propReality ?? realitySignals;
-  const dataRows = propData ?? dataSignals;
-  const narrativeRows = propNarrative ?? narrativeState;
+  const [open, setOpen] = useState(true);
+  const realityRows: RealitySignal[] = propReality ?? realitySignals;
+  const dataRows: DataSignal[] = propData ?? dataSignals;
+  const narrativeRows: NarrativeItem[] = propNarrative ?? narrativeState;
 
   return (
     <section data-testid="signal-stack">
@@ -404,7 +533,7 @@ export function SignalStack({ realitySignals: propReality, dataSignals: propData
         <div>
           <h3 className="text-[10px] font-bold uppercase tracking-wider text-bm-muted2">Signal Layers</h3>
           <p className="text-xs text-bm-muted mt-1">
-            Signals show mixed labor softness, sticky inflation, and weakening logistics demand.
+            {realityRows.length + dataRows.length + narrativeRows.length} signals across reality, data, and narrative layers
           </p>
         </div>
         <span className="text-bm-muted2 text-sm ml-4 shrink-0">{open ? "Collapse" : "Expand"}</span>
@@ -421,33 +550,47 @@ export function SignalStack({ realitySignals: propReality, dataSignals: propData
               </div>
               <Badge variant="success">LIVE</Badge>
             </div>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-2">
-              {realityRows.map(s => (
-                <div key={s.signal} className={`rounded-lg border p-3 bg-bm-surface/20 ${Math.abs(s.accel) > 3 ? "border-amber-400/30" : "border-bm-border/70"}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-bm-text">{s.signal}</span>
-                    <Badge variant="success">{s.domain}</Badge>
-                  </div>
-                  <div className="flex gap-4 items-center text-xs">
-                    <div>
-                      <span className="text-[9px] text-bm-muted2 block">YoY</span>
-                      <span className={`font-mono ${s.value > 0 ? "text-emerald-400" : "text-red-400"}`}>{s.value > 0 ? "+" : ""}{s.value}%</span>
-                    </div>
-                    <div>
-                      <span className="text-[9px] text-bm-muted2 block">Accel</span>
-                      <span className={`font-mono ${Math.abs(s.accel) > 3 ? "text-amber-400" : "text-bm-muted"}`}>{s.accel > 0 ? "+" : ""}{s.accel}</span>
-                    </div>
-                    <div>
-                      <span className="text-[9px] text-bm-muted2 block">Trend</span>
-                      <span className="font-mono text-bm-muted">{s.trend}</span>
-                    </div>
-                    <div className="ml-auto">
-                      <span className="text-[9px] text-bm-muted2 block">Conf</span>
-                      <span className="font-mono text-bm-accent">{(s.confidence * 100).toFixed(0)}%</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-[9px] text-bm-muted2 border-b border-bm-border/50">
+                    <th className="text-left py-1 pr-3 font-normal">Signal</th>
+                    <th className="text-right py-1 px-3 font-normal">Current</th>
+                    <th className="text-right py-1 px-3 font-normal">Z-Score</th>
+                    <th className="text-right py-1 px-3 font-normal">Delta</th>
+                    <th className="text-left py-1 px-3 font-normal">Direction</th>
+                    <th className="text-right py-1 pl-3 font-normal">Updated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {realityRows.map(s => {
+                    const z = s.zScore ?? s.accel;
+                    const zColor = z <= -1.5 ? "text-red-400" : z >= 1.5 ? "text-emerald-400" : "text-bm-muted";
+                    const delta = s.delta;
+                    const deltaColor = delta != null ? (delta > 0 ? "text-emerald-400" : delta < 0 ? "text-red-400" : "text-bm-muted2") : "text-bm-muted2";
+                    const dateStr = s.signalDate ? new Date(s.signalDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—";
+                    return (
+                      <tr key={s.signal} className="border-b border-bm-border/30">
+                        <td className="py-2 pr-3">
+                          <span className="font-semibold text-bm-text">{s.signal}</span>
+                          <span className="ml-2 text-[9px] text-bm-muted2">{s.domain}</span>
+                        </td>
+                        <td className={`py-2 px-3 text-right font-mono ${s.value > 0 ? "text-emerald-400" : "text-red-400"}`}>
+                          {s.value > 0 ? "+" : ""}{s.value}%
+                        </td>
+                        <td className={`py-2 px-3 text-right font-mono ${zColor}`}>
+                          {z > 0 ? "+" : ""}{z.toFixed(1)}
+                        </td>
+                        <td className={`py-2 px-3 text-right font-mono ${deltaColor}`}>
+                          {delta != null ? `${delta > 0 ? "\u2191" : delta < 0 ? "\u2193" : "\u2192"} ${Math.abs(delta).toFixed(1)}` : "—"}
+                        </td>
+                        <td className="py-2 px-3 font-mono text-bm-muted">{s.trend}</td>
+                        <td className="py-2 pl-3 text-right text-bm-muted2">{dateStr}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </Card>
 
@@ -464,25 +607,30 @@ export function SignalStack({ realitySignals: propReality, dataSignals: propData
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-[9px] text-bm-muted2 border-b border-bm-border/50">
-                    <th className="text-left py-1 pr-4 font-normal">Metric</th>
-                    <th className="text-left py-1 pr-4 font-normal">Reported</th>
-                    <th className="text-left py-1 pr-4 font-normal">Expected</th>
-                    <th className="text-left py-1 pr-4 font-normal">Surprise</th>
-                    <th className="text-left py-1 pr-4 font-normal">Trend</th>
-                    <th className="text-left py-1 font-normal">Revision</th>
+                    <th className="text-left py-1 pr-3 font-normal">Metric</th>
+                    <th className="text-right py-1 px-3 font-normal">Reported</th>
+                    <th className="text-right py-1 px-3 font-normal">Expected</th>
+                    <th className="text-right py-1 px-3 font-normal">Surprise</th>
+                    <th className="text-left py-1 px-3 font-normal">Trend</th>
+                    <th className="text-left py-1 px-3 font-normal">Revision</th>
+                    <th className="text-right py-1 pl-3 font-normal">Updated</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {dataRows.map(d => (
-                    <tr key={d.metric} className="border-b border-bm-border/30">
-                      <td className="py-1.5 pr-4 font-semibold text-bm-text">{d.metric}</td>
-                      <td className="py-1.5 pr-4 font-mono text-bm-muted">{d.reported}</td>
-                      <td className="py-1.5 pr-4 font-mono text-bm-muted2">{d.expected}</td>
-                      <td className={`py-1.5 pr-4 font-mono ${d.surprise > 0 ? "text-red-400" : "text-emerald-400"}`}>{d.surprise > 0 ? "+" : ""}{d.surprise}</td>
-                      <td className="py-1.5 pr-4 font-mono text-bm-muted">{d.trend}</td>
-                      <td className={`py-1.5 font-mono ${d.revision !== "none" ? "text-amber-400" : "text-bm-muted2"}`}>{d.revision}</td>
-                    </tr>
-                  ))}
+                  {dataRows.map(d => {
+                    const dateStr = d.signalDate ? new Date(d.signalDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—";
+                    return (
+                      <tr key={d.metric} className="border-b border-bm-border/30">
+                        <td className="py-1.5 pr-3 font-semibold text-bm-text">{d.metric}</td>
+                        <td className="py-1.5 px-3 text-right font-mono text-bm-muted">{d.reported}</td>
+                        <td className="py-1.5 px-3 text-right font-mono text-bm-muted2">{d.expected}</td>
+                        <td className={`py-1.5 px-3 text-right font-mono ${d.surprise > 0 ? "text-red-400" : "text-emerald-400"}`}>{d.surprise > 0 ? "+" : ""}{d.surprise}</td>
+                        <td className="py-1.5 px-3 font-mono text-bm-muted">{d.trend}</td>
+                        <td className={`py-1.5 px-3 font-mono ${d.revision !== "none" ? "text-amber-400" : "text-bm-muted2"}`}>{d.revision}</td>
+                        <td className="py-1.5 pl-3 text-right text-bm-muted2">{dateStr}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -534,6 +682,49 @@ export function SignalStack({ realitySignals: propReality, dataSignals: propData
   );
 }
 
+/* ── Compact Trap / Adversarial Card ──────────────────────── */
+
+interface TrapSummaryCardProps {
+  trapChecks?: Array<{ check: string; status: string; variant: string; value: string }>;
+}
+
+export function TrapSummaryCard({ trapChecks: checks }: TrapSummaryCardProps = {}) {
+  if (!checks || checks.length === 0) return null;
+
+  const variantColor: Record<string, string> = {
+    success: "text-emerald-400",
+    warning: "text-amber-400",
+    danger: "text-red-400",
+    accent: "text-bm-accent",
+  };
+  const variantDot: Record<string, string> = {
+    success: "bg-emerald-400",
+    warning: "bg-amber-400",
+    danger: "bg-red-400",
+    accent: "bg-bm-accent",
+  };
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-bm-muted2">Adversarial Check</p>
+        <Badge variant="warning">ACTIVE</Badge>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
+        {checks.map((t) => (
+          <div key={t.check} className="flex items-center gap-2 bg-bm-surface/20 rounded-lg px-3 py-2">
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${variantDot[t.variant] ?? "bg-bm-muted2"}`} />
+            <div className="min-w-0">
+              <p className="text-[10px] text-bm-muted2 truncate">{t.check}</p>
+              <p className={`text-xs font-mono truncate ${variantColor[t.variant] ?? "text-bm-muted"}`}>{t.value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 interface SupportingDetailProps {
   mismatchData?: typeof mismatchData;
   silenceEvents?: typeof silenceEvents;
@@ -541,7 +732,7 @@ interface SupportingDetailProps {
 }
 
 export function SupportingDetail({ mismatchData: propMismatch, silenceEvents: propSilence, brierHist: propBrier }: SupportingDetailProps = {}) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const mismatchRows = propMismatch ?? mismatchData;
   const silenceRows = propSilence ?? silenceEvents;
   const brierRows = propBrier ?? brierHist;
@@ -644,6 +835,19 @@ export function SupportingDetail({ mismatchData: propMismatch, silenceEvents: pr
             </ResponsiveContainer>
             <p className="text-[10px] text-bm-muted2 mt-2">Lower = better. Red dashed = 50/50 coin flip. Target: &lt;0.20</p>
           </Card>
+
+          {/* Model Track Record Strip */}
+          <div className="flex flex-wrap items-center gap-4 px-3 py-3 bg-bm-surface/20 rounded-lg text-[10px]">
+            <span className="font-bold uppercase tracking-wider text-bm-muted2">Model Track Record</span>
+            <span className="text-bm-border">|</span>
+            <span className="text-bm-text">30-day accuracy: <span className="font-mono text-emerald-400">61%</span></span>
+            <span className="text-bm-border">|</span>
+            <span className="text-bm-text">Baseline: <span className="font-mono text-bm-muted">50%</span></span>
+            <span className="text-bm-border">|</span>
+            <span className="text-bm-text">Brier score: <span className="font-mono text-bm-accent">0.21</span></span>
+            <span className="text-bm-border">|</span>
+            <span className="text-bm-text">Predictions resolved: <span className="font-mono text-bm-muted">24</span></span>
+          </div>
         </div>
       )}
     </section>

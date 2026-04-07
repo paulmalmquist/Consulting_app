@@ -88,6 +88,9 @@ export interface RealitySignal {
   accel: number;
   trend: string;
   confidence: number;
+  zScore?: number;
+  delta?: number;
+  signalDate?: string;
 }
 
 export interface DataSignal {
@@ -97,6 +100,9 @@ export interface DataSignal {
   surprise: number;
   trend: string;
   revision: string;
+  zScore?: number;
+  delta?: number;
+  signalDate?: string;
 }
 
 export interface NarrativeItem {
@@ -167,6 +173,8 @@ export interface AnalogOverlayPoint {
   current: number;
   gfc: number;
   crypto22: number;
+  /** Dynamic analog trajectories keyed by rank */
+  [key: string]: number;
 }
 
 /* ── Ensemble & Multi-Agent Forecast Contracts ───────────── */

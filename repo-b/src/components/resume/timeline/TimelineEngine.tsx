@@ -85,10 +85,10 @@ export default function TimelineEngine() {
         />
       </div>
 
-      {/* Chart interpretation line — tells the reader what the graph shows */}
+      {/* Chart interpretation line */}
       <p
-        className="px-3 pb-3 text-center text-[11px] leading-relaxed tracking-[0.04em] md:px-5 md:pb-5 md:text-[12px]"
-        style={{ color: "var(--ros-text-dim, rgba(184,168,144,0.7))" }}
+        className="px-3 pb-3 text-center text-[12px] leading-relaxed md:px-5 md:pb-5 md:text-[12px]"
+        style={{ color: "var(--ros-text-dim)" }}
       >
         Skill layers compound over time — each new system builds on the last
       </p>

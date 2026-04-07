@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SkillLogo } from "../SkillDetailView";
 import {
   CAPABILITIES,
@@ -20,6 +20,23 @@ interface CapabilityStripProps {
 }
 
 // ---------------------------------------------------------------------------
+// SSR-safe mobile detection
+// ---------------------------------------------------------------------------
+
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const update = () => setIsMobile(mql.matches);
+    update();
+    mql.addEventListener("change", update);
+    return () => mql.removeEventListener("change", update);
+  }, [breakpoint]);
+  return isMobile;
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -28,7 +45,8 @@ export default function CapabilityStrip({
   selectedEventId,
   onSelectCapability,
 }: CapabilityStripProps) {
-  // When an event is selected, highlight capabilities used in that phase
+  const isMobile = useIsMobile();
+
   const activeCapabilityIds = useMemo(() => {
     if (!selectedEventId) return new Set<string>();
     const event = TIMELINE_EVENTS.find((e) => e.id === selectedEventId);
@@ -38,8 +56,8 @@ export default function CapabilityStrip({
 
   return (
     <div
-      className="flex items-center justify-center gap-1 md:gap-3"
-      style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}
+      className="flex items-center gap-1 md:justify-center md:gap-3"
+      style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" as never }}
     >
       {CAPABILITIES.map((capability) => {
         const isSelected = selectedCapabilityId === capability.id;
@@ -63,35 +81,33 @@ export default function CapabilityStrip({
                   : "hover:bg-white/8"
             }`}
           >
-            {/* Icon */}
             <div
               className="flex h-7 w-7 items-center justify-center rounded-lg transition-all md:h-9 md:w-9"
               style={{
                 backgroundColor: isSelected
                   ? `${capability.color}25`
-                  : "var(--ros-pill-bg, rgba(255,255,255,0.07))",
+                  : "var(--ros-pill-bg)",
                 border: isSelected
                   ? `1px solid ${capability.color}40`
                   : "1px solid transparent",
                 color: capability.color,
               }}
             >
-              <SkillLogo skillId={capability.id} size={isMobileCheck() ? 16 : 22} />
+              <SkillLogo skillId={capability.id} size={isMobile ? 16 : 22} />
             </div>
 
-            {/* Label */}
             <span
               className="text-[9px] font-medium leading-none transition-colors md:text-[11px]"
               style={{
+                fontFamily: "var(--font-body, system-ui, sans-serif)",
                 color: isSelected
-                  ? "var(--ros-text-bright, #fff)"
-                  : "var(--ros-text-muted, rgba(255,255,255,0.82))",
+                  ? "var(--ros-text-bright)"
+                  : "var(--ros-text-muted)",
               }}
             >
               {capability.name}
             </span>
 
-            {/* Active indicator dot */}
             {isSelected && (
               <div
                 className="absolute -bottom-0.5 h-0.5 w-4 rounded-full"
@@ -99,7 +115,6 @@ export default function CapabilityStrip({
               />
             )}
 
-            {/* Company dots showing when this skill was used */}
             <ActiveRangeDots capability={capability} isVisible={isSelected} />
           </button>
         );
@@ -109,7 +124,7 @@ export default function CapabilityStrip({
 }
 
 // ---------------------------------------------------------------------------
-// Active range dots — shows which companies used this skill
+// Active range dots
 // ---------------------------------------------------------------------------
 
 function ActiveRangeDots({
@@ -146,19 +161,10 @@ function CompanyBadge({ company }: { company: CompanyId }) {
 
   return (
     <span
-      className="rounded px-1 py-0.5 text-[9px] font-semibold leading-none text-white/75"
-      style={{ backgroundColor: colors[company] }}
+      className="rounded px-1 py-0.5 text-[9px] font-semibold leading-none"
+      style={{ backgroundColor: colors[company], color: "var(--ros-text-bright)" }}
     >
       {labels[company]}
     </span>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Helper
-// ---------------------------------------------------------------------------
-
-function isMobileCheck(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.innerWidth < 768;
 }

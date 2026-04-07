@@ -19,7 +19,6 @@ import {
   SYSTEMS,
   TIMELINE_EVENTS,
   type CareerRole,
-  type CompanyId,
   type StackedPoint,
 } from "./timelineData";
 
@@ -27,7 +26,6 @@ import {
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Ordered skill layers — bottom to top of stacked chart */
 const SKILL_LAYER_ORDER = [
   "sql",
   "tableau",
@@ -38,18 +36,16 @@ const SKILL_LAYER_ORDER = [
   "openai",
 ] as const;
 
-/** Editorial colors per skill (warm/cool palette matching the cinematic skin) */
 const SKILL_COLORS: Record<string, string> = {
-  sql:        "#7a9eb8",   // steel blue
-  tableau:    "#c8923a",   // gold
-  azure:      "#4a90c4",   // azure blue
-  python:     "#5b8fa8",   // slate blue
-  power_bi:   "#d4a843",   // warm amber
-  databricks: "#c84b2a",   // warm red
-  openai:     "#9b6bb5",   // purple
+  sql:        "#7a9eb8",
+  tableau:    "#c8923a",
+  azure:      "#4a90c4",
+  python:     "#5b8fa8",
+  power_bi:   "#d4a843",
+  databricks: "#c84b2a",
+  openai:     "#9b6bb5",
 };
 
-/** Short legend labels for mobile */
 const SKILL_SHORT: Record<string, string> = {
   sql: "SQL",
   tableau: "Tab",
@@ -60,7 +56,6 @@ const SKILL_SHORT: Record<string, string> = {
   openai: "AI",
 };
 
-// System reference line labels — only the 3 most legible anchors
 const SYSTEM_LABELS = new Map<string, string>([
   ["sys-ingestion-automation", "Ingestion"],
   ["sys-warehouse", "Warehouse"],
@@ -81,21 +76,19 @@ interface CompoundingCurveProps {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Responsive hooks — client-only, suppresses hydration flash
 // ---------------------------------------------------------------------------
 
-function tickLabel(value: number) {
-  return new Date(value).toLocaleDateString("en-US", {
-    year: "numeric",
-    timeZone: "UTC",
-  });
+function useClientReady() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
+  return ready;
 }
 
 function useIsMobile(breakpoint = 768) {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (typeof window.matchMedia !== "function") return;
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
     const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
     const update = () => setIsMobile(mql.matches);
     update();
@@ -105,12 +98,10 @@ function useIsMobile(breakpoint = 768) {
   return isMobile;
 }
 
-/** Detect landscape phone (short height + narrow width) */
 function useIsLandscapePhone() {
   const [isLandscape, setIsLandscape] = useState(false);
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (typeof window.matchMedia !== "function") return;
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
     const mql = window.matchMedia("(max-height: 500px) and (max-width: 932px) and (orientation: landscape)");
     const update = () => setIsLandscape(mql.matches);
     update();
@@ -118,6 +109,17 @@ function useIsLandscapePhone() {
     return () => mql.removeEventListener("change", update);
   }, []);
   return isLandscape;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function tickLabel(value: number) {
+  return new Date(value).toLocaleDateString("en-US", {
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 function fmtRoleDate(iso: string) {
@@ -132,17 +134,6 @@ function fmtRoleDate(iso: string) {
 // Role progression bars
 // ---------------------------------------------------------------------------
 
-interface RoleBarsProps {
-  roles: CareerRole[];
-  chartLeft: number;
-  chartTop: number;
-  chartWidth: number;
-  chartHeight: number;
-  xMin: number;
-  xMax: number;
-  isMobile: boolean;
-}
-
 function RoleBars({
   roles,
   chartLeft,
@@ -152,7 +143,16 @@ function RoleBars({
   xMin,
   xMax,
   isMobile,
-}: RoleBarsProps) {
+}: {
+  roles: CareerRole[];
+  chartLeft: number;
+  chartTop: number;
+  chartWidth: number;
+  chartHeight: number;
+  xMin: number;
+  xMax: number;
+  isMobile: boolean;
+}) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   if (chartWidth <= 0 || chartHeight <= 0) return null;
@@ -169,14 +169,12 @@ function RoleBars({
         const x1 = toX(startTs);
         const x2 = toX(endTs);
         const barW = Math.max(x2 - x1, 2);
-        // Scale bars to fill the chart more dominantly — level is now a real fraction of full height
         const barH = role.level * chartHeight;
         const y = chartTop + chartHeight - barH;
         const isHovered = hoveredId === role.id;
         const company = COMPANY_COLORS[role.company];
         const dateRange = `${fmtRoleDate(role.start_date)} – ${role.end_date ? fmtRoleDate(role.end_date) : "Present"}`;
 
-        // Pull systems for this role from the global data
         const roleSystems = role.systems
           .map((sid) => SYSTEMS.find((s) => s.id === sid))
           .filter(Boolean) as typeof SYSTEMS;
@@ -187,52 +185,34 @@ function RoleBars({
             onMouseEnter={() => !isMobile && setHoveredId(role.id)}
             onMouseLeave={() => setHoveredId(null)}
           >
-            {/* Outer glow layer — gives bars depth without a border */}
             <rect
-              x={x1 - 1}
-              y={y - 1}
-              width={barW + 2}
-              height={barH + 1}
-              rx={8}
-              fill={company.primary}
-              fillOpacity={isHovered ? 0.10 : 0.05}
+              x={x1 - 1} y={y - 1} width={barW + 2} height={barH + 1}
+              rx={isMobile ? 4 : 8}
+              fill={company.primary} fillOpacity={isHovered ? 0.10 : 0.05}
               filter="url(#role-bar-glow)"
             />
-            {/* Main bar */}
             <rect
-              x={x1}
-              y={y}
-              width={barW}
-              height={barH}
-              rx={7}
-              fill={company.primary}
-              fillOpacity={isHovered ? 0.38 : 0.22}
+              x={x1} y={y} width={barW} height={barH}
+              rx={isMobile ? 3 : 7}
+              fill={company.primary} fillOpacity={isHovered ? 0.38 : 0.22}
               filter="url(#role-bar-blur)"
             />
-            {/* Subtle top-cap gradient — 3px tall, differentiates stacked bars at phase boundaries */}
             <rect
-              x={x1}
-              y={y}
-              width={barW}
-              height={3}
-              rx={3}
-              fill={company.primary}
-              fillOpacity={isHovered ? 0.70 : 0.45}
+              x={x1} y={y} width={barW} height={isMobile ? 2 : 3}
+              rx={2}
+              fill={company.primary} fillOpacity={isHovered ? 0.70 : 0.45}
             />
-            {/* Role label */}
+            {/* Role label — desktop only */}
             {!isMobile && barW > 80 && (
               <text
-                x={x1 + 12}
-                y={y + 18}
-                fill={company.primary}
-                fillOpacity={isHovered ? 0.95 : 0.65}
-                fontSize={10}
-                fontWeight={isHovered ? 600 : 500}
+                x={x1 + 12} y={y + 18}
+                fill={company.primary} fillOpacity={isHovered ? 0.95 : 0.65}
+                fontSize={10} fontWeight={isHovered ? 600 : 500}
               >
                 {role.short_title}
               </text>
             )}
-            {/* Tooltip */}
+            {/* Tooltip — desktop only */}
             {isHovered && !isMobile && (
               <foreignObject
                 x={Math.min(x1 + 8, chartLeft + chartWidth - 240)}
@@ -243,27 +223,27 @@ function RoleBars({
               >
                 <div
                   style={{
-                    background: "rgba(10,7,4,0.97)",
-                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "var(--ros-surface, rgba(10,7,4,0.97))",
+                    border: "1px solid var(--ros-border, rgba(255,255,255,0.12))",
                     borderRadius: 12,
                     padding: "10px 12px",
-                    boxShadow: "0 12px 40px rgba(0,0,0,0.7)",
+                    boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
                     pointerEvents: "none",
                   }}
                 >
-                  <p style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.95)", margin: 0, lineHeight: 1.3 }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: "var(--ros-text-bright)", margin: 0, lineHeight: 1.3 }}>
                     {role.title}
                   </p>
                   <p style={{ fontSize: 10, color: company.primary, margin: "3px 0 0" }}>
                     {company.label} · {dateRange}
                   </p>
-                  <p style={{ fontSize: 10, color: "rgba(215,200,180,0.75)", margin: "6px 0 4px", lineHeight: 1.5 }}>
+                  <p style={{ fontSize: 10, color: "var(--ros-text-muted)", margin: "6px 0 4px", lineHeight: 1.5 }}>
                     {role.impact_summary}
                   </p>
                   {roleSystems.length > 0 && (
-                    <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 6, marginTop: 4 }}>
+                    <div style={{ borderTop: "1px solid var(--ros-border-light)", paddingTop: 6, marginTop: 4 }}>
                       {roleSystems.map((s) => (
-                        <p key={s.id} style={{ fontSize: 10, color: "rgba(200,185,165,0.70)", margin: "2px 0 0" }}>
+                        <p key={s.id} style={{ fontSize: 10, color: "var(--ros-text-dim)", margin: "2px 0 0" }}>
                           → {s.name}
                         </p>
                       ))}
@@ -280,28 +260,15 @@ function RoleBars({
 }
 
 // ---------------------------------------------------------------------------
-// System reference lines (replaces milestone dots)
+// System reference lines
 // ---------------------------------------------------------------------------
 
-interface SystemRefLinesProps {
-  chartLeft: number;
-  chartTop: number;
-  chartWidth: number;
-  chartHeight: number;
-  xMin: number;
-  xMax: number;
-  isMobile: boolean;
-}
-
 function SystemRefLines({
-  chartLeft,
-  chartTop,
-  chartWidth,
-  chartHeight,
-  xMin,
-  xMax,
-  isMobile,
-}: SystemRefLinesProps) {
+  chartLeft, chartTop, chartWidth, chartHeight, xMin, xMax, isMobile,
+}: {
+  chartLeft: number; chartTop: number; chartWidth: number; chartHeight: number;
+  xMin: number; xMax: number; isMobile: boolean;
+}) {
   if (chartWidth <= 0 || chartHeight <= 0) return null;
 
   const toX = (ts: number) => chartLeft + ((ts - xMin) / (xMax - xMin)) * chartWidth;
@@ -317,25 +284,15 @@ function SystemRefLines({
         return (
           <g key={system.id}>
             <line
-              x1={x}
-              y1={chartTop + chartHeight}
-              x2={x}
-              y2={chartTop + 4}
-              stroke={company.primary}
-              strokeWidth={1}
-              strokeOpacity={0.20}
+              x1={x} y1={chartTop + chartHeight} x2={x} y2={chartTop + 4}
+              stroke={company.primary} strokeWidth={1} strokeOpacity={isMobile ? 0.12 : 0.20}
               strokeDasharray="3 5"
             />
             {label && (
               <text
-                x={x}
-                y={chartTop - 2}
-                textAnchor="middle"
-                fill={company.primary}
-                fillOpacity={0.45}
-                fontSize={8}
-                fontWeight={400}
-                letterSpacing="0.08em"
+                x={x} y={chartTop - 2} textAnchor="middle"
+                fill={company.primary} fillOpacity={0.45}
+                fontSize={8} fontWeight={400} letterSpacing="0.08em"
               >
                 {label}
               </text>
@@ -351,33 +308,17 @@ function SystemRefLines({
 // Phase region labels
 // ---------------------------------------------------------------------------
 
-interface PhaseLabelsProps {
-  events: typeof TIMELINE_EVENTS;
-  chartLeft: number;
-  chartTop: number;
-  chartWidth: number;
-  xMin: number;
-  xMax: number;
-  selectedEventId: string | null;
-  hoveredEventId: string | null;
-  onSelect: (eventId: string) => void;
-  onHover: (eventId: string | null) => void;
-  isMobile: boolean;
-}
-
 function PhaseLabels({
-  events,
-  chartLeft,
-  chartTop,
-  chartWidth,
-  xMin,
-  xMax,
-  selectedEventId,
-  hoveredEventId,
-  onSelect,
-  onHover,
-  isMobile,
-}: PhaseLabelsProps) {
+  events, chartLeft, chartTop, chartWidth, xMin, xMax,
+  selectedEventId, hoveredEventId, onSelect, onHover, isMobile,
+}: {
+  events: typeof TIMELINE_EVENTS;
+  chartLeft: number; chartTop: number; chartWidth: number;
+  xMin: number; xMax: number;
+  selectedEventId: string | null; hoveredEventId: string | null;
+  onSelect: (eventId: string) => void; onHover: (eventId: string | null) => void;
+  isMobile: boolean;
+}) {
   if (chartWidth <= 0) return null;
 
   const toX = (ts: number) => chartLeft + ((ts - xMin) / (xMax - xMin)) * chartWidth;
@@ -405,22 +346,17 @@ function PhaseLabels({
             onMouseLeave={() => onHover(null)}
           >
             <rect
-              x={x1}
-              y={chartTop - 28}
-              width={x2 - x1}
-              height={24}
-              rx={6}
+              x={x1} y={chartTop - (isMobile ? 20 : 28)}
+              width={x2 - x1} height={isMobile ? 16 : 24}
+              rx={isMobile ? 3 : 6}
               fill={isSelected || isHovered ? company.primary : "transparent"}
               fillOpacity={isSelected ? 0.2 : isHovered ? 0.1 : 0}
             />
             {!isMobile && (
               <text
-                x={midX}
-                y={chartTop - 14}
-                textAnchor="middle"
+                x={midX} y={chartTop - 14} textAnchor="middle"
                 fill={isSelected ? company.primary : "var(--ros-chart-label, rgba(225,215,200,0.90))"}
-                fontSize={11}
-                fontWeight={isSelected ? 600 : 400}
+                fontSize={11} fontWeight={isSelected ? 600 : 400}
               >
                 {event.company_label}
                 {event.phase === 3 ? " (Return)" : ""}
@@ -438,64 +374,38 @@ function PhaseLabels({
 // ---------------------------------------------------------------------------
 
 function OverlayLayer({
-  events,
-  roles,
-  chartDims,
-  xMin,
-  xMax,
-  selectedEventId,
-  hoveredEventId,
-  onSelectEvent,
-  onHoverEvent,
-  isMobile,
+  events, roles, chartDims, xMin, xMax,
+  selectedEventId, hoveredEventId, onSelectEvent, onHoverEvent, isMobile,
 }: {
   events: typeof TIMELINE_EVENTS;
   roles: CareerRole[];
   chartDims: { left: number; top: number; width: number; height: number };
-  xMin: number;
-  xMax: number;
-  selectedEventId: string | null;
-  hoveredEventId: string | null;
+  xMin: number; xMax: number;
+  selectedEventId: string | null; hoveredEventId: string | null;
   onSelectEvent: (eventId: string) => void;
   onHoverEvent: (eventId: string | null) => void;
   isMobile: boolean;
 }) {
   return (
     <g>
-      {/* Role bars — primary narrative scaffold, rendered first (behind everything) */}
       <RoleBars
         roles={roles}
-        chartLeft={chartDims.left}
-        chartTop={chartDims.top}
-        chartWidth={chartDims.width}
-        chartHeight={chartDims.height}
-        xMin={xMin}
-        xMax={xMax}
-        isMobile={isMobile}
+        chartLeft={chartDims.left} chartTop={chartDims.top}
+        chartWidth={chartDims.width} chartHeight={chartDims.height}
+        xMin={xMin} xMax={xMax} isMobile={isMobile}
       />
-      {/* System reference lines — editorial, no interaction */}
       <SystemRefLines
-        chartLeft={chartDims.left}
-        chartTop={chartDims.top}
-        chartWidth={chartDims.width}
-        chartHeight={chartDims.height}
-        xMin={xMin}
-        xMax={xMax}
-        isMobile={isMobile}
+        chartLeft={chartDims.left} chartTop={chartDims.top}
+        chartWidth={chartDims.width} chartHeight={chartDims.height}
+        xMin={xMin} xMax={xMax} isMobile={isMobile}
       />
-      {/* Phase company labels above chart */}
       <PhaseLabels
         events={events}
-        chartLeft={chartDims.left}
-        chartTop={chartDims.top}
+        chartLeft={chartDims.left} chartTop={chartDims.top}
         chartWidth={chartDims.width}
-        xMin={xMin}
-        xMax={xMax}
-        selectedEventId={selectedEventId}
-        hoveredEventId={hoveredEventId}
-        onSelect={onSelectEvent}
-        onHover={onHoverEvent}
-        isMobile={isMobile}
+        xMin={xMin} xMax={xMax}
+        selectedEventId={selectedEventId} hoveredEventId={hoveredEventId}
+        onSelect={onSelectEvent} onHover={onHoverEvent} isMobile={isMobile}
       />
     </g>
   );
@@ -516,13 +426,11 @@ function SkillLegend({
 }) {
   return (
     <div
-      className="mt-2 flex justify-center gap-x-3 gap-y-1 px-2"
-      style={{
-        // On mobile, allow horizontal scroll if legend overflows
-        ...(isMobile
-          ? { overflowX: "auto", WebkitOverflowScrolling: "touch", flexWrap: "nowrap", justifyContent: "flex-start", paddingBottom: 4 }
-          : { flexWrap: "wrap" }),
-      }}
+      className="mt-2 flex gap-x-3 gap-y-1 px-2"
+      style={isMobile
+        ? { overflowX: "auto", WebkitOverflowScrolling: "touch" as never, flexWrap: "nowrap", justifyContent: "flex-start", paddingBottom: 4 }
+        : { flexWrap: "wrap", justifyContent: "center" }
+      }
     >
       {SKILL_LAYER_ORDER.map((id) => {
         const cap = CAPABILITIES.find((c) => c.id === id);
@@ -542,10 +450,12 @@ function SkillLegend({
               style={{ backgroundColor: SKILL_COLORS[id] }}
             />
             <span
-              className="resume-label whitespace-nowrap tracking-[0.16em]"
+              className="whitespace-nowrap tracking-[0.06em]"
               style={{
-                fontSize: isMobile ? 8 : 9,
-                color: isSelected ? SKILL_COLORS[id] : "var(--ros-chart-legend, rgba(215,200,180,0.82))",
+                fontFamily: "var(--font-body, system-ui, sans-serif)",
+                fontSize: isMobile ? 10 : 11,
+                fontWeight: 500,
+                color: isSelected ? SKILL_COLORS[id] : "var(--ros-text-muted)",
               }}
             >
               {isMobile ? (SKILL_SHORT[id] ?? cap.name) : cap.name}
@@ -569,6 +479,7 @@ export default function CompoundingCurve({
   onSelectSystem: _onSelectSystem,
   onHoverEvent,
 }: CompoundingCurveProps) {
+  const clientReady = useClientReady();
   const isMobile = useIsMobile();
   const isLandscape = useIsLandscapePhone();
   const chartRef = useRef<HTMLDivElement>(null);
@@ -591,14 +502,16 @@ export default function CompoundingCurve({
     return Math.ceil(maxTotal * 1.1);
   }, [stackedData]);
 
-  // Strict mobile heights: portrait vs landscape vs desktop
-  const chartHeight = isLandscape ? 200 : isMobile ? 260 : 420;
-  const chartMargin = isLandscape
-    ? { top: 24, right: 6, bottom: 4, left: 0 }
-    : isMobile
-      ? { top: 32, right: 8, bottom: 4, left: 0 }
-      : { top: 44, right: 24, bottom: 6, left: 4 };
+  // Chart sizing — separate portrait / landscape / desktop
+  // On SSR (clientReady=false), render a neutral small size that won't flash
+  const chartHeight = !clientReady ? 280 : isLandscape ? 180 : isMobile ? 240 : 420;
+  const chartMargin = !clientReady || isMobile
+    ? isLandscape
+      ? { top: 16, right: 4, bottom: 4, left: 0 }
+      : { top: 24, right: 6, bottom: 4, left: 0 }
+    : { top: 44, right: 24, bottom: 6, left: 4 };
 
+  // Measure chart plot area for SVG overlay positioning
   const handleChartUpdate = useCallback(() => {
     if (!chartRef.current) return;
     const svg = chartRef.current.querySelector(".recharts-wrapper svg");
@@ -614,6 +527,7 @@ export default function CompoundingCurve({
     });
   }, []);
 
+  // Re-measure on mount, resize, and whenever mobile state changes
   useEffect(() => {
     handleChartUpdate();
     const ro = new ResizeObserver(handleChartUpdate);
@@ -621,10 +535,11 @@ export default function CompoundingCurve({
     return () => ro.disconnect();
   }, [handleChartUpdate, stackedData]);
 
+  // Delayed re-measure after hydration and after mobile/landscape state settles
   useEffect(() => {
-    const timer = setTimeout(handleChartUpdate, 100);
+    const timer = setTimeout(handleChartUpdate, 150);
     return () => clearTimeout(timer);
-  }, [handleChartUpdate]);
+  }, [handleChartUpdate, isMobile, isLandscape]);
 
   const phaseBoundaries = useMemo(() => {
     return TIMELINE_EVENTS.slice(1).map((event) => ({
@@ -633,15 +548,18 @@ export default function CompoundingCurve({
     }));
   }, []);
 
+  // Effective mobile state for rendering (only trust after client hydration)
+  const effectiveMobile = clientReady && isMobile;
+  const effectiveLandscape = clientReady && isLandscape;
+
   return (
     <div ref={chartRef} className="relative">
-      {/* Chart container — strict overflow-hidden, consistent radius and padding */}
+      {/* Chart container — overflow-hidden, no explicit height (ResponsiveContainer owns it) */}
       <div
-        className="overflow-hidden rounded-2xl border border-bm-border/40 p-2 md:rounded-[28px] md:p-4"
+        className="overflow-hidden rounded-2xl p-1.5 md:rounded-[28px] md:p-4"
         style={{
-          background: "linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.005))",
-          // Fixed height on mobile to prevent content-driven stretching
-          ...(isMobile ? { height: isLandscape ? 240 : 300 } : {}),
+          border: "1px solid var(--ros-border-light)",
+          background: "var(--ros-card-bg)",
         }}
       >
         <ResponsiveContainer width="100%" height={chartHeight}>
@@ -670,23 +588,15 @@ export default function CompoundingCurve({
                 const isDimmed = activeCapabilityId !== null && activeCapabilityId !== id;
                 return (
                   <linearGradient key={id} id={`fill-skill-${id}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="0%"
-                      stopColor={color}
-                      stopOpacity={isDimmed ? 0.04 : 0.50}
-                    />
-                    <stop
-                      offset="100%"
-                      stopColor={color}
-                      stopOpacity={isDimmed ? 0.01 : 0.06}
-                    />
+                    <stop offset="0%" stopColor={color} stopOpacity={isDimmed ? 0.04 : 0.50} />
+                    <stop offset="100%" stopColor={color} stopOpacity={isDimmed ? 0.01 : 0.06} />
                   </linearGradient>
                 );
               })}
             </defs>
 
             <CartesianGrid
-              stroke="var(--ros-chart-grid, rgba(255,255,255,0.08))"
+              stroke="var(--ros-chart-grid)"
               strokeDasharray="3 8"
               horizontal
               vertical={false}
@@ -696,7 +606,7 @@ export default function CompoundingCurve({
               <ReferenceLine
                 key={i}
                 x={boundary.x}
-                stroke="rgba(255,255,255,0.18)"
+                stroke="var(--ros-chart-grid)"
                 strokeWidth={1}
                 strokeDasharray="6 4"
               />
@@ -708,16 +618,16 @@ export default function CompoundingCurve({
               domain={["dataMin", "dataMax"]}
               tickFormatter={tickLabel}
               tick={{
-                fill: "var(--ros-chart-label, rgba(225,215,200,0.88))",
-                fontSize: isLandscape ? 9 : isMobile ? 10 : 12,
+                fill: "var(--ros-chart-label)",
+                fontSize: effectiveLandscape ? 9 : effectiveMobile ? 10 : 12,
+                fontFamily: "var(--font-body, system-ui, sans-serif)",
               }}
               tickLine={false}
               axisLine={false}
-              minTickGap={isLandscape ? 50 : isMobile ? 55 : 80}
+              minTickGap={effectiveLandscape ? 50 : effectiveMobile ? 55 : 80}
             />
             <YAxis domain={[0, yMax]} tick={false} tickLine={false} axisLine={false} width={0} />
 
-            {/* Stacked areas — behind role bars, reduced opacity to keep bars dominant */}
             {SKILL_LAYER_ORDER.map((id) => {
               const isDimmed = activeCapabilityId !== null && activeCapabilityId !== id;
               const color = SKILL_COLORS[id];
@@ -750,7 +660,7 @@ export default function CompoundingCurve({
                   hoveredEventId={hoveredEventId}
                   onSelectEvent={onSelectEvent}
                   onHoverEvent={setHoveredEventId}
-                  isMobile={isMobile}
+                  isMobile={effectiveMobile}
                 />
               }
             />
@@ -758,13 +668,10 @@ export default function CompoundingCurve({
         </ResponsiveContainer>
       </div>
 
-      {/* Legend — scrollable on mobile */}
       <SkillLegend
         selectedCapabilityId={activeCapabilityId}
-        onSelect={(id) => {
-          setLocalSelectedCapability(id);
-        }}
-        isMobile={isMobile}
+        onSelect={(id) => setLocalSelectedCapability(id)}
+        isMobile={effectiveMobile}
       />
     </div>
   );

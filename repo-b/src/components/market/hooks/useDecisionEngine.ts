@@ -71,6 +71,7 @@ interface ApiRealitySignal {
   value: number;
   trend_direction: string;
   acceleration_score: number;
+  acceleration_change: number | null;
   confidence_score: number;
   source: string;
 }
@@ -149,6 +150,9 @@ export interface ApiAnalogMatchEntry {
   categorical_match: number;
   key_similarity: string;
   key_divergence: string;
+  match_dimensions?: Record<string, number>;
+  what_would_break_it?: string;
+  trajectory?: Array<{ day: number; value: number }>;
   rank: number;
 }
 
@@ -262,6 +266,9 @@ function toRealitySignals(api: ApiRealitySignal[]): RealitySignal[] {
     accel: r.acceleration_score,
     trend: r.trend_direction,
     confidence: r.confidence_score,
+    zScore: r.acceleration_score,
+    delta: r.acceleration_change ?? undefined,
+    signalDate: r.signal_date,
   }));
 }
 
@@ -275,6 +282,9 @@ function toDataSignals(api: ApiDataSignal[]): DataSignal[] {
     revision: d.revision_history
       ? JSON.stringify(d.revision_history)
       : "none",
+    zScore: d.surprise_score,
+    delta: undefined,
+    signalDate: d.signal_date,
   }));
 }
 
@@ -367,7 +377,45 @@ function toRadarDims(topMatch: ApiAnalogMatch | null): RadarDim[] {
 }
 
 function toAnalogOverlay(topMatch: ApiAnalogMatch | null): AnalogOverlayPoint[] {
-  // Generate 60-day synthetic overlay from match scores
+  const matches = topMatch?.matches ?? [];
+
+  // If matches have trajectory data, use it
+  const hasTrajectory = matches.some((m) => m.trajectory && m.trajectory.length > 0);
+
+  if (hasTrajectory && matches.length > 0) {
+    // Build overlay from real trajectory data
+    const trajectoryMap = new Map<number, AnalogOverlayPoint>();
+
+    // Current trajectory: gentle upward drift with recent pullback
+    for (let d = -30; d < 30; d++) {
+      trajectoryMap.set(d, {
+        day: d,
+        current: 100 + d * 0.15 + Math.sin(d * 0.12) * 2,
+        gfc: 100,
+        crypto22: 100,
+      });
+    }
+
+    // Overlay each match's trajectory
+    for (const match of matches) {
+      if (!match.trajectory) continue;
+      const key = match.rank === 2 ? "gfc" : match.rank === 3 ? "crypto22" : "crypto22";
+      const fieldName = match.rank === 1 ? "crypto22" : match.rank === 2 ? "gfc" : `analog${match.rank}`;
+      for (const pt of match.trajectory) {
+        const existing = trajectoryMap.get(pt.day);
+        if (existing) {
+          if (match.rank === 1) existing.crypto22 = pt.value;
+          else if (match.rank === 2) existing.gfc = pt.value;
+          // rank 3+ gets added as extra key
+          else (existing as Record<string, number>)[fieldName] = pt.value;
+        }
+      }
+    }
+
+    return Array.from(trajectoryMap.values()).sort((a, b) => a.day - b.day);
+  }
+
+  // Fallback: synthetic overlay
   return Array.from({ length: 60 }, (_, i) => {
     const day = i - 30;
     const base = Math.sin(i * 0.1) * 5;

@@ -60,34 +60,34 @@ function KpiProofBlock({ metric }: { metric: typeof HERO_METRICS[0] }) {
   const proof = KPI_PROOF[metric.label];
   if (!proof) return null;
   return (
-    <div className="grid gap-3 text-left md:grid-cols-2 md:gap-6">
-      <div className="space-y-2">
-        <p className="resume-label text-[9px] tracking-[0.2em]" style={{ color: "var(--ros-text-dim)" }}>
+    <div className="grid gap-4 text-left md:grid-cols-2 md:gap-6">
+      <div className="space-y-3">
+        <p className="text-[10px] font-semibold tracking-[0.12em] uppercase" style={{ color: "var(--ros-text-dim)" }}>
           What this measures
         </p>
-        <p className="text-[11px] leading-relaxed" style={{ color: "var(--ros-text-muted)" }}>
+        <p className="text-[13px] leading-[1.7] md:text-[12px]" style={{ color: "var(--ros-text-muted)" }}>
           {proof.what}
         </p>
-        <p className="resume-label mt-2 text-[9px] tracking-[0.2em]" style={{ color: "var(--ros-text-dim)" }}>
+        <p className="text-[10px] font-semibold tracking-[0.12em] uppercase" style={{ color: "var(--ros-text-dim)" }}>
           Source
         </p>
-        <p className="text-[11px] leading-relaxed" style={{ color: "var(--ros-text-muted)" }}>
+        <p className="text-[13px] leading-[1.7] md:text-[12px]" style={{ color: "var(--ros-text-muted)" }}>
           {proof.source}
         </p>
       </div>
-      <div className="space-y-2">
-        <p className="resume-label text-[9px] tracking-[0.2em]" style={{ color: "var(--ros-text-dim)" }}>
+      <div className="space-y-3">
+        <p className="text-[10px] font-semibold tracking-[0.12em] uppercase" style={{ color: "var(--ros-text-dim)" }}>
           Before → After
         </p>
-        <p className="text-[11px] leading-relaxed" style={{ color: "var(--ros-text-muted)" }}>
-          <span style={{ color: "var(--ros-text-dim)" }}>Before: </span>
+        <p className="text-[13px] leading-[1.7] md:text-[12px]" style={{ color: "var(--ros-text-muted)" }}>
+          <span className="font-semibold" style={{ color: "var(--ros-text-dim)" }}>Before: </span>
           {proof.before}
         </p>
-        <p className="text-[11px] leading-relaxed" style={{ color: "var(--ros-text-muted)" }}>
-          <span style={{ color: "var(--ros-accent-warm)" }}>After: </span>
+        <p className="text-[13px] leading-[1.7] md:text-[12px]" style={{ color: "var(--ros-text-muted)" }}>
+          <span className="font-semibold" style={{ color: "var(--ros-accent-warm)" }}>After: </span>
           {proof.after}
         </p>
-        <p className="resume-label mt-2 text-[9px] tracking-[0.2em]" style={{ color: "var(--ros-text-dim)" }}>
+        <p className="text-[10px] font-semibold tracking-[0.12em] uppercase" style={{ color: "var(--ros-text-dim)" }}>
           System:{" "}
           <span style={{ color: "var(--ros-text)" }}>{proof.system}</span>
         </p>
@@ -104,45 +104,44 @@ export default function PaulPage() {
   const [expandedKpi, setExpandedKpi] = useState<number | null>(null);
 
   return (
-    <div className="resume-os relative overflow-hidden px-4 pt-6 md:px-8 md:pt-10 lg:px-12">
+    <div className="resume-os relative overflow-hidden px-4 pt-8 md:px-8 md:pt-10 lg:px-12">
       {/* Atmospheric glows */}
       <div
         aria-hidden
         className="pointer-events-none absolute right-[5%] top-0 h-[360px] w-[420px] rounded-full"
-        style={{ background: "radial-gradient(ellipse, rgba(200,74,42,0.09) 0%, transparent 65%)" }}
+        style={{ background: "radial-gradient(ellipse, rgba(200,74,42,0.06) 0%, transparent 65%)" }}
       />
       <div
         aria-hidden
         className="pointer-events-none absolute left-[10%] top-[20%] h-[480px] w-[560px] rounded-full"
-        style={{ background: "radial-gradient(ellipse, rgba(10,7,4,0.5) 0%, transparent 70%)" }}
+        style={{ background: "radial-gradient(ellipse, rgba(10,7,4,0.3) 0%, transparent 70%)" }}
       />
-      {/* Grain overlay */}
+      {/* Grain overlay — reduced for light mode */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.18]"
+        className="pointer-events-none absolute inset-0 opacity-[0.10]"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.07'/%3E%3C/svg%3E")`,
           backgroundSize: "128px 128px",
         }}
       />
 
-      <div className="relative z-10 space-y-6 pb-20 md:space-y-12">
+      <div className="relative z-10 space-y-8 pb-20 md:space-y-12">
 
-        {/* HERO */}
-        <header className="text-center">
+        {/* HERO — more breathing room on mobile */}
+        <header className="pt-6 text-center md:pt-2">
           <h1
-            className="resume-editorial text-[clamp(3rem,8vw,6rem)] uppercase leading-[1.05]"
+            className="resume-editorial text-[clamp(2.5rem,8vw,6rem)] uppercase leading-[1.05]"
             style={{
               color: "var(--ros-text-bright)",
               fontWeight: 500,
               letterSpacing: "0.1em",
-              textShadow: "0 0 50px rgba(200,100,40,0.18)",
             }}
           >
             Paul Malmquist
           </h1>
           <p
-            className="resume-label mt-3 text-[clamp(12px,1.8vw,18px)] tracking-[0.2em]"
+            className="mt-4 text-[clamp(13px,1.8vw,18px)] font-semibold tracking-[0.14em] uppercase"
             style={{ color: "var(--ros-text-muted)" }}
           >
             AI Data Platform Architect
@@ -151,7 +150,7 @@ export default function PaulPage() {
             <span style={{ color: "var(--ros-accent-gold)" }}>Investment Systems</span>
           </p>
           <p
-            className="mx-auto mt-3 max-w-xl text-[12px] leading-relaxed tracking-[0.08em] md:text-[14px]"
+            className="mx-auto mt-4 max-w-xl text-[14px] leading-relaxed md:text-[15px]"
             style={{ color: "var(--ros-text-muted)" }}
           >
             Built governed data + AI systems powering investment decisions across $4B+ AUM
@@ -160,10 +159,10 @@ export default function PaulPage() {
 
         {/* KPI STRIP */}
         <div
-          className="border-y py-5 text-center"
+          className="border-y py-6 text-center"
           style={{ borderColor: "var(--ros-border)" }}
         >
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-4 sm:gap-x-10 md:gap-x-14">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-5 sm:gap-x-10 md:gap-x-14">
             {HERO_METRICS.map((m, i) => (
               <div key={m.label} className="flex items-center">
                 {i > 0 && (
@@ -177,23 +176,23 @@ export default function PaulPage() {
                 <button
                   type="button"
                   onClick={() => setExpandedKpi(expandedKpi === i ? null : i)}
-                  className="flex flex-col items-center gap-0.5 transition-opacity hover:opacity-90"
+                  className="flex flex-col items-center gap-1 transition-opacity hover:opacity-90"
                 >
                   <span
-                    className="resume-editorial text-[clamp(2rem,4vw,3.2rem)] leading-none"
-                    style={{ color: "var(--ros-text)" }}
+                    className="resume-editorial text-[clamp(1.8rem,4vw,3.2rem)] leading-none"
+                    style={{ color: "var(--ros-text-bright)" }}
                   >
                     {m.value}
                   </span>
                   <span
-                    className="resume-label text-[10px] tracking-[0.28em]"
+                    className="text-[11px] font-semibold tracking-[0.14em] uppercase"
                     style={{ color: "var(--ros-text-dim)" }}
                   >
                     {m.label}
                   </span>
                   <span
-                    className="text-[10px] leading-snug"
-                    style={{ color: "var(--ros-text-dim)", opacity: 0.7 }}
+                    className="text-[11px] leading-snug"
+                    style={{ color: "var(--ros-text-muted)" }}
                   >
                     {m.sublabel}
                   </span>
@@ -203,7 +202,7 @@ export default function PaulPage() {
           </div>
           {expandedKpi !== null && (
             <div
-              className="mx-auto mt-4 max-w-3xl border-t pt-4"
+              className="mx-auto mt-5 max-w-3xl border-t pt-5"
               style={{ borderColor: "var(--ros-border)" }}
             >
               <KpiProofBlock metric={HERO_METRICS[expandedKpi]} />
@@ -228,7 +227,7 @@ export default function PaulPage() {
         {/* CONTACT / CTA */}
         <footer className="border-t pb-4 pt-8 text-center" style={{ borderColor: "var(--ros-border)" }}>
           <p
-            className="resume-label text-[10px] tracking-[0.3em]"
+            className="text-[11px] font-semibold tracking-[0.2em] uppercase"
             style={{ color: "var(--ros-text-dim)" }}
           >
             Currently at{" "}
@@ -237,8 +236,8 @@ export default function PaulPage() {
             <span style={{ color: "var(--ros-text)" }}>Director, AI Data Platform &amp; Analytics</span>
           </p>
           <p
-            className="mt-3 text-[11px] leading-relaxed"
-            style={{ color: "var(--ros-text-dim)" }}
+            className="mt-3 text-[13px] leading-relaxed"
+            style={{ color: "var(--ros-text-muted)" }}
           >
             <a
               href="mailto:paul.malmquist@jll.com"

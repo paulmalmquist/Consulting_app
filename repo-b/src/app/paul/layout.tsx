@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import ResumeThemeInit from "./ResumeThemeInit";
 
 export const metadata: Metadata = {
   title: "Paul Malmquist — AI Data Platform Architect",
@@ -35,7 +36,8 @@ export const metadata: Metadata = {
 export default function PaulLayout({ children }: { children: React.ReactNode }) {
   // Standalone public layout — no auth shell, no DomainEnvProvider, no sidebar
   return (
-    <div className="min-h-screen" style={{ background: "var(--ros-bg, #120d08)" }}>
+    <div className="min-h-screen" style={{ background: "var(--ros-bg, #f8f5f0)" }}>
+      <ResumeThemeInit />
       {children}
     </div>
   );
