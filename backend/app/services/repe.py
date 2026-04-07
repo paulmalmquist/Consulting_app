@@ -313,6 +313,63 @@ def get_deal(*, deal_id: UUID) -> dict:
         return row
 
 
+# ── Canonical asset count definitions ─────────────────────────────────
+# These must match the page KPI logic in re_env_portfolio.py exactly.
+_ACTIVE_STATUSES = ("active", "held", "lease_up", "operating")
+_DISPOSED_STATUSES = ("disposed", "realized", "written_off")
+
+
+def count_assets(
+    *,
+    business_id: UUID,
+    fund_id: UUID | None = None,
+) -> dict[str, int]:
+    """Canonical asset counts — single source of truth for page KPIs and Winston.
+
+    Returns:
+        active: property assets with active/held/lease_up/operating status (or NULL)
+        disposed: property assets with disposed/realized/written_off status
+        pipeline: property assets with pipeline status
+        total: all property assets regardless of status
+    """
+    fund_clause = "AND d.fund_id = %s" if fund_id else ""
+    params: list[str] = [str(business_id)]
+    if fund_id:
+        params.append(str(fund_id))
+
+    with get_cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT
+              COUNT(*) FILTER (
+                WHERE a.asset_status IS NULL
+                   OR a.asset_status IN {_ACTIVE_STATUSES!r}
+              )::int AS active,
+              COUNT(*) FILTER (
+                WHERE a.asset_status IN {_DISPOSED_STATUSES!r}
+              )::int AS disposed,
+              COUNT(*) FILTER (
+                WHERE a.asset_status = 'pipeline'
+              )::int AS pipeline,
+              COUNT(*)::int AS total
+            FROM repe_asset a
+            JOIN repe_deal d ON d.deal_id = a.deal_id
+            JOIN repe_fund f ON f.fund_id = d.fund_id
+            WHERE f.business_id = %s::uuid
+              AND a.asset_type = 'property'
+              {fund_clause}
+            """,
+            params,
+        )
+        row = cur.fetchone()
+        return {
+            "active": row["active"] if row else 0,
+            "disposed": row["disposed"] if row else 0,
+            "pipeline": row["pipeline"] if row else 0,
+            "total": row["total"] if row else 0,
+        }
+
+
 def list_assets(*, deal_id: UUID) -> list[dict]:
     with get_cursor() as cur:
         cur.execute("SELECT 1 FROM repe_deal WHERE deal_id = %s", (str(deal_id),))

@@ -54,7 +54,7 @@ _ENTITY_TYPE_ENUM = ["fund", "asset", "investment", "project", "account", "oppor
 _ACTION_ENUM = [
     "summary", "detail", "holdings", "list", "rank", "metric_lookup",
     "trend", "compare", "variance", "create", "update", "explain",
-    "search", "draft_email", "unknown",
+    "search", "count", "draft_email", "unknown",
 ]
 _METRIC_ENUM = ["noi", "irr", "tvpi", "dpi", "nav", "occupancy", "ltv", "dscr", "revenue", "expenses", "ncf", "none"]
 _TIMEFRAME_ENUM = ["latest", "quarter", "ttm", "ltm", "custom", "none"]
@@ -146,6 +146,9 @@ _INTENT_MAP: dict[tuple[str, str], _IntentMapping] = {
     ("project", "summary"):    ("lookup_entity",            Lane.C_ANALYSIS, True,  False),
     ("project", "list"):       ("lookup_entity",            Lane.C_ANALYSIS, True,  False),
     ("project", "detail"):     ("lookup_entity",            Lane.C_ANALYSIS, True,  False),
+    # Count queries (fast path — precheck provides the canonical count)
+    ("fund", "count"):         ("lookup_entity",            Lane.B_LOOKUP,   True,  False),
+    ("asset", "count"):        ("lookup_entity",            Lane.B_LOOKUP,   True,  False),
 }
 
 # Wildcard fallbacks: match any entity_type
@@ -163,6 +166,7 @@ _INTENT_WILDCARD: dict[str, _IntentMapping] = {
     "metric_lookup":("explain_metric",           Lane.C_ANALYSIS, True,  False),
     "rank":         ("rank_metric",              Lane.C_ANALYSIS, True,  False),
     "trend":        ("trend_metric",             Lane.C_ANALYSIS, True,  False),
+    "count":        ("lookup_entity",            Lane.B_LOOKUP,   True,  False),
     "draft_email":  ("draft_email",              Lane.C_ANALYSIS, False, True),
     "unknown":      ("run_analysis",             Lane.C_ANALYSIS, True,  False),
 }
@@ -272,6 +276,7 @@ _ROUTER_SYSTEM_PROMPT = (
     '{"message":"NOI trend for 2025"} → {"environment":"repe","entity_type":"unknown","entity_name":null,"action":"trend","metric":"noi","timeframe_type":"custom","timeframe_value":"2025","needs_clarification":true,"clarification_field":"entity","confidence":0.78}\n'
     '{"message":"compare actual vs budget"} → {"environment":"repe","entity_type":"unknown","entity_name":null,"action":"variance","metric":"none","timeframe_type":"latest","timeframe_value":null,"needs_clarification":false,"clarification_field":"none","confidence":0.88}\n'
     '{"message":"who should I follow up with today"} → {"environment":"crm","entity_type":"account","entity_name":null,"action":"search","metric":"none","timeframe_type":"latest","timeframe_value":null,"needs_clarification":false,"clarification_field":"none","confidence":0.87}\n'
+    '{"message":"how many assets do we own"} → {"environment":"repe","entity_type":"asset","entity_name":null,"action":"count","metric":"none","timeframe_type":"latest","timeframe_value":null,"needs_clarification":false,"clarification_field":"none","confidence":0.95}\n'
 )
 
 

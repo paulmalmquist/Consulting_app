@@ -4,6 +4,7 @@ import { useState } from "react";
 import { TimelineEngine } from "@/components/resume/timeline";
 import SystemsBuiltSection from "@/components/resume/SystemsBuiltSection";
 import ResumeModuleBoundary from "@/components/resume/ResumeModuleBoundary";
+import ResumeChat from "./ResumeChat";
 
 // ---------------------------------------------------------------------------
 // KPI Data
@@ -250,6 +251,8 @@ export default function PaulPage() {
         </footer>
 
       </div>
+
+      <ResumeChat />
     </div>
   );
 }

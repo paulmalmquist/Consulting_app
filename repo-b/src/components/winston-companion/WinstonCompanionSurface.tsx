@@ -146,9 +146,20 @@ function ConversationComposer({
   } = useWinstonCompanion();
   const fileRef = useRef<HTMLInputElement | null>(null);
 
+  // Use business name or a clean label — never show raw UUIDs
+  const scopeDisplay = (() => {
+    const label = currentContext?.scopeLabel;
+    if (!label || label === "General") return null;
+    // If it looks like a UUID, use businessName instead
+    if (/^[0-9a-f]{8}-/.test(label)) {
+      return currentContext?.businessName || null;
+    }
+    return label;
+  })();
+
   const placeholder = activeState.messages.length > 0
-    ? currentContext?.scopeLabel && currentContext.scopeLabel !== "General"
-      ? `Ask about ${currentContext.scopeLabel}...`
+    ? scopeDisplay
+      ? `Ask Winston about ${scopeDisplay}...`
       : "Ask Winston..."
     : (greeting ?? "How may I be of service?");
 
@@ -515,7 +526,7 @@ function WorkspaceContent({
               </h2>
               {!drawer ? (
                 <p className="mt-1 max-w-2xl text-sm leading-6 text-bm-muted">
-                  Ask about this page, run analyses, or explore your portfolio.
+                  Ask about the portfolio, run analyses, or investigate any entity.
                 </p>
               ) : null}
             </div>

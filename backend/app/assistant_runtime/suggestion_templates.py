@@ -67,6 +67,21 @@ _SKILL_TEMPLATES: dict[str, list[dict[str, str]]] = {
     "create_entity": [
         {"type": "query", "label": "View created entity", "message": "Show me the entity I just created"},
     ],
+    "fund_summary": [
+        {"type": "query", "label": "Show holdings", "message": "What does {entity} own?"},
+        {"type": "query", "label": "Fund metrics", "message": "Show key metrics for {entity}"},
+    ],
+    "fund_holdings": [
+        {"type": "query", "label": "Rank by NOI", "message": "Rank assets in {entity} by NOI"},
+        {"type": "query", "label": "Investment status", "message": "What is the investment status for {entity}?"},
+    ],
+    "resume_qa": [
+        {"type": "query", "label": "Technical skills", "message": "What are Paul's strongest technical skills?"},
+        {"type": "query", "label": "System architecture", "message": "Describe the system architecture Paul built"},
+    ],
+    "draft_email": [
+        {"type": "query", "label": "Review draft", "message": "Show me the draft email"},
+    ],
 }
 
 

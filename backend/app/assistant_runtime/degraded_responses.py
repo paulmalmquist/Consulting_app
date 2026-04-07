@@ -2,39 +2,38 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.assistant_runtime.turn_receipts import DegradedReason
+from app.assistant_runtime.turn_receipts import DegradedReason, StructuredPrecheckReceipt
 from app.services.assistant_blocks import error_block, markdown_block, navigation_suggestion_block
 
 
 # ── Static fallback messages (last resort) ────────────────────────────
 _MESSAGES: dict[DegradedReason, str] = {
-    DegradedReason.MISSING_CONTEXT: "Context not available.",
-    DegradedReason.AMBIGUOUS_CONTEXT: "Context is ambiguous.",
+    DegradedReason.MISSING_CONTEXT: "I need more context to answer this. Specify the fund, asset, or entity name.",
+    DegradedReason.AMBIGUOUS_CONTEXT: "That reference is ambiguous. Which entity are you referring to?",
     DegradedReason.TOOL_DENIED: "The requested action is not allowed in the current mode.",
     DegradedReason.TOOL_FAILED: "A required tool failed during execution.",
-    DegradedReason.RETRIEVAL_EMPTY: "Not available in the current context.",
-    DegradedReason.NO_SKILL_MATCH: "Winston could not determine the task type for this request.",
+    DegradedReason.RETRIEVAL_EMPTY: "That data is not available in the environment.",
+    DegradedReason.NO_SKILL_MATCH: "I'm not sure how to handle this request. Try asking about a metric, entity, or action.",
     DegradedReason.NO_RESPONSE: "I wasn't able to generate a response for this request.",
 }
 
 # Intent-specific fallback messages keyed by skill_id.
-# When the LLM returns empty content, these provide a useful degraded response
-# instead of a generic apology.
 _SKILL_FALLBACKS: dict[str, str] = {
-    "fund_summary": "I can list the funds in this environment. Try asking 'list all funds' or navigate to the funds page.",
-    "fund_metrics": "I can look up fund metrics if you specify the fund name and quarter. Try 'fund metrics for [fund name], [quarter]'.",
-    "asset_metrics": "I can look up asset metrics. Specify the asset name and metric — for example, 'NOI for [asset name]'.",
-    "asset_ranking": "I can rank assets by a specific metric. Try 'rank assets by NOI' or 'best performing assets by occupancy'.",
-    "rank_metric": "I can rank assets by a specific metric. Try 'rank assets by NOI' or 'best performing assets by occupancy'.",
-    "explain_metric": "I can look up specific metrics. Try naming the entity and metric — for example, 'NOI for [asset name]' or 'IRR for [fund name]'.",
+    "fund_summary": "I can list the funds in this environment. Try 'list all funds' or name a specific fund.",
+    "fund_metrics": "I can look up fund metrics. Specify the fund name and quarter — e.g., 'fund metrics for [fund], [quarter]'.",
+    "fund_holdings": "This fund has no recorded holdings. You can explore pipeline deals, target sectors, or add assets.",
+    "asset_metrics": "I can look up asset metrics. Specify the asset name and metric — e.g., 'NOI for [asset name]'.",
+    "asset_ranking": "I can rank assets by a specific metric. Try 'rank assets by NOI' or 'best performing assets'.",
+    "rank_metric": "I can rank assets by a specific metric. Try 'rank assets by NOI' or 'best performing assets'.",
+    "explain_metric": "I can look up specific metrics. Name the entity and metric — e.g., 'NOI for [asset]' or 'IRR for [fund]'.",
     "explain_metric_variance": "I can explain variances when budget or underwriting data is available. This environment may not have comparison data loaded yet.",
     "resume_qa": "I can answer questions about Paul's career, skills, and experience. Try asking about a specific role or time period.",
     "run_analysis": "I can analyze data in this environment. Try asking about a specific metric, entity, or time period.",
-    "budget_variance": "I can explain budget variances if you specify the project. Try 'budget variance for [project name]'.",
-    "create_entity": "I can help create new entities. Specify what you'd like to create — for example, 'create a new fund named [name]'.",
-    "project_risk": "I can show at-risk projects. Try 'which projects are at risk?' or specify a project name.",
-    "lookup_entity": "I can look up entities in this environment. Try asking about a specific fund, asset, account, or project by name.",
-    "fund_holdings": "This fund currently has no recorded holdings in the system. You can explore pipeline deals, target sectors, or add assets to build the portfolio.",
+    "budget_variance": "I can explain budget variances. Specify the project — e.g., 'budget variance for [project name]'.",
+    "create_entity": "I can help create new entities. Specify what — e.g., 'create a new fund named [name]'.",
+    "project_risk": "I can show at-risk projects. Try 'which projects are at risk?' or name a project.",
+    "lookup_entity": "I can look up entities in this environment. Try asking about a specific fund, asset, or project by name.",
+    "draft_email": "I can draft outreach emails. Specify the recipient and purpose.",
 }
 
 
@@ -48,6 +47,25 @@ def degraded_blocks(reason: DegradedReason) -> list[dict]:
         markdown_block(message),
         error_block(message=message, title="Deterministic runtime degraded", recoverable=True),
     ]
+
+
+# ── Investigation note (one-liner from precheck receipts) ────────────
+
+def investigation_note(prechecks: list[StructuredPrecheckReceipt] | None) -> str:
+    """Format a one-line 'Checked: X, Y, Z.' from precheck receipts.
+
+    Returns empty string if no prechecks ran or list is empty.
+    """
+    if not prechecks:
+        return ""
+    checked = [
+        pc.name.replace("_", " ")
+        for pc in prechecks
+        if pc.status not in ("unavailable",)
+    ]
+    if not checked:
+        return ""
+    return "Checked: " + ", ".join(checked) + "."
 
 
 # ── Context-aware fallback ────────────────────────────────────────────
@@ -68,9 +86,10 @@ def _navigation_suggestions_for_reason(
     env_id: str | None = None,
     skill_id: str | None = None,
 ) -> list[dict[str, str]]:
-    """Generate contextual navigation suggestions based on degraded reason and entity context."""
+    """Generate contextual suggestions based on degraded reason and entity context."""
     suggestions: list[dict[str, str]] = []
 
+    # One navigation suggestion max
     if reason == DegradedReason.RETRIEVAL_EMPTY:
         if entity_type == "fund" and entity_id and env_id:
             suggestions.append({
@@ -82,41 +101,22 @@ def _navigation_suggestions_for_reason(
                 "label": f"View {entity_name or 'Asset'} detail",
                 "path": f"/lab/env/{env_id}/re/assets/{entity_id}",
             })
-        elif env_id:
-            suggestions.append({
-                "label": "View environment dashboard",
-                "path": f"/lab/env/{env_id}/re",
-            })
 
-    if reason == DegradedReason.MISSING_CONTEXT:
-        if env_id:
-            suggestions.append({
-                "label": "Browse funds",
-                "path": f"/lab/env/{env_id}/re/funds",
-            })
-            suggestions.append({
-                "label": "Browse assets",
-                "path": f"/lab/env/{env_id}/re/assets",
-            })
-
-    # Always suggest related queries when we have entity context
-    related_queries: list[dict[str, str]] = []
-    if entity_name:
-        related_queries.append({
+    # Up to two query suggestions based on entity context
+    if entity_name and entity_type == "fund":
+        suggestions.append({
             "type": "query",
-            "label": "List all funds in this environment",
-            "message": "How many funds are in this environment?",
+            "label": f"Show holdings for {entity_name}",
+            "message": f"What does {entity_name} own?",
         })
-        if entity_type == "fund":
-            related_queries.append({
-                "type": "query",
-                "label": f"Show assets in {entity_name}",
-                "message": f"What assets are in {entity_name}?",
-            })
-    if related_queries:
-        suggestions.extend(related_queries)
+    elif entity_name:
+        suggestions.append({
+            "type": "query",
+            "label": f"Show metrics for {entity_name}",
+            "message": f"What are the key metrics for {entity_name}?",
+        })
 
-    return suggestions
+    return suggestions[:3]
 
 
 def _build_context_message(
@@ -125,47 +125,42 @@ def _build_context_message(
     entity_type: str | None = None,
     entity_name: str | None = None,
     skill_id: str | None = None,
+    prechecks: list[StructuredPrecheckReceipt] | None = None,
 ) -> str:
-    """Build a human-readable degraded message that includes entity context."""
+    """Build a human-readable degraded message with entity context and investigation note."""
     entity_label = _entity_label(entity_type, entity_name)
+    note = investigation_note(prechecks)
+    suffix = f" {note}" if note else ""
 
     if reason == DegradedReason.RETRIEVAL_EMPTY:
         if entity_label and skill_id:
             skill_display = skill_id.replace("_", " ")
             return (
-                f"I wasn't able to find the data needed to {skill_display} for {entity_label}. "
-                f"This may mean the data hasn't been loaded yet, or the entity doesn't have records for this metric."
+                f"The data needed to {skill_display} for {entity_label} "
+                f"is not available in the environment data.{suffix}"
             )
         if entity_label:
             return (
-                f"I wasn't able to retrieve data for {entity_label}. "
-                f"The entity exists but may not have the specific records needed to answer."
+                f"No matching records found for {entity_label} in available data.{suffix}"
             )
-        return "I wasn't able to find relevant data for this request. Try navigating to a specific entity page or naming the entity directly."
+        return f"No relevant data found for this request. Specify the entity name directly.{suffix}"
 
     if reason == DegradedReason.MISSING_CONTEXT:
-        return (
-            "I need more context to answer this question. "
-            "Try naming a specific fund, asset, or entity, or navigate to an entity page."
-        )
+        return f"I need more context. Specify the fund, asset, or entity name.{suffix}"
 
     if reason == DegradedReason.AMBIGUOUS_CONTEXT:
-        return (
-            "Your question is ambiguous in the current context. "
-            "Could you specify which entity you're referring to?"
-        )
+        return f"That reference is ambiguous. Which entity are you referring to?{suffix}"
 
     if reason == DegradedReason.NO_SKILL_MATCH:
         return (
-            "I'm not sure how to handle this type of request. "
-            "Try asking about a specific metric, entity, or use a phrase like "
-            "'show me', 'compare', 'trend', or 'explain'."
+            "I'm not sure how to handle this request. "
+            "Try asking about a metric, entity, or use a phrase like 'show me', 'compare', or 'trend'."
         )
 
     if reason == DegradedReason.NO_RESPONSE:
         if skill_id and skill_id in _SKILL_FALLBACKS:
-            return _SKILL_FALLBACKS[skill_id]
-        return "I wasn't able to generate a response for this request. Try rephrasing or specifying more context."
+            return f"{_SKILL_FALLBACKS[skill_id]}{suffix}"
+        return f"I wasn't able to generate a response. Try rephrasing or specifying more context.{suffix}"
 
     return _MESSAGES[reason]
 
@@ -178,8 +173,9 @@ def degraded_blocks_with_context(
     entity_name: str | None = None,
     env_id: str | None = None,
     skill_id: str | None = None,
+    prechecks: list[StructuredPrecheckReceipt] | None = None,
 ) -> tuple[list[dict[str, Any]], str]:
-    """Generate context-aware degraded blocks with navigation suggestions.
+    """Generate context-aware degraded blocks with suggestions.
 
     Returns (blocks, message_text).
     """
@@ -188,6 +184,7 @@ def degraded_blocks_with_context(
         entity_type=entity_type,
         entity_name=entity_name,
         skill_id=skill_id,
+        prechecks=prechecks,
     )
 
     blocks: list[dict[str, Any]] = [
@@ -219,11 +216,9 @@ def empty_response_fallback(
     entity_id: str | None = None,
     entity_name: str | None = None,
     env_id: str | None = None,
+    prechecks: list[StructuredPrecheckReceipt] | None = None,
 ) -> tuple[list[dict[str, Any]], str]:
-    """Safety-net fallback when the LLM produces empty content and no response blocks.
-
-    Uses intent-specific messages when possible. Never returns an empty response.
-    """
+    """Safety-net fallback when the LLM produces empty content and no response blocks."""
     return degraded_blocks_with_context(
         DegradedReason.NO_RESPONSE,
         entity_type=entity_type,
@@ -231,4 +226,5 @@ def empty_response_fallback(
         entity_name=entity_name,
         env_id=env_id,
         skill_id=skill_id,
+        prechecks=prechecks,
     )

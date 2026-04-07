@@ -1,22 +1,65 @@
 """Resume AI Chat — SSE streaming endpoint for resume-scoped conversations.
 
-Accepts messages, streams responses using the AI gateway with resume context.
-Uses Vercel AI SDK Data Stream Protocol format.
+Public endpoint — no authentication required.
+Mode: public_resume (enforced server-side).
+Rate limit: 10 requests/minute per IP (token bucket).
+Persona: advocate, persuasive, no citations.
 """
 from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+import re
+import time
+from dataclasses import dataclass, field
+from typing import Any, Literal
 
 from fastapi import APIRouter, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/resume/v1/chat", tags=["resume-chat"])
 
+
+# ---------------------------------------------------------------------------
+# Per-IP rate limiting (token bucket, 10 RPM)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class _Bucket:
+    capacity: int = 10
+    tokens: float = 10.0
+    refill_rate: float = 10 / 60.0  # tokens per second
+    last_refill: float = field(default_factory=time.monotonic)
+
+    def consume(self) -> float | None:
+        """Consume one token. Returns retry_after seconds if exhausted, else None."""
+        now = time.monotonic()
+        elapsed = now - self.last_refill
+        self.tokens = min(self.capacity, self.tokens + elapsed * self.refill_rate)
+        self.last_refill = now
+        if self.tokens < 1:
+            return (1 - self.tokens) / self.refill_rate
+        self.tokens -= 1
+        return None
+
+
+_ip_buckets: dict[str, _Bucket] = {}
+
+
+def _check_rate_limit(request: Request) -> float | None:
+    """Return retry_after seconds if rate-limited, else None."""
+    forwarded = request.headers.get("x-forwarded-for", "")
+    ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
+    bucket = _ip_buckets.setdefault(ip, _Bucket())
+    return bucket.consume()
+
+
+# ---------------------------------------------------------------------------
+# Request / Response models
+# ---------------------------------------------------------------------------
 
 class ChatMessage(BaseModel):
     role: str
@@ -25,8 +68,7 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
-    env_id: str
-    business_id: str
+    mode: Literal["public_resume"] = "public_resume"
 
 
 SUGGESTED_QUESTIONS = [
@@ -35,9 +77,13 @@ SUGGESTED_QUESTIONS = [
     "Compare the Kayne Anderson and JLL deployments",
     "What's the ROI on the automation work?",
     "How does Winston's AI layer work?",
-    "What would Paul build for our firm?",
+    "Should I hire Paul?",
 ]
 
+
+# ---------------------------------------------------------------------------
+# SSE helpers
+# ---------------------------------------------------------------------------
 
 def _sse_text(text: str) -> str:
     """Format as Vercel AI SDK text stream token."""
@@ -49,7 +95,28 @@ def _sse_data(data: dict[str, Any]) -> str:
     return f"2:{json.dumps([data])}\n"
 
 
-# Pre-built knowledge base for common questions (deterministic, no LLM needed)
+# ---------------------------------------------------------------------------
+# Persona enforcement — strip citations, ensure advocate framing
+# ---------------------------------------------------------------------------
+
+_CITATION_PATTERN = re.compile(
+    r"\[\d+\]"           # [1], [2], ...
+    r"|\(source:[^)]*\)" # (source: ...)
+    r"|\^(\d+)"          # ^1
+    r"|\bfootnote\b",    # literal "footnote"
+    re.IGNORECASE,
+)
+
+
+def _format_public_resume_response(text: str) -> str:
+    """Strip citation markers. Knowledge entries are pre-written in advocate tone."""
+    return _CITATION_PATTERN.sub("", text).strip()
+
+
+# ---------------------------------------------------------------------------
+# Pre-built knowledge base (deterministic — no LLM)
+# ---------------------------------------------------------------------------
+
 _KNOWLEDGE: dict[str, str] = {
     "architecture": (
         "## System Architecture\n\n"
@@ -65,16 +132,16 @@ _KNOWLEDGE: dict[str, str] = {
     ),
     "data_platform": (
         "## Data Platform Deployments\n\n"
-        "Paul has deployed data platforms across three organizations:\n\n"
-        "**Kayne Anderson** ($4B+ AUM)\n"
+        "Paul has deployed production data platforms across three organizations:\n\n"
+        "**Kayne Anderson** ($4B+ AUM) — joined 2018\n"
         "- Databricks Lakehouse with Delta Lake and Unity Catalog\n"
         "- Integrated DealCloud, MRI, Yardi, and Excel sources\n"
         "- 500+ properties, 75% reduction in manual reconciliation\n\n"
-        "**JLL PDS** (Enterprise)\n"
+        "**JLL PDS** (Enterprise) — joined 2023\n"
         "- Databricks with Medallion architecture (Bronze/Silver/Gold)\n"
         "- OpenAI conversational wrappers for analyst self-service\n"
         "- Standardized methodologies across 10+ client accounts\n\n"
-        "**Novendor / Winston**\n"
+        "**Novendor / Winston** — 2024–present\n"
         "- PostgreSQL + pgvector for production AI workloads\n"
         "- Sub-second vector similarity search for RAG\n"
         "- 83 MCP tool operations against structured data"
@@ -140,26 +207,46 @@ _KNOWLEDGE: dict[str, str] = {
         "This is the same playbook that reduced DDQ response time by 50% at Kayne "
         "and standardized reporting across 10+ accounts at JLL."
     ),
+    "hire": (
+        "## Why Hire Paul\n\n"
+        "Paul is a rare combination of deep technical execution and strategic architecture. "
+        "He ships production AI and data systems — not prototypes — at $4B+ AUM scale.\n\n"
+        "- Built and owns a full-stack AI platform (Winston) from scratch, including LLM gateway, "
+        "RAG pipeline, 83 MCP tools, and a real-time SSE streaming layer\n"
+        "- Reduced reporting cycles by 10 days and automated 160+ hrs/month of analyst work at Kayne Anderson\n"
+        "- Led offshore data engineering teams and built high-leverage analytics orgs from zero at JLL\n"
+        "- Designs for governance and auditability first — every tool invocation is audited, "
+        "every data contract is explicit\n"
+        "- 11 years of compounding investment data systems: from BI service lines to AI-powered fund analytics\n\n"
+        "If your firm needs someone who can build an AI data platform that actually runs in production, "
+        "Paul has done exactly that — twice — at firms with real AUM on the line."
+    ),
 }
 
 
 def _match_knowledge(question: str) -> str | None:
-    """Match a question to pre-built knowledge."""
+    """Match a question to pre-built knowledge. Returns None if no match."""
     q = question.lower()
     if any(w in q for w in ["architecture", "system", "layers", "walk me through"]):
         return _KNOWLEDGE["architecture"]
-    if any(w in q for w in ["data platform", "databricks", "azure", "deployed"]):
+    if any(w in q for w in ["data platform", "databricks", "azure", "deployed", "when did", "start at", "kayne", "career", "timeline"]):
         return _KNOWLEDGE["data_platform"]
-    if any(w in q for w in ["compare", "kayne", "jll", "vs"]):
+    if any(w in q for w in ["compare", "jll", "vs", "versus", "difference"]):
         return _KNOWLEDGE["comparison"]
-    if any(w in q for w in ["roi", "automation", "hours", "saved", "return"]):
+    if any(w in q for w in ["roi", "automation", "hours", "saved", "return", "impact", "results"]):
         return _KNOWLEDGE["roi"]
-    if any(w in q for w in ["winston", "ai layer", "mcp", "rag", "llm"]):
+    if any(w in q for w in ["winston", "ai layer", "mcp", "rag", "llm", "how does"]):
         return _KNOWLEDGE["winston"]
-    if any(w in q for w in ["build", "our firm", "hire", "would"]):
+    if any(w in q for w in ["should i hire", "hire paul", "why hire", "recommend", "good fit", "right person"]):
+        return _KNOWLEDGE["hire"]
+    if any(w in q for w in ["build", "our firm", "would paul", "what would"]):
         return _KNOWLEDGE["build"]
     return None
 
+
+# ---------------------------------------------------------------------------
+# Stream generator
+# ---------------------------------------------------------------------------
 
 async def _stream_chat(req: ChatRequest):
     """Generator that yields SSE events for the chat response."""
@@ -170,30 +257,43 @@ async def _stream_chat(req: ChatRequest):
             break
 
     if not user_message:
-        yield _sse_text("Ask me anything about Paul's systems, architecture, or deployment history.")
+        yield _sse_text("Ask me anything about Paul's background, systems, or hiring fit.")
         return
 
-    # Try deterministic knowledge match first
     knowledge = _match_knowledge(user_message)
     if knowledge:
-        yield _sse_text(knowledge)
+        yield _sse_text(_format_public_resume_response(knowledge))
         return
 
-    # Fallback: general response
+    # Fallback — scope-restricted response
     yield _sse_text(
-        "I can answer questions about Paul's **system architecture**, **data platforms**, "
-        "**deployment history**, **ROI metrics**, and **what he'd build for your firm**.\n\n"
-        "Try asking:\n"
-        "- \"Walk me through the system architecture\"\n"
-        "- \"What's the ROI on the automation work?\"\n"
-        "- \"Compare the Kayne Anderson and JLL deployments\"\n"
-        "- \"How does Winston's AI layer work?\""
+        _format_public_resume_response(
+            "I can answer questions about Paul's **system architecture**, **data platforms**, "
+            "**deployment history**, **ROI metrics**, **hiring fit**, and **what he'd build for your firm**.\n\n"
+            "Try asking:\n"
+            "- \"Should I hire Paul?\"\n"
+            "- \"When did Paul start at Kayne Anderson?\"\n"
+            "- \"What's the ROI on the automation work?\"\n"
+            "- \"Walk me through the system architecture\""
+        )
     )
 
 
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
 @router.post("")
 async def chat(request: Request, req: ChatRequest):
-    """SSE streaming chat endpoint for resume AI conversations."""
+    """SSE streaming chat endpoint for public resume conversations."""
+    retry_after = _check_rate_limit(request)
+    if retry_after is not None:
+        return JSONResponse(
+            status_code=429,
+            content={"error": "Rate limit exceeded"},
+            headers={"Retry-After": str(int(retry_after) + 1)},
+        )
+
     return StreamingResponse(
         _stream_chat(req),
         media_type="text/event-stream",

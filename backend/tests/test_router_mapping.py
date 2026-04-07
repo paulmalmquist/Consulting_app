@@ -96,6 +96,22 @@ class TestIntentMapping:
         assert skill == "draft_email"
         assert write is True
 
+    # Count (fast path)
+    def test_asset_count(self):
+        skill, lane, *_ = _map_intent_to_skill(_intent(entity_type="asset", action="count"))
+        assert skill == "lookup_entity"
+        assert lane == Lane.B_LOOKUP
+
+    def test_fund_count(self):
+        skill, lane, *_ = _map_intent_to_skill(_intent(entity_type="fund", action="count"))
+        assert skill == "lookup_entity"
+        assert lane == Lane.B_LOOKUP
+
+    def test_wildcard_count(self):
+        skill, lane, *_ = _map_intent_to_skill(_intent(entity_type="unknown", action="count"))
+        assert skill == "lookup_entity"
+        assert lane == Lane.B_LOOKUP
+
     # Wildcards
     def test_wildcard_variance(self):
         skill, *_ = _map_intent_to_skill(_intent(entity_type="asset", action="variance"))
@@ -192,6 +208,8 @@ class TestSimulatedRouterToSkill:
         ("create a new fund", "fund", "create", "create_entity"),
         ("who should I follow up with", "account", "search", "lookup_entity"),
         ("draft an outreach email", "person", "draft_email", "draft_email"),
+        ("how many assets do we own", "asset", "count", "lookup_entity"),
+        ("how many funds", "fund", "count", "lookup_entity"),
     ])
     def test_router_output_maps_correctly(self, prompt, entity_type, action, expected_skill):
         intent = _intent(entity_type=entity_type, action=action)

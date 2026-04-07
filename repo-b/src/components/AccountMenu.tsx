@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { LogOut, Moon, Settings, Sun, User } from "lucide-react";
+import Link from "next/link";
+import { Home, LogOut, Moon, Settings, Sun, User } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { logoutPlatformSession } from "@/lib/platformSessionClient";
 import {
@@ -11,7 +12,13 @@ import {
   type ThemeMode,
 } from "@/lib/theme";
 
-export default function AccountMenu({ className }: { className?: string }) {
+export default function AccountMenu({
+  className,
+  homePath = "/app",
+}: {
+  className?: string;
+  homePath?: string;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<ThemeMode>("dark");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -59,19 +66,42 @@ export default function AccountMenu({ className }: { className?: string }) {
       {isOpen && (
         <div
           role="menu"
-          className="absolute right-0 top-[calc(100%+8px)] z-50 min-w-[188px] overflow-hidden rounded-2xl border border-white/12 bg-[rgba(8,10,15,0.96)] shadow-2xl backdrop-blur-xl"
+          className="absolute right-0 top-[calc(100%+8px)] z-50 min-w-[188px] overflow-hidden rounded-2xl shadow-2xl backdrop-blur-xl"
+          style={{
+            background: "hsl(var(--bm-surface) / 0.97)",
+            border: "1px solid hsl(var(--bm-border) / 0.14)",
+          }}
         >
+          {/* Home */}
+          <Link
+            href={homePath}
+            role="menuitem"
+            onClick={() => setIsOpen(false)}
+            className="flex w-full items-center gap-3 px-4 py-3 text-sm transition-colors duration-100"
+            style={{ color: "hsl(var(--bm-text-muted))" }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "hsl(var(--bm-border) / 0.08)"; e.currentTarget.style.color = "hsl(var(--bm-text))"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = ""; e.currentTarget.style.color = "hsl(var(--bm-text-muted))"; }}
+          >
+            <Home size={15} strokeWidth={1.75} className="shrink-0" style={{ color: "hsl(var(--bm-text-muted-2))" }} />
+            <span>Home</span>
+          </Link>
+
+          <div className="mx-3 my-1" style={{ borderTop: "1px solid hsl(var(--bm-border) / 0.10)" }} />
+
           {/* Theme toggle */}
           <button
             type="button"
             role="menuitem"
             onClick={toggleTheme}
-            className="flex w-full items-center gap-3 px-4 py-3 text-sm text-white/80 transition-colors duration-100 hover:bg-white/[0.07] hover:text-white"
+            className="flex w-full items-center gap-3 px-4 py-3 text-sm transition-colors duration-100"
+            style={{ color: "hsl(var(--bm-text-muted))" }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "hsl(var(--bm-border) / 0.08)"; e.currentTarget.style.color = "hsl(var(--bm-text))"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = ""; e.currentTarget.style.color = "hsl(var(--bm-text-muted))"; }}
           >
             {mode === "dark" ? (
-              <Sun size={15} strokeWidth={1.75} className="shrink-0 text-white/52" />
+              <Sun size={15} strokeWidth={1.75} className="shrink-0" style={{ color: "hsl(var(--bm-text-muted-2))" }} />
             ) : (
-              <Moon size={15} strokeWidth={1.75} className="shrink-0 text-white/52" />
+              <Moon size={15} strokeWidth={1.75} className="shrink-0" style={{ color: "hsl(var(--bm-text-muted-2))" }} />
             )}
             <span>{mode === "dark" ? "Light mode" : "Dark mode"}</span>
           </button>
@@ -81,23 +111,27 @@ export default function AccountMenu({ className }: { className?: string }) {
             type="button"
             role="menuitem"
             disabled
-            className="flex w-full cursor-not-allowed items-center gap-3 px-4 py-3 text-sm text-white/32"
+            className="flex w-full cursor-not-allowed items-center gap-3 px-4 py-3 text-sm"
+            style={{ color: "hsl(var(--bm-text-muted-2) / 0.5)" }}
           >
             <Settings size={15} strokeWidth={1.75} className="shrink-0" />
             <span>Settings</span>
-            <span className="ml-auto text-[10px] uppercase tracking-[0.14em] text-white/26">Soon</span>
+            <span className="ml-auto text-[10px] uppercase tracking-[0.14em]" style={{ color: "hsl(var(--bm-text-muted-2) / 0.4)" }}>Soon</span>
           </button>
 
-          <div className="mx-3 my-1 border-t border-white/10" />
+          <div className="mx-3 my-1" style={{ borderTop: "1px solid hsl(var(--bm-border) / 0.10)" }} />
 
           {/* Sign out */}
           <button
             type="button"
             role="menuitem"
             onClick={() => void logoutPlatformSession()}
-            className="flex w-full items-center gap-3 px-4 py-3 text-sm text-white/80 transition-colors duration-100 hover:bg-white/[0.07] hover:text-white"
+            className="flex w-full items-center gap-3 px-4 py-3 text-sm transition-colors duration-100"
+            style={{ color: "hsl(var(--bm-text-muted))" }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "hsl(var(--bm-border) / 0.08)"; e.currentTarget.style.color = "hsl(var(--bm-text))"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = ""; e.currentTarget.style.color = "hsl(var(--bm-text-muted))"; }}
           >
-            <LogOut size={15} strokeWidth={1.75} className="shrink-0 text-white/52" />
+            <LogOut size={15} strokeWidth={1.75} className="shrink-0" style={{ color: "hsl(var(--bm-text-muted-2))" }} />
             <span>Sign out</span>
           </button>
         </div>

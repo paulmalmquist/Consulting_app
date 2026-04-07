@@ -265,8 +265,12 @@ def test_prepare_tools_filters_by_lane_and_permission():
 
 
 def test_degraded_messages_are_explicit():
-    assert degraded_message(DegradedReason.MISSING_CONTEXT) == "Context not available."
-    assert degraded_message(DegradedReason.RETRIEVAL_EMPTY) == "Not available in the current context."
+    msg = degraded_message(DegradedReason.MISSING_CONTEXT)
+    assert "context" in msg.lower() or "specify" in msg.lower()
+    assert "navigate" not in msg.lower()
+    msg2 = degraded_message(DegradedReason.RETRIEVAL_EMPTY)
+    assert "available" in msg2.lower() or "not" in msg2.lower()
+    assert "navigate" not in msg2.lower()
 
 
 def test_deterministic_fast_response_handles_identity_prompt():

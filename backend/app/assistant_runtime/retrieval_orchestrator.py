@@ -18,10 +18,10 @@ from app.config import RAG_MIN_SCORE, RAG_OVERFETCH, RAG_TOP_K
 from app.mcp.auth import McpContext
 from app.mcp.schemas.novendor_tools import ListTasksDueTodayInput
 from app.mcp.schemas.repe_analysis_tools import NoiVarianceInput
-from app.mcp.schemas.repe_tools import ListFundsInput
+from app.mcp.schemas.repe_tools import ListDealsInput, ListFundsInput
 from app.mcp.tools.novendor_tools import _list_tasks_due_today
 from app.mcp.tools.repe_analysis_tools import _noi_variance
-from app.mcp.tools.repe_tools import _list_funds
+from app.mcp.tools.repe_tools import _list_deals, _list_funds
 from app.services.rag_indexer import RetrievedChunk, semantic_search
 from app.services.rag_reranker import rerank_chunks
 from app.services.request_router import RouteDecision
@@ -35,6 +35,15 @@ _FUND_SUMMARY_RE = re.compile(
 )
 _FUND_HOLDINGS_RE = re.compile(
     r"\b(holdings?|breakdown|(?:assets?\s+in|what\s+does\s+it\s+own|portfolio\s+composition|underlying))\b",
+    re.IGNORECASE,
+)
+_COUNT_QUERY_RE = re.compile(
+    r"\b(how\s+many|count|number\s+of|total)\b.*\b(assets?|properties|funds?|investments?|deals?)\b",
+    re.IGNORECASE,
+)
+_FUND_INVESTMENT_RE = re.compile(
+    r"\b(invest(?:ment|ed|ing|ments)?|deal|disposition|exit(?:ed)?|"
+    r"acquisition|realized|unrealized|status)\b",
     re.IGNORECASE,
 )
 
@@ -545,6 +554,147 @@ def _fund_holdings_precheck(
         )
 
 
+def _asset_count_precheck(
+    *,
+    message: str,
+    business_uuid: uuid.UUID | None,
+    env_id: str | None,
+    entity_type: str | None,
+    entity_id: str | None,
+) -> StructuredRetrievalResult:
+    """Fast path for count questions — uses canonical count_assets() from repe service."""
+    if business_uuid is None or not _COUNT_QUERY_RE.search(message or ""):
+        return StructuredRetrievalResult()
+
+    try:
+        from app.services.repe import count_assets
+
+        fund_uuid = uuid.UUID(entity_id) if entity_type == "fund" and entity_id else None
+        counts = count_assets(business_id=business_uuid, fund_id=fund_uuid)
+
+        scope = f"fund {entity_id[:8]}..." if fund_uuid else "portfolio"
+        lines = [
+            f"ASSET COUNTS ({scope}):",
+            f"  Active assets: {counts['active']}",
+            f"  Disposed assets: {counts['disposed']}",
+            f"  Pipeline assets: {counts['pipeline']}",
+            f"  Total property assets (all statuses): {counts['total']}",
+            "",
+            "Definition: 'Active' includes status = active, held, lease_up, operating, or NULL (legacy).",
+            "Excludes CMBS and non-property assets. Matches the page KPI definition.",
+        ]
+
+        return StructuredRetrievalResult(
+            context_text="\n".join(lines),
+            result_count=counts["total"],
+            prechecks=[
+                StructuredPrecheckReceipt(
+                    name="asset_count",
+                    source="repe.count_assets",
+                    status=StructuredPrecheckStatus.OK,
+                    scoped=True,
+                    result_count=counts["total"],
+                    evidence=counts,
+                )
+            ],
+            top_hits=[counts],
+            strategy_suffix="asset_count",
+        )
+    except Exception as exc:
+        return StructuredRetrievalResult(
+            prechecks=[
+                StructuredPrecheckReceipt(
+                    name="asset_count",
+                    source="repe.count_assets",
+                    status=StructuredPrecheckStatus.ERROR,
+                    error=str(exc)[:500],
+                )
+            ],
+        )
+
+
+def _fund_investment_precheck(
+    *,
+    message: str,
+    business_uuid: uuid.UUID | None,
+    env_id: str | None,
+    entity_type: str | None,
+    entity_id: str | None,
+) -> StructuredRetrievalResult:
+    """Fetch investments (deals) for a fund when investment-related query detected."""
+    if business_uuid is None or entity_type != "fund" or not entity_id:
+        return StructuredRetrievalResult()
+    if not _FUND_INVESTMENT_RE.search(message or ""):
+        return StructuredRetrievalResult()
+
+    try:
+        ctx = _structured_ctx(
+            business_id=str(business_uuid),
+            env_id=env_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+        )
+        result = _list_deals(ctx, ListDealsInput(fund_id=uuid.UUID(entity_id)))
+        deals = result.get("deals", [])
+        total = result.get("total", 0)
+
+        if not deals:
+            return StructuredRetrievalResult(
+                prechecks=[
+                    StructuredPrecheckReceipt(
+                        name="fund_investments",
+                        source="repe.list_deals",
+                        status=StructuredPrecheckStatus.EMPTY,
+                        scoped=True,
+                        result_count=0,
+                        notes=["No investments found for this fund."],
+                    )
+                ],
+                empty_reason="no_investments_found",
+            )
+
+        lines = [f"FUND INVESTMENTS ({total} deals):"]
+        for deal in deals[:10]:
+            name = deal.get("name") or "Unnamed"
+            status = deal.get("status") or ""
+            committed = deal.get("committed_equity") or ""
+            parts = [name]
+            if status:
+                parts.append(f"status={status}")
+            if committed:
+                parts.append(f"committed=${committed:,.0f}" if isinstance(committed, (int, float)) else f"committed={committed}")
+            lines.append("  - " + " | ".join(parts))
+
+        return StructuredRetrievalResult(
+            context_text="\n".join(lines),
+            result_count=total,
+            prechecks=[
+                StructuredPrecheckReceipt(
+                    name="fund_investments",
+                    source="repe.list_deals",
+                    status=StructuredPrecheckStatus.OK,
+                    scoped=True,
+                    result_count=total,
+                )
+            ],
+            top_hits=[{"name": d.get("name"), "status": d.get("status")} for d in deals[:5]],
+            strategy_suffix="fund_investments",
+        )
+    except Exception as exc:
+        return StructuredRetrievalResult(
+            prechecks=[
+                StructuredPrecheckReceipt(
+                    name="fund_investments",
+                    source="repe.list_deals",
+                    status=StructuredPrecheckStatus.ERROR,
+                    error=str(exc)[:500],
+                    notes=["Fund investment precheck failed."],
+                )
+            ],
+            empty_reason="structured_precheck_error",
+        )
+
+
 def _run_structured_prechecks(
     *,
     message: str,
@@ -582,7 +732,22 @@ def _run_structured_prechecks(
         entity_id=entity_id,
     )
 
-    all_results = [novendor, meridian, fund_summary, fund_holdings]
+    fund_investments = _fund_investment_precheck(
+        message=message,
+        business_uuid=business_uuid,
+        env_id=env_id,
+        entity_type=entity_type,
+        entity_id=entity_id,
+    )
+    asset_count = _asset_count_precheck(
+        message=message,
+        business_uuid=business_uuid,
+        env_id=env_id,
+        entity_type=entity_type,
+        entity_id=entity_id,
+    )
+
+    all_results = [novendor, meridian, fund_summary, fund_holdings, fund_investments, asset_count]
     prechecks = [pc for r in all_results for pc in r.prechecks]
     context_text = _merge_context_parts([r.context_text for r in all_results])
     top_hits = [hit for r in all_results for hit in r.top_hits][:5]

@@ -170,7 +170,16 @@ def _list_assets(ctx: McpContext, inp: ListAssetsInput) -> dict:
                     "fund_id": fund_uuid,
                 }
             )
-    return {"assets": _serialize(assets), "total": len(assets)}
+    # Include canonical counts so Winston's numbers match the page KPIs
+    business_id = _resolve_business_id(inp, ctx)
+    try:
+        counts = repe.count_assets(business_id=business_id, fund_id=fund_uuid)
+    except Exception:
+        counts = None
+    result: dict = {"assets": _serialize(assets), "total": len(assets)}
+    if counts:
+        result["canonical_counts"] = counts
+    return result
 
 
 def _get_asset(ctx: McpContext, inp: GetAssetInput) -> dict:
