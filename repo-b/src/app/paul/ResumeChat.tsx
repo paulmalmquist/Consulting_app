@@ -10,7 +10,7 @@ interface Message {
 const MAX_MESSAGES = 20;
 
 export default function ResumeChat() {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -23,7 +23,7 @@ export default function ResumeChat() {
 
   // Load suggestions on first open
   useEffect(() => {
-    if (!isOpen || suggestionsLoaded) return;
+    if (suggestionsLoaded) return;
     setSuggestionsLoaded(true);
     fetch("/api/resume/suggestions")
       .then((r) => r.json())
@@ -31,7 +31,7 @@ export default function ResumeChat() {
         if (Array.isArray(data.suggestions)) setSuggestions(data.suggestions);
       })
       .catch(() => {/* silently ignore */});
-  }, [isOpen, suggestionsLoaded]);
+  }, [suggestionsLoaded]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -70,7 +70,7 @@ export default function ResumeChat() {
       const res = await fetch("/api/resume/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next, mode: "public_resume" }),
+        body: JSON.stringify({ messages: next, mode: "public_resume", scope: "paul", user: "public" }),
         signal: controller.signal,
       });
 
@@ -142,7 +142,7 @@ export default function ResumeChat() {
       {!isOpen && (
         <button
           type="button"
-          aria-label="Ask about Paul"
+          aria-label="Ask Winston"
           onClick={() => setIsOpen(true)}
           style={{
             position: "fixed",
@@ -170,7 +170,7 @@ export default function ResumeChat() {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
-          Ask about Paul
+          Ask Winston
         </button>
       )}
 
@@ -227,7 +227,7 @@ export default function ResumeChat() {
                   color: "var(--ros-text-muted, rgba(255,255,255,0.55))",
                 }}
               >
-                Paul&rsquo;s AI
+                Winston
               </span>
             </div>
             <button
