@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 
 import AppShell from "@/components/AppShell";
 
@@ -54,6 +54,8 @@ describe("AppShell", () => {
   test("home button routes to /app", () => {
     render(<AppShell><div>content</div></AppShell>);
 
+    // Home link lives inside the account menu dropdown — open it first
+    fireEvent.click(screen.getByRole("button", { name: /account menu/i }));
     const home = screen.getByTestId("global-home-button");
     expect(home).toHaveAttribute("href", "/app");
   });

@@ -76,6 +76,7 @@ export default function AccountMenu({
           <Link
             href={homePath}
             role="menuitem"
+            data-testid="global-home-button"
             onClick={() => setIsOpen(false)}
             className="flex w-full items-center gap-3 px-4 py-3 text-sm transition-colors duration-100"
             style={{ color: "hsl(var(--bm-text-muted))" }}
