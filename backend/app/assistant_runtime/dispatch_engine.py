@@ -56,7 +56,20 @@ _ACTION_ENUM = [
     "trend", "compare", "variance", "create", "update", "explain",
     "search", "count", "draft_email", "unknown",
 ]
-_METRIC_ENUM = ["noi", "irr", "tvpi", "dpi", "nav", "occupancy", "ltv", "dscr", "revenue", "expenses", "ncf", "none"]
+def _build_metric_enum() -> list[str]:
+    """Build metric enum from the unified registry (DB-backed) with static fallback."""
+    static = ["noi", "irr", "tvpi", "dpi", "nav", "occupancy", "ltv", "dscr", "revenue", "expenses", "ncf"]
+    try:
+        from app.services.unified_metric_registry import get_registry
+        registry = get_registry()
+        if registry.has_data:
+            keys = [c.metric_key for c in registry.list_all()]
+            return sorted(set(k.lower() for k in keys + static)) + ["none"]
+    except Exception:
+        pass
+    return static + ["none"]
+
+_METRIC_ENUM = _build_metric_enum()
 _TIMEFRAME_ENUM = ["latest", "quarter", "ttm", "ltm", "custom", "none"]
 _CLARIFICATION_FIELD_ENUM = ["entity", "metric", "timeframe", "action", "none"]
 

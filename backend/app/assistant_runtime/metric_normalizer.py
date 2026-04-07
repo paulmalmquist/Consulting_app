@@ -64,14 +64,25 @@ _QUARTER_RE = re.compile(r"\bQ([1-4])\s*(\d{4})\b", re.IGNORECASE)
 def extract_metric(message: str, *, business_id: str | None = None) -> dict | None:
     """Extract the primary metric from a user message.
 
-    When business_id is provided, the DB semantic catalog is tried first so
-    that newly-added or client-specific metrics are recognized without a code
-    change.  Falls back to the static _METRIC_SYNONYMS if the DB returns no
-    match or is unavailable.
+    Resolution order:
+    1. Unified metric registry (cached singleton, DB-backed aliases) — preferred
+    2. SemanticMetricRegistry (per-business_id, live DB) — legacy fallback
+    3. Static _METRIC_SYNONYMS dict — guaranteed offline fallback
 
     Returns: {"normalized": str, "raw": str, "confidence": float, "source": str} or None
     """
-    # ── DB-aware path ─────────────────────────────────────────────────
+    # ── Unified registry path (always available, cached singleton) ────
+    try:
+        from app.services.unified_metric_registry import get_registry
+        registry = get_registry()
+        if registry.has_data:
+            result = registry.extract_from_text(message)
+            if result:
+                return result
+    except Exception:
+        pass
+
+    # ── DB-aware path (legacy) ────────────────────────────────────────
     if business_id:
         try:
             from app.services.semantic_runtime import SemanticMetricRegistry

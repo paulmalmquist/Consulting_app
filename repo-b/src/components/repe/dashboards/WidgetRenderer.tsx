@@ -393,6 +393,8 @@ function ComparisonTableWidget({ widget, data }: { widget: DashboardWidget; data
   const metrics = widget.config.metrics || [];
   const values = data?.[0] as Record<string, number> | undefined;
   const comparison = widget.config.comparison || "budget";
+  // Budget/prior year data comes from the second row if available (fetched via comparison scenario)
+  const comparisonValues = (data && data.length > 1 ? data[1] : null) as Record<string, number> | null;
   const { activeFilters, clearFilters } = useDashboardFilters();
   const hasFilters = Object.keys(activeFilters).length > 0;
 
@@ -424,19 +426,22 @@ function ComparisonTableWidget({ widget, data }: { widget: DashboardWidget; data
           {metrics.map((m: WidgetMetricRef) => {
             const def = METRIC_MAP.get(m.key);
             const actual = values?.[m.key] ?? 0;
-            // Simulated comparison value (budget fetching is a future enhancement)
-            const comp = actual * (0.95 + Math.random() * 0.1);
-            const variance = actual - comp;
-            const pctVariance = comp !== 0 ? (variance / Math.abs(comp)) * 100 : 0;
+            // Budget comparison: use actual budget data when available, else show N/A
+            const comp = comparisonValues?.[m.key] ?? null;
+            const hasComparison = comp !== null && comp !== undefined;
+            const variance = hasComparison ? actual - comp : 0;
+            const pctVariance = hasComparison && comp !== 0 ? (variance / Math.abs(comp)) * 100 : 0;
             return (
               <tr key={m.key} className="border-b border-bm-border/20">
                 <td className="px-3 py-2 text-bm-text font-medium">
                   {m.label || def?.label || m.key.replace(/_/g, " ")}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">{fmtMetricValue(actual, def?.format)}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-bm-muted2">{fmtMetricValue(comp, def?.format)}</td>
-                <td className={`px-3 py-2 text-right tabular-nums font-medium ${variance >= 0 ? "text-green-500" : "text-red-500"}`}>
-                  {variance >= 0 ? "+" : ""}{pctVariance.toFixed(1)}%
+                <td className="px-3 py-2 text-right tabular-nums text-bm-muted2">
+                  {hasComparison ? fmtMetricValue(comp, def?.format) : <span className="text-bm-muted2/50">—</span>}
+                </td>
+                <td className={`px-3 py-2 text-right tabular-nums font-medium ${!hasComparison ? "text-bm-muted2/50" : variance >= 0 ? "text-green-500" : "text-red-500"}`}>
+                  {hasComparison ? `${variance >= 0 ? "+" : ""}${pctVariance.toFixed(1)}%` : "—"}
                 </td>
               </tr>
             );
@@ -459,12 +464,10 @@ function SparklineGridWidget({ widget, data }: { widget: DashboardWidget; data: 
       {metrics.map((m: WidgetMetricRef) => {
         const def = METRIC_MAP.get(m.key);
         const currentVal = values?.[m.key] ?? 0;
-        // Generate a synthetic sparkline series ending at the current value
-        const sparkValues = Array.from({ length: 6 }, (_, i) => {
-          if (i === 5) return currentVal;
-          const jitter = 0.85 + Math.random() * 0.3;
-          return currentVal * jitter;
-        });
+        // Use historical data from multi-period fetch if available, else show flat line
+        const sparkValues = data && data.length > 1
+          ? data.map((row) => (row as Record<string, number>)?.[m.key] ?? 0)
+          : [currentVal, currentVal, currentVal, currentVal, currentVal, currentVal];
         return (
           <div key={m.key} className="rounded-xl border border-bm-border/50 bg-bm-surface/20 p-3">
             <div className="flex items-center justify-between mb-1">
@@ -504,7 +507,8 @@ function SensitivityHeatWidget({ widget }: { widget: DashboardWidget }) {
   const rowDef = METRIC_MAP.get(rowMetric.key);
   const colDef = METRIC_MAP.get(colMetric.key);
 
-  // Generate sample sensitivity grid (real data fetching is a future enhancement)
+  // Sensitivity analysis requires a model run — show placeholder until real data is fetched
+  // via the valuation sensitivity endpoint (/api/re/v2/assets/{id}/valuation/sensitivity-matrix)
   const rowValues = [-0.02, -0.01, 0, 0.01, 0.02].map((d) => 0.065 + d);
   const colValues = [-0.02, -0.01, 0, 0.01, 0.02].map((d) => 0.95 + d);
 
@@ -512,21 +516,25 @@ function SensitivityHeatWidget({ widget }: { widget: DashboardWidget }) {
     colValues.map((cv) => ({
       row_value: rv,
       col_value: cv,
-      value: 0.12 + (rv - 0.065) * 2 + (cv - 0.95) * 0.5 + (Math.random() - 0.5) * 0.01,
+      // Deterministic placeholder: linear interpolation (no randomness)
+      value: 0.12 + (rv - 0.065) * 2 + (cv - 0.95) * 0.5,
     })),
   );
 
   return (
-    <SensitivityHeatMap
-      cells={cells}
-      rowValues={rowValues}
-      colValues={colValues}
-      rowLabel={rowMetric.label || rowDef?.label || rowMetric.key}
-      colLabel={colMetric.label || colDef?.label || colMetric.key}
-      valueLabel="IRR"
-      baseRowValue={0.065}
-      baseColValue={0.95}
-    />
+    <div>
+      <p className="text-[10px] text-bm-muted2 text-center mb-1 italic">Placeholder — run a sensitivity model for actual values</p>
+      <SensitivityHeatMap
+        cells={cells}
+        rowValues={rowValues}
+        colValues={colValues}
+        rowLabel={rowMetric.label || rowDef?.label || rowMetric.key}
+        colLabel={colMetric.label || colDef?.label || colMetric.key}
+        valueLabel="IRR"
+        baseRowValue={0.065}
+        baseColValue={0.95}
+      />
+    </div>
   );
 }
 

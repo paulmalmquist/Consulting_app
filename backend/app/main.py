@@ -94,6 +94,7 @@ from app.routes import trading
 from app.routes import trades
 from app.routes import sql_agent as sql_agent_routes
 from app.routes import capability as capability_routes
+from app.routes import unified_metrics
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -176,6 +177,43 @@ async def lifespan(app: FastAPI):
         message=f"AI gateway enabled: {AI_GATEWAY_ENABLED}",
         context={"ai_gateway_enabled": AI_GATEWAY_ENABLED},
     )
+
+    # ── Unified Metric Registry validation ─────────────────────────
+    if db_connected and not skip_db:
+        try:
+            from app.services.unified_metric_registry import get_registry
+            _metric_reg = get_registry(force_reload=True)
+            _metric_issues = _metric_reg.validate_schema()
+            strict_metrics = os.environ.get("STRICT_METRICS", "0") == "1"
+            if _metric_issues:
+                emit_log(
+                    level="error" if strict_metrics else "warn",
+                    service="backend",
+                    action="startup.metric_validation",
+                    message=f"Metric registry: {len(_metric_issues)} issues",
+                    context={"issues": _metric_issues[:10], "strict": strict_metrics},
+                )
+                if strict_metrics:
+                    raise RuntimeError(
+                        f"STRICT_METRICS: {len(_metric_issues)} metric validation failures — "
+                        f"refusing to start. First issue: {_metric_issues[0]}"
+                    )
+            else:
+                emit_log(
+                    level="info", service="backend",
+                    action="startup.metric_validation",
+                    message=f"Metric registry loaded: {len(_metric_reg.list_all())} metrics, 0 issues",
+                    context={"metric_count": len(_metric_reg.list_all())},
+                )
+        except RuntimeError:
+            raise  # Re-raise STRICT_METRICS failure
+        except Exception as exc:
+            emit_log(
+                level="warn", service="backend",
+                action="startup.metric_validation",
+                message="Metric registry load failed (non-fatal)",
+                context={}, error=exc,
+            )
 
     elapsed_ms = int((time.monotonic() - t0) * 1000)
     state = DeployState(
@@ -357,6 +395,7 @@ app.include_router(nv_ai_copilot.router)
 app.include_router(nv_engagement_output.router)
 app.include_router(epi_routes.router)
 app.include_router(semantic_catalog.router)
+app.include_router(unified_metrics.router)
 app.include_router(analytics.router)
 app.include_router(sql_agent_routes.router)
 app.include_router(capability_routes.router)

@@ -416,6 +416,28 @@ def _is_credit_environment(*, environment_name: str | None, environment_id: str 
     return any("credit" in value.lower() for value in haystacks)
 
 
+def _build_unified_metrics_block() -> str:
+    """Build a system prompt block listing available metrics from the unified registry."""
+    try:
+        from app.services.unified_metric_registry import get_registry
+        registry = get_registry()
+        if not registry.has_data:
+            return ""
+        keys = [c.metric_key for c in registry.list_all()]
+        families = sorted(set(c.metric_family for c in registry.list_all() if c.metric_family))
+        return (
+            "\n## Unified Metric Registry\n"
+            "You MUST use the metrics.unified_query tool for ALL metric lookups.\n"
+            f"Available metrics ({len(keys)}): {', '.join(keys)}\n"
+            f"Metric families: {', '.join(families)}\n"
+            "If a user asks about ANY of these metrics, it IS available — call the tool.\n"
+            "NEVER respond with 'not available in context' for a registered metric.\n"
+            "NEVER generate ad-hoc SQL for metrics that exist in the registry.\n"
+        )
+    except Exception:
+        return ""
+
+
 def _build_system_prompt_for_context(*, environment_name: str | None, environment_id: str | None, industry: str | None = None, credit_initialized: bool = False) -> str:
     base = _build_system_prompt()
     if _is_novendor_environment(environment_name=environment_name, environment_id=environment_id):
@@ -424,6 +446,10 @@ def _build_system_prompt_for_context(*, environment_name: str | None, environmen
         base += "\n\n" + _CREDIT_DOMAIN_BLOCK
     if _is_resume_environment(environment_name=environment_name, environment_id=environment_id, industry=industry):
         base += "\n\n" + _RESUME_DOMAIN_BLOCK
+    # Inject unified metric registry context for all REPE environments
+    metrics_block = _build_unified_metrics_block()
+    if metrics_block:
+        base += "\n\n" + metrics_block
     return base
 
 
@@ -436,10 +462,10 @@ _cached_tools_by_lane: dict[frozenset[str], tuple[list[dict], dict[str, str]]] =
 
 # Tag sets per lane — controls which tools are sent to the LLM.
 # Lane A uses skip_tools=True (no tools at all), so is not listed here.
-_LANE_B_TAGS: set[str] = {"core", "meta", "repe", "finance", "env", "business"}
+_LANE_B_TAGS: set[str] = {"core", "meta", "repe", "finance", "env", "business", "metrics"}
 _LANE_C_TAGS: set[str] = {"core", "meta", "repe", "finance", "analysis", "model", "ops",
                            "investor", "workflow", "platform", "env", "business",
-                           "document", "report"}
+                           "document", "report", "metrics"}
 _LANE_C_CREDIT_TAGS: set[str] = {"core", "meta", "credit", "env", "business", "document"}
 _LANE_C_RESUME_TAGS: set[str] = {"core", "meta", "resume", "env", "business"}
 # Lane D gets all tools (no tag filter).
