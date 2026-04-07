@@ -4,6 +4,7 @@ Public endpoint — no authentication required.
 Mode: public_resume (enforced server-side).
 Rate limit: 10 requests/minute per IP (token bucket).
 Persona: advocate, persuasive, no citations.
+LLM-powered via Claude with deterministic fallback.
 """
 from __future__ import annotations
 
@@ -17,6 +18,9 @@ from typing import Any, Literal
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
+
+from app.config import RESUME_LLM_ENABLED
+from app.services.resume_llm import classify_resume_intent, stream_resume_response
 
 logger = logging.getLogger(__name__)
 
@@ -69,14 +73,14 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     mode: Literal["public_resume"] = "public_resume"
+    scope: Literal["paul"] = "paul"
+    user: Literal["public"] = "public"
 
 
 SUGGESTED_QUESTIONS = [
-    "Walk me through the system architecture",
-    "What data platforms has Paul deployed?",
-    "Compare the Kayne Anderson and JLL deployments",
-    "What's the ROI on the automation work?",
-    "How does Winston's AI layer work?",
+    "Why is Paul a strong AI/data leader?",
+    "Compare JLL vs Kayne Anderson",
+    "What has Paul built end-to-end?",
     "Should I hire Paul?",
 ]
 
@@ -249,7 +253,11 @@ def _match_knowledge(question: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 async def _stream_chat(req: ChatRequest):
-    """Generator that yields SSE events for the chat response."""
+    """Generator that yields SSE events for the chat response.
+
+    Uses LLM streaming when RESUME_LLM_ENABLED and an API key is set.
+    Falls back to deterministic knowledge base otherwise.
+    """
     user_message = ""
     for msg in reversed(req.messages):
         if msg.role == "user":
@@ -257,25 +265,31 @@ async def _stream_chat(req: ChatRequest):
             break
 
     if not user_message:
-        yield _sse_text("Ask me anything about Paul's background, systems, or hiring fit.")
+        yield _sse_text("I'm Winston — ask me anything about Paul's background, systems, or hiring fit.")
         return
 
+    # Classify intent (always — used for both LLM and fallback paths)
+    intent = classify_resume_intent(user_message)
+
+    # LLM path — streaming Claude/OpenAI with full resume context
+    if RESUME_LLM_ENABLED:
+        history = [{"role": m.role, "content": m.content} for m in req.messages]
+        try:
+            async for token in stream_resume_response(history, intent):
+                yield _sse_text(token)
+            return
+        except Exception:
+            logger.exception("LLM streaming failed, falling back to deterministic")
+
+    # Deterministic fallback — regex → pre-built knowledge
     knowledge = _match_knowledge(user_message)
     if knowledge:
         yield _sse_text(_format_public_resume_response(knowledge))
         return
 
-    # Fallback — scope-restricted response
     yield _sse_text(
-        _format_public_resume_response(
-            "I can answer questions about Paul's **system architecture**, **data platforms**, "
-            "**deployment history**, **ROI metrics**, **hiring fit**, and **what he'd build for your firm**.\n\n"
-            "Try asking:\n"
-            "- \"Should I hire Paul?\"\n"
-            "- \"When did Paul start at Kayne Anderson?\"\n"
-            "- \"What's the ROI on the automation work?\"\n"
-            "- \"Walk me through the system architecture\""
-        )
+        "I focus on Paul's background and capabilities — try asking about his systems, "
+        "experience, or hiring fit."
     )
 
 

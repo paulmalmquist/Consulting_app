@@ -126,6 +126,11 @@ PSYCHRAG_EMBEDDING_DIMENSION: int = int(os.getenv("PSYCHRAG_EMBEDDING_DIMENSION"
 PSYCHRAG_TOP_K: int = int(os.getenv("PSYCHRAG_TOP_K", "5"))
 PSYCHRAG_SUPPORT_EMAIL: str = os.getenv("PSYCHRAG_SUPPORT_EMAIL", "support@example.com")
 
+# ── Resume LLM (public resume agent on /paul) ─────────────────────
+RESUME_LLM_MODEL: str = os.getenv("RESUME_LLM_MODEL", "claude-sonnet-4-20250514")
+RESUME_LLM_MAX_TOKENS: int = int(os.getenv("RESUME_LLM_MAX_TOKENS", "800"))
+RESUME_LLM_ENABLED: bool = os.getenv("RESUME_LLM_ENABLED", "true").lower() == "true"
+
 # ── Trade execution layer ───────────────────────────────────────────
 IBKR_HOST: str = os.getenv("IBKR_HOST", "127.0.0.1")
 IBKR_PAPER_PORT: int = int(os.getenv("IBKR_PAPER_PORT", "4002"))
