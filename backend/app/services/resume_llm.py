@@ -6,19 +6,15 @@ when no API key is configured.
 """
 from __future__ import annotations
 
-import json
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import AsyncGenerator
 
-import httpx
 
 from app.config import (
-    ANTHROPIC_API_KEY,
     OPENAI_API_KEY,
-    RESUME_LLM_ENABLED,
     RESUME_LLM_MAX_TOKENS,
     RESUME_LLM_MODEL,
 )
@@ -219,21 +215,11 @@ async def stream_resume_response(
     messages: list[dict[str, str]],
     intent: ResumeIntent,
 ) -> AsyncGenerator[str, None]:
-    """Stream an LLM response using the resume as context.
-
-    Tries Anthropic first, falls back to OpenAI. Raises if neither is available.
-    """
-    if ANTHROPIC_API_KEY:
-        async for token in _stream_anthropic(messages, intent):
-            yield token
-        return
-
-    if OPENAI_API_KEY:
-        async for token in _stream_openai(messages, intent):
-            yield token
-        return
-
-    raise RuntimeError("No LLM API key configured")
+    """Stream an LLM response using the resume as context via OpenAI."""
+    if not OPENAI_API_KEY:
+        raise RuntimeError("No LLM API key configured")
+    async for token in _stream_openai(messages, intent):
+        yield token
 
 
 def _build_messages(messages: list[dict[str, str]], intent: ResumeIntent) -> list[dict[str, str]]:
@@ -267,54 +253,6 @@ def _build_messages(messages: list[dict[str, str]], intent: ResumeIntent) -> lis
     return built
 
 
-async def _stream_anthropic(
-    messages: list[dict[str, str]],
-    intent: ResumeIntent,
-) -> AsyncGenerator[str, None]:
-    """Stream from Anthropic Messages API."""
-    built = _build_messages(messages, intent)
-
-    async with httpx.AsyncClient(timeout=45.0) as client:
-        async with client.stream(
-            "POST",
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            json={
-                "model": RESUME_LLM_MODEL,
-                "max_tokens": RESUME_LLM_MAX_TOKENS,
-                "system": RESUME_SYSTEM_PROMPT,
-                "messages": built,
-                "stream": True,
-            },
-        ) as resp:
-            if resp.status_code >= 400:
-                body = await resp.aread()
-                logger.error("Anthropic API error %d: %s", resp.status_code, body[:500])
-                raise RuntimeError(f"Anthropic API error: {resp.status_code}")
-
-            async for line in resp.aiter_lines():
-                if not line.startswith("data: "):
-                    continue
-                data_str = line[6:]
-                if data_str == "[DONE]":
-                    break
-                try:
-                    data = json.loads(data_str)
-                except json.JSONDecodeError:
-                    continue
-
-                if data.get("type") == "content_block_delta":
-                    delta = data.get("delta", {})
-                    if delta.get("type") == "text_delta":
-                        text = delta.get("text", "")
-                        if text:
-                            yield text
-
-
 async def _stream_openai(
     messages: list[dict[str, str]],
     intent: ResumeIntent,
@@ -327,7 +265,7 @@ async def _stream_openai(
 
     client = openai.AsyncOpenAI(api_key=OPENAI_API_KEY)
     stream = await client.chat.completions.create(
-        model="gpt-4o",
+        model=RESUME_LLM_MODEL,
         temperature=0.4,
         max_tokens=RESUME_LLM_MAX_TOKENS,
         messages=oai_messages,

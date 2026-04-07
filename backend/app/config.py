@@ -127,7 +127,7 @@ PSYCHRAG_TOP_K: int = int(os.getenv("PSYCHRAG_TOP_K", "5"))
 PSYCHRAG_SUPPORT_EMAIL: str = os.getenv("PSYCHRAG_SUPPORT_EMAIL", "support@example.com")
 
 # ── Resume LLM (public resume agent on /paul) ─────────────────────
-RESUME_LLM_MODEL: str = os.getenv("RESUME_LLM_MODEL", "claude-sonnet-4-20250514")
+RESUME_LLM_MODEL: str = os.getenv("RESUME_LLM_MODEL", "gpt-4o")
 RESUME_LLM_MAX_TOKENS: int = int(os.getenv("RESUME_LLM_MAX_TOKENS", "800"))
 RESUME_LLM_ENABLED: bool = os.getenv("RESUME_LLM_ENABLED", "true").lower() == "true"
 
