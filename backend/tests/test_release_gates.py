@@ -7,7 +7,15 @@ These tests are designed to run against a seeded test database. They verify
 structural integrity, not live production data.
 """
 
+import os
+
 import pytest
+
+# Skip the entire module when no DATABASE_URL is configured (CI without a live DB)
+pytestmark = pytest.mark.skipif(
+    not os.getenv("DATABASE_URL"),
+    reason="DATABASE_URL not set — release gate tests require a live database",
+)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

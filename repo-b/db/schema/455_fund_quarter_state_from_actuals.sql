@@ -39,7 +39,7 @@ DECLARE
   v_net_irr numeric;
   v_irr_source text;
   v_data_status text;
-  v_has_assets boolean;
+  v_has_assets int;
 BEGIN
 
   FOR v_fund IN
