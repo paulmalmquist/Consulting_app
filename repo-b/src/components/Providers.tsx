@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { ToastProvider } from "@/components/ui/Toast";
 import GlobalCommandBar from "@/components/commandbar/GlobalCommandBar";
 import { applyThemeMode, getStoredThemeMode } from "@/lib/theme";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { WinstonCompanionProvider } from "@/components/winston-companion/WinstonCompanionProvider";
 import WinstonLoader from "@/components/ui/WinstonLoader";
 import { winstonLoader } from "@/lib/loading-state";
@@ -57,13 +58,15 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <ToastProvider>
-      <WinstonCompanionProvider>
-        <RouteChangeListener />
-        {children}
-        <GlobalCommandBar />
-        <WinstonLoader />
-      </WinstonCompanionProvider>
-    </ToastProvider>
+    <ThemeProvider>
+      <ToastProvider>
+        <WinstonCompanionProvider>
+          <RouteChangeListener />
+          {children}
+          <GlobalCommandBar />
+          <WinstonLoader />
+        </WinstonCompanionProvider>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }

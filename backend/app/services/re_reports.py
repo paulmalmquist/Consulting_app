@@ -41,17 +41,20 @@ def _generate_fund_ic_memo(fund_id: str, quarter: str) -> dict:
         )
         waterfall = cur.fetchone()
 
-    # Get surveillance flags across assets
+    # Get surveillance flags across assets (canonical: re_asset_quarter_state)
     with get_cursor() as cur:
         cur.execute(
             """
-            SELECT fin_asset_investment_id, risk_classification, reason_codes
-            FROM re_surveillance_snapshot
-            WHERE fin_asset_investment_id IN (
-                SELECT DISTINCT fin_asset_investment_id FROM re_asset_financial_state
-                WHERE fin_fund_id = %s AND quarter = %s
-            ) AND quarter = %s
-            ORDER BY created_at DESC
+            SELECT ss.fin_asset_investment_id, ss.risk_classification, ss.reason_codes
+            FROM re_surveillance_snapshot ss
+            WHERE ss.fin_asset_investment_id IN (
+                SELECT DISTINCT a.asset_id
+                FROM re_asset_quarter_state aqs
+                JOIN repe_asset a ON a.asset_id = aqs.asset_id
+                JOIN repe_deal d ON d.deal_id = a.deal_id
+                WHERE d.fund_id = %s AND aqs.quarter = %s AND aqs.scenario_id IS NULL
+            ) AND ss.quarter = %s
+            ORDER BY ss.created_at DESC
             """,
             (fund_id, quarter, quarter),
         )

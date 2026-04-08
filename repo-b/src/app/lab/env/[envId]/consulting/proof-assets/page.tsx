@@ -251,14 +251,6 @@ export default function ProofAssetsPage({ params }: { params: { envId: string } 
                       {asset.content_markdown}
                     </pre>
                   ) : null}
-                  {(asset.asset_type === "workflow_example" || asset.asset_type === "case_study") ? (
-                    <Link
-                      href={`/lab/env/${params.envId}/resume`}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-bm-accent/30 bg-bm-accent/10 px-2.5 py-1 text-[11px] font-medium text-bm-accent hover:bg-bm-accent/20 transition-colors"
-                    >
-                      See in Resume
-                    </Link>
-                  ) : null}
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-bm-muted2">Status:</span>
                     {STATUS_OPTIONS.map((s) => (

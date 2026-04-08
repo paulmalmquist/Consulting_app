@@ -8,11 +8,17 @@ router = APIRouter(prefix="/api/re")
 
 @router.post("/surveillance/compute")
 def compute_surveillance(req: dict):
-    """Compute surveillance snapshot for an asset quarter."""
+    """Compute surveillance snapshot for an asset quarter.
+
+    Accepts asset_id (canonical) or fin_asset_investment_id (legacy compat).
+    """
     from app.services import re_surveillance as svc
     try:
+        asset_id = req.get("asset_id") or req.get("fin_asset_investment_id")
+        if not asset_id:
+            raise HTTPException(status_code=422, detail="asset_id or fin_asset_investment_id required")
         return svc.compute(
-            fin_asset_investment_id=req["fin_asset_investment_id"],
+            asset_id=asset_id,
             quarter=req["quarter"],
         )
     except LookupError as e:

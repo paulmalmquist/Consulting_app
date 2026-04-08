@@ -25,38 +25,99 @@
 
 
 @layer base {
+  /* ═══════════════════════════════════════════════════════════
+     DARK THEME — "Deep Space Operations"
+     Bloomberg Terminal meets mission control. Near-black bg,
+     high-contrast data layers, saturated accents against void.
+     ═══════════════════════════════════════════════════════════ */
   :root {
-    /* Winston cinematic tokens — Restrained Slate Blue */
-    --accent: 216 52% 48%;
-    --accent-alt: 216 52% 48%;
-    --accent-glow: 46, 100, 185;
-    --bg-base: 216 31% 6%;
-    --bg-elevated: 217 29% 9%;
-    --bg-panel: 216 22% 11%;
-    --border-subtle: 0 0% 100%;
-    --border-accent: 216 52% 48%;
+    /* Foundation tokens */
+    --accent: 200 89% 60%;
+    --accent-alt: 200 89% 55%;
+    --accent-glow: 56, 189, 248;
+    --bg-base: 218 38% 3%;
+    --bg-elevated: 216 33% 6%;
+    --bg-panel: 215 28% 9%;
+    --border-subtle: 215 24% 16%;
+    --border-accent: 200 89% 60%;
 
-    /* Semantic tokens (HSL triplets: "H S L") */
+    /* Backgrounds */
     --bm-bg: var(--bg-base);
-    --bm-bg-2: 216 30% 7.5%;
+    --bm-bg-2: 216 30% 5%;
     --bm-surface: var(--bg-elevated);
     --bm-surface-2: var(--bg-panel);
     --bm-border: var(--border-subtle);
-    --bm-border-strong: 214 16% 34%;
-    --bm-text: 210 24% 94%;
-    --bm-text-muted: 215 12% 72%;
-    --bm-text-muted-2: 215 10% 58%;
+    --bm-border-strong: 215 18% 24%;
+    --bm-text: 213 31% 92%;
+    --bm-text-muted: 215 16% 57%;
+    --bm-text-muted-2: 215 13% 40%;
     --bm-card-glass: 0 0% 100%;
 
+    /* Accent */
     --bm-accent: var(--accent);
     --bm-accent-2: var(--accent-alt);
     --bm-accent-contrast: 220 18% 10%;
-    --bm-accent-glow: 216 74% 55%;
+    --bm-accent-glow: 200 89% 55%;
 
-    --bm-success: 142 64% 40%;
-    --bm-warning: 38 85% 50%;
-    --bm-danger: 0 72% 48%;
+    /* Semantic */
+    --bm-success: 160 84% 39%;
+    --bm-warning: 43 96% 56%;
+    --bm-danger: 0 84% 60%;
     --bm-focus-ring: var(--accent);
+
+    /* New semantic tiers (hex for chart/badge backgrounds) */
+    --bm-surface-alt: #151d2b;
+    --bm-surface-hi: #1a2436;
+    --bm-border-hi: #283548;
+    --bm-text-secondary: #94a3b8;
+    --bm-accent-dim: #0ea5e9;
+    --bm-accent-hex: #38bdf8;
+    --bm-success-hex: #34d399;
+    --bm-danger-hex: #f87171;
+    --bm-warning-hex: #fbbf24;
+    --bm-purple: #a78bfa;
+    --bm-purple-dim: #8b5cf6;
+    --bm-pink: #f472b6;
+    --bm-pink-dim: #ec4899;
+
+    /* Semantic backgrounds (tinted, for badges and cards) */
+    --bm-accent-bg: #38bdf810;
+    --bm-accent-border: #38bdf830;
+    --bm-success-bg: #34d39912;
+    --bm-success-border: #34d39930;
+    --bm-danger-bg: #f8717112;
+    --bm-danger-border: #f8717130;
+    --bm-warning-bg: #fbbf2412;
+    --bm-warning-border: #fbbf2430;
+    --bm-purple-bg: #a78bfa12;
+
+    /* Signal layer colors */
+    --bm-layer-reality: #34d399;
+    --bm-layer-data: #38bdf8;
+    --bm-layer-narrative: #fbbf24;
+    --bm-layer-positioning: #a78bfa;
+    --bm-layer-meta: #f87171;
+
+    /* Chart-specific */
+    --bm-chart-grid: #1c263850;
+    --bm-chart-axis: #475569;
+    --bm-chart-tooltip-bg: #0b0f16;
+    --bm-chart-tooltip-border: #283548;
+
+    /* Glass / overlay */
+    --bm-glass-bg: #101620cc;
+    --bm-glass-border: #1c263880;
+    --bm-overlay: #06080ccc;
+
+    /* Shadows */
+    --bm-shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+    --bm-shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+    --bm-shadow-lg: 0 8px 32px rgba(0,0,0,0.6);
+    --bm-shadow-glow: 0 0 20px rgba(56,189,248,0.08);
+
+    /* Scrollbar */
+    --bm-scrollbar-track: #0b0f16;
+    --bm-scrollbar-thumb: #1c2638;
 
     /* PDS Enterprise OS palette */
     --pds-bg-primary: 213 39% 8%;
@@ -72,38 +133,93 @@
     --pds-signal-red: 4 80% 63%;
   }
 
+  /* ═══════════════════════════════════════════════════════════
+     LIGHT THEME — "Paper Terminal"
+     Clean analytical worksheet. Warm off-white backgrounds,
+     ink-dark text, desaturated semantics for WCAG AA contrast.
+     ═══════════════════════════════════════════════════════════ */
   html[data-theme="light"] {
-    --accent: 216 52% 48%;
-    --accent-alt: 216 52% 48%;
-    --accent-glow: 46, 100, 185;
-    --bg-base: 210 33% 97%;
+    --accent: 201 96% 39%;
+    --accent-alt: 201 96% 35%;
+    --accent-glow: 2, 132, 199;
+    --bg-base: 213 27% 97%;
     --bg-elevated: 0 0% 100%;
     --bg-panel: 0 0% 100%;
-    --border-subtle: 220 13% 91%;
-    --border-accent: 216 52% 48%;
+    --border-subtle: 214 32% 91%;
+    --border-accent: 201 96% 39%;
 
     --bm-bg: var(--bg-base);
-    --bm-bg-2: 220 22% 94%;
+    --bm-bg-2: 210 20% 94%;
     --bm-surface: var(--bg-elevated);
     --bm-surface-2: var(--bg-panel);
     --bm-border: var(--border-subtle);
-    --bm-border-strong: 216 20% 62%;
-    --bm-text: 224 28% 15%;
-    --bm-text-muted: 220 14% 36%;
-    --bm-text-muted-2: 220 11% 46%;
+    --bm-border-strong: 213 12% 78%;
+    --bm-text: 222 47% 11%;
+    --bm-text-muted: 215 16% 47%;
+    --bm-text-muted-2: 215 16% 57%;
     --bm-card-glass: 0 0% 0%;
 
     --bm-accent: var(--accent);
     --bm-accent-2: var(--accent-alt);
     --bm-accent-contrast: 0 0% 100%;
-    --bm-accent-glow: 216 74% 55%;
+    --bm-accent-glow: 201 96% 39%;
 
-    --bm-success: 142 64% 34%;
-    --bm-warning: 38 85% 45%;
+    --bm-success: 160 84% 29%;
+    --bm-warning: 38 92% 42%;
     --bm-danger: 0 72% 44%;
     --bm-focus-ring: var(--accent);
 
-    /* PDS Enterprise OS palette — light overrides */
+    /* New semantic tiers — light */
+    --bm-surface-alt: #f1f5f9;
+    --bm-surface-hi: #e8edf3;
+    --bm-border-hi: #cbd5e1;
+    --bm-text-secondary: #475569;
+    --bm-accent-dim: #0369a1;
+    --bm-accent-hex: #0284c7;
+    --bm-success-hex: #059669;
+    --bm-danger-hex: #dc2626;
+    --bm-warning-hex: #d97706;
+    --bm-purple: #7c3aed;
+    --bm-purple-dim: #6d28d9;
+    --bm-pink: #db2777;
+    --bm-pink-dim: #be185d;
+
+    --bm-accent-bg: #0284c70a;
+    --bm-accent-border: #0284c720;
+    --bm-success-bg: #05966908;
+    --bm-success-border: #05966920;
+    --bm-danger-bg: #dc262608;
+    --bm-danger-border: #dc262620;
+    --bm-warning-bg: #d9770608;
+    --bm-warning-border: #d9770620;
+    --bm-purple-bg: #7c3aed08;
+
+    /* Signal layer colors — darkened for light backgrounds */
+    --bm-layer-reality: #059669;
+    --bm-layer-data: #0284c7;
+    --bm-layer-narrative: #d97706;
+    --bm-layer-positioning: #7c3aed;
+    --bm-layer-meta: #dc2626;
+
+    /* Chart-specific — light */
+    --bm-chart-grid: #e2e8f040;
+    --bm-chart-axis: #94a3b8;
+    --bm-chart-tooltip-bg: #ffffff;
+    --bm-chart-tooltip-border: #e2e8f0;
+
+    --bm-glass-bg: #ffffffcc;
+    --bm-glass-border: #e2e8f080;
+    --bm-overlay: #0f172a40;
+
+    --bm-shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --bm-shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+    --bm-shadow-lg: 0 8px 32px rgba(0,0,0,0.10);
+    --bm-shadow-glow: 0 0 20px rgba(2,132,199,0.06);
+
+    --bm-scrollbar-track: #f1f5f9;
+    --bm-scrollbar-thumb: #cbd5e1;
+
+    /* PDS light overrides */
     --pds-bg-primary: 210 33% 97%;
     --pds-bg-panel: 0 0% 100%;
     --pds-bg-card: 220 20% 96%;
@@ -355,6 +471,23 @@ html[data-theme="light"] .resume-os {
 .resume-glow-pulse {
   animation: resume-glow-pulse 2s ease-in-out infinite;
 }
+
+/* ── Theme transitions — smooth color shifts ── */
+[data-theme] * {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease, box-shadow 0.2s ease;
+}
+/* Exclude charts and animations from transition to avoid lag */
+[data-theme] svg *,
+[data-theme] .recharts-surface *,
+[data-theme] [data-no-transition] * {
+  transition: none;
+}
+
+/* ── Custom scrollbar (theme-aware) ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bm-scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--bm-scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--bm-border-hi); }
 
 /* Respect reduced-motion preference */
 @media (prefers-reduced-motion: reduce) {

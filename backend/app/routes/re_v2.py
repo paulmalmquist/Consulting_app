@@ -202,6 +202,92 @@ def get_environment_portfolio_readiness(
         raise _to_http(exc)
 
 
+# ── Asset Map ─────────────────────────────────────────────────────────────────
+
+@router.get("/funds/asset-map")
+def get_asset_map(
+    request: Request,
+    env_id: str = Query(...),
+    status: str = Query("all"),
+):
+    """Return geocoded asset pins with latest quarter state for the portfolio map."""
+    try:
+        resolved = repe_context.resolve_repe_business_context(
+            request=request,
+            env_id=env_id,
+            allow_create=True,
+        )
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    a.asset_id,
+                    a.name AS asset_name,
+                    pa.property_type,
+                    pa.market,
+                    pa.city,
+                    pa.state,
+                    pa.latitude,
+                    pa.longitude,
+                    pa.units,
+                    qs.noi,
+                    qs.occupancy,
+                    qs.nav,
+                    qs.asset_value,
+                    qs.dscr,
+                    qs.ltv,
+                    qs.quarter,
+                    d.name AS deal_name,
+                    f.name AS fund_name,
+                    f.strategy
+                FROM repe_asset a
+                JOIN repe_deal d ON d.deal_id = a.deal_id
+                JOIN repe_fund f ON f.fund_id = d.fund_id
+                LEFT JOIN repe_property_asset pa ON pa.asset_id = a.asset_id
+                LEFT JOIN LATERAL (
+                    SELECT * FROM re_asset_quarter_state
+                    WHERE asset_id = a.asset_id AND scenario_id IS NULL
+                    ORDER BY quarter DESC, created_at DESC
+                    LIMIT 1
+                ) qs ON true
+                WHERE f.business_id = %s
+                  AND pa.latitude IS NOT NULL
+                  AND pa.longitude IS NOT NULL
+                ORDER BY f.name, a.name
+                """,
+                (str(resolved.business_id),),
+            )
+            rows = cur.fetchall()
+        return {"points": [dict(r) for r in rows]}
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Validation ────────────────────────────────────────────────────────────────
+
+@router.get("/validate/environment/{env_id}")
+def validate_environment(
+    env_id: str,
+    request: Request,
+    quarter: str = Query(...),
+):
+    """Run portfolio-level integrity checks and return structured results."""
+    try:
+        resolved = repe_context.resolve_repe_business_context(
+            request=request,
+            env_id=env_id,
+            allow_create=True,
+        )
+        from app.services.re_reconciliation import validate_environment as run_validate
+        return run_validate(
+            env_id=env_id,
+            business_id=str(resolved.business_id),
+            quarter=quarter,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
 # ── Investments ───────────────────────────────────────────────────────────────
 
 @router.get("/funds/{fund_id}/investments", response_model=list[ReInvestmentOut])

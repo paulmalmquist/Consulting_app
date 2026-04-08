@@ -210,10 +210,19 @@ export default function ReFundListPage() {
   }, [funds]);
 
   const computedDscr = useMemo(() => {
-    const withDscr = funds.filter((f) => f.state?.weighted_dscr != null);
+    const withDscr = funds.filter((f) => f.state?.weighted_dscr != null && f.state?.portfolio_nav != null);
     if (withDscr.length === 0) return "—";
-    const avg = withDscr.reduce((s, f) => s + Number(f.state!.weighted_dscr!), 0) / withDscr.length;
-    return `${avg.toFixed(2)}x`;
+    // NAV-weighted portfolio DSCR: weight each fund's DSCR by its NAV
+    const totalNav = withDscr.reduce((s, f) => s + Number(f.state!.portfolio_nav ?? 0), 0);
+    if (totalNav <= 0) {
+      // Fallback to simple average if all NAVs are zero
+      const avg = withDscr.reduce((s, f) => s + Number(f.state!.weighted_dscr!), 0) / withDscr.length;
+      return `${avg.toFixed(2)}x`;
+    }
+    const wtd = withDscr.reduce(
+      (s, f) => s + Number(f.state!.weighted_dscr!) * Number(f.state!.portfolio_nav ?? 0), 0
+    ) / totalNav;
+    return `${wtd.toFixed(2)}x`;
   }, [funds]);
 
   // Signal bar data

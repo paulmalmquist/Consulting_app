@@ -14,7 +14,7 @@ import {
   verifyPlatformSession,
 } from "@/lib/server/sessionAuth";
 
-const TOP_LEVEL_ENV_RE = /^\/(novendor|floyorker|stone-pds|meridian|resume|trading)(?:\/|$)/;
+const TOP_LEVEL_ENV_RE = /^\/(novendor|floyorker|stone-pds|meridian|trading)(?:\/|$)/;
 const LAB_ENV_RE = /^\/lab\/env\/([^/]+)(?:\/|$)/;
 
 function buildLoginRedirect(request: NextRequest, pathname: string) {
@@ -39,7 +39,6 @@ function isPublicEnvironmentPath(pathname: string, slug: EnvironmentSlug) {
   if (pathname === `/${slug}/unauthorized`) return true;
   if (pathname === `/${slug}/logout`) return true;
   if (pathname === `/${slug}/auth/callback`) return true;
-  if (slug === "resume" && pathname === "/resume") return true;
   return false;
 }
 
@@ -144,15 +143,6 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(buildAccessDeniedRedirect(request, topLevelEnvironment));
     }
 
-    if (
-      pathname === "/resume/admin" &&
-      membership &&
-      !["owner", "admin"].includes(membership.role) &&
-      !isPlatformAdminSession(session)
-    ) {
-      return NextResponse.redirect(buildAccessDeniedRedirect(request, "resume"));
-    }
-
     const response = NextResponse.next();
     if (!membership) return response;
     return maybeRotateSessionByMembership(request, response, { slug: topLevelEnvironment });
@@ -229,8 +219,6 @@ export const config = {
     "/floyorker/:path*",
     "/stone-pds/:path*",
     "/meridian/:path*",
-    "/resume",
-    "/resume/:path*",
     "/trading/:path*",
     "/public/:path*",
   ],

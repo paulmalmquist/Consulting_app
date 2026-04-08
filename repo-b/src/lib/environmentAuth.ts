@@ -3,7 +3,6 @@ export const SUPPORTED_ENVIRONMENT_SLUGS = [
   "floyorker",
   "stone-pds",
   "meridian",
-  "resume",
   "trading",
 ] as const;
 
@@ -90,21 +89,6 @@ export const environmentCatalog: Record<EnvironmentSlug, EnvironmentBranding> = 
     panelGradient: "linear-gradient(180deg, rgba(16, 12, 25, 0.9), rgba(9, 9, 18, 0.95))",
     buttonText: "210 40% 98%",
   },
-  resume: {
-    slug: "resume",
-    label: "Paul Malmquist Resume",
-    familyLabel: "Winston Portfolio",
-    loginTitle: "Owner access for Paul Malmquist Resume",
-    loginSubtitle: "Public portfolio on the outside, private authoring and assistant tools on the inside.",
-    unauthorizedTitle: "Owner access required",
-    unauthorizedBody: "This resume has a public face, but the admin workspace is reserved for the owner or invited collaborators.",
-    accent: "204 82% 58%",
-    accentSoft: "210 68% 48%",
-    glow: "56, 189, 248",
-    shellGradient: "radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 36%), radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.16), transparent 34%)",
-    panelGradient: "linear-gradient(180deg, rgba(10, 14, 22, 0.86), rgba(7, 10, 17, 0.94))",
-    buttonText: "210 40% 98%",
-  },
   trading: {
     slug: "trading",
     label: "Trading Platform",
@@ -156,8 +140,6 @@ export function environmentHomePath(args: {
       return `/lab/env/${args.envId}/pds`;
     case "meridian":
       return `/lab/env/${args.envId}/re`;
-    case "resume":
-      return `/lab/env/${args.envId}/resume`;
     case "trading":
       return `/lab/env/${args.envId}/markets`;
     default:
@@ -166,7 +148,6 @@ export function environmentHomePath(args: {
 }
 
 export function environmentDisplayHomePath(slug: EnvironmentSlug) {
-  if (slug === "resume") return "/resume";
   return `/${slug}`;
 }
 

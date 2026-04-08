@@ -9,19 +9,36 @@ import {
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import {
+  getChartColors, getTooltipStyle, getAxisTickStyle, getGridStyle,
   CHART_COLORS, TOOLTIP_STYLE, AXIS_TICK_STYLE, GRID_STYLE,
 } from "@/components/charts/chart-theme";
 import type { RealitySignal, DataSignal, NarrativeItem } from "@/lib/trading-lab/decision-engine-types";
 
-/* ── Chart hex constants (Recharts needs raw hex, not CSS vars) ── */
+/* ── Chart hex helper (reads CSS vars at render time for theme-awareness) ── */
 
+function useCH() {
+  const colors = getChartColors();
+  return {
+    cyan: colors.primary,
+    green: colors.success,
+    red: colors.danger,
+    amber: colors.warning,
+    purple: colors.secondary,
+    blue: colors.primary,
+    pink: "#EC4899",
+    grid: colors.grid,
+    axis: colors.axis,
+  };
+}
+
+// Static fallback for module-level references
 const CH = {
-  cyan: CHART_COLORS.scenario[0],   // #38BDF8
-  green: CHART_COLORS.noi,          // #34D399
-  red: CHART_COLORS.opex,           // #F87171
-  amber: CHART_COLORS.warning,      // #FBBF24
-  purple: CHART_COLORS.scenario[4], // #A78BFA
-  blue: CHART_COLORS.scenario[0],   // #38BDF8
+  cyan: CHART_COLORS.scenario[0],
+  green: CHART_COLORS.noi,
+  red: CHART_COLORS.opex,
+  amber: CHART_COLORS.warning,
+  purple: CHART_COLORS.scenario[4] ?? "#A78BFA",
+  blue: CHART_COLORS.scenario[0],
   pink: "#EC4899",
   grid: CHART_COLORS.grid,
   axis: CHART_COLORS.axis,

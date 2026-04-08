@@ -2,6 +2,8 @@
 
 Computes DSCR/debt yield/NOI/occupancy trends, refinance gap, balloon risk,
 and threshold-based flags with LOW/MODERATE/HIGH classification.
+
+Canonical source: re_asset_quarter_state (schema 270).
 """
 
 from __future__ import annotations
@@ -25,25 +27,45 @@ THRESHOLDS = {
 }
 
 
-def compute(*, fin_asset_investment_id: str, quarter: str) -> dict:
-    """Compute surveillance snapshot for an asset quarter."""
-    from app.services.re_valuation import get_asset_financial_state
+def _get_asset_state(asset_id: str, quarter: str) -> dict:
+    """Get latest canonical asset state from re_asset_quarter_state."""
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT * FROM re_asset_quarter_state
+            WHERE asset_id = %s AND quarter = %s AND scenario_id IS NULL
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            (asset_id, quarter),
+        )
+        row = cur.fetchone()
+    if not row:
+        raise LookupError(f"No asset quarter state for {asset_id} quarter {quarter}")
+    return row
 
-    state = get_asset_financial_state(fin_asset_investment_id, quarter)
 
-    # Get historical states for trends (last 4 quarters)
+def compute(*, asset_id: str, quarter: str,
+            fin_asset_investment_id: str | None = None) -> dict:
+    """Compute surveillance snapshot for an asset quarter.
+
+    Uses re_asset_quarter_state as canonical source.
+    Accepts asset_id (canonical) or fin_asset_investment_id (legacy compat).
+    """
+    state = _get_asset_state(asset_id, quarter)
+
+    # Get historical states for trends (last 8 quarters)
     with get_cursor() as cur:
         cur.execute(
             """
             SELECT DISTINCT ON (quarter)
-                quarter, dscr, debt_yield, net_operating_income,
-                implied_gross_value, loan_balance, ltv
-            FROM re_asset_financial_state
-            WHERE fin_asset_investment_id = %s
+                quarter, dscr, debt_yield, noi,
+                asset_value, debt_balance, ltv
+            FROM re_asset_quarter_state
+            WHERE asset_id = %s AND scenario_id IS NULL
             ORDER BY quarter DESC, created_at DESC
             LIMIT 8
             """,
-            (fin_asset_investment_id,),
+            (asset_id,),
         )
         history = cur.fetchall()
 
@@ -52,7 +74,7 @@ def compute(*, fin_asset_investment_id: str, quarter: str) -> dict:
     dy_trend = [{"quarter": h["quarter"], "value": str(h["debt_yield"])} for h in history if h.get("debt_yield")]
 
     # NOI volatility (std dev of NOI changes)
-    noi_values = [_d(h["net_operating_income"]) for h in history if h.get("net_operating_income")]
+    noi_values = [_d(h["noi"]) for h in history if h.get("noi")]
     noi_volatility = Decimal(0)
     if len(noi_values) >= 2:
         changes = [noi_values[i] - noi_values[i + 1] for i in range(len(noi_values) - 1)]
@@ -60,31 +82,42 @@ def compute(*, fin_asset_investment_id: str, quarter: str) -> dict:
         variance = sum((c - mean_change) ** 2 for c in changes) / len(changes)
         noi_volatility = variance.sqrt() if hasattr(variance, 'sqrt') else Decimal(str(float(variance) ** 0.5))
 
-    # Occupancy trend (from quarterly financials)
+    # Occupancy trend (from canonical asset state)
+    occ_trend = [{"quarter": h["quarter"], "value": str(h.get("occupancy") or h.get("occupancy_pct"))}
+                 for h in history if h.get("occupancy") or h.get("occupancy_pct")]
+    # If no occupancy in history, try dedicated occupancy records
+    if not occ_trend:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT quarter, occupancy FROM re_asset_quarter_state
+                WHERE asset_id = %s AND scenario_id IS NULL AND occupancy IS NOT NULL
+                ORDER BY quarter DESC LIMIT 8
+                """,
+                (asset_id,),
+            )
+            occ_history = cur.fetchall()
+        occ_trend = [{"quarter": h["quarter"], "value": str(h["occupancy"])} for h in occ_history]
+
+    # Refinance gap at maturity — look up loans via asset_id
     with get_cursor() as cur:
         cur.execute(
             """
-            SELECT quarter, occupancy_pct FROM re_asset_quarterly_financials
-            WHERE fin_asset_investment_id = %s
-            ORDER BY quarter DESC LIMIT 8
+            SELECT maturity_date, COALESCE(current_balance, upb) AS current_balance
+            FROM re_loan_detail WHERE asset_id = %s
+            UNION ALL
+            SELECT maturity_date, COALESCE(current_balance, upb) AS current_balance
+            FROM re_loan WHERE asset_id = %s
             """,
-            (fin_asset_investment_id,),
-        )
-        occ_history = cur.fetchall()
-    occ_trend = [{"quarter": h["quarter"], "value": str(h["occupancy_pct"])} for h in occ_history if h.get("occupancy_pct")]
-
-    # Refinance gap at maturity
-    with get_cursor() as cur:
-        cur.execute(
-            "SELECT maturity_date, current_balance FROM re_loan WHERE fin_asset_investment_id = %s",
-            (fin_asset_investment_id,),
+            (asset_id, asset_id),
         )
         loans = cur.fetchall()
 
     refinance_gap = Decimal(0)
+    asset_value = _d(state.get("asset_value") or 0)
     for loan in loans:
         # Gap = current balance - (value * 0.65)  (assuming 65% refi LTV)
-        max_refi = _d(state["implied_gross_value"]) * Decimal("0.65")
+        max_refi = asset_value * Decimal("0.65")
         gap = _d(loan["current_balance"]) - max_refi
         refinance_gap += max(gap, Decimal(0))
 
@@ -114,10 +147,9 @@ def compute(*, fin_asset_investment_id: str, quarter: str) -> dict:
             flags.append(f"NOI declined {noi_change:.1%} vs prior quarter")
 
     # Occupancy check
-    if occ_history and occ_history[0].get("occupancy_pct"):
-        occ = _d(occ_history[0]["occupancy_pct"])
-        if occ < THRESHOLDS["occupancy_warning"]:
-            flags.append(f"Occupancy {occ} below {THRESHOLDS['occupancy_warning']} threshold")
+    current_occ = _d(state.get("occupancy") or 0)
+    if current_occ > 0 and current_occ < THRESHOLDS["occupancy_warning"]:
+        flags.append(f"Occupancy {current_occ} below {THRESHOLDS['occupancy_warning']} threshold")
 
     # Classification
     if len(flags) >= 3 or (current_dscr > 0 and current_dscr < Decimal("1.0")):
@@ -129,8 +161,9 @@ def compute(*, fin_asset_investment_id: str, quarter: str) -> dict:
 
     reason_codes = flags
 
-    # Store snapshot
+    # Store snapshot — write asset_id into fin_asset_investment_id column for compat
     snapshot_id = str(uuid.uuid4())
+    valuation_snapshot_id = str(state.get("run_id") or uuid.uuid4())
     with get_cursor() as cur:
         cur.execute(
             """
@@ -143,8 +176,8 @@ def compute(*, fin_asset_investment_id: str, quarter: str) -> dict:
             RETURNING *
             """,
             (
-                snapshot_id, fin_asset_investment_id, quarter,
-                str(state["valuation_snapshot_id"]),
+                snapshot_id, asset_id, quarter,
+                valuation_snapshot_id,
                 json.dumps(dscr_trend), json.dumps(dy_trend),
                 str(noi_volatility.quantize(Decimal("0.000001"), ROUND_HALF_UP)),
                 json.dumps(occ_trend),
@@ -159,9 +192,9 @@ def compute(*, fin_asset_investment_id: str, quarter: str) -> dict:
         level="info",
         service="re_surveillance",
         action="surveillance.compute",
-        message=f"Surveillance computed for {fin_asset_investment_id} {quarter}: {risk_class}",
+        message=f"Surveillance computed for asset {asset_id} {quarter}: {risk_class}",
         context={
-            "fin_asset_investment_id": fin_asset_investment_id,
+            "asset_id": asset_id,
             "quarter": quarter,
             "risk_classification": risk_class,
             "flag_count": len(flags),
@@ -171,8 +204,8 @@ def compute(*, fin_asset_investment_id: str, quarter: str) -> dict:
     return result
 
 
-def get_snapshot(fin_asset_investment_id: str, quarter: str) -> dict:
-    """Get surveillance snapshot."""
+def get_snapshot(asset_id: str, quarter: str) -> dict:
+    """Get surveillance snapshot by asset_id."""
     with get_cursor() as cur:
         cur.execute(
             """
@@ -180,9 +213,9 @@ def get_snapshot(fin_asset_investment_id: str, quarter: str) -> dict:
             WHERE fin_asset_investment_id = %s AND quarter = %s
             ORDER BY created_at DESC LIMIT 1
             """,
-            (fin_asset_investment_id, quarter),
+            (asset_id, quarter),
         )
         row = cur.fetchone()
     if not row:
-        raise LookupError(f"No surveillance snapshot for {fin_asset_investment_id} {quarter}")
+        raise LookupError(f"No surveillance snapshot for asset {asset_id} {quarter}")
     return row

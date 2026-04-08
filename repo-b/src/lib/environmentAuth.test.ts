@@ -20,9 +20,7 @@ describe("environmentAuth", () => {
     expect(environmentHomePath({ slug: "floyorker", envId: "env-2" })).toBe("/lab/env/env-2/content");
     expect(environmentHomePath({ slug: "stone-pds", envId: "env-3" })).toBe("/lab/env/env-3/pds");
     expect(environmentHomePath({ slug: "meridian", envId: "env-4" })).toBe("/lab/env/env-4/re");
-    expect(environmentHomePath({ slug: "resume", envId: "env-5" })).toBe("/lab/env/env-5/resume");
-    expect(environmentHomePath({ slug: "trading", envId: "env-6" })).toBe("/lab/env/env-6/markets");
-    expect(environmentDisplayHomePath("resume")).toBe("/resume");
+    expect(environmentHomePath({ slug: "trading", envId: "env-5" })).toBe("/lab/env/env-5/markets");
   });
 
   it("treats only owner and admin as environment managers", () => {

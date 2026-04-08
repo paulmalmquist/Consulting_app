@@ -298,8 +298,6 @@ export function GenericPlatformLoginForm({ returnTo }: { returnTo?: string | nul
           {" "}
           <Link href="/floyorker/login" className="text-white hover:text-[hsl(var(--env-accent)/1)]">Floyorker</Link>,
           {" "}
-          <Link href="/resume/login" className="text-white hover:text-[hsl(var(--env-accent)/1)]">Resume</Link>,
-          {" "}
           <Link href="/trading/login" className="text-white hover:text-[hsl(var(--env-accent)/1)]">Trading</Link>.
         </div>
       }
@@ -390,51 +388,3 @@ export function EnvironmentUnauthorizedState({ slug }: { slug: EnvironmentSlug }
   );
 }
 
-export function ResumePublicExperience() {
-  return (
-    <EnvironmentAuthShell
-      slug="resume"
-      title="Paul Malmquist"
-      subtitle="Operator-builder working at the seam between business systems, applied AI, and productized execution."
-      aside={
-        <div className="grid gap-3 text-sm text-white/60 sm:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
-            Build operating systems that turn messy business workflows into usable product surfaces.
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
-            Blend product, data, AI, and implementation details without losing business clarity.
-          </div>
-        </div>
-      }
-    >
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.16em] text-white/60">Public portfolio</p>
-          <h2 className="text-2xl font-semibold tracking-[-0.02em]">Selected focus areas</h2>
-        </div>
-
-        <div className="space-y-3 text-sm leading-6 text-white/60">
-          <p>Business-machine design for consulting, operating environments, and internal platforms.</p>
-          <p>Workflow-heavy product architecture spanning data, copilots, control surfaces, and execution loops.</p>
-          <p>Delivery systems that make complex businesses feel legible without dumbing them down.</p>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Link href="/resume/login" className={submitButtonClass(false)}>
-            Resume admin login
-          </Link>
-          <button
-            type="button"
-            onClick={() => {
-              clearLegacyEnvironmentClientState();
-              window.location.href = "/novendor";
-            }}
-            className="inline-flex h-11 items-center justify-center rounded-md border border-white/12 px-4 text-sm font-medium text-white transition-colors hover:bg-white/5"
-          >
-            Open platform family
-          </button>
-        </div>
-      </div>
-    </EnvironmentAuthShell>
-  );
-}

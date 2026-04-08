@@ -43,7 +43,8 @@ export function fmtMoneyExact(
 /**
  * Format a percentage value.
  * Handles both decimal (0.15 → 15.0%) and already-multiplied (15.0 → 15.0%) inputs.
- * Values between 0 and 1 (exclusive) are treated as decimals.
+ * Values with |n| < 1 are treated as decimal fractions and multiplied by 100.
+ * Values with |n| >= 1 are treated as already-percent.
  */
 export function fmtPct(
   v: number | string | null | undefined,
@@ -52,9 +53,24 @@ export function fmtPct(
   if (v == null) return '—';
   const n = Number(v);
   if (Number.isNaN(n)) return '—';
-  // Treat values in [0, 1] as decimal fractions; everything else as already-percent
-  if (n > -2 && n < 2 && n !== 0) return `${(n * 100).toFixed(decimals)}%`;
+  // Treat values in (-1, 1) exclusive as decimal fractions (0.15 → 15.0%)
+  // Values >= 1 or <= -1 are already-percent (15.0 → 15.0%)
+  if (Math.abs(n) < 1 && n !== 0) return `${(n * 100).toFixed(decimals)}%`;
   return `${n.toFixed(decimals)}%`;
+}
+
+/**
+ * Format a value that is always a decimal fraction (e.g., IRR, occupancy rate).
+ * Always multiplies by 100. Use when the storage format is known to be decimal.
+ */
+export function fmtPctFromDecimal(
+  v: number | string | null | undefined,
+  decimals = 1,
+): string {
+  if (v == null) return '—';
+  const n = Number(v);
+  if (Number.isNaN(n)) return '—';
+  return `${(n * 100).toFixed(decimals)}%`;
 }
 
 /**

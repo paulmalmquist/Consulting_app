@@ -248,7 +248,7 @@ _KNOWLEDGE: dict[str, str] = {
         "B.A. from Brown University. Recruited athlete (track & field, 400m). "
         "Combined competitive athletics, creative production, and academics at an Ivy League level.\n\n"
         "**Today**\n\n"
-        "Paul coaches little league for his 5-year-old son and is dad to twin 3-year-old daughters."
+        "Married to Maria since July 2018. Paul coaches little league for his 5-year-old son and is dad to twin 3-year-old daughters."
     ),
     "athletics": (
         "## Paul's Athletic Background\n\n"
@@ -315,7 +315,7 @@ def _match_knowledge(question: str) -> str | None:
         return _KNOWLEDGE["music"]
     if any(w in q for w in ["brown university", "brown", "education", "school", "college", "degree", "university", "studied"]):
         return _KNOWLEDGE["education"]
-    if any(w in q for w in ["personal", "outside work", "hobbies", "interests", "fun fact", "about paul", "who is paul", "tell me about", "what else", "beyond", "family", "kids", "son", "daughter", "coach", "little league"]):
+    if any(w in q for w in ["personal", "outside work", "hobbies", "interests", "fun fact", "about paul", "who is paul", "tell me about", "what else", "beyond", "family", "kids", "son", "daughter", "coach", "little league", "wife", "married", "maria"]):
         return _KNOWLEDGE["personal"]
     return None
 

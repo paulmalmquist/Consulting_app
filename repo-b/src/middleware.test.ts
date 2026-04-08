@@ -33,20 +33,6 @@ function buildClaims(overrides?: Partial<PlatformSessionClaims>): PlatformSessio
         workspace_template_key: "consulting_revenue_os",
       },
       {
-        env_id: "env-resume",
-        env_slug: "resume",
-        client_name: "Paul Malmquist Resume",
-        role: "viewer",
-        status: "active",
-        auth_mode: "hybrid",
-        is_default: false,
-        business_id: "biz-resume",
-        tenant_id: "tenant-resume",
-        industry: "visual_resume",
-        industry_type: "resume",
-        workspace_template_key: "visual_resume",
-      },
-      {
         env_id: "env-trading",
         env_slug: "trading",
         client_name: "Trading Platform",
@@ -103,16 +89,6 @@ describe("middleware", () => {
 
     expect(rootResponse.headers.get("location")).toBe("http://localhost:3001/app");
     expect(loginResponse.headers.get("location")).toBe("http://localhost:3001/app");
-  });
-
-  it("allows the public resume route without a session", async () => {
-    const response = await middleware(await makeRequest("/resume"));
-    expect(response.headers.get("location")).toBeNull();
-  });
-
-  it("protects resume admin tools when the membership role is not elevated", async () => {
-    const response = await middleware(await makeRequest("/resume/admin", buildClaims()));
-    expect(response.headers.get("location")).toBe("http://localhost:3001/app?denied=resume");
   });
 
   it("rotates the active environment cookie when navigating into another authorized env", async () => {

@@ -144,7 +144,6 @@ function returnToIsAuthorized(returnTo: string, memberships: PlatformMembershipS
 
   const envMatch = returnTo.match(/^\/([^/]+)(?:\/|$)/);
   if (envMatch && isEnvironmentSlug(envMatch[1])) {
-    if (envMatch[1] === "resume" && returnTo === "/resume") return true;
     return memberships.some((membership) => membership.status === "active" && membership.env_slug === envMatch[1]);
   }
 
@@ -321,7 +320,7 @@ async function bootstrapOwnerMemberships(
         status = 'active',
         updated_at = now()
     `,
-    [platformUserId, ["novendor", "floyorker", "stone-pds", "meridian", "resume", "trading"]],
+    [platformUserId, ["novendor", "floyorker", "stone-pds", "meridian", "trading"]],
   );
 }
 
@@ -588,7 +587,7 @@ export async function getAccessAdminSnapshot() {
           WHERE e.slug = ANY($1::text[])
           ORDER BY e.client_name ASC
         `,
-        [["novendor", "floyorker", "resume", "trading"]],
+        [["novendor", "floyorker", "trading"]],
       ),
       client.query(
         `
@@ -612,7 +611,7 @@ export async function getAccessAdminSnapshot() {
           WHERE e.slug = ANY($1::text[])
           ORDER BY e.client_name ASC, u.email ASC
         `,
-        [["novendor", "floyorker", "resume", "trading"]],
+        [["novendor", "floyorker", "trading"]],
       ),
     ]);
 

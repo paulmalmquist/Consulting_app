@@ -1,6 +1,7 @@
 """Waterfall Engine — Shadow liquidation and actual distribution waterfall.
 
-Consumes NAV from re_asset_financial_state. Never computes NOI/value itself.
+Canonical source: re_asset_quarter_state (schema 270).
+Falls back to re_asset_financial_state for legacy fin_fund_id-keyed calls.
 Supports American (deal-by-deal) and European (fund-level) modes.
 """
 

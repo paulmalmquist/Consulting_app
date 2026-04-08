@@ -3,9 +3,37 @@ import { cn } from "@/lib/cn";
 
 export function Card({
   className,
+  variant = "default",
+  hover = false,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("bm-glass rounded-lg", className)} {...props} />;
+}: React.HTMLAttributes<HTMLDivElement> & {
+  variant?: "default" | "elevated" | "glass" | "danger" | "warning" | "success";
+  hover?: boolean;
+}) {
+  const variants: Record<string, string> = {
+    default:  "bg-bm-surface border-bm-border",
+    elevated: "bg-bm-surface border-bm-border shadow-bm-md",
+    glass:    "bm-glass",
+    danger:   "bg-bm-danger-bg border-bm-danger-border",
+    warning:  "bg-bm-warning-bg border-bm-warning-border",
+    success:  "bg-bm-success-bg border-bm-success-border",
+  };
+
+  const hoverClass = hover
+    ? "hover:border-bm-border-hi hover:bg-bm-surface-alt cursor-pointer"
+    : "";
+
+  return (
+    <div
+      className={cn(
+        "rounded-lg border transition-colors duration-200",
+        variants[variant] ?? variants.default,
+        hoverClass,
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 export function CardInteractive({

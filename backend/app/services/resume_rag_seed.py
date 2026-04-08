@@ -210,6 +210,7 @@ Music Production:
 - The creative discipline carries over: Paul approaches system design with the same attention to composition, structure, and polish that music production demands.
 
 Family:
+- Married to Maria since July 2018.
 - Coaches little league for his 5-year-old son.
 - Dad to twin 3-year-old daughters.
 """

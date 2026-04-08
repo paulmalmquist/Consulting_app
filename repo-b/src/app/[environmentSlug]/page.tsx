@@ -11,7 +11,6 @@ import {
   PLATFORM_SESSION_COOKIE,
   parsePlatformSessionFromCookieValue,
 } from "@/lib/server/sessionAuth";
-import { ResumePublicExperience } from "@/components/auth/EnvironmentAccess";
 
 export const dynamicParams = false;
 
@@ -26,10 +25,6 @@ export default async function EnvironmentEntryPage({
 }) {
   const { environmentSlug } = await params;
   if (!isEnvironmentSlug(environmentSlug)) notFound();
-
-  if (environmentSlug === "resume") {
-    return <ResumePublicExperience />;
-  }
 
   const session = await parsePlatformSessionFromCookieValue(
     cookies().get(PLATFORM_SESSION_COOKIE)?.value,

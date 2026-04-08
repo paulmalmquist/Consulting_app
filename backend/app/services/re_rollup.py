@@ -139,6 +139,13 @@ def rollup_investment(
         debt_balance = _zero()
         cash_balance = _zero()
         owned_gross_value = _zero()
+        # Operating metric accumulators (for investment-level rollup)
+        agg_noi = _zero()
+        agg_revenue = _zero()
+        agg_opex = _zero()
+        agg_debt_service = _zero()
+        occ_weighted_sum = _zero()
+        occ_weight_total = _zero()
         hashes = []
 
         for s in jv_states:
@@ -166,7 +173,8 @@ def rollup_investment(
             direct_params.append(str(scenario_id))
         cur.execute(
             f"""
-            SELECT asset_id, asset_value, nav, debt_balance, cash_balance, inputs_hash
+            SELECT asset_id, asset_value, nav, noi, revenue, opex,
+                   debt_service, occupancy, debt_balance, cash_balance, inputs_hash
             FROM re_asset_quarter_state
             WHERE asset_id IN (
                 SELECT a.asset_id
@@ -196,6 +204,18 @@ def rollup_investment(
             debt_balance += debt
             cash_balance += cash
             hashes.append(f"asset:{s['inputs_hash']}")
+            # Operating metrics — aggregate from direct assets
+            if s.get("noi") is not None:
+                agg_noi += Decimal(s["noi"])
+            if s.get("revenue") is not None:
+                agg_revenue += Decimal(s["revenue"])
+            if s.get("opex") is not None:
+                agg_opex += Decimal(s["opex"])
+            if s.get("debt_service") is not None:
+                agg_debt_service += Decimal(s["debt_service"])
+            if s.get("occupancy") is not None and asset_value > 0:
+                occ_weighted_sum += Decimal(s["occupancy"]) * asset_value
+                occ_weight_total += asset_value
 
         # Get investment capital figures
         cur.execute(
@@ -220,6 +240,9 @@ def rollup_investment(
         effective_ownership_percent = (
             owned_gross_value / gross_asset_value if gross_asset_value > 0 else None
         )
+        weighted_occupancy = (
+            occ_weighted_sum / occ_weight_total if occ_weight_total > 0 else None
+        )
 
         cur.execute(
             """
@@ -229,9 +252,11 @@ def rollup_investment(
                 realized_distributions, unrealized_value,
                 gross_asset_value, debt_balance, cash_balance,
                 effective_ownership_percent, fund_nav_contribution,
-                equity_multiple, inputs_hash
+                equity_multiple,
+                noi, revenue, opex, occupancy, debt_service, asset_value,
+                inputs_hash
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (investment_id, quarter, COALESCE(scenario_id, '00000000-0000-0000-0000-000000000000'::uuid))
             DO UPDATE SET
                 run_id = EXCLUDED.run_id,
@@ -246,6 +271,12 @@ def rollup_investment(
                 effective_ownership_percent = EXCLUDED.effective_ownership_percent,
                 fund_nav_contribution = EXCLUDED.fund_nav_contribution,
                 equity_multiple = EXCLUDED.equity_multiple,
+                noi = EXCLUDED.noi,
+                revenue = EXCLUDED.revenue,
+                opex = EXCLUDED.opex,
+                occupancy = EXCLUDED.occupancy,
+                debt_service = EXCLUDED.debt_service,
+                asset_value = EXCLUDED.asset_value,
                 inputs_hash = EXCLUDED.inputs_hash,
                 created_at = now()
             RETURNING *
@@ -259,6 +290,12 @@ def rollup_investment(
                 _q(gross_asset_value), _q(debt_balance), _q(cash_balance),
                 _q(effective_ownership_percent), _q(agg_nav),
                 _q(equity_multiple),
+                _q(agg_noi) if agg_noi else None,
+                _q(agg_revenue) if agg_revenue else None,
+                _q(agg_opex) if agg_opex else None,
+                _q(weighted_occupancy),
+                _q(agg_debt_service) if agg_debt_service else None,
+                _q(gross_asset_value),
                 inputs_hash,
             ),
         )

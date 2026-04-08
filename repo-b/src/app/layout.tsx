@@ -92,6 +92,8 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-theme="dark"
+      suppressHydrationWarning
       className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable} ${mandaloreCommand.variable} ${editorialFont.variable} ${labelFont.variable}`}
     >
       <body>

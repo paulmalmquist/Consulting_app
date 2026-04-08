@@ -48,20 +48,6 @@ function buildClaims(overrides?: Partial<PlatformSessionClaims>): PlatformSessio
         workspace_template_key: "content_platform",
       },
       {
-        env_id: "env-resume",
-        env_slug: "resume",
-        client_name: "Paul Malmquist Resume",
-        role: "owner",
-        status: "active",
-        auth_mode: "hybrid",
-        is_default: false,
-        business_id: "biz-resume",
-        tenant_id: "tenant-resume",
-        industry: "visual_resume",
-        industry_type: "visual_resume",
-        workspace_template_key: "visual_resume",
-      },
-      {
         env_id: "env-trading",
         env_slug: "trading",
         client_name: "Trading Platform",
@@ -188,31 +174,6 @@ test("authenticated users without trading membership get the trading unauthorize
 
   await expect(page).toHaveURL(/\/trading\/unauthorized$/);
   await expect(page.getByRole("heading", { name: "Trading access required" })).toBeVisible();
-});
-
-test("resume keeps the public view separate from admin access", async ({ context, page, baseURL }) => {
-  if (!baseURL) throw new Error("baseURL missing");
-
-  await page.goto("/resume", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "Paul Malmquist" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Resume admin login" })).toBeVisible();
-
-  const claims = buildClaims({
-    memberships: buildClaims().memberships.map((membership) => (
-      membership.env_slug === "resume"
-        ? { ...membership, role: "viewer" as const }
-        : membership
-    )),
-    active_env_id: "env-resume",
-    active_env_slug: "resume",
-    active_role: "viewer",
-  });
-
-  await installPlatformSession(context, baseURL, claims);
-  await page.goto("/resume/admin", { waitUntil: "domcontentloaded" });
-
-  await expect(page).toHaveURL(/\/resume\/unauthorized$/);
-  await expect(page.getByRole("heading", { name: "Owner access required" })).toBeVisible();
 });
 
 test("logout clears environment state and returns to the branded login", async ({ context, page, baseURL }) => {
