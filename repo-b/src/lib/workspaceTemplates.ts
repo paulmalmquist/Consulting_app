@@ -22,6 +22,7 @@ export const workspaceTemplateRegistry = {
   ai_copilot: { label: "AI Discovery Copilot", openPath: "copilot" },
   engagement_output: { label: "Engagement Output Center", openPath: "outputs" },
   visual_resume: { label: "Visual Resume", openPath: "resume" },
+  multi_entity_operator: { label: "Multi-Entity Operator", openPath: "operator" },
 } as const;
 
 export type KnownWorkspaceTemplateKey = keyof typeof workspaceTemplateRegistry;
@@ -64,6 +65,7 @@ export function resolveWorkspaceTemplateKey(input: WorkspaceTemplateInput): stri
   if (industryKey === "ai_copilot") return "ai_copilot";
   if (industryKey === "engagement_output") return "engagement_output";
   if (industryKey === "visual_resume" || industryKey === "resume") return "visual_resume";
+  if (industryKey === "multi_entity_operator" || industryKey === "operator") return "multi_entity_operator";
   if (["trading_platform", "trading", "market_rotation", "market_intelligence", "msa_rotation", "financial_markets"].includes(industryKey)) return "trading_platform";
   return null;
 }

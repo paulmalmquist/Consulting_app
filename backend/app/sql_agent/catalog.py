@@ -108,6 +108,20 @@ ENTITY_TABLES: list[Table] = [
             Column("commitment", "numeric", "Capital commitment amount"),
         ],
     ),
+    Table(
+        name="re_partner_commitment",
+        description="Capital commitments by partner and fund",
+        pk="commitment_id",
+        parent_fk="fund_id → repe_fund",
+        columns=[
+            Column("commitment_id", "uuid", "Primary key"),
+            Column("fund_id", "uuid", "FK to repe_fund"),
+            Column("partner_id", "uuid", "FK to re_partner"),
+            Column("committed_amount", "numeric", "Committed capital amount"),
+            Column("status", "text", "active | fully_called | cancelled"),
+            Column("created_at", "timestamptz", "Creation timestamp"),
+        ],
+    ),
 ]
 
 # ── Financial statement tables (SQL-queryable) ─────────────────────
@@ -685,6 +699,8 @@ JOIN_GRAPH: list[JoinPath] = [
     JoinPath("repe_asset", "repe_deal", "repe_asset.deal_id = repe_deal.deal_id", "many_to_one"),
     JoinPath("repe_property_asset", "repe_asset", "repe_property_asset.asset_id = repe_asset.asset_id", "one_to_one"),
     JoinPath("re_partner", "repe_fund", "re_partner.fund_id = repe_fund.fund_id", "many_to_one"),
+    JoinPath("re_partner_commitment", "repe_fund", "re_partner_commitment.fund_id = repe_fund.fund_id", "many_to_one"),
+    JoinPath("re_partner_commitment", "re_partner", "re_partner_commitment.partner_id = re_partner.partner_id", "many_to_one"),
     JoinPath("re_loan", "repe_asset", "re_loan.asset_id = repe_asset.asset_id", "many_to_one"),
     JoinPath("re_loan_detail", "repe_asset", "re_loan_detail.asset_id = repe_asset.asset_id", "one_to_one"),
     # Financial statements → entities

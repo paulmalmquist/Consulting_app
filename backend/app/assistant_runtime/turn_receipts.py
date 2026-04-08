@@ -77,6 +77,7 @@ class DegradedReason(StrEnum):
     RETRIEVAL_EMPTY = "retrieval_empty"
     NO_SKILL_MATCH = "no_skill_match"
     NO_RESPONSE = "no_response"
+    STRUCTURED_DEGRADED = "structured_degraded"
 
 
 class DispatchAmbiguity(StrEnum):
@@ -227,6 +228,20 @@ class PendingActionReceipt(BaseModel):
     confirmation_required: bool = True
 
 
+class StructuredQueryReceipt(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    parsed_contract: dict[str, Any] = Field(default_factory=dict)
+    execution_path: str
+    transformation_applied: str | None = None
+    operators_applied: dict[str, Any] = Field(default_factory=dict)
+    memory_used: bool = False
+    degraded: bool = False
+    canonical_source: str | None = None
+    canonical_check: str | None = None
+    degradation_reason: str | None = None
+
+
 class TurnReceipt(BaseModel):
     model_config = {"extra": "forbid"}
 
@@ -239,6 +254,7 @@ class TurnReceipt(BaseModel):
     tools: list[ToolReceipt] = Field(default_factory=list)
     retrieval: RetrievalReceipt
     pending_action: PendingActionReceipt | None = None
+    structured_query: StructuredQueryReceipt | None = None
     status: TurnStatus
     degraded_reason: DegradedReason | None = None
     quality_gates: list[dict[str, Any]] | None = None

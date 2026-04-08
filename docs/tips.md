@@ -2118,3 +2118,12 @@ Follow the existing pattern:
 - **Mobile tap targets:** Interactive cards should have minimum `py-4` padding. Add `active:scale-[0.98]` to all tappable cards for tactile press feedback. Disabled states should use `pointer-events-none opacity-70` rather than the native `disabled` attribute on non-button elements.
 - **"Authenticated Home" label is a debug artifact:** Any sticky header label that reads like an internal state name (e.g., "Authenticated Home", "Admin Mode", "Dev Env") should be removed before shipping. The signed-in state is self-evident from the content shown.
 - **Env card glow + border pattern:** The `environmentTone()` helper returns a raw RGB triple (e.g. `"148, 163, 184"`) for use in `rgba(...)` expressions. Apply it to `borderColor` and `boxShadow` inline styles on cards. This gives each workspace a subtle visual identity without hardcoding colors per environment.
+
+## Multi-Entity Operator Template (2026-04-07)
+
+- When adding a new top-level environment workspace, wire the template in three places together: frontend `workspaceTemplateRegistry`, backend `resolve_workspace_template_key()`, and the environment open-path resolver tests. If one lags, auth can resolve the environment correctly but still launch the wrong surface.
+- For demo environments, keep one canonical seed fixture and derive the backend read model, UI totals, drilldowns, and Winston page context from that same fixture. This avoids the classic "numbers drift across pages" failure mode.
+- On cross-entity finance pages, label `weighted margin` explicitly when it is derived from consolidated revenue and expense. If you also show an average of entity margins, label it separately so CFO views do not reconcile incorrectly.
+- Keep vendor consolidation and close tracking inside the main operator workspace when standalone vendor/workflow surfaces are still preview stubs. It preserves one clear narrative instead of forcing the user through half-built side routes.
+- Publish the operator snapshot into assistant page context on the executive and project-detail surfaces. Winston is materially more grounded when the page already hands it the same project, vendor, blocker, and metric facts the user is seeing.
+- The existing extraction pipeline becomes reusable across new business document types once the schema is added in `extraction_profiles.py` and `_store_fields()` flattens fields generically instead of assuming one legacy document shape.

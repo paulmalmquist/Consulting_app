@@ -51,6 +51,7 @@ const MOBILE_NAV_ROUTE_PATTERNS = [
   /^\/lab\/env\/[^/]+\/re(?:\/|$)/,
   /^\/lab\/env\/[^/]+\/ecc(?:\/|$)/,
   /^\/lab\/env\/[^/]+\/consulting(?:\/|$)/,
+  /^\/lab\/env\/[^/]+\/operator(?:\/|$)/,
   /^\/lab\/env\/[^/]+\/resume(?:\/|$)/,
 ];
 
@@ -151,6 +152,16 @@ function buildQuickLinks(envelope: AssistantContextEnvelope): WinstonQuickLink[]
     ];
   }
 
+  if (activeModule === "operator") {
+    const base = `/lab/env/${envId}/operator`;
+    return [
+      { id: "operator-home", label: "Executive", href: base, description: "Cross-entity command center" },
+      { id: "operator-projects", label: "Projects", href: `${base}/projects`, description: "Budget, risk, and delivery drilldowns" },
+      { id: "operator-vendors", label: "Vendors", href: `${base}/vendors`, description: "Spend aggregation and consolidation" },
+      { id: "operator-close", label: "Close", href: `${base}/close`, description: "Blockers and late workflow tasks" },
+    ];
+  }
+
   return [];
 }
 
@@ -215,6 +226,14 @@ function buildSuggestions(envelope: AssistantContextEnvelope, routeLabel: string
       { id: "resume-summary", label: "Explain this resume", prompt: `Summarize what matters on the ${routeLabel} page and explain the active resume story.` },
       { id: "resume-modules", label: "Best module to open", prompt: "Which visual resume module should I open next, and why?" },
       { id: "resume-narrative", label: "Translate for executives", prompt: "Translate this visual resume into a concise executive narrative with the most important systems and business outcomes." },
+    ];
+  }
+
+  if (activeModule === "operator") {
+    return [
+      { id: "operator-wrong", label: "What’s going wrong?", prompt: "What’s going wrong this month across Hall Boys?" },
+      { id: "operator-money", label: "Where money is lost", prompt: "Where are we losing money right now, and why?" },
+      { id: "operator-focus", label: "What to focus on", prompt: "What should I focus on today?" },
     ];
   }
 

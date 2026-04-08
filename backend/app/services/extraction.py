@@ -111,7 +111,7 @@ class ExtractionService:
     def _build_prompt(self, pages, schema: dict) -> str:
         page_block = "\n\n".join([f"[PAGE {p.page}]\n{p.text[:4000]}" for p in pages])
         return (
-            "Extract loan/real-estate/legal terms from document text. "
+            "Extract structured business document terms from document text. "
             "Return STRICT JSON object only (no markdown) that validates against this schema. "
             "Every field must have evidence references in evidence object keyed by field path.\n"
             f"SCHEMA:\n{json.dumps(schema)}\n"
@@ -181,24 +181,25 @@ class ExtractionService:
                 (status, error, run_id),
             )
 
+    def _flatten_fields(self, value, prefix: str = "") -> dict[str, object]:
+        flat: dict[str, object] = {}
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key == "evidence":
+                    continue
+                next_prefix = f"{prefix}.{key}" if prefix else key
+                if isinstance(child, dict):
+                    flat.update(self._flatten_fields(child, next_prefix))
+                else:
+                    flat[next_prefix] = child
+            return flat
+        if prefix:
+            flat[prefix] = value
+        return flat
+
     def _store_fields(self, extracted_document_id: str, extracted: dict):
         evidence = extracted.get("evidence", {})
-        flat = {
-            "parties.borrower": extracted.get("parties", {}).get("borrower"),
-            "parties.lender": extracted.get("parties", {}).get("lender"),
-            "parties.guarantor": extracted.get("parties", {}).get("guarantor"),
-            "property.address_or_name": extracted.get("property", {}).get("address_or_name"),
-            "loan_terms.loan_amount": extracted.get("loan_terms", {}).get("loan_amount"),
-            "loan_terms.interest_terms": extracted.get("loan_terms", {}).get("interest_terms"),
-            "loan_terms.maturity_date": extracted.get("loan_terms", {}).get("maturity_date"),
-            "loan_terms.amortization_io": extracted.get("loan_terms", {}).get("amortization_io"),
-            "fees": extracted.get("fees"),
-            "covenants.dscr_ltv": extracted.get("covenants", {}).get("dscr_ltv"),
-            "covenants.cash_sweep_triggers": extracted.get("covenants", {}).get("cash_sweep_triggers"),
-            "default_rate": extracted.get("default_rate"),
-            "events_of_default": extracted.get("events_of_default"),
-            "governing_law": extracted.get("governing_law"),
-        }
+        flat = self._flatten_fields(extracted)
         with get_cursor() as cur:
             cur.execute("DELETE FROM app.extracted_field WHERE extracted_document_id = %s", (extracted_document_id,))
             for key, value in flat.items():

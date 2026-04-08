@@ -437,6 +437,141 @@ WHERE f.business_id = %(business_id)s::uuid
         tags=frozenset({"asset", "count", "portfolio"}),
     ),
     QueryTemplate(
+        key="repe.fund_list",
+        description="List funds in the portfolio",
+        sql="""\
+SELECT f.fund_id::text AS fund_id,
+       f.name AS fund_name,
+       f.vintage_year,
+       f.fund_type,
+       f.strategy,
+       f.status,
+       f.target_size
+FROM repe_fund f
+WHERE f.business_id = %(business_id)s::uuid
+ORDER BY f.name ASC
+LIMIT %(limit)s""",
+        required_params=frozenset({"business_id"}),
+        optional_params=frozenset({"limit"}),
+        default_chart="table",
+        query_type=QueryType.LOOKUP,
+        domain="repe",
+        tags=frozenset({"fund", "list", "inventory"}),
+    ),
+    QueryTemplate(
+        key="repe.fund_performance_summary",
+        description="Fund performance summary for the latest or specified quarter",
+        sql="""\
+SELECT f.fund_id::text AS fund_id,
+       f.name AS fund_name,
+       fs.quarter,
+       fs.gross_irr,
+       fs.net_irr,
+       fs.tvpi,
+       fs.dpi,
+       fs.rvpi,
+       fs.portfolio_nav,
+       fs.total_committed
+FROM re_fund_quarter_state fs
+JOIN repe_fund f ON f.fund_id = fs.fund_id
+WHERE f.business_id = %(business_id)s::uuid
+  AND fs.quarter = COALESCE(
+        %(quarter)s::text,
+        (SELECT MAX(fs2.quarter)
+         FROM re_fund_quarter_state fs2
+         JOIN repe_fund f2 ON f2.fund_id = fs2.fund_id
+         WHERE f2.business_id = %(business_id)s::uuid)
+      )
+ORDER BY f.name ASC
+LIMIT %(limit)s""",
+        required_params=frozenset({"business_id"}),
+        optional_params=frozenset({"quarter", "limit"}),
+        default_chart="table",
+        query_type=QueryType.GROUPED_AGGREGATION,
+        domain="repe",
+        tags=frozenset({"fund", "performance", "summary"}),
+    ),
+    QueryTemplate(
+        key="repe.commitments_total",
+        description="Total commitments across all funds",
+        sql="""\
+SELECT COALESCE(SUM(pc.committed_amount), 0) AS total_commitments
+FROM re_partner_commitment pc
+JOIN repe_fund f ON f.fund_id = pc.fund_id
+WHERE f.business_id = %(business_id)s::uuid
+  AND pc.status IN ('active', 'fully_called')""",
+        required_params=frozenset({"business_id"}),
+        optional_params=frozenset(),
+        default_chart="table",
+        query_type=QueryType.LOOKUP,
+        domain="repe",
+        tags=frozenset({"commitments", "portfolio"}),
+    ),
+    QueryTemplate(
+        key="repe.commitments_by_fund",
+        description="Commitments by fund",
+        sql="""\
+SELECT f.fund_id::text AS fund_id,
+       f.name AS fund_name,
+       COALESCE(SUM(pc.committed_amount), 0) AS commitments
+FROM repe_fund f
+LEFT JOIN re_partner_commitment pc
+  ON pc.fund_id = f.fund_id
+ AND pc.status IN ('active', 'fully_called')
+WHERE f.business_id = %(business_id)s::uuid
+GROUP BY f.fund_id, f.name
+ORDER BY commitments DESC, f.name ASC
+LIMIT %(limit)s""",
+        required_params=frozenset({"business_id"}),
+        optional_params=frozenset({"limit"}),
+        default_chart="table",
+        query_type=QueryType.GROUPED_AGGREGATION,
+        domain="repe",
+        tags=frozenset({"commitments", "fund", "breakout"}),
+    ),
+    QueryTemplate(
+        key="repe.noi_variance_ranked",
+        description="Assets ranked by NOI variance percent for the latest or specified quarter",
+        sql="""\
+SELECT a.asset_id::text AS asset_id,
+       a.name AS asset_name,
+       COALESCE(pa.property_type, a.asset_type) AS property_type,
+       pa.market,
+       v.quarter,
+       v.actual_amount,
+       v.plan_amount,
+       v.variance_amount,
+       v.variance_pct
+FROM re_asset_variance_qtr v
+JOIN repe_asset a ON a.asset_id = v.asset_id
+LEFT JOIN repe_property_asset pa ON pa.asset_id = a.asset_id
+JOIN repe_deal d ON d.deal_id = a.deal_id
+JOIN repe_fund f ON f.fund_id = d.fund_id
+WHERE f.business_id = %(business_id)s::uuid
+  AND v.line_code = 'NOI'
+  AND v.quarter = COALESCE(
+        %(quarter)s::text,
+        (SELECT MAX(v2.quarter)
+         FROM re_asset_variance_qtr v2
+         JOIN repe_asset a2 ON a2.asset_id = v2.asset_id
+         JOIN repe_deal d2 ON d2.deal_id = a2.deal_id
+         JOIN repe_fund f2 ON f2.fund_id = d2.fund_id
+         WHERE f2.business_id = %(business_id)s::uuid
+           AND v2.line_code = 'NOI')
+      )
+ORDER BY
+  CASE WHEN %(sort_direction)s = 'desc' THEN v.variance_pct END DESC NULLS LAST,
+  CASE WHEN %(sort_direction)s = 'asc' THEN v.variance_pct END ASC NULLS LAST,
+  a.name ASC
+LIMIT %(limit)s""",
+        required_params=frozenset({"business_id", "sort_direction"}),
+        optional_params=frozenset({"quarter", "limit"}),
+        default_chart="table",
+        query_type=QueryType.RANKED_COMPARISON,
+        domain="repe",
+        tags=frozenset({"noi", "variance", "ranked"}),
+    ),
+    QueryTemplate(
         key="repe.noi_variance_filtered",
         description="Assets filtered by NOI variance threshold",
         sql="""\
@@ -459,6 +594,38 @@ LIMIT %(limit)s""",
         query_type=QueryType.FILTERED_LIST,
         domain="repe",
         tags=frozenset({"noi", "variance", "filter"}),
+    ),
+    QueryTemplate(
+        key="repe.occupancy_filtered",
+        description="Assets filtered by occupancy threshold",
+        sql="""\
+SELECT a.asset_id::text AS asset_id,
+       a.name AS asset_name,
+       pa.property_type,
+       pa.market,
+       pa.occupancy,
+       pa.units,
+       pa.current_noi
+FROM repe_property_asset pa
+JOIN repe_asset a ON a.asset_id = pa.asset_id
+JOIN repe_deal d ON d.deal_id = a.deal_id
+JOIN repe_fund f ON f.fund_id = d.fund_id
+WHERE f.business_id = %(business_id)s::uuid
+  AND pa.occupancy IS NOT NULL
+  AND (
+    (%(operator)s = '>' AND pa.occupancy > %(threshold)s)
+    OR (%(operator)s = '>=' AND pa.occupancy >= %(threshold)s)
+    OR (%(operator)s = '<' AND pa.occupancy < %(threshold)s)
+    OR (%(operator)s = '<=' AND pa.occupancy <= %(threshold)s)
+  )
+ORDER BY pa.occupancy DESC NULLS LAST, a.name ASC
+LIMIT %(limit)s""",
+        required_params=frozenset({"business_id", "operator", "threshold"}),
+        optional_params=frozenset({"limit"}),
+        default_chart="table",
+        query_type=QueryType.FILTERED_LIST,
+        domain="repe",
+        tags=frozenset({"occupancy", "filter"}),
     ),
 ]
 

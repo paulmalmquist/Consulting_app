@@ -31,6 +31,7 @@ import {
   getPatternIntelContext,
   getOpportunityEngineContext,
   getResumeContext,
+  getOperatorContext,
 } from "@/lib/bos-api";
 import { useBusinessContext } from "@/lib/business-context";
 import { publishAssistantEnvironmentContext } from "@/lib/commandbar/appContextBridge";
@@ -41,6 +42,7 @@ export type DomainSlug = "pds" | "credit" | "legal" | "medical"
   | "metric-dict" | "data-chaos" | "blueprint" | "pilot"
   | "impact" | "case-factory" | "copilot" | "outputs" | "pattern-intel"
   | "opportunity-engine"
+  | "operator"
   | "resume";
 
 type DomainEnvironment = {
@@ -92,6 +94,7 @@ async function resolveDomainContext(domain: DomainSlug, envId: string): Promise<
   if (domain === "outputs") return getOutputsContext(envId);
   if (domain === "pattern-intel") return getPatternIntelContext(envId);
   if (domain === "opportunity-engine") return getOpportunityEngineContext(envId);
+  if (domain === "operator") return getOperatorContext(envId);
   if (domain === "resume") return getResumeContext(envId);
   return getMedOfficeContext(envId);
 }

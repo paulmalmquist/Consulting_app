@@ -376,6 +376,7 @@ def update_thread_entity_state(
         "resolved_entities": entities,
         "active_context": active_context,
         "result_memory": current.get("result_memory"),
+        "structured_query_state": current.get("structured_query_state"),
     }
     try:
         with get_cursor() as cur:
@@ -407,11 +408,49 @@ def update_thread_result_memory(
         "resolved_entities": current.get("resolved_entities", []),
         "active_context": current.get("active_context", {}),
         "result_memory": None,
+        "structured_query_state": current.get("structured_query_state"),
     }
     if result_memory is not None:
         normalized = dict(result_memory)
         normalized["stored_at"] = datetime.now(timezone.utc).isoformat()
         state["result_memory"] = normalized
+
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """UPDATE ai_conversations
+                   SET thread_entity_state = %s, updated_at = now()
+                   WHERE conversation_id = %s""",
+                (json.dumps(state), str(conversation_id)),
+            )
+    except Exception:
+        pass
+
+
+def update_thread_structured_query_state(
+    conversation_id: str | UUID,
+    *,
+    structured_query_state: dict[str, Any] | None,
+) -> None:
+    """Persist deterministic structured-query state while preserving existing thread state."""
+    import json
+    from datetime import datetime, timezone
+
+    _ensure_thread_entity_state_column()
+    if "thread_entity_state" not in _conversation_table_columns():
+        return
+
+    current = get_thread_entity_state(conversation_id) or {}
+    state = {
+        "resolved_entities": current.get("resolved_entities", []),
+        "active_context": current.get("active_context", {}),
+        "result_memory": current.get("result_memory"),
+        "structured_query_state": None,
+    }
+    if structured_query_state is not None:
+        normalized = dict(structured_query_state)
+        normalized["stored_at"] = datetime.now(timezone.utc).isoformat()
+        state["structured_query_state"] = normalized
 
     try:
         with get_cursor() as cur:

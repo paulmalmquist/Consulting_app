@@ -297,6 +297,49 @@ _RENT_ROLL_SCHEMA = {
     },
 }
 
+_OPERATOR_CONTRACT_SCHEMA = {
+    "type": "object",
+    "required": [
+        "document_title",
+        "counterparty",
+        "payment_terms",
+        "contract_value",
+        "next_payment_amount",
+        "next_payment_due_days",
+        "auto_renewal",
+        "risk_flags",
+        "obligations",
+        "evidence",
+    ],
+    "properties": {
+        "document_title": {"type": ["string", "null"]},
+        "counterparty": {"type": ["string", "null"]},
+        "payment_terms": {"type": ["string", "null"]},
+        "contract_value": {"type": ["number", "string", "null"]},
+        "next_payment_amount": {"type": ["number", "string", "null"]},
+        "next_payment_due_days": {"type": ["number", "string", "null"]},
+        "auto_renewal": {"type": ["boolean", "null"]},
+        "termination_notice_days": {"type": ["number", "string", "null"]},
+        "penalty_clause": {"type": ["string", "null"]},
+        "risk_flags": {"type": "array", "items": {"type": "string"}},
+        "obligations": {"type": "array", "items": {"type": "string"}},
+        "evidence": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["page", "snippet"],
+                    "properties": {
+                        "page": {"type": "integer", "minimum": 1},
+                        "snippet": {"type": "string"},
+                    },
+                },
+            },
+        },
+    },
+}
+
 
 def get_profile_schema(profile: str) -> dict:
     if profile == "loan_real_estate_v1":
@@ -307,6 +350,8 @@ def get_profile_schema(profile: str) -> dict:
         return _T12_OFFICE_SCHEMA
     if profile == "rent_roll_structured":
         return _RENT_ROLL_SCHEMA
+    if profile == "operator_contract":
+        return _OPERATOR_CONTRACT_SCHEMA
     if profile in _CRE_PROFILES:
         return _CRE_PROFILES[profile]
     raise ValueError(f"Unsupported extraction profile: {profile}")

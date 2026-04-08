@@ -18,6 +18,7 @@ from app.assistant_runtime.harness.audit_logger import HarnessAuditLogger
 from app.assistant_runtime.harness.harness_types import HarnessConfig, LifecyclePhase
 from app.assistant_runtime.harness.lifecycle import LifecycleManager
 from app.assistant_runtime.harness.quality_gate import run_gates
+from app.assistant_runtime.meridian_structured_runtime import try_run_meridian_structured_query
 from app.assistant_runtime.prompt_registry import compose_runtime_messages
 from app.assistant_runtime.result_memory import (
     build_asset_count_response_text,
@@ -41,6 +42,7 @@ from app.assistant_runtime.turn_receipts import (
     RetrievalStatus,
     SkillSelection,
     StructuredPrecheckStatus,
+    StructuredQueryReceipt,
     ToolStatus,
     TurnReceipt,
     TurnStatus,
@@ -191,7 +193,9 @@ def _build_trace(
         for idx, receipt in enumerate(turn_receipt.tools)
     ]
     execution_path = "tool" if turn_receipt.tools else "rag" if turn_receipt.retrieval.used else "chat"
-    if turn_receipt.status != TurnStatus.SUCCESS:
+    if turn_receipt.structured_query is not None:
+        execution_path = turn_receipt.structured_query.execution_path
+    if turn_receipt.status != TurnStatus.SUCCESS and turn_receipt.structured_query is None:
         execution_path = "unavailable"
     warnings = [turn_receipt.degraded_reason] if turn_receipt.degraded_reason else []
     return {
@@ -448,6 +452,7 @@ async def _persist_conversation_turn(
     request_id: str,
     envelope: AssistantContextEnvelope | None = None,
     result_memory: dict[str, Any] | None = None,
+    structured_query_state: dict[str, Any] | None = None,
 ) -> None:
     if not conversation_id:
         return
@@ -481,6 +486,18 @@ async def _persist_conversation_turn(
                 lambda: convo_svc.update_thread_result_memory(
                     conversation_id,
                     result_memory=result_memory_to_store,
+                ),
+            )
+        except Exception:
+            pass
+
+    if structured_query_state is not None:
+        try:
+            await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: convo_svc.update_thread_structured_query_state(
+                    conversation_id,
+                    structured_query_state=structured_query_state,
                 ),
             )
         except Exception:
@@ -541,6 +558,176 @@ def _normalize_result_memory_scope(
             )
     normalized["scope"] = scope
     return normalized
+
+
+async def _try_meridian_structured_gate(
+    *,
+    message: str,
+    resolved_scope: Any,
+    context_receipt: Any,
+    envelope: AssistantContextEnvelope,
+    thread_entity_state: dict[str, Any] | None,
+    request_id: str,
+    session_id: str | None,
+    conversation_id: uuid.UUID | None,
+    actor: str,
+    started_at: float,
+    scope_dump: dict[str, Any],
+    timings: dict[str, int | None],
+) -> AsyncGenerator[str, None] | None:
+    """Meridian structured gate: parse → execute → emit SSE, bypassing LLM.
+
+    Returns an async generator of SSE chunks if the gate fires, or None
+    to let the normal lifecycle continue.
+    """
+    if context_receipt.resolution_status != ContextResolutionStatus.RESOLVED:
+        return None
+    if not resolved_scope.business_id:
+        return None
+
+    from app.assistant_runtime.meridian_structured_parser import (
+        is_meridian_structured_query,
+        parse_meridian_contract,
+    )
+
+    env_name = envelope.ui.active_environment_name or ""
+    if not is_meridian_structured_query(message, env_name=env_name):
+        return None
+
+    contract = parse_meridian_contract(message, prior_state=thread_entity_state)
+    if contract is None or contract.needs_clarification:
+        return None
+
+    from app.assistant_runtime.meridian_structured_executor import (
+        execute_meridian_contract,
+    )
+
+    business_id = str(resolved_scope.business_id)
+    env_id = str(resolved_scope.environment_id or "")
+
+    result = await asyncio.get_event_loop().run_in_executor(
+        None,
+        lambda: execute_meridian_contract(
+            contract,
+            business_id=business_id,
+            env_id=env_id,
+            thread_state=thread_entity_state,
+        ),
+    )
+    if result is None:
+        return None
+
+    emit_log(
+        level="info",
+        service="backend",
+        action="assistant_runtime.meridian_structured_gate",
+        message="Meridian structured gate fired — bypassing LLM dispatch",
+        context={
+            "request_id": request_id,
+            "use_case": (result.structured_receipt or {}).get("execution_path"),
+            "degraded": result.degraded,
+            "row_count": len(result.rows),
+        },
+    )
+
+    async def _emit() -> AsyncGenerator[str, None]:
+        response_text = result.answer_text
+        response_blocks = [markdown_block(response_text)]
+
+        if result.structured_receipt:
+            yield _sse("response_block", {"block": {
+                "type": "structured_query_receipt",
+                "data": result.structured_receipt,
+            }})
+
+        for block in response_blocks:
+            yield _sse("response_block", {"block": block})
+        yield _sse("token", {"text": response_text})
+
+        receipt_data = result.structured_receipt or {}
+        sq_receipt = StructuredQueryReceipt(
+            parsed_contract=receipt_data.get("parsed_contract", {}),
+            execution_path=receipt_data.get("execution_path", "unknown"),
+            transformation_applied=contract.transformation,
+            operators_applied={
+                k: v for k, v in {
+                    "sort_direction": contract.sort_direction,
+                    "limit": contract.limit,
+                    "group_by": contract.group_by,
+                    "filter_count": len(contract.filters) if contract.filters else 0,
+                }.items() if v
+            },
+            memory_used=receipt_data.get("memory_used", False),
+            degraded=result.degraded,
+            canonical_source=result.canonical_source or None,
+            degradation_reason=result.degraded_reason,
+        )
+
+        turn_receipt = TurnReceipt(
+            request_id=request_id,
+            lane=Lane.A_FAST,
+            dispatch=DispatchTrace(
+                raw=None,
+                normalized=DispatchDecision(
+                    source=DispatchSource.DETERMINISTIC_GUARDRAIL,
+                    skill_id="meridian_structured",
+                    lane=Lane.A_FAST,
+                    needs_retrieval=False,
+                    write_intent=False,
+                    ambiguity_level=DispatchAmbiguity.LOW,
+                    confidence=1.0,
+                    fallback_used=False,
+                    notes=["meridian_structured_gate"],
+                ),
+            ),
+            fallback_reason=None,
+            context=context_receipt,
+            skill=SkillSelection(
+                skill_id="meridian_structured",
+                confidence=1.0,
+                triggers_matched=["meridian_structured_parser"],
+            ),
+            tools=[],
+            retrieval=RetrievalReceipt(used=False, result_count=0, status=RetrievalStatus.OK),
+            pending_action=None,
+            structured_query=sq_receipt,
+            status=TurnStatus.SUCCESS,
+            degraded_reason=DegradedReason.NO_RESPONSE if result.degraded else None,
+        )
+
+        elapsed_ms = int((time.time() - started_at) * 1000)
+        timings["render_completion_ms"] = elapsed_ms
+        await _persist_conversation_turn(
+            conversation_id=conversation_id,
+            message=message,
+            assistant_content=response_text,
+            response_blocks=response_blocks,
+            turn_receipt=turn_receipt,
+            resolved_scope=resolved_scope,
+            request_id=request_id,
+            envelope=envelope,
+            result_memory=result.result_memory,
+        )
+        yield _sse(
+            "done",
+            {
+                "session_id": session_id,
+                "turn_receipt": turn_receipt.model_dump(mode="json"),
+                "trace": _build_trace(
+                    turn_receipt=turn_receipt,
+                    model="none",
+                    elapsed_ms=elapsed_ms,
+                    resolved_scope=scope_dump,
+                    response_blocks=response_blocks,
+                    timings=timings,
+                ),
+                "response_blocks": response_blocks,
+                "resolved_scope": scope_dump,
+                "structured_query": result.structured_receipt,
+            },
+        )
+
+    return _emit()
 
 
 def _deterministic_fast_response(
@@ -914,6 +1101,104 @@ async def run_request_lifecycle(
                 "resolved_scope": scope_dump,
             },
         )
+        return
+
+    meridian_structured = try_run_meridian_structured_query(
+        message=message,
+        resolved_scope=resolved_scope,
+        envelope=normalized_envelope,
+        thread_entity_state=thread_entity_state,
+    )
+    if meridian_structured is not None:
+        response_text = meridian_structured.text
+        response_blocks = [markdown_block(response_text)]
+        turn_status = TurnStatus.DEGRADED if meridian_structured.receipt.degraded else TurnStatus.SUCCESS
+        turn_receipt = TurnReceipt(
+            request_id=request_id,
+            lane=Lane.A_FAST,
+            dispatch=DispatchTrace(
+                raw=None,
+                normalized=DispatchDecision(
+                    source=DispatchSource.DETERMINISTIC_GUARDRAIL,
+                    skill_id="structured_portfolio_operator",
+                    lane=Lane.A_FAST,
+                    needs_retrieval=False,
+                    write_intent=False,
+                    ambiguity_level=DispatchAmbiguity.LOW,
+                    confidence=1.0,
+                    fallback_used=False,
+                    notes=["meridian_structured_runtime"],
+                ),
+            ),
+            fallback_reason=None,
+            context=context_receipt,
+            skill=SkillSelection(
+                skill_id="structured_portfolio_operator",
+                confidence=1.0,
+                triggers_matched=["meridian_structured_query"],
+            ),
+            tools=[],
+            retrieval=RetrievalReceipt(used=False, result_count=0, status=RetrievalStatus.OK),
+            pending_action=None,
+            structured_query=meridian_structured.receipt,
+            status=turn_status,
+            degraded_reason=DegradedReason.STRUCTURED_DEGRADED if meridian_structured.receipt.degraded else None,
+        )
+        timings["render_completion_ms"] = int((time.time() - started_at) * 1000)
+        yield _sse("response_block", {"block": response_blocks[0]})
+        yield _sse("token", {"text": response_text})
+        await _persist_conversation_turn(
+            conversation_id=conversation_id,
+            message=message,
+            assistant_content=response_text,
+            response_blocks=response_blocks,
+            turn_receipt=turn_receipt,
+            resolved_scope=resolved_scope,
+            request_id=request_id,
+            envelope=normalized_envelope,
+            result_memory=meridian_structured.result_memory,
+            structured_query_state=meridian_structured.structured_query_state,
+        )
+        yield _sse(
+            "done",
+            {
+                "session_id": session_id,
+                "turn_receipt": turn_receipt.model_dump(mode="json"),
+                "trace": _build_trace(
+                    turn_receipt=turn_receipt,
+                    model="none",
+                    elapsed_ms=timings["render_completion_ms"] or 0,
+                    resolved_scope=scope_dump,
+                    response_blocks=response_blocks,
+                    timings=timings,
+                ),
+                "response_blocks": response_blocks,
+                "resolved_scope": scope_dump,
+            },
+        )
+        return
+
+    # ── Meridian structured gate ────────────────────────────────────────────
+    # Deterministic short-circuit: if the message parses into a structured
+    # REPE contract AND the current environment is a Meridian demo portal,
+    # execute deterministically — no LLM dispatch, no retrieval.
+    _meridian_gate_result = await _try_meridian_structured_gate(
+        message=message,
+        resolved_scope=resolved_scope,
+        context_receipt=context_receipt,
+        envelope=normalized_envelope,
+        thread_entity_state=thread_entity_state,
+        request_id=request_id,
+        session_id=session_id,
+        conversation_id=conversation_id,
+        actor=actor,
+        started_at=started_at,
+        scope_dump=scope_dump,
+        timings=timings,
+    )
+    if _meridian_gate_result is not None:
+        async for chunk in _meridian_gate_result:
+            yield chunk
         return
 
     route_started = time.perf_counter()

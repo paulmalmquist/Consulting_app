@@ -8,6 +8,14 @@ from app.services.prompt_composer import compose_prompt
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 SYSTEM_PROMPT_FILE = PROMPTS_DIR / "system_base.txt"
+_MERIDIAN_STRUCTURED_GUARDRAIL = """CRITICAL ENFORCEMENT ADDITIONS:
+
+1. Transformation precedence is absolute — cannot be overridden.
+2. Query execution must be attempted before any fallback.
+3. All metrics must resolve to a single canonical source.
+4. All parsed operators (filter, group, sort) must be executed.
+5. No silent fallbacks — all degradation must be explicit.
+6. Tests fail if parsed intent ≠ executed behavior."""
 SKILL_PROMPT_FILES: dict[str, Path] = {
     "explain_metric": PROMPTS_DIR / "skill_explain_metric.txt",
     "run_analysis": PROMPTS_DIR / "skill_analysis.txt",
@@ -44,6 +52,8 @@ def compose_runtime_messages(
     if skill.skill_id and skill.skill_id in SKILL_PROMPT_FILES:
         skill_prompt = load_prompt(SKILL_PROMPT_FILES[skill.skill_id])
         system_base = f"{system_base}\n\n## Skill\n{skill_prompt}"
+    if "Meridian Capital Management" in context_block:
+        system_base = f"{system_base}\n\n## Meridian Guardrail\n{_MERIDIAN_STRUCTURED_GUARDRAIL}"
     return compose_prompt(
         system_base=system_base,
         lane=lane,
@@ -53,4 +63,3 @@ def compose_runtime_messages(
         user_message=user_message,
         system_role=system_role,
     )
-

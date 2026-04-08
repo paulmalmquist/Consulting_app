@@ -92,6 +92,46 @@ def test_all_new_templates_have_business_id_param():
         )
 
 
+def test_meridian_fund_list_template_exists():
+    from app.sql_agent.query_templates import get_template
+    t = get_template("repe.fund_list")
+    assert t is not None
+    assert "FROM repe_fund" in t.sql
+
+
+def test_meridian_fund_performance_summary_template_exists():
+    from app.sql_agent.query_templates import get_template
+    t = get_template("repe.fund_performance_summary")
+    assert t is not None
+    assert "re_fund_quarter_state" in t.sql
+    assert "gross_irr" in t.sql
+    assert "portfolio_nav" in t.sql
+
+
+def test_meridian_commitments_breakout_template_exists():
+    from app.sql_agent.query_templates import get_template
+    t = get_template("repe.commitments_by_fund")
+    assert t is not None
+    assert "re_partner_commitment" in t.sql
+    assert "GROUP BY f.fund_id, f.name" in t.sql
+
+
+def test_meridian_noi_variance_ranked_template_exists():
+    from app.sql_agent.query_templates import get_template
+    t = get_template("repe.noi_variance_ranked")
+    assert t is not None
+    assert "re_asset_variance_qtr" in t.sql
+    assert "variance_pct" in t.sql
+
+
+def test_meridian_occupancy_filtered_template_exists():
+    from app.sql_agent.query_templates import get_template
+    t = get_template("repe.occupancy_filtered")
+    assert t is not None
+    assert "repe_property_asset" in t.sql
+    assert "occupancy" in t.sql
+
+
 # ── Classifier routing ────────────────────────────────────────────────────────
 
 def test_classifier_routes_best_irr_fund_to_irr_ranked():

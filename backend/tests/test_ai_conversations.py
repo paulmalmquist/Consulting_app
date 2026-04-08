@@ -183,3 +183,43 @@ def test_update_thread_result_memory_preserves_existing_thread_state(monkeypatch
     assert saved_state["active_context"]["entity"]["id"] == "fund_1"
     assert saved_state["result_memory"]["scope"]["entity_id"] == "fund_1"
     assert saved_state["result_memory"]["stored_at"]
+
+
+def test_update_thread_structured_query_state_preserves_result_memory(monkeypatch):
+    from app.services import ai_conversations as convo_svc
+
+    fake = RecordingCursor()
+
+    monkeypatch.setattr(convo_svc, "get_cursor", lambda: cursor_ctx(fake))
+    monkeypatch.setattr(convo_svc, "_ensure_thread_entity_state_column", lambda: None)
+    monkeypatch.setattr(convo_svc, "_conversation_table_columns", lambda: ("thread_entity_state",))
+    monkeypatch.setattr(
+        convo_svc,
+        "get_thread_entity_state",
+        lambda _conversation_id: {
+            "resolved_entities": [{"entity_type": "fund", "entity_id": "fund_1", "name": "Fund One"}],
+            "active_context": {"entity": {"type": "fund", "id": "fund_1", "name": "Fund One"}},
+            "result_memory": {
+                "result_type": "list",
+                "scope": {"business_id": "biz_123", "environment_id": "env_123"},
+                "rows": [{"id": "fund_1", "name": "Fund One"}],
+            },
+        },
+    )
+
+    convo_svc.update_thread_structured_query_state(
+        "conv_123",
+        structured_query_state={
+            "last_contract": {"entity": "portfolio", "metric": "commitments", "transformation": "summary"},
+            "last_execution": {"execution_path": "service", "degraded": False},
+            "last_partition": {"primary_bucket": "active", "remainder_count": 4},
+        },
+    )
+
+    update_sql, update_params = fake.executions[-1]
+    saved_state = json.loads(update_params[0])
+
+    assert "UPDATE ai_conversations" in update_sql
+    assert saved_state["result_memory"]["rows"][0]["name"] == "Fund One"
+    assert saved_state["structured_query_state"]["last_contract"]["metric"] == "commitments"
+    assert saved_state["structured_query_state"]["stored_at"]

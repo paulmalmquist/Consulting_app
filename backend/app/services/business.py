@@ -23,6 +23,8 @@ INDUSTRY_TYPE_TO_TEMPLATE_KEY: dict[str, str] = {
     "medical": "medical_office_backoffice",
     "consulting": "consulting",
     "consulting_revenue_os": "consulting",
+    "multi_entity_operator": "multi_entity_operator",
+    "operator": "multi_entity_operator",
 }
 
 

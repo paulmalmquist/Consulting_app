@@ -95,6 +95,7 @@ from app.routes import trades
 from app.routes import sql_agent as sql_agent_routes
 from app.routes import capability as capability_routes
 from app.routes import unified_metrics
+from app.routes import operator
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -367,6 +368,7 @@ app.include_router(market_regime.router)
 app.include_router(market_correlation.router)
 app.include_router(trading.router)
 app.include_router(trades.router)
+app.include_router(operator.router)
 app.include_router(credit.router)
 app.include_router(credit_v2.router)
 app.include_router(doc_completion.router)

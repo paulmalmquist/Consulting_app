@@ -32,6 +32,7 @@ const DOMAIN_LABELS: Record<DomainSlug, string> = {
   outputs: "Engagement Output Center",
   "pattern-intel": "Execution Pattern Intelligence",
   "opportunity-engine": "Opportunity Engine",
+  operator: "Multi-Entity Operator",
   resume: "Visual Resume",
 };
 
@@ -194,6 +195,16 @@ function navItems(domain: DomainSlug, base: string): NavItem[] {
   if (domain === "opportunity-engine") {
     return [
       { href: base, label: "Command Center" },
+    ];
+  }
+  if (domain === "operator") {
+    return [
+      { href: base, label: "Executive" },
+      { href: `${base}/finance`, label: "Finance" },
+      { href: `${base}/projects`, label: "Projects" },
+      { href: `${base}/documents`, label: "Documents" },
+      { href: `${base}/vendors`, label: "Vendors" },
+      { href: `${base}/close`, label: "Close" },
     ];
   }
   if (domain === "resume") {

@@ -633,6 +633,174 @@ export interface DomainContext {
   diagnostics: Record<string, unknown>;
 }
 
+export interface OperatorMetricCard {
+  key: string;
+  label: string;
+  value: number | string;
+  comparison_label?: string | null;
+  comparison_value?: number | string | null;
+  delta_value?: number | string | null;
+  tone?: string;
+  unit?: string | null;
+  trend_direction?: "up" | "down" | "flat" | null;
+  driver_text?: string | null;
+}
+
+export interface OperatorEntityPerformanceRow {
+  entity_id: string;
+  entity_name: string;
+  industry?: string | null;
+  revenue: number;
+  expenses: number;
+  margin_pct: number;
+  prior_margin_pct?: number | null;
+  margin_delta_pct?: number | null;
+  cash: number;
+  plan_revenue?: number | null;
+  revenue_variance?: number | null;
+  trend: "up" | "down" | "flat";
+  status: string;
+  flag?: string | null;
+  top_driver?: string | null;
+  href?: string | null;
+}
+
+export interface OperatorDocumentSummary {
+  document_id: string;
+  title: string;
+  type: string;
+  entity_id: string;
+  entity_name: string;
+  project_id?: string | null;
+  project_name?: string | null;
+  vendor_id?: string | null;
+  vendor_name?: string | null;
+  status: string;
+  created_at: string;
+  risk_flags: string[];
+  key_terms: string[];
+  extracted_json: Record<string, unknown>;
+}
+
+export interface OperatorCloseTaskRow {
+  task_id: string;
+  title: string;
+  type: string;
+  entity_id: string;
+  entity_name: string;
+  project_id?: string | null;
+  project_name?: string | null;
+  status: string;
+  owner: string;
+  due_date?: string | null;
+  blocker_reason?: string | null;
+  late_flag: boolean;
+  priority?: string | null;
+  href?: string | null;
+}
+
+export interface OperatorProjectRow {
+  project_id: string;
+  entity_id: string;
+  entity_name: string;
+  name: string;
+  status: string;
+  owner?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  budget: number;
+  actual_cost: number;
+  variance: number;
+  revenue?: number | null;
+  margin_pct?: number | null;
+  risk_score: number;
+  risk_level: string;
+  summary?: string | null;
+  blockers: string[];
+  primary_vendor?: string | null;
+  href?: string | null;
+}
+
+export interface OperatorBudgetPoint {
+  period: string;
+  budget: number;
+  actual: number;
+}
+
+export interface OperatorTimelineItem {
+  label: string;
+  date?: string | null;
+  status: string;
+  note?: string | null;
+}
+
+export interface OperatorVendorSpend {
+  vendor_id: string;
+  vendor_name: string;
+  amount: number;
+  share_pct?: number | null;
+  status?: string | null;
+  note?: string | null;
+}
+
+export interface OperatorProjectDetail extends OperatorProjectRow {
+  budget_vs_actual: OperatorBudgetPoint[];
+  timeline: OperatorTimelineItem[];
+  documents: OperatorDocumentSummary[];
+  tasks: OperatorCloseTaskRow[];
+  vendor_breakdown: OperatorVendorSpend[];
+  root_causes: string[];
+  recommended_actions: string[];
+}
+
+export interface OperatorVendorEntitySpend {
+  entity_id: string;
+  entity_name: string;
+  amount: number;
+}
+
+export interface OperatorVendorRow {
+  vendor_id: string;
+  name: string;
+  category: string;
+  entity_count: number;
+  entities: string[];
+  spend_ytd: number;
+  contract_value?: number | null;
+  overspend_amount?: number | null;
+  duplication_flag: boolean;
+  risk_flag?: string | null;
+  notes?: string | null;
+  spend_by_entity: OperatorVendorEntitySpend[];
+  linked_projects: string[];
+}
+
+export interface OperatorAssistantFocus {
+  headline: string;
+  summary_lines: string[];
+  priorities: string[];
+  money_leakage: string[];
+  close_blockers: string[];
+  prompt_suggestions: string[];
+}
+
+export interface OperatorCommandCenter {
+  env_id: string;
+  business_id: string;
+  workspace_template_key: string;
+  business_name: string;
+  period: string;
+  metrics_strip: OperatorMetricCard[];
+  entity_performance: OperatorEntityPerformanceRow[];
+  at_risk_projects: OperatorProjectRow[];
+  close_tasks: OperatorCloseTaskRow[];
+  top_documents: OperatorDocumentSummary[];
+  vendor_alerts: OperatorVendorRow[];
+  assistant_focus: OperatorAssistantFocus;
+  demo_script: string[];
+  improvements: string[];
+}
+
 export interface OpportunityModelRun {
   run_id: string;
   env_id: string;
@@ -7874,6 +8042,42 @@ export function getDiscoveryContext(envId: string, businessId?: string): Promise
 
 export function getDataStudioContext(envId: string, businessId?: string): Promise<DomainContext> {
   return bosFetch("/api/data-studio/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorContext(envId: string, businessId?: string): Promise<DomainContext & { workspace_template_key: string }> {
+  return bosFetch("/api/operator/v1/context", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorCommandCenter(envId: string, businessId?: string): Promise<OperatorCommandCenter> {
+  return bosFetch("/api/operator/v1/command-center", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listOperatorProjects(envId: string, businessId?: string): Promise<OperatorProjectRow[]> {
+  return bosFetch("/api/operator/v1/projects", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorProjectDetail(projectId: string, envId: string, businessId?: string): Promise<OperatorProjectDetail> {
+  return bosFetch(`/api/operator/v1/projects/${projectId}`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listOperatorVendors(envId: string, businessId?: string): Promise<OperatorVendorRow[]> {
+  return bosFetch("/api/operator/v1/vendors", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listOperatorCloseTasks(envId: string, businessId?: string): Promise<OperatorCloseTaskRow[]> {
+  return bosFetch("/api/operator/v1/close", {
     params: { env_id: envId, business_id: businessId },
   });
 }

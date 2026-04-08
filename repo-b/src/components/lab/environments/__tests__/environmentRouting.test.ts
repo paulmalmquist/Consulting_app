@@ -60,4 +60,16 @@ describe("environment open routing", () => {
     expect(resolveEnvironmentOpenPath({ envId: "env-resume", industry: "visual_resume" })).toBe("/lab/env/env-resume/resume");
     expect(resolveEnvironmentOpenPath({ envId: "env-resume", industry: "resume" })).toBe("/lab/env/env-resume/resume");
   });
+
+  test("routes multi-entity operator environments into the operator workspace", () => {
+    expect(resolveEnvironmentOpenPath({ envId: "env-operator", industry: "multi_entity_operator" })).toBe("/lab/env/env-operator/operator");
+    expect(
+      resolveEnvironmentOpenPath({
+        envId: "env-operator",
+        industry: "construction",
+        industryType: "construction",
+        workspaceTemplateKey: "multi_entity_operator",
+      })
+    ).toBe("/lab/env/env-operator/operator");
+  });
 });

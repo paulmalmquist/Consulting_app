@@ -28,6 +28,7 @@ export const industries = [
   "engagement_output",
   "execution_pattern_intel",
   "visual_resume",
+  "multi_entity_operator",
   "trading_platform",
 ] as const;
 
@@ -72,6 +73,7 @@ const INDUSTRY_DISPLAY_MAP: Record<string, string> = {
   engagement_output: "Engagement Output Center",
   execution_pattern_intel: "Execution Pattern Intelligence",
   visual_resume: "Visual Resume",
+  multi_entity_operator: "Multi-Entity Operator",
   trading_platform: "Trading Platform",
 };
 

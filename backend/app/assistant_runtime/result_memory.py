@@ -338,6 +338,7 @@ def _resolve_bucketed_count(
     result_memory: dict[str, Any],
 ) -> ReferentialResolution:
     bucket_members = result_memory.get("bucket_members") or {}
+    summary = result_memory.get("summary") or {}
     if intent.use_all_rows:
         bucket_name = _default_bucket_name(bucket_members)
         if bucket_name is None:
@@ -359,6 +360,25 @@ def _resolve_bucketed_count(
         )
 
     if intent.bucket_name:
+        if intent.bucket_name == "other":
+            primary_bucket = str(summary.get("primary_bucket") or "").strip().lower() or None
+            requested_count = intent.requested_count
+            if primary_bucket and requested_count is not None:
+                remainder_rows = []
+                for bucket_name, bucket_rows in bucket_members.items():
+                    if bucket_name == primary_bucket:
+                        continue
+                    remainder_rows.extend(list(bucket_rows or []))
+                if len(remainder_rows) == requested_count:
+                    return ReferentialResolution(
+                        is_referential=True,
+                        status="resolved",
+                        matched_pattern=intent.matched_pattern,
+                        complement_of=primary_bucket,
+                        requested_count=requested_count,
+                        resolved_count=len(remainder_rows),
+                        rows=remainder_rows,
+                    )
         rows = list(bucket_members.get(intent.bucket_name) or [])
         return ReferentialResolution(
             is_referential=True,

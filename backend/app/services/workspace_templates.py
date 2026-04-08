@@ -27,6 +27,8 @@ def resolve_workspace_template_key(
         return "medical_office_backoffice"
     if candidate in {"consulting", "consulting_revenue_os"}:
         return "consulting_revenue_os"
+    if candidate in {"multi_entity_operator", "operator"}:
+        return "multi_entity_operator"
     if candidate in {"website", "floyorker", "digital_media"}:
         return "digital_media_workspace"
     if candidate in {"ecc", "executive_command_center"}:
