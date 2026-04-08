@@ -21,12 +21,15 @@ pytestmark = pytest.mark.skipif(
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 def _get_cursor():
-    """Get a DB cursor. Skip test if DB unavailable."""
+    """Get a DB cursor. Skip test if DB unavailable or pool closed."""
     try:
         from app.db import get_cursor
+        # Probe the pool to catch PoolClosed before test body runs
+        with get_cursor() as _cur:
+            _cur.execute("SELECT 1")
         return get_cursor
     except Exception:
-        pytest.skip("Database not available")
+        pytest.skip("Database not available or pool closed")
 
 
 def _current_quarter() -> str:

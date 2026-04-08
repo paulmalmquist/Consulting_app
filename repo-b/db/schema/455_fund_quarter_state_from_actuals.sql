@@ -62,7 +62,7 @@ BEGIN
         AND qs.scenario_id IS NULL;
 
       -- If no asset data for this quarter, set NULL (not fabricated)
-      IF NOT v_has_assets OR v_total_nav IS NULL THEN
+      IF v_has_assets = 0 OR v_total_nav IS NULL THEN
         v_total_nav := NULL;
         v_data_status := 'missing_source';
       ELSE
