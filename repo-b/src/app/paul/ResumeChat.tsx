@@ -7,10 +7,14 @@ interface Message {
   content: string;
 }
 
-const MAX_MESSAGES = 20;
+const MAX_MESSAGES = 30;
 
+/**
+ * Winston for the public resume — scoped to Paul's background via the resume
+ * RAG endpoint. No auth required. Styled to match the Winston companion panel.
+ */
 export default function ResumeChat() {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -18,12 +22,10 @@ export default function ResumeChat() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [suggestionsLoaded, setSuggestionsLoaded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Load suggestions on first open
   useEffect(() => {
-    if (suggestionsLoaded) return;
+    if (!isOpen || suggestionsLoaded) return;
     setSuggestionsLoaded(true);
     fetch("/api/resume/suggestions")
       .then((r) => r.json())
@@ -31,14 +33,12 @@ export default function ResumeChat() {
         if (Array.isArray(data.suggestions)) setSuggestions(data.suggestions);
       })
       .catch(() => {/* silently ignore */});
-  }, [suggestionsLoaded]);
+  }, [isOpen, suggestionsLoaded]);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Cancel any in-flight request on unmount
   useEffect(() => {
     return () => { abortRef.current?.abort(); };
   }, []);
@@ -59,8 +59,6 @@ export default function ResumeChat() {
     setMessages(next);
     setInput("");
     setIsStreaming(true);
-
-    // Placeholder for assistant response
     setMessages([...next, { role: "assistant", content: "" }]);
 
     const controller = new AbortController();
@@ -76,8 +74,8 @@ export default function ResumeChat() {
 
       if (res.status === 429) {
         const retryAfter = res.headers.get("Retry-After") ?? "60";
-        setError(`Too many requests — please wait ${retryAfter}s before trying again.`);
-        setMessages(next); // remove empty placeholder
+        setError(`Too many requests — please wait ${retryAfter}s.`);
+        setMessages(next);
         setIsStreaming(false);
         return;
       }
@@ -98,7 +96,6 @@ export default function ResumeChat() {
         if (done) break;
 
         const chunk = decoder.decode(value, { stream: true });
-        // Parse Vercel AI SDK data stream format: lines like `0:"token"`
         for (const line of chunk.split("\n")) {
           const trimmed = line.trim();
           if (!trimmed.startsWith("0:")) continue;
@@ -107,7 +104,7 @@ export default function ResumeChat() {
             assistantText += token;
             setMessages([...next, { role: "assistant", content: assistantText }]);
           } catch {
-            // malformed line — skip
+            // malformed — skip
           }
         }
       }
@@ -136,47 +133,54 @@ export default function ResumeChat() {
   const atCap = messages.length >= MAX_MESSAGES;
   const showSuggestions = messages.length === 0 && suggestions.length > 0;
 
+  // -- Winston bowtie icon (matches the real Winston launcher) --
+  const bowtieSvg = (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 6l8 6-8 6V6zM20 6l-8 6 8 6V6z"
+        fill="currentColor" opacity="0.9"
+      />
+    </svg>
+  );
+
   return (
     <>
-      {/* Floating trigger button */}
+      {/* Launch button — styled like Winston companion */}
       {!isOpen && (
         <button
           type="button"
-          aria-label="Ask Winston"
+          aria-label="Open Winston"
           onClick={() => setIsOpen(true)}
+          className="winston-resume-launcher"
           style={{
             position: "fixed",
-            bottom: "calc(1.5rem + env(safe-area-inset-bottom))",
-            right: "1.5rem",
+            bottom: "calc(1.25rem + env(safe-area-inset-bottom))",
+            right: "1.25rem",
             zIndex: 60,
             display: "flex",
             alignItems: "center",
-            gap: "0.5rem",
-            padding: "0.625rem 1.125rem",
-            borderRadius: "9999px",
-            background: "var(--ros-accent-warm, #c84a2a)",
-            color: "#fff",
-            fontSize: "0.8125rem",
-            fontWeight: 500,
-            letterSpacing: "0.04em",
-            border: "none",
+            justifyContent: "center",
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            border: "1px solid var(--ros-border-light)",
+            background: "var(--ros-card-bg)",
+            color: "var(--ros-text-muted)",
             cursor: "pointer",
-            boxShadow: "0 4px 20px rgba(200,74,42,0.35)",
-            transition: "opacity 0.15s, transform 0.15s",
+            boxShadow: "0 4px 24px rgba(0,0,0,0.25)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            transition: "transform 0.15s, box-shadow 0.15s",
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.88"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
         >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-          Ask Winston
+          {bowtieSvg}
         </button>
       )}
 
-      {/* Chat panel */}
+      {/* Chat panel — matches Winston companion styling */}
       {isOpen && (
         <div
+          className="winston-resume-panel"
           style={{
             position: "fixed",
             bottom: 0,
@@ -184,18 +188,15 @@ export default function ResumeChat() {
             zIndex: 60,
             display: "flex",
             flexDirection: "column",
-            // Desktop: floating panel; mobile: full-width bottom sheet
-            width: "clamp(300px, 90vw, 380px)",
-            maxHeight: "min(60vh, 520px)",
-            margin: "0 1rem 1rem 0",
+            width: "clamp(320px, 90vw, 400px)",
+            maxHeight: "min(70vh, 580px)",
+            margin: "0 0.75rem 0.75rem 0",
             borderRadius: "1rem",
             overflow: "hidden",
-            background: "var(--ros-bg, #120d08)",
-            border: "1px solid var(--ros-border, rgba(255,255,255,0.08))",
-            boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
+            background: "var(--ros-surface)",
+            border: "1px solid var(--ros-border)",
+            boxShadow: "0 12px 48px rgba(0,0,0,0.3)",
           }}
-          // Mobile: full-width bottom sheet
-          className="resume-chat-panel"
         >
           {/* Header */}
           <div
@@ -203,50 +204,56 @@ export default function ResumeChat() {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              padding: "0.75rem 1rem",
-              borderBottom: "1px solid var(--ros-border, rgba(255,255,255,0.06))",
+              padding: "0.625rem 0.875rem",
+              borderBottom: "1px solid var(--ros-border-light)",
+              background: "var(--ros-card-bg)",
               flexShrink: 0,
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <div
-                style={{
-                  width: "7px",
-                  height: "7px",
-                  borderRadius: "50%",
-                  background: "var(--ros-accent-warm, #c84a2a)",
-                  flexShrink: 0,
-                }}
-              />
+              <span style={{ color: "var(--ros-accent-warm)" }}>{bowtieSvg}</span>
               <span
                 style={{
-                  fontSize: "0.75rem",
-                  fontWeight: 500,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  color: "var(--ros-text-muted, rgba(255,255,255,0.55))",
+                  fontSize: "0.8125rem",
+                  fontWeight: 600,
+                  color: "var(--ros-text)",
+                  fontFamily: "var(--font-body, system-ui, sans-serif)",
                 }}
               >
                 Winston
               </span>
+              <span
+                style={{
+                  fontSize: "0.625rem",
+                  fontWeight: 500,
+                  color: "var(--ros-text-dim)",
+                  padding: "1px 6px",
+                  borderRadius: 4,
+                  background: "var(--ros-pill-bg)",
+                  border: "1px solid var(--ros-pill-border)",
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Resume
+              </span>
             </div>
             <button
               type="button"
-              aria-label="Close chat"
+              aria-label="Close"
               onClick={handleClose}
               style={{
                 background: "none",
                 border: "none",
                 cursor: "pointer",
-                color: "var(--ros-text-muted, rgba(255,255,255,0.45))",
+                color: "var(--ros-text-dim)",
                 padding: "0.25rem",
                 lineHeight: 1,
-                borderRadius: "0.25rem",
+                borderRadius: 4,
+                transition: "color 0.1s",
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = "var(--ros-text, rgba(255,255,255,0.85))"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = "var(--ros-text-muted, rgba(255,255,255,0.45))"; }}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
@@ -257,15 +264,23 @@ export default function ResumeChat() {
             style={{
               flex: 1,
               overflowY: "auto",
-              padding: "0.75rem 1rem",
+              padding: "0.75rem 0.875rem",
               display: "flex",
               flexDirection: "column",
-              gap: "0.75rem",
+              gap: "0.625rem",
             }}
           >
             {showSuggestions && (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-                <p style={{ fontSize: "0.7rem", color: "var(--ros-text-dim, rgba(255,255,255,0.3))", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "0.25rem" }}>
+                <p style={{
+                  fontSize: "0.6875rem",
+                  fontWeight: 600,
+                  color: "var(--ros-text-dim)",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  marginBottom: "0.25rem",
+                  fontFamily: "var(--font-body, system-ui, sans-serif)",
+                }}>
                   Try asking
                 </p>
                 {suggestions.slice(0, 4).map((s) => (
@@ -274,18 +289,17 @@ export default function ResumeChat() {
                     type="button"
                     onClick={() => void sendMessage(s)}
                     style={{
-                      background: "rgba(255,255,255,0.04)",
-                      border: "1px solid var(--ros-border, rgba(255,255,255,0.07))",
+                      background: "var(--ros-pill-bg)",
+                      border: "1px solid var(--ros-border-light)",
                       borderRadius: "0.5rem",
                       padding: "0.5rem 0.75rem",
-                      fontSize: "0.75rem",
-                      color: "var(--ros-text-muted, rgba(255,255,255,0.55))",
+                      fontSize: "0.8125rem",
+                      color: "var(--ros-text-muted)",
                       cursor: "pointer",
                       textAlign: "left",
-                      transition: "background 0.1s, color 0.1s",
+                      transition: "background 0.1s, color 0.1s, border-color 0.1s",
+                      fontFamily: "var(--font-body, system-ui, sans-serif)",
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "var(--ros-text, rgba(255,255,255,0.85))"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "var(--ros-text-muted, rgba(255,255,255,0.55))"; }}
                   >
                     {s}
                   </button>
@@ -303,17 +317,18 @@ export default function ResumeChat() {
               >
                 <div
                   style={{
-                    maxWidth: "85%",
+                    maxWidth: "88%",
                     padding: "0.5rem 0.75rem",
-                    borderRadius: m.role === "user" ? "1rem 1rem 0.25rem 1rem" : "1rem 1rem 1rem 0.25rem",
+                    borderRadius: m.role === "user" ? "0.75rem 0.75rem 0.25rem 0.75rem" : "0.75rem 0.75rem 0.75rem 0.25rem",
                     background: m.role === "user"
-                      ? "var(--ros-accent-warm, #c84a2a)"
-                      : "rgba(255,255,255,0.05)",
-                    border: m.role === "user" ? "none" : "1px solid var(--ros-border, rgba(255,255,255,0.06))",
+                      ? "var(--ros-accent-cool)"
+                      : "var(--ros-pill-bg)",
+                    border: m.role === "user" ? "none" : "1px solid var(--ros-border-light)",
                     fontSize: "0.8125rem",
-                    lineHeight: 1.55,
-                    color: m.role === "user" ? "#fff" : "var(--ros-text, rgba(255,255,255,0.85))",
+                    lineHeight: 1.6,
+                    color: m.role === "user" ? "#fff" : "var(--ros-text)",
                     whiteSpace: "pre-wrap",
+                    fontFamily: "var(--font-body, system-ui, sans-serif)",
                   }}
                 >
                   {m.content || (isStreaming && i === messages.length - 1 ? (
@@ -324,13 +339,23 @@ export default function ResumeChat() {
             ))}
 
             {error && (
-              <p style={{ fontSize: "0.75rem", color: "rgba(220,80,60,0.9)", padding: "0.25rem 0" }}>
+              <p style={{
+                fontSize: "0.8125rem",
+                color: "var(--ros-accent-warm)",
+                padding: "0.25rem 0",
+                fontFamily: "var(--font-body, system-ui, sans-serif)",
+              }}>
                 {error}
               </p>
             )}
 
             {atCap && (
-              <p style={{ fontSize: "0.72rem", color: "var(--ros-text-dim, rgba(255,255,255,0.3))", textAlign: "center", padding: "0.25rem 0" }}>
+              <p style={{
+                fontSize: "0.75rem",
+                color: "var(--ros-text-dim)",
+                textAlign: "center",
+                padding: "0.25rem 0",
+              }}>
                 Session limit reached — refresh to start a new conversation.
               </p>
             )}
@@ -342,38 +367,39 @@ export default function ResumeChat() {
           {!atCap && (
             <div
               style={{
-                padding: "0.625rem 0.75rem",
-                paddingBottom: "calc(0.625rem + env(safe-area-inset-bottom))",
-                borderTop: "1px solid var(--ros-border, rgba(255,255,255,0.06))",
+                padding: "0.5rem 0.75rem",
+                paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))",
+                borderTop: "1px solid var(--ros-border-light)",
                 display: "flex",
                 gap: "0.5rem",
                 alignItems: "flex-end",
                 flexShrink: 0,
+                background: "var(--ros-card-bg)",
               }}
             >
               <textarea
-                ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask anything about Paul…"
+                placeholder="Ask about Paul's background…"
                 rows={1}
                 inputMode="text"
                 disabled={isStreaming}
                 style={{
                   flex: 1,
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid var(--ros-border, rgba(255,255,255,0.08))",
-                  borderRadius: "0.625rem",
+                  background: "var(--ros-pill-bg)",
+                  border: "1px solid var(--ros-border-light)",
+                  borderRadius: "0.5rem",
                   padding: "0.5rem 0.75rem",
                   fontSize: "0.8125rem",
-                  color: "var(--ros-text, rgba(255,255,255,0.85))",
+                  color: "var(--ros-text)",
                   outline: "none",
                   resize: "none",
                   lineHeight: 1.5,
                   minHeight: "2.25rem",
                   maxHeight: "6rem",
                   overflowY: "auto",
+                  fontFamily: "var(--font-body, system-ui, sans-serif)",
                 }}
                 onInput={(e) => {
                   const el = e.currentTarget;
@@ -387,9 +413,9 @@ export default function ResumeChat() {
                 onClick={() => void sendMessage(input)}
                 aria-label="Send"
                 style={{
-                  background: input.trim() && !isStreaming ? "var(--ros-accent-warm, #c84a2a)" : "rgba(255,255,255,0.08)",
-                  border: "none",
-                  borderRadius: "0.625rem",
+                  background: input.trim() && !isStreaming ? "var(--ros-accent-cool)" : "var(--ros-pill-bg)",
+                  border: "1px solid var(--ros-border-light)",
+                  borderRadius: "0.5rem",
                   width: "2.25rem",
                   height: "2.25rem",
                   display: "flex",
@@ -398,7 +424,7 @@ export default function ResumeChat() {
                   cursor: input.trim() && !isStreaming ? "pointer" : "default",
                   flexShrink: 0,
                   transition: "background 0.15s",
-                  color: "#fff",
+                  color: input.trim() && !isStreaming ? "#fff" : "var(--ros-text-dim)",
                 }}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -412,14 +438,16 @@ export default function ResumeChat() {
 
       <style>{`
         @media (max-width: 639px) {
-          .resume-chat-panel {
+          .winston-resume-panel {
             width: 100vw !important;
-            max-height: 100dvh !important;
+            max-height: 85dvh !important;
             margin: 0 !important;
             border-radius: 1rem 1rem 0 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
           }
+        }
+        .winston-resume-launcher:hover {
+          transform: scale(1.05);
+          box-shadow: 0 6px 28px rgba(0,0,0,0.35);
         }
       `}</style>
     </>

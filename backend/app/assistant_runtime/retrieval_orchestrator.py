@@ -14,6 +14,12 @@ from app.assistant_runtime.turn_receipts import (
     StructuredPrecheckReceipt,
     StructuredPrecheckStatus,
 )
+from app.assistant_runtime.result_memory import (
+    build_bucketed_count_result_memory,
+    build_list_result_memory,
+    build_memory_scope,
+    build_query_signature,
+)
 from app.config import RAG_MIN_SCORE, RAG_OVERFETCH, RAG_TOP_K
 from app.mcp.auth import McpContext
 from app.mcp.schemas.novendor_tools import ListTasksDueTodayInput
@@ -126,6 +132,52 @@ def _safe_decimal(value: Any) -> Decimal:
         return Decimal(str(value))
     except Exception:
         return Decimal("0")
+
+
+def _result_memory_scope(
+    *,
+    business_id: str | None,
+    env_id: str | None,
+    entity_type: str | None,
+    entity_id: str | None,
+) -> dict[str, Any]:
+    scoped_entity_type = entity_type
+    scoped_entity_id = entity_id
+    if not scoped_entity_type and env_id:
+        scoped_entity_type = "environment"
+        scoped_entity_id = env_id
+    return build_memory_scope(
+        business_id=business_id,
+        environment_id=env_id,
+        entity_type=scoped_entity_type,
+        entity_id=scoped_entity_id,
+        entity_name=None,
+    )
+
+
+def _normalize_asset_memory_row(asset: dict[str, Any], *, bucket: str) -> dict[str, Any]:
+    return {
+        "id": str(asset.get("asset_id") or ""),
+        "name": asset.get("name") or "Unnamed asset",
+        "entity_type": "asset",
+        "status": asset.get("asset_status"),
+        "bucket": bucket,
+        "parent_entity_type": "fund" if asset.get("fund_id") else None,
+        "parent_entity_id": str(asset.get("fund_id")) if asset.get("fund_id") else None,
+        "parent_entity_name": asset.get("fund_name"),
+    }
+
+
+def _normalize_list_memory_row(item: dict[str, Any], *, entity_type: str) -> dict[str, Any]:
+    return {
+        "id": str(item.get("asset_id") or item.get("entity_id") or ""),
+        "name": item.get("name") or "Unnamed",
+        "entity_type": entity_type,
+        "bucket": item.get("bucket"),
+        "rank": item.get("rank"),
+        "metric_key": item.get("metric_key"),
+        "metric_value_display": item.get("metric_value_display"),
+    }
 
 
 def _tasks_context(payload: dict[str, Any]) -> str:
@@ -494,6 +546,30 @@ def _fund_holdings_precheck(
         result = _list_assets(ctx, ListAssetsInput(fund_id=uuid.UUID(entity_id)))
         assets = result.get("assets", [])
         total = result.get("total", 0)
+        scope = _result_memory_scope(
+            business_id=str(business_uuid),
+            env_id=env_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+        )
+        normalized_rows = [
+            _normalize_list_memory_row(asset, entity_type="asset")
+            for asset in assets
+        ]
+        result_memory = build_list_result_memory(
+            scope=scope,
+            query_signature=build_query_signature(
+                result_type="list",
+                source_name="fund_holdings",
+                scope=scope,
+            ),
+            summary={
+                "total": total,
+                "item_label": "asset(s)",
+            },
+            rows=normalized_rows,
+            result_type="list",
+        )
 
         if not assets:
             return StructuredRetrievalResult(
@@ -534,6 +610,13 @@ def _fund_holdings_precheck(
                     status=StructuredPrecheckStatus.OK,
                     scoped=True,
                     result_count=total,
+                    evidence={
+                        "summary": {
+                            "total": total,
+                            "item_label": "asset(s)",
+                        },
+                        "result_memory": result_memory,
+                    },
                 )
             ],
             top_hits=[{"name": a.get("name"), "property_type": a.get("property_type")} for a in assets[:5]],
@@ -567,10 +650,69 @@ def _asset_count_precheck(
         return StructuredRetrievalResult()
 
     try:
-        from app.services.repe import count_assets
+        from app.services.repe import (
+            classify_property_asset_status,
+            list_property_assets,
+        )
 
         fund_uuid = uuid.UUID(entity_id) if entity_type == "fund" and entity_id else None
-        counts = count_assets(business_id=business_uuid, fund_id=fund_uuid)
+        assets = list_property_assets(business_id=business_uuid, fund_id=fund_uuid)
+        scope = _result_memory_scope(
+            business_id=str(business_uuid),
+            env_id=env_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+        )
+        bucket_members: dict[str, list[dict[str, Any]]] = {
+            "active": [],
+            "disposed": [],
+            "pipeline": [],
+            "other": [],
+        }
+        normalized_rows: list[dict[str, Any]] = []
+        for asset in assets:
+            bucket = classify_property_asset_status(asset.get("asset_status"))
+            normalized = _normalize_asset_memory_row(asset, bucket=bucket)
+            normalized_rows.append(normalized)
+            bucket_members.setdefault(bucket, []).append(normalized)
+
+        counts = {
+            "active": len(bucket_members.get("active") or []),
+            "disposed": len(bucket_members.get("disposed") or []),
+            "pipeline": len(bucket_members.get("pipeline") or []),
+            "other": len(bucket_members.get("other") or []),
+            "total": len(normalized_rows),
+        }
+        summary = {
+            "total": counts["total"],
+            "item_label": "property asset(s)",
+            "bucket_counts": {
+                "active": counts["active"],
+                "disposed": counts["disposed"],
+                "pipeline": counts["pipeline"],
+                "other": counts["other"],
+            },
+            "bucket_labels": {
+                "active": "Active",
+                "disposed": "Disposed",
+                "pipeline": "Pipeline",
+                "other": "Other / non-canonical status",
+            },
+            "active_definition": (
+                "Active includes statuses active, held, lease_up, operating, or NULL."
+            ),
+        }
+        result_memory = build_bucketed_count_result_memory(
+            scope=scope,
+            query_signature=build_query_signature(
+                result_type="bucketed_count",
+                source_name="asset_count",
+                scope=scope,
+            ),
+            summary=summary,
+            rows=normalized_rows,
+            bucket_members=bucket_members,
+        )
 
         scope = f"fund {entity_id[:8]}..." if fund_uuid else "portfolio"
         lines = [
@@ -579,10 +721,16 @@ def _asset_count_precheck(
             f"  Disposed assets: {counts['disposed']}",
             f"  Pipeline assets: {counts['pipeline']}",
             f"  Total property assets (all statuses): {counts['total']}",
+        ]
+        if counts["other"] > 0:
+            lines.append(f"  Other / non-canonical status: {counts['other']}")
+        lines.extend(
+            [
             "",
             "Definition: 'Active' includes status = active, held, lease_up, operating, or NULL (legacy).",
             "Excludes CMBS and non-property assets. Matches the page KPI definition.",
-        ]
+            ]
+        )
 
         return StructuredRetrievalResult(
             context_text="\n".join(lines),
@@ -590,11 +738,14 @@ def _asset_count_precheck(
             prechecks=[
                 StructuredPrecheckReceipt(
                     name="asset_count",
-                    source="repe.count_assets",
+                    source="repe.list_property_assets",
                     status=StructuredPrecheckStatus.OK,
                     scoped=True,
                     result_count=counts["total"],
-                    evidence=counts,
+                    evidence={
+                        "summary": summary,
+                        "result_memory": result_memory,
+                    },
                 )
             ],
             top_hits=[counts],
@@ -605,7 +756,7 @@ def _asset_count_precheck(
             prechecks=[
                 StructuredPrecheckReceipt(
                     name="asset_count",
-                    source="repe.count_assets",
+                    source="repe.list_property_assets",
                     status=StructuredPrecheckStatus.ERROR,
                     error=str(exc)[:500],
                 )

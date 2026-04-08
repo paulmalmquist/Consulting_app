@@ -8,6 +8,14 @@ import { Button } from "@/components/ui/Button";
 import { buttonVariants } from "@/components/ui/buttonVariants";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/cn";
+import {
+  clearChatState,
+  ensureLabConversation,
+  genSessionId,
+  loadStoredConversationId,
+  messagesKey,
+  sessionKey,
+} from "./chatState";
 
 type ChatCitation = {
   doc_id: string;
@@ -31,25 +39,6 @@ type ChatMessage = {
   streaming?: boolean;
 };
 
-function messagesKey(envId: string) {
-  return `demo_lab_chat_messages:${envId}`;
-}
-
-function sessionKey(envId: string) {
-  return `demo_lab_chat_session:${envId}`;
-}
-
-function genSessionId(): string {
-  try {
-    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-      return crypto.randomUUID();
-    }
-  } catch {
-    // ignore
-  }
-  return `sess_${Math.random().toString(16).slice(2)}_${Date.now()}`;
-}
-
 function loadMessages(envId: string): ChatMessage[] {
   try {
     const raw = localStorage.getItem(messagesKey(envId));
@@ -65,6 +54,7 @@ export default function ChatPage() {
   const { selectedEnv } = useEnv();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,11 +76,13 @@ export default function ChatPage() {
     if (!envId) {
       setMessages([]);
       setSessionId(null);
+      setConversationId(null);
       setError(null);
       return;
     }
 
     setMessages(loadMessages(envId));
+    setConversationId(loadStoredConversationId(envId));
     setError(null);
 
     try {
@@ -141,14 +133,23 @@ export default function ChatPage() {
     const toolCalls: ToolCallInfo[] = [];
 
     try {
+      const activeConversationId = await ensureLabConversation({
+        env: selectedEnv,
+        existingConversationId: conversationId,
+        route: typeof window !== "undefined" ? window.location.pathname : "/lab/chat",
+      });
+      setConversationId(activeConversationId);
+
       const res = await fetch("/api/ai/gateway/ask", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: sentInput,
+          business_id: selectedEnv.business_id,
           env_id: selectedEnv.env_id,
           session_id: sessionId ?? undefined,
+          conversation_id: activeConversationId,
         }),
       });
 
@@ -269,15 +270,15 @@ export default function ChatPage() {
   const clearChat = () => {
     if (!selectedEnv) return;
     const envId = selectedEnv.env_id;
+    clearChatState(envId);
+    const next = genSessionId();
     try {
-      localStorage.removeItem(messagesKey(envId));
-      localStorage.removeItem(sessionKey(envId));
-      const next = genSessionId();
       localStorage.setItem(sessionKey(envId), next);
-      setSessionId(next);
     } catch {
-      setSessionId(genSessionId());
+      // ignore storage failures
     }
+    setSessionId(next);
+    setConversationId(null);
     setMessages([]);
     setError(null);
     setInput("");

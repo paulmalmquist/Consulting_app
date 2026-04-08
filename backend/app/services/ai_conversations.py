@@ -375,7 +375,44 @@ def update_thread_entity_state(
     state = {
         "resolved_entities": entities,
         "active_context": active_context,
+        "result_memory": current.get("result_memory"),
     }
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """UPDATE ai_conversations
+                   SET thread_entity_state = %s, updated_at = now()
+                   WHERE conversation_id = %s""",
+                (json.dumps(state), str(conversation_id)),
+            )
+    except Exception:
+        pass
+
+
+def update_thread_result_memory(
+    conversation_id: str | UUID,
+    *,
+    result_memory: dict[str, Any] | None,
+) -> None:
+    """Persist structured result memory while preserving existing thread state."""
+    import json
+    from datetime import datetime, timezone
+
+    _ensure_thread_entity_state_column()
+    if "thread_entity_state" not in _conversation_table_columns():
+        return
+
+    current = get_thread_entity_state(conversation_id) or {}
+    state = {
+        "resolved_entities": current.get("resolved_entities", []),
+        "active_context": current.get("active_context", {}),
+        "result_memory": None,
+    }
+    if result_memory is not None:
+        normalized = dict(result_memory)
+        normalized["stored_at"] = datetime.now(timezone.utc).isoformat()
+        state["result_memory"] = normalized
+
     try:
         with get_cursor() as cur:
             cur.execute(

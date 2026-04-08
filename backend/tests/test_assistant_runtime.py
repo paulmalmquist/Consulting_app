@@ -20,6 +20,11 @@ from app.assistant_runtime.dispatch_engine import DispatchOutcome, dispatch_requ
 from app.assistant_runtime.degraded_responses import degraded_message
 from app.assistant_runtime.execution_engine import prepare_tools
 from app.assistant_runtime.prompt_registry import validate_prompt_registry
+from app.assistant_runtime.result_memory import (
+    build_bucketed_count_result_memory,
+    build_memory_scope,
+    build_query_signature,
+)
 from app.assistant_runtime.request_lifecycle import _deterministic_fast_response, run_request_lifecycle
 from app.assistant_runtime.retrieval_orchestrator import execute_retrieval
 from app.services.rag_indexer import RetrievedChunk
@@ -441,6 +446,62 @@ def test_deterministic_fast_response_handles_structured_noi_prompt():
     assert fast is not None
     assert "NOI is not down vs underwriting" in fast.text
     assert "Fund One" in fast.text
+
+
+def test_deterministic_fast_response_handles_structured_asset_count_prompt():
+    fast = _deterministic_fast_response(
+        message="How many assets do we have in the portal?",
+        lane=Lane.A_FAST,
+        routed_skill=SimpleNamespace(selection=SimpleNamespace(skill_id="lookup_entity")),
+        resolved_scope=SimpleNamespace(entity_type="fund", entity_name="Fund One", environment_id="env_123"),
+        context_receipt=ContextReceipt(
+            environment_id="env_123",
+            entity_type="fund",
+            entity_id="fund_1",
+            resolution_status=ContextResolutionStatus.RESOLVED,
+        ),
+        envelope=_runtime_envelope(),
+        retrieval_execution=SimpleNamespace(
+            receipt=RetrievalReceipt(
+                used=True,
+                result_count=26,
+                status=RetrievalStatus.OK,
+                debug=RetrievalDebugReceipt(
+                    query_text="How many assets do we have in the portal?",
+                    scope_filters={"business_id": "biz_123", "env_id": "env_123", "entity_id": "fund_1"},
+                    strategy="structured_precheck",
+                    top_hits=[{"total": 26, "active": 22, "disposed": 0, "pipeline": 0, "other": 4}],
+                    structured_prechecks=[
+                        StructuredPrecheckReceipt(
+                            name="asset_count",
+                            source="repe.list_property_assets",
+                            status=StructuredPrecheckStatus.OK,
+                            scoped=True,
+                            result_count=26,
+                            evidence={
+                                "summary": {
+                                    "total": 26,
+                                    "bucket_counts": {
+                                        "active": 22,
+                                        "disposed": 0,
+                                        "pipeline": 0,
+                                        "other": 4,
+                                    },
+                                    "active_definition": (
+                                        "Active includes statuses active, held, lease_up, operating, or NULL."
+                                    ),
+                                }
+                            },
+                        )
+                    ],
+                ),
+            )
+        ),
+    )
+
+    assert fast is not None
+    assert "26 total property assets" in fast.text
+    assert "Other / non-canonical status: 4" in fast.text
 
 
 def _router_json(*, environment="repe", entity_type="unknown", entity_name=None,
@@ -1149,3 +1210,99 @@ def test_request_lifecycle_emits_pending_action_receipt_for_write_confirmation(m
     assert receipt["status"] == "success"
     assert receipt["pending_action"]["status"] == PendingActionStatus.AWAITING_CONFIRMATION
     assert receipt["pending_action"]["action_type"] == "create_deal"
+
+
+def test_request_lifecycle_resolves_saved_referential_follow_up_before_dispatch(monkeypatch):
+    result_memory = build_bucketed_count_result_memory(
+        scope=build_memory_scope(
+            business_id="biz_123",
+            environment_id="env_123",
+            entity_type="fund",
+            entity_id="fund_1",
+            entity_name="Fund One",
+        ),
+        query_signature=build_query_signature(
+            result_type="bucketed_count",
+            source_name="asset_count",
+            scope={
+                "business_id": "biz_123",
+                "environment_id": "env_123",
+                "entity_type": "fund",
+                "entity_id": "fund_1",
+                "entity_name": "Fund One",
+            },
+        ),
+        summary={
+            "total": 4,
+            "item_label": "property asset(s)",
+            "bucket_counts": {"active": 2, "disposed": 0, "pipeline": 0, "other": 2},
+        },
+        rows=[
+            {"id": "asset_1", "name": "Alpha Tower", "entity_type": "asset", "status": "active", "bucket": "active"},
+            {"id": "asset_2", "name": "Bravo Plaza", "entity_type": "asset", "status": "active", "bucket": "active"},
+            {"id": "asset_3", "name": "Canal Shops", "entity_type": "asset", "status": "stabilized", "bucket": "other"},
+            {"id": "asset_4", "name": "Delta Yard", "entity_type": "asset", "status": "paused", "bucket": "other"},
+        ],
+        bucket_members={
+            "active": [
+                {"id": "asset_1", "name": "Alpha Tower", "entity_type": "asset", "status": "active", "bucket": "active"},
+                {"id": "asset_2", "name": "Bravo Plaza", "entity_type": "asset", "status": "active", "bucket": "active"},
+            ],
+            "disposed": [],
+            "pipeline": [],
+            "other": [
+                {"id": "asset_3", "name": "Canal Shops", "entity_type": "asset", "status": "stabilized", "bucket": "other"},
+                {"id": "asset_4", "name": "Delta Yard", "entity_type": "asset", "status": "paused", "bucket": "other"},
+            ],
+        },
+    )
+    logged_actions: list[str] = []
+
+    async def _unexpected_dispatch(**_kwargs):
+        raise AssertionError("dispatch should not run")
+
+    async def _unexpected_retrieval(**_kwargs):
+        raise AssertionError("retrieval should not run")
+
+    monkeypatch.setattr("app.assistant_runtime.request_lifecycle.OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr("app.assistant_runtime.request_lifecycle.check_pending_action", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("app.assistant_runtime.request_lifecycle.dispatch_request", _unexpected_dispatch)
+    monkeypatch.setattr("app.assistant_runtime.request_lifecycle.execute_retrieval", _unexpected_retrieval)
+    monkeypatch.setattr(
+        "app.assistant_runtime.request_lifecycle.emit_log",
+        lambda **kwargs: logged_actions.append(kwargs["action"]),
+    )
+    monkeypatch.setattr(
+        "app.assistant_runtime.request_lifecycle.convo_svc.get_thread_entity_state",
+        lambda *_args, **_kwargs: {"result_memory": result_memory},
+    )
+    monkeypatch.setattr(
+        "app.assistant_runtime.request_lifecycle.convo_svc.append_message",
+        lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "app.assistant_runtime.request_lifecycle.convo_svc.update_thread_entity_state",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "app.assistant_runtime.request_lifecycle.convo_svc.update_thread_result_memory",
+        lambda *_args, **_kwargs: None,
+    )
+
+    events = asyncio.run(
+        _collect_sse_events(
+            run_request_lifecycle(
+                message="what are the names of the other 2",
+                context_envelope=_runtime_envelope(),
+                conversation_id=uuid.uuid4(),
+                actor="tester",
+            )
+        )
+    )
+    payload = _done_payload(events)
+    token_events = [event for event in events if event.startswith("event: token\n")]
+
+    assert payload["turn_receipt"]["dispatch"]["normalized"]["notes"] == ["deterministic_referential_followup"]
+    assert any("assistant_runtime.referential_followup_resolved" == action for action in logged_actions)
+    assert any("Canal Shops" in event for event in token_events)
+    assert any("Delta Yard" in event for event in token_events)

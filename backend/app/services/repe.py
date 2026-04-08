@@ -319,6 +319,17 @@ _ACTIVE_STATUSES = ("active", "held", "lease_up", "operating")
 _DISPOSED_STATUSES = ("disposed", "realized", "written_off")
 
 
+def classify_property_asset_status(asset_status: str | None) -> str:
+    normalized = str(asset_status).strip() if asset_status is not None else None
+    if normalized is None or normalized in _ACTIVE_STATUSES:
+        return "active"
+    if normalized in _DISPOSED_STATUSES:
+        return "disposed"
+    if normalized == "pipeline":
+        return "pipeline"
+    return "other"
+
+
 def count_assets(
     *,
     business_id: UUID,
@@ -368,6 +379,40 @@ def count_assets(
             "pipeline": row["pipeline"] if row else 0,
             "total": row["total"] if row else 0,
         }
+
+
+def list_property_assets(
+    *,
+    business_id: UUID,
+    fund_id: UUID | None = None,
+) -> list[dict]:
+    fund_clause = "AND d.fund_id = %s" if fund_id else ""
+    params: list[str] = [str(business_id)]
+    if fund_id:
+        params.append(str(fund_id))
+
+    with get_cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT
+              a.asset_id,
+              a.name,
+              a.asset_status,
+              a.deal_id,
+              d.name AS deal_name,
+              d.fund_id,
+              f.name AS fund_name
+            FROM repe_asset a
+            JOIN repe_deal d ON d.deal_id = a.deal_id
+            JOIN repe_fund f ON f.fund_id = d.fund_id
+            WHERE f.business_id = %s::uuid
+              AND a.asset_type = 'property'
+              {fund_clause}
+            ORDER BY f.name ASC, d.name ASC, a.name ASC
+            """,
+            params,
+        )
+        return cur.fetchall()
 
 
 def list_assets(*, deal_id: UUID) -> list[dict]:

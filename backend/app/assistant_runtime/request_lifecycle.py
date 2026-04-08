@@ -19,6 +19,12 @@ from app.assistant_runtime.harness.harness_types import HarnessConfig, Lifecycle
 from app.assistant_runtime.harness.lifecycle import LifecycleManager
 from app.assistant_runtime.harness.quality_gate import run_gates
 from app.assistant_runtime.prompt_registry import compose_runtime_messages
+from app.assistant_runtime.result_memory import (
+    build_asset_count_response_text,
+    build_referential_response_text,
+    extract_result_memory_from_prechecks,
+    resolve_referential_followup,
+)
 from app.assistant_runtime.retrieval_orchestrator import RetrievalExecution, execute_retrieval
 from app.assistant_runtime.skill_registry import skill_requires_grounding
 from app.assistant_runtime.turn_receipts import (
@@ -339,6 +345,28 @@ def _build_follow_up_structured_fast_response(
     return FastResponse(text=text, response_blocks=[markdown_block(text)])
 
 
+def _build_asset_count_fast_response(
+    *,
+    resolved_scope: Any,
+    envelope: AssistantContextEnvelope,
+    retrieval_execution: RetrievalExecution,
+) -> FastResponse | None:
+    precheck, _debug = _structured_precheck_lookup(retrieval_execution.receipt, "asset_count")
+    if precheck is None or precheck.status != StructuredPrecheckStatus.OK:
+        return None
+
+    summary = (precheck.evidence or {}).get("summary") or {}
+    if not summary:
+        return None
+
+    scope_label = _format_scope_label(
+        resolved_scope=resolved_scope,
+        envelope=envelope,
+    )
+    text = build_asset_count_response_text(scope_label=scope_label, summary=summary)
+    return FastResponse(text=text, response_blocks=[markdown_block(text)])
+
+
 def _build_noi_variance_structured_fast_response(
     *,
     message: str,
@@ -409,6 +437,112 @@ def _pending_action_receipt(
     )
 
 
+async def _persist_conversation_turn(
+    *,
+    conversation_id: uuid.UUID | None,
+    message: str,
+    assistant_content: str,
+    response_blocks: list[dict[str, Any]],
+    turn_receipt: TurnReceipt,
+    resolved_scope: Any,
+    request_id: str,
+    envelope: AssistantContextEnvelope | None = None,
+    result_memory: dict[str, Any] | None = None,
+) -> None:
+    if not conversation_id:
+        return
+    try:
+        await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: convo_svc.append_message(conversation_id=conversation_id, role="user", content=message),
+        )
+        await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: convo_svc.append_message(
+                conversation_id=conversation_id,
+                role="assistant",
+                content=assistant_content,
+                response_blocks=response_blocks,
+                message_meta={"turn_receipt": turn_receipt.model_dump(mode="json")},
+            ),
+        )
+    except Exception:
+        pass
+
+    result_memory_to_store = _normalize_result_memory_scope(
+        result_memory=result_memory,
+        resolved_scope=resolved_scope,
+        envelope=envelope,
+    )
+    if result_memory_to_store is not None:
+        try:
+            await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: convo_svc.update_thread_result_memory(
+                    conversation_id,
+                    result_memory=result_memory_to_store,
+                ),
+            )
+        except Exception:
+            pass
+
+    if (
+        turn_receipt.status != TurnStatus.FAILED
+        and resolved_scope.entity_id
+    ):
+        try:
+            from app.assistant_runtime.metric_normalizer import extract_metric, extract_timeframe
+
+            _metric = extract_metric(message)
+            _timeframe = extract_timeframe(message)
+            _skill_id = turn_receipt.skill.skill_id if turn_receipt.skill else None
+            await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: convo_svc.update_thread_entity_state(
+                    conversation_id,
+                    entity_type=resolved_scope.entity_type or "unknown",
+                    entity_id=resolved_scope.entity_id,
+                    name=resolved_scope.entity_name,
+                    source="resolved_scope",
+                    turn_request_id=request_id,
+                    active_metric=_metric,
+                    active_timeframe=_timeframe,
+                    last_skill_id=_skill_id,
+                ),
+            )
+        except Exception:
+            pass
+
+
+def _normalize_result_memory_scope(
+    *,
+    result_memory: dict[str, Any] | None,
+    resolved_scope: Any,
+    envelope: AssistantContextEnvelope | None,
+) -> dict[str, Any] | None:
+    if not result_memory:
+        return None
+    normalized = dict(result_memory)
+    scope = dict(normalized.get("scope") or {})
+    scope.setdefault("business_id", resolved_scope.business_id)
+    scope.setdefault("environment_id", resolved_scope.environment_id)
+    scope.setdefault("entity_type", resolved_scope.entity_type)
+    scope.setdefault("entity_id", resolved_scope.entity_id)
+    if not scope.get("entity_name"):
+        if (
+            scope.get("entity_type") == resolved_scope.entity_type
+            and scope.get("entity_id") == resolved_scope.entity_id
+        ):
+            scope["entity_name"] = resolved_scope.entity_name
+        elif scope.get("entity_type") == "environment":
+            scope["entity_name"] = (
+                (envelope.ui.active_environment_name if envelope else None)
+                or resolved_scope.entity_name
+            )
+    normalized["scope"] = scope
+    return normalized
+
+
 def _deterministic_fast_response(
     *,
     message: str,
@@ -432,6 +566,14 @@ def _deterministic_fast_response(
             retrieval_count=retrieval_execution.receipt.result_count,
             tool_count=0,
         )
+
+    structured_asset_count = _build_asset_count_fast_response(
+        resolved_scope=resolved_scope,
+        envelope=envelope,
+        retrieval_execution=retrieval_execution,
+    )
+    if structured_asset_count is not None:
+        return structured_asset_count
 
     structured_follow_up = _build_follow_up_structured_fast_response(
         resolved_scope=resolved_scope,
@@ -661,6 +803,117 @@ async def run_request_lifecycle(
         if intent == "confirm" and pending_action_result:
             done_payload["pending_action_result"] = pending_action_result
         yield _sse("done", done_payload)
+        await _persist_conversation_turn(
+            conversation_id=conversation_id,
+            message=message,
+            assistant_content=message_text,
+            response_blocks=response_blocks,
+            turn_receipt=turn_receipt,
+            resolved_scope=resolved_scope,
+            request_id=request_id,
+            envelope=normalized_envelope,
+        )
+        return
+
+    current_memory_scope = {
+        "business_id": resolved_scope.business_id or (str(business_id) if business_id else None),
+        "environment_id": resolved_scope.environment_id or (str(env_id) if env_id else None),
+        "entity_type": resolved_scope.entity_type,
+        "entity_id": resolved_scope.entity_id,
+        "entity_name": resolved_scope.entity_name,
+    }
+    referential_resolution = resolve_referential_followup(
+        message=message,
+        result_memory=(thread_entity_state or {}).get("result_memory"),
+        current_scope=current_memory_scope,
+    )
+    if referential_resolution.is_referential:
+        current_scope_label = _format_scope_label(resolved_scope=resolved_scope, envelope=normalized_envelope)
+        emit_log(
+            level="info",
+            service="backend",
+            action=f"assistant_runtime.referential_followup_{referential_resolution.status}",
+            message="Processed referential follow-up request",
+            context={
+                "request_id": request_id,
+                "conversation_id": str(conversation_id) if conversation_id else None,
+                "business_id": current_memory_scope["business_id"],
+                "environment_id": current_memory_scope["environment_id"],
+                "current_scope": current_memory_scope,
+                "stored_scope": ((thread_entity_state or {}).get("result_memory") or {}).get("scope"),
+                "result_type": ((thread_entity_state or {}).get("result_memory") or {}).get("result_type"),
+                "matched_pattern": referential_resolution.matched_pattern,
+                "bucket_name": referential_resolution.bucket_name,
+                "requested_count": referential_resolution.requested_count,
+                "resolved_count": referential_resolution.resolved_count,
+                "resolution_source": referential_resolution.resolution_source,
+            },
+        )
+        response_text = build_referential_response_text(
+            resolution=referential_resolution,
+            result_memory=(thread_entity_state or {}).get("result_memory"),
+            current_scope_label=current_scope_label,
+        )
+        response_blocks = [markdown_block(response_text)]
+        turn_receipt = TurnReceipt(
+            request_id=request_id,
+            lane=Lane.A_FAST,
+            dispatch=DispatchTrace(
+                raw=None,
+                normalized=DispatchDecision(
+                    source=DispatchSource.DETERMINISTIC_GUARDRAIL,
+                    skill_id="lookup_entity",
+                    lane=Lane.A_FAST,
+                    needs_retrieval=False,
+                    write_intent=False,
+                    ambiguity_level=DispatchAmbiguity.LOW,
+                    confidence=1.0,
+                    fallback_used=False,
+                    notes=["deterministic_referential_followup"],
+                ),
+            ),
+            fallback_reason=None,
+            context=context_receipt,
+            skill=SkillSelection(
+                skill_id="lookup_entity",
+                confidence=1.0,
+                triggers_matched=["referential_followup"],
+            ),
+            tools=[],
+            retrieval=RetrievalReceipt(used=False, result_count=0, status=RetrievalStatus.OK),
+            pending_action=None,
+            status=TurnStatus.SUCCESS,
+            degraded_reason=None,
+        )
+        timings["render_completion_ms"] = int((time.time() - started_at) * 1000)
+        yield _sse("token", {"text": response_text})
+        await _persist_conversation_turn(
+            conversation_id=conversation_id,
+            message=message,
+            assistant_content=response_text,
+            response_blocks=response_blocks,
+            turn_receipt=turn_receipt,
+            resolved_scope=resolved_scope,
+            request_id=request_id,
+            envelope=normalized_envelope,
+        )
+        yield _sse(
+            "done",
+            {
+                "session_id": session_id,
+                "turn_receipt": turn_receipt.model_dump(mode="json"),
+                "trace": _build_trace(
+                    turn_receipt=turn_receipt,
+                    model="none",
+                    elapsed_ms=timings["render_completion_ms"] or 0,
+                    resolved_scope=scope_dump,
+                    response_blocks=response_blocks,
+                    timings=timings,
+                ),
+                "response_blocks": response_blocks,
+                "resolved_scope": scope_dump,
+            },
+        )
         return
 
     route_started = time.perf_counter()
@@ -845,6 +1098,9 @@ async def run_request_lifecycle(
                 degraded_reason = degraded_reason or DegradedReason.RETRIEVAL_EMPTY
 
     response_blocks: list[dict[str, Any]] = []
+    turn_result_memory = extract_result_memory_from_prechecks(
+        (retrieval_execution.receipt.debug.structured_prechecks if retrieval_execution.receipt.debug else [])
+    )
     if retrieval_execution.chunks:
         citation_block = citations_block(_citation_items(retrieval_execution.chunks))
         response_blocks.append(citation_block)
@@ -890,6 +1146,17 @@ async def run_request_lifecycle(
                 "response_blocks": response_blocks,
                 "resolved_scope": scope_dump,
             },
+        )
+        await _persist_conversation_turn(
+            conversation_id=conversation_id,
+            message=message,
+            assistant_content=message_text,
+            response_blocks=response_blocks,
+            turn_receipt=turn_receipt,
+            resolved_scope=resolved_scope,
+            request_id=request_id,
+            envelope=normalized_envelope,
+            result_memory=turn_result_memory,
         )
         return
 
@@ -958,6 +1225,17 @@ async def run_request_lifecycle(
         )
         elapsed_ms = int((time.time() - started_at) * 1000)
         timings["render_completion_ms"] = elapsed_ms
+        await _persist_conversation_turn(
+            conversation_id=conversation_id,
+            message=message,
+            assistant_content=fast_response.text,
+            response_blocks=fast_response.response_blocks,
+            turn_receipt=turn_receipt,
+            resolved_scope=resolved_scope,
+            request_id=request_id,
+            envelope=normalized_envelope,
+            result_memory=turn_result_memory,
+        )
         yield _sse(
             "done",
             {
@@ -1280,56 +1558,17 @@ async def run_request_lifecycle(
         },
     )
 
-    if conversation_id:
-        try:
-            await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: convo_svc.append_message(conversation_id=conversation_id, role="user", content=message),
-            )
-            await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: convo_svc.append_message(
-                    conversation_id=conversation_id,
-                    role="assistant",
-                    content=collected_content or degraded_message(final_reason) if final_reason else collected_content,
-                    response_blocks=response_blocks,
-                    message_meta={"turn_receipt": turn_receipt.model_dump(mode="json")},
-                ),
-            )
-        except Exception:
-            pass
-
-        # Persist resolved entity + active metric/timeframe to thread state
-        if (
-            turn_receipt.status != TurnStatus.FAILED
-            and resolved_scope.entity_id
-        ):
-            try:
-                from app.assistant_runtime.metric_normalizer import extract_metric, extract_timeframe
-                _entity_id = resolved_scope.entity_id
-                _entity_type = resolved_scope.entity_type
-                _entity_name = resolved_scope.entity_name
-                _req_id = request_id
-                _conv_id = conversation_id
-                _metric = extract_metric(message)
-                _timeframe = extract_timeframe(message)
-                _skill_id = turn_receipt.skill.skill_id if turn_receipt.skill else None
-                await asyncio.get_event_loop().run_in_executor(
-                    None,
-                    lambda: convo_svc.update_thread_entity_state(
-                        _conv_id,
-                        entity_type=_entity_type or "unknown",
-                        entity_id=_entity_id,
-                        name=_entity_name,
-                        source="resolved_scope",
-                        turn_request_id=_req_id,
-                        active_metric=_metric,
-                        active_timeframe=_timeframe,
-                        last_skill_id=_skill_id,
-                    ),
-                )
-            except Exception:
-                pass
+    await _persist_conversation_turn(
+        conversation_id=conversation_id,
+        message=message,
+        assistant_content=collected_content or degraded_message(final_reason) if final_reason else collected_content,
+        response_blocks=response_blocks,
+        turn_receipt=turn_receipt,
+        resolved_scope=resolved_scope,
+        request_id=request_id,
+        envelope=normalized_envelope,
+        result_memory=turn_result_memory,
+    )
 
     try:
         audit_svc.record_event(
