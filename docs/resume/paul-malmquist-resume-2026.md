@@ -121,9 +121,9 @@ JLL's JPMC national account had no dedicated BI or data engineering capability. 
 - Founding member of Soul Cypher (music production student group)
 
 **Chaminade High School** — Mineola, NY
-- Varsity baseball: Team MVP, captain senior year
-- Varsity track: 600-yard champion, Stanner Games 2001
-- Connie Mack league MVP at age 16 (leadoff hitter, pitcher — threw a no-hitter)
+- Varsity track: MVP, captain senior year; 600-yard champion, Stanner Games 2001
+- Varsity baseball
+- Connie Mack summer travel baseball: league MVP at age 16 (leadoff hitter, pitcher — threw a no-hitter)
 
 ---
 

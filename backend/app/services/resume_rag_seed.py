@@ -196,8 +196,8 @@ Paul Malmquist — Personal Background, Athletics, and Music
 Education:
 - B.A. from Brown University. Recruited to run the 400m, ran varsity track.
 - Founding member of Soul Cypher, a student group at Brown focused on music production.
-- Chaminade High School (Mineola, NY): varsity baseball (team MVP, captain senior year), varsity track (600-yard champion at Stanner Games 2001).
-- Connie Mack league MVP at age 16 as a leadoff hitter and stolen base threat who also pitched — threw a no-hitter.
+- Chaminade High School (Mineola, NY): varsity track (MVP, captain senior year, 600-yard champion at Stanner Games 2001), varsity baseball.
+- Connie Mack summer travel baseball league MVP at age 16 as a leadoff hitter and stolen base threat who also pitched — threw a no-hitter.
 
 Post-College Athletics:
 - Played baseball in Australia for the Brisbane Bulldogs in a PRO-AM league after graduating from Brown.
@@ -208,6 +208,10 @@ Music Production:
 - Founding member of Soul Cypher at Brown University.
 - Music production was a serious professional pursuit, not a hobby — Paul built a real catalog before transitioning fully into data and technology.
 - The creative discipline carries over: Paul approaches system design with the same attention to composition, structure, and polish that music production demands.
+
+Family:
+- Coaches little league for his 5-year-old son.
+- Dad to twin 3-year-old daughters.
 """
 
 RESUME_RAG_DOCUMENTS = [

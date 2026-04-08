@@ -231,9 +231,9 @@ _KNOWLEDGE: dict[str, str] = {
         "interesting life outside of data engineering.\n\n"
         "**Athletics**\n\n"
         "Paul was a multi-sport athlete at Chaminade High School (Mineola, NY) — varsity baseball "
-        "and track. He was team MVP and captain his senior year in baseball, and won the "
-        "600-yard championship at the Stanner Games in 2001. At 16, he was MVP of his Connie Mack "
-        "league as a leadoff hitter and stolen base threat who also pitched — including throwing "
+        "and track. He was track MVP and captain his senior year, and won the "
+        "600-yard championship at the Stanner Games in 2001. In summer travel baseball, he was MVP of his Connie Mack "
+        "league at 16 as a leadoff hitter and stolen base threat who also pitched — including throwing "
         "a no-hitter.\n\n"
         "He was recruited to run the 400m at Brown University, where he ran varsity track.\n\n"
         "After graduating from Brown, Paul played baseball in Australia for the Brisbane Bulldogs "
@@ -246,14 +246,16 @@ _KNOWLEDGE: dict[str, str] = {
         "**BET**, and **Fashion One**. Production was a serious pursuit — not a hobby.\n\n"
         "**Education**\n\n"
         "B.A. from Brown University. Recruited athlete (track & field, 400m). "
-        "Combined competitive athletics, creative production, and academics at an Ivy League level."
+        "Combined competitive athletics, creative production, and academics at an Ivy League level.\n\n"
+        "**Today**\n\n"
+        "Paul coaches little league for his 5-year-old son and is dad to twin 3-year-old daughters."
     ),
     "athletics": (
         "## Paul's Athletic Background\n\n"
         "**High School — Chaminade (Mineola, NY)**\n"
-        "- Varsity baseball: Team MVP and captain senior year\n"
-        "- Varsity track: Won 600-yard championship at the Stanner Games (2001)\n"
-        "- Connie Mack league MVP at age 16 — leadoff hitter, stolen base threat, pitcher\n"
+        "- Varsity track: MVP and captain senior year, 600-yard champion at the Stanner Games (2001)\n"
+        "- Varsity baseball\n"
+        "- Connie Mack summer travel league: MVP at age 16 — leadoff hitter, stolen base threat, pitcher\n"
         "- Threw a no-hitter as a 16-year-old\n\n"
         "**Brown University**\n"
         "- Recruited to run the 400m\n"
@@ -283,9 +285,9 @@ _KNOWLEDGE: dict[str, str] = {
         "- Recruited athlete: 400m track & field, varsity\n"
         "- Founding member of Soul Cypher (music production group)\n\n"
         "**Chaminade High School** — Mineola, NY\n"
-        "- Varsity baseball (MVP, captain senior year)\n"
-        "- Varsity track (600-yard champion, Stanner Games 2001)\n"
-        "- Connie Mack league MVP at 16"
+        "- Varsity track: MVP, captain senior year (600-yard champion, Stanner Games 2001)\n"
+        "- Varsity baseball\n"
+        "- Connie Mack summer travel baseball: league MVP at 16"
     ),
 }
 
@@ -313,7 +315,7 @@ def _match_knowledge(question: str) -> str | None:
         return _KNOWLEDGE["music"]
     if any(w in q for w in ["brown university", "brown", "education", "school", "college", "degree", "university", "studied"]):
         return _KNOWLEDGE["education"]
-    if any(w in q for w in ["personal", "outside work", "hobbies", "interests", "fun fact", "about paul", "who is paul", "tell me about", "what else", "beyond"]):
+    if any(w in q for w in ["personal", "outside work", "hobbies", "interests", "fun fact", "about paul", "who is paul", "tell me about", "what else", "beyond", "family", "kids", "son", "daughter", "coach", "little league"]):
         return _KNOWLEDGE["personal"]
     return None
 
