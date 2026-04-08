@@ -33,18 +33,29 @@ class QueryType(str, Enum):
 
 
 @dataclass
+class FilterCondition:
+    """A parsed numeric filter condition extracted from natural language."""
+    field: str       # normalized column name (e.g. "variance_pct")
+    operator: str    # "<=", ">=", "<", ">", "=", "!="
+    value: float     # numeric value (already converted, e.g. -0.05 not -5%)
+    raw_text: str    # original matched text
+
+
+@dataclass
 class QueryClassification:
     query_type: QueryType
     confidence: float  # 0.0 - 1.0
     domain: str  # "repe" | "pds" | "crm" | "general"
     signals: dict[str, Any] = field(default_factory=dict)
     suggested_template_key: str | None = None
+    conditions: list[FilterCondition] = field(default_factory=list)
 
 
 # ── Signal patterns ──────────────────────────────────────────────────
 
 _RANK_PATTERNS = re.compile(
-    r"\b(top|bottom|best|worst|highest|lowest|largest|smallest|most|least|rank)\b"
+    r"\b(top|bottom|best|worst|highest|lowest|largest|smallest|most|least|rank"
+    r"|ascending|descending|asc|desc)\b"
     r"|\b(top\s*\d+|bottom\s*\d+)\b",
     re.IGNORECASE,
 )
@@ -90,7 +101,7 @@ _LOOKUP_PATTERNS = re.compile(
 _FILTER_PATTERNS = re.compile(
     r"\b(where|with|below|above|under|over|less\s+than|more\s+than|greater\s+than"
     r"|exceeds?|at\s+least|at\s+most|between|stale|overdue|expired|maturing"
-    r"|delinquent|non[- ]?compliant|breached)\b",
+    r"|delinquent|non[- ]?compliant|breached|worse|better)\b",
     re.IGNORECASE,
 )
 
@@ -131,6 +142,70 @@ def _extract_top_n(question: str) -> int | None:
     return int(m.group(2)) if m else None
 
 
+# ── Condition parser ────────────────────────────────────────────────
+
+_CONDITION_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    # "variance of -5% or worse" → <= -0.05
+    (re.compile(r"(?:variance|change)\s+of\s+(-?\d+(?:\.\d+)?)\s*%\s+or\s+worse", re.I), "<="),
+    # "above/over/greater than 90%"
+    (re.compile(r"(?:above|over|greater\s+than|exceeds?|more\s+than)\s+(-?\d+(?:\.\d+)?)\s*%", re.I), ">"),
+    # "below/under/less than 5%"
+    (re.compile(r"(?:below|under|less\s+than|worse\s+than)\s+(-?\d+(?:\.\d+)?)\s*%", re.I), "<"),
+    # "at least 80%"
+    (re.compile(r"at\s+least\s+(-?\d+(?:\.\d+)?)\s*%", re.I), ">="),
+    # "at most 50%"
+    (re.compile(r"at\s+most\s+(-?\d+(?:\.\d+)?)\s*%", re.I), "<="),
+]
+
+_FIELD_MAP: dict[str, str] = {
+    "noi variance": "variance_pct",
+    "noi": "noi",
+    "occupancy": "occupancy",
+    "irr": "gross_irr",
+    "gross irr": "gross_irr",
+    "net irr": "net_irr",
+    "ltv": "ltv",
+    "dscr": "dscr",
+    "nav": "nav",
+    "revenue": "revenue",
+    "cap rate": "cap_rate",
+    "debt yield": "debt_yield",
+}
+
+
+def _resolve_condition_field(q: str, condition_pos: int) -> str | None:
+    """Find the metric field name in the text surrounding the condition operator.
+
+    Looks at the prefix AND includes a few words before the regex match
+    to catch cases like "noi variance of -5%" where "variance" is consumed
+    by the condition pattern but "noi variance" is in _FIELD_MAP.
+    """
+    # Expand the search window to include the condition match itself (for compound names)
+    search_text = q[:condition_pos + 30].strip()
+    # Try longest field names first (e.g. "noi variance" before "noi")
+    for field_name in sorted(_FIELD_MAP, key=len, reverse=True):
+        if field_name in search_text:
+            return _FIELD_MAP[field_name]
+    return None
+
+
+def extract_conditions(question: str) -> list[FilterCondition]:
+    """Parse numeric filter conditions from a natural-language question."""
+    conditions: list[FilterCondition] = []
+    q = question.lower()
+    for pattern, operator in _CONDITION_PATTERNS:
+        m = pattern.search(q)
+        if m:
+            value = float(m.group(1)) / 100.0  # convert percentage
+            field = _resolve_condition_field(q, m.start())
+            if field:
+                conditions.append(FilterCondition(
+                    field=field, operator=operator,
+                    value=value, raw_text=m.group(0),
+                ))
+    return conditions
+
+
 # ── Main classifier ──────────────────────────────────────────────────
 
 
@@ -166,6 +241,11 @@ def classify_query(question: str) -> QueryClassification:
 
     if _LOOKUP_PATTERNS.search(q):
         scores[QueryType.LOOKUP] += 1.0
+
+    # Condition parser: boost FILTERED_LIST when a numeric condition is detected
+    conditions = extract_conditions(question)
+    if conditions:
+        scores[QueryType.FILTERED_LIST] += 2.0  # 3.5 total, beats VARIANCE at 2.5
 
     # Tie-breaking: chart_first can combine with others
     # If chart is requested AND a data type is clear, keep the data type
@@ -214,6 +294,7 @@ def classify_query(question: str) -> QueryClassification:
         domain=domain,
         signals=signals,
         suggested_template_key=template_key,
+        conditions=conditions,
     )
 
 
@@ -243,6 +324,12 @@ def _match_template(q: str, query_type: QueryType, domain: str) -> str | None:
 
     # REPE templates
     if domain == "repe":
+        # Asset count — route before ranked comparisons
+        if ("how many" in q or "count" in q or "total" in q) and "asset" in q:
+            return "repe.asset_count"
+        # NOI variance with filter → filtered template, not summary
+        if "noi" in q and "variance" in q and query_type == QueryType.FILTERED_LIST:
+            return "repe.noi_variance_filtered"
         # "NOI movers" → always route to noi_movers regardless of query type
         if "noi" in q and "mover" in q:
             return "repe.noi_movers"
@@ -288,8 +375,8 @@ def _match_template(q: str, query_type: QueryType, domain: str) -> str | None:
             return "repe.covenant_status"
         if "loan" in q and ("maturing" in q or "maturity" in q):
             return "repe.debt_maturity"
-        if "budget" in q and "variance" in q:
-            return "repe.budget_variance"
+        # Note: repe.budget_variance template does not exist yet.
+        # Variance queries without a filter condition fall through to LLM.
 
     # PDS templates
     if domain == "pds":
@@ -301,7 +388,7 @@ def _match_template(q: str, query_type: QueryType, domain: str) -> str | None:
             return "pds.revenue_variance"
         if "nps" in q:
             return "pds.nps_summary"
-        if "bench" in q or "bench" in q:
+        if "bench" in q:
             return "pds.bench_report"
         if "adoption" in q:
             return "pds.tech_adoption"

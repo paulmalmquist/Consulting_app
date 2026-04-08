@@ -77,6 +77,8 @@ ENTITY_TABLES: list[Table] = [
             Column("asset_id", "uuid", "Primary key"),
             Column("deal_id", "uuid", "FK to repe_deal"),
             Column("name", "text", "Asset name"),
+            Column("asset_type", "text", "Type: 'property' for portfolio assets, 'cmbs' for structured. Always filter on 'property' for portfolio counts."),
+            Column("asset_status", "text", "Status: active | held | lease_up | operating | disposed | realized | written_off | pipeline. NULL = active."),
             Column("created_at", "timestamptz", "Creation timestamp"),
         ],
     ),
@@ -260,6 +262,37 @@ STATEMENT_TABLES: list[Table] = [
             Column("actual_value", "numeric", "Actual metric value"),
             Column("threshold_value", "numeric", "Covenant threshold"),
             Column("in_compliance", "boolean", "Whether covenant is met"),
+        ],
+    ),
+    Table(
+        name="re_loan_detail",
+        description="Loan detail extension — DSCR, LTV, current balance per asset (1:1 with repe_asset)",
+        pk="asset_id",
+        parent_fk="asset_id → repe_asset",
+        columns=[
+            Column("asset_id", "uuid", "PK and FK to repe_asset"),
+            Column("original_balance", "numeric", "Original loan balance"),
+            Column("current_balance", "numeric", "Current outstanding balance"),
+            Column("coupon", "numeric", "Coupon rate as decimal"),
+            Column("maturity_date", "date", "Loan maturity date"),
+            Column("rating", "text", "Credit rating"),
+            Column("ltv", "numeric", "Loan-to-value ratio as decimal"),
+            Column("dscr", "numeric", "Debt service coverage ratio"),
+        ],
+    ),
+    Table(
+        name="re_asset_variance_qtr",
+        description="Quarterly NOI variance: actual vs plan by asset and line code",
+        pk="id",
+        parent_fk="asset_id → repe_asset",
+        columns=[
+            Column("asset_id", "uuid", "FK to repe_asset"),
+            Column("quarter", "text", "e.g. 2025Q4"),
+            Column("line_code", "text", "NOI, GROSS_REVENUE, VACANCY_LOSS, EGI, OPEX"),
+            Column("actual_amount", "numeric", "Actual dollar amount"),
+            Column("plan_amount", "numeric", "Budgeted/underwriting dollar amount"),
+            Column("variance_amount", "numeric", "actual - plan"),
+            Column("variance_pct", "numeric", "Variance as decimal (e.g. -0.05 = -5%%)"),
         ],
     ),
 ]
@@ -653,6 +686,7 @@ JOIN_GRAPH: list[JoinPath] = [
     JoinPath("repe_property_asset", "repe_asset", "repe_property_asset.asset_id = repe_asset.asset_id", "one_to_one"),
     JoinPath("re_partner", "repe_fund", "re_partner.fund_id = repe_fund.fund_id", "many_to_one"),
     JoinPath("re_loan", "repe_asset", "re_loan.asset_id = repe_asset.asset_id", "many_to_one"),
+    JoinPath("re_loan_detail", "repe_asset", "re_loan_detail.asset_id = repe_asset.asset_id", "one_to_one"),
     # Financial statements → entities
     JoinPath("acct_normalized_noi_monthly", "repe_asset", "acct_normalized_noi_monthly.asset_id = repe_asset.asset_id", "many_to_one"),
     JoinPath("re_asset_acct_quarter_rollup", "repe_asset", "re_asset_acct_quarter_rollup.asset_id = repe_asset.asset_id", "many_to_one"),
@@ -663,6 +697,7 @@ JOIN_GRAPH: list[JoinPath] = [
     JoinPath("re_partner_quarter_metrics", "repe_fund", "re_partner_quarter_metrics.fund_id = repe_fund.fund_id", "many_to_one"),
     JoinPath("re_partner_quarter_metrics", "re_partner", "re_partner_quarter_metrics.partner_id = re_partner.partner_id", "many_to_one"),
     JoinPath("re_loan_covenant_result_qtr", "re_loan", "re_loan_covenant_result_qtr.loan_id = re_loan.loan_id", "many_to_one"),
+    JoinPath("re_asset_variance_qtr", "repe_asset", "re_asset_variance_qtr.asset_id = repe_asset.asset_id", "many_to_one"),
     # PDS hierarchy
     JoinPath("pds_projects", "pds_programs", "pds_projects.program_id = pds_programs.program_id", "many_to_one"),
     JoinPath("pds_budget_lines", "pds_projects", "pds_budget_lines.project_id = pds_projects.project_id", "many_to_one"),
@@ -765,9 +800,10 @@ def pds_catalog_text() -> str:
             lines.append(f"  - {c.name} ({c.type}): {c.description}")
         lines.append("")
 
+    pds_table_names = frozenset(t.name for t in PDS_ANALYTICS_TABLES + PDS_ANALYTICS_VIEWS)
     lines.append("## Valid join paths (PDS Analytics)")
     for j in JOIN_GRAPH:
-        if "pds_analytics" in j.from_table or "pds_nps" in j.from_table or "pds_technology" in j.from_table or "pds_revenue" in j.from_table or (j.from_table == "pds_analytics_projects" or j.to_table == "pds_accounts"):
+        if j.from_table in pds_table_names or j.to_table in pds_table_names:
             lines.append(f"- {j.from_table} → {j.to_table}: {j.join_sql} ({j.cardinality})")
 
     return "\n".join(lines)

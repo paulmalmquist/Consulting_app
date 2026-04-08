@@ -126,6 +126,11 @@ async def run_query(
     if classification.query_type == QueryType.DIAGNOSTIC:
         return _handle_diagnostic(question, classification, response, start)
 
+    # ── 2b. Check metric grain compatibility ──────────────────────────
+    grain_warning = _check_grain_compatibility(classification.suggested_template_key, question)
+    if grain_warning:
+        response.warnings.append(grain_warning)
+
     # ── 3. Try template match first ──────────────────────────────────
     sql: str | None = None
     params: dict[str, Any] = {}
@@ -311,7 +316,26 @@ def _build_template_params(
     # Months ahead for loan maturity
     params["months_ahead"] = 12
 
+    # Map parsed filter conditions to template params
+    for cond in getattr(classification, "conditions", []):
+        if cond.field == "variance_pct":
+            params["variance_threshold"] = cond.value
+
     return params
+
+
+def _check_grain_compatibility(template_key: str | None, question: str) -> str | None:
+    """Warn when the requested entity grain doesn't match the template's grain."""
+    if not template_key:
+        return None
+    q = question.lower()
+    fund_only_metrics = {"irr", "tvpi", "dpi", "rvpi", "nav"}
+    investment_keywords = {"investment", "deal"}
+    if any(m in q for m in fund_only_metrics) and any(k in q for k in investment_keywords):
+        matched = next((m for m in fund_only_metrics if m in q), None)
+        return (f"{matched.upper()} is available at fund level, not investment level. "
+                f"Showing fund-level results instead.")
+    return None
 
 
 def _prev_quarter(quarter: str) -> str:

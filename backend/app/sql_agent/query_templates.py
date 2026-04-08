@@ -415,30 +415,50 @@ LIMIT %(limit)s""",
         tags=frozenset({"covenant", "compliance", "dscr", "ltv"}),
     ),
     QueryTemplate(
-        key="repe.loans_maturing",
-        description="Loans maturing within a date range",
+        key="repe.asset_count",
+        description="Count of property assets by status bucket",
         sql="""\
-SELECT a.name AS asset_name,
-       f.name AS fund_name,
-       l.loan_amount,
-       l.interest_rate,
-       l.maturity_date,
-       l.loan_type,
-       l.maturity_date - CURRENT_DATE AS days_to_maturity
-FROM re_loan l
-JOIN repe_asset a ON a.asset_id = l.asset_id
+SELECT
+  COUNT(*) FILTER (WHERE a.asset_status IS NULL
+                      OR a.asset_status IN ('active','held','lease_up','operating'))::int AS active,
+  COUNT(*) FILTER (WHERE a.asset_status IN ('disposed','realized','written_off'))::int AS disposed,
+  COUNT(*) FILTER (WHERE a.asset_status = 'pipeline')::int AS pipeline,
+  COUNT(*)::int AS total
+FROM repe_asset a
 JOIN repe_deal d ON d.deal_id = a.deal_id
 JOIN repe_fund f ON f.fund_id = d.fund_id
 WHERE f.business_id = %(business_id)s::uuid
-  AND l.maturity_date <= CURRENT_DATE + INTERVAL '%(months_ahead)s months'
-ORDER BY l.maturity_date ASC
+  AND a.asset_type = 'property'""",
+        required_params=frozenset({"business_id"}),
+        optional_params=frozenset(),
+        default_chart="table",
+        query_type=QueryType.LOOKUP,
+        domain="repe",
+        tags=frozenset({"asset", "count", "portfolio"}),
+    ),
+    QueryTemplate(
+        key="repe.noi_variance_filtered",
+        description="Assets filtered by NOI variance threshold",
+        sql="""\
+SELECT a.name AS asset_name, a.asset_id,
+       v.quarter, v.line_code,
+       v.actual_amount, v.plan_amount,
+       v.variance_amount, v.variance_pct
+FROM re_asset_variance_qtr v
+JOIN repe_asset a ON a.asset_id = v.asset_id
+JOIN repe_deal d ON d.deal_id = a.deal_id
+JOIN repe_fund f ON f.fund_id = d.fund_id
+WHERE f.business_id = %(business_id)s::uuid
+  AND v.line_code = 'NOI'
+  AND v.variance_pct <= %(variance_threshold)s
+ORDER BY v.variance_pct ASC
 LIMIT %(limit)s""",
         required_params=frozenset({"business_id"}),
-        optional_params=frozenset({"months_ahead", "limit"}),
+        optional_params=frozenset({"quarter", "variance_threshold", "limit"}),
         default_chart="table",
         query_type=QueryType.FILTERED_LIST,
         domain="repe",
-        tags=frozenset({"loan", "maturity"}),
+        tags=frozenset({"noi", "variance", "filter"}),
     ),
 ]
 
