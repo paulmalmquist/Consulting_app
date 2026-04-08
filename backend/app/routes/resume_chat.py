@@ -81,7 +81,7 @@ SUGGESTED_QUESTIONS = [
     "Why is Paul a strong AI/data leader?",
     "Compare JLL vs Kayne Anderson",
     "What has Paul built end-to-end?",
-    "Should I hire Paul?",
+    "Tell me about Paul beyond the resume",
 ]
 
 
@@ -225,6 +225,68 @@ _KNOWLEDGE: dict[str, str] = {
         "If your firm needs someone who can build an AI data platform that actually runs in production, "
         "Paul has done exactly that — twice — at firms with real AUM on the line."
     ),
+    "personal": (
+        "## Beyond the Resume\n\n"
+        "Paul is a former Division I athlete, musician, and someone who has lived a genuinely "
+        "interesting life outside of data engineering.\n\n"
+        "**Athletics**\n\n"
+        "Paul was a multi-sport athlete at Chaminade High School (Mineola, NY) — varsity baseball "
+        "and track. He was team MVP and captain his senior year in baseball, and won the "
+        "600-yard championship at the Stanner Games in 2001. At 16, he was MVP of his Connie Mack "
+        "league as a leadoff hitter and stolen base threat who also pitched — including throwing "
+        "a no-hitter.\n\n"
+        "He was recruited to run the 400m at Brown University, where he ran varsity track.\n\n"
+        "After graduating from Brown, Paul played baseball in Australia for the Brisbane Bulldogs "
+        "in a PRO-AM league. He traveled with a friend who was teaching baseball to kids around "
+        "the world and playing in local leagues along the way.\n\n"
+        "**Music**\n\n"
+        "Paul was a founding member of Soul Cypher, a student group at Brown University focused "
+        "on music production and performance.\n\n"
+        "After college he produced music professionally, with placements on **ESPN**, **MTV**, "
+        "**BET**, and **Fashion One**. Production was a serious pursuit — not a hobby.\n\n"
+        "**Education**\n\n"
+        "B.A. from Brown University. Recruited athlete (track & field, 400m). "
+        "Combined competitive athletics, creative production, and academics at an Ivy League level."
+    ),
+    "athletics": (
+        "## Paul's Athletic Background\n\n"
+        "**High School — Chaminade (Mineola, NY)**\n"
+        "- Varsity baseball: Team MVP and captain senior year\n"
+        "- Varsity track: Won 600-yard championship at the Stanner Games (2001)\n"
+        "- Connie Mack league MVP at age 16 — leadoff hitter, stolen base threat, pitcher\n"
+        "- Threw a no-hitter as a 16-year-old\n\n"
+        "**Brown University**\n"
+        "- Recruited to run the 400m\n"
+        "- Ran varsity track\n"
+        "- Founding member of Soul Cypher (music production student group)\n\n"
+        "**Post-College**\n"
+        "- Played baseball in Australia for the Brisbane Bulldogs (PRO-AM league)\n"
+        "- Traveled with a friend teaching baseball internationally and playing in local leagues"
+    ),
+    "music": (
+        "## Paul's Music Production Background\n\n"
+        "Paul produced music professionally after college, with placements on major networks:\n\n"
+        "- **ESPN** — broadcast production music\n"
+        "- **MTV** — production placements\n"
+        "- **BET** — production placements\n"
+        "- **Fashion One** — production placements\n\n"
+        "He was a founding member of **Soul Cypher** at Brown University, a student group "
+        "focused on music production and performance. Music production was a professional "
+        "pursuit, not a side project — Paul built a real catalog before transitioning fully "
+        "into data and technology.\n\n"
+        "The creative discipline carries over: Paul approaches system design with the same "
+        "attention to composition, structure, and polish that music production demands."
+    ),
+    "education": (
+        "## Education\n\n"
+        "**Brown University** — B.A.\n"
+        "- Recruited athlete: 400m track & field, varsity\n"
+        "- Founding member of Soul Cypher (music production group)\n\n"
+        "**Chaminade High School** — Mineola, NY\n"
+        "- Varsity baseball (MVP, captain senior year)\n"
+        "- Varsity track (600-yard champion, Stanner Games 2001)\n"
+        "- Connie Mack league MVP at 16"
+    ),
 }
 
 
@@ -245,6 +307,14 @@ def _match_knowledge(question: str) -> str | None:
         return _KNOWLEDGE["hire"]
     if any(w in q for w in ["build", "our firm", "would paul", "what would"]):
         return _KNOWLEDGE["build"]
+    if any(w in q for w in ["track", "baseball", "athlete", "sport", "chaminade", "brisbane", "bulldogs", "connie mack", "stanner", "400m", "no-hitter", "no hitter", "stolen base"]):
+        return _KNOWLEDGE["athletics"]
+    if any(w in q for w in ["music", "produce", "espn", "mtv", "bet", "fashion one", "soul cypher", "beats"]):
+        return _KNOWLEDGE["music"]
+    if any(w in q for w in ["brown university", "brown", "education", "school", "college", "degree", "university", "studied"]):
+        return _KNOWLEDGE["education"]
+    if any(w in q for w in ["personal", "outside work", "hobbies", "interests", "fun fact", "about paul", "who is paul", "tell me about", "what else", "beyond"]):
+        return _KNOWLEDGE["personal"]
     return None
 
 

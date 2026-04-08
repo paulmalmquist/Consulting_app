@@ -12,6 +12,11 @@ from app.assistant_runtime.result_memory import (
     build_memory_scope,
     build_query_signature,
 )
+from app.assistant_runtime.meridian_structured_capabilities import (
+    evaluate_meridian_contract_support,
+    resolve_inventory_key,
+)
+from app.assistant_runtime.metric_normalizer import extract_metric
 from app.assistant_runtime.turn_receipts import StructuredQueryReceipt
 from app.db import get_cursor
 from app.observability.logger import emit_log
@@ -172,6 +177,24 @@ def try_run_meridian_structured_query(
     structured_state = (thread_entity_state or {}).get("structured_query_state") or {}
     contract, memory_used = _parse_contract(message=normalized, structured_state=structured_state)
     if contract is None:
+        metric_hint = extract_metric(normalized, business_id=str(envelope.ui.active_business_id or MERIDIAN_BUSINESS_ID))
+        if metric_hint is not None:
+            _emit_unsupported_ask(
+                message=normalized,
+                reason_bucket="missing_transformation_support",
+                metric_key=str(metric_hint.get("normalized") or ""),
+                contract=None,
+            )
+        return None
+
+    supported, reason_bucket, inventory_key = evaluate_meridian_contract_support(contract)
+    if not supported:
+        _emit_unsupported_ask(
+            message=normalized,
+            reason_bucket=reason_bucket or "missing_execution_path",
+            metric_key=inventory_key,
+            contract=contract,
+        )
         return None
 
     business_id = str(
@@ -194,6 +217,12 @@ def try_run_meridian_structured_query(
         structured_state=structured_state,
     )
     if outcome is None:
+        _emit_unsupported_ask(
+            message=normalized,
+            reason_bucket="missing_execution_path",
+            metric_key=resolve_inventory_key(metric=contract.metric, fact=contract.fact),
+            contract=contract,
+        )
         return None
 
     emit_log(
@@ -1252,3 +1281,24 @@ def _build_structured_state(
         },
         "last_partition": last_partition,
     }
+
+
+def _emit_unsupported_ask(
+    *,
+    message: str,
+    reason_bucket: str,
+    metric_key: str | None,
+    contract: StructuredPortfolioQueryContract | None,
+) -> None:
+    emit_log(
+        level="info",
+        service="backend",
+        action="assistant_runtime.meridian_unsupported_ask",
+        message="Meridian prompt resolved to a declared metric outside the current askable contract",
+        context={
+            "reason_bucket": reason_bucket,
+            "metric_key": metric_key,
+            "contract": contract.to_dict() if contract is not None else None,
+            "prompt": message,
+        },
+    )

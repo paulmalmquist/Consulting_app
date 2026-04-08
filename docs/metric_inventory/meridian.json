@@ -1,0 +1,1876 @@
+{
+  "business_id": "a1b2c3d4-0001-0001-0001-000000000001",
+  "drift_issues": [
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type.",
+      "metric_key": "active_asset_count"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "asset_value"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "avg_rent"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "capex"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "debt_service_int"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "debt_service_prin"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "debt_yield"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: quarter.",
+      "metric_key": "dscr"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "egi"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "insurance"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "leasing_commissions"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: quarter.",
+      "metric_key": "ltv"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "mgmt_fees"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "net_cash_flow"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "noi_margin"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: quarter.",
+      "metric_key": "occupancy"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "other_income"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "payroll"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "rent"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "repairs_maint"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "replacement_reserves"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "taxes"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "tenant_improvements"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "total_debt_service"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "total_opex"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: fund, market, property_type, quarter.",
+      "metric_key": "utilities"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: quarter.",
+      "metric_key": "weighted_dscr"
+    },
+    {
+      "issue_type": "declared_breakouts_not_validated",
+      "message": "Declared breakouts exceed validated group-bys: quarter.",
+      "metric_key": "weighted_ltv"
+    }
+  ],
+  "env_id": "a1b2c3d4-0001-0001-0003-000000000001",
+  "generated_at": "2026-04-08 12:48:33.299941+00:00",
+  "inventory_hash": "132a93dd441f5acf",
+  "meridian_askable_metrics": [
+    {
+      "aliases": [
+        "asset_count"
+      ],
+      "canonical_source": "repe.count_assets",
+      "declared_breakouts": [
+        "status"
+      ],
+      "display_name": "Asset Count",
+      "entity_key": "fund",
+      "fallback_grain": "fund",
+      "inventory_status": "meridian_askable",
+      "metric_family": "capital",
+      "metric_key": "asset_count",
+      "natural_grain": "portfolio",
+      "query_strategy": "service",
+      "service_function": "count_assets",
+      "supported_transformations_meridian": [
+        "summary",
+        "filter",
+        "detail"
+      ],
+      "supported_transformations_platform": [
+        "summary",
+        "filter",
+        "detail"
+      ],
+      "template_key": null,
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [
+        "status"
+      ],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "inventory"
+      ],
+      "canonical_source": "repe.list_funds",
+      "declared_breakouts": [],
+      "display_name": "Fund Inventory",
+      "entity_key": "fund",
+      "fallback_grain": null,
+      "inventory_status": "meridian_askable",
+      "metric_family": "inventory",
+      "metric_key": "fund_list",
+      "natural_grain": "fund",
+      "query_strategy": "service",
+      "service_function": "list_funds",
+      "supported_transformations_meridian": [
+        "list",
+        "summary"
+      ],
+      "supported_transformations_platform": [
+        "list",
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "gross irr",
+        "pre-fee irr",
+        "gross internal rate of return",
+        "fund irr",
+        "gross return"
+      ],
+      "canonical_source": "re_fund_quarter_state",
+      "declared_breakouts": [
+        "quarter",
+        "strategy",
+        "vintage_year"
+      ],
+      "display_name": "Gross IRR",
+      "entity_key": "fund",
+      "fallback_grain": null,
+      "inventory_status": "meridian_askable",
+      "metric_family": "returns",
+      "metric_key": "gross_irr",
+      "natural_grain": "fund_quarter",
+      "query_strategy": "template",
+      "service_function": null,
+      "supported_transformations_meridian": [
+        "rank"
+      ],
+      "supported_transformations_platform": [
+        "list",
+        "summary",
+        "trend"
+      ],
+      "template_key": "repe.fund_returns",
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [
+        "quarter",
+        "strategy",
+        "vintage_year"
+      ],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "noi_variance"
+      ],
+      "canonical_source": "finance.noi_variance",
+      "declared_breakouts": [],
+      "display_name": "NOI Variance",
+      "entity_key": "asset",
+      "fallback_grain": "asset_latest",
+      "inventory_status": "meridian_askable",
+      "metric_family": "operations",
+      "metric_key": "noi_variance",
+      "natural_grain": "asset_quarter",
+      "query_strategy": "template",
+      "service_function": null,
+      "supported_transformations_meridian": [
+        "rank",
+        "filter"
+      ],
+      "supported_transformations_platform": [
+        "rank",
+        "filter"
+      ],
+      "template_key": "repe.noi_variance_ranked",
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "occupancy",
+        "occ",
+        "occupancy rate",
+        "vacancy",
+        "physical occupancy"
+      ],
+      "canonical_source": "repe_property_asset.occupancy",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Occupancy",
+      "entity_key": "asset",
+      "fallback_grain": null,
+      "inventory_status": "meridian_askable",
+      "metric_family": "occupancy",
+      "metric_key": "occupancy",
+      "natural_grain": "asset_latest",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [
+        "filter"
+      ],
+      "supported_transformations_platform": [
+        "list",
+        "rank"
+      ],
+      "template_key": "repe.occupancy_ranked",
+      "time_behavior": "point_in_time",
+      "validated_group_bys": [
+        "fund",
+        "market",
+        "property_type"
+      ],
+      "warnings": [
+        "Declared breakouts not yet validated: quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "performance_family"
+      ],
+      "canonical_source": "re_fund_quarter_state",
+      "declared_breakouts": [
+        "fund"
+      ],
+      "display_name": "Fund Performance",
+      "entity_key": "fund",
+      "fallback_grain": null,
+      "inventory_status": "meridian_askable",
+      "metric_family": "returns",
+      "metric_key": "performance_family",
+      "natural_grain": "fund_quarter",
+      "query_strategy": "template",
+      "service_function": null,
+      "supported_transformations_meridian": [
+        "summary"
+      ],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": "repe.fund_performance_summary",
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [
+        "fund"
+      ],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "total commitments",
+        "committed capital",
+        "commitments",
+        "total committed",
+        "capital commitments"
+      ],
+      "canonical_source": "re_env_portfolio.get_portfolio_kpis",
+      "declared_breakouts": [
+        "fund",
+        "quarter"
+      ],
+      "display_name": "Total Commitments",
+      "entity_key": "fund",
+      "fallback_grain": "fund",
+      "inventory_status": "meridian_askable",
+      "metric_family": "capital",
+      "metric_key": "total_commitments",
+      "natural_grain": "portfolio",
+      "query_strategy": "service",
+      "service_function": "portfolio_kpis",
+      "supported_transformations_meridian": [
+        "summary",
+        "breakout"
+      ],
+      "supported_transformations_platform": [
+        "summary",
+        "breakout"
+      ],
+      "template_key": null,
+      "time_behavior": "point_in_time",
+      "validated_group_bys": [
+        "fund",
+        "quarter"
+      ],
+      "warnings": []
+    }
+  ],
+  "platform_metrics": [
+    {
+      "aliases": [
+        "active assets",
+        "asset count",
+        "number of assets",
+        "how many assets",
+        "property count"
+      ],
+      "canonical_source": "repe.count_assets",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type"
+      ],
+      "display_name": "Active Asset Count",
+      "entity_key": "asset",
+      "fallback_grain": "fund",
+      "inventory_status": "drifted",
+      "metric_family": "capital",
+      "metric_key": "active_asset_count",
+      "natural_grain": "portfolio",
+      "query_strategy": "service",
+      "service_function": "portfolio_kpis",
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary",
+        "filter"
+      ],
+      "template_key": null,
+      "time_behavior": "point_in_time",
+      "validated_group_bys": [
+        "status"
+      ],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type"
+      ]
+    },
+    {
+      "aliases": [
+        "asset_count"
+      ],
+      "canonical_source": "repe.count_assets",
+      "declared_breakouts": [
+        "status"
+      ],
+      "display_name": "Asset Count",
+      "entity_key": "fund",
+      "fallback_grain": "fund",
+      "inventory_status": "meridian_askable",
+      "metric_family": "capital",
+      "metric_key": "asset_count",
+      "natural_grain": "portfolio",
+      "query_strategy": "service",
+      "service_function": "count_assets",
+      "supported_transformations_meridian": [
+        "summary",
+        "filter",
+        "detail"
+      ],
+      "supported_transformations_platform": [
+        "summary",
+        "filter",
+        "detail"
+      ],
+      "template_key": null,
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [
+        "status"
+      ],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "asset value",
+        "property value",
+        "appraised value",
+        "market value"
+      ],
+      "canonical_source": "re_asset_quarter_state.asset_value",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Asset Value",
+      "entity_key": "asset",
+      "fallback_grain": "asset_latest",
+      "inventory_status": "drifted",
+      "metric_family": "valuation",
+      "metric_key": "asset_value",
+      "natural_grain": "asset_quarter",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "point_in_time",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "average rent",
+        "avg rent",
+        "rent per unit",
+        "average rent per unit"
+      ],
+      "canonical_source": "re_asset_occupancy_quarter.avg_rent",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Avg Rent / Unit",
+      "entity_key": "asset",
+      "fallback_grain": "asset_latest",
+      "inventory_status": "drifted",
+      "metric_family": "occupancy",
+      "metric_key": "avg_rent",
+      "natural_grain": "asset_quarter",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "point_in_time",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "capex",
+        "capital expenditures",
+        "capital spending",
+        "property improvements"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.CAPEX",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Capital Expenditures",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "cash_flow",
+      "metric_key": "capex",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "interest expense",
+        "loan interest",
+        "interest payment",
+        "debt interest"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.DEBT_SERVICE_INT",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Interest Expense",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "cash_flow",
+      "metric_key": "debt_service_int",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "principal amortization",
+        "principal payment",
+        "loan paydown"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.DEBT_SERVICE_PRIN",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Principal Amortization",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "cash_flow",
+      "metric_key": "debt_service_prin",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "debt yield",
+        "dy",
+        "noi to debt",
+        "noi over debt"
+      ],
+      "canonical_source": "re_asset_quarter_state.debt_balance",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Debt Yield",
+      "entity_key": "asset",
+      "fallback_grain": "asset_latest",
+      "inventory_status": "drifted",
+      "metric_family": "leverage",
+      "metric_key": "debt_yield",
+      "natural_grain": "asset_quarter",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "point_in_time",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "dpi",
+        "distributions to paid in",
+        "distributed to paid in",
+        "distribution multiple",
+        "cash multiple"
+      ],
+      "canonical_source": "re_fund_quarter_state",
+      "declared_breakouts": [
+        "quarter",
+        "strategy",
+        "vintage_year"
+      ],
+      "display_name": "DPI",
+      "entity_key": "fund",
+      "fallback_grain": null,
+      "inventory_status": "executable",
+      "metric_family": "returns",
+      "metric_key": "dpi",
+      "natural_grain": "fund_quarter",
+      "query_strategy": "template",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "list",
+        "summary",
+        "trend"
+      ],
+      "template_key": "repe.fund_returns",
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [
+        "quarter",
+        "strategy",
+        "vintage_year"
+      ],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "dscr",
+        "debt service coverage",
+        "debt coverage ratio",
+        "debt service coverage ratio"
+      ],
+      "canonical_source": "re_loan_detail.dscr",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Debt Service Coverage",
+      "entity_key": "asset",
+      "fallback_grain": null,
+      "inventory_status": "drifted",
+      "metric_family": "leverage",
+      "metric_key": "dscr",
+      "natural_grain": "asset_latest",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "list",
+        "rank"
+      ],
+      "template_key": "repe.dscr_ranked",
+      "time_behavior": "point_in_time",
+      "validated_group_bys": [
+        "fund",
+        "market",
+        "property_type"
+      ],
+      "warnings": [
+        "Declared breakouts not yet validated: quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "effective gross income",
+        "egi",
+        "total revenue",
+        "gross income"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.EGI",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Effective Gross Income",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "income",
+      "metric_key": "egi",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "fund count",
+        "number of funds",
+        "total funds",
+        "how many funds"
+      ],
+      "canonical_source": "re_env_portfolio.get_portfolio_kpis",
+      "declared_breakouts": [
+        "quarter"
+      ],
+      "display_name": "Fund Count",
+      "entity_key": "fund",
+      "fallback_grain": "portfolio_quarter",
+      "inventory_status": "executable",
+      "metric_family": "capital",
+      "metric_key": "fund_count",
+      "natural_grain": "portfolio",
+      "query_strategy": "service",
+      "service_function": "portfolio_kpis",
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "point_in_time",
+      "validated_group_bys": [
+        "quarter"
+      ],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "inventory"
+      ],
+      "canonical_source": "repe.list_funds",
+      "declared_breakouts": [],
+      "display_name": "Fund Inventory",
+      "entity_key": "fund",
+      "fallback_grain": null,
+      "inventory_status": "meridian_askable",
+      "metric_family": "inventory",
+      "metric_key": "fund_list",
+      "natural_grain": "fund",
+      "query_strategy": "service",
+      "service_function": "list_funds",
+      "supported_transformations_meridian": [
+        "list",
+        "summary"
+      ],
+      "supported_transformations_platform": [
+        "list",
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "gross irr",
+        "pre-fee irr",
+        "gross internal rate of return",
+        "fund irr",
+        "gross return"
+      ],
+      "canonical_source": "re_fund_quarter_state",
+      "declared_breakouts": [
+        "quarter",
+        "strategy",
+        "vintage_year"
+      ],
+      "display_name": "Gross IRR",
+      "entity_key": "fund",
+      "fallback_grain": null,
+      "inventory_status": "meridian_askable",
+      "metric_family": "returns",
+      "metric_key": "gross_irr",
+      "natural_grain": "fund_quarter",
+      "query_strategy": "template",
+      "service_function": null,
+      "supported_transformations_meridian": [
+        "rank"
+      ],
+      "supported_transformations_platform": [
+        "list",
+        "summary",
+        "trend"
+      ],
+      "template_key": "repe.fund_returns",
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [
+        "quarter",
+        "strategy",
+        "vintage_year"
+      ],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "weighted gross irr",
+        "portfolio gross irr",
+        "weighted irr",
+        "aggregate irr"
+      ],
+      "canonical_source": "re_env_portfolio.get_portfolio_kpis",
+      "declared_breakouts": [
+        "quarter"
+      ],
+      "display_name": "Weighted Gross IRR",
+      "entity_key": "fund",
+      "fallback_grain": "fund_quarter",
+      "inventory_status": "executable",
+      "metric_family": "returns",
+      "metric_key": "gross_irr_weighted",
+      "natural_grain": "portfolio_quarter",
+      "query_strategy": "service",
+      "service_function": "portfolio_kpis",
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [
+        "quarter"
+      ],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "insurance",
+        "property insurance",
+        "hazard insurance"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.INSURANCE",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Insurance",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "income",
+      "metric_key": "insurance",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "leasing commissions",
+        "broker commissions",
+        "lc"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.LEASING_COMMISSIONS",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Leasing Commissions",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "cash_flow",
+      "metric_key": "leasing_commissions",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "ltv",
+        "loan to value",
+        "loan-to-value",
+        "leverage ratio"
+      ],
+      "canonical_source": "re_loan_detail.ltv",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Loan-to-Value",
+      "entity_key": "asset",
+      "fallback_grain": null,
+      "inventory_status": "drifted",
+      "metric_family": "leverage",
+      "metric_key": "ltv",
+      "natural_grain": "asset_latest",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "list",
+        "rank"
+      ],
+      "template_key": "repe.ltv_ranked",
+      "time_behavior": "point_in_time",
+      "validated_group_bys": [
+        "fund",
+        "market",
+        "property_type"
+      ],
+      "warnings": [
+        "Declared breakouts not yet validated: quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "management fees",
+        "mgmt fees",
+        "pm fees",
+        "property management fees"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.MGMT_FEES",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Management Fees",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "income",
+      "metric_key": "mgmt_fees",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "net cash flow",
+        "ncf",
+        "cash flow",
+        "free cash flow",
+        "levered cash flow"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.NET_CASH_FLOW",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Net Cash Flow",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "cash_flow",
+      "metric_key": "net_cash_flow",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "net irr",
+        "after-fee irr",
+        "net internal rate of return",
+        "net return",
+        "lp irr"
+      ],
+      "canonical_source": "re_fund_quarter_state",
+      "declared_breakouts": [
+        "quarter",
+        "strategy",
+        "vintage_year"
+      ],
+      "display_name": "Net IRR",
+      "entity_key": "fund",
+      "fallback_grain": null,
+      "inventory_status": "executable",
+      "metric_family": "returns",
+      "metric_key": "net_irr",
+      "natural_grain": "fund_quarter",
+      "query_strategy": "template",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "list",
+        "summary",
+        "trend"
+      ],
+      "template_key": "repe.fund_returns",
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [
+        "quarter",
+        "strategy",
+        "vintage_year"
+      ],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "weighted net irr",
+        "portfolio net irr",
+        "weighted net return",
+        "aggregate net irr"
+      ],
+      "canonical_source": "re_env_portfolio.get_portfolio_kpis",
+      "declared_breakouts": [
+        "quarter"
+      ],
+      "display_name": "Weighted Net IRR",
+      "entity_key": "fund",
+      "fallback_grain": "fund_quarter",
+      "inventory_status": "executable",
+      "metric_family": "returns",
+      "metric_key": "net_irr_weighted",
+      "natural_grain": "portfolio_quarter",
+      "query_strategy": "service",
+      "service_function": "portfolio_kpis",
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [
+        "quarter"
+      ],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "noi",
+        "net operating income",
+        "operating income",
+        "noi amount"
+      ],
+      "canonical_source": "re_asset_quarter_state.noi",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Net Operating Income",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "executable",
+      "metric_family": "income",
+      "metric_key": "noi",
+      "natural_grain": "asset_quarter",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "list",
+        "rank",
+        "summary"
+      ],
+      "template_key": "repe.noi_ranked",
+      "time_behavior": "additive_period",
+      "validated_group_bys": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "noi margin",
+        "operating margin",
+        "profit margin"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.NOI_MARGIN",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "NOI Margin",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "income",
+      "metric_key": "noi_margin",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "noi_variance"
+      ],
+      "canonical_source": "finance.noi_variance",
+      "declared_breakouts": [],
+      "display_name": "NOI Variance",
+      "entity_key": "asset",
+      "fallback_grain": "asset_latest",
+      "inventory_status": "meridian_askable",
+      "metric_family": "operations",
+      "metric_key": "noi_variance",
+      "natural_grain": "asset_quarter",
+      "query_strategy": "template",
+      "service_function": null,
+      "supported_transformations_meridian": [
+        "rank",
+        "filter"
+      ],
+      "supported_transformations_platform": [
+        "rank",
+        "filter"
+      ],
+      "template_key": "repe.noi_variance_ranked",
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "occupancy",
+        "occ",
+        "occupancy rate",
+        "vacancy",
+        "physical occupancy"
+      ],
+      "canonical_source": "repe_property_asset.occupancy",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Occupancy",
+      "entity_key": "asset",
+      "fallback_grain": null,
+      "inventory_status": "meridian_askable",
+      "metric_family": "occupancy",
+      "metric_key": "occupancy",
+      "natural_grain": "asset_latest",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [
+        "filter"
+      ],
+      "supported_transformations_platform": [
+        "list",
+        "rank"
+      ],
+      "template_key": "repe.occupancy_ranked",
+      "time_behavior": "point_in_time",
+      "validated_group_bys": [
+        "fund",
+        "market",
+        "property_type"
+      ],
+      "warnings": [
+        "Declared breakouts not yet validated: quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "other income",
+        "ancillary income",
+        "fee income",
+        "misc income"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.OTHER_INCOME",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Other Income",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "income",
+      "metric_key": "other_income",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "payroll",
+        "staff costs",
+        "compensation",
+        "payroll and benefits"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.PAYROLL",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Payroll & Benefits",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "income",
+      "metric_key": "payroll",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "performance_family"
+      ],
+      "canonical_source": "re_fund_quarter_state",
+      "declared_breakouts": [
+        "fund"
+      ],
+      "display_name": "Fund Performance",
+      "entity_key": "fund",
+      "fallback_grain": null,
+      "inventory_status": "meridian_askable",
+      "metric_family": "returns",
+      "metric_key": "performance_family",
+      "natural_grain": "fund_quarter",
+      "query_strategy": "template",
+      "service_function": null,
+      "supported_transformations_meridian": [
+        "summary"
+      ],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": "repe.fund_performance_summary",
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [
+        "fund"
+      ],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "portfolio nav",
+        "nav",
+        "net asset value",
+        "fund nav",
+        "total nav"
+      ],
+      "canonical_source": "re_env_portfolio.get_portfolio_kpis",
+      "declared_breakouts": [
+        "quarter"
+      ],
+      "display_name": "Portfolio NAV",
+      "entity_key": "fund",
+      "fallback_grain": "fund_quarter",
+      "inventory_status": "executable",
+      "metric_family": "capital",
+      "metric_key": "portfolio_nav",
+      "natural_grain": "portfolio_quarter",
+      "query_strategy": "service",
+      "service_function": "portfolio_kpis",
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [
+        "quarter"
+      ],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "rental revenue",
+        "rent",
+        "gross rent",
+        "rental income"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.RENT",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Rental Revenue",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "income",
+      "metric_key": "rent",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "repairs",
+        "maintenance",
+        "r&m",
+        "repairs and maintenance"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.REPAIRS_MAINT",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Repairs & Maintenance",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "income",
+      "metric_key": "repairs_maint",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "replacement reserves",
+        "reserves",
+        "capital reserves"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.REPLACEMENT_RESERVES",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Replacement Reserves",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "cash_flow",
+      "metric_key": "replacement_reserves",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "rvpi",
+        "residual value",
+        "residual value to paid in",
+        "unrealized multiple",
+        "unrealized value"
+      ],
+      "canonical_source": "re_fund_quarter_state",
+      "declared_breakouts": [
+        "quarter",
+        "strategy",
+        "vintage_year"
+      ],
+      "display_name": "RVPI",
+      "entity_key": "fund",
+      "fallback_grain": null,
+      "inventory_status": "executable",
+      "metric_family": "returns",
+      "metric_key": "rvpi",
+      "natural_grain": "fund_quarter",
+      "query_strategy": "template",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "list",
+        "summary",
+        "trend"
+      ],
+      "template_key": "repe.fund_returns",
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [
+        "quarter",
+        "strategy",
+        "vintage_year"
+      ],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "taxes",
+        "real estate taxes",
+        "property tax",
+        "re taxes"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.TAXES",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Real Estate Taxes",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "income",
+      "metric_key": "taxes",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "tenant improvements",
+        "ti",
+        "ti spend",
+        "tenant build-out"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.TENANT_IMPROVEMENTS",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Tenant Improvements",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "cash_flow",
+      "metric_key": "tenant_improvements",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "total commitments",
+        "committed capital",
+        "commitments",
+        "total committed",
+        "capital commitments"
+      ],
+      "canonical_source": "re_env_portfolio.get_portfolio_kpis",
+      "declared_breakouts": [
+        "fund",
+        "quarter"
+      ],
+      "display_name": "Total Commitments",
+      "entity_key": "fund",
+      "fallback_grain": "fund",
+      "inventory_status": "meridian_askable",
+      "metric_family": "capital",
+      "metric_key": "total_commitments",
+      "natural_grain": "portfolio",
+      "query_strategy": "service",
+      "service_function": "portfolio_kpis",
+      "supported_transformations_meridian": [
+        "summary",
+        "breakout"
+      ],
+      "supported_transformations_platform": [
+        "summary",
+        "breakout"
+      ],
+      "template_key": null,
+      "time_behavior": "point_in_time",
+      "validated_group_bys": [
+        "fund",
+        "quarter"
+      ],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "total debt service",
+        "debt service",
+        "tds",
+        "mortgage payment"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.TOTAL_DEBT_SERVICE",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Total Debt Service",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "cash_flow",
+      "metric_key": "total_debt_service",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "total opex",
+        "operating expenses",
+        "opex",
+        "total operating expenses"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.TOTAL_OPEX",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Total Operating Expenses",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "income",
+      "metric_key": "total_opex",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "tvpi",
+        "total value",
+        "total value to paid in",
+        "total multiple",
+        "total value paid in"
+      ],
+      "canonical_source": "re_fund_quarter_state",
+      "declared_breakouts": [
+        "quarter",
+        "strategy",
+        "vintage_year"
+      ],
+      "display_name": "TVPI",
+      "entity_key": "fund",
+      "fallback_grain": null,
+      "inventory_status": "executable",
+      "metric_family": "returns",
+      "metric_key": "tvpi",
+      "natural_grain": "fund_quarter",
+      "query_strategy": "template",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "list",
+        "summary",
+        "trend"
+      ],
+      "template_key": "repe.fund_returns",
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [
+        "quarter",
+        "strategy",
+        "vintage_year"
+      ],
+      "warnings": []
+    },
+    {
+      "aliases": [
+        "utilities",
+        "electric",
+        "gas",
+        "water",
+        "utility costs"
+      ],
+      "canonical_source": "acct_normalized_noi_monthly.UTILITIES",
+      "declared_breakouts": [
+        "fund",
+        "market",
+        "property_type",
+        "quarter"
+      ],
+      "display_name": "Utilities",
+      "entity_key": "asset",
+      "fallback_grain": "asset_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "income",
+      "metric_key": "utilities",
+      "natural_grain": "asset_period",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "additive_period",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: fund, market, property_type, quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "weighted dscr",
+        "portfolio dscr",
+        "weighted debt coverage",
+        "fund dscr"
+      ],
+      "canonical_source": "re_fund_quarter_state.weighted_dscr",
+      "declared_breakouts": [
+        "quarter"
+      ],
+      "display_name": "Weighted DSCR",
+      "entity_key": "fund",
+      "fallback_grain": "portfolio_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "leverage",
+      "metric_key": "weighted_dscr",
+      "natural_grain": "fund_quarter",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: quarter"
+      ]
+    },
+    {
+      "aliases": [
+        "weighted ltv",
+        "portfolio ltv",
+        "weighted loan to value",
+        "fund ltv"
+      ],
+      "canonical_source": "re_fund_quarter_state.weighted_ltv",
+      "declared_breakouts": [
+        "quarter"
+      ],
+      "display_name": "Weighted LTV",
+      "entity_key": "fund",
+      "fallback_grain": "portfolio_quarter",
+      "inventory_status": "drifted",
+      "metric_family": "leverage",
+      "metric_key": "weighted_ltv",
+      "natural_grain": "fund_quarter",
+      "query_strategy": "semantic",
+      "service_function": null,
+      "supported_transformations_meridian": [],
+      "supported_transformations_platform": [
+        "summary"
+      ],
+      "template_key": null,
+      "time_behavior": "latest_snapshot",
+      "validated_group_bys": [],
+      "warnings": [
+        "Declared breakouts not yet validated: quarter"
+      ]
+    }
+  ],
+  "summary": {
+    "declared_metric_count": 39,
+    "drift_issue_count": 28,
+    "executable_metric_count": 43,
+    "meridian_askable_count": 7
+  }
+}

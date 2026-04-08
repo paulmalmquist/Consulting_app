@@ -1,4 +1,8 @@
-"""Meridian structured contract parser.
+"""Deprecated Meridian structured contract parser.
+
+This module is kept for compatibility only.
+The live authoritative Meridian support contract now lives in
+`meridian_structured_runtime.py` plus `meridian_structured_capabilities.py`.
 
 Deterministic, regex-based parser that converts natural-language REPE queries
 into a canonical MeridianStructuredContract.  No LLM calls.

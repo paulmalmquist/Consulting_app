@@ -154,8 +154,8 @@ function CompanyBadge({ company }: { company: CompanyId }) {
     winston: "W",
   };
   const colors: Record<CompanyId, string> = {
-    jll: "rgba(220,38,38,0.45)",
-    kayne: "rgba(37,99,235,0.45)",
+    jll: "rgba(227,6,19,0.45)",
+    kayne: "rgba(27,54,93,0.55)",
     winston: "rgba(115,115,115,0.45)",
   };
 

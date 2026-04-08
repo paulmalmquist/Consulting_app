@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -75,3 +75,48 @@ class MetricDebugResponse(BaseModel):
     sample_results: list[MetricResultItem]
     query_hash: str | None = None
     data_contract_status: str | None = None
+
+
+class MetricInventoryEntry(BaseModel):
+    metric_key: str
+    display_name: str
+    aliases: list[str]
+    metric_family: str | None = None
+    entity_key: str | None = None
+    query_strategy: str
+    template_key: str | None = None
+    service_function: str | None = None
+    canonical_source: str | None = None
+    natural_grain: str | None = None
+    declared_breakouts: list[str]
+    validated_group_bys: list[str]
+    supported_transformations_platform: list[str]
+    supported_transformations_meridian: list[str]
+    time_behavior: str
+    fallback_grain: str | None = None
+    inventory_status: str
+    warnings: list[str] = Field(default_factory=list)
+
+
+class MetricDriftIssue(BaseModel):
+    metric_key: str
+    issue_type: str
+    message: str
+
+
+class MetricInventorySummary(BaseModel):
+    declared_metric_count: int
+    executable_metric_count: int
+    meridian_askable_count: int
+    drift_issue_count: int
+
+
+class MetricInventoryResponse(BaseModel):
+    business_id: UUID
+    env_id: UUID
+    generated_at: datetime
+    inventory_hash: str
+    summary: MetricInventorySummary
+    platform_metrics: list[MetricInventoryEntry]
+    meridian_askable_metrics: list[MetricInventoryEntry]
+    drift_issues: list[MetricDriftIssue]

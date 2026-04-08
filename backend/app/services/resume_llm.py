@@ -54,6 +54,7 @@ Rules:
 - For skill/ranking questions, lead with the strongest evidence and stack proof points.
 - For timeline questions, provide specific dates, roles, and companies.
 - Write in clean markdown. Use bold for emphasis, headers for structure when needed.
+- Paul has a rich personal background: recruited 400m runner at Brown University (varsity track), baseball MVP at Chaminade HS, played pro-am baseball in Australia (Brisbane Bulldogs), professional music producer (ESPN, MTV, BET, Fashion One placements), founding member of Soul Cypher at Brown. Share these enthusiastically when asked about personal details, hobbies, education, or "who is Paul".
 """
 
 

@@ -49,7 +49,7 @@ const KPI_PROOF: Record<string, { what: string; source: string; before: string; 
   },
   "Career Span": {
     what: "Years building production data and analytics systems — from first BI deployment to current AI platform",
-    source: "Aug 2014 (JLL BI service line) → present (JLL AI Data Platform Director)",
+    source: "Aug 2014 (JLL BI service line) → present (JLL PDS Business Intelligence Lead)",
     before: "Ad-hoc BI requests, no repeatable delivery pipeline, no governed data layer",
     after: "8 systems in production across 2 firms: BI service line → data warehouse → semantic layer → AI platform",
     system: "See full timeline — from sys-bi-service-line (2014) to sys-ai-platform (2025)",
@@ -155,6 +155,12 @@ export default function PaulPage() {
           >
             Built governed data + AI systems powering investment decisions across $4B+ AUM
           </p>
+          <p
+            className="mt-3 text-[12px] tracking-[0.08em] md:text-[13px]"
+            style={{ color: "var(--ros-text-dim)" }}
+          >
+            Brown University
+          </p>
         </header>
 
         {/* KPI STRIP */}
@@ -233,7 +239,7 @@ export default function PaulPage() {
             Currently at{" "}
             <span style={{ color: "var(--ros-accent-warm)" }}>JLL</span>
             {" "}·{" "}
-            <span style={{ color: "var(--ros-text)" }}>Director, AI Data Platform &amp; Analytics</span>
+            <span style={{ color: "var(--ros-text)" }}>PDS Business Intelligence Lead</span>
           </p>
           <p
             className="mt-3 text-[13px] leading-relaxed"

@@ -36,7 +36,7 @@ const STACK_LABEL: Record<string, string> = {
   tableau: "Tableau",
   tabular: "Tabular",
   snowflake: "Snowflake",
-  openai: "OpenAI",
+  openai: "GenAI",
   langchain: "LangChain",
   pyspark: "PySpark",
 };
@@ -79,7 +79,7 @@ const BULLETS: Record<string, string[]> = {
   ],
   "sys-ai-platform": [
     "Governed semantic models → natural language query foundation via Databricks Genie",
-    "OpenAI orchestration on top of validated gold layer data",
+    "GenAI orchestration on top of validated gold layer data",
     "Analyst-driven ad-hoc queries → system-driven insight surfacing",
   ],
 };

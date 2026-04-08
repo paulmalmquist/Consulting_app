@@ -67,8 +67,8 @@ export interface System {
 // ---------------------------------------------------------------------------
 
 export const COMPANY_COLORS: Record<CompanyId, { primary: string; fill: string; label: string }> = {
-  jll: { primary: "#DC2626", fill: "rgba(220,38,38,0.12)", label: "JLL" },
-  kayne: { primary: "#2563EB", fill: "rgba(37,99,235,0.12)", label: "Kayne Anderson" },
+  jll: { primary: "#E30613", fill: "rgba(227,6,19,0.12)", label: "JLL" },
+  kayne: { primary: "#1B365D", fill: "rgba(27,54,93,0.12)", label: "Kayne Anderson" },
   winston: { primary: "#737373", fill: "rgba(115,115,115,0.08)", label: "Winston" },
 };
 
@@ -143,7 +143,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "openai",
-    name: "OpenAI",
+    name: "GenAI",
     icon: "brain",
     category: "ai",
     color: "#412991",
@@ -221,14 +221,14 @@ export const TIMELINE_EVENTS: TimelineEvent[] = [
     company: "jll",
     company_label: "JLL",
     phase: 3,
-    title: "JLL — AI Data Platform & Analytics (Return)",
-    role: "Director, AI Data Platform & Analytics",
+    title: "JLL — PDS Business Intelligence (Return)",
+    role: "PDS Business Intelligence Lead",
     description:
-      "Returned to JLL at director level to scale the full warehouse + AI playbook across PDS Americas. Building governed 'Gold Layer' in Databricks, standardizing enterprise methodologies, and shipping an AI-enabled analytics platform that shifts teams from analyst workflows to system-driven pipelines.",
+      "Returned to JLL to scale the full warehouse + AI playbook across PDS Americas. Building governed 'Gold Layer' in Databricks, standardizing enterprise methodologies, and shipping an AI-enabled analytics platform that shifts teams from analyst workflows to system-driven pipelines.",
     problem:
       "Reporting consistency and methodology standardization broke down across 10+ client accounts. Analytics remained analyst-driven rather than system-driven. No AI query layer existed.",
     outcome:
-      "Delivered governed data delivery across PDS Americas. Standardized 10+ client accounts on the same foundation. Shipped a conversational analytics layer — business users query governed data directly via Databricks Genie + OpenAI.",
+      "Delivered governed data delivery across PDS Americas. Standardized 10+ client accounts on the same foundation. Shipped a conversational analytics layer — business users query governed data directly via Databricks Genie + GenAI.",
     systems_built: ["sys-gold-layer", "sys-ai-platform"],
     capabilities_used: ["sql", "python", "databricks", "openai"],
     metrics: [
@@ -385,7 +385,7 @@ export const SYSTEMS: System[] = [
   },
   {
     id: "sys-ai-platform",
-    name: "AI Analytics Platform (Genie + OpenAI)",
+    name: "AI Analytics Platform (Genie + GenAI)",
     company: "jll",
     company_label: "JLL",
     date: "2025-09-01",
@@ -394,7 +394,7 @@ export const SYSTEMS: System[] = [
     why_it_matters:
       "The final shift: from building systems that analysts use, to building systems that replace the analyst workflow entirely. Business users get answers, not reports.",
     how_it_works:
-      "Databricks Genie for natural language querying of governed tables. OpenAI orchestration for complex multi-step analysis. Semantic models as the query foundation.",
+      "Databricks Genie for natural language querying of governed tables. GenAI orchestration for complex multi-step analysis. Semantic models as the query foundation.",
     capabilities_used: ["openai", "databricks", "python", "sql"],
     metrics: [
       { label: "Query model", value: "Conversational, self-serve" },
@@ -487,13 +487,13 @@ export const ROLES: CareerRole[] = [
   },
   {
     id: "role-jll-director",
-    title: "Director, AI Data Platform & Analytics",
-    short_title: "Director",
+    title: "PDS Business Intelligence Lead",
+    short_title: "BI Lead",
     company: "jll",
     start_date: "2025-04-01",
     end_date: null,
     level: 0.95,
-    impact_summary: "Scaling the full data + AI playbook across PDS Americas. 10+ client accounts on a governed Gold Layer. Conversational analytics live.",
+    impact_summary: "Scaling the full data + AI playbook across PDS Americas. 10+ client accounts on a governed Gold Layer. Conversational GenAI analytics live.",
     systems: ["sys-gold-layer", "sys-ai-platform"],
     primary_capabilities: ["databricks", "openai", "python", "sql"],
   },

@@ -3,6 +3,7 @@
 Endpoints:
   POST /api/metrics/v2/query   — query metrics (UI + AI)
   GET  /api/metrics/v2/catalog — list all metric definitions
+  GET  /api/metrics/v2/inventory — inventory of executable vs askable metrics
   GET  /api/metrics/v2/debug/{metric_key} — trace a metric through the system
 """
 
@@ -15,10 +16,12 @@ from fastapi import APIRouter, HTTPException, Query
 from app.schemas.unified_metrics import (
     MetricCatalogEntry,
     MetricDebugResponse,
+    MetricInventoryResponse,
     MetricResultItem,
     UnifiedMetricQueryRequest,
     UnifiedMetricQueryResponse,
 )
+from app.services.metric_inventory import build_metric_inventory_response
 from app.services.unified_metric_registry import get_registry
 from app.services.unified_query_builder import (
     MetricQuery,
@@ -100,6 +103,21 @@ def metric_catalog(
         )
         for c in registry.list_all()
     ]
+
+
+@router.get("/inventory", response_model=MetricInventoryResponse)
+def metric_inventory(
+    business_id: UUID = Query(..., description="Tenant business ID"),
+    env_id: UUID = Query(..., description="Environment ID"),
+    scope: str = Query("all", pattern="^(all|platform|meridian)$"),
+) -> MetricInventoryResponse:
+    return MetricInventoryResponse.model_validate(
+        build_metric_inventory_response(
+            business_id=str(business_id),
+            env_id=str(env_id),
+            scope=scope,
+        ),
+    )
 
 
 @router.get("/debug/{metric_key}", response_model=MetricDebugResponse)

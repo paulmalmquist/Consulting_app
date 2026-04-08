@@ -1,4 +1,8 @@
-"""Meridian deterministic executor.
+"""Deprecated Meridian deterministic executor.
+
+This module is kept for compatibility only.
+The live authoritative Meridian execution path now lives in
+`meridian_structured_runtime.py` plus `meridian_structured_capabilities.py`.
 
 Executes a MeridianStructuredContract against REPE services
 and returns a StructuredExecutionResult — no LLM, no narrative fallback.

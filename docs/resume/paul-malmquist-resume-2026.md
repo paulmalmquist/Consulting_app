@@ -42,7 +42,7 @@ Auth: Lane-based tool access control | Audit policy per MCP tool | Scope resolut
 
 ## EXPERIENCE
 
-### Director, AI Data Platform & Analytics — PDS Americas
+### PDS Business Intelligence Lead — PDS Americas
 **JLL (Jones Lang LaSalle)** | Apr 2025 - Present | Remote
 
 PDS Americas had no unified data platform. Analysts manually assembled reports from fragmented project systems across 10+ client accounts. No programmatic access to financial or operational data.
@@ -117,6 +117,23 @@ JLL's JPMC national account had no dedicated BI or data engineering capability. 
 ## EDUCATION
 
 **Brown University** — B.A.
+- Recruited athlete: 400m track & field, varsity
+- Founding member of Soul Cypher (music production student group)
+
+**Chaminade High School** — Mineola, NY
+- Varsity baseball: Team MVP, captain senior year
+- Varsity track: 600-yard champion, Stanner Games 2001
+- Connie Mack league MVP at age 16 (leadoff hitter, pitcher — threw a no-hitter)
+
+---
+
+## PERSONAL
+
+**Athletics (Post-College)**
+Played baseball for the Brisbane Bulldogs in Australia (PRO-AM league) after graduating from Brown. Traveled with a friend who was teaching baseball to kids around the world and playing in local leagues.
+
+**Music Production**
+Professional music producer with placements on ESPN, MTV, BET, and Fashion One. Founding member of Soul Cypher at Brown University. Production was a professional pursuit — Paul built a real catalog before transitioning fully into data and technology.
 
 ---
 

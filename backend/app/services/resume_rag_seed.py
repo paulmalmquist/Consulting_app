@@ -7,7 +7,7 @@ from uuid import UUID
 _CAREER_OVERVIEW = """
 PAUL MALMQUIST — CAREER OVERVIEW
 
-Paul Malmquist is a data and AI engineering leader with 11+ years designing enterprise-scale data platforms for investment management and financial services organizations. He is currently the Director of AI Data Platform & Analytics for JLL's Project & Development Services (PDS) Americas division, and the Founder & CEO of Novendor.
+Paul Malmquist is a data and AI engineering leader with 11+ years designing enterprise-scale data platforms for investment management and financial services organizations. He is currently the PDS Business Intelligence Lead for JLL's Project & Development Services (PDS) Americas division, and the Founder & CEO of Novendor.
 
 Paul built the data architecture behind real estate investment decision-making at Kayne Anderson Real Estate ($4B+ AUM) — including the REPE data warehouse, ETL pipelines, and waterfall distribution engines. He bridges investment domain expertise with modern data engineering: Databricks Lakehouse architecture, Azure, Python, PySpark, and LLM-integrated analytics.
 
@@ -18,7 +18,7 @@ Career progression:
 - Feb 2018 – Jan 2021: Senior Associate, Data Engineering & BI at Kayne Anderson Real Estate, Boca Raton, FL
 - Jan 2021 – Mar 2025: Vice President, Data Platform Engineering & FP&A at Kayne Anderson Real Estate, Boca Raton, FL
 - Jan 2024 – Present: Founder & CEO at Novendor (side project), Lake Worth, FL
-- Apr 2025 – Present: Director, AI Data Platform & Analytics — PDS Americas at JLL, Remote
+- Apr 2025 – Present: PDS Business Intelligence Lead — PDS Americas at JLL, Remote
 """
 
 _KAYNE_ANDERSON_DETAIL = """
@@ -48,9 +48,9 @@ JLL (JONES LANG LASALLE) — DETAILED EXPERIENCE
 
 Paul has worked at JLL in two separate stints spanning over 7 years total.
 
-Current Role — Director, AI Data Platform & Analytics, PDS Americas (Apr 2025 – Present):
+Current Role — PDS Business Intelligence Lead, PDS Americas (Apr 2025 – Present):
 - Designed and delivered an AI-enabled analytics platform for JLL's Project & Development Services division
-- Integrated Databricks, Delta Lake, Databricks Genie, and OpenAI-based conversational wrappers
+- Integrated Databricks, Delta Lake, Databricks Genie, and GenAI-based conversational wrappers
 - Enabled natural language querying of enterprise project and financial data across a national client portfolio
 - Established a governed Medallion architecture (Bronze/Silver/Gold) in Databricks
 - Built and led a high-leverage data engineering team
@@ -63,7 +63,7 @@ Earlier Role — Senior Analyst / Business Analyst — PMO, JPMC Account (Aug 20
 - Built SQL stored procedures for automated data validations
 - Recognized with Best Innovation of the Quarter for interactive PowerPivot dashboards
 
-Technologies: Databricks, Delta Lake, Unity Catalog, OpenAI API, LangChain, Python, PySpark, SQL, Azure, Tableau, PowerPivot
+Technologies: Databricks, Delta Lake, Unity Catalog, GenAI API, LangChain, Python, PySpark, SQL, Azure, Tableau, PowerPivot
 """
 
 _NOVENDOR_DETAIL = """
@@ -83,11 +83,11 @@ Winston Platform Capabilities:
 Architecture:
 - Multi-runtime monorepo: Next.js 14 (frontend), FastAPI (backend), Demo Lab (repo-c)
 - PostgreSQL with pgvector for semantic search
-- Claude API and OpenAI API for model routing
+- Claude API and GenAI API for model routing
 - Lane-based tool access control and audit policy
 - Live demo environments at paulmalmquist.com
 
-Technologies: Python, FastAPI, TypeScript, Next.js 14, React, PostgreSQL, Claude API, OpenAI API, SSE, MCP, pgvector, psycopg3, Pydantic
+Technologies: Python, FastAPI, TypeScript, Next.js 14, React, PostgreSQL, Claude API, GenAI API, SSE, MCP, pgvector, psycopg3, Pydantic
 """
 
 _TECHNICAL_PHILOSOPHY = """
@@ -179,15 +179,35 @@ DEPLOYMENT 3: REPE Investment Data Warehouse (Kayne Anderson, 2021-2025)
 
 DEPLOYMENT 4: PDS AI Analytics Platform (JLL, 2025-Present)
 - Problem: Analyst-dependent workflows across 10+ client accounts
-- Architecture: Databricks + Delta Lake + Unity Catalog + OpenAI + LangChain
+- Architecture: Databricks + Delta Lake + Unity Catalog + GenAI + LangChain
 - Before: Per-analyst methodology, manual reporting per client, no AI
 - After: Standardized across 10+ accounts, automated pipelines, conversational AI
 
 DEPLOYMENT 5: Winston AI Execution Platform (Novendor, 2024-Present)
 - Problem: No purpose-built AI environment for REPE workflows
-- Architecture: Next.js 14 + FastAPI + PostgreSQL + Claude/OpenAI + MCP + SSE
+- Architecture: Next.js 14 + FastAPI + PostgreSQL + Claude/GenAI + MCP + SSE
 - Before: No purpose-built tools, no demo environments, generic AI only
 - After: 83 MCP tools, 33 live demo environments, full REPE vertical coverage
+"""
+
+_PERSONAL_BACKGROUND = """\
+Paul Malmquist — Personal Background, Athletics, and Music
+
+Education:
+- B.A. from Brown University. Recruited to run the 400m, ran varsity track.
+- Founding member of Soul Cypher, a student group at Brown focused on music production.
+- Chaminade High School (Mineola, NY): varsity baseball (team MVP, captain senior year), varsity track (600-yard champion at Stanner Games 2001).
+- Connie Mack league MVP at age 16 as a leadoff hitter and stolen base threat who also pitched — threw a no-hitter.
+
+Post-College Athletics:
+- Played baseball in Australia for the Brisbane Bulldogs in a PRO-AM league after graduating from Brown.
+- Traveled with a friend who was teaching baseball to kids around the world and playing in local leagues.
+
+Music Production:
+- Professional music producer with placements on ESPN, MTV, BET, and Fashion One.
+- Founding member of Soul Cypher at Brown University.
+- Music production was a serious professional pursuit, not a hobby — Paul built a real catalog before transitioning fully into data and technology.
+- The creative discipline carries over: Paul approaches system design with the same attention to composition, structure, and polish that music production demands.
 """
 
 RESUME_RAG_DOCUMENTS = [
@@ -232,6 +252,12 @@ RESUME_RAG_DOCUMENTS = [
         "text": _DEPLOYMENT_HISTORY,
         "entity_type": "resume",
         "content_type_hint": "deployment_history",
+    },
+    {
+        "name": "Paul Malmquist — Personal Background, Athletics & Music",
+        "text": _PERSONAL_BACKGROUND,
+        "entity_type": "resume",
+        "content_type_hint": "personal",
     },
 ]
 
