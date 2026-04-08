@@ -88,6 +88,8 @@ from app.schemas.consulting import (
     IngestLeadsRequest,
     IngestLeadsResult,
     LogActivityRequest,
+    WinstonAssistRequest,
+    WinstonAssistResult,
 )
 from app.schemas.local_training import (
     LocalTrainingActivityCreateRequest,
@@ -120,6 +122,7 @@ from app.services import (
     lead_ingest,
     local_training_crm,
     nv_outreach_engine,
+    winston_assist,
 )
 
 router = APIRouter(prefix="/api/consulting", tags=["consulting-revenue-os"])
@@ -183,6 +186,22 @@ def advance_stage(body: AdvanceStageRequest):
             close_notes=body.close_notes,
         )
         _log("cro.pipeline.advanced", f"Opportunity advanced to {body.to_stage_key}")
+        return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Winston Assist ─────────────────────────────────────────────────────────────
+
+@router.post("/winston/assist", response_model=WinstonAssistResult)
+def winston_assist_endpoint(body: WinstonAssistRequest):
+    try:
+        result = winston_assist.generate_assist(
+            deal_id=body.deal_id,
+            env_id=body.env_id,
+            business_id=body.business_id,
+        )
+        _log("winston.assist", f"Assist generated for deal {body.deal_id}")
         return result
     except Exception as exc:
         raise _to_http(exc)

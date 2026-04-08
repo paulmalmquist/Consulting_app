@@ -35,9 +35,9 @@
     --accent: 200 89% 60%;
     --accent-alt: 200 89% 55%;
     --accent-glow: 56, 189, 248;
-    --bg-base: 218 38% 3%;
-    --bg-elevated: 216 33% 6%;
-    --bg-panel: 215 28% 9%;
+    --bg-base: 213 29% 6%;
+    --bg-elevated: 213 25% 9%;
+    --bg-panel: 213 22% 12%;
     --border-subtle: 215 24% 16%;
     --border-accent: 200 89% 60%;
 
@@ -48,7 +48,7 @@
     --bm-surface-2: var(--bg-panel);
     --bm-border: var(--border-subtle);
     --bm-border-strong: 215 18% 24%;
-    --bm-text: 213 31% 92%;
+    --bm-text: 213 41% 93%;
     --bm-text-muted: 215 16% 57%;
     --bm-text-muted-2: 215 13% 40%;
     --bm-card-glass: 0 0% 100%;
@@ -142,7 +142,7 @@
     --accent: 201 96% 39%;
     --accent-alt: 201 96% 35%;
     --accent-glow: 2, 132, 199;
-    --bg-base: 213 27% 97%;
+    --bg-base: 210 33% 98%;
     --bg-elevated: 0 0% 100%;
     --bg-panel: 0 0% 100%;
     --border-subtle: 214 32% 91%;
@@ -154,7 +154,7 @@
     --bm-surface-2: var(--bg-panel);
     --bm-border: var(--border-subtle);
     --bm-border-strong: 213 12% 78%;
-    --bm-text: 222 47% 11%;
+    --bm-text: 213 29% 6%;
     --bm-text-muted: 215 16% 47%;
     --bm-text-muted-2: 215 16% 57%;
     --bm-card-glass: 0 0% 0%;

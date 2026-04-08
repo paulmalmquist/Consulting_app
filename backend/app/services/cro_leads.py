@@ -17,15 +17,15 @@ from app.services.reporting_common import normalize_key, resolve_tenant_id
 
 # Stage → default next action mapping
 _STAGE_NEXT_ACTIONS: dict[str, tuple[str, str, int]] = {
-    "research": ("research", "Research company background and identify key contacts", 3),
-    "identified": ("email", "Send initial outreach email", 2),
-    "contacted": ("follow_up", "Follow up on initial outreach", 5),
-    "engaged": ("meeting", "Schedule discovery meeting", 3),
-    "meeting": ("proposal", "Prepare and send consulting proposal", 2),
-    "qualified": ("proposal", "Finalize proposal terms and pricing", 5),
-    "proposal": ("follow_up", "Follow up on proposal status", 3),
-    "closed_won": ("task", "Convert to active client and schedule kickoff", 1),
-    "closed_lost": ("task", "Document lessons learned and post-mortem", 7),
+    "research": ("research", "Identify decision maker and validate fit", 2),
+    "identified": ("email", "Enrich contact and find outreach angle", 2),
+    "contacted": ("follow_up", "Send first outreach message", 3),
+    "engaged": ("meeting", "Schedule discovery call or demo", 3),
+    "meeting": ("proposal", "Prepare diagnostic or proof asset", 2),
+    "qualified": ("proposal", "Draft and send proposal", 3),
+    "proposal": ("follow_up", "Follow up and address objections", 3),
+    "closed_won": ("task", "Schedule kickoff and convert to client", 1),
+    "closed_lost": ("task", "Log objection and post-mortem", 7),
 }
 
 

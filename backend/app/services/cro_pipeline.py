@@ -88,16 +88,38 @@ def get_pipeline_kanban(*, env_id: str, business_id: UUID) -> dict:
         )
         stages = cur.fetchall()
 
-        # Get open opportunities with stage info
+        # Get open opportunities with stage info + contact + last activity + next action
         cur.execute(
             """
             SELECT o.crm_opportunity_id, o.name, o.amount,
                    a.name AS account_name,
                    s.key AS stage_key, s.label AS stage_label,
-                   o.expected_close_date, o.created_at
+                   o.expected_close_date, o.created_at,
+                   pc.full_name AS contact_name,
+                   la.last_activity_at,
+                   na.next_action_description,
+                   na.next_action_due,
+                   na.next_action_type
             FROM crm_opportunity o
             LEFT JOIN crm_account a ON a.crm_account_id = o.crm_account_id
             LEFT JOIN crm_pipeline_stage s ON s.crm_pipeline_stage_id = o.crm_pipeline_stage_id
+            LEFT JOIN crm_contact pc ON pc.crm_contact_id = o.primary_contact_id
+            LEFT JOIN LATERAL (
+                SELECT max(act.activity_date) AS last_activity_at
+                FROM crm_activity act
+                WHERE act.crm_opportunity_id = o.crm_opportunity_id
+            ) la ON true
+            LEFT JOIN LATERAL (
+                SELECT na2.description AS next_action_description,
+                       na2.due_date AS next_action_due,
+                       na2.action_type AS next_action_type
+                FROM cro_next_action na2
+                WHERE na2.entity_type = 'opportunity'
+                  AND na2.entity_id = o.crm_opportunity_id
+                  AND na2.status IN ('pending', 'in_progress')
+                ORDER BY na2.due_date ASC
+                LIMIT 1
+            ) na ON true
             WHERE o.business_id = %s AND o.status = 'open'
             ORDER BY o.created_at DESC
             """,

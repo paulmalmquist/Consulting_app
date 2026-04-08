@@ -81,6 +81,112 @@ Key files:
 - `repo-b/src/lib/dashboards/spec-from-markdown.ts` — markdown parser
 - `repo-b/src/app/api/re/v2/dashboards/generate/route.ts` — generate endpoint (modified)
 
+## Analytical Feature + Winston AI Twin Pattern
+
+Every analytical feature in an environment (variance analysis, debt surveillance, portfolio KPIs, etc.) should have both a **direct UI page** and a **Winston AI-assisted version** that share the same backend service. This avoids duplicating business logic and ensures the AI assistant returns the same numbers the page shows.
+
+### The Architecture (5 layers)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. BACKEND SERVICE (single source of truth)                     │
+│    e.g. re_debt_surveillance.py, re_variance.py                 │
+│    Queries canonical tables, computes metrics, returns raw dict │
+├─────────────────────────────────────────────────────────────────┤
+│ 2a. DIRECT UI PATH              │ 2b. WINSTON AI PATH           │
+│  API route (re_v2.py)           │  MCP tool (repe_analysis_     │
+│  → calls service directly       │  tools.py) → calls same svc   │
+│  → returns JSON to frontend     │  → returns raw dict            │
+├──────────────────────────────────┤                                │
+│ 3a. FRONTEND PAGE               │ 3b. CARD BUILDER               │
+│  (funds/[fundId]/page.tsx)      │  (ai_gateway.py)               │
+│  KPI strip + table + charts     │  _build_<feature>_card()       │
+│  from API response fields       │  shapes raw dict → chat card   │
+├──────────────────────────────────┤                                │
+│ 4a. USER SEES PAGE              │ 4b. USER SEES CHAT CARD        │
+│  Navigated directly             │  Asked Winston a question      │
+│  Same numbers, same quarter     │  Same numbers, same quarter    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Build Checklist (adding a new analytical feature)
+
+**Step 1 — Backend service** (the shared truth)
+- File: `backend/app/services/re_<feature>.py`
+- Reads from canonical `re_asset_quarter_state` or related tables
+- Returns a plain dict with raw values (no formatting, no card structure)
+- Handles period scoping, hierarchy filtering, NULL-safe math
+
+**Step 2a — API route** (direct UI path)
+- File: `backend/app/routes/re_v2.py` or `re_financial_intelligence.py`
+- Thin handler that resolves context (env_id, business_id, fund_id) and calls the service
+- Returns the raw dict as JSON
+
+**Step 2b — MCP tool** (Winston AI path)
+- File: `backend/app/mcp/tools/repe_analysis_tools.py`
+- Register a tool: `registry.register(ToolDef(action="finance.<feature>", handler=_handler))`
+- Handler calls the SAME backend service as Step 2a
+- Returns the raw dict (card building happens in Step 3b)
+
+**Step 3a — Frontend page** (direct UI rendering)
+- File: `repo-b/src/app/lab/env/[envId]/re/<feature>/page.tsx`
+- Calls the API endpoint from Step 2a via `bos-api.ts`
+- Renders KPI strip, tables, charts from response fields
+
+**Step 3b — Card builder** (Winston chat rendering)
+- File: `backend/app/services/ai_gateway.py`
+- Function: `_build_<feature>_card(result, scenario)` shapes the raw dict into:
+  ```python
+  {
+      "title": "Feature Name",
+      "metrics": [...],    # KPI tiles at top of card
+      "table": {...},      # Optional detail rows
+      "chart": {...},      # Optional visualization
+      "actions": [...]     # Drill-down links back to the direct page
+  }
+  ```
+- Emitted as SSE `structured_result` event with `result_type` matching the feature
+
+**Step 4 — Intent classification** (how Winston knows to route here)
+- File: `backend/app/services/repe_intent.py`
+- Add intent constant: `INTENT_<FEATURE> = "<feature>"`
+- Add regex pattern: `_<FEATURE>_RE = re.compile(r"\b(trigger|words|here)\b", re.I)`
+- Add scoring block in `classify_repe_intent()` — target confidence ≥ 0.90
+- Wire dispatch in `ai_gateway.py::_run_repe_fast_path()`:
+  ```python
+  elif family == INTENT_<FEATURE>:
+      result = await _exec_fast_tool(ctx, "finance.<feature>", params, ...)
+      card = _build_<feature>_card(result, scenario)
+      yield _sse("structured_result", {"result_type": "<feature>", "card": card})
+  ```
+
+### Fast-Path Confidence Gate
+
+Winston's fast-path fires when `classify_repe_intent()` returns confidence ≥ 0.85. Below that threshold, the query falls through to the full LLM pipeline (slower but handles ambiguous requests). When adding a new feature intent:
+- Use high-signal trigger words that are unlikely to appear in general conversation
+- Set base score to 0.90 for exact matches
+- Add suppression rules if your keywords collide with existing intents
+
+### Validation Pairing Rule
+
+When you build the direct UI page, also build the matching intent + card builder so Winston can answer the same question conversationally. When you write tests for the backend service, those tests validate both paths since they share the same code.
+
+### Existing Feature Twins
+
+| Feature | Direct Page | Intent Family | MCP Tool Action | Card Builder |
+|---------|-------------|---------------|-----------------|--------------|
+| NOI Variance | `variance/page.tsx` | `noi_variance` | `finance.noi_variance` | `_build_variance_card` |
+| Dashboard Gen | `dashboards/page.tsx` | `generate_dashboard` | `finance.compose_dashboard` | SSE `dynamic_dashboard` |
+| Debt Surveillance | fund detail panels | `debt_surveillance` | `finance.debt_surveillance` | `_build_debt_card` |
+| Portfolio KPIs | `re/page.tsx` | `portfolio_summary` | `finance.portfolio_kpis` | `_build_portfolio_card` |
+
+### Key Files
+
+- `backend/app/services/repe_intent.py` — intent families (line ~16) + scoring logic (line ~398)
+- `backend/app/services/ai_gateway.py` — fast-path dispatch (~line 761) + card builders
+- `backend/app/mcp/tools/repe_analysis_tools.py` — MCP tool registration
+- `backend/app/services/dashboard_composer.py` — dashboard generation as worked example
+
 ## Research Integration Layer
 
 Winston has a two-tier research model:

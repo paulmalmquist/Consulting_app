@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
 import { Card, CardContent } from "@/components/ui/Card";
 import {
@@ -15,16 +14,17 @@ import {
 } from "@dnd-kit/core";
 import { useDroppable, useDraggable } from "@dnd-kit/core";
 import {
-  fetchLeads,
   fetchPipelineKanban,
   fetchNextActions,
   advanceOpportunityStage,
-  type Lead,
   type NextAction,
   type PipelineKanbanResult,
   type PipelineKanbanColumn,
   type PipelineKanbanCard,
 } from "@/lib/cro-api";
+import { TodayPanel } from "@/components/consulting/TodayPanel";
+import { PipelineActionBar } from "@/components/consulting/PipelineActionBar";
+import { DealSidePanel } from "@/components/consulting/DealSidePanel";
 
 function fmtCurrency(raw: number | string | null | undefined): string {
   const n = typeof raw === "string" ? parseFloat(raw) : raw;
@@ -32,6 +32,28 @@ function fmtCurrency(raw: number | string | null | undefined): string {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
   return `$${n.toFixed(0)}`;
+}
+
+function relativeTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const days = Math.floor(diffMs / 86_400_000);
+  if (days < 0) return "future";
+  if (days === 0) return "today";
+  if (days === 1) return "1d ago";
+  if (days < 30) return `${days}d ago`;
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}
+
+function isOverdue(dueDateStr: string | null | undefined): boolean {
+  if (!dueDateStr) return false;
+  const d = new Date(dueDateStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return d < today;
 }
 
 function formatError(err: unknown): string {
@@ -47,10 +69,10 @@ function formatError(err: unknown): string {
 
 function DraggableCard({
   card,
-  envId,
+  onSelect,
 }: {
   card: PipelineKanbanCard;
-  envId: string;
+  onSelect: (id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.crm_opportunity_id,
@@ -61,44 +83,80 @@ function DraggableCard({
     ? { transform: `translate(${transform.x}px, ${transform.y}px)`, opacity: isDragging ? 0.5 : 1 }
     : undefined;
 
+  const hasNoAction = !card.next_action_description;
+  const overdue = isOverdue(card.next_action_due);
+
+  let borderClass = "border-bm-border/60";
+  let glowClass = "";
+  if (hasNoAction) {
+    borderClass = "border-red-500/60";
+  } else if (overdue) {
+    glowClass = "ring-2 ring-orange-400/40";
+  }
+
   return (
     <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
-      <Link
-        href={`/lab/env/${envId}/consulting/pipeline/${card.crm_opportunity_id}`}
-        className="block"
+      <div
         onClick={(e) => {
-          if (isDragging) e.preventDefault();
+          if (isDragging) return;
+          e.stopPropagation();
+          onSelect(card.crm_opportunity_id);
         }}
+        className="block cursor-pointer"
       >
-        <Card className="hover:border-bm-accent/40 transition-colors cursor-grab active:cursor-grabbing">
-          <CardContent className="py-3">
-            <p className="text-sm font-medium truncate">{card.name}</p>
-            <p className="text-xs text-bm-muted2 mt-0.5">
-              {card.account_name || "—"}
+        <div
+          className={`rounded-lg border ${borderClass} ${glowClass} bg-bm-surface/30 hover:border-bm-accent/40 transition-all cursor-grab active:cursor-grabbing px-3 py-2.5`}
+        >
+          {/* Line 1: Company name (bold) */}
+          <p className="text-sm font-semibold truncate text-bm-text">
+            {card.account_name || "—"}
+          </p>
+
+          {/* Line 2: Deal title + value */}
+          <div className="flex items-center justify-between mt-1">
+            <p className="text-xs text-bm-muted truncate flex-1 mr-2">
+              {card.name}
             </p>
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-sm font-semibold">
-                {fmtCurrency(card.amount)}
+            <span className="text-xs font-semibold text-bm-text shrink-0">
+              {fmtCurrency(card.amount)}
+            </span>
+          </div>
+
+          {/* Line 3: Next action */}
+          {card.next_action_description ? (
+            <p className="text-[11px] text-bm-muted2 mt-1.5 truncate">
+              <span className="text-bm-accent/80">Next:</span>{" "}
+              {card.next_action_description}
+            </p>
+          ) : (
+            <p className="text-[11px] text-red-400/80 mt-1.5">
+              No next action defined
+            </p>
+          )}
+
+          {/* Line 4: Last touch + due date */}
+          <div className="flex items-center justify-between mt-1.5 text-[10px] text-bm-muted2">
+            <span>
+              {card.contact_name || "No contact"} · {relativeTime(card.last_activity_at)}
+            </span>
+            {card.next_action_due ? (
+              <span className={overdue ? "text-orange-400 font-medium" : ""}>
+                Due {card.next_action_due}
               </span>
-              {card.expected_close_date ? (
-                <span className="text-xs text-bm-muted">
-                  Close: {card.expected_close_date}
-                </span>
-              ) : null}
-            </div>
-          </CardContent>
-        </Card>
-      </Link>
+            ) : null}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
 function DroppableColumn({
   column,
-  envId,
+  onSelectCard,
 }: {
   column: PipelineKanbanColumn;
-  envId: string;
+  onSelectCard: (id: string) => void;
 }) {
   const { isOver, setNodeRef } = useDroppable({
     id: `column-${column.stage_key}`,
@@ -117,7 +175,7 @@ function DroppableColumn({
           {column.stage_label}
         </h3>
         <span className="text-xs text-bm-muted">
-          {fmtCurrency(column.weighted_value)} weighted
+          {fmtCurrency(column.weighted_value)} wt
         </span>
       </div>
       <div className="space-y-2 flex-1 min-h-[60px]">
@@ -127,13 +185,17 @@ function DroppableColumn({
           </div>
         ) : (
           column.cards.map((card) => (
-            <DraggableCard key={card.crm_opportunity_id} card={card} envId={envId} />
+            <DraggableCard
+              key={card.crm_opportunity_id}
+              card={card}
+              onSelect={onSelectCard}
+            />
           ))
         )}
       </div>
       <div className="mt-2 px-1 text-xs text-bm-muted2">
         {column.cards.length} deal{column.cards.length !== 1 ? "s" : ""} ·{" "}
-        {fmtCurrency(column.total_value)} total
+        {fmtCurrency(column.total_value)}
       </div>
     </div>
   );
@@ -142,15 +204,13 @@ function DroppableColumn({
 function CardOverlay({ card }: { card: PipelineKanbanCard }) {
   return (
     <div className="w-[260px]">
-      <Card className="border-bm-accent/40 shadow-lg">
-        <CardContent className="py-3">
-          <p className="text-sm font-medium truncate">{card.name}</p>
-          <p className="text-xs text-bm-muted2 mt-0.5">{card.account_name || "—"}</p>
-          <div className="flex items-center justify-between mt-2">
-            <span className="text-sm font-semibold">{fmtCurrency(card.amount)}</span>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="rounded-lg border border-bm-accent/40 bg-bm-surface/60 shadow-lg px-3 py-2.5">
+        <p className="text-sm font-semibold truncate">{card.account_name || "—"}</p>
+        <div className="flex items-center justify-between mt-1">
+          <p className="text-xs text-bm-muted truncate flex-1 mr-2">{card.name}</p>
+          <span className="text-xs font-semibold">{fmtCurrency(card.amount)}</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -167,12 +227,11 @@ export default function PipelinePage({
     ready,
   } = useConsultingEnv();
   const [kanban, setKanban] = useState<PipelineKanbanResult | null>(null);
-  const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
   const [activeCard, setActiveCard] = useState<PipelineKanbanCard | null>(null);
-  const [nextActions, setNextActions] = useState<NextAction[]>([]);
   const [advanceError, setAdvanceError] = useState<string | null>(null);
+  const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
   const [closeDialog, setCloseDialog] = useState<{
     opportunityId: string;
     stageKey: string;
@@ -190,28 +249,12 @@ export default function PipelinePage({
     }
     setLoading(true);
     setDataError(null);
-    Promise.allSettled([
-      fetchPipelineKanban(params.envId, businessId),
-      fetchLeads(params.envId, businessId),
-      fetchNextActions(params.envId, businessId),
-    ])
-      .then(([kanbanResult, leadsResult, actionsResult]) => {
-        if (leadsResult.status !== "fulfilled") {
-          throw leadsResult.reason;
-        }
-        setKanban(
-          kanbanResult.status === "fulfilled"
-            ? kanbanResult.value
-            : { columns: [], total_pipeline: 0, weighted_pipeline: 0 },
-        );
-        setLeads(leadsResult.value);
-        if (actionsResult.status === "fulfilled") {
-          setNextActions(actionsResult.value);
-        }
+    fetchPipelineKanban(params.envId, businessId)
+      .then((result) => {
+        setKanban(result);
       })
       .catch((err) => {
         setKanban(null);
-        setLeads([]);
         setDataError(formatError(err));
       })
       .finally(() => setLoading(false));
@@ -220,6 +263,38 @@ export default function PipelinePage({
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Derive all cards from kanban for Today Panel and Action Bar
+  const allCards = useMemo(() => {
+    if (!kanban) return [];
+    return kanban.columns
+      .filter((c) => !["closed_won", "closed_lost"].includes(c.stage_key))
+      .flatMap((c) => c.cards);
+  }, [kanban]);
+
+  // Compute action metrics
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayActions = useMemo(
+    () => allCards.filter((c) => c.next_action_due && c.next_action_due <= todayStr),
+    [allCards, todayStr],
+  );
+  const staleCards = useMemo(
+    () => {
+      const threeDaysAgo = new Date();
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+      const cutoff = threeDaysAgo.toISOString();
+      return allCards.filter((c) => !c.last_activity_at || c.last_activity_at < cutoff);
+    },
+    [allCards],
+  );
+  const noActionCards = useMemo(
+    () => allCards.filter((c) => !c.next_action_description),
+    [allCards],
+  );
+  const revenueAtRisk = useMemo(
+    () => staleCards.reduce((sum, c) => sum + (c.amount || 0), 0),
+    [staleCards],
+  );
 
   function handleDragStart(event: DragStartEvent) {
     const card = event.active.data.current?.card as PipelineKanbanCard | undefined;
@@ -237,13 +312,19 @@ export default function PipelinePage({
 
     const targetStageKey = targetColumnId.replace("column-", "");
 
-    // Find the card's current stage
     const currentColumn = kanban?.columns.find((col) =>
       col.cards.some((c) => c.crm_opportunity_id === oppId),
     );
     if (!currentColumn || currentColumn.stage_key === targetStageKey) return;
 
-    // If closing, show dialog
+    // Block stage movement if card has no next action — open side panel instead
+    const draggedCard = currentColumn.cards.find((c) => c.crm_opportunity_id === oppId);
+    if (draggedCard && !draggedCard.next_action_description) {
+      setSelectedDealId(oppId);
+      setAdvanceError("Define a next action before moving this deal.");
+      return;
+    }
+
     if (targetStageKey === "closed_won" || targetStageKey === "closed_lost") {
       setCloseDialog({ opportunityId: oppId, stageKey: targetStageKey });
       return;
@@ -261,7 +342,6 @@ export default function PipelinePage({
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to advance stage";
       setAdvanceError(msg);
-      console.error("Failed to advance stage:", err);
     }
   }
 
@@ -281,6 +361,15 @@ export default function PipelinePage({
     } catch (err) {
       console.error("Failed to close deal:", err);
     }
+  }
+
+  function handleSelectCard(id: string) {
+    setSelectedDealId(id);
+  }
+
+  function handleMarkDone(cardId: string) {
+    // Reload data to reflect completion
+    loadData();
   }
 
   const bannerMessage = contextError
@@ -313,7 +402,6 @@ export default function PipelinePage({
         </div>
       ) : null}
 
-      {/* Outreach readiness / stage advancement error */}
       {advanceError ? (
         <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-400 flex items-center justify-between">
           <span>{advanceError}</span>
@@ -321,81 +409,33 @@ export default function PipelinePage({
         </div>
       ) : null}
 
-      {/* Deals missing next actions — RED warning */}
-      {kanban && nextActions.length >= 0 && (() => {
-        const allCards = kanban.columns.flatMap((c) => c.cards).filter(c => !["closed_won", "closed_lost"].includes(c.stage_key));
-        // Next actions are keyed by account, so check if any action references the card's account
-        const accountsWithActions = new Set(
-          nextActions.filter((a) => a.status === "pending" || a.status === "in_progress").map((a) => a.entity_id),
-        );
-        // Match by opportunity ID or by account name (best effort since cards have account_name)
-        const actionEntityNames = new Set(
-          nextActions.filter((a) => a.status === "pending" || a.status === "in_progress").map((a) => a.entity_name?.toLowerCase()),
-        );
-        const missing = allCards.filter((c) => {
-          // Check if opportunity ID or account name matches any action entity
-          if (accountsWithActions.has(c.crm_opportunity_id)) return false;
-          if (c.account_name && actionEntityNames.has(c.account_name.toLowerCase())) return false;
-          return true;
-        });
-        if (missing.length === 0) return null;
-        return (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-3">
-            <p className="text-xs font-bold uppercase tracking-wider text-red-400 mb-1">
-              {missing.length} deal{missing.length !== 1 ? "s" : ""} missing next action
-            </p>
-            <div className="space-y-1">
-              {missing.map((card) => (
-                <Link
-                  key={card.crm_opportunity_id}
-                  href={`/lab/env/${params.envId}/consulting/pipeline/${card.crm_opportunity_id}`}
-                  className="flex items-center gap-2 text-xs text-red-400/80 hover:text-red-400"
-                >
-                  <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
-                  <span className="font-medium">{card.name}</span>
-                  <span className="text-red-400/50">— assign next action →</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
+      {/* TODAY PANEL — What do I do RIGHT NOW? */}
+      <TodayPanel
+        cards={todayActions}
+        staleCount={staleCards.length}
+        revenueAtRisk={revenueAtRisk}
+        envId={params.envId}
+        businessId={businessId || ""}
+        onSelectCard={handleSelectCard}
+        onMarkDone={handleMarkDone}
+      />
 
-      <section className="rounded-2xl border border-bm-border/70 bg-bm-surface/18 p-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h2 className="text-xs uppercase tracking-[0.12em] text-bm-muted2">
-              Pipeline Kanban
-            </h2>
-            <p className="mt-2 text-sm text-bm-muted2">
-              Drag deals across stages on desktop. On mobile, swipe horizontally across the board and tap into a deal for detail.
-            </p>
-          </div>
-          {kanban ? (
-            <div className="grid gap-2 sm:grid-cols-3">
-              <div className="rounded-xl border border-bm-border/60 bg-bm-surface/22 px-3 py-3 text-sm text-bm-text">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Open deals</p>
-                <p className="mt-2 text-lg font-semibold">{openDeals}</p>
-              </div>
-              <div className="rounded-xl border border-bm-border/60 bg-bm-surface/22 px-3 py-3 text-sm text-bm-text">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Total pipeline</p>
-                <p className="mt-2 text-lg font-semibold">{fmtCurrency(kanban.total_pipeline)}</p>
-              </div>
-              <div className="rounded-xl border border-bm-border/60 bg-bm-surface/22 px-3 py-3 text-sm text-bm-text">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">Weighted</p>
-                <p className="mt-2 text-lg font-semibold">{fmtCurrency(kanban.weighted_pipeline)}</p>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </section>
+      {/* ACTION BAR — Counts + Revenue at risk */}
+      <PipelineActionBar
+        todayCount={todayActions.length}
+        staleCount={staleCards.length}
+        noActionCount={noActionCards.length}
+        revenueAtRisk={revenueAtRisk}
+        totalPipeline={kanban?.total_pipeline ?? 0}
+        weightedPipeline={kanban?.weighted_pipeline ?? 0}
+        openDeals={openDeals}
+        envId={params.envId}
+      />
 
       {kanban && openDeals === 0 ? (
         <Card>
           <CardContent className="py-5 text-sm text-bm-muted2">
-            {leads.length > 0
-              ? "Leads exist, but no opportunities have been converted into the sales pipeline yet."
-              : "No opportunities yet. No CRM data is present yet for this environment."}
+            No opportunities in the pipeline yet.
           </CardContent>
         </Card>
       ) : null}
@@ -410,7 +450,7 @@ export default function PipelinePage({
             <div key={col.stage_key} className="snap-start">
               <DroppableColumn
                 column={col}
-                envId={params.envId}
+                onSelectCard={handleSelectCard}
               />
             </div>
           ))}
@@ -419,6 +459,17 @@ export default function PipelinePage({
           {activeCard ? <CardOverlay card={activeCard} /> : null}
         </DragOverlay>
       </DndContext>
+
+      {/* DEAL SIDE PANEL */}
+      {selectedDealId ? (
+        <DealSidePanel
+          dealId={selectedDealId}
+          envId={params.envId}
+          businessId={businessId || ""}
+          onClose={() => setSelectedDealId(null)}
+          onDataChange={loadData}
+        />
+      ) : null}
 
       {/* Close Deal Dialog */}
       {closeDialog ? (
@@ -429,7 +480,7 @@ export default function PipelinePage({
             </h3>
             <p className="mt-2 text-sm text-bm-muted2">
               {closeDialog.stageKey === "closed_won"
-                ? "Congratulations! Add a reason for closing this deal as won."
+                ? "Add a reason for closing this deal as won."
                 : "Add a reason for losing this deal."}
             </p>
             <textarea

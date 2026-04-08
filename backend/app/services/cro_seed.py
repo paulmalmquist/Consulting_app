@@ -279,37 +279,61 @@ def seed_consulting_environment(*, env_id: str, business_id: UUID) -> dict:
             counts["outreach_logs_seeded"] += 1
 
         # ── 6. Opportunities + Proposals ──────────────────────────────
-        # Real deal values from target-account-queue matched offers
+        # Real deals spread across all active stages with next_actions and activities
+        # Format: (stage, amount, name, scope, next_action_desc, next_action_type, due_offset_days, activity_type, activity_subject, activity_days_ago)
         _OPP_DATA = [
-            ("identified", 35000, "Marcus Partners — Winston REPE Pilot",
-             "LP reporting automation for $875M Fund V. ILPA-compliant quarterly packages, investor dashboards, portfolio analytics. 75% reduction in reporting prep time."),
-            ("identified",  7500, "GAIA Real Estate — AI Diagnostic",
-             "Operational readiness assessment for South Florida expansion. Gap analysis across reporting, vendor landscape, and AI maturity. Actionable 90-day roadmap."),
-            ("research",    7500, "Comvest Private Equity — AI Diagnostic",
-             "Portfolio operations assessment across 166 portfolio companies. Standardize reporting, identify integration bottlenecks, design centralized visibility layer."),
+            ("contacted", 35000, "Marcus Partners — Winston REPE Pilot",
+             "LP reporting automation for $875M Fund V. ILPA-compliant quarterly packages, investor dashboards, portfolio analytics.",
+             "Send LinkedIn message to Jay McNamara", "linkedin", 0, "email", "Sent initial outreach email", 2),
+            ("engaged", 7500, "GAIA Real Estate — AI Diagnostic",
+             "Operational readiness assessment for South Florida expansion. Gap analysis across reporting and AI maturity.",
+             "Schedule discovery call or demo", "meeting", 1, "call", "Intro call — discussed expansion pain", 1),
+            ("research", 7500, "Comvest Private Equity — AI Diagnostic",
+             "Portfolio operations assessment across 166 portfolio companies. Standardize reporting and integration bottlenecks.",
+             "Identify decision maker and validate fit", "research", -2, "note", "Researched portfolio structure", 5),
             ("identified", 35000, "Canopy Real Estate Partners — Winston REPE Pilot",
-             "Greenfield fund ops infrastructure for $75M inaugural fund. LP reporting from day one, ILPA compliance, portfolio tracking. Build right from the start."),
+             "Greenfield fund ops infrastructure for $75M inaugural fund. LP reporting, ILPA compliance, portfolio tracking.",
+             "Enrich contact and find outreach angle", "email", 2, "note", "Reviewed fund filing and team", 4),
+            ("qualified", 15000, "Hidden Harbor Capital — Ops Platform",
+             "Centralized portfolio visibility layer across 12 portfolio companies. Automated performance dashboards.",
+             "Draft and send proposal", "proposal", 3, "meeting", "Discovery call — mapped reporting stack", 1),
+            ("proposal", 75000, "Apex Service Partners — Enterprise Data Layer",
+             "Enterprise data layer across 107 service brands. Real-time KPI dashboards and exception reporting.",
+             "Follow up and address objections", "follow_up", -1, "email", "Sent proposal v2 with revised pricing", 4),
+            ("meeting", 5000, "FIU College of Business — Workshop",
+             "AI workshop for executive MBA cohort. 3-hour session on operational AI for finance leaders.",
+             "Prepare diagnostic or proof asset", "proposal", 2, "meeting", "Scoped workshop agenda and logistics", 3),
+            ("contacted", 35000, "Greystar Investment Group — REPE Pilot",
+             "Portfolio analytics and LP reporting for $2.4B multi-family portfolio. Asset-level dashboards.",
+             "Send first outreach message", "follow_up", -3, "email", "Initial outreach sent via LinkedIn", 8),
         ]
-        stages_for_opps = [d[0] for d in _OPP_DATA]
-        for i in range(len(_OPP_DATA)):
+        for i in range(min(len(_OPP_DATA), len(account_ids))):
             acct_id = account_ids[i]
-            stage_key, amount_int, opp_name, scope_text = _OPP_DATA[i]
-            stage_key = stages_for_opps[i]
+            (stage_key, amount_int, opp_name, scope_text,
+             na_desc, na_type, na_due_offset,
+             act_type, act_subject, act_days_ago) = _OPP_DATA[i]
             opp_status = "won" if stage_key == "closed_won" else "open"
             amount = Decimal(str(amount_int))
 
-            # Execution cube: thesis / pain / winston_angle per deal
             _thesis = "Operational data platform for investment decision-making"
             _pain = _SEED_LEADS[i].get("pain", "reporting_chaos")
             _angle = "AI-enabled execution system replaces manual workflow and reduces headcount dependency"
+
+            # Set primary_contact_id if contact exists for this account
+            primary_contact = None
+            for ci, sc in enumerate(_SEED_CONTACTS):
+                if sc["lead_idx"] == i and ci < len(contact_ids):
+                    primary_contact = contact_ids[ci]
+                    break
 
             cur.execute(
                 """
                 INSERT INTO crm_opportunity
                   (tenant_id, business_id, crm_account_id, crm_pipeline_stage_id,
                    name, status, amount, expected_close_date,
+                   primary_contact_id,
                    thesis, pain, winston_angle)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING crm_opportunity_id
                 """,
                 (
@@ -318,10 +342,43 @@ def seed_consulting_environment(*, env_id: str, business_id: UUID) -> dict:
                     opp_name,
                     opp_status, str(amount),
                     (date.today() + timedelta(days=30 * (i + 1))).isoformat(),
+                    str(primary_contact) if primary_contact else None,
                     _thesis, _pain, _angle,
                 ),
             )
             opp = cur.fetchone()
+            opp_id = opp["crm_opportunity_id"]
+
+            # ── Seed next_action for this opportunity ────────────────
+            cur.execute(
+                """
+                INSERT INTO cro_next_action
+                  (env_id, business_id, entity_type, entity_id,
+                   action_type, description, due_date, priority)
+                VALUES (%s, %s, 'opportunity', %s, %s, %s, %s, %s)
+                """,
+                (
+                    env_id, str(business_id), str(opp_id),
+                    na_type, na_desc,
+                    (date.today() + timedelta(days=na_due_offset)).isoformat(),
+                    "high" if na_due_offset <= 0 else "normal",
+                ),
+            )
+
+            # ── Seed activity for this opportunity ────────────────────
+            act_date = datetime.now(timezone.utc) - timedelta(days=act_days_ago)
+            cur.execute(
+                """
+                INSERT INTO crm_activity
+                  (tenant_id, business_id, crm_account_id, crm_opportunity_id,
+                   activity_type, subject, activity_date)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    tenant_id, str(business_id), str(acct_id), str(opp_id),
+                    act_type, act_subject, act_date,
+                ),
+            )
 
             cost = amount * Decimal("0.55")
             margin = round((amount - cost) / amount, 4)

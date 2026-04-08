@@ -29,8 +29,7 @@ export default function ConsultingWorkspaceShell({
   const homeHref = `/lab/env/${envId}`;
   const navItems = useMemo(
     () => [
-      { href: base, label: "Command Center", isBase: true },
-      { href: `${base}/pipeline`, label: "Pipeline", isBase: false },
+      { href: `${base}/pipeline`, label: "Pipeline", isBase: true },
       { href: `${base}/accounts`, label: "Accounts", isBase: false },
       { href: `${base}/contacts`, label: "Contacts", isBase: false },
       { href: `${base}/strategic-outreach`, label: "Outreach", isBase: false },
@@ -44,8 +43,7 @@ export default function ConsultingWorkspaceShell({
   );
   const mobileNavItems = useMemo<MobileNavItem[]>(
     () => [
-      { href: base, label: "Home", icon: "home", matchPrefix: false },
-      { href: `${base}/pipeline`, label: "Pipeline", icon: "pipeline", matchPrefix: true },
+      { href: `${base}/pipeline`, label: "Pipeline", icon: "pipeline", matchPrefix: false },
       { href: `${base}/accounts`, label: "Accounts", icon: "contacts", matchPrefix: true },
       { href: `${base}/strategic-outreach`, label: "Outreach", icon: "tasks", matchPrefix: true },
       { href: `${base}/tasks`, label: "Tasks", icon: "reports", matchPrefix: true },
@@ -53,7 +51,7 @@ export default function ConsultingWorkspaceShell({
     [base],
   );
   const activeNavLabel = useMemo(
-    () => navItems.find((item) => isActive(pathname, item.href, item.isBase))?.label || "Command Center",
+    () => navItems.find((item) => isActive(pathname, item.href, item.isBase))?.label || "Pipeline",
     [navItems, pathname],
   );
 

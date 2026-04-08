@@ -30,6 +30,11 @@ export type PipelineKanbanCard = {
   stage_label: string;
   expected_close_date: string | null;
   created_at: string;
+  contact_name: string | null;
+  last_activity_at: string | null;
+  next_action_description: string | null;
+  next_action_due: string | null;
+  next_action_type: string | null;
 };
 
 export type PipelineKanbanColumn = {
@@ -1562,4 +1567,48 @@ export function ingestLeads(body: { env_id: string; business_id: string; source_
     skipped_dupes: number;
     errors: string[] | null;
   }>(`${CRO_BASE}/ingest-leads`, { method: "POST", body: JSON.stringify(body) });
+}
+
+// ─── Winston Assist ──────────────────────────────────────────────────────────
+
+export interface WinstonAssistResult {
+  state: string[];
+  problem: string;
+  next_step: string;
+  category: "RESEARCH" | "OUTREACH" | "BUILD" | "CLOSE";
+  confidence: number;
+  copyable_prompt: string;
+  deal_id: string;
+  deal_name: string;
+  deal_score: number;
+}
+
+export async function fetchWinstonAssist(body: {
+  deal_id: string;
+  env_id: string;
+  business_id: string;
+}): Promise<WinstonAssistResult> {
+  return apiFetch<WinstonAssistResult>(`${CRO_BASE}/winston/assist`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function applyAssistAsNextAction(body: {
+  deal_id: string;
+  env_id: string;
+  business_id: string;
+  description: string;
+  action_type: string;
+}): Promise<NextAction> {
+  return createNextAction({
+    env_id: body.env_id,
+    business_id: body.business_id,
+    entity_type: "opportunity",
+    entity_id: body.deal_id,
+    action_type: body.action_type,
+    description: body.description,
+    due_date: new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10),
+    priority: "high",
+  });
 }

@@ -78,6 +78,11 @@ class PipelineKanbanCard(BaseModel):
     stage_label: str
     expected_close_date: date | None = None
     created_at: datetime
+    contact_name: str | None = None
+    last_activity_at: datetime | None = None
+    next_action_description: str | None = None
+    next_action_due: date | None = None
+    next_action_type: str | None = None
 
 
 class PipelineKanbanColumn(BaseModel):
@@ -105,6 +110,26 @@ class AdvanceStageRequest(BaseModel):
     close_reason: str | None = None
     competitive_incumbent: str | None = None
     close_notes: str | None = None
+
+
+# ── Winston Assist ────────────────────────────────────────────────────────────
+
+class WinstonAssistRequest(BaseModel):
+    deal_id: UUID
+    env_id: str
+    business_id: UUID
+
+
+class WinstonAssistResult(BaseModel):
+    state: list[str]
+    problem: str
+    next_step: str
+    category: str
+    confidence: int
+    copyable_prompt: str
+    deal_id: str
+    deal_name: str
+    deal_score: int
 
 
 # ── Outreach ────────────────────────────────────────────────────────────────────
