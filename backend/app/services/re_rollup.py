@@ -396,9 +396,34 @@ def rollup_fund(
         tk = Decimal(total_called or 0)
         td = Decimal(total_distributed or 0)
 
+        # If no investments contributed a real NAV, report NULL (not zero).
+        # $0 NAV is a lie when the fund simply hasn't been valued yet.
+        if valued_investment_count == 0:
+            portfolio_nav = None
+
         dpi = td / tk if tk > 0 else None
-        rvpi = portfolio_nav / tk if tk > 0 else None
-        tvpi = (td + portfolio_nav) / tk if tk > 0 else None
+        rvpi = portfolio_nav / tk if tk > 0 and portfolio_nav is not None else None
+        tvpi = (td + portfolio_nav) / tk if tk > 0 and portfolio_nav is not None else None
+
+        # Compute IRR from capital ledger via xirr_from_fund_ledger() SQL function.
+        # This is the authoritative IRR — derived from actual cashflows + terminal NAV.
+        gross_irr = None
+        net_irr = None
+        try:
+            cur.execute(
+                """
+                SELECT gross_irr, net_irr
+                FROM xirr_from_fund_ledger(%s, %s)
+                """,
+                (str(fund_id), quarter),
+            )
+            irr_row = cur.fetchone()
+            if irr_row:
+                gross_irr = Decimal(irr_row["gross_irr"]) if irr_row.get("gross_irr") is not None else None
+                net_irr = Decimal(irr_row["net_irr"]) if irr_row.get("net_irr") is not None else None
+        except Exception:
+            # xirr function may not exist or may fail — leave IRR as NULL
+            pass
 
         inputs_hash = _compute_inputs_hash({
             "fund_id": str(fund_id),
@@ -416,9 +441,10 @@ def rollup_fund(
                 fund_id, quarter, scenario_id, run_id,
                 portfolio_nav, total_committed, total_called,
                 total_distributed, dpi, rvpi, tvpi,
+                gross_irr, net_irr,
                 weighted_ltv, weighted_dscr, inputs_hash
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (fund_id, quarter, COALESCE(scenario_id, '00000000-0000-0000-0000-000000000000'::uuid))
             DO UPDATE SET
                 run_id = EXCLUDED.run_id,
@@ -429,6 +455,8 @@ def rollup_fund(
                 dpi = EXCLUDED.dpi,
                 rvpi = EXCLUDED.rvpi,
                 tvpi = EXCLUDED.tvpi,
+                gross_irr = EXCLUDED.gross_irr,
+                net_irr = EXCLUDED.net_irr,
                 weighted_ltv = EXCLUDED.weighted_ltv,
                 weighted_dscr = EXCLUDED.weighted_dscr,
                 inputs_hash = EXCLUDED.inputs_hash,
@@ -441,6 +469,7 @@ def rollup_fund(
                 str(rid),
                 _q(portfolio_nav), _q(tc), _q(tk), _q(td),
                 _q(dpi), _q(rvpi), _q(tvpi),
+                _q(gross_irr), _q(net_irr),
                 _q(weighted_ltv), _q(weighted_dscr),
                 inputs_hash,
             ),

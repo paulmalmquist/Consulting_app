@@ -182,13 +182,16 @@ class TestRollupFund:
         ])
         # fetchall 2: asset states for weighted LTV/DSCR — empty
         fake_cursor.push_result([])
-        # fetchone 3: INSERT RETURNING
+        # fetchone 3: xirr_from_fund_ledger — empty (no capital ledger data)
+        fake_cursor.push_result([])
+        # fetchone 4: INSERT RETURNING
         fake_cursor.push_result([{
             "fund_id": str(fund_id), "quarter": quarter, "scenario_id": None,
             "run_id": str(uuid4()), "portfolio_nav": "50000000",
             "total_committed": "40000000", "total_called": "30000000",
             "total_distributed": "10000000",
             "dpi": "0.333333333333", "rvpi": "1.666666666667", "tvpi": "2.000000000000",
+            "gross_irr": None, "net_irr": None,
             "inputs_hash": "fund_hash", "created_at": "2026-03-31T00:00:00",
         }])
 
@@ -209,12 +212,14 @@ class TestRollupFund:
 
         fake_cursor.push_result([])  # No investment states
         fake_cursor.push_result([])  # No asset states
+        fake_cursor.push_result([])  # xirr — empty
         fake_cursor.push_result([{   # INSERT RETURNING
             "fund_id": str(fund_id), "quarter": quarter, "scenario_id": None,
-            "run_id": str(uuid4()), "portfolio_nav": "0",
+            "run_id": str(uuid4()), "portfolio_nav": None,
             "total_committed": "0", "total_called": "0",
             "total_distributed": "0",
             "dpi": None, "rvpi": None, "tvpi": None,
+            "gross_irr": None, "net_irr": None,
             "inputs_hash": "fund_hash2", "created_at": "2026-03-31T00:00:00",
         }])
 
